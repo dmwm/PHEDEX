@@ -24,29 +24,20 @@ sub new
     
     # Get derived class arguments and defaults
     my $options = shift || {};
-    my $params = shift || {};
+    my $params = shift  || {};
 
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}           ||= [ 'srm' ];  # Accepted protocols
     $params->{BATCH_FILES}         ||= 30;         # Max number of files per job
     $params->{NJOBS}               ||= 0;          # Max number of jobs.  0 for infinite.
-    $params->{FTS_LINK_PEND}       ||= 5;          # Submit to FTS until this number of files per link are "pending"
-    $params->{FTS_MAX_ACTIVE}      ||= 300;        # Submit to FTS until these number of files are "active"
-    $params->{FTS_DEFAULT_LINK_ACTIVE} ||= undef;  # Optional default per-link limits to number of active files
-    $params->{FTS_LINK_ACTIVE}     ||= {};         # Optional per-link limits to number of active files
+    $params->{LINK_PEND}           ||= 5;          # Submit to FTS until this number of files per link are "pending"
     $params->{FTS_POLL_QUEUE}      ||= 0;          # Whether to poll all vs. our jobs
     $params->{FTS_Q_INTERVAL}      ||= 30;         # Interval for polling queue for new jobs
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
-    $params->{FTS_JOB_AWOL}        ||= 0;          # Timeout for successful monitoring of a job.  0 for infinite.
+    $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
 
     # Set argument parsing at this level.
-    $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
-    $options->{'jobs=i'}               = \$params->{NJOBS};
-    $options->{'link-pending-files=i'} = \$params->{FTS_LINK_PEND};
-    $options->{'max-active-files=i'}   = \$params->{FTS_MAX_ACTIVE};
-    $options->{'default-link-active-files=i'} = \$params->{FTS_DEFAULT_LINK_ACTIVE};
-    $options->{'link-active-files=i'}  =  $params->{FTS_LINK_ACTIVE};
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
     $options->{'myproxy=s'}            = \$params->{FTS_MYPROXY};
     $options->{'passfile=s'}           = \$params->{FTS_PASSFILE};
@@ -249,35 +240,23 @@ sub getFTSService {
     return $service;
 }
 
-# If $to and $from are not given, then the question is:
-# "Are you too busy to take ANY transfers?"
-# If they are provided, then the question is:
-# "Are you too busy to take transfers on link $from -> $to?"
 sub isBusy
 {
-    my ($self, $jobs, $tasks, $to, $from)  = @_;
-    my ($stats, $busy);
-    $busy = 0;
+    my ($self, $from, $to)  = @_;
 
-    # FTS states to consider as "pending"
-    my @pending_states = ('Ready', 'Pending', 'Submitted', 'undefined');
+    # Transfer::Core isBusy will honor all limits to jobs, files, and pending submitions
+    my $busy = $self->SUPER::isBusy($from, $to);
+    return $busy if $busy;
 
-    # FTS states to consider as "active".  This includes the pending
-    # states, because we expect they will become active at some point.
-    my @active_states = ('Active', @pending_states);
-
-    # Check if our global job limit is reached
-    if ($self->{NJOBS} && scalar(keys %$jobs) >= $self->{NJOBS}) {
-	$self->Logmsg("FTS is busy:  maximum number of jobs ($self->{NJOBS}) reached") 
-	    if $self->{VERBOSE};
-	return 1;
-    }
-    
+    # We additionaly define a busy state based on the number of
+    # pending jobs in the FTS queue
     if (defined $from && defined $to) {
-	# Check per-link busy status based on a maximum number of
+	# FTS states to consider as "pending"
+	my @pending_states = ('Ready', 'Pending', 'Submitted', 'undefined');
+    	# Check per-link busy status based on a maximum number of
 	# "pending" files per link.  Treat undefined as pending until
 	# their state is resolved.
-	$stats = $self->{FTS_Q_MONITOR}->LinkStats;
+	my $stats = $self->{FTS_Q_MONITOR}->LinkStats;
 
 	my %state_counts;
 	foreach my $file (keys %$stats) {
@@ -286,160 +265,39 @@ sub isBusy
 	    }
 	}
 
-	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from->$to: ",
+	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from -> $to: ",
 		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
 	    if $self->{DEBUG};
-    
 
-	if ($self->{FTS_LINK_ACTIVE}->{$from} || $self->{FTS_DEFAULT_LINK_ACTIVE}) {
-	    # Count files in the Active state
-	    my $n_active = 0;
-	    foreach ( @active_states )
-	    {
-		if ( defined($state_counts{$_}) ) { $n_active += $state_counts{$_}; }
-	    }
-	    
-	    # Compare to our limit
-	    my $limit;
-	    $limit = $self->{FTS_DEFAULT_LINK_ACTIVE} if $self->{FTS_DEFAULT_LINK_ACTIVE};
-	    $limit = $self->{FTS_LINK_ACTIVE}->{$from} if $self->{FTS_LINK_ACTIVE}->{$from};
-	    
-	    if ( $n_active >= $limit ) { 
-		$busy = 1; 
-		$self->Logmsg("FTS is busy for link $from->$to with $n_active active files\n") if $self->{VERBOSE};
-	    }
-	} else {
-	    # Count files in the Ready, Pending or undefined state
-	    my $n_pend = 0;
-	    foreach ( @pending_states )
-	    {
-		if ( defined($state_counts{$_}) ) { $n_pend += $state_counts{$_}; }
-	    }
+	# Count files in the Ready, Pending or undefined state
+	my $n_pend = 0;
+	foreach ( @pending_states )
+	{
+	    if ( defined($state_counts{$_}) ) { $n_pend += $state_counts{$_}; }
+	}
 	
-	    # Compare to our limit
-	    if ( $n_pend >= $self->{FTS_LINK_PEND} ) { 
-		$busy = 1; 
-		$self->Logmsg("FTS is busy for link $from->$to with $n_pend pending files\n") if $self->{VERBOSE};
-	    }
-	}
-      
-	$self->Dbgmsg("Transfer::FTS::isBusy for link $from->$to: busy=$busy") if $self->{DEBUG};
-    } else {
-	# Check total transfer busy status based on maximum number of
-	# "active" files.  This is the maximum amount of parallel
-	# transfer we will allow.
-	$stats = $self->{FTS_Q_MONITOR}->WorkStats();
-	my %state_counts;
-	if ( $stats &&
-	     exists $stats->{FILES} &&
-	     exists $stats->{FILES}{STATES} )
-	{
-	    # Count the number of all file states
-	    foreach ( values %{$stats->{FILES}{STATES}} ) { $state_counts{$_}++; }
-	}
-
-	$self->Dbgmsg("Transfer::FTS::isBusy Work Stats: ",
-		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
-	    if $self->{DEBUG};
-
-	# Count files in the active states
-	my $n_active = 0;
-	foreach ( @active_states )
-	{
-	    if ( defined($state_counts{$_}) ) { $n_active += $state_counts{$_}; }
-	}
-
 	# Compare to our limit
-	if ( $n_active >= $self->{FTS_MAX_ACTIVE} ) { 
-	    $busy = 1;
-	    $self->Logmsg("FTS is busy:  maximum active files ($self->{FTS_MAX_ACTIVE}) reached") if $self->{VERBOSE};
+	my $limit = $self->{LINK_PEND};
+	if ( $n_pend >= $limit ) {
+	    $self->Logmsg("backend busy: maximum link pending files for $from -> $to ($limit) reached\n") 
+		if $self->{VERBOSE};
+	    return 1;
 	}
-	 
-	$self->Dbgmsg("Transfer::FTS::isBusy in total busy=$busy") if $self->{DEBUG};
     }
-
-    return $busy;
+    
+    return 0;
 }
 
-
-sub startBatch
+sub start_transfer_job
 {
-    my ($self, $jobs, $tasks, $dir, $jobname, $list) = @_;
-
-    # Peek at the first task to determine the link we are filling
-    # WARNING: This makes an assumption about how FileDownload will
-    #          give tasks to the backend!
-    my ($from, $to) = ($list->[0]->{FROM_NODE}, $list->[0]->{TO_NODE});
-
-
-    # Determine the size of a job. The order of preference is:
-    #  1. -link-active-files limit, 2. -default-link-active-files 3. -batch-files
-    my $job_size;
-    if ( $self->{FTS_LINK_ACTIVE}->{$from} ) {
-	$job_size = $self->{FTS_LINK_ACTIVE}->{$from};
-    } elsif ( $self->{FTS_DEFAULT_LINK_ACTIVE} ) {
-	$job_size = $self->{FTS_DEFAULT_LINK_ACTIVE};
-    } else {
-	$job_size = $self->{BATCH_FILES};
-    }
-
-    # Set the job size to FTS_MAX_ACTIVE files if it is more limiting
-    if ($self->{FTS_MAX_ACTIVE} && $self->{FTS_MAX_ACTIVE} < $job_size) {
-	$job_size = $self->{FTS_MAX_ACTIVE};
-    }
-
-    my @batch = splice(@$list, 0, $job_size);
-    my $info = { ID => $jobname, DIR => $dir,
-                 TASKS => { map { $_->{TASKID} => 1 } @batch },
-		 FROM => $from, TO => $to };
-    &output("$dir/info", Dumper($info));
-    &touch("$dir/live");
-    $jobs->{$jobname} = $info;
-
-    # Update monitor statistics so that isBusy() can work properly in
-    # the next call, which will occur before the next call of
-    # transferBatch()
-    # FIXME: This is really bad form.  We need to clean up the
-    # interactions between the FileDownload agent and the Monitor.  We
-    # ought to be able to just build and submit the job and be done
-    # with it.
-    foreach my $taskid ( keys %{$info->{TASKS}} ) {
-	my $task = $tasks->{$taskid};
-	my %args = (
-		    SOURCE=>$task->{FROM_PFN},
-		    DESTINATION=>$task->{TO_PFN},
-		    FROM_NODE=>$task->{FROM_NODE},
-		    TO_NODE=>$task->{TO_NODE},
-		    TASKID=>$taskid,
-		    WORKDIR=>$dir,
-		    START=>&mytimeofday(),
-		    );
-	my $f = PHEDEX::Transfer::Backend::File->new(%args);
-        $self->{FTS_Q_MONITOR}->LinkStats(
-					   $f->Destination,
-					   $f->FromNode,
-					   $f->ToNode,
-					   $f->State
-					 );
-        $self->{FTS_Q_MONITOR}->WorkStats(
-					   'FILES',
-					   $f->Destination,
-					   $f->State
-					  );
-    }
-
-    $self->transferBatch($info,$tasks);
-}
-
-sub transferBatch
-{
-    my ($self,$info,$tasks) = @_;
-    my $dir = $info->{DIR};
+    my ($self, $kernel, $jobid) = @_[ OBJECT, KERNEL, ARG0 ];
+    my $job = $self->{JOBS}->{$jobid}; # note: this is a "FileDownload job"
+    my $dir = $job->{DIR};
 
     # create the copyjob file via Job->Prepare method
     my %files = ();
 
-    # Create a job from a group of files.
+    # Create a FTS job from a group of files.
     # Because the FTS priorities are per job and the PhEDEx priorities
     # are per file (task), we take an average of the priorities of the
     # tasks in order to map that onto an FTS priority.  This should be
@@ -449,8 +307,8 @@ sub transferBatch
     my $sum_priority = 0;
     my $from_pfn;
     my $spacetoken;
-    foreach my $taskid ( keys %{$info->{TASKS}} ) {
-	my $task = $tasks->{$taskid};
+    foreach my $task ( values %{$job->{TASKS}} ) {
+	next unless $task;
 	$from_pfn = $task->{FROM_PFN} unless $from_pfn;
 	$spacetoken = $task->{TO_TOKEN} unless $spacetoken;
 
@@ -462,22 +320,11 @@ sub transferBatch
 		    DESTINATION=>$task->{TO_PFN},
 		    FROM_NODE=>$task->{FROM_NODE},
 		    TO_NODE=>$task->{TO_NODE},
-		    TASKID=>$taskid,
+		    TASKID=>$task->{TASKID},
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
 	my $f = PHEDEX::Transfer::Backend::File->new(%args);
-        $self->{FTS_Q_MONITOR}->LinkStats(
-					   $f->Destination,
-					   $f->FromNode,
-					   $f->ToNode,
-					   $f->State
-					 );
-        $self->{FTS_Q_MONITOR}->WorkStats(
-					   'FILES',
-					   $f->Destination,
-					   $f->State
-					  );
 	$files{$task->{TO_PFN}} = $f;
     }
  
@@ -492,11 +339,11 @@ sub transferBatch
 		TIMEOUT	   => $self->{FTS_JOB_AWOL},
 		SPACETOKEN => $spacetoken,
 		);
-    my $job = PHEDEX::Transfer::Backend::Job->new(%args);
-    $job->Log('backend: ' . ref($self));
+    my $ftsjob = PHEDEX::Transfer::Backend::Job->new(%args); # note:  this is an "FTS job"
+    $ftsjob->Log('backend: ' . ref($self));
 
     # this writes out a copyjob file
-    $job->Prepare();
+    $ftsjob->Prepare();
 
     # now get FTS service for the job
     # we take a first file in the job and determine
@@ -505,62 +352,62 @@ sub transferBatch
 
     unless ($service) {
 	my $reason = "Cannot identify FTS service endpoint based on a sample source PFN $from_pfn";
-	$job->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
+	$ftsjob->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
-	    $self->mkTransferSummary($file, $job);
+	    $kernel->yield('transfer_done', &xferinfo($file, $ftsjob));
 	}
     }
 
-    $job->Service($service);
+    $ftsjob->Service($service);
     $self->{MASTER}->{JOBMANAGER}->addJob(
 			     $self->{JOB_SUBMITTED_POSTBACK},
-			     { arg => $job,
+			     { JOB => $job, FTSJOB  => $ftsjob,
 			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
-			     $self->{Q_INTERFACE}->Command('Submit',$job)
+			     $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
 			   );
 }
 
 # check jobs.  we also use this call to re-queue saved jobs
-sub check 
-{
-  my ($self, $jobname, $job, $tasks) = @_;
-  my ($file,$dir,$j,$f);
+# sub check 
+# {
+#   my ($self, $jobname, $job, $tasks) = @_;
+#   my ($file,$dir,$j,$f);
 
-  $dir = $job->{$jobname}->{DIR};
-  $file = $dir . '/job.dmp';
-  return unless -f $file; # If the file doesn't exist, the job hasn't been submitted yet!
+#   $dir = $job->{$jobname}->{DIR};
+#   $file = $dir . '/ftsjob.dmp';
+#   return unless -f $file; # If the file doesn't exist, the job hasn't been submitted yet!
 
-  # Get job information
-  $j = eval { do $file; };
-# die $@ if $@; # So uncool!
-  if ($@)
-  {
-    $self->Alert("garbage collecting corrupted transfer job in $file");
-    unlink($file); # FIXME: is this good enough? Should flag the task as lost?
-    return;
-  }
+#   # Get job information
+#   $j = eval { do $file; };
+# # die $@ if $@; # So uncool!
+#   if ($@)
+#   {
+#     $self->Alert("garbage collecting corrupted transfer job in $file");
+#     unlink($file); # FIXME: is this good enough? Should flag the task as lost?
+#     return;
+#   }
 
-  # If we don't know about this job, add it to the monitoring
-  if (!$self->{FTS_Q_MONITOR}->isKnown( $j )) {
-      # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
-      # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
-      $j->{TIMEOUT} = $self->{FTS_JOB_AWOL};
-      $self->{FTS_Q_MONITOR}->QueueJob( $j );
-      $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
-      foreach ( values %{$j->FILES} ) {
-	  $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
-      }
-  }
+#   # If we don't know about this job, add it to the monitoring
+#   if (!$self->{FTS_Q_MONITOR}->isKnown( $j )) {
+#       # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
+#       # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
+#       $j->{TIMEOUT} = $self->{FTS_JOB_AWOL};
+#       $self->{FTS_Q_MONITOR}->QueueJob( $j );
+#       $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
+#       foreach ( values %{$j->FILES} ) {
+# 	  $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
+#       }
+#   }
 
-  # Report the job as live.  From the point of view of the
-  # FileDownload agent, jobs will never die.  We trust our job monitor
-  # to clean up stuck jobs properly.  The user can configure this with
-  # the --job-awol option
-  if ($self->{FTS_Q_MONITOR}->isKnown( $j )) {
-      &touch($dir . '/live');
-  }
-}
+#   # Report the job as live.  From the point of view of the
+#   # FileDownload agent, jobs will never die.  We trust our job monitor
+#   # to clean up stuck jobs properly.  The user can configure this with
+#   # the --job-awol option
+#   if ($self->{FTS_Q_MONITOR}->isKnown( $j )) {
+#       &touch($dir . '/live');
+#   }
+# }
 
 sub setup_callbacks
 {
@@ -568,61 +415,65 @@ sub setup_callbacks
 
   $self->{SESSION_ID} = $session->ID;
 # First the submission-callback
-  $kernel->state('job_submitted',$self);
-  $self->{JOB_SUBMITTED_POSTBACK} = $session->postback( 'job_submitted'  );
+  $kernel->state('fts_job_submitted',$self);
+  $self->{JOB_SUBMITTED_POSTBACK} = $session->postback( 'fts_job_submitted'  );
 
 # Now the monitoring callbacks
   if ( $self->{FTS_Q_MONITOR} )
   {
-    $kernel->state('job_state_change',$self);
-    $kernel->state('file_state_change',$self);
-    my $job_postback  = $session->postback( 'job_state_change'  );
-    my $file_postback = $session->postback( 'file_state_change' );
+    $kernel->state('fts_job_state_change',$self);
+    $kernel->state('fts_file_state_change',$self);
+    my $job_postback  = $session->postback( 'fts_job_state_change'  );
+    my $file_postback = $session->postback( 'fts_file_state_change' );
     $self->{FTS_Q_MONITOR}->JOB_POSTBACK ( $job_postback );
     $self->{FTS_Q_MONITOR}->FILE_POSTBACK( $file_postback );
   }
 }
 
-sub job_submitted
+sub fts_job_submitted
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
   my $wheel = $arg1->[0];
   my $result = $self->{Q_INTERFACE}->ParseSubmit( $wheel );
-  my $job = $wheel->{arg};
+  my $job    = $wheel->{JOB};
+  my $ftsjob = $wheel->{FTSJOB};
   
   if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
   {
-    my $id = $job->{ID} || 'unknown';
-    $self->Logmsg('Submit took ',$wheel->{DURATION},' seconds for JOBID=',$id);
+    my $id = $ftsjob->{ID} || 'unknown';
+    $self->Warn('FTS job submition took ',$wheel->{DURATION},' seconds for JOBID=',$id);
   }
 
   if ( exists $result->{ERROR} ) { 
     # something went wrong...
     my $reason = "Could not submit to FTS\n";
-    $job->Log( @{$result->{ERROR}} );
-    $job->RawOutput( @{$result->{RAW_OUTPUT}} );
-    foreach my $file ( values %{$job->FILES} ) {
+    $ftsjob->Log( @{$result->{ERROR}} );
+    $ftsjob->RawOutput( @{$result->{RAW_OUTPUT}} );
+    foreach my $file ( values %{$ftsjob->FILES} ) {
       $file->Reason($reason);
-      $self->mkTransferSummary($file, $job);
+      $kernel->yield('transfer_done', &xferinfo($file, $ftsjob));
     }
 #   Make sure I forget about this job...?
-    $self->{FTS_Q_MONITOR}->cleanup_job_stats($job);
+    $self->{FTS_Q_MONITOR}->cleanup_job_stats($ftsjob);
     return;
   }
 
-  $self->Logmsg('JOBID=',$job->ID,' submitted');
+  $self->Logmsg("FTS job JOBID=",$ftsjob->ID,' submitted');
   # Save this job for retrieval if the agent is restarted
-  my $jobsave = $job->WORKDIR . '/job.dmp';
+  my $jobsave = $ftsjob->WORKDIR . '/ftsjob.dmp';
   open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
-  print JOB Dumper($job);
+  print JOB Dumper($ftsjob);
   close JOB;
 
   #register this job with queue monitor.
-  $self->{FTS_Q_MONITOR}->QueueJob($job);
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  
+  # the job has officially started
+  $job->{STARTED} = &mytimeofday();
 }
 
-sub job_state_change
+sub fts_job_state_change
 {
     my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     my $job = $arg1->[0];
@@ -636,7 +487,7 @@ sub job_state_change
     # monitoring call will have been verbose, the rest will not
     $job->VERBOSE(0);
 
-    $self->Dbgmsg("Job-state callback JOBID=",$job->ID,", STATE=",$job->State) if $self->{DEBUG};
+    $self->Dbgmsg("fts_job_state_change callback JOBID=",$job->ID,", STATE=",$job->State) if $self->{DEBUG};
 
     if ($job->ExitStates->{$job->State}) {
     }else{
@@ -644,51 +495,47 @@ sub job_state_change
     }
 }
 
-sub file_state_change
+sub fts_file_state_change
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  $self->Dbgmsg("File-state callback TASKID=",$file->TaskID," JOBID=",$job->ID,
+  $self->Dbgmsg("fts_file_state_change TASKID=",$file->TaskID," JOBID=",$job->ID,
 	  " STATE=",$file->State,' DEST=',$file->Destination) if $self->{DEBUG};
   
   if ($file->ExitStates->{$file->State}) {
-      $self->mkTransferSummary($file,$job);
+      $kernel->yield('transfer_done', &xferinfo($file, $job));
   }
 }
 
-sub mkTransferSummary {
-    my $self = shift;
-    my $file = shift;
-    my $job = shift;
+# Prepares hash with transfer info for passing along to the
+# 'transfer_done' event
+sub xferinfo {
+    my ($file, $job) = @_;
 
     # by now we report 0 for 'Finished' and 1 for Failed or Canceled
     # where would we do intelligent error processing 
     # and report differrent erorr codes for different errors?
     my $status = $file->ExitStates->{$file->State};
-
-    $status = ($status == 1)?0:1;
+    $status = ($status == 1) ? 0 : 1;
     
     my $log = join("", $file->Log,
+		   "-" x 10 . " JOB-LOG " . "-" x 10 . "\n",
+		   $job->Log,
 		   "-" x 10 . " RAWOUTPUT " . "-" x 10 . "\n",
 		   $job->RawOutput,
-		   "-" x 10 . " JOB-LOG " . "-" x 10 . "\n",
-		   $job->Log);
+		   );
 
-    my $summary = {START=>$file->Start,
-		   END=>&mytimeofday(), 
-		   LOG=>$log,
-		   STATUS=>$status,
-		   DETAIL=>$file->Reason || "", 
-		   DURATION=>$file->Duration || 0
-		   };
+    my $info = { START=>$file->Start,
+		 END=>&mytimeofday(), 
+		 LOG=>$log,
+		 STATUS=>$status,
+		 DETAIL=>$file->Reason || "", 
+		 DURATION=>$file->Duration || 0 };
     
-    # make a 'done' file
-    &output($job->Workdir."/T".$file->{TASKID}."X", Dumper $summary);
-
-    $self->Dbgmsg('mkTransferSummary done for task=',$file->TaskID,' workdir=',$job->Workdir) if $self->{DEBUG};
+    return $info;
 }
 
 1;
