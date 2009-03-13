@@ -35,7 +35,6 @@ sub new
 		  WAITTIME => 3600,		# Nap length between idle() cycles
 
 		  BACKEND_TYPE => undef,	# Backend type
-		  BACKEND_ARGS => undef,	# Options to the backend
 
 		  TASKS => {},                  # Tasks in memory
 		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
@@ -47,7 +46,6 @@ sub new
 		  LAST_COMPLETED => 0,		# Last completed a task
 		  DBH_LAST_USE => 0,		# Last use of the database
 
-		  BATCH_ID => 0,		# Number of batches created
 		  BOOTTIME => time(),		# Time this agent started
 		);
     my %args = (@_);
@@ -179,7 +177,7 @@ eval
 	values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)});
 
    foreach my $task (keys %$tasks) {
-       next if ! exists $$tasks{$task}{FINISHED};
+       next if ! $$tasks{$task}{FINISHED};
 
        my $arg = 1;
        push(@{$dargs{$arg++}}, $$tasks{$task}{TASKID});
@@ -266,7 +264,7 @@ eval
 
     # Find out how many we have pending per link so we can throttle.
     ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
-	for grep(! exists $$_{FINISHED}, values %$tasks);
+	for grep(! $$_{FINISHED}, values %$tasks);
 
     # Fetch new tasks.
     my $i = &dbprep($$self{DBH}, qq{
@@ -589,7 +587,7 @@ sub fill_backend
     }
 
     my ($W, $wmin) = (0, 0.02 * $nlinks);
-    my $skippedlinks = 0;
+    my ($skippedlinks, $errlinks, $busylinks) = (0, 0, 0);
     foreach my $to (keys %todo)
     {
 	foreach my $from (keys %{$todo{$to}})
@@ -603,17 +601,17 @@ sub fill_backend
 			      "link $from -> $to, not allocating transfers")
 		    if $$self{VERBOSE};
 		delete $todo{$to}{$from};
-		$skippedlinks++;
+		$skippedlinks++; $errlinks++;
 		next;
 	    }
 
 	    # Pass links which are busy
-	    if ( $$self{BACKEND}->isBusy ($to, $from) ) {
+	    if ( $$self{BACKEND}->isBusy ($from, $to) ) {
 		$self->Logmsg("link $from -> $to is busy at the moment, ",
 			      "not allocating transfers")
 		    if $$self{VERBOSE};
 		delete $todo{$to}{$from};
-		$skippedlinks++;
+		$skippedlinks++; $busylinks++;
 		next;
 	    }
 
@@ -638,13 +636,14 @@ sub fill_backend
 	}
     }
 
-    # If we have nothing to do because all the links were skipped,
-    # check if there were any recent transfers on good links, and
-    # sync faster if there was
     if ($skippedlinks == $nlinks) {
-	if ($goodlinks && $self->next_event_time('sync_tasks') - $now > 300) {
+	# If we have nothing to do because all the links have too many
+	# errors, then check if there were any recent transfers on
+	# good links, and sync faster if there was
+	if ($errlinks == $nlinks && $goodlinks 
+	    && $self->next_event_time('sync_tasks') - $now > 300) {
 	    $self->delay_max($kernel, 'sync_tasks', 300);
-	    $self->Logmsg("all links were skipped, scheduling ",
+	    $self->Logmsg("all links were skipped due to errors, scheduling ",
 			  "next synchronisation in five minutes")
 		if $$self{VERBOSE};
 	}
@@ -684,20 +683,19 @@ sub fill_backend
 
     # Sort the tasks according to priority.  Older tasks first, lower
     # rank first.
+    # FIXME:  Sort when fetching tasks, not every fill_backend call
     $todo{$to}{$from} =
 	[ sort { $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN}
 		 || $$a{RANK} <=> $$b{RANK} }
 	  @{$todo{$to}{$from}} ];
 
     # Send files to transfer.
+    # Note we use synchronous calls here in order to avoid race conditions with this function.
     my ($jobid, $jobdir, $jobtasks) = $kernel->call($session, 'start_batch', $todo{$to}{$from});
 
     if ($jobid) {
 	foreach my $task ( values %$jobtasks ) {
-	    $task->{JOBID} = $jobid;
-	    $task->{JOBDIR} = $jobdir;
-	    $self->saveTask($task);
-	    $kernel->yield('start_task', $task->{TASKID});
+	    $kernel->call($session, 'start_task', $task->{TASKID}, { JOBID => $jobid, JOBDIR => $jobdir });
 	}
 
 	$self->Logmsg("copy job $jobid assigned to link $from -> $to with "
@@ -706,6 +704,8 @@ sub fill_backend
 		      . scalar(@{$todo{$to}{$from}})
 		      . " tasks in queue")
 	    if $$self{VERBOSE};
+	
+	$self->Dbgmsg("copy job $jobid tasks: ", join(' ', sort keys %$jobtasks)) if $self->{DEBUG};
     }
 
     my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
@@ -736,8 +736,9 @@ sub fill_backend
 # start the transfer workflow for a task
 sub start_task
 {
-    my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
+    my ( $self, $kernel, $taskid, $taskargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     my $task = $self->{TASKS}->{$taskid};
+    if ($taskargs) { $task->{$_} = $taskargs->{$_} for keys %$taskargs }
     $task->{STARTED} = &mytimeofday();
     $self->saveTask($task);
     $kernel->yield( $self->next_subtask(), $taskid );
@@ -1167,7 +1168,7 @@ sub statsNewPeriod
     foreach my $t (values %$tasks)
     {
 	# Skip if the transfer task was completed or hasn't started.
-	next if defined $$t{FINISHED} || !defined $$t{STARTED};
+	next if $$t{FINISHED} || !$$t{STARTED};
 
 	# It's using up a transfer slot, add to time slot link stats.
 	my ($from, $to) = @$t{"FROM_NODE", "TO_NODE"};
