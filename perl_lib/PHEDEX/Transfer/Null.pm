@@ -20,14 +20,14 @@ sub new
 
     # Set my defaults where not defined by the derived class.
     $params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+    $params->{NJOBS}       ||= 0;            # Infinite amount of transfers by default.
     $params->{BATCH_FILES} ||= 100;          # Max number of files per batch
-    $params->{FAIL_CODE}  ||= 28;             # Return code on failure (>0 for halting failure, <0 for continuing)
-    $params->{FAIL_RATE}  ||= 0;              # Probability of failure (0 to 1)
-    $params->{FAIL_LINKS} ||= {};            # Probability to fail per link (0 to 1)
+    $params->{FAIL_CODE}   ||= 28;           # Return code on failure (>0 for halting failure, <0 for continuing)
+    $params->{FAIL_RATE}   ||= 0;            # Probability of failure (0 to 1)
+    $params->{FAIL_LINKS}  ||= {};           # Probability to fail per link (0 to 1)
     $params->{FAIL_CONFIG} ||= undef;        # Config file for failure rates
 
     # Set argument parsing at this level.
-    $options->{'batch-files=i'}      = \$params->{BATCH_FILES};
     $options->{'fail-code=i'}        = \$params->{FAIL_CODE};
     $options->{'fail-rate=f'}        = \$params->{FAIL_RATE};
     $options->{'fail-link=f'}        = $params->{FAIL_LINKS};
@@ -106,6 +106,7 @@ sub start_transfer_job
 
     my $job = $self->{JOBS}->{$jobid};
     my $now = &mytimeofday();
+    $job->{STARTED} = $now;
 
     foreach my $taskid (keys %{$job->{TASKS}})
     {
