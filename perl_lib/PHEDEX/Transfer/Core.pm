@@ -22,14 +22,22 @@ sub new
     my $params = shift || {};
 
     # Set my defaults where not defined by the derived class.
-    $params->{PROTOCOLS}   ||= undef;        # Transfer command
-    $params->{NJOBS}       ||= 0;            # Max number of parallel transfers.  0 for infinite.
-    $params->{BATCH_FILES} ||= 1;            # Max number of files per batch
-    $params->{CATALOGUES} = {};
+    $params->{PROTOCOLS}           ||= undef;  # Transfer protocols
+    $params->{NJOBS}               ||= 0;      # Max number of parallel jobs.  0 for infinite.
+    $params->{BATCH_FILES}         ||= 1;      # Max number of files per batch
+    $params->{MAX_ACTIVE}          ||= 0;      # Max number of parallel files.  0 for infinite
+    $params->{DEFAULT_LINK_ACTIVE} ||= 0;      # Default max per-link files. 0 for infinite.
+    $params->{LINK_ACTIVE}         ||= {};     # Max per-link files.  undef links are infinite.
+    $params->{LINK_PEND}           ||= 0;      # Max per-link pending files. 0 for infinite.
 
     # Set argument parsing at this level.
-    $$options{'protocols=s'} = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
-    $$options{'jobs=i'} = \$$params{NJOBS};
+    $options->{'protocols=s'}          = sub { $$params{PROTOCOLS} = [ split(/,/, $_[1]) ]};
+    $options->{'jobs=i'}               = \$$params{NJOBS};
+    $options->{'batch-files=i'}        = \$params->{BATCH_FILES};
+    $options->{'max-active-files=i'}   = \$params->{MAX_ACTIVE};
+    $options->{'default-link-active-files=i'} = \$params->{DEFAULT_LINK_ACTIVE};
+    $options->{'link-active-files=i'}  =  $params->{LINK_ACTIVE};
+    $options->{'link-pending-files=i'} = \$params->{LINK_PEND};
 
     # Parse additional options
     local @ARGV = @{$master->{BACKEND_ARGS}};
@@ -84,14 +92,68 @@ sub stop
     # my ($self) = @_;
 }
 
-# Check if the backend is busy.  By default, true if the number of
-# currently set up copy jobs is equal or exceeds the number of jobs
-# the back end can run concurrently.
+# Check if the backend is busy.  Without $from, $to arguments, checks
+# whether the backend is busy in general.  With $from, $to arguments,
+# checks whether the backend is busy for the link $from -> $to
 sub isBusy
 {
-    my ($self, $to_node, $from_node) = @_;
-    return 0 if $self->{NJOBS} == 0;
-    return scalar keys %{$self->{JOBS}} >= $self->{NJOBS};
+    my ($self, $from, $to) = @_;
+
+    # return busy if we are beyond the maximum number of concurrent jobs
+    if ($self->{NJOBS} && scalar keys %{$self->{JOBS}} >= $self->{NJOBS}) {
+	$self->Logmsg("backend busy: maximum active jobs ($self->{NJOBS}) reached") if $self->{VERBOSE};
+	return 1;
+    }
+
+    # compute per link task statistics
+    my %linkstats; my %pendstats; my $total = 0;
+    foreach my $job (values %{$self->{JOBS}}) {
+	foreach my $task (values %{$job->{TASKS}}) {
+	    next if !defined $task;
+	    my $linkkey = "$task->{FROM_NODE} -> $task->{TO_NODE}";
+	    if (!$task->{FINISHED}) {
+		($linkstats{$linkkey} ||= 0)++;
+		($pendstats{$linkkey} ||= 0)++ if !$job->{STARTED};
+		$total++;
+	    }
+	}
+    }
+
+    # return busy if we are beyond the maximum number of concurrent files
+    if ( $self->{MAX_ACTIVE} && $total >= $self->{MAX_ACTIVE} ) { 
+	$self->Logmsg("backend busy: maximum active files ($self->{MAX_ACTIVE}) reached") if $self->{VERBOSE};
+	return 1;
+    }
+
+    # per link busy status
+    if (defined $from && defined $to) {
+	my $linkkey = "$from -> $to";
+	if ($self->{LINK_ACTIVE}->{$from} || $self->{DEFAULT_LINK_ACTIVE}) {
+	    my $n_link = $linkstats{$linkkey} || 0;
+	    my $limit;
+	    $limit = $self->{DEFAULT_LINK_ACTIVE} if $self->{DEFAULT_LINK_ACTIVE};
+	    $limit = $self->{LINK_ACTIVE}->{$from} if $self->{LINK_ACTIVE}->{$from};
+	    
+	    if ( $n_link >= $limit ) { 
+		$self->Logmsg("backend busy: maximum link active files for $linkkey ($limit) reached\n") 
+		    if $self->{VERBOSE};
+		return 1;
+	    }
+	}
+	
+	if ($self->{LINK_PEND}) {
+	    my $n_pend = $pendstats{$linkkey} || 0;
+	    my $limit = $self->{LINK_PEND};
+	    if ( $n_pend >= $limit ) { 
+		$self->Logmsg("backend busy: maximum link pending files for $linkkey ($limit) reached\n") 
+		    if $self->{VERBOSE};
+		return 1;
+	    }
+	}
+    }
+
+    # I guess we're not busy
+    return 0;
 }
 
 # Return the list of protocols supported by this backend.
@@ -109,7 +171,28 @@ sub start_batch
 {
     my ($self, $kernel, $tasklist) = @_[ OBJECT, KERNEL, ARG0 ];
 
-    my @batch = splice(@$tasklist, 0, $self->{BATCH_FILES});
+    # Peek at the first task to determine the link we are filling
+    # WARNING: This makes an assumption about how FileDownload will
+    #          give tasks to the backend!
+    my ($from, $to) = ($tasklist->[0]->{FROM_NODE}, $tasklist->[0]->{TO_NODE});
+
+    # Determine the size of a job. The order of preference is:
+    #  1. -link-active-files limit, 2. -default-link-active-files 3. -batch-files
+    my $job_size;
+    if ( $self->{LINK_ACTIVE}->{$from} ) {
+	$job_size = $self->{LINK_ACTIVE}->{$from};
+    } elsif ( $self->{DEFAULT_LINK_ACTIVE} ) {
+	$job_size = $self->{DEFAULT_LINK_ACTIVE};
+    } else {
+	$job_size = $self->{BATCH_FILES};
+    }
+
+    # Set the job size to MAX_ACTIVE files if it is more limiting
+    if ($self->{MAX_ACTIVE} && $self->{MAX_ACTIVE} < $job_size) {
+	$job_size = $self->{FTS_MAX_ACTIVE};
+    }
+
+    my @batch = splice(@$tasklist, 0, $job_size);
     return undef if !@batch;
 
     my $id = $$self{BATCH_ID}++;
@@ -135,6 +218,9 @@ sub check_transfer_job
 
     my $job = $self->{JOBS}->{$jobid};
 
+    # FIXME: this algorithm leaves the state file empty at the end of
+    # the job.  We should keep a log of which tasks a job
+    # started with/finished
     my ($n_pend, $n_ready, $n_done, $n_lost) = (0,0,0,0);
     foreach my $taskid (keys %{$job->{TASKS}}) {
 	my $task = $job->{TASKS}->{$taskid};
@@ -144,22 +230,27 @@ sub check_transfer_job
 	else                      { $n_pend++  }
     }
 
-    $self->Logmsg("copy job $jobid status:  pend=$n_pend ready=$n_ready done=$n_done lost=$n_lost ") 
+    $self->Dbgmsg("copy job $jobid status:  pend=$n_pend ready=$n_ready done=$n_done lost=$n_lost ") 
 	if $self->{DEBUG};
 
     if ($n_pend == 0 && $n_ready == 0) {
+	$self->Dbgmsg("finish copy job $jobid") if $self->{DEBUG};
 	$kernel->yield('finish_transfer_job', $jobid);
 	return; # do not check this job anymore
-    } elsif ($n_pend == 0 && !$job->{STARTED}) {
-	$job->{STARTED} = &mytimeofday();
+    } elsif ($n_pend == 0 && !$job->{ASKSTART}) {
+	$job->{ASKSTART} = &mytimeofday();
 	$self->saveJob($job);
+	$self->Dbgmsg("start copy job $jobid") if $self->{DEBUG};
 	$kernel->yield('start_transfer_job', $jobid);
     }
 
     $kernel->delay_set('check_transfer_job', 15, $jobid);
 }
 
-# Start a transfer job.  This needs to be implemented by a sub-class
+# Start a transfer job.  This needs to be implemented by a sub-class.
+# The required behavior is to set $job->{STARTED} timestamp when the
+# job has actually started, and to trigger the 'transfer_done' event
+# for each file when the transfer is finished
 sub start_transfer_job
 {
     my ($self, $kernel, $jobid) = @_[ OBJECT, KERNEL, ARG0 ];
@@ -175,6 +266,7 @@ sub finish_transfer_job
 
    my $job = $self->{JOBS}->{$jobid};
    
+   $job->{ASKSTART} ||= -1;
    $job->{STARTED}  ||= -1;
    $job->{FINISHED} = &mytimeofday();
    $self->saveJob($job);
