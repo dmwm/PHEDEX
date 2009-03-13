@@ -145,7 +145,7 @@ sub jobFinished
 			     . " seconds with signal $self->{JOBSTATUS}{SIGNAL}";
       }
 
-      $self->{TASK_DONE_CALLBACK}($status);
+      $self->{TASK_DONE_CALLBACK}($taskid, $status);
   }
 
   # Generate some useful flags.
