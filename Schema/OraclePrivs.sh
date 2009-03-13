@@ -66,18 +66,6 @@ for role in \
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update on $table to $role;" ;;
 
-      T_DPS_DATASET:*_WEBSITE_* )
-	# Create only (For LoadTest injection creation)
-        # Select, update, insert and delete
-        echo; echo "grant select on $table to $reader;"
-	echo "grant select on $table to $writer;"
-	echo "grant insert, select on $table to $role;" ;;
-
-      *:*_WEBSITE_* )
-        # Select only
-        echo; echo "grant select on $table to $reader;"
-        echo "grant select on $table to $writer;" ;;
-
       T_XFER_DELETE:* )
         # Select and update, but no insert
         echo; echo "grant select on $table to $reader;"
