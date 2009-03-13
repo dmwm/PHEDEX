@@ -101,7 +101,7 @@ if ($args{PLOG}) {
 
 if (@where) { $sql .= join(' and ', '', @where); }
 
-$dbh->{LongReadLen} = 1000;
+$dbh->{LongReadLen} = 10_000;
 my $q = &dbexec($dbh, $sql, %binds);
 
 while (my $agent = $q->fetchrow_hashref()) {
