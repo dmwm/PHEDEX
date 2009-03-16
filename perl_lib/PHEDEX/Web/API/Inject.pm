@@ -20,12 +20,30 @@ on how many files, blocks, and datasets were injected etc.
 
  node		Required node-name as injection site.
  data		XML structure representing the data to be injected. See
-		PHEDEX::Core::XML
+		PHEDEX::Core::XML (an example follows)
 
  verbose	be verbose
  strict		throw an error if it can't insert the data exactly as
 		requested. Otherwise simply return the statistics. The
 		default is to be strict, you can turn it off with 'nostrict'.
+
+=head3 input data format example:
+
+   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
+     <dataset name="/sample/dataset" is-open="y" is-transient="n">
+       <block name="/sample/dataset#1" is-open="y">
+         <file lfn="file1" size="10" checksum="cksum:1234"/>
+         <file lfn="file2" size="22" checksum="cksum:456"/>
+       </block>
+       <block name="/sample/dataset#2" is-open="y">
+         <file lfn="file3" size="1" checksum="cksum:2"/>
+       </block>
+     </dataset>
+     <dataset name="/sample/dataset2" is-open="n" is-transient="n">
+       <block name="/sample/dataset2#1" is-open="n"/>
+       <block name="/sample/dataset2#2" is-open="n"/>
+     </dataset>
+   </dbs>
 
 =head3 return value
 
