@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Core';
 use PHEDEX::Transfer::Wrapper;
+use PHEDEX::Core::Timing;
 use POE;
 use Getopt::Long;
 
@@ -46,9 +47,9 @@ sub start_transfer_job
 
     my $job = $self->{JOBS}->{$jobid};
 
+    my $postback = $session->postback('wrapper_task_done');
     foreach my $task (values %{$job->{TASKS}})
     {
-	my $postback = $session->postback('wrapper_task_done');
 	my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
 							       $task->{FROM_PFN},
 							       $task->{TO_PFN} ],
