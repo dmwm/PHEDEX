@@ -275,7 +275,7 @@ sub poll_job
   $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_JOB_POSTBACK},
-                             { arg => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             { FTSJOB => $job, TIMEOUT => $self->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('ListJob',$job)
                            );
 
@@ -288,7 +288,7 @@ sub poll_job_postback
 
   $wheel = $arg1->[0];
   $result = $self->{Q_INTERFACE}->ParseListJob( $wheel );
-  $job = $wheel->{arg};
+  $job = $wheel->{FTSJOB};
 
   if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
   { $self->Logmsg('ListJob took ',$wheel->{DURATION},' seconds'); }
@@ -578,7 +578,7 @@ sub QueueJob
   $self->{JOBS}{$job->{ID}} = $job;
   $self->{JOBMANAGER}->addJob(
                              undef,
-                             { arg => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             { FTSJOB => $job, TIMEOUT => $self->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('SetPriority',$job)
                            );
 }

@@ -144,7 +144,7 @@ sub ParseSubmit
   my ($self,$wheel) = @_;
   my ($job,$result);
   $result = $wheel->{result};
-  $job    = $wheel->{arg};
+  $job    = $wheel->{FTSJOB};
 
   foreach ( @{$result->{RAW_OUTPUT}} )
   {
@@ -260,7 +260,7 @@ sub ParseListJob
   my (@h,$h,$preamble);
 
   $result = $wheel->{result};
-  $job = $wheel->{arg};
+  $job = $wheel->{FTSJOB};
 
   $result->{JOB_STATE} = 'undefined';
   return $result unless defined($result->{RAW_OUTPUT});
