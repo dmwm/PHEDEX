@@ -34,6 +34,24 @@ Subscribe data
  group          group the request is for.  Default is undefined.
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
 
+=head3 input data format example:
+
+   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
+     <dataset name="/sample/dataset" is-open="y" is-transient="n">
+       <block name="/sample/dataset#1" is-open="y">
+         <file lfn="file1" size="10" checksum="cksum:1234"/>
+         <file lfn="file2" size="22" checksum="cksum:456"/>
+       </block>
+       <block name="/sample/dataset#2" is-open="y">
+         <file lfn="file3" size="1" checksum="cksum:2"/>
+       </block>
+     </dataset>
+     <dataset name="/sample/dataset2" is-open="n" is-transient="n">
+       <block name="/sample/dataset2#1" is-open="n"/>
+       <block name="/sample/dataset2#2" is-open="n"/>
+     </dataset>
+   </dbs>
+
 =head3 return value
 
 If successful returns a 'request_created' element with one attribute,
