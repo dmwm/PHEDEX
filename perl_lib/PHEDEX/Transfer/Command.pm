@@ -2,7 +2,7 @@ package PHEDEX::Transfer::Command;
 use strict;
 use warnings;
 use base 'PHEDEX::Transfer::Core';
-use PHEDEX::Transfer::Wrapper;
+use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use POE;
 use Getopt::Long;
@@ -31,6 +31,18 @@ sub new
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
+
+    # Create a JobManager
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{NJOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+							);
+
+    # Handle signals
+    $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
+				   $self->{JOBMANAGER}->killAllJobs() };
+
     bless $self, $class;
     return $self;
 }
@@ -38,7 +50,7 @@ sub new
 sub setup_callbacks
 {
     my ($self, $kernel, $session) = @_;
-    $kernel->state('wrapper_task_done', $self);
+    $kernel->state('cmd_job_done', $self);
 }
 
 sub start_transfer_job
@@ -46,27 +58,64 @@ sub start_transfer_job
     my ( $self, $kernel, $session, $jobid ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
 
     my $job = $self->{JOBS}->{$jobid};
+    my $now = &mytimeofday();
 
-    my $postback = $session->postback('wrapper_task_done');
     foreach my $task (values %{$job->{TASKS}})
     {
-	my $wrapper = new PHEDEX::Transfer::Wrapper ( CMD => [ @{$self->{COMMAND}}, 
-							       $task->{FROM_PFN},
-							       $task->{TO_PFN} ],
-						      TIMEOUT => $self->{TIMEOUT},
-						      WORKDIR => $job->{DIR},
-						      TASK_DONE_CALLBACK => $postback
-						      );
+	my $taskid = $task->{TASKID};
+	$self->{JOBMANAGER}->addJob( $session->postback('cmd_job_done'),
+				     { TIMEOUT => $self->{TIMEOUT},
+				       LOGFILE => "$job->{DIR}/T${taskid}-xfer-log",
+				       START => $now, TASKID => $taskid },
+				     @{$self->{COMMAND}}, $task->{FROM_PFN}, $task->{TO_PFN} );
     }
-    $job->{STARTED} = &mytimeofday();
+    $job->{STARTED} = $now;
 }
 
-sub wrapper_task_done
+sub cmd_job_done
 {
     my ($self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    my ($taskid, $xferinfo) = @$args;
-    $kernel->yield('transfer_done', $taskid, $xferinfo);
+    my ($jobinfo) = @$args;
 
+    my $log = &input($jobinfo->{LOGFILE});
+
+    my $taskid = $jobinfo->{TASKID};
+
+    my $xferinfo = { START => $jobinfo->{START}, 
+		     END => &mytimeofday(),
+		     STATUS => $jobinfo->{STATUS},
+		     DETAIL => "",
+		     LOG => $log };
+
+    $self->report_detail($jobinfo, $xferinfo);
+    $kernel->yield('transfer_done', $taskid, $xferinfo);
 }
+
+sub report_detail
+{
+    my ($self, $jobinfo, $xferinfo) = @_;
+
+    # FIXME:  put special STATUS codes in PHEDEX::Error::Constants
+    if (defined $self->{SIGNALLED})
+    {
+	# We got a signal.
+	$xferinfo->{STATUS} = -6;
+	$xferinfo->{DETAIL} = "agent was terminated with signal $self->{SIGNALLED}";
+    }
+    elsif (defined $jobinfo->{SIGNAL} && !defined $jobinfo->{TIMED_OUT})
+    {
+	# We got a signal.
+	$xferinfo->{STATUS} = -4;
+	$xferinfo->{DETAIL} = "transfer was terminated with signal $jobinfo->{SIGNAL}";
+    }
+    elsif (defined $jobinfo->{TIMED_OUT})
+    {
+	# The transfer timed out.
+	$xferinfo->{STATUS} = -5;
+	$xferinfo->{DETAIL} = "transfer timed out after $jobinfo->{TIMEOUT}"
+	    . " seconds with signal $jobinfo->{SIGNAL}";
+    }
+}
+
 
 1;
