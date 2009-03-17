@@ -737,6 +737,7 @@ sub fill_backend
 sub start_task
 {
     my ( $self, $kernel, $taskid, $taskargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+    $self->Dbgmsg("start_task task=$taskid") if $self->{DEBUG};
     my $task = $self->{TASKS}->{$taskid};
     if ($taskargs) { $task->{$_} = $taskargs->{$_} for keys %$taskargs }
     $task->{STARTED} = &mytimeofday();
@@ -939,7 +940,7 @@ sub postdelete_done
 sub finish_task
 {
     my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
-
+    $self->Dbgmsg("finish_task task=$taskid") if $self->{DEBUG};
     my $task = $self->{TASKS}->{$taskid};
     my $now = &mytimeofday();
 
