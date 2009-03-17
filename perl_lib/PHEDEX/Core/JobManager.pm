@@ -190,7 +190,7 @@ sub _child_done {
 # FIXME This could be cleaner...?
   $wheel->{STATUS_CODE} = $args->{rc};
   $wheel->{RC}  = $args->{rc} >> 8;
-  $wheel->{SIG} = $args->{rc} & 127;
+  $wheel->{SIGNAL} = $args->{rc} & 127;
   $wheel->{STATUS} = &runerror ($args->{rc});
 
   my $duration = &mytimeofday() - $wheel->{start};
@@ -207,7 +207,7 @@ sub _child_done {
 
   if ( $self->{caller}{DEBUG} )
   {
-    print "PID=$wheel->{PID} RC=$wheel->{RC} SIGNAL=$wheel->{SIG} CMD=\"@{$wheel->{CMD}}\"\n";
+    print "PID=$wheel->{PID} RC=$wheel->{RC} SIGNAL=$wheel->{SIGNAL} CMD=\"@{$wheel->{CMD}}\"\n";
   }
 
 # Some monitoring...
@@ -289,6 +289,7 @@ sub timeout
   my $signal = shift @{$job->{signals}};
   return unless $signal;
   my $wheel = $self->{_child}->wheel($wheelID);
+  $job->{TIMED_OUT} = &mytimeofday();
   $wheel->kill( $signal );
   my $timeout = $job->{TIMEOUT_GRACE} || 3;
   print "Sending signal $signal to wheel $wheelID\n" if $self->{VERBOSE};
