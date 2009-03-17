@@ -49,12 +49,6 @@ sub new
     $self->{$_} = $params->{$_} for keys %$params;
     bless $self, $class;
 
-    # Create a JobManager
-    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
-						NJOBS	=> $self->{NJOBS},
-						VERBOSE	=> $self->{VERBOSE},
-						DEBUG	=> $self->{DEBUG},
-							);
     $self->{JOBS} = {};  # Transfer jobs
 
     # Remember various useful details.
