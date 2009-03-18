@@ -275,6 +275,10 @@ sub initSecurity
       $args{DBPASS} = $dbparam->{DBH_DBPASS};
       $args{LOGLEVEL} = ($config->{SECMOD_LOGLEVEL} || 3);
       $args{REVPROXY} = $config->{SECMOD_REVPROXY} if $config->{SECMOD_REVPROXY};
+      # practically, no self sign-up
+      $args{SIGNUP_HANDLER} = sub {
+          die "authentication check failed:  user not registered in SiteDB\n"
+          };
   }
   my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
   if ( ! $secmod->init() )
