@@ -355,7 +355,7 @@ sub start_transfer_job
 	$ftsjob->Log("$reason\nSee download agent log file details, grep for\ FTSmap to see problems with FTS map file");
 	foreach my $file ( values %files ) {
 	    $file->Reason($reason);
-	    $kernel->yield('transfer_done', &xferinfo($file, $ftsjob));
+	    $kernel->yield('transfer_done', $file->{TASKID}, &xferinfo($file, $ftsjob));
 	}
     }
 
@@ -452,7 +452,7 @@ sub fts_job_submitted
     $ftsjob->RawOutput( @{$result->{RAW_OUTPUT}} );
     foreach my $file ( values %{$ftsjob->FILES} ) {
       $file->Reason($reason);
-      $kernel->yield('transfer_done', &xferinfo($file, $ftsjob));
+      $kernel->yield('transfer_done', $file->{TASKID}, &xferinfo($file, $ftsjob));
     }
 #   Make sure I forget about this job...?
     $self->{FTS_Q_MONITOR}->cleanup_job_stats($ftsjob);
@@ -506,7 +506,7 @@ sub fts_file_state_change
 	  " STATE=",$file->State,' DEST=',$file->Destination) if $self->{DEBUG};
   
   if ($file->ExitStates->{$file->State}) {
-      $kernel->yield('transfer_done', &xferinfo($file, $job));
+      $kernel->yield('transfer_done', $file->{TASKID}, &xferinfo($file, $job));
   }
 }
 
