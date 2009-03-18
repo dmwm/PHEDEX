@@ -20,12 +20,12 @@ Return agent information in the following structure:
 
 =head3 options
 
-required inputs:  none
-optional inputs: (as filters) node, se, agent
+ required inputs: none
+ optional inputs: (as filters) node, se, agent
 
- node             node name, could be multiple
- se               storage element name, could be multiple
- agent            agent name, could be multiple
+  node             node name, could be multiple
+  se               storage element name, could be multiple
+  agent            agent name, could be multiple
 
 =head3 output
 
@@ -37,20 +37,20 @@ optional inputs: (as filters) node, se, agent
 
 =head3 <node> elements:
 
- name             agent name
- node             node name
- host             host name
- agent            list of the agents on this node
+  name             agent name
+  node             node name
+  host             host name
+  agent            list of the agents on this node
 
 =head3 <agent> elements:
 
- label            label
- state_dir        directory path ot the states
- version          cvs release
- cvs_version      cvs revision
- cvs_tag          cvs tag
- pid              process id
- time_update      time it was updated
+  label            label
+  state_dir        directory path ot the states
+  version          cvs release
+  cvs_version      cvs revision
+  cvs_tag          cvs tag
+  pid              process id
+  time_update      time it was updated
 
 =cut
 

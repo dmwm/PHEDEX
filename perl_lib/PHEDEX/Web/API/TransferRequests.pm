@@ -35,14 +35,14 @@ Return transfer request information in the following structure:
 
 =head3 options
 
-required inputs:  none
-optional inputs: (as filters) req_num, dest_node, group
+ required inputs:  none
+ optional inputs: (as filters) req_num, dest_node, group
 
- req_num          request number
- dest_node        name of the destination node
- group            name of the group
- limit            maximal number of records returned
- since            created after this time
+  req_num          request number
+  dest_node        name of the destination node
+  group            name of the group
+  limit            maximal number of records returned
+  since            created after this time
 
 =head3 output
 
@@ -69,58 +69,58 @@ optional inputs: (as filters) req_num, dest_node, group
 
 =head3 request attributes
 
- req_num          request number
- group            group name
- priority         transfer priority
- custodial        is custodial?
- static           is static?
- move             is move?
- <request_by>     person who requested
- comments         comments
- files            total requested files
- bytes            total requested bytes
+  req_num          request number
+  group            group name
+  priority         transfer priority
+  custodial        is custodial?
+  static           is static?
+  move             is move?
+  <request_by>     person who requested
+  comments         comments
+  files            total requested files
+  bytes            total requested bytes
 
 =head3 node attributes
 
- id               node id
- name             node name
- se               node SE name
- decision         is decision made
- time_decided     time when the decision was made
- <approved_by>    person by whom transfer through this node was approved
- comment          comment
+  id               node id
+  name             node name
+  se               node SE name
+  decision         is decision made
+  time_decided     time when the decision was made
+  <approved_by>    person by whom transfer through this node was approved
+  comment          comment
 
 =head3 usertext elements
 
-the actual text strings of data the user requested 
+  the actual text strings of data the user requested 
 
 =head3 dbs attributes
 
- name             dbs name
- id               dbs id
+  name             dbs name
+  id               dbs id
 
 =head3 dataset attributes
 
- name             dataset name
- id               dataset id
- files            number of files
- bytes            number of bytes
+  name             dataset name
+  id               dataset id
+  files            number of files
+  bytes            number of bytes
 
 =head3 block attributes
 
- name             block name
- id               block id
- files            number of files
- bytes            number of bytes
+  name             block name
+  id               block id
+  files            number of files
+  bytes            number of bytes
 
 =head3 <requested_by>/<approved_by> attributes
 
- name             person's name
- dn               person's DN
- username         person's username
- email            email address
- host             remote host
- agent            agent used
+  name             person's name
+  dn               person's DN
+  username         person's username
+  email            email address
+  host             remote host
+  agent            agent used
 
 =cut
 
