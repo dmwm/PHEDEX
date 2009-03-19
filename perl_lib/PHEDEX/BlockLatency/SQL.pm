@@ -48,10 +48,8 @@ L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::SQL';
-
+use base 'PHEDEX::Core::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::Logging;
 
 use Carp;
 
