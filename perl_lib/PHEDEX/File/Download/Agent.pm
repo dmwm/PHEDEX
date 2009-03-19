@@ -75,7 +75,7 @@ sub new
 sub _poe_init
 {
   my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
-  $session->option(trace => 1);  $|++; # XXX Debugging
+# $session->option(trace => 1);  $|++; # XXX Debugging
 
   $self->init();
 
@@ -945,11 +945,11 @@ sub finish_task
     my $now = &mytimeofday();
 
     # Set report code if it wasn't already set, in order of preference
-    $$task{REPORT_CODE} = $$task{POSTVALIDATE_CODE} unless exists $$task{REPORT_CODE};
-    $$task{REPORT_CODE} = $$task{XFER_CODE}         unless exists $$task{REPORT_CODE};
-    $$task{REPORT_CODE} = $$task{PREVALIDATE_CODE}  unless exists $$task{REPORT_CODE};
+    $$task{REPORT_CODE} = $$task{POSTVALIDATE_CODE} unless defined $$task{REPORT_CODE};
+    $$task{REPORT_CODE} = $$task{XFER_CODE}         unless defined $$task{REPORT_CODE};
+    $$task{REPORT_CODE} = $$task{PREVALIDATE_CODE}  unless defined $$task{REPORT_CODE};
     $$task{JOBLOG} = "$$self{ARCHIVEDIR}/$$task{JOBID}";
-    $$task{FINISHED} = $now;
+    $$task{FINISHED} = $$task{TIME_UPDATE} = $now;
 
     # Save it
     return 0 if ! $self->saveTask($task);
