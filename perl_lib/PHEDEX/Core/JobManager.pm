@@ -16,7 +16,8 @@ use POE::Component::Child;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Util ( qw / str_hash / );
-
+use Data::Dumper;
+$|=1;
 ######################################################################
 # JOB MANAGEMENT TOOLS
 
@@ -28,6 +29,7 @@ our %events = (
   died   => \&_child_died,
 );
 
+our $pkg = $POE::Component::Child::PKG;
 sub new
 {
     my $proto = shift;
@@ -69,10 +71,9 @@ sub new
            events => \%events,
            debug => $self->{POCO_DEBUG},
           );
-    $self->{_child}{caller} = $self;
 
 #   Hold the output of the children...
-    $self->{wheels} = {};
+    $self->{payloads} = {};
 
     return $self;
 }
@@ -116,7 +117,7 @@ sub heartbeat
 sub job_queued
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  if ( scalar(keys %{$self->{wheels}}) >= $self->{NJOBS} )
+  if ( scalar(keys %{$self->{payloads}}) >= $self->{NJOBS} )
   {
     $kernel->delay_set('job_queued',0.3);
     return;
@@ -127,16 +128,17 @@ sub job_queued
     $kernel->delay_set('job_queued',0.1);
     return;
   }
-  my $wheel = $self->{_child}->run(@{$job->{CMD}});
-  my $pkg = 'POE::Component::Child';
-  $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheel}{ref}->PID;
-  $self->{wheels}{$wheel} = $job;
-  $self->{wheels}{$wheel}{start} = &mytimeofday();
+  my $wheelid = $self->{_child}->run(@{$job->{CMD}});
+  $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheelid}{ref}->PID;
+#print "Start WheelID=$wheelid, owner=$self->{JOB_MANAGER_SESSION_ID}, pid=$job->{PID},\n";
+  $self->{_child}{$pkg}{owner}{$wheelid} = $self;
+  $self->{payloads}{$wheelid} = $job;
+  $self->{payloads}{$wheelid}{start} = &mytimeofday();
   if ( $job->{TIMEOUT} )
   {
-    my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheel);
-    $self->{wheels}{$wheel}{timer_id} = $timer_id;
-    $self->{wheels}{$wheel}{signals} = [ qw / 1 15 9 / ];
+    my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheelid);
+    $self->{payloads}{$wheelid}{timer_id} = $timer_id;
+    $self->{payloads}{$wheelid}{signals} = [ qw / 1 15 9 / ];
   }
   $job->{CMDNAME} = $job->{CMD}[0];
   $job->{CMDNAME} =~ s|.*/||;
@@ -160,74 +162,92 @@ sub job_queued
 
 sub _child_stdout {
   my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  $self->{caller}->Logmsg("STDOUT: $args->{out}\n") if $self->{caller}{DEBUG};
-  push @{$wheel->{result}->{RAW_OUTPUT}}, $args->{out};
+  my ($wheelid,$payload,$owner);
+  $wheelid = $args->{wheel};
+  $owner = $self->{$pkg}{owner}{$wheelid};
+  $payload = $owner->{payloads}{$wheelid};
 
-  my $logfhtmp = \*{$wheel->{LOGFH}};
+  $owner->Logmsg("STDOUT: $args->{out}\n") if $owner->{DEBUG};
+  push @{$payload->{result}->{RAW_OUTPUT}}, $args->{out};
+
+  my $logfhtmp = \*{$payload->{LOGFH}};
   my $date = strftime ("%Y-%m-%d %H:%M:%S", gmtime);
 
-  if ($wheel->{LOGPREFIX})
+  if ($payload->{LOGPREFIX})
   {
-    print $logfhtmp "$date $wheel->{CMDNAME}($wheel->{PID}): ";
+    print $logfhtmp "$date $payload->{CMDNAME}($payload->{PID}): ";
   }
   print $logfhtmp $args->{out},"\n";
 }
 
 sub _child_stderr {
   my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  $self->{caller}->Logmsg("STDERR: $args->{out}\n") if $self->{caller}{DEBUG};
+  my ($wheelid,$payload,$owner);
+  $wheelid = $args->{wheel};
+  $owner = $self->{$pkg}{owner}{$wheelid};
+  $payload = $owner->{payloads}{$wheelid};
+
+  $owner->Logmsg("STDERR: $args->{out}\n") if $owner->{DEBUG};
   chomp $args->{out};
-  push @{$wheel->{result}->{ERROR}}, $args->{out};
+  push @{$payload->{result}->{ERROR}}, $args->{out};
 }
 
 sub _child_done {
   my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
-  $self->{caller}{JOBS}--;
+  my ($wheelid,$payload,$owner);
+  $wheelid = $args->{wheel};
+  $owner = $self->{$pkg}{owner}{$wheelid};
+  $payload = $owner->{payloads}{$wheelid};
+  $owner->{JOBS}--;
 
 # FIXME This could be cleaner...?
-  $wheel->{STATUS_CODE} = $args->{rc};
-  $wheel->{RC}  = $args->{rc} >> 8;
-  $wheel->{SIGNAL} = $args->{rc} & 127;
-  $wheel->{STATUS} = &runerror ($args->{rc});
+  $payload->{STATUS_CODE} = $args->{rc};
+  $payload->{RC}  = $args->{rc} >> 8;
+  $payload->{SIGNAL} = $args->{rc} & 127;
+  $payload->{STATUS} = &runerror ($args->{rc});
 
-  my $duration = &mytimeofday() - $wheel->{start};
+  my $duration = &mytimeofday() - $payload->{start};
 
-  if (exists $wheel->{LOGFILE})
+  if (exists $payload->{LOGFILE})
   {
-    my $logfh = \*{$wheel->{LOGFH}};
+    my $logfh = \*{$payload->{LOGFH}};
     print $logfh (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-      " $wheel->{CMDNAME}($wheel->{PID}): Job exited with status code",
-      " $wheel->{STATUS} ($wheel->{STATUS_CODE})",
+      " $payload->{CMDNAME}($payload->{PID}): Job exited with status code",
+      " $payload->{STATUS} ($payload->{STATUS_CODE})",
       sprintf(" after %.3f seconds", $duration), "\n" );
     close $logfh;
   }
 
-  if ( $self->{caller}{DEBUG} )
+  if ( $owner->{DEBUG} )
   {
-    print "PID=$wheel->{PID} RC=$wheel->{RC} SIGNAL=$wheel->{SIGNAL} CMD=\"@{$wheel->{CMD}}\"\n";
+    if ( ref($payload->{CMD}) eq 'ARRAY' )
+    {
+    print "PID=$payload->{PID} RC=$payload->{RC} SIGNAL=$payload->{SIGNAL} CMD=\"@{$payload->{CMD}}\"\n";
+    }
+    else
+    {
+    print str_hash($payload),"\n";
+    }
   }
 
 # Some monitoring...
-  $self->{caller}->Logmsg(sprintf("$wheel->{CMD}[0] took %.3f seconds", $duration)) if $self->{caller}{DEBUG};
+  $owner->Logmsg(sprintf("$payload->{CMD}[0] took %.3f seconds", $duration)) if $owner->{DEBUG};
 
   my $result;
-  if ( defined($wheel->{ACTION}) )
+  if ( defined($payload->{ACTION}) )
   {
-    $wheel->{DURATION} = $duration;
-    $wheel->{ACTION}->( $wheel );
+    $payload->{DURATION} = $duration;
+    $payload->{ACTION}->( $payload );
   }
   else
   {
-    $result = $wheel->{result} unless defined($result);
+    $result = $payload->{result} unless defined($result);
     $result->{DURATION} = $duration;
-    if ( $result && defined($wheel->{arg}) )
+    if ( $result && defined($payload->{FTSJOB}) )
     {
       my ($job,$str,$k);
-      $job = $wheel->{arg};
-      $str = uc $wheel->{parse};
+      $job = $payload->{FTSJOB};
+      $str = uc $payload->{parse};
       foreach $k ( keys %{$result} )
       {
         if ( ref($result->{$k}) eq 'ARRAY' )
@@ -243,26 +263,34 @@ sub _child_done {
   }
 
 # cleanup...
-  delete $self->{caller}{wheels}{$args->{wheel}};
-  POE::Kernel->post( $self->{caller}{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms', $wheel->{timer_id} );
+  delete $owner->{payloads}{$wheelid};
+  POE::Kernel->post( $owner->{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms', $payload->{timer_id} ) if $payload->{timer_id};
 }
 
 sub _child_died {
   my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  my ($wheelid,$payload,$owner);
+  $wheelid = $args->{wheel};
+  $owner = $self->{$pkg}{owner}{$wheelid};
+  $payload = $owner->{payloads}{$wheelid};
+
   $args->{out} ||= '';
   chomp $args->{out};
   my $text = 'child_died: [' . $args->{rc} . '] ' . $args->{out};
-  push @{$wheel->{result}->{ERROR}}, $text;
+  push @{$payload->{result}->{ERROR}}, $text;
   _child_done( $self, $args );
 }
 
 sub _child_error {
   my ( $self, $args ) = @_[ 0 , 1 ];
-  my $wheel = $self->{caller}{wheels}{$args->{wheel}};
+  my ($wheelid,$payload,$owner);
+  $wheelid = $args->{wheel};
+  $owner = $self->{$pkg}{owner}{$wheelid};
+  $payload = $owner->{payloads}{$wheelid};
+
   chomp $args->{error};
   my $text = 'child_error: [' . $args->{err} . '] ' . $args->{error};
-  push @{$wheel->{result}->{ERROR}}, $text;
+  push @{$payload->{result}->{ERROR}}, $text;
 }
 
 # Add a new command to the job list.  The command will only be started
@@ -283,17 +311,17 @@ sub addJob
 
 sub timeout
 {
-  my ( $self, $kernel, $wheelID ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my $job = $self->{wheels}{$wheelID};
-  return unless defined $job;
-  my $signal = shift @{$job->{signals}};
+  my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
+  my $payload = $self->{payloads}{$wheelid};
+  return unless defined $payload;
+  my $signal = shift @{$payload->{signals}};
   return unless $signal;
-  my $wheel = $self->{_child}->wheel($wheelID);
-  $job->{TIMED_OUT} = &mytimeofday();
+  my $wheel = $self->{_child}->wheel($wheelid);
+  $payload->{TIMED_OUT} = &mytimeofday();
   $wheel->kill( $signal );
-  my $timeout = $job->{TIMEOUT_GRACE} || 3;
-  print "Sending signal $signal to wheel $wheelID\n" if $self->{VERBOSE};
-  $kernel->delay_set( 'timeout', $timeout, $wheelID );
+  my $timeout = $payload->{TIMEOUT_GRACE} || 3;
+  print "Sending signal $signal to wheel $wheelid\n" if $self->{VERBOSE};
+  $kernel->delay_set( 'timeout', $timeout, $wheelid );
 }
 
 # Terminate the children (yikes!)
