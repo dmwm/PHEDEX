@@ -243,4 +243,19 @@ cms_orcon_prod =
       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY= 15))
     )
   )
-
+cms_omds_lb =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr1-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr2-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr3-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr4-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr5-v)(PORT =10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsonr6-v)(PORT =10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cms_omds_lb.cern.ch)
+      (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY= 15))
+    )
+  )
