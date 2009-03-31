@@ -976,11 +976,89 @@ sub getRequestData
     }
 
     # restore LongReadLen & LongTruncOk
-    my $LongReadLen = $$self{DBH}->{LongReadLen};
-    my $LongTruncOk = $$self{DBH}->{LongTruncOk};
 
     $$self{DBH}->{LongReadLen} = $LongReadLen;
     $$self{DBH}->{LongTruncOk} = $LongTruncOk;
+
+    return \@r;
+}
+
+# get Group Usage information
+sub getGroupUsage
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            nvl(g.name, 'undefined') user_group,
+            n.name node,
+            n.id,
+            g.id gid,
+            n.se_name,
+            s.dest_files,
+            s.dest_bytes,
+            s.node_files,
+            s.node_bytes
+        from
+            t_status_group s
+            left join t_adm_group g on g.id = s.user_group
+             join t_adm_node n on n.id = s.node };
+
+    my @r;
+    my $where_stmt = "";
+    my %param = ();
+
+    # take care of 'group'
+    if (exists $h{GROUP})
+    {
+        $h{USER_GROUP} = $h{GROUP};
+    }
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        NODE => 'n.name',
+        SE => 'n.se_name',
+        USER_GROUP => 'g.name'));
+
+    $sql .= " where ($filters) " if $filters;
+
+    my $q = execute_sql($core, $sql, %p);
+    my %node;
+
+    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+    while ($_ = $q->fetchrow_hashref())
+    {
+        if ($node{$_ -> {'NODE'}})
+        {
+            push @{$node{$_->{'NODE'}}->{group}},{
+                name => $_->{'USER_GROUP'},
+                id => $_->{GID},
+                node_files => $_->{'NODE_FILES'},
+                node_bytes => $_->{'NODE_BYTES'},
+                dest_files => $_->{'DEST_FILES'},
+                dest_bytes => $_->{'DEST_BYTES'}
+            };
+        }
+        else
+        {
+            $node{$_->{'NODE'}} = {
+                name => $_->{'NODE'},
+                se => $_->{'SE_NAME'},
+                id => $_->{'ID'},
+                group => [{
+                    name => $_->{'USER_GROUP'},
+                    id => $_->{GID},
+                    node_files => $_->{'NODE_FILES'},
+                    node_bytes => $_->{'NODE_BYTES'},
+                    dest_files => $_->{'DEST_FILES'},
+                    dest_bytes => $_->{'DEST_BYTES'}}]
+            };
+        }
+    }
+
+    while (my ($key, $value) = each(%node))
+    {
+        push @r, $value;
+    }     
 
     return \@r;
 }
