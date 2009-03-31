@@ -1,0 +1,382 @@
+<!-- Combo-handled YUI CSS files: --> 
+<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/treeview/assets/skins/sam/treeview.css"> 
+<!-- Combo-handled YUI JS files: --> 
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
+
+<style type="text/css">
+.ygtvitem{background:#eee}
+.good{border:2px solid #00ff00}
+.bad{border:2px solid #ff0000}
+
+.request{background: #ddd; width:982px}
+.dataset{background: #ccc; width:964px}
+.block{background: #bbb; width:946px}
+.file{background: #aaa; width:928px}
+
+.expand{width:100%;text-align:center;font-size:small}
+
+.title{width:100%}
+.rel200{position:absolute; left:300px}
+.rel400{position:absolute; left:500px}
+.status{position:absolute; left:700px}
+.completion{position:absolute; left:900px}
+.extra{width:100%;display:none}
+
+</style>
+
+<html>
+<head><title>Phedex Megapage Test</title></head>
+<body>
+<div style='background:#33cc00;width=100%;height=40px;vertical-align=middle'>Masthead</div>
+
+<div id='treeDiv'></div>
+<div id='json'></div>
+<script type="text/javascript">
+
+PHEDEX=function() {}
+
+PHEDEX.Node=function() {
+  this.children = new Array();
+  this.id = 0;
+  this.node = null;
+  this.update=function(id,data) {
+    this.id=id;
+  }
+  this.getNode=function() {
+    return this.node;
+  }
+  this.getID=function() {
+    return this.id;
+  }
+  this.getChildren=function() {
+    return this.children;
+  }
+  this.addChild=function(childnode) {
+    this.children.push(childnode);
+  }
+  this.createHTML=function() {
+    return "";
+  }
+  this.createNode=function(parent) {
+    this.node = new YAHOO.widget.HTMLNode(this.createHTML(),parent);
+    this.node.f_id = this.id;
+    this.node.f_node = this;
+    this.node.setDynamicLoad(this.getChildren);
+  }
+  this.updateNode=function() {
+    this.node.setHtml(this.createHTML());
+  }
+  this.getChildren=function(node,loadcomplete) {
+    return;
+  }
+}
+
+PHEDEX.Node.Create=function(data) {
+  switch(data['type']) {
+  case 'request':
+    var node = PHEDEX.Node.Request();
+    node.update(data['id'],data['data']);
+    return node;
+    break;
+  case 'dataset':
+    var node = PHEDEX.Node.Dataset();
+    node.update(data['id'],data['data']);
+    return node;
+    break;
+  case 'block':
+    var node = PHEDEX.Node.Block();
+    node.update(data['id'],data['data']);
+    return node;
+    break;
+  case 'file':
+    var node = PHEDEX.Node.File();
+    node.update(data['id'],data['data']);
+    return node;
+    break;
+  }
+}
+
+PHEDEX.Node.Request=function() {
+  var that = new PHEDEX.Node();
+  that.update=function(id,data) {
+    this.id = id;
+    this.req_id = data['req_id'];
+    this.last_update = data['last_update'];
+    this.status = data['status'];
+    this.completion = data['completion'];
+    this.approval = data['approval'];
+    this.napprove = 0;
+    this.capprove = 0;
+    for (a in this.approval) {
+      if (this.approval[a]) this.napprove+=1;
+      this.capprove+=1;
+    }
+  }
+  that.createHTML=function() {
+    html="<div class='request good'><div class='title'>Request # "+this.req_id+"<span class='rel200'>Last update: "+this.last_update+"</span><span class='rel400'>Approval: "+this.napprove+" of "+this.capprove+"</span><span class='status'>Status: "+this.status+"</span><span class='completion'>"+progressbar(this.completion)+"</span></div><div class='expand'><a href='#' onClick='return toggle_visibility(\""+this.id+'_extra'+"\");'>Expand</a></div><div id='"+this.id+'_extra'+"' class='extra'>extra</div></div>";
+    return html;
+  }
+  that.getChildren=function(node,loadcomplete) {
+    req_datasets(node.f_id,loadcomplete);
+  }
+  return that;
+}
+
+PHEDEX.Node.Dataset=function() {
+  var that= new PHEDEX.Node();
+  that.update=function(id,data) {
+    this.id=id;
+    this.dataset=data['dataset'];
+    this.status=data['status'];
+    this.class=data['class'];
+    this.completion=data['completion'];
+  }
+  that.createHTML=function() {
+    html="<div class='dataset good'><div class='title'>Dataset: "+this.dataset+"<span class='rel400'>Class: "+this.class+"</span><span class='status'>Status: "+this.status+"</span><span class='completion'>"+progressbar(this.completion)+"</span></div><div class='expand'><a href='#' onClick='return toggle_visibility(\""+this.id+'_extra'+"\");'>Expand</a></div><div id='"+this.id+'_extra'+"' class='extra'>extra</div></div>";
+    return html;
+  }
+  that.getChildren=function(node,loadcomplete) {
+    req_blocks(node.f_id,loadcomplete);
+  }
+  return that;
+}
+
+PHEDEX.Node.Block=function() {
+  var that = new PHEDEX.Node();
+  that.update=function(id,data) {
+    this.id=id;
+    this.blockid=data['blockid'];
+    this.status=data['status'];
+    this.completion=data['completion'];
+    this.nfiles=data['nfiles'];
+    this.size=data['size'];
+  }
+  that.createHTML=function() {
+    html="<div class='block good'><div class='title'>Block: #"+this.blockid+"<span class='rel400'>"+this.nfiles+" files ("+this.size+" GiB)</span><span class='status'>Status: "+this.status+"</span><span class='completion'>"+progressbar(this.completion)+"</span></div><div class='expand'><a href='#' onClick='return toggle_visibility(\""+this.id+'_extra'+"\");'>Expand</a></div><div id='"+this.id+'_extra'+"' class='extra'><span style='color:#888'>First transfer attempt: </span>"+rand_date()+"<br><span style='color:#888'>Last transfer attempt: </span>"+rand_date()+"</div></div>";
+    return html;
+  }
+  that.getChildren=function(node,loadcomplete) {
+    req_files(node.f_id,loadcomplete);
+  }
+  return that;
+}
+
+PHEDEX.Node.File=function() {
+  var that = new PHEDEX.Node();
+  that.update=function(id,data) {
+    this.id=id;
+    this.filename=data['filename'];
+    this.status=data['status'];
+    this.completion=data['completion'];
+  }
+  that.createHTML=function() {
+    html="<div class='file good'><div class='title'>File: "+this.filename+"<span class='status'>Status: "+this.status+"</span><span class='completion'>"+progressbar(this.completion)+"</span></div><div class='expand'><a href='#' onClick='return toggle_visibility(\""+this.id+'_extra'+"\");'>Expand</a></div><div id='"+this.id+'_extra'+"' class='extra'>extra</div></div>";
+    return html;
+  }
+  that.createNode=function(parent) {
+    this.node = new YAHOO.widget.HTMLNode(this.createHTML(),parent);
+    this.node.f_id = this.id;
+    this.node.f_node = this;
+  }
+  return that;
+}
+
+PHEDEX.Page=function() {}
+
+PHEDEX.Page.Megapage=function() {
+  
+  
+  this.init = function() {
+    this.tree = new YAHOO.widget.TreeView('treeDiv');
+    this.tree_root = this.tree.getRoot();
+    this.tree.render();
+  }
+  this.update = function(data) {
+    json = eval('('+data+')');
+    this.node_updater(this.tree_root,json);
+    this.tree.render();
+  }
+  
+  this.node_updater = function(parent,children) {
+    for (c in children) {
+      var found=false;
+      for (pc in parent.children) {
+        if (children[c]['id']==parent.children[pc].f_id) {
+          found=true;
+          if (children[c]['update']) {
+            parent.children[pc].f_node.update(children[c]['id'],children[c]['data']);
+            parent.children[pc].f_node.updateNode();
+          }
+          this.node_updater(parent.children[pc],children[c]['children']);
+          break;
+        }
+      }
+      if (! found) {
+        var newnode = PHEDEX.Node.Create(children[c]);
+        newnode.createNode(parent);
+        this.node_updater(newnode.node,children[c]['children']);
+      }
+    }
+    for (pc in parent.children) {
+      var found=false;
+      for (c in children) {
+        if (children[c]['id']==parent.children[pc].f_id) {
+          found=true;
+        }
+      }
+      if (! found) {
+        
+      }
+    }
+  }
+}
+
+function rand_int(max) {
+  return Math.floor(Math.random()*max)+1;
+}
+
+function rand_string(maxlen) {
+  len = rand_int(maxlen);
+  chars = '01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghiklmnopqrstuvwxyz';
+  randstr = '';
+  for (var i=0;i<len;i++) {
+    var rnum = rand_int(chars.length);
+    randstr+=chars.substring(rnum,rnum+1);
+  }
+  return randstr;
+}
+
+function rand_status() {
+  statii=['AWOL','DOA','KIA','Ascended','Stunned','Irradiated','Quad Damage','Petrified','Liquidated','Undead','Still Alive','CLASSIFIED','Victorious','Trapped','Polymorphed','FUBARd','Plusgood','Chaotic Evil'];
+  return statii[rand_int(statii.length)];
+}
+
+function rand_bool() {
+  if (rand_int(1)) return true;
+  else return false;
+}
+
+function rand_date() {
+  return rand_int(31)+'/'+rand_int(12)+'/'+rand_int(3000);
+}
+
+function request_generator() {
+  var nreq = rand_int(10);
+  var result = '[';
+  for (var i=0;i<nreq;i++) {
+    result += "{'id':"+rand_int(10000)+",'type':'request','update':"+rand_bool()+",'data':{'req_id':'"+rand_int(10000)+"','last_update':'"+rand_date()+"','status':'"+rand_status()+"','completion':"+rand_int(100)+",'approval':{'site':true}},'children':[]}";
+    if (i != nreq-1) result+=',';
+  }
+  result += ']';
+  return result;
+}
+
+function dataset_generator() {
+  var ndat = rand_int(10);
+  var result = '[';
+  for (var i=0;i<ndat;i++) {
+    result += "{'id':"+rand_int(10000)+",'type':'dataset','update':"+rand_bool()+",'data':{'dataset':'"+rand_string(64)+"','class':'"+rand_string(10)+"','status':'"+rand_status()+"','completion':"+rand_int(100)+"},'children':[]}";
+    if (i != ndat-1) result+=',';
+  }
+  result += ']';
+  return result;
+}
+
+function block_generator() {
+  var nblock = rand_int(10);
+  var result = '[';
+  for (var i=0;i<nblock;i++) {
+    result += "{'id':"+rand_int(10000)+",'type':'block','update':"+rand_bool()+",'data':{'blockid':"+rand_int(1000000)+",'nfiles':"+rand_int(1000)+",'status':'"+rand_status()+"','completion':"+rand_int(100)+",'size':"+rand_int(1000)+"},'children':[]}";
+    if (i != nblock-1) result+=',';
+  }
+  result += ']';
+  return result;
+}
+
+function file_generator() {
+  var nfile = rand_int(10);
+  var result = '[';
+  for (var i=0;i<nfile;i++) {
+    result += "{'id':"+rand_int(10000)+",'type':'file','update':"+rand_bool()+",'data':{'filename':'"+rand_string(64)+"','status':'"+rand_status()+"','completion':"+rand_int(100)+"},'children':[]}";
+    if (i != nfile-1) result+=',';
+  }
+  result += ']';
+  return result;
+}
+
+function req_datasets(reqid,loadcomplete) {
+  var json = eval('('+_json+')');
+  for (req in json) {
+    if (json[req]['id']==reqid) {
+      var dset = dataset_generator();
+      json[req]['children']=eval('('+dset+')');
+    }
+  }
+  _json = YAHOO.lang.JSON.stringify(json);
+  _div_json.innerHTML=_json;
+  _page.update(_json);
+  loadcomplete();
+}
+
+function req_blocks(dsetid,loadcomplete) {
+  var json = eval('('+_json+')');
+  for (req in json) {
+    for (dset in json[req]['children']) {
+      if (json[req]['children'][dset]['id']==dsetid) {
+        var b = block_generator();
+        json[req]['children'][dset]['children']=eval('('+b+')');
+      }
+    }
+  }
+  _json = YAHOO.lang.JSON.stringify(json);
+  _div_json.innerHTML=_json;
+  _page.update(_json);
+  loadcomplete();
+}
+
+
+function req_files(blockid,loadcomplete) {
+  var json = eval('('+_json+')');
+  for (req in json) {
+    for (dset in json[req]['children']) {
+      for (block in json[req]['children'][dset]['children']) {
+        if (json[req]['children'][dset]['children'][block]['id']==blockid) {
+          var f = file_generator();
+          json[req]['children'][dset]['children'][block]['children']=eval('('+f+')');
+        }
+      }
+    }
+  }
+  _json = YAHOO.lang.JSON.stringify(json);
+  _div_json.innerHTML=_json;
+  _page.update(_json);
+  loadcomplete();
+}
+
+function progressbar(progress) {
+  return "<div style='position:relative;width:100px'><div style='position:absolute;top:0;left:0;background:#0f0;height:10px;width:"+progress+"%'></div><div style='position:absolute;top:0;left:0;text-align:center;width:100%'>"+progress+"%</div></div>";
+}
+
+function toggle_visibility(divid) {
+  d = document.getElementById(divid);
+  if (d.style.display=='block') {
+    d.style.display = 'none';
+  } else {
+    d.style.display = 'block';
+  }
+  return false;
+}
+
+//_json = "[{'type':'request','update':false,'data':{'req_id':'1234','last_update':'never','status':'AWOL','completion':'-1%','approval':{'here':true,'there':false}},'children':[{'type':'dataset','update':false,'data':{'dataset':'/fuzzy/happy/dataset','class':'no-priority replicate','status':'AWOL','completion':'-1%'},'children':[{'type':'block','update':false,'data':{'blockid':'#123456','status':'AWOL','completion':'-1%','nfiles':100,'size':500},'children':[]}]}]}]";
+var _json = request_generator();
+var _div_json = document.getElementById('json');
+_div_json.innerHTML=_json;
+
+var _page = new PHEDEX.Page.Megapage();
+_page.init();
+_page.update(_json);
+
+
+</script>
+</body>
+</html>
