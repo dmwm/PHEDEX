@@ -27,7 +27,7 @@ Return transfer queue block information in the following structure:
 
   from             from node name, could be multiple
   to               to node name, could be multiple
-  priority         one of the following: (not working yet)
+  priority         one of the following:
                      high, normal, low
   state            one of the following:
                      transferred, transfering, exported
