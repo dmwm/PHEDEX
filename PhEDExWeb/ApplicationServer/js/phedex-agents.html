@@ -13,7 +13,7 @@
 
 <script type="text/javascript">
 function toggleVisible(id) {
-    elem = document.getElementById(id);
+    var elem = document.getElementById(id);
     if (elem.style.display=='block') { elem.style.display='none'; }
     else { elem.style.display='block'; }
     return -1;
@@ -106,7 +106,12 @@ PHEDEX.Node.Agents=function(site) {
 	        dataSource.responseSchema = {
 	            fields: ["Agent","Version","PID","Date"]
 	        };
-        var dataTable = new YAHOO.widget.ScrollingDataTable("phedex_agents_table", columnDefs, dataSource, {caption:"PhEDEx Agents on "+site, height:'150px'});
+        var dataTable = new YAHOO.widget.ScrollingDataTable("phedex_agents_table", columnDefs, dataSource,
+                     {
+                      caption:"PhEDEx Agents on "+site,
+                      height:'150px',
+                      draggableColumns:true
+                     });
 	}
 	that.update=function() {
 	  PHEDEX.Data.Agents(site,this.receive,this);
