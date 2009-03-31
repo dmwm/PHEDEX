@@ -40,7 +40,6 @@ return transfer state details in the following structure
  to                 name of the to (destination) node
  from_id            id of the from node
  to_id              id of the to node
- queue              queues associated with this link
 
 =head3 <transfer_queue> elements:
 
