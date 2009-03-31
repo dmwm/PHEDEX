@@ -54,19 +54,21 @@ function toggleExtra(id) {
 <div id='phedex_agents'></div>
 <div id='phedex_pending_to'></div>
 <div id='phedex_pending_from'></div>
-
+<div id='phedex_transfers'></div>
 <script type='text/javascript'>
 
 var agent_node=null;
 
 agents=function() {
   var site = document.getElementById('node_select').value;
-  agent_node = new PHEDEX.Node.Agents(site);
-  agent_node.update();
-  to_node = new PHEDEX.Node.PendingTransfers(site,'to');
-  from_node = new PHEDEX.Node.PendingTransfers(site,'from');
-  to_node.update();
-  from_node.update();
+//  agent_node = new PHEDEX.Node.Agents(site);
+//  agent_node.update();
+//  to_node = new PHEDEX.Node.PendingTransfers(site,'to');
+//  from_node = new PHEDEX.Node.PendingTransfers(site,'from');
+//  to_node.update();
+//  from_node.update();
+  xfer_node = new PHEDEX.Node.TransfersNode(site);
+  xfer_node.update();
 }
 
 
@@ -77,7 +79,7 @@ agents=function() {
 //implement their own methods to generate the header, extra and children content, and handle updates.
 PHEDEX=function() {}
 PHEDEX.Node=function(divid,parent,opts) {
-        this.options = {expand_extra:false,expand_children:false,extra:true,children:true};
+        this.options = {expand_extra:false,expand_children:false,extra:true,children:true,fixed_extra:false};
 	if (opts) {
 	  for (o in opts) {
 	    this.options[o]=opts[o];
@@ -115,13 +117,17 @@ PHEDEX.Node=function(divid,parent,opts) {
 		this.header_div=document.createElement('div');
 		if (this.options['extra']) {
 		  this.extra_div=document.createElement('div');
-		  this.extra_expand_div=document.createElement('div');
 		  this.extra_div.id = this.id+'_extra';
-		  this.extra_expand_div.id = this.id+'_extra_link';
 		  this.extra_div.className = 'node-extra';
-		  this.extra_expand_div.className = 'node-extra-link';
-		  this.extra_expand_div.setAttribute('onclick',"toggleExtra('"+this.id+"');");
-		  this.extra_expand_div.innerHTML='expand';
+		  if (this.options['fixed_extra']) {
+		    this.extra_div.style.display='block';
+		  } else {
+                    this.extra_expand_div=document.createElement('div');
+		    this.extra_expand_div.id = this.id+'_extra_link';
+		    this.extra_expand_div.className = 'node-extra-link';
+		    this.extra_expand_div.setAttribute('onclick',"toggleExtra('"+this.id+"');");
+		    this.extra_expand_div.innerHTML='expand';
+		  }
 		}
 				
 		this.main_div.id = this.id+'_main';
@@ -141,7 +147,9 @@ PHEDEX.Node=function(divid,parent,opts) {
 
 		this.main_div.appendChild(this.header_div);
 		if (this.options['extra']) {
-		  this.main_div.appendChild(this.extra_expand_div);
+		  if (! this.options['fixed_extra']) {
+		    this.main_div.appendChild(this.extra_expand_div);
+		  }
 		  this.main_div.appendChild(this.extra_div);
 		}
 		
@@ -155,7 +163,7 @@ PHEDEX.Node=function(divid,parent,opts) {
 		  this.extra(this.extra_div);
 		}
 		
-		if (this.options['expand_extra']) {
+		if (this.options['expand_extra'] && !this.options['fixed_extra']) {
 		  toggleExtra(this.id);
 		}
 		if (this.options['expand_children']) {
@@ -183,6 +191,11 @@ PHEDEX.Node=function(divid,parent,opts) {
 	this.filterChildren=function() {}
 	this.sortChildren=function() {}
 	this.receive=function(data) {}
+	this.clearChildren=function() {
+	  this.children=[];
+	  while(this.children_div.hasChildNodes()) 
+	    this.children_div.removeChild(this.children_div.firstChild);
+	}
 
 }
 PHEDEX.Node.Agents=function(site) {
@@ -222,7 +235,7 @@ PHEDEX.Node.Agents=function(site) {
 	    result.argument.createHTML();
 	    }	    
 	}
-	that.children=function(div) {
+	that.buildChildren=function(div) {
 	  div.innerHTML='fake child';
 	}
 	return that;
@@ -299,16 +312,140 @@ PHEDEX.Node.PendingTransferSingle=function(site,mode,parent) {
 
 
 PHEDEX.Node.TransfersNode=function(site) {
-  var that = new PHEDEX.Node('phedex_transfers',null,{});
+  var that = new PHEDEX.Node('phedex_transfers',null,{fixed_extra:true,expand_children:true});
   that.site = site;
   that.data_queue = [];
   that.data_hist = [];
   that.data_queue_blocks=[];
+  that.data_arrived=0;
+  that.mode='to';
+  that.time='6';
   
   that.header=function(span) {
-    
+    span.innerHTML=this.site;
   }
+  that.extra=function(div) {
+    
+    var modeselect = document.createElement('select');
+    var incoming = document.createElement('option');
+    var outgoing = document.createElement('option');
+    incoming.text = 'Incoming Links';
+    incoming.value = 'to';
+    outgoing.text = 'Outgoing Links';
+    outgoing.value = 'from';
+    modeselect.appendChild(incoming);
+    modeselect.appendChild(outgoing);
+    modeselect.selectedIndex=0;
+
+    var timeselect = document.createElement('select');
+    timeselect.innerHTML = "<option value='1'>Last Hour</option><option value='3'>Last 3 Hours</option><option value='6' selected>Last 6 Hours</option><option value='12'>Last 12 Hours</option><option value='24'>Last Day</option><option value='48'>Last 2 Days</option><option value='96'>Last 4 Days</option><option value='168'>Last Week</option>";
+    
+    modeselect.setAttribute('onchange',"PHEDEX.Node.TransfersNode('"+this.id+"',this.value);");
+    timeselect.setAttribute('onchange',"PHEDEX.Node.TransfersNode('"+this.id+"',this.value);");
+
+    div.appendChild(modeselect);
+    div.appendChild(timeselect);
+  }
+  that.changeTime=function(id,time) {
+    alert(time);
+    this.time = time;
+    this.update();
+  }
+  that.changeMode=function(id,mode) {
+    alert(mode);
+    this.mode = mode;
+    this.update();
+  }
+  that.update=function() {
+    this.data_arrived=0;
+    var args={};
+    args[this.mode]=this.site; //apparently {this.mode:this.site} is invalid
+    PHEDEX.Data.Call('TransferQueueStats',args,this.receiveMain,{call:'TransferQueueStats',obj:this});
+    PHEDEX.Data.Call('TransferHistory',args,this.receiveMain,{call:'TransferHistory',obj:this});
+  }
+  that.receiveMain=function(result) {
+    if (result.argument.call=='TransferQueueStats') {
+      result.argument.obj.data_queue = eval('('+result.responseText+')')['phedex']['link'];
+      result.argument.obj.data_arrived += 1;
+    }
+    if (result.argument.call=='TransferHistory') {
+      result.argument.obj.data_hist = eval('('+result.responseText+')')['phedex']['link'];
+      result.argument.obj.data_arrived += 1;
+    }
+    if (result.argument.obj.data_arrived==2) {
+      result.argument.obj.createHTML();    
+    }
+  }
+  that.buildChildren=function(div) {
+    this.clearChildren();
+    if (this.mode=='to') var antimode='from';
+    else var antimode='to';
+    for (var i in this.data_queue) {
+      var d = this.data_queue[i];
+      var node = d[antimode];
+      var childdiv = document.createElement('phedex_transfers_'+this.mode+'_'+node);
+      childdiv.id = this.id+'_'+this.mode+'_'+node;
+      div.appendChild(childdiv);
+      var childnode = new PHEDEX.Node.LinkNode(node,this.mode,this,childdiv);
+      this.children.push(childnode);
+      childnode.update();
+    }
+  }
+  return that;
 }
+
+PHEDEX.Node.LinkNode=function(site,mode,parent,div) {
+  var that = new PHEDEX.Node(div,parent,{});
+  that.site=site;
+  that.mode=mode;
+  if (that.mode=='to') that.antimode='from';
+  else that.antimode='to';
+  that.data_queue=[];
+  that.data_hist={};
+  that.sum_queue_files=function() {
+    var fsum=0;
+    for (var i in this.data_queue) {
+      fsum+= parseInt(this.data_queue[i]['files']);
+    }
+    return fsum;
+  }
+  that.sum_queue_bytes=function() {
+    var bsum=0;
+    for (var i in this.data_queue) {
+      bsum+=parseInt(this.data_queue[i]['bytes']);
+    }
+    return bsum;
+  } 
+  that.hist_speed=function() {
+    return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['timebin']);
+  }
+  that.header=function(span) {
+    span.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+  }
+  that.extra=function(div) {
+    div.innerHTML='Recent: '+this.data_hist['fail_files']+' failed / '+this.data_hist['expire_files']+' expired';
+  }
+  that.update=function() {
+    for (var i in this.parent.data_queue) {
+      var d = this.parent.data_queue[i];
+      if (d[this.antimode]==this.site) {
+        this.data_queue=d['transfer_queue'];
+	break;
+      }
+    }
+    for (var i in this.parent.data_hist) {
+      var d = this.parent.data_hist[i];
+      if (d[this.antimode]==this.site) {
+        this.data_hist=d;
+	break;
+      }
+    }
+    this.createHTML();
+  }
+  return that;
+}
+
+
 
 PHEDEX.Data = function() {}
 
@@ -318,6 +455,18 @@ PHEDEX.Data.Agents = function(site,callback,argument) {
 
 PHEDEX.Data.PendingTransfers = function(site,mode,callback,argument) {
   var c = YAHOO.util.Connect.asyncRequest('GET','/phedex/datasvc/json/prod/TransferQueueStats?'+mode+'='+site,{success:callback,argument:argument});
+}
+
+PHEDEX.Data.Call = function(query,args,callback,argument) {
+  var argstr = "";
+  if (args) {
+    argstr = "?";
+    for (a in args) {
+      argstr+=a+"="+args[a]+";";
+    }
+  }
+  var url = '/phedex/datasvc/json/prod/'+query+argstr;
+  var c = YAHOO.util.Connect.asyncRequest('GET',url,{success:callback,argument:argument});
 }
 
 //var site='T2_CH_CAF';
