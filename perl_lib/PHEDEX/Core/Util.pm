@@ -142,7 +142,7 @@ sub priority_num
     my $priority = $priority_nums{lc $priority_name};
     
     if (defined $local_remote) {
-	$priority = $priority + $local_remote;
+	$priority = $priority*2 + $local_remote;
     }
     
     return $priority;
