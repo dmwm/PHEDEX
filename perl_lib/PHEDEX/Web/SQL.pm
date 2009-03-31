@@ -683,10 +683,15 @@ sub getTransferHistory
     #     strattime, endtime, binwidth, from_node and to_node
 
     my ($core, %h) = @_;
+
+    # take care of FROM/FROM_NODE and TO/TO_NODE
+    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
+    $h{TO_NODE} = delete $h{TO} if $h{TO};
+
     my $sql = qq {
     select
-        n1.name as from_node,
-        n2.name as to_node,
+        n1.name as "from",
+        n2.name as "to",
         :BINWIDTH as binwidth,
         trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin,
         nvl(sum(done_files), 0) as done_files,
