@@ -1049,8 +1049,6 @@ sub getGroupUsage
              join t_adm_node n on n.id = s.node };
 
     my @r;
-    my $where_stmt = "";
-    my %param = ();
 
     # take care of 'group'
     if (exists $h{GROUP})
@@ -1108,59 +1106,141 @@ sub getGroupUsage
     return \@r;
 }
 
-sub getNodeUsage
+# get transfer queue block information
+sub getTransferQueueBlocks
 {
-    my ($self, %h) = @_;
-    my ($sql,$q,%p,@r);
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            from_node,
+            from_id,
+            to_node,
+            inblock,
+            block_name,
+            priority,
+            state,
+            count(fileid) files,
+            sum(filesize) bytes
+        from (
+            select
+                fn.name from_node,
+                fn.id from_id,
+                tn.name to_node,
+                tn.id to_id,
+                xt.priority,
+                case when xtd.task is not null then 'transferred'
+                     when xtx.task is not null then 'transferring'
+                     when xte.task is not null then 'exported'
+                     else 'assigned'
+                end state,
+                f.inblock,
+                f.id fileid,
+                f.filesize,
+                b.name block_name
+            from
+                t_xfer_task xt
+                left join t_xfer_task_export xte on xte.task = xt.id
+                left join t_xfer_task_inxfer xtx on xtx.task = xt.id
+                left join t_xfer_task_done   xtd on xtd.task = xt.id
+                join t_xfer_file f on f.id = xt.fileid
+                join t_adm_node fn on fn.id = xt.from_node
+                join t_adm_node tn on tn.id = xt.to_node
+                join t_dps_block b on b.id = f.inblock
+        ) };
 
-    # FIXME: This massive union subquery should be written to a
-    # t_status_ table by PerfMonitor this SQL is used at any
-    # reasonable frequency
-    $sql = qq{
-      select * from (
-        select 'SUBS_CUST' category,
-               n.name node,
-               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
-               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
-          from t_dps_block_replica br
-               join t_adm_node n on br.node = n.id
-         where br.dest_files != 0 and br.is_custodial = 'y'
-         group by n.name
-         union
-        select 'SUBS_NONCUST' category,
-               n.name node,
-               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
-               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
-               from t_dps_block_replica br
-          join t_adm_node n on br.node = n.id
-         where br.dest_files != 0 and br.is_custodial = 'n'
-         group by n.name
-         union
-        select 'NONSUBS_SRC' category,
-               n.name node,
-               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
-               0 dest_files, 0 dest_bytes
-          from t_dps_block_replica br
-          join t_adm_node n on br.node = n.id
-         where br.dest_files = 0 and br.src_files != 0
-         group by n.name
-         union
-        select 'NONSUBS_NONSRC' category, -- non-subscribed, non-origin data
-               n.name node,
-               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
-               0 dest_files, 0 dest_bytes
-          from t_dps_block_replica br
-          join t_adm_node n on br.node = n.id
-         where br.dest_files = 0 and br.src_files = 0
-         group by n.name
-        )};
-
+    my @r;
+    my %p;
     my $filters = '';
-    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'node');
-    $sql .= " where ($filters)" if $filters;
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM_NODE => 'from_node',
+        TO_NODE => 'to_node',
+        STATE => 'state',
+        PRIORITY => 'priority'));
 
-    $q = execute_sql( $self, $sql, %p );
-    return $q->fetchall_hashref([qw(NODE CATEGORY)]);
+    $sql .= " where ($filters) " if $filters;
+
+    $sql .= qq {
+            group by from_node, to_node, inblock, priority, state,
+                from_id, to_id, block_name };
+
+    my $q = execute_sql($core, $sql, %p);
+    my %link;
+
+    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+    while ($_ = $q->fetchrow_hashref())
+    {
+        # decode this priority
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 1);
+        my $key = $_->{'FROM_NODE'}."+".$_->{'TO_NODE'};
+        my $qkey = $_->{'STATE'}."+".$_->{'PRIORITY'};
+        if ($link{$key})
+        {
+            if ($link{$key}{tqueue}{$qkey})
+            {
+                push @{$link{$key}{tqueue}{$qkey}->{block}}, {
+                    name => $_->{'BLOCK_NAME'},
+                    id => $_->{'INBLOCK'},
+                    files => $_->{'FILES'},
+                    bytes => $_->{'BYTES'}
+                };
+            }
+            else
+            {
+                $link{$key}{tqueue}{$qkey} = {
+                    priority => $_->{'PRIORITY'},
+                    state => $_->{'STATE'},
+                    block => [{
+                        name => $_->{'BLOCK_NAME'},
+                        id => $_->{'INBLOCK'},
+                        files => $_->{'FILES'},
+                        bytes => $_->{'BYTES'}
+                    }]
+                };
+            }
+        }
+        else
+        {
+            $link{$key} = {
+                from_node => $_->{'FROM_NODE'},
+                from_id => $_->{'FROM_ID'},
+                to_node => $_->{'TO_NODE'},
+                to_id => $_->{'TO_ID'},
+                tqueue => {
+                    $qkey => {
+                        priority => $_->{'PRIORITY'},
+                        state => $_->{'STATE'},
+                        block => [{
+                            name => $_->{'BLOCK_NAME'},
+                            id => $_->{'INBLOCK'},
+                            files => $_->{'FILES'},
+                            bytes => $_->{'BYTES'}
+                        }]}
+                }
+            };
+        }
+    }
+
+    # now deal with the array of queue
+    my ($key, $value, $qkey, $qvalue);
+    while (($key, $value) = each (%link))
+    {
+        $link{$key}{transfer_queue} = [];
+        while (($qkey, $qvalue) = each (%{$link{$key}{tqueue}}))
+        {
+            push @{$link{$key}{transfer_queue}}, $qvalue;
+        }
+        delete $link{$key}{tqueue};
+    }
+
+    while (($key, $value) = each(%link))
+    {
+        push @r, $value;
+    }
+
+    return \@r;
 }
+
+;
+
 
 1;
