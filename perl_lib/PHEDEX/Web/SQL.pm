@@ -632,6 +632,51 @@ sub getTransferQueueStats
     return \@r;
 }
 
+sub getTransferQueueFiles
+{
+    my ($self, %h) = @_;
+    my ($sql, $q, %p);
+    $sql = qq {
+      select fn.name from_name, fn.id from_id, fn.se_name from_se, 
+             tn.name to_name, tn.id to_id, tn.se_name to_se,
+             b.name block_name, b.id block_id,
+             f.id fileid, f.filesize, f.checksum, f.logical_name,
+             xt.priority,
+        case when xtd.task is not null then 'transferred'
+             when xtx.task is not null then 'transferring'
+             when xte.task is not null then 'exported'
+             else 'assigned'
+         end state
+        from t_xfer_task xt
+             left join t_xfer_task_export xte on xte.task = xt.id
+             left join t_xfer_task_inxfer xtx on xtx.task = xt.id
+             left join t_xfer_task_done   xtd on xtd.task = xt.id
+             join t_xfer_file f on f.id = xt.fileid
+             join t_dps_block b on b.id = f.inblock
+             join t_adm_node fn on fn.id = xt.from_node
+             join t_adm_node tn on tn.id = xt.to_node
+       where 1=1
+   };
+
+    # from / to filters
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h,  from => 'fn.name');
+    build_multi_filters($self, \$filters, \%p, \%h,  to   => 'tn.name');
+
+    # priority filter
+    if (exists $h{priority}) {
+	my $priority = PHEDEX::Core::Util::priority_num($h{priority});
+	build_filters($self, \$filters, \%p, 
+		      { priority => [ $priority, $priority+1 ] },  # either local or remote
+		      priority => 'xt.priority');
+    }
+
+    $sql .= " and ($filters)" if $filters;
+
+    $q = PHEDEX::Core::SQL::execute_sql( $self, $sql);
+    return $q->fetchall_arrayref({});
+}
+
 sub getTransferHistory
 {
     # optional inputs are:
