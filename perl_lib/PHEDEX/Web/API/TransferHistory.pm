@@ -19,7 +19,7 @@ Return
 =head3 options
 
  required inputs: none (default to be the last hour)
- optional inputs: from_node, to_node, timebin, timewidth
+ optional inputs: from, to, timebin, timewidth
 
   from            name of the source node, could be multiple
   to              name of the destination node, could be multiple
