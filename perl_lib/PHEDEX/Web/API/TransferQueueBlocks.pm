@@ -10,50 +10,63 @@ PHEDEX::Web::API::TransQueueBlocks - return information regarding the Agents
 
 =head2 transferqueueblocks
 
-Return agent information in the following structure:
+Return transfer queue block information in the following structure:
 
-  <node>
-    <agent/>
-    ...
-  </node>
-  ...
+ <link>
+   <transfer_queue>
+     <block/>
+     ....
+   </transfer_queue>
+   ....
+ </link>
 
 =head3 options
 
  required inputs: none
- optional inputs: (as filters) node, se, agent
+ optional inputs: (as filters) from, to, state, priority
 
-  node             node name, could be multiple
-  se               storage element name, could be multiple
-  agent            agent name, could be multiple
+  from             from node name, could be multiple
+  to               to node name, could be multiple
+  priority         one of the following: (not working yet)
+                     high, normal, low
+  state            one of the following:
+                     transferred, transfering, exported
 
 =head3 output
 
-  <node>
-    <agent/>
-    ...
-  </node>
-  ...
+ <link>
+   <transfer_queue>
+     <block/>
+     ....
+   </transfer_queue>
+   ....
+ </link>
 
-=head3 <node> elements:
+=head3 options
 
-  name             agent name
-  node             node name
-  host             host name
-  agent            list of the agents on this node
+ required inputs: none
+ optional inputs: (as filters) from, to, state, priority
 
-=head3 <agent> elements:
+=head3 <link> elements:
+  from             name of the source node
+  from_id          id of the source node
+  to               name of the destination node
+  to_id            id of the to node
 
-  label            label
-  state_dir        directory path ot the states
-  version          cvs release
-  cvs_version      cvs revision
-  cvs_tag          cvs tag
-  pid              process id
-  time_update      time it was updated
+=head3 <transfer_queue> elements:
+
+  priority         priority of this queue
+  state            one of the following:
+                     transferred, transfering, exported
+
+=head3 <block> elements:
+
+  name             block name
+  id               block id
+  files            number of files in this block
+  bytes            number of bytes in this block
 
 =cut
-
 
 use PHEDEX::Web::SQL;
 
