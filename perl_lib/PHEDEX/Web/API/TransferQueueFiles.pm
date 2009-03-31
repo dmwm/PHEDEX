@@ -67,7 +67,7 @@ sub invoke {
     foreach my $row ( @$r ) {
 	# link
 	my $link_key = $row->{FROM_ID}.':'.$row->{TO_ID};
-	my $links->{$link_key} = 
+	$links->{$link_key} = 
          { FROM => $row->{FROM_NODE},
 	   FROM_ID => $row->{FROM_ID},
 	   FROM_SE => $row->{FROM_SE},
