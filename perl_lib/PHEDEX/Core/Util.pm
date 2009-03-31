@@ -135,4 +135,17 @@ sub priority
     return $priority_names{$priority};
 }
 
+sub priority_num
+{
+    my ($priority_name, $local_remote) = @_;
+    my %priority_nums = reverse %priority_names;
+    my $priority = $priority_nums{lc $priority_name};
+    
+    if (defined $local_remote) {
+	$priority = $priority + $local_remote;
+    }
+    
+    return $priority;
+}
+
 1;
