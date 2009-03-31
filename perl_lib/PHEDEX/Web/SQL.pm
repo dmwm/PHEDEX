@@ -1110,11 +1110,16 @@ sub getGroupUsage
 sub getTransferQueueBlocks
 {
     my ($core, %h) = @_;
+
+    # take care of FROM/FROM_NODE and TO/TO_NODE
+    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
+    $h{TO_NODE} = delete $h{TO} if $h{TO};
     my $sql = qq {
         select
             from_node,
             from_id,
             to_node,
+            to_id,
             inblock,
             block_name,
             priority,
@@ -1129,7 +1134,7 @@ sub getTransferQueueBlocks
                 tn.id to_id,
                 xt.priority,
                 case when xtd.task is not null then 'transferred'
-                     when xtx.task is not null then 'transferring'
+                     when xtx.task is not null then 'transfering'
                      when xte.task is not null then 'exported'
                      else 'assigned'
                 end state,
@@ -1201,9 +1206,9 @@ sub getTransferQueueBlocks
         else
         {
             $link{$key} = {
-                from_node => $_->{'FROM_NODE'},
+                from => $_->{'FROM_NODE'},
                 from_id => $_->{'FROM_ID'},
-                to_node => $_->{'TO_NODE'},
+                to => $_->{'TO_NODE'},
                 to_id => $_->{'TO_ID'},
                 tqueue => {
                     $qkey => {
