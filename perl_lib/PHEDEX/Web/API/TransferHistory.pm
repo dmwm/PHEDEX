@@ -21,8 +21,8 @@ Return
  required inputs: none (default to be the last hour)
  optional inputs: from_node, to_node, timebin, timewidth
 
-  from_node       name of the from node, could be multiple
-  to_node         name of the to_node, could be multiple
+  from            name of the source node, could be multiple
+  to              name of the destination node, could be multiple
   starttime       start time
   endtime         end time
   binwidth        width of each timebin in seconds
@@ -48,8 +48,8 @@ Return
 
 =head3 <link> elements:
 
-  from_node       name of the source node
-  to_node         name of the destination
+  from            name of the source node
+  to              name of the destinatio node
   timebin         the end point of each timebin, aligned with binwidth
   binwidth        width of each timebin (from the input)
   done_files      number of files in successful transfers
@@ -80,7 +80,7 @@ sub transferhistory
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from_node to_node starttime endtime binwidth / )
+    foreach ( qw / from to starttime endtime binwidth / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
