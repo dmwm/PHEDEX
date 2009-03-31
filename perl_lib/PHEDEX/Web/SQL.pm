@@ -1114,6 +1114,14 @@ sub getTransferQueueBlocks
     # take care of FROM/FROM_NODE and TO/TO_NODE
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
+
+    # take care of priority
+    if ($h{PRIORITY})
+    {
+        my $pri_num = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
+        $h{PRIORITY} = [$pri_num, $pri_num+1];
+    }
+
     my $sql = qq {
         select
             from_node,
