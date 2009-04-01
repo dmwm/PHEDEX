@@ -23,13 +23,12 @@
 </head>
 <body>
 <div><input id='node_select' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a>
-<div id='phedex_agents'></div>
-<div id='phedex_pending_to'></div>
-<div id='phedex_pending_from'></div>
+<div><input id='filter' type='text'><a href='#' onClick='return filter()'>Filter</a>
 <div id='phedex_transfers'></div>
+
 <script type='text/javascript'>
 
-var agent_node=null;
+xfer_node=null;
 
 agents=function() {
   var site = document.getElementById('node_select').value;
@@ -43,6 +42,15 @@ agents=function() {
   xfer_node.update();
 }
 
+filter=function() {
+  var filter = document.getElementById('filter').value;
+  if (filter=='') {
+    xfer_node.filterClear();
+  } else {
+    xfer_node.filterChildren(filter);
+  }
+}
+
 
 
 Node.TransfersNode=function(site) {
@@ -54,10 +62,7 @@ Node.TransfersNode=function(site) {
   that.data_arrived=0;
   that.mode='to';
   that.time='6';
-  
-  that.buildHeader=function(span) {
-    
-  }
+  that.buildHeader=function(span) {}
   that.fillHeader=function() {
     this.span_header.innerHTML=this.site;
   }
@@ -99,11 +104,12 @@ Node.TransfersNode=function(site) {
   that.update=function() {
     this.data_arrived=0;
     var args={};
-    args[this.mode]=this.site; //apparently {this.mode:this.site} is invalid
-    Data.Call('TransferQueueStats',args,this.receiveMain,{call:'TransferQueueStats',obj:this});
-    Data.Call('TransferHistory',args,this.receiveMain,{call:'TransferHistory',obj:this});
+    args[this.mode]=this.site;//apparently {this.mode:this.site} is invalid
+    args['binwidth']=parseInt(this.time)*3600;
+    Data.Call('TransferQueueStats',args,this.receive,{call:'TransferQueueStats',obj:this});
+    Data.Call('TransferHistory',args,this.receive,{call:'TransferHistory',obj:this});
   }
-  that.receiveMain=function(result) {
+  that.receive=function(result) {
     if (result.argument.call=='TransferQueueStats') {
       result.argument.obj.data_queue = eval('('+result.responseText+')')['phedex']['link'];
       result.argument.obj.data_arrived += 1;
@@ -117,11 +123,11 @@ Node.TransfersNode=function(site) {
     }
   }
   that.buildChildren=function(div) {
-    this.clearChildren();
+    this.children_info_div.innerHTML='';
+    this.markChildren();
     if (this.mode=='to') var antimode='from';
     else var antimode='to';
     for (var i in this.data_queue) {
-      
       var d = this.data_queue[i];
       var node = d[antimode];
       var h = {};
@@ -131,12 +137,25 @@ Node.TransfersNode=function(site) {
           break;
         }
       }
-      var childdiv = document.createElement('phedex_transfers_'+this.mode+'_'+node);
-      childdiv.id = this.id+'_'+this.mode+'_'+node;
-      div.appendChild(childdiv);
-      var childnode = new Node.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h);
-      this.children.push(childnode);
-      childnode.update();
+      var id = this.id+'_'+this.mode+'_'+node;
+      var child = this.getChild(id);
+      if (child) {
+        child.data_queue=d['transfer_queue'];
+        child.data_hist=h;
+        child.marked=false;
+        child.update();
+      } else {
+        var childdiv = document.createElement('div');
+        childdiv.id = id;
+        div.appendChild(childdiv);
+        var childnode = new Node.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h);
+        this.children.push(childnode);
+        childnode.update();
+      }
+    }
+    this.removeMarkedChildren();
+    if (this.children.length==0) {
+      this.children_info_div.innerHTML='No children returned';
     }
   }
   that.build();
@@ -176,6 +195,14 @@ Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
   that.buildExtra=function(div) {}
   that.fillExtra=function() {
     this.extra_div.innerHTML='Recent: '+this.data_hist['fail_files']+' failed / '+this.data_hist['expire_files']+' expired';
+  }
+  that.filter=function(filter_str) {
+    if (filter_str.indexOf('link: ')>=0) {
+      if (filter_str.indexOf(this.site)>=0) {
+        return false;
+      }
+    }
+    return true;
   }
   that.update=function() {
     this.populate();

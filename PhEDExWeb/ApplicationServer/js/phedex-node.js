@@ -25,6 +25,7 @@ Node=function(divid,parent,opts) {
   this.children_fetched = false;
   this.filtered_children = 0;
   this.to_update = [];
+  this.marked=false;
   this.clear=function() {
     while (this.div.hasChildNodes())
       this.div.removeChild(this.div.firstChild);
@@ -134,6 +135,16 @@ Node=function(divid,parent,opts) {
     }
   }
   this.buildChildren=function(div) {}
+  this.filterClear=function() {
+    this.filtered_children=0;
+    for (var i in this.children) {
+      this.children[i].filterClear();
+      this.children[i].div.style.display='block';
+    }
+    if (this.children.length>=0) {
+      this.children_info_div.innerHTML='';
+    }
+  }
   this.filterChildren=function(filter_str) {
     this.filtered_children=0;
     for (var i in this.children) {
@@ -144,6 +155,9 @@ Node=function(divid,parent,opts) {
         this.children[i].div.style.display='none';
         this.filtered_children+=1;
       }
+    }
+    if (this.filtered_children) {
+      this.children_info_div.innerHTML='Filtered children: '+this.filtered_children+' of '+this.children.length;
     } 
   }
   this.setDataExpiry=function(ms) {
@@ -156,6 +170,36 @@ Node=function(divid,parent,opts) {
       this.children[i].filterClear();
       this.children[i].div.style.display='block';
     }
+  }
+  this.uid = function() {return this.id;}
+  this.getChild = function(uid) {
+    for (var i in this.children) {
+      if (this.children[i].uid()==uid) {
+        return this.children[i];
+      }
+    }
+    return false;
+  }
+  this.markChildren = function() {
+    for (var i in this.children) {
+      this.children[i].marked=true;
+    }
+  }
+  this.unmarkChildren = function() {
+    for (var i in this.children) {
+      this.children[i].marked=false;
+    }
+  }
+  this.removeMarkedChildren = function() {
+    var newchildren=[];
+    for (var i in this.children) {
+      if (this.children[i].marked) {
+        this.children_div.removeChild(this.children[i].div);
+      } else {
+        newchildren.push(this.children[i]);
+      }
+    }
+    this.children=newchildren;
   }
   this.sortChildren=function() {}
   this.filter=function(filter_str) {return true;}
