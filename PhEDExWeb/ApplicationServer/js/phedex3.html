@@ -3,6 +3,8 @@
 <!-- Combo-handled YUI JS files: --> 
 <script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
 
+<script type="text/javascript" src="/readfile/phedex-node.js"></script>
+
 <style type="text/css">
 .node{}
 .node-main{border:1px solid black;padding:2px 2px 2px 2px;background:#eee}
@@ -12,42 +14,12 @@
 .node-extra-link{align:center;font-size:80%;font-family:courier;width:100%}
 .node-extra-link:hover{background:#ccc}
 .node-children-link{font-family:courier;font-weight:bold;border:1px solid black;background:grey;padding-left:2px;padding-right:2px;text-decoration:none;color:white}
+.node-children-info{background:red}
 .indent{padding-left:20px;display:none}
 </style>
 
 <html><head><title>Agents</title>
 
-<script type="text/javascript">
-function toggleChildren(id) {
-    //we also need to fetch children here, if they haven't been
-    //which means we need to bind the appropriate object somehow
-    var obj = document.getElementById(id).objLink;
-    var children = document.getElementById(id+'_children');
-    var link = document.getElementById(id+'_children_link');
-    if (children.style.display=='block') {
-      children.style.display='none';
-      link.innerHTML='+';
-    } else {
-      obj.expandChildren();
-      children.style.display='block';
-      link.innerHTML='-';
-    }
-    return -1;
-}
-
-function toggleExtra(id) {
-    var extra = document.getElementById(id+'_extra');
-    var link = document.getElementById(id+'_extra_link');
-    if (extra.style.display=='block') {
-      extra.style.display='none';
-      link.innerHTML='expand';
-    } else {
-      extra.style.display='block';
-      link.innerHTML='collapse';
-    }
-    return -1;
-}
-</script>
 </head>
 <body>
 <div><input id='node_select' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a>
@@ -67,252 +39,14 @@ agents=function() {
 //  from_node = new PHEDEX.Node.PendingTransfers(site,'from');
 //  to_node.update();
 //  from_node.update();
-  xfer_node = new PHEDEX.Node.TransfersNode(site);
+  xfer_node = new Node.TransfersNode(site);
   xfer_node.update();
 }
 
 
-//This 'class' represents the basic header,extra,children node for a dynamic PhEDEx page.
-//Required arguments either a div object or a id name for a div for the item to be built in (divid), a parent node (if one exists).
-//The optional opts dictionary can be used to enable/disable the extra area and children, and set the initial expansion states.
-//Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
-//implement their own methods to generate the header, extra and children content, and handle updates.
-PHEDEX=function() {}
-PHEDEX.Node=function(divid,parent,opts) {
-        this.options = {expand_extra:false,expand_children:false,extra:true,children:true,fixed_extra:false};
-	if (opts) {
-	  for (o in opts) {
-	    this.options[o]=opts[o];
-	  }
-	}
-	if (typeof(divid)=='object') {
-	  this.id = divid.id;
-	  this.div = divid;
-	} else {
-	  this.id = divid;
-	  this.div = document.getElementById(this.id);
-	}
-	this.div.objLink = this;
-	this.children = [];
-	this.parent = parent;
-	this.updated = false;
-	this.children_updated = false;
-	this.createHTML=function() {
-		while (this.div.hasChildNodes())
-		  this.div.removeChild(this.div.firstChild);
-		
-		if (this.options['children']) {
-		  this.child_link = document.createElement('a');
-		  this.child_link.href='#';
-		  this.child_link.setAttribute('onclick',"toggleChildren('"+this.id+"');"); //this is an ugly hack to get around execution context - this.id is evaluated now in this context to make a string, instead of later if we set onclick to an actual function.
-		  this.child_link.innerHTML='+';
-		  this.child_link.id=this.id+'_children_link';
-		  this.child_link.className='node-children-link';
-		  this.children_div=document.createElement('div');
-		  this.children_div.id = this.id+'_children';
-		  this.children_div.className = 'node-children';
-		}
-		
-		this.main_div=document.createElement('div');
-		this.header_div=document.createElement('div');
-		if (this.options['extra']) {
-		  this.extra_div=document.createElement('div');
-		  this.extra_div.id = this.id+'_extra';
-		  this.extra_div.className = 'node-extra';
-		  if (this.options['fixed_extra']) {
-		    this.extra_div.style.display='block';
-		  } else {
-                    this.extra_expand_div=document.createElement('div');
-		    this.extra_expand_div.id = this.id+'_extra_link';
-		    this.extra_expand_div.className = 'node-extra-link';
-		    this.extra_expand_div.setAttribute('onclick',"toggleExtra('"+this.id+"');");
-		    this.extra_expand_div.innerHTML='expand';
-		  }
-		}
-				
-		this.main_div.id = this.id+'_main';
-		this.header_div.id = this.id+'_header';
 
-		this.main_div.className = 'node-main';
-		this.header_div.className = 'node-header';
-		
-		
-		if (this.options['children']) {
-		  this.header_div.appendChild(this.child_link);
-		}
-		this.span_header = document.createElement('span');
-		this.header_div.appendChild(this.span_header);
-		
-		
-
-		this.main_div.appendChild(this.header_div);
-		if (this.options['extra']) {
-		  if (! this.options['fixed_extra']) {
-		    this.main_div.appendChild(this.extra_expand_div);
-		  }
-		  this.main_div.appendChild(this.extra_div);
-		}
-		
-		this.div.appendChild(this.main_div);
-		if (this.options['children']) {
-		  this.div.appendChild(this.children_div);
-		}
-
-		this.header(this.span_header);
-		if (this.options['extra']) {
-		  this.extra(this.extra_div);
-		}
-		
-		if (this.options['expand_extra'] && !this.options['fixed_extra']) {
-		  toggleExtra(this.id);
-		}
-		if (this.options['expand_children']) {
-		  toggleChildren(this.id);
-		}
-		
-	}
-	this.header=function(span) {}
-	this.extra=function(div) {}
-	this.update=function() {}
-	this.updateChildren=function() {
-	  this.update();
-	  for (var i in this.children) {
-	    this.children[i].updateChildren();
-	  }
-	}
-	this.expandChildren=function() {
-	  //this should allow for a timeout (after which children will be re-acquired)
-	  //timeout should be custom depending on data
-	  if (! this.children_updated) {
-	    this.buildChildren(this.children_div);
-	  }
-	}
-	this.buildChildren=function(div) {}
-	this.filterChildren=function() {}
-	this.sortChildren=function() {}
-	this.receive=function(data) {}
-	this.clearChildren=function() {
-	  this.children=[];
-	  while(this.children_div.hasChildNodes()) 
-	    this.children_div.removeChild(this.children_div.firstChild);
-	}
-
-}
-PHEDEX.Node.Agents=function(site) {
-	var that=new PHEDEX.Node('phedex_agents',null,{children:false,expand_extra:true});
-	that.site=site;
-	that.data = null;
-	that.header=function(span) {
-	  span.innerHTML="Site: "+this.data['node']+", agents: "+this.data['agent'].length;
-	}
-	that.extra=function(div) {
-	  var cols = {name:'Agent',version:'Version',pid:'PID',time_update:'Updated'};
-	  var table = document.createElement('table');
-	  var row = table.createTHead().insertRow(-1);
-	  for (var i in cols) {
-	    var cell = row.insertCell(-1);
-	    cell.innerHTML=cols[i];
-	  }
-	  for (var i in this.data['agent']) {
-	    var a = this.data['agent'][i];
-	    var row = table.insertRow(-1);
-	    for (var c in cols) {
-	      var cell = row.insertCell(-1);
-	      cell.innerHTML=a[c];
-	    }
-	  }
-	  div.appendChild(table);
-	}
-	that.update=function() {
-	  PHEDEX.Data.Agents(site,this.receive,this);
-	}
-	that.receive=function(result) {
-	  var data = result.responseText;
-	  data = eval('('+data+')'); 
-	  data = data['phedex']['node'];
-	  if (data.length) {
-	    result.argument.data = data[0];
-	    result.argument.createHTML();
-	    }	    
-	}
-	that.buildChildren=function(div) {
-	  div.innerHTML='fake child';
-	}
-	return that;
-}
-
-PHEDEX.Node.PendingTransfers=function(site,mode) {
-  var that=new PHEDEX.Node('phedex_pending_'+mode,null,{extra:false});
-  that.site=site;
-  that.mode=mode;
-  if (that.mode=='to') that.antimode='from';
-  else that.antimode='to';
-  that.data=[];
-  that.header=function(span) {
-    span.innerHTML=this.mode+' '+this.site;
-  }
-  that.extra=function(div) {
-    div.innerHTML='no extra';
-  }
-  that.update=function() {
-    PHEDEX.Data.PendingTransfers(this.site,this.mode,this.receive,this);
-  }
-  that.buildChildren=function(div) {
-    for (var i in this.data) {
-      var childdiv = document.createElement('div');
-      childdiv.id = 'phedex_pending_'+this.antimode+'_'+this.data[i][this.antimode];
-      div.appendChild(childdiv);
-      var node = new PHEDEX.Node.PendingTransferSingle(this.data[i][this.antimode],this.antimode,this);
-      this.children.push(node);
-      node.update();
-    }
-  }
-  that.receive=function(result) {
-    this.data=[];
-    this.children=[];
-    var data = result.responseText;
-    data = eval('('+data+')');
-    data = data['phedex']['link'];
-    if (data.length) {
-      result.argument.data=data;
-      result.argument.createHTML();
-    }
-  } 
-  return that;
-}
-
-PHEDEX.Node.PendingTransferSingle=function(site,mode,parent) {
-  var that=new PHEDEX.Node('phedex_pending_'+mode+'_'+site,parent,{children:false,expand_extra:true});
-  that.site=site;
-  that.mode=mode;
-  that.data=[];
-  that.header=function(span) {
-    span.innerHTML=site;
-  }
-  that.extra=function(div) {
-    var result="<table><tr><td>Files</td><td>Priority</td><td>Update</td><td>State</td><td>Size</td><td>Local</td></tr>";
-    for (var i in this.data) {
-      var d = this.data[i];
-      result += "<tr><td>"+d['files']+"</td><td>"+d['priority']+"</td><td>"+d['time_update']+"</td><td>"+d['state']+"</td><td>"+d['bytes']+"</td><td>"+d['is_local']+"</td></tr>";
-    }
-    result += "</table>";
-    div.innerHTML=result;
-  }
-  that.update=function() {
-    for (var i in this.parent.data) {
-      if (this.parent.data[i][mode]==this.site) {
-        this.data=this.parent.data[i]['transfer_queue'];
-	break;
-      }
-    }
-    this.createHTML();
-  }
-  return that;
-}
-
-
-PHEDEX.Node.TransfersNode=function(site) {
-  var that = new PHEDEX.Node('phedex_transfers',null,{fixed_extra:true,expand_children:true});
+Node.TransfersNode=function(site) {
+  var that = new Node('phedex_transfers',null,{fixed_extra:true,expand_children:true});
   that.site = site;
   that.data_queue = [];
   that.data_hist = [];
@@ -321,11 +55,14 @@ PHEDEX.Node.TransfersNode=function(site) {
   that.mode='to';
   that.time='6';
   
-  that.header=function(span) {
-    span.innerHTML=this.site;
-  }
-  that.extra=function(div) {
+  that.buildHeader=function(span) {
     
+  }
+  that.fillHeader=function() {
+    this.span_header.innerHTML=this.site;
+  }
+  that.buildExtra=function(div) {
+    div.innerHTML='';
     var modeselect = document.createElement('select');
     var incoming = document.createElement('option');
     var outgoing = document.createElement('option');
@@ -340,28 +77,31 @@ PHEDEX.Node.TransfersNode=function(site) {
     var timeselect = document.createElement('select');
     timeselect.innerHTML = "<option value='1'>Last Hour</option><option value='3'>Last 3 Hours</option><option value='6' selected>Last 6 Hours</option><option value='12'>Last 12 Hours</option><option value='24'>Last Day</option><option value='48'>Last 2 Days</option><option value='96'>Last 4 Days</option><option value='168'>Last Week</option>";
     
-    modeselect.setAttribute('onchange',"PHEDEX.Node.TransfersNode('"+this.id+"',this.value);");
-    timeselect.setAttribute('onchange',"PHEDEX.Node.TransfersNode('"+this.id+"',this.value);");
+    modeselect.setAttribute('onchange',"eventProxy('"+this.id+"','mode',this.value);");
+    timeselect.setAttribute('onchange',"eventProxy('"+this.id+"','time',this.value);");
 
     div.appendChild(modeselect);
     div.appendChild(timeselect);
   }
-  that.changeTime=function(id,time) {
-    alert(time);
-    this.time = time;
-    this.update();
+  that.fillExtra=function() {
+  
   }
-  that.changeMode=function(id,mode) {
-    alert(mode);
-    this.mode = mode;
-    this.update();
+  that.event=function(what,val,arg2,arg3) {
+    if (what=='time') {
+      this.time=val;
+      this.update();
+    }
+    if (what=='mode') {
+      this.mode=val;
+      this.update();
+    }
   }
   that.update=function() {
     this.data_arrived=0;
     var args={};
     args[this.mode]=this.site; //apparently {this.mode:this.site} is invalid
-    PHEDEX.Data.Call('TransferQueueStats',args,this.receiveMain,{call:'TransferQueueStats',obj:this});
-    PHEDEX.Data.Call('TransferHistory',args,this.receiveMain,{call:'TransferHistory',obj:this});
+    Data.Call('TransferQueueStats',args,this.receiveMain,{call:'TransferQueueStats',obj:this});
+    Data.Call('TransferHistory',args,this.receiveMain,{call:'TransferHistory',obj:this});
   }
   that.receiveMain=function(result) {
     if (result.argument.call=='TransferQueueStats') {
@@ -373,7 +113,7 @@ PHEDEX.Node.TransfersNode=function(site) {
       result.argument.obj.data_arrived += 1;
     }
     if (result.argument.obj.data_arrived==2) {
-      result.argument.obj.createHTML();    
+      result.argument.obj.populate();    
     }
   }
   that.buildChildren=function(div) {
@@ -381,27 +121,37 @@ PHEDEX.Node.TransfersNode=function(site) {
     if (this.mode=='to') var antimode='from';
     else var antimode='to';
     for (var i in this.data_queue) {
+      
       var d = this.data_queue[i];
       var node = d[antimode];
+      var h = {};
+      for (var j in this.data_hist) {
+        if (this.data_hist[j][antimode]==node) {
+          h = this.data_hist[j];
+          break;
+        }
+      }
       var childdiv = document.createElement('phedex_transfers_'+this.mode+'_'+node);
       childdiv.id = this.id+'_'+this.mode+'_'+node;
       div.appendChild(childdiv);
-      var childnode = new PHEDEX.Node.LinkNode(node,this.mode,this,childdiv);
+      var childnode = new Node.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h);
       this.children.push(childnode);
       childnode.update();
     }
   }
+  that.build();
   return that;
 }
 
-PHEDEX.Node.LinkNode=function(site,mode,parent,div) {
-  var that = new PHEDEX.Node(div,parent,{});
+Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
+  var that = new Node(div,parent);
   that.site=site;
   that.mode=mode;
   if (that.mode=='to') that.antimode='from';
   else that.antimode='to';
-  that.data_queue=[];
-  that.data_hist={};
+  that.data_queue=data_queue;
+  that.data_hist=data_hist;
+  that.queues=[];
   that.sum_queue_files=function() {
     var fsum=0;
     for (var i in this.data_queue) {
@@ -419,45 +169,129 @@ PHEDEX.Node.LinkNode=function(site,mode,parent,div) {
   that.hist_speed=function() {
     return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['timebin']);
   }
-  that.header=function(span) {
-    span.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+  that.buildHeader=function(span) {}
+  that.fillHeader=function() {
+    this.span_header.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
   }
-  that.extra=function(div) {
-    div.innerHTML='Recent: '+this.data_hist['fail_files']+' failed / '+this.data_hist['expire_files']+' expired';
+  that.buildExtra=function(div) {}
+  that.fillExtra=function() {
+    this.extra_div.innerHTML='Recent: '+this.data_hist['fail_files']+' failed / '+this.data_hist['expire_files']+' expired';
   }
   that.update=function() {
-    for (var i in this.parent.data_queue) {
-      var d = this.parent.data_queue[i];
-      if (d[this.antimode]==this.site) {
-        this.data_queue=d['transfer_queue'];
-	break;
-      }
-    }
-    for (var i in this.parent.data_hist) {
-      var d = this.parent.data_hist[i];
-      if (d[this.antimode]==this.site) {
-        this.data_hist=d;
-	break;
-      }
-    }
-    this.createHTML();
+    this.populate();
   }
+  that.buildChildren=function(div) {
+    if (this.mode=='to') {
+      var to = this.parent.site;
+      var from = this.site;
+    } else {
+      var to = this.site;
+      var from = this.parent.site;
+    }
+    Data.Call('TransferQueueBlocks',{from:from,to:to},this.receive,{obj:this,from:from,to:to});
+  }
+  that.receive = function(result) {
+    
+    this.queues = eval('('+result.responseText+')')['phedex']['link'];
+    for (var i in this.queues) {
+      for (var j in this.queues[i]['transfer_queue']) {
+        var q_prio = this.queues[i]['transfer_queue'][j]['priority'];
+        var q_stat = this.queues[i]['transfer_queue'][j]['state'];
+        for (var k in this.queues[i]['transfer_queue'][j]['block']) {
+          var block = this.queues[i]['transfer_queue'][j]['block'][k];
+          var bdiv = document.createElement('div');
+          result.argument.obj.children_div.appendChild(bdiv);
+          bdiv.id = this.id+'_q'+j+'_b'+k;
+          var node = new Node.BlockNode(result.argument.from,result.argument.to,this,bdiv,block,q_prio,q_stat);
+          result.argument.obj.children.push(node);
+          node.update();
+        }
+      }
+    }
+  }
+  that.build();
+  return that;
+}
+
+Node.BlockNode = function(from,to,parent,div,data,queue_priority,queue_status) {
+  var that = new Node(div,parent);
+  that.from=from;
+  that.to=to;
+  that.data=data;
+  that.q_p = queue_priority;
+  that.q_s = queue_status;
+  that.files=[];
+  that.buildHeader=function(span) {}
+  that.fillHeader=function() {
+    this.span_header.innerHTML='block: '+this.data['name']+' queue: '+this.q_p+' '+this.q_s;
+  }
+  that.buildExtra=function(div) {}
+  that.fillExtra=function() {
+    this.extra_div.innerHTML='id: '+this.data['id']+' files: '+this.data['files']+' bytes: '+this.data['bytes'];
+  }
+  that.update=function() {
+    this.populate();
+  }
+  that.buildChildren=function(div) {
+    var block = this.data['name'].replace(/#/,'%23');
+    Data.Call('TransferQueueFiles',{from:this.from,to:this.to,block:block},this.receive,{obj:this,from:this.from,to:this.to,block:block});
+  }
+  that.receive=function(result) {
+    this.files=eval('('+result.responseText+')')['phedex']['link'];
+    for (var i in this.files) {
+      for (var j in this.files[i]['transfer_queue']) {
+        for (var k in this.files[i]['transfer_queue'][j]['block']) {
+          for (var l in this.files[i]['transfer_queue'][j]['block'][k]['file']) {
+            var f = this.files[i]['transfer_queue'][j]['block'][k]['file'][l];
+            var fdiv = document.createElement('div');
+            result.argument.obj.children_div.appendChild(fdiv);
+            fdiv.id = this.id+'_f'+l;
+            var node = new Node.FileNode(result.argument.from,result.argument.to,result.argument.block,this,fdiv,f);
+            result.argument.obj.children.push(node);
+            node.update();
+          }
+        }
+      }
+    }
+  }
+  that.build();
+  return that;
+}
+
+Node.FileNode = function(from,to,block,parent,div,data) {
+  var that = new Node(div,parent,{children:false});
+  that.from=from;
+  that.to=to;
+  that.block=block;
+  that.data=data;
+  that.buildHeader=function(span) {}
+  that.fillHeader=function() {
+    this.span_header.innerHTML='name: '+this.data['name'];
+  }
+  that.buildExtra=function(div) {}
+  that.fillExtra=function() {
+    this.extra_div.innerHTML='id: '+this.data['id']+' checksum: '+this.data['checksum']+' bytes: '+this.data['bytes'];
+  }
+  that.update=function() {
+    this.populate();
+  }
+  that.build();
   return that;
 }
 
 
 
-PHEDEX.Data = function() {}
+Data = function() {}
 
-PHEDEX.Data.Agents = function(site,callback,argument) {
+Data.Agents = function(site,callback,argument) {
   var c = YAHOO.util.Connect.asyncRequest('GET','/phedex/datasvc/json/prod/agents?node='+site,{success:callback,argument:argument});
 }
 
-PHEDEX.Data.PendingTransfers = function(site,mode,callback,argument) {
+Data.PendingTransfers = function(site,mode,callback,argument) {
   var c = YAHOO.util.Connect.asyncRequest('GET','/phedex/datasvc/json/prod/TransferQueueStats?'+mode+'='+site,{success:callback,argument:argument});
 }
 
-PHEDEX.Data.Call = function(query,args,callback,argument) {
+Data.Call = function(query,args,callback,argument) {
   var argstr = "";
   if (args) {
     argstr = "?";
