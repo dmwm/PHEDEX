@@ -82,7 +82,7 @@ sub transferstats
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth / )
+    foreach ( qw / from to starttime endtime binwidth ctime / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
