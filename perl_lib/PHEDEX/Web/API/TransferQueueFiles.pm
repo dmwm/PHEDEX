@@ -1,4 +1,5 @@
 package PHEDEX::Web::API::TransferQueueFiles;
+
 use warnings;
 use strict;
 
@@ -48,6 +49,7 @@ PHEDEX::Web::API::TransferQueueFiles - show files in the transfer queue
 =cut
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
 use Data::Dumper;
 
 sub duration { return 60 * 60; }
@@ -84,7 +86,7 @@ sub invoke {
 	my $queue = $link->{Q_HASH}->{$queue_key};
 	if (! $queue ) {
 	    $queue = { STATE => $row->{STATE}, 
-		       PRIORITY => $row->{PRIORITY},
+		       PRIORITY => &PHEDEX::Core::Util::priority($row->{PRIORITY}, 1),
 		       B_HASH => {} };
 	    $link->{Q_HASH}->{$queue_key} = $queue;
 	}
@@ -96,13 +98,13 @@ sub invoke {
 	    $block =
 	    { NAME => $row->{BLOCK_NAME},
 	      ID => $row->{BLOCK_ID},
-	      FILE => [] } unless %$block;
+	      FILE => [] };
 	    $queue->{B_HASH}->{$block_key} = $block;
 	}
 
 	# file
 	push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
-				  ID => $row->{FILE_ID},
+				  ID => $row->{FILEID},
 				  BYTES => $row->{FILESIZE},
 				  CHECKSUM => $row->{CHECKSUM} };
     }
@@ -115,8 +117,8 @@ sub invoke {
 		push @{$queue->{BLOCK}}, $block;
 	    }
 	    delete $queue->{B_HASH};
-	    $r->{TRANSFER_QUEUE} ||= [];
-	    push @{$r->{TRANSFER_QUEUE}}, $queue;
+	    $link->{TRANSFER_QUEUE} ||= [];
+	    push @{$link->{TRANSFER_QUEUE}}, $queue;
 	}
 	delete $link->{Q_HASH};
     }
