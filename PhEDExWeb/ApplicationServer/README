@@ -1,0 +1,14 @@
+Development notes:
+==================
+
+Proxy server:
+
+phedex_proxy.py is a workaround for the single-source restriction in 
+javascript. Edit it to point to the dataservice you wish to use, then you 
+can browse to the host:port that it is running on and access the service. 
+
+Files accessed as host:port/readfile/<path> via the proxy will be served 
+directly, e.g. http://localhost:30001/readfile/phedex3.html, whereas 
+dataservice calls (host:port/phedex/<path>) will be passed through to the 
+dataservice.
+
