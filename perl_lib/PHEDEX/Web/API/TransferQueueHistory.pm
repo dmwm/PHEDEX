@@ -1,22 +1,18 @@
 package PHEDEX::Web::API::TransferQueueHistory;
-# use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferQueueHistory - show stats history from the transfers
+PHEDEX::Web::API::TransferQueueHistory
 
-=head2 transferqueuehistory
+=head1 DESCRIPTION
 
-Return
+Serves historical information about transfer queues.
 
- <link/>
- <link/>
- ...
-
-=head3 options
+=head2 Options
 
  required inputs: none (default to be the last hour)
  optional inputs: from, to, timebin, timewidth
@@ -34,19 +30,19 @@ Return
   binwidth = 3600
   starttime = endtime - binwidth
 
-=head4 format of time
+=head3 format of time
 
   starttime and endtime could in one of the following format
   [1] <UNIX time>            (integer)
   [2] "YYYY-MM-DD"           (assuming 00:00:00)
   [3] "YYYY-MM-DD hh:mm:ss"
 
-=head3 output
+=head2 Output
 
   <link/>
-  ......
+  ...
 
-=head3 <link> elements:
+=head3 <link> elements
 
   from            name of the source node
   to              name of the destinatio node
@@ -63,7 +59,7 @@ Return
   confirm_files   number of files which have valid route over this link
   confirm_bytes   number of bytes which have valid route over this link
 
-=head3 relation with time
+=head2 Relation with time
 
   starttime <= timebin < endtime
   number of bins = (endtime - starttime)/binwidth

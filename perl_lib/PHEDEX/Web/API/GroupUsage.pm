@@ -1,24 +1,18 @@
 package PHEDEX::Web::API::GroupUsage;
-#use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::GroupUsage - return information regarding Group usage
+PHEDEX::Web::API::GroupUsage
 
-=head2 groupusage
+=head1 DESCRIPTION
 
-Return group usage information in the following structure:
+Serves storage statistics node per group.
 
-  <node>
-    <group/>
-    ...
-  </node>
-  ...
-
-=head3 options
+=head2 Options
 
  required inputs: none
  optional inputs: (as filters) node, se, group
@@ -27,7 +21,7 @@ Return group usage information in the following structure:
   se               storage element name, could be multiple
   group            group name, could be multiple
 
-=head3 output
+=head2 Output
 
   <node>
     <group/>
@@ -35,13 +29,13 @@ Return group usage information in the following structure:
   </node>
   ...
 
-=head3 <node> elements:
+=head3 <node> elements
 
   name             node name
   id               node id
   se               storage element
 
-=head3 <group> elements:
+=head3 <group> elements
 
   name             group name
   id               group id

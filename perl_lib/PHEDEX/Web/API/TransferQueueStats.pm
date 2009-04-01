@@ -1,24 +1,18 @@
 package PHEDEX::Web::API::TransferQueueStats;
-# use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferQueueStats - show transfer state details
+PHEDEX::Web::API::TransferQueueStats
 
-=head2 queueStats
+=head1 DESCRIPTION
 
-return transfer state details in the following structure
+Serves transfer current state details for links currently in use.
 
-  <link>
-     <transfer_queue/>
-     ...
-  </link>
-  ...
-
-=head3 options
+=head2 Options
 
  required inputs:   none
  optional inputs:   from, to
@@ -26,7 +20,7 @@ return transfer state details in the following structure
  from               name of the from (source) node, could be multiple
  to                 name of the to (destination) node, could be multiple
 
-=head3 output:
+=head2 Output
 
   <link>
     <transfer_queue/>
@@ -34,14 +28,14 @@ return transfer state details in the following structure
   </link>
   ...
 
-=head3 <link> elements:
+=head3 <link> elements
 
  from               name of the from (source) node
  to                 name of the to (destination) node
  from_id            id of the from node
  to_id              id of the to node
 
-=head3 <transfer_queue> elements:
+=head3 <transfer_queue> elements
 
  priority           transfer priority
  files              number of files in transfer

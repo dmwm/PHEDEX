@@ -8,31 +8,13 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::FileReplicas - return file-replicas known to PhEDEx
+PHEDEX::Web::API::FileReplicas
 
-=head2 fileReplicas
+=head2 DESCRIPTION
 
-Return file replicas with the following structure:
+Serves the file replicas known to PhEDEx.
 
-  <block>
-     <file>
-       <replica/>
-       <replica/>
-       ...
-     </file>
-     ...
-  </block>
-   ...
-
-where <block> represents a block of files, <file> represents a file
-and <replica> represents a copy of that file at some node.  <block>
-and <file> will always be present if any file replicas match the given
-options.  <file> elements with no <replica> children represent files
-which are part of the block, but no file replicas match
-the given options.  An empty response means no file replicas matched
-the given options.
-
-=head3 options
+=head2 Options
 
  block          block name, with '*' wildcards, can be multiple (*).  required when no lfn is specified.
  node           node name, can be multiple (*)
@@ -55,6 +37,26 @@ the given options.
  lfn            logical file name
 
  (*) See the rules of multi-value filters in the Core module
+
+=head2 Output
+
+  <block>
+     <file>
+       <replica/>
+       <replica/>
+       ...
+     </file>
+     ...
+  </block>
+   ...
+
+Where <block> represents a block of files, <file> represents a file
+and <replica> represents a copy of that file at some node.  <block>
+and <file> will always be present if any file replicas match the given
+options.  <file> elements with no <replica> children represent files
+which are part of the block, but no file replicas match
+the given options.  An empty response means no file replicas matched
+the given options.
 
 =head3 <block> attributes
 

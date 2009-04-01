@@ -9,11 +9,11 @@ use strict;
 
 PHEDEX::Web::API::TransQueueFiles
 
-=head2 DESCRIPTION
+=head1 DESCRIPTION
 
-Return files in the transfer queue, along with their state.
+Serves files in the transfer queue, along with their state.
 
-=head3 options
+=head2 Options
 
  required inputs: none
  optional inputs: (as filters) from, to, state, priority, block
@@ -26,7 +26,7 @@ Return files in the transfer queue, along with their state.
   state            one of the following:
                      transferred, transfering, exported
 
-=head3 output
+=head2 Output
 
  <link>
    <transfer_queue>
@@ -39,7 +39,7 @@ Return files in the transfer queue, along with their state.
    ....
  </link>
 
-=head3 <link> elements:
+=head3 <link> elements
   from             name of the source node
   from_id          id of the source node
   from_se          se of the source node
@@ -47,18 +47,18 @@ Return files in the transfer queue, along with their state.
   to_id            id of the to node
   to_se            se of the to node
 
-=head3 <transfer_queue> elements:
+=head3 <transfer_queue> elements
 
   priority         priority of this queue
   state            one of the following:
                      transferred, transfering, exported
 
-=head3 <block> elements:
+=head3 <block> elements
 
   name             block name
   id               block id
 
-=head3 <file> elements:
+=head3 <file> elements
 
  name              files logical name
  id                file id

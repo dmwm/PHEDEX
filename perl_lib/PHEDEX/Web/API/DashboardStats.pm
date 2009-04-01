@@ -1,25 +1,19 @@
 package PHEDEX::Web::API::DashboardStats;
-# use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::DashboardStats - show quality of the links
+PHEDEX::Web::API::DashboardStats
 
- Same as PHEDEX::Web::API::TransferHistory, except the quality is
- returned in 4 predefined values
+=head1 DESCRIPTION
 
-=head2 dashboardstats
+Same as PHEDEX::Web::API::TransferHistory, except the quality is
+returned in 4 predefined values.
 
-Return
-
- <link/>
- <link/>
- ...
-
-=head3 options
+=head2 Options
 
  required inputs: none (default to be the last hour)
  optional inputs: from, to, timebin, timewidth
@@ -37,19 +31,19 @@ Return
   binwidth = 3600
   starttime = endtime - binwidth
 
-=head4 format of time
+=head3 format of time
 
   starttime and endtime could in one of the following format
   [1] <UNIX time>            (integer)
   [2] "YYYY-MM-DD"           (assuming 00:00:00)
   [3] "YYYY-MM-DD hh:mm:ss"
 
-=head3 output
+=head2 Output
 
   <link/>
   ......
 
-=head3 <link> elements:
+=head3 <link> elements
 
   from_node       name of the source node
   to_node         name of the destination
@@ -64,12 +58,12 @@ Return
   rate            sum(done_bytes)/binwidth
   quality         (defined below)
 
-=head3 relation with time
+=head3 Relation with time
 
   starttime <= timebin < endtime
   number of bins = (endtime - starttime)/binwidth
 
-=head3 definition of quality
+=head3 Definition of quality
 
   $q = done_files / (done_files + fail_files)
 

@@ -9,15 +9,20 @@ use PHEDEX::Web::SQL;
 
 PHEDEX::Web::API::NodeUsage
 
-=head2 nodeUsage
+=head1 DESCRIPTION
 
 A summary of how space is used on a node.
 
-=head3 options
+=head2 Options
 
  node     PhEDex node names to filter on, can be multiple (*)
 
  (*) See the rules of multi-value filters in the Core module
+
+=head2 Output
+
+  <node/>
+  ...
 
 =head3 <node> attributes
 

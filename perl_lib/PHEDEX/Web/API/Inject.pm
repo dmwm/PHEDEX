@@ -9,14 +9,14 @@ use PHEDEX::Web::Util;
 
 =head1 NAME
 
-PHEDEX::Web::API::Inject - Inject data into TMDB
+PHEDEX::Web::API::Inject
 
-=head2 inject
+=head1 DESCRIPTION
 
 Inject data into TMDB, returning the statistics
 on how many files, blocks, and datasets were injected etc.
 
-=head3 options
+=head2 options
 
  node		Required node-name as injection site.
  data		XML structure representing the data to be injected. See
@@ -27,7 +27,9 @@ on how many files, blocks, and datasets were injected etc.
 		requested. Otherwise simply return the statistics. The
 		default is to be strict, you can turn it off with 'nostrict'.
 
-=head3 input data format example:
+=head2 Input
+
+This API accepts POST'ed XML in the following format:
 
    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
      <dataset name="/sample/dataset" is-open="y" is-transient="n">
@@ -45,16 +47,16 @@ on how many files, blocks, and datasets were injected etc.
      </dataset>
    </dbs>
 
-=head3 return value
+=head2 Output
 
-returns a hash with keys for the data, the node, the node-id, and the injection
+Returns a hash with keys for the data, the node, the node-id, and the injection
 statistics. The statistics is also a hash, with keys for:
 
- new datasets		number of new datasets created
- new blocks		number of new blocks created
- new files		number of new files created
- closed datasets	number of closed datasets injected
- closed blocks		number of closed blocks injected
+ new_datasets		number of new datasets created
+ new_blocks		number of new blocks created
+ new_files		number of new files created
+ closed_datasets	number of closed datasets injected
+ closed_blocks		number of closed blocks injected
 
 If 'nostrict' is specified, attempting to re-insert already-inserted data will
 not give an error, but all the stats values will be zero.

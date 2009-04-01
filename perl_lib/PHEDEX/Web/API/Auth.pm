@@ -6,15 +6,23 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Auth - check or enforce authentication
+PHEDEX::Web::API::Auth
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
-Return the users' authentication state.
+Serves the requesting user's authentication state.
 
-=head2 output
+=head2 Options
 
-Returns the following structure
+ ability : (optional) if passed then the nodes (from TMDB) that the user is
+           allowed to operate on is are also returned.
+
+ require_cert : (optional) if passed then the call will die if the
+                user is not authenticated by certificate
+
+=head2 Output
+
+Serves data in the following structure
 
   <auth>
      <role/>
@@ -25,14 +33,6 @@ Returns the following structure
      ...
   </auth>
    ...
-
-=head3 options
-
- ability : (optional) if passed then the nodes (from TMDB) that the user is
-           allowed to operate on is are also returned.
-
- require_cert : (optional) if passed then the call will die if the
-                user is not authenticated by certificate
 
 =head3 <auth> attributes
 

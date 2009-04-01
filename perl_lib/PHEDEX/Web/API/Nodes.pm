@@ -7,18 +7,23 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::Nodes - return the set of nodes known to PhEDEx
+PHEDEX::Web::API::Nodes
 
-=head2 nodes
+=head1 DESCRIPTION
 
 A simple dump of PhEDEx nodes.
 
-=head3 options
+=head2 Options
 
  node     PhEDex node names to filter on, can be multiple (*)
  noempty  filter out nodes which do not host any data
 
  (*) See the rules of multi-value filters in the Core module
+
+=head2 Output
+
+  <node/>
+  ...
 
 =head3 <node> attributes
 

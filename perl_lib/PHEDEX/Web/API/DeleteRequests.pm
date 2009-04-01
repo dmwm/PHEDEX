@@ -1,40 +1,20 @@
 package PHEDEX::Web::API::DeleteRequests;
-#use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::DeleteRequests -- get information regarding delete requests
+PHEDEX::Web::API::DeleteRequests
 
-=head2 deleterequests
+=head1 DESCRIPTION
 
-Return delete request information in the following structure:
+Serves information about deletion requests, including the data
+requested for deletion, the client who created the request, and the
+clients who approved or disapproved the request.
 
-  <request>
-    <requested_by/>
-    <nodes>
-      <node><approved_by/></node>
-      ...
-    </nodes>
-    <sources>
-      <node><approved_by/></node>
-      ...
-    </sources>
-    <data>
-        <usertext>
-        ...
-        </usertext>
-        <dbs>
-          <dataset/> ...
-          <block/> ...
-          <file/> ...
-        </dbs>
-    </data>
-  </request> 
-
-=head3 options
+=head2 Options
 
  required inputs:  none
  optional inputs: (as filters) req_num, dest_node, group
@@ -44,7 +24,7 @@ Return delete request information in the following structure:
   limit            maximal number of records returned
   since            created after this time
 
-=head3 output
+=head2 Output
 
   <request>
     <requested_by/>
@@ -64,7 +44,7 @@ Return delete request information in the following structure:
     </data>
   </request> 
 
-=head3 request attributes
+=head3 <request> attributes
 
   req_num          request number
   rm_subscription  remove subscription?
@@ -73,7 +53,7 @@ Return delete request information in the following structure:
   files            total requested files
   bytes            total requested bytes
 
-=head3 node attributes
+=head3 <node> attributes
 
   id               node id
   name             node name
@@ -83,30 +63,30 @@ Return delete request information in the following structure:
   <approved_by>    person by whom transfer through this node was approved
   comment          comment
 
-=head3 usertext elements
+=head3 <usertext> elements
 
  the actual text strings of data the user requested 
 
-=head3 dbs attributes
+=head3 <dbs> attributes
 
   name             dbs name
   id               dbs id
 
-=head3 dataset attributes
+=head3 <dataset> attributes
 
   name             dataset name
   id               dataset id
   files            number of files
   bytes            number of bytes
 
-=head3 block attributes
+=head3 <block> attributes
 
   name             block name
   id               block id
   files            number of files
   bytes            number of bytes
 
-=head3 file attributes
+=head3 <file> attributes
 
   name             file name
   id               file id

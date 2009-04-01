@@ -6,9 +6,9 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Bounce - simple debugging call
+PHEDEX::Web::API::Bounce
 
-=head2 bounce
+=head2 DESCRIPTION
 
 Return the URL OPTIONS as a hash, so you can see what the server has done
 to your request. Useful only for debugging.

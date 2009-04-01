@@ -7,26 +7,13 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::BlockReplicas - list block replicas in PhEDEx
+PHEDEX::Web::API::BlockReplicas
 
-=head1 SYNOPSIS
+=head1 DESCRIPTION
 
-=head2 blockReplicas
+Return block replicas known to PhEDEx.
 
-Return block replicas with the following structure:
-
-  <block>
-     <replica/>
-     <replica/>
-      ...
-  </block>
-   ...
-
-where <block> represents a block of files and <replica> represents a
-copy of that block at some node.  An empty response means that no
-block replicas exist for the given options.
-
-=head3 options
+=head2 Options
 
  block          block name, can be multiple (*)
  node           node name, can be multiple (*)
@@ -43,6 +30,19 @@ block replicas exist for the given options.
 
 
  (*) See the rules of multi-value filters in the Core module
+
+=head2 Output
+
+  <block>
+     <replica/>
+     <replica/>
+      ...
+  </block>
+   ...
+
+where <block> represents a block of files and <replica> represents a
+copy of that block at some node.  An empty response means that no
+block replicas exist for the given options.
 
 =head3 <block> attributes
 

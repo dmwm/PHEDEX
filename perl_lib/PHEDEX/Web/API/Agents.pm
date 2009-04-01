@@ -1,24 +1,19 @@
 package PHEDEX::Web::API::Agents;
-#use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::Agents - return information regarding the Agents
+PHEDEX::Web::API::Agents
 
-=head2 agents
+=head1 DESCRIPTION
 
-Return agent information in the following structure:
+Serves information about running (or at least recently running) PhEDEx
+agents.
 
-  <node>
-    <agent/>
-    ...
-  </node>
-  ...
-
-=head3 options
+=head2 Options
 
  required inputs: none
  optional inputs: (as filters) node, se, agent
@@ -27,7 +22,7 @@ Return agent information in the following structure:
   se               storage element name, could be multiple
   agent            agent name, could be multiple
 
-=head3 output
+=head2 Output
 
   <node>
     <agent/>
@@ -35,14 +30,14 @@ Return agent information in the following structure:
   </node>
   ...
 
-=head3 <node> elements:
+=head3 <node> elements
 
   name             agent name
   node             node name
   host             host name
   agent            list of the agents on this node
 
-=head3 <agent> elements:
+=head3 <agent> elements
 
   label            label
   state_dir        directory path ot the states

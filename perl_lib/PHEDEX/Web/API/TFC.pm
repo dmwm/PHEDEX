@@ -8,17 +8,22 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::TFC - return the TFC of a site
+PHEDEX::Web::API::TFC
 
-=head2 tfc
+=head1 DESCRIPTION
 
-Show the TFC published to TMDB for a given node
+Serves the TFC published to TMDB for a given node.
 
-=head3 options
+=head2 Options
 
   node  PhEDEx node name. Required
 
-=head3 <lfn-to-pfn> or <pfn-to-lfn> attributes
+=head2 Output
+
+  <lfn-to-pfn>
+  ...
+  <pfn-to-lfn>
+  ...
 
 See TFC documentation.
 

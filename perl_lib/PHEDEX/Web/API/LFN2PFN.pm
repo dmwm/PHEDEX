@@ -10,13 +10,13 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::LFN2PFN - LFN to PFN translation 
+PHEDEX::Web::API::LFN2PFN
 
-=head2 lfn2pfn
+=head1 DESCRIPTION
 
 Translate LFNs to PFNs using the TFC published to TMDB.
 
-=head3 options
+=head2 Options
 
  node          PhEDex node names, can be multiple (*), required
  lfn           Logical file name, can be multiple (+), required
@@ -26,6 +26,11 @@ Translate LFNs to PFNs using the TFC published to TMDB.
  
  (*) See the rules of multi-value filters in the Core module
  (+) Do not need to be registered LFNs
+
+=head2 Output
+
+  <mapping/>
+  ...
 
 =head3 <mapping> attributes
 

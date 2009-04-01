@@ -1,39 +1,19 @@
 package PHEDEX::Web::API::TransferRequests;
-#use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferRequests -- get information regarding transfer requests
+PHEDEX::Web::API::TransferRequests
 
-=head2 transferrequests
+=head1 DESCRIPTION
 
-Return transfer request information in the following structure:
+Serves transfer request information, including the data requested, the
+requesting client, the approving clients, and the request options.
 
-  <request>
-    <requested_by/>
-    <destinations>
-      <node><approved_by/></node>
-      ...
-    </destinations>
-    <sources>
-      <node><approved_by/></node>
-      ...
-    </sources>
-    <data>
-        <usertext>
-        ...
-        </usertext>
-        <dbs>
-          <dataset/> ...
-          <block/> ...
-        </dbs>
-    </data>
-  </request> 
-
-=head3 options
+=head2 Options
 
  required inputs:  none
  optional inputs: (as filters) req_num, dest_node, group
@@ -44,7 +24,7 @@ Return transfer request information in the following structure:
   limit            maximal number of records returned
   since            created after this time
 
-=head3 output
+=head2 Output
 
   <request>
     <requested_by/>
@@ -67,7 +47,7 @@ Return transfer request information in the following structure:
     </data>
   </request> 
 
-=head3 request attributes
+=head3 <request> attributes
 
   req_num          request number
   group            group name
@@ -80,7 +60,7 @@ Return transfer request information in the following structure:
   files            total requested files
   bytes            total requested bytes
 
-=head3 node attributes
+=head3 <node> attributes
 
   id               node id
   name             node name
@@ -90,30 +70,30 @@ Return transfer request information in the following structure:
   <approved_by>    person by whom transfer through this node was approved
   comment          comment
 
-=head3 usertext elements
+=head3 <usertext> elements
 
   the actual text strings of data the user requested 
 
-=head3 dbs attributes
+=head3 <dbs> attributes
 
   name             dbs name
   id               dbs id
 
-=head3 dataset attributes
+=head3 <dataset> attributes
 
   name             dataset name
   id               dataset id
   files            number of files
   bytes            number of bytes
 
-=head3 block attributes
+=head3 <block> attributes
 
   name             block name
   id               block id
   files            number of files
   bytes            number of bytes
 
-=head3 <requested_by>/<approved_by> attributes
+=head3 <requested_by> / <approved_by> attributes
 
   name             person's name
   dn               person's DN

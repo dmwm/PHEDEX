@@ -1,5 +1,4 @@
 package PHEDEX::Web::API::Subscribe;
-
 use warnings;
 use strict;
 
@@ -14,13 +13,13 @@ use PHEDEX::Web::Util;
 
 =head1 NAME
 
-PHEDEX::Web::API::Subscribe - make and approve a subscription request
+PHEDEX::Web::API::Subscribe
 
-=head2 subscribe
+=head1 DESCRIPTION
 
-Subscribe data
+Makes and approves a transfer request, creating data subscriptions.
 
-=head3 options
+=head2 Options
 
  node		destination node names, can be multible
  data		XML structure representing the data to be subscribed. See
@@ -34,7 +33,9 @@ Subscribe data
  group          group the request is for.  Default is undefined.
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
 
-=head3 input data format example:
+=head2 Input
+
+This API call takes POST'ed XML in the following format:
 
    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
      <dataset name="/sample/dataset" is-open="y" is-transient="n">
@@ -52,7 +53,7 @@ Subscribe data
      </dataset>
    </dbs>
 
-=head3 return value
+=head3 Output
 
 If successful returns a 'request_created' element with one attribute,
 'id', which is the request ID.
