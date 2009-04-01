@@ -27,11 +27,14 @@ call.
 
 =head3 Output
 
-  <link from= from_id= from_se= to= to_id= to_se= >
-    <block name= id= num_errors= >
-      <file name= id= bytes= checksum= num_errors= />
+  <link>
+    <block>
+      <file/>
+      ...
     </block>
+    ...
   </link>
+  ...
 
 =head3 <link> elements
 
