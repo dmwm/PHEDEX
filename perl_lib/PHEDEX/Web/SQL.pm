@@ -778,6 +778,111 @@ sub getTransferHistory
     return \@r;
 }
 
+sub getTransferStats
+{
+    # optional inputs are:
+    #     strattime, endtime, binwidth, from_node and to_node
+
+    my ($core, %h) = @_;
+
+    # take care of FROM/FROM_NODE and TO/TO_NODE
+    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
+    $h{TO_NODE} = delete $h{TO} if $h{TO};
+
+    my $sql = qq {
+    select
+        n1.name as "from",
+        n2.name as "to",
+        :BINWIDTH as binwidth,
+        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin,
+        nvl(sum(pend_files) keep (dense_rank last order by timebin asc),0) pend_files,
+        nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes,
+        nvl(sum(wait_files) keep (dense_rank last order by timebin asc),0) wait_files,
+        nvl(sum(wait_bytes) keep (dense_rank last order by timebin asc),0) wait_bytes,
+        nvl(sum(ready_files) keep (dense_rank last order by timebin asc),0) ready_files,
+        nvl(sum(ready_bytes) keep (dense_rank last order by timebin asc),0) ready_bytes,
+        nvl(sum(xfer_files) keep (dense_rank last order by timebin asc),0) xfer_files,
+        nvl(sum(xfer_bytes) keep (dense_rank last order by timebin asc),0) xfer_bytes,
+        nvl(sum(confirm_files) keep (dense_rank last order by timebin asc),0) confirm_files,
+        nvl(sum(confirm_bytes) keep (dense_rank last order by timebin asc),0) confirm_bytes
+    from
+        t_history_link_stats,
+        t_adm_node n1,
+        t_adm_node n2
+    where
+        from_node = n1.id and
+        to_node = n2.id and
+        not n1.name like 'X%' and
+        not n2.name like 'X%' };
+
+    my $where_stmt = "";
+    my %param;
+    my @r;
+
+    # default endtime is now
+    if (exists $h{ENDTIME})
+    {
+        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
+    }
+    else
+    {
+        $param{':ENDTIME'} = time();
+    }
+
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
+    {
+        $param{':BINWIDTH'} = $h{BINWIDTH};
+    }
+    else
+    {
+        $param{':BINWIDTH'} = 3600;
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{STARTTIME})
+    {
+        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
+    }
+    else
+    {
+        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
+    }
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%param, \%h, (
+        FROM_NODE => 'n1.name',
+        TO_NODE   => 'n2.name'));
+    $sql .= " and ($filters) " if $filters;
+
+    # These is always start time
+    $where_stmt .= qq { and\n        timebin >= :STARTTIME};
+    $where_stmt .= qq { and\n        timebin < :ENDTIME};
+
+    # now take care of the where clause
+
+    $sql .= $where_stmt;
+
+    $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
+    $sql .= qq {\norder by 1 asc, 2, 3};
+
+    # now execute the query
+    my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        # format the time stamp
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+        }
+        push @r, $_;
+    }
+
+    # return $sql, %param;
+    return \@r;
+}
+
+
 sub getClientData 
 {
     my ($self, $clientid) = @_;
