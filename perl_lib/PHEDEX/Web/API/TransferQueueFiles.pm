@@ -67,32 +67,39 @@ sub invoke {
     foreach my $row ( @$r ) {
 	# link
 	my $link_key = $row->{FROM_ID}.':'.$row->{TO_ID};
-	$links->{$link_key} = 
-         { FROM => $row->{FROM_NODE},
-	   FROM_ID => $row->{FROM_ID},
-	   FROM_SE => $row->{FROM_SE},
-	   TO => $row->{TO_NODE},
-	   TO_ID => $row->{TO_ID},
-	   TO_SE => $row->{TO_SE},
-	   Q_HASH => {}
-          } unless $links->{$link_key};
+	my $link = $links->{$link_key};
+	if (! $link ) {
+	    $link = { FROM => $row->{FROM_NAME},
+		      FROM_ID => $row->{FROM_ID},
+		      FROM_SE => $row->{FROM_SE},
+		      TO => $row->{TO_NAME},
+		      TO_ID => $row->{TO_ID},
+		      TO_SE => $row->{TO_SE},
+		      Q_HASH => {} };
+	    $links->{$link_key} = $link;
+	}
 
 	# queue
 	my $queue_key = $row->{STATE}.':'.$row->{PRIORITY};
-	my $queue = $links->{$link_key}->{Q_HASH}->{$queue_key} || {};
-	$queue = 
-	{ STATE => $row->{STATE}, 
-	  PRIORITY => $row->{PRIORITY},
-	  B_HASH => {} } unless %$queue;
+	my $queue = $link->{Q_HASH}->{$queue_key};
+	if (! $queue ) {
+	    $queue = { STATE => $row->{STATE}, 
+		       PRIORITY => $row->{PRIORITY},
+		       B_HASH => {} };
+	    $link->{Q_HASH}->{$queue_key} = $queue;
+	}
 
 	# block
 	my $block_key = $row->{BLOCK_ID};
-	my $block = $queue->{B_HASH}->{$block_key} || {};
-	$block =
-	{ NAME => $row->{BLOCK_NAME},
-	  ID => $row->{BLOCK_ID},
-	  FILE => [] } unless %$block;
-	
+	my $block = $queue->{B_HASH}->{$block_key};
+	if (! $block ) {
+	    $block =
+	    { NAME => $row->{BLOCK_NAME},
+	      ID => $row->{BLOCK_ID},
+	      FILE => [] } unless %$block;
+	    $queue->{B_HASH}->{$block_key} = $block;
+	}
+
 	# file
 	push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
 				  ID => $row->{FILE_ID},
