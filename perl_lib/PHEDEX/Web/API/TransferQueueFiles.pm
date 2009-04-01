@@ -7,44 +7,63 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferQueueFiles - show files in the transfer queue
+PHEDEX::Web::API::TransQueueFiles
+
+=head2 DESCRIPTION
+
+Return files in the transfer queue, along with their state.
 
 =head3 options
 
- required inputs:   none
- optional inputs:   from, to, priority
+ required inputs: none
+ optional inputs: (as filters) from, to, state, priority, block
 
- from               name of the from (source) node, could be multiple
- to                 name of the to (destination) node, could be multiple
+  from             from node name, could be multiple
+  to               to node name, could be multiple
+  block            a block name, could be multiple
+  priority         one of the following:
+                     high, normal, low
+  state            one of the following:
+                     transferred, transfering, exported
 
-=head3 output:
+=head3 output
 
-  <link>
-     <transfer_queue>
-       <block>
-          <file/>
-          ...
-       </block>
+ <link>
+   <transfer_queue>
+     <block>
+       <file/>
        ...
-     </transfer_queue>
-     ...
-  </link>
-  ...
+     </block>
+     ....
+   </transfer_queue>
+   ....
+ </link>
 
 =head3 <link> elements:
-
- from               name of the from (source) node
- to                 name of the to (destination) node
- from_id            id of the from node
- to_id              id of the to node
+  from             name of the source node
+  from_id          id of the source node
+  from_se          se of the source node
+  to               name of the destination node
+  to_id            id of the to node
+  to_se            se of the to node
 
 =head3 <transfer_queue> elements:
 
- priority           transfer priority
- files              number of files in transfer
- bytes              number of bytes in transfer
- time_update        time when it was updated
- state              "assigned", "exported", "transferring", or "transferred"
+  priority         priority of this queue
+  state            one of the following:
+                     transferred, transfering, exported
+
+=head3 <block> elements:
+
+  name             block name
+  id               block id
+
+=head3 <file> elements:
+
+ name              files logical name
+ id                file id
+ checksum          checksums of the file
+ bytes             file size
 
 =cut
 
@@ -57,73 +76,13 @@ sub invoke {
     my ($core, %h) = @_;
 
     # convert parameter key to upper case
-    foreach ( qw / from to priority / )
+    foreach ( qw / from to state priority block / )
     {
 	$h{uc $_} = delete $h{$_} if $h{$_};
     }
     
-    my $r = PHEDEX::Web::SQL::getTransferQueueFiles($core, %h);
-
-    # Transform the flat representation into a heirarchy
-    my $links = {};
-    foreach my $row ( @$r ) {
-	# link
-	my $link_key = $row->{FROM_ID}.':'.$row->{TO_ID};
-	my $link = $links->{$link_key};
-	if (! $link ) {
-	    $link = { FROM => $row->{FROM_NAME},
-		      FROM_ID => $row->{FROM_ID},
-		      FROM_SE => $row->{FROM_SE},
-		      TO => $row->{TO_NAME},
-		      TO_ID => $row->{TO_ID},
-		      TO_SE => $row->{TO_SE},
-		      Q_HASH => {} };
-	    $links->{$link_key} = $link;
-	}
-
-	# queue
-	my $queue_key = $row->{STATE}.':'.$row->{PRIORITY};
-	my $queue = $link->{Q_HASH}->{$queue_key};
-	if (! $queue ) {
-	    $queue = { STATE => $row->{STATE}, 
-		       PRIORITY => &PHEDEX::Core::Util::priority($row->{PRIORITY}, 1),
-		       B_HASH => {} };
-	    $link->{Q_HASH}->{$queue_key} = $queue;
-	}
-
-	# block
-	my $block_key = $row->{BLOCK_ID};
-	my $block = $queue->{B_HASH}->{$block_key};
-	if (! $block ) {
-	    $block =
-	    { NAME => $row->{BLOCK_NAME},
-	      ID => $row->{BLOCK_ID},
-	      FILE => [] };
-	    $queue->{B_HASH}->{$block_key} = $block;
-	}
-
-	# file
-	push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
-				  ID => $row->{FILEID},
-				  BYTES => $row->{FILESIZE},
-				  CHECKSUM => $row->{CHECKSUM} };
-    }
-    
-    # Transform hashes into arrays for auto-formatting
-    foreach my $link (values %$links) {
-	foreach my $queue (values %{$link->{Q_HASH}}) {
-	    foreach my $block (values %{$queue->{B_HASH}}) {
-		$queue->{BLOCK} ||= [];
-		push @{$queue->{BLOCK}}, $block;
-	    }
-	    delete $queue->{B_HASH};
-	    $link->{TRANSFER_QUEUE} ||= [];
-	    push @{$link->{TRANSFER_QUEUE}}, $queue;
-	}
-	delete $link->{Q_HASH};
-    }
-    
-    return { LINK => [ values %$links ] };
+    my $links = PHEDEX::Web::SQL::getTransferQueue($core, %h, LEVEL => 'FILE');    
+    return { link => [ values %$links ] };
 }
 
 1;

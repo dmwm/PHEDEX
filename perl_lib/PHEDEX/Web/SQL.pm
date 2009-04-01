@@ -632,51 +632,6 @@ sub getTransferQueueStats
     return \@r;
 }
 
-sub getTransferQueueFiles
-{
-    my ($self, %h) = @_;
-    my ($sql, $q, %p);
-    $sql = qq {
-      select fn.name from_name, fn.id from_id, fn.se_name from_se, 
-             tn.name to_name, tn.id to_id, tn.se_name to_se,
-             b.name block_name, b.id block_id,
-             f.id fileid, f.filesize, f.checksum, f.logical_name,
-             xt.priority,
-        case when xtd.task is not null then 'transferred'
-             when xtx.task is not null then 'transferring'
-             when xte.task is not null then 'exported'
-             else 'assigned'
-         end state
-        from t_xfer_task xt
-             left join t_xfer_task_export xte on xte.task = xt.id
-             left join t_xfer_task_inxfer xtx on xtx.task = xt.id
-             left join t_xfer_task_done   xtd on xtd.task = xt.id
-             join t_xfer_file f on f.id = xt.fileid
-             join t_dps_block b on b.id = f.inblock
-             join t_adm_node fn on fn.id = xt.from_node
-             join t_adm_node tn on tn.id = xt.to_node
-       where 1=1
-   };
-
-    # from / to filters
-    my $filters = '';
-    build_multi_filters($self, \$filters, \%p, \%h,  from => 'fn.name');
-    build_multi_filters($self, \$filters, \%p, \%h,  to   => 'tn.name');
-
-    # priority filter
-    if (exists $h{priority}) {
-	my $priority = PHEDEX::Core::Util::priority_num($h{priority});
-	build_filters($self, \$filters, \%p, 
-		      { priority => [ $priority, $priority+1 ] },  # either local or remote
-		      priority => 'xt.priority');
-    }
-
-    $sql .= " and ($filters)" if $filters;
-
-    $q = PHEDEX::Core::SQL::execute_sql( $self, $sql);
-    return $q->fetchall_arrayref({});
-}
-
 sub getTransferHistory
 {
     # optional inputs are:
@@ -1216,154 +1171,150 @@ sub getGroupUsage
     return \@r;
 }
 
-# get transfer queue block information
-sub getTransferQueueBlocks
+sub getTransferQueue
 {
-    my ($core, %h) = @_;
+    my ($self, %h) = @_;
 
-    # take care of FROM/FROM_NODE and TO/TO_NODE
-    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
-    $h{TO_NODE} = delete $h{TO} if $h{TO};
-
-    # take care of priority
-    if ($h{PRIORITY})
-    {
-        my $pri_num = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
-        $h{PRIORITY} = [$pri_num, $pri_num+1];
+    # determine level of data:  file or block level
+    my $filelevel  = 0;
+    if (exists $h{LEVEL} && $h{LEVEL} eq 'FILE') {
+	$filelevel = 1;
+	delete $h{LEVEL};
     }
 
-    my $sql = qq {
-        select
-            from_node,
-            from_id,
-            to_node,
-            to_id,
-            inblock,
-            block_name,
-            priority,
-            state,
-            count(fileid) files,
-            sum(filesize) bytes
-        from (
-            select
-                fn.name from_node,
-                fn.id from_id,
-                tn.name to_node,
-                tn.id to_id,
-                xt.priority,
-                case when xtd.task is not null then 'transferred'
-                     when xtx.task is not null then 'transfering'
-                     when xte.task is not null then 'exported'
-                     else 'assigned'
-                end state,
-                f.inblock,
-                f.id fileid,
-                f.filesize,
-                b.name block_name
-            from
-                t_xfer_task xt
-                left join t_xfer_task_export xte on xte.task = xt.id
-                left join t_xfer_task_inxfer xtx on xtx.task = xt.id
-                left join t_xfer_task_done   xtd on xtd.task = xt.id
-                join t_xfer_file f on f.id = xt.fileid
-                join t_adm_node fn on fn.id = xt.from_node
-                join t_adm_node tn on tn.id = xt.to_node
-                join t_dps_block b on b.id = f.inblock
-        ) };
+    my $select = qq{ from_name, from_id, from_se,
+		     to_name, to_id, to_se,
+		     priority, state,
+		     block_name, block_id };
+    my $level_select;
+    if ($filelevel) {
+	$level_select = qq{ fileid, filesize, checksum, logical_name };
+    } else {
+	$level_select = qq{ count(fileid) files, sum(filesize) bytes };
+    }
 
-    my @r;
-    my %p;
+    my ($sql, $q, %p);
+    $sql = qq {
+      select $select,
+             $level_select
+       from (
+      select fn.name from_name, fn.id from_id, fn.se_name from_se, 
+             tn.name to_name, tn.id to_id, tn.se_name to_se,
+             b.name block_name, b.id block_id,
+             f.id fileid, f.filesize, f.checksum, f.logical_name,
+             xt.priority,
+        case when xtd.task is not null then 3
+             when xtx.task is not null then 2
+             when xte.task is not null then 1
+             else 0
+         end state
+        from t_xfer_task xt
+             left join t_xfer_task_export xte on xte.task = xt.id
+             left join t_xfer_task_inxfer xtx on xtx.task = xt.id
+             left join t_xfer_task_done   xtd on xtd.task = xt.id
+             join t_xfer_file f on f.id = xt.fileid
+             join t_dps_block b on b.id = f.inblock
+             join t_adm_node fn on fn.id = xt.from_node
+             join t_adm_node tn on tn.id = xt.to_node
+         )
+   };
+    
+    # prepare priority filter
+    if (exists $h{PRIORITY}) {
+	my $priority = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
+	$h{PRIORITY} = [ $priority, $priority+1 ]; # either local or remote
+    }
+
+    # prepare state filter
+    if (exists $h{STATE}) {
+	my %state_id = reverse %state_name;
+	$h{STATE} = $state_id{$h{STATE}};
+    }
+    
     my $filters = '';
-    build_multi_filters($core, \$filters, \%p, \%h, (
-        FROM_NODE => 'from_node',
-        TO_NODE => 'to_node',
-        STATE => 'state',
-        PRIORITY => 'priority'));
+    build_multi_filters($self, \$filters, \%p, \%h,  
+			FROM => 'from_name',
+			TO   => 'to_name',
+			PRIORITY => 'priority',
+			BLOCK    => 'block_name',
+			STATE    => 'state');
 
-    $sql .= " where ($filters) " if $filters;
+    $sql .= qq{ where ($filters) } if $filters;
 
-    $sql .= qq {
-            group by from_node, to_node, inblock, priority, state,
-                from_id, to_id, block_name };
-
-    my $q = execute_sql($core, $sql, %p);
-    my %link;
-
-    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-    while ($_ = $q->fetchrow_hashref())
-    {
-        # decode this priority
-        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 1);
-        my $key = $_->{'FROM_NODE'}."+".$_->{'TO_NODE'};
-        my $qkey = $_->{'STATE'}."+".$_->{'PRIORITY'};
-        if ($link{$key})
-        {
-            if ($link{$key}{tqueue}{$qkey})
-            {
-                push @{$link{$key}{tqueue}{$qkey}->{block}}, {
-                    name => $_->{'BLOCK_NAME'},
-                    id => $_->{'INBLOCK'},
-                    files => $_->{'FILES'},
-                    bytes => $_->{'BYTES'}
-                };
-            }
-            else
-            {
-                $link{$key}{tqueue}{$qkey} = {
-                    priority => $_->{'PRIORITY'},
-                    state => $_->{'STATE'},
-                    block => [{
-                        name => $_->{'BLOCK_NAME'},
-                        id => $_->{'INBLOCK'},
-                        files => $_->{'FILES'},
-                        bytes => $_->{'BYTES'}
-                    }]
-                };
-            }
-        }
-        else
-        {
-            $link{$key} = {
-                from => $_->{'FROM_NODE'},
-                from_id => $_->{'FROM_ID'},
-                to => $_->{'TO_NODE'},
-                to_id => $_->{'TO_ID'},
-                tqueue => {
-                    $qkey => {
-                        priority => $_->{'PRIORITY'},
-                        state => $_->{'STATE'},
-                        block => [{
-                            name => $_->{'BLOCK_NAME'},
-                            id => $_->{'INBLOCK'},
-                            files => $_->{'FILES'},
-                            bytes => $_->{'BYTES'}
-                        }]}
-                }
-            };
-        }
+    if (!$filelevel) {
+	$sql .= qq{ group by $select };
     }
 
-    # now deal with the array of queue
-    my ($key, $value, $qkey, $qvalue);
-    while (($key, $value) = each (%link))
-    {
-        $link{$key}{transfer_queue} = [];
-        while (($qkey, $qvalue) = each (%{$link{$key}{tqueue}}))
-        {
-            push @{$link{$key}{transfer_queue}}, $qvalue;
-        }
-        delete $link{$key}{tqueue};
-    }
+    $q = PHEDEX::Core::SQL::execute_sql( $self, $sql, %p);
+    my $r = $q->fetchall_arrayref({});
 
-    while (($key, $value) = each(%link))
-    {
-        push @r, $value;
-    }
+    # Transform the flat representation into a heirarchy
+    my $links = {};
+    foreach my $row ( @$r ) {
+	# link
+	my $link_key = $row->{FROM_ID}.':'.$row->{TO_ID};
+	my $link = $links->{$link_key};
+	if (! $link ) {
+	    $link = { FROM => $row->{FROM_NAME},
+		      FROM_ID => $row->{FROM_ID},
+		      FROM_SE => $row->{FROM_SE},
+		      TO => $row->{TO_NAME},
+		      TO_ID => $row->{TO_ID},
+		      TO_SE => $row->{TO_SE},
+		      Q_HASH => {} };
+	    $links->{$link_key} = $link;
+	}
 
-    return \@r;
+	# queue
+	my $queue_key = $row->{STATE}.':'.$row->{PRIORITY};
+	my $queue = $link->{Q_HASH}->{$queue_key};
+	if (! $queue ) {
+	    $queue = { STATE => $state_name{$row->{STATE}},
+		       PRIORITY => &PHEDEX::Core::Util::priority($row->{PRIORITY}, 1),
+		       B_HASH => {} };
+	    $link->{Q_HASH}->{$queue_key} = $queue;
+	}
+
+	# block
+	my $block_key = $row->{BLOCK_ID};
+	my $block = $queue->{B_HASH}->{$block_key};
+	if (! $block ) {
+	    $block =
+	    { NAME => $row->{BLOCK_NAME},
+	      ID => $row->{BLOCK_ID} };
+	    $queue->{B_HASH}->{$block_key} = $block;
+	    if ($filelevel) {
+		$block->{FILE} = [];
+	    } else {
+		$block->{FILES} = $row->{FILES};
+		$block->{BYTES} = $row->{BYTES};
+	    }
+	}
+
+	# file
+	if ($filelevel) {
+	    push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
+				      ID => $row->{FILEID},
+				      BYTES => $row->{FILESIZE},
+				      CHECKSUM => $row->{CHECKSUM} };
+	}
+    }
+    
+    # Transform hashes into arrays for auto-formatting
+    foreach my $link (values %$links) {
+	foreach my $queue (values %{$link->{Q_HASH}}) {
+	    foreach my $block (values %{$queue->{B_HASH}}) {
+		$queue->{BLOCK} ||= [];
+		push @{$queue->{BLOCK}}, $block;
+	    }
+	    delete $queue->{B_HASH};
+	    $link->{TRANSFER_QUEUE} ||= [];
+	    push @{$link->{TRANSFER_QUEUE}}, $queue;
+	}
+	delete $link->{Q_HASH};
+    }
+    
+    return $links;
 }
-
-;
-
 
 1;
