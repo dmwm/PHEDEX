@@ -778,7 +778,7 @@ sub getTransferHistory
     return \@r;
 }
 
-sub getTransferStats
+sub getTransferQueueHistory
 {
     # optional inputs are:
     #     strattime, endtime, binwidth, from_node and to_node
