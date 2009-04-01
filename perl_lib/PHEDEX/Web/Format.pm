@@ -7,7 +7,6 @@ use strict;
 
 use JSON::XS;     # for json format output
 use Data::Dumper; # for perl format output
-use HTML::Entities; # for encoding XML
 
 our (%params);
 
@@ -104,9 +103,6 @@ sub xml_element
     my $no_children;
     unless ($is_root) {
         $no_children = scalar @$children == 0 ? 1 : 0;
-	# Avoiding HTML::Entities::encode_entities is about 30% more efficient for a large object.
-	# But better safe than sorry.
-        # print $file "<$name", join('', map { " $_='$obj->{$_}'" } @$attr);
         print $file "<$name", join('', map { (" $_='", 
 					      (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
 					      "'") } @$attr);
@@ -117,7 +113,7 @@ sub xml_element
         }
 
 	# Text data
-	print $file encode_entities($text);
+	print $file "<![CDATA[$text]]>";
     }
 
     foreach my $child (@$children) {
@@ -206,6 +202,35 @@ sub uc_keys
 	foreach my $e (@$o) { uc_keys($e); }   # recurse if array
     }
     return $o;
+}
+
+# xml charcter encoding map
+my %xml_char2entity = (
+  '<' => '&lt;',
+  '>' => '&gt;',
+  '&' => '&amp;',
+  "'" => '&apos;',
+  '"' => '&quot;'
+);
+
+# compile a regexp
+our $xml_char_regexp = join ('', keys %xml_char2entity);
+$xml_char_regexp = qr/([$xml_char_regexp])/;
+
+# encode xml characters
+# special thanks to HTML::Entities in CPAN
+sub encode_entities
+{
+    return undef unless defined $_[0];
+    my $ref;
+    if (defined wantarray) {
+	my $x = $_[0];
+	$ref = \$x;     # copy
+    } else {
+	$ref = \$_[0];  # modify in-place
+    }
+    $$ref =~ s/$xml_char_regexp/$xml_char2entity{$1}/ge;
+    return $$ref;
 }
 
 1;
