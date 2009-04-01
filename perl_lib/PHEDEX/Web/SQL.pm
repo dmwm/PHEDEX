@@ -1317,4 +1317,147 @@ sub getTransferQueue
     return $links;
 }
 
+# get transfer error stats
+sub getTransferErrorStats
+{
+    my ($core, %h) = @_;
+
+    # take care of FROM/FROM_NODE and TO/TO_NODE
+    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
+    $h{TO_NODE} = delete $h{TO} if $h{TO};
+
+    my $sql = qq {
+        select
+            fn.name "from",
+            fn.id from_id,
+            fn.se_name from_se,
+            tn.name "to",
+            tn.id to_id,
+            tn.se_name to_se,
+            b.name block_name,
+            b.id   block_id,
+            f.logical_name file_name,
+            f.id   file_id,
+            f.filesize file_size,
+            f.checksum checksum,
+            count(f.id) num_errors
+        from
+            t_xfer_error xe
+            join t_adm_node fn on fn.id = xe.from_node
+            join t_adm_node tn on tn.id = xe.to_node
+            join t_xfer_file f on f.id = xe.fileid
+            join t_dps_block b on b.id = f.inblock
+        where
+            not fn.name like 'X%' and
+            not tn.name like 'X%'
+        };
+
+    my @r;
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM_NODE => 'fn.name',
+        TO_NODE => 'tn.name',
+        BLOCK => 'b.name',
+        LFN => 'f.logical_name'
+        ));
+
+    $sql .= " and ( $filters )" if $filters;
+    $sql .= qq {
+        group by fn.name, fn.id, fn.se_name, tn.name, tn.id, tn.se_name,
+            b.name, b.id, f.logical_name, f.id, f.filesize, f.checksum
+        };
+
+    my $q = execute_sql($core, $sql, %p);
+
+    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+
+    my %link;
+    # restructuring the output
+    while ($_ = $q->fetchrow_hashref())
+    {
+        my $key = $_->{FROM}.'+'.$_->{TO};
+        if ($link{$key})
+        {
+            if ($link{$key}{block_tmp}{$_->{BLOCK_ID}})
+            {
+                push @{$link{$key}{block_tmp}{$_->{BLOCK_ID}}->{file}}, {
+                    name => $_->{FILE_NAME},
+                    id => $_->{FILE_ID},
+                    checksum => $_->{CHECKSUM},
+                    size => $_->{FILE_SIZE},
+                    num_errors => $_->{NUM_ERRORS}
+                };
+                $link{$key}{block_tmp}{$_->{BLOCK_ID}}{num_errors} += $_->{NUM_ERRORS};
+                $link{$key}{num_errors} += $_->{NUM_ERRORS};
+            }
+            else
+            {
+                $link{$key}{block_tmp}{$_->{BLOCK_ID}} = {
+                    name => $_->{BLOCK_NAME},
+                    id => $_->{BLOCK_ID},
+                    num_errors => $_->{NUM_ERRORS},
+                    file => [{
+                        name => $_->{FILE_NAME},
+                        id => $_->{FILE_ID},
+                        checksum => $_->{CHECKSUM},
+                        size => $_->{FILE_SIZE},
+                        num_errors => $_->{NUM_ERRORS}
+                    }]
+                };
+                $link{$key}{num_errors} += $_->{NUM_ERRORS};
+            }
+        }
+        else
+        {
+            $link{$key} = {
+                from => $_->{FROM},
+                from_id => $_->{FROM_ID},
+                from_se => $_->{FROM_SE},
+                to => $_->{TO},
+                to_id => $_->{TO_ID},
+                to_se => $_->{TO_SE},
+                num_errors => $_->{NUM_ERRORS},
+                block_tmp => {
+                    $_->{BLOCK_ID} => {
+                        name => $_->{BLOCK_NAME},
+                        id => $_->{BLOCK_ID},
+                        num_errors => $_->{NUM_ERRORS},
+                        file => [{
+                            name => $_->{FILE_NAME},
+                            id => $_->{FILE_ID},
+                            checksum => $_->{CHECKSUM},
+                            size => $_->{FILE_SIZE},
+                            num_errors => $_->{NUM_ERRORS}
+                        }]
+                    }
+                }
+            };
+        }
+    }
+
+    # now turn block_tmp to block array
+
+    my ($key, $value, $qkey, $qvalue);
+    while (($key, $value) = each (%link))
+    {
+        $link{$key}{block} = [];
+        while (($qkey, $qvalue) = each (%{$link{$key}{block_tmp}}))
+        {
+            push @{$link{$key}{block}}, $qvalue;
+        }
+        delete $link{$key}{block_tmp};
+    }
+
+    while (($key, $value) = each(%link))
+    {
+        push @r, $value;
+    }
+
+                    
+
+    return \@r;
+
+}
+
 1;
