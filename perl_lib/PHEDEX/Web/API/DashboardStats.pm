@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::DashboardStats
+PHEDEX::Web::API::DashboardStats - TransferHistory for the Dashboard
 
 =head1 DESCRIPTION
 

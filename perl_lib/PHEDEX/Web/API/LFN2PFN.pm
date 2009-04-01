@@ -10,7 +10,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::LFN2PFN
+PHEDEX::Web::API::LFN2PFN - LFN to PFN conversion
 
 =head1 DESCRIPTION
 

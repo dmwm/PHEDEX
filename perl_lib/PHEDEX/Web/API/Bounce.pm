@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Bounce
+PHEDEX::Web::API::Bounce - simple data service debugging tool
 
 =head2 DESCRIPTION
 

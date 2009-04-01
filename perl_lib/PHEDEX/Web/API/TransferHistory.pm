@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferHistory
+PHEDEX::Web::API::TransferHistory - history of completed transfer attempts
 
 =head1 DESCRIPTION
 

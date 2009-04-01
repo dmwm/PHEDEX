@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferRequests
+PHEDEX::Web::API::TransferRequests - transfer requests
 
 =head1 DESCRIPTION
 

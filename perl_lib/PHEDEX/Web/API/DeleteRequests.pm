@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::DeleteRequests
+PHEDEX::Web::API::DeleteRequests - deletion requests
 
 =head1 DESCRIPTION
 

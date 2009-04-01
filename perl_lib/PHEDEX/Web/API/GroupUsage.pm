@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::GroupUsage
+PHEDEX::Web::API::GroupUsage - storage statistics by group
 
 =head1 DESCRIPTION
 

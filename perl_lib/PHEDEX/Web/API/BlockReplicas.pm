@@ -7,7 +7,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::BlockReplicas
+PHEDEX::Web::API::BlockReplicas - block replicas, the reason for PhEDEx!
 
 =head1 DESCRIPTION
 

@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferQueueStats
+PHEDEX::Web::API::TransferQueueStats - current transfer queue
 
 =head1 DESCRIPTION
 

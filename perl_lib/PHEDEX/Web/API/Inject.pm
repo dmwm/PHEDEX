@@ -9,7 +9,7 @@ use PHEDEX::Web::Util;
 
 =head1 NAME
 
-PHEDEX::Web::API::Inject
+PHEDEX::Web::API::Inject - let PhEDEx know data exists
 
 =head1 DESCRIPTION
 

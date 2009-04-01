@@ -8,7 +8,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::TFC
+PHEDEX::Web::API::TFC - the trivial file catalog
 
 =head1 DESCRIPTION
 

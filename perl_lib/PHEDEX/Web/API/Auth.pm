@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Auth
+PHEDEX::Web::API::Auth - authentication information
 
 =head1 DESCRIPTION
 

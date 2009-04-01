@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Agents
+PHEDEX::Web::API::Agents - currently running agents
 
 =head1 DESCRIPTION
 

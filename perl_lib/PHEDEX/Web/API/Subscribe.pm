@@ -13,7 +13,7 @@ use PHEDEX::Web::Util;
 
 =head1 NAME
 
-PHEDEX::Web::API::Subscribe
+PHEDEX::Web::API::Subscribe - create transfer requests and approve them to make data subscriptions
 
 =head1 DESCRIPTION
 

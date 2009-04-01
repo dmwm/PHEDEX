@@ -7,7 +7,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::NodeUsage
+PHEDEX::Web::API::NodeUsage - summary of storage usage
 
 =head1 DESCRIPTION
 

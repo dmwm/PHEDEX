@@ -7,7 +7,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::Nodes
+PHEDEX::Web::API::Nodes - list of nodes
 
 =head1 DESCRIPTION
 

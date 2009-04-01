@@ -7,7 +7,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransQueueBlocks
+PHEDEX::Web::API::TransQueueBlocks - blocks currently queued for transfer
 
 =head1 DESCRIPTION
 

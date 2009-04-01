@@ -8,7 +8,7 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::FileReplicas
+PHEDEX::Web::API::FileReplicas - file replicas, the purpose of PhEDEx!
 
 =head2 DESCRIPTION
 
