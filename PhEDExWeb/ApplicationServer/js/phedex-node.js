@@ -237,6 +237,22 @@ toggleExtra=function(id) {
     return -1;
   }
 
+findOrCreateWidgetDiv=function(name)
+{
+// Find a div named 'name' and return it. If that div doesn't exist, create it, append it to a div called
+// 'phedex_main', and then return it. This lets me create widgets in the top-level phedex_main div, on demand.
+  var div = document.getElementById(name);
+  if ( !div )
+  {
+    div = document.createElement('div');
+    div.className = 'node';
+    div.id = name;
+  }
+  var phedex_main = document.getElementById('phedex_main');
+  phedex_main.appendChild(div);
+  return div;
+}
+
 eventProxy=function(id,arg0,arg1,arg2,arg3) {
     var obj = document.getElementById(id).objLink;
     obj.event(arg0,arg1,arg2,arg3);
