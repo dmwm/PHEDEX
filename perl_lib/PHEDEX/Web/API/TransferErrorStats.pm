@@ -1,24 +1,21 @@
 package PHEDEX::Web::API::TransferErrorStats;
-#use warning;
+use warnings;
 use strict;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferErrorStats - return transfer error stats
+PHEDEX::Web::API::TransferErrorStats - return transfer error statistics
 
-=head2 transfererrorstats
+=head1 DESCRIPTION
 
-Return transfer error information in the following format
+Serves transfer error statistics, the sum total of errors per file,
+block, and link.  Note that PhEDEx only stores the last 100 errors per
+link, so more errors may have occurred then indicated by this API
+call.
 
-  <link from= from_id= from_se= to= to_id= to_se= >
-    <block name= id= num_errors= >
-      <file name= id= bytes= checksum= num_errors= />
-    </block>
-  </link>
-
-=head3 options
+=head2 Options
 
  required inputs: none
  optional inputs: (as filters) from, to, block, lfn
@@ -28,7 +25,7 @@ Return transfer error information in the following format
   block            block name
   lfn              logical file name
 
-=head3 output
+=head3 Output
 
   <link from= from_id= from_se= to= to_id= to_se= >
     <block name= id= num_errors= >
@@ -36,7 +33,7 @@ Return transfer error information in the following format
     </block>
   </link>
 
-=head3 <link> elements:
+=head3 <link> elements
 
   from             name of the source node
   from_id          id of the source node
@@ -45,13 +42,13 @@ Return transfer error information in the following format
   from_se          se of the source node
   to_se            se of the destination node
 
-=head3 <block> elements:
+=head3 <block> elements
 
   name             block name
   id               block id
   num_errors       number of errors
 
-=head3 <file> elements:
+=head3 <file> elements
 
   name             file name
   id               file id
