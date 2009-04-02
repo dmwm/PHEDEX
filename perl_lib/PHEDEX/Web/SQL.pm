@@ -1488,6 +1488,8 @@ sub getTransferErrorDetail
             f.id   file_id,
             f.filesize file_size,
             f.checksum checksum,
+            xe.xfer_code transfer_code,
+            xe.report_code,
             xe.time_assign,
             xe.time_expire,
             xe.time_export,
