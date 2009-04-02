@@ -8,13 +8,13 @@ nodes=function() {
 }
 
 PHEDEX.Widget.Nodes=function(site) {
-	var that=new PHEDEX.Widget('phedex_nodes');
+	var that=new PHEDEX.Widget('phedex_nodes',null,{children:false});
 	that.site=site;
 	that.data = null;
-	that.header=function() {
+	that.buildHeader=function() {
 	  return "Sites: "+this.data.length+" known...";
 	}
-	that.main=function() {
+	that.buildExtra=function() {
           var table = [];
 	  for (var i in this.data) {
 	    var a = this.data[i];
