@@ -9,12 +9,25 @@
 .node{}
 .node-main{border:1px solid black;padding:2px 2px 2px 2px;background:#eee}
 .node-children{padding-left:20px;display:none}
-.node-header{background:#ddd}
+.node-header{background:#ddd;position:relative}
 .node-extra{display:none}
-.node-extra-link{align:center;font-size:80%;font-family:courier;width:100%}
+.node-extra-link{text-align:center;font-size:80%;font-family:courier;width:100%}
 .node-extra-link:hover{background:#ccc}
 .node-children-link{font-family:courier;font-weight:bold;border:1px solid black;background:grey;padding-left:2px;padding-right:2px;text-decoration:none;color:white}
 .node-children-info{background:red}
+.node-menu-ul{list-style-type:none;padding:0;margin:0}
+.node-selected{display:none;position:absolute;top:0;left:0;height:100%;width:5px;background:red}
+.node-sort-dialog{display:none;position:absolute;top:50%;left:25%;background:beige;border:1px solid black}
+.col1{position:absolute;left:300px}
+.col2{position:absolute;left:500px}
+.col3{position:absolute;left:700px}
+.col4{position:absolute;left:900px}
+ul .node-menu-item{display:none;background:#bbb}
+ul:hover .node-menu-item{display:block;z-index:99}
+li:hover > a .node-menu-item{background:#aaa}
+.node-menu{position:absolute;right:20px;top:0px;text-align:right;background:#ccc;border:1px solid black}
+div:hover .node-menu{z-index:99}
+.node-progress{position:absolute;right:0px;top:0px;height:20px;width:20px;display:none}
 .indent{padding-left:20px;display:none}
 </style>
 
@@ -22,8 +35,8 @@
 
 </head>
 <body>
-<div><input id='node_select' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a>
-<div><input id='filter' type='text'><a href='#' onClick='return filter()'>Filter</a>
+<div><input id='node_select' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a></div>
+<div><input id='filter' type='text'><a href='#' onClick='return filter()'>Filter</a></div>
 <div id='phedex_transfers'></div>
 
 <script type='text/javascript'>
@@ -108,6 +121,8 @@ Node.TransfersNode=function(site) {
     args['binwidth']=parseInt(this.time)*3600;
     Data.Call('TransferQueueStats',args,this.receive,{call:'TransferQueueStats',obj:this});
     Data.Call('TransferHistory',args,this.receive,{call:'TransferHistory',obj:this});
+    Data.Call('TransferErrorStats',args,this.receive,{call:'TransferErrorStats',obj:this});
+    this.startLoading();
   }
   that.receive=function(result) {
     if (result.argument.call=='TransferQueueStats') {
@@ -118,7 +133,12 @@ Node.TransfersNode=function(site) {
       result.argument.obj.data_hist = eval('('+result.responseText+')')['phedex']['link'];
       result.argument.obj.data_arrived += 1;
     }
-    if (result.argument.obj.data_arrived==2) {
+    if (result.argument.call=='TransferErrorStats') {
+      result.argument.obj.data_error = eval('('+result.responseText+')')['phedex']['link'];
+      result.argument.obj.data_arrived += 1;
+    }
+    if (result.argument.obj.data_arrived==3) {
+      result.argument.obj.finishLoading();
       result.argument.obj.populate();    
     }
   }
@@ -131,10 +151,16 @@ Node.TransfersNode=function(site) {
       var d = this.data_queue[i];
       var node = d[antimode];
       var h = {};
+      var e={};
       for (var j in this.data_hist) {
         if (this.data_hist[j][antimode]==node) {
           h = this.data_hist[j];
           break;
+        }
+      }
+      for (var j in this.data_error) {
+        if (this.data_error[j][antimode]==node) {
+          e = this.data_error[j];
         }
       }
       var id = this.id+'_'+this.mode+'_'+node;
@@ -142,13 +168,14 @@ Node.TransfersNode=function(site) {
       if (child) {
         child.data_queue=d['transfer_queue'];
         child.data_hist=h;
+        child.data_error=e;
         child.marked=false;
         child.update();
       } else {
         var childdiv = document.createElement('div');
         childdiv.id = id;
         div.appendChild(childdiv);
-        var childnode = new Node.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h);
+        var childnode = new Node.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h,e);
         this.children.push(childnode);
         childnode.update();
       }
@@ -162,7 +189,7 @@ Node.TransfersNode=function(site) {
   return that;
 }
 
-Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
+Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_error) {
   var that = new Node(div,parent);
   that.site=site;
   that.mode=mode;
@@ -170,6 +197,7 @@ Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
   else that.antimode='to';
   that.data_queue=data_queue;
   that.data_hist=data_hist;
+  that.data_error=data_error;
   that.queues=[];
   that.sum_queue_files=function() {
     var fsum=0;
@@ -188,9 +216,30 @@ Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
   that.hist_speed=function() {
     return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['timebin']);
   }
-  that.buildHeader=function(span) {}
+  that.buildHeader=function(span) {
+    this.title = document.createElement('span');
+    this.speed = document.createElement('span');
+    this.speed.className='col1';
+    this.done = document.createElement('span');
+    this.done.className='col2';
+    this.queue = document.createElement('span');
+    this.queue.className='col3';
+    this.errors = document.createElement('span');
+    this.errors.className='col4';
+    this.errors.style.color='red';
+    span.appendChild(this.title);
+    span.appendChild(this.speed);
+    span.appendChild(this.done);
+    span.appendChild(this.queue);
+    span.appendChild(this.errors);
+  }
   that.fillHeader=function() {
-    this.span_header.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+    //this.span_header.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+    this.title.innerHTML=this.site;
+    this.speed.innerHTML=this.hist_speed()+' B/s, quality '+this.data_hist['quality'];
+    this.done.innerHTML=this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B';
+    this.queue.innerHTML=this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+    this.errors.innerHTML=this.data_error['num_errors']+' errors';
   }
   that.buildExtra=function(div) {}
   that.fillExtra=function() {
@@ -216,6 +265,7 @@ Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
       var from = this.parent.site;
     }
     Data.Call('TransferQueueBlocks',{from:from,to:to},this.receive,{obj:this,from:from,to:to});
+    this.startLoading();
   }
   that.receive = function(result) {
     
@@ -226,25 +276,34 @@ Node.LinkNode=function(site,mode,parent,div,data_queue,data_hist) {
         var q_stat = this.queues[i]['transfer_queue'][j]['state'];
         for (var k in this.queues[i]['transfer_queue'][j]['block']) {
           var block = this.queues[i]['transfer_queue'][j]['block'][k];
+          var bname = this.queues[i]['transfer_queue'][j]['block'][k]['name'];
+          var e = {};
+          for (var l in this.data_error['block']) {
+            if (this.data_error['block'][l]['name']==bname) {
+              e = this.data_error['block'][l];
+            }
+          }
           var bdiv = document.createElement('div');
           result.argument.obj.children_div.appendChild(bdiv);
           bdiv.id = this.id+'_q'+j+'_b'+k;
-          var node = new Node.BlockNode(result.argument.from,result.argument.to,this,bdiv,block,q_prio,q_stat);
+          var node = new Node.BlockNode(result.argument.from,result.argument.to,this,bdiv,block,q_prio,q_stat,e);
           result.argument.obj.children.push(node);
           node.update();
         }
       }
     }
+    result.argument.obj.finishLoading();
   }
   that.build();
   return that;
 }
 
-Node.BlockNode = function(from,to,parent,div,data,queue_priority,queue_status) {
+Node.BlockNode = function(from,to,parent,div,data,queue_priority,queue_status,data_error) {
   var that = new Node(div,parent);
   that.from=from;
   that.to=to;
   that.data=data;
+  that.data_error=data_error;
   that.q_p = queue_priority;
   that.q_s = queue_status;
   that.files=[];
@@ -262,6 +321,7 @@ Node.BlockNode = function(from,to,parent,div,data,queue_priority,queue_status) {
   that.buildChildren=function(div) {
     var block = this.data['name'].replace(/#/,'%23');
     Data.Call('TransferQueueFiles',{from:this.from,to:this.to,block:block},this.receive,{obj:this,from:this.from,to:this.to,block:block});
+    this.startLoading();
   }
   that.receive=function(result) {
     this.files=eval('('+result.responseText+')')['phedex']['link'];
@@ -270,27 +330,36 @@ Node.BlockNode = function(from,to,parent,div,data,queue_priority,queue_status) {
         for (var k in this.files[i]['transfer_queue'][j]['block']) {
           for (var l in this.files[i]['transfer_queue'][j]['block'][k]['file']) {
             var f = this.files[i]['transfer_queue'][j]['block'][k]['file'][l];
+            var fname = this.files[i]['transfer_queue'][j]['block'][k]['file'][l]['name'];
+            var e={};
+            for (var m in this.data_error['file']) {
+              if (this.data_error['file'][m]['name']==fname) {
+                e = this.data_error['file'][m];
+              }
+            }
             var fdiv = document.createElement('div');
             result.argument.obj.children_div.appendChild(fdiv);
             fdiv.id = this.id+'_f'+l;
-            var node = new Node.FileNode(result.argument.from,result.argument.to,result.argument.block,this,fdiv,f);
+            var node = new Node.FileNode(result.argument.from,result.argument.to,result.argument.block,this,fdiv,f,e);
             result.argument.obj.children.push(node);
             node.update();
           }
         }
       }
     }
+    result.argument.obj.finishLoading();
   }
   that.build();
   return that;
 }
 
-Node.FileNode = function(from,to,block,parent,div,data) {
+Node.FileNode = function(from,to,block,parent,div,data,data_error) {
   var that = new Node(div,parent,{children:false});
   that.from=from;
   that.to=to;
   that.block=block;
   that.data=data;
+  that.data_error=data_error;
   that.buildHeader=function(span) {}
   that.fillHeader=function() {
     this.span_header.innerHTML='name: '+this.data['name'];
