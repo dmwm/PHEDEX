@@ -1454,10 +1454,234 @@ sub getTransferErrorStats
         push @r, $value;
     }
 
-                    
-
     return \@r;
 
+}
+
+# get transfer error details from the log
+sub getTransferErrorDetail
+{
+    my ($core, %h) = @_;
+
+    # save LongReadLen & LongTruncOk
+    my $LongReadLen = $$core{DBH}->{LongReadLen};
+    my $LongTruncOk = $$core{DBH}->{LongTruncOk};
+
+    $$core{DBH}->{LongReadLen} = 10_000;
+    $$core{DBH}->{LongTruncOk} = 1;
+
+    # take care of FROM/FROM_NODE and TO/TO_NODE
+    $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
+    $h{TO_NODE} = delete $h{TO} if $h{TO};
+
+    my $sql = qq {
+        select
+            fn.name "from",
+            fn.id from_id,
+            fn.se_name from_se,
+            tn.name "to",
+            tn.id to_id,
+            tn.se_name to_se,
+            b.name block_name,
+            b.id   block_id,
+            f.logical_name file_name,
+            f.id   file_id,
+            f.filesize file_size,
+            f.checksum checksum,
+            xe.time_assign,
+            xe.time_expire,
+            xe.time_export,
+            xe.time_inxfer,
+            xe.time_xfer,
+            xe.time_done,
+            xe.time_expire,
+            xe.from_pfn,
+            xe.to_pfn,
+            xe.space_token,
+            xe.log_xfer,
+            xe.log_detail,
+            xe.log_validate
+        from
+            t_xfer_error xe
+            join t_adm_node fn on fn.id = xe.from_node
+            join t_adm_node tn on tn.id = xe.to_node
+            join t_xfer_file f on f.id = xe.fileid
+            join t_dps_block b on b.id = f.inblock
+        where
+            not fn.name like 'X%' and
+            not tn.name like 'X%'
+        };
+
+    my @r;
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM_NODE => 'fn.name',
+        TO_NODE => 'tn.name',
+        BLOCK => 'b.name',
+        LFN => 'f.logical_name'
+        ));
+
+    $sql .= " and ( $filters )" if $filters;
+    $sql .= qq {
+        order by xe.time_done desc
+        };
+
+    my $q = execute_sql($core, $sql, %p);
+
+    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+
+    my %link;
+    # restructuring the output
+    while ($_ = $q->fetchrow_hashref())
+    {
+        my $key = $_->{FROM}.'+'.$_->{TO};
+        if ($link{$key})
+        {
+            if ($link{$key}{block_tmp}{$_->{BLOCK_ID}})
+            {
+                if ($link{$key}{block_tmp}{file_tmp}{$_->{FILE_ID}})
+                {
+                    push @{$link{$key}{block_tmp}{file_tmp}{$_->{FILE_ID}}->{transfer_error}}, {
+                        report_code => $_->{REPORT_CODE},
+                        transfer_code => $_->{TRANSFER_CODE},
+                        time_assign => $_->{TIME_ASSIGN},
+                        time_export => $_->{TIME_EXPORT},
+                        time_inxfer => $_->{TIME_INXFER},
+                        time_xfer => $_->{TIME_XFER},
+                        time_done => $_->{TIME_DONE},
+                        from_pfn => $_->{FROM_PFN},
+                        to_pfn => $_->{TO_PFN},
+                        space_token => $_->{SPACE_TOKEN},
+                        transfer_log => {'$t' => $_->{LOG_XFER}},
+                        detail_log => {'$t' => $_->{LOG_DETAIL}},
+                        validate_log => {'$t' => $_->{LOG_VALIDATE}}
+                    };
+                }
+                else
+                {
+                    $link{$key}{block_tmp}{$_->{BLOCK_ID}}{file_tmp}{$_->{FILE_ID}} = {
+                        name => $_->{FILE_NAME},
+                        id => $_->{FILE_ID},
+                        checksum => $_->{CHECKSUM},
+                        size => $_->{FILE_SIZE},
+                        transfer_error => [{
+                            report_code => $_->{REPORT_CODE},
+                            transfer_code => $_->{TRANSFER_CODE},
+                            time_assign => $_->{TIME_ASSIGN},
+                            time_export => $_->{TIME_EXPORT},
+                            time_inxfer => $_->{TIME_INXFER},
+                            time_xfer => $_->{TIME_XFER},
+                            time_done => $_->{TIME_DONE},
+                            from_pfn => $_->{FROM_PFN},
+                            to_pfn => $_->{TO_PFN},
+                            space_token => $_->{SPACE_TOKEN},
+                            transfer_log => {'$t' => $_->{LOG_XFER}},
+                            detail_log => {'$t' => $_->{LOG_DETAIL}},
+                            validate_log => {'$t' => $_->{LOG_VALIDATE}}
+                        }]
+                    };
+                }
+            }
+            else
+            {
+                $link{$key}{block_tmp}{$_->{BLOCK_ID}} = {
+                    name => $_->{BLOCK_NAME},
+                    id => $_->{BLOCK_ID},
+                    file_tmp => {
+                        $_->{FILE_ID} => {
+                            name => $_->{FILE_NAME},
+                            id => $_->{FILE_ID},
+                            checksum => $_->{CHECKSUM},
+                            size => $_->{FILE_SIZE},
+                            transfer_error => [{
+                                report_code => $_->{REPORT_CODE},
+                                transfer_code => $_->{TRANSFER_CODE},
+                                time_assign => $_->{TIME_ASSIGN},
+                                time_export => $_->{TIME_EXPORT},
+                                time_inxfer => $_->{TIME_INXFER},
+                                time_xfer => $_->{TIME_XFER},
+                                time_done => $_->{TIME_DONE},
+                                from_pfn => $_->{FROM_PFN},
+                                to_pfn => $_->{TO_PFN},
+                                space_token => $_->{SPACE_TOKEN},
+                                transfer_log => {'$t' => $_->{LOG_XFER}},
+                                detail_log => {'$t' => $_->{LOG_DETAIL}},
+                                validate_log => {'$t' => $_->{LOG_VALIDATE}}
+                            }]
+                        }
+                    }
+                };
+            }
+        }
+        else
+        {
+            $link{$key} = {
+                from => $_->{FROM},
+                from_id => $_->{FROM_ID},
+                from_se => $_->{FROM_SE},
+                to => $_->{TO},
+                to_id => $_->{TO_ID},
+                to_se => $_->{TO_SE},
+                block_tmp => {
+                    $_->{BLOCK_ID} => {
+                        name => $_->{BLOCK_NAME},
+                        id => $_->{BLOCK_ID},
+                        file_tmp => {
+                            $_->{FILE_ID} => {
+                                name => $_->{FILE_NAME},
+                                id => $_->{FILE_ID},
+                                checksum => $_->{CHECKSUM},
+                                size => $_->{FILE_SIZE},
+                                transfer_error => [{
+                                    report_code => $_->{REPORT_CODE},
+                                    transfer_code => $_->{TRANSFER_CODE},
+                                    time_assign => $_->{TIME_ASSIGN},
+                                    time_export => $_->{TIME_EXPORT},
+                                    time_inxfer => $_->{TIME_INXFER},
+                                    time_xfer => $_->{TIME_XFER},
+                                    time_done => $_->{TIME_DONE},
+                                    from_pfn => $_->{FROM_PFN},
+                                    to_pfn => $_->{TO_PFN},
+                                    space_token => $_->{SPACE_TOKEN},
+                                    transfer_log => {'$t' => $_->{LOG_XFER}},
+                                    detail_log => {'$t' => $_->{LOG_DETAIL}},
+                                    validate_log => {'$t' => $_->{LOG_VALIDATE}}
+                                }]
+                            }
+                        }
+                    }
+                }
+            };
+        }
+    }
+
+    # now turn block_tmp to block array
+
+    my ($key, $value, $qkey, $qvalue, $fkey, $fvalue);
+    while (($key, $value) = each (%link))
+    {
+        $link{$key}{block} = [];
+        while (($qkey, $qvalue) = each (%{$link{$key}{block_tmp}}))
+        {
+            $link{$key}{block_tmp}{$qkey}{file} = [];
+            while (($fkey, $fvalue) = each (%{$link{$key}{block_tmp}{$qkey}{file_tmp}}))
+            {
+                push @{$link{$key}{block_tmp}{$qkey}{file}}, $fvalue;
+            }
+            delete $link{$key}{block_tmp}{$qkey}{file_tmp};
+            push @{$link{$key}{block}}, $link{$key}{block_tmp}{$qkey}; 
+        }
+        delete $link{$key}{block_tmp};
+        push @r, $link{$key};
+    }
+
+    # restore LongReadLen & LongTruncOk
+
+    $$core{DBH}->{LongReadLen} = $LongReadLen;
+    $$core{DBH}->{LongTruncOk} = $LongTruncOk;
+
+    return \@r;
 }
 
 1;
