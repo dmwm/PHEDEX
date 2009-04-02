@@ -1,0 +1,62 @@
+Development notes:
+==================
+
+Proxy server:
+
+phedex_proxy.py is a workaround for the single-source restriction in 
+javascript. Edit it to point to the dataservice you wish to use, then you 
+can browse to the host:port that it is running on and access the service. 
+
+Files accessed as host:port/readfile/<path> via the proxy will be served 
+directly, e.g. http://localhost:30001/readfile/phedex3.html, whereas 
+dataservice calls (host:port/phedex/<path>) will be passed through to the 
+dataservice.
+
+CherryPy:
+
+If you don't have it on your machine, you can do this:
+ wget http://download.cherrypy.org/CherryPy/3.1.1/CherryPy-3.1.1.tar.gz
+ tar zxvf CherryPy-*.tar.gz
+ cd CherryPy*
+ python setup.py build
+ python setup.py install -home=/path/to/install/directory
+ (omit the -home option to install in the system default location)
+
+Presumably you will need to set your PYTHONPATH too, if you don't use the 
+system default location.
+
+File organisation:
+Javascript expects base 'classes' to be defined before subclasses, and we 
+wish to break up files for development purposes, so this essentially means 
+we need one file per subclass which defines _only_ that subclass. 
+Higher-level classes are defined separately, redefining them in each 
+subclass would delete previously defined subclasses. So, the hierarchy I 
+propose is:
+
+ phedex-base.js		defines PHEDEX namescape, temporary home for any 
+other high-level namespaces that have no better place to go yet.
+
+ phedex-datasvc.js	encapsulate interaction with the data-service. 
+Defines a PHEDEX.Datasvc.Instance variable and a PHEDEX.Datasvc.GET 
+function. Should eventually encapsulate the callback too, checking for 
+errors etc.
+
+ phedex-util.js		PHEDEX.Util namespace, general purpose functions 
+that don't belong anywhere specific. Formatters may go here, or functions 
+that toggle behaviour on the page etc.
+
+ phedex-widget.js	PHEDEX.Widget is the base for all widget types. 
+This should implement the core behaviour of managing children etc.
+
+ phedex-widget-agents.js	PHEDEX.Widget.Agents is the widget that 
+displays agent status.
+
+ phedex-widget-nodes.js	PHEDEX.Widget.Nodes gets the node-information from 
+TMDB. Will be used for auto-completion etc.
+
+ phedex.html		main page, which should include all the js files 
+it needs. Eventually a proper page-manager will instantiate the widgets as 
+needed.
+
+ phedex.css		CSS for the above.
+

@@ -1,137 +1,30 @@
 <!-- Combo-handled YUI CSS files: --> 
 <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/treeview/assets/skins/sam/treeview.css"> 
+<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/datatable/assets/skins/sam/datatable.css">
 <!-- Combo-handled YUI JS files: --> 
-<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yuiloader-dom-event/yuiloader-dom-event.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/treeview/treeview-min.js"></script> 
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo-dom-event/yahoo-dom-event.js&2.7.0/build/dragdrop/dragdrop-min.js&2.7.0/build/element/element-min.js&2.7.0/build/datasource/datasource-min.js&2.7.0/build/datatable/datatable-min.js"></script>
 
-<html>
-<head><title>Phedex Megapage Test</title></head>
-<body>
-<div><input id='inputRegex'><a href='#' onclick='return megapage.regex(_self.inputRegex.value)'>Submit</a></div>
-<div id='treeDiv'></div>
-<script type="text/javascript">
-megapage=function() {
-var all_linktasks = null;
-var linktask_by_src = null;
-var linktask_by_dest = null;
-var _self = this;
-var tree = null;
-var tree_root = null;
-var inputRegex = null;
+<link rel="stylesheet" type="text/css" href="/readfile/phedex.css">
 
-this.create = function() {
+<script type="text/javascript" src="/readfile/phedex-base.js"></script>
+<script type="text/javascript" src="/readfile/phedex-util.js"></script>
+<script type="text/javascript" src="/readfile/phedex-datasvc.js"></script>
+<script type="text/javascript" src="/readfile/phedex-widget.js"></script>
+<script type="text/javascript" src="/readfile/phedex-widget-agents.js"></script>
+<script type="text/javascript" src="/readfile/phedex-widget-nodes.js"></script>
 
-this.inputRegex = document.getElementById('inputRegex');
+<html><head><title>PhEDEx datasvc</title>
 
-this.tree = new YAHOO.widget.TreeView('treeDiv');
-this.tree_root = this.tree.getRoot();
-//tree.setDynamicLoad(_self.loadNode,currentIconMode);
-this.tree.render();
-this.get_all_linktasks();
+</head>
+<body class="yui-skin-sam">
+<div><input id='select_for_nodes' type='text'><a href='#' onClick='return nodes()'>Show Nodes</a>
+<div id='phedex_nodes'></div>
+<div id="phedex_nodes_table" style="display:block;"></div> 
 
-}
+<div><input id='select_for_agents' type='text'><a href='#' onClick='return agents()'>Show Agents</a>
+<div id='phedex_agents'></div>
+<div id="phedex_agents_table" style="display:block;"></div> 
 
-this.regex = function(regex) {
-
-}
-
-this.json_request = function(call,options,callback) {
-  var optstr = "";
-  for (var k in options) {
-    optstr+=k+"="+options[k]+"&";
-  }
-  //var c = YAHOO.util.Connect.asyncRequest('GET',"http://cmsweb.cern.ch/phedex/datasvc/json/prod/"+call+"?"+optstr,callback);
-  var c = YAHOO.util.Connect.asyncRequest('GET',"/phedex/datasvc/json/prod/"+call+"?"+optstr,callback);
-
-}
-
-this.get_all_linktasks = function() {
-  this.json_request('linktasks',{},{success:_self.receive_data,failure:_self.fail_data,argument:'all_linktasks'});    
-}
-
-this.fail_data = function(result) {
-  alert('failed');
-}
-
-this.receive_data = function(result) {
-  if (result.argument=='all_linktasks') {
-  	_self.all_linktasks = eval('('+result.responseText+')')['phedex']['linktasks']['status'];
-        _self.rebuild_tree();
-  }
-}
-
-this.rebuild_tree = function() {
-  _self.linktask_by_src = new Object();
-  _self.linktask_by_dest = new Object();
-  for (t in _self.all_linktasks) {
-    if (typeof _self.linktask_by_dest[_self.all_linktasks[t].dest_node] == 'undefined') _self.linktask_by_dest[_self.all_linktasks[t].dest_node]=new Array();
-    if (typeof _self.linktask_by_src[_self.all_linktasks[t].src_node] == 'undefined') _self.linktask_by_src[_self.all_linktasks[t].src_node]=new Array();
-    _self.linktask_by_src[_self.all_linktasks[t].src_node].push(_self.all_linktasks[t]);
-    _self.linktask_by_dest[_self.all_linktasks[t].dest_node].push(_self.all_linktasks[t]);
-  }
-
-  for (src in _self.linktask_by_src) {
-    var tempnode = new YAHOO.widget.TextNode(src+' ('+_self.linktask_by_src[src].length+' transfers)',_self.tree_root,false);
-    for (dest in _self.linktask_by_src[src]) {
-	var obj = _self.linktask_by_src[src][dest];
-	var tempnode2 = new YAHOO.widget.TextNode(obj.dest_node+' ('+obj.files+' files, '+obj.bytes+' bytes, '+obj.state+' state)',tempnode,false);
-	tempnode2.xfer_files = obj.files;
-	tempnode2.xfer_bytes = obj.bytes;
-	tempnode2.xfer_src = src;
-	tempnode2.xfer_dest = obj.dest_node;
-	tempnode2.setDynamicLoad(_self.get_site_transfers);
-    }
-  }
-  _self.tree.render();
-}
-
-this.get_site_transfers= function(node,loadcomplete) {
-	src = node.xfer_src;
-	dest = node.xfer_dest;
-	files = node.xfer_files;
-	bytes = node.xfer_bytes;
-	
-	var callback = {
-		success: function(result) {
-			json = eval('('+result.responseText+')')['phedex']['block'];
-			blockid = parseInt(Math.random()*json.length);
-			block = json[blockid];
-			blockstr = 'random_block: '+block.name;
-			var tempnode = new YAHOO.widget.TextNode(blockstr,result.argument.node);
-			tempnode.setDynamicLoad(_self.get_transfer_files);
-			tempnode.xfer_name = block.name;
-			result.argument.loadcomplete();
-		},
-		argument: {node: node, loadcomplete: loadcomplete, src:src, dest:dest, files:files, bytes:bytes}
-	};
-	
-	_self.json_request('blockreplicas',{node:dest},callback);
-}
-this.get_transfer_files=function(node,loadcomplete) {
-	block = node.xfer_name;
-	
-	var callback = {
-		success: function(result) {
-			json = eval('('+result.responseText+')')['phedex']['block'][0];
-			for (fileid in json) {
-				block = json[fileid];
-				blockstr = 'file: '+block.name;
-				var tempnode = new YAHOO.widget.TextNode(blockstr,result.argument.node);
-				//tempnode.setDynamicLoad(_self.get_transfer_files);
-				//tempnode.xfer_name = block.name;
-			}
-			result.argument.loadcomplete();
-		},
-		argument: {node:node,loadcomplete:loadcomplete,block:block}
-	};
-	_self.json_request('filereplicas',{block:block},callback);
-}
-
-
-}
-
-var m = new megapage();
-m.create();
-
-</script>
 </body>
 </html>

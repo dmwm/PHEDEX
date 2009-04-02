@@ -9,7 +9,8 @@ class PhEDExProxy:
     readfile.exposed=True
     def phedex(self,*args,**kwargs):
     	#cherrypy.response.headers['Content-Type'] = 'application/json'
-    	return urllib2.urlopen('http://cmswttest.cern.ch/phedex/%s'%('/'.join(args)+'?'+urllib.urlencode(kwargs))).read()
+#	return urllib2.urlopen('http://lxbuild061.cern.ch:7001/phedex/%s'%('/'.join(args)+'?'+urllib.urlencode(kwargs))).read()
+	return urllib2.urlopen('http://cmswttest.cern.ch/phedex/%s'%('/'.join(args)+'?'+urllib.urlencode(kwargs))).read()
     phedex.exposed=True
 
 cherrypy.config.update({"server.socket_port": 30001})		

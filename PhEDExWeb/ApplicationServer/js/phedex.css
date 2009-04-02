@@ -1,0 +1,30 @@
+<style type="text/css">
+.node{}
+.node-main{border:1px solid black;padding:2px 2px 2px 2px;background:#eee}
+.node-children{padding-left:20px;display:none}
+.node-header{background:#ddd;position:relative}
+.node-extra{display:none}
+.node-extra-link{text-align:center;font-size:80%;font-family:courier;width:100%}
+.node-extra-link:hover{background:#ccc}
+.node-children-link{font-family:courier;font-weight:bold;border:1px solid black;background:grey;padding-left:2px;padding-right:2px;text-decoration:none;color:white}
+.node-children-info{background:red}
+.node-menu-ul{list-style-type:none;padding:0;margin:0}
+.node-selected{display:none;position:absolute;top:0;left:0;height:100%;width:5px;background:red}
+.node-sort-dialog{display:none;position:absolute;top:50%;left:25%;background:beige;border:1px solid black}
+.col1{position:absolute;left:300px}
+.col2{position:absolute;left:500px}
+.col3{position:absolute;left:700px}
+.col4{position:absolute;left:900px}
+ul .node-menu-item{display:none;background:#bbb}
+ul:hover .node-menu-item{display:block;z-index:99}
+li:hover > a .node-menu-item{background:#aaa}
+.node-menu{position:absolute;right:20px;top:0px;text-align:right;background:#ccc;border:1px solid black}
+div:hover .node-menu{z-index:99}
+.node-progress{position:absolute;right:0px;top:0px;height:20px;width:20px;display:none}
+.indent{padding-left:20px;display:none}
+</style>
+
+<style type="text/css">
+.yui-skin-sam .yui-dt-liner { white-space:nowrap; } 
+</style>
+
