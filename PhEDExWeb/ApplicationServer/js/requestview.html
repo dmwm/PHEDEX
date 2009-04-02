@@ -1,0 +1,32 @@
+<!-- Combo-handled YUI CSS files: --> 
+<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/treeview/assets/skins/sam/treeview.css"> 
+<!-- Combo-handled YUI JS files: --> 
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
+
+<script type="text/javascript" src="phedex-base.js"></script>
+<script type="text/javascript" src="phedex-widget.js"></script>
+<script type="text/javascript" src="phedex-widget-requestview.js"></script>
+
+<link rel="stylesheet" type="text/css" href="phedex.css"></link>
+
+<html><head><title>PHEDEX Demo</title>
+
+</head>
+<body>
+<div><input id='req_select' type='text' value='30342'><a href='#' onClick='return req()'>Submit</a></div>
+<div id='phedex_requests'></div>
+
+<script type='text/javascript'>
+
+req_node=null;
+
+req=function() {
+  var req = document.getElementById('req_select').value;
+  req_node = new PHEDEX.Widget.RequestNode(req);
+  req_node.update();
+}
+
+
+</script>
+</body>
+</html>

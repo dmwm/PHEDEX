@@ -87,7 +87,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
         this.extra_expand_div=document.createElement('div');
         this.extra_expand_div.id = this.id+'_extra_link';
         this.extra_expand_div.className = 'node-extra-link';
-        this.extra_expand_div.setAttribute('onclick',"PHEDEX.Util.toggleExtra('"+this.id+"');");
+        this.extra_expand_div.setAttribute('onclick',"PHEDEX.Widget.toggleExtra('"+this.id+"');");
         this.extra_expand_div.innerHTML='expand';
       }
     }
@@ -366,6 +366,47 @@ PHEDEX.Widget = function(divid,parent,opts) {
     while(this.children_div.hasChildNodes()) 
       this.children_div.removeChild(this.children_div.firstChild);
   }
+  this.format={
+    bytes:function(raw) {
+      var f = parseFloat(raw);
+      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TiB';
+      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GiB';
+      if (f>=1048576) return (f/1048576).toFixed(1)+' MiB';
+      if (f>=1024) return (f/1024).toFixed(1)+' KiB';
+      return f.toFixed(1)+' B';
+    },
+    '%':function(raw) {
+      return (100*parseFloat(raw)).toFixed(2)+'%';
+    },
+    block:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    },
+    file:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    },
+    date:function(raw) {
+      var d =new Date(parseFloat(raw)*1000); 
+      return d.toGMTString();
+    },
+    dataset:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    }
+  };
 }
 
 PHEDEX.Widget.toggleChildren=function(id) {
@@ -383,6 +424,18 @@ PHEDEX.Widget.toggleChildren=function(id) {
     return -1;
   }
 
+PHEDEX.Widget.toggleExtra = function(id) {
+    var extra = document.getElementById(id+'_extra');
+    var link = document.getElementById(id+'_extra_link');
+    if (extra.style.display=='block') {
+      extra.style.display='none';
+      link.innerHTML='expand';
+    } else {
+      extra.style.display='block';
+      link.innerHTML='collapse';
+    }
+    return -1;
+  }
 
 PHEDEX.Widget.eventProxy=function(id,arg0,arg1,arg2,arg3) {
     var obj = document.getElementById(id).objLink;
