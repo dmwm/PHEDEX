@@ -7,7 +7,7 @@ agents=function() {
 }
 
 PHEDEX.Widget.Agents=function(site) {
-	var that=new PHEDEX.Widget('phedex_agents');
+	var that=new PHEDEX.Widget('phedex_agents',null,{children:false});
 	that.site=site;
 	that.data = null;
 	that.buildHeader=function() {
@@ -50,10 +50,10 @@ PHEDEX.Widget.Agents=function(site) {
 	        dataSource.responseSchema = {
 	            fields: ["Agent","Version","PID","Date"]
 	        };
-        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_table", columnDefs, dataSource,
+        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_main", columnDefs, dataSource,
                      {
                       caption:"PhEDEx Agents on "+site,
-                      height:'150px',
+                      height:'100px',
                       draggableColumns:true
                      });
 	}

@@ -33,7 +33,7 @@ PHEDEX.Widget.Nodes=function(site) {
 	        dataSource.responseSchema = {
 	            fields: ["ID","Name","Kind","Technology","SE"]
 	        };
-        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_table", columnDefs, dataSource,
+        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_main", columnDefs, dataSource,
                      {
                       caption:"PhEDEx Nodes",
                       height:'80px',
