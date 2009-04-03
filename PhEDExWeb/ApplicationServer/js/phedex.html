@@ -5,14 +5,16 @@
 <script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
 <script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo-dom-event/yahoo-dom-event.js&2.7.0/build/dragdrop/dragdrop-min.js&2.7.0/build/element/element-min.js&2.7.0/build/datasource/datasource-min.js&2.7.0/build/datatable/datatable-min.js"></script>
 
-<link rel="stylesheet" type="text/css" href="/readfile/phedex.css">
+<link rel="stylesheet" type="text/css" href="phedex.css">
 
-<script type="text/javascript" src="/readfile/phedex-base.js"></script>
-<script type="text/javascript" src="/readfile/phedex-util.js"></script>
-<script type="text/javascript" src="/readfile/phedex-datasvc.js"></script>
-<script type="text/javascript" src="/readfile/phedex-widget.js"></script>
-<script type="text/javascript" src="/readfile/phedex-widget-agents.js"></script>
-<script type="text/javascript" src="/readfile/phedex-widget-nodes.js"></script>
+<script type="text/javascript" src="phedex-base.js"></script>
+<script type="text/javascript" src="phedex-util.js"></script>
+<script type="text/javascript" src="phedex-datasvc.js"></script>
+<script type="text/javascript" src="phedex-widget.js"></script>
+<script type="text/javascript" src="phedex-widget-agents.js"></script>
+<script type="text/javascript" src="phedex-widget-nodes.js"></script>
+<script type="text/javascript" src="phedex-widget-linkview.js"></script>
+<script type="text/javascript" src="phedex-widget-requestview.js"></script>
 
 <html><head><title>PhEDEx datasvc</title>
 
@@ -25,6 +27,12 @@
 <div><input id='select_for_agents' type='text'><a href='#' onClick='return agents()'>Show Agents</a>
 <div id='phedex_agents'></div>
 <div id="phedex_agents_table" style="display:block;"></div> 
+
+<div><input id='select_for_linkview' type='text'><a href='#' onClick='return linkview()'>Show Links</a>
+<div id='phedex_linkview'></div>
+
+<div><input id='select_for_requestview' type='text'><a href='#' onClick='return requestview()'>Show Requests</a>
+<div id='phedex_requestview'></div>
 
 </body>
 </html>

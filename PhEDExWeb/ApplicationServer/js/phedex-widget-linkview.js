@@ -1,7 +1,13 @@
+xfer_node = null;
 
+linkview=function() {
+  var site = document.getElementById('select_for_linkview').value;
+  xfer_node = new PHEDEX.Widget.TransfersNode(site);
+  xfer_node.update();
+}
 
 PHEDEX.Widget.TransfersNode=function(site) {
-  var that = new PHEDEX.Widget('phedex_transfers',null,{fixed_extra:true,expand_children:true});
+  var that = new PHEDEX.Widget('phedex_linkview',null,{fixed_extra:true,expand_children:true});
   that.site = site;
   that.data_queue = [];
   that.data_hist = [];

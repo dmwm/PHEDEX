@@ -1,5 +1,13 @@
-PHEDEX.Widget.RequestNode = function(req_num) {
-  var that = new PHEDEX.Widget('phedex_requests',null);
+req_node=null;
+
+requestview=function() {
+  var req = document.getElementById('select_for_requestview').value;
+  req_node = new PHEDEX.Widget.RequestView(req);
+  req_node.update();
+}
+
+PHEDEX.Widget.RequestView = function(req_num) {
+  var that = new PHEDEX.Widget('phedex_requestview',null);
   that.req_num=req_num;
   that.data={};
   that.buildHeader=function(span) {
