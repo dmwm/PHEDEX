@@ -64,18 +64,22 @@ PHEDEX.Widget = function(divid,parent,opts) {
     if (this.options['children']) {
       this.child_link = document.createElement('a');
       this.child_link.href='#';
-      this.child_link.setAttribute('onclick',"PHEDEX.Widget.toggleChildren('"+this.id+"');"); //this is an ugly hack to get around execution context - this.id is evaluated now in this context to make a string, instead of later if we set onclick to an actual function.
+      this.child_link.setAttribute('onclick',"PHEDEX.Widget.eventProxy('"+this.id+"','toggleChildren');"); //this is an ugly hack to get around execution context - this.id is evaluated now in this context to make a string, instead of later if we set onclick to an actual function.
       this.child_link.innerHTML='+';
       this.child_link.id=this.id+'_children_link';
       this.child_link.className='node-children-link';
       this.children_div=document.createElement('div');
       this.children_div.id = this.id+'_children';
       this.children_div.className = 'node-children';
-      this.children_info_div=document.createElement('div');
-      this.children_info_div.id=this.id+'_children_info';
+      //this.children_info_div=document.createElement('div');
+      //this.children_info_div.id=this.id+'_children_info';
       // Children-info is a div to contain info such as # filtered, # closed, none returned.
       // TODO: However, it's messy when each of these conditions arises to have to check that none of the other conditions apply to maintain the appropriate message in this field and not risk overwriting other ones. It could probably be quite easily expanded to 3 divs, which would remain hidden until some content was added.
-      this.children_info_div.className = 'node-children-info';
+      //this.children_info_div.className = 'node-children-info';
+      this.children_info_none = document.createElement('div');
+      this.children_info_none.className = 'node-children-info';
+      this.children_info_filter = document.createElement('div');
+      this.children_info_filter.className = 'node-children-info';
     }
     
     // Create a primitive dialog and event connections for a search dialog.
@@ -118,7 +122,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
         this.extra_expand_div=document.createElement('div');
         this.extra_expand_div.id = this.id+'_extra_link';
         this.extra_expand_div.className = 'node-extra-link';
-        this.extra_expand_div.setAttribute('onclick',"PHEDEX.Widget.toggleExtra('"+this.id+"');");
+        this.extra_expand_div.setAttribute('onclick',"PHEDEX.Widget.eventProxy('"+this.id+"','toggleExtra');");
         this.extra_expand_div.innerHTML='expand';
       }
     }
@@ -181,7 +185,8 @@ PHEDEX.Widget = function(divid,parent,opts) {
     
     this.div.appendChild(this.main_div);
     if (this.options['children']) {
-      this.main_div.appendChild(this.children_info_div);
+      this.main_div.appendChild(this.children_info_none);
+      this.main_div.appendChild(this.children_info_filter);
       this.div.appendChild(this.children_div);
     }
     
@@ -193,10 +198,12 @@ PHEDEX.Widget = function(divid,parent,opts) {
     // If the extra and/or children are expanded by default, do so.
     // TODO: If the toggle* functions are moved into eventDefault they can be called directly and we don't need to mess about with proxy functions here.
     if (this.options['expand_extra'] && !this.options['fixed_extra']) {
-      PHEDEX.Widget.toggleExtra(this.id);
+      //PHEDEX.Widget.toggleExtra(this.id);
+      this.eventDefault('toggleExtra');
     }
     if (this.options['expand_children']) {
-      PHEDEX.Widget.toggleChildren(this.id);
+      //PHEDEX.Widget.toggleChildren(this.id);
+      this.eventDefault('toggleChildren');
     }
   }
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
@@ -250,8 +257,9 @@ PHEDEX.Widget = function(divid,parent,opts) {
   // delete any still-marked children
   // display 'no children' in children_info if we got nothing
   // TODO: Most of this should be done by a default implementation. Only parsing the data and create new nodes should be specific.
+  // TODO: Respect sort, filter parameters at creation/update time
   this.buildChildren=function(div) {}
-  // Redisplay all filtered nodes. TODO: Fix if using separate divs instead of children_info. 
+  // Redisplay all filtered nodes.
   this.filterClear=function() {
     this.filtered_children=0;
     for (var i in this.children) {
@@ -259,7 +267,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
       this.children[i].div.style.display='block';
     }
     if (this.children.length>0) {
-      this.children_info_div.innerHTML='';
+      this.children_info_filter.innerHTML='';
     }
   }
   // Iterate over children, using their inbuilt filter methods. child.filter(filter_str) should return true to remain visible, false to be hidden (filtered). If a child receives a filter string it doesn't understand it should return true. Optionally recursive to all children.
@@ -276,11 +284,9 @@ PHEDEX.Widget = function(divid,parent,opts) {
       }
     }
     if (this.filtered_children>0) {
-      this.children_info_div.innerHTML='Filtered children: '+this.filtered_children+' of '+this.children.length;
+      this.children_info_filter.innerHTML='Filtered children: '+this.filtered_children+' of '+this.children.length;
     } else {
-      if (this.filtered_children==0 && this.children.length>0) {
-        this.children_info_div.innerHTML='';
-      }
+      this.children_info_filter.innerHTML='';
     }
   }
   // Deletes a child from the current list of children permanently (well, until next update when it will be replaced).
@@ -322,7 +328,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
   // Set an automatic update after the given interval (assuming this node still exists then).
   // TODO: Updating should be improved with automatic getting of expiry headers and a display element for data age.
   this.setDataExpiry=function(ms) {
-    window.setTimeout("PHEDEX.Widget.updateProxy('"+this.id+"');",ms);
+    window.setTimeout("PHEDEX.Widget.eventProxy('"+this.id+"','update');",ms);
   }
   // Select or unselect all the children of this node.
   this.selectChildren=function(selected) {
@@ -372,6 +378,28 @@ PHEDEX.Widget = function(divid,parent,opts) {
       break;
     case 'sort_Sort':
       this.sortChildren(this.sort_select.value,this.sort_reverse.checked);
+      break;
+    case 'toggleChildren':
+      if (this.children_div.style.display=='block') {
+        this.children_div.style.display='none';
+        this.child_link.innerHTML='+';
+      } else {
+        this.requestChildren();
+        this.children_div.style.display='block';
+        this.child_link.innerHTML='-';
+      }
+      break;
+    case 'toggleExtra':
+      if (this.extra_div.style.display=='block') {
+        this.extra_div.style.display='none';
+        this.extra_expand_div.innerHTML='expand';
+      } else {
+        this.extra_div.style.display='block';
+        this.extra_expand_div.innerHTML='collapse';
+      }
+      break;
+    case 'update':
+      this.update();
       break;
     }
     this.event(arg0,arg1,arg2,arg3);
@@ -488,40 +516,4 @@ PHEDEX.Widget = function(divid,parent,opts) {
 PHEDEX.Widget.eventProxy=function(id,arg0,arg1,arg2,arg3) {
     var obj = document.getElementById(id).objLink;
     obj.eventDefault(arg0,arg1,arg2,arg3);
-  }
-
-  
-// The rest of these should probably be replaced by eventProxy calls and default implementations within eventDefault...
-PHEDEX.Widget.updateProxy=function(id) {
-    var obj = document.getElementById(id).objLink;
-    obj.update();
 }
-
-
-PHEDEX.Widget.toggleChildren=function(id) {
-    var obj = document.getElementById(id).objLink;
-    var children = document.getElementById(id+'_children');
-    var link = document.getElementById(id+'_children_link');
-    if (children.style.display=='block') {
-      children.style.display='none';
-      link.innerHTML='+';
-    } else {
-      obj.requestChildren();
-      children.style.display='block';
-      link.innerHTML='-';
-    }
-    return -1;
-  }
-
-PHEDEX.Widget.toggleExtra = function(id) {
-    var extra = document.getElementById(id+'_extra');
-    var link = document.getElementById(id+'_extra_link');
-    if (extra.style.display=='block') {
-      extra.style.display='none';
-      link.innerHTML='expand';
-    } else {
-      extra.style.display='block';
-      link.innerHTML='collapse';
-    }
-    return -1;
-  }
