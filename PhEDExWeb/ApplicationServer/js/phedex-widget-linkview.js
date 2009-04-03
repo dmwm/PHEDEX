@@ -7,7 +7,7 @@ linkview=function() {
 }
 
 PHEDEX.Widget.TransfersNode=function(site) {
-  var that = new PHEDEX.Widget('phedex_linkview',null,{fixed_extra:true,expand_children:true});
+  var that = new PHEDEX.Widget('phedex_linkview_'+site,null,{fixed_extra:true,expand_children:true});
   that.site = site;
   that.data_queue = [];
   that.data_hist = [];
