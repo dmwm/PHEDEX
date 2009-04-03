@@ -23,7 +23,8 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.div = divid;
   } else {
     this.id = divid;
-    this.div = document.getElementById(this.id);
+//  this.div = document.getElementById(this.id);
+    this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id);
   }
   // This is used to get round execution scope issues. The object is bound to the top-level div, which can be looked up easily by ID, and the object recovered.
   // TODO: does this work in all browsers?
