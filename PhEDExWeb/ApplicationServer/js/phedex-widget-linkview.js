@@ -41,9 +41,7 @@ PHEDEX.Widget.TransfersNode=function(site) {
     div.appendChild(modeselect);
     div.appendChild(timeselect);
   }
-  that.fillExtra=function() {
-  
-  }
+  that.fillExtra=function() {}
   that.event=function(what,val,arg2,arg3) {
     if (what=='time') {
       this.time=val;
@@ -83,18 +81,17 @@ PHEDEX.Widget.TransfersNode=function(site) {
     }
   }
   that.buildChildren=function(div) {
-    this.children_info_div.innerHTML='';
     this.markChildren();
     if (this.mode=='to') var antimode='from';
     else var antimode='to';
-    for (var i in this.data_queue) {
-      var d = this.data_queue[i];
-      var node = d[antimode];
-      var h = {};
+    for (var i in this.data_hist) {
+      var h = this.data_hist[i];
+      var node = h[antimode];
+      var d = {};
       var e={num_errors:0};
-      for (var j in this.data_hist) {
-        if (this.data_hist[j][antimode]==node) {
-          h = this.data_hist[j];
+      for (var j in this.data_queue) {
+        if (this.data_queue[j][antimode]==node) {
+          d = this.data_queue[j];
           break;
         }
       }
@@ -122,7 +119,9 @@ PHEDEX.Widget.TransfersNode=function(site) {
     }
     this.removeMarkedChildren();
     if (this.children.length==0) {
-      this.children_info_div.innerHTML='No children returned';
+      this.children_info_none.innerHTML='No children returned';
+    } else {
+      this.children_info_none.innerHTML='';
     }
   }
   that.build();
@@ -194,6 +193,11 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     return true;
   }
   that.update=function() {
+    var q = this.data_hist['quality'];
+    var red = parseInt((1.-q)*256);
+    var green = parseInt(q*256);
+    this.div.style.border="3px solid rgb("+red+","+green+",0)";
+    
     this.populate();
   }
   that.buildChildren=function(div) {
@@ -208,7 +212,6 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     this.startLoading();
   }
   that.receive = function(result) {
-    result.argument.obj.children_info_div.innerHTML='';
     result.argument.obj.markChildren();
     var queues = eval('('+result.responseText+')')['phedex']['link'];
     for (var i in queues) {
@@ -246,7 +249,9 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     }
     result.argument.obj.removeMarkedChildren();
     if (result.argument.obj.children.length==0) {
-      result.argument.obj.children_info_div.innerHTML='No children returned';
+      result.argument.obj.children_info_none.innerHTML='No children returned';
+    } else {
+      result.argument.obj.children_info_none.innerHTML='';
     }
     result.argument.obj.queues = queues;
     result.argument.obj.finishLoading();
@@ -333,7 +338,9 @@ PHEDEX.Widget.BlockNode = function(from,to,parent,div,data,queue_priority,queue_
     }
     result.argument.obj.removeMarkedChildren();
     if (result.argument.obj.children.length==0) {
-      result.argument.obj.children_info_div.innerHTML='No children returned';
+      result.argument.obj.children_info_none.innerHTML='No children returned';
+    } else {
+      result.argument.obj.children_info_none.innerHTML='';
     }
     result.argument.obj.files = files;
     result.argument.obj.finishLoading();
@@ -342,6 +349,37 @@ PHEDEX.Widget.BlockNode = function(from,to,parent,div,data,queue_priority,queue_
   return that;
 }
 
+PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
+  //var that = new PHEDEX.Widget(div,parent,{children:false});
+  this.from=from;
+  this.to=to;
+  this.block=block;
+  this.data=data;
+  this.data_error=data_error;
+  this.buildHeader=function(span) {
+    this.title=document.createElement('span');
+    this.errors=document.createElement('span');
+    this.errors.className='col4';
+    this.errors.style.color='red';
+    span.appendChild(this.title);
+    span.appendChild(this.errors);
+  }
+  this.fillHeader=function() {
+    //this.span_header.innerHTML='name: '+this.data['name'];
+    this.title.innerHTML=this.format['file'](this.data['name']);
+    this.errors.innerHTML=this.data_error['num_errors']+' errors';
+  }
+  this.buildExtra=function(div) {}
+  this.fillExtra=function() {
+    this.extra_div.innerHTML='id: '+this.data['id']+' checksum: '+this.data['checksum']+' bytes: '+this.data['bytes'];
+  }
+  this.update=function() {
+    this.populate();
+  }
+  this.build();
+  //return that;
+}
+/*
 PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
   var that = new PHEDEX.Widget(div,parent,{children:false});
   that.from=from;
@@ -372,7 +410,7 @@ PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
   that.build();
   return that;
 }
-
+*/
 Data=function(){}
 Data.Call = function(query,args,callback,argument) {
   var argstr = "";

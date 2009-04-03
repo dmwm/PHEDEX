@@ -4,6 +4,7 @@
 <script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo-debug.js&2.7.0/build/event/event-debug.js&2.7.0/build/connection/connection-debug.js&2.7.0/build/json/json-debug.js&2.7.0/build/dom/dom-debug.js&2.7.0/build/treeview/treeview-debug.js&2.7.0/build/logger/logger-debug.js"></script>
 
 <script type="text/javascript" src="phedex-base.js"></script>
+<script type="text/javascript" src="phedex-util.js"></script>
 <script type="text/javascript" src="phedex-widget.js"></script>
 <script type="text/javascript" src="phedex-widget-requestview.js"></script>
 
@@ -14,7 +15,7 @@
 </head>
 <body>
 <div><input id='select_for_requests' type='text' value='30342'><a href='#' onClick='return req()'>Submit</a></div>
-<div id='phedex_requests'></div>
+<div id='phedex_main'></div>
 
 <script type='text/javascript'>
 
@@ -22,7 +23,7 @@ req_node=null;
 
 req=function() {
   var req = document.getElementById('select_for_requests').value;
-  req_node = new PHEDEX.Widget.RequestNode(req);
+  req_node = new PHEDEX.Widget.RequestView(req);
   req_node.update();
 }
 
