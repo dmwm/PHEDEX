@@ -54,9 +54,9 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name)
     div = document.createElement('div');
     div.className = 'node';
     div.id = name;
+    var phedex_main = document.getElementById('phedex_main');
+    phedex_main.appendChild(div);
   }
-  var phedex_main = document.getElementById('phedex_main');
-  phedex_main.appendChild(div);
   return div;
 }
 
