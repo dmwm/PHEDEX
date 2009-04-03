@@ -348,38 +348,6 @@ PHEDEX.Widget.BlockNode = function(from,to,parent,div,data,queue_priority,queue_
   that.build();
   return that;
 }
-
-PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
-  //var that = new PHEDEX.Widget(div,parent,{children:false});
-  this.from=from;
-  this.to=to;
-  this.block=block;
-  this.data=data;
-  this.data_error=data_error;
-  this.buildHeader=function(span) {
-    this.title=document.createElement('span');
-    this.errors=document.createElement('span');
-    this.errors.className='col4';
-    this.errors.style.color='red';
-    span.appendChild(this.title);
-    span.appendChild(this.errors);
-  }
-  this.fillHeader=function() {
-    //this.span_header.innerHTML='name: '+this.data['name'];
-    this.title.innerHTML=this.format['file'](this.data['name']);
-    this.errors.innerHTML=this.data_error['num_errors']+' errors';
-  }
-  this.buildExtra=function(div) {}
-  this.fillExtra=function() {
-    this.extra_div.innerHTML='id: '+this.data['id']+' checksum: '+this.data['checksum']+' bytes: '+this.data['bytes'];
-  }
-  this.update=function() {
-    this.populate();
-  }
-  this.build();
-  //return that;
-}
-/*
 PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
   var that = new PHEDEX.Widget(div,parent,{children:false});
   that.from=from;
@@ -410,7 +378,8 @@ PHEDEX.Widget.FileNode = function(from,to,block,parent,div,data,data_error) {
   that.build();
   return that;
 }
-*/
+
+
 Data=function(){}
 Data.Call = function(query,args,callback,argument) {
   var argstr = "";
