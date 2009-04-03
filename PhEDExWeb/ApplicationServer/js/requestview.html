@@ -13,7 +13,7 @@
 
 </head>
 <body>
-<div><input id='req_select' type='text' value='30342'><a href='#' onClick='return req()'>Submit</a></div>
+<div><input id='select_for_requests' type='text' value='30342'><a href='#' onClick='return req()'>Submit</a></div>
 <div id='phedex_requests'></div>
 
 <script type='text/javascript'>
@@ -21,7 +21,7 @@
 req_node=null;
 
 req=function() {
-  var req = document.getElementById('req_select').value;
+  var req = document.getElementById('select_for_requests').value;
   req_node = new PHEDEX.Widget.RequestNode(req);
   req_node.update();
 }

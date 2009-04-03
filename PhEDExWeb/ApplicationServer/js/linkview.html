@@ -13,8 +13,8 @@
 
 </head>
 <body>
-<div><input id='node_select' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a></div>
-<div><input id='filter' type='text'><a href='#' onClick='return filter()'>Filter</a></div>
+<div><input id='select_for_transfers' type='text' value='T1_US_FNAL_Buffer'><a href='#' onClick='return agents()'>Submit</a></div>
+<div><input id='select_for_transfers_filter' type='text'><a href='#' onClick='return filter()'>Filter</a></div>
 <div id='phedex_transfers'></div>
 
 <script type='text/javascript'>
@@ -22,7 +22,7 @@
 xfer_node=null;
 
 agents=function() {
-  var site = document.getElementById('node_select').value;
+  var site = document.getElementById('select_for_transfers').value;
 //  agent_node = new PHEDEX.Node.Agents(site);
 //  agent_node.update();
 //  to_node = new PHEDEX.Node.PendingTransfers(site,'to');
@@ -35,7 +35,7 @@ agents=function() {
 
 
 filter=function() {
-  var filter = document.getElementById('filter').value;
+  var filter = document.getElementById('select_for_transfers_filter').value;
   if (filter=='') {
     xfer_node.filterClear();
   } else {

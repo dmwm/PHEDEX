@@ -35,7 +35,7 @@ PHEDEX.Widget.TransfersNode=function(site) {
     var timeselect = document.createElement('select');
     timeselect.innerHTML = "<option value='1'>Last Hour</option><option value='3'>Last 3 Hours</option><option value='6' selected>Last 6 Hours</option><option value='12'>Last 12 Hours</option><option value='24'>Last Day</option><option value='48'>Last 2 Days</option><option value='96'>Last 4 Days</option><option value='168'>Last Week</option>";
     
-    modeselect.setAttribute('onchange',"PHEDEX.Widget.eventProxy('"+this.id+"','mode',this.value);");
+    modeselect.setAttribute('onchange',"PHEDEX.Widget.eventProxy('"+this.id+"','mode',this.value);"); //when called, 'this' will be modeselect, so this.value gets us the appropriate argument
     timeselect.setAttribute('onchange',"PHEDEX.Widget.eventProxy('"+this.id+"','time',this.value);");
 
     div.appendChild(modeselect);
@@ -154,7 +154,7 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     return bsum;
   } 
   that.hist_speed=function() {
-    return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['timebin']);
+    return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['binwidth']);
   }
   that.buildHeader=function(span) {
     this.title = document.createElement('span');

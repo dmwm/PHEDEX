@@ -4,13 +4,20 @@
 //Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
 //implement their own methods to generate the header, extra and children content, and handle updates.
 
+//This should be subclassed for each class and then specific child node.
+//TODO: Prototype instead of instance based subclassing.
+
 PHEDEX.Widget = function(divid,parent,opts) {
+  // Copy the options over the defaults.
+  // There should probably be further options here such as closeable, updateable, sortable, filterable...
   this.options = {expand_extra:false,expand_children:false,extra:true,children:true,fixed_extra:false};
   if (opts) {
     for (o in opts) {
       this.options[o]=opts[o];
     }
   }
+  // Test whether we were passed an object (assumed div) or something else (assumed element.id)
+  // Set the div and id appropriately.
   if (typeof(divid)=='object') {
     this.id = divid.id;
     this.div = divid;
@@ -18,25 +25,41 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.id = divid;
     this.div = document.getElementById(this.id);
   }
+  // This is used to get round execution scope issues. The object is bound to the top-level div, which can be looked up easily by ID, and the object recovered.
+  // TODO: does this work in all browsers?
   this.div.objLink = this;
+  // Sort keys is a key_name: Key Label dictionary of keys the children of this node will understand (when called with child.sort_key(key_name))
+  // Used to build the sort menu. Should be appended to before build() time.
   this.sort_keys={};
+  // List of children
   this.children = [];
+  // Reference to parent (or null)
   this.parent = parent;
-  this.updated = false;
+  // TODO: Currently unused. Intended for future auto-update/manual update after data expiry
   this.last_update = null;
+  // Used to indicate whether the children have ever been fetched when the children area is expanded (so they can be fetched first time and just shown subsequently).
   this.children_fetched = false;
+  // Indicates the number of children the node has currently hidden by filtering.
   this.filtered_children = 0;
-  this.to_update = [];
+  // Mark of the Beast. Used during updates by the parent to detect which children have neither been freshly created or updated (and so are based on data no longer returned and can be safely deleted).
   this.marked=false;
+  // Can be set by the subclass to append one or more extra CSS classes to this node for skinning purposes.
   this.main_css='';
+  // Counter for number of children disposed of.
   this.closed_children = 0;
+  
+  // Clears the node of all content (not just children).
   this.clear=function() {
     while (this.div.hasChildNodes())
       this.div.removeChild(this.div.firstChild);
   }
+  
+  // Build contructs all the basic unfilled markup required before the implementation starts doing specific tasks.
   this.build=function() {
+    //Start off by clearing the top-level div (we might be being inserted into an already used div).
     this.clear();
     
+    // Create children area and control
     if (this.options['children']) {
       this.child_link = document.createElement('a');
       this.child_link.href='#';
@@ -49,9 +72,13 @@ PHEDEX.Widget = function(divid,parent,opts) {
       this.children_div.className = 'node-children';
       this.children_info_div=document.createElement('div');
       this.children_info_div.id=this.id+'_children_info';
+      // Children-info is a div to contain info such as # filtered, # closed, none returned.
+      // TODO: However, it's messy when each of these conditions arises to have to check that none of the other conditions apply to maintain the appropriate message in this field and not risk overwriting other ones. It could probably be quite easily expanded to 3 divs, which would remain hidden until some content was added.
       this.children_info_div.className = 'node-children-info';
     }
     
+    // Create a primitive dialog and event connections for a search dialog.
+    // TODO: This is basically non-functional. This should either be re-done as a proper slide-out pane, or set up as a proper dialog using YUI widgets. There is probably scope to create a standard dialog or slide-element for either.
     this.sort_div=document.createElement('div');
     this.sort_div.className='node-sort-dialog';
     this.sort_opts = document.createElement('select');
@@ -75,8 +102,11 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.sort_reverse = document.createElement('checkbox');
     this.sort_div.appendChild(this.sort_reverse);   
     
+    
     this.main_div=document.createElement('div');
     this.header_div=document.createElement('div');
+    
+    // Create the extra area, if required. TODO: Extra-expand should probably show a wide up/down arrow (and possibly function on mouseover).
     if (this.options['extra']) {
       this.extra_div=document.createElement('div');
       this.extra_div.id = this.id+'_extra';
@@ -102,6 +132,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     if (this.options['children']) {
       this.header_div.appendChild(this.child_link);
     }
+    // The header is currently a relative-positioned div so that absolute-positioned dialog elements can be placed within it. TODO: It may be better to move to a series of floated div columns and a seperate relative-absolute element for dialogs.
     this.span_header = document.createElement('span');
     this.selected_div = document.createElement('div');
     this.selected_div.className='node-selected';
@@ -109,7 +140,9 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.header_div.appendChild(this.sort_div);
     this.header_div.appendChild(this.span_header);
     
-    //quick+dirty CSS menu for options
+    // Create a quick and dirty menu using CSS only.
+    // TODO: The list of items should probably be a property of this, so implementations can alter it before build()
+    // TODO: Most browsers have a bleed-through problem with the CSS here. This may be solvable with messing around with z-index, :hover etc but may need the menu redone in javascript.
     this.menu_div = document.createElement('div');
     this.menu_div.className='node-menu';
     var menu_ul = document.createElement('ul');
@@ -131,6 +164,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     this.menu_div.appendChild(menu_ul);
     this.header_div.appendChild(this.menu_div);
+    // Create a (usually hidden) progress indicator.
     this.progress_img = document.createElement('img');
     this.progress_img.src = '/readfile/progress.gif';
     this.progress_img.className = 'node-progress';
@@ -155,37 +189,41 @@ PHEDEX.Widget = function(divid,parent,opts) {
       this.buildExtra(this.extra_div);
     }
     
+    // If the extra and/or children are expanded by default, do so.
+    // TODO: If the toggle* functions are moved into eventDefault they can be called directly and we don't need to mess about with proxy functions here.
     if (this.options['expand_extra'] && !this.options['fixed_extra']) {
-      PHEDEX.Util.toggleExtra(this.id);
+      PHEDEX.Widget.toggleExtra(this.id);
     }
     if (this.options['expand_children']) {
       PHEDEX.Widget.toggleChildren(this.id);
     }
   }
+  // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
   this.buildHeader=function(span) {}
   this.buildExtra=function(div) {}
   this.fillHeader=function() {}
   this.fillExtra=function() {}
-  this.startLoading=function() {
-    this.progress_img.style.display='block';
-  }
-  this.finishLoading=function() {
-    this.progress_img.style.display='none';
-  }
+  // Start/FinishLoading, surprisingly, show and hide the progress icon.
+  this.startLoading=function() {this.progress_img.style.display='block';}
+  this.finishLoading=function() {this.progress_img.style.display='none';}
+  
+  // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, extra and if necessary children. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
+  // Recursively update all children.
   this.updateChildren=function() {
     this.update();
     for (var i in this.children) {
       this.children[i].updateChildren();
     }
   }
+  // Called whenever the child area is expanded. Checks whether we've already populated this area, and does so if not.
   this.requestChildren=function() {
-    //this should allow for a timeout (after which children will be re-acquired)
-    //timeout should be custom depending on data
     if (! this.children_fetched) {
       this.buildChildren(this.children_div);
+      this.children_fetched=true;
     }
   }
+  // Intended to be called by nodes after update() has been called and they've updated their internal data structures. Refills the header and extra info, and if the children are currently open attempts to update them as well.
   this.populate=function() {
     this.fillHeader();
     this.fillExtra();
@@ -195,7 +233,24 @@ PHEDEX.Widget = function(divid,parent,opts) {
       }
     }
   }
+  // Implement for nodes that have child elements. When this is called it should either, if fresh data is necessary, request it, or if data is already available, build the children. At this time this function lacks a default implementation and a number of housekeeping operations have to be performed by the implementation. Specifically, the implementation should:
+  // mark all children for deletion
+  // iterate over data, calculating an ID for each data object
+  // test if a child with that ID already exists
+  //   inject the new data into the child
+  //   unmark the child for deletion
+  //   update() the child to display the new data
+  // else
+  //   create a new div with this ID
+  //   create a new child node in this div
+  //   add the child node to children
+  //   add the div to children_div
+  //   update() the child
+  // delete any still-marked children
+  // display 'no children' in children_info if we got nothing
+  // TODO: Most of this should be done by a default implementation. Only parsing the data and create new nodes should be specific.
   this.buildChildren=function(div) {}
+  // Redisplay all filtered nodes. TODO: Fix if using separate divs instead of children_info. 
   this.filterClear=function() {
     this.filtered_children=0;
     for (var i in this.children) {
@@ -206,10 +261,12 @@ PHEDEX.Widget = function(divid,parent,opts) {
       this.children_info_div.innerHTML='';
     }
   }
-  this.filterChildren=function(filter_str) {
+  // Iterate over children, using their inbuilt filter methods. child.filter(filter_str) should return true to remain visible, false to be hidden (filtered). If a child receives a filter string it doesn't understand it should return true. Optionally recursive to all children.
+  this.filterChildren=function(filter_str,recursive) {
     this.filtered_children=0;
     for (var i in this.children) {
-      this.children[i].filterChildren(filter_str);
+      if (recursive)
+        this.children[i].filterChildren(filter_str,recursive);
       if (this.children[i].filter(filter_str)) {
          this.children[i].div.style.display='block';
       } else {
@@ -225,6 +282,8 @@ PHEDEX.Widget = function(divid,parent,opts) {
       }
     }
   }
+  // Deletes a child from the current list of children permanently (well, until next update when it will be replaced).
+  // TODO: Increment closed_children and display a message (and possibility to bring them back?)
   this.closeChild=function(objid) {
     if (typeof(objid)=='object') {
       var uid=objid.uid();
@@ -233,14 +292,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     this.removeChild(uid);
   }
-  this.getChildByUID=function(uid) {
-    for (var i in this.children) {
-      if (this.children[i].uid()==uid) {
-        return this.children[i];
-      }
-    }
-    return false;
-  }
+  // Removes a child both from the children list and removes its div from children_div.
   this.removeChild=function(uid) {
     var newchildren = [];
     for (var i in this.children) {
@@ -252,6 +304,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     this.children=newchildren;
   }
+  // Iterates down the tree from this node returning a flat list of all selected children.
   this.getSelectedChildren = function() {
     var result = [];
     for (var i in this.children) {
@@ -265,14 +318,18 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     return result;
   }
+  // Set an automatic update after the given interval (assuming this node still exists then).
+  // TODO: Updating should be improved with automatic getting of expiry headers and a display element for data age.
   this.setDataExpiry=function(ms) {
     window.setTimeout("PHEDEX.Widget.updateProxy('"+this.id+"');",ms);
   }
+  // Select or unselect all the children of this node.
   this.selectChildren=function(selected) {
     for (var i in this.children) {
       this.children[i].select(selected);
     }
   }
+  // Select or unselect this node. Displays a marker on the left-hand side of the header.
   this.select=function(selected) {
     this.selected=selected;
     if (selected) {
@@ -281,6 +338,9 @@ PHEDEX.Widget = function(divid,parent,opts) {
       this.selected_div.style.display='none';
     }
   }
+  // This is the main event handling mechanism. All calls to PHEDEX.Widget.eventProxy(id,args...) where the ID resolves to the div associated with this object land here. This is intended to perform standard functions (such as the menu). All calls are then passed to event(), which implementations should overwrite to handle their own events.
+  // TODO: Move toggleChildren, toggleExtra, updateProxy into this function. They don't need to be separate.
+  // TODO: Look into how argument lists can be done in JS instead of the fixed 4-arg maximum I've done here.
   this.eventDefault=function(arg0,arg1,arg2,arg3) {
     switch(arg0) {
     case 'menu_Update':
@@ -315,8 +375,11 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     this.event(arg0,arg1,arg2,arg3);
   }
-  this.event=function(arg0,arg1,arg2,arg3) {} //must be a better way of doing this
+  // Implement this to handle custom events
+  this.event=function(arg0,arg1,arg2,arg3) {}
+  // Return a unique ID number for this child. Default implementation returns the top-level div ID, which should be unique or Bad Things will happen. But if for some reason you need to override it...
   this.uid = function() {return this.id;}
+  // Get a child from a UID.
   this.getChild = function(uid) {
     for (var i in this.children) {
       if (this.children[i].uid()==uid) {
@@ -325,16 +388,19 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     return false;
   }
+  // Mark all children for deletion.
   this.markChildren = function() {
     for (var i in this.children) {
       this.children[i].marked=true;
     }
   }
+  // Unmark all children for deletion.
   this.unmarkChildren = function() {
     for (var i in this.children) {
       this.children[i].marked=false;
     }
   }
+  // Delete those children who are marked for deletion (funnily enough).
   this.removeMarkedChildren = function() {
     var newchildren=[];
     for (var i in this.children) {
@@ -346,6 +412,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     }
     this.children=newchildren;
   }
+  // Sort the children of this node. Uses a keytype (the list of valid ones which should have been set in sort_keys). Each child's sortKey function should return a valid sorting key for each keytype defined in the parent. The child divs are then removed (but not destroyed), the child list sorted (and if necessary reversed), and then the divs re-added in the new order. (warning: untested).
   this.sortChildren=function(key,reverse) {
     var sortCompare=function(child_a,child_b) {
       var key_a = child_a.sortKey(key);
@@ -355,17 +422,24 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.children.sort(sortCompare);
     while(this.children_div.hasChildNodes())
       this.children_div.removeChild(this.children_div.firstChild);
+    if (reverse) this.children.reverse();
     for (var i in this.children) {
       this.children_div.appendChild(this.children[i].div);
     }
   }
+  // Filter function. Each node that wants to be filterable needs to implement this, writing a function that picks out understood filter strings (eg something like 'link: T1*' might be understood by link level nodes and ignored by all others). Return true to remain visible, false to be hidden.
   this.filter=function(filter_str) {return true;}
+  // Sort function. Each sortable node's parent should have a list of known sort keytypes (eg 'name', 'size', 'last updated'), and for each keytype the child should provide an appropriate key.
   this.sortKey=function(sort_key) {return this.uid();}
+  // Infanticide();
   this.removeAllChildren=function() {
     this.children=[];
     while(this.children_div.hasChildNodes()) 
       this.children_div.removeChild(this.children_div.firstChild);
   }
+  // Data formatting table. This is a look-up table of functions which take a raw string as argument and return a string intended to be injected as innerHTML into (usually) a span object.
+  // TODO: Return instead TextNodes/Elements? May be unnecessarily complicated.
+  // TODO: Anonymous functions inside the table have no access to properties of the outside object. Importantly, this means we cannot create events here as we have no access to this.id. Using switch() instead of a table would allow access to this (eg to expand shortened strings).
   this.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
@@ -409,6 +483,20 @@ PHEDEX.Widget = function(divid,parent,opts) {
   };
 }
 
+// eventProxy is a function designed to be called in global scope with the ID of a top-level div associated with a PHEDEX.Widget. The actual widget can then be retrieved using the objLink parameter set in the constructor, and the default event-handler called.
+PHEDEX.Widget.eventProxy=function(id,arg0,arg1,arg2,arg3) {
+    var obj = document.getElementById(id).objLink;
+    obj.eventDefault(arg0,arg1,arg2,arg3);
+  }
+
+  
+// The rest of these should probably be replaced by eventProxy calls and default implementations within eventDefault...
+PHEDEX.Widget.updateProxy=function(id) {
+    var obj = document.getElementById(id).objLink;
+    obj.update();
+}
+
+
 PHEDEX.Widget.toggleChildren=function(id) {
     var obj = document.getElementById(id).objLink;
     var children = document.getElementById(id+'_children');
@@ -436,13 +524,3 @@ PHEDEX.Widget.toggleExtra = function(id) {
     }
     return -1;
   }
-
-PHEDEX.Widget.eventProxy=function(id,arg0,arg1,arg2,arg3) {
-    var obj = document.getElementById(id).objLink;
-    obj.eventDefault(arg0,arg1,arg2,arg3);
-  }
-
-PHEDEX.Widget.updateProxy=function(id) {
-    var obj = document.getElementById(id).objLink;
-    obj.update();
-}
