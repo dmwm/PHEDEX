@@ -20,19 +20,13 @@
 
 </head>
 <body class="yui-skin-sam">
-<div><input id='select_for_nodes' type='text'><a href='#' onClick='return nodes()'>Show Nodes</a>
-<div id='phedex_nodes'></div>
+<div id='phedex_main' style='border: 1px solid blue;'>
+<div><input id='select_for_nodes' type='text'><a href='#' onClick='return nodes()'>Show Nodes</a></div>
+<div><input id='select_for_agents' type='text'><a href='#' onClick='return agents()'>Show Agents</a></div>
+<div><input id='select_for_linkview' type='text'><a href='#' onClick='return linkview()'>Show Links</a></div>
+<div><input id='select_for_requestview' type='text'><a href='#' onClick='return requestview()'>Show Requests</a></div>
 <div id="phedex_nodes_table" style="display:block;"></div> 
-
-<div><input id='select_for_agents' type='text'><a href='#' onClick='return agents()'>Show Agents</a>
-<div id='phedex_agents'></div>
 <div id="phedex_agents_table" style="display:block;"></div> 
-
-<div><input id='select_for_linkview' type='text'><a href='#' onClick='return linkview()'>Show Links</a>
-<div id='phedex_linkview'></div>
-
-<div><input id='select_for_requestview' type='text'><a href='#' onClick='return requestview()'>Show Requests</a>
-<div id='phedex_requestview'></div>
-
+</div>
 </body>
 </html>
