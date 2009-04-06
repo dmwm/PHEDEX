@@ -47,19 +47,22 @@ if ($wipe || !-d "./CMSDIST") {
 }
 
 my $sync_back = 0;
-my $ssh_agent = 0;
 if ($action eq 'release') {
     $action = 'upload';
     $sync_back = 1;
-    $ssh_agent = 1;
 }
 $wipe = $action eq 'upload' ? 0 : $wipe;
 
 my $cfg = $config_dir . "/${action}-${arch}.cfg";
 die "$me: config $cfg does not exist\n" unless -f $cfg;
 
+my $ssh_agent = $action eq 'upload' ? 1 : 0;
 if ($ssh_agent) { 
-    system(join('; ', 'eval `ssh-agent -t 36000`', 'ssh-add'));
+    print "Did you start an ssh-agent?  If not, press Ctr-C now and ",
+    "then enter the following commands and start again:\n",
+    join("\n", '-----', 'eval `ssh-agent -t 36000`', 'ssh-add', '-----'), "\n",
+    "otherwise press enter to continue.\n";
+    my $dummy = <STDIN>;
 }
 
 my ($log) = ($cfg =~ m:.*/([^/]+):);
@@ -70,7 +73,7 @@ if ($wipe) {
     rmtree "./work"; rmtree "./tmp"; 
 }
 my $cmd = "$cmsbuild --cfg $cfg --cmsdist CMSDIST --work-dir work";
-$cmd .= " --sync_back" if $sync_back;
+$cmd .= " --sync-back" if $sync_back;
 print "$me: executing '$cmd'\n";
 open(CMD, "$cmd |") or die $!;
 open(LOG, ">$log") or die $!;
