@@ -322,7 +322,27 @@ div#dbopts a.closelink {
   margin-right:		0.5em;
 }
 
+div.userstate {
+}
 
+div#userstate {
+  position:		absolute;
+  z-index:		1000;
+  top:			3.2em;
+  left:			-1em;
+  width:		15em;
+  background:		#fff;
+  border:		1px solid #bbb;
+  padding:		1em 1em 0.5em 1em;
+  margin:		0;
+}
+
+div#userstate a.closelink {
+  position:		absolute;
+  top:			0;
+  right:		0;
+  margin-right:		0.5em;
+}
 
 /**********************************************************************/
 div.menuopt {
