@@ -576,7 +576,7 @@ sub fetch_identity
     my @to_sync;
 
     if (! $secmodUser ) {
-	if (! $$self{SECMOD}->isAuthenticated() ) { return; }
+	if (! $$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ) { return; }
 
 	$$id{SECMOD_ID} = $$self{SECMOD}->getID();
 	$$id{NAME} = $$self{SECMOD}->getForename() .' '. $$self{SECMOD}->getSurname();
@@ -2337,11 +2337,16 @@ sub generate
   $$self{CONFIG} = $config;
   $$self{DBID} = $db;
 
+  my $signup_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::SignUp');
+  my $passwd_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::Password');
+  my $caller_url = $self->myurl('fullurl' => 1);
+  my $signout_url = $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1);
+
   # Fire up the security module
-  $$self{SECMOD}->setPwdHandler($self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::Password'));
-  $$self{SECMOD}->setSignupHandler($self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::SignUp'));
-  $$self{SECMOD}->setReqCertFailHandler($self->myurl('fullurl' => 1, 'secure' => 0, 'page'=>'Security::SignUp'));
-  $$self{SECMOD}->setCallerURL($self->myurl('fullurl' => 1));
+  $$self{SECMOD}->setPwdHandler($passwd_url);
+  $$self{SECMOD}->setSignupHandler($signup_url);
+  $$self{SECMOD}->setReqCertFailHandler($signup_url);
+  $$self{SECMOD}->setCallerURL($caller_url);
   $$self{SECMOD}->init();
 
   # Find the class scope index of this page instance.
@@ -2356,14 +2361,31 @@ sub generate
   # Check if the client's identity was verified
   if ($$self{SECMOD}->isAuthenticated())
   {
-    $$self{USER_NAME} = $$self{SECMOD}->getForename()." ".$$self{SECMOD}->getSurname();
-    $$self{LOGIN_MESSAGE} =
-	"<p>". &escapeHTML($$self{USER_NAME}) .
-	" | <a href='" . $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1, page=>"Info::Main") . "'>Sign out</a></p>";
-    if ($TESTING) {
-	use Data::Dumper;
-	my $roles = Dumper($$self{SECMOD}->getRoles());
-	$$self{LOGIN_MESSAGE} .= "<p>$roles</p>", 
+    my $name_display = '';
+    if ($$self{SECMOD}->isKnownUser()) {
+        $$self{USER_NAME} = $$self{SECMOD}->getForename()." ".$$self{SECMOD}->getSurname();
+	$name_display = &escapeHTML($$self{USER_NAME});
+	my $roles = $$self{SECMOD}->getRoles() || {};
+	my $rolelist = '';
+	foreach my $r (sort keys %$roles) {
+	    foreach my $s (sort @{$roles->{$r}}) {
+		$rolelist .= "$r of $s<br/>";
+	    }
+	}
+	$$self{LOGIN_MESSAGE} = join ('',
+	  ("<div class='userstate'>",
+	   "<a href='#'",
+	   " onclick='return hideshow(\"userstate\")'>$name_display</a>",
+	   " | <a href='$signout_url'>Sign out</a><br/>",
+	   "  <div id='userstate' style='display:none'>",
+	   "   <a class='closelink' href='#' onclick='return hideshow(\"userstate\")'>[close]</a>",
+	   ($rolelist ? "<b>Roles:</b><br/>$rolelist" : "No roles"),
+	   "</div>",
+	   " </div>"));
+    } else {
+	$name_display = "<a href='$signup_url'>Unknown certificate</a>";
+	$$self{LOGIN_MESSAGE} =
+	    "<p>$name_display | <a href='$signout_url'>Sign out</a></p>";
     }
   }
   else
@@ -2375,9 +2397,9 @@ sub generate
 	  "</p>";
   }
   my $login_state = $$self{SECMOD}->getAuthnState();
-  if ($login_state eq 'cert') { $login_state = 'Logged in via Certificate'; }
+  if    ($login_state eq 'cert')   { $login_state = 'Logged in via Certificate'; }
   elsif ($login_state eq 'passwd') { $login_state = 'Logged in via Password'; }
-  elsif ($login_state eq 'failed') { $login_state = 'Not logged in'; }
+  if    ($login_state eq 'failed' || !$$self{SECMOD}->isKnownUser()) { $login_state = 'Not logged in'; }
   $$self{LOGIN_MESSAGE} .= "<p>$login_state</p>";
   
   # Check whether we are looking at our vs. global view
@@ -2464,7 +2486,7 @@ sub generate
        "<a href='@{[$self->myurl('page'=>'DB')]}'" .
        " onclick='return hideshow(\"dbopts\")'>&#187;&#187;</a>\n" .
        "  <div id='dbopts' style='display:none'>\n" .
-       "   <a class='closelink' href='#' onclick='return hideshow(this,\"dbopts\",0)'>[close]</a>\n" .
+       "   <a class='closelink' href='#' onclick='return hideshow(\"dbopts\")'>[close]</a>\n" .
        join ("",
              map { &dblink ($self, $db, $_) . "<br />\n" }
 	     sort { $$a{RANK} <=> $$b{RANK} }
@@ -2503,7 +2525,7 @@ sub generate
   };
 
   # Hide these things on the password page
-  if (param('page') eq 'Security::Password') { 
+  if (param('page') =~ /^Security/) { 
       $$replacements{MYPAGE} = '';
       $$replacements{IDENTITY} = '';
       $$replacements{DBSELECTOR} = '';
@@ -2874,6 +2896,7 @@ sub output
     my $caller_url = param('caller_url');
     $caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
     my $msg = param('msg');
+    if ($msg =~ /^([\w\d_:\. ]*)/) { $msg = $1; } # allowed characters in a message
 
     print {$$self{CONTENT}} 
     "<h1>Password Sign-In</h1><br/>",
@@ -2896,7 +2919,7 @@ use strict; use warnings;
 use base "Web25::Page";
 use CGI qw(:standard);
 import Web25::Common;
-our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Password Sign-In" };
+our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Sign-Up" };
 
 sub new
 {
@@ -2924,6 +2947,9 @@ sub output
     "<p class='blocktext'>You need to sign up with CMS Web Services in order to log in ",
     "and use privileged features.  Signing up can be done via ",
     "$sitedb.</p>",
+    "<p class='blocktext'>Signing up means ensuring that $sitedb has your certificate DN ",
+    "(Distinguished Name) and/or hypernews username/password properly ",
+    "associated with your identity.</p>",
     "<p class='blocktext'>If you have already signed up with SiteDB, it ",
     "is possible that your certificate or password information is out ",
     "of date there.  In that case go back to $sitedb and update your ",
@@ -3916,7 +3942,7 @@ sub create_check_identity
   return if $$bad;
 
   # Make sure this page can be used
-  if (! $$self{SECMOD}->isAuthenticated() ) {
+  if (! $$self{SECMOD}->isAuthenticated() || ! $$self{SECMOD}->isKnownUser()) {
       $self->auth_help_warning('create a transfer request' => ['anyauth']);
       $$bad = 1;
       return;
@@ -8387,7 +8413,7 @@ sub output_page
 {
   my ($self) = @_;
 
-  if (!$$self{SECMOD}->isAuthenticated() &&
+  if (!$$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ||
       !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
 	$$self{SECMOD}->hasRole('Site Admin') ||
@@ -8816,7 +8842,8 @@ sub output_page
 {
   my ($self) = @_;
 
-  if (!$$self{SECMOD}->isAuthenticated() &&
+  if (!$$self{SECMOD}->isAuthenticated() ||
+      !$$self{SECMOD}->isKnownUser() ||
       !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
 	$$self{SECMOD}->hasRole('Site Admin') ||
@@ -9999,6 +10026,7 @@ sub runme
 	  $args{DBUSER} = $$dbparam{DBH_DBUSER};
 	  $args{DBPASS} = $$dbparam{DBH_DBPASS};
 	  $args{LOGLEVEL} = ($$config{SECMOD_LOGLEVEL} || 3);
+	  $args{STRICT_SIGNUP} = ($$config{SECMOD_STRICT_SIGNUP} || 0);
 	  $args{REVPROXY} = $$config{SECMOD_REVPROXY} if $$config{SECMOD_REVPROXY};
       }
       $$page{SECMOD} = new CMSWebTools::SecurityModule::Oracle({%args});
