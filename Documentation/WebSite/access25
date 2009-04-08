@@ -2893,15 +2893,32 @@ sub new
 sub output
 {
     my ($self) = @_;
+    # prepare URL of the caller
     my $caller_url = param('caller_url');
-    $caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
+    if ($caller_url) {
+	$caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
+    } else {
+	$caller_url = $$self{CONFIG}{SSL_SERVER_ROOT};
+    }
+    
+    # prepare URL to destroy the cookie and browse unauthenticated
+    my $signout_url = $caller_url;
+    $signout_url .= ($signout_url =~ /\?/ ? '' : '?')."SecModLogout=1";
+
     my $msg = param('msg');
     if ($msg =~ /^([\w\d_:\. ]*)/) { $msg = $1; } # allowed characters in a message
 
+    if ($msg eq 'reauthentication') {
+	my $here = "<a href='$signout_url'>here</a>";
+	$msg = "You were authenticated via password, but your session ".
+	    "has expired.  Enter your username/password again to ".
+	    "reauthenticate, or go $here to browse the site logged out.";
+    }
+
     print {$$self{CONTENT}} 
     "<h1>Password Sign-In</h1><br/>",
+    ($msg ? "<p class='blocktext' style='color:red'>$msg</p>" : ''),
     "<p>Sign in with your CMS SiteDB/Hypernews password</p>",
-    ($msg ? "<p style='color:red'>$msg</p>" : ''),
     "<form class='nice' method='post' action='$caller_url'>",
     "<label>Username</label>",textfield(-name=>'SecModLogin', -class=>'labeled'),"<br/>",
     "<label>Password</label>",password_field(-name=>'SecModPwd', -class=>'labeled'),"<br/>",
