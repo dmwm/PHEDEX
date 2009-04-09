@@ -80,30 +80,42 @@ sub idle
 
 	# Issue file deletion requests for block replicas scheduled
 	# for deletion and for which no deletion request yet exists.
+	# Take care not to create deletion requests for actively
+	# transferring files/blocks
 	($stmt, $nrow) = &dbexec($dbh, qq{
 	   insert into t_xfer_delete (fileid, node, time_request)
 	   (select f.id, bd.node, bd.time_request
 	    from t_dps_block_delete bd
 	      join t_xfer_file f
 	        on f.inblock = bd.block
+              left join t_xfer_request xq
+                on xq.fileid = f.id and xq.destination = bd.node
+              left join t_dps_block_dest dest
+                on dest.block = bd.block and dest.destination = bd.node
 	      left join t_xfer_delete xd
 	        on xd.fileid = f.id and xd.node = bd.node
-	    where xd.fileid is null and bd.time_complete is null)});
+	    where xd.fileid is null
+              and xq.fileid is null
+              and dest.block is null
+              and bd.time_complete is null)});
 	$self->Logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
         # Mark the block deletion request completed if it has file
         # deletion requests and they are all completed.
 	($stmt, $nrow) = &dbexec ($dbh, qq{
           merge into t_dps_block_delete bd
-          using (select xd.node, xf.inblock, count(*) n_exist, sum(nvl2(xd.time_complete, 1, 0)) n_complete
+          using (select xd.node, xf.inblock, b.files n_files,
+                        count(*) n_exist, sum(nvl2(xd.time_complete, 1, 0)) n_complete
                    from t_xfer_delete xd
 	           join t_xfer_file xf on xf.id = xd.fileid
                    join t_dps_block_delete bd on xd.node = bd.node and bd.block = xf.inblock
+                   join t_dps_block b on b.id = bd.block
 		  where bd.time_complete is null
-	          group by xd.node, xf.inblock) d_check
+	          group by xd.node, xf.inblock, b.files) d_check
              on (d_check.node = bd.node
                  and d_check.inblock = bd.block
                  and d_check.n_exist != 0
+                 and d_check.n_files <= d_check.n_exist
                  and d_check.n_exist = d_check.n_complete)
           when matched then update set bd.time_complete = :now
       }, ':now' => $now);
