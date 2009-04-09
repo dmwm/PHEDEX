@@ -2464,6 +2464,8 @@ sub generate
 	  . " your bookmarks."
 	  . "</div></center>";
       $pageheading .= " <blink style='color:red;'>(TEST)</blink>";
+  } elsif ($TESTING) {
+      $pageheading .= " <blink style='color:red;'>(TESTING MODE)</blink>";
   }
 
   # Initialise page template
@@ -2903,7 +2905,7 @@ sub output
     
     # prepare URL to destroy the cookie and browse unauthenticated
     my $signout_url = $caller_url;
-    $signout_url .= ($signout_url =~ /\?/ ? '' : '?')."SecModLogout=1";
+    $signout_url .= ($signout_url =~ /\?.+$/ ? '' : '?').($signout_url =~ /\?[^=]+=.+$/ ? '&' : '')."SecModLogout=1";
 
     my $msg = param('msg');
     if ($msg =~ /^([\w\d_:\. ]*)/) { $msg = $1; } # allowed characters in a message
