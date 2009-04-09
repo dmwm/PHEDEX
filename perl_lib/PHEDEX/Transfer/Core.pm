@@ -2,7 +2,6 @@ package PHEDEX::Transfer::Core;
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Logging';
-use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;

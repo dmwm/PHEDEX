@@ -102,13 +102,13 @@ sub report_detail
 	$xferinfo->{STATUS} = -6;
 	$xferinfo->{DETAIL} = "agent was terminated with signal $self->{SIGNALLED}";
     }
-    elsif (defined $jobinfo->{SIGNAL} && !defined $jobinfo->{TIMED_OUT})
+    elsif ($jobinfo->{SIGNAL} && !$jobinfo->{TIMED_OUT})
     {
 	# We got a signal.
 	$xferinfo->{STATUS} = -4;
 	$xferinfo->{DETAIL} = "transfer was terminated with signal $jobinfo->{SIGNAL}";
     }
-    elsif (defined $jobinfo->{TIMED_OUT})
+    elsif ($jobinfo->{TIMED_OUT})
     {
 	# The transfer timed out.
 	$xferinfo->{STATUS} = -5;
