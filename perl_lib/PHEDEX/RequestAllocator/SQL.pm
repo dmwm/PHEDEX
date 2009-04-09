@@ -548,36 +548,55 @@ sub addDeletionsForRequest
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-    my ($sth, $rv) = &dbexec($$self{DBH},
-     qq[ merge into t_dps_block_delete bd
-         using
-         (select r.id, rdata.dataset, rdata.block, :node node
-	    from t_req_request r
-            join ( select rds.request, b.dataset, b.id block
-                     from t_req_dataset rds
-                     join t_dps_block b on b.dataset = rds.dataset_id
-                    where rds.dataset_id is not null
-                    union
-                   select rb.request, b.dataset, b.id block
-                     from t_req_block rb
-                     join t_dps_block b on b.id = rb.block_id
-                    where rb.block_id is not null
-                 ) rdata on rdata.request = r.id
-           where r.id = :request
-         ) r
-         on (r.node = bd.node
+    # Look for locally connected Buffers.  We need to add deletions
+    # for MSS nodes where data may be on the Buffer but not yet on the
+    # MSS node
+    my $local_buffers = &select_single($$self{DBH},
+     qq[ select l.to_node from t_adm_link l
+           join t_adm_node fn on fn.id = l.from_node
+           join t_adm_node tn on tn.id = l.to_node
+	  where l.from_node = :node
+            and l.is_local = 'y'
+            and tn.kind = 'Buffer' ],
+	':node' => $node_id);
+
+    foreach my $lookup_node ($node_id, @$local_buffers) {
+	my ($sth, $rv) = &dbexec($$self{DBH},
+          qq[ merge into t_dps_block_delete bd
+              using
+              (select r.id, rdata.dataset, rdata.block, :del_node node
+	         from t_req_request r
+                 join ( select rds.request, b.dataset, b.id block
+                          from t_req_dataset rds
+                          join t_dps_block b on b.dataset = rds.dataset_id
+                         where rds.dataset_id is not null
+                         union
+                        select rb.request, b.dataset, b.id block
+                          from t_req_block rb
+                          join t_dps_block b on b.id = rb.block_id
+                         where rb.block_id is not null
+                      ) rdata on rdata.request = r.id
+                 join t_dps_block_replica br on br.block = rdata.block
+                where r.id = :request
+                  and br.node = :lookup_node
+                  and br.node_files + br.xfer_files != 0
+              ) r
+              on (r.node = bd.node
              and r.dataset = bd.dataset
              and r.block = bd.block)
-         when matched then
-           update set request = r.id,
-                      time_request = :time_request,
-                      time_complete = NULL
-            where time_complete is not null
-         when not matched then
-           insert (request, block, dataset, node, time_request)
-           values (r.id, r.block, r.dataset, r.node, :time_request) ],
-	  ':request' => $rid, ':node' => $node_id, ':time_request' => $time);
-
+            when matched then
+                 update set request = r.id,
+                            time_request = :time_request,
+                            time_complete = NULL
+                  where time_complete is not null
+            when not matched then
+                 insert (request, block, dataset, node, time_request)
+                 values (r.id, r.block, r.dataset, r.node, :time_request) ],
+     ':request' => $rid, 
+     ':del_node' => $node_id, 
+     ':lookup_node' => $lookup_node,
+     ':time_request' => $time);
+    }
     return 1;
 }
 
