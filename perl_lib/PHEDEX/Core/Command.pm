@@ -41,13 +41,14 @@ sub runcmd
 # Get exit code from a previously ran command
 sub runerror
 {
-  my $rc	= shift;
-  my $code	= $rc >> 8;
-  my $signal	= $rc & 127;
-  my $core	= $rc & 128;
-  my $retval    = ($signal ? "signal $signal" : $code);
-
-  return ($core ? "$retval (core dumped)" : $retval);
+  my $rc	= shift;      # 16-bit exit word, see perlvar $?
+  my $exit	= $rc >> 8;   # exit code
+  my $signal	= $rc & 127;  # signal
+  my $core	= $rc & 128;  # core dumped
+  my $retval    = $exit;
+  $retval = "signal $signal" if $signal;
+  $retval = "$retval (core dumped)" if $core;
+  return wantarray ? ( $retval, $exit, $signal, $core, $rc ) : $retval;
 }
 
 # Create a file
