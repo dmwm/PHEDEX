@@ -128,12 +128,14 @@ sub job_queued
     $kernel->delay_set('job_queued',0.1);
     return;
   }
+
   my $wheelid = $self->{_child}->run(@{$job->{CMD}});
   $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheelid}{ref}->PID;
 #print "Start WheelID=$wheelid, owner=$self->{JOB_MANAGER_SESSION_ID}, pid=$job->{PID},\n";
   $self->{_child}{$pkg}{owner}{$wheelid} = $self;
   $self->{payloads}{$wheelid} = $job;
   $self->{payloads}{$wheelid}{start} = &mytimeofday();
+
   if ( $job->{TIMEOUT} )
   {
     my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheelid);
@@ -200,11 +202,8 @@ sub _child_done {
   $payload = $owner->{payloads}{$wheelid};
   $owner->{JOBS}--;
 
-# FIXME This could be cleaner...?
-  $payload->{STATUS_CODE} = $args->{rc};
-  $payload->{RC}  = $args->{rc} >> 8;
-  $payload->{SIGNAL} = $args->{rc} & 127;
-  $payload->{STATUS} = &runerror ($args->{rc});
+  # Set the various return values
+  @$payload{qw(STATUS EXIT SIGNAL CORE STATUS_CODE)} = &runerror ($args->{rc});
 
   my $duration = &mytimeofday() - $payload->{start};
 
