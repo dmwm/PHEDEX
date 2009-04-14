@@ -17,6 +17,7 @@ use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Util ( qw / str_hash / );
 use Data::Dumper;
+
 $|=1;
 ######################################################################
 # JOB MANAGEMENT TOOLS
@@ -66,11 +67,12 @@ sub new
         ],
       );
 
-#   And now a child-manager
-    $self->{_child} = POE::Component::Child->new(
+    $self->{_child} = 
+      POE::Component::Child->new(
            events => \%events,
-           debug => $self->{POCO_DEBUG},
+           debug  => $self->{POCO_DEBUG},
           );
+    $self->{_child}{caller} = $self;
 
 #   Hold the output of the children...
     $self->{payloads} = {};
@@ -131,7 +133,6 @@ sub job_queued
 
   my $wheelid = $self->{_child}->run(@{$job->{CMD}});
   $job->{PID} = $self->{_child}{$pkg}{wheels}{$wheelid}{ref}->PID;
-#print "Start WheelID=$wheelid, owner=$self->{JOB_MANAGER_SESSION_ID}, pid=$job->{PID},\n";
   $self->{_child}{$pkg}{owner}{$wheelid} = $self;
   $self->{payloads}{$wheelid} = $job;
   $self->{payloads}{$wheelid}{start} = &mytimeofday();
@@ -221,7 +222,7 @@ sub _child_done {
   {
     if ( ref($payload->{CMD}) eq 'ARRAY' )
     {
-    print "PID=$payload->{PID} RC=$payload->{RC} SIGNAL=$payload->{SIGNAL} CMD=\"@{$payload->{CMD}}\"\n";
+    print "PID=$payload->{PID} STATUS=$payload->{STATUS} STATUS_CODE=$payload->{STATUS_CODE} SIGNAL=$payload->{SIGNAL} CMD=\"@{$payload->{CMD}}\"\n";
     }
     else
     {
@@ -328,7 +329,7 @@ sub killAllJobs
 {
   my $self = shift;
 
-  foreach my $wheelID ( keys %{$self->{wheels}} )
+  foreach my $wheelID ( keys %{$self->{payloads}} )
   {
     POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'timeout', $wheelID);
   }
@@ -374,7 +375,7 @@ sub queue_drained
 sub jobsRemaining()
 {
   my $self = shift;
-  return scalar(keys %{$self->{wheels}}) + $self->{QUEUE}->get_item_count();
+  return scalar(keys %{$self->{payloads}}) + $self->{QUEUE}->get_item_count();
 }
  
 sub maybe_clear_alarms
