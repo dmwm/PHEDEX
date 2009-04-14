@@ -266,6 +266,7 @@ sub validateRequest
     # Request policy details here:
     #  * Moves may only be done to a T1 MSS node
     #  * Moves can not be done when data is subscribed at a T1
+    #  * Custodiality only applies to a T1 MSS node
     my @node_pairs;
     my %nodemap = reverse %{ &getNodeMap($self) };
     foreach my $node (@$nodes) {
@@ -311,6 +312,12 @@ sub validateRequest
 	    die "cannot request move:  moves of data is subscribed to T0 or T1 are not allowed\n"
 		if grep /^(T1|T0)/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
+	}
+	
+	if ($h{IS_CUSTODIAL} eq 'y') {
+	    if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {
+		die "cannot request custodial transfer to non T1 destinations\n";
+	    }
 	}
     }
 
