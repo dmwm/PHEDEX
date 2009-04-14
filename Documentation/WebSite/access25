@@ -6851,7 +6851,7 @@ sub output
 
     # Replicas
   $query = &dbexec($$self{DBH}, qq{
-    select xr.time_update, n.name, xr.state, xr.files, xr.bytes
+    select xr.time_update, n.name, xr.state, xr.is_custodial, xr.files, xr.bytes
     from t_status_replica xr join t_adm_node n on n.id = xr.node
     order by n.name, state});
 
@@ -6859,12 +6859,13 @@ sub output
     "<p><table class='striped'>\n",
     "<tbody>\n",
     "<tr class='selected'>\n",
-    " <th colspan='5' align='center'>Replica State Details</th>\n",
+    " <th colspan='6' align='center'>Replica State Details</th>\n",
     "</tr>\n",
     "<tr class='selected'>\n",
     " <th rowspan='2'>Age</th>",
     " <th rowspan='2'>Node</th>",
     " <th rowspan='2'>State</th>",
+    " <th rowspan='2'>Custodial</th>",
     " <th colspan='2'>Files</th>",
     "</tr>\n",
     "<tr class='selected'>\n",
@@ -6875,7 +6876,7 @@ sub output
   %total = ();
   while (my $row = $query->fetchrow_arrayref)
   {
-    my ($stamp, $node, $state, $files, $bytes) = @$row;
+    my ($stamp, $node, $state, $custodial, $files, $bytes) = @$row;
     next if (($fromfilter || $tofilter)
 	     && ! (($fromfilter && $node =~ /$fromfilter/)
 		   || ($tofilter && $node =~ /$tofilter/)));
@@ -6886,12 +6887,15 @@ sub output
     my $state_name = ($state == 0 ? "at node"
 		      : $state == 1 ? "on disk"
 		      : "unknown");
+    my $cust_name = ($custodial eq 'y' ? "custodial" : "non-cust.");
+		    
     my $color = (($state == 1) ? " bgcolor='$goodcolor'" : "");
     print { $$self{CONTENT} }
       "<tr>\n",
       " <td$stampcolor>", ($now - $stamp < 5*60 ? 'Current' : &age($now - $stamp)), "</td>\n",
       " <td>$node</td>\n",
       " <td$color align='right'>$state_name</td>\n",
+      " <td$color align='right'>$cust_name</td>\n",
       " <td$color align='right'>@{[&format_num($files)]}</td>\n",
       " <td$color align='right'>@{[&format_size($bytes)]}</td>\n",
       "</tr>\n";
