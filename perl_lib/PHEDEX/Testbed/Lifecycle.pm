@@ -359,11 +359,13 @@ sub srcdelete
   $events = $payload->{events};
   $block  = $payload->{block};
   $src    = $ds->{InjectionSite};
+  $deleteFrom = $ds->{InjectionSiteMSS} || $src;
 
-  $self->deleteBlock($ds,$block,$src);
-  $self->{replicas}{$src}--;
+  $self->deleteBlock($ds,$block,$deleteFrom);
+  $self->{replicas}{$deleteFrom}--;
+  $self->{replicas}{$src}-- unless $src eq $deleteFrom;
   $self->{NDeleted}++;
-  $self->Logmsg("Deleting $block->{block} from node $src")
+  $self->Logmsg("Deleting $block->{block} from node $deleteFrom")
 	unless $self->{Quiet};
   $kernel->yield( 'nextEvent', $payload );
 }
