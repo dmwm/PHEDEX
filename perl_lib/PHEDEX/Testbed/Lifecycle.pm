@@ -359,7 +359,12 @@ sub srcdelete
   $events = $payload->{events};
   $block  = $payload->{block};
   $src    = $ds->{InjectionSite};
-  $deleteFrom = $ds->{InjectionSiteMSS} || $src;
+  # Check if there is an associated MSS node to delete from instead
+  $deleteFrom = $src;
+  $deleteFrom =~ s/_Buffer$/_MSS/;
+  if (!grep($_ eq $deleteFrom, keys %{$self->{NodeIDs}}) {
+      $deleteFrom = $src;
+  }
 
   $self->deleteBlock($ds,$block,$deleteFrom);
   $self->{replicas}{$deleteFrom}--;
