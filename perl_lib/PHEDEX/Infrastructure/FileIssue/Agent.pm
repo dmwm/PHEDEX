@@ -70,6 +70,9 @@ sub confirm
     #   1. The path hop is to the destination
     #   2. The path hop is to a local Buffer node of the destination
     # Otherwise the task is not custodial
+    # 
+    # Also, do not create tasks where a deletion is scheduled for
+    # either the source or the destination node.
     my $q = &dbexec($dbh, qq{
 	select
           xp.fileid, f.inblock block_id, f.logical_name,
@@ -113,7 +116,7 @@ sub confirm
 	    and xsi.time_update >= :recent
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
-            and xd.node = ns.id
+            and (xd.node = ns.id or xd.node = nd.id)
             and xd.time_complete is null
           join t_xfer_request xrq
             on xp.fileid = xrq.fileid

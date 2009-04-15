@@ -81,22 +81,29 @@ sub idle
 	# Issue file deletion requests for block replicas scheduled
 	# for deletion and for which no deletion request yet exists.
 	# Take care not to create deletion requests for actively
-	# transferring files/blocks
+	# transferring files/blocks:
+	#   - no block destination
+	#   - no file request
+	#   - no transfer task (incoming or outgoing)
 	($stmt, $nrow) = &dbexec($dbh, qq{
 	   insert into t_xfer_delete (fileid, node, time_request)
 	   (select f.id, bd.node, bd.time_request
 	    from t_dps_block_delete bd
 	      join t_xfer_file f
 	        on f.inblock = bd.block
-              left join t_xfer_request xq
-                on xq.fileid = f.id and xq.destination = bd.node
               left join t_dps_block_dest dest
                 on dest.block = bd.block and dest.destination = bd.node
+              left join t_xfer_request xq
+                on xq.fileid = f.id and xq.destination = bd.node
+	      left join t_xfer_task xt
+                on xt.fileid = f.id
+               and (xt.from_node = bd.node or xt.to_node = bd.node)
 	      left join t_xfer_delete xd
 	        on xd.fileid = f.id and xd.node = bd.node
 	    where xd.fileid is null
-              and xq.fileid is null
               and dest.block is null
+              and xq.fileid is null
+              and xt.id is null
               and bd.time_complete is null)});
 	$self->Logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
