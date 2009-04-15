@@ -354,7 +354,7 @@ sub t2subscribe
 sub srcdelete
 {
   my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($ds,$events,$block,$src);
+  my ($ds,$events,$block,$src,$deleteFrom);
   $ds     = $payload->{dataset};
   $events = $payload->{events};
   $block  = $payload->{block};
@@ -362,7 +362,7 @@ sub srcdelete
   # Check if there is an associated MSS node to delete from instead
   $deleteFrom = $src;
   $deleteFrom =~ s/_Buffer$/_MSS/;
-  if (!grep($_ eq $deleteFrom, keys %{$self->{NodeIDs}}) {
+  if (!grep($_ eq $deleteFrom, keys %{$self->{NodeIDs}}) ) {
       $deleteFrom = $src;
   }
 
