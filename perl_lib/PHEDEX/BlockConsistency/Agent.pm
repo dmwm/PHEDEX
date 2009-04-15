@@ -186,7 +186,7 @@ sub doNSCheck
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
-    $ns = $loader->Load($self->{NAMESPACE})->new();
+    $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
   }
