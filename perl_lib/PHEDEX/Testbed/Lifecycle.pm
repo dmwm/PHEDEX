@@ -455,7 +455,7 @@ sub subscribeBlock
   my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
 
-  my $nodeid = $self->{NodeID}{$node};
+  my $nodeid = $self->{NodeIDs}{$node};
   return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
   $self->Logmsg("Subscription for $block->{block} to node $_") unless $self->{Quiet};
 
@@ -492,7 +492,7 @@ sub deleteBlock
   my ( $self, $ds, $block, $node ) = @_;
   return if $self->{Dummy};
 
-  my $nodeid = $self->{NodeID}{$node};
+  my $nodeid = $self->{NodeIDs}{$node};
   return if $self->{_states}{$block->{blockid}}{deleted}{$nodeid}++;
   my $h;
   $h->{BLOCK}		= $block->{block};
