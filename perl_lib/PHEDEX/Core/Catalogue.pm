@@ -96,7 +96,7 @@ sub makeTransferTask
     die ("could not determine source PFN from TFC: ", 
 	 "from=$from_name protocol=$protocol custodial=$task->{IS_CUSTODIAL}\n") unless $from_pfn;
     die ("could not determine destination PFN from TFC: ", 
-	 "to=$from_name protocol=$protocol custodial=$task->{IS_CUSTODIAL}\n") unless $to_pfn;
+	 "to=$to_name protocol=$protocol custodial=$task->{IS_CUSTODIAL}\n") unless $to_pfn;
 
   return {
 	   FROM_PFN	=> $from_pfn,
