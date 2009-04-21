@@ -17,7 +17,7 @@ sub new
     my $params = shift || {};
 
 	# Set my defaults where not defined by the derived class.
-	$params->{PROTOCOLS}   ||= [ 'srm' ];    # Accepted protocols
+	$params->{PROTOCOLS}   ||= [ 'srmv2', 'srm' ];    # Accepted protocols
 	$params->{COMMAND}     ||= [ 'srm-copy' ];  # Transfer command
 	$params->{BATCH_FILES} ||= 10;           # Max number of files per batch
 	$params->{NJOBS}       ||= 30;           # Max number of parallel transfers
