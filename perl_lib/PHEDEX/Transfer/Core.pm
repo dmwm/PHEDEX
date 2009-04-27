@@ -67,13 +67,19 @@ sub _poe_init
 {
     my ($self, $kernel, $session) = @_;
 
-    my @poe_subs = qw( start_batch check_transfer_job
+    my @poe_subs = qw( start_batch check_transfer_job resume_backend_job
 		       start_transfer_job finish_transfer_job manage_archives);
     $kernel->state($_, $self) foreach @poe_subs;
 
     if ( $self->can('setup_callbacks') ) { 
 	$self->setup_callbacks($kernel,$session);
     }
+
+    # Recover transfer tasks that were ongoing last time the agent was running. Do this
+    # here instead of in the constructor, in case any part of the process relies on having
+    # all the objects properly constructed first. Also allows for all object-states to have
+    # been declared so they can be used.
+    $self->resume_transfer_jobs( $kernel, $session );
 
     # Get periodic events going
     $kernel->yield('manage_archives');
@@ -258,7 +264,6 @@ sub finish_transfer_job
    my ($self, $kernel, $jobid) = @_[ OBJECT, KERNEL, ARG0 ];
 
    my $job = $self->{JOBS}->{$jobid};
-   
    $job->{ASKSTART} ||= -1;
    $job->{STARTED}  ||= -1;
    $job->{FINISHED} = &mytimeofday();
@@ -290,5 +295,73 @@ sub manage_archives
 		    : grep((stat($_))[9] < $now - 86400, @old));
 }
 
+sub resume_transfer_jobs
+{
+# Resume monitoring or handling of transfer-jobs that were started by a previous incarnation
+# of the agent. The logic is as follows:
+#
+# 1.  Scan the job directories to find the jobs which were not finished
+# 2.  Get the tasks of the job and build the job object
+#     ($jobdir/info should be the place to look for this)
+# 3.  For tasks which are !READY it should trigger start_task
+# 4.  For tasks which are READY but have no XFER_CODE, we try to resume the
+# transfer(s) in the backend-specific way
+# 5.  For tasks which are READY, XFER_CODE but ! FINISHED it could trigger
+# transfer_done, with some ~bogus $xferinfo object
+# 6.  Finally, call check_transfer_job for the job.  Everything we've done before
+# this should allow the job to complete and be archived away in the usual manner.
+#
+# Since only step 4 is backend-specific, this functionality belongs in the Core.
+#
+# Note also: this happens before verify_tasks() from the Agent, so effectively it has to
+# start from scratch, there are no tasks known to the agent or backend yet.
+#
+  my ($self,$kernel,$session) = @_;
+  my $master = $self->{MASTER};
+  my ($info,$infofiles,$taskid,@tasks);
+  $infofiles = $self->{WORKDIR}.'/*/info';
+  foreach $info ( glob($infofiles) )
+  {
+    my ($job,$task,$jobdir,$backend_job);
+    $job = &evalinfo("$info");
+    next if (! $job || $@); # don't bother reporting it...
+    next if $job->{FINISHED}; # this completes step 1.
+    $self->{JOBS}->{$job->{ID}} = $job;
+    foreach $taskid ( keys %{$job->{TASKS}} )
+    {
+      $task = $job->{TASKS}{$taskid};
+      $master->{TASKS}{$taskid} = $task;
+
+      # do step 3...
+      if ( ! defined( $task->{READY} ) )
+      {
+        $master->{TASKS}{$taskid} = $task;
+	$self->Logmsg("call start_task for JOBID=$job->{ID}");
+        $kernel->call($session, 'start_task', $taskid, { JOBID => $job->{ID}, JOBDIR => $job->{DIR} });
+      }
+      # do step 4...
+      if ( $task->{READY} && ! defined( $task->{XFER_CODE} ) )
+      {
+        $self->Logmsg("Resume JOBID=$job->{ID}, TASKID=$taskid in the backend");
+        $self->resume_backend_job($job);
+      }
+      # do step 5...
+      if ( $task->{READY} && defined($task->{XFER_CODE}) && ! defined( $task->{FINISHED} ) )
+      {
+        $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
+        $kernel->call($self->{SESSION_ID},'transfer_done', $taskid,
+			{ START		=> -1,
+			  END		=> &mytimeofday(),
+			  LOG		=> 'fake xferinfo',
+			  STATUS	=> 0,
+			  DETAIL	=> 'fake xferinfo',
+			  DURATION	=> 0,
+			} );
+      }
+    }
+    # do step 6...
+    $kernel->post($self->{SESSION_ID},'check_transfer_job',$job->{ID});
+  }
+}
 
 1;
