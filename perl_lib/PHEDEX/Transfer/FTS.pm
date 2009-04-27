@@ -368,47 +368,6 @@ sub start_transfer_job
 			   );
 }
 
-# check jobs.  we also use this call to re-queue saved jobs
-# sub check 
-# {
-#   my ($self, $jobname, $job, $tasks) = @_;
-#   my ($file,$dir,$j,$f);
-
-#   $dir = $job->{$jobname}->{DIR};
-#   $file = $dir . '/ftsjob.dmp';
-#   return unless -f $file; # If the file doesn't exist, the job hasn't been submitted yet!
-
-#   # Get job information
-#   $j = eval { do $file; };
-# # die $@ if $@; # So uncool!
-#   if ($@)
-#   {
-#     $self->Alert("garbage collecting corrupted transfer job in $file");
-#     unlink($file); # FIXME: is this good enough? Should flag the task as lost?
-#     return;
-#   }
-
-#   # If we don't know about this job, add it to the monitoring
-#   if (!$self->{FTS_Q_MONITOR}->isKnown( $j )) {
-#       # $j->JOB_POSTBACK( $self->{FTS_Q_MONITOR}->JOB_POSTBACK );
-#       # $j->FILE_POSTBACK( $self->{FTS_Q_MONITOR}->FILE_POSTBACK );
-#       $j->{TIMEOUT} = $self->{FTS_JOB_AWOL};
-#       $self->{FTS_Q_MONITOR}->QueueJob( $j );
-#       $self->Logmsg('JOBID=',$j->ID,' added to monitoring');
-#       foreach ( values %{$j->FILES} ) {
-# 	  $self->Logmsg('JOBID=',$j->ID,' TASKID=',$_->TASKID,' DESTINATION=',$_->DESTINATION," added to monitoring\n");
-#       }
-#   }
-
-#   # Report the job as live.  From the point of view of the
-#   # FileDownload agent, jobs will never die.  We trust our job monitor
-#   # to clean up stuck jobs properly.  The user can configure this with
-#   # the --job-awol option
-#   if ($self->{FTS_Q_MONITOR}->isKnown( $j )) {
-#       &touch($dir . '/live');
-#   }
-# }
-
 sub setup_callbacks
 {
   my ($self,$kernel,$session) = @_; #[ OBJECT, KERNEL, SESSION ];
@@ -428,6 +387,35 @@ sub setup_callbacks
     $self->{FTS_Q_MONITOR}->JOB_POSTBACK ( $job_postback );
     $self->{FTS_Q_MONITOR}->FILE_POSTBACK( $file_postback );
   }
+}
+
+sub resume_backend_job
+{
+  my ( $self, $job ) = @_;
+  my ($ftsjob_dmp,$ftsjob);
+  $ftsjob_dmp = "$job->{DIR}/ftsjob.dmp";
+  if ( ! -f $ftsjob_dmp )
+  {
+#   Job has not been submitted. Queue for submission.
+    $self->Logmsg("Resume JOBID=$job->{ID} by submitting to FTS");
+    POE::Kernel->post( $self->{SESSION_ID}, 'start_transfer_job', $job->{ID} );
+    return;
+  }
+
+# Job was previously submitted. Recover the job and re-queue for monitoring
+  $ftsjob = evalinfo($ftsjob_dmp);
+  if ( ! $ftsjob || $@ )
+  {
+    $self->Logmsg("Failed to load job for $job->{ID}");
+    return;
+  }
+  $self->Logmsg("Resume JOBID=$job->{ID}, FTSjob=",$ftsjob->ID," by adding to monitoring");
+
+  #register this job with queue monitor.
+  $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
+  
+  # the job has officially started
+  $job->{STARTED} = &mytimeofday();
 }
 
 sub fts_job_submitted
@@ -502,7 +490,7 @@ sub fts_file_state_change
   my $file = $arg1->[0];
   my $job  = $arg1->[1];
 
-  $self->Dbgmsg("fts_file_state_change TASKID=",$file->TaskID," JOBID=",$job->ID,
+  $self->Dbgmsg("fts_file_state_change TaskID=",$file->TaskID," JOBID=",$job->ID,
 	  " STATE=",$file->State,' DEST=',$file->Destination) if $self->{DEBUG};
   
   if ($file->ExitStates->{$file->State}) {
