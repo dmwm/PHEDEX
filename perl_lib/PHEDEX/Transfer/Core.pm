@@ -5,6 +5,7 @@ use base 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
+use PHEDEX::Error::Constants;
 use POE;
 use Getopt::Long;
 use File::Path qw(mkpath rmtree);
@@ -67,7 +68,7 @@ sub _poe_init
 {
     my ($self, $kernel, $session) = @_;
 
-    my @poe_subs = qw( start_batch check_transfer_job resume_backend_job
+    my @poe_subs = qw( start_batch check_transfer_job
 		       start_transfer_job finish_transfer_job manage_archives);
     $kernel->state($_, $self) foreach @poe_subs;
 
@@ -322,7 +323,7 @@ sub resume_transfer_jobs
   $infofiles = $self->{WORKDIR}.'/*/info';
   foreach $info ( glob($infofiles) )
   {
-    my ($job,$task,$jobdir,$backend_job);
+    my ($job,$task,$jobdir,$backend_job,%resumed);
     $job = &evalinfo("$info");
     next if (! $job || $@); # don't bother reporting it...
     next if $job->{FINISHED}; # this completes step 1.
@@ -342,26 +343,69 @@ sub resume_transfer_jobs
       # do step 4...
       if ( $task->{READY} && ! defined( $task->{XFER_CODE} ) )
       {
-        $self->Logmsg("Resume JOBID=$job->{ID}, TASKID=$taskid in the backend");
-        $self->resume_backend_job($job);
+        if ( $self->can('resume_backend_job') )
+	{
+          $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid in the backend");
+#	  resume_backend_job is called with both the job and the taskid, in
+#	  case it needs both. It is up to the backend to deal with being
+#	  called multiple times for the same job (but different tasks) in the
+#	  case that this is not useful. It can use $self->{_resumed_jobs} for
+#	  bookkeeping, this will be deleted at the end of this routine so will
+#	  not leak memory.
+          $self->resume_backend_job($job,$taskid);
+	}
+	else
+	{
+          $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid by declaring PHEDEX_XC_NOXFER");
+          $kernel->call($self->{SESSION_ID},'transfer_done', $taskid,
+			{ START		=> -1,
+			  END		=> &mytimeofday(),
+			  LOG		=> 'fake xferinfo to resume job',
+			  STATUS	=> PHEDEX_XC_NOXFER,
+			  DETAIL	=> 'fake xferinfo to resume job',
+			  DURATION	=> 0,
+			} );
+	}
       }
       # do step 5...
       if ( $task->{READY} && defined($task->{XFER_CODE}) && ! defined( $task->{FINISHED} ) )
       {
-        $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
-        $kernel->call($self->{SESSION_ID},'transfer_done', $taskid,
-			{ START		=> -1,
-			  END		=> &mytimeofday(),
-			  LOG		=> 'fake xferinfo',
-			  STATUS	=> 0,
-			  DETAIL	=> 'fake xferinfo',
-			  DURATION	=> 0,
-			} );
+	my ($xferinfo,$xferinfo_file);
+	$xferinfo_file = $task->{JOBDIR} . "/T${taskid}-xferinfo";
+	if ( -f $xferinfo_file )
+	{
+	  $xferinfo=evalinfo($xferinfo_file);
+	  if ( ! $xferinfo || $@ )
+	  {
+	    $self->Logmsg("Failed to load xferinfo from $xferinfo_file");
+	    undef $xferinfo; # to be sure it's empty...
+	  }
+          else
+	  {
+	    $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with recovered xferinfo");
+          }
+	}
+	if ( !$xferinfo )
+	{
+          $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
+	  $xferinfo = {
+			START	=> -1,
+		  	END	=> &mytimeofday(),
+			LOG	=> 'fake xferinfo for allegedly finished transfer',
+			STATUS	=> PHEDEX_XC_NOXFER,
+			DETAIL	=> 'fake xferinfo for allegedly finished transfer',
+			DURATION=> 0,
+			};
+	}
+        $kernel->call($self->{SESSION_ID},'transfer_done',$taskid,$xferinfo);
       }
     }
     # do step 6...
     $kernel->post($self->{SESSION_ID},'check_transfer_job',$job->{ID});
   }
+
+# cleanup
+  delete $self->{_resumed_jobs} if exists $self->{_resumed_jobs};
 }
 
 1;

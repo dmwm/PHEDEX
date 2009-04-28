@@ -391,14 +391,22 @@ sub setup_callbacks
 
 sub resume_backend_job
 {
-  my ( $self, $job ) = @_;
+  my ( $self, $job, $taskid ) = @_;
   my ($ftsjob_dmp,$ftsjob);
+
+  if ( exists($self->{_resumed_jobs}{$job->ID}) )
+  {
+    $self->Logmsg("Already resumed JOBID=$job->{ID}, NOP this time...");
+    return;
+  }
+
   $ftsjob_dmp = "$job->{DIR}/ftsjob.dmp";
   if ( ! -f $ftsjob_dmp )
   {
 #   Job has not been submitted. Queue for submission.
     $self->Logmsg("Resume JOBID=$job->{ID} by submitting to FTS");
     POE::Kernel->post( $self->{SESSION_ID}, 'start_transfer_job', $job->{ID} );
+    $self->{_resumed_jobs}{$job->ID}{$taskid}++;
     return;
   }
 
@@ -416,6 +424,7 @@ sub resume_backend_job
   
   # the job has officially started
   $job->{STARTED} = &mytimeofday();
+  $self->{_resumed_jobs}{$job->ID}{$taskid}++;
 }
 
 sub fts_job_submitted
