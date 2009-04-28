@@ -309,18 +309,31 @@ sub t1subscribe
     $ds->{T1s} = \@t1s;
   }
 
-  my $delay = 0.1;
+  my @P;
   foreach ( @{$dsts} )
   {
     my $p = deep_copy($payload);
     $p->{T1} = $_;
-    next if $self->subscribeBlock($ds,$block,$_);
-    $self->{replicas}{$_}++;
+    unless ($self->subscribeBlock($ds,$block,$_)) {
+	# try again
+	$self->{DBH}->rollback;
+	$kernel->delay_set('t1subscribe', 1, $payload);
+	return;
+    }
+    push @P, $p;
+  }
+  $self->{DBH}->commit;
+
+  # statistics and next events
+  my $delay = 0.1;
+  foreach my $p (@P) {
+    $self->{replicas}{$p->{T1}}++;
     $self->{T1Replicas}++;
     $self->{NSubscribed}++;
     $kernel->delay_set( 'nextEvent', $delay, $p );
     $delay += 0.1;
   }
+
 }
 
 sub t2subscribe
@@ -337,13 +350,25 @@ sub t2subscribe
 # Not having an associated T2 is not a crime...
   return unless $dsts;
 
-  my $delay = 0.1;
+  my @P;
   foreach ( @{$dsts} )
   {
     my $p = deep_copy($payload);
     $p->{T2} = $_;
-    next if $self->subscribeBlock($ds,$block,$_);
-    $self->{replicas}{$_}++;
+    unless ($self->subscribeBlock($ds,$block,$_)) {
+	# try again
+	$self->{DBH}->rollback();
+	$kernel->delay_set('t2subscribe', 1, $payload);
+	return;
+    }
+    push @P, $p;
+  }
+  $self->{DBH}->commit();
+  
+  # statistics and next events
+  my $delay = 0.1;
+  foreach my $p (@P) {
+    $self->{replicas}{$p->{T2}}++;
     $self->{T2Replicas}++;
     $self->{NSubscribed}++;
     $kernel->delay_set( 'nextEvent', $delay, $p );
@@ -366,7 +391,25 @@ sub srcdelete
       $deleteFrom = $src;
   }
 
-  $self->deleteBlock($ds,$block,$deleteFrom);
+  # only delete closed blocks
+  if ($block->{BlockIsOpen} ne 'n') {
+      # try again later, after more injections
+      my $delay = $ds->{CycleTime} * 1.5;
+      $self->Dbgmsg("srcdelete:  block $block->{block} is not closed yet, trying again in $delay seconds") 
+	  if $self->{Debug};
+      $kernel->delay_set('srcdelete', $delay, $payload);
+      return;
+  }
+
+  unless ($self->deleteBlock($ds,$block,$deleteFrom)) {
+      # try again
+      $self->{DBH}->rollback;
+      $kernel->delay_set('srcdelete', 1, $payload);
+      return;
+  }
+  $self->{DBH}->commit;
+  
+  # statistics and next event
   $self->{replicas}{$deleteFrom}--;
   $self->{replicas}{$src}-- unless $src eq $deleteFrom;
   $self->{NDeleted}++;
@@ -384,7 +427,15 @@ sub t2delete
   $block  = $payload->{block};
   $t2     = $payload->{T2};
 
-  $self->deleteBlock($ds,$block,$t2);
+  unless ($self->deleteBlock($ds,$block,$t2)) {
+      # try again
+      $self->{DBH}->rollback;
+      $kernel->delay_set('t2delete', 1, $payload);
+      return;
+  }
+  $self->{DBH}->commit;
+
+  # statistics and next event
   $self->{replicas}{$t2}--;
   $self->{T2Replicas}--;
   $self->{NDeleted}++;
@@ -453,7 +504,7 @@ sub garbage
 sub subscribeBlock
 {
   my ( $self, $ds, $block, $node ) = @_;
-  return if $self->{Dummy};
+  return 1 if $self->{Dummy};
 
   my $nodeid = $self->{NodeIDs}{$node};
   return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
@@ -468,41 +519,54 @@ sub subscribeBlock
   $h->{is_custodial}	= $ds->{IsCustodial};
   $h->{time_create}	= $block->{created};
 
-  $self->insertSubscription( $h );
-  $self->{DBH}->commit;
-  return 0;
+  eval { $self->insertSubscription( $h ) };
+  if ($@) {
+      $self->Alert("subscribeBlock:  $@");
+      return 0;
+  }
+  return 1;
 }
 
 sub unsubscribeBlock
 {
   my ( $self, $block ) = @_;
-  return if $self->{Dummy};
+  return 1 if $self->{Dummy};
 
   my $nodeid = $block->{node};
-  return if $self->{_states}{$block->{blockid}}{unsubscribed}{$nodeid}++;
+  return 1 if $self->{_states}{$block->{blockid}}{unsubscribed}{$nodeid}++;
   my $h;
   $h->{BLOCK}		= $block->{BLOCK};
   $h->{node}		= $block->{node};
-  $self->deleteSubscription( $h );
-  $self->{DBH}->commit;
+  eval { $self->deleteSubscription( $h ) };
+  if ($@) {
+      $self->Alert("unsubscribeBlock:  $@");
+      return 0;
+  }
+  return 1;
 }
 
 sub deleteBlock
 {
   my ( $self, $ds, $block, $node ) = @_;
-  return if $self->{Dummy};
+  return 1 if $self->{Dummy};
 
   my $nodeid = $self->{NodeIDs}{$node};
-  return if $self->{_states}{$block->{blockid}}{deleted}{$nodeid}++;
+  return 1 if $self->{_states}{$block->{blockid}}{deleted}{$nodeid}++;
+
   my $h;
   $h->{BLOCK}		= $block->{block};
   $h->{blockid}		= $block->{blockid};
   $h->{node}		= $nodeid;
-  $self->unsubscribeBlock( $h );
+  my $rv = $self->unsubscribeBlock( $h );
+  return 1 if !$rv; # unsubscribe failed
   $h->{time_request}	= time;
   delete $h->{blockid};
-  $self->insertBlockDeletion( $h );
-  $self->{DBH}->commit;
+  eval {  $self->insertBlockDeletion( $h ) };
+  if ($@) { 
+      $self->Alert("deleteBlock:  $@");
+      return 0;
+  }
+  return 1;
 }
 
 sub makeBlock
