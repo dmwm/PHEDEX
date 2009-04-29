@@ -85,11 +85,8 @@ sub deleteOneFile
 	# minding this particular file (sleeping or deleting things).
 	my ($npending) = &dbexec($dbh, qq{
 	    select count(fileid) from t_xfer_task xt
-	       left join t_xfer_task_done xtd
-	       on xt.id=xtd.task
-	    where xt.from_node in ($node_list)
-	    and xt.fileid = :fileid
-	    and xtd.task is null},
+ 	     where xt.from_node in ($node_list)
+	      and xt.fileid = :fileid },
 	    %node_binds,
 	    ":fileid" => $$file{FILEID})
 	    ->fetchrow();
