@@ -395,9 +395,8 @@ sub srcdelete
   if ($block->{BlockIsOpen} ne 'n') {
       # try again later, after more injections
       my $delay = $ds->{CycleTime} * 1.5;
-      $self->Dbgmsg("srcdelete:  block $block->{block} is not closed yet, trying again in $delay seconds") 
-	  if $self->{Debug};
-      $kernel->delay_set('srcdelete', $delay, $payload);
+      $self->Dbgmsg("srcdelete:  block $block->{block} is not closed.  Not deleting it.") 
+	  if $self->{Verbose};
       return;
   }
 
@@ -578,16 +577,15 @@ sub makeBlock
   if ( $h = $ds->{_block} )
   {
     $h->{_injections_left}--;
-    if ( $h->{_injections_left} <= 0 )
+    # close the block on the last injection
+    if ( $h->{_injections_left} == 1 )
     {
-#     Block has been used enough. Close it, and start a new one.
       $h->{BlockIsOpen} = 'n';
-      $self->doInject($ds,$h);
-      undef $h;
     }
-    else
-    {
+    if ($h->{_injections_left} > 0) {
       $blockid = $h->{blockid};
+    } else {
+      undef $h;
     }
   }
 
