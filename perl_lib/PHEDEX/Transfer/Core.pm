@@ -318,6 +318,16 @@ sub resume_transfer_jobs
 # start from scratch, there are no tasks known to the agent or backend yet.
 #
   my ($self,$kernel,$session) = @_;
+
+  my $bypass_xferinfo = {
+      START	=> -1,
+      END	=> &mytimeofday(),
+      LOG	=> 'bypassing transfer due to agent restart',
+      STATUS	=> PHEDEX_XC_NOXFER,
+      DETAIL	=> 'bypassing transfer due to agent restart',
+      DURATION=> 0,
+  };
+
   my $master = $self->{MASTER};
   my ($info,$infofiles,$taskid,@tasks);
   $infofiles = $self->{WORKDIR}.'/*/info';
@@ -357,14 +367,7 @@ sub resume_transfer_jobs
 	else
 	{
           $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid by declaring PHEDEX_XC_NOXFER");
-          $kernel->call($self->{SESSION_ID},'transfer_done', $taskid,
-			{ START		=> -1,
-			  END		=> &mytimeofday(),
-			  LOG		=> 'fake xferinfo to resume job',
-			  STATUS	=> PHEDEX_XC_NOXFER,
-			  DETAIL	=> 'fake xferinfo to resume job',
-			  DURATION	=> 0,
-			} );
+          $kernel->call($self->{SESSION_ID},'transfer_done', $taskid, $bypass_xferinfo);
 	}
       }
       # do step 5...
@@ -374,7 +377,7 @@ sub resume_transfer_jobs
 	$xferinfo_file = $task->{JOBDIR} . "/T${taskid}-xferinfo";
 	if ( -f $xferinfo_file )
 	{
-	  $xferinfo=evalinfo($xferinfo_file);
+	  $xferinfo = &evalinfo($xferinfo_file);
 	  if ( ! $xferinfo || $@ )
 	  {
 	    $self->Logmsg("Failed to load xferinfo from $xferinfo_file");
@@ -388,14 +391,7 @@ sub resume_transfer_jobs
 	if ( !$xferinfo )
 	{
           $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
-	  $xferinfo = {
-			START	=> -1,
-		  	END	=> &mytimeofday(),
-			LOG	=> 'fake xferinfo for allegedly finished transfer',
-			STATUS	=> PHEDEX_XC_NOXFER,
-			DETAIL	=> 'fake xferinfo for allegedly finished transfer',
-			DURATION=> 0,
-			};
+	  $xferinfo = $bypass_xferinfo;
 	}
         $kernel->call($self->{SESSION_ID},'transfer_done',$taskid,$xferinfo);
       }
