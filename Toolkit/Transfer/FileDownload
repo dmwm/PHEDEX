@@ -29,15 +29,22 @@
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
 ##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
 ##H      [-no-pre-validate] [-no-pre-delete]
-##H      [-util-jobs N] [-util-timeout N] [-prepare-jobs N]
-##H      -backend TYPE [OPTIONS]
+##H      [-util-jobs N] [-util-timeout N]
+##H      -backend TYPE
+##H      [-protocols NAME[,NAME...]]
+##H      [-batch-files N] [-jobs NJOBS]
+##H      [-link-pending-files N] [-max-active-files N]
+##H      [-default-link-active-files N]
+##H      [-link-active-files SRCNODE1=N [-link-active-files SRCNODE2=N] ... ]
+##H      [BACKEND_SPECIFIC_OPTIONS]
 ##H
+##H Agent Options:
+##H 
 ##H -state       agent state directory
 ##H -nodes       patterns for the node names for which this agent runs
 ##H -db          database connection configuration parameter file
 ##H -log         where to redirect logging information
 ##H -verbose     include more information about internal algorithms
-##H
 ##H -ignore      comma-separated list of nodes to ignore transfers from
 ##H -accept      comma-separated list of nodes to accept transfers from
 ##H -validate    command to verify file transfer success (pre/post transfer)
@@ -48,52 +55,59 @@
 ##H                    in parallel (default 10)
 ##H -util-timeout      timeout for utility (-validate, -delete) jobs in
 ##H                    seconds (default 600)
-##H -prepare-jobs      number of jobs to queue for preparation
-##H                    (pre-validation, pre-deletion) tasks per cycle (default 200)
 ##H
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
 ##H               options that follow are passed to the backend as such
 ##H
-##H Options to all backends:
-##H      [-protocols NAME[,NAME...]] [-timeout SECS]
+##H General backend options:
 ##H
-##H Options to Null backend:
-##H      (none)
-##H
-##H Options to Globus backend:
-##H      [-command CMD[,ARG...]] [-jobs NJOBS]
-##H
-##H Options to SRM backend:
-##H      [-command CMD[,ARG...]] [-batch-files N] [-jobs NJOBS]
-##H
-##H Options to FTS backend:
-##H      [-service CONTACT | -mapfile FILE]
-##H      [-batch-files N] [-jobs NJOBS] [-link-pending-files N] [-max-active-files N]
-##H  
-##H Notes for FTS: there several ways to limit transfers with the FTS backend.
-##H   The order of precedence is (-jobs + -batch-files, -max-active-files,
-##H   -link-active-files, -link-pending-files, -default-link-active-files)
-##H
-##H -protocols   comma-separated list of storage protocols to accept
-##H -batch-files number of files per transfer batch (SRM, FTS; default: 30)
-##H -jobs        maximum number of concurrent transfer jobs (default: SRM=5; FTS=0 (infinite))
-##H -timeout     execution time limit for commands (default: 3600)
-##H -command     override the transfer command, for instance
-##H               globus-url-copy,-p,3,-tcp-bs,2097152
-##H -service     FTS server to use
-##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
-##H              discovery used instead
+##H -protocols           comma-separated list of storage protocols to accept
+##H -batch-files         number of files per transfer batch (SRM, FTS; default: 30)
+##H -jobs                maximum number of concurrent transfer jobs (default: SRM=5; FTS=0 (infinite))
 ##H -link-pending-files  limit to the number of files allowed to be in the "pending" state per link
 ##H -max-active-files    limit to the total number of files allowed to be in the "active" state
 ##H -link-active-files   limit the total number of "active" files per link. Can
-##H                      be repeated for several links, takes the form 'link=n'
-##H                      to specify the number 'n' for a given link.
+##H                      be repeated for several links, takes the form 'SRCNODE=N'
+##H                      to specify the number 'N' for a given link.
 ##H -default-link-active-files   number of per-link active files allowed for all links
+##H
+##H Note: There several ways to limit the number of concurrent transfers,
+##H       the order of precedence is (-jobs + -batch-files, -max-active-files,
+##H       -link-active-files, -link-pending-files, -default-link-active-files)
+##H
+##H Options to Null backend:
+##H      [-fail-rate F] 
+##H      [ [-fail-link SRCNODE1=F [-fail-link SRCNODE2=F]] |
+##H        [-fail-config FILE ] ]           
+##H
+##H Options to the Command backend:
+##H      -command CMD[,ARG...] [-timeout SECS]
+##H
+##H Options to SRM backend:
+##H      [-command CMD[,ARG...]] [-timeout SECS]
+##H
+##H Options to FTS backend:
+##H      [-service CONTACT | -mapfile FILE]
+##H      [-job-awol SECS]
+##H      [-myproxy MYPROXY]
+##H      [-passfile PASSFILE]
+##H      [-j_interval N]
+##H      [-priority PHEDEX_PRIO=FTS_PRIO]
+##H      [-glite-options OPTIONS]
+##H  
+##H -command     override the transfer command, for instance
+##H              globus-url-copy,-p,3,-tcp-bs,2097152
+##H -timeout     execution time limit for commands (default: 3600)
+##H -service     FTS server to use
+##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
+##H              discovery used instead
 ##H -myproxy     myproxy server specification
 ##H -passfile    FTS password file
 ##H -j_interval  interval for polling the FTS queue for job status. Not normally
 ##H              needed
 ##H -priority    priority mapping from PhEDEx to FTS states. Not for normal use
+##H -glite-options  additional options to pass to glite-* commands
+##H -job-awol    timeout for asynchronous job monitoring (default: 3600)
 
 ######################################################################
 my %args = (CMDLINE => [ @ARGV ]);
@@ -122,7 +136,6 @@ use PHEDEX::Core::Help;
 	     "pre-delete!"   => \$args{PREDELETE},
 	     "util-jobs=i"   => \$args{NJOBS},
 	     "util-timeout=i" => \$args{TIMEOUT},
-	     "prepare-jobs=i" => \$args{PREPARE_JOBS},
 
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
