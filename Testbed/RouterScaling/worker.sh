@@ -25,7 +25,6 @@ esac
 # Now start the agents.
 echo "INFO:  Starting agents '$agents'..."
 ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site start $agents;
-exit
 
 # Wait for the agents to exit.  They can be terminated at any time via
 # the database, or by us if the job exceeds our run time (20 hours).
