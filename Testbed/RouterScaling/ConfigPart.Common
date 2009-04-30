@@ -30,7 +30,7 @@ export TNS_ADMIN=${PHEDEX_CONFIG}
 PERL5LIB=${PHEDEX_SCRIPTS}/perl_lib:$PERL5LIB
 
 # Extra perl libs
-export PERL5LIB=${PHEDEX_BASE}/extra_perl:$PERL5_LIB;
+export PERL5LIB=${PHEDEX_BASE}/extra_perl:$PERL5LIB;
 
 ### ENVIRON debug
 export PHEDEX_LOG_SQL=1;
