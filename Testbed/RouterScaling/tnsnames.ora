@@ -62,10 +62,8 @@ TEST2_NOLB2 =
 
 TEST2_LB =
   (DESCRIPTION =
-    (ADDRESS = (PROTOCOL = TCP)(HOST = test21-v.cern.ch)(PORT = 10121))
     (ADDRESS = (PROTOCOL = TCP)(HOST = test22-v.cern.ch)(PORT = 10121))
     (ADDRESS = (PROTOCOL = TCP)(HOST = test23-v.cern.ch)(PORT = 10121))
-    (ADDRESS = (PROTOCOL = TCP)(HOST = test24-v.cern.ch)(PORT = 10121))
     (ENABLE=BROKEN)
     (LOAD_BALANCE = yes)
     (CONNECT_DATA =
