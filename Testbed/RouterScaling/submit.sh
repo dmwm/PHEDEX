@@ -8,6 +8,7 @@ if [ "X$t1s" = 'X' -o "X$t2s" = 'X' ]; then
     exit 1
 fi
 
+mkdir -p $PHEDEX_BASE/logs
 cmd='bsub -q cmsphedex'
 
 i=1
