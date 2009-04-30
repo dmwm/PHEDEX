@@ -112,8 +112,8 @@ eval
     print "Inserting subscriptions\n";
     &dbexec($dbh, qq{
 	insert into t_dps_subscription
-	(dataset, destination, priority, is_move, is_transient, time_create)
-	select ds.id, n.id, 1, 'n', 'n', 0 from t_dps_dataset ds, t_adm_node n});
+	(dataset, destination, priority, is_move, is_transient, is_custodial, time_create)
+	select ds.id, n.id, 1, 'n', 'n', 'n', 0 from t_dps_dataset ds, t_adm_node n});
     $dbh->commit();
     print "Done\n";
 };
