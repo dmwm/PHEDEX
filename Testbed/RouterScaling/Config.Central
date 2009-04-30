@@ -9,7 +9,7 @@ PHEDEX_INSTANCE=Validation;
 PHEDEX_LABEL=Central;
 PHEDEX_SITE=Central;
 PHEDEX_NODE=T1_001_Buffer;
-PHEDEX_VERSION=3_0_0_pre14;
+PHEDEX_VERSION=3_1_1
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # To show cycle times
