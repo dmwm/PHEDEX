@@ -17,6 +17,6 @@ for (( i; $i<=$t1s; i+=1 )); do
 done
 
 for (( i; $i<=$t2s+$t1s; i+=1 )); do
-  buffer=$(printf 'T2_%03d_Buffer' $i)
+  buffer=$(printf 'T2_%03d_Disk' $i)
   (set -x; $cmd $PHEDEX_BASE/PHEDEX/Testbed/RouterScaling/worker.sh $PHEDEX_BASE $buffer)
 done
