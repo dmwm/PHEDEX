@@ -10,14 +10,22 @@ export PHEDEX_BASE="$1"
 export PHEDEX_NODE="$2"
 export PHEDEX_ARCH=slc4_amd64_gcc345;
 export PHEDEX_LOCAL=$TMPDIR;
-PHEDEX_LOGLABEL=`echo ${PHEDEX_NODE} |sed 's|%||g' |sed 's|,|+|g'`;
+PHEDEX_LOGLABEL=$PHEDEX_NODE
+
+agents=""
+case $PHEDEX_NODE in
+    T1_* )
+	agents="download download-migrate"
+	;;
+    T2_* )
+	agents="download"
+	;;
+esac
 
 # Now start the agents.
-echo "INFO:  Starting agents..."
-(
-  unset WORKDIR # workaround an environment bug in 3_0_0_pre14...
-  ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site start;
-)
+echo "INFO:  Starting agents '$agents'..."
+${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site start $agents;
+exit
 
 # Wait for the agents to exit.  They can be terminated at any time via
 # the database, or by us if the job exceeds our run time (20 hours).
@@ -32,12 +40,12 @@ while true; do
   if [ $(expr $(date +%s) - $START) -gt 72000 ]; then
     echo "INFO:  Stopping agents after 20 hours of running"
     if [ ! -f ${PHEDEX_LOCAL}/state/download/stop ]; then 
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site stop;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site stop $agents;
     elif [ ! -f ${PHEDEX_LOCAL}/state/download/terminating ]; then
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site terminate;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site terminate $agents;
       touch ${PHEDEX_LOCAL}/state/download/terminating
     else
-      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site kill;
+      ${PHEDEX_BASE}/PHEDEX/Utilities/Master -config ${PHEDEX_BASE}/PHEDEX/Testbed/RouterScaling/Config.Site kill $agents;
     fi
   fi
 
