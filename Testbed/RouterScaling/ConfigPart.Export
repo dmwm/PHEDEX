@@ -3,7 +3,7 @@
  -db              ${PHEDEX_DBPARAM}
  -nodes           %
  -storagemap      ${PHEDEX_MAP}
- -protocols       srm
+ -protocols       direct,srm
 
 ### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager
  -db              ${PHEDEX_DBPARAM}
