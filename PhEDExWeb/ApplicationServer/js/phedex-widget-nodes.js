@@ -4,7 +4,6 @@ nodes=function() {
   var site = document.getElementById('select_for_nodes').value;
   var nodes = new PHEDEX.Widget.Nodes(site);
   nodes.update();
-//  PHEDEX.Data.Nodes = nodes;
 }
 
 PHEDEX.Widget.Nodes=function(site) {
@@ -61,4 +60,4 @@ PHEDEX.Datasvc.Nodes = function(site,callback,argument) {
   PHEDEX.Datasvc.GET(opts,callback,argument);
 }
 
-PHEDEX.Util.addLoadListener(nodes);
+//PHEDEX.Util.addLoadListener(nodes);

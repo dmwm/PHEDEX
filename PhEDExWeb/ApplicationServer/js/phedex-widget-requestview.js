@@ -157,6 +157,11 @@ PHEDEX.Widget.ReqBlockNode = function(div,parent,data) {
 }
 
 Data=function(){}
+//PHEDEX.Datasvc.Nodes = function(site,callback,argument) {
+//  var opts = 'nodes';
+//  if ( site ) { opts += '?node='+site; }
+//  PHEDEX.Datasvc.GET(opts,callback,argument);
+//}
 Data.Call = function(query,args,callback,argument) {
   var argstr = "";
   if (args) {
@@ -165,6 +170,8 @@ Data.Call = function(query,args,callback,argument) {
       argstr+=a+"="+args[a]+";";
     }
   }
-  var url = '/phedex/datasvc/json/prod/'+query+argstr;
-  var c = YAHOO.util.Connect.asyncRequest('GET',url,{success:callback,argument:argument});
+// var url = '/phedex/datasvc/json/prod/'+query+argstr;
+// var c = YAHOO.util.Connect.asyncRequest('GET',url,{success:callback,argument:argument});
+  query = query + argstr;
+  PHEDEX.Datasvc.GET(query,callback,argument);
 }

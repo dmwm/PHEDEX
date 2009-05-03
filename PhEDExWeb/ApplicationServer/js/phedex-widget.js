@@ -171,7 +171,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.header_div.appendChild(this.menu_div);
     // Create a (usually hidden) progress indicator.
     this.progress_img = document.createElement('img');
-    this.progress_img.src = '/readfile/progress.gif';
+    this.progress_img.src = '/images/progress.gif';
     this.progress_img.className = 'node-progress';
     this.header_div.appendChild(this.progress_img);
 
