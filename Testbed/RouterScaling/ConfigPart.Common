@@ -32,6 +32,10 @@ PERL5LIB=${PHEDEX_SCRIPTS}/perl_lib:$PERL5LIB
 # Extra perl libs
 export PERL5LIB=${PHEDEX_BASE}/extra_perl:$PERL5LIB;
 
+# port for UDP-logging of alerts
+export PHEDEX_NOTIFICATION_PORT=1234
+
 ### ENVIRON debug
 export PHEDEX_LOG_SQL=1;
 export PHEDEX_LOG_DB_CONNECTIONS=1;
+
