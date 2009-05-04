@@ -50,13 +50,15 @@ while true; do
 
   # Show tail of the log on AFS
   echo "INFO:  Tailing log to ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.tail"
-  tail -1000 ${PHEDEX_LOCAL}/logs/download > ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.tail 2>/dev/null
+  tail -1000 ${PHEDEX_LOCAL}/logs/* > ${PHEDEX_BASE}/logs/tail-$PHEDEX_LOGLABEL 2>/dev/null
 done
 echo "INFO:  Agent is dead, job finished"
 
 # Copy compressed logs to AFS.
 echo "INFO:  Sending log to ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.gz"
-gzip -c --best < $PHEDEX_LOCAL/logs/download > ${PHEDEX_BASE}/logs/download-$PHEDEX_LOGLABEL.gz
+for log in $(ls $PHEDEX_LOCAL/logs); do
+    gzip -c --best < $PHEDEX_LOCAL/logs/$log > ${PHEDEX_BASE}/logs/$PHEDEX_LOGLABEL-$log.gz
+done
 
 # Return happy and joyful!
 echo "INFO:  Exiting job"
