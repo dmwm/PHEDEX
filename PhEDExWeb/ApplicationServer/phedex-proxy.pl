@@ -7,7 +7,7 @@ use POE qw(Component::Server::TCP Component::Client::HTTP Filter::HTTPD);
 use HTTP::Response;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
-my (@accept,@reject,$die_on_reject,$cache);
+my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
 
 @accept = qw %	phedex[^./]*.html$
 		^js/[^./]+.js$
@@ -20,7 +20,7 @@ $dump_requests = $dump_responses = $help = $verbose = $debug = 0;
 $listen_port = 30001;
 $redirect_to = 'http://cmswttest.cern.ch';
 $redirect_to = 'http://localhost:30002';
-$die_on_reject = 1;
+$die_on_reject = $cache_only = 0;
 
 sub usage()
 {
@@ -40,8 +40,14 @@ sub usage()
 			string only. Can be repeated, accepts are OR-ed.
  reject=s		reject local files that match this string. Can be
 			repeated. Rejection takes precedence over acceptance.
- die_on_reject		(1|0) default is $die_on_reject
+ map=s			takes a string of the form \$key=\$value and maps the key
+			to the value in all URLs, so you can serve YUI files without
+			having them installed in the same directory you are working
+			in, for example.
+ die_on_reject		for debugging, in case your rejection criteria are wrong
  cache			directory for filesystem-based cache of requests
+ cache_only		set this to serve only from whatever cache you have, for fully
+			offline behaviour
 
 EOF
 }
@@ -53,25 +59,28 @@ GetOptions( 'help'	=> \$help,
 	    'dump_responses'	=> \$dump_responses,
 	    'listen_port=i'	=> \$listen_port,
 	    'redirect_to=s'	=> \$redirect_to,
-	    'die_on_reject=i'	=> \$die_on_reject,
+	    'die_on_reject'	=> \$die_on_reject,
 	    'accept=s'		=> \@accept,
 	    'reject=s'		=> \@reject,
+	    'map=s'		=> \@map,
 	    'cache=s'		=> \$cache,
+	    'cache_only'	=> \$cache_only,
 	  );
 
 usage() if $help;
 $redirect_to =~ s%/$%%;
+map { m%^[^=]+=(.*)$%; push @accept, $1; } @map;
 
 if ( $cache )
 {
   eval "use Cache::FileCache";
   die $@ if $@;
   $cache = new Cache::FileCache( { cache_root => $cache } );
-  $cache or die "Could not create cache\n";
+  $cache or die "Could not create cache, have you created the $cache directory?\n";
 }
+die "--cache_only without --cache doesn't make much sense...\n" if $cache_only && !$cache;
 
 POE::Component::Client::HTTP->spawn( Alias => 'ua' );
-
 POE::Component::Server::TCP->new
   ( Alias => "web_server",
     Port         => $listen_port,
@@ -102,7 +111,12 @@ POE::Component::Server::TCP->new
         my $file = $request->uri();
         $file =~ s%^/*%%;
         $file =~ s%\.\./%%g;
-        if ( $debug > 1 )
+	foreach ( @map )
+	{
+	  my ($key,$value) = split('=',$_);
+	  $file =~ s%$key%$value%g;
+	}
+        if ( $verbose )
         {
           print scalar localtime,': ', $request->method(),' ', $request->uri()->as_string();
           print ' (exists locally)' if -f $file;
@@ -113,6 +127,7 @@ POE::Component::Server::TCP->new
           if ( $< != (stat($file))[4] )
           {
             $error = "Refuse to open $file, I do not own it";
+            print scalar localtime,": $file not owned by me: rejecting\n" if $debug > 1;
             goto DONE;
           }
 
@@ -122,6 +137,7 @@ POE::Component::Server::TCP->new
             {
               next unless $file =~ m%$_%;
               $error = "Rejecting $file, (matches $_)";
+              print scalar localtime,": $file matches $_ : rejecting\n" if $debug > 1;
               goto DONE;
             }
           }
@@ -148,11 +164,19 @@ POE::Component::Server::TCP->new
 	  while ( read(DATA,$buf,4096) ) { $data .= $buf; } 
           close DATA;
 DONE:
-	  die "No data for $file\n" if $die_on_reject && !$data;
+	  die "No data for $file, maybe it was rejected...?\n" if $die_on_reject && !$data;
           $kernel->yield( 'send_response', $data, $error );
           return;
         }
 
+	if ( $cache_only )
+	{
+#	  If I get here then the request was not served from cache and is not a local file
+          $kernel->yield( 'send_response', undef, "Not found in cache");
+          return;
+	}
+
+#	Transmit the request upstream to the server
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
         $request->remove_header("Keep-Alive");
@@ -171,7 +195,7 @@ DONE:
           {
             $response = HTTP::Response->new(404);
             $data = 'ERROR: ' . $error;
-            print scalar localtime,': ',$error,"\n";
+            print scalar localtime,': ',$data,"\n";
           }
           else { $response = HTTP::Response->new(200); }
 
