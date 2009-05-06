@@ -323,7 +323,7 @@ sub dbStorageRules
     # FIXME:  remove hardcoded cache age in favor of a more flexible method
     my $changed = 0;
     if (exists $$cats{$node} && 
-	($now - $$cats{$node}{TIME_CHECK}) > 300) {
+	!(exists $$cats{$node}{TIME_CHECK} && ($now - $$cats{$node}{TIME_CHECK}) < 300)) {
 	$changed = &checkDBCatalogueChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
 	$$cats{$node}{TIME_CHECK} = $now;
     }
