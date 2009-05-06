@@ -3,11 +3,21 @@ Development notes:
 
 Perl Proxy server:
 
-phedex-proxy.pl is a POE-based proxy-server with a number of options. 
-It's more flexible than the Python proxy-server, and can be configured to 
-be more secure too. It requires POE::Component::Server, 
-POE::Component::Client::HTTP and POE::Filter::HTTPD somewhere in the 
-PERL5LIB. Run it with --help for details on the arguments.
+phedex-proxy.pl is a POE-based proxy-server with a number of options.  
+It's more flexible than the Python proxy-server, and a bit more secure
+too. It won't serve files that are owned by a different user, you can
+specify explicit accept and reject regular expressions, and you can map
+pathnames to pick up files from elsewhere in your filesystem. It also 
+allows you to cache output from the data-service to disk to reduce your 
+impact on the cmsweb servers, which also means you can develop your code 
+completely offline if you want to.
+
+It requires POE::Component::Server, POE::Component::Client::HTTP and
+POE::Filter::HTTPD somewhere in the PERL5LIB. It uses Cache::FileCache for 
+disk-based caching, but only if you request it. You don't need to install 
+that module if you aren't going to run in cached-mode.
+
+Run it with --help for details on the arguments.
 
 Python Proxy server:
 
