@@ -23,6 +23,10 @@ my %cache;
 # Note: This function will die if it cannot successfully make a
 # transfer task.  All callers should wrap this function in an eval and
 # group the error messages for logging.
+#
+# FIXME: handle caching transparently, instead of sharing a cache with
+# the caller.
+# TODO:  allow to take an array of tasks, instead of only one
 sub makeTransferTask
 {
     my ($self, $task, $cats) = @_;
@@ -243,6 +247,7 @@ sub storageRules
 # through the argument $space_token
 #
 # applyStorageRules() returns ($space_token, $name)
+# FIXME:  use wantarray for returning instead of relying on order of scalar context
 sub applyStorageRules
 {
     my ($rules, $proto, $dest, $chain, $givenname, $custodial, $space_token) = @_;
@@ -306,14 +311,21 @@ sub applyStorageRules
 # Fetch TFC rules for the given node and cache it to the given
 # hashref.  Database is checked for newer rules and an update will be
 # done if newer rules are found
+#
+# TODO: merge with storageRules, branching based on whether passed a
+# file or a database handle
 sub dbStorageRules
 {
     my ($dbh, $cats, $node) = @_;
+    my $now = &mytimeofday();
 
-    # check if cached rules are old
+    # check if cached rules are old if we haven't checked within the last 5 minutes
+    # FIXME:  remove hardcoded cache age in favor of a more flexible method
     my $changed = 0;
-    if (exists $$cats{$node}) {
+    if (exists $$cats{$node} && 
+	($now - $$cats{$node}{TIME_CHECK}) > 300) {
 	$changed = &checkDBCatalogueChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
+	$$cats{$node}{TIME_CHECK} = $now;
     }
     
     # If we haven't yet built the catalogue, fetch from the database.
