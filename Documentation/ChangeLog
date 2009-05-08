@@ -1,3 +1,55 @@
+Changes for PhEDEx 3.2.0
+
+Changes for Site Agents:
+ - FileDownload:
+   - Options for constraining number of parallel transfers on a
+     per-link basis or by transfer state are now available for all
+     backends, not only FTS.  This includes --link-pending-files,
+    --max-active-files, --link-active-files, and
+    --default-link-active-files.
+   - --prepare-jobs is obsoleted.  Pre-transfer tasks (pre-validate,
+     pre-delete) are now queued and executed with a tranfer batch, instead
+     of immediately when fetched.  This should allow for smoother operation
+     of the FileDownload agent.
+   - Pre/post transfer tasks (validate, delete) now put into a
+     priority queue to optimize for faster transfer job completion.
+   - FTS backend: timeout for glite-transfer-submit
+   - FTS backend: recover from errors when glite-transfer-status gives
+     unexpected output (#46379)
+ - BlockDownloadVerify:
+   - Add --namespace argument for loading a plugin from the new
+     namespace plug-in framework.  This framework contains plug-ins for
+     querying or interacting with anything that provides a file namespace
+     (e.g. storage system, TMDB).  Plugins exist for castor, dcache, dpm,
+     pnfs, posix, rfio, srm, and tmdb.
+   - --storage-mapping optional.  If not present, TFC saved to TMDB is
+     used instead.
+
+Changes for Site Tools:
+ - ErrorQuery:  --lfn option to list the lfns affected by the errors found
+
+Bugfixes for Central Agents:
+ - protect against file deletion vs. file transfer race conditions
+ - FileIssue: fix duplicate error messages for indeterminate
+   destination PFN
+ - FileIssue: optimization: only check for TFC changes at 5 minute
+   intervals, instead of for every task
+
+Changes for Admin Tools:
+ - FileDeleteTMDB: fix deletion of empty blocks when provided a list
+   of block names
+
+Documentation:
+ - Update ftsmap templates
+ - Remove out-of-date README documentation
+ - Remove obsolete configuration templates
+
+Changes for Developers:
+ - Refactor PHEDEX::Core::JobManager to use POE::Component::Child,
+   bringing PhEDEx command-management into the POE realm
+ - Refactor FileDownload and its backends to use POE events to manage
+   its workflow and state transfer, greatly simplifying the logic
+
 * Changes in PhEDEx 3.1.3
 
 Bugfixes for Site Agents:
