@@ -7,6 +7,7 @@ set scan off;
  */
 create or replace view v_dbs_block_replica as
 select distinct b.name block_name,
+                regexp_replace(n.name, '_(Buffer|MSS|Export|Disk|Stage)$', '') site_name,
                 n.se_name se_name
   from t_dps_block_replica br
   join t_dps_block b on b.id = br.block
@@ -16,6 +17,6 @@ select distinct b.name block_name,
  where b.is_open = 'n'
    and br.node_files != 0
    and br.node_files = b.files
-   and n.se_name is not null
+   and n.name not like 'X%'
    and dbs.name = 'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet'
 ;
