@@ -24,8 +24,8 @@ X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -backend         Null
- -jobs            30
- -batch-files     100
+ -jobs            0
+ -batch-files     1000
 
 ### AGENT LABEL=download-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
