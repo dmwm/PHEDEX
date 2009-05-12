@@ -14,27 +14,6 @@ anything that needs its methods.
 
 pending...
 
-=head1 METHODS
-
-=over
-
-=item getLinkTasks($self)
-
-returns a reference to an array of hashes with the following keys:
-TIME_UPDATE, DEST_NODE, SRC_NODE, STATE, PRIORITY, FILES, BYTES.
-Each hash represents the current amount of data queued for transfer
-(has tasks) for a link given the state and priority
-
-=over
-
-=item *
-
-C<$self> is an object with a DBH member which is a valid DBI database
-handle. To call the routine with a bare database handle, use the 
-procedural call method.
-
-=back
-
 =head1 SEE ALSO...
 
 L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
@@ -82,28 +61,6 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub getLinkTasks
-{
-    my ($self, %h) = @_;
-    my ($sql,$q,@r);
-    
-    $sql = qq{
-    select
-      time_update,
-      nd.name dest_node, ns.name src_node,
-      state, priority,
-      files, bytes
-    from t_status_task xs
-      join t_adm_node ns on ns.id = xs.from_node
-      join t_adm_node nd on nd.id = xs.to_node
-     order by nd.name, ns.name, state
- };
-
-    $q = execute_sql( $self, $sql, () );
-    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
-
-    return \@r;
-}
 
 # FIXME:  %h keys should be uppercase
 sub getNodes
