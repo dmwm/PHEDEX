@@ -24,6 +24,8 @@ clients who approved or disapproved the request.
   limit            maximal number of records returned
   since            created after this time
 
+  * without any input, the default "since" is set to 24 hours ago
+
 =head2 Output
 
   <request>
@@ -118,6 +120,12 @@ sub xfer_request
     foreach ( qw / req_num limit dest_node since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+
+    # if there is no argument, set default "since" to 24 hours ago
+    if (scalar keys %h == 0)
+    {
+        $h{SINCE} = time() - 3600*24;
     }
 
     $h{TYPE} = 'delete';
