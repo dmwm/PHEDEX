@@ -9,6 +9,31 @@ use PHEDEX::Web::SQL;
 
 PHEDEX::Web::API::LinkTasks - return the set of link tasks
 
+=head1 DESCRPTION
+
+Show current link tasks
+
+=head2 Options
+
+ No options
+
+=head2 Output
+
+ <linktasks>
+   <status/>
+   ........
+ </linktasks>
+
+=head3 <status> attributes
+
+ src_node          name of the source node
+ dest_node         name of the destination node
+ priority          priority
+ bytes             number of transfering bytes
+ files             number of transfering files
+ time_update       last update time
+ state             link state
+
 =cut
 
 sub duration{ return 10 * 60; }
