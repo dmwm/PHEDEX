@@ -120,6 +120,12 @@ sub xfer_request
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
+    # if there is no input argument, set default "since" to 24 hours ago
+    if (scalar keys %h == 0)
+    {
+        $h{SINCE} = time() - 3600*24;
+    }
+
     $h{TYPE} = 'xfer';
     my $r = PHEDEX::Web::SQL::getRequestData($core, %h);
     return { request => $r };
