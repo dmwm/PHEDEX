@@ -40,13 +40,19 @@ returned in 4 predefined values.
 
 =head2 Output
 
-  <link/>
+  <link>
+    <transfer/>
+    ........
+  </link>
   ......
 
 =head3 <link> elements
 
   from            name of the source node
   to              name of the destination
+
+=head3 <transfer> elements
+
   timebin         the end point of each timebin, aligned with binwidth
   binwidth        width of each timebin (from the input)
   done_files      number of files in successful transfers
@@ -87,16 +93,20 @@ sub transferhistory
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth / )
+    foreach ( qw / from to starttime endtime binwidth ctime / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
+    my $link;
 
-    foreach (@$r)
+    foreach $link (@$r)
     {
-        $_ -> {'QUALITY'} = &Quality ($_);
+        foreach (@{$link->{TRANSFER}})
+        {
+            $_ -> {'QUALITY'} = &Quality ($_);
+        }
     }
 
     return { link => $r };

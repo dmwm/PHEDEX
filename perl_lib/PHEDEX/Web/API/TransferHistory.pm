@@ -39,13 +39,19 @@ Serves historical statistics about completed transfer attempts.
 
 =head2 Output
 
-  <link/>
+  <link>
+    <transfer/>
+    ........
+  </link>
   ......
 
 =head3 <link> elements
 
   from            name of the source node
   to              name of the destinatio node
+
+=head3 <transfer> elements
+
   timebin         the end point of each timebin, aligned with binwidth
   binwidth        width of each timebin (from the input)
   done_files      number of files in successful transfers
@@ -81,11 +87,16 @@ sub transferhistory
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
 
-    foreach (@$r)
+    my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
+    my $link;
+
+    foreach $link (@$r)
     {
-        $_ -> {'QUALITY'} = &Quality ($_);
+        foreach (@{$link->{TRANSFER}})
+        {
+            $_ -> {'QUALITY'} = &Quality ($_);
+        }
     }
 
     return { link => $r };
