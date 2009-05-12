@@ -518,13 +518,13 @@ sub getAgents
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
                     state_dir => $_ -> {'STATE_DIR'},
+		    host => $_ -> {'HOST'},
                     pid => $_ -> {'PID'}};
         }
         else
         {
             $node{$_ -> {'NODE'}} = {
                 node => $_ -> {'NODE'},
-                host => $_ -> {'HOST'},
                 se => $_ -> {'SE'},
                 id => $_ -> {'ID'},
                 agent => [{
@@ -535,6 +535,7 @@ sub getAgents
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
                     state_dir => $_ -> {'STATE_DIR'},
+		    host => $_ -> {'HOST'},
                     pid => $_ -> {'PID'}}]
              };
         }
