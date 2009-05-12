@@ -1171,6 +1171,61 @@ sub getGroupUsage
     return \@r;
 }
 
+sub getNodeUsage
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+
+    # FIXME: This massive union subquery should be written to a
+    # t_status_ table by PerfMonitor this SQL is used at any
+    # reasonable frequency
+    $sql = qq{
+      select * from (
+        select 'SUBS_CUST' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
+          from t_dps_block_replica br
+               join t_adm_node n on br.node = n.id
+         where br.dest_files != 0 and br.is_custodial = 'y'
+         group by n.name
+         union
+        select 'SUBS_NONCUST' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
+               from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files != 0 and br.is_custodial = 'n'
+         group by n.name
+         union
+        select 'NONSUBS_SRC' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               0 dest_files, 0 dest_bytes
+          from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files = 0 and br.src_files != 0
+         group by n.name
+         union
+        select 'NONSUBS_NONSRC' category, -- non-subscribed, non-origin data
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               0 dest_files, 0 dest_bytes
+          from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files = 0 and br.src_files = 0
+         group by n.name
+		     )};
+
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'node');
+    $sql .= " where ($filters)" if $filters;
+
+    $q = execute_sql( $self, $sql, %p );
+    return $q->fetchall_hashref([qw(NODE CATEGORY)]);
+}
+
 sub getTransferQueue
 {
     my ($self, %h) = @_;
