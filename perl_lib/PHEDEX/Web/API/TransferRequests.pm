@@ -18,11 +18,11 @@ requesting client, the approving clients, and the request options.
  required inputs:  none
  optional inputs: (as filters) req_num, dest_node, group
 
-  req_num          request number
-  dest_node        name of the destination node
+  request          request number
+  node             name of the destination node
   group            name of the group
   limit            maximal number of records returned
-  since            created after this time
+  create_since     created after this time
 
   * without any input, the default "since" is set to 24 hours ago
 
@@ -51,7 +51,7 @@ requesting client, the approving clients, and the request options.
 
 =head3 <request> attributes
 
-  req_num          request number
+  request          request number
   group            group name
   priority         transfer priority
   custodial        is custodial?
@@ -117,7 +117,7 @@ sub xfer_request
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / req_num limit group dest_node since / )
+    foreach ( qw / request limit group node create_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -125,7 +125,7 @@ sub xfer_request
     # if there is no input argument, set default "since" to 24 hours ago
     if (scalar keys %h == 0)
     {
-        $h{SINCE} = time() - 3600*24;
+        $h{CREATE_SINCE} = time() - 3600*24;
     }
 
     $h{TYPE} = 'xfer';
