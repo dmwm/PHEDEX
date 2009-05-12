@@ -815,10 +815,11 @@ sub getClientData
 #
 # Optional parameters
 #
-#   REQ_NUM: request number
-# DEST_NODE: name of the destination node
-#     GROUP: group name
-#     LIMIT: maximal number of records
+#      REQUEST: request number
+#         NODE: name of the destination node
+#        GROUP: group name
+#        LIMIT: maximal number of records
+# CREATE_SINCE: created since this time
 #
 sub getRequestData
 {
@@ -882,9 +883,9 @@ sub getRequestData
             rt.name = 'delete'};
     }
 
-    if (exists $h{REQ_NUM})
+    if (exists $h{REQUEST})
     {
-        $sql .= qq {\n            and r.id = $h{REQ_NUM}};
+        $sql .= qq {\n            and r.id = $h{REQUEST}};
     }
 
     if ($h{TYPE} eq 'xfer' && exists $h{GROUP})
@@ -897,13 +898,13 @@ sub getRequestData
         $sql .= qq {\n            and rownum <= $h{LIMIT}};
     }
 
-    if (exists $h{SINCE})
+    if (exists $h{CREATE_SINCE})
     {
-        my $t = PHEDEX::Core::Util::str2time($h{SINCE});
+        my $t = PHEDEX::Core::Util::str2time($h{CREATE_SINCE});
         $sql .= qq {\n            and r.time_create >= $t};
     }
 
-    if (exists $h{DEST_NODE})
+    if (exists $h{NODE})
     {
         $sql .= qq {
             and r.id in (
@@ -914,7 +915,7 @@ sub getRequestData
                     t_adm_node an
                 where
                     rn.node = an.id
-                    and an.name = '$h{DEST_NODE}')};
+                    and an.name = '$h{NODE}')};
     }
 
     # order by
