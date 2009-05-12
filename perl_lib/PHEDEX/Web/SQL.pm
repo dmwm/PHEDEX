@@ -677,6 +677,7 @@ sub getTransferHistory
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
+    my %link;
     while ( $_ = $q->fetchrow_hashref() )
     {
         # format the time stamp
@@ -684,10 +685,46 @@ sub getTransferHistory
         {
             $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
         }
-        push @r, $_;
+        
+        if ($link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}})
+        {
+            push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{TRANSFER}}, {
+                TIMEBIN => $_ -> {'TIMEBIN'},
+                BINWIDTH => $_ -> {'BINWIDTH'},
+                DONE_FILES => $_ -> {'DONE_FILES'},
+                DONE_BYTES => $_ -> {'DONE_BYTES'},
+                EXPIRE_FILES => $_ -> {'EXPIRE_FILES'},
+                EXPIRE_BYTES => $_ -> {'EXPIRE_BYTES'},
+                FAIL_FILES => $_ -> {'FAIL_FILES'},
+                FAIL_BYTES => $_ -> {'FAIL_BYTES'},
+                RATE => $_ -> {'RATE'}
+            };
+        }
+        else
+        {
+            $link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}} = {
+                FROM => $_ -> {'FROM'},
+                TO => $_ -> {'TO'},
+                TRANSFER => [{
+                    TIMEBIN => $_ -> {'TIMEBIN'},
+                    BINWIDTH => $_ -> {'BINWIDTH'},
+                    DONE_FILES => $_ -> {'DONE_FILES'},
+                    DONE_BYTES => $_ -> {'DONE_BYTES'},
+                    EXPIRE_FILES => $_ -> {'EXPIRE_FILES'},
+                    EXPIRE_BYTES => $_ -> {'EXPIRE_BYTES'},
+                    FAIL_FILES => $_ -> {'FAIL_FILES'},
+                    FAIL_BYTES => $_ -> {'FAIL_BYTES'},
+                    RATE => $_ -> {'RATE'}
+                }]
+            };
+        }
     }
 
-    # return $sql, %param;
+    while (my ($key, $value) = each (%link))
+    {
+        push @r, $value;
+    }
+
     return \@r;
 }
 
