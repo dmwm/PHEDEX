@@ -45,8 +45,8 @@ returned in 4 predefined values.
 
 =head3 <link> elements
 
-  from_node       name of the source node
-  to_node         name of the destination
+  from            name of the source node
+  to              name of the destination
   timebin         the end point of each timebin, aligned with binwidth
   binwidth        width of each timebin (from the input)
   done_files      number of files in successful transfers
@@ -87,7 +87,7 @@ sub transferhistory
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from_node to_node starttime endtime binwidth / )
+    foreach ( qw / from to starttime endtime binwidth / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
