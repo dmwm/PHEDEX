@@ -878,13 +878,13 @@ sub getRequestData
             rx.is_move move,
             rx.is_static static,
             g.name "group",
-            rx.data user_text};
+            rx.data usertext};
     }
     else
     {
         $sql .= qq {
             rd.rm_subscriptions,
-            rd.data user_text};
+            rd.data usertext};
     }
 
     $sql .= qq {
@@ -1021,40 +1021,39 @@ sub getRequestData
 
     while ($data = $q ->fetchrow_hashref())
     {
-        $$data{REQUESTED_BY} = &getClientData($self, $$data{CREATOR_ID});
-        delete $$data{CREATOR_ID};
+        $$data{REQUESTED_BY} = &getClientData($self, delete $$data{CREATOR_ID});
 
-        $$data{DATA}{DBS}{NAME} = $$data{DBS};
-        $$data{DATA}{DBS}{ID} = $$data{DBS_ID};
-        delete $$data{DBS};
-        delete $$data{DBS_ID};
+        $$data{DATA}{DBS}{NAME} = delete $$data{DBS};
+        $$data{DATA}{DBS}{ID}   = delete $$data{DBS_ID};
 
+	my @process_nodes;
         if ($h{TYPE} eq 'xfer')
         {
             # take care of priority
             $$data{PRIORITY} = PHEDEX::Core::Util::priority($$data{PRIORITY});
-            $$data{DESTINATIONS} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
-            $$data{SOURCES} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
-
-            foreach my $node (@{$$data{SOURCES}}, @{$$data{DESTINATIONS}})
-            {
-	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
-                delete $$node{DECIDED_BY};
-            }
+            $$data{DESTINATIONS}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
+            $$data{SOURCES}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
+	    @process_nodes = (@{$$data{SOURCES}->{NODE}}, @{$$data{DESTINATIONS}{NODE}});
         }
         else
         {
-            $$data{NODES} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
-            foreach my $node (@{$$data{NODES}})
-            {
-	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
-                delete $$node{DECIDED_BY};
-            }
+            $$data{NODES}->{NODE} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
+            @process_nodes = @{$$data{NODES}->{NODE}};
         }
+	foreach my $node (@process_nodes) 
+	{
+	    $$node{DECIDED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
+	    if ($$node{DECIDED_BY}) {
+		$$node{DECIDED_BY}{DECISION} = $$node{DECISION};
+		$$node{DECIDED_BY}{TIME_DECIDED} = $$node{TIME_DECIDED};
+		$$node{DECIDED_BY}{COMMENTS}{'$T'} = $$node{COMMENTS};
+	    }
+	    delete @$node{qw(DECIDED_BY DECISION TIME_DECIDED COMMENTS)};
+	}
 
-        $$data{DATA}{USERTEXT} = $$data{USER_TEXT};
-        delete $$data{USER_TEXT};
-    
+        $$data{DATA}{USERTEXT}{'$T'} = delete $$data{USERTEXT};
+	$$data{REQUESTED_BY}{COMMENTS}{'$T'} = delete $$data{COMMENTS};
+
         $$data{DATA}{DBS}{DATASET} = &execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID})->fetchall_arrayref({});
         $$data{DATA}{DBS}{BLOCK} = &execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID})->fetchall_arrayref({});
 
