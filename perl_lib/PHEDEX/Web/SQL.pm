@@ -1069,8 +1069,8 @@ sub getRequestData
             $total_files += $item->{FILES} || 0;
             $total_bytes += $item->{BYTES} || 0;
         }
-        $$data{BYTES} = $total_bytes;
-        $$data{FILES} = $total_files;
+        $$data{DATA}{BYTES} = $total_bytes;
+        $$data{DATA}{FILES} = $total_files;
 
         push @r, $data;
     }
