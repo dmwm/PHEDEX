@@ -1032,8 +1032,11 @@ sub getRequestData
             # take care of priority
             $$data{PRIORITY} = PHEDEX::Core::Util::priority($$data{PRIORITY});
             $$data{DESTINATIONS}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
-            $$data{SOURCES}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
-	    @process_nodes = (@{$$data{SOURCES}->{NODE}}, @{$$data{DESTINATIONS}{NODE}});
+	    @process_nodes = @{$$data{DESTINATIONS}->{NODE}};
+	    if ($$data{MOVE} eq 'y') {
+		$$data{MOVE_SOURCES}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
+		push @process_nodes, @{$$data{MOVE_SOURCES}->{NODE}};
+	    }
         }
         else
         {
@@ -1042,13 +1045,15 @@ sub getRequestData
         }
 	foreach my $node (@process_nodes) 
 	{
-	    $$node{DECIDED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
 	    if ($$node{DECIDED_BY}) {
+		$$node{DECIDED_BY} = &getClientData($self, $$node{DECIDED_BY});
 		$$node{DECIDED_BY}{DECISION} = $$node{DECISION};
 		$$node{DECIDED_BY}{TIME_DECIDED} = $$node{TIME_DECIDED};
 		$$node{DECIDED_BY}{COMMENTS}{'$T'} = $$node{COMMENTS};
+	    } else {
+		delete $$node{DECIDED_BY};
 	    }
-	    delete @$node{qw(DECIDED_BY DECISION TIME_DECIDED COMMENTS)};
+	    delete @$node{qw(DECISION TIME_DECIDED COMMENTS)};
 	}
 
         $$data{DATA}{USERTEXT}{'$T'} = delete $$data{USERTEXT};
