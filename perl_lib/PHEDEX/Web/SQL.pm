@@ -1049,7 +1049,7 @@ sub getRequestData
 		$$node{DECIDED_BY} = &getClientData($self, $$node{DECIDED_BY});
 		$$node{DECIDED_BY}{DECISION} = $$node{DECISION};
 		$$node{DECIDED_BY}{TIME_DECIDED} = $$node{TIME_DECIDED};
-		$$node{DECIDED_BY}{COMMENTS}{'$T'} = $$node{COMMENTS};
+		$$node{DECIDED_BY}{COMMENTS}{'$T'} = $$node{COMMENTS} if $$node{COMMENTS};
 	    } else {
 		delete $$node{DECIDED_BY};
 	    }
