@@ -124,7 +124,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   }
 
   this.populate=function() {
-    this.fillHeader();
+    this.fillHeader(this.div_header);
+    this.fillBody(this.div_content);
 //     this.fillExtra();
 //     if (this.options['children']) {
 //       if (this.children_div.style.display=='block') {
@@ -135,10 +136,16 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
   this.buildHeader=function(div) {}
+  this.fillHeader=function(div) {}
+  
+  this.buildBody=function(div) {}
+  this.fillBody=function(div) {}
+  
   this.buildExtra=function(div) {}
-  this.fillHeader=function() {}
-  this.fillExtra=function() {}
+  this.fillExtra=function(div) {}
+  
   this.buildFooter=function(div) {}
+  
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
   {
@@ -153,7 +160,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 
 // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, extra and if necessary children. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
-  // Recursively update all children.
+// Recursively update all children.
 /*  this.updateChildren=function() {
     this.update();
     for (var i in this.children) {
@@ -201,9 +208,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
         return raw;
       }
     }
-  };  
+  };
   this.panel.render();
-  // Create a (usually hidden) progress indicator.
+// Create a (usually hidden) progress indicator.
   this.progress_img = document.createElement('img');
   this.progress_img.src = '/images/progress.gif';
   this.progress_img.className = 'node-progress';
