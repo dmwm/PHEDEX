@@ -45,6 +45,8 @@ PHEDEX.Widget.RequestView = function(divid,req_num) {
     tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
     var requestDetail = "Created: "+this.format.date(this.data.time_create)+"<br/>By: "+this.data.requested_by.username+" ("+this.data.requested_by.name+")<br/>Host: "+this.data.requested_by.host+" using "+this.data.requested_by.agent+"<br/>DN: "+this.data.requested_by.dn;
     new YAHOO.widget.TextNode(requestDetail, tmpNode, false); 
+
+// this bit about SOURCE: was in the prototype code, but I'm not sure what it does...
 /*
     tmpNode = new YAHOO.widget.TextNode({label: this.approval(), expanded: false}, reqNode);
     var approverDetail="";
@@ -123,14 +125,12 @@ PHEDEX.Widget.RequestView = function(divid,req_num) {
   }
   that.update=function() {
     PHEDEX.Datasvc.TransferRequests(this.req_num,this);
-//     this.startLoading();
   }
   that.receive=function(result) {
     var data=PHEDEX.Datasvc.TransferRequests[that.req_num];
     if (data) {
       that.data = data;
       that.build();
-//     that.finishLoading();
       that.populate();
     }
   }
