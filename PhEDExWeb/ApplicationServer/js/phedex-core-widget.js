@@ -171,10 +171,10 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
-      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TiB';
-      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GiB';
-      if (f>=1048576) return (f/1048576).toFixed(1)+' MiB';
-      if (f>=1024) return (f/1024).toFixed(1)+' KiB';
+      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TB';
+      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GB';
+      if (f>=1048576) return (f/1048576).toFixed(1)+' MB';
+      if (f>=1024) return (f/1024).toFixed(1)+' KB';
       return f.toFixed(1)+' B';
     },
     '%':function(raw) {
