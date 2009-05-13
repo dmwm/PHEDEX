@@ -9,8 +9,9 @@ use File::Basename qw (dirname);
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
+my ($delay);
 
-@accept = qw %	phedex[^./]*.html$
+@accept = qw %	^html/[^./]+.html$
 		^js/[^./]+.js$
 		^images/[^./]+.(gif|png|jpg)$
 		^css/[^./]+.css$
@@ -21,6 +22,7 @@ $dump_requests = $dump_responses = $help = $verbose = $debug = 0;
 $listen_port = 30001;
 $redirect_to = 'http://cmswttest.cern.ch';
 $die_on_reject = $cache_only = 0;
+$delay = 0;
 
 my $dir = dirname $0;
 $dir .= '/..';
@@ -52,6 +54,8 @@ sub usage()
  cache			directory for filesystem-based cache of requests
  cache_only		set this to serve only from whatever cache you have,
 			for fully offline behaviour
+ delay=i		delay server-response for cached entries, if you want
+			to see how events unfold in the browser
 
 EOF
 }
@@ -69,6 +73,7 @@ GetOptions( 'help'	=> \$help,
 	    'map=s'		=> \@map,
 	    'cache=s'		=> \$cache,
 	    'cache_only'	=> \$cache_only,
+	    'delay=i'		=> \$delay,
 	  );
 
 usage() if $help;
@@ -107,6 +112,7 @@ POE::Component::Server::TCP->new
         if ( $cache && ($data = $cache->get($request->uri())) )
         {
 	  print scalar localtime,": Serve ",$request->uri()," from cache...\n" if $verbose;
+	  sleep $delay if $delay;
 	  $heap->{client}->put($data) if defined $heap->{client};
 	  $kernel->yield("shutdown");
           return;
