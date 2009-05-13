@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::DashboardStats;
+package PHEDEX::Web::API::DashboardHistory;
 use warnings;
 use strict;
 
@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::DashboardStats - TransferHistory for the Dashboard
+PHEDEX::Web::API::DashboardHistory - TransferHistory for the Dashboard
 
 =head1 DESCRIPTION
 
