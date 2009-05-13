@@ -626,7 +626,6 @@ sub getTransferHistory
 
     my $where_stmt = "";
     my %param;
-    my @r;
 
     # default endtime is now
     if (exists $h{ENDTIME})
@@ -677,55 +676,32 @@ sub getTransferHistory
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    my %link;
-    while ( $_ = $q->fetchrow_hashref() )
+    my %links;
+    while ( my $r = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        if ($r->{'TIMEBIN'} and exists $h{CTIME})
         {
-            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
         }
         
-        if ($link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}})
-        {
-            push @{$link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}}->{TRANSFER}}, {
-                TIMEBIN => $_ -> {'TIMEBIN'},
-                BINWIDTH => $_ -> {'BINWIDTH'},
-                DONE_FILES => $_ -> {'DONE_FILES'},
-                DONE_BYTES => $_ -> {'DONE_BYTES'},
-                EXPIRE_FILES => $_ -> {'EXPIRE_FILES'},
-                EXPIRE_BYTES => $_ -> {'EXPIRE_BYTES'},
-                FAIL_FILES => $_ -> {'FAIL_FILES'},
-                FAIL_BYTES => $_ -> {'FAIL_BYTES'},
-                RATE => $_ -> {'RATE'}
-            };
-        }
-        else
-        {
-            $link{$_ -> {'FROM'} . "=" . $_ -> {'TO'}} = {
-                FROM => $_ -> {'FROM'},
-                TO => $_ -> {'TO'},
-                TRANSFER => [{
-                    TIMEBIN => $_ -> {'TIMEBIN'},
-                    BINWIDTH => $_ -> {'BINWIDTH'},
-                    DONE_FILES => $_ -> {'DONE_FILES'},
-                    DONE_BYTES => $_ -> {'DONE_BYTES'},
-                    EXPIRE_FILES => $_ -> {'EXPIRE_FILES'},
-                    EXPIRE_BYTES => $_ -> {'EXPIRE_BYTES'},
-                    FAIL_FILES => $_ -> {'FAIL_FILES'},
-                    FAIL_BYTES => $_ -> {'FAIL_BYTES'},
-                    RATE => $_ -> {'RATE'}
-                }]
-            };
-        }
+	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
+	$links{$linkkey} = { 
+	    FROM => $r -> {'FROM'},
+	    TO => $r -> {'TO'},
+	    TRANSFER => []
+	    } unless $links{$linkkey};
+
+	push @{$links{$linkkey}->{TRANSFER}}, {
+	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
+				      DONE_FILES DONE_BYTES
+				      FAIL_FILES FAIL_BYTES
+				      EXPIRE_FILES EXPIRE_BYTES
+				      RATE)
+	};
     }
 
-    while (my ($key, $value) = each (%link))
-    {
-        push @r, $value;
-    }
-
-    return \@r;
+    return [ values %links ];
 }
 
 sub getTransferQueueHistory
@@ -767,7 +743,6 @@ sub getTransferQueueHistory
 
     my $where_stmt = "";
     my %param;
-    my @r;
 
     # default endtime is now
     if (exists $h{ENDTIME})
@@ -818,18 +793,33 @@ sub getTransferQueueHistory
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    while ( $_ = $q->fetchrow_hashref() )
+    my %links;
+    while ( my $r = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        if ($r->{'TIMEBIN'} and exists $h{CTIME})
         {
-            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
         }
-        push @r, $_;
+
+	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
+	$links{$linkkey} = { 
+	    FROM => $r -> {'FROM'},
+	    TO => $r -> {'TO'},
+	    TRANSFERQUEUE => []
+	    } unless $links{$linkkey};
+
+	push @{$links{$linkkey}->{TRANSFERQUEUE}}, {
+	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
+				      PEND_FILES PEND_BYTES
+				      WAIT_FILES WAIT_BYTES
+				      READY_FILES READY_BYTES
+				      XFER_FILES XFER_BYTES
+				      CONFIRM_FILES CONFIRM_BYTES)
+	};
     }
 
-    # return $sql, %param;
-    return \@r;
+    return [ values %links ];
 }
 
 
