@@ -1,19 +1,26 @@
-PHEDEX.Data.nodes=null;
+// instantiate the PHEDEX.Widget.Nodes namespace
+PHEDEX.namespace('Widget.Nodes');
 
-nodes=function() {
-  var site = document.getElementById('select_for_nodes').value;
-  var nodes = new PHEDEX.Widget.Nodes(site);
+nodes=function(divid) {
+  var site = document.getElementById(divid+'_select').value;
+  var nodes = new PHEDEX.Widget.Nodes(divid,site);
   nodes.update();
 }
 
-PHEDEX.Widget.Nodes=function(site) {
-	var that=new PHEDEX.Widget('phedex_nodes',null,{children:false});
+PHEDEX.Widget.Nodes=function(divid,site) {
+	var that=new PHEDEX.Core.Widget(divid+'_display',null,
+		{children:false,
+		 width:500,
+		 height:200,
+		 minwidth:300,
+		 minheight:80
+		});
 	that.site=site;
 	that.data = null;
-	that.buildHeader=function() {
-	  return "Sites: "+this.data.length+" known...";
+	that.buildHeader=function(div) {
+	  div.innerHTML = 'PHEDEX Nodes: '+this.data.length+" sites found...";
 	}
-	that.buildExtra=function() {
+	that.buildBody=function(div) {
           var table = [];
 	  for (var i in this.data) {
 	    var a = this.data[i];
@@ -28,36 +35,29 @@ PHEDEX.Widget.Nodes=function(site) {
 	            {key:"SE", sortable:true, resizeable:true},
 	        ];
           var dataSource = new YAHOO.util.DataSource(table);
-	        dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	        dataSource.responseSchema = {
+	  dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+	  dataSource.responseSchema = {
 	            fields: ["ID","Name","Kind","Technology","SE"]
 	        };
-        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_main", columnDefs, dataSource,
+	var h = div.clientHeight;
+	var w = div.clientWidth;
+        this.dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
                      {
-                      caption:"PhEDEx Nodes",
-                      height:'80px',
-                      draggableColumns:true
+                      draggableColumns:true,
                      });
 	}
+	that.buildFooter=function(div) {
+	  return;
+	}
 	that.update=function() {
-	  PHEDEX.Datasvc.Nodes(site,this.receive,this);
+	  PHEDEX.Datasvc.Nodes(site,this);
 	}
 	that.receive=function(result) {
-	  var data = result.responseText;
-	  data = eval('('+data+')'); 
-	  data = data['phedex']['node'];
+	  var data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
 	  if (data.length) {
-            result.argument.data = data;
-	    result.argument.build();
+            that.data = data;
+	    that.build();
 	    }
 	}
 	return that;
 }
-
-PHEDEX.Datasvc.Nodes = function(site,callback,argument) {
-  var opts = 'nodes';
-  if ( site ) { opts += '?node='+site; }
-  PHEDEX.Datasvc.GET(opts,callback,argument);
-}
-
-//PHEDEX.Util.addLoadListener(nodes);

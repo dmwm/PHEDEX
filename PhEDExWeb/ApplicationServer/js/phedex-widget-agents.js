@@ -1,27 +1,35 @@
-var agent_node=null;
+// instantiate the PHEDEX.Widget.Agents namespace
+PHEDEX.namespace('Widget.Agents');
 
-agents=function() {
-  var site = document.getElementById('select_for_agents').value;
-  agent_node = new PHEDEX.Widget.Agents(site);
+agents=function(divid) {
+  var site = document.getElementById(divid+'_select').value;
+  var agent_node = new PHEDEX.Widget.Agents(divid,site);
   agent_node.update();
 }
 
-PHEDEX.Widget.Agents=function(site) {
-	var that=new PHEDEX.Widget('phedex_agents',null,{children:false});
+PHEDEX.Widget.Agents=function(divid,site) {
+	var that=new PHEDEX.Core.Widget(divid+'_'+site,null,
+		{
+		children:false,
+		width:500,
+		height:200,
+		minwidth:300,
+		minheight:80
+		});
 	that.site=site;
 	that.data = null;
-	that.buildHeader=function() {
+	that.buildHeader=function(div) {
           var now = new Date() / 1000;
           var minDate = now;
           var maxDate = 0;
-          for ( var i in this.data['agent']) {
-	    var a = this.data['agent'][i];
+          for ( var i in this.data) {
+	    var a = this.data[i];
             var u = a['time_update'];
             a['gmtDate'] = new Date(u*1000).toGMTString();
             if ( u > maxDate ) { maxDate = u; }
             if ( u < minDate ) { minDate = u; }
           }
-	  var msg = "Site: "+this.data['node']+", agents: "+this.data['agent'].length;
+	  var msg = "Site: "+this.site+", agents: "+this.data.length;
           if ( maxDate > 0 )
           {
             var minGMT = new Date(minDate*1000).toGMTString();
@@ -30,12 +38,12 @@ PHEDEX.Widget.Agents=function(site) {
             var dMax = Math.round(now - maxDate);
             msg += " Update-times range: "+dMin+" - "+dMax+" seconds ago";
           }
-          return msg;
+          div.innerHTML = msg;
 	}
-	that.buildExtra=function() {
-          var table = [];
-	  for (var i in this.data['agent']) {
-	    var a = this.data['agent'][i];
+	that.buildBody=function(div) {
+	  var table = [];
+	  for (var i in this.data) {
+	    var a = this.data[i];
             var y = { Agent:a['name'], Version:a['version'], PID:a['pid'], Date:a['gmtDate'] };
             table.push( y );
           }
@@ -50,28 +58,21 @@ PHEDEX.Widget.Agents=function(site) {
 	        dataSource.responseSchema = {
 	            fields: ["Agent","Version","PID","Date"]
 	        };
-        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_main", columnDefs, dataSource,
+        var dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
                      {
-                      caption:"PhEDEx Agents on "+site,
-                      height:'100px',
                       draggableColumns:true
                      });
 	}
+	that.buildFooter = function() {}
 	that.update=function() {
-	  PHEDEX.Datasvc.Agents(site,this.receive,this);
+	  PHEDEX.Datasvc.Agents(site,this); // this.receive,this);
 	}
 	that.receive=function(result) {
-	  var data = result.responseText;
-	  data = eval('('+data+')'); 
-	  data = data['phedex']['node'];
-	  if (data.length) {
-	    result.argument.data = data[0];
-	    result.argument.build();
+	  var data = PHEDEX.Data.Agents;
+	  if (data) {
+	    that.data = data[site];
+	    that.build();
 	    }
 	}
 	return that;
-}
-
-PHEDEX.Datasvc.Agents = function(site,callback,argument) {
-  PHEDEX.Datasvc.GET('agents?node='+site,callback,argument);
 }
