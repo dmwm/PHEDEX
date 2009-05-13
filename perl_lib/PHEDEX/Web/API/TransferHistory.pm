@@ -41,9 +41,9 @@ Serves historical statistics about completed transfer attempts.
 
   <link>
     <transfer/>
-    ........
+    ...
   </link>
-  ......
+  ...
 
 =head3 <link> elements
 
@@ -112,7 +112,7 @@ sub Quality
       return undef;
   }
 
-  return $h->{DONE_FILES} / $sum;
+  return sprintf('%.4f', $h->{DONE_FILES} / $sum);
 }
 
 1;
