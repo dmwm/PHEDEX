@@ -47,6 +47,7 @@
   * Hide 'X' nodes wherever nodes are found, except history APIs
   * Change authn roles for inject, subscribe to 'T0 Operator' of group
     'DataOps'
+  * Fix caching via mod_cache
   * Documentation updates
 
 * Versions < 1.4.0
