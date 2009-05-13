@@ -275,7 +275,7 @@ sub applyStorageRules
         next if ($$rule{'is-custodial'} && ($$rule{'is-custodial'} ne $custodial));
 
 	next if (defined $$rule{'destination-match'}
-		 && $dest !~ m!$$rule{'destination-match'}!);
+		 && (defined $dest && $dest !~ m!$$rule{'destination-match'}!));
 	if (exists $$rule{'chain'} && $chain eq 'pre') {
 	    ($space_token, $name) = &applyStorageRules($rules, $$rule{'chain'}, $dest, $chain, $name, $custodial, $space_token);
 	}
