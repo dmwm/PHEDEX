@@ -15,9 +15,6 @@ requesting client, the approving clients, and the request options.
 
 =head2 Options
 
- required inputs:  none
- optional inputs: (as filters) req_num, dest_node, group
-
   request          request number
   node             name of the destination node
   group            name of the group
@@ -29,15 +26,25 @@ requesting client, the approving clients, and the request options.
 =head2 Output
 
   <request>
-    <requested_by/>
+    <requested_by>
+      <comments>...</comments>
+    </requested_by>
     <destinations>
-      <node><approved_by/></node>
+      <node>
+        <decided_by>
+          <comments>...</comments>
+        </decided_by>
+      </node>
       ...
     </destinations>
-    <sources>
-      <node><approved_by/></node>
+    <move_sources>
+      <node>
+        <decided_by>
+          <comments>...</comments>
+        </decided_by>
+      </node>
       ...
-    </sources>
+    </move_sources>
     <data>
         <usertext>
         ...
@@ -48,33 +55,43 @@ requesting client, the approving clients, and the request options.
         </dbs>
     </data>
   </request> 
+  ...
 
 =head3 <request> attributes
 
-  request          request number
+  id               request number
   group            group name
   priority         transfer priority
   custodial        is custodial?
   static           is static?
   move             is move?
-  <request_by>     person who requested
-  comments         comments
-  files            total requested files
-  bytes            total requested bytes
+
+=head3 <destinations> elements
+
+No attributes, exists only to contain <node> elements representing the
+target of the transfer.
+
+=head3 <move_sources> elements
+
+No attributes, exists only to contain <node> elements representing 
+subscribed sources of a move request.  This element will not exist if 
+the request is not for a move, or if there were no subscribed sources.
 
 =head3 <node> attributes
 
   id               node id
   name             node name
   se               node SE name
-  decision         is decision made
-  time_decided     time when the decision was made
-  <approved_by>    person by whom transfer through this node was approved
-  comment          comment
 
-=head3 <usertext> elements
+=head3 <data> attributes
 
-  the actual text strings of data the user requested 
+  files            total requested files
+  bytes            total requested bytes
+
+=head3 <usertext> element
+
+No attributes, the contents of this element are the actual text
+strings of data the user requested, possibly including wildcards.
 
 =head3 <dbs> attributes
 
@@ -95,14 +112,35 @@ requesting client, the approving clients, and the request options.
   files            number of files
   bytes            number of bytes
 
-=head3 <requested_by> / <approved_by> attributes
+=head3 <requested_by> attributes
 
   name             person's name
   dn               person's DN
   username         person's username
   email            email address
   host             remote host
-  agent            agent used
+  agent            client useragent string
+  id               person's ID
+
+=head3 <decided_by> attributes
+
+  decision         y for approved, n for disapproved
+  time_decided     timestamp the decision was made
+  name             person's name
+  dn               person's DN
+  username         person's username
+  email            email address
+  host             remote host
+  agent            client useragent string
+  id               person's ID
+
+This element will not exist if no decision has been taken yet.
+
+=head3 <comment> elements
+
+No attributes, the text value gives the comments made when the request
+was created or decided on.  This element will not exist if there were
+no comments.
 
 =cut
 
