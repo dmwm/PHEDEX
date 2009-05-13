@@ -89,6 +89,21 @@ PHEDEX.Datasvc.TransferRequests_callback = function(data) {
   PHEDEX.Datasvc.TransferRequests[req_num] = data.request[0];
 }
 
+PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
+  var api = 'TransferQueueStats' + PHEDEX.Datasvc.Query(args);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueStats_callback,callback);
+}
+PHEDEX.Datasvc.TransferQueueStats_callback = function(data) {
+  if ( !data.link ) { return; }
+  PHEDEX.namespace('Data.TransferQueueStats');
+  var x = PHEDEX.Data.TransferQueueStats;
+  for ( var i in data.link )
+  {
+    var n = PHEDEX.namespace('Data.TransferQueueStats.'+data.link[i].from+'.'+data.link[i].to);
+    n.transfer_queue = data.link[i].transfer_queue;
+  }
+}
+
 // ...not ready yet...
 //PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
 //  var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(arg);
