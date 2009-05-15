@@ -77,3 +77,50 @@ PHEDEX.Util.makeUList = function(args) {
   }
   return list;
 }
+
+PHEDEX.Util.format={
+    bytes:function(raw) {
+      var f = parseFloat(raw);
+      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TB';
+      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GB';
+      if (f>=1048576) return (f/1048576).toFixed(1)+' MB';
+      if (f>=1024) return (f/1024).toFixed(1)+' KB';
+      return f.toFixed(1)+' B';
+    },
+    '%':function(raw) {
+      return (100*parseFloat(raw)).toFixed(2)+'%';
+    },
+    block:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    },
+    file:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    },
+    date:function(raw) {
+      var d =new Date(parseFloat(raw)*1000);
+      return d.toGMTString();
+    },
+    dataset:function(raw) {
+      if (raw.length>50) {
+        var short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+      } else {
+        return raw;
+      }
+    },
+    filesBytes:function(f,b) {
+      var str = f+' files';
+      if ( f ) { str += " / "+PHEDEX.Util.format.bytes(b); }
+      return str;
+    }
+}
