@@ -31,19 +31,19 @@ done
 # T0, T1 to all T0,1,2 sites (ignore T3s...)
 for from in `cat nodes | egrep '^T0|^T1' | grep -v MSS`
 do
+  echo transfer queue blocks: $from
   for to in `grep -v $from nodes | egrep '^T0|^T1|^T2' | grep -v MSS`
   do
    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
-   sleep 1
   done
 done
 # T2 to T0,T1s, (ignore T3s and T2->T2)
 for from in `cat nodes | egrep '^T2'`
 do
+  echo transfer queue blocks: $node
   for to in `grep -v $from nodes | egrep '^T0|^T1' | grep -v MSS`
   do
    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
-   sleep 1
   done
 done
 
