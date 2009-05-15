@@ -40,7 +40,7 @@ done
 # T2 to T0,T1s, (ignore T3s and T2->T2)
 for from in `cat nodes | egrep '^T2'`
 do
-  echo transfer queue blocks: $node
+  echo transfer queue blocks: $from
   for to in `grep -v $from nodes | egrep '^T0|^T1' | grep -v MSS`
   do
    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
