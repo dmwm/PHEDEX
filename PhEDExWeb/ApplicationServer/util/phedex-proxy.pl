@@ -9,7 +9,7 @@ use File::Basename qw (dirname);
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
-my ($delay);
+my ($delay,$cache_ro,%expires,$expires_default,$host);
 
 @accept = qw %	^html/[^./]+.html$
 		^js/[^./]+.js$
@@ -18,11 +18,16 @@ my ($delay);
 		^yui/.*.js$
 		favicon.ico$
 	     %;
+%expires =    ( '.gif'	=> 86400,
+		'.jpg'	=> 86400,
+		'.png'	=> 86400,
+		'yui'	=>  86400,
+	      );
 $dump_requests = $dump_responses = $help = $verbose = $debug = 0;
 $listen_port = 30001;
 $redirect_to = 'http://cmswttest.cern.ch';
 $die_on_reject = $cache_only = 0;
-$delay = 0;
+$delay = $cache_ro = $expires_default = 0;
 
 my $dir = dirname $0;
 $dir .= '/..';
@@ -42,6 +47,9 @@ sub usage()
  redirect_to=s		url to redirect to for non-local files. I.e. base
 			address of the data-service behind the proxy
 			(default is $redirect_to)
+ host=s			hostname for Host header. If you're tunneling to the
+			webservers, you'll need to set this to avoid being
+			rejected for accessing 'localhost'
  accept=s		restrict local file-serving to files matching this
 			string only. Can be repeated, accepts are OR-ed.
  reject=s		reject local files that match this string. Can be
@@ -54,8 +62,11 @@ sub usage()
  cache			directory for filesystem-based cache of requests
  cache_only		set this to serve only from whatever cache you have,
 			for fully offline behaviour
+ cache_ro		set the cache to be read-only, so you don't populate
+			it any further.
  delay=i		delay server-response for cached entries, if you want
 			to see how events unfold in the browser
+ expires=i		set the default expiry time for the response header
 
 EOF
 }
@@ -72,12 +83,18 @@ GetOptions( 'help'	=> \$help,
 	    'reject=s'		=> \@reject,
 	    'map=s'		=> \@map,
 	    'cache=s'		=> \$cache,
+	    'host=s'		=> \$host,
 	    'cache_only'	=> \$cache_only,
+	    'cache_ro'		=> \$cache_ro,
 	    'delay=i'		=> \$delay,
+	    'expires=i'		=> \$expires_default,
 	  );
 
 usage() if $help;
 $redirect_to =~ s%/$%%;
+$host = $redirect_to unless $host;
+$host =~ s%^http://%%;
+$host =~ s%/$%%;
 map { m%^[^=]+=(.*)$%; push @accept, $1; } @map;
 
 if ( $cache )
@@ -175,7 +192,14 @@ POE::Component::Server::TCP->new
           close DATA;
 DONE:
 	  die "No data for $file, maybe it was rejected...?\n" if $die_on_reject && !$data;
-          $kernel->yield( 'send_response', $data, $error );
+
+	  my $expires = $expires_default;
+          foreach ( keys %expires )
+          {
+            next unless $file =~ m%$_%;
+            $expires = $expires{$_} if $expires{$_} > $expires;
+          }
+          $kernel->yield( 'send_response', $data, $error, $expires );
           return;
         }
 
@@ -187,6 +211,8 @@ DONE:
 	}
 
 #	Transmit the request upstream to the server
+	$request->header( 'User-Agent', 'PhEDEx Proxy server' );
+	$request->header( 'Host', $host );
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
         $request->remove_header("Keep-Alive");
@@ -198,7 +224,8 @@ DONE:
     InlineStates => {
 	'send_response' => sub
 	{
-	  my ($self,$kernel,$heap,$data,$error) = @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1 ];
+	  my ($self,$kernel,$heap,$data,$error,$expires) =
+		 @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1, ARG2 ];
 	  my $request_fields = '';
 	  my $response;
           if ( $error )
@@ -211,6 +238,7 @@ DONE:
 
 	  $response->push_header( 'Content-type', 'text/html' );
 	  $response->push_header( 'Content-length', length($data) );
+	  $response->push_header( 'Max-age', $expires );
 	  $response->content($data);
 	  $heap->{client}->put($response);
 	  $kernel->yield("shutdown");
@@ -236,7 +264,7 @@ sub handle_http_response {
     else {
         print "Response wasn't text.\n" if $dump_responses;
     }
-    if ( $cache )
+    if ( $cache && !$cache_ro )
     {
       my $query = $http_response->request()->uri()->path_query();
       $query =~ s%^/\/+%/%;
