@@ -8,15 +8,16 @@ linkview=function(divid) {
 }
 
 PHEDEX.Widget.TransfersNode=function(divid,site) {
-  var that = new PHEDEX.Core.Widget(divid+'_display_'+site,null,{fixed_extra:true,expand_children:true});
+  var that = new PHEDEX.Core.Widget(divid+'_display_'+site,null,{
+		fixed_extra:false,
+		expand_children:false,
+		width:1000,
+		height:700
+	      });
   that.site = site;
-  that.data_queue = [];
-  that.data_hist = [];
-  that.data_queue_blocks=[];
-  that.data_arrived=0;
   that.mode='to';
   that.time='6';
-  that.buildHeader=function(div) {debugger;
+  that.buildHeader=function(div) {
     var modeselect = document.createElement('select');
     var incoming = document.createElement('option');
     var outgoing = document.createElement('option');
@@ -39,12 +40,17 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     var title = document.createElement('span');
     title.id = div.id+'_title';
     div.appendChild(title);
+    that.title = title;
   }
-  that.fillHeader=function(div) {debugger;
-    var title = document.getElementById(div.id+'_title');
-    title.innerHTML="Links "+this.mode+' '+this.site;
+  that.fillHeader=function(div) {
+    this.title.innerHTML=this.site;
   }
-  that.fillExtra=function() {}
+  that.buildBody=function(div) {
+    var reqNode, tmpNode, tmpLeaf, root;
+    this.tree = new YAHOO.widget.TreeView(div);
+    root = this.tree.getRoot();
+  }
+
   that.event=function(what,val,arg2,arg3) {
     if (what=='time') {
       this.time=val;
@@ -56,42 +62,101 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     }
   }
   that.update=function() {
-    this.data_arrived=0;
     var args={};
     args[this.mode]=this.site;//apparently {this.mode:this.site} is invalid
     args['binwidth']=parseInt(this.time)*3600;
     PHEDEX.Datasvc.TransferQueueStats(args,this,this.receive_QueueStats);
-//     Data.Call('TransferQueueStats',args,this.receive,{call:'TransferQueueStats',obj:this});
-
-//     Data.Call('TransferHistory',args,this.receive,{call:'TransferHistory',obj:this});
-//     Data.Call('TransferErrorStats',args,this.receive,{call:'TransferErrorStats',obj:this});
+    PHEDEX.Datasvc.TransferHistory   (args,this,this.receive_History);
+    PHEDEX.Datasvc.TransferErrorStats(args,this,this.receive_ErrorStats);
     this.startLoading();
   }
   that.receive_QueueStats=function(result) {
-    that.data_queue = PHEDEX.Datasvc.TransferQueueStats;
-    that.populate();
+    that.data_queue = PHEDEX.Data.TransferQueueStats;
+    that.maybe_populate();
   }
-  that.receive=function(result) {
+  that.receive_History=function(result) {
+    that.data_hist = PHEDEX.Data.TransferHistory;
+    that.maybe_populate();
+  }
+  that.receive_ErrorStats=function(result) {
+    that.data_error = PHEDEX.Data.TransferErrorStats;
+    that.maybe_populate();
+  }
+  that.maybe_populate=function() {
+    if ( that.data_hist && that.data_error && that.data_queue )
+    {
+      this.finishLoading();
+      this.populate();
+    }
+  }
+
+  that.fillBody=function(div) {
+    var root = this.tree.getRoot();
+    var antimode='to';
+    if (this.mode=='to') { antimode='from'; }
+    for (var i in this.data_hist) {
+      var h = this.data_hist[i];
+      var node = h[antimode];
+      var d = {};
+      var e={num_errors:0};
+      for (var j in this.data_queue) {
+        if (this.data_queue[j][antimode]==node) {
+          d = this.data_queue[j];
+          break;
+        }
+      }
+      for (var j in this.data_error) {
+        if (this.data_error[j][antimode]==node) {
+          e = this.data_error[j];
+        }
+      }
+      var id = this.id+'_'+this.mode+'_'+node;
+
+if ( e.num_errors == 100 )
+{
   debugger;
-/*    if (result.argument.call=='TransferQueueStats') {
-      result.argument.obj.data_queue = eval('('+result.responseText+')')['phedex']['link'];
-      result.argument.obj.data_arrived += 1;
+}
+      var list = PHEDEX.Util.makeUList([
+	  node,
+	  this.format.bytes(this.hist_speed(h))+'/s, quality: '+this.format['%'](h.quality),
+	  h.done_files+' files / '+this.format.bytes(h.done_bytes),
+          this.sum_queue_files(d.transfer_queue)+' files / '+this.format.bytes(this.sum_queue_bytes(d.transfer_queue))+' queued',
+          e.num_errors+' errors'
+	]);
+      var tNode = new YAHOO.widget.TextNode({label: '<div class="inline_list" style="width:900px;">'+list.innerHTML+'</div>', expanded: false}, root);
+      var tLeaf = new YAHOO.widget.TextNode("this is a comment", tNode, false);
+d={};e={};h={};
+//    tLeaf.isLeaf = true;
+//
+//     tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
+//     new YAHOO.widget.TextNode("this is a text node", tmpNode, false);
+
+//       var child = this.getChild(id);
+//       if (child) {
+//         child.data_queue=d['transfer_queue'];
+//         child.data_hist=h;
+//         child.data_error=e;
+//         child.marked=false;
+//         child.update();
+//       } else {
+//         var childdiv = document.createElement('div');
+//         childdiv.id = id;
+//         div.appendChild(childdiv);
+//         var childnode = new PHEDEX.Widget.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h,e);
+//         this.children.push(childnode);
+//         childnode.update();
+//       }
+    }
+/*    this.removeMarkedChildren();
+    if (this.children.length==0) {
+      this.children_info_none.innerHTML='No children returned';
+    } else {
+      this.children_info_none.innerHTML='';
     }*/
-    if (result.argument.call=='TransferHistory') {
-      result.argument.obj.data_hist = eval('('+result.responseText+')')['phedex']['link'];
-      result.argument.obj.data_arrived += 1;
-    }
-    if (result.argument.call=='TransferErrorStats') {
-      result.argument.obj.data_error = eval('('+result.responseText+')')['phedex']['link'];
-      result.argument.obj.data_arrived += 1;
-    }
-    if (result.argument.obj.data_arrived==3) {
-//       result.argument.obj.finishLoading();
-debugger;
-      result.argument.obj.populate();
-    }
+    that.tree.render();
   }
   that.buildChildren=function(div) {
+debugger;
     this.markChildren();
     if (this.mode=='to') var antimode='from';
     else var antimode='to';
@@ -135,6 +200,25 @@ debugger;
       this.children_info_none.innerHTML='';
     }
   }
+
+  that.sum_queue_files=function(q) {
+    var fsum=0;
+    for (var i in q) {
+      fsum+= parseInt(q[i]['files']);
+    }
+    return fsum;
+  }
+  that.sum_queue_bytes=function(q) {
+    var bsum=0;
+    for (var i in q) {
+      bsum+=parseInt(q[i]['bytes']);
+    }
+    return bsum;
+  }
+  that.hist_speed=function(h) {
+    return parseInt(h.done_bytes)/parseInt(h.binwidth);
+  }
+
   that.build();
   return that;
 }
@@ -212,6 +296,7 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     this.populate();
   }
   that.buildChildren=function(div) {
+debugger;
     if (this.mode=='to') {
       var to = this.parent.site;
       var from = this.site;
@@ -310,6 +395,7 @@ PHEDEX.Widget.BlockNode = function(from,to,parent,div,data,queue_priority,queue_
     this.populate();
   }
   that.buildChildren=function(div) {
+debugger;
     var block = this.data['name'].replace(/#/,'%23');
     Data.Call('TransferQueueFiles',{from:this.from,to:this.to,block:block},this.receive,{obj:this,from:this.from,to:this.to,block:block});
     this.startLoading();
