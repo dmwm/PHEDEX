@@ -112,20 +112,17 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
       }
       var id = this.id+'_'+this.mode+'_'+node;
 
-if ( e.num_errors == 100 )
-{
-  debugger;
-}
+      this.sum_hist(h);
+      else { qual = '0 MB/s'; }
       var list = PHEDEX.Util.makeUList([
 	  node,
-	  this.format.bytes(this.hist_speed(h))+'/s, quality: '+this.format['%'](h.quality),
-	  h.done_files+' files / '+this.format.bytes(h.done_bytes),
-          this.sum_queue_files(d.transfer_queue)+' files / '+this.format.bytes(this.sum_queue_bytes(d.transfer_queue))+' queued',
+          PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s, quality: '+this.format['%'](h.quality),
+	  PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes)+' done,',
+	  PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue))+' queued',
           e.num_errors+' errors'
 	]);
       var tNode = new YAHOO.widget.TextNode({label: '<div class="inline_list" style="width:900px;">'+list.innerHTML+'</div>', expanded: false}, root);
       var tLeaf = new YAHOO.widget.TextNode("this is a comment", tNode, false);
-d={};e={};h={};
 //    tLeaf.isLeaf = true;
 //
 //     tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
@@ -154,6 +151,29 @@ d={};e={};h={};
       this.children_info_none.innerHTML='';
     }*/
     that.tree.render();
+  }
+
+  that.sum_hist=function(h) {
+    h.done_bytes   = h.done_files =
+    h.fail_bytes   = h.fail_files =
+    h.expire_bytes = h.expire_files =
+    h.quality = h.rate = h.binwidth = 0;
+    for (var i in h.transfer)
+    {
+      h.done_bytes   += parseInt(h.transfer[i].done_bytes);
+      h.done_files   += parseInt(h.transfer[i].done_files);
+      h.fail_bytes   += parseInt(h.transfer[i].fail_bytes);
+      h.fail_files   += parseInt(h.transfer[i].fail_files);
+      h.expire_bytes += parseInt(h.transfer[i].expire_bytes);
+      h.expire_files += parseInt(h.transfer[i].expire_files);
+      h.binwidth     += parseInt(h.transfer[i].binwidth);
+      h.quality      += parseFloat(h.transfer[i].quality);
+    }
+    if ( h.binwidth && h.transfer.length )
+    {
+      h.rate = h.done_bytes / (h.transfer.length*h.binwidth);
+      h.quality /= h.transfer.length;
+    }
   }
   that.buildChildren=function(div) {
 debugger;
@@ -216,7 +236,9 @@ debugger;
     return bsum;
   }
   that.hist_speed=function(h) {
-    return parseInt(h.done_bytes)/parseInt(h.binwidth);
+    var sum_bytes = 0;
+    for (var i in h.transfer) { sum_bytes += parseInt(h.transfer[i].done_bytes); }
+    return parseInt(sum_bytes)/parseInt(h.transfer[0].binwidth);
   }
 
   that.build();
