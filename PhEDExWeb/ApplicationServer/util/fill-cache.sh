@@ -51,5 +51,5 @@ done
 for request in `seq 30000 31000`
 do
   echo request: $request
-  wget --quiet -O /dev/null "$jsonUrl/TransferRequests?req_num=$request;"
+  wget --quiet -O /dev/null "$jsonUrl/TransferRequests?request=$request;"
 done
