@@ -13,6 +13,8 @@ PHEDEX.Datasvc.Instances = ['prod','dev','debug'];
 //
 // This method could also call the obj.startLoading method, to display the
 // spinning wheel or other 'loading' indicator
+//
+// Should also set a timeout, and provide a failure-callback as well.
 PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
   callback = callback || obj.receive;
   YAHOO.util.Connect.asyncRequest(
@@ -33,9 +35,12 @@ PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
 // indicator for the widget that wants the data.
 PHEDEX.Datasvc.Callback = function(response) {
   var data = response.responseText;
+// TODO This should be handled by a JSON parser, rather than an eval
   data = eval('('+data+')');
+
+// TODO should handle the cache-control with response.getResponseHeader['Cache-Control']
   data = data['phedex'];
-  if ( typeof(data) === 'object' ) {
+  if ( typeof(data) === 'object' ) { // barely adequate error-checking! Should also use response-headers
     response.argument.datasvc(data);
     response.argument.callback(data);
   }
@@ -64,6 +69,7 @@ PHEDEX.Datasvc.Nodes = function(site,obj,callback) {
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Nodes_callback,callback);
 }
 PHEDEX.Datasvc.Nodes_callback = function(data) {
+  if ( !data.node ) { return; }
   PHEDEX.Data.Nodes = data.node;
 }
 
@@ -79,14 +85,14 @@ PHEDEX.Datasvc.Agents_callback = function(data) {
   PHEDEX.Data.Agents[mynode] = data['node'][0]['agent'];
 }
 
-PHEDEX.Datasvc.TransferRequests = function(req_num,obj,callback) {
-  var api = 'TransferRequests?req_num='+req_num+';';
+PHEDEX.Datasvc.TransferRequests = function(request,obj,callback) {
+  var api = 'TransferRequests?request='+request+';';
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferRequests_callback,callback);
 }
 PHEDEX.Datasvc.TransferRequests_callback = function(data) {
-  var req_num = data.request[0].id;
-  if ( !req_num ) { return; }
-  PHEDEX.Datasvc.TransferRequests[req_num] = data.request[0];
+  var request = data.request[0].id;
+  if ( !request ) { return; }
+  PHEDEX.Datasvc.TransferRequests[request] = data.request[0];
 }
 
 PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
@@ -95,14 +101,50 @@ PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.TransferQueueStats_callback = function(data) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferQueueStats');
-  var x = PHEDEX.Data.TransferQueueStats;
+/*  PHEDEX.namespace('Data.TransferQueueStats');
+// Something like this might be appropriate, but for now I just use the whole return object
   for ( var i in data.link )
   {
     var n = PHEDEX.namespace('Data.TransferQueueStats.'+data.link[i].from+'.'+data.link[i].to);
     n.transfer_queue = data.link[i].transfer_queue;
-  }
+  }*/
+  PHEDEX.Data.TransferQueueStats = data.link;
 }
+
+PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
+  var api = 'TransferHistory' + PHEDEX.Datasvc.Query(args);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferHistory_callback,callback);
+}
+PHEDEX.Datasvc.TransferHistory_callback = function(data) {
+  if ( !data.link ) { return; }
+/*  PHEDEX.namespace('Data.TransferHistory');
+  for ( var i in data.link )
+  {
+// TODO Should take into account the timebin and binwidth somehow here, otherwise I'm potentially stomping on data
+    var n = PHEDEX.namespace('Data.TransferHistory.'+data.link[i].from+'.'+data.link[i].to);
+    for ( var j in data.link[i] )
+    {
+      if ( j != 'to' && j != 'from' ) { n[j] = data.link[i][j]; }
+    }
+  }*/
+  PHEDEX.Data.TransferHistory = data.link;
+}
+PHEDEX.Datasvc.TransferErrorStats= function(args,obj,callback) {
+  var api = 'TransferErrorStats' + PHEDEX.Datasvc.Query(args);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferErrorStats_callback,callback);
+}
+PHEDEX.Datasvc.TransferErrorStats_callback = function(data) {
+  if ( !data.link ) { return; }
+/*  PHEDEX.namespace('Data.TransferErrorStats');
+  for ( var i in data.link )
+  {
+    var n = PHEDEX.namespace('Data.TransferErrorStats.'+data.link[i].from+'.'+data.link[i].to);
+    n.num_errors = data.link[i].num_errors;
+    n.block      = data.link[i].block;
+  }*/
+  PHEDEX.Data.TransferErrorStats = data.link;
+}
+
 
 // ...not ready yet...
 //PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
