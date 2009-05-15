@@ -22,7 +22,11 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 		  height:150,
 		  minwidth:10,
 		  minheight:10,
-		  constraintoviewport:false};
+		  close:true,
+		  draggable:true,
+		  constraintoviewport:false,
+		  handles:['b','br','r']
+		  };
   if (opts) {
     for (o in opts) {
       this.options[o]=opts[o];
@@ -37,7 +41,11 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.id = divid;
     this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id);
   }
+
+// This may be heavy-handed, wipe out all children and rebuild from scratch...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
+
+// Everything is a resizeable panel now
   this.div.className = 'resizablepanel';
 // Create divs for the embedded panel
   this.div_header = document.createElement('div');
@@ -62,7 +70,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // Create the panel
   this.panel = new YAHOO.widget.Panel(this.id,
     {
-      close:true,
+      close:this.options.close,
       visible:true,
       draggable:true,
 //       effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
@@ -74,7 +82,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     }
   ); this.panel.render();
   var resize = new YAHOO.util.Resize(this.id, {
-      handles: ['br','b','r'],
+//       handles: ['br','b','r'],
+      handles: this.options.handles, // ['br','b','r'],
       autoRatio: false,
       minWidth:  this.options.minwidth,
       minHeight: this.options.minheight,
@@ -107,7 +116,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 }, this.panel, true);
 
 // Assign an event-handler to delete the content when the container is closed. Do this now rather than
-// in the constructor to avoid it hanging around when it is no longer necessary.
+// in the constructor to avoid it hanging around when it is no longer needed.
   this.destroyContent = function(e,that) {
     while (that.div.hasChildNodes()) {
       that.div.removeChild(that.div.firstChild);
@@ -119,8 +128,6 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.buildHeader(this.div_header);
     this.buildBody(this.div_content);
     this.buildFooter(this.div_footer);
-    this.finishLoading();
-
   }
 
   this.populate=function() {
@@ -132,6 +139,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 //         this.buildChildren(this.children_div);
 //       }
 //     }
+    this.fillFooter(this.div_footer);
+    this.finishLoading();
   }
 
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
@@ -145,6 +154,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.fillExtra=function(div) {}
   
   this.buildFooter=function(div) {}
+  this.fillFooter=function(div) {}
   
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
