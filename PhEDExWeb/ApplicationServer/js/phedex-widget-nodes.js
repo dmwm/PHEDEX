@@ -17,10 +17,10 @@ PHEDEX.Widget.Nodes=function(divid,site) {
 		});
 	that.site=site;
 	that.data = null;
-	that.buildHeader=function(div) {
+	that.fillHeader=function(div) {
 	  div.innerHTML = 'PHEDEX Nodes: '+this.data.length+" sites found...";
 	}
-	that.buildBody=function(div) {
+	that.fillBody=function(div) {
           var table = [];
 	  for (var i in this.data) {
 	    var a = this.data[i];
@@ -46,18 +46,14 @@ PHEDEX.Widget.Nodes=function(divid,site) {
                       draggableColumns:true,
                      });
 	}
-	that.buildFooter=function(div) {
-	  return;
-	}
+	that.fillFooter=function(div) { return; }
 	that.update=function() {
-	  PHEDEX.Datasvc.Nodes(site,this);
+	  PHEDEX.Datasvc.Nodes(that.site,that);
 	}
 	that.receive=function(result) {
-	  var data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
-	  if (data.length) {
-            that.data = data;
-	    that.build();
-	    }
+	  that.data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
+	  that.populate();
 	}
+        that.build();
 	return that;
 }

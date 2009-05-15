@@ -17,8 +17,7 @@ PHEDEX.Widget.Agents=function(divid,site) {
 		minheight:80
 		});
 	that.site=site;
-	that.data = null;
-	that.buildHeader=function(div) {
+	that.fillHeader=function(div) {
           var now = new Date() / 1000;
           var minDate = now;
           var maxDate = 0;
@@ -40,7 +39,7 @@ PHEDEX.Widget.Agents=function(divid,site) {
           }
           div.innerHTML = msg;
 	}
-	that.buildBody=function(div) {
+	that.fillBody=function(div) {
 	  var table = [];
 	  for (var i in this.data) {
 	    var a = this.data[i];
@@ -63,16 +62,15 @@ PHEDEX.Widget.Agents=function(divid,site) {
                       draggableColumns:true
                      });
 	}
-	that.buildFooter = function() {}
 	that.update=function() {
-	  PHEDEX.Datasvc.Agents(site,this); // this.receive,this);
+	  PHEDEX.Datasvc.Agents(that.site,that);
 	}
 	that.receive=function(result) {
-	  var data = PHEDEX.Data.Agents;
-	  if (data) {
-	    that.data = data[site];
-	    that.build();
+	  that.data = PHEDEX.Data.Agents[that.site];
+	  if (that.data) {
+	    that.populate();
 	    }
 	}
+	that.build();
 	return that;
 }
