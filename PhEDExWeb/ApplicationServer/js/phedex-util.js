@@ -66,3 +66,14 @@ PHEDEX.Util.toggleVisible = function (id) {
     else { elem.style.display='block'; }
     return -1;
 }
+
+PHEDEX.Util.makeUList = function(args) {
+  var list = document.createElement('ul');
+  for ( var i in args )
+  {
+    var li = document.createElement('li');
+    li.innerHTML = args[i];
+    list.appendChild(li);
+  }
+  return list;
+}
