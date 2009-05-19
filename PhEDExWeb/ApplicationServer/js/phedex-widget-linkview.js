@@ -46,9 +46,10 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     this.title.innerHTML=this.site;
   }
   that.buildBody=function(div) {
-    var reqNode, tmpNode, tmpLeaf, root;
+    var dlist = PHEDEX.Util.makeInlineDiv({width:1000,fields:['Node','Rate','Quality','Done','Queued','Errors']});
     this.tree = new YAHOO.widget.TreeView(div);
-    root = this.tree.getRoot();
+    var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, this.tree.getRoot());
+    tNode.isLeaf = true;
   }
 
   that.event=function(what,val,arg2,arg3) {
@@ -113,15 +114,15 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
       var id = this.id+'_'+this.mode+'_'+node;
 
       this.sum_hist(h);
-      else { qual = '0 MB/s'; }
-      var list = PHEDEX.Util.makeUList([
+      var dlist = PHEDEX.Util.makeInlineDiv({width:1000,fields:[
 	  node,
-          PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s, quality: '+this.format['%'](h.quality),
-	  PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes)+' done,',
-	  PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue))+' queued',
-          e.num_errors+' errors'
-	]);
-      var tNode = new YAHOO.widget.TextNode({label: '<div class="inline_list" style="width:900px;">'+list.innerHTML+'</div>', expanded: false}, root);
+          PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s',
+	  this.format['%'](h.quality),
+	  PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes),
+	  PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue)),
+          e.num_errors
+	]});
+      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
       var tLeaf = new YAHOO.widget.TextNode("this is a comment", tNode, false);
 //    tLeaf.isLeaf = true;
 //
