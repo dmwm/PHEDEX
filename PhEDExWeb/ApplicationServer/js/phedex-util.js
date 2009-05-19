@@ -78,6 +78,29 @@ PHEDEX.Util.makeUList = function(args) {
   return list;
 }
 
+PHEDEX.Util.makeInlineDiv = function(args) {
+  var wtot = args.width || 900;
+
+  var list = document.createElement('ul');
+  var div = document.createElement('div');
+  list.className = 'inline_list';
+  div.style.width = wtot+'px';
+  var n = args.fields.length;
+  var w = Math.round(wtot/n);
+  for ( var i in args.fields )
+  {
+    var d1 = document.createElement('div');
+    d1.innerHTML = args.fields[i];
+    d1.style.width = w+'px';
+//     d1.style.border = '1px solid blue';
+    var li = document.createElement('li');
+    li.appendChild(d1);
+    list.appendChild(li);
+  }
+  div.appendChild(list);
+  return div;
+}
+
 PHEDEX.Util.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
