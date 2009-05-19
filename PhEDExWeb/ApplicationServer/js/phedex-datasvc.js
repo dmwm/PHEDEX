@@ -145,16 +145,24 @@ PHEDEX.Datasvc.TransferErrorStats_callback = function(data) {
   PHEDEX.Data.TransferErrorStats = data.link;
 }
 
+PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
+ var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(arg);
+ PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueBlocks_callback,callback);
+}
+PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data) {
+ var link = data.link[0];
+ if ( !link ) { return; }
+ var from_to = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueBlocks.'+link['from']+'.'+link['to']);
+ from_to = link;
+}
 
-// ...not ready yet...
-//PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
-//  var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(arg);
-//  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueBlocks_callback,callback);
-//}
-//PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data) {
-//debugger;
-//  var link = data.link[0];
-//  if ( !link ) { return; }
-//  var from_to = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueBlocks.'+link['from']+'.'+link['to']);
-//  from_to = link;
-//}
+// PHEDEX.Datasvc.TransferQueueFiles = function(arg,obj,callback) {
+//  var api = 'TransferQueueFiles'+PHEDEX.Datasvc.Query(arg);
+//  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueFiles_callback,callback);
+// }
+// PHEDEX.Datasvc.TransferQueueFiles_callback = function(data) {
+// debugger;
+//  if ( !data ) { return; }
+//  var queueFiles = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueFiles');
+//  queueFiles = data;
+// }
