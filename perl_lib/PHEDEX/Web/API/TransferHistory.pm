@@ -53,6 +53,7 @@ Serves historical statistics about completed transfer attempts.
 =head3 <transfer> elements
 
   timebin         the end point of each timebin, aligned with binwidth
+                  * when binwidth == endtime - starttime, timebin = starttime
   binwidth        width of each timebin (from the input)
   done_files      number of files in successful transfers
   done_bytes      number of bytes in successful transfers

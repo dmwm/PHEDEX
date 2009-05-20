@@ -21,7 +21,7 @@ clients who approved or disapproved the request.
   limit            maximal number of records returned
   create_since     created after this time
 
-  * without any input, the default "since" is set to 24 hours ago
+  * without any input, the default "create_since" is set to 24 hours ago
 
 =head2 Output
 
