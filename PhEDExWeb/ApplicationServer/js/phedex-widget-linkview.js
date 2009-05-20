@@ -8,15 +8,37 @@ linkview=function(divid) {
 }
 
 PHEDEX.Widget.TransfersNode=function(divid,site) {
+  var width = 1000;
   var that = new PHEDEX.Core.Widget(divid+'_display_'+site,null,{
 		fixed_extra:false,
 		expand_children:false,
-		width:1000,
-		height:700
+		width:width,
+		height:300
 	      });
   that.site = site;
   that.mode='to';
   that.time='6';
+
+// This is for event-handling with YUI, clean and simple...
+  that.deleteContents=function() {
+    var node;
+    while ( node = that.tree.root.children[1] ) { that.tree.removeNode(node); }
+    that.tree.render();
+    that.data_hist = null;
+    that.data_queue = null;
+    that.data_error = null;
+  }
+  var changeMode = function(e) {
+    that.mode = this.value;
+    that.deleteContents();
+    that.update();
+  }
+  var changeTimebin = function(e) {
+    that.time = this.value;
+    that.deleteContents();
+    that.update();
+  }
+
   that.buildHeader=function(div) {
     var modeselect = document.createElement('select');
     var incoming = document.createElement('option');
@@ -32,8 +54,9 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     var timeselect = document.createElement('select');
     timeselect.innerHTML = "<option value='1'>Last Hour</option><option value='3'>Last 3 Hours</option><option value='6' selected>Last 6 Hours</option><option value='12'>Last 12 Hours</option><option value='24'>Last Day</option><option value='48'>Last 2 Days</option><option value='96'>Last 4 Days</option><option value='168'>Last Week</option>";
     
-    modeselect.setAttribute('onchange',"PHEDEX.Widget.eventProxy('"+this.id+"','mode',this.value);"); //when called, 'this' will be modeselect, so this.value gets us the appropriate argument
-    timeselect.setAttribute('onchange',"PHEDEX.Widget.eventProxy('"+this.id+"','time',this.value);");
+// Use YUI event listeners
+    YAHOO.util.Event.addListener(modeselect, "change", changeMode);
+    YAHOO.util.Event.addListener(timeselect, "change", changeTimebin);
 
     div.appendChild(modeselect);
     div.appendChild(timeselect);
@@ -46,19 +69,60 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     this.title.innerHTML=this.site;
   }
   that.buildBody=function(div) {
-    var dlist = PHEDEX.Util.makeInlineDiv({width:1000,fields:['Node','Rate','Quality','Done','Queued','Errors']});
+    var dlist = PHEDEX.Util.makeInlineDiv({width:width,class:'treeview-header',fields:[
+	  {text:'Node',width:200,class:'align-left'},
+          {text:'Rate',width:100},
+	  {text:'Quality',width:100},
+	  {text:'Done',width:200},
+	  {text:'Queued',width:200},
+          {text:'Errors',width:100}
+	]});
     this.tree = new YAHOO.widget.TreeView(div);
+    var currentIconMode=0;
+// turn dynamic loading on for entire tree:
+    this.tree.setDynamicLoad(that.loadNodeData, currentIconMode);
     var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, this.tree.getRoot());
     tNode.isLeaf = true;
+  }
+  that.loadNodeData=function(node, fnLoadComplete) {
+    var callback = function(result)
+    {
+      if ( typeof(result.link[0]) == 'undefined' )
+      {
+        fnLoadComplete();
+        return;
+      }
+      for (var i in result.link[0].transfer_queue )
+      {
+        for (var j in result.link[0].transfer_queue[i].block )
+        {
+          var text = result.link[0].transfer_queue[i].block[j].name;
+          var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
+        }
+      }
+      fnLoadComplete();
+    }
+    if ( typeof(node.payload) == 'undefined' )
+    {
+      fnLoadComplete();
+      return;
+    }
+    if ( node.payload.Call == 'getBlocks' )
+    {
+      PHEDEX.Datasvc.TransferQueueBlocks({from:node.payload.from,to:node.payload.to},that,callback);
+    }
+    else { fnLoadComplete(); }
   }
 
   that.event=function(what,val,arg2,arg3) {
     if (what=='time') {
       this.time=val;
+debugger;
       this.update();
     }
     if (what=='mode') {
       this.mode=val;
+debugger;
       this.update();
     }
   }
@@ -68,19 +132,19 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     args['binwidth']=parseInt(this.time)*3600;
     PHEDEX.Datasvc.TransferQueueStats(args,this,this.receive_QueueStats);
     PHEDEX.Datasvc.TransferHistory   (args,this,this.receive_History);
-    PHEDEX.Datasvc.TransferErrorStats(args,this,this.receive_ErrorStats);
+    PHEDEX.Datasvc.ErrorLogSummary   (args,this,this.receive_ErrorStats);
     this.startLoading();
   }
-  that.receive_QueueStats=function(result) {
-    that.data_queue = PHEDEX.Data.TransferQueueStats;
+  that.receive_QueueStats=function(result,obj) {
+    that.data_queue = PHEDEX.Data.TransferQueueStats[obj.mode][obj.site];
     that.maybe_populate();
   }
-  that.receive_History=function(result) {
-    that.data_hist = PHEDEX.Data.TransferHistory;
+  that.receive_History=function(result,obj) {
+    that.data_hist = PHEDEX.Data.TransferHistory[obj.mode][obj.site];
     that.maybe_populate();
   }
-  that.receive_ErrorStats=function(result) {
-    that.data_error = PHEDEX.Data.TransferErrorStats;
+  that.receive_ErrorStats=function(result,obj) {
+    that.data_error = PHEDEX.Data.ErrorLogSummary[obj.mode][obj.site];
     that.maybe_populate();
   }
   that.maybe_populate=function() {
@@ -95,6 +159,11 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     var root = this.tree.getRoot();
     var antimode='to';
     if (this.mode=='to') { antimode='from'; }
+    if ( !this.data_hist.length )
+    {
+      var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+      tLeaf.isLeaf = true;
+    }
     for (var i in this.data_hist) {
       var h = this.data_hist[i];
       var node = h[antimode];
@@ -111,47 +180,32 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
           e = this.data_error[j];
         }
       }
-      var id = this.id+'_'+this.mode+'_'+node;
-
       this.sum_hist(h);
-      var dlist = PHEDEX.Util.makeInlineDiv({width:1000,fields:[
-	  node,
-          PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s',
-	  this.format['%'](h.quality),
-	  PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes),
-	  PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue)),
-          e.num_errors
+      var rate = PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s';
+      var qual = this.format['%'](h.quality);
+      var done = PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes);
+      var queue = PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue));
+      var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[
+	  {text:node,width:200,class:'align-left'},
+          {text:rate,width:100},
+	  {text:qual,width:100},
+	  {text:done,width:200},
+	  {text:queue,width:200},
+          {text:e.num_errors,width:100}
 	]});
       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
-      var tLeaf = new YAHOO.widget.TextNode("this is a comment", tNode, false);
-//    tLeaf.isLeaf = true;
-//
-//     tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
-//     new YAHOO.widget.TextNode("this is a text node", tmpNode, false);
-
-//       var child = this.getChild(id);
-//       if (child) {
-//         child.data_queue=d['transfer_queue'];
-//         child.data_hist=h;
-//         child.data_error=e;
-//         child.marked=false;
-//         child.update();
-//       } else {
-//         var childdiv = document.createElement('div');
-//         childdiv.id = id;
-//         div.appendChild(childdiv);
-//         var childnode = new PHEDEX.Widget.LinkNode(node,this.mode,this,childdiv,d['transfer_queue'],h,e);
-//         this.children.push(childnode);
-//         childnode.update();
-//       }
+      tNode.payload = { Call: 'getBlocks', obj: this }; // so I can use this in the callback
+      if (this.mode=='to') {
+        tNode.payload.to = this.site;
+        tNode.payload.from = node;
+      } else {
+        tNode.payload.to = this.site;
+        tNode.payload.from = node;
+      }
     }
-/*    this.removeMarkedChildren();
-    if (this.children.length==0) {
-      this.children_info_none.innerHTML='No children returned';
-    } else {
-      this.children_info_none.innerHTML='';
-    }*/
-    that.tree.render();
+    that.tree.render(); //?
+//  Place the focus on the second node
+    that.tree.root.children[1].focus();
   }
 
   that.sum_hist=function(h) {
@@ -177,7 +231,6 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
     }
   }
   that.buildChildren=function(div) {
-debugger;
     this.markChildren();
     if (this.mode=='to') var antimode='from';
     else var antimode='to';
@@ -247,7 +300,7 @@ debugger;
 }
 
 PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_error) {
-  var that = new PHEDEX.Widget(div,parent);
+  var that = new PHEDEX.Core.Child.Widget(div,parent,null);
   that.site=site;
   that.mode=mode;
   if (that.mode=='to') that.antimode='from';
@@ -273,8 +326,8 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
   that.hist_speed=function() {
     return parseInt(this.data_hist['done_bytes'])/parseInt(this.data_hist['binwidth']);
   }
-  that.buildHeader=function(span) {
-    this.title = document.createElement('span');
+  that.buildHeader=function(div) {
+/*    this.title = document.createElement('span');
     this.speed = document.createElement('span');
     this.speed.className='col1';
     this.done = document.createElement('span');
@@ -288,19 +341,23 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     span.appendChild(this.speed);
     span.appendChild(this.done);
     span.appendChild(this.queue);
-    span.appendChild(this.errors);
+    span.appendChild(this.errors);*/
   }
-  that.fillHeader=function() {
-    //this.span_header.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
-    this.title.innerHTML=this.site;
+  that.fillHeader=function(div) {
+    div.innerHTML = 'hello...';
+//this.span_header.innerHTML=this.site+' '+this.hist_speed()+' B/s '+this.data_hist['done_files']+' files / '+this.data_hist['done_bytes']+' B quality:'+this.data_hist['quality']+' '+this.sum_queue_files()+' files / '+this.sum_queue_bytes()+' B queued';
+/*    this.title.innerHTML=this.site;
     this.speed.innerHTML=this.format['bytes'](this.hist_speed())+'/s, quality: '+this.format['%'](this.data_hist['quality']);
     this.done.innerHTML=this.data_hist['done_files']+' files / '+this.format['bytes'](this.data_hist['done_bytes']);
     this.queue.innerHTML=this.sum_queue_files()+' files / '+this.format['bytes'](this.sum_queue_bytes())+' queued';
-    this.errors.innerHTML=this.data_error['num_errors']+' errors';
+    this.errors.innerHTML=this.data_error['num_errors']+' errors';*/
   }
   that.buildExtra=function(div) {}
   that.fillExtra=function() {
     this.extra_div.innerHTML='Recent: '+this.data_hist['fail_files']+' failed / '+this.data_hist['expire_files']+' expired';
+  }
+  that.fillBody=function(div) {
+    div.innerHTML='body...';
   }
   that.filter=function(filter_str) {
     if (filter_str.indexOf('link: ')>=0) {
@@ -310,16 +367,31 @@ PHEDEX.Widget.LinkNode=function(site,mode,parent,div,data_queue,data_hist,data_e
     }
     return true;
   }
+  
+//   that.update=function() {
+//     var args={};
+//     args[this.mode]=this.site;//apparently {this.mode:this.site} is invalid
+//     args['binwidth']=parseInt(this.time)*3600;
+//     PHEDEX.Datasvc.TransferQueueStats(args,this,this.receive_QueueStats);
+//     PHEDEX.Datasvc.TransferHistory   (args,this,this.receive_History);
+//     PHEDEX.Datasvc.ErrorLogSummary(args,this,this.receive_ErrorStats);
+//     this.startLoading();
+//   }
+//   that.receive_QueueStats=function(result) {
+//     that.data_queue = PHEDEX.Data.TransferQueueStats;
+//     that.maybe_populate();
+//   }
+
   that.update=function() {
-    var q = this.data_hist['quality'];
+    var q = 0.123; //this.data_hist['quality'];
     var red = parseInt((1.-q)*256);
     var green = parseInt(q*256);
     this.div.style.border="3px solid rgb("+red+","+green+",0)";
-    
-    this.populate();
+this.div_content.innerHTML='this is a child element';
+    this.div_header.innerHTML = this.node;
+//     this.populate();
   }
   that.buildChildren=function(div) {
-debugger;
     if (this.mode=='to') {
       var to = this.parent.site;
       var from = this.site;
@@ -327,13 +399,13 @@ debugger;
       var to = this.site;
       var from = this.parent.site;
     }
-    Data.Call('TransferQueueBlocks',{from:from,to:to},this.receive,{obj:this,from:from,to:to});
-//    PHEDEX.Datasvc.TransferQueueBlocks({from:from,to:to},this); // .receive,{obj:this,from:from,to:to});
+    PHEDEX.Datasvc.TransferQueueBlocks({from:from,to:to},this); // .receive,{obj:this,from:from,to:to});
     this.startLoading();
   }
   that.receive = function(result) {
-    result.argument.obj.markChildren();
-    var queues = eval('('+result.responseText+')')['phedex']['link'];
+/*    result.argument.obj.markChildren();*/
+    var queues_old = eval('('+result.responseText+')')['phedex']['link'];
+    var queues = PHEDEX.Data.TransferQueueBlocks.link;
     for (var i in queues) {
       for (var j in queues[i]['transfer_queue']) {
         var q_prio = queues[i]['transfer_queue'][j]['priority'];
@@ -418,7 +490,6 @@ PHEDEX.Widget.BlockNode = function(from,to,parent,div,data,queue_priority,queue_
     this.populate();
   }
   that.buildChildren=function(div) {
-debugger;
     var block = this.data['name'].replace(/#/,'%23');
     Data.Call('TransferQueueFiles',{from:this.from,to:this.to,block:block},this.receive,{obj:this,from:this.from,to:this.to,block:block});
     this.startLoading();
