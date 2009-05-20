@@ -80,24 +80,43 @@ PHEDEX.Util.makeUList = function(args) {
 
 PHEDEX.Util.makeInlineDiv = function(args) {
   var wtot = args.width || 900;
-
   var list = document.createElement('ul');
   var div = document.createElement('div');
   list.className = 'inline_list';
   div.style.width = wtot+'px';
   var n = args.fields.length;
+  for ( var i in args.fields )
+  {
+    if ( typeof(args.fields[i]) == 'object' )
+    {
+      var w_el = parseInt(args.fields[i].width);
+      if ( w_el ) { wtot -= w_el; n--; }
+    }
+  }
   var w = Math.round(wtot/n);
   for ( var i in args.fields )
   {
     var d1 = document.createElement('div');
-    d1.innerHTML = args.fields[i];
-    d1.style.width = w+'px';
+    if ( typeof(args.fields[i]) == 'object' )
+    {
+      d1.innerHTML = args.fields[i].text;
+      var w_el = parseInt(args.fields[i].width);
+      if ( w_el ) { d1.style.width = args.fields[i].width; }
+      else	  { d1.style.width = args.fields[i]; }
+      if ( args.fields[i].class ) { d1.className = args.fields[i].class; }
+    }
+    else
+    {
+      d1.innerHTML = args.fields[i];
+      d1.style.width = w+'px';
+    }
 //     d1.style.border = '1px solid blue';
     var li = document.createElement('li');
     li.appendChild(d1);
     list.appendChild(li);
   }
   div.appendChild(list);
+  if ( args.class ) { list.className += ' '+args.class; div.style.border = '1px solid red'; }
   return div;
 }
 
