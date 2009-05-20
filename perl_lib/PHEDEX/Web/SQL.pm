@@ -14,27 +14,6 @@ anything that needs its methods.
 
 pending...
 
-=head1 METHODS
-
-=over
-
-=item getLinkTasks($self)
-
-returns a reference to an array of hashes with the following keys:
-TIME_UPDATE, DEST_NODE, SRC_NODE, STATE, PRIORITY, FILES, BYTES.
-Each hash represents the current amount of data queued for transfer
-(has tasks) for a link given the state and priority
-
-=over
-
-=item *
-
-C<$self> is an object with a DBH member which is a valid DBI database
-handle. To call the routine with a bare database handle, use the 
-procedural call method.
-
-=back
-
 =head1 SEE ALSO...
 
 L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
@@ -82,28 +61,6 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub getLinkTasks
-{
-    my ($self, %h) = @_;
-    my ($sql,$q,@r);
-    
-    $sql = qq{
-    select
-      time_update,
-      nd.name dest_node, ns.name src_node,
-      state, priority,
-      files, bytes
-    from t_status_task xs
-      join t_adm_node ns on ns.id = xs.from_node
-      join t_adm_node nd on nd.id = xs.to_node
-     order by nd.name, ns.name, state
- };
-
-    $q = execute_sql( $self, $sql, () );
-    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
-
-    return \@r;
-}
 
 # FIXME:  %h keys should be uppercase
 sub getNodes
@@ -518,13 +475,13 @@ sub getAgents
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
                     state_dir => $_ -> {'STATE_DIR'},
+		    host => $_ -> {'HOST'},
                     pid => $_ -> {'PID'}};
         }
         else
         {
             $node{$_ -> {'NODE'}} = {
                 node => $_ -> {'NODE'},
-                host => $_ -> {'HOST'},
                 se => $_ -> {'SE'},
                 id => $_ -> {'ID'},
                 agent => [{
@@ -535,6 +492,7 @@ sub getAgents
                     cvs_tag => $_ -> {'CVS_TAG'},
                     time_update => $_ -> {'TIME_UPDATE'},
                     state_dir => $_ -> {'STATE_DIR'},
+		    host => $_ -> {'HOST'},
                     pid => $_ -> {'PID'}}]
              };
         }
@@ -643,12 +601,57 @@ sub getTransferHistory
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
 
+    my %param;
+
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
+    {
+        $param{':BINWIDTH'} = $h{BINWIDTH};
+    }
+    else
+    {
+        $param{':BINWIDTH'} = 3600;
+    }
+
+    # default endtime is now
+    if (exists $h{ENDTIME})
+    {
+        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
+    }
+    else
+    {
+        $param{':ENDTIME'} = time();
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{STARTTIME})
+    {
+        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
+    }
+    else
+    {
+        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
+    }
+
+    my $full_extent = ($param{':BINWIDTH'} == ($param{':ENDTIME'} - $param{':STARTTIME'}));
+
     my $sql = qq {
     select
         n1.name as "from",
         n2.name as "to",
-        :BINWIDTH as binwidth,
-        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin,
+        :BINWIDTH as binwidth, };
+
+    if ($full_extent)
+    {
+        $sql .= qq { :STARTTIME as timebin, };
+    }
+    else
+    {
+        $sql .= qq {
+        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin, };
+    }
+
+    $sql .= qq {
         nvl(sum(done_files), 0) as done_files,
         nvl(sum(done_bytes), 0) as done_bytes,
         nvl(sum(fail_files), 0) as fail_files,
@@ -667,39 +670,6 @@ sub getTransferHistory
         not n2.name like 'X%' };
 
     my $where_stmt = "";
-    my %param;
-    my @r;
-
-    # default endtime is now
-    if (exists $h{ENDTIME})
-    {
-        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
-    }
-    else
-    {
-        $param{':ENDTIME'} = time();
-    }
-
-    # default BINWIDTH is 1 hour
-    if (exists $h{BINWIDTH})
-    {
-        $param{':BINWIDTH'} = $h{BINWIDTH};
-    }
-    else
-    {
-        $param{':BINWIDTH'} = 3600;
-    }
-
-    # default start time is 1 hour before
-    if (exists $h{STARTTIME})
-    {
-        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
-    }
-    else
-    {
-        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
-    }
-
     my $filters = '';
     build_multi_filters($core, \$filters, \%param, \%h, (
         FROM_NODE => 'n1.name',
@@ -714,23 +684,46 @@ sub getTransferHistory
 
     $sql .= $where_stmt;
 
-    $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
-    $sql .= qq {\norder by 1 asc, 2, 3};
+
+    if ($full_extent)
+    {
+        $sql .= qq {\ngroup by n1.name, n2.name };
+        $sql .= qq {\norder by n1.name, n2.name };
+    }
+    else
+    {
+        $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
+        $sql .= qq {\norder by 1 asc, 2, 3};
+    };
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    while ( $_ = $q->fetchrow_hashref() )
+    my %links;
+    while ( my $r = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        if ($r->{'TIMEBIN'} and exists $h{CTIME})
         {
-            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
         }
-        push @r, $_;
+        
+	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
+	$links{$linkkey} = { 
+	    FROM => $r -> {'FROM'},
+	    TO => $r -> {'TO'},
+	    TRANSFER => []
+	    } unless $links{$linkkey};
+
+	push @{$links{$linkkey}->{TRANSFER}}, {
+	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
+				      DONE_FILES DONE_BYTES
+				      FAIL_FILES FAIL_BYTES
+				      EXPIRE_FILES EXPIRE_BYTES
+				      RATE)
+	};
     }
 
-    # return $sql, %param;
-    return \@r;
+    return [ values %links ];
 }
 
 sub getTransferQueueHistory
@@ -772,7 +765,6 @@ sub getTransferQueueHistory
 
     my $where_stmt = "";
     my %param;
-    my @r;
 
     # default endtime is now
     if (exists $h{ENDTIME})
@@ -823,18 +815,33 @@ sub getTransferQueueHistory
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    while ( $_ = $q->fetchrow_hashref() )
+    my %links;
+    while ( my $r = $q->fetchrow_hashref() )
     {
         # format the time stamp
-        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        if ($r->{'TIMEBIN'} and exists $h{CTIME})
         {
-            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
         }
-        push @r, $_;
+
+	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
+	$links{$linkkey} = { 
+	    FROM => $r -> {'FROM'},
+	    TO => $r -> {'TO'},
+	    TRANSFERQUEUE => []
+	    } unless $links{$linkkey};
+
+	push @{$links{$linkkey}->{TRANSFERQUEUE}}, {
+	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
+				      PEND_FILES PEND_BYTES
+				      WAIT_FILES WAIT_BYTES
+				      READY_FILES READY_BYTES
+				      XFER_FILES XFER_BYTES
+				      CONFIRM_FILES CONFIRM_BYTES)
+	};
     }
 
-    # return $sql, %param;
-    return \@r;
+    return [ values %links ];
 }
 
 
@@ -857,10 +864,11 @@ sub getClientData
 #
 # Optional parameters
 #
-#   REQ_NUM: request number
-# DEST_NODE: name of the destination node
-#     GROUP: group name
-#     LIMIT: maximal number of records
+#      REQUEST: request number
+#         NODE: name of the destination node
+#        GROUP: group name
+#        LIMIT: maximal number of records
+# CREATE_SINCE: created since this time
 #
 sub getRequestData
 {
@@ -892,13 +900,13 @@ sub getRequestData
             rx.is_move move,
             rx.is_static static,
             g.name "group",
-            rx.data user_text};
+            rx.data usertext};
     }
     else
     {
         $sql .= qq {
             rd.rm_subscriptions,
-            rd.data user_text};
+            rd.data usertext};
     }
 
     $sql .= qq {
@@ -924,9 +932,9 @@ sub getRequestData
             rt.name = 'delete'};
     }
 
-    if (exists $h{REQ_NUM})
+    if (exists $h{REQUEST})
     {
-        $sql .= qq {\n            and r.id = $h{REQ_NUM}};
+        $sql .= qq {\n            and r.id = $h{REQUEST}};
     }
 
     if ($h{TYPE} eq 'xfer' && exists $h{GROUP})
@@ -939,13 +947,13 @@ sub getRequestData
         $sql .= qq {\n            and rownum <= $h{LIMIT}};
     }
 
-    if (exists $h{SINCE})
+    if (exists $h{CREATE_SINCE})
     {
-        my $t = PHEDEX::Core::Util::str2time($h{SINCE});
+        my $t = PHEDEX::Core::Util::str2time($h{CREATE_SINCE});
         $sql .= qq {\n            and r.time_create >= $t};
     }
 
-    if (exists $h{DEST_NODE})
+    if (exists $h{NODE})
     {
         $sql .= qq {
             and r.id in (
@@ -956,7 +964,7 @@ sub getRequestData
                     t_adm_node an
                 where
                     rn.node = an.id
-                    and an.name = '$h{DEST_NODE}')};
+                    and an.name = '$h{NODE}')};
     }
 
     # order by
@@ -1035,40 +1043,44 @@ sub getRequestData
 
     while ($data = $q ->fetchrow_hashref())
     {
-        $$data{REQUESTED_BY} = &getClientData($self, $$data{CREATOR_ID});
-        delete $$data{CREATOR_ID};
+        $$data{REQUESTED_BY} = &getClientData($self, delete $$data{CREATOR_ID});
 
-        $$data{DATA}{DBS}{NAME} = $$data{DBS};
-        $$data{DATA}{DBS}{ID} = $$data{DBS_ID};
-        delete $$data{DBS};
-        delete $$data{DBS_ID};
+        $$data{DATA}{DBS}{NAME} = delete $$data{DBS};
+        $$data{DATA}{DBS}{ID}   = delete $$data{DBS_ID};
 
+	my @process_nodes;
         if ($h{TYPE} eq 'xfer')
         {
             # take care of priority
             $$data{PRIORITY} = PHEDEX::Core::Util::priority($$data{PRIORITY});
-            $$data{DESTINATIONS} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
-            $$data{SOURCES} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
-
-            foreach my $node (@{$$data{SOURCES}}, @{$$data{DESTINATIONS}})
-            {
-	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
-                delete $$node{DECIDED_BY};
-            }
+            $$data{DESTINATIONS}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
+	    @process_nodes = @{$$data{DESTINATIONS}->{NODE}};
+	    if ($$data{MOVE} eq 'y') {
+		$$data{MOVE_SOURCES}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
+		push @process_nodes, @{$$data{MOVE_SOURCES}->{NODE}};
+	    }
         }
         else
         {
-            $$data{NODES} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
-            foreach my $node (@{$$data{NODES}})
-            {
-	        $$node{APPROVED_BY} = &getClientData($self, $$node{DECIDED_BY}) if $$node{DECIDED_BY};
-                delete $$node{DECIDED_BY};
-            }
+            $$data{NODES}->{NODE} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
+            @process_nodes = @{$$data{NODES}->{NODE}};
         }
+	foreach my $node (@process_nodes) 
+	{
+	    if ($$node{DECIDED_BY}) {
+		$$node{DECIDED_BY} = &getClientData($self, $$node{DECIDED_BY});
+		$$node{DECIDED_BY}{DECISION} = $$node{DECISION};
+		$$node{DECIDED_BY}{TIME_DECIDED} = $$node{TIME_DECIDED};
+		$$node{DECIDED_BY}{COMMENTS}{'$T'} = $$node{COMMENTS} if $$node{COMMENTS};
+	    } else {
+		delete $$node{DECIDED_BY};
+	    }
+	    delete @$node{qw(DECISION TIME_DECIDED COMMENTS)};
+	}
 
-        $$data{DATA}{USERTEXT} = $$data{USER_TEXT};
-        delete $$data{USER_TEXT};
-    
+        $$data{DATA}{USERTEXT}{'$T'} = delete $$data{USERTEXT};
+	$$data{REQUESTED_BY}{COMMENTS}{'$T'} = delete $$data{COMMENTS};
+
         $$data{DATA}{DBS}{DATASET} = &execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID})->fetchall_arrayref({});
         $$data{DATA}{DBS}{BLOCK} = &execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID})->fetchall_arrayref({});
 
@@ -1079,8 +1091,8 @@ sub getRequestData
             $total_files += $item->{FILES} || 0;
             $total_bytes += $item->{BYTES} || 0;
         }
-        $$data{BYTES} = $total_bytes;
-        $$data{FILES} = $total_files;
+        $$data{DATA}{BYTES} = $total_bytes;
+        $$data{DATA}{FILES} = $total_files;
 
         push @r, $data;
     }
@@ -1169,6 +1181,61 @@ sub getGroupUsage
     }     
 
     return \@r;
+}
+
+sub getNodeUsage
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+
+    # FIXME: This massive union subquery should be written to a
+    # t_status_ table by PerfMonitor this SQL is used at any
+    # reasonable frequency
+    $sql = qq{
+      select * from (
+        select 'SUBS_CUST' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
+          from t_dps_block_replica br
+               join t_adm_node n on br.node = n.id
+         where br.dest_files != 0 and br.is_custodial = 'y'
+         group by n.name
+         union
+        select 'SUBS_NONCUST' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               sum(br.dest_files) dest_files, sum(br.dest_bytes) dest_bytes
+               from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files != 0 and br.is_custodial = 'n'
+         group by n.name
+         union
+        select 'NONSUBS_SRC' category,
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               0 dest_files, 0 dest_bytes
+          from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files = 0 and br.src_files != 0
+         group by n.name
+         union
+        select 'NONSUBS_NONSRC' category, -- non-subscribed, non-origin data
+               n.name node,
+               sum(br.node_files) node_files, sum(br.node_bytes) node_bytes,
+               0 dest_files, 0 dest_bytes
+          from t_dps_block_replica br
+          join t_adm_node n on br.node = n.id
+         where br.dest_files = 0 and br.src_files = 0
+         group by n.name
+		     )};
+
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'node');
+    $sql .= " where ($filters)" if $filters;
+
+    $q = execute_sql( $self, $sql, %p );
+    return $q->fetchall_hashref([qw(NODE CATEGORY)]);
 }
 
 sub getTransferQueue
@@ -1317,8 +1384,8 @@ sub getTransferQueue
     return $links;
 }
 
-# get transfer error stats
-sub getTransferErrorStats
+# get which files are in the transfer error logs
+sub getErrorLogSummary
 {
     my ($core, %h) = @_;
 
@@ -1459,7 +1526,7 @@ sub getTransferErrorStats
 }
 
 # get transfer error details from the log
-sub getTransferErrorDetail
+sub getErrorLog
 {
     my ($core, %h) = @_;
 

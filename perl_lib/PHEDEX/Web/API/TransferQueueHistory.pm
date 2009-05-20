@@ -39,13 +39,19 @@ Serves historical information about transfer queues.
 
 =head2 Output
 
-  <link/>
+  <link>
+    <transferqueue>
+    ...
+  </link>
   ...
 
 =head3 <link> elements
 
   from            name of the source node
   to              name of the destinatio node
+
+=head3 <transferqueue> elements
+
   timebin         the end point of each timebin, aligned with binwidth
   binwidth        width of each timebin (from the input)
   pend_files      number of files in any state
