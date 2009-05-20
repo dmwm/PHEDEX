@@ -24,7 +24,10 @@ do
   echo transfer stats: $node
   wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=21600;"
   wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/TransferErrorStats?to=$node;binwidth=21600;"
+  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=21600;"
+  wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=21600;"
+  wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=21600;"
+  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=21600;"
 done
 
 # If you _really_ want to hammer the service...
