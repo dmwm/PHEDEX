@@ -7,8 +7,8 @@ requestview=function(divid) {
   req_node.update();
 }
 
-PHEDEX.Widget.RequestView = function(divid,req_num) {
-  var that = new PHEDEX.Core.Widget(divid+'_display_'+req_num,null,
+PHEDEX.Widget.RequestView = function(divid,request) {
+  var that = new PHEDEX.Core.Widget(divid+'_display_'+request,null,
 		{
 		children:false,
 		width:800,
@@ -16,7 +16,7 @@ PHEDEX.Widget.RequestView = function(divid,req_num) {
 		minwidth:400,
 		minheight:80
 		});
-  that.req_num=req_num;
+  that.request=request;
   that.buildHeader=function(div) {
     this.list = document.createElement('ul');
     this.list.className='inline_list';
@@ -112,10 +112,10 @@ PHEDEX.Widget.RequestView = function(divid,req_num) {
     div.appendChild(this.approver);
   }
   that.update=function() {
-    PHEDEX.Datasvc.TransferRequests(this.req_num,this);
+    PHEDEX.Datasvc.TransferRequests(this.request,this);
   }
-  that.receive=function(result) {
-    that.data=PHEDEX.Datasvc.TransferRequests[that.req_num];
+  that.receive=function(result,obj) {
+    that.data=PHEDEX.Data.TransferRequests[that.request];
     if (that.data) {
       that.populate();
     }
