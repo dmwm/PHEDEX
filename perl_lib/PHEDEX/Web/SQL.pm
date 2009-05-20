@@ -601,12 +601,57 @@ sub getTransferHistory
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
 
+    my %param;
+
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
+    {
+        $param{':BINWIDTH'} = $h{BINWIDTH};
+    }
+    else
+    {
+        $param{':BINWIDTH'} = 3600;
+    }
+
+    # default endtime is now
+    if (exists $h{ENDTIME})
+    {
+        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
+    }
+    else
+    {
+        $param{':ENDTIME'} = time();
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{STARTTIME})
+    {
+        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
+    }
+    else
+    {
+        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
+    }
+
+    my $full_extent = ($param{':BINWIDTH'} == ($param{':ENDTIME'} - $param{':STARTTIME'}));
+
     my $sql = qq {
     select
         n1.name as "from",
         n2.name as "to",
-        :BINWIDTH as binwidth,
-        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin,
+        :BINWIDTH as binwidth, };
+
+    if ($full_extent)
+    {
+        $sql .= qq { :STARTTIME as timebin, };
+    }
+    else
+    {
+        $sql .= qq {
+        trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin, };
+    }
+
+    $sql .= qq {
         nvl(sum(done_files), 0) as done_files,
         nvl(sum(done_bytes), 0) as done_bytes,
         nvl(sum(fail_files), 0) as fail_files,
@@ -625,38 +670,6 @@ sub getTransferHistory
         not n2.name like 'X%' };
 
     my $where_stmt = "";
-    my %param;
-
-    # default endtime is now
-    if (exists $h{ENDTIME})
-    {
-        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
-    }
-    else
-    {
-        $param{':ENDTIME'} = time();
-    }
-
-    # default BINWIDTH is 1 hour
-    if (exists $h{BINWIDTH})
-    {
-        $param{':BINWIDTH'} = $h{BINWIDTH};
-    }
-    else
-    {
-        $param{':BINWIDTH'} = 3600;
-    }
-
-    # default start time is 1 hour before
-    if (exists $h{STARTTIME})
-    {
-        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
-    }
-    else
-    {
-        $param{':STARTTIME'} = $param{':ENDTIME'} - $param{':BINWIDTH'};
-    }
-
     my $filters = '';
     build_multi_filters($core, \$filters, \%param, \%h, (
         FROM_NODE => 'n1.name',
@@ -671,8 +684,17 @@ sub getTransferHistory
 
     $sql .= $where_stmt;
 
-    $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
-    $sql .= qq {\norder by 1 asc, 2, 3};
+
+    if ($full_extent)
+    {
+        $sql .= qq {\ngroup by n1.name, n2.name };
+        $sql .= qq {\norder by n1.name, n2.name };
+    }
+    else
+    {
+        $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
+        $sql .= qq {\norder by 1 asc, 2, 3};
+    };
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
