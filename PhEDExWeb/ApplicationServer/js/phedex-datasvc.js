@@ -1,9 +1,12 @@
-// Instantiate a namespace for the data-service object, if one does not already exist
-PHEDEX.namespace('Datasvc');
+// Instantiate a namespace for the data-service calls and the data they return, if they do not already exist
+PHEDEX.namespace('Datasvc','Data');
 
 // Global variables. Should provide getters & setters
 PHEDEX.Datasvc.Instance = 'prod';
-PHEDEX.Datasvc.Instances = ['prod','dev','debug'];
+PHEDEX.Datasvc.Instances = [{name:'Production',instance:'prod'},
+			    {name:'Dev',instance:'dev'},
+			    {name:'Debug',instance:'debug'}
+			   ];
 
 // Generic retrieval from the data-service. Requires a correctly formatted
 // API call, an object to callback to, a Datasvc handler to cache this data
@@ -41,8 +44,8 @@ PHEDEX.Datasvc.Callback = function(response) {
 // TODO should handle the cache-control with response.getResponseHeader['Cache-Control']
   data = data['phedex'];
   if ( typeof(data) === 'object' ) { // barely adequate error-checking! Should also use response-headers
-    response.argument.datasvc(data);
-    response.argument.callback(data);
+    response.argument.datasvc(data,response.argument.obj);
+    response.argument.callback(data,response.argument.obj);
   }
 }
 
@@ -68,7 +71,7 @@ PHEDEX.Datasvc.Nodes = function(site,obj,callback) {
   if ( site ) { api += '?node='+site; }
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Nodes_callback,callback);
 }
-PHEDEX.Datasvc.Nodes_callback = function(data) {
+PHEDEX.Datasvc.Nodes_callback = function(data,obj) {
   if ( !data.node ) { return; }
   PHEDEX.Data.Nodes = data.node;
 }
@@ -77,72 +80,49 @@ PHEDEX.Datasvc.Agents = function(site,obj,callback) {
   var api = 'agents?node='+site;
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Agents_callback,callback);
 }
-PHEDEX.Datasvc.Agents_callback = function(data) {
-  var mynode = data['node'][0]['node'];
-  if ( ! mynode ) { return; }
-  var agents = PHEDEX.namespace('PHEDEX.Data.Agents');
-  agents[mynode] = data['node'][0]['agent'];
-  PHEDEX.Data.Agents[mynode] = data['node'][0]['agent'];
+PHEDEX.Datasvc.Agents_callback = function(data,obj) {
+  if ( ! data['node'] ) { return; }
+  PHEDEX.namespace('Data.Agents');
+  PHEDEX.Data.Agents[obj.site] = data['node'][0]['agent'];
 }
 
 PHEDEX.Datasvc.TransferRequests = function(request,obj,callback) {
   var api = 'TransferRequests?request='+request+';';
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferRequests_callback,callback);
 }
-PHEDEX.Datasvc.TransferRequests_callback = function(data) {
-  var request = data.request[0].id;
-  if ( !request ) { return; }
-  PHEDEX.Datasvc.TransferRequests[request] = data.request[0];
+PHEDEX.Datasvc.TransferRequests_callback = function(data,obj) {
+  if ( !data.request ) { return; }
+  PHEDEX.namespace('Data.TransferRequests');
+  PHEDEX.Data.TransferRequests[obj.request] = data.request[0];
 }
 
 PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
   var api = 'TransferQueueStats' + PHEDEX.Datasvc.Query(args);
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueStats_callback,callback);
 }
-PHEDEX.Datasvc.TransferQueueStats_callback = function(data) {
+PHEDEX.Datasvc.TransferQueueStats_callback = function(data,obj) {
   if ( !data.link ) { return; }
-/*  PHEDEX.namespace('Data.TransferQueueStats');
-// Something like this might be appropriate, but for now I just use the whole return object
-  for ( var i in data.link )
-  {
-    var n = PHEDEX.namespace('Data.TransferQueueStats.'+data.link[i].from+'.'+data.link[i].to);
-    n.transfer_queue = data.link[i].transfer_queue;
-  }*/
-  PHEDEX.Data.TransferQueueStats = data.link;
+  PHEDEX.namespace('Data.TransferQueueStats.'+obj.mode);
+  PHEDEX.Data.TransferQueueStats[obj.mode][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
   var api = 'TransferHistory' + PHEDEX.Datasvc.Query(args);
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferHistory_callback,callback);
 }
-PHEDEX.Datasvc.TransferHistory_callback = function(data) {
+PHEDEX.Datasvc.TransferHistory_callback = function(data,obj) {
   if ( !data.link ) { return; }
-/*  PHEDEX.namespace('Data.TransferHistory');
-  for ( var i in data.link )
-  {
-// TODO Should take into account the timebin and binwidth somehow here, otherwise I'm potentially stomping on data
-    var n = PHEDEX.namespace('Data.TransferHistory.'+data.link[i].from+'.'+data.link[i].to);
-    for ( var j in data.link[i] )
-    {
-      if ( j != 'to' && j != 'from' ) { n[j] = data.link[i][j]; }
-    }
-  }*/
-  PHEDEX.Data.TransferHistory = data.link;
+  PHEDEX.namespace('Data.TransferHistory.'+obj.mode);
+  PHEDEX.Data.TransferHistory[obj.mode][obj.site] = data.link;
 }
-PHEDEX.Datasvc.TransferErrorStats= function(args,obj,callback) {
-  var api = 'TransferErrorStats' + PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferErrorStats_callback,callback);
+PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
+  var api = 'ErrorLogSummary' + PHEDEX.Datasvc.Query(args);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.ErrorLogSummary_callback,callback);
 }
-PHEDEX.Datasvc.TransferErrorStats_callback = function(data) {
+PHEDEX.Datasvc.ErrorLogSummary_callback = function(data,obj) {
   if ( !data.link ) { return; }
-/*  PHEDEX.namespace('Data.TransferErrorStats');
-  for ( var i in data.link )
-  {
-    var n = PHEDEX.namespace('Data.TransferErrorStats.'+data.link[i].from+'.'+data.link[i].to);
-    n.num_errors = data.link[i].num_errors;
-    n.block      = data.link[i].block;
-  }*/
-  PHEDEX.Data.TransferErrorStats = data.link;
+  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.mode);
+  PHEDEX.Data.ErrorLogSummary[obj.mode][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
