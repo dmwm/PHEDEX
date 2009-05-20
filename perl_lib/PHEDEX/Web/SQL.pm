@@ -1384,8 +1384,8 @@ sub getTransferQueue
     return $links;
 }
 
-# get transfer error stats
-sub getTransferErrorStats
+# get which files are in the transfer error logs
+sub getErrorLogSummary
 {
     my ($core, %h) = @_;
 
@@ -1526,7 +1526,7 @@ sub getTransferErrorStats
 }
 
 # get transfer error details from the log
-sub getTransferErrorDetail
+sub getErrorLog
 {
     my ($core, %h) = @_;
 

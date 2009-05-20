@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::TransferErrorStats;
+package PHEDEX::Web::API::ErrorLogSummary;
 use warnings;
 use strict;
 
@@ -6,14 +6,13 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferErrorStats - return transfer error statistics
+PHEDEX::Web::API::ErrorLogSummary - which blocks and files have logged errors
 
 =head1 DESCRIPTION
 
-Serves transfer error statistics, the sum total of errors per file,
-block, and link.  Note that PhEDEx only stores the last 100 errors per
-link, so more errors may have occurred then indicated by this API
-call.
+Serves a list of blocks and files which have errors logged in TMDB, per link.
+Note that PhEDEx only stores the last 100 errors per link, so more
+errors may have occurred then indicated by this API call.
 
 =head2 Options
 
@@ -65,9 +64,9 @@ call.
 use PHEDEX::Web::SQL;
 
 sub duration { return 60 * 60; }
-sub invoke { return transfererrorstats(@_); }
+sub invoke { return errorlogsummary(@_); }
 
-sub transfererrorstats
+sub errorlogsummary
 {
     my ($core, %h) = @_;
 
@@ -77,7 +76,7 @@ sub transfererrorstats
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getTransferErrorStats($core, %h);
+    my $r = PHEDEX::Web::SQL::getErrorLogSummary($core, %h);
     return { link => $r };
 }
 

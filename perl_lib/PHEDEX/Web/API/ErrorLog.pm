@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::TransferErrorDetail;
+package PHEDEX::Web::API::ErrorLog;
 #use warning;
 use strict;
 
@@ -6,35 +6,17 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferErrorDetail - return transfer error detail from the log
+PHEDEX::Web::API::ErrorLog - transfer error logs
 
-=head2 transfererrordetail
+=head1 DESCRIPTION
 
-Return detailed transfer error information in the following format
+Return detailed transfer error information, including logs of the
+transfer and validation commands.
 
-  <link from= from_id= from_se= to= to_id= to_se= >
-    <block name= id= >
-      <file name= id= bytes= checksum= >
-        <transfer_error report_code=
-                      transfer_code=
-                      time_assign=
-                      time_export=
-                      time_pumped=
-                      time_start=
-                      time_done=
-                      time_expire=
-                      from_pfn=
-                      to_pfn=
-                      space_token= >
-          <transfer_log> ... </transfer_log>
-          <detail_log> ... </detail_log>
-          <validate_log> ... </detail_log>
-        </transfer_error>
-      </file>
-    </block>
-  </link>
+Note that PhEDEx only stores the last 100 errors per link, so more
+errors may have occurred then indicated by this API call.
 
-=head3 options
+=head3 Options
 
  required inputs: at least one of the followings
  optional inputs: (as filters) from, to, block, lfn
@@ -44,25 +26,15 @@ Return detailed transfer error information in the following format
   block            block name
   lfn              logical file name
 
-=head3 output
+=head3 Output
 
-  <link from= from_id= from_se= to= to_id= to_se= >
-    <block name= id= >
-      <file name= id= bytes= checksum= >
-        <transfer_error report_code=
-                      transfer_code=
-                      time_assign=
-                      time_export=
-                      time_pumped=
-                      time_start=
-                      time_done=
-                      time_expire=
-                      from_pfn=
-                      to_pfn=
-                      space_token= >
-          <transfer_log> ... </transfer_log>
-          <detail_log> ... </detail_log>
-          <validate_log> ... </detail_log>
+  <link>
+    <block>
+      <file>
+        <transfer_error>
+           <transfer_log> ... </transfer_log>
+           <detail_log> ... </detail_log>
+           <validate_log> ... </detail_log>
         </transfer_error>
       </file>
     </block>
@@ -104,7 +76,7 @@ Return detailed transfer error information in the following format
 
 =head3 <transfer_log/>, <detail_log/>, <validate_log/>
 
-  actual logs
+Full text of the transfer log, the detail log, and the validate log.
 
 =cut
 
@@ -112,9 +84,9 @@ Return detailed transfer error information in the following format
 use PHEDEX::Web::SQL;
 
 sub duration { return 60 * 60; }
-sub invoke { return transfererrordetail(@_); }
+sub invoke { return errorlog(@_); }
 
-sub transfererrordetail
+sub errorlog
 {
     my ($core, %h) = @_;
 
@@ -130,7 +102,7 @@ sub transfererrordetail
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getTransferErrorDetail($core, %h);
+    my $r = PHEDEX::Web::SQL::getErrorLog($core, %h);
     return { link => $r };
 }
 
