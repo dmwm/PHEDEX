@@ -11,12 +11,9 @@
     request.
   * groupusage - Serves storage statistics for each node per group.
   * nodeusage - A summary of how space is used on a node.
-  * transfererrordetail - Serves transfer error details from the
+  * errorlog - Serves transfer error details from the
     database log
-  * transfererrorstats - Serves transfer error statistics, the sum
-    total of errors per file, block, and link. Note that PhEDEx only
-    stores the last 100 errors per link, so more errors may have
-    occurred then indicated by this API call.
+  * errorlogsummary - Summary about logged errors.  (what has logs)
   * transferhistory - Serves historical statistics about completed
     transfer attempts.
   * transferqueueblocks - Serves blocks in the transfer queue, along
