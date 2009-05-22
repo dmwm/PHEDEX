@@ -30,8 +30,26 @@ do
   wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=21600;"
 done
 
+# Get all binwidths for T0/1 non-MSS nodes...
+node=T1_US_FNAL_Buffer
+for node in `cat nodes | egrep '^T0|^T1' | grep -v MSS`
+do
+  echo -n "all timebins for $node "
+  for bin in 3600 10800 21600 43200 86400 172800 345600 604800
+  do
+    echo -n "$bin "
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=$bin;"
+  done
+  echo ' '
+done
+
 # If you _really_ want to hammer the service...
-# T0, T1 to all T0,1,2 sites (ignore T3s...)
+# T0, T1 to all T0,1,2 non-MSS sites (ignore T3s...)
 for from in `cat nodes | egrep '^T0|^T1' | grep -v MSS`
 do
   echo transfer queue blocks: $from
