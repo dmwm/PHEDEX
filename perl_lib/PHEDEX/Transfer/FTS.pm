@@ -70,7 +70,7 @@ sub new
     bless $self, $class;
 
     $self->init();
-    if ( $self->{DEBUG} )
+    if ( $self->{DEBUG} >= 2)
     {
       my $dump = Dumper($self);
       my $password = $self->{FTS_Q_MONITOR}{Q_INTERFACE}{PASSWORD};
