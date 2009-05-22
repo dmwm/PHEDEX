@@ -324,8 +324,7 @@ sub resume_transfer_jobs
       END	=> &mytimeofday(),
       LOG	=> 'bypassing transfer due to agent restart',
       STATUS	=> PHEDEX_XC_NOXFER,
-      DETAIL	=> 'bypassing transfer due to agent restart',
-      DURATION=> 0,
+      DETAIL	=> 'bypassing transfer due to agent restart'
   };
 
   my $master = $self->{MASTER};
