@@ -55,6 +55,18 @@ sub new
 
     # Initialise myself
     my $self = $class->SUPER::new($master, $options, $params, @_);
+
+    # Create a JobManager
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{NJOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+							);
+
+    # Handle signals
+    $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
+				   $self->{JOBMANAGER}->killAllJobs() };
+
     bless $self, $class;
 
     $self->init();
@@ -142,7 +154,7 @@ sub init
 	 );
 
     $self->{FTS_Q_MONITOR} = $q_mon;
-    $q_mon->{JOBMANAGER} = $self->{MASTER}->{JOBMANAGER};
+    $q_mon->{JOBMANAGER} = $self->{JOBMANAGER};
 
     $self->parseFTSmap() if ($self->{FTS_MAPFILE});
 
@@ -360,7 +372,7 @@ sub start_transfer_job
     }
 
     $ftsjob->Service($service);
-    $self->{MASTER}->{JOBMANAGER}->addJob(
+    $self->{JOBMANAGER}->addJob(
 			     $self->{JOB_SUBMITTED_POSTBACK},
 			     { JOB => $job, FTSJOB  => $ftsjob,
 			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
@@ -485,11 +497,6 @@ sub fts_job_state_change
     $job->VERBOSE(0);
 
     $self->Dbgmsg("fts_job_state_change callback JOBID=",$job->ID,", STATE=",$job->State) if $self->{DEBUG};
-
-    if ($job->ExitStates->{$job->State}) {
-    }else{
-	&touch($job->Workdir."/live");
-    }
 }
 
 sub fts_file_state_change
@@ -502,7 +509,8 @@ sub fts_file_state_change
   $self->Dbgmsg("fts_file_state_change TaskID=",$file->TaskID," JOBID=",$job->ID,
 	  " STATE=",$file->State,' DEST=',$file->Destination) if $self->{DEBUG};
   
-  if ($file->ExitStates->{$file->State}) {
+  # If the file is in an exit state, report the transfer done.  Only do so once.
+  if ($file->ExitStates->{$file->State} && !$file->{TRANSFER_DONE}++) {
       $kernel->yield('transfer_done', $file->{TASKID}, &xferinfo($file, $job));
   }
 }
