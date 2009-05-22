@@ -219,8 +219,7 @@ eval
 	   $$self{DBH}->commit();
 	   foreach my $t (@{$dargs{1}}) {
 	       $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
-	       unlink("$$self{TASKDIR}/$t");
-	       delete $$tasks{$t};
+	       $self->forgetTask($t);
 	   }
 	   %dargs = ();
 	   %eargs = ();
@@ -234,8 +233,7 @@ eval
        $$self{DBH}->commit();
        foreach my $t (@{$dargs{1}}) {
 	   $self->Logmsg("uploaded status of task=$t") if $$self{VERBOSE};
-	   unlink("$$self{TASKDIR}/$t");
-	   delete $$tasks{$t};
+	   $self->forgetTask($t);
        }
    }
 }; $self->clean_death();
@@ -423,8 +421,8 @@ sub verify_tasks
 	my $info = &evalinfo("$$self{TASKDIR}/$taskid");
 	if (! $info || $@)
 	{
-	    $self->Alert("garbage collecting corrupted transfer task $taskid ($info, $@)");
-	    unlink("$$self{TASKDIR}/$taskid");
+	    $self->Alert("garbage collecting corrupted transfer task=$taskid ($info, $@)");
+	    $self->forgetTask($taskid);
 	    $do_purge = 1;
 	    next;
 	}
@@ -504,8 +502,7 @@ eval
 	if @lostdb;
     foreach (@lostdb)
     {
-	delete $$tasks{$_};
-	unlink("$$self{TASKDIR}/$_");
+	$self->forgetTask($_);
     }
 
     $$self{DBH_LAST_USE} = $now;
@@ -738,10 +735,10 @@ sub start_task
 {
     my ( $self, $kernel, $taskid, $taskargs ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     $self->Dbgmsg("start_task task=$taskid") if $self->{DEBUG};
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     if ($taskargs) { $task->{$_} = $taskargs->{$_} for keys %$taskargs }
     $task->{STARTED} = &mytimeofday();
-    $self->saveTask($task);
+    $self->saveTask($taskid) || return;
     $kernel->yield( $self->next_subtask(), $taskid );
 }
 
@@ -749,7 +746,7 @@ sub prevalidate_task
 {
     my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-prevalidate-log";
 
@@ -765,7 +762,7 @@ sub prevalidate_done
     my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $statcode = &numeric_statcode($jobargs->{STATUS});
     my $log = &input($jobargs->{LOGFILE});
     my $time_end = &mytimeofday();
@@ -805,7 +802,7 @@ sub prevalidate_done
 	$$task{TIME_XFER} = -1;
 	$done = 1;
     }
-    $self->saveTask( $self->{TASKS}->{$taskid} );
+    $self->saveTask($taskid) || return;
 
     $done ? $kernel->yield('finish_task', $taskid)
 	  : $kernel->yield($self->next_subtask(), $taskid);
@@ -815,7 +812,7 @@ sub predelete_task
 {
     my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-predelete-log";
 
@@ -831,9 +828,9 @@ sub predelete_done
     my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     $task->{PREDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
-    $self->saveTask( $self->{TASKS}->{$taskid} );
+    $self->saveTask( $taskid ) || return;
     $kernel->yield($self->next_subtask(), $taskid);
 }
 
@@ -843,23 +840,23 @@ sub transfer_task
 {
     my ( $self, $kernel, $taskid) = @_[ OBJECT, KERNEL, ARG0 ];
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     $task->{READY} = &mytimeofday();
-    $self->saveTask($task);
+    $self->saveTask($taskid) || return;
 }
 
 sub transfer_done
 {
     my ( $self, $kernel, $taskid, $xferinfo ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-
-    my $task = $self->{TASKS}->{$taskid};
+    
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
 
     # copy results into the task
     $$task{XFER_CODE}  = &numeric_statcode($xferinfo->{STATUS});
     $$task{LOG_DETAIL} = $xferinfo->{DETAIL} || '';
     $$task{LOG_XFER}   = $xferinfo->{LOG}    || '';
     $$task{TIME_XFER}  = $xferinfo->{START}  || -1;
-    $self->saveTask($task);
+    $self->saveTask($taskid) || return;
 
     # save the transfer info
     &output("$task->{JOBDIR}/T${taskid}-xferinfo", Dumper($xferinfo));
@@ -871,7 +868,7 @@ sub postvalidate_task
 {
     my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postvalidate-log";
 
@@ -887,7 +884,7 @@ sub postvalidate_done
     my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $statcode = &numeric_statcode($$jobargs{STATUS});
     my $log = &input($jobargs->{LOGFILE});
     my $done = $statcode == PHEDEX_VC_SUCCESS ? 1 : 0;
@@ -903,7 +900,7 @@ sub postvalidate_done
     $$task{REPORT_CODE}  = $statcode;
     $$task{LOG_VALIDATE} = $log || '';
     $$task{TIME_UPDATE}  = &mytimeofday();
-    $self->saveTask( $task );
+    $self->saveTask($taskid) || return;
 
     $done ? $kernel->yield('finish_task', $taskid)
 	  : $kernel->yield($self->next_subtask(), $taskid);
@@ -913,7 +910,7 @@ sub postdelete_task
 {
     my ( $self, $session, $taskid ) = @_[ OBJECT, SESSION, ARG0 ];
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $jobpath = $task->{JOBDIR};
     my $log = "$jobpath/T${taskid}-postdelete-log";
 
@@ -929,9 +926,9 @@ sub postdelete_done
     my ($taskid) = @$context;
     my ($jobargs) = @$args;
 
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     $task->{POSTDELETE_CODE} = &numeric_statcode($jobargs->{STATUS});
-    $self->saveTask( $task );
+    $self->saveTask( $taskid ) || return;
     $kernel->yield($self->next_subtask(), $taskid);
 }
 
@@ -941,7 +938,7 @@ sub finish_task
 {
     my ( $self, $kernel, $taskid ) = @_[ OBJECT, KERNEL, ARG0 ];
     $self->Dbgmsg("finish_task task=$taskid") if $self->{DEBUG};
-    my $task = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
     my $now = &mytimeofday();
 
     # Set report code if it wasn't already set, in order of preference
@@ -952,7 +949,7 @@ sub finish_task
     $$task{FINISHED} = $$task{TIME_UPDATE} = $now;
 
     # Save it
-    return 0 if ! $self->saveTask($task);
+    $self->saveTask($taskid) || return;
 
     # If next synchronisation is too far away, pull it forward.
     $self->delay_max($kernel, 'sync_tasks', 900);
@@ -1031,7 +1028,7 @@ sub init
 	my $subtask = $workflow[$i];
 	$self->{WORKFLOW}->{$subtask}->{ORDER} = $i;
 	$self->{WORKFLOW}->{$subtask}->{NEXT}  = $i+1 <= $#workflow ? $workflow[$i+1] : undef;
-	$self->{WORKFLOW}->{$subtask}->{PREV}  = $i-1 >= $#workflow ? $workflow[$i-1] : undef;
+	$self->{WORKFLOW}->{$subtask}->{PREV}  = $i-1 >= 0 ? $workflow[$i-1] : undef;
     }
 }
 
@@ -1146,8 +1143,34 @@ eval
 # Save a task after change of status.
 sub saveTask
 {
-    my ($self, $task) = @_;
+    my ($self, $taskid) = @_;
+    my $task = $self->getTask($taskid) || return 0;
     return &output("$$self{TASKDIR}/$$task{TASKID}", Dumper($task));
+}
+
+# Get a task from memory by its ID
+sub getTask
+{
+    my ($self, $taskid) = @_;
+    return undef if !$taskid;
+    if (!exists $self->{TASKS}->{$taskid}) {
+	return undef;
+    }
+    my $task = $self->{TASKS}->{$taskid};
+    if (!exists $task->{TASKID} || $task->{TASKID} != $taskid) {
+	return undef;
+    }
+    return $task;
+}
+
+# forget that a task ever existed.  always returns true.
+sub forgetTask
+{
+    my ($self, $taskid) = @_;
+    my $taskfile = "$$self{TASKDIR}/$taskid";
+    unlink($taskfile) if -e $taskfile;
+    delete $self->{TASKS}->{$taskid} if exists $self->{TASKS}->{$taskid};
+    return 1;
 }
 
 # Start a new statistics period.  If we have more than the desired
@@ -1183,30 +1206,29 @@ sub check_task_expire
 {
     my ( $self, $taskid ) = @_;
 
-    my $t = $self->{TASKS}->{$taskid};
+    my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return 0;
     my $now = &mytimeofday();
 
-    return 0 if $$t{STARTED}; # do not expire tasks which have started
+    return 0 if $$task{STARTED}; # do not expire tasks which have started
 
     # If the task is too near expiration, just mark it failed.
     # If it has already expired, just remove it.
-    my $prettyhours = sprintf "%0.1fh ", ($now - $$t{TIME_ASSIGN})/3600;
-    if ($now >= $$t{TIME_EXPIRE})
+    my $prettyhours = sprintf "%0.1fh ", ($now - $$task{TIME_ASSIGN})/3600;
+    if ($now >= $$task{TIME_EXPIRE})
     {
-	$self->Logmsg("PhEDEx transfer task $$t{TASKID} has expired after $prettyhours, discarding");
-	unlink("$$self{TASKDIR}/$$t{TASKID}");
-	delete $self->{TASKS}->{$$t{TASKID}};
+	$self->Logmsg("PhEDEx transfer task $$task{TASKID} has expired after $prettyhours, discarding");
+	$self->forgetTask($taskid);
     }
-    elsif ($now >= $$t{TIME_EXPIRE} - 1200)
+    elsif ($now >= $$task{TIME_EXPIRE} - 1200)
     {
-	$self->Logmsg("PhEDEx transfer task $$t{TASKID} was nearly expired after $prettyhours, discarding");
-	$$t{XFER_CODE}   = PHEDEX_XC_NOXFER;
-	$$t{REPORT_CODE} = PHEDEX_RC_EXPIRED;
-	$$t{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
-	$$t{LOG_XFER} = "no transfer was attempted";
-	$$t{LOG_VALIDATE} = "no validation was attempted";
-	$$t{TIME_UPDATE} = $now;
-	$$t{TIME_XFER} = -1;
+	$self->Logmsg("PhEDEx transfer task $$task{TASKID} was nearly expired after $prettyhours, discarding");
+	$$task{XFER_CODE}   = PHEDEX_XC_NOXFER;
+	$$task{REPORT_CODE} = PHEDEX_RC_EXPIRED;
+	$$task{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
+	$$task{LOG_XFER} = "no transfer was attempted";
+	$$task{LOG_VALIDATE} = "no validation was attempted";
+	$$task{TIME_UPDATE} = $now;
+	$$task{TIME_XFER} = -1;
 	return 1;
     }
     return 0;
