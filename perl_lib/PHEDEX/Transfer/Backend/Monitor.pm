@@ -310,7 +310,6 @@ sub poll_job_postback
         $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
         if ( $job->ExitStates->{$result->{JOB_STATE}} )
         {
-          push @{$self->{EXITED_JOBS}}, $job->ID;
           $kernel->yield('report_job',$job);
           goto PJDONE;
         }
@@ -346,9 +345,10 @@ sub poll_job_postback
       $job->Files($f);
     }
 
-#   Paranoia!
     if ( ! exists $f->ExitStates->{$s->{STATE}} )
-    { die "Unknown file-state: " . $s->{STATE}."\n"; }
+    { 
+	$self->Alert("Unknown file-state: " . $s->{STATE});
+    }
 
     $self->WorkStats('FILES', $f->Destination, $f->State);
     $self->LinkStats($f->Destination, $f->FromNode, $f->ToNode, $f->State);
@@ -387,16 +387,16 @@ sub poll_job_postback
     $job->Summary($summary);
   }
 
-# Paranoia!
   if ( ! exists $job->ExitStates->{$result->{JOB_STATE}} )
-  { die "Unknown job-state: " . $result->{JOB_STATE}."\n"; }
+  { 
+      $self->Alert("Unknown job-state: " . $result->{JOB_STATE});
+  }
 
   $job->State($result->{JOB_STATE});
   $self->WorkStats('JOBS', $job->ID, $job->State);
   $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
   if ( $job->ExitStates->{$result->{JOB_STATE}} )
   {
-    push @{$self->{EXITED_JOBS}}, $job->ID;
     $kernel->yield('report_job',$job);
   }
   else
