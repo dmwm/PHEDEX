@@ -20,6 +20,10 @@ PHEDEX.Datasvc.Instances = [{name:'Production',instance:'prod'},
 // Should also set a timeout, and provide a failure-callback as well.
 PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
   callback = callback || obj.receive;
+// This is a hack because '#' seems not to pass through correctly...?
+  var hashrep = /#/;
+  api = api.replace(hashrep,'*');
+
   YAHOO.util.Connect.asyncRequest(
 		'GET',
 		'/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api,
@@ -126,23 +130,25 @@ PHEDEX.Datasvc.ErrorLogSummary_callback = function(data,obj) {
 }
 
 PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
- var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(arg);
- PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueBlocks_callback,callback);
+  var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(arg);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueBlocks_callback,callback);
 }
-PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data) {
- var link = data.link[0];
- if ( !link ) { return; }
- var from_to = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueBlocks.'+link['from']+'.'+link['to']);
- from_to = link;
+PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data,obj) {
+  if ( typeof(data.link) != 'object' ) { return; }
+  var link = data.link[0];
+  if ( !link ) { return; }
+  if ( !link.from || ! link.to ) { return; }
+  var from_to = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueBlocks.'+link['from']+'.'+link['to']);
+  from_to = link;
 }
 
-// PHEDEX.Datasvc.TransferQueueFiles = function(arg,obj,callback) {
-//  var api = 'TransferQueueFiles'+PHEDEX.Datasvc.Query(arg);
-//  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueFiles_callback,callback);
-// }
-// PHEDEX.Datasvc.TransferQueueFiles_callback = function(data) {
-// debugger;
-//  if ( !data ) { return; }
-//  var queueFiles = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueFiles');
-//  queueFiles = data;
-// }
+PHEDEX.Datasvc.TransferQueueFiles = function(arg,obj,callback) {
+  var api = 'TransferQueueFiles'+PHEDEX.Datasvc.Query(arg);
+  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueFiles_callback,callback);
+}
+PHEDEX.Datasvc.TransferQueueFiles_callback = function(data,obj) {
+  if ( !data ) { return; }
+  var link = data.link; //[0];
+  var queueFiles = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueFiles');
+  queueFiles = data;
+}
