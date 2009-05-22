@@ -48,19 +48,26 @@ our %ro_params =
 	  ME		=> undef,	# A name for this job. == TASKID!
 	);
 
+# See https://twiki.cern.ch/twiki/bin/view/EGEE/TransferAgentsStateMachine
+
 our %exit_states =
 	(
 	  Submitted	=> 0,
-	  Active	=> 0,
-	  Ready		=> 0,
 	  Pending	=> 0,
-	  Waiting	=> 0,
+	  Ready		=> 0,
+	  Active	=> 0,
 	  Done		=> 1,
+	  Waiting	=> 0,
+	  Hold		=> 0,
+	  Failed	=> 2,
 	  Finishing	=> 0,
 	  Finished	=> 1,
+	  AwaitingPrestage => 0,
+	  Prestaging => 0,
+	  WaitingPrestage => 0,
+	  WaitingCatalogResolution => 0,
+	  WaitingCatalogRegistration => 0,
 	  Canceled	=> 2,
-	  Failed	=> 2,
-	  Hold		=> 0,
 	  undefined	=> 0,
 	  lost		=> 1,
 	);

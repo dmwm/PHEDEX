@@ -50,6 +50,8 @@ our %ro_params =
 	  ME		=> undef,	# A name for this job. == ID!
 	);
 
+# See https://twiki.cern.ch/twiki/bin/view/EGEE/TransferAgentsStateMachine
+
 our %exit_states =
 	(
 	  Submitted		=> 0,
