@@ -170,7 +170,7 @@ sub _child_stdout {
   $owner = $self->{$pkg}{owner}{$wheelid};
   $payload = $owner->{payloads}{$wheelid};
 
-  $owner->Logmsg("STDOUT: $args->{out}\n") if $owner->{DEBUG};
+  $owner->Dbgmsg("STDOUT: $args->{out}\n") if $owner->{DEBUG} >= 2;
   push @{$payload->{result}->{RAW_OUTPUT}}, $args->{out};
 
   my $logfhtmp = \*{$payload->{LOGFH}};
@@ -190,7 +190,7 @@ sub _child_stderr {
   $owner = $self->{$pkg}{owner}{$wheelid};
   $payload = $owner->{payloads}{$wheelid};
 
-  $owner->Logmsg("STDERR: $args->{out}\n") if $owner->{DEBUG};
+  $owner->Dbgmsg("STDERR: $args->{out}\n") if $owner->{DEBUG} >= 2;
   chomp $args->{out};
   push @{$payload->{result}->{ERROR}}, $args->{out};
 }
@@ -218,20 +218,7 @@ sub _child_done {
     close $logfh;
   }
 
-  if ( $owner->{DEBUG} )
-  {
-    if ( ref($payload->{CMD}) eq 'ARRAY' )
-    {
-    print "PID=$payload->{PID} STATUS=$payload->{STATUS} STATUS_CODE=$payload->{STATUS_CODE} SIGNAL=$payload->{SIGNAL} CMD=\"@{$payload->{CMD}}\"\n";
-    }
-    else
-    {
-    print str_hash($payload),"\n";
-    }
-  }
-
-# Some monitoring...
-  $owner->Logmsg(sprintf("$payload->{CMD}[0] took %.3f seconds", $duration)) if $owner->{DEBUG};
+  $owner->Dbgmsg(sprintf("$payload->{CMDNAME} finished in %.3f seconds", $duration)) if $owner->{DEBUG};
 
   my $result;
   if ( defined($payload->{ACTION}) )
