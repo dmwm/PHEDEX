@@ -55,7 +55,13 @@ do
   echo transfer queue blocks: $from
   for to in `grep -v $from nodes | egrep '^T0|^T1|^T2' | grep -v MSS`
   do
-   wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
+#   Now for the files. Yikes!
+    for block in `wget --quiet -O - "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;" | tr -d '"' | tr ',' "\n" | grep name: | awk -F: '{ print $2 }' |tr '#' '*'`
+    do
+      echo $block
+      wget --quiet -O /dev/null "$jsonUrl/TransferQueueFiles?from=$from;to=$to;block=$block;"
+    done
   done
 done
 # T2 to T0,T1s, (ignore T3s and T2->T2)
