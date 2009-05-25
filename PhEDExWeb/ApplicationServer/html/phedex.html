@@ -1,12 +1,16 @@
 <!-- Combo-handled YUI CSS files: --> 
-<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/treeview/assets/skins/sam/treeview.css"> 
-<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/datatable/assets/skins/sam/datatable.css">
+<link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/combo?2.7.0/build/treeview/assets/skins/sam/treeview.css&2.7.0/build/datatable/assets/skins/sam/datatable.css&2.7.0/build/container/assets/container-core.css&2.7.0/build/resize/assets/skins/sam/resize.css"> 
+
 <!-- Combo-handled YUI JS files: -->
 <!-- If fetching YUI files from Yahoo... -->
-<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo.js&2.7.0/build/event/event.js&2.7.0/build/connection/connection.js&2.7.0/build/json/json.js&2.7.0/build/dom/dom.js&2.7.0/build/treeview/treeview.js&2.7.0/build/logger/logger.js"></script>
-<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo-dom-event/yahoo-dom-event.js&2.7.0/build/dragdrop/dragdrop-min.js&2.7.0/build/element/element-min.js&2.7.0/build/datasource/datasource-min.js&2.7.0/build/datatable/datatable-min.js"></script>
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?2.7.0/build/yahoo/yahoo.js&2.7.0/build/event/event.js&2.7.0/build/connection/connection.js&2.7.0/build/json/json.js&2.7.0/build/dom/dom.js&2.7.0/build/treeview/treeview.js&2.7.0/build/logger/logger.js&2.7.0/build/yahoo-dom-event/yahoo-dom-event.js&2.7.0/build/dragdrop/dragdrop-min.js&2.7.0/build/element/element-min.js&2.7.0/build/datasource/datasource-min.js&2.7.0/build/datatable/datatable-min.js&2.7.0/build/animation/animation-min.js&2.7.0/build/container/container-min.js&2.7.0/build/resize/resize.js"></script>
+
 <!-- If serving Yahoo files locally -->
 <!--
+<link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
+<link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
+<link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
+<link rel="stylesheet" type="text/css" href="/yui/build/resize/assets/skins/sam/resize.css"> 
 <script type="text/javascript" src="/yui/build/yahoo/yahoo.js"</script>
 <script type="text/javascript" src="/yui/build/event/event.js"</script>
 <script type="text/javascript" src="/yui/build/connection/connection.js"</script>
@@ -19,6 +23,9 @@
 <script type="text/javascript" src="/yui/build/element/element-min.js"></script>
 <script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
 <script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
+<script type="text/javascript" src="/yui/build/animation/animation-min.js"></script>
+<script type="text/javascript" src="/yui/build/container/container-min.js"></script>
+<script type="text/javascript" src="/yui/build/resize/resize.js"></script>
 -->
 
 <link rel="stylesheet" type="text/css" href="/css/phedex.css">
@@ -29,14 +36,14 @@ Page = { 'Config': [
   {'call':'nodes', 'default':'', 'text':'Show Nodes'},
   {'call':'linkview', 'default':'T1_US_FNAL_Buffer', 'text':'Show Links' },
   {'call':'requestview', 'default':'30342', 'text':'Show Requests' },
-  {'call':'agents', 'default':'T0_CH_CERN_Buffer', 'text':'Show Agents for node' }
+  {'call':'agents', 'default':'T1_US_FNAL_Buffer', 'text':'Show Agents for node' }
  ] };
 </script>
 <script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-util.js"></script>
 <script type="text/javascript" src="/js/phedex-page.js"></script>
 <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
-<script type="text/javascript" src="/js/phedex-widget.js"></script>
+<script type="text/javascript" src="/js/phedex-core-widget.js"></script>
 <script type="text/javascript" src="/js/phedex-widget-agents.js"></script>
 <script type="text/javascript" src="/js/phedex-widget-nodes.js"></script>
 <script type="text/javascript" src="/js/phedex-widget-linkview.js"></script>
