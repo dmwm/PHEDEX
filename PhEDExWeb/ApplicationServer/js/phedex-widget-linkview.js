@@ -117,7 +117,6 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
       }
       else if ( result.request_call == 'TransferQueueFiles' )
       {
-debugger;
         for (var i in result.link[0].transfer_queue )
         {
           var tq = result.link[0].transfer_queue[i];
