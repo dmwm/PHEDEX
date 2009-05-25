@@ -4,6 +4,9 @@
 //Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
 //implement their own methods to generate the header, extra and children content, and handle updates.
 
+// This file is obsolete, so may as well shout about it...
+alert("You are using phedex-widget.js, but you should not be. That file is obsolete. Please update your code!");
+
 //This should be subclassed for each class and then specific child node.
 //TODO: Prototype instead of instance based subclassing.
 
