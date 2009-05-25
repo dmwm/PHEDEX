@@ -1,5 +1,8 @@
 // Utility functions, not PhEDEx-specific, such as adding listeners for on-load etc.
-PHEDEX.Util=function() {}
+//PHEDEX.Util=function() {}
+PHEDEX.namespace('Util');
+
+/*
 PHEDEX.Util.addLoadListener = function(fn) {
   if (typeof window.addEventListener != 'undefined')
   {
@@ -30,7 +33,9 @@ PHEDEX.Util.addLoadListener = function(fn) {
     }
   }
 }
+*/
 
+/*
 PHEDEX.Util.toggleExtra = function(id) {
     var extra = document.getElementById(id+'_extra');
     var link = document.getElementById(id+'_extra_link');
@@ -43,6 +48,7 @@ PHEDEX.Util.toggleExtra = function(id) {
     }
     return -1;
   }
+*/
 
 PHEDEX.Util.findOrCreateWidgetDiv = function(name)
 {
@@ -60,12 +66,14 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name)
   return div;
 }
 
+/*
 PHEDEX.Util.toggleVisible = function (id) {
     var elem = document.getElementById(id);
     if (elem.style.display=='block') { elem.style.display='none'; }
     else { elem.style.display='block'; }
     return -1;
 }
+*/
 
 PHEDEX.Util.makeUList = function(args) {
   var list = document.createElement('ul');

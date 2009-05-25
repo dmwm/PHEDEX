@@ -1,7 +1,6 @@
 // A PhEDEx base-class and global definitions?
 
 PHEDEX= {}
-PHEDEX.Data = {}
 
 // shamelessly cribbed from PHEDEX. For more information, see
 // http://yuiblog.com/blog/2007/06/12/module-pattern/

@@ -1,7 +1,7 @@
 // instantiate the PHEDEX.Widget.Nodes namespace
 PHEDEX.namespace('Widget.Nodes');
 
-nodes=function(divid) {
+PHEDEX.Page.Widget.Nodes=function(divid) {
   var site = document.getElementById(divid+'_select').value;
   var nodes = new PHEDEX.Widget.Nodes(divid,site);
   nodes.update();

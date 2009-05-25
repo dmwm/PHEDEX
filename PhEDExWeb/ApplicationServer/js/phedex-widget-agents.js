@@ -1,7 +1,7 @@
 // instantiate the PHEDEX.Widget.Agents namespace
 PHEDEX.namespace('Widget.Agents');
 
-agents=function(divid) {
+PHEDEX.Page.Widget.Agents=function(divid) {
   var site = document.getElementById(divid+'_select').value;
   var agent_node = new PHEDEX.Widget.Agents(divid,site);
   agent_node.update();

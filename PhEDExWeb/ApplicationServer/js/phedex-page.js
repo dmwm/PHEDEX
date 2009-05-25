@@ -1,6 +1,6 @@
 // A PhEDEx page-class
 
-PHEDEX.Page = {}
+PHEDEX.namespace('Page.Widget');
 
 PHEDEX.Page.Create = function( config ) {
   if ( !config ) { config = Page.Config; }

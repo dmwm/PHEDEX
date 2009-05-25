@@ -1,7 +1,7 @@
 // instantiate the PHEDEX.Widget.RequestView namespace
 PHEDEX.namespace('Widget.RequestView');
 
-requestview=function(divid) {
+PHEDEX.Page.Widget.Requests=function(divid) {
   var req = document.getElementById(divid+'_select').value;
   req_node = new PHEDEX.Widget.RequestView(divid,req);
   req_node.update();

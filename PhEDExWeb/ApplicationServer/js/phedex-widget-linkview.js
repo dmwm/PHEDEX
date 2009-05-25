@@ -1,7 +1,7 @@
 // instantiate the PHEDEX.Widget.TransfersNode namespace
 PHEDEX.namespace('Widget.TransfersNode');
 
-linkview=function(divid) {
+PHEDEX.Page.Widget.TransfersNode=function(divid) {
   var site = document.getElementById(divid+'_select').value;
   xfer_node = new PHEDEX.Widget.TransfersNode(divid,site);
   xfer_node.update();
@@ -20,7 +20,8 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
   that.time='6';
 
 // This is for event-handling with YUI, clean and simple. One function to clear the tree, two more to trigger updates based on the select boxes
-  that.deleteContents=function() {
+  that.deleteBodyContents=function(div) {
+//  In this case, I don't need the div, I can just operate on the tree object.
     var node;
     while ( node = that.tree.root.children[1] ) { that.tree.removeNode(node); }
     that.tree.render();
@@ -30,12 +31,12 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
   }
   var changeMode = function(e) {
     that.mode = this.value;
-    that.deleteContents();
+    that.deleteBodyContents();
     that.update();
   }
   var changeTimebin = function(e) {
     that.time = this.value;
-    that.deleteContents();
+    that.deleteBodyContents();
     that.update();
   }
 

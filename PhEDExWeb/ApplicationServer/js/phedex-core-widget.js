@@ -149,7 +149,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   
   this.buildBody=function(div) {}
   this.fillBody=function(div) {}
-  
+  this.deleteBodyContent=function(div) {}
+
   this.buildExtra=function(div) {}
   this.fillExtra=function(div) {}
   
