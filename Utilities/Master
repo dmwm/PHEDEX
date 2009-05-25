@@ -11,6 +11,7 @@ use strict;
 ##H Master -config FILE[,FILE...] getAgentEnviron [AGENT]
 ##H Master -config FILE[,FILE...] jobcount   [AGENT... | all]
 ##H Master -config FILE[,FILE...] listagents [AGENT... | all]
+##H Master -config FILE[,FILE...] clean      [AGENT... | all]
 ##H Master -config FILE[,FILE...] debug      [AGENT... | all]
 ##H
 ##H Manage an agent configuration.  If more than one configuration file
@@ -56,6 +57,10 @@ use strict;
 ##H
 ##H The "listagents" command will print the names of agents matching the
 ##H selection, which should typically be null or 'all'.
+##H
+##H The "clean" command will remove the state directory of agents
+##H matching the selection.  This is only done if the agent is not
+##H running.  Use with care.
 ##H
 ##H The "debug" command will use $PHEDEX_DEBUGGER from the agent's
 ##H environment, or 'perl -MPHEDEX::Debug -d' by default, and start the
