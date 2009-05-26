@@ -92,7 +92,6 @@ sub getNodes
     return \@r;
 }
 
-# FIXME:  %h keys should be uppercase
 sub getBlockReplicas
 {
     my ($self, %h) = @_;
@@ -116,6 +115,10 @@ sub getBlockReplicas
                     then 'y'
                     else 'n'
                end replica_complete,
+               case when br.dest_files = 0
+                    then 'n'
+                    else 'y'
+               end subscribed,
 	       br.is_custodial,
 	       g.name user_group
           from t_dps_block_replica br
@@ -127,37 +130,46 @@ sub getBlockReplicas
                and not n.name like 'X%' 
        };
 
-    if (exists $h{complete}) {
-	if ($h{complete} eq 'n') {
+    if (exists $h{COMPLETE}) {
+	if ($h{COMPLETE} eq 'n') {
 	    $sql .= qq{ and (br.node_files != b.files or b.is_open = 'y') };
-	} elsif ($h{complete} eq 'y') {
+	} elsif ($h{COMPLETE} eq 'y') {
 	    $sql .= qq{ and br.node_files = b.files and b.is_open = 'n' };
 	}
     }
 
-    if (exists $h{custodial}) {
-	if ($h{custodial} eq 'n') {
+    if ($h{SUBSCRIBED} eq "y")
+    {
+        $sql .= qq{ and br.dest_files <> 0 };
+    }
+    elsif ($h{SUBSCRIBED} eq "n")
+    {
+        $sql .= qq{ and br.dest_files = 0 };
+    }
+
+    if (exists $h{CUSTODIAL}) {
+	if ($h{CUSTODIAL} eq 'n') {
 	    $sql .= qq{ and br.is_custodial = 'n' };
-	} elsif ($h{custodial} eq 'y') {
+	} elsif ($h{CUSTODIAL} eq 'y') {
 	    $sql .= qq{ and br.is_custodial = 'y' };
 	}
     }
 
     my $filters = '';
-    build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
-						      se    => 'n.se_name',
-						      block => 'b.name',
-						      group => 'g.name' ));
+    build_multi_filters($self, \$filters, \%p, \%h, ( NODE  => 'n.name',
+						      SE    => 'n.se_name',
+						      BLOCK => 'b.name',
+						      GROUP => 'g.name' ));
     $sql .= " and ($filters)" if $filters;
 
-    if (exists $h{create_since}) {
+    if (exists $h{CREATE_SINCE}) {
 	$sql .= ' and br.time_create >= :create_since';
-	$p{':create_since'} = $h{create_since};
+	$p{':create_since'} = $h{CREATE_SINCE};
     }
 
-    if (exists $h{update_since}) {
+    if (exists $h{UPDATE_SINCE}) {
 	$sql .= ' and br.time_update >= :update_since';
-	$p{':update_since'} = $h{update_since};
+	$p{':update_since'} = $h{UPDATE_SINCE};
     }
 
     $q = execute_sql( $self, $sql, %p );
@@ -187,6 +199,10 @@ sub getFileReplicas
            n.name node_name,
            n.se_name se_name,
            xr.time_create replica_create,
+           case when br.dest_files = 0
+                then 'n'
+                else 'y'
+           end subscribed,
            br.is_custodial,
            g.name user_group
     from t_dps_block b
@@ -202,21 +218,30 @@ sub getFileReplicas
             and not n.name like 'X%' 
     };
 
-    if (exists $h{complete}) {
-	if ($h{complete} eq 'n') {
+    if (exists $h{COMPLETE}) {
+	if ($h{COMPLETE} eq 'n') {
 	    $sql .= qq{ and (br.node_files != b.files or b.is_open = 'y') };
-	} elsif ($h{complete} eq 'y') {
+	} elsif ($h{COMPLETE} eq 'y') {
 	    $sql .= qq{ and br.node_files = b.files and b.is_open = 'n' };
 	}
     }
 
-    if (exists $h{dist_complete}) {
-	if ($h{dist_complete} eq 'n') {
+    if ($h{SUBSCRIBED} eq "y")
+    {
+        $sql .= qq{ and br.dest_files <> 0 };
+    }
+    elsif ($h{SUBSCRIBED} eq "n")
+    {
+        $sql .= qq{ and br.dest_files = 0 };
+    }
+
+    if (exists $h{DIST_COMPLETE}) {
+	if ($h{DIST_COMPLETE} eq 'n') {
 	    $sql .= qq{ and (b.is_open = 'y' or
 			     not exists (select 1 from t_dps_block_replica br2
                                           where br2.block = b.id 
                                             and br2.node_files = b.files)) };
-	} elsif ($h{dist_complete} eq 'y') {
+	} elsif ($h{DIST_COMPLETE} eq 'y') {
 	    $sql .= qq{ and b.is_open = 'n' 
 			and exists (select 1 from t_dps_block_replica br2
                                      where br2.block = b.id 
@@ -224,34 +249,34 @@ sub getFileReplicas
 	}
     }
 
-    if (exists $h{custodial}) {
-	if ($h{custodial} eq 'n') {
+    if (exists $h{CUSTODIAL}) {
+	if ($h{CUSTODIAL} eq 'n') {
 	    $sql .= qq{ and br.is_custodial = 'n' };
-	} elsif ($h{custodial} eq 'y') {
+	} elsif ($h{CUSTODIAL} eq 'y') {
 	    $sql .= qq{ and br.is_custodial = 'y' };
 	}
     }
 
     # handle lfn
-    if (exists $h{lfn}) {
-        $sql .= qq { and f.logical_name = '$h{lfn}' };
+    if (exists $h{LFN}) {
+        $sql .= qq { and f.logical_name = '$h{LFN}' };
     }
 
     my $filters = '';
-    build_multi_filters($self, \$filters, \%p, \%h, ( node  => 'n.name',
-						      se    => 'n.se_name',
-						      block => 'b.name',
-						      group => 'g.name' ));
+    build_multi_filters($self, \$filters, \%p, \%h, ( NODE  => 'n.name',
+						      SE    => 'n.se_name',
+						      BLOCK => 'b.name',
+						      GROUP => 'g.name' ));
     $sql .= " and ($filters)" if $filters;
 
-    if (exists $h{create_since}) {
+    if (exists $h{CREATE_SINCE}) {
 	$sql .= ' and br.time_create >= :create_since';
-	$p{':create_since'} = $h{create_since};
+	$p{':create_since'} = $h{CREATE_SINCE};
     }
 
-    if (exists $h{update_since}) {
+    if (exists $h{UPDATE_SINCE}) {
 	$sql .= ' and br.time_update >= :update_since';
-	$p{':update_since'} = $h{update_since};
+	$p{':update_since'} = $h{UPDATE_SINCE};
     }
 
     $q = execute_sql( $self, $sql, %p );
