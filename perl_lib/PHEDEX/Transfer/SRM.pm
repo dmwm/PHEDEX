@@ -1,11 +1,5 @@
 package PHEDEX::Transfer::SRM;
-use strict;
-use warnings;
 use base 'PHEDEX::Transfer::Command';
-use PHEDEX::Core::Command;
-use PHEDEX::Core::Timing;
-use POE;
-use Getopt::Long;
 
 # Command back end defaulting to srmcp and supporting batch transfers.
 # SRM spec:  
@@ -15,6 +9,14 @@ use Getopt::Long;
 #  https://twiki.grid.iu.edu/bin/view/Documentation/StorageSrmcpUsing
 # bestman:
 #  http://datagrid.lbl.gov/bestman/srmclient/srm-copy.html
+
+use PHEDEX::Core::Command;
+use PHEDEX::Core::Timing;
+use POE;
+use Getopt::Long;
+
+use strict;
+use warnings;
 
 sub new
 {
@@ -57,9 +59,10 @@ sub start_transfer_job
     my @tasks = values %{$job->{TASKS}};
     my $syntax = $self->{SYNTAX};
 
-    # Prepare copyjob and report names.
-    my $spec = "$job->{DIR}/copyjob";
-    my $report = "$job->{DIR}/srm-report";
+    # Prepare copyjob and report names
+    my $spec   = "$job->{DIR}/copyjob";
+    my $report = "$job->{DIR}/report";
+    my $log    = "$job->{DIR}/log";
 
     # Now generate copyjob
     $self->writeSpec($spec, @tasks);
@@ -70,8 +73,10 @@ sub start_transfer_job
     # Queue the command
     $self->{JOBMANAGER}->addJob( $session->postback('srm_job_done'),
 				 { TIMEOUT => $self->{TIMEOUT},
-				   LOGFILE => "$job->{DIR}/log",
-				   START => &mytimeofday(), JOBID => $jobid },
+				   LOGFILE => $log,
+				   REPORT  => $report,
+				   START => &mytimeofday(),
+				   JOBID => $jobid },
                                  @command );
 
 
@@ -83,17 +88,18 @@ sub srm_job_done
     my ($self, $kernel, $context, $args) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
     my ($jobinfo) = @$args;
     my $jobid = $jobinfo->{JOBID};
+    my $report = $jobinfo->{REPORT};
     my $job = $self->{JOBS}->{$jobid};
     my $log = &input($jobinfo->{LOGFILE});
     my $now = &mytimeofday();
 
-    # If we have a SRM transfer report, read that in now.
+    # If we have a srmcp-style transfer report, read that in now.
     my %taskstatus = ();
-    if (-s "$job->{DIR}/srm-report")
+    if (-s $report)
     {
 	# Read in the report.
 	my %reported;
-	foreach (split (/\n/, &input("$job->{DIR}/srm-report") || ''))
+	foreach (split (/\n/, &input($report) || ''))
 	{
 	    my ($from, $to, $status, @rest) = split(/\s+/);
 	    $reported{$from}{$to} = [ $status, "@rest" ];
@@ -121,7 +127,7 @@ sub srm_job_done
 			 LOG => $log };
 	
 	if ($taskstatus{$taskid}) {
-	    # We have an SRM report entry, use that.
+	    # We have an srmcp-style report entry, use that.
 	    ($xferinfo->{STATUS}, $xferinfo->{DETAIL}) = @{$taskstatus{$taskid}};
 	} else {
 	    # Use the default Command results
