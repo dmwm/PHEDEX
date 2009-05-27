@@ -4,11 +4,18 @@ PHEDEX.namespace('Page.Widget','Page.Config.Elements','Page.Config.Order');
 
 PHEDEX.Page.Create = function( config ) {
   if ( !config ) { config = Page.Config; }
+  if ( !PHEDEX.Page.Config.Count ) { PHEDEX.Page.Config.Count=0; }
+  var j = PHEDEX.Page.Config.Count;
   for ( var i in config )
   {
     var myDivId = config[i].div;
     var call = config[i].call;
-    if ( ! myDivId ) { myDivId = call + '_widget_' + i; }
+    if ( ! myDivId )
+    {
+      var pattern = /PHEDEX.Page.Widget./;
+      myDivId = call.replace(pattern,'') + '_widget_' + j;
+    }
+    YAHOO.log('Create '+myDivId+' for '+call);
     var myDiv = PHEDEX.Util.findOrCreateWidgetDiv(myDivId);
 
     var input_box = document.createElement('input');
@@ -29,7 +36,6 @@ PHEDEX.Page.Create = function( config ) {
 
 // Save the widget-config for later use
     PHEDEX.Page.Config.Elements[myDivId] = config[i];
-    var j = PHEDEX.Page.Config.Count || 0;
     PHEDEX.Page.Config.Order[j] = myDivId;
     PHEDEX.Page.Config.Count = j+1;
   }

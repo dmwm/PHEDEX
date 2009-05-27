@@ -26,12 +26,12 @@ PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
 
 // identify ourselves to the web-server logfiles
   YAHOO.util.Connect.initHeader('user-agent','PhEDEx-AppServ/'+PHEDEX.Appserv.Version);
-  
+  YAHOO.log('Datasvc: GET '+api);
   YAHOO.util.Connect.asyncRequest(
 		'GET',
 		'/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api,
 		{success:PHEDEX.Datasvc.Callback,
-		 argument:{obj:obj,datasvc:datasvc,callback:callback}
+		 argument:{obj:obj,datasvc:datasvc,callback:callback,api:api}
 		}
 	);
 }
@@ -45,6 +45,17 @@ PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
 // indicator for the widget that wants the data.
 PHEDEX.Datasvc.Callback = function(response) {
   var data = response.responseText;
+
+// sample logging...
+  if ( response.status == 200 )
+  {
+    YAHOO.log('Datasvc: GOT '+response.status+'('+response.statusText+') '+response.argument.api);
+  }
+  else
+  {
+    YAHOO.log('Datasvc: GOT '+response.status+'('+response.statusText+') '+response.argument.api,'warn');
+    YAHOO.log('Datasvc: '+response.responseText,'warn');
+  }
 // TODO This should be handled by a JSON parser, rather than an eval
   data = eval('('+data+')');
 
