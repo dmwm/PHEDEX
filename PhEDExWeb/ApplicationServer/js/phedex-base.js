@@ -1,6 +1,8 @@
 // A PhEDEx base-class and global definitions?
 
 PHEDEX= {}
+PHEDEX.Appserv = {};
+PHEDEX.Appserv.Version = '0.0.2';
 
 // shamelessly cribbed from PHEDEX. For more information, see
 // http://yuiblog.com/blog/2007/06/12/module-pattern/
@@ -19,4 +21,3 @@ PHEDEX.namespace = function() {
 
     return o;
 };
-
