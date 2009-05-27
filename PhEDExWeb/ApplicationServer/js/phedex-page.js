@@ -1,6 +1,6 @@
-// A PhEDEx page-class
+// A page-manager. Creates pages from configuration objects, saves their defaults and creation order, allows for saving and restoring full pages (eventually)
 
-PHEDEX.namespace('Page.Widget');
+PHEDEX.namespace('Page.Widget','Page.Config.Elements','Page.Config.Order');
 
 PHEDEX.Page.Create = function( config ) {
   if ( !config ) { config = Page.Config; }
@@ -26,5 +26,11 @@ PHEDEX.Page.Create = function( config ) {
     a.appendChild(aText);
     myDiv.appendChild(input_box);
     myDiv.appendChild(a);
+
+// Save the widget-config for later use
+    PHEDEX.Page.Config.Elements[myDivId] = config[i];
+    var j = PHEDEX.Page.Config.Count || 0;
+    PHEDEX.Page.Config.Order[j] = myDivId;
+    PHEDEX.Page.Config.Count = j+1;
   }
 }
