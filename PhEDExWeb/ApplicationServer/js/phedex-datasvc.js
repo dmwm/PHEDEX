@@ -24,6 +24,9 @@ PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
   var hashrep = /#/;
   api = api.replace(hashrep,'*');
 
+// identify ourselves to the web-server logfiles
+  YAHOO.util.Connect.initHeader('user-agent','PhEDEx-AppServ/'+PHEDEX.Appserv.Version);
+  
   YAHOO.util.Connect.asyncRequest(
 		'GET',
 		'/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api,
@@ -106,8 +109,8 @@ PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.TransferQueueStats_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferQueueStats.'+obj.mode);
-  PHEDEX.Data.TransferQueueStats[obj.mode][obj.site] = data.link;
+  PHEDEX.namespace('Data.TransferQueueStats.'+obj.direction);
+  PHEDEX.Data.TransferQueueStats[obj.direction][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
@@ -116,8 +119,8 @@ PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.TransferHistory_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferHistory.'+obj.mode);
-  PHEDEX.Data.TransferHistory[obj.mode][obj.site] = data.link;
+  PHEDEX.namespace('Data.TransferHistory.'+obj.direction);
+  PHEDEX.Data.TransferHistory[obj.direction][obj.site] = data.link;
 }
 PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
   var api = 'ErrorLogSummary' + PHEDEX.Datasvc.Query(args);
@@ -125,8 +128,8 @@ PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.ErrorLogSummary_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.mode);
-  PHEDEX.Data.ErrorLogSummary[obj.mode][obj.site] = data.link;
+  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.direction);
+  PHEDEX.Data.ErrorLogSummary[obj.direction][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
