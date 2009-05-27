@@ -174,3 +174,11 @@ PHEDEX.Util.format={
       return str;
     }
 }
+
+PHEDEX.Util.getConfig=function(element) {
+  var config = PHEDEX.Page.Config.Elements[element];
+  if ( config ) { return config; }
+  config={};
+  config.opts = {};
+  return config;
+}
