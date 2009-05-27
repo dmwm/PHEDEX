@@ -8,27 +8,14 @@ PHEDEX::Core::JobManager - a POE-based job-manager for external commands
 
 use strict;
 use warnings;
-use base 'Exporter', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Logging';
 use POSIX;
 use POE;
 use POE::Queue::Array;
 use POE::Component::Child;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::Util ( qw / str_hash / );
 use Data::Dumper;
-
-$|=1;
-######################################################################
-# JOB MANAGEMENT TOOLS
-
-our %events = (
-  stdout => \&_child_stdout,
-  stderr => \&_child_stderr,
-  error  => \&_child_error,
-  done   => \&_child_done,
-  died   => \&_child_died,
-);
 
 our $pkg = $POE::Component::Child::PKG;
 sub new
@@ -36,11 +23,16 @@ sub new
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my %args = (@_);
-    my $self = { NJOBS => $args{NJOBS} || 1, JOBS => 0, KEEPALIVE => 1 };
-    $self->{POCO_DEBUG} = $ENV{POCO_DEBUG} || 0; # Specially for PoCo::Child
-    $self->{VERBOSE}    = $args{VERBOSE} || 0;
-    $self->{DEBUG}      = $args{DEBUG}   || 0;
-    $self->{KEEPALIVE}  = $args{KEEPALIVE} if defined $args{KEEPALIVE};
+    my $self = $class->SUPER::new(@_);
+    my %params = ( NJOBS      => 1,  # number of parallel jobs
+		   KEEPALIVE  => 1,  # whether or not to quit after all jobs are complete
+		   VERBOSE    => 0,
+		   DEBUG      => 0,
+		   POCO_DEBUG => $ENV{POCO_DEBUG} || 0   # special debugging flag
+		   );
+    $$self{$_} = exists $args{$_} ? $args{$_} : $params{$_} for keys %params;
+
+    $self->{JOBS} = 0; # number of jobs active jobs
 
 #   A queue to hold the jobs we will run
     $self->{QUEUE} = POE::Queue::Array->new();
@@ -69,7 +61,13 @@ sub new
 
     $self->{_child} = 
       POE::Component::Child->new(
-           events => \%events,
+           events => {
+	       stdout => \&_child_stdout,
+	       stderr => \&_child_stderr,
+	       error  => \&_child_error,
+	       done   => \&_child_done,
+	       died   => \&_child_died,
+	   },
            debug  => $self->{POCO_DEBUG},
           );
     $self->{_child}{caller} = $self;
@@ -83,7 +81,7 @@ sub new
 sub _jm_start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->Logmsg("starting (session ",$session->ID,")");
+  $self->Logmsg("starting JobManager session (id=",$session->ID,")");
   $self->{JOB_MANAGER_SESSION_ID} = $session->ID;
   $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
 }
@@ -91,7 +89,7 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->Logmsg("stopping (session ",$session->ID,")");
+  $self->Logmsg("stopping JobManager session (id=",$session->ID,")");
 }
 
 sub _jm_child {} # Dummy event-handler, to silence warnings
@@ -225,28 +223,6 @@ sub _child_done {
   {
     $payload->{DURATION} = $duration;
     $payload->{ACTION}->( $payload );
-  }
-  else
-  {
-    $result = $payload->{result} unless defined($result);
-    $result->{DURATION} = $duration;
-    if ( $result && defined($payload->{FTSJOB}) )
-    {
-      my ($job,$str,$k);
-      $job = $payload->{FTSJOB};
-      $str = uc $payload->{parse};
-      foreach $k ( keys %{$result} )
-      {
-        if ( ref($result->{$k}) eq 'ARRAY' )
-        {
-          $job->Log(map { "$str: $k: $_" } @{$result->{$k}});
-        }
-        else
-        {
-          $job->Log("$str: $k: $result->{$k}");
-        }
-      }
-    }
   }
 
 # cleanup...
