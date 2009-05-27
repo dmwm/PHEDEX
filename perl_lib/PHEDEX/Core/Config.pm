@@ -519,4 +519,32 @@ sub jobcount
   return $jobs;
 }
 
+sub clean
+{
+  my $self = shift;
+  my ($env,%h);
+  foreach my $agent ( $self->select_agents(@_) )
+  {
+    $env = $self->ENVIRONMENTS->{$agent->ENVIRON};
+    my $label     = $agent->{LABEL};
+    my $dropdir   = $env->getExpandedString($agent->DROPDIR);
+    my $pidfile   = $env->getExpandedString($agent->PIDFILE);
+
+    if (-e $pidfile) {	
+	open PID, "<$pidfile";
+	my $pid = <PID>;
+	close PID;
+	chomp $pid;
+	if (kill(0, $pid)) {
+	    print "Not cleaning $dropdir, agent '$label' is running with pid $pid\n";
+	    next;
+	}
+    }	    
+    
+    print "Removing $dropdir for agent '$label'\n";
+    system("rm -rf $dropdir");
+  }
+}
+
+
 1;
