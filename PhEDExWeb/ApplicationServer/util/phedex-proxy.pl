@@ -211,7 +211,12 @@ DONE:
 	}
 
 #	Transmit the request upstream to the server
-	$request->header( 'User-Agent', 'PhEDEx Proxy server' );
+$DB::single=1;
+	my $useragent = $request->header( 'User-Agent' );
+	if ( $useragent !~ m%^PhEDEx% )
+	{
+	  $request->header( 'User-Agent', 'PhEDEx-Proxy-server' );
+	}
 	$request->header( 'Host', $host );
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
