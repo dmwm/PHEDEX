@@ -1,7 +1,7 @@
 package PHEDEX::File::Remove::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent';
 use File::Path;
 use Data::Dumper;
 
@@ -9,44 +9,40 @@ use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
-use PHEDEX::Core::RFIO;
-
-our    %params = (DBCONFIG => undef,		# Database configuration file
-	  	  NODES    => undef,		# Node names to run this agent for
-		  WAITTIME => 60 + rand(15),	# Agent activity cycle
-		  DELETING => undef,		# Are we deleting files now?
-		  CMD_RM   => undef,            # cmd to remove physical files
-		  PROTOCOL => 'direct',         # File access protocol
-		  CATALOGUE => {},		# TFC from TMDB
-		  LIMIT => 100,                 # Max number of files per cycle
-		  NJOBS	=> 1,			# Max parallel delete jobs
-		  );
-
-our @array_params = qw / CMD_RM /;
+use PHEDEX::Core::JobManager;
 
 sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = $class->SUPER::new(@_);
+
+    my %params = (DBCONFIG => undef,		# Database configuration file
+	  	  NODES    => undef,		# Node names to run this agent for
+		  WAITTIME => 60 + rand(15),	# Agent activity cycle
+		  CMD_RM   => undef,            # cmd to remove physical files
+		  PROTOCOL => 'direct',         # File access protocol
+		  CATALOGUE => {},		# TFC from TMDB
+		  LIMIT => 100,                 # Max number of files per cycle
+		  NJOBS	=> 1,			# Max parallel delete jobs
+		  );
     
     my %args = (@_);
-    map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    $$self{$_} = $args{$_} || $params{$_} for keys %params;
+
+    # Create a JobManager
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{NJOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+							);
+
+    # Handle signals
+    $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
+				   $self->{JOBMANAGER}->killAllJobs() };
+
     bless $self, $class;
     return $self;
-}
-
-sub init
-{
-  my $self = shift;
-  $self->SUPER::init(@_);
-
-# Now my own specific values...
-  $self->SUPER::init
-        (
-          ARRAYS => [ @array_params ],
-          HASHES => [ ],
-        );
 }
 
 # Delete a file.  We do one step at a time; if the step fails, we just
@@ -104,9 +100,8 @@ sub deleteOneFile
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
 	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($file, @_) },
-		      { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
-		      (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
-
+		       { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
+		       (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 
 	# Report completition time to DB. If the physical deletion fails,
 	# we will roll back.
@@ -204,7 +199,6 @@ sub filesToDelete
     $q->finish();  # free resources in case we didn't use all results
 
     # Now get PFNs for all those files.
-$DB::single=1;
     my $cat = dbStorageRules($self->{DBH},
 			     $self->{CATALOGUE},
 			     $self->{NODES_ID}{$node});
@@ -225,7 +219,6 @@ $DB::single=1;
     while (my ($lfn, $pfn2) = each %$pfns)
     {
         my $pfn = $pfn2->[1];
-        # HOW DO I PASS SPACE-TOKEN?
         my $space_token = $pfn2->[0];
 	do { $self->Alert ("no pfn for $lfn"); next } if ! $pfn;
 	push (@result, { LFN => $lfn, PFN => $pfn, FILEID => $files{$lfn},
@@ -289,14 +282,6 @@ sub idle
     };
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
-
-#    # Wait for all jobs to finish
-#    while (@{$$self{JOBS}})
-#    {
-#        $self->pumpJobs();
-#        select (undef, undef, undef, 0.1);
-#    }
-
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );

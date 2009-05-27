@@ -51,8 +51,16 @@ sub new
     my %args = (@_);
     $$self{$_} = $args{$_} || $params{$_} for keys %params;
 
-    # Create JobManager now because NJOBS not known before
-    $self->JobManager();
+    # Create a JobManager
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{NJOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+							);
+
+    # Handle signals
+    $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
+				   $self->{JOBMANAGER}->killAllJobs() };
 
     eval ("use PHEDEX::Transfer::$args{BACKEND_TYPE}");
     do { chomp ($@); die "Failed to load backend: $@\n" } if $@;

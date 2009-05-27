@@ -19,7 +19,6 @@ use PHEDEX::Core::Timing;
 #use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Config;                                                       
-#use PHEDEX::Core::JobManager;
 use PHEDEX::Monitoring::Process;
 
 # %params, %args, config-files...?
@@ -237,8 +236,6 @@ sub new
         ],
       );
 
-#   Create a JobManager if one is needed
-    $self->JobManager();
 
 #   Finally, start some self-monitoring...
     $self->{pmon} = PHEDEX::Monitoring::Process->new();
@@ -551,7 +548,8 @@ sub doStop
 
 =head2 stop
 
-I have no idea what you would want to do with this...
+Agent subclasses implement this in order to do any final clean up
+actions before exiting.  The actions should finish promptly.
 
 =cut
 
@@ -835,7 +833,7 @@ sub markBad
 
 =head2 processDrop
 
-I have no idea what you would want to do with this either...
+Override this in an agent subclass to process a drop file
 
 =cut
 
@@ -1488,7 +1486,7 @@ sub otherNodeFilter
 sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->Logmsg("starting (session ",$session->ID,")");
+  $self->Logmsg("starting Agent session (id=",$session->ID,")");
   $self->{SESSION_ID} = $session->ID;
 # $kernel->post($self->{SESSION_ID},'_preprocess') if $self->can('preprocess');
   $kernel->yield('_preprocess'); # if $self->can('preprocess');
@@ -1746,39 +1744,6 @@ sub FinishedDoingSomething
     $self->{_DOINGSOMETHING} = 0;
   }
   return $self->{_DOINGSOMETHING};
-}
-
-sub JobManager
-{
-# If the agent needs a JobManager (because NJOBS is positive), load the
-# JobManager module and create one. Otherwise, load a dummy module that keeps
-# client code simlhple by not having to check for the existance of the
-# JobManager
-  my $self = shift;
-
-  my $module;
-  if ( exists($self->{NJOBS}) )
-  {
-    $module = 'PHEDEX::Core::JobManager';
-    eval("use $module");
-    die "Failed to load $module: $@\n" if $@;
-  }
-  else
-  {
-    $module = 'PHEDEX::Namespace::Null::Cache';
-    eval("
-		package PHEDEX::Namespace::Null::Cache;
-		sub new { return bless {}, 'PHEDEX::Namespace::Null::Cache'; }
-		sub AUTOLOAD { };
-         ");
-     die "Cannot load null jobmanager: $@\n" if $@;
-  }
-
-  $self->{JOBMANAGER} = $module->new(
-					NJOBS	=> $self->{NJOBS},
-					VERBOSE	=> $self->{VERBOSE},
-					DEBUG	=> $self->{DEBUG},
-						     );
 }
 
 1;

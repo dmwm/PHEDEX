@@ -42,6 +42,18 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
+
+  # Create a JobManager
+  $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						       NJOBS	=> $self->{NJOBS},
+						       VERBOSE	=> $self->{VERBOSE},
+						       DEBUG	=> $self->{DEBUG},
+						       );
+
+  # Handle signals
+  $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
+				 $self->{JOBMANAGER}->killAllJobs() };
+
   bless $self, $class;
   return $self;
 }
