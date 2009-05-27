@@ -84,7 +84,13 @@
 ##H      -command CMD[,ARG...] [-timeout SECS]
 ##H
 ##H Options to SRM backend:
-##H      [-command CMD[,ARG...]] [-timeout SECS]
+##H      [-command CMD[,ARG...]] [-timeout SECS] [-syntax SYNTAX]
+##H
+##H -command     override the transfer command, for instance
+##H              globus-url-copy,-p,3,-tcp-bs,2097152
+##H -timeout     execution time limit for commands (default: 3600)
+##H -syntax      command style for srmcp, either 'dcache' or 'bestman'.
+##H              Default is 'dcache'
 ##H
 ##H Options to FTS backend:
 ##H      [-service CONTACT | -mapfile FILE]
@@ -95,9 +101,6 @@
 ##H      [-priority PHEDEX_PRIO=FTS_PRIO]
 ##H      [-glite-options OPTIONS]
 ##H  
-##H -command     override the transfer command, for instance
-##H              globus-url-copy,-p,3,-tcp-bs,2097152
-##H -timeout     execution time limit for commands (default: 3600)
 ##H -service     FTS server to use
 ##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
 ##H              discovery used instead
