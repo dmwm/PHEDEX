@@ -16,10 +16,10 @@ PHEDEX.Widget.TransfersNode=function(divid,site) {
 		height:300
 	      });
   that.site = site;
-  var config = PHEDEX.Page.Config.Elements[divid] || {};
+  var config = PHEDEX.Util.getConfig(divid);
   that.direction=config.opts.direction || 'to';
   that.time=config.opts.time || '6';
-
+  
 // This is for event-handling with YUI, clean and simple. One function to clear the tree, two more to trigger updates based on the select boxes
   that.deleteBodyContents=function(div) {
 //  In this case, I don't need the div, I can just operate on the tree object.
