@@ -211,7 +211,6 @@ DONE:
 	}
 
 #	Transmit the request upstream to the server
-$DB::single=1;
 	my $useragent = $request->header( 'User-Agent' );
 	if ( $useragent !~ m%^PhEDEx% )
 	{
