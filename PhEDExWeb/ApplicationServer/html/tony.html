@@ -47,7 +47,8 @@ Page = { 'Config': [
   {'call':'PHEDEX.Page.Widget.Requests', 'default':'30342', 'text':'Show Requests' },
   {'call':'PHEDEX.Page.Widget.Agents', 'default':'T1_US_FNAL_Buffer', 'text':'Show Agents for node' }
  ] };
-// instantiate the page when the DOM is ready!
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {PHEDEX.Logger.Create({width:'650px',height:'30em'})} );
 YAHOO.util.Event.onDOMReady(function() {PHEDEX.Page.Create(Page.Config)} );
 </script>
 
