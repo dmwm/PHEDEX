@@ -11,7 +11,6 @@ PHEDEX.Widget.Agents=function(site,divid) {
 	if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
 	var that=new PHEDEX.Core.Widget(divid+'_'+site,null,
 		{
-		children:false,
 		width:500,
 		height:200,
 		minwidth:300,

@@ -54,8 +54,6 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width = 1000;
   var that = new PHEDEX.Core.Widget(divid+'_'+site,null,{
-		fixed_extra:false,
-		expand_children:false,
 		width:width,
 		height:300
 	      });
@@ -247,50 +245,50 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       h.quality /= h.transfer.length;
     }
   }
-  that.buildChildren=function(div) {
-    this.markChildren();
-    if (this.direction=='to') var antidirection='from';
-    else var antidirection='to';
-    for (var i in this.data_hist) {
-      var h = this.data_hist[i];
-      var node = h[antidirection];
-      var d = {};
-      var e={num_errors:0};
-      for (var j in this.data_queue) {
-        if (this.data_queue[j][antidirection]==node) {
-          d = this.data_queue[j];
-          break;
-        }
-      }
-      for (var j in this.data_error) {
-        if (this.data_error[j][antidirection]==node) {
-          e = this.data_error[j];
-        }
-      }
-      var id = this.id+'_'+this.direction+'_'+node;
-      var child = this.getChild(id);
-      if (child) {
-        child.data_queue=d['transfer_queue'];
-        child.data_hist=h;
-        child.data_error=e;
-        child.marked=false;
-        child.update();
-      } else {
-        var childdiv = document.createElement('div');
-        childdiv.id = id;
-        div.appendChild(childdiv);
-        var childnode = new PHEDEX.Widget.LinkNode(node,this.direction,this,childdiv,d['transfer_queue'],h,e);
-        this.children.push(childnode);
-        childnode.update();
-      }
-    }
-    this.removeMarkedChildren();
-    if (this.children.length==0) {
-      this.children_info_none.innerHTML='No children returned';
-    } else {
-      this.children_info_none.innerHTML='';
-    }
-  }
+//   that.buildChildren=function(div) {
+//     this.markChildren();
+//     if (this.direction=='to') var antidirection='from';
+//     else var antidirection='to';
+//     for (var i in this.data_hist) {
+//       var h = this.data_hist[i];
+//       var node = h[antidirection];
+//       var d = {};
+//       var e={num_errors:0};
+//       for (var j in this.data_queue) {
+//         if (this.data_queue[j][antidirection]==node) {
+//           d = this.data_queue[j];
+//           break;
+//         }
+//       }
+//       for (var j in this.data_error) {
+//         if (this.data_error[j][antidirection]==node) {
+//           e = this.data_error[j];
+//         }
+//       }
+//       var id = this.id+'_'+this.direction+'_'+node;
+//       var child = this.getChild(id);
+//       if (child) {
+//         child.data_queue=d['transfer_queue'];
+//         child.data_hist=h;
+//         child.data_error=e;
+//         child.marked=false;
+//         child.update();
+//       } else {
+//         var childdiv = document.createElement('div');
+//         childdiv.id = id;
+//         div.appendChild(childdiv);
+//         var childnode = new PHEDEX.Widget.LinkNode(node,this.direction,this,childdiv,d['transfer_queue'],h,e);
+//         this.children.push(childnode);
+//         childnode.update();
+//       }
+//     }
+//     this.removeMarkedChildren();
+//     if (this.children.length==0) {
+//       this.children_info_none.innerHTML='No children returned';
+//     } else {
+//       this.children_info_none.innerHTML='';
+//     }
+//   }
 
   that.sum_queue_files=function(q) {
     var fsum=0;

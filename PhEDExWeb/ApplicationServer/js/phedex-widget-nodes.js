@@ -10,8 +10,7 @@ PHEDEX.Page.Widget.Nodes=function(divid) {
 PHEDEX.Widget.Nodes=function(site,divid) {
 	if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
 	var that=new PHEDEX.Core.Widget(divid+'_display',null,
-		{children:false,
-		 width:500,
+		{width:500,
 		 height:200,
 		 minwidth:300,
 		 minheight:80
@@ -37,16 +36,18 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	        ];
           var dataSource = new YAHOO.util.DataSource(table);
 	  dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	  dataSource.responseSchema = {
-	            fields: ["ID","Name","Kind","Technology","SE"]
-	        };
-	var h = div.clientHeight;
-	var w = div.clientWidth;
-        this.dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
+	  dataSource.responseSchema = { fields: {} };
+	  for (var i in columnDefs)
+	  {
+	    dataSource.responseSchema.fields[i] = columnDefs[i].key;
+	  }
+	  var h = div.clientHeight;
+	  var w = div.clientWidth;
+	  this.dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
                      {
                       draggableColumns:true,
                      });
-        var onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
+	  var onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
           var task = p_aArgs[1];
           if(task) {
 //	  Extract which TR element triggered the context menu
@@ -94,55 +95,3 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	that.build();
 	return that;
 }
-
-// YAHOO.util.Event.addListener(window, "load", function() {
-//     YAHOO.example.ContextMenu = function() {
-//         var myColumnDefs = [
-//             {key:"SKU", sortable:true},
-//             {key:"Quantity", sortable:true},
-//             {key:"Item", sortable:true},
-//             {key:"Description"}
-//         ];
-// 
-//         var myDataSource = new YAHOO.util.DataSource(YAHOO.example.Data.inventory);
-//         myDataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-//         myDataSource.responseSchema = {
-//             fields: ["SKU","Quantity","Item","Description"]
-//         };
-// 
-//         var myDataTable = new YAHOO.widget.DataTable("myContainer", myColumnDefs, myDataSource);
-// 
-//         var onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
-//             var task = p_aArgs[1];
-//             if(task) {
-//                 // Extract which TR element triggered the context menu
-//                 var elRow = this.contextEventTarget;
-//                 elRow = p_myDataTable.getTrEl(elRow);
-// 
-//                 if(elRow) {
-//                     switch(task.index) {
-//                         case 0:     // Delete row upon confirmation
-//                             var oRecord = p_myDataTable.getRecord(elRow);
-//                             if(confirm("Are you sure you want to delete SKU " +
-//                                     oRecord.getData("SKU") + " (" +
-//                                     oRecord.getData("Description") + ")?")) {
-//                                 p_myDataTable.deleteRow(elRow);
-//                             }
-//                     }
-//                 }
-//             }
-//         };
-// 
-//         var myContextMenu = new YAHOO.widget.ContextMenu("mycontextmenu",
-//                 {trigger:myDataTable.getTbodyEl()});
-//         myContextMenu.addItem("Delete Item");
-//         // Render the ContextMenu instance to the parent container of the DataTable
-//         myContextMenu.render("myContainer");
-//         myContextMenu.clickEvent.subscribe(onContextMenuClick, myDataTable);
-//         
-//         return {
-//             oDS: myDataSource,
-//             oDT: myDataTable
-//         };
-//     }();
-// });

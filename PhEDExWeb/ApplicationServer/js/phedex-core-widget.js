@@ -1,8 +1,7 @@
-//This 'class' represents the basic header,extra,children node for a dynamic PhEDEx page.
+//This 'class' represents the basic header,body,footer node for a dynamic PhEDEx page.
 //Required arguments either a div object or a id name for a div for the item to be built in (divid), a parent node (if one exists).
-//The optional opts dictionary can be used to enable/disable the extra area and children, and set the initial expansion states.
 //Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
-//implement their own methods to generate the header, extra and children content, and handle updates.
+//implement their own methods to generate the content, and handle updates.
 
 // instantiate the PHEDEX.Core.Widget namespace
 PHEDEX.namespace('Core.Widget');

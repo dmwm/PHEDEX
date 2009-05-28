@@ -11,7 +11,6 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var that = new PHEDEX.Core.Widget(divid+'_'+request,null,
 		{
-		children:false,
 		width:800,
 		height:200,
 		minwidth:400,
@@ -101,17 +100,17 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     result += this.data.priority+' priority';
     return result;
   }
-  that.buildExtra=function(div) {
-    this.comment=document.createElement('div');
-    this.comment.className='comment';
-    div.appendChild(this.comment);
-    this.creator=document.createElement('div');
-    this.creator.className='border';
-    div.appendChild(this.creator);
-    this.approver=document.createElement('div');
-    this.approver.className='border';
-    div.appendChild(this.approver);
-  }
+//   that.buildExtra=function(div) {
+//     this.comment=document.createElement('div');
+//     this.comment.className='comment';
+//     div.appendChild(this.comment);
+//     this.creator=document.createElement('div');
+//     this.creator.className='border';
+//     div.appendChild(this.creator);
+//     this.approver=document.createElement('div');
+//     this.approver.className='border';
+//     div.appendChild(this.approver);
+//   }
   that.update=function() {
     PHEDEX.Datasvc.TransferRequests(this.request,this);
   }
