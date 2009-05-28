@@ -1,9 +1,10 @@
-// A PhEDEx logging class. Only instantiates the logger if the 'phedex_logger' div exists.
-
+// A PhEDEx logging class. Only instantiates the logger if the required div exists. This way we can keep it out of
+// production pages by simply not declaring the div in the html.
 PHEDEX.namespace('Logger');
 
-var createLogger=function() {
-  var myDiv = document.getElementById('phedex_logger');
+PHEDEX.Logger.Create=function(opts,divid) {
+  if ( !divid ) { divid = 'phedex_logger'; }
+  var myDiv = document.getElementById(divid);
   if ( myDiv )
   {
     YAHOO.widget.Logger.reset();
@@ -14,8 +15,12 @@ var createLogger=function() {
       footerEnabled: true,
       verboseOutput: false
     };
+    if (opts) {
+      for (o in opts) {
+        LoggerConfig[o]=opts[o];
+      }
+    }
     myDiv.style.width = LoggerConfig.width;
-    PHEDEX.Logger.Reader= new YAHOO.widget.LogReader('phedex_logger',LoggerConfig);
+    PHEDEX.Logger.Reader= new YAHOO.widget.LogReader(divid,LoggerConfig);
   }
 }
-YAHOO.util.Event.onDOMReady(createLogger);
