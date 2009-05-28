@@ -375,6 +375,7 @@ sub start_transfer_job
     $self->{JOBMANAGER}->addJob(
 			     $self->{JOB_SUBMITTED_POSTBACK},
 			     { JOB => $job, FTSJOB  => $ftsjob,
+			       KEEP_OUTPUT => 1,
 			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
 			     $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
 			   );
@@ -443,15 +444,15 @@ sub fts_job_submitted
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
 
-  my $wheel = $arg1->[0];
-  my $result = $self->{Q_INTERFACE}->ParseSubmit( $wheel );
-  my $job    = $wheel->{JOB};
-  my $ftsjob = $wheel->{FTSJOB};
+  my $command  = $arg1->[0];  # result of JobManager::addJob in start_transfer_job
+  my $job    = $command->{JOB};
+  my $ftsjob = $command->{FTSJOB};
+  my $result = $self->{Q_INTERFACE}->ParseSubmit( $ftsjob, $command->{STDOUT} );
   
-  if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
+  if ( $self->{DEBUG} && $command->{DURATION} > 8 )
   {
     my $id = $ftsjob->{ID} || 'unknown';
-    $self->Warn('FTS job submition took ',$wheel->{DURATION},' seconds for JOBID=',$id);
+    $self->Warn('FTS job submition took ',$command->{DURATION},' seconds for JOBID=',$id);
   }
 
   if ( exists $result->{ERROR} ) { 
@@ -471,9 +472,7 @@ sub fts_job_submitted
   $self->Logmsg("FTS job JOBID=",$ftsjob->ID,' submitted');
   # Save this job for retrieval if the agent is restarted
   my $jobsave = $ftsjob->WORKDIR . '/ftsjob.dmp';
-  open JOB, ">$jobsave" or $self->Fatal("$jobsave: $!");
-  print JOB Dumper($ftsjob);
-  close JOB;
+  &output($jobsave, $ftsjob) or $self->Fatal("$jobsave: $!");
 
   #register this job with queue monitor.
   $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
@@ -489,7 +488,7 @@ sub fts_job_state_change
 
 #   A paranoid but harmless check that I have the right sort of entity!
     if ( ref($job) !~ m%PHEDEX::Transfer::Backend::Job% )
-    { print "I have a wrong job-type here!\n"; }
+    { $self->Alert("I have a wrong job-type here!"); }
 
     # I get into this routine every time a job is monitored. Because I don't
     # want verbose monitoring forever, I turn it off here. So the first

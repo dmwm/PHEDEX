@@ -138,7 +138,7 @@ sub AUTOLOAD
 sub _stop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  print $self->Hdr, "is ending, for lack of work...\n";
+  $self->Logmsg("is ending, for lack of work...");
 }
 
 sub _default
@@ -158,7 +158,7 @@ EOF
 sub _start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  print $self->Hdr,"is starting (session ",$session->ID,")\n";
+  $self->Logmsg("is starting (session ",$session->ID,")");
 
   $self->{SESSION_ID} = $session->ID;
   $kernel->alias_set($self->{ME});
@@ -182,7 +182,7 @@ sub shoot_myself
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $kernel->call( $session, 'report_statistics' );
   if ( $self->{APMON} ) { $self->{APMON}->ApMon->free(); }
-  print $self->Hdr,"shooting myself...\n";
+  $self->Logmsg("shooting myself...");
   $kernel->alarm_remove_all();
 }
 
@@ -195,7 +195,7 @@ sub poll_queue
 die "I do not want to be here...";
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_QUEUE_POSTBACK},
-                             { TIMEOUT => $self->{Q_TIMEOUT} },
+                             { TIMEOUT => $self->{Q_TIMEOUT}, KEEP_OUTPUT => 1 },
                              $self->{Q_INTERFACE}->Command('ListQueue')
                            );
 }
@@ -203,17 +203,17 @@ die "I do not want to be here...";
 sub poll_queue_postback
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  my ($id,$result,$priority,$wheel);
+  my ($id,$result,$priority,$command);
 die "This code has not been tested...";
-  $wheel = $arg1->[0];
-  $result = $self->{Q_INTERFACE}->ParseListQueue( $wheel );
+  $command = $arg1->[0];
+  $result  = $self->{Q_INTERFACE}->ParseListQueue( $command->{STDOUT} );
 
-  if ( $self->{DEBUG} && $result->{DURATION} > 8 )
-  { $self->Logmsg('ListQueue took ',$result->{DURATION},' seconds'); }
+  if ( $self->{DEBUG} && $command->{DURATION} > 8 )
+  { $self->Dbgmsg('ListQueue took ',$command->{DURATION},' seconds'); }
 
   if ( $result->{ERROR} )
   {
-    print $self->Hdr,"ListQueue error: ",join("\n",@{$result->{ERROR}}),"\n";
+    $self->Alert("ListQueue error: ",join("\n",@{$result->{ERROR}}));
     goto PQDONE;
   }
   else
@@ -252,7 +252,7 @@ die "This code has not been tested...";
       $self->Logmsg('requeue(1) JOBID=',$job->ID) if $self->{DEBUG};
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
-      print $self->Hdr,"Queued $h->{ID} at priority $priority (",$h->{STATE},")\n" if $self->{VERBOSE};
+      $self->Logmsg("Queued $h->{ID} at priority $priority (",$h->{STATE},")") if $self->{VERBOSE};
     }
   }
 PQDONE:
@@ -284,26 +284,33 @@ sub poll_job
 sub poll_job_postback
 {
   my ( $self, $kernel, $arg0, $arg1 ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-  my ($result,$priority,$id,$job,$summary,$wheel);
+  my ($result,$priority,$id,$job,$summary,$command,$error);
 
-  $wheel = $arg1->[0];
-  $result = $self->{Q_INTERFACE}->ParseListJob( $wheel );
-  $job = $wheel->{FTSJOB};
+  $command = $arg1->[0];
+  if ($command->{STATUS} ne "0") { 
+      $error = "ended with status $command->{STATUS}";
+  }
 
-  if ( $self->{DEBUG} && $wheel->{DURATION} > 8 )
-  { $self->Logmsg('ListJob took ',$wheel->{DURATION},' seconds'); }
+  $job = $command->{FTSJOB};
+  $result = $self->{Q_INTERFACE}->ParseListJob( $job, $command->{STDOUT} );
+
+  if ( $self->{DEBUG} && $command->{DURATION} > 8 )
+  { $self->Dbgmsg('ListJob took ',$command->{DURATION},' seconds'); }
 
 # Arbitrary value, fixed, for now.
   $priority = 30;
   if (exists $result->{ERROR}) {
-      print $self->Hdr,"ListJob for ",$job->ID," returned error: ",
-			join("\n",@{$result->{ERROR}}),"\n";
+      $error = join("\n",@{$result->{ERROR}});
+  }
 
+  if ($error) {
+      $self->Alert("ListJob for ",$job->ID," returned error: $error\n");
+  
 #     If I haven't been successful monitoring this job for a long time, give up on it
       my $timeout = $job->Timeout;
       if ( $timeout && $job->Timestamp + $timeout < time  )
       {
-        $self->Logmsg('Abandoning JOBID=',$job->ID," after timeout ($timeout seconds)");
+        $self->Alert('Abandoning JOBID=',$job->ID," after timeout ($timeout seconds)");
         $job->State('abandoned');
 # FIXME This duplicates some code below, could be made cleaner...
         $self->WorkStats('JOBS', $job->ID, $job->State);
@@ -317,7 +324,7 @@ sub poll_job_postback
 
 #     Put this job back in the queue before I forget about it completely!
       $priority = $job->Priority();
-      $self->Logmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
+      $self->Dbgmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
       $self->{QUEUE}->enqueue( $priority, $job );
       goto PJDONE;
   }
@@ -329,7 +336,7 @@ sub poll_job_postback
   };
 
   $self->{LAST_SUCCESSFULL_POLL} = time;
-  print $self->Hdr,"JOBID=",$job->ID," STATE=$result->{JOB_STATE}\n";
+  $self->Logmsg("JOBID=",$job->ID," STATE=$result->{JOB_STATE}") if $self->{VERBOSE};
 
   $job->State($result->{JOB_STATE});
   $job->RawOutput(@{$result->{RAW_OUTPUT}});
@@ -383,7 +390,7 @@ sub poll_job_postback
                  );
   if ( $job->Summary ne $summary )
   {
-    print $self->Hdr,' JOBID=',$job->ID," $summary\n" if $self->{VERBOSE};
+    $self->Logmsg('JOBID=',$job->ID," $summary") if $self->{VERBOSE};
     $job->Summary($summary);
   }
 
@@ -407,7 +414,7 @@ sub poll_job_postback
 #   $priority = int($priority/60);
 #   $priority = 30 if $priority < 30;
     $job->Priority($priority);
-    $self->Logmsg('requeue(3) JOBID=',$job->ID) if $self->{DEBUG};
+    $self->Dbgmsg('requeue(3) JOBID=',$job->ID) if $self->{DEBUG};
     $self->{QUEUE}->enqueue( $priority, $job );
   }
 
@@ -433,9 +440,9 @@ sub report_job
   if ( defined $job->JOB_POSTBACK ) { $job->JOB_POSTBACK->(); }
   else
   {
-    print $self->Hdr,'Log for ',$job->ID,"\n",
-	  $job->Log,
-	  $self->Hdr,'Log ends for ',$job->ID,"\n" if $self->{VERBOSE};
+    $self->Dbgmsg('Log for ',$job->ID,"\n",
+		  $job->Log,
+		  '\nLog ends for ',$job->ID,"\n") if $self->{DEBUG};
   }
 
 # Now I should take detailed action on any errors...
@@ -477,7 +484,7 @@ sub report_statistics
   if ( ! defined($self->{WORKSTATS}{START}) )
   {
     $self->{WORKSTATS}{START} = time;
-    print $self->Hdr,"STATISTICS: INTERVAL=",$self->{STATISTICS_INTERVAL},"\n";
+    $self->Logmsg("STATISTICS: INTERVAL=",$self->{STATISTICS_INTERVAL}) if $self->{VERBOSE};
   }
   $t = time - $self->{WORKSTATS}{START};
 
@@ -498,7 +505,7 @@ sub report_statistics
     (map { "$_=" . $s->{$key}{STATES}{$_} } sort keys %{$s->{$key}{STATES}} ));
 #   if ( $self->{WORKSTATS}{$key}{SUMMARY} ne $summary )
     {
-      print $self->Hdr,"STATISTICS: TIME=$t $key: $summary\n";
+      $self->Logmsg("STATISTICS: TIME=$t $key: $summary") if $self->{VERBOSE};
       $self->{WORKSTATS}{$key}{SUMMARY} = $summary;
     }
 

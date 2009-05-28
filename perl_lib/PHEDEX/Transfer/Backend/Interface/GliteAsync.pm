@@ -127,12 +127,12 @@ passive monitoring mode.
 
 sub ParseListQueue
 {
-  my ($self,$wheel) = @_;
-  my ($result);
-  $result = $wheel->{result};
+  my ($self,$output) = @_;
+  my $result = {};
 
-  foreach ( @{$result->{RAW_OUTPUT}} )
+  for ( split /\n/, $output )
   {
+    push @{$result->{RAW_OUTPUT}}, $_;
     m%^([0-9,a-f,-]+)\s+(\S+)$% or next;
     $result->{JOBS}{$1} = {ID => $1, STATE => $2, SERVICE => $self->{SERVICE}};
   }
@@ -141,13 +141,12 @@ sub ParseListQueue
 
 sub ParseSubmit
 {
-  my ($self,$wheel) = @_;
-  my ($job,$result);
-  $result = $wheel->{result};
-  $job    = $wheel->{FTSJOB};
+  my ($self, $job, $output) = @_;
+  my $result = {};
 
-  foreach ( @{$result->{RAW_OUTPUT}} )
+  foreach ( split /\n/, $output )
   {
+    push @{$result->{RAW_OUTPUT}}, $_;
     m%^([0-9,a-f,-]+)$% or next;
     $job->ID( $1 );
   }
@@ -218,9 +217,9 @@ sub Command
 
 =head2 ParseListJob
 
-Takes a single argument, a reference to a PHEDEX::Transfer::Backend::Job
-object. Then issues glite-transfer-status for that job and picks through the
-output. Returns a somewhat complex hashref with the result. As with ListQueue,
+Takes two arguments, a reference to a PHEDEX::Transfer::Backend::Job
+object, and the output of a glite-transfer-status command.  
+Returns a somewhat complex hashref with the result. As with ListQueue,
 the hash will contain an 'ERROR' key if something went wrong, or not if the
 command succeeded.
 
@@ -253,21 +252,19 @@ which will affect its priority for monitoring.
 
 sub ParseListJob
 {
-  my ($self,$wheel) = @_;
-  my ($result,$job);
-  my ($cmd,$state,$dst,@raw);
+  my ($self,$job,$output) = @_;
+  my ($cmd,$state,$dst);
   my ($key,$value);
   my (@h,$h,$preamble);
 
-  $result = $wheel->{result};
-  $job = $wheel->{FTSJOB};
-
+  my $result = {};
   $result->{JOB_STATE} = 'undefined';
-  return $result unless defined($result->{RAW_OUTPUT});
+  return $result unless $output;
 
   $preamble=1;
   my $last_key;
-  @raw = @{$result->{RAW_OUTPUT}};
+  my @raw = split /\n/, $output;
+  @{$result->{RAW_OUTPUT}} = @raw;
   while ( $_ = shift @raw )
   {
     if ( $preamble )
