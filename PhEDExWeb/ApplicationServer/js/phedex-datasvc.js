@@ -152,8 +152,8 @@ PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data,obj) {
   var link = data.link[0];
   if ( !link ) { return; }
   if ( !link.from || ! link.to ) { return; }
-  var from_to = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueBlocks.'+link['from']+'.'+link['to']);
-  from_to = link;
+  PHEDEX.namespace('Data.TransferQueueBlocks.'+link.from);
+  PHEDEX.Data.TransferQueueBlocks[link.from][link.to] = link;
 }
 
 PHEDEX.Datasvc.TransferQueueFiles = function(arg,obj,callback) {
@@ -161,8 +161,42 @@ PHEDEX.Datasvc.TransferQueueFiles = function(arg,obj,callback) {
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueFiles_callback,callback);
 }
 PHEDEX.Datasvc.TransferQueueFiles_callback = function(data,obj) {
-  if ( !data ) { return; }
-  var link = data.link; //[0];
-  var queueFiles = PHEDEX.namespace('PHEDEX.Datasvc.TransferQueueFiles');
-  queueFiles = data;
+  if ( typeof(data.link) != 'object' ) { return; }
+  var link = data.link[0];
+  if ( !link ) { return; }
+  if ( !link.from || ! link.to ) { return; }
+  PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to);
+  var tq = link.transfer_queue[0];
+
+// TODO How do we handle this? What data-structure makes sense here? Do we preserve the structure from the data-service or do we create something that is easier to sort/filter inside the widget?
+// If I want to pre-sort, I have to do stuff like this...
+//   var q = ['byName','byState','byPriority'];
+//   for (var i in q) { PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.'+q[i]); }
+//   var q1 = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to);
+//   var q2 = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.byState');
+//   var q3 = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.byPriority');
+//   for (var i in tq.block)
+//   {
+//     var block = tq.block[i];
+//     q1.byName[block.name] = block;
+//     q1.byName[block.name].priority = tq.priority;
+//     q1.byName[block.name].state    = tq.state;
+// 
+//     if ( ! q2[tq.state] ) { q2[tq.state] = {}; }
+//     q2[tq.state][block.name] = block;
+//     q2[tq.state][block.name].priority = tq.priority;
+// 
+//     if ( ! q3[tq.priority] ) { q3[tq.priority] = {}; }
+//     q3[tq.priority][block.name] = block;
+//     q3[tq.priority][block.name].state = tq.state;
+//   }
+// I don't want to do that, so I take the easy way out: flatten the [priority][state] structure into the blocks themselves, and list them 'byName' in the data-result object.
+  var q = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.byName');
+  for (var i in tq.block)
+  {
+    var block = tq.block[i];
+    q[block.name] = block;
+    q[block.name].priority = tq.priority;
+    q[block.name].state    = tq.state;
+  }
 }
