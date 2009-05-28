@@ -1,5 +1,4 @@
 // Utility functions, not PhEDEx-specific, such as adding listeners for on-load etc.
-//PHEDEX.Util=function() {}
 PHEDEX.namespace('Util');
 
 /*
@@ -54,6 +53,7 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name)
 {
 // Find a div named 'name' and return it. If that div doesn't exist, create it, append it to a div called
 // 'phedex_main', and then return it. This lets me create widgets in the top-level phedex_main div, on demand.
+  YAHOO.log('Find or create '+name);
   var div = document.getElementById(name);
   if ( !div )
   {
@@ -75,6 +75,7 @@ PHEDEX.Util.toggleVisible = function (id) {
 }
 */
 
+// not used. Creates a UL from an array of strings
 PHEDEX.Util.makeUList = function(args) {
   var list = document.createElement('ul');
   for ( var i in args )
@@ -86,6 +87,9 @@ PHEDEX.Util.makeUList = function(args) {
   return list;
 }
 
+// create a UL from an array of strings or objects. If given objects, accept 'width' and 'class' elements to apply to each item.
+// globally, accept width and class for the entire div. This is a messy but adequate way of getting started with formatting treeview
+// leaf nodes to some extent.
 PHEDEX.Util.makeInlineDiv = function(args) {
   var wtot = args.width || 900;
   var list = document.createElement('ul');
@@ -124,10 +128,11 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( args.class ) { list.className += ' '+args.class; div.style.border = '1px solid red'; }
+  if ( args.class ) { list.className += ' '+args.class; } // div.style.border = '1px solid red'; }
   return div;
 }
 
+// removed from PHEDEX.Core.Widget and placed here, for convenience
 PHEDEX.Util.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
@@ -175,10 +180,19 @@ PHEDEX.Util.format={
     }
 }
 
+// for a given element, return the global configuration object defined for it. This allows to find configurations
+// for elements created on the fly. If no configuration found, return a correct empty object, to avoid the need
+// for messy nested existence checks in the client code
 PHEDEX.Util.getConfig=function(element) {
   var config = PHEDEX.Page.Config.Elements[element];
   if ( config ) { return config; }
   config={};
   config.opts = {};
   return config;
+}
+
+// generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
+PHEDEX.Util.generateDivName=function() {
+  var j = ++PHEDEX.Page.Config.Count;
+  return 'auto_Widget_'+j;
 }
