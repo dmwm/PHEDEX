@@ -12,13 +12,7 @@ PHEDEX.namespace('Core.Widget');
 
 PHEDEX.Core.Widget = function(divid,parent,opts) {
   // Copy the options over the defaults.
-  // There should probably be further options here such as closeable, updateable, sortable, filterable...
-  this.options = {expand_extra:false,
-  		  expand_children:false,
-		  extra:true,
-		  children:true,
-		  fixed_extra:false,
-		  width:700,
+  this.options = {width:700,
 		  height:150,
 		  minwidth:10,
 		  minheight:10,
@@ -32,17 +26,18 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
       this.options[o]=opts[o];
     }
   }
-  // Test whether we were passed an object (assumed div) or something else (assumed element.id)
-  // Set the div and id appropriately.
+// Test whether we were passed an object (assumed div) or something else (assumed element.id)
+// Set the div and id appropriately.
   if (typeof(divid)=='object') {
     this.id = divid.id;
     this.div = divid;
   } else {
+    if ( !divid ) { divid = PHEDEX.Util.generateDivName(); }
     this.id = divid;
     this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id);
   }
 
-// This may be heavy-handed, wipe out all children and rebuild from scratch...
+// This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
 
 // Everything is a resizeable panel now
@@ -52,10 +47,12 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.div_header.className = 'hd';
   this.div_header.id = this.id+'_hd';
   this.div.appendChild(this.div_header);
+
   this.div_body = document.createElement('div');
   this.div_body.className = 'bd';
   this.div_body.id = this.id+'_bd';
   this.div.appendChild(this.div_body);
+
   this.div_footer = document.createElement('div');
   this.div_footer.className = 'ft';
   this.div_footer.id = this.id+'_ft';
@@ -100,20 +97,18 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // if the constraintoviewport configuration property is enabled.
   resize.on('startResize', function(args) {
     if (this.cfg.getProperty("constraintoviewport")) {
-        var D = YAHOO.util.Dom;
-
-        var clientRegion = D.getClientRegion();
-        var elRegion = D.getRegion(this.element);
+        var clientRegion = YAHOO.util.Dom.getClientRegion();
+        var elRegion = YAHOO.util.Dom.getRegion(this.element);
         var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
         var h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
 
         resize.set("maxWidth", w);
         resize.set("maxHeight", h);
-    } else {
+      } else {
         resize.set("maxWidth", null);
         resize.set("maxHeight", null);
-    }
-}, this.panel, true);
+      }
+    }, this.panel, true);
 
 // Assign an event-handler to delete the content when the container is closed. Do this now rather than
 // in the constructor to avoid it hanging around when it is no longer needed.
@@ -133,12 +128,6 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.populate=function() {
     this.fillHeader(this.div_header);
     this.fillBody(this.div_content);
-//     this.fillExtra();
-//     if (this.options['children']) {
-//       if (this.children_div.style.display=='block') {
-//         this.buildChildren(this.children_div);
-//       }
-//     }
     this.fillFooter(this.div_footer);
     this.finishLoading();
   }
@@ -151,8 +140,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.fillBody=function(div) {}
   this.deleteBodyContent=function(div) {}
 
-  this.buildExtra=function(div) {}
-  this.fillExtra=function(div) {}
+//   this.buildExtra=function(div) {}
+//   this.fillExtra=function(div) {}
   
   this.buildFooter=function(div) {}
   this.fillFooter=function(div) {}
@@ -169,17 +158,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.panel.close.style.display='block';
   }
 
-// Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, extra and if necessary children. Start/FinishLoading should be used if data is being fetched.
+// Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, body and footer. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
-// Recursively update all children.
-/*  this.updateChildren=function() {
-    this.update();
-    for (var i in this.children) {
-      this.children[i].updateChildren();
-    }
-  }
-*/
-  this.format={
+/*  this.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
       if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TB';
@@ -219,7 +200,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
         return raw;
       }
     }
-  };
+  };*/
   this.panel.render();
 // Create a (usually hidden) progress indicator.
   this.progress_img = document.createElement('img');
