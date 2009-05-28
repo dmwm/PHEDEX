@@ -1,54 +1,6 @@
 // Utility functions, not PhEDEx-specific, such as adding listeners for on-load etc.
 PHEDEX.namespace('Util');
 
-/*
-PHEDEX.Util.addLoadListener = function(fn) {
-  if (typeof window.addEventListener != 'undefined')
-  {
-    window.addEventListener('load', fn, false);
-  }
-  else if (typeof document.addEventListener != 'undefined')
-  {
-    document.addEventListener('load', fn, false);
-  }
-  else if (typeof window.attachEvent != 'undefined')
-  {
-  window.attachEvent('onload', fn);
-  }
-  else
-  {
-    var oldfn = window.onload;
-    if (typeof window.onload != 'function')
-    {
-      window.onload = fn;
-    }
-    else
-    {
-      window.onload = function()
-      {
-        oldfn();
-        fn();
-      };
-    }
-  }
-}
-*/
-
-/*
-PHEDEX.Util.toggleExtra = function(id) {
-    var extra = document.getElementById(id+'_extra');
-    var link = document.getElementById(id+'_extra_link');
-    if (extra.style.display=='block') {
-      extra.style.display='none';
-      link.innerHTML='expand';
-    } else {
-      extra.style.display='block';
-      link.innerHTML='collapse';
-    }
-    return -1;
-  }
-*/
-
 PHEDEX.Util.findOrCreateWidgetDiv = function(name)
 {
 // Find a div named 'name' and return it. If that div doesn't exist, create it, append it to a div called
@@ -195,4 +147,46 @@ PHEDEX.Util.getConfig=function(element) {
 PHEDEX.Util.generateDivName=function() {
   var j = ++PHEDEX.Page.Config.Count;
   return 'auto_Widget_'+j;
+}
+
+// This is for dynamically loading data into YUI TreeViews.
+PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
+// First, create a callback function that uses the payload to identify what to do with the returned data.
+  var loadTreeNodeData_callback = function(result) {
+// Although 'result' is passed in here, we should not need it. It should have been laundered by the Dataservice
+    node.payload.callback(node);
+    fnLoadComplete(); // Signal that the operation is complete, the tree can re-draw itself
+  }
+
+// Now, find out what to get, if anything...
+  if ( typeof(node.payload) == 'undefined' )
+  {
+//  This need not be an error, so don't log it. Some branches are built on already-known data, and do not require new
+//  data to be fetched. If dynamic loading is on for the whole tree this code will be hit for those branches.
+    fnLoadComplete();
+    return;
+  }
+  if ( node.payload.call )
+  {
+    if ( typeof(node.payload.call) == 'string' )
+    {
+//    payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
+//    and conform to the calling specification for the data-service module
+      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call);
+      var fn = PHEDEX.Datasvc[node.payload.call];
+      fn(node.payload.args,node.payload.obj,loadTreeNodeData_callback);
+    }
+    else
+    {
+//    The call-name isn't a string, assume it's a function and call it directly.
+//    I'm guessing there may be a use for this, but I don't know what it is yet...
+      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','warn');
+      node.payload.call(node,loadTreeNodeData_callback);
+    }
+  }
+  else
+  {
+    YAHOO.log('Apparently require dynamically loaded data but do not know how to get it! (hint: payload probably malformed?)','warn');
+    fnLoadComplete();
+  }
 }
