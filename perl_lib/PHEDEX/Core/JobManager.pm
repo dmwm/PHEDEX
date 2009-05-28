@@ -1,4 +1,5 @@
 package PHEDEX::Core::JobManager;
+use base 'PHEDEX::Core::Logging';
 
 =pod
 
