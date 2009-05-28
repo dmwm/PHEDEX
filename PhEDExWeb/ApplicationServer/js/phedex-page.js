@@ -1,12 +1,10 @@
 // A page-manager. Creates pages from configuration objects, saves their defaults and creation order, allows for saving and restoring full pages (eventually)
 
 PHEDEX.namespace('Page.Widget','Page.Config.Elements','Page.Config.Order');
-PHEDEX.Page.Config.Count = 0;
+PHEDEX.Page.Config.Count=0;
 
 PHEDEX.Page.Create = function( config ) {
   if ( !config ) { config = Page.Config; }
-//   if ( !PHEDEX.Page.Config.Count ) { PHEDEX.Page.Config.Count=0; }
-  var j = PHEDEX.Page.Config.Count;
   for ( var i in config )
   {
     var myDivId = config[i].div;
@@ -14,7 +12,7 @@ PHEDEX.Page.Create = function( config ) {
     if ( ! myDivId )
     {
       var pattern = /PHEDEX.Page.Widget./;
-      myDivId = call.replace(pattern,''); // + '_widget_' + j;
+      myDivId = call.replace(pattern,'');
     }
     var myDiv = PHEDEX.Util.findOrCreateWidgetDiv(myDivId);
 
@@ -36,7 +34,6 @@ PHEDEX.Page.Create = function( config ) {
 
 // Save the widget-config for later use
     PHEDEX.Page.Config.Elements[myDivId] = config[i];
-    PHEDEX.Page.Config.Order[j] = myDivId;
-    PHEDEX.Page.Config.Count = j+1;
+    PHEDEX.Page.Config.Order[PHEDEX.Page.Config.Count++] = myDivId;
   }
 }
