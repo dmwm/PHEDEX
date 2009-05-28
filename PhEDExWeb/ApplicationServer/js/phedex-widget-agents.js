@@ -46,21 +46,17 @@ PHEDEX.Widget.Agents=function(site,divid) {
             var y = { Agent:a['name'], Version:a['version'], PID:a['pid'], Date:a['gmtDate'] };
             table.push( y );
           }
-          var columnDefs = [
+          that.columnDefs = [
 	            {key:"Agent", sortable:true, resizeable:true},
-	            {key:"Version", sortable:true, resizeable:true},
-	            {key:"PID", sortable:true, resizeable:true},
 	            {key:"Date", formatter:YAHOO.widget.DataTable.formatDate, sortable:true, resizeable:true},
+	            {key:"PID", sortable:true, resizeable:true},
+	            {key:"Version", sortable:true, resizeable:true},
 	        ];
-          var dataSource = new YAHOO.util.DataSource(table);
-	        dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	        dataSource.responseSchema = {
-	            fields: ["Agent","Version","PID","Date"]
-	        };
-        var dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
-                     {
-                      draggableColumns:true
-                     });
+          that.dataSource = new YAHOO.util.DataSource(table);
+	  that.dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+	  that.dataSource.responseSchema = { fields: {} };
+	  for (var i in that.columnDefs) { that.dataSource.responseSchema.fields[i] = that.columnDefs[i].key; }
+	  that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, { draggableColumns:true });
 	}
 	that.update=function() {
 	  PHEDEX.Datasvc.Agents(that.site,that);

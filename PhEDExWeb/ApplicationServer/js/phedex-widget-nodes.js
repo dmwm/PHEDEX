@@ -22,35 +22,28 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	}
 	that.fillBody=function(div) {
           var table = [];
-	  for (var i in this.data) {
-	    var a = this.data[i];
+	  for (var i in that.data) {
+	    var a = that.data[i];
             var y = { ID:a['id'], Name:a['name'], Kind:a['kind'], Technology:a['technology'], SE:a['se'] };
             table.push( y );
           }
-          var columnDefs = [
+          that.columnDefs = [
 	            {key:"ID", sortable:true, resizeable:true},
 	            {key:"Name", sortable:true, resizeable:true},
 	            {key:"Kind", sortable:true, resizeable:true},
 	            {key:"Technology", sortable:true, resizeable:true},
 	            {key:"SE", sortable:true, resizeable:true},
 	        ];
-          var dataSource = new YAHOO.util.DataSource(table);
-	  dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	  dataSource.responseSchema = { fields: {} };
-	  for (var i in columnDefs)
-	  {
-	    dataSource.responseSchema.fields[i] = columnDefs[i].key;
-	  }
-	  var h = div.clientHeight;
-	  var w = div.clientWidth;
-	  this.dataTable = new YAHOO.widget.DataTable(div, columnDefs, dataSource,
-                     {
-                      draggableColumns:true,
-                     });
+          that.dataSource = new YAHOO.util.DataSource(table);
+	  that.dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+	  that.dataSource.responseSchema = { fields: {} };
+	  for (var i in that.columnDefs) { that.dataSource.responseSchema.fields[i] = that.columnDefs[i].key; }
+	  that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, { draggableColumns:true });
+
 	  var onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
           var task = p_aArgs[1];
           if(task) {
-//	  Extract which TR element triggered the context menu
+// 	  Extract which TR element triggered the context menu
             var elRow = this.contextEventTarget;
             elRow = p_myDataTable.getTrEl(elRow);
               if(elRow) {
@@ -76,13 +69,13 @@ PHEDEX.Widget.Nodes=function(site,divid) {
             }
           };
           var myContextMenu = new YAHOO.widget.ContextMenu("mycontextmenu",
-                {trigger:this.dataTable.getTbodyEl()});
+                {trigger:that.dataTable.getTbodyEl()});
           myContextMenu.addItem("Show Agents");
           myContextMenu.addItem("Show Links for site");
           myContextMenu.addItem("Delete Item");
-          // Render the ContextMenu instance to the parent container of the DataTable
-          myContextMenu.render(this.div_content);
-          myContextMenu.clickEvent.subscribe(onContextMenuClick, this.dataTable);
+//        Render the ContextMenu instance to the parent container of the DataTable
+          myContextMenu.render(that.div_content);
+          myContextMenu.clickEvent.subscribe(onContextMenuClick, that.dataTable);
 	}
 	that.fillFooter=function(div) { return; }
 	that.update=function() {
