@@ -3,13 +3,14 @@ PHEDEX.namespace('Widget.TransfersNode');
 
 PHEDEX.Page.Widget.TransfersNode=function(divid) {
   var site = document.getElementById(divid+'_select').value;
-  xfer_node = new PHEDEX.Widget.TransfersNode(divid,site);
+  xfer_node = new PHEDEX.Widget.TransfersNode(site,divid);
   xfer_node.update();
 }
 
-PHEDEX.Widget.TransfersNode=function(divid,site) {
+PHEDEX.Widget.TransfersNode=function(site,divid) {
+  if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width = 1000;
-  var that = new PHEDEX.Core.Widget(divid+'_display_'+site,null,{
+  var that = new PHEDEX.Core.Widget(divid+'_'+site,null,{
 		fixed_extra:false,
 		expand_children:false,
 		width:width,
@@ -222,7 +223,7 @@ debugger;
       }
       this.sum_hist(h);
       var rate = PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s';
-      var qual = this.format['%'](h.quality);
+      var qual = PHEDEX.Util.format['%'](h.quality);
       var done = PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes);
       var queue = PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue));
       var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[

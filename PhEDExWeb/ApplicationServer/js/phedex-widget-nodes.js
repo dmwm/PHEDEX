@@ -3,11 +3,12 @@ PHEDEX.namespace('Widget.Nodes');
 
 PHEDEX.Page.Widget.Nodes=function(divid) {
   var site = document.getElementById(divid+'_select').value;
-  var nodes = new PHEDEX.Widget.Nodes(divid,site);
+  var nodes = new PHEDEX.Widget.Nodes(site,divid);
   nodes.update();
 }
 
-PHEDEX.Widget.Nodes=function(divid,site) {
+PHEDEX.Widget.Nodes=function(site,divid) {
+	if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
 	var that=new PHEDEX.Core.Widget(divid+'_display',null,
 		{children:false,
 		 width:500,
@@ -56,11 +57,12 @@ PHEDEX.Widget.Nodes=function(divid,site) {
 		var site = oRecord.getData('Name')
                 switch(task.index) {
                   case 0:     // Show agents for node...
-		    var newAgent = new PHEDEX.Widget.Agents('Agents_auto_'+site,site);
+// 		    var newAgent = new PHEDEX.Widget.Agents('Agents_auto_'+site,site);
+		    var newAgent = new PHEDEX.Widget.Agents(site);
 		    newAgent.update();
 		    break;
                   case 1:     // Show links for node...
-		    var newLinks = new PHEDEX.Widget.TransfersNode('Transfers_auto_'+site,site);
+		    var newLinks = new PHEDEX.Widget.TransfersNode(site);
 		    newLinks.update();
 		    break;
                   case 2:     // Delete row upon confirmation

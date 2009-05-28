@@ -3,11 +3,12 @@ PHEDEX.namespace('Widget.Agents');
 
 PHEDEX.Page.Widget.Agents=function(divid) {
   var site = document.getElementById(divid+'_select').value;
-  var agent_node = new PHEDEX.Widget.Agents(divid,site);
+  var agent_node = new PHEDEX.Widget.Agents(site,divid);
   agent_node.update();
 }
 
-PHEDEX.Widget.Agents=function(divid,site) {
+PHEDEX.Widget.Agents=function(site,divid) {
+	if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
 	var that=new PHEDEX.Core.Widget(divid+'_'+site,null,
 		{
 		children:false,

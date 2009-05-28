@@ -2,13 +2,14 @@
 PHEDEX.namespace('Widget.RequestView');
 
 PHEDEX.Page.Widget.Requests=function(divid) {
-  var req = document.getElementById(divid+'_select').value;
-  req_node = new PHEDEX.Widget.RequestView(divid,req);
+  var request = document.getElementById(divid+'_select').value;
+  req_node = new PHEDEX.Widget.RequestView(request,divid);
   req_node.update();
 }
 
-PHEDEX.Widget.RequestView = function(divid,request) {
-  var that = new PHEDEX.Core.Widget(divid+'_display_'+request,null,
+PHEDEX.Widget.RequestView = function(request,divid) {
+  if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
+  var that = new PHEDEX.Core.Widget(divid+'_'+request,null,
 		{
 		children:false,
 		width:800,
@@ -35,7 +36,7 @@ PHEDEX.Widget.RequestView = function(divid,request) {
   that.fillHeader=function(div) {
     this.title.innerHTML='Request '+this.data.id;
     this.requestor.innerHTML=this.data.requested_by.username;
-    this.volume.innerHTML=this.data.data.files+' files / '+this.format['bytes'](this.data.data.bytes);
+    this.volume.innerHTML=this.data.data.files+' files / '+PHEDEX.Util.format['bytes'](this.data.data.bytes);
     this.status.innerHTML=this.approval();
     this.xfertype.innerHTML=this.classify();
   }
@@ -49,7 +50,7 @@ PHEDEX.Widget.RequestView = function(divid,request) {
     tmpLeaf.isLeaf = true;
 
     tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
-    var requestDetail = "Requested by "+this.data.requested_by.username+" ("+this.data.requested_by.name+") on "+this.format.date(this.data.time_create)+"<br/>DN: "+this.data.requested_by.dn+"<br/>Host: "+this.data.requested_by.host+" using "+this.data.requested_by.agent;
+    var requestDetail = "Requested by "+this.data.requested_by.username+" ("+this.data.requested_by.name+") on "+PHEDEX.Util.format.date(this.data.time_create)+"<br/>DN: "+this.data.requested_by.dn+"<br/>Host: "+this.data.requested_by.host+" using "+this.data.requested_by.agent;
     new YAHOO.widget.TextNode(requestDetail, tmpNode, false); 
 
     tmpNode = new YAHOO.widget.TextNode({label: this.approval(), expanded: false}, reqNode);
@@ -59,7 +60,7 @@ PHEDEX.Widget.RequestView = function(divid,request) {
       destinationDetail += "DESTINATION: "+d.name+"<br/>";
       if ( d.decided_by.decision == 'y' ) { destinationDetail += "Approved"; }
       else                                { destinationDetail += "Rejected"; }
-      destinationDetail += " by "+d.decided_by.username+" ("+d.decided_by.name+") on "+this.format.date(d.decided_by.time_decided);
+      destinationDetail += " by "+d.decided_by.username+" ("+d.decided_by.name+") on "+PHEDEX.Util.format.date(d.decided_by.time_decided);
     }
     new YAHOO.widget.TextNode(destinationDetail, tmpNode, false); 
 
@@ -68,7 +69,7 @@ PHEDEX.Widget.RequestView = function(divid,request) {
     for (var i in this.data.data.dbs.dataset) {
       var d = this.data.data.dbs.dataset[i];
       var b = new YAHOO.widget.TextNode({label: d.name, expanded: false}, tmpNode);
-      var t = " BlockID: "+d.id+", "+d.files+" files / "+this.format['bytes'](d.bytes);
+      var t = " BlockID: "+d.id+", "+d.files+" files / "+PHEDEX.Util.format['bytes'](d.bytes);
       tmpLeaf = new YAHOO.widget.TextNode(t, b, false);
       tmpLeaf.isLeaf = true;
     }
