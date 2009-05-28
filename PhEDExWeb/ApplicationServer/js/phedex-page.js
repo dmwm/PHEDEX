@@ -1,10 +1,11 @@
 // A page-manager. Creates pages from configuration objects, saves their defaults and creation order, allows for saving and restoring full pages (eventually)
 
 PHEDEX.namespace('Page.Widget','Page.Config.Elements','Page.Config.Order');
+PHEDEX.Page.Config.Count = 0;
 
 PHEDEX.Page.Create = function( config ) {
   if ( !config ) { config = Page.Config; }
-  if ( !PHEDEX.Page.Config.Count ) { PHEDEX.Page.Config.Count=0; }
+//   if ( !PHEDEX.Page.Config.Count ) { PHEDEX.Page.Config.Count=0; }
   var j = PHEDEX.Page.Config.Count;
   for ( var i in config )
   {
@@ -13,9 +14,8 @@ PHEDEX.Page.Create = function( config ) {
     if ( ! myDivId )
     {
       var pattern = /PHEDEX.Page.Widget./;
-      myDivId = call.replace(pattern,'') + '_widget_' + j;
+      myDivId = call.replace(pattern,''); // + '_widget_' + j;
     }
-    YAHOO.log('Create '+myDivId+' for '+call);
     var myDiv = PHEDEX.Util.findOrCreateWidgetDiv(myDivId);
 
     var input_box = document.createElement('input');
