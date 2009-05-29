@@ -8,7 +8,7 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // The callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense
-PHEDEX.Widget.TransferQueueBlock.Treeview_callback=function(node) {
+PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
   var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueBlocks.'+node.payload.args['from']+'.'+node.payload.args['to']);
   for (var i in link.transfer_queue )
   {
@@ -20,7 +20,8 @@ PHEDEX.Widget.TransferQueueBlock.Treeview_callback=function(node) {
       var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
       var text1 = "id:"+block.id+" files:"+block.files+" bytes:"+PHEDEX.Util.format.bytes(block.bytes);
       var tNode1 = new YAHOO.widget.TextNode({label: text1, expanded: false}, tNode);
-      tNode1.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.Treeview_callback }; // so I can use this in the callback
+//       that.textNodeMap[tNode1.labelElId] = tNode1;
+      tNode1.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
       tNode1.payload.args.from  = node.payload.args.from;
       tNode1.payload.args.to    = node.payload.args.to;
       tNode1.payload.args.block = block.name;
@@ -29,7 +30,7 @@ PHEDEX.Widget.TransferQueueBlock.Treeview_callback=function(node) {
 }
 
 // Treeview callback for the QueueFiles branches. These have no children, so do not construct payloads.
-PHEDEX.Widget.TransferQueueFiles.Treeview_callback=function(node) {
+PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
   var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueFiles.'+node.payload.args['from']+'.'+node.payload.args['to']);
   for (var block_name in link.byName )
   {
@@ -130,7 +131,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 	  {text:'Queued',width:200},
           {text:'Errors',width:100}
 	]});
-    this.tree = new YAHOO.widget.TreeView(div);
+    this.tree = new YAHOO.widget.TreeView(that.div_content);
     var currentIconMode=0;
 // turn dynamic loading on for entire tree:
     this.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
@@ -169,6 +170,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 
   that.fillBody=function(div) {
     var root = this.tree.getRoot();
+    that.textNodeMap = [];
     var antidirection='to';
     if (this.direction=='to') { antidirection='from'; }
     if ( !this.data_hist.length )
@@ -206,9 +208,10 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
           {text:e.num_errors,width:100}
 	]});
       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
+      that.textNodeMap[tNode.labelElId] = tNode;
 
 //    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level
-      tNode.payload = { call: 'TransferQueueBlocks', obj: this , args: {}, callback: PHEDEX.Widget.TransferQueueBlock.Treeview_callback }; // so I can use this in the callback
+      tNode.payload = { call: 'TransferQueueBlocks', obj: this , args: {}, callback: PHEDEX.Widget.TransferQueueBlock.callback_Treeview }; // so I can use this in the callback
       if (this.direction=='to') {
         tNode.payload.args.from = node;
         tNode.payload.args.to = this.site;
@@ -220,6 +223,47 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     that.tree.render(); //?
 //  Place the focus on the second node
     that.tree.root.children[1].focus();
+  }
+
+  that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
+//  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
+    var oTarget = this.contextEventTarget,
+	Dom = YAHOO.util.Dom,
+	oCurrentTextNode;
+
+    var oTextNode = Dom.hasClass(oTarget, "ygtvlabel") ?
+	oTarget : Dom.getAncestorByClassName(oTarget, "ygtvlabel");
+
+    if (oTextNode) {
+      var tNodeMap  = that.textNodeMap;
+      oCurrentTextNode = that.textNodeMap[oTextNode.id];
+    }
+    else {
+// Cancel the display of the ContextMenu instance.
+      this.cancel();
+      return;
+    }
+    if ( oCurrentTextNode )
+    {
+      var direction = oCurrentTextNode.payload.obj.direction;
+      if ( direction == 'to' ) { direction = 'from'; } // point the other way...
+      else		     { direction = 'to'; }
+      var selected_site = oCurrentTextNode.payload.args[direction];
+      YAHOO.log('PHEDEX.Widget.TransferNode: ContextMenu: '+direction+' '+selected_site);
+      var task = p_aArgs[1];
+      if (task) {
+	      this.payload[task.index](selected_site);
+      }
+    }
+  }
+
+  that.postPopulate = function() {
+    YAHOO.log('PHEDEX.Widget.TransfersNode: postPopulate');
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create('Links',{trigger:that.div_content});
+    PHEDEX.Core.ContextMenu.Build(that.contextMenu,'Node');
+//     PHEDEX.Core.ContextMenu.Build(that.contextMenu,'Links');
+    that.contextMenu.render(that.div_content);
+    that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
   }
 
   that.sum_hist=function(h) {
@@ -245,50 +289,6 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       h.quality /= h.transfer.length;
     }
   }
-//   that.buildChildren=function(div) {
-//     this.markChildren();
-//     if (this.direction=='to') var antidirection='from';
-//     else var antidirection='to';
-//     for (var i in this.data_hist) {
-//       var h = this.data_hist[i];
-//       var node = h[antidirection];
-//       var d = {};
-//       var e={num_errors:0};
-//       for (var j in this.data_queue) {
-//         if (this.data_queue[j][antidirection]==node) {
-//           d = this.data_queue[j];
-//           break;
-//         }
-//       }
-//       for (var j in this.data_error) {
-//         if (this.data_error[j][antidirection]==node) {
-//           e = this.data_error[j];
-//         }
-//       }
-//       var id = this.id+'_'+this.direction+'_'+node;
-//       var child = this.getChild(id);
-//       if (child) {
-//         child.data_queue=d['transfer_queue'];
-//         child.data_hist=h;
-//         child.data_error=e;
-//         child.marked=false;
-//         child.update();
-//       } else {
-//         var childdiv = document.createElement('div');
-//         childdiv.id = id;
-//         div.appendChild(childdiv);
-//         var childnode = new PHEDEX.Widget.LinkNode(node,this.direction,this,childdiv,d['transfer_queue'],h,e);
-//         this.children.push(childnode);
-//         childnode.update();
-//       }
-//     }
-//     this.removeMarkedChildren();
-//     if (this.children.length==0) {
-//       this.children_info_none.innerHTML='No children returned';
-//     } else {
-//       this.children_info_none.innerHTML='';
-//     }
-//   }
 
   that.sum_queue_files=function(q) {
     var fsum=0;
@@ -310,6 +310,33 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     return parseInt(sum_bytes)/parseInt(h.transfer[0].binwidth);
   }
 
+function mouseOverHandler(e) {
+//get the resolved (non-text node) target:
+  var elTarget = YAHOO.util.Event.getTarget(e);
+  if ( e.type == 'mouseover' ) {
+    elTarget.style.backgroundColor = 'yellow';
+  } else {
+    elTarget.style.backgroundColor = null;
+  }
+// the rest here shows how to walk up the DOM to the element I'm interested in
+   while (elTarget.id != that.div_content.id) {
+//     if(elTarget.nodeName.toUpperCase() == "LI") {
+//       YAHOO.log("The moused element id/name is " + elTarget.id+", "+elTarget.nodeName, "info", "clickExample");
+//       break;
+//     } else {
+      elTarget = elTarget.parentNode;
+//     }
+  }
+//   YAHOO.log("Top container reached..", "info", "clickExample");
+
+}
+YAHOO.util.Event.on(that.div_content, "mouseover", mouseOverHandler);
+YAHOO.util.Event.on(that.div_content, "mouseout", mouseOverHandler);
+
   that.build();
+  that.onPopulateComplete.subscribe(that.postPopulate);
   return that;
 }
+
+// What can I respond to...?
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(selected_site) { PHEDEX.Widget.TransfersNode(selected_site).update(); });

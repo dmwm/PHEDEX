@@ -67,6 +67,24 @@ PHEDEX.Widget.Agents=function(site,divid) {
 	    that.populate();
 	    }
 	}
+
+//	Gratuitously flash yellow when the mouse goes over the rows
+	that.onRowMouseOut = function(event) {
+	  event.target.style.backgroundColor = null;
+	}
+	that.onRowMouseOver = function(event) {
+	  event.target.style.backgroundColor = 'yellow';
+        }
+	that.postPopulate = function() {
+	  YAHOO.log('PHEDEX.Widget.Agents: postPopulate');
+          that.dataTable.subscribe('rowMouseoverEvent',that.onRowMouseOver);
+          that.dataTable.subscribe('rowMouseoutEvent', that.onRowMouseOut);
+	}
+
 	that.build();
+	that.onPopulateComplete.subscribe(that.postPopulate);
 	return that;
 }
+
+// What can I respond to...?
+PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(selected_site) { PHEDEX.Widget.Agents(selected_site).update(); });
