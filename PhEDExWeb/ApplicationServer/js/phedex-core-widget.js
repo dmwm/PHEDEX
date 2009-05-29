@@ -125,10 +125,12 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   }
 
   this.populate=function() {
+    this.onUpdateComplete.fire();
     this.fillHeader(this.div_header);
     this.fillBody(this.div_content);
     this.fillFooter(this.div_footer);
     this.finishLoading();
+    this.onPopulateComplete.fire();
   }
 
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
@@ -139,9 +141,6 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.fillBody=function(div) {}
   this.deleteBodyContent=function(div) {}
 
-//   this.buildExtra=function(div) {}
-//   this.fillExtra=function(div) {}
-  
   this.buildFooter=function(div) {}
   this.fillFooter=function(div) {}
   
@@ -150,62 +149,36 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   {
     this.progress_img.style.display='block';
     this.panel.close.style.display='none';
+    this.onLoadingBegin.fire();
   }
   this.finishLoading=function()
   {
     this.progress_img.style.display='none';
     this.panel.close.style.display='block';
+    this.onLoadingComplete.fire();
   }
 
 // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, body and footer. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
-/*  this.format={
-    bytes:function(raw) {
-      var f = parseFloat(raw);
-      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TB';
-      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GB';
-      if (f>=1048576) return (f/1048576).toFixed(1)+' MB';
-      if (f>=1024) return (f/1024).toFixed(1)+' KB';
-      return f.toFixed(1)+' B';
-    },
-    '%':function(raw) {
-      return (100*parseFloat(raw)).toFixed(2)+'%';
-    },
-    block:function(raw) {
-      if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    },
-    file:function(raw) {
-      if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    },
-    date:function(raw) {
-      var d =new Date(parseFloat(raw)*1000); 
-      return d.toGMTString();
-    },
-    dataset:function(raw) {
-      if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    }
-  };*/
+
+// A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
+  this.onBuildComplete    = new YAHOO.util.CustomEvent("onBuildComplete");
+  this.onPopulateBegin    = new YAHOO.util.CustomEvent("onPopulateBegin");
+  this.onPopulateComplete = new YAHOO.util.CustomEvent("onPopulateComplete");
+  this.onUpdateBegin      = new YAHOO.util.CustomEvent("onUpdateBegin");
+  this.onUpdateComplete   = new YAHOO.util.CustomEvent("onUpdateComplete");
+  this.onLoadingBegin     = new YAHOO.util.CustomEvent("onLoadingBegin");
+  this.onLoadingComplete  = new YAHOO.util.CustomEvent("onLoadingComplete");
+  this.onResizeComplete   = new YAHOO.util.CustomEvent("onResizeComplete");
+
   this.panel.render();
+
 // Create a (usually hidden) progress indicator.
   this.progress_img = document.createElement('img');
   this.progress_img.src = '/images/progress.gif';
   this.progress_img.className = 'node-progress';
-//   this.div_header.innerHTML = 'Loading...';
   this.div_header.appendChild(this.progress_img);
+
   this.startLoading();
+  return this;
 }

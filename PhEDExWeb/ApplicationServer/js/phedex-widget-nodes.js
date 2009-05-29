@@ -39,8 +39,10 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	  that.dataSource.responseSchema = { fields: {} };
 	  for (var i in that.columnDefs) { that.dataSource.responseSchema.fields[i] = that.columnDefs[i].key; }
 	  that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, { draggableColumns:true });
+	}
 
-	  var onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
+	that.onContextMenuClick = function(p_sType, p_aArgs, p_myDataTable) {
+	  var label = p_aArgs[0].explicitOriginalTarget.textContent;
           var task = p_aArgs[1];
           if(task) {
 // 	  Extract which TR element triggered the context menu
@@ -48,34 +50,36 @@ PHEDEX.Widget.Nodes=function(site,divid) {
             elRow = p_myDataTable.getTrEl(elRow);
               if(elRow) {
                 var oRecord = p_myDataTable.getRecord(elRow);
-		var site = oRecord.getData('Name')
-                switch(task.index) {
-                  case 0:     // Show agents for node...
-// 		    var newAgent = new PHEDEX.Widget.Agents('Agents_auto_'+site,site);
-		    var newAgent = new PHEDEX.Widget.Agents(site);
-		    newAgent.update();
-		    break;
-                  case 1:     // Show links for node...
-		    var newLinks = new PHEDEX.Widget.TransfersNode(site);
-		    newLinks.update();
-		    break;
-                  case 2:     // Delete row upon confirmation
-                    if(confirm("Are you sure you want to delete site " +oRecord.getData('Name')+"?")) {
-                      p_myDataTable.deleteRow(elRow);
-                    }
-		    break;
-                }
+		var selected_site = oRecord.getData('Name')
+		YAHOO.log('ContextMenu: "'+label+'" for '+selected_site);
+		this.payload[task.index](selected_site);
+//                 switch(task.index) {
+//                   case 2:     // Delete row upon confirmation
+//                     if(confirm("Are you sure you want to delete site " +oRecord.getData('Name')+"?")) {
+//                       p_myDataTable.deleteRow(elRow);
+//                     }
+// 		    break;
+//                 }
               }
             }
-          };
-          var myContextMenu = new YAHOO.widget.ContextMenu("mycontextmenu",
-                {trigger:that.dataTable.getTbodyEl()});
-          myContextMenu.addItem("Show Agents");
-          myContextMenu.addItem("Show Links for site");
-          myContextMenu.addItem("Delete Item");
+          }
+	that.callback_ShowAgents=function(selected_site) {
+	  var newAgent = new PHEDEX.Widget.Agents(selected_site);
+	  newAgent.update();
+	}
+	that.callback_ShowLinks=function(selected_site) {
+	  var newLinks = new PHEDEX.Widget.TransfersNode(selected_site);
+	  newLinks.update();
+	}
+	that.postPopulate = function() {
+	  YAHOO.log('PHEDEX.Widget.Nodes: postPopulate');
+	  PHEDEX.Core.ContextMenu.Create('Node',{trigger:that.dataTable.getTbodyEl()});
+	  PHEDEX.Core.ContextMenu.Add('Node','Show Agents',that.callback_ShowAgents);
+	  PHEDEX.Core.ContextMenu.Add('Node','Show Links',that.callback_ShowLinks);
 //        Render the ContextMenu instance to the parent container of the DataTable
-          myContextMenu.render(that.div_content);
-          myContextMenu.clickEvent.subscribe(onContextMenuClick, that.dataTable);
+	  that.contextMenu = PHEDEX.Core.ContextMenu.Build('Node');
+          that.contextMenu.render(that.div_content);
+          that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.dataTable);
 	}
 	that.fillFooter=function(div) { return; }
 	that.update=function() {
@@ -85,6 +89,7 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	  that.data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
 	  that.populate();
 	}
+	that.onPopulateComplete.subscribe(that.postPopulate);
 	that.build();
 	return that;
 }
