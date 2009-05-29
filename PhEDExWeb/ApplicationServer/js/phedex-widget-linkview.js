@@ -237,7 +237,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       h.expire_files += parseInt(h.transfer[i].expire_files);
       h.binwidth     += parseInt(h.transfer[i].binwidth);
       h.quality      += parseFloat(h.transfer[i].quality);
-//       if ( isNaN(h.quality) ) { h.quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
+      if ( isNaN(h.quality) ) { h.quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
     }
     if ( h.binwidth && h.transfer.length )
     {
