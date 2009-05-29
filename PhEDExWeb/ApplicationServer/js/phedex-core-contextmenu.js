@@ -8,23 +8,22 @@ PHEDEX.Core.ContextMenu.Create=function(name,trigger) {
   if ( !PHEDEX.Core.ContextMenu.menus[name] )
   {
     PHEDEX.Core.ContextMenu.menus[name] = new YAHOO.widget.ContextMenu("contextmenu_"+name,trigger);
-    PHEDEX.Core.ContextMenu.items[name] = [];
   }
+  return PHEDEX.Core.ContextMenu.menus[name];
 }
 
 PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
+  if ( !PHEDEX.Core.ContextMenu.items[name] ) { PHEDEX.Core.ContextMenu.items[name] = []; }
   PHEDEX.Core.ContextMenu.items[name].push( { label:label, callback:callback } );
 }
 
-PHEDEX.Core.ContextMenu.Build=function(name) {
-  var m = PHEDEX.Core.ContextMenu.menus[name];
-  m.clearContent();
-  m.payload = [];
+PHEDEX.Core.ContextMenu.Build=function(menu,name) {
+  menu.clearContent();
+  menu.payload = [];
   var l = PHEDEX.Core.ContextMenu.items[name];
   for (var i in l)
   {
-    m.addItem(l[i].label);
-    m.payload[i] = l[i].callback;
+    menu.addItem(l[i].label);
+    menu.payload[i] = l[i].callback;
   }
-  return m;
 }
