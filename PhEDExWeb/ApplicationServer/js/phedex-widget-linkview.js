@@ -331,7 +331,7 @@ function mouseOverHandler(e) {
 
 }
 YAHOO.util.Event.on(that.div_content, "mouseover", mouseOverHandler);
-YAHOO.util.Event.on(that.div_content, "mouseout", mouseOverHandler);
+YAHOO.util.Event.on(that.div_content, "mouseout",  mouseOverHandler);
 
   that.build();
   that.onPopulateComplete.subscribe(that.postPopulate);
@@ -339,4 +339,4 @@ YAHOO.util.Event.on(that.div_content, "mouseout", mouseOverHandler);
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(selected_site) { PHEDEX.Widget.TransfersNode(selected_site).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args) { PHEDEX.Widget.TransfersNode(args.selected_site).update(); });

@@ -87,4 +87,4 @@ PHEDEX.Widget.Agents=function(site,divid) {
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(selected_site) { PHEDEX.Widget.Agents(selected_site).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(args) { PHEDEX.Widget.Agents(args.selected_site).update(); });
