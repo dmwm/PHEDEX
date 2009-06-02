@@ -157,6 +157,12 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.panel.close.style.display='block';
     this.onLoadingComplete.fire();
   }
+  this.failedLoading=function()
+  {
+    this.progress_img.style.display='none';
+    this.panel.close.style.display='block';
+    this.onLoadingFailed.fire();
+  }
 
 // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, body and footer. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
@@ -169,6 +175,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.onUpdateComplete   = new YAHOO.util.CustomEvent("onUpdateComplete");
   this.onLoadingBegin     = new YAHOO.util.CustomEvent("onLoadingBegin");
   this.onLoadingComplete  = new YAHOO.util.CustomEvent("onLoadingComplete");
+  this.onLoadingFailed    = new YAHOO.util.CustomEvent("onLoadingFailed");
   this.onResizeComplete   = new YAHOO.util.CustomEvent("onResizeComplete");
 
   this.panel.render();
