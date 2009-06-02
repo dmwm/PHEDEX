@@ -27,6 +27,7 @@ Changes for Site Agents:
 
 Changes for Site Tools:
  - ErrorQuery:  --lfn option to list the lfns affected by the errors found
+ - Master:  add 'clean' command for removing state directories
 
 Bugfixes for Central Agents:
  - protect against file deletion vs. file transfer race conditions
