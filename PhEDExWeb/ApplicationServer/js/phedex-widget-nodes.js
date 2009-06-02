@@ -20,25 +20,93 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	that.fillHeader=function(div) {
 	  div.innerHTML = 'PHEDEX Nodes: '+this.data.length+" sites found...";
 	}
-	that.fillBody=function(div) {
-          var table = [];
-	  for (var i in that.data) {
-	    var a = that.data[i];
-            var y = { ID:a['id'], Name:a['name'], Kind:a['kind'], Technology:a['technology'], SE:a['se'] };
-            table.push( y );
-          }
-          that.columnDefs = [
+	that.buildBody=function(div) {
+         that.columnDefs = [
 	            {key:"ID", sortable:true, resizeable:true},
 	            {key:"Name", sortable:true, resizeable:true},
 	            {key:"Kind", sortable:true, resizeable:true},
 	            {key:"Technology", sortable:true, resizeable:true},
 	            {key:"SE", sortable:true, resizeable:true},
 	        ];
+          that.dataSource = new YAHOO.util.LocalDataSource();//table);
+	  that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource,
+	  			 { draggableColumns:true, initialLoad:false });
+	}
+	that.fillBody=function(div) {
+          var table = [];
+	  for (var i in that.data) {
+	    var a = that.data[i];
+// Rather than fill by-hand and duplicate key-names, I take them from the columnDefs. This makes the code more generic.
+//             var y = { ID:a['id'], Name:a['name'], Kind:a['kind'], Technology:a['technology'], SE:a['se'] };
+	    var y = [];
+	    for (var j in that.columnDefs )
+	    {
+	      var k = that.columnDefs[j].key;
+	      y[k] = a[k.toLowerCase()];
+	    }
+            table.push( y );
+          }
           that.dataSource = new YAHOO.util.DataSource(table);
-	  that.dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
-	  that.dataSource.responseSchema = { fields: {} };
-	  for (var i in that.columnDefs) { that.dataSource.responseSchema.fields[i] = that.columnDefs[i].key; }
-	  that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, { draggableColumns:true });
+	  var oCallback = {
+	    success : that.dataTable.onDataReturnInitializeTable,
+	    failure : that.dataTable.onDataReturnInitializeTable,
+	    scope : that.dataTable
+	  };
+	  that.dataSource.sendRequest('', oCallback);
+
+	  var menu = new YAHOO.widget.Menu('nowhere');
+	  var showColumns = new YAHOO.widget.Button(
+	    {
+	      type: "split",
+	      label: "Show all columns",
+	      name: "showColumnsButton",
+	      menu: menu,
+	      container: that.div_header,
+	      disabled:true
+	    }
+	  );
+	  var dt = that.dataTable;
+	  showColumns.on("click", function () {
+	    var m = menu.getItems();
+	    for (var i = 0; i < m.length; i++) {
+	      dt.showColumn(dt.getColumn(m[i].value));
+	    }
+	    menu.clearContent();
+	    refreshButton();
+	  });
+
+	  showColumns.on("appendTo", function () {
+	    var m = this.getMenu();
+	    m.subscribe("click", function onMenuClick(sType, oArgs) {
+	      var oMenuItem = oArgs[1]; 
+	      if (oMenuItem) {
+	        that.dataTable.showColumn(dt.getColumn(oMenuItem.value));
+	        m.removeItem(oMenuItem.index);
+	        refreshButton();
+	      }
+	    });
+	  });
+
+	  var refreshButton = function() {
+	    if (YAHOO.util.Dom.inDocument('nowhere')) {
+	      menu.render();
+	    } else {
+	      menu.render(document.body);
+	    }
+	  showColumns.set('disabled', menu.getItems().length === 0);
+	  };
+	  
+	  that.dataTable.subscribe('columnHideEvent', function(ev) {
+				var column = this.getColumn(ev.column);
+				menu.addItem({text: column.label || column.key,value:column.key});
+				refreshButton();
+			} );
+	  that.dataTable.subscribe('renderEvent', function() {
+	    var p = that.panel;
+	    var t = this.getTableEl();
+	    var x = t.clientWidth;
+	    p.cfg.setProperty('width',x+25+'px');
+	  });
 	}
 
 	that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
@@ -46,30 +114,32 @@ PHEDEX.Widget.Nodes=function(site,divid) {
           var task = p_aArgs[1];
           if(task) {
 // 	  Extract which TR element triggered the context menu
-            var elRow = this.contextEventTarget;
-            elRow = p_DataTable.getTrEl(elRow);
+            var tgt = this.contextEventTarget;
+	    var elCol = p_DataTable.getColumn(tgt);
+            var elRow = p_DataTable.getTrEl(tgt);
             if(elRow) {
               var oRecord = p_DataTable.getRecord(elRow);
 	      var selected_site = oRecord.getData('Name')
 	      YAHOO.log('PHEDEX.Widget.Nodes: ContextMenu: "'+label+'" for '+selected_site);
-	      this.payload[task.index](selected_site);
+	      this.payload[task.index]({table:p_DataTable,
+	      				  row:elRow,
+					  col:elCol,
+				selected_site:selected_site});
             }
           }
         }
 	that.onRowMouseOut = function(event) {
 	  event.target.style.backgroundColor = null;
-// 	  YAHOO.log('onRowMouseOut: ');
 	}
 	that.onRowMouseOver = function(event) {
 	  event.target.style.backgroundColor = 'yellow';
-// 	  YAHOO.log('onRowMouseOver: ');
         }
 
 	that.postPopulate = function() {
 	  YAHOO.log('PHEDEX.Widget.Nodes: postPopulate');
 	  that.contextMenu = PHEDEX.Core.ContextMenu.Create('Node',{trigger:that.dataTable.getTbodyEl()});
-	  PHEDEX.Core.ContextMenu.Build(that.contextMenu,'Node');
-          that.contextMenu.render(that.div_content);
+	  PHEDEX.Core.ContextMenu.Build(that.contextMenu,'Node','dataTable');
+          that.contextMenu.render(document.body); // that.div_body);
           that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.dataTable);
           that.dataTable.subscribe('rowMouseoverEvent',that.onRowMouseOver);
           that.dataTable.subscribe('rowMouseoutEvent', that.onRowMouseOut);
