@@ -73,6 +73,8 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	    }
 	    menu.clearContent();
 	    refreshButton();
+	    debugger;
+	    that.resizePanel(that.dataTable);
 	  });
 
 	  showColumns.on("appendTo", function () {
@@ -84,6 +86,7 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	        m.removeItem(oMenuItem.index);
 	        refreshButton();
 	      }
+	      that.resizePanel(that.dataTable);
 	    });
 	  });
 
@@ -101,12 +104,11 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 				menu.addItem({text: column.label || column.key,value:column.key});
 				refreshButton();
 			} );
-	  that.dataTable.subscribe('renderEvent', function() {
-	    var p = that.panel;
-	    var t = this.getTableEl();
-	    var x = t.clientWidth;
-	    p.cfg.setProperty('width',x+25+'px');
-	  });
+	  that.resizePanel=function(table) {
+	    var x = table.getTableEl().clientWidth;
+	    that.panel.cfg.setProperty('width',x+25+'px');
+	  }
+	  that.dataTable.subscribe('renderEvent', function() { that.resizePanel(dt); } );
 	}
 
 	that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
