@@ -5,11 +5,14 @@ PHEDEX.Core.ContextMenu.menus = [];
 PHEDEX.Core.ContextMenu.items = [];
 
 PHEDEX.Core.ContextMenu.Create=function(name,trigger) {
-  if ( !PHEDEX.Core.ContextMenu.menus[name] )
+  var m = PHEDEX.Core.ContextMenu.menus[name];
+  if ( !m )
   {
-    PHEDEX.Core.ContextMenu.menus[name] = new YAHOO.widget.ContextMenu("contextmenu_"+name,trigger);
+    m = new YAHOO.widget.ContextMenu("contextmenu_"+name,trigger);
+    m.cfg.setProperty('zindex',10);
+    PHEDEX.Core.ContextMenu.menus[name] = m;
   }
-  return PHEDEX.Core.ContextMenu.menus[name];
+  return m;
 }
 
 PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
@@ -17,13 +20,27 @@ PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
   PHEDEX.Core.ContextMenu.items[name].push( { label:label, callback:callback } );
 }
 
-PHEDEX.Core.ContextMenu.Build=function(menu,name) {
+PHEDEX.Core.ContextMenu.Build=function(menu) {
   menu.clearContent();
   menu.payload = [];
-  var l = PHEDEX.Core.ContextMenu.items[name];
-  for (var i in l)
+
+  var idx = 1;
+  var name;
+  while (idx < PHEDEX.Core.ContextMenu.Build.arguments.length)
   {
-    menu.addItem(l[i].label);
-    menu.payload[i] = l[i].callback;
+    name = PHEDEX.Core.ContextMenu.Build.arguments[idx++];
+    var l = PHEDEX.Core.ContextMenu.items[name];
+    for (var i in l)
+    {
+      menu.addItem(l[i].label);
+      menu.payload.push(l[i].callback);
+    }
   }
 }
+
+// some default contexts...
+PHEDEX.Core.ContextMenu.hideColumn=function(args) {
+  YAHOO.log('hideColumn: '+args.col.key);
+  args.table.hideColumn(args.col);
+}
+PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column',PHEDEX.Core.ContextMenu.hideColumn);
