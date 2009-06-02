@@ -31,6 +31,8 @@ PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
 		'GET',
 		'/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api,
 		{success:PHEDEX.Datasvc.Callback,
+		 failure:PHEDEX.Datasvc.Callback,
+		 timeout: 30000,
 		 argument:{obj:obj,datasvc:datasvc,callback:callback,api:api}
 		}
 	);
@@ -50,20 +52,22 @@ PHEDEX.Datasvc.Callback = function(response) {
   if ( response.status == 200 )
   {
     YAHOO.log('Datasvc: GOT '+response.status+'('+response.statusText+') '+response.argument.api);
+// TODO This should be handled by a JSON parser, rather than an eval
+    data = eval('('+data+')');
+
+// TODO should handle the cache-control with response.getResponseHeader['Cache-Control']
+    data = data['phedex'];
+    if ( typeof(data) === 'object' ) { // barely adequate error-checking! Should also use response-headers
+      response.argument.datasvc(data,response.argument.obj);
+      response.argument.callback(data,response.argument.obj);
+    }
   }
   else
   {
-    YAHOO.log('Datasvc: GOT '+response.status+'('+response.statusText+') '+response.argument.api,'warn');
+    YAHOO.log('Datasvc: GOT '+response.status+'['+response.statusText+'] '+response.argument.api,'warn');
     YAHOO.log('Datasvc: '+response.responseText,'warn');
-  }
-// TODO This should be handled by a JSON parser, rather than an eval
-  data = eval('('+data+')');
-
-// TODO should handle the cache-control with response.getResponseHeader['Cache-Control']
-  data = data['phedex'];
-  if ( typeof(data) === 'object' ) { // barely adequate error-checking! Should also use response-headers
-    response.argument.datasvc(data,response.argument.obj);
-    response.argument.callback(data,response.argument.obj);
+    response.argument.obj.failedLoading();
+    response.argument.callback({},response.argument.obj);
   }
 }
 
