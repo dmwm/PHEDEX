@@ -195,7 +195,7 @@ sub poll_queue
 die "I do not want to be here...";
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_QUEUE_POSTBACK},
-                             { TIMEOUT => $self->{Q_TIMEOUT}, KEEP_OUTPUT => 1 },
+                             { LOGFILE => '/dev/null', TIMEOUT => $self->{Q_TIMEOUT}, KEEP_OUTPUT => 1 },
                              $self->{Q_INTERFACE}->Command('ListQueue')
                            );
 }
@@ -275,7 +275,8 @@ sub poll_job
   $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_JOB_POSTBACK},
-                             { FTSJOB => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             { FTSJOB => $job, LOGFILE => '/dev/null', 
+			       KEEP_OUTPUT => 1, TIMEOUT => $self->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('ListJob',$job)
                            );
 
@@ -442,7 +443,7 @@ sub report_job
   {
     $self->Dbgmsg('Log for ',$job->ID,"\n",
 		  $job->Log,
-		  '\nLog ends for ',$job->ID,"\n") if $self->{DEBUG};
+		  "\n",'Log ends for ',$job->ID,"\n") if $self->{DEBUG};
   }
 
 # Now I should take detailed action on any errors...
@@ -585,7 +586,7 @@ sub QueueJob
   $self->{JOBS}{$job->{ID}} = $job;
   $self->{JOBMANAGER}->addJob(
                              undef,
-                             { FTSJOB => $job, TIMEOUT => $self->{Q_TIMEOUT} },
+                             { FTSJOB => $job, LOGFILE => '/dev/null', TIMEOUT => $self->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('SetPriority',$job)
                            );
 }
