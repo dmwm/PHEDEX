@@ -187,11 +187,17 @@ POE::Component::Server::TCP->new
                                       $error = "failed to open $file: $!";
                                       goto DONE;
                                     };
-	  if ( $file =~ m%\.css$% )
-	  {
-	    $h->{'Content-type'} = 'text/css';
-	  }
-	  binmode DATA if ! is_text($file);# !~ m%(.txt|.htm|.html|.css|.js)$%;
+	  $h->{'Content-type'} = 'text/html';
+	  $file  =~ m%\.([^\.]+)$%;
+	  my $ext = $1;
+	  my $type = {	'css'	=> 'text/css',
+			'gif'	=> 'image/gif',
+			'png'	=> 'image/png',
+			'jpeg'	=> 'image/jpg',
+			'jpg'	=> 'image/jpg',
+		     }->{$ext};
+	  $h->{'Content-type'} = $type if $type;
+	  binmode DATA if ! is_text($file);
 	  while ( read(DATA,$buf,4096) ) { $data .= $buf; } 
           close DATA;
 DONE:
@@ -245,16 +251,9 @@ DONE:
           }
           else { $response = HTTP::Response->new(200); }
 
-#	  if ( ! $h->{'Content-type'} )
-#	  { $h->{'Content-type'} = 'text/html'; }
-#	  if ( ! $h->{'Content-length'} )
-#	  { $h->{'Content-length'} = length($data); }
-#	  $response->push_header( 'Content-type', 'text/html' );
-#	  $response->push_header( 'Content-length', length($data) );
-#	  $response->push_header( 'Max-age', $expires );
 	  $response->header( 'Content-type', 'text/html' );
 	  $response->header( 'Content-length', length($data) );
-	  $response->header(%{$h});
+	  $response->header( %{$h} ); # Override with or append our headers
 	  $response->content($data);
 	  $heap->{client}->put($response);
 	  $kernel->yield("shutdown");
