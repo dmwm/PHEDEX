@@ -134,4 +134,158 @@ sub auth_nodes
     }
 }
 
+=pod
+
+=head1 NAME
+
+PHEDEX::Web::Util::formatter -- format SQL output into a hierachical
+
+=head1 DESCRIPTION
+
+Turn SQL result in a flat hash into hierachical structure defined by
+the mapping
+
+=head2 Syntax
+
+=head3 input: a flat hash
+
+        INPUT ::= { ELEMENT_LIST }
+ ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
+      ELEMENT ::= KEY => VALUE
+          KEY ::= identifier
+        VALUE ::= string | number
+
+=head3 mapping:
+
+          MAP ::= { _KEY => KEY, ELEMENT_LIST }
+ ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
+      ELEMENT ::= KEY => VALUE
+          KEY ::= identifier
+        VALUE ::= string | number | MAP
+
+=head3 output:
+
+ OUTPUT ::= [ ELEMENT_LIST ]
+ ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
+ ELEMENT ::= HASH
+ HASH ::= { HASH_ELEMENT_LIST }
+ HASH_ELEMENT_LIST ::= HASH_ELEMENT | HASH_ELEMENT_LIST , HASH_ELEMENT
+ HASH_ELEMENT ::= KEY => VALUE
+ KEY ::= identifier
+ VALUE ::= string | number | OUTPUT
+
+=cut
+
+# build_hash -- according to the map, build a structure out of input
+# 
+#  input: a flat hash
+# 
+#         INPUT ::= { ELEMENT_LIST }
+#  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
+#       ELEMENT ::= KEY => VALUE
+#           KEY ::= identifier
+#         VALUE ::= string | number
+# 
+#  mapping:
+# 
+#           MAP ::= { _KEY => KEY, ELEMENT_LIST }
+#  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
+#       ELEMENT ::= KEY => VALUE
+#           KEY ::= identifier
+#         VALUE ::= string | number | MAP
+# 
+#  output:
+# 
+#  OUTPUT ::= [ ELEMENT_LIST ]
+#  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
+#  ELEMENT ::= HASH
+#  HASH ::= { HASH_ELEMENT_LIST }
+#  HASH_ELEMENT_LIST ::= HASH_ELEMENT | HASH_ELEMENT_LIST , HASH_ELEMENT
+#  HASH_ELEMENT ::= KEY => VALUE
+#  KEY ::= identifier
+#  VALUE ::= string | number | OUTPUT
+# 
+sub build_hash
+{
+    my ($map, $input, $output) = @_;
+    my $k;
+
+    # the $map must be a hash reference
+    if (ref($map) eq "HASH")
+    {
+        # if there is an element witht the key
+        my $key = $input->{$map->{_KEY}};
+
+        if (exists $output->{$key})
+        {
+            foreach $k (keys %{$map})
+            {
+                if (ref($map->{$k}) eq "HASH")
+                {
+                    build_hash($map->{$k}, $input, $output->{$key}->{$k});
+                }
+            }
+        }
+        else
+        {
+            $output->{$key} = {};
+            foreach $k (keys %{$map})
+            {
+                if ($k ne "_KEY")
+                {
+                    if (ref($map->{$k}) eq "HASH")
+                    {
+                        $output->{$key}->{$k} = {};
+                        build_hash($map->{$k}, $input, $output->{$key}->{$k});
+                    }
+                    else
+                    {
+                        $output->{$key}->{$k} = $input->{$map->{$k}};
+                    }
+                }
+            }
+
+        }
+    }
+    else
+    {
+        # this is an error
+        die "error parsing structure definition";
+    }
+}
+
+# hash2list -- recurrsively turn hash into a list of its values
+sub hash2list
+{
+    my $h = shift;
+    my ($k, $v, $k1);
+    my @r;
+
+    while (($k, $v) = each (%$h))
+    {
+        foreach $k1 (keys %$v)
+        {
+            if (ref($v->{$k1}) eq "HASH")
+            {
+                $h->{$k}->{$k1} = hash2list($v->{$k1});
+            }
+        }
+        push @r, $h->{$k};
+    }
+    return \@r;
+}
+
+# formatter -- turn list of flat hash into list of structed list of hash        
+sub formatter
+{
+    my ($map, $input) = @_;
+    my $out = {};
+    foreach(@$input)
+    {
+        build_hash($map, $_, $out);
+    }
+    return hash2list($out);
+}
+
+
 1;
