@@ -114,7 +114,7 @@ POE::Component::Server::TCP->new
 
     ClientInput => sub {
         my ( $kernel, $heap, $request ) = @_[ KERNEL, HEAP, ARG0 ];
-	my ($buf,$data,$n,$error);
+	my ($buf,$data,$n,$error,$h);
 
         if ( $request->isa("HTTP::Response") ) {
             $heap->{client}->put($request);
@@ -187,6 +187,10 @@ POE::Component::Server::TCP->new
                                       $error = "failed to open $file: $!";
                                       goto DONE;
                                     };
+	  if ( $file =~ m%\.css$% )
+	  {
+	    $h->{'Content-type'} = 'text/css';
+	  }
 	  binmode DATA if ! is_text($file);# !~ m%(.txt|.htm|.html|.css|.js)$%;
 	  while ( read(DATA,$buf,4096) ) { $data .= $buf; } 
           close DATA;
@@ -199,7 +203,8 @@ DONE:
             next unless $file =~ m%$_%;
             $expires = $expires{$_} if $expires{$_} > $expires;
           }
-          $kernel->yield( 'send_response', $data, $error, $expires );
+	  $h->{'Max-age'} = $expires;
+          $kernel->yield( 'send_response', $data, $error, $h );
           return;
         }
 
@@ -228,7 +233,7 @@ DONE:
     InlineStates => {
 	'send_response' => sub
 	{
-	  my ($self,$kernel,$heap,$data,$error,$expires) =
+	  my ($self,$kernel,$heap,$data,$error,$h) =
 		 @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1, ARG2 ];
 	  my $request_fields = '';
 	  my $response;
@@ -240,9 +245,16 @@ DONE:
           }
           else { $response = HTTP::Response->new(200); }
 
-	  $response->push_header( 'Content-type', 'text/html' );
-	  $response->push_header( 'Content-length', length($data) );
-	  $response->push_header( 'Max-age', $expires );
+#	  if ( ! $h->{'Content-type'} )
+#	  { $h->{'Content-type'} = 'text/html'; }
+#	  if ( ! $h->{'Content-length'} )
+#	  { $h->{'Content-length'} = length($data); }
+#	  $response->push_header( 'Content-type', 'text/html' );
+#	  $response->push_header( 'Content-length', length($data) );
+#	  $response->push_header( 'Max-age', $expires );
+	  $response->header( 'Content-type', 'text/html' );
+	  $response->header( 'Content-length', length($data) );
+	  $response->header(%{$h});
 	  $response->content($data);
 	  $heap->{client}->put($response);
 	  $kernel->yield("shutdown");
