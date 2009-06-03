@@ -144,6 +144,12 @@ PHEDEX.Util.getConfig=function(element) {
 }
 
 // generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
+PHEDEX.Util.sequence_count=0;
+PHEDEX.Util.Sequence=function() {
+  return ++PHEDEX.Util.sequence_count;
+}
+
+// generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
 PHEDEX.Util.generateDivName=function() {
   var j = ++PHEDEX.Page.Config.Count;
   return 'auto_Widget_'+j;
