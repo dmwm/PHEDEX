@@ -108,6 +108,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
         resize.set("maxHeight", null);
       }
     }, this.panel, true);
+    this.resize = resize;
 
 // Assign an event-handler to delete the content when the container is closed. Do this now rather than
 // in the constructor to avoid it hanging around when it is no longer needed.
@@ -122,6 +123,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.buildHeader(this.div_header);
     this.buildBody(this.div_content);
     this.buildFooter(this.div_footer);
+    this.onBuildComplete.fire();
   }
 
   this.populate=function() {
