@@ -57,8 +57,14 @@ sub new
     my $self = $class->SUPER::new($master, $options, $params, @_);
 
     # Create a JobManager
+    # Our JobManager is only used to execute the submission and monitoring commands
+    # This has nothing to do with $self->{NJOBS}, defined above.  We
+    # allow an infinite number of submission and query commands.  They
+    # should return quickly, and stalled commands should be killed
+    # according to JOB_AWOL.
+    # TODO:  JOB_AWOL is probably too long to wait for a stuck glite-* command...
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
-						NJOBS	=> $self->{NJOBS},
+						NJOBS	=> 0,
 						VERBOSE	=> $self->{VERBOSE},
 						DEBUG	=> $self->{DEBUG},
 							);
@@ -375,7 +381,7 @@ sub start_transfer_job
     $self->{JOBMANAGER}->addJob(
 			     $self->{JOB_SUBMITTED_POSTBACK},
 			     { JOB => $job, FTSJOB  => $ftsjob,
-			       KEEP_OUTPUT => 1,
+			       LOGFILE => '/dev/null', KEEP_OUTPUT => 1,
 			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
 			     $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
 			   );
@@ -420,15 +426,15 @@ sub resume_backend_job
     $self->Logmsg("Resume JOBID=$job->{ID} by submitting to FTS");
     POE::Kernel->post( $self->{SESSION_ID}, 'start_transfer_job', $job->{ID} );
     $self->{_resumed_jobs}{$job->{ID}}{$taskid}++;
-    return;
+    return 0;
   }
 
 # Job was previously submitted. Recover the job and re-queue for monitoring
-  $ftsjob = evalinfo($ftsjob_dmp);
+  $ftsjob = &evalinfo($ftsjob_dmp);
   if ( ! $ftsjob || $@ )
   {
     $self->Logmsg("Failed to load job for $job->{ID}");
-    return;
+    return 0;
   }
   $self->Logmsg("Resume JOBID=$job->{ID}, FTSjob=",$ftsjob->ID," by adding to monitoring");
 
