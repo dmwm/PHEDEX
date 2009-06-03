@@ -96,7 +96,8 @@ body {
 }
 
 .yui-panel .hd {
-  height: 22px;
+  height: 2em;
+  overflow-y: auto; 
   background-color: ddd;
   padding: 0 5px 0 2px;
 }
