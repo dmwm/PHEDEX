@@ -5,42 +5,41 @@ PHEDEX.Core.ContextMenu.menus = [];
 PHEDEX.Core.ContextMenu.items = [];
 
 PHEDEX.Core.ContextMenu.Create=function(name,trigger) {
-  var m = PHEDEX.Core.ContextMenu.menus[name];
-  if ( !m )
-  {
-    m = new YAHOO.widget.ContextMenu("contextmenu_"+name,trigger);
-    m.cfg.setProperty('zindex',10);
-    PHEDEX.Core.ContextMenu.menus[name] = m;
-  }
+  YAHOO.log('Create: '+name,'info','ContextMenu');
+  var i = PHEDEX.Util.Sequence();
+//   if ( !i ) { i=0; }
+//   PHEDEX.Core.ContextMenu.count = i+1;
+  var m = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,trigger);
+  m.cfg.setProperty('zindex',10);
   return m;
 }
 
 PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
   if ( !PHEDEX.Core.ContextMenu.items[name] ) { PHEDEX.Core.ContextMenu.items[name] = []; }
-  PHEDEX.Core.ContextMenu.items[name].push( { label:label, callback:callback } );
+  PHEDEX.Core.ContextMenu.items[name][label] = { label:label, callback:callback };
+  YAHOO.log('Add: '+name+': #items:'+PHEDEX.Core.ContextMenu.items[name].length,'info','ContextMenu');
 }
 
-PHEDEX.Core.ContextMenu.Build=function(menu) {
+PHEDEX.Core.ContextMenu.Build=function(menu,components) {
   menu.clearContent();
   menu.payload = [];
 
-  var idx = 1;
   var name;
-  while (idx < PHEDEX.Core.ContextMenu.Build.arguments.length)
+  for (var i in components)
   {
-    name = PHEDEX.Core.ContextMenu.Build.arguments[idx++];
-    var l = PHEDEX.Core.ContextMenu.items[name];
-    for (var i in l)
+    name = components[i];
+    var list = PHEDEX.Core.ContextMenu.items[name];
+    for (var j in list)
     {
-      menu.addItem(l[i].label);
-      menu.payload.push(l[i].callback);
+      menu.addItem(list[j].label);
+      menu.payload.push(list[j].callback);
+      YAHOO.log('Build: '+name+' label:'+list[j].label,'info','ContextMenu');
     }
   }
 }
 
 // some default contexts...
-PHEDEX.Core.ContextMenu.hideColumn=function(args) {
-  YAHOO.log('hideColumn: '+args.col.key);
-  args.table.hideColumn(args.col);
-}
-PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column',PHEDEX.Core.ContextMenu.hideColumn);
+// PHEDEX.Core.ContextMenu.hideColumn=function(args) {
+//   YAHOO.log('hideColumn: '+args.col.key,'info','ContextMenu');
+//   args.table.hideColumn(args.col);
+// }
