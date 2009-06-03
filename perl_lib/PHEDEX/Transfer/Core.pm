@@ -352,7 +352,7 @@ sub resume_transfer_jobs
       # do step 4...
       if ( $task->{READY} && ! defined( $task->{XFER_CODE} ) )
       {
-        if ( $self->can('resume_backend_job') )
+        if ( $self->can('resume_backend_job') && $self->resume_backend_job($job,$taskid))
 	{
           $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid in the backend");
 #	  resume_backend_job is called with both the job and the taskid, in
@@ -361,7 +361,6 @@ sub resume_transfer_jobs
 #	  case that this is not useful. It can use $self->{_resumed_jobs} for
 #	  bookkeeping, this will be deleted at the end of this routine so will
 #	  not leak memory.
-          $self->resume_backend_job($job,$taskid);
 	}
 	else
 	{
