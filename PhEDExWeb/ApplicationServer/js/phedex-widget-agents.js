@@ -44,7 +44,6 @@ PHEDEX.Widget.Agents=function(site,divid) {
   that.buildTable(that.div_content,
             [ 'Agent',{key:"Date", formatter:'UnixEpochToGMT'},'PID','Version','Label','Host' ],
 	    {Agent:'name', Date:'time_update'} );
-  that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
   that.update=function() { PHEDEX.Datasvc.Agents(that.site,that); }
   that.receive=function(result) {
     that.data = PHEDEX.Data.Agents[that.site];

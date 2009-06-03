@@ -147,6 +147,9 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
   });
 
+// Allow the table to be build again after updates
+  that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
+
 // Gratuitously flash yellow when the mouse goes over the rows
   that.onRowMouseOut = function(event) {
     event.target.style.backgroundColor = null;

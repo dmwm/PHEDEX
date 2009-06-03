@@ -26,7 +26,6 @@ PHEDEX.Widget.Nodes=function(site,divid) {
   that.buildTable(that.div_content,
             [ 'ID','Name','Kind','Technology','SE' ],
 	    {} );
-  that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
   that.update=function() {
     PHEDEX.Datasvc.Nodes(that.site,that);
   }
