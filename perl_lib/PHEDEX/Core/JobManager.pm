@@ -30,7 +30,7 @@ sub new
     my $class = ref($proto) || $proto;
     my %args = (@_);
     my $self = $class->SUPER::new(@_);
-    my %params = ( NJOBS      => 1,  # number of parallel jobs
+    my %params = ( NJOBS      => 1,  # number of parallel jobs, 0 for infinite
 		   KEEPALIVE  => 1,  # whether or not to quit after all jobs are complete
 		   VERBOSE    => 0,
 		   DEBUG      => 0,
@@ -120,7 +120,7 @@ sub job_queued
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
   # Check if we can start the job now, or whether we need to wait
-  if ( scalar(keys %{$self->{JOBS_RUNNING}}) >= $self->{NJOBS} )
+  if ( $self->{NJOBS} && scalar(keys %{$self->{JOBS_RUNNING}}) >= $self->{NJOBS} )
   {
     $kernel->delay_set('job_queued',0.3);
     return;
@@ -216,9 +216,9 @@ sub _child_stdout {
   my ( $self, $args ) = @_[ 0 , 1 ];
   my $wheelid = $args->{wheel};
   my $payload = $PAYLOADS{$wheelid};
-  
+
   if ($payload->{_keep_output}) {
-      $payload->{STDOUT} .= $args->{out};
+      $payload->{STDOUT} .= $args->{out}."\n";
   }
 
   my $logfhtmp = \*{$payload->{_logfh}};
@@ -236,7 +236,7 @@ sub _child_stderr {
   my $payload = $PAYLOADS{$wheelid};
 
   if ($payload->{_keep_output}) {
-      $payload->{STDERR} .= $args->{out};
+      $payload->{STDERR} .= $args->{out}."\n";
   }
 }
 
