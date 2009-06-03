@@ -249,7 +249,7 @@ die "This code has not been tested...";
     {
 #     Queue this job for monitoring...
       $job->Priority($priority);
-      $self->Logmsg('requeue(1) JOBID=',$job->ID) if $self->{DEBUG};
+      $self->Dbgmsg('requeue(1) JOBID=',$job->ID) if $self->{DEBUG};
       $self->{QUEUE}->enqueue( $priority, $job );
       $self->{JOBS}{$h->{ID}} = $job;
       $self->Logmsg("Queued $h->{ID} at priority $priority (",$h->{STATE},")") if $self->{VERBOSE};
@@ -272,7 +272,7 @@ sub poll_job
     return;
   }
 
-  $self->Logmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
+  $self->Dbgmsg('dequeue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{JOBMANAGER}->addJob(
                              $self->{POLL_JOB_POSTBACK},
                              { FTSJOB => $job, LOGFILE => '/dev/null', 
@@ -541,7 +541,7 @@ sub WorkStats
   }
   elsif ( defined($class) && defined($key) )
   {
-    $self->Logmsg("WorkStats: class=$class key=$key value=$val") if $self->{DEBUG};
+    $self->Dbgmsg("WorkStats: class=$class key=$key value=$val") if $self->{DEBUG};
     $self->{WORKSTATS}{$class}{STATES}{$key} = $val;
     return $self->{WORKSTATS}{$class};
   }
@@ -581,7 +581,7 @@ sub QueueJob
   }
   $job->Priority($priority);
   $job->Timestamp(time);
-  $self->Logmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
+  $self->Dbgmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
   $self->{JOBMANAGER}->addJob(
