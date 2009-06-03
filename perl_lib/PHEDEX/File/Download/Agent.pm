@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
