@@ -20,13 +20,13 @@ PHEDEX.Datasvc.Instances = [{name:'Production',instance:'prod'},
 // Should also set a timeout, and provide a failure-callback as well.
 PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
   callback = callback || obj.receive;
-// This is a hack because '#' seems not to pass through correctly...?
+// TODO This is a hack because '#' seems not to pass through correctly...?
   var hashrep = /#/;
   api = api.replace(hashrep,'*');
 
 // identify ourselves to the web-server logfiles
   YAHOO.util.Connect.initHeader('user-agent','PhEDEx-AppServ/'+PHEDEX.Appserv.Version);
-  YAHOO.log('Datasvc: GET '+api);
+  YAHOO.log('GET '+api,'info','Core.Datasvc');
   YAHOO.util.Connect.asyncRequest(
 		'GET',
 		'/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api,
@@ -51,7 +51,7 @@ PHEDEX.Datasvc.Callback = function(response) {
 // sample logging...
   if ( response.status == 200 )
   {
-    YAHOO.log('Datasvc: GOT '+response.status+'('+response.statusText+') '+response.argument.api);
+    YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+response.argument.api,'info','Core.Datasvc');
 // TODO This should be handled by a JSON parser, rather than an eval
     data = eval('('+data+')');
 
@@ -64,8 +64,8 @@ PHEDEX.Datasvc.Callback = function(response) {
   }
   else
   {
-    YAHOO.log('Datasvc: GOT '+response.status+'['+response.statusText+'] '+response.argument.api,'warn');
-    YAHOO.log('Datasvc: '+response.responseText,'warn');
+    YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+response.argument.api,'warn','Core.Datasvc');
+    YAHOO.log(response.responseText,'warn','Core.Datasvc');
     response.argument.obj.failedLoading();
     response.argument.callback({},response.argument.obj);
   }
@@ -103,8 +103,10 @@ PHEDEX.Datasvc.Agents = function(site,obj,callback) {
   PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Agents_callback,callback);
 }
 PHEDEX.Datasvc.Agents_callback = function(data,obj) {
-  if ( ! data['node'] ) { return; }
   PHEDEX.namespace('Data.Agents');
+  PHEDEX.Data.Agents[obj.site] = null;
+  if ( ! data['node'] ) { return; }
+  if ( ! data['node'][0] ) { return; }
   PHEDEX.Data.Agents[obj.site] = data['node'][0]['agent'];
 }
 
@@ -172,8 +174,8 @@ PHEDEX.Datasvc.TransferQueueFiles_callback = function(data,obj) {
   PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to);
   var tq = link.transfer_queue[0];
 
-// TODO How do we handle this? What data-structure makes sense here? Do we preserve the structure from the data-service or do we create something that is easier to sort/filter inside the widget?
-// If I want to pre-sort, I have to do stuff like this...
+// TODO How do we handle this? What data-structure makes sense here? Do we preserve the structure from the data-service or do we create something that is
+// easier to sort/filter inside the widget? If I want to pre-sort, I have to do stuff like this...
 //   var q = ['byName','byState','byPriority'];
 //   for (var i in q) { PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.'+q[i]); }
 //   var q1 = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to);
