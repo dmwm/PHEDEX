@@ -16,6 +16,7 @@ PHEDEX.Widget.Agents=function(site,divid) {
 	minwidth:300,
 	minheight:50
     });
+  that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
   that.site=site;
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
   that.fillHeader=function(div) {
@@ -42,12 +43,17 @@ PHEDEX.Widget.Agents=function(site,divid) {
     s.innerHTML = msg;
   }
   that.buildTable(that.div_content,
-            [ 'Agent',{key:"Date", formatter:'UnixEpochToGMT'},'PID','Version','Label','Host' ],
-	    {Agent:'name', Date:'time_update'} );
+            [ 'Agent',
+	      {key:"Date", formatter:'UnixEpochToGMT'},
+	      {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
+	      'Version','Label','Host','State Dir'
+	    ],
+	    {Agent:'name', Date:'time_update', 'State Dir':'state_dir' } );
   that.update=function() { PHEDEX.Datasvc.Agents(that.site,that); }
   that.receive=function(result) {
     that.data = PHEDEX.Data.Agents[that.site];
     if (that.data) { that.populate(); }
+    else { that.failedLoading(); }
   }
 
   that.buildContextMenu('Agent');

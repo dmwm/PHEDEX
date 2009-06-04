@@ -15,6 +15,7 @@ PHEDEX.Widget.Nodes=function(site,divid) {
 	 minwidth:400,
 	 minheight:50
 	});
+  that.hideByDefault = ['Kind','Technology'];
   that.site=site;
   that.data = null;
   that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
@@ -24,14 +25,15 @@ PHEDEX.Widget.Nodes=function(site,divid) {
     s.innerHTML = 'PHEDEX Nodes: '+this.data.length+" sites";
   }
   that.buildTable(that.div_content,
-            [ 'ID','Name','Kind','Technology','SE' ],
-	    {} );
+            [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
+	     );
   that.update=function() {
     PHEDEX.Datasvc.Nodes(that.site,that);
   }
   that.receive=function(result) {
     that.data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
-    that.populate();
+    if (that.data) { that.populate(); }
+    else { that.failedLoading(); }
   }
 
   that.buildContextMenu('Node');
