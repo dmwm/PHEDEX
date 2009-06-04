@@ -1800,4 +1800,85 @@ sub getErrorLog
     return \@r;
 }
 
+sub getBlockTestFiles
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    my ($detailed_items, $detailed_from);
+    if ($h{DETAILED})
+    {
+        $detailed_items = qq {,
+            f.logical_name,
+            s2.name f_status,
+            f.id f_id,
+            f.filesize f_bytes,
+            f.checksum
+        };
+        $detailed_from = qq {
+            join t_dvs_file_result r on r.request = v.id
+            join t_dps_file f on f.id = r.fileid
+            join t_dvs_status s2 on r.status = s2.id
+        };
+    }
+
+    $sql = qq {
+        select
+            v.id,
+            b.name block,
+            block blockid,
+            b.files,
+            b.bytes,
+            n_files,
+            n_tested,
+            n_ok,
+            s.name status,
+            t.name kind,
+            time_reported,
+            n.name node,
+            n.id nodeid,
+            n.se_name se
+            $detailed_items
+        from
+            t_status_block_verify v
+            join t_dvs_status s on v.status = s.id
+            left join t_dps_block b on v.block = b.id
+            join t_dvs_test t on v.test = t.id
+            join t_adm_node n on n.id = v.node
+            $detailed_from
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, ( NODE => 'n.name',
+						      BLOCK => 'b.name',
+                                                      KIND => 't.name',
+                                                      STATUS => 's.name',
+                                                      TEST => 'v.id'
+						      ));
+
+    $sql .= " where ($filters) " if  $filters;
+
+    if (exists $h{TEST_SINCE})
+    {
+        if ($filters)
+        {
+            $sql .= " and time_reported >= :test_since ";
+        }
+        else
+        {
+            $sql .= " where time_reported >= :test_since ";
+        }
+        $p{':test_since'} = PHEDEX::Core::Util::str2time($h{TEST_SINCE});
+    }
+
+    $sql .= " order by time_reported ";
+    $q = execute_sql( $core, $sql, %p);
+
+    my %node;
+
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+    return \@r;
+}
+
 1;
