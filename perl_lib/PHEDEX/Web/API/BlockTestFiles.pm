@@ -74,7 +74,7 @@ Show detailed information regarding a verification
 =cut
 
 use PHEDEX::Web::SQL;
-use PHEDEX::Web::Util;
+use PHEDEX::Core::Util;
 
 # mapping format for the output
 my $map = {
@@ -128,9 +128,9 @@ sub blocktestfiles
         $h{TEST_SINCE} = time() - 3600*24;
     }
 
-    $h{DETAILED} = 1;
+    $h{'#DETAILED#'} = 1;
 
-    return { node => PHEDEX::Web::Util::formatter($map, PHEDEX::Web::SQL::getBlockTestFiles($core,%h)) };
+    return { node => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockTestFiles($core,%h)) };
 }
 
 1;

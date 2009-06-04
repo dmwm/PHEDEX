@@ -66,7 +66,7 @@ Show consistency-check results
 =cut
 
 use PHEDEX::Web::SQL;
-use PHEDEX::Web::Util;
+use PHEDEX::Core::Util;
 
 my $map = {
     _KEY => 'NODE',
@@ -111,10 +111,10 @@ sub blocktests
         $h{TEST_SINCE} = time() - 3600*24;
     }
 
-    $h{DETAILED} = 0; # no file info at all
+    $h{'#DETAILED#'} = 0; # no file info at all
 
     # remember to handle the case for status
-    return { node => PHEDEX::Web::Util::formatter($map, PHEDEX::Web::SQL::getBlockTestFiles($core, %h)) };
+    return { node => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockTestFiles($core, %h)) };
 }
 
 1;
