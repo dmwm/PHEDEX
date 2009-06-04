@@ -111,6 +111,8 @@ sub blocktests
         $h{TEST_SINCE} = time() - 3600*24;
     }
 
+    $h{DETAILED} = 0; # no file info at all
+
     # remember to handle the case for status
     return { node => PHEDEX::Web::Util::formatter($map, PHEDEX::Web::SQL::getBlockTestFiles($core, %h)) };
 }
