@@ -8,13 +8,19 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   that.buildTable=function(div,columns,map) {
 // Arguments are: the div to instantiate the table into, an array of column definitions, and a map:
 // The column definitions can be simply names of fields, or full datasource-column object specifications. They will
-// be converted accordingly. Columns are sorteable and resizeable by default, so explicitly turn that off if you do
-// not want it for your columns.
+// be converted accordingly.
+//
+// Columns are sorteable and resizeable by default, so explicitly turn that off if you do not want it for your columns.
+//
+// Columns which are to be treated as numbers need a 'parser' specified. E.g. {key:'ID' parser:'number' }
+// Parsers from YAHOO.util.DataSourceBase may be specified by name (i.e. 'string', 'number', or 'date'), or a function
+// may be given which takes the single input argument and returns the parsed value. By default, everything is a string.
+//
 // The map is for mapping JSON field-names in the data to table column-names. By default, column-names are mapped to
 // their lower-case selves in the data returned from the data-service. If you need it to be mapped differently, this
 // is where you specify that mapping, giving the table-column name as the key, and the data-service field as the value.
     that.columnDefs = columns;
-    that.columnMap = map; // {table-column-name:JSON-field-name, ...};
+    that.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
     for (var i in that.columnDefs )
     {
       var cDef = that.columnDefs[i];
@@ -36,8 +42,16 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       var y = [];
       for (var j in that.columnDefs )
       {
-	var k = that.columnDefs[j].key;
-	y[k] = a[that.columnMap[k]];
+	var c = that.columnDefs[j];
+	var val = a[that.columnMap[c.key]];
+// This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
+// Declare fields to be numeric in your columns specified to buildTable, see above
+	if ( c.parser )
+	{
+	  if (typeof c.parser == 'function' ) { val = c.parser(val); }
+	  else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+	}
+	y[c.key] = val;
       }
       table.push( y );
     }
@@ -51,7 +65,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   }
 
 // A split-button and menu for the show-all-columns function
-  that.column_menu = new YAHOO.widget.Menu('nowhere_'+PHEDEX.Util.Sequence());
+  that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
   that.showColumns = new YAHOO.widget.Button(
     {
       type: "split",
@@ -62,6 +76,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       disabled:true
     }
   );
+//   that.showColumns.on('render',that.hideDefaultColumns);
 // event-handlers for driving the split button
   that.showColumns.on("click", function () {
     var m = that.column_menu.getItems();
@@ -91,7 +106,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.showColumns.set('disabled', that.column_menu.getItems().length === 0);
   };
 
-// Create a context menu, with a default 'hide column' entry
+// Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
     var args=[];
     for (var i=0; i< arguments.length; i++ ) { args[args.length] = arguments[i]; }
@@ -120,7 +135,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     }
   }
   PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column', function(args) {
-    YAHOO.log('hideColumn: '+args.col.key,'info','ContextMenu');
+    YAHOO.log('hideColumn: '+args.col.key,'info','Core.DataTable');
     args.table.hideColumn(args.col);
   });
 
@@ -128,8 +143,8 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
 // complete. This allows me to ignore the menu completely if the user didn't build one.
-// If I didn't do it like this then the user would have to pass the options in to the constructor, which would then make it a bit
-// more complex? Hmm, maybe I should do it that way...
+// If I didn't do it like this then the user would have to pass the options in to the constructor, and would then have to take
+// care that the object was assembled in exactly the right way. That would then make things a bit more complex...
   that.onBuildComplete.subscribe(function() {
     YAHOO.log('onBuildComplete: '+that.me(),'info','Core.DataTable');
     if ( that.contextMenu )
@@ -141,10 +156,22 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 //  Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
     that.dataTable.subscribe('columnHideEvent', function(ev) {
       var column = this.getColumn(ev.column);
+      YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.DataTable');
       that.column_menu.addItem({text: column.label || column.key,value:column.key});
       that.refreshButton();
     } );
     that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
+  });
+
+  that.onPopulateComplete.subscribe(function() {
+// Hide columns by default. TODO this is fired on PopulateComplete because I don't know how to do it earlier. Would be better if I did
+    if ( !that.hideByDefault ) { return; }
+    for (var i in that.hideByDefault)
+    {
+      var column = that.dataTable.getColumn(that.hideByDefault[i]);
+      if ( column ) { that.dataTable.hideColumn(column); }
+    }
+    that.hideByDefault = null; // don't want to do this every time the build is complete...?
   });
 
 // Allow the table to be build again after updates
