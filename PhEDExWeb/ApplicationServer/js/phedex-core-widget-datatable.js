@@ -34,7 +34,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.dataTable.subscribe('rowMouseoverEvent',that.onRowMouseOver);
     that.dataTable.subscribe('rowMouseoutEvent', that.onRowMouseOut);
   }
-  that.me=function() { alert('unimplemented "me" for a PHEDEX.Core.Widget.DataTable'); return 'PHEDEX.Core.Widget.DataTable'; }
+  that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); return 'PHEDEX.Core.Widget.DataTable'; }
   that.fillDataSource=function(data) {
     var table = [];
     for (var i in that.data) {
