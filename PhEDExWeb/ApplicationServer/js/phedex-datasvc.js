@@ -126,8 +126,8 @@ PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.TransferQueueStats_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferQueueStats.'+obj.direction);
-  PHEDEX.Data.TransferQueueStats[obj.direction][obj.site] = data.link;
+  PHEDEX.namespace('Data.TransferQueueStats.'+obj.direction_key());
+  PHEDEX.Data.TransferQueueStats[obj.direction_key()][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
@@ -136,8 +136,8 @@ PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.TransferHistory_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferHistory.'+obj.direction);
-  PHEDEX.Data.TransferHistory[obj.direction][obj.site] = data.link;
+  PHEDEX.namespace('Data.TransferHistory.'+obj.direction_key());
+  PHEDEX.Data.TransferHistory[obj.direction_key()][obj.site] = data.link;
 }
 PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
   var api = 'ErrorLogSummary' + PHEDEX.Datasvc.Query(args);
@@ -145,8 +145,8 @@ PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
 }
 PHEDEX.Datasvc.ErrorLogSummary_callback = function(data,obj) {
   if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.direction);
-  PHEDEX.Data.ErrorLogSummary[obj.direction][obj.site] = data.link;
+  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.direction_key());
+  PHEDEX.Data.ErrorLogSummary[obj.direction_key()][obj.site] = data.link;
 }
 
 PHEDEX.Datasvc.TransferQueueBlocks = function(arg,obj,callback) {
