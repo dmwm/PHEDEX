@@ -1807,7 +1807,7 @@ sub getBlockTestFiles
     my ($sql, $q, %p, @r);
 
     my ($detailed_items, $detailed_from);
-    if ($h{DETAILED})
+    if ($h{'#DETAILED#'})
     {
         $detailed_items = qq {,
             f.logical_name,
