@@ -3,9 +3,10 @@ package PHEDEX::Core::XML;
 use warnings;
 use strict;
 use vars qw ($VERSION);
-$VERSION = "2.0";
+$VERSION = "2.0"; # version of the XML format we support
 
 use XML::Parser;
+use PHEDEX::Core::Formats;
 
 sub parseData
 {
@@ -87,6 +88,7 @@ sub parseData
 		    ->{BLOCKS}->{$bname} ={ NAME => $$battrs{'name'},
 					    IS_OPEN => $$battrs{'is-open'} };
 
+		    print "  Processing block $bname\n" if $verbose;
 		    while (my ($fattrs, @fcontent) = next_element(\@bcontent, 'file'))
 		    {
 		        die "parseData: <file> may not have content\n"
@@ -95,8 +97,10 @@ sub parseData
 			    if ! defined $$fattrs{'name'} || $$fattrs{'name'} eq '';
 		        die "parseData: <file bytes=''> attribute missing or bad value\n"
 			    if ! defined $$fattrs{'bytes'} || $$fattrs{'bytes'} !~ /^\d+$/;
-		        die "parseData: <file checksum=''> attribute missing or bad value\n"
-			    if ! defined $$fattrs{'checksum'} || $$fattrs{'checksum'} !~ /^cksum:\d+$/;
+			die "parseData: <file checksum=''> attribute missing value\n"
+			    if ! defined $$fattrs{'checksum'};
+			eval { &PHEDEX::Core::Formats::parseChecksums($$fattrs{'checksum'}); };
+			die "parseData: <file checksum=''> attribute formatting error:  $@\n" if $@;
 
 		        my $fname = $fattrs->{'name'};
 		        $result->{DBS}->{$dbsname}
@@ -175,6 +179,7 @@ sub parseData_0
 		->{BLOCKS}->{$bname} ={ NAME => $$battrs{'name'},
 					IS_OPEN => $$battrs{'is-open'} };
 
+		print "  Processing block $bname\n" if $verbose;
 		while (my ($fattrs, @fcontent) = next_element(\@bcontent, 'file'))
 		{
 		    die "parseData: <file> may not have content\n"
@@ -183,8 +188,10 @@ sub parseData_0
 			if ! defined $$fattrs{'lfn'} || $$fattrs{'lfn'} eq '';
 		    die "parseData: <file size=''> attribute missing or bad value\n"
 			if ! defined $$fattrs{'size'} || $$fattrs{'size'} !~ /^\d+$/;
-		    die "parseData: <file checksum=''> attribute missing or bad value\n"
-			if ! defined $$fattrs{'checksum'} || $$fattrs{'checksum'} !~ /^cksum:\d+$/;
+		    die "parseData: <file checksum=''> attribute missing value\n"
+			if ! defined $$fattrs{'checksum'};
+		    eval { &PHEDEX::Core::Formats::parseChecksums($$fattrs{'checksum'}); };
+		    die "parseData: <file checksum=''> attribute formatting error:  $@\n" if $@;
 
 		    my $fname = $fattrs->{'lfn'};
 		    $result->{DBS}->{$dbsname}
