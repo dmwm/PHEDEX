@@ -1,0 +1,74 @@
+#!/usr/bin/env perl
+
+##H Manage stage-in pool based on file download requests.
+##H
+##H This agent checks for files wanted for transfer from this node and
+##H issues stage-in requests for them.  It updates the current stage-in
+##H status of the files in TMDB based on stager disk state.
+##H
+##H As TMDB only contains LFNs and no PFNs, we execute a site-local
+##H script to map the LFNs to PFNs, typically using local catalogue.
+##H Correspondingly, files reported by stager to be on disk are mapped
+##H back to LFNs.
+##H
+##H Commands are specified as a comma-separated list of command +
+##H arguments.  For example:  --stage 'stager_qry','-M'
+##H The list of PFNs to stage/check will be apended to this.
+##H
+##H Usage:
+##H   FileStager
+##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
+##H	 -nodes PATTERN[,PATTERN...] -storagemap PATH
+##H      -stage CMD[,ARGS..] -status CMD[,ARGS]
+##H	 [-protect PROGRAM[,ARGS...]]
+##H      [-maxfiles N]
+##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H
+##H -state       agent state directory
+##H -nodes       the nodes where this agent runs
+##H -ignore      comma-separated list of nodes to ignore transfers from
+##H -accept      comma-separated list of nodes to accept transfers from
+##H -db          database connection configuration parameter file
+##H -log         where to redirect logging information
+##H -storagemap  storage mapping catalogue
+##H -stage       an external program to call to stage a list of files
+##H -status      an external program to call to get the staging status
+##H              for list of files
+##H -protect     an external program to call to check for storage 
+##H              overload
+##H -maxfiles    the maximum number of files to send to the -stage
+##H              and -status commands
+
+######################################################################
+my %args;
+use Getopt::Long;
+use PHEDEX::Core::Help;
+use PHEDEX::File::Stager::Agent;
+
+&GetOptions ("state=s"       => \$args{DROPDIR},
+	     "log=s"         => \$args{LOGFILE},
+             "db=s"          => \$args{DBCONFIG},
+	     "storagemap=s"  => \$args{STORAGEMAP},
+	     "maxfiles=i"    => \$args{MAXFILES},
+             "waittime=i"    => \$args{WAITTIME},
+             "pintime=i"     => \$args{PINTIME},
+	     "protocol=s"    => \$args{PROTOCOL},
+	     "nodes=s"       => sub { push(@{$args{NODES}},split(/,/, $_[1])) },
+             "ignore=s"      => sub { push(@{$args{IGNORE_NODES}},split(/,/, $_[1])) },
+             "accept=s"      => sub { push(@{$args{ACCEPT_NODES}},split(/,/, $_[1])) },
+             "protect=s"     => sub { push(@{$args{PROTECT_CMD}},split(/,/, $_[1])) },
+             "stage=s"       => sub { push(@{$args{STAGE_CMD}},split(/,/, $_[1])) },
+	     "status=s"      => sub { push(@{$args{STATUS_CMD}},split(/,/, $_[1])) }, 
+	     "help|h"        => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{DBCONFIG}
+    || !$args{NODES} || !$args{STORAGEMAP} || !$args{PROTOCOL}
+    || !$args{STAGE_CMD} || !$args{STATUS_CMD} )
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+my $agent = PHEDEX::File::Stager::Agent->new (%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;
