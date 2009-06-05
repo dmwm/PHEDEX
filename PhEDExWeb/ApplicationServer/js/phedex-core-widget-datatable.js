@@ -120,23 +120,29 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     var task = p_aArgs[1];
     if(task) {
 //  Extract which TR element triggered the context menu
-    var tgt = this.contextEventTarget;
-    var elCol = p_DataTable.getColumn(tgt);
-    var elRow = p_DataTable.getTrEl(tgt);
+      var tgt = this.contextEventTarget;
+      var elCol = p_DataTable.getColumn(tgt);
+      var elRow = p_DataTable.getTrEl(tgt);
+      var payload = {};
       if(elRow) {
+//	TODO I haven't figured out yet how to define a row-payload. Should do that soon...
+	if ( elRow.payload ) { payload = elRow.payload; }
+	var args = payload.args || {};
+	var opts = payload.opts || {};
 	var oRecord = p_DataTable.getRecord(elRow);
-	var selected_site = oRecord.getData('Name')
+	var selected_site = opts.selected_site;
+	if ( ! selected_site ) { selected_site = oRecord.getData('Name'); }
 	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_site+')','info','Core.DataTable');
-	this.payload[task.index]({table:p_DataTable,
-				    row:elRow,
-				    col:elCol,
-			  selected_site:selected_site});
+//	this is not good, I should be building a payload inside the table object and passing it here, not
+//	building specific payloads in a generic base-widget!
+	opts.selected_site = selected_site;
+	this.payload[task.index](args, opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column', function(args) {
-    YAHOO.log('hideColumn: '+args.col.key,'info','Core.DataTable');
-    args.table.hideColumn(args.col);
+  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column', function(args,opts,el) {
+    YAHOO.log('hideColumn: '+el.col.key,'info','Core.DataTable');
+    el.table.hideColumn(el.col);
   });
 
 // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
