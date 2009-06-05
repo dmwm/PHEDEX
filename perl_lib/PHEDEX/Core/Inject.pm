@@ -1,5 +1,7 @@
 package PHEDEX::Core::Inject;
 
+=pod
+
 =head1 NAME
 
 PHEDEX::Core::Inject - encapsulated SQL for writing CMS data
@@ -158,7 +160,7 @@ sub injectData
     my $close_datasets = [];
     my $close_blocks = [];
 
-    print "processing injections...\n" if $verbose;
+    print "Processing injections...\n" if $verbose;
     foreach my $dbs (values %{$data->{DBS}}) {
 	unless ($dbs->{ID}) {
 	    # try to fetch
@@ -241,12 +243,13 @@ sub injectData
 
     # inject everything we need to
     my %stats;
-    print "inserting data.\n" if $verbose;
+    print "Inserting data..." if $verbose;
     $stats{'new_datasets'} = &bulkCreateDatasets($self, $new_datasets, TIME_CREATE => $now);
     $stats{'new_blocks'} = &bulkCreateBlocks($self, $new_blocks, TIME_CREATE => $now);
     $stats{'new_files'} = &bulkCreateFiles($self, $new_files, TIME_CREATE => $now, NO_ID => 1);
     $stats{'closed_datasets'} = &bulkCloseDatasets($self, $close_datasets, TIME_UPDATE => $now);
     $stats{'closed_blocks'} = &bulkCloseBlocks($self, $close_blocks, TIME_UPDATE => $now);
+    print "Done.\n" if $verbose;
 
     return \%stats;
 }
