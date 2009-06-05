@@ -9,7 +9,7 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense
 PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
-  var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueBlocks.'+node.payload.args['from']+'.'+node.payload.args['to']);
+  var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueBlocks.'+node.payload.args.from+'.'+node.payload.args.to);
   for (var i in link.transfer_queue )
   {
     var tq = link.transfer_queue[i];
@@ -20,10 +20,9 @@ PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
       var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
       var text1 = "id:"+block.id+" files:"+block.files+" bytes:"+PHEDEX.Util.format.bytes(block.bytes);
       var tNode1 = new YAHOO.widget.TextNode({label: text1, expanded: false}, tNode);
-//       that.textNodeMap[tNode1.labelElId] = tNode1;
       tNode1.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
-      tNode1.payload.args.from  = node.payload.args.from;
-      tNode1.payload.args.to    = node.payload.args.to;
+      tNode1.payload.args = node.payload.args;
+      tNode1.payload.opts = node.payload.opts;
       tNode1.payload.args.block = block.name;
     }
   }
@@ -61,23 +60,98 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
   that.me=function() { return 'PHEDEX.Core.Widget.TransfersNode'; }
   that.site = site;
   var config = PHEDEX.Util.getConfig(divid);
+
+// Build the options for the pull-down menus.
+// 1. extract the default option from the configuration, or provide one if none given
+// 2. build an array of items to go into the menu-list
+// 3. create the callback function which is to be assigned to the menu-list items
+// 4. build the menu-list, identifying which option corresponds to the selected default
+//    N.B. I do not protect against failure to identify the correct default
+// 5. The menu itself is created later, when the header is being built. The selected-value is used then, so must be stored in
+//    the object, not in a local-scope variable.
   that.time=config.opts.time || '6';
+  var timeselect_opts = config.opts.timeselect || { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' };
+  var changeTimebin = function(e) {
+    if ( that.time == this.value ) { return; }
+    that.time = this.value;
+    that.deleteBodyContents();
+    that.update();
+  }
+  var timeSelectMenu=[];
+  that.timebin_selected='';
+  for (var i in timeselect_opts)
+  {
+    if ( that.time == i ) { that.timebin_selected=timeselect_opts[i]; }
+    timeSelectMenu[i] = { text: timeselect_opts[i], value:i, onclick: { fn: changeTimebin} };
+  }
+
+// rinse and repeat for the direction menu
   var direction_name=config.opts.direction || 'to';
   that.directions= [
       { key:'to',   text:'Incoming Links' },
       { key:'from', text:'Outgoing Links' }
     ];
+  var changeDirection = function(e) {
+    if ( that.direction == this.value ) { return; }
+    that.direction = this.value;
+    that.deleteBodyContents();
+    that.update();
+  }
+  var changeDirectionMenu=[];
   for (var i in that.directions)
   {
     that.directions[i].value = i;
     if ( direction_name == that.directions[i].key ) { that.direction = i; }
+    changeDirectionMenu[i] = { text: that.directions[i].text, value:i, onclick: { fn: changeDirection } };
   }
+// A few utility functions, because the 'direction' is a numeric value in some places, (to|from) in others, and a long string again elsewhere
   that.direction_key=function()  { return that.directions[that.direction].key; }
   that.direction_text=function() { return that.directions[that.direction].text; }
+  that.anti_direction_key=function() { return that.directions[1-that.direction].key; }
 
-// This is for event-handling with YUI, clean and simple. One function to clear the tree, two more to trigger updates based on the select boxes
+  that.buildHeader=function(div) {
+// Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left, before anything inserted by the
+// core widgets. 
+    var button_span = document.createElement('span');
+    div.appendChild(button_span);
+    var timeSelectButton = new YAHOO.widget.Button(
+	{ type: "menu",
+	  label: that.timebin_selected,
+	  name: "timeSelect",
+	  menu: timeSelectMenu,
+	  container: button_span
+	});
+
+    var changeDirectionButton = new YAHOO.widget.Button(
+	{ type: "menu",
+	  label: that.direction_text(),
+	  name: "changeDirection",
+	  menu: changeDirectionMenu,
+	  container: button_span
+	});
+
+    var onSelectedMenuItemChange = function (event) {
+      var oMenuItem = event.newValue;
+      var text = oMenuItem.cfg.getProperty("text");
+      YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Core.TransfersNode');
+      this.set("label", text);
+    };
+
+    changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
+    timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
+
+    var title = document.createElement('span');
+    title.id = div.id+'_title';
+    div.appendChild(title);
+    that.title = title;
+  }
+
+  that.fillHeader=function(div) {
+    this.title.innerHTML=this.site;
+  }
+
   that.deleteBodyContents=function(div) {
-//  In this case, I don't need the div, I can just operate on the tree object.
+//  In this case, I don't need the div, I can just operate on the tree object and null my data fields
     var node;
     while ( node = that.tree.root.children[1] ) { that.tree.removeNode(node); }
     that.tree.render();
@@ -85,112 +159,66 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     that.data_queue = null;
     that.data_error = null;
   }
-  var changeDirection = function(e) {
-    if ( that.direction == this.value ) { return; }
-    that.direction = this.value;
-    that.deleteBodyContents();
-    that.update();
-  }
-  var changeTimebin = function(e) {
-    that.time = this.value;
-    that.deleteBodyContents();
-    that.update();
-  }
 
-  that.buildHeader=function(div) {
-
-// build the timeselect like this so that I can override it from the configuration, which has already been used to set that.time
-    var timeselect = document.createElement('select');
-    var timeselect_opts = config.opts.timeselect || { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' };
-    timeselect.innerHTML = '';
-    for (var i in timeselect_opts)
+  that.fillBody=function(div) {
+    var root = this.tree.getRoot();
+    that.textNodeMap = [];
+    var antidirection=that.anti_direction_key();
+    if ( !this.data_hist.length )
     {
-      var selected='';
-      if ( that.time == i ) { selected=' selected'; }
-      timeselect.innerHTML += "<option value='"+i+"'"+selected+">"+timeselect_opts[i]+"</option";
+      var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+      tLeaf.isLeaf = true;
     }
-
-// Use YUI event listeners to handle the pull-down menus
-//     YAHOO.util.Event.addListener(timeselect, "change", changeTimebin);
-//     div.appendChild(timeselect);
-    var changeDirectionMenu=[];
-    for (var i in that.directions)
-    {
-      changeDirectionMenu[i] = { text: that.directions[i].text, value:i, onclick: { fn: changeDirection } };
-    }
-    var changeDirectionButton = new YAHOO.widget.Button({ type: "menu", label: that.direction_text(), name: "changeDirection", menu: changeDirectionMenu, container: div });
-
-    var onSelectedMenuItemChange = function (event) {
-      var oMenuItem = event.newValue;
-      this.set("label", oMenuItem.cfg.getProperty("text"));
-    };
-    var onMenuRender = function (type, args, button) {
-      var index;
-      button.set("selectedMenuItem", this.getItem(index));
-    };
-    var onFormSubmit = function (event, button) {
-      var oMenuItem = button.get("selectedMenuItem"),
-	UA = YAHOO.env.ua,
-	oEvent,
-	oMenu;
-
-      if (!oMenuItem) {
-	YAHOO.util.Event.preventDefault(event);
-	oMenu = button.getMenu();
-	oMenu.addItems(oMenu.itemData);
-	oMenu.subscribe("render", function () {
-	  var bSubmitForm;
-	  if (UA.ie) {
-	    bSubmitForm = this.fireEvent("onsubmit");
-	  }
-	  else {  // Gecko, Opera, and Safari
-	    oEvent = document.createEvent("HTMLEvents");
-	    oEvent.initEvent("submit", true, true);
-	    bSubmitForm = this.dispatchEvent(oEvent);
-	  }
-//	In IE and Safari, dispatching a "submit" event to a form
-//	WILL cause the form's "submit" event to fire, but WILL
-//	NOT submit the form.  Therefore, we need to call the
-//	"submit" method as well.
-	  if ((UA.ie || UA.webkit) && bSubmitForm) {
-	    this.submit();
-	  }
-	}, this, true);
-	oMenu.render(oMenu.cfg.getProperty("container"));
+    for (var i in this.data_hist) {
+      var h = this.data_hist[i];
+      var node = h[antidirection];
+      var d = {};
+      var e={num_errors:0};
+      for (var j in this.data_queue) {
+        if (this.data_queue[j][antidirection]==node) {
+          d = this.data_queue[j];
+          break;
+        }
       }
-  };
+      for (var j in this.data_error) {
+        if (this.data_error[j][antidirection]==node) {
+          e = this.data_error[j];
+        }
+      }
 
-    changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
-    changeDirectionButton.on("appendTo", function () {
-	var oMenu = this.getMenu();
-	oMenu.subscribe("render", onMenuRender, this);
-	YAHOO.util.Event.on(this.getForm(), "submit", onFormSubmit, this);
-    });
+      var done_bytes = PHEDEX.Util.sumArrayField(h.transfer,'done_bytes');
+      var quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat);
+      if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
+      quality /= h.transfer.length;
+      var rate = PHEDEX.Util.format.bytes(done_bytes/parseInt(h.transfer[0].binwidth))+'/s';
+      var qual = PHEDEX.Util.format['%'](quality);
+      var done = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
+      var queue = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes'));
+      var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[
+	  {text:node,width:200,class:'align-left'},
+          {text:rate,width:100},
+	  {text:qual,width:100},
+	  {text:done,width:200},
+	  {text:queue,width:200},
+          {text:e.num_errors,width:100}
+	]});
+      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
+      that.textNodeMap[tNode.labelElId] = tNode;
 
-    var title = document.createElement('span');
-    title.id = div.id+'_title';
-    div.appendChild(title);
-    that.title = title;
+//    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level. I did see a better way to do this in the YUI docs,
+//    but will find that later...
+//    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
+//    payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
+      tNode.payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, callback:PHEDEX.Widget.TransferQueueBlock.callback_Treeview }; // so I can use this in the callback
+      tNode.payload.args.from = h.from;
+      tNode.payload.args.to   = h.to;
+      tNode.payload.opts.selected_site = h[antidirection];
+      tNode.payload.opts.direction = that.direction;
+    }
+    that.tree.render();
+//  Place the focus on the second node. The first is the 'title' node
+    that.tree.root.children[1].focus();
   }
-  that.fillHeader=function(div) {
-    this.title.innerHTML=this.site;
-  }
-//   that.buildBody=function(div) {
-//     var dlist = PHEDEX.Util.makeInlineDiv({width:width,class:'treeview-header',fields:[
-// 	  {text:'Node',width:200,class:'align-left'},
-//           {text:'Rate',width:100},
-// 	  {text:'Quality',width:100},
-// 	  {text:'Done',width:200},
-// 	  {text:'Queued',width:200},
-//           {text:'Errors',width:100}
-// 	]});
-//     this.tree = new YAHOO.widget.TreeView(that.div_content);
-//     var currentIconMode=0;
-// // turn dynamic loading on for entire tree:
-//     this.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
-//     var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, this.tree.getRoot());
-//     tNode.isLeaf = true;
-//   }
 
   that.update=function() {
     var args={};
@@ -221,147 +249,6 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     }
   }
 
-  that.fillBody=function(div) {
-    var root = this.tree.getRoot();
-    that.textNodeMap = [];
-    var antidirection='to';
-    if (this.direction_key() == 'to' ) { antidirection='from'; }
-    if ( !this.data_hist.length )
-    {
-      var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
-      tLeaf.isLeaf = true;
-    }
-    for (var i in this.data_hist) {
-      var h = this.data_hist[i];
-      var node = h[antidirection];
-      var d = {};
-      var e={num_errors:0};
-      for (var j in this.data_queue) {
-        if (this.data_queue[j][antidirection]==node) {
-          d = this.data_queue[j];
-          break;
-        }
-      }
-      for (var j in this.data_error) {
-        if (this.data_error[j][antidirection]==node) {
-          e = this.data_error[j];
-        }
-      }
-      this.sum_hist(h);
-      var rate = PHEDEX.Util.format.bytes(this.hist_speed(h))+'/s';
-      var qual = PHEDEX.Util.format['%'](h.quality);
-      var done = PHEDEX.Util.format.filesBytes(h.done_files,h.done_bytes);
-      var queue = PHEDEX.Util.format.filesBytes(this.sum_queue_files(d.transfer_queue),this.sum_queue_bytes(d.transfer_queue));
-      var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[
-	  {text:node,width:200,class:'align-left'},
-          {text:rate,width:100},
-	  {text:qual,width:100},
-	  {text:done,width:200},
-	  {text:queue,width:200},
-          {text:e.num_errors,width:100}
-	]});
-      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
-      that.textNodeMap[tNode.labelElId] = tNode;
-
-//    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level
-      tNode.payload = { call: 'TransferQueueBlocks', obj: this , args: {}, callback: PHEDEX.Widget.TransferQueueBlock.callback_Treeview }; // so I can use this in the callback
-      if (this.direction_key()=='to') {
-        tNode.payload.args.from = node;
-        tNode.payload.args.to = this.site;
-      } else {
-        tNode.payload.args.from = node;
-        tNode.payload.args.to = this.site;
-      }
-    }
-    that.tree.render(); //?
-//  Place the focus on the second node
-    that.tree.root.children[1].focus();
-  }
-
-//   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
-// //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
-//     var oTarget = this.contextEventTarget,
-// 	Dom = YAHOO.util.Dom,
-// 	oCurrentTextNode;
-// 
-//     var oTextNode = Dom.hasClass(oTarget, "ygtvlabel") ?
-// 	oTarget : Dom.getAncestorByClassName(oTarget, "ygtvlabel");
-// 
-//     if (oTextNode) {
-//       var tNodeMap  = that.textNodeMap;
-//       oCurrentTextNode = that.textNodeMap[oTextNode.id];
-//     }
-//     else {
-// // Cancel the display of the ContextMenu instance.
-//       this.cancel();
-//       return;
-//     }
-//     if ( oCurrentTextNode )
-//     {
-//       var direction = oCurrentTextNode.payload.obj.direction;
-//       if ( direction == 'to' ) { direction = 'from'; } // point the other way...
-//       else		     { direction = 'to'; }
-//       var selected_site = oCurrentTextNode.payload.args[direction];
-//       YAHOO.log('PHEDEX.Widget.TransferNode: ContextMenu: '+direction+' '+selected_site);
-//       var task = p_aArgs[1];
-//       if (task) {
-// 	      this.payload[task.index](selected_site);
-//       }
-//     }
-//   }
-
-  that.postPopulate = function() {
-    YAHOO.log('PHEDEX.Widget.TransfersNode: postPopulate');
-//     that.contextMenu = PHEDEX.Core.ContextMenu.Create('Links',{trigger:that.div_content});
-//     PHEDEX.Core.ContextMenu.Build(that.contextMenu,'Node');
-//     that.contextMenu.render(that.div_content);
-//     that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
-  }
-
-  that.sum_hist=function(h) {
-    h.done_bytes   = h.done_files =
-    h.fail_bytes   = h.fail_files =
-    h.expire_bytes = h.expire_files =
-    h.quality = h.rate = h.binwidth = 0;
-    for (var i in h.transfer)
-    {
-      h.done_bytes   += parseInt(h.transfer[i].done_bytes);
-      h.done_files   += parseInt(h.transfer[i].done_files);
-      h.fail_bytes   += parseInt(h.transfer[i].fail_bytes);
-      h.fail_files   += parseInt(h.transfer[i].fail_files);
-      h.expire_bytes += parseInt(h.transfer[i].expire_bytes);
-      h.expire_files += parseInt(h.transfer[i].expire_files);
-      h.binwidth     += parseInt(h.transfer[i].binwidth);
-      h.quality      += parseFloat(h.transfer[i].quality);
-      if ( isNaN(h.quality) ) { h.quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
-    }
-    if ( h.binwidth && h.transfer.length )
-    {
-      h.rate = h.done_bytes / (h.transfer.length*h.binwidth);
-      h.quality /= h.transfer.length;
-    }
-  }
-
-  that.sum_queue_files=function(q) {
-    var fsum=0;
-    for (var i in q) {
-      fsum+= parseInt(q[i]['files']);
-    }
-    return fsum;
-  }
-  that.sum_queue_bytes=function(q) {
-    var bsum=0;
-    for (var i in q) {
-      bsum+=parseInt(q[i]['bytes']);
-    }
-    return bsum;
-  }
-  that.hist_speed=function(h) {
-    var sum_bytes = 0;
-    for (var i in h.transfer) { sum_bytes += parseInt(h.transfer[i].done_bytes); }
-    return parseInt(sum_bytes)/parseInt(h.transfer[0].binwidth);
-  }
-
   that.buildTree(that.div_content,
     PHEDEX.Util.makeInlineDiv({width:width,class:'treeview-header',fields:[
 	  {text:'Node',width:200,class:'align-left'},
@@ -372,10 +259,10 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
           {text:'Errors',width:100}
 	]})
   );
+  that.buildContextMenu('Node');
   that.build();
-//   that.onPopulateComplete.subscribe(that.postPopulate);
   return that;
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args) { PHEDEX.Widget.TransfersNode(args.selected_site).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_site).update(); });
