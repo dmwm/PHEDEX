@@ -1,6 +1,5 @@
 //This 'class' represents a tree-view widget for PhEDEx. It assumes it is derived for proper widget-specific behaviour, and it uses
 // the base PHEDEX.Core.Widget for the basic implementation. I.e. it's only the fluff for tree-views that goes in here.
-
 PHEDEX.namespace('Core.Widget.TreeView');
 
 PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
@@ -38,7 +37,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
   }
 
-// A split-button and menu for the show-all-columns function
+// A split-button and menu for the show-all-fields function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
   that.showColumns = new YAHOO.widget.Button(
     {
@@ -59,7 +58,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     that.column_menu.clearContent();
     that.refreshButton();
-    that.resizePanel(that.dataTable);
+    that.resizePanel(that.tree);
   });
   that.showColumns.on("appendTo", function () {
     var m = this.getMenu();
@@ -70,7 +69,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
         m.removeItem(oMenuItem.index);
         that.refreshButton();
       }
-      that.resizePanel(that.dataTable);
+      that.resizePanel(that.tree);
     });
   });
 
@@ -84,7 +83,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.buildContextMenu=function() {
     var args=[];
     for (var i=0; i< arguments.length; i++ ) { args[args.length] = arguments[i]; }
-    args.push('dataTable');
+    args.push('treeView');
     that.contextMenu = PHEDEX.Core.ContextMenu.Create(args[0],{trigger:that.div_content});
     PHEDEX.Core.ContextMenu.Build(that.contextMenu,args);
   }
@@ -109,21 +108,19 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     if ( oCurrentTextNode )
     {
-      var direction = oCurrentTextNode.payload.obj.direction;
-      if ( direction == 'to' ) { direction = 'from'; } // point the other way...
-      else		     { direction = 'to'; }
-      var selected_site = oCurrentTextNode.payload.args[direction];
-//       YAHOO.log('PHEDEX.Widget.TransferNode: ContextMenu: '+direction+' '+selected_site);
-      YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_site+')','info','Core.TreeView');
+      var label = p_aArgs[0].explicitOriginalTarget.textContent;
       var task = p_aArgs[1];
+      var args = oCurrentTextNode.payload.args;
+      var opts = oCurrentTextNode.payload.opts;
+      YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_site+')','info','Core.TreeView');
       if (task) {
-	      this.payload[task.index](selected_site);
+	this.payload[task.index](args, opts, {tree:p_TreeView, node:oCurrentTextNode});
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column', function(args) {
-    YAHOO.log('hideColumn: '+args.col.key,'info','Core.TreeView');
-    args.table.hideColumn(args.col);
+  PHEDEX.Core.ContextMenu.Add('treeView','Hide This Column', function(args,opts,el) {
+//     YAHOO.log('hideColumn: '+opts.col.key,'info','Core.TreeView');
+//     args.table.hideColumn(args.col);
   });
 
 // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
@@ -139,55 +136,41 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       YAHOO.log('subscribing context menu: '+that.me(),'info','Core.TreeView');
       that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
       that.contextMenu.render(document.body);
-
     }
 //  Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
-    that.dataTable.subscribe('columnHideEvent', function(ev) {
+    that.tree.subscribe('columnHideEvent', function(ev) {
       var column = this.getColumn(ev.column);
       YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.TreeView');
       that.column_menu.addItem({text: column.label || column.key,value:column.key});
       that.refreshButton();
     } );
-    that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
+    that.tree.subscribe('renderEvent', function() { that.resizePanel(that.tree); } );
   });
 
   that.onPopulateComplete.subscribe(function() {
 // Hide columns by default. TODO this is fired on PopulateComplete because I don't know how to do it earlier. Would be better if I did
     if ( !that.hideByDefault ) { return; }
-    for (var i in that.hideByDefault)
-    {
-      var column = that.dataTable.getColumn(that.hideByDefault[i]);
-      if ( column ) { that.dataTable.hideColumn(column); }
-    }
+//     for (var i in that.hideByDefault)
+//     {
+//       var column = that.dataTable.getColumn(that.hideByDefault[i]);
+//       if ( column ) { that.dataTable.hideColumn(column); }
+//     }
     that.hideByDefault = null; // don't want to do this every time the build is complete...?
   });
 
 // Allow the table to be build again after updates
-  that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
-
-// Gratuitously flash yellow when the mouse goes over the rows
-//   that.onRowMouseOut = function(event) {
-//     event.target.style.backgroundColor = null;
-//   }
-//   that.onRowMouseOver = function(event) {
-//     event.target.style.backgroundColor = 'yellow';
-//   }
+//   that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
 
 // Resize the panel when extra columns are shown, to accomodate the width
-  that.resizePanel=function(table) {
+  that.resizePanel=function(tree) {
+debugger;
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
-    var old_width = table.getContainerEl().clientWidth;
-    var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
-    var x = table.getTableEl().clientWidth + offset;
+    var old_width = tree.getContainerEl().clientWidth;
+//     var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
+//     var x = table.getTableEl().clientWidth + offset;
+    var x = 700;
     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
   }
-
-// Custom formatter for unix-epoch dates
-//   that.UnixEpochToGMTFormatter = function(elCell, oRecord, oColumn, oData) {
-//     var gmt = new Date(oData*1000).toGMTString();
-//     elCell.innerHTML = gmt;
-//   };
-//   YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = that.UnixEpochToGMTFormatter
 
   return that;
 }
