@@ -5,7 +5,7 @@
 ##H Usage:
 ##H   RunWithTimeout TIMEOUT COMMAND [ARGS...]
 ##H
-##H Executes the COMMAND, but limiting it's run time to TIMEOUT seconds.
+##H Executes the COMMAND, but limiting its run time to TIMEOUT seconds.
 ##H Uses the job-manager to execute the command so signals are delievered
 ##H to the process gracefully.  Returns the exit code of COMMAND.
 
@@ -15,7 +15,7 @@ use POE;
 &usage if scalar @ARGV < 2;
 
 my $timeout = shift(@ARGV);
-my $job = new PHEDEX::Core::JobManager (NJOBS => 1);
+my $job = new PHEDEX::Core::JobManager (NJOBS => 1, VERBOSE => 0, DEBUG => 0);
 
 sub min { return (sort { $a <=> $b } @_)[0] }
 

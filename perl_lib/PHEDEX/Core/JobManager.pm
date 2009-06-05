@@ -82,7 +82,7 @@ sub new
 sub _jm_start
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->Logmsg("starting JobManager session (id=",$session->ID,")");
+  $self->Logmsg("starting JobManager session (id=",$session->ID,")") if $self->{DEBUG};
   $self->{JOB_MANAGER_SESSION_ID} = $session->ID;
   $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
 }
@@ -90,7 +90,7 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-  $self->Logmsg("stopping JobManager session (id=",$session->ID,")");
+  $self->Logmsg("stopping JobManager session (id=",$session->ID,")") if $self->{DEBUG};
 }
 
 sub _jm_child {} # Dummy event-handler, to silence warnings
