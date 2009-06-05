@@ -155,6 +155,17 @@ PHEDEX.Util.generateDivName=function() {
   return 'auto_Widget_'+j;
 }
 
+// Sum an array-field, with an optional parser to handle the field-format
+PHEDEX.Util.sumArrayField=function(q,f,p) {
+  var sum=0;
+  if ( !p ) { p = parseInt; }
+  for (var i in q) {
+    sum+= p(q[i][f]);
+  }
+  return sum;
+}
+
+
 // This is for dynamically loading data into YUI TreeViews.
 PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
 // First, create a callback function that uses the payload to identify what to do with the returned data.
