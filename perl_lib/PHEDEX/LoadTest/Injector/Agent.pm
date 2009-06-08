@@ -485,11 +485,17 @@ sub pickNewLFN
 	$$lfn{LFN} = "/store$dname/" . $$block{BLOCK_NUMBER} . 
 	    '/LoadTest07_' . $src_id . '_' . &makeGUID() . '_' . $$block{BLOCK_NUMBER};
     } else {
-	# A much simpler conversion for the future...
-	$$lfn{LFN} .= join(".", ".LTgenerated",
+	# A simpler pattern:
+	#  {sourceLFN}.LTgenerated/{destNode}/{destDataset}/{destBlockNum}/{GUID}
+	#  directory depth is sourceLFN_depth + 5
+	#  largest directory is {destBlockNum} (configurable, goes to infinity if BLOCK_SIZE is infinite)
+	#                    or {destDataset}  (goes to infinity if DATASET_SIZE is infinite)
+	#  Removing everything after and including .LTgenerated gets you back to the original LFN
+	$$lfn{LFN} .= join("/", ".LTgenerated",
 			   $$params{DEST_NODE_NAME},
-			   &makeGUID(),
-			   $$params{DEST_DATASET_NAME}
+			   $$params{DEST_DATASET_NAME},
+			   $$block{BLOCK_NUMBER},
+			   &makeGUID()
 			   );
     }
 
