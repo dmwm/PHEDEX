@@ -554,7 +554,8 @@ sub fill_backend
     # Determine links with pending transfers.
     foreach my $t (values %$tasks)
     {
-	next if $t->{STARTED};
+	# Do not conisder tasks which have started or have finished
+	next if $t->{STARTED} || $t->{FINISHED};
 
 	my $to = $$t{TO_NODE};
 	my $from = $$t{FROM_NODE};
@@ -954,8 +955,8 @@ sub finish_task
     $$task{REPORT_CODE} = $$task{POSTVALIDATE_CODE} unless defined $$task{REPORT_CODE};
     $$task{REPORT_CODE} = $$task{XFER_CODE}         unless defined $$task{REPORT_CODE};
     $$task{REPORT_CODE} = $$task{PREVALIDATE_CODE}  unless defined $$task{REPORT_CODE};
-    $$task{JOBLOG} = "$$self{ARCHIVEDIR}/$$task{JOBID}";
-    $$task{FINISHED} = $$task{TIME_UPDATE} = $now;
+    $$task{JOBLOG}      = $$task{JOBID} ? "$$self{ARCHIVEDIR}/$$task{JOBID}" : undef;
+    $$task{FINISHED}    = $$task{TIME_UPDATE} = $now;
 
     # Save it
     $self->saveTask($taskid) || return;
@@ -1210,7 +1211,7 @@ sub statsNewPeriod
     }
 }
 
-# check if a task is expired
+# Check if a task is expired.  If it is expired, set 
 sub check_task_expire
 {
     my ( $self, $taskid ) = @_;
@@ -1218,9 +1219,9 @@ sub check_task_expire
     my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return 0;
     my $now = &mytimeofday();
 
-    return 0 if $$task{STARTED}; # do not expire tasks which have started
+    # Do not expire tasks which have started or have finished
+    return 0 if $$task{STARTED} || $$task{FINISHED}; 
 
-    # If the task is too near expiration, just mark it failed.
     # If it has already expired, just remove it.
     my $prettyhours = sprintf "%0.1fh ", ($now - $$task{TIME_ASSIGN})/3600;
     if ($now >= $$task{TIME_EXPIRE})
@@ -1228,18 +1229,22 @@ sub check_task_expire
 	$self->Logmsg("PhEDEx transfer task $$task{TASKID} has expired after $prettyhours, discarding");
 	$self->forgetTask($taskid);
     }
+    # If the task is too near expiration, mark it failed.
     elsif ($now >= $$task{TIME_EXPIRE} - 1200)
     {
 	$self->Logmsg("PhEDEx transfer task $$task{TASKID} was nearly expired after $prettyhours, discarding");
-	$$task{XFER_CODE}   = PHEDEX_XC_NOXFER;
-	$$task{REPORT_CODE} = PHEDEX_RC_EXPIRED;
-	$$task{LOG_DETAIL} = "transfer expired in the PhEDEx download agent queue after $prettyhours";
-	$$task{LOG_XFER} = "no transfer was attempted";
+	$$task{XFER_CODE}    = PHEDEX_XC_NOXFER;
+	$$task{REPORT_CODE}  = PHEDEX_RC_EXPIRED;
+	$$task{LOG_DETAIL}   = "transfer expired in the PhEDEx download agent queue after $prettyhours";
+	$$task{LOG_XFER}     = "no transfer was attempted";
 	$$task{LOG_VALIDATE} = "no validation was attempted";
-	$$task{TIME_UPDATE} = $now;
-	$$task{TIME_XFER} = -1;
+	$$task{TIME_UPDATE}  = $now;
+	$$task{TIME_XFER}    = -1;
+	$$task{STARTED}      = -1;  # prevent this task from being started
 	return 1;
     }
+    
+    # OK, it's not expired
     return 0;
 }
 
