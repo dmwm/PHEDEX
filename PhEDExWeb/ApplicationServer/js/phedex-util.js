@@ -18,15 +18,6 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name)
   return div;
 }
 
-/*
-PHEDEX.Util.toggleVisible = function (id) {
-    var elem = document.getElementById(id);
-    if (elem.style.display=='block') { elem.style.display='none'; }
-    else { elem.style.display='block'; }
-    return -1;
-}
-*/
-
 // not used. Creates a UL from an array of strings
 PHEDEX.Util.makeUList = function(args) {
   var list = document.createElement('ul');
@@ -74,13 +65,12 @@ PHEDEX.Util.makeInlineDiv = function(args) {
       d1.innerHTML = args.fields[i];
       d1.style.width = w+'px';
     }
-//     d1.style.border = '1px solid blue';
     var li = document.createElement('li');
     li.appendChild(d1);
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( args.class ) { list.className += ' '+args.class; } // div.style.border = '1px solid red'; }
+  if ( args.class ) { list.className += ' '+args.class; }
   return div;
 }
 
