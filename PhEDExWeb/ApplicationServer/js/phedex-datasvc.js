@@ -19,7 +19,7 @@ PHEDEX.Datasvc.Instances = [{name:'Production',instance:'prod'},
 //
 // Should also set a timeout, and provide a failure-callback as well.
 PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
-  callback = callback || obj.receive;
+  if ( obj && !callback ) { callback = obj.receive; }
 // TODO This is a hack because '#' seems not to pass through correctly...?
   var hashrep = /#/;
   api = api.replace(hashrep,'*');
@@ -59,7 +59,7 @@ PHEDEX.Datasvc.Callback = function(response) {
     data = data['phedex'];
     if ( typeof(data) === 'object' ) { // barely adequate error-checking! Should also use response-headers
       response.argument.datasvc(data,response.argument.obj);
-      response.argument.callback(data,response.argument.obj);
+      if ( response.argument.callback ) { response.argument.callback(data,response.argument.obj); }
     }
   }
   else
