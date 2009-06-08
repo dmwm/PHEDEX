@@ -15,16 +15,21 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     } else {
       elTarget.style.backgroundColor = null;
     }
-//  the rest here shows how to walk up the DOM to the element I'm interested in
-//    while (elTarget.id != that.div_content.id) {
-//     if(elTarget.nodeName.toUpperCase() == "LI") {
-//       YAHOO.log("The moused element id/name is " + elTarget.id+", "+elTarget.nodeName, "info", "clickExample");
-//       break;
-//     } else {
-//       elTarget = elTarget.parentNode;
-//     }
-//   }
-//   YAHOO.log("Top container reached..", "info", "clickExample");
+  }
+  function clickHandler(e) {
+    var elTarget = YAHOO.util.Event.getTarget(e);
+    that.locateNode(elTarget);
+  }
+  that.locateNode=function(el) {
+    while (el.id != that.div_content.id) { // walk up only as far as the content-div
+      if ( that.textNodeMap[el.id] ) { // look for tree-nodes
+        YAHOO.log('Activated element: '+el.id,'warn','Core.TreeView');
+      }
+      if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+        YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, "warn", "Core.TreeView");
+      }
+      el = el.parentNode;
+    }
   }
   that.buildTree=function(div,dlist,map) {
     that.tree = new YAHOO.widget.TreeView(div);
@@ -35,6 +40,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     tNode.isLeaf = true;
     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
+    YAHOO.util.Event.on(div, "mousedown", clickHandler);
   }
 
 // A split-button and menu for the show-all-fields function
