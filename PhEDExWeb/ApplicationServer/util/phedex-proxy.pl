@@ -15,7 +15,7 @@ my ($delay,$cache_ro,%expires,$expires_default,$host);
 		^js/[^./]+.js$
 		^images/[^./]+.(gif|png|jpg)$
 		^css/[^./]+.css$
-		^yui/.*.js$
+		^yui/.*.(js|css|gif|png|jpg)$
 		favicon.ico$
 	     %;
 %expires =    ( '.gif'	=> 86400,
