@@ -121,7 +121,6 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 	  menu: timeSelectMenu,
 	  container: button_span
 	});
-
     var changeDirectionButton = new YAHOO.widget.Button(
 	{ type: "menu",
 	  label: that.direction_text(),
@@ -136,7 +135,6 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Core.TransfersNode');
       this.set("label", text);
     };
-
     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
 
@@ -195,16 +193,15 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       var done = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
       var queue = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes'));
       var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[
-	  {text:node,width:200,class:'align-left'},
-          {text:rate,width:100},
-	  {text:qual,width:100},
-	  {text:done,width:200},
-	  {text:queue,width:200},
-          {text:e.num_errors,width:100}
+	  {text:node,        width:200,class:'phedex-tnode-field phedex-tree-node align-left'},
+          {text:rate,        width:100,class:'phedex-tnode-field phedex-tree-rate'},
+	  {text:qual,        width:100,class:'phedex-tnode-field phedex-tree-quality'},
+	  {text:done,        width:200,class:'phedex-tnode-field phedex-tree-done'},
+	  {text:queue,       width:200,class:'phedex-tnode-field phedex-tree-queue'},
+          {text:e.num_errors,width:100,class:'phedex-tnode-field phedex-tree-errors'}
 	]});
       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
       that.textNodeMap[tNode.labelElId] = tNode;
-
 //    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level. I did see a better way to do this in the YUI docs,
 //    but will find that later...
 //    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
