@@ -164,9 +164,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.hideByDefault = null; // don't want to do this every time the build is complete...?
   });
 
-// Allow the table to be build again after updates
-//   that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
-
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
 debugger;

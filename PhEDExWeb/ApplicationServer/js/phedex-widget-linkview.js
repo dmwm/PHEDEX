@@ -10,6 +10,7 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // I'm not sure if that makes sense
 PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
   var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueBlocks.'+node.payload.args.from+'.'+node.payload.args.to);
+
   for (var i in link.transfer_queue )
   {
     var tq = link.transfer_queue[i];
@@ -17,9 +18,19 @@ PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
     {
       var block = tq.block[j];
       var text = block.name+" priority:"+tq.priority+" state:"+tq.state;
-      var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
-      var text1 = "id:"+block.id+" files:"+block.files+" bytes:"+PHEDEX.Util.format.bytes(block.bytes);
-      var tNode1 = new YAHOO.widget.TextNode({label: text1, expanded: false}, tNode);
+      var dlist = PHEDEX.Util.makeInlineDiv({width:1260,className:'treeview-node',fields:[
+	  {text:' '+block.name,              width:750,className:'phedex-tnode-field phedex-tree-block-name align-left'},
+          {text:'Priority='+tq.priority, width:130,className:'phedex-tnode-field phedex-tree-priority'},
+	  {text:'State='+tq.state,       width:180,className:'phedex-tnode-field phedex-tree-state'}
+	]});
+      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, node);
+
+      var dlist1 = PHEDEX.Util.makeInlineDiv({width:300,className:'treeview-node',fields:[
+	  {text:'ID='+block.id,       width:100,className:'phedex-tnode-field phedex-tree-block-id'},
+          {text:'Files='+block.files, width:80,className:'phedex-tnode-field phedex-tree-block-files'},
+	  {text:'Bytes='+PHEDEX.Util.format.bytes(block.bytes),width:100,className:'phedex-tnode-field phedex-tree-block-bytes'}
+	]});
+      var tNode1 = new YAHOO.widget.TextNode({label: dlist1.innerHTML, expanded: false}, tNode);
       tNode1.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
       tNode1.payload.args = node.payload.args;
       tNode1.payload.opts = node.payload.opts;
@@ -37,8 +48,15 @@ PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
     for (var k in block.file)
     {
       var file = block.file[k];
-      var text = file.name+" id:"+file.id+" checksum:"+file.checksum+" bytes:"+PHEDEX.Util.format.bytes(file.bytes);
-      var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
+      var dlist = PHEDEX.Util.makeInlineDiv({width:1080,className:'treeview-node',fields:[
+	  {text:file.name,              width:700,className:'phedex-tnode-field phedex-tree-file-name align-left'},
+	  {text:'ID='+file.id,          width:100,className:'phedex-tnode-field phedex-tree-file-id'},
+          {text:'Cksum='+file.checksum, width:180,className:'phedex-tnode-field phedex-tree-file-cksum'},
+	  {text:'Bytes='+PHEDEX.Util.format.bytes(file.bytes),width:100,className:'phedex-tnode-field phedex-tree-file-bytes'}
+	]});
+      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, node);
+//       var text = file.name+" id:"+file.id+" checksum:"+file.checksum+" bytes:"+PHEDEX.Util.format.bytes(file.bytes);
+//       var tNode = new YAHOO.widget.TextNode({label: text, expanded: false}, node);
       tNode.isLeaf = true;
     }
   }
@@ -245,15 +263,14 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       this.populate();
     }
   }
-
   that.buildTree(that.div_content,
     PHEDEX.Util.makeInlineDiv({width:width,className:'treeview-header',fields:[
-	  {text:'Node',width:200,className:'align-left'},
-          {text:'Rate',width:100},
+	  {text:'Node',   width:200, className:'align-left'},
+          {text:'Rate',   width:100},
 	  {text:'Quality',width:100},
-	  {text:'Done',width:200},
-	  {text:'Queued',width:200},
-          {text:'Errors',width:100}
+	  {text:'Done',   width:200},
+	  {text:'Queued', width:200},
+          {text:'Errors', width:100}
 	]})
   );
   that.buildContextMenu('Node');
