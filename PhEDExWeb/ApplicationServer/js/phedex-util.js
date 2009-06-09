@@ -49,6 +49,7 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     }
   }
   var w = Math.round(wtot/n);
+  if ( w < 0 ) { w=0; }
   for ( var i in args.fields )
   {
     var d1 = document.createElement('div');
@@ -57,9 +58,9 @@ PHEDEX.Util.makeInlineDiv = function(args) {
 	d1.innerHTML = args.fields[i].text;
 	var w_el = parseInt(args.fields[i].width);
 	if ( w_el ) {
-	    d1.style.width = args.fields[i].width; 
-	} else { 
-	    d1.style.width = args.fields[i]; 
+	    d1.style.width = w_el+'px';
+	} else {
+	    d1.style.width = w+'px';
 	}
 	
  	if ( args.fields[i].className ) {
