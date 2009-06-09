@@ -65,7 +65,7 @@ body {
 .yui-panel .bd {
   overflow:auto;
   position: relative; /* Apparently fixes a problem in IE7 */
-  background-color:eee;
+  background-color: #eaeaea;
   padding: 2px;
   margin: 0 5px 0 0;
 }
@@ -73,7 +73,7 @@ body {
 .yui-panel .hd {
   height: 2em;
 /*   overflow-y: auto;  */ /* This would be nice, to see hidden content in the header, but it screws up pull-down menus */
-  background-color: ddd;
+  background-color: #eee;
   padding: 0 5px 0 2px;
 }
 
