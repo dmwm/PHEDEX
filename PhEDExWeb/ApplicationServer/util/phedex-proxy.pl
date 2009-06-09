@@ -191,6 +191,7 @@ POE::Component::Server::TCP->new
 	  $file  =~ m%\.([^\.]+)$%;
 	  my $ext = $1;
 	  my $type = {	'css'	=> 'text/css',
+			'js'    => 'text/javascript',
 			'gif'	=> 'image/gif',
 			'png'	=> 'image/png',
 			'jpeg'	=> 'image/jpg',
