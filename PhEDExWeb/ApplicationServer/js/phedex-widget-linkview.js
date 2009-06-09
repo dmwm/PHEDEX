@@ -264,3 +264,4 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 
 // What can I respond to...?
 PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_site).update(); });
+YAHOO.log('loaded...','info','Core.TransfersNode');
