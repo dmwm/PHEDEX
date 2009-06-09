@@ -1,0 +1,69 @@
+<html>
+<head>
+  <title>PhEDEx datasvc</title>
+  <link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/resize/assets/skins/sam/resize.css"> 
+  <link rel="stylesheet" type="text/css" href="/yui/build/logger/assets/skins/sam/logger.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/menu/assets/skins/sam/menu.css">
+  <link rel="stylesheet" type="text/css" href="/yui/examples/treeview/assets/css/menu/tree.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/button/assets/button-core.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/assets/skins/sam/button.css">
+
+  <script type="text/javascript" src="/yui/build/yahoo/yahoo-min.js"</script>
+  <script type="text/javascript" src="/yui/build/event/event-min.js"</script>
+  <script type="text/javascript" src="/yui/build/connection/connection-min.js"</script>
+  <script type="text/javascript" src="/yui/build/json/json-min.js"</script>
+  <script type="text/javascript" src="/yui/build/dom/dom-min.js"</script>
+  <script type="text/javascript" src="/yui/build/treeview/treeview-min.js"</script>
+  <script type="text/javascript" src="/yui/build/logger/logger-min.js"></script>
+  <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+  <script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
+  <script type="text/javascript" src="/yui/build/element/element-min.js"></script>
+  <script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
+  <script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
+  <script type="text/javascript" src="/yui/build/animation/animation-min.js"></script>
+  <script type="text/javascript" src="/yui/build/container/container-min.js"></script>
+  <script type="text/javascript" src="/yui/build/resize/resize-min.js"></script>
+  <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
+  <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
+
+  <script type="text/javascript" src="/js/phedex-base.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-logger.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-contextmenu.js"></script>
+  <script type="text/javascript" src="/js/phedex-util.js"></script>
+  <script type="text/javascript" src="/js/phedex-page.js"></script>
+  <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-datatable.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-treeview.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-agents.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-nodes.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-linkview.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-requestview.js"></script>
+  <link rel="stylesheet" type="text/css" href="/css/phedex.css">
+</head>
+
+<body class="yui-skin-sam">
+ <div id='phedex_logger' style='float:right;'></div>
+ <div id='phedex_main'></div>
+
+<script type="text/javascript">
+// This Page.Config object defines the page structure, using JSON
+Page = { 'Config': [
+  {'call':'PHEDEX.Page.Widget.Nodes', '_default':'', 'text':'Show Nodes'},
+  {'call':'PHEDEX.Page.Widget.TransfersNode', '_default':'T1_US_FNAL_Buffer', 'text':'Show Links', opts:{time:12,direction:'from'} },
+  {'call':'PHEDEX.Page.Widget.Requests', '_default':'30342', 'text':'Show Requests' },
+  {'call':'PHEDEX.Page.Widget.Agents', '_default':'T1_US_FNAL_Buffer', 'text':'Show Agents for node' }
+ ] };
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {
+      PHEDEX.Logger.Create({width:'650px',height:'20em'});
+      PHEDEX.Page.Create(Page.Config);
+//      PHEDEX.Datasvc.Nodes('',null,null); // could get the node-names from the start!
+    });
+</script>
+
+</body>
+</html>
