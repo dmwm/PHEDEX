@@ -2,14 +2,14 @@
 PHEDEX.namespace('Widget.Agents');
 
 PHEDEX.Page.Widget.Agents=function(divid) {
-  var site = document.getElementById(divid+'_select').value;
-  var agent_node = new PHEDEX.Widget.Agents(site,divid);
+  var node = document.getElementById(divid+'_select').value;
+  var agent_node = new PHEDEX.Widget.Agents(node,divid);
   agent_node.update();
 }
 
-PHEDEX.Widget.Agents=function(site,divid) {
+PHEDEX.Widget.Agents=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+site,null,
+  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node,null,
     {
 	width:500,
 	height:200,
@@ -17,7 +17,7 @@ PHEDEX.Widget.Agents=function(site,divid) {
 	minheight:50
     });
   that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
-  that.site=site;
+  that.node=node;
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
   that.fillHeader=function(div) {
     var now = new Date() / 1000;
@@ -29,7 +29,7 @@ PHEDEX.Widget.Agents=function(site,divid) {
       if ( u > maxDate ) { maxDate = u; }
       if ( u < minDate ) { minDate = u; }
     }
-    var msg = "Site: "+this.site+", agents: "+this.data.length;
+    var msg = "Node: "+this.node+", agents: "+this.data.length;
     if ( maxDate > 0 )
     {
       var minGMT = new Date(minDate*1000).toGMTString();
@@ -49,9 +49,9 @@ PHEDEX.Widget.Agents=function(site,divid) {
 	      'Version','Label','Host','State Dir'
 	    ],
 	    {Agent:'name', Date:'time_update', 'State Dir':'state_dir' } );
-  that.update=function() { PHEDEX.Datasvc.Agents(that.site,that); }
+  that.update=function() { PHEDEX.Datasvc.Agents(that.node,that); }
   that.receive=function(result) {
-    that.data = PHEDEX.Data.Agents[that.site];
+    that.data = PHEDEX.Data.Agents[that.node];
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
@@ -62,4 +62,4 @@ PHEDEX.Widget.Agents=function(site,divid) {
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(args,opts,el) { PHEDEX.Widget.Agents(opts.selected_site).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(args,opts,el) { PHEDEX.Widget.Agents(opts.selected_node).update(); });

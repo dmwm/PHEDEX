@@ -118,7 +118,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       var task = p_aArgs[1];
       var args = oCurrentTextNode.payload.args;
       var opts = oCurrentTextNode.payload.opts;
-      YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_site+')','info','Core.TreeView');
+      YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
       if (task) {
 	this.payload[task.index](args, opts, {tree:p_TreeView, node:oCurrentTextNode});
       }

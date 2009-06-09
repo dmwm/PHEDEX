@@ -130,12 +130,12 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 	var args = payload.args || {};
 	var opts = payload.opts || {};
 	var oRecord = p_DataTable.getRecord(elRow);
-	var selected_site = opts.selected_site; // allows me to specify a site in the payload, to override guesses here
-	if ( ! selected_site ) { selected_site = oRecord.getData('Name'); }
-	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_site+')','info','Core.DataTable');
+	var selected_node = opts.selected_node; // allows me to specify a node in the payload, to override guesses here
+	if ( ! selected_node ) { selected_node = oRecord.getData('Name'); }
+	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_node+')','info','Core.DataTable');
 //	this is not good, I should be building a payload inside the table object and passing it here, not
 //	building specific payloads in a generic base-widget!
-	opts.selected_site = selected_site;
+	opts.selected_node = selected_node;
 	this.payload[task.index](args, opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
       }
     }

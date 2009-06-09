@@ -63,20 +63,20 @@ PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
 }
 
 PHEDEX.Page.Widget.TransfersNode=function(divid) {
-  var site = document.getElementById(divid+'_select').value;
-  xfer_node = new PHEDEX.Widget.TransfersNode(site,divid);
+  var node = document.getElementById(divid+'_select').value;
+  xfer_node = new PHEDEX.Widget.TransfersNode(node,divid);
   xfer_node.update();
 }
 
-PHEDEX.Widget.TransfersNode=function(site,divid) {
+PHEDEX.Widget.TransfersNode=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width = 1000;
-  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+site,null,{
+  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+node,null,{
 		width:width,
 		height:300
 	      });
   that.me=function() { return 'PHEDEX.Core.Widget.TransfersNode'; }
-  that.site = site;
+  that.node = node;
   var config = PHEDEX.Util.getConfig(divid);
 
 // Build the options for the pull-down menus.
@@ -163,7 +163,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
   }
 
   that.fillHeader=function(div) {
-    this.title.innerHTML=this.site;
+    this.title.innerHTML=this.node;
   }
 
   that.deleteBodyContents=function(div) {
@@ -227,7 +227,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       tNode.payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, callback:PHEDEX.Widget.TransferQueueBlock.callback_Treeview }; // so I can use this in the callback
       tNode.payload.args.from = h.from;
       tNode.payload.args.to   = h.to;
-      tNode.payload.opts.selected_site = h[antidirection];
+      tNode.payload.opts.selected_node = h[antidirection];
       tNode.payload.opts.direction = that.direction;
     }
     that.tree.render();
@@ -237,7 +237,7 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 
   that.update=function() {
     var args={};
-    args[that.direction_key()]=this.site;//apparently {this.direction:this.site} is invalid
+    args[that.direction_key()]=this.node;//apparently {this.direction:this.node} is invalid
     args['binwidth']=parseInt(this.time)*3600;
     PHEDEX.Datasvc.TransferQueueStats(args,this,this.receive_QueueStats);
     PHEDEX.Datasvc.TransferHistory   (args,this,this.receive_History);
@@ -245,15 +245,15 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     this.startLoading();
   }
   that.receive_QueueStats=function(result,obj) {
-    that.data_queue = PHEDEX.Data.TransferQueueStats[obj.direction_key()][obj.site];
+    that.data_queue = PHEDEX.Data.TransferQueueStats[obj.direction_key()][obj.node];
     that.maybe_populate();
   }
   that.receive_History=function(result,obj) {
-    that.data_hist = PHEDEX.Data.TransferHistory[obj.direction_key()][obj.site];
+    that.data_hist = PHEDEX.Data.TransferHistory[obj.direction_key()][obj.node];
     that.maybe_populate();
   }
   that.receive_ErrorStats=function(result,obj) {
-    that.data_error = PHEDEX.Data.ErrorLogSummary[obj.direction_key()][obj.site];
+    that.data_error = PHEDEX.Data.ErrorLogSummary[obj.direction_key()][obj.node];
     that.maybe_populate();
   }
   that.maybe_populate=function() {
@@ -279,5 +279,5 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_site).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_node).update(); });
 YAHOO.log('loaded...','info','Core.TransfersNode');
