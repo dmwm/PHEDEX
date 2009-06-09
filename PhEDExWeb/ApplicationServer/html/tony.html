@@ -55,10 +55,10 @@
 <script type="text/javascript">
 // This Page.Config object defines the page structure, using JSON
 Page = { 'Config': [
-  {'call':'PHEDEX.Page.Widget.Nodes', '_default':'', 'text':'Show Nodes'},
-  {'call':'PHEDEX.Page.Widget.TransfersNode', '_default':'T1_US_FNAL_Buffer', 'text':'Show Links', opts:{time:12,direction:'from'} },
-  {'call':'PHEDEX.Page.Widget.Requests', '_default':'30342', 'text':'Show Requests' },
-  {'call':'PHEDEX.Page.Widget.Agents', '_default':'T1_US_FNAL_Buffer', 'text':'Show Agents for node' }
+  {call:'PHEDEX.Page.Widget.Nodes',         value:'',                  text:'Show Nodes'},
+  {call:'PHEDEX.Page.Widget.TransfersNode', value:'T1_US_FNAL_Buffer', text:'Show Links', opts:{time:12,direction:'from'} },
+  {call:'PHEDEX.Page.Widget.Requests',      value:'30342',             text:'Show Requests' },
+  {call:'PHEDEX.Page.Widget.Agents',        value:'T1_US_FNAL_Buffer', text:'Show Agents for node' }
  ] };
 // instantiate the page and other things when the DOM is ready!
 YAHOO.util.Event.onDOMReady(function() {
