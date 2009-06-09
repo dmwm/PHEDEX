@@ -2,7 +2,7 @@
 // production pages by simply not declaring the div in the html.
 PHEDEX.namespace('Logger');
 
-PHEDEX.Logger.Create=function(opts,divid) {
+PHEDEX.Logger.Create=function(args,opts,divid) {
   if ( !divid ) { divid = 'phedex_logger'; }
   var myDiv = document.getElementById(divid);
   if ( !myDiv ) { return; }
@@ -15,16 +15,20 @@ PHEDEX.Logger.Create=function(opts,divid) {
     footerEnabled: true,
     verboseOutput: false
   };
-  if (opts) {
-    for (o in opts) {
-      LoggerConfig[o]=opts[o];
+  if (args) {
+    for (var i in args) {
+      LoggerConfig[i]=args[i];
     }
   }
   myDiv.style.width = LoggerConfig.width;
   PHEDEX.Logger.Reader = new YAHOO.widget.LogReader(divid,LoggerConfig);
   PHEDEX.Logger.Reader.hideSource('global');
   PHEDEX.Logger.Reader.hideSource('LogReader');
-  PHEDEX.Logger.Reader.collapse();
+  if ( opts.hideSource )
+  {
+    for (var s in opts.hideSource) { PHEDEX.Logger.Reader.hideSource(opts.hideSource[s]); }
+  }
+  if ( opts.collapse ) { PHEDEX.Logger.Reader.collapse(); }
 }
 
 YAHOO.widget.Logger.enableBrowserConsole(); // Enable logging to firebug console, or Safari console.
