@@ -1,6 +1,9 @@
-<html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
   <title>PhEDEx datasvc</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+
   <link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
   <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
   <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
@@ -59,7 +62,13 @@ Page = { 'Config': [
  ] };
 // instantiate the page and other things when the DOM is ready!
 YAHOO.util.Event.onDOMReady(function() {
-      PHEDEX.Logger.Create({width:'650px',height:'20em'});
+      PHEDEX.Logger.Create(
+	    {width:'650px',height:'30em'}, // arguments to the YAHOO LogReader widget
+	    {				   // options to the PHEDEX.Logger
+	      collapse:false,
+	      hideSource:['Core.ContextMenu','Core.Datasvc','Core.DataTable','Core.TransfersNode','Core.Widget']
+	    }
+	);
       PHEDEX.Page.Create(Page.Config);
 //      PHEDEX.Datasvc.Nodes('',null,null); // could get the node-names from the start!
     });
