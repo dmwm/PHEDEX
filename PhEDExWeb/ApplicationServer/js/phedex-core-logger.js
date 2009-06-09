@@ -24,11 +24,14 @@ PHEDEX.Logger.Create=function(args,opts,divid) {
   PHEDEX.Logger.Reader = new YAHOO.widget.LogReader(divid,LoggerConfig);
   PHEDEX.Logger.Reader.hideSource('global');
   PHEDEX.Logger.Reader.hideSource('LogReader');
-  if ( opts.hideSource )
+  if ( opts )
   {
-    for (var s in opts.hideSource) { PHEDEX.Logger.Reader.hideSource(opts.hideSource[s]); }
+    if ( opts.hideSource )
+    {
+      for (var s in opts.hideSource) { PHEDEX.Logger.Reader.hideSource(opts.hideSource[s]); }
+    }
+    if ( opts.collapse ) { PHEDEX.Logger.Reader.collapse(); }
   }
-  if ( opts.collapse ) { PHEDEX.Logger.Reader.collapse(); }
 }
 
 YAHOO.widget.Logger.enableBrowserConsole(); // Enable logging to firebug console, or Safari console.
