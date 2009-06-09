@@ -54,11 +54,18 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     var d1 = document.createElement('div');
     if ( typeof(args.fields[i]) == 'object' )
     {
-      d1.innerHTML = args.fields[i].text;
-      var w_el = parseInt(args.fields[i].width);
-      if ( w_el ) { d1.style.width = args.fields[i].width; }
-      else	  { d1.style.width = args.fields[i]; }
-      if ( args.fields[i].class ) { d1.className = args.fields[i].class; }
+	d1.innerHTML = args.fields[i].text;
+	var w_el = parseInt(args.fields[i].width);
+	if ( w_el ) {
+	    d1.style.width = args.fields[i].width; 
+	} else { 
+	    d1.style.width = args.fields[i]; 
+	}
+	
+	// TODO:  'class' is a reserved word, find a better name for _class...
+ 	if ( args.fields[i]._class ) {
+ 	    d1.className = args.fields[i]._class; 
+ 	}
     }
     else
     {
@@ -70,7 +77,7 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( args.class ) { list.className += ' '+args.class; }
+  if ( args._class ) { list.className += ' '+args._class; }
   return div;
 }
 

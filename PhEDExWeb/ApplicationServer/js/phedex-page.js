@@ -19,8 +19,9 @@ PHEDEX.Page.Create = function( config ) {
     var input_box = document.createElement('input');
     input_box.setAttribute('type','text');
     input_box.setAttribute('id',myDivId+'_select');
-    if ( config[i].default )
-    { input_box.setAttribute('value',config[i].default); }
+    // TODO:  'default' is a reserved word, find a better name for _default
+    if ( config[i]._default )
+    { input_box.setAttribute('value',config[i]._default); }
 
     var a = document.createElement('a');
     a.setAttribute('href','#');
