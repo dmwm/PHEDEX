@@ -62,9 +62,8 @@ PHEDEX.Util.makeInlineDiv = function(args) {
 	    d1.style.width = args.fields[i]; 
 	}
 	
-	// TODO:  'class' is a reserved word, find a better name for _class...
- 	if ( args.fields[i]._class ) {
- 	    d1.className = args.fields[i]._class; 
+ 	if ( args.fields[i].className ) {
+ 	    d1.className = args.fields[i].className; 
  	}
     }
     else
@@ -77,7 +76,7 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( args._class ) { list.className += ' '+args._class; }
+  if ( args.className ) { list.className += ' '+args.className; }
   return div;
 }
 

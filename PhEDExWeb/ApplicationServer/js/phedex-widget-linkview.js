@@ -193,12 +193,12 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
       var done = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
       var queue = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes'));
       var dlist = PHEDEX.Util.makeInlineDiv({width:width,fields:[
-	  {text:node,        width:200,_class:'phedex-tnode-field phedex-tree-node align-left'},
-          {text:rate,        width:100,_class:'phedex-tnode-field phedex-tree-rate'},
-	  {text:qual,        width:100,_class:'phedex-tnode-field phedex-tree-quality'},
-	  {text:done,        width:200,_class:'phedex-tnode-field phedex-tree-done'},
-	  {text:queue,       width:200,_class:'phedex-tnode-field phedex-tree-queue'},
-          {text:e.num_errors,width:100,_class:'phedex-tnode-field phedex-tree-errors'}
+	  {text:node,        width:200,className:'phedex-tnode-field phedex-tree-node align-left'},
+          {text:rate,        width:100,className:'phedex-tnode-field phedex-tree-rate'},
+	  {text:qual,        width:100,className:'phedex-tnode-field phedex-tree-quality'},
+	  {text:done,        width:200,className:'phedex-tnode-field phedex-tree-done'},
+	  {text:queue,       width:200,className:'phedex-tnode-field phedex-tree-queue'},
+          {text:e.num_errors,width:100,className:'phedex-tnode-field phedex-tree-errors'}
 	]});
       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, root);
       that.textNodeMap[tNode.labelElId] = tNode;
@@ -246,10 +246,9 @@ PHEDEX.Widget.TransfersNode=function(site,divid) {
     }
   }
 
-  // TODO:  'class' is a reserved word, find a better name for _class...
   that.buildTree(that.div_content,
-    PHEDEX.Util.makeInlineDiv({width:width,_class:'treeview-header',fields:[
-	  {text:'Node',width:200,_class:'align-left'},
+    PHEDEX.Util.makeInlineDiv({width:width,className:'treeview-header',fields:[
+	  {text:'Node',width:200,className:'align-left'},
           {text:'Rate',width:100},
 	  {text:'Quality',width:100},
 	  {text:'Done',width:200},
