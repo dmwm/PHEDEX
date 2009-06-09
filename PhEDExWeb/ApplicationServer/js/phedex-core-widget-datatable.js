@@ -116,13 +116,13 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   }
   that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.DataTable');
-    var label = p_aArgs[0].explicitOriginalTarget.textContent;
     var task = p_aArgs[1];
     if(task) {
 //  Extract which TR element triggered the context menu
       var tgt = this.contextEventTarget;
       var elCol = p_DataTable.getColumn(tgt);
       var elRow = p_DataTable.getTrEl(tgt);
+      var label = tgt.textContent;
       var payload = {};
       if(elRow) {
 //	TODO I haven't figured out yet how to define a row-payload. Should do that soon...
@@ -130,7 +130,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 	var args = payload.args || {};
 	var opts = payload.opts || {};
 	var oRecord = p_DataTable.getRecord(elRow);
-	var selected_site = opts.selected_site;
+	var selected_site = opts.selected_site; // allows me to specify a site in the payload, to override guesses here
 	if ( ! selected_site ) { selected_site = oRecord.getData('Name'); }
 	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_site+')','info','Core.DataTable');
 //	this is not good, I should be building a payload inside the table object and passing it here, not
@@ -209,3 +209,4 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
   return that;
 }
+YAHOO.log('loaded...','info','Core.DataTable');
