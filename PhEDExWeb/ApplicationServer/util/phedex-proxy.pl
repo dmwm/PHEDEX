@@ -196,6 +196,7 @@ POE::Component::Server::TCP->new
 			'png'	=> 'image/png',
 			'jpeg'	=> 'image/jpg',
 			'jpg'	=> 'image/jpg',
+			'ico'	=> 'image/ico',
 		     }->{$ext};
 	  $h->{'Content-type'} = $type if $type;
 	  binmode DATA if ! is_text($file);
