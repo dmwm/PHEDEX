@@ -180,3 +180,5 @@ debugger;
 
   return that;
 }
+
+YAHOO.log('loaded...','info','Core.TreeView');

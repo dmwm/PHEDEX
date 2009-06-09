@@ -192,3 +192,4 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.startLoading();
   return this;
 }
+YAHOO.log('loaded...','info','Core.Widget');

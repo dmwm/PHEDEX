@@ -206,3 +206,4 @@ PHEDEX.Datasvc.TransferQueueFiles_callback = function(data,obj) {
     q[block.name].state    = tq.state;
   }
 }
+YAHOO.log('loaded...','info','Core.Datasvc');

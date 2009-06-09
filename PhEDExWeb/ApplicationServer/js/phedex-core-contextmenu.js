@@ -37,3 +37,4 @@ PHEDEX.Core.ContextMenu.Build=function(menu,components) {
     }
   }
 }
+YAHOO.log('loaded...','info','Core.ContextMenu');
