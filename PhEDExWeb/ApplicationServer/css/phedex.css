@@ -4,17 +4,9 @@ body {
   font-size: 100%;
 }
 
-.align-left {
-  text-align: left;
-}
-
-.align-right {
-  text-align: right;
-}
-
-.align-justify {
-  text-align: justify;
-}
+.align-left    { text-align: left; }
+.align-right   { text-align: right; }
+.align-justify { text-align: justify; }
 
 .inline_list {
   display: table;
@@ -40,6 +32,16 @@ body {
   height:20px;
   width:20px;
   display:none
+}
+
+.phedex-tnode-field {
+  overflow-x: auto;
+/*   height: 1.4em; */
+}
+
+.phedex-tree-block-name .phedex-tree-node-name {
+  height: 2em;
+  overflow: auto;
 }
 
 .treeview-header {
