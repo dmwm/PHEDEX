@@ -255,7 +255,7 @@ DONE:
 
 	  $response->header( 'Content-type', 'text/html' );
 	  $response->header( 'Content-length', length($data) );
-	  $response->header( %{$h} ); # Override with or append our headers
+	  $h && $response->header( %{$h} ); # Override-with/append our headers
 	  $response->content($data);
 	  $heap->{client}->put($response);
 	  $kernel->yield("shutdown");
