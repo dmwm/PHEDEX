@@ -9,7 +9,7 @@ PHEDEX.Page.Widget.Requests=function(divid) {
 
 PHEDEX.Widget.RequestView = function(request,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that = new PHEDEX.Core.Widget(divid+'_'+request,null,
+  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+request,null,
 		{
 		width:800,
 		height:200,
@@ -17,63 +17,83 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 		minheight:80
 		});
   that.request=request;
-  that.buildHeader=function(div) {
-    this.list = document.createElement('ul');
-    this.list.className='inline_list';
-    this.title = document.createElement('li');
-    this.list.appendChild(this.title);
-    this.requestor = document.createElement('li');
-    this.list.appendChild(this.requestor);
-    this.volume = document.createElement('li');
-    this.list.appendChild(this.volume);
-    this.status = document.createElement('li');
-    this.list.appendChild(this.status);
-    this.xfertype = document.createElement('li');
-    this.list.appendChild(this.xfertype);
-    div.appendChild(this.list);
-  }
-  that.fillHeader=function(div) {
-    this.title.innerHTML='Request '+this.data.id;
-    this.requestor.innerHTML=this.data.requested_by.username;
-    this.volume.innerHTML=this.data.data.files+' files / '+PHEDEX.Util.format['bytes'](this.data.data.bytes);
-    this.status.innerHTML=this.approval();
-    this.xfertype.innerHTML=this.classify();
-  }
   that.fillBody = function(div) {
-    var reqNode, tmpNode, tmpLeaf;
-    var tree = new YAHOO.widget.TreeView(div);
-    var root = tree.getRoot();
-    
-    reqNode = new YAHOO.widget.TextNode({label: "Request status", expanded: false}, root);
-    tmpLeaf = new YAHOO.widget.TextNode(this.data.comments, reqNode, false); 
-    tmpLeaf.isLeaf = true;
+    var rNode, tNode, tNode1;
+    var root = this.tree.getRoot();
+    that.textNodeMap = [];
 
-    tmpNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, reqNode);
-    var requestDetail = "Requested by "+this.data.requested_by.username+" ("+this.data.requested_by.name+") on "+PHEDEX.Util.format.date(this.data.time_create)+"<br/>DN: "+this.data.requested_by.dn+"<br/>Host: "+this.data.requested_by.host+" using "+this.data.requested_by.agent;
-    new YAHOO.widget.TextNode(requestDetail, tmpNode, false); 
+    var dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
+	  {text:this.data.id,                    width:130,className:'phedex-tnode-field phedex-tree-ID'},
+          {text:this.data.requested_by.username, width:130,className:'phedex-tnode-field phedex-tree-requestor'},
+	  {text:PHEDEX.Util.format.filesBytes(this.data.data.files,this.data.data.files), width:130,className:'phedex-tnode-field phedex-tree-volume'},
+	  {text:this.approval(),    width:130,className:'phedex-tnode-field phedex-tree-status'},
+	  {text:this.classify(),    width:130,className:'phedex-tnode-field phedex-tree-xfertype'}
+	]});
+    tNode = new YAHOO.widget.TextNode(dlist.innerHTML, root, false);
+    that.textNodeMap[tNode.labelElId] = tNode;
+    tNode.isLeaf = true;
+    rNode = new YAHOO.widget.TextNode({label: "Request status", expanded: false}, root);
+    that.textNodeMap[rNode.labelElId] = rNode;
+    tNode = new YAHOO.widget.TextNode(this.data.comments, rNode, false);
+    that.textNodeMap[tNode.labelElId] = tNode;
+    tNode.isLeaf = true;
 
-    tmpNode = new YAHOO.widget.TextNode({label: this.approval(), expanded: false}, reqNode);
+    tNode = new YAHOO.widget.TextNode({label: "Requestor details", expanded: false}, rNode);
+    that.textNodeMap[tNode.labelElId] = tNode;
+
+    tNode1 = new YAHOO.widget.TextNode('Name: '+this.data.requested_by.name, tNode, false);
+    that.textNodeMap[tNode1.labelElId] = tNode1; tNode1.isLeaf = true;
+    tNode1 = new YAHOO.widget.TextNode('Date: '+PHEDEX.Util.format.date(this.data.time_create), tNode, false);
+    that.textNodeMap[tNode1.labelElId] = tNode1; tNode1.isLeaf = true;
+    tNode1 = new YAHOO.widget.TextNode('DN: '+this.data.requested_by.dn, tNode, false);
+    that.textNodeMap[tNode1.labelElId] = tNode1; tNode1.isLeaf = true;
+    tNode1 = new YAHOO.widget.TextNode('Host: '+this.data.requested_by.host, tNode, false);
+    that.textNodeMap[tNode1.labelElId] = tNode1; tNode1.isLeaf = true;
+    tNode1 = new YAHOO.widget.TextNode('UserAgent: '+this.data.requested_by.agent, tNode, false);
+    that.textNodeMap[tNode1.labelElId] = tNode1; tNode1.isLeaf = true;
+
+    tNode = new YAHOO.widget.TextNode({label: this.approval(), expanded: false}, rNode);
     var destinationDetail="";
     for (var i in this.data.destinations.node) {
-      var d = this.data.destinations.node[i];
-      destinationDetail += "DESTINATION: "+d.name+"<br/>";
-      if ( d.decided_by.decision == 'y' ) { destinationDetail += "Approved"; }
-      else                                { destinationDetail += "Rejected"; }
-      destinationDetail += " by "+d.decided_by.username+" ("+d.decided_by.name+") on "+PHEDEX.Util.format.date(d.decided_by.time_decided);
-    }
-    new YAHOO.widget.TextNode(destinationDetail, tmpNode, false); 
+      var d = this.data.destinations.node[i];;
+      if ( d.decided_by.decision == 'y' ) { destinationDetail = 'Approved'; }
+      else                                { destinationDetail = 'Rejected'; }
 
-    tmpNode = new YAHOO.widget.TextNode({label: "Block details", expanded: false}, root);
-    tmpLeaf.isLeaf = true;
+     dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
+	  {text:d.name,           width:130,className:'phedex-tnode-field phedex-tree-node'},
+          {text:destinationDetail,width:100,className:'phedex-tnode-field phedex-tree-decision'}
+	]});
+      tNode1 = new YAHOO.widget.TextNode(dlist.innerHTML, tNode, false);
+      that.textNodeMap[tNode1.labelElId] = tNode1;
+
+      tNode2 = new YAHOO.widget.TextNode('Name: '+d.decided_by.name, tNode1, false);
+      that.textNodeMap[tNode2.labelElId] = tNode2; tNode2.isLeaf = true;
+      tNode2 = new YAHOO.widget.TextNode('Date: '+PHEDEX.Util.format.date(d.decided_by.time_decided), tNode1, false);
+      that.textNodeMap[tNode2.labelElId] = tNode2; tNode2.isLeaf = true;
+      tNode2 = new YAHOO.widget.TextNode('DN: '+d.decided_by.dn, tNode1, false);
+      that.textNodeMap[tNode2.labelElId] = tNode2; tNode2.isLeaf = true;
+      tNode2 = new YAHOO.widget.TextNode('Host: '+d.decided_by.host, tNode1, false);
+      that.textNodeMap[tNode2.labelElId] = tNode2; tNode2.isLeaf = true;
+      tNode2 = new YAHOO.widget.TextNode('UserAgent: '+d.decided_by.agent, tNode1, false);
+      that.textNodeMap[tNode2.labelElId] = tNode2; tNode2.isLeaf = true;
+    }
+
+    tNode = new YAHOO.widget.TextNode({label: "Block details", expanded: false}, root);
+    that.textNodeMap[tNode.labelElId] = tNode;
     for (var i in this.data.data.dbs.dataset) {
       var d = this.data.data.dbs.dataset[i];
-      var b = new YAHOO.widget.TextNode({label: d.name, expanded: false}, tmpNode);
+      var b = new YAHOO.widget.TextNode({label: d.name, expanded: false}, tNode);
+      that.textNodeMap[b.labelElId] = b;
       var t = " BlockID: "+d.id+", "+d.files+" files / "+PHEDEX.Util.format['bytes'](d.bytes);
-      tmpLeaf = new YAHOO.widget.TextNode(t, b, false);
-      tmpLeaf.isLeaf = true;
+      tNode1 = new YAHOO.widget.TextNode(t, b, false);
+//       tNode1.payload = { call:'TransferQueueFiles', obj:that, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
+//       tNode1.payload.args = {};//node.payload.args;
+//       tNode1.payload.opts = {};//node.payload.opts;
+//       tNode1.payload.args.block = b.name;
+      tNode1.isLeaf = true;
+      that.textNodeMap[tNode1.labelElId] = tNode1;
     }
-
-    tree.render(); 
+    that.tree.render();
   }
   that.approval=function() {
     var dest_approve=0;
@@ -100,17 +120,6 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     result += this.data.priority+' priority';
     return result;
   }
-//   that.buildExtra=function(div) {
-//     this.comment=document.createElement('div');
-//     this.comment.className='comment';
-//     div.appendChild(this.comment);
-//     this.creator=document.createElement('div');
-//     this.creator.className='border';
-//     div.appendChild(this.creator);
-//     this.approver=document.createElement('div');
-//     this.approver.className='border';
-//     div.appendChild(this.approver);
-//   }
   that.update=function() {
     PHEDEX.Datasvc.TransferRequests(this.request,this);
   }
@@ -120,6 +129,17 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       that.populate();
     }
   }
+  that.isDynamic = true; // enable dynamic loading of data
+  that.buildTree(that.div_content,
+      PHEDEX.Util.makeInlineDiv({className:'treeview-header',fields:[
+	  {text:'ID',        width:130,className:'phedex-tnode-field phedex-tree-ID'},
+          {text:'Requestor', width:130,className:'phedex-tnode-field phedex-tree-requestor'},
+	  {text:'Volume',    width:130,className:'phedex-tnode-field phedex-tree-volume'},
+	  {text:'Status',    width:130,className:'phedex-tnode-field phedex-tree-status'},
+	  {text:'XferType',  width:130,className:'phedex-tnode-field phedex-tree-xfertype'}
+	]})
+    );
   that.build();
+  that.buildContextMenu('Request');
   return that;
 }
