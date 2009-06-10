@@ -24,7 +24,8 @@ PHEDEX.Page.Create = function( config ) {
 
     var a = document.createElement('a');
     a.setAttribute('href','#');
-    a.setAttribute('onClick','return ' + call + '("' + myDivId + '")');
+    myDiv.handler=call;
+    YAHOO.util.Event.addListener(a, 'click', function() { PHEDEX.Page.Widget[this.parentNode.handler](this.parentNode.id); } );
 
     var aText = document.createTextNode(config[i].text);
     if ( ! aText ) { aText = 'Show ' + call; }
