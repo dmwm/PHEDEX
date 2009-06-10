@@ -9,19 +9,28 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense
 
+var linkHeader1 = [
+          {width:200,className:'phedex-tree-node align-left'},
+          {width:100,className:'phedex-tree-rate'},
+	  {width:100,className:'phedex-tree-quality'},
+	  {width:200,className:'phedex-tree-done'},
+	  {width:200,className:'phedex-tree-queue'},
+          {width:100,className:'phedex-tree-errors'}
+    ];
+
 var linkHeader2 = [
-	  {          className:'phedex-tnode-field phedex-tree-block-name align-left'},
-          {width:130,className:'phedex-tnode-field phedex-tree-priority'},
-	  {width:180,className:'phedex-tnode-field phedex-tree-state'},
-	  {width:100,className:'phedex-tnode-field phedex-tree-block-id'},
-          {width: 80,className:'phedex-tnode-field phedex-tree-block-files'},
-	  {width:100,className:'phedex-tnode-field phedex-tree-block-bytes'}
+	  {          className:'phedex-tree-block-name align-left'},
+          {width:130,className:'phedex-tree-priority'},
+	  {width:180,className:'phedex-tree-state'},
+	  {width:100,className:'phedex-tree-block-id'},
+          {width: 80,className:'phedex-tree-block-files'},
+	  {width:100,className:'phedex-tree-block-bytes'}
     ];
 var linkHeader3 = [
-	  {          className:'phedex-tnode-field phedex-tree-file-name align-left'},
-	  {width:100,className:'phedex-tnode-field phedex-tree-file-id'},
-          {width:180,className:'phedex-tnode-field phedex-tree-file-cksum'},
-	  {width:100,className:'phedex-tnode-field phedex-tree-file-bytes'}
+	  {          className:'phedex-tree-file-name align-left'},
+	  {width:100,className:'phedex-tree-file-id'},
+          {width:180,className:'phedex-tree-file-cksum'},
+	  {width:100,className:'phedex-tree-file-bytes'}
     ];
 
 PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
@@ -39,7 +48,7 @@ PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
       payload.args.block = block.name;
 
       var tNode = PHEDEX.Util.makeNode(
-        {className:'treeview-node',format:linkHeader2},
+        {className:'phedex-tnode-field',format:linkHeader2},
         [ block.name, tq.priority, tq.state, block.id, block.files, PHEDEX.Util.format.bytes(block.bytes) ]
         );
       node.payload.obj.addNode(tNode,node,payload);
@@ -57,7 +66,7 @@ PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
     {
       var file = block.file[k];
       var tNode = PHEDEX.Util.makeNode(
-        {className:'treeview-node',format:linkHeader3},
+        {className:'phedex-tnode-field',format:linkHeader3},
         [ file.name, file.id, file.checksum, PHEDEX.Util.format.bytes(file.bytes) ]
         );
       node.payload.obj.addNode(tNode,node);
@@ -81,15 +90,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.me=function() { return 'PHEDEX.Core.Widget.TransfersNode'; }
   that.node = node;
   var config = PHEDEX.Util.getConfig(divid);
-
-  var linkHeader1 = [
-          {width:200,className:'phedex-tnode-field phedex-tree-node align-left'},
-          {width:100,className:'phedex-tnode-field phedex-tree-rate'},
-	  {width:100,className:'phedex-tnode-field phedex-tree-quality'},
-	  {width:200,className:'phedex-tnode-field phedex-tree-done'},
-	  {width:200,className:'phedex-tnode-field phedex-tree-queue'},
-          {width:100,className:'phedex-tnode-field phedex-tree-errors'}
-        ];
 
 // Build the options for the pull-down menus.
 // 1. extract the default option from the configuration, or provide one if none given
@@ -222,7 +222,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       var done = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
       var queue = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes'));
       var tNode = PHEDEX.Util.makeNode(
-        {width:width,className:'treeview-node',format:linkHeader1},
+        {width:width,className:'phedex-tnode-field',format:linkHeader1},
         [ node,rate,qual,done,queue,e.num_errors ]
         );
 
@@ -275,17 +275,17 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.buildTree(that.div_content);
 
   var hNode = PHEDEX.Util.makeNode(
-        {width:width,className:'treeview-header',format:linkHeader1}, // node layout specification
+        {width:width,className:'phedex-tnode-header',format:linkHeader1}, // node layout specification
         [ 'Node','Rate','Quality','Done','Queued','Errors' ]          // node text
     );
   var tNode = that.addNode(hNode);
   var hNode1 = PHEDEX.Util.makeNode(
-        {className:'treeview-header',format:linkHeader2},
+        {className:'phedex-tnode-header',format:linkHeader2},
         [ 'Block Name','Priority','State','Block ID','Files','Bytes' ]
     );
   var tNode1 = that.addNode(hNode1,tNode);
   var hNode2 = PHEDEX.Util.makeNode(
-        {className:'treeview-header',format:linkHeader3},
+        {className:'phedex-tnode-header',format:linkHeader3},
         [ 'File Name','File ID','Checksum','Bytes' ]
         );
   var tNode2 = that.addNode(hNode2,tNode1)
