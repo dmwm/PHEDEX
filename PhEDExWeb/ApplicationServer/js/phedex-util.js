@@ -80,7 +80,7 @@ PHEDEX.Util.makeInlineDiv = function(args) {
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( args.className ) { list.className += ' '+args.className; }
+//   if ( args.className ) { list.className += ' '+args.className; }
   return div;
 }
 
@@ -133,7 +133,6 @@ PHEDEX.Util.makeNode = function(spec,val) {
     list.appendChild(li);
   }
   div.appendChild(list);
-  if ( spec.className ) { list.className += ' '+spec.className; }
   return div;
 }
 
