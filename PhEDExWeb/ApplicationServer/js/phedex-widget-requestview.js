@@ -20,7 +20,6 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that.fillBody = function(div) {
     var rNode, tNode, tNode1;
     var root = this.tree.getRoot();
-    that.textNodeMap = [];
 
     var dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
 	  {text:this.data.id,                    width:130,className:'phedex-tnode-field phedex-tree-ID'},
