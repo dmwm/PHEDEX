@@ -35,9 +35,14 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.tree = new YAHOO.widget.TreeView(div);
     var currentIconMode=0;
 // turn dynamic loading on for entire tree:
-    that.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
-    var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, that.tree.getRoot());
-    tNode.isLeaf = true;
+    if ( that.isDynamic ) {
+      that.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
+    }
+    if ( dlist )
+    {
+      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, that.tree.getRoot());
+      tNode.isLeaf = true;
+    }
     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
     YAHOO.util.Event.on(div, "mousedown", clickHandler);
@@ -166,7 +171,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
-debugger;
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
     var old_width = tree.getContainerEl().clientWidth;
 //     var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
