@@ -18,8 +18,8 @@ PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
     {
       var block = tq.block[j];
       var text = block.name+" priority:"+tq.priority+" state:"+tq.state;
-      var dlist = PHEDEX.Util.makeInlineDiv({width:1260,className:'treeview-node',fields:[
-	  {text:' '+block.name,              width:750,className:'phedex-tnode-field phedex-tree-block-name align-left'},
+      var dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
+	  {text:block.name,                        className:'phedex-tnode-field phedex-tree-block-name align-left'},
           {text:'Priority='+tq.priority, width:130,className:'phedex-tnode-field phedex-tree-priority'},
 	  {text:'State='+tq.state,       width:180,className:'phedex-tnode-field phedex-tree-state'}
 	]});
@@ -48,8 +48,8 @@ PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
     for (var k in block.file)
     {
       var file = block.file[k];
-      var dlist = PHEDEX.Util.makeInlineDiv({width:1080,className:'treeview-node',fields:[
-	  {text:file.name,              width:700,className:'phedex-tnode-field phedex-tree-file-name align-left'},
+      var dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
+	  {text:file.name,                        className:'phedex-tnode-field phedex-tree-file-name align-left'},
 	  {text:'ID='+file.id,          width:100,className:'phedex-tnode-field phedex-tree-file-id'},
           {text:'Cksum='+file.checksum, width:180,className:'phedex-tnode-field phedex-tree-file-cksum'},
 	  {text:'Bytes='+PHEDEX.Util.format.bytes(file.bytes),width:100,className:'phedex-tnode-field phedex-tree-file-bytes'}
@@ -263,6 +263,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       this.populate();
     }
   }
+  that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.div_content,
     PHEDEX.Util.makeInlineDiv({width:width,className:'treeview-header',fields:[
 	  {text:'Node',   width:200, className:'align-left'},
