@@ -21,20 +21,17 @@ PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
       var dlist = PHEDEX.Util.makeInlineDiv({className:'treeview-node',fields:[
 	  {text:block.name,                        className:'phedex-tnode-field phedex-tree-block-name align-left'},
           {text:'Priority='+tq.priority, width:130,className:'phedex-tnode-field phedex-tree-priority'},
-	  {text:'State='+tq.state,       width:180,className:'phedex-tnode-field phedex-tree-state'}
+	  {text:'State='+tq.state,       width:180,className:'phedex-tnode-field phedex-tree-state'},
+	  {text:'ID='+block.id,          width:100,className:'phedex-tnode-field phedex-tree-block-id'},
+          {text:'Files='+block.files,    width: 80,className:'phedex-tnode-field phedex-tree-block-files'},
+	  {text:'Bytes='+PHEDEX.Util.format.bytes(block.bytes),width:100,className:'phedex-tnode-field phedex-tree-block-bytes'}
 	]});
       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, node);
 
-      var dlist1 = PHEDEX.Util.makeInlineDiv({width:300,className:'treeview-node',fields:[
-	  {text:'ID='+block.id,       width:100,className:'phedex-tnode-field phedex-tree-block-id'},
-          {text:'Files='+block.files, width:80,className:'phedex-tnode-field phedex-tree-block-files'},
-	  {text:'Bytes='+PHEDEX.Util.format.bytes(block.bytes),width:100,className:'phedex-tnode-field phedex-tree-block-bytes'}
-	]});
-      var tNode1 = new YAHOO.widget.TextNode({label: dlist1.innerHTML, expanded: false}, tNode);
-      tNode1.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
-      tNode1.payload.args = node.payload.args;
-      tNode1.payload.opts = node.payload.opts;
-      tNode1.payload.args.block = block.name;
+      tNode.payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
+      tNode.payload.args = node.payload.args;
+      tNode.payload.opts = node.payload.opts;
+      tNode.payload.args.block = block.name;
     }
   }
 }
