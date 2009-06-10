@@ -31,21 +31,28 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       el = el.parentNode;
     }
   }
-  that.buildTree=function(div,dlist,map) {
+  that.buildTree=function(div,dlist) {
     that.tree = new YAHOO.widget.TreeView(div);
     var currentIconMode=0;
-// turn dynamic loading on for entire tree:
+// turn dynamic loading on for entire tree?
     if ( that.isDynamic ) {
       that.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
     }
-    if ( dlist )
-    {
-      var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, that.tree.getRoot());
-      tNode.isLeaf = true;
-    }
+//     if ( dlist )
+//     {
+//       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, that.tree.getRoot());
+//       tNode.isLeaf = true;
+//     }
     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
     YAHOO.util.Event.on(div, "mousedown", clickHandler);
+  }
+  that.addNode=function(el,parent,payload) {
+    if ( !parent ) { parent = that.tree.getRoot(); }
+    var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
+    that.textNodeMap[tNode.labelElId] = tNode;
+    if ( payload ) { tNode.payload = payload; }
+    return tNode;
   }
 
 // A split-button and menu for the show-all-fields function
