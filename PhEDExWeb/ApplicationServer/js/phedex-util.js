@@ -84,6 +84,59 @@ PHEDEX.Util.makeInlineDiv = function(args) {
   return div;
 }
 
+// PHEDEX.Util.makeNode({width:width,className:'treeview-header',format:linkHeader1,
+//         values:[ 'Node','Rate','Quality','Done','Queued','Errors' ]
+// 	]})
+// build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
+// nominally identical, except values in the Value object can override the Specification object.
+// This lets us create a template Specification and use it in several places (header, body) with
+// different Values.
+PHEDEX.Util.makeNode = function(spec,val) {
+  if ( !val ) { val = {}; }
+  var wtot = spec.width || 0;
+  var list = document.createElement('ul');
+  var div = document.createElement('div');
+  list.className = 'inline_list';
+  if ( wtot )
+  {
+    div.style.width = wtot+'px';
+    var n = spec.format.length;
+    for ( var i in spec.format )
+    {
+      if ( typeof(spec.format[i]) == 'object' )
+      {
+	var w_el = parseInt(spec.format[i].width);
+	if ( w_el ) { wtot -= w_el; n--; }
+      }
+    }
+  }
+  var w = Math.round(wtot/n);
+  if ( w < 0 ) { w=0; }
+  for ( var i in spec.format )
+  {
+    var d1 = document.createElement('div');
+    d1.innerHTML = val[i] || spec.format[i].text;
+    var w_el = parseInt(spec.format[i].width);
+    if ( w_el ) {
+      d1.style.width = w_el+'px';
+    } else {
+      if ( w ) { d1.style.width = w+'px'; }
+    }
+
+    if ( spec.format[i].className ) {
+      d1.className = spec.format[i].className; 
+    }
+    if ( spec.className ) { d1.className += ' '+spec.className; }
+    d1.innerHTML = val[i];
+    var li = document.createElement('li');
+    li.appendChild(d1);
+    list.appendChild(li);
+  }
+  div.appendChild(list);
+  if ( spec.className ) { list.className += ' '+spec.className; }
+  return div;
+}
+
 // removed from PHEDEX.Core.Widget and placed here, for convenience
 PHEDEX.Util.format={
     bytes:function(raw) {
