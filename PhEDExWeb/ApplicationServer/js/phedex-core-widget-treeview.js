@@ -10,15 +10,28 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   function mouseOverHandler(e) {
 //  get the resolved (non-text node) target:
     var elTarget = YAHOO.util.Event.getTarget(e);
+    var el = that.locateNode(elTarget);
+    if ( ! el ) { return; }
+    var colour;
     if ( e.type == 'mouseover' ) {
-      elTarget.style.backgroundColor = 'yellow';
+      colour = 'yellow';
     } else {
-      elTarget.style.backgroundColor = null;
+      colour = null; // not a mouse-over, must be a mouse-out
     }
+    if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) {
+//    find the phedex-tree-* classname of this header element, flash its all phedex-tnode-field elements with the same class.
+    }
+    else
+    {
+//    find the phedex-tree-* classname of this header element, flash the phedex-tnode-header element with the same class.
+    }
+    el.style.backgroundColor = colour;
   }
   function clickHandler(e) {
     var elTarget = YAHOO.util.Event.getTarget(e);
-    that.locateNode(elTarget);
+    var el = that.locateNode(elTarget);
+    if ( !el ) { return; }
+    YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, "warn", "Core.TreeView");
   }
   that.locateNode=function(el) {
     while (el.id != that.div_content.id) { // walk up only as far as the content-div
@@ -26,7 +39,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
         YAHOO.log('Activated element: '+el.id,'warn','Core.TreeView');
       }
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
-        YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, "warn", "Core.TreeView");
+        return el;
+      }
+      if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
+        return el;
       }
       el = el.parentNode;
     }
