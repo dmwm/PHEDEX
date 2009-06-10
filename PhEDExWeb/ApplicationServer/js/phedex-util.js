@@ -34,18 +34,21 @@ PHEDEX.Util.makeUList = function(args) {
 // globally, accept width and class for the entire div. This is a messy but adequate way of getting started with formatting treeview
 // leaf nodes to some extent.
 PHEDEX.Util.makeInlineDiv = function(args) {
-  var wtot = args.width || 900;
+  var wtot = args.width || 0; // || 900;
   var list = document.createElement('ul');
   var div = document.createElement('div');
   list.className = 'inline_list';
-  div.style.width = wtot+'px';
-  var n = args.fields.length;
-  for ( var i in args.fields )
+  if ( wtot )
   {
-    if ( typeof(args.fields[i]) == 'object' )
+    div.style.width = wtot+'px';
+    var n = args.fields.length;
+    for ( var i in args.fields )
     {
-      var w_el = parseInt(args.fields[i].width);
-      if ( w_el ) { wtot -= w_el; n--; }
+      if ( typeof(args.fields[i]) == 'object' )
+      {
+	var w_el = parseInt(args.fields[i].width);
+	if ( w_el ) { wtot -= w_el; n--; }
+      }
     }
   }
   var w = Math.round(wtot/n);
@@ -60,7 +63,7 @@ PHEDEX.Util.makeInlineDiv = function(args) {
 	if ( w_el ) {
 	    d1.style.width = w_el+'px';
 	} else {
-	    d1.style.width = w+'px';
+	    if ( w ) { d1.style.width = w+'px'; }
 	}
 	
  	if ( args.fields[i].className ) {
