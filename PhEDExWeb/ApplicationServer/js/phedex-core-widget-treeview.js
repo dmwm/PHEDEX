@@ -4,7 +4,7 @@ PHEDEX.namespace('Core.Widget.TreeView');
 
 PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   var that=new PHEDEX.Core.Widget(divid,parent,opts);
-  that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
+  that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
 
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {

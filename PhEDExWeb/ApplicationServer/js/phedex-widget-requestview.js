@@ -16,6 +16,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 		minwidth:400,
 		minheight:80
 		});
+  that.me=function() { return 'PHEDEX.Core.Widget.RequestView'; }
   that.request=request;
   that.fillBody = function(div) {
     var rNode, tNode, tNode1;

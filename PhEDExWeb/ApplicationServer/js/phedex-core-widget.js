@@ -35,7 +35,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.id = divid;
     this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id);
   }
-  this.me=function() { YAHOO.log('unimplemented "me"','warn','Core.Widget'); return 'PHEDEX.Core.Widget'; }
+  this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
   this.textNodeMap = [];
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
