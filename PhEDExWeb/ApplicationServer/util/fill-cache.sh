@@ -22,12 +22,12 @@ done
 for node in `cat nodes`
 do
   echo transfer stats: $node
-  wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=21600;"
-  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=21600;"
+  wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=21600"
+  wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=21600"
+  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=21600"
+  wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=21600"
+  wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=21600"
+  wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=21600"
 done
 
 # Get all binwidths for T0/1 non-MSS nodes...
@@ -38,12 +38,12 @@ do
   for bin in 3600 10800 21600 43200 86400 172800 345600 604800
   do
     echo -n "$bin "
-    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=$bin;"
-    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=$bin;"
-    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=$bin;"
-    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=$bin;"
-    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=$bin;"
-    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=$bin;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?to=$node;binwidth=$bin"
+    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?to=$node;binwidth=$bin"
+    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?to=$node;binwidth=$bin"
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueStats?from=$node;binwidth=$bin"
+    wget --quiet -O /dev/null "$jsonUrl/TransferHistory?from=$node;binwidth=$bin"
+    wget --quiet -O /dev/null "$jsonUrl/ErrorLogSummary?from=$node;binwidth=$bin"
   done
   echo ' '
 done
@@ -55,12 +55,12 @@ do
   echo transfer queue blocks: $from
   for to in `grep -v $from nodes | egrep '^T0|^T1|^T2' | grep -v MSS`
   do
-    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
+    wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to"
 #   Now for the files. Yikes!
-    for block in `wget --quiet -O - "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;" | tr -d '"' | tr ',' "\n" | grep name: | awk -F: '{ print $2 }' |tr '#' '*'`
+    for block in `wget --quiet -O - "$jsonUrl/TransferQueueBlocks?from=$from;to=$to" | tr -d '"' | tr ',' "\n" | grep name: | awk -F: '{ print $2 }' |tr '#' '*'`
     do
       echo $block
-      wget --quiet -O /dev/null "$jsonUrl/TransferQueueFiles?from=$from;to=$to;block=$block;"
+      wget --quiet -O /dev/null "$jsonUrl/TransferQueueFiles?from=$from;to=$to;block=$block"
     done
   done
 done
@@ -70,7 +70,7 @@ do
   echo transfer queue blocks: $from
   for to in `grep -v $from nodes | egrep '^T0|^T1' | grep -v MSS`
   do
-   wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to;"
+   wget --quiet -O /dev/null "$jsonUrl/TransferQueueBlocks?from=$from;to=$to"
   done
 done
 
@@ -78,5 +78,5 @@ done
 for request in `seq 30000 31000`
 do
   echo request: $request
-  wget --quiet -O /dev/null "$jsonUrl/TransferRequests?request=$request;"
+  wget --quiet -O /dev/null "$jsonUrl/TransferRequests?request=$request"
 done
