@@ -172,15 +172,33 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.update=function() { alert("Unimplemented update()");}
 
 // A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
-  this.onBuildComplete    = new YAHOO.util.CustomEvent("onBuildComplete");
-  this.onPopulateBegin    = new YAHOO.util.CustomEvent("onPopulateBegin");
-  this.onPopulateComplete = new YAHOO.util.CustomEvent("onPopulateComplete");
-  this.onUpdateBegin      = new YAHOO.util.CustomEvent("onUpdateBegin");
-  this.onUpdateComplete   = new YAHOO.util.CustomEvent("onUpdateComplete");
-  this.onLoadingBegin     = new YAHOO.util.CustomEvent("onLoadingBegin");
-  this.onLoadingComplete  = new YAHOO.util.CustomEvent("onLoadingComplete");
-  this.onLoadingFailed    = new YAHOO.util.CustomEvent("onLoadingFailed");
-  this.onResizeComplete   = new YAHOO.util.CustomEvent("onResizeComplete");
+//
+// To fire one of these methods:
+// this.onBuildComplete.fire( arg0, arg1, ... );
+//
+// to subscribe to one of these events:
+// this.onBuildComplete.subscribe(handler,object);
+// where handler is a function and object is an arbitrary object
+//
+// the handler looks like this:
+// var handler = function(event_name, args, object)
+// where event_name would be 'onBuildComplete' in this example,
+// args is an array of the arguments passed to the fire() method: args[0] is arg0, args[1] is arg1, etc
+// object is the thing passed to the subscribe method.
+//
+// See http://developer.yahoo.com/yui/event/#customevent for more complete information.
+  this.onBuildComplete    = new YAHOO.util.CustomEvent("onBuildComplete",    this, false, YAHOO.util.CustomEvent.LIST);
+  this.onPopulateBegin    = new YAHOO.util.CustomEvent("onPopulateBegin",    this, false, YAHOO.util.CustomEvent.LIST);
+  this.onPopulateComplete = new YAHOO.util.CustomEvent("onPopulateComplete", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onUpdateBegin      = new YAHOO.util.CustomEvent("onUpdateBegin",      this, false, YAHOO.util.CustomEvent.LIST);
+  this.onUpdateComplete   = new YAHOO.util.CustomEvent("onUpdateComplete",   this, false, YAHOO.util.CustomEvent.LIST);
+  this.onLoadingBegin     = new YAHOO.util.CustomEvent("onLoadingBegin",     this, false, YAHOO.util.CustomEvent.LIST);
+  this.onLoadingComplete  = new YAHOO.util.CustomEvent("onLoadingComplete",  this, false, YAHOO.util.CustomEvent.LIST);
+  this.onLoadingFailed    = new YAHOO.util.CustomEvent("onLoadingFailed",    this, false, YAHOO.util.CustomEvent.LIST);
+  this.onResizeComplete   = new YAHOO.util.CustomEvent("onResizeComplete",   this, false, YAHOO.util.CustomEvent.LIST);
+// the DataReady and DataFailed events are for (re-)loading data, for use by the data-service. The *Loading* events above are for DOM-related activities within the widget
+  this.onDataReady        = new YAHOO.util.CustomEvent("onDataReady",        this, false, YAHOO.util.CustomEvent.LIST);
+  this.onDataFailed       = new YAHOO.util.CustomEvent("onDataFailed",       this, false, YAHOO.util.CustomEvent.LIST);
 
   this.panel.render();
 
