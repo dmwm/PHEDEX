@@ -12,22 +12,30 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var elTarget = YAHOO.util.Event.getTarget(e);
     var el = that.locateNode(elTarget);
     if ( ! el ) { return; }
-    var colour;
+    var colour, colour_alt;
     if ( e.type == 'mouseover' ) {
       colour = 'yellow';
+      colour_alt = '#ffa'; // pale yellow
     } else {
       colour = null; // not a mouse-over, must be a mouse-out
+      colour_alt = null;
     }
-    if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) {
-//    find the phedex-tree-* classname of this header element, flash its all phedex-tnode-field elements with the same class.
-debugger;
-      var elStyles = YAHOO.util.DOM.getStyles(el);
-      var elList = YAHOO.util.DOM.getElementsByClassName('phedex-tnode-header', 'div', that.div_body);
-//       YAHOO.util.DOM.hasClass(element, className);
-    }
-    else
-    {
-//    find the phedex-tree-* classname of this header element, flash the phedex-tnode-header element with the same class.
+    var treeMatch = /^phedex-tree-/;
+    var treeOther;
+    if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
+    else						  { treeOther = 'phedex-tnode-header'; }
+    var elClasses = el.className.split(' ');
+    for (var i in elClasses) {
+      if ( elClasses[i].match(treeMatch) ) {
+	var elList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div_body);
+	for (var i in elList )
+	{
+	  if ( YAHOO.util.Dom.hasClass(elList[i],treeOther) )
+	  {
+	    elList[i].style.backgroundColor = colour_alt;
+	  }
+	}
+      }
     }
     el.style.backgroundColor = colour;
   }
