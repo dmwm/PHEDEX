@@ -183,6 +183,12 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 // Allow the table to be build again after updates
   that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
 
+  that.onDataFailed.subscribe(function() {
+//  Empty the dataTable if it is there
+    if ( that.dataTable ) { that.dataTable.destroy(); that.dataTable = null; }
+    that.div_content.innerHTML='Data-load error, try again later...';
+  });
+
 // Gratuitously flash yellow when the mouse goes over the rows
   that.onRowMouseOut = function(event) {
     event.target.style.backgroundColor = null;

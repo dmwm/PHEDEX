@@ -20,6 +20,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) {
 //    find the phedex-tree-* classname of this header element, flash its all phedex-tnode-field elements with the same class.
+debugger;
+      var elStyles = YAHOO.util.DOM.getStyles(el);
+      var elList = YAHOO.util.DOM.getElementsByClassName('phedex-tnode-header', 'div', that.div_body);
+//       YAHOO.util.DOM.hasClass(element, className);
     }
     else
     {
@@ -179,6 +183,12 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       that.refreshButton();
     } );
     that.tree.subscribe('renderEvent', function() { that.resizePanel(that.tree); } );
+  });
+
+  that.onDataFailed.subscribe(function() {
+//  Empty the tree if it is there
+    if ( that.tree ) { that.tree.destroy(); that.tree = null; }
+    that.div_content.innerHTML='Data-load error, try again later...';
   });
 
   that.onPopulateComplete.subscribe(function() {
