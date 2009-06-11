@@ -10,7 +10,7 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // I'm not sure if that makes sense
 
 var linkHeader1 = [
-          {width:200,className:'phedex-tree-node align-left'},
+          {width:200,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
           {width:100,className:'phedex-tree-rate'},
 	  {width:100,className:'phedex-tree-quality'},
 	  {width:200,className:'phedex-tree-done'},
@@ -225,7 +225,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
         {width:width,className:'phedex-tnode-field',format:linkHeader1},
         [ node,rate,qual,done,queue,e.num_errors ]
         );
-
 //    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level.
 //    I did see a better way to do this in the YUI docs, but will find that later...
 //    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
@@ -242,25 +241,16 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     that.tree.root.children[1].focus();
   }
 
-  that.update=function() {
-    var args={};
-    args[that.direction_key()]=this.node;//apparently {this.direction:this.node} is invalid
-    args['binwidth']=parseInt(this.time)*3600;
-    PHEDEX.Datasvc.TransferQueueStats(args,this,this.receive_QueueStats);
-    PHEDEX.Datasvc.TransferHistory   (args,this,this.receive_History);
-    PHEDEX.Datasvc.ErrorLogSummary   (args,this,this.receive_ErrorStats);
-    this.startLoading();
-  }
-  that.receive_QueueStats=function(result,obj) {
-    that.data_queue = PHEDEX.Data.TransferQueueStats[obj.direction_key()][obj.node];
+  that.receive_TransferQueueStats=function() {
+    that.data_queue = PHEDEX.Data.TransferQueueStats[that.direction_key()][that.node];
     that.maybe_populate();
   }
-  that.receive_History=function(result,obj) {
-    that.data_hist = PHEDEX.Data.TransferHistory[obj.direction_key()][obj.node];
+  that.receive_TransferHistory=function() {
+    that.data_hist = PHEDEX.Data.TransferHistory[that.direction_key()][that.node];
     that.maybe_populate();
   }
-  that.receive_ErrorStats=function(result,obj) {
-    that.data_error = PHEDEX.Data.ErrorLogSummary[obj.direction_key()][obj.node];
+  that.receive_ErrorLogSummary=function() {
+    that.data_error = PHEDEX.Data.ErrorLogSummary[that.direction_key()][that.node];
     that.maybe_populate();
   }
   that.maybe_populate=function() {
@@ -270,6 +260,25 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       this.populate();
     }
   }
+
+// Data-service calls and events...
+  that.onTransferQueueStatsReady = new YAHOO.util.CustomEvent("onTransferQueueStatsReady", that);
+  that.onTransferQueueStatsReady.subscribe(that.receive_TransferQueueStats);
+  that.onTransferHistoryReady    = new YAHOO.util.CustomEvent("onTransferHistoryReady",that);
+  that.onTransferHistoryReady.subscribe(   that.receive_TransferHistory);
+  that.onErrorLogSummaryReady    = new YAHOO.util.CustomEvent("onErrorLogReady",that);
+  that.onErrorLogSummaryReady.subscribe(   that.receive_ErrorLogSummary);
+
+  that.update=function() {
+    var args={};
+    args[that.direction_key()]=this.node;
+    args['binwidth']=parseInt(this.time)*3600;
+    PHEDEX.Datasvc.TransferQueueStats(args,that,that.receive_TransferQueueStats);
+    PHEDEX.Datasvc.TransferHistory(   args,that,that.receive_TransferHistory);
+    PHEDEX.Datasvc.ErrorLogSummary(   args,that,that.receive_ErrorLogSummary);
+    this.startLoading();
+  }
+
   that.isDynamic = true; // enable dynamic loading of data
 
   that.buildTree(that.div_content);
@@ -288,11 +297,21 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
         {className:'phedex-tnode-header',format:linkHeader3},
         [ 'File Name','File ID','Checksum','Bytes' ]
         );
+//   var dx = document.createElement('div');
+//   var dr = document.createElement('div');
+//   dx.innerHTML = '<div class="data"><p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Suspendisse justo nibh, pharetra at, adipiscing ullamcorper.</p><p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Suspendisse justo nibh, pharetra at, adipiscing ullamcorper.</p></div>';
+//   dx.id='resize';
+//   dr.appendChild(dx);
+//   var tNode2 = that.addNode(dr,tNode1)
   var tNode2 = that.addNode(hNode2,tNode1)
   tNode2.isLeaf = true;
 
   that.buildContextMenu('Node');
   that.build();
+  YAHOO.util.Event.onAvailable('resize',function() {
+    var resize = new YAHOO.util.Resize('resize');
+  });
+
   return that;
 }
 
