@@ -123,6 +123,9 @@ PHEDEX.Util.makeNode = function(spec,val) {
       if ( w ) { d1.style.width = w+'px'; }
     }
 
+    if ( spec.format[i].id ) {
+      d1.id = spec.format[i].id; 
+    }
     if ( spec.format[i].className ) {
       d1.className = spec.format[i].className; 
     }
