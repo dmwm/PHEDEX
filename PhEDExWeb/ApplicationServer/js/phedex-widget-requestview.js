@@ -121,9 +121,11 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     return result;
   }
   that.update=function() {
-    PHEDEX.Datasvc.TransferRequests(this.request,this);
+    PHEDEX.Datasvc.TransferRequests(this.request,this,this.onDataReady);
   }
-  that.receive=function(result,obj) {
+
+  that.onDataReady.subscribe(function(args) { that.receive(); });
+  that.receive=function() {
     that.data=PHEDEX.Data.TransferRequests[that.request];
     if (that.data) {
       that.populate();

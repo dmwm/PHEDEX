@@ -50,7 +50,8 @@ PHEDEX.Widget.Agents=function(node,divid) {
 	    ],
 	    {Agent:'name', Date:'time_update', 'State Dir':'state_dir' } );
   that.update=function() { PHEDEX.Datasvc.Agents(that.node,that); }
-  that.receive=function(result) {
+  that.onDataReady.subscribe(function(args) { that.receive(); });
+  that.receive=function() {
     that.data = PHEDEX.Data.Agents[that.node];
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }

@@ -30,7 +30,8 @@ PHEDEX.Widget.Nodes=function(node,divid) {
   that.update=function() {
     PHEDEX.Datasvc.Nodes(that.node,that);
   }
-  that.receive=function(result) {
+  that.onDataReady.subscribe(function(args) { that.receive(); });
+  that.receive=function() {
     that.data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
