@@ -1,6 +1,8 @@
 // Instantiate a namespace for the data-service calls and the data
 // they return, if they do not already exist
-PHEDEX.namespace('Datasvc','Data');
+PHEDEX.namespace('Datasvc');
+
+// TODO ... turn this into a respectable object?
 
 // Global variables. Should provide getters & setters
 PHEDEX.Datasvc.Instance = 'prod';
@@ -9,70 +11,119 @@ PHEDEX.Datasvc.Instances = [{name:'Production',instance:'prod'},
 			    {name:'Debug',instance:'debug'}
 			   ];
 
-// Generic retrieval from the data-service. Requires a correctly formatted
-// API call, an object to callback to, a Datasvc handler to cache this data
-// (this may be data-specific, hence not generic), and a callback function
-// within the calling widget. The last defaults to the 'receive()' member of
-// the widget that is receiving the call.
-//
-// This method could also call the obj.startLoading method, to display the
-// spinning wheel or other 'loading' indicator
-PHEDEX.Datasvc.GET = function(api,obj,datasvc,callback) {
-  if ( obj && !callback ) { callback = obj.receive; }
+// Whether we should try again for failed queries
+PHEDEX.Datasvc.AutoRetry = 0;
 
-  var url = '/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+api;
+/* query object arguments:
+   api           : the datasvc api name
+   args          : hash of arguments for the api call
+   callback      : a callback function for result data
+   success_event : an event to fire(data) on success
+   failure_event : an event to fire(Error) on failure, defaults to success_event
+   limit         : limit to the number of times to poll, default is Number.POSITIVE_INFINITY
+*/
+PHEDEX.Datasvc.Call = function(query) {
+  YAHOO.log('CALL '+query.api,'info','Core.Datasvc');
+  query.limit = 1;
+  PHEDEX.Datasvc.Poll(query);
+}
 
-// identify ourselves to the web-server logfiles
+PHEDEX.Datasvc.Poll = function(query) {
+  YAHOO.log('POLL '+query.api,'info','Core.Datasvc');
+  if ( (!query.success_event) && query.callback) {
+    query.success_event = new YAHOO.util.CustomEvent('CallbackSuccessEvent');
+    query.success_event.subscribe(function (type, data) { query.callback(data[0])} );
+  } else if ( !query.success_event ) {
+    throw new Error("no 'success_event' or 'callback' provided"); 
+  }
+
+  if (!query.failure_event) {
+    query.failure_event = query.success_event;
+  }
+
+  query.text = query.api + PHEDEX.Datasvc.BuildQuery(query.args);
+  
+  if (query.limit == null || query.limit < 0) {
+    query.limit = Number.POSITIVE_INFINITY; 
+  }
+
+  var poll_id = PHEDEX.Datasvc.GET(query);
+  return poll_id;
+}
+
+// Triggers an asyncRequest from a prepared query object
+// TODO:  do not GET if no one is listening to the result events
+PHEDEX.Datasvc.GET = function(query) {
+  YAHOO.log('GET '+query.text,'info','Core.Datasvc');
+  query.uri = '/phedex/datasvc/json/'+PHEDEX.Datasvc.Instance+'/'+query.text;
+
+  // TODO:  transparent caching goes here
+
+  // identify ourselves to the web-server logfiles
   YAHOO.util.Connect.initHeader('user-agent','PhEDEx-AppServ/'+PHEDEX.Appserv.Version);
-  YAHOO.log('GET '+api,'info','Core.Datasvc');
   YAHOO.util.Connect.asyncRequest(
                 'GET',
-                 url,
-		{success:PHEDEX.Datasvc.Callback,
-		 failure:PHEDEX.Datasvc.Failure,
-		 timeout:300000, // 5 minutes, in milliseconds
-		 argument:{obj:obj,datasvc:datasvc,callback:callback,api:api}
-		}
-	);
+                query.uri,
+		{ success:PHEDEX.Datasvc.GOT,
+		  failure:PHEDEX.Datasvc.FAIL,
+		  timeout:300000, // 5 minutes, in milliseconds
+		  argument:query }
+  );
+
+  // TODO:  return poll_id to give caller a possibility to turn off the polling...
+  return 1;
 }
 
-// Generic callback, allows one-stop error-handling. Does basic parsing of
-// the returned object, should eventually handle any error-responses too.
-// Then calls the dataservice-specific callback to process this particular
-// response, then the object-specific callback to deal with the widget.
-//
-// Could call response.argument.obj.finishLoading, to remove the 'loading'
-// indicator for the widget that wants the data.
-PHEDEX.Datasvc.Callback = function(response) {
-    YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+response.argument.api,'info','Core.Datasvc');
-    try {
-	if ( response.status != 200 ) { throw "bad response"; }
-	var data = YAHOO.lang.JSON.parse(response.responseText);
-	YAHOO.log('PARSED '+response.argument.api, 'info', 'Core.Datasvc');
+/*  Basic success callback does the following:
+    - parse response
+    - unwrap response
+    - check for errors from the data service or null responses
+    - fire query.success_event
+    - requedule query with GET if needed
+*/
+PHEDEX.Datasvc.GOT = function(response) {
+  var query = response.argument;
+  YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+query.text,'info','Core.Datasvc');
+  var data = {};
+  try {
+    if ( response.status != 200 ) { throw new Error("bad response"); } // should be unnecessary...
+    data = YAHOO.lang.JSON.parse(response.responseText);
+    YAHOO.log('PARSED '+query.text, 'info', 'Core.Datasvc');
+    
+    if (data['error']) { throw new Error(data['error']) }
+    data = data['phedex'];
+    // barely adequate error-checking! Should also use response-headers
+    if ( typeof(data) !== 'object' ) { throw new Error("null response"); }
+  } catch (e) {
+    response.status = -1;
+    response.statusText = e.message;
+    PHEDEX.Datasvc.FAIL(response);
+  }
+  YAHOO.log('FIRE '+query.text, 'info', 'Core.Datasvc');
+  query.success_event.fire(data);
 
-// TODO should handle the cache-control with response.getResponseHeader['Cache-Control']
-	data = data['phedex'];
-	// barely adequate error-checking! Should also use response-headers
-	if ( typeof(data) !== 'object' ) { throw "null response"; }
-	YAHOO.log('CALLBACK '+response.argument.api, 'info', 'Core.Datasvc');
-	response.argument.datasvc(data,response.argument.obj);
-	if ( response.argument.callback ) { response.argument.callback(data,response.argument.obj); }
-    } catch (e) {
-	response.status = -1;
-	response.statusText = e;
-	PHEDEX.Datasvc.Failure(response);
-    }
+  // reschedule if needed
+  !query.poll ? query.poll = 1 : query.poll++;
+  if (query.poll < query.limit) {
+    var maxage = response.getResponseHeader['Cache-Control'];
+    maxage = maxage.replace(/max-age=(\d+)/, "$1");
+    if (!maxage) { maxage = 600; } // default poll time is 10 minutes
+    YAHOO.log('maxage "'+maxage+'"', 'info', 'Core.Datasvc');
+    var timerid = setTimeout(PHEDEX.Datasvc.GET(query, maxage*1000));
+    // TODO: associate this timer with poll_id above to turn off polling
+  }
 }
 
-PHEDEX.Datasvc.Failure = function(response) {
-    YAHOO.log('FAILURE '+response.status+' ('+response.statusText+') for '+response.argument.api,'error','Core.Datasvc');
-    response.argument.obj.failedLoading();
-    if ( response.argument.callback ) { response.argument.callback({},response.argument.obj); }
+PHEDEX.Datasvc.FAIL = function(response) {
+  var query = response.argument;
+  YAHOO.log('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error','Core.Datasvc');
+  query.failure_event.fire(new Error(response.statusText));
+  // TODO:  also reschedule
 }
 
 // For an arbitrary object, construct the query by joining the key=value pairs
 // in the right manner.
-PHEDEX.Datasvc.Query = function(args) {
+PHEDEX.Datasvc.BuildQuery = function(args) {
   var argstr = "";
   if (args) {
     argstr = "?";
@@ -84,113 +135,6 @@ PHEDEX.Datasvc.Query = function(args) {
   return argstr;
 }
 
-// A generic dataservice call
-PHEDEX.Datasvc.Call = function(api,args,obj,callback) {
-  api += PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Nodes_callback,callback);
-}
-PHEDEX.Datasvc.Call_callback = function(data,obj) {
-  PHEDEX.Data.Call = data;
-}
+// TODO:  some function to turn off polling
 
-// data-service-specific functions. Always in pairs, the first builds the URI
-// for the call, the second handles the returned object in whatever specific
-// manner is necessary. Adopt the convention PHEDEX.Datasvc.X and
-// PHEDEX.Datasvc.X_callback for these pairs.
-PHEDEX.Datasvc.Nodes = function(node,obj,callback) {
-  var api = 'nodes';
-  if ( node ) { api += PHEDEX.Datasvc.Query({node:node}); }
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Nodes_callback,callback);
-}
-PHEDEX.Datasvc.Nodes_callback = function(data,obj) {
-  if ( !data.node ) { return; }
-  PHEDEX.Data.Nodes = data.node;
-}
-
-PHEDEX.Datasvc.Agents = function(node,obj,callback) {
-  var api = 'agents' + PHEDEX.Datasvc.Query({node:node});
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.Agents_callback,callback);
-}
-PHEDEX.Datasvc.Agents_callback = function(data,obj) {
-  PHEDEX.namespace('Data.Agents');
-  PHEDEX.Data.Agents[obj.node] = null;
-  if ( ! data['node'] ) { return; }
-  if ( ! data['node'][0] ) { return; }
-  PHEDEX.Data.Agents[obj.node] = data['node'][0]['agent'];
-}
-
-PHEDEX.Datasvc.TransferRequests = function(request,obj,callback) {
-  var api = 'TransferRequests' + PHEDEX.Datasvc.Query({request:request});
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferRequests_callback,callback);
-}
-PHEDEX.Datasvc.TransferRequests_callback = function(data,obj) {
-  if ( !data.request ) { return; }
-  PHEDEX.namespace('Data.TransferRequests');
-  PHEDEX.Data.TransferRequests[obj.request] = data.request[0];
-}
-
-PHEDEX.Datasvc.TransferQueueStats= function(args,obj,callback) {
-  var api = 'TransferQueueStats' + PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueStats_callback,callback);
-}
-PHEDEX.Datasvc.TransferQueueStats_callback = function(data,obj) {
-  if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferQueueStats.'+obj.direction_key());
-  PHEDEX.Data.TransferQueueStats[obj.direction_key()][obj.node] = data.link;
-}
-
-PHEDEX.Datasvc.TransferHistory= function(args,obj,callback) {
-  var api = 'TransferHistory' + PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferHistory_callback,callback);
-}
-PHEDEX.Datasvc.TransferHistory_callback = function(data,obj) {
-  if ( !data.link ) { return; }
-  PHEDEX.namespace('Data.TransferHistory.'+obj.direction_key());
-  PHEDEX.Data.TransferHistory[obj.direction_key()][obj.node] = data.link;
-}
-
-PHEDEX.Datasvc.ErrorLogSummary= function(args,obj,callback) {
-  var api = 'ErrorLogSummary' + PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.ErrorLogSummary_callback,callback);
-}
-PHEDEX.Datasvc.ErrorLogSummary_callback = function(data,obj) {
-  if ( !data.link ) {  return; }
-  PHEDEX.namespace('Data.ErrorLogSummary.'+obj.direction_key());
-  PHEDEX.Data.ErrorLogSummary[obj.direction_key()][obj.node] = data.link;
-}
-
-PHEDEX.Datasvc.TransferQueueBlocks = function(args,obj,callback) {
-  var api = 'TransferQueueBlocks'+PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueBlocks_callback,callback);
-}
-PHEDEX.Datasvc.TransferQueueBlocks_callback = function(data,obj) {
-  if ( typeof(data.link) != 'object' ) { return; }
-  var link = data.link[0];
-  if ( !link ) { return; }
-  if ( !link.from || ! link.to ) { return; }
-  PHEDEX.namespace('Data.TransferQueueBlocks.'+link.from);
-  PHEDEX.Data.TransferQueueBlocks[link.from][link.to] = link;
-}
-
-PHEDEX.Datasvc.TransferQueueFiles = function(args,obj,callback) {
-  var api = 'TransferQueueFiles'+PHEDEX.Datasvc.Query(args);
-  PHEDEX.Datasvc.GET(api,obj,PHEDEX.Datasvc.TransferQueueFiles_callback,callback);
-}
-PHEDEX.Datasvc.TransferQueueFiles_callback = function(data,obj) {
-  if ( typeof(data.link) != 'object' ) { return; }
-  var link = data.link[0];
-  if ( !link ) { return; }
-  if ( !link.from || ! link.to ) { return; }
-  PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to);
-  var tq = link.transfer_queue[0];
-
-  var q = PHEDEX.namespace('Data.TransferQueueFiles.'+link.from+'.'+link.to+'.byName');
-  for (var i in tq.block)
-  {
-    var block = tq.block[i];
-    q[block.name] = block;
-    q[block.name].priority = tq.priority;
-    q[block.name].state    = tq.state;
-  }
-}
 YAHOO.log('loaded...','info','Core.Datasvc');
