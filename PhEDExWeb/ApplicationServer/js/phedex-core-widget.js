@@ -37,6 +37,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   }
   this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
   this.textNodeMap = [];
+  this.hideByDefault=[];
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
