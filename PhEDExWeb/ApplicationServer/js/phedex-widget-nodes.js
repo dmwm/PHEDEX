@@ -28,11 +28,11 @@ PHEDEX.Widget.Nodes=function(node,divid) {
             [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
 	     );
   that.update=function() {
-    PHEDEX.Datasvc.Nodes(that.node,that);
+    PHEDEX.Datasvc.Call({ api: 'nodes', callback: that.receive });
   }
   that.onDataReady.subscribe(function(args) { that.receive(); });
-  that.receive=function() {
-    that.data = PHEDEX.Data.Nodes; // use global data object, instead of result['node'];
+  that.receive=function(data) {
+    that.data = data.node;
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
