@@ -66,19 +66,19 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
 // A split-button and menu for the show-all-columns function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
-  that.showColumns = new YAHOO.widget.Button(
+  that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all columns",
-      name: 'showColumns_'+PHEDEX.Util.Sequence(),
+      name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
       container: that.div_header,
       disabled:true
     }
   );
-//   that.showColumns.on('render',that.hideDefaultColumns);
+//   that.showFields.on('render',that.hideDefaultFields);
 // event-handlers for driving the split button
-  that.showColumns.on("click", function () {
+  that.showFields.on("click", function () {
     var m = that.column_menu.getItems();
     for (var i = 0; i < m.length; i++) {
       that.dataTable.showColumn(that.dataTable.getColumn(m[i].value));
@@ -87,7 +87,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.refreshButton();
     that.resizePanel(that.dataTable);
   });
-  that.showColumns.on("appendTo", function () {
+  that.showFields.on("appendTo", function () {
     var m = this.getMenu();
     m.subscribe("click", function onMenuClick(sType, oArgs) {
       var oMenuItem = oArgs[1];
@@ -103,7 +103,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 // update the 'Show all columns' button state
   that.refreshButton = function() {
     that.column_menu.render(document.body);
-    that.showColumns.set('disabled', that.column_menu.getItems().length === 0);
+    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
 // Create a context menu, with default entries for dataTable widgets
@@ -140,8 +140,8 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Column', function(args,opts,el) {
-    YAHOO.log('hideColumn: '+el.col.key,'info','Core.DataTable');
+  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Field', function(args,opts,el) {
+    YAHOO.log('hideField: '+el.col.key,'info','Core.DataTable');
     el.table.hideColumn(el.col);
   });
 
@@ -171,7 +171,6 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
   that.onPopulateComplete.subscribe(function() {
 // Hide columns by default. TODO this is fired on PopulateComplete because I don't know how to do it earlier. Would be better if I did
-    if ( !that.hideByDefault ) { return; }
     for (var i in that.hideByDefault)
     {
       var column = that.dataTable.getColumn(that.hideByDefault[i]);
