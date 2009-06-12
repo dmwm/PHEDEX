@@ -5,6 +5,7 @@ PHEDEX.namespace('Core.Widget.TreeView');
 PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   var that=new PHEDEX.Core.Widget(divid,parent,opts);
   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
+  that.headerNames=[];
 
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {
@@ -17,25 +18,13 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       colour = 'yellow';
       colour_alt = '#ffa'; // pale yellow
     } else {
-      colour = null; // not a mouse-over, must be a mouse-out
+      colour = null; // not a mouse-over, must be a mouse-out, restore the colours
       colour_alt = null;
     }
-    var treeMatch = /^phedex-tree-/;
-    var treeOther;
-    if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
-    else						  { treeOther = 'phedex-tnode-header'; }
-    var elClasses = el.className.split(' ');
-    for (var i in elClasses) {
-      if ( elClasses[i].match(treeMatch) ) {
-	var elList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div_body);
-	for (var i in elList )
-	{
-	  if ( YAHOO.util.Dom.hasClass(elList[i],treeOther) )
-	  {
-	    elList[i].style.backgroundColor = colour_alt;
-	  }
-	}
-      }
+    var elList = that.locatePartnerFields(el);
+    for (var i in elList )
+    {
+      elList[i].style.backgroundColor = colour_alt;
     }
     el.style.backgroundColor = colour;
   }
@@ -43,12 +32,50 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var elTarget = YAHOO.util.Event.getTarget(e);
     var el = that.locateNode(elTarget);
     if ( !el ) { return; }
-    YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, "warn", "Core.TreeView");
+    var fieldClass = that.getPhedexFieldClass(el);
+    YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'info', 'Core.TreeView');
+  }
+
+  that.getPhedexFieldClass=function(el) {
+//  find the phedex-tree-* classname of this element
+    var treeMatch = /^phedex-tree-/;
+    var elClasses = el.className.split(' ');
+    for (var i in elClasses) {
+      if ( elClasses[i].match(treeMatch) ) {
+	return elClasses[i];
+      }
+    }
+    return;
+  }
+  that.locatePartnerFields=function(el) {
+//  for a header-field, find all displayed nodes of that type. For a value-field, find only the header
+    var treeMatch = /^phedex-tree-/;
+    var treeOther;
+    var candList;
+    var elList=[];
+    if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
+    else						  { treeOther = 'phedex-tnode-header'; }
+    var elClasses = el.className.split(' ');
+    for (var i in elClasses) {
+      if ( elClasses[i].match(treeMatch) ) {
+	candList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div_body);
+      }
+    }
+    for (var i in candList )
+    {
+      if ( YAHOO.util.Dom.hasClass(candList[i],treeOther) )
+      {
+	elList.push(candList[i]);
+      }
+    }
+    return elList;
   }
   that.locateNode=function(el) {
+//  find the nearest ancestor that has a phedex-tnode-* class applied to it, either
+//  phedex-thode-field or phedex-tnode-header
     while (el.id != that.div_content.id) { // walk up only as far as the content-div
       if ( that.textNodeMap[el.id] ) { // look for tree-nodes
-        YAHOO.log('Activated element: '+el.id,'warn','Core.TreeView');
+        YAHOO.log('Activated element: '+el.id,'info','Core.TreeView');
       }
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
         return el;
@@ -66,52 +93,70 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     if ( that.isDynamic ) {
       that.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
     }
-//     if ( dlist )
-//     {
-//       var tNode = new YAHOO.widget.TextNode({label: dlist.innerHTML, expanded: false}, that.tree.getRoot());
-//       tNode.isLeaf = true;
-//     }
     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
-    YAHOO.util.Event.on(div, "mousedown", clickHandler);
   }
-  that.addNode=function(el,parent,payload) {
+  that.addNode=function(spec,values,parent,opts) {
+    var el = PHEDEX.Util.makeNode(spec,values);
     if ( !parent ) { parent = that.tree.getRoot(); }
     var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
     that.textNodeMap[tNode.labelElId] = tNode;
-    if ( payload ) { tNode.payload = payload; }
+    if ( opts.payload ) { tNode.payload = opts.payload; }
+    if ( opts.isHeader ) {
+      for (var i in spec.format) {
+	var className = spec.format[i].className;
+	var value = values[i];
+	if ( opts.prefix ) { value = opts.prefix+': '+value; }
+	if ( that.headerNames[className] ) {
+	  YAHOO.log('duplicate entry for '+className+': "'+that.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
+	} else {
+	  var classNames = className.split(' ');
+	  that.headerNames[classNames[0]] = value;
+	}
+      }
+    }
+    for (var i in spec.format) {
+      if ( spec.format[i].hideByDefault )
+      {
+	var classNames = spec.format[i].className.split(' ');
+	that.hideByDefault[classNames[0]]=1;
+      }
+    }
     return tNode;
   }
 
 // A split-button and menu for the show-all-fields function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
-  that.showColumns = new YAHOO.widget.Button(
+  that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all fields",
-      name: 'showColumns_'+PHEDEX.Util.Sequence(),
+      name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
       container: that.div_header,
       disabled:true
     }
   );
-//   that.showColumns.on('render',that.hideDefaultColumns);
 // event-handlers for driving the split button
-  that.showColumns.on("click", function () {
+  that.showFields.on("click", function () {
     var m = that.column_menu.getItems();
     for (var i = 0; i < m.length; i++) {
-      that.dataTable.showColumn(that.dataTable.getColumn(m[i].value));
+      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div_content,function(element) {
+	element.style.display = null;
+      });
     }
     that.column_menu.clearContent();
     that.refreshButton();
     that.resizePanel(that.tree);
   });
-  that.showColumns.on("appendTo", function () {
+  that.showFields.on("appendTo", function () {
     var m = this.getMenu();
     m.subscribe("click", function onMenuClick(sType, oArgs) {
       var oMenuItem = oArgs[1];
       if (oMenuItem) {
-        that.dataTable.showColumn(that.dataTable.getColumn(oMenuItem.value));
+      YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div_content,function(element) {
+	element.style.display = null;
+      });
         m.removeItem(oMenuItem.index);
         that.refreshButton();
       }
@@ -122,7 +167,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 // update the 'Show all columns' button state
   that.refreshButton = function() {
     that.column_menu.render(document.body);
-    that.showColumns.set('disabled', that.column_menu.getItems().length === 0);
+    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
 // Create a context menu, with default entries for dataTable widgets
@@ -137,11 +182,9 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.TreeView');
     var oTarget = this.contextEventTarget,
-	Dom = YAHOO.util.Dom,
 	oCurrentTextNode;
-
-    var oTextNode = Dom.hasClass(oTarget, "ygtvlabel") ?
-	oTarget : Dom.getAncestorByClassName(oTarget, "ygtvlabel");
+    var oTextNode = YAHOO.util.Dom.hasClass(oTarget, "ygtvlabel") ?
+	oTarget : YAHOO.util.Dom.getAncestorByClassName(oTarget, "ygtvlabel");
 
     if (oTextNode) {
       var tNodeMap  = that.textNodeMap;
@@ -156,18 +199,47 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     {
       var label = p_aArgs[0].explicitOriginalTarget.textContent;
       var task = p_aArgs[1];
-      var args = oCurrentTextNode.payload.args;
-      var opts = oCurrentTextNode.payload.opts;
+      var args = {}, opts = {};
+      if ( oCurrentTextNode.payload )	{
+	args = oCurrentTextNode.payload.args;
+	opts = oCurrentTextNode.payload.opts;
+      }
       YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
       if (task) {
-	this.payload[task.index](args, opts, {tree:p_TreeView, node:oCurrentTextNode});
+	this.payload[task.index](args, opts, {tree:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode});
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('treeView','Hide This Column', function(args,opts,el) {
-//     YAHOO.log('hideColumn: '+opts.col.key,'info','Core.TreeView');
-//     args.table.hideColumn(args.col);
+  PHEDEX.Core.ContextMenu.Add('treeView','Hide This Field', function(args,opts,el) {
+    var elPhedex = that.locateNode(el.target);
+    var elClass = that.getPhedexFieldClass(elPhedex);
+    that.hideFieldByClass(elClass);
   });
+  that.hideFieldByClass=function(className) {
+    YAHOO.log('hideField: '+className,'info','Core.TreeView');
+    YAHOO.util.Dom.getElementsByClassName(className,null,that.div_content,function(element) {
+      element.style.display = 'none';
+    });
+    var elHeader = that.headerNames[className];
+    var m = that.column_menu.getItems();
+    for (var i = 0; i < m.length; i++) {
+      YAHOO.log(m[i].value+' _ '+className,'info','debug');
+      if ( m[i].value == className )
+      {
+	YAHOO.log(m[i].value+' _ '+className,'error','debug');
+      }
+    }
+    that.column_menu.addItem({text: that.headerNames[className],value: className});
+    that.refreshButton();
+  }
+  that.hideAllFieldsThatShouldBeHidden=function() {
+    var m = that.column_menu.getItems();
+    for (var i = 0; i < m.length; i++) {
+      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div_content,function(element) {
+	element.style.display = 'none';
+      });
+    }
+  }
 
 // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
@@ -183,31 +255,19 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
       that.contextMenu.render(document.body);
     }
-//  Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
-    that.tree.subscribe('columnHideEvent', function(ev) {
-      var column = this.getColumn(ev.column);
-      YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.TreeView');
-      that.column_menu.addItem({text: column.label || column.key,value:column.key});
-      that.refreshButton();
-    } );
-    that.tree.subscribe('renderEvent', function() { that.resizePanel(that.tree); } );
+    that.tree.subscribe('expandComplete',function(node) {
+      that.hideAllFieldsThatShouldBeHidden();
+    });
   });
 
   that.onDataFailed.subscribe(function() {
-//  Empty the tree if it is there
     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
     that.div_content.innerHTML='Data-load error, try again later...';
   });
 
   that.onPopulateComplete.subscribe(function() {
-// Hide columns by default. TODO this is fired on PopulateComplete because I don't know how to do it earlier. Would be better if I did
-    if ( !that.hideByDefault ) { return; }
-//     for (var i in that.hideByDefault)
-//     {
-//       var column = that.dataTable.getColumn(that.hideByDefault[i]);
-//       if ( column ) { that.dataTable.hideColumn(column); }
-//     }
-    that.hideByDefault = null; // don't want to do this every time the build is complete...?
+    for (var className in that.hideByDefault) { that.hideFieldByClass(className); }
+    that.hideByDefault = []; // don't want to do this every time the build is complete...?
   });
 
 // Resize the panel when extra columns are shown, to accomodate the width
