@@ -33,46 +33,6 @@ var linkHeader3 = [
 	  {width:100,className:'phedex-tree-file-bytes'}
     ];
 
-PHEDEX.Widget.TransferQueueBlock.callback_Treeview=function(node) {
-  var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueBlocks.'+node.payload.args.from+'.'+node.payload.args.to);
-
-  for (var i in link.transfer_queue )
-  {
-    var tq = link.transfer_queue[i];
-    for (var j in tq.block)
-    {
-      var block = tq.block[j];
-      var payload = { call:'TransferQueueFiles', obj:node.payload.obj, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview };
-      payload.args = node.payload.args;
-      payload.opts = node.payload.opts;
-      payload.args.block = block.name;
-      node.payload.obj.addNode(
-        {className:'phedex-tnode-field',format:linkHeader2},
-        [ block.name, tq.priority, tq.state, block.id, block.files, PHEDEX.Util.format.bytes(block.bytes) ],
-	node,
-	{payload:payload}
-      );
-    }
-  }
-}
-
-// Treeview callback for the QueueFiles branches. These have no children, so do not construct payloads.
-PHEDEX.Widget.TransferQueueFiles.callback_Treeview=function(node) {
-  var link = PHEDEX.namespace('PHEDEX.Data.TransferQueueFiles.'+node.payload.args['from']+'.'+node.payload.args['to']);
-  for (var block_name in link.byName )
-  {
-    var block = link.byName[block_name];
-    for (var k in block.file)
-    {
-      var file = block.file[k];
-      node.payload.obj.addNode(
-        {className:'phedex-tnode-field',format:linkHeader3},
-        [ file.name, file.id, file.checksum, PHEDEX.Util.format.bytes(file.bytes) ],
-	node
-      );
-    }
-  }
-}
 
 PHEDEX.Page.Widget.TransfersNode=function(divid) {
   var node = document.getElementById(divid+'_select').value;
@@ -139,9 +99,57 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.direction_text=function() { return that.directions[that.direction].text; }
   that.anti_direction_key=function() { return that.directions[1-that.direction].key; }
 
+  that.callback_Treeview=function(node,result) {
+    var link = result.link[0];
+    try {
+      for (var i in link.transfer_queue )
+      {
+        var tq = link.transfer_queue[i];
+        for (var j in tq.block)
+        {
+          var block = tq.block[j];
+
+// distinguish the type of node to build based on what the 'call' was that got me here
+          if ( node.payload.call == 'TransferQueueBlocks' )
+          {
+            var payload = node.payload;
+            payload.call = 'TransferQueueFiles';
+            payload.args.block = block.name;
+            var tNode = node.payload.obj.addNode(
+              {className:'phedex-tnode-field',format:linkHeader2},
+              [ block.name, tq.priority, tq.state, block.id, block.files, PHEDEX.Util.format.bytes(block.bytes) ],
+	      node,
+	      {payload:payload}
+            );
+          }
+          else if ( node.payload.call == 'TransferQueueFiles' )
+          {
+            for (var k in block.file)
+            {
+              var file = block.file[k];
+              var tNode = node.payload.obj.addNode(
+                {className:'phedex-tnode-field',format:linkHeader3},
+                [ file.name, file.id, file.checksum, PHEDEX.Util.format.bytes(file.bytes) ],
+	        node
+              );
+              tNode.isLeaf = true;
+            }
+          }
+          else {
+            var errstr = 'No action specified for handling callback data for "'+node.payload.callback+'"';
+            YAHOO.log(errstr,'error','Widget.TransfersNode');
+            throw new Error(errstr);
+          }
+        }
+      }
+    } catch(e) {
+      YAHOO.log('Error of some sort in PHEDEX.Widget.TransfersNode.callback_Treeview','error','Widget.LinkView');
+    }
+  }
+
   that.buildHeader=function(div) {
-// Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left, before anything inserted by the
-// core widgets. 
+// Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
+// before anything inserted by the core widgets. 
     var button_span = document.createElement('span');
     div.appendChild(button_span);
     var timeSelectButton = new YAHOO.widget.Button(
@@ -226,7 +234,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 //    I did see a better way to do this in the YUI docs, but will find that later...
 //    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
 //    payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
-      var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, callback:PHEDEX.Widget.TransferQueueBlock.callback_Treeview }; // so I can use this in the callback
+      var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, callback:that.callback_Treeview }; // so I can use this in the callback
       payload.args.from = h.from;
       payload.args.to   = h.to;
       payload.opts.selected_node = h[antidirection];
@@ -243,46 +251,31 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     that.tree.root.children[1].focus();
   }
 
-  that.receive_TransferQueueStats=function() {
-    that.data_queue = PHEDEX.Data.TransferQueueStats[that.direction_key()][that.node];
-    that.maybe_populate();
-  }
-  that.receive_TransferHistory=function() {
-    that.data_hist = PHEDEX.Data.TransferHistory[that.direction_key()][that.node];
-    that.maybe_populate();
-  }
-  that.receive_ErrorLogSummary=function() {
-    that.data_error = PHEDEX.Data.ErrorLogSummary[that.direction_key()][that.node];
-    that.maybe_populate();
-  }
-  that.maybe_populate=function() {
+  that.receive=function(event,data) {
+    if ( data[0].request_call == 'TransferQueueStats' ) { that.data_queue = data[0].link; }
+    if ( data[0].request_call == 'TransferHistory' )    { that.data_hist  = data[0].link; }
+    if ( data[0].request_call == 'ErrorLogSummary' )    { that.data_error = data[0].link; }
     if ( that.data_hist && that.data_error && that.data_queue )
     {
-      this.finishLoading();
-      this.populate();
+      that.finishLoading();
+      that.populate();
     }
   }
 
-// Data-service calls and events...
-  that.onTransferQueueStatsReady = new YAHOO.util.CustomEvent("onTransferQueueStatsReady", that);
-  that.onTransferQueueStatsReady.subscribe(that.receive_TransferQueueStats);
-  that.onTransferHistoryReady    = new YAHOO.util.CustomEvent("onTransferHistoryReady",that);
-  that.onTransferHistoryReady.subscribe(   that.receive_TransferHistory);
-  that.onErrorLogSummaryReady    = new YAHOO.util.CustomEvent("onErrorLogReady",that);
-  that.onErrorLogSummaryReady.subscribe(   that.receive_ErrorLogSummary);
+  that.onDataReady = new YAHOO.util.CustomEvent("onDataReady");
+  that.onDataReady.subscribe(that.receive);
 
   that.update=function() {
     var args={};
     args[that.direction_key()]=this.node;
     args['binwidth']=parseInt(this.time)*3600;
-    PHEDEX.Datasvc.TransferQueueStats(args,that,that.receive_TransferQueueStats);
-    PHEDEX.Datasvc.TransferHistory(   args,that,that.receive_TransferHistory);
-    PHEDEX.Datasvc.ErrorLogSummary(   args,that,that.receive_ErrorLogSummary);
+    PHEDEX.Datasvc.Call({api:'TransferQueueStats', args:args, success_event:that.onDataReady});
+    PHEDEX.Datasvc.Call({api:'TransferHistory',    args:args, success_event:that.onDataReady});
+    PHEDEX.Datasvc.Call({api:'ErrorLogSummary',    args:args, success_event:that.onDataReady});
     this.startLoading();
   }
 
   that.isDynamic = true; // enable dynamic loading of data
-
   that.buildTree(that.div_content);
 
   var tNode = that.addNode(
