@@ -225,8 +225,7 @@ PHEDEX.Util.sumArrayField=function(q,f,p) {
 PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
 // First, create a callback function that uses the payload to identify what to do with the returned data.
   var loadTreeNodeData_callback = function(result) {
-// Although 'result' is passed in here, we should not need it. It should have been laundered by the Dataservice
-    node.payload.callback(node);
+    node.payload.callback(node,result);
     fnLoadComplete(); // Signal that the operation is complete, the tree can re-draw itself
   }
 
@@ -245,14 +244,17 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
 //    payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
 //    and conform to the calling specification for the data-service module
       YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call);
-      var fn = PHEDEX.Datasvc[node.payload.call];
-      fn(node.payload.args,node.payload.obj,loadTreeNodeData_callback);
+      var query = [];
+      query.api = node.payload.call;
+      query.args = node.payload.args;
+      query.callback = loadTreeNodeData_callback;
+      PHEDEX.Datasvc.Call(query);
     }
     else
     {
 //    The call-name isn't a string, assume it's a function and call it directly.
 //    I'm guessing there may be a use for this, but I don't know what it is yet...
-      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','warn');
+      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','error','Core.Datasvc');
       node.payload.call(node,loadTreeNodeData_callback);
     }
   }
