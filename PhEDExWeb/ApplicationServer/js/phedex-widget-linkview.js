@@ -251,6 +251,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     that.tree.root.children[1].focus();
   }
 
+  that.onDataReady.subscribe(that.receive);
   that.receive=function(event,data) {
     if ( data[0].request_call == 'TransferQueueStats' ) { that.data_queue = data[0].link; }
     if ( data[0].request_call == 'TransferHistory' )    { that.data_hist  = data[0].link; }
@@ -261,10 +262,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       that.populate();
     }
   }
-
-  that.onDataReady = new YAHOO.util.CustomEvent("onDataReady");
-  that.onDataReady.subscribe(that.receive);
-
   that.update=function() {
     var args={};
     args[that.direction_key()]=this.node;
