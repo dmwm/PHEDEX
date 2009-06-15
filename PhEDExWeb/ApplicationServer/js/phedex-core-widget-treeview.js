@@ -99,6 +99,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.addNode=function(spec,values,parent,opts) {
     var el = PHEDEX.Util.makeNode(spec,values);
     if ( !parent ) { parent = that.tree.getRoot(); }
+    if ( !opts ) { opts = {}; }
     var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
     that.textNodeMap[tNode.labelElId] = tNode;
     if ( opts.payload ) { tNode.payload = opts.payload; }
@@ -273,11 +274,12 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
-    var old_width = tree.getContainerEl().clientWidth;
+// debugger;
+//     var old_width = 1500; // tree.getContainerEl().clientWidth;
 //     var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
 //     var x = table.getTableEl().clientWidth + offset;
-    var x = 700;
-    if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
+//     var x = 700;
+//     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
   }
 
   return that;
