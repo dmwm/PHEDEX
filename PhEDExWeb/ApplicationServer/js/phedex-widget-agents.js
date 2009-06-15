@@ -49,10 +49,13 @@ PHEDEX.Widget.Agents=function(node,divid) {
 	      'Version','Label','Host','State Dir'
 	    ],
 	    {Agent:'name', Date:'time_update', 'State Dir':'state_dir' } );
-  that.update=function() { PHEDEX.Datasvc.Agents(that.node,that); }
-  that.onDataReady.subscribe(function(args) { that.receive(); });
-  that.receive=function() {
-    that.data = PHEDEX.Data.Agents[that.node];
+  that.update=function() { PHEDEX.Datasvc.Call({api:'agents',
+                                                args:{node:that.node},
+                                                success_event:that.onDataReady,
+                                                limit:-1}); }
+  that.onDataReady.subscribe(function(type,args) { var data = args[0]; that.receive(data); });
+  that.receive=function(data) {
+    that.data = data.node[0].agent;
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
