@@ -9,31 +9,6 @@ PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.Tran
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense
 
-var linkHeader1 = [
-          {width:200,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
-          {width:100,className:'phedex-tree-rate'},
-	  {width:100,className:'phedex-tree-quality'},
-	  {width:200,className:'phedex-tree-done',hideByDefault:true},
-	  {width:200,className:'phedex-tree-queue'},
-          {width:100,className:'phedex-tree-errors'}
-    ];
-
-var linkHeader2 = [
-	  {          className:'phedex-tree-block-name align-left'},
-          {width:130,className:'phedex-tree-priority'},
-	  {width:180,className:'phedex-tree-state'},
-	  {width:100,className:'phedex-tree-block-id',hideByDefault:true},
-          {width: 80,className:'phedex-tree-block-files'},
-	  {width:100,className:'phedex-tree-block-bytes'}
-    ];
-var linkHeader3 = [
-	  {          className:'phedex-tree-file-name align-left'},
-	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
-          {width:180,className:'phedex-tree-file-cksum',hideByDefault:true},
-	  {width:100,className:'phedex-tree-file-bytes'}
-    ];
-
-
 PHEDEX.Page.Widget.TransfersNode=function(divid) {
   var node = document.getElementById(divid+'_select').value;
   xfer_node = new PHEDEX.Widget.TransfersNode(node,divid);
@@ -50,6 +25,29 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.me=function() { return 'PHEDEX.Core.Widget.TransfersNode'; }
   that.node = node;
   var config = PHEDEX.Util.getConfig(divid);
+
+  var linkHeader1 = [
+          {width:200,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
+          {width:100,className:'phedex-tree-rate'},
+	  {width:100,className:'phedex-tree-quality'},
+	  {width:200,className:'phedex-tree-done',hideByDefault:true},
+	  {width:200,className:'phedex-tree-queue'},
+          {width:100,className:'phedex-tree-errors'}
+    ];
+  var linkHeader2 = [
+	  {          className:'phedex-tree-block-name align-left'},
+          {width:130,className:'phedex-tree-priority'},
+	  {width:180,className:'phedex-tree-state'},
+	  {width:100,className:'phedex-tree-block-id',hideByDefault:true},
+          {width: 80,className:'phedex-tree-block-files'},
+	  {width:100,className:'phedex-tree-block-bytes'}
+    ];
+  var linkHeader3 = [
+	  {          className:'phedex-tree-file-name align-left'},
+	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
+          {width:180,className:'phedex-tree-file-cksum',hideByDefault:true},
+	  {width:100,className:'phedex-tree-file-bytes'}
+    ];
 
 // Build the options for the pull-down menus.
 // 1. extract the default option from the configuration, or provide one if none given
@@ -251,7 +249,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     that.tree.root.children[1].focus();
   }
 
-  that.onDataReady.subscribe(that.receive);
   that.receive=function(event,data) {
     if ( data[0].request_call == 'TransferQueueStats' ) { that.data_queue = data[0].link; }
     if ( data[0].request_call == 'TransferHistory' )    { that.data_hist  = data[0].link; }
@@ -262,6 +259,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       that.populate();
     }
   }
+  that.onDataReady.subscribe(that.receive);
   that.update=function() {
     var args={};
     args[that.direction_key()]=this.node;
@@ -274,7 +272,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 
   that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.div_content);
-
   var tNode = that.addNode(
         {width:width,className:'phedex-tnode-header',format:linkHeader1}, // node layout specification
         [ 'Node','Rate','Quality','Done','Queued','Errors' ] ,         	// node text
