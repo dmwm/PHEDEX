@@ -28,9 +28,9 @@ PHEDEX.Widget.Nodes=function(node,divid) {
             [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
 	     );
   that.update=function() {
-    PHEDEX.Datasvc.Call({ api: 'nodes', callback: that.receive });
+    PHEDEX.Datasvc.Call({ api: 'nodes', success_event: that.onDataReady });
   }
-  that.onDataReady.subscribe(function(args) { that.receive(); });
+  that.onDataReady.subscribe(function(type,args) { var data = args[0]; that.receive(data); });
   that.receive=function(data) {
     that.data = data.node;
     if (that.data) { that.populate(); }
