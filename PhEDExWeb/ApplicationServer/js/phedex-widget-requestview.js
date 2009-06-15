@@ -86,10 +86,6 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       that.textNodeMap[b.labelElId] = b;
       var t = " BlockID: "+d.id+", "+d.files+" files / "+PHEDEX.Util.format['bytes'](d.bytes);
       tNode1 = new YAHOO.widget.TextNode(t, b, false);
-//       tNode1.payload = { call:'TransferQueueFiles', obj:that, args:{}, callback:PHEDEX.Widget.TransferQueueFiles.callback_Treeview }; // so I can use this in the callback
-//       tNode1.payload.args = {};//node.payload.args;
-//       tNode1.payload.opts = {};//node.payload.opts;
-//       tNode1.payload.args.block = b.name;
       tNode1.isLeaf = true;
       that.textNodeMap[tNode1.labelElId] = tNode1;
     }
@@ -121,12 +117,11 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     return result;
   }
   that.update=function() {
-    PHEDEX.Datasvc.TransferRequests(this.request,this);//,this.onDataReady);
+    PHEDEX.Datasvc.Call({api:'TransferRequests',args:{request:this.request},success_event:this.onDataReady});
   }
-
-  that.onDataReady.subscribe(function(args) { that.receive(); });
-  that.receive=function() {
-    that.data=PHEDEX.Data.TransferRequests[that.request];
+  that.onDataReady.subscribe(function(event,args) { that.receive(args); });
+  that.receive=function(data) {
+    that.data=data[0].request[0];
     if (that.data) {
       that.populate();
     }
