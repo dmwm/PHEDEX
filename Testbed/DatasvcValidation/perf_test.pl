@@ -55,8 +55,10 @@ usage: $0 <options>
 
 where <options> are:
 
---verbose               verbose mode
 --help                  show this infromation
+--verbose               verbose mode, this is default
+--noverbose             only show summary of the result
+--debug                 more verbose than verbose mode
 --webserver <web_host>  host name with optional port such as
                         "cmswttest.cern.ch:7001"
                         default is "cmswttest.cern.ch"
