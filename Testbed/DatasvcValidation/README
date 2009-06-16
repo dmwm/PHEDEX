@@ -30,6 +30,11 @@ ptest.pl                test driver that is installed on every test host
 test_hosts              a list of test hosts, one per line
 check_test_hosts.sh     check if all test host are ready
 
+* the test hosts need to be "prepared" before the test:
+  the user who is running the test should be able to ssh into the
+  test host from the head node. ptest.pl should be already in the
+  command path so that it can be invoked through ssh.
+
 usage: perf_test.pl <options>
 
 where <options> are:
