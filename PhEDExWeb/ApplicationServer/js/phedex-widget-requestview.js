@@ -38,7 +38,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width:180,className:'phedex-tree-requestor-name align-left'},
           {width:180,className:'phedex-tree-request-date'},
 	  {width:150,className:'phedex-tree-comments',hideByDefault:true},
-	  {width:250,className:'phedex-tree-requestor-dn',hideByDefault:true},
+	  {          className:'phedex-tree-requestor-dn',hideByDefault:true},
 	  {width:100,className:'phedex-tree-requestor-host',hideByDefault:true},
 	  {width:250,className:'phedex-tree-requestor-useragent',hideByDefault:true}
     ];
@@ -47,13 +47,13 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width:180,className:'phedex-tree-approval-date'},
 	  {width:120,className:'phedex-tree-approval-status'},
 	  {width:140,className:'phedex-tree-approval-node'},
-	  {width:250,className:'phedex-tree-approver-dn',hideByDefault:true},
+	  {          className:'phedex-tree-approver-dn',hideByDefault:true},
 	  {width:100,className:'phedex-tree-approver-host',hideByDefault:true},
 	  {width:250,className:'phedex-tree-approver-useragent',hideByDefault:true}
     ];
   var linkHeader4 = [
           {          className:'phedex-tree-block-name align-left'},
-          {width:180,className:'phedex-tree-block-id',hideByDefault:true},
+          {width: 70,className:'phedex-tree-block-id',hideByDefault:true},
 	  {width:120,className:'phedex-tree-block-volume'}
     ];
 
@@ -70,7 +70,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
         that._move     [that.data.move],
         that._static   [that.data.static],
         that.data.priority,
-        that.data.group || '(none)'
+        that.data.group || '(no group)'
       ]
     );
 
@@ -78,7 +78,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       {width:width,format:linkHeader2},
       [ that.data.requested_by.name,
         PHEDEX.Util.format.date(that.data.time_create),
-        that.data.comments,
+        that.data.comments || '(no comments)',
         that.data.requested_by.dn,
         that.data.requested_by.host,
         that.data.requested_by.agent
@@ -170,8 +170,8 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       {isHeader:true, prefix:'Block'}
     );
 
-  that.build();
   that.buildContextMenu('Request');
+  that.build();
   return that;
 }
 

@@ -36,17 +36,17 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     ];
   var linkHeader2 = [
 	  {          className:'phedex-tree-block-name align-left'},
-          {width:130,className:'phedex-tree-priority'},
-	  {width:180,className:'phedex-tree-state'},
 	  {width:100,className:'phedex-tree-block-id',hideByDefault:true},
+	  {width:180,className:'phedex-tree-state'},
+          {width:130,className:'phedex-tree-priority'},
           {width: 80,className:'phedex-tree-block-files'},
 	  {width:100,className:'phedex-tree-block-bytes'}
     ];
   var linkHeader3 = [
 	  {          className:'phedex-tree-file-name align-left'},
 	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
-          {width:180,className:'phedex-tree-file-cksum',hideByDefault:true},
-	  {width:100,className:'phedex-tree-file-bytes'}
+	  {width:100,className:'phedex-tree-file-bytes'},
+          {width:180,className:'phedex-tree-file-cksum',hideByDefault:true}
     ];
 
 // Build the options for the pull-down menus.
@@ -290,6 +290,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 	tNode1,
 	{isHeader:true, prefix:'File'}
     );
+  tNode2.isLeaf = true;
 
 //   var dx = document.createElement('div');
 //   var dr = document.createElement('div');
@@ -297,7 +298,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 //   dx.id='resize';
 //   dr.appendChild(dx);
 //   var tNode2 = that.addNode(dr,tNode1)
-//   tNode2.isLeaf = true;
 
   that.buildContextMenu('Node');
   that.build();
