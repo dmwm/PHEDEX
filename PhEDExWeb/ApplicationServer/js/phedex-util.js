@@ -182,7 +182,7 @@ PHEDEX.Util.format={
     },
     filesBytes:function(f,b) {
       var str = f+' files';
-      if ( f ) { str += " / "+PHEDEX.Util.format.bytes(b); }
+      if ( f > 0  ) { str += " / "+PHEDEX.Util.format.bytes(b); }
       return str;
     }
 }
