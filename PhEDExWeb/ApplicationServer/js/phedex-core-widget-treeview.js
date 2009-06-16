@@ -16,7 +16,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var colour, colour_alt;
     if ( e.type == 'mouseover' ) {
       colour = 'yellow';
-      colour_alt = '#ffa'; // pale yellow
+      colour_alt = '#ff6'; // pale yellow
     } else {
       colour = null; // not a mouse-over, must be a mouse-out, restore the colours
       colour_alt = null;
@@ -97,9 +97,18 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
   }
   that.addNode=function(spec,values,parent,opts) {
-    var el = PHEDEX.Util.makeNode(spec,values);
     if ( !parent ) { parent = that.tree.getRoot(); }
     if ( !opts ) { opts = {}; }
+    if ( spec.format.length != values.length )
+    {
+      throw new Error('PHEDEX.Core.TreeView: length of "values" array and "format" arrays differs ('+values.length+' != '+spec.format.length+'). Not good!');
+    }
+    if ( ! spec.className )
+    {
+      if ( opts.isHeader ) { spec.className = 'phedex-tnode-header'; }
+      else                 { spec.className = 'phedex-tnode-field'; }
+    }
+    var el = PHEDEX.Util.makeNode(spec,values);
     var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
     that.textNodeMap[tNode.labelElId] = tNode;
     if ( opts.payload ) { tNode.payload = opts.payload; }
