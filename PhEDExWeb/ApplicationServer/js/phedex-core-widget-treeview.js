@@ -75,7 +75,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 //  phedex-thode-field or phedex-tnode-header
     while (el.id != that.div_content.id) { // walk up only as far as the content-div
       if ( that.textNodeMap[el.id] ) { // look for tree-nodes
-        YAHOO.log('Activated element: '+el.id,'info','Core.TreeView');
+        YAHOO.log('Activated node: '+el.id,'info','Core.TreeView');
       }
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
         return el;
@@ -230,15 +230,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.util.Dom.getElementsByClassName(className,null,that.div_content,function(element) {
       element.style.display = 'none';
     });
-    var elHeader = that.headerNames[className];
-    var m = that.column_menu.getItems();
-    for (var i = 0; i < m.length; i++) {
-      YAHOO.log(m[i].value+' _ '+className,'info','debug');
-      if ( m[i].value == className )
-      {
-	YAHOO.log(m[i].value+' _ '+className,'error','debug');
-      }
-    }
     that.column_menu.addItem({text: that.headerNames[className],value: className});
     that.refreshButton();
   }
@@ -283,6 +274,9 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
+  var t = that;
+  var w1 = that.div_body.clientWidth;
+  var el = that.tree._el;
 // debugger;
 //     var old_width = 1500; // tree.getContainerEl().clientWidth;
 //     var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
