@@ -114,7 +114,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
             payload.call = 'TransferQueueFiles';
             payload.args.block = block.name;
             var tNode = node.payload.obj.addNode(
-              {className:'phedex-tnode-field',format:linkHeader2},
+              {format:linkHeader2},
               [ block.name, tq.priority, tq.state, block.id, block.files, PHEDEX.Util.format.bytes(block.bytes) ],
 	      node,
 	      {payload:payload}
@@ -126,7 +126,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
             {
               var file = block.file[k];
               var tNode = node.payload.obj.addNode(
-                {className:'phedex-tnode-field',format:linkHeader3},
+                {format:linkHeader3},
                 [ file.name, file.id, file.checksum, PHEDEX.Util.format.bytes(file.bytes) ],
 	        node
               );
@@ -238,7 +238,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       payload.opts.selected_node = h[antidirection];
       payload.opts.direction = that.direction;
       that.addNode(
-        {width:width,className:'phedex-tnode-field',format:linkHeader1},
+        {width:width,format:linkHeader1},
         [ node,rate,qual,done,queue,e.num_errors ],
 	null,
 	{payload:payload}
@@ -273,19 +273,19 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.div_content);
   var tNode = that.addNode(
-        {width:width,className:'phedex-tnode-header',format:linkHeader1}, // node layout specification
+        {width:width,format:linkHeader1}, // node layout specification
         [ 'Node','Rate','Quality','Done','Queued','Errors' ] ,         	// node text
 	null,								// parent node
 	{isHeader:true, prefix:'Link'}					// extra parameters
     );
   var tNode1 = that.addNode(
-        {className:'phedex-tnode-header',format:linkHeader2},
+        {format:linkHeader2},
         [ 'Block Name','Priority','State','Block ID','Files','Bytes' ],
 	tNode,
 	{isHeader:true, prefix:'Block'}
     );
   var tNode2 = that.addNode(
-        {className:'phedex-tnode-header',format:linkHeader3},
+        {format:linkHeader3},
         [ 'File Name','File ID','Checksum','Bytes' ],
 	tNode1,
 	{isHeader:true, prefix:'File'}
@@ -297,17 +297,17 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 //   dx.id='resize';
 //   dr.appendChild(dx);
 //   var tNode2 = that.addNode(dr,tNode1)
-  tNode2.isLeaf = true;
+//   tNode2.isLeaf = true;
 
   that.buildContextMenu('Node');
   that.build();
-  YAHOO.util.Event.onAvailable('resize',function() {
-    var resize = new YAHOO.util.Resize('resize');
-  });
+//   YAHOO.util.Event.onAvailable('resize',function() {
+//     var resize = new YAHOO.util.Resize('resize');
+//   });
 
   return that;
 }
 
 // What can I respond to...?
 PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_node).update(); });
-YAHOO.log('loaded...','info','Core.TransfersNode');
+YAHOO.log('loaded...','info','Widget.TransfersNode');
