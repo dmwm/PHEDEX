@@ -27,12 +27,13 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   var config = PHEDEX.Util.getConfig(divid);
 
   var linkHeader1 = [
-          {width:200,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
+          {width:170,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
+	  {width:140,className:'phedex-tree-done'},
+          {width:140,className:'phedex-tree-failed'},
+          {width:140,className:'phedex-tree-expired'},
           {width:100,className:'phedex-tree-rate'},
 	  {width:100,className:'phedex-tree-quality'},
-	  {width:200,className:'phedex-tree-done',hideByDefault:true},
-	  {width:200,className:'phedex-tree-queue'},
-          {width:100,className:'phedex-tree-errors'}
+	  {width:140,className:'phedex-tree-queue'}
     ];
   var linkHeader2 = [
 	  {          className:'phedex-tree-block-name align-left'},
@@ -46,7 +47,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 	  {          className:'phedex-tree-file-name align-left'},
 	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
 	  {width:100,className:'phedex-tree-file-bytes'},
-          {width:180,className:'phedex-tree-file-cksum',hideByDefault:true}
+          {width:140,className:'phedex-tree-file-cksum',hideByDefault:true}
     ];
 
 // Build the options for the pull-down menus.
@@ -99,6 +100,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 
   that.callback_Treeview=function(node,result) {
     var link = result.link[0];
+    var call = node.payload.call;
     try {
       for (var i in link.transfer_queue )
       {
@@ -106,9 +108,8 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
         for (var j in tq.block)
         {
           var block = tq.block[j];
-
 // distinguish the type of node to build based on what the 'call' was that got me here
-          if ( node.payload.call == 'TransferQueueBlocks' )
+          if ( call == 'TransferQueueBlocks' )
           {
             var payload = node.payload;
             payload.call = 'TransferQueueFiles';
@@ -120,14 +121,14 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 	      {payload:payload}
             );
           }
-          else if ( node.payload.call == 'TransferQueueFiles' )
+          else if ( call == 'TransferQueueFiles' )
           {
             for (var k in block.file)
             {
               var file = block.file[k];
               var tNode = node.payload.obj.addNode(
                 {format:linkHeader3},
-                [ file.name, file.id, file.checksum, PHEDEX.Util.format.bytes(file.bytes) ],
+                [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), file.checksum ],
 	        node
               );
               tNode.isLeaf = true;
@@ -146,22 +147,27 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   }
 
   that.buildHeader=function(div) {
+    var title = document.createElement('span');
+    title.id = div.id+'_title';
+    div.appendChild(title);
+    that.title = title;
+
 // Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
 // before anything inserted by the core widgets. 
     var button_span = document.createElement('span');
     div.appendChild(button_span);
-    var timeSelectButton = new YAHOO.widget.Button(
-	{ type: "menu",
-	  label: that.timebin_selected,
-	  name: "timeSelect",
-	  menu: timeSelectMenu,
-	  container: button_span
-	});
     var changeDirectionButton = new YAHOO.widget.Button(
 	{ type: "menu",
 	  label: that.direction_text(),
 	  name: "changeDirection",
 	  menu: changeDirectionMenu,
+	  container: button_span
+	});
+    var timeSelectButton = new YAHOO.widget.Button(
+	{ type: "menu",
+	  label: that.timebin_selected,
+	  name: "timeSelect",
+	  menu: timeSelectMenu,
 	  container: button_span
 	});
 
@@ -174,10 +180,6 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
 
-    var title = document.createElement('span');
-    title.id = div.id+'_title';
-    div.appendChild(title);
-    that.title = title;
   }
 
   that.fillHeader=function(div) {
@@ -223,10 +225,21 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       var quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat);
       if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
       quality /= h.transfer.length;
-      var rate = PHEDEX.Util.format.bytes(done_bytes/parseInt(h.transfer[0].binwidth))+'/s';
-      var qual = PHEDEX.Util.format['%'](quality);
-      var done = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
-      var queue = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes'));
+      var rate   = PHEDEX.Util.format.bytes(done_bytes/parseInt(h.transfer[0].binwidth))+'/s';
+      var qual   = PHEDEX.Util.format['%'](quality);
+      var done   = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
+      var fail   = PHEDEX.Util.format.filesBytes(
+                      PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),
+                      PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')
+                   );
+      var expire = PHEDEX.Util.format.filesBytes(
+                      PHEDEX.Util.sumArrayField(h.transfer,'expire_files'),
+                      PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes')
+                   );
+      var queue  = PHEDEX.Util.format.filesBytes(
+                      PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),
+                      PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')
+                   );
 
 //    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level.
 //    I did see a better way to do this in the YUI docs, but will find that later...
@@ -239,7 +252,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
       payload.opts.direction = that.direction;
       that.addNode(
         {width:width,format:linkHeader1},
-        [ node,rate,qual,done,queue,e.num_errors ],
+        [ node,done,fail,expire,rate,qual,queue ],
 	null,
 	{payload:payload}
       );
@@ -274,7 +287,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
   that.buildTree(that.div_content);
   var tNode = that.addNode(
         {width:width,format:linkHeader1}, // node layout specification
-        [ 'Node','Rate','Quality','Done','Queued','Errors' ] ,         	// node text
+        [ 'Node','Done','Failed','Expired','Rate','Quality','Queued' ] ,         	// node text
 	null,								// parent node
 	{isHeader:true, prefix:'Link'}					// extra parameters
     );
@@ -286,24 +299,14 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     );
   var tNode2 = that.addNode(
         {format:linkHeader3},
-        [ 'File Name','File ID','Checksum','Bytes' ],
+        [ 'File Name','File ID','Bytes','Checksum' ],
 	tNode1,
 	{isHeader:true, prefix:'File'}
     );
   tNode2.isLeaf = true;
 
-//   var dx = document.createElement('div');
-//   var dr = document.createElement('div');
-//   dx.innerHTML = '<div class="data"><p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Suspendisse justo nibh, pharetra at, adipiscing ullamcorper.</p><p>Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Suspendisse justo nibh, pharetra at, adipiscing ullamcorper.</p></div>';
-//   dx.id='resize';
-//   dr.appendChild(dx);
-//   var tNode2 = that.addNode(dr,tNode1)
-
   that.buildContextMenu('Node');
   that.build();
-//   YAHOO.util.Event.onAvailable('resize',function() {
-//     var resize = new YAHOO.util.Resize('resize');
-//   });
 
   return that;
 }
