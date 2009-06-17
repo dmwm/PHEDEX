@@ -258,9 +258,27 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     that.tree.subscribe('expandComplete',function(node) {
       that.hideAllFieldsThatShouldBeHidden();
+      that.addResizeHandles();
     });
   });
-
+  that.addResizeHandles=function() {
+    var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div_body);
+    for (var i in elList)
+    {
+      var el = elList[i];
+      var elResize = new YAHOO.util.Resize(el,{ handles:['r'] });
+      elResize.payload = el;
+      elResize.subscribe('endResize',function(e) {
+	var elTarget = YAHOO.util.Event.getTarget(e);
+	var el = elTarget.payload
+	var eList = that.locatePartnerFields(el);
+	for (var i in eList )
+	{
+	  eList[i].style.width = el.style.width;
+	}
+      });
+    }
+  }
   that.onDataFailed.subscribe(function() {
     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
     that.div_content.innerHTML='Data-load error, try again later...';
@@ -269,6 +287,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.onPopulateComplete.subscribe(function() {
     for (var className in that.hideByDefault) { that.hideFieldByClass(className); }
     that.hideByDefault = []; // don't want to do this every time the build is complete...?
+    that.addResizeHandles();
   });
 
 // Resize the panel when extra columns are shown, to accomodate the width
