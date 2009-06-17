@@ -313,8 +313,8 @@ sub pfn2se
     return undef;
 }
 
-# Override Core::shift_tasks.  FTS will only allow jobs to a unique
-# destination SE.
+# Override Core::batch_tasks.  FTS will only allow jobs to a unique
+# fromSE, toSE
 sub batch_tasks
 {
     my ($self, $tasklist, $batch_size) = @_;
