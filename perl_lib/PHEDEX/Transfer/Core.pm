@@ -178,21 +178,21 @@ sub start_batch
 
     # Determine the size of a job. The order of preference is:
     #  1. -link-active-files limit, 2. -default-link-active-files 3. -batch-files
-    my $job_size;
+    my $batch_size;
     if ( $self->{LINK_ACTIVE}->{$from} ) {
-	$job_size = $self->{LINK_ACTIVE}->{$from};
+	$batch_size = $self->{LINK_ACTIVE}->{$from};
     } elsif ( $self->{DEFAULT_LINK_ACTIVE} ) {
-	$job_size = $self->{DEFAULT_LINK_ACTIVE};
+	$batch_size = $self->{DEFAULT_LINK_ACTIVE};
     } else {
-	$job_size = $self->{BATCH_FILES};
+	$batch_size = $self->{BATCH_FILES};
     }
 
     # Set the job size to MAX_ACTIVE files if it is more limiting
-    if ($self->{MAX_ACTIVE} && $self->{MAX_ACTIVE} < $job_size) {
-	$job_size = $self->{FTS_MAX_ACTIVE};
+    if ($self->{MAX_ACTIVE} && $self->{MAX_ACTIVE} < $batch_size) {
+	$batch_size = $self->{FTS_MAX_ACTIVE};
     }
 
-    my @batch = splice(@$tasklist, 0, $job_size);
+    my @batch = $self->batch_tasks($tasklist, $batch_size);
     return undef if !@batch;
 
     my $id = $$self{BATCH_ID}++;
@@ -205,6 +205,13 @@ sub start_batch
     $self->{JOBS}->{$jobid} = $job;
     $kernel->yield('check_transfer_job', $jobid);
     return ($jobid, $jobdir, $job->{TASKS});
+}
+
+# Remove and reutrn up to $batch_size tasks from the $tasklist
+sub batch_tasks
+{
+    my ($self, $tasklist, $batch_size) = @_;
+    return splice(@$tasklist, 0, $batch_size);
 }
 
 # Check to see if a job is ready to start.  Tasks in a job can

@@ -306,6 +306,46 @@ sub isBusy
     return 0;
 }
 
+sub pfn2se
+{
+    my ($pfn) = shift;
+    if ($pfn =~ m!^\w+://([^/]+)/!) { return $1; }
+    return undef;
+}
+
+# Override Core::shift_tasks.  FTS will only allow jobs to a unique
+# destination SE.
+sub batch_tasks
+{
+    my ($self, $tasklist, $batch_size) = @_;
+    # peek at the first task to determine the storage elements
+    my $task0 = @{$tasklist}[0];
+    my $fromSE = &pfn2se($task0->{FROM_PFN});
+    my $toSE   = &pfn2se($task0->{TO_PFN});
+
+    # only take tasks matching these SEs
+    if ($fromSE && $toSE) {
+	my @batch; my @remaining; my $n = 0;
+	foreach my $task (@$tasklist) {
+	    if ($n < $batch_size &&
+		&pfn2se($task->{FROM_PFN}) eq $fromSE &&
+		&pfn2se($task->{TO_PFN)    eq $toSE)) {
+		push @batch, $task;
+		$n++;
+	    } else {
+		push @remaining, $task;
+	    }
+	}
+	$tasklist = \@remaining; # redifine the task list
+	return @batch;
+    } else {
+	# otherwise just do the normal thing and hope for the best
+	$self->Alert("Could not create SE-to-SE batch using from=$task0->{FROM_PFN} to=$task0->{TO_PFN}, ".
+		     "using to default batch function instead");
+	return $self->SUPER::batch_tasks($tasklist, $batch_size);
+    }
+}
+
 sub start_transfer_job
 {
     my ($self, $kernel, $jobid) = @_[ OBJECT, KERNEL, ARG0 ];
