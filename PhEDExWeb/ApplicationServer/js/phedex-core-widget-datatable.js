@@ -188,11 +188,15 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.div_content.innerHTML='Data-load error, try again later...';
   });
 
-// Gratuitously flash yellow when the mouse goes over the rows
   that.onRowMouseOut = function(event) {
+// Gratuitously flash yellow when the mouse goes over the rows
+// Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
+// Leave this in here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
+//     YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = null;
   }
   that.onRowMouseOver = function(event) {
+//     YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = 'yellow';
   }
 
@@ -200,8 +204,8 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   that.resizePanel=function(table) {
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
     var old_width = table.getContainerEl().clientWidth;
-    var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
-    var x = table.getTableEl().clientWidth + offset;
+    var offset = that.div_header.offsetWidth - that.div_content.offsetWidth;
+    var x = table.getTableEl().offsetWidth + offset;
     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
   }
 
