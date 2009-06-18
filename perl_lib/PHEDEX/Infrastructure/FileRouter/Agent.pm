@@ -673,21 +673,21 @@ sub routeFiles
 		# Fill insert or update structure as appropriate.
 		my $n = 1;
 		my $args = $$hop{UPDATE} ? \%uargs : \%iargs;
-		push(@{$$args{$n++}}, $$hop{DESTINATION});
-		push(@{$$args{$n++}}, $$hop{INDEX});
-		push(@{$$args{$n++}}, $$hop{SRC_NODE});
-		push(@{$$args{$n++}}, $$hop{FROM_NODE});
-		push(@{$$args{$n++}}, $$hop{PRIORITY});
-		push(@{$$args{$n++}}, $$hop{IS_LOCAL});
-		push(@{$$args{$n++}}, $$hop{IS_VALID});
-		push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0));
-		push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0));
-		push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0));
-		push(@{$$args{$n++}}, $$hop{TIME_REQUEST});
-		push(@{$$args{$n++}}, $now);
-		push(@{$$args{$n++}}, $$hop{TIME_EXPIRE});
-		push(@{$$args{$n++}}, $file);
-		push(@{$$args{$n++}}, $to);
+		push(@{$$args{$n++}}, $$hop{DESTINATION});  # xp.destination
+		push(@{$$args{$n++}}, $$hop{INDEX});  # xp.hop
+		push(@{$$args{$n++}}, $$hop{SRC_NODE}); # xp.src_node
+		push(@{$$args{$n++}}, $$hop{FROM_NODE}); # xp.from_node
+		push(@{$$args{$n++}}, $$hop{PRIORITY}); # xp.priority
+		push(@{$$args{$n++}}, $$hop{IS_LOCAL}); # xp.is_local
+		push(@{$$args{$n++}}, $$hop{IS_VALID}); # xp.is_valid
+		push(@{$$args{$n++}}, ($$hop{LINK_LATENCY} || 0) + ($$hop{XFER_LATENCY} || 0)); # xp.cost
+		push(@{$$args{$n++}}, ($$hop{TOTAL_LATENCY} || 0)); # xp.total_cost
+		push(@{$$args{$n++}}, ($$hop{LINK_RATE} || 0)); # xp.penalty
+		push(@{$$args{$n++}}, $$hop{TIME_REQUEST}); # xp.time_request
+		push(@{$$args{$n++}}, $now); # xp.time_confirm
+		push(@{$$args{$n++}}, $$hop{TIME_EXPIRE}); # xp.time_expire
+		push(@{$$args{$n++}}, $file); # xp.fileid
+		push(@{$$args{$n++}}, $to); # xp.to_node
 		$destnodes{$$hop{DESTINATION}} = 1;
 		$nvalid++ if $$hop{IS_VALID};
 	    }
