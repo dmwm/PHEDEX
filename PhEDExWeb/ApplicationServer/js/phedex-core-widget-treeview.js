@@ -13,20 +13,21 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var elTarget = YAHOO.util.Event.getTarget(e);
     var el = that.locateNode(elTarget);
     if ( ! el ) { return; }
-    var colour, colour_alt;
+    var action;
+    var class     = 'phedex-tnode-highlight';
+    var class_alt = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
-      colour = 'yellow';
-      colour_alt = '#ff6'; // pale yellow
+//       YAHOO.log('mouseover: '+el.className,'info','Core.TreeView');
+      action = YAHOO.util.Dom.addClass;
     } else {
-      colour = null; // not a mouse-over, must be a mouse-out, restore the colours
-      colour_alt = null;
+      action = YAHOO.util.Dom.removeClass;
     }
     var elList = that.locatePartnerFields(el);
     for (var i in elList )
     {
-      elList[i].style.backgroundColor = colour_alt;
+      action(elList[i],class_alt);
     }
-    el.style.backgroundColor = colour;
+    action(el,class);
   }
   function clickHandler(e) {
     var elTarget = YAHOO.util.Event.getTarget(e);
@@ -72,7 +73,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   }
   that.locateNode=function(el) {
 //  find the nearest ancestor that has a phedex-tnode-* class applied to it, either
-//  phedex-thode-field or phedex-tnode-header
+//  phedex-tnode-field or phedex-tnode-header
     while (el.id != that.div_content.id) { // walk up only as far as the content-div
       if ( that.textNodeMap[el.id] ) { // look for tree-nodes
         YAHOO.log('Activated node: '+el.id,'info','Core.TreeView');
@@ -266,7 +267,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     for (var i in elList)
     {
       var el = elList[i];
-      var elResize = new YAHOO.util.Resize(el,{ handles:['r'] });
+      var elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // this is cute if I can make it work properly!
       elResize.payload = el;
       elResize.subscribe('endResize',function(e) {
 	var elTarget = YAHOO.util.Event.getTarget(e);
@@ -282,6 +283,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.onDataFailed.subscribe(function() {
     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
     that.div_content.innerHTML='Data-load error, try again later...';
+    that.finishLoading();
   });
 
   that.onPopulateComplete.subscribe(function() {
