@@ -23,7 +23,8 @@ sub new
 	  	  PROTECT_CMD => undef,		# Command to check for overload
 		  STAGE_CMD => undef,	        # Command to trigger prestage
 		  STATUS_CMD => undef,	        # Command to check staging status
-		  MAXFILES => 100,		# Max number of files in one request in one cycle
+		  MAXFILES => undef,		# Max number of files in one request in one cycle
+		  BATCHFILES => 100,            # Number of files for a single request
 		  TIMEOUT => 600,               # Timeout for commands
 		  STAGE_STALE => 8*3600,        # Age after which the stage cache is stale
 	  	  STORAGEMAP => undef,		# Storage path mapping rules
@@ -149,14 +150,15 @@ sub getStagerFiles
     # Update the file status in the cache.
     # Since the external command for checking the staging status could hang, blocking
     # the agent from making progress, run the command using a timeout.
+    my $nfiles = scalar @todo;
+    my $done = 0;
     while (@todo)
     {
-	
-	my @slice = splice(@todo, 0, $$self{MAXFILES});
+	my @slice = splice(@todo, 0, $$self{BATCHFILES});
+	my $slicesize = scalar @slice;
 	my %pfn2f = map { ($$_{PFN} => $_) } @slice;       
 	my @pfns =  map { "$$_{PFN}" } @slice;
-        my $nfiles = scalar @slice;
-        $self->Logmsg ("Checking staging status of $nfiles pending files");
+        $self->Logmsg ("Checking staging status of $slicesize pending files (total=$nfiles, checked=$done) using @{$$self{STATUS_CMD}} ");
 	my @cmd = &timeout_cmd($$self{TIMEOUT}, @{$$self{STATUS_CMD}}, @pfns);
 	open (QRY, "@cmd |")
 	    or do { $self->Alert ("@{$$self{STATUS_CMD}}: cannot execute: $!"); return undef };
@@ -170,6 +172,7 @@ sub getStagerFiles
 	    $$self{STAGE_CACHE}{$1} = { TIME => time(), VALUE => "STAGED" };
 	}
 	close (QRY);
+        $done += $slicesize;
     }
     
     return $files;
@@ -272,24 +275,25 @@ sub idle
 	# recent enough files in wanted state.
 	my @requests = grep (defined $$_{PFN} && $$_{STATUS} eq 'UNKNOWN',
 			     values %$files);
-        my $nreq = scalar @requests; 
-        my $nreqdone = 0;
-
-        do {
-	    my @slice = splice (@requests, 0, $$self{MAXFILES});
-	    $nreqdone = scalar @slice;
+	my $nreqtotal = scalar @requests;
+        my @reqslice = splice (@requests, 0, 
+                               defined $$self{MAXFILES} ? $$self{MAXFILES} : $nreqtotal);
+	my $nreqdone  = scalar @reqslice;
+        while (@reqslice) 
+        {
+	    my @slice = splice (@reqslice, 0, $$self{BATCHFILES});
 	    my @pfns = map { "$$_{PFN}" } @slice;
-	    $self->Logmsg ("Executing @{$$self{STAGE_CMD}} @pfns");
+	    $self->Logmsg ("Executing with timeout $$self{TIMEOUT} @{$$self{STAGE_CMD}} @pfns");
 	    my $rc = &runcmd (&timeout_cmd($$self{TIMEOUT}, @{$$self{STAGE_CMD}}, @pfns)); 
 	    $self->Alert ("$$self{STAGE_CMD} failed: @{[&runerror($rc)]}") if ($rc);
 	    
 	    # Mark these files as pending now in the cache
             map { $$self{STAGE_CACHE}{$$_{PFN}} = {TIME=>time(), VALUE=>"STAGEIN"} } @slice;
-        } if $nreq;
+        }
 	
 	$timing{REQUESTS} = &mytimeofday();
 	$self->Logmsg ("timing:"
-		       . " nreqqueued=$nreq"
+		       . " nrequested=$nreqtotal"
 		       . " nreqdone=$nreqdone"
 		       . " purge=@{[sprintf '%.1f', $timing{PURGE} - $timing{START}]}"
 		       . " status=@{[sprintf '%.1f', $timing{STATUS} - $timing{PURGE}]}"
