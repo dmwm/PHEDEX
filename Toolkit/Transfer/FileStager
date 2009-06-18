@@ -37,11 +37,14 @@
 ##H              for list of files
 ##H -protect     an external program to call to check for storage 
 ##H              overload
+##H -waittime    Time between activity cycles
 ##H -timeout     timeout for external commands (in seconds), default 600
-##H -stage-stale  time (in seconds) after which staged files are considered stale
-##H               and cleared from the cache.  default is 8 hours.
+##H -stage-stale time (in seconds) after which staged files are considered stale
+##H              and cleared from the cache.  default is 8 hours.
 ##H -maxfiles    the maximum number of files to send to the -stage
 ##H              and -status commands
+##H -batch-files number of files for a single -stage and -status commands
+##H              (maxfiles is divided in groups of -batch-files)
 
 ######################################################################
 my %args;
@@ -54,6 +57,7 @@ use PHEDEX::File::Stager::Agent;
              "db=s"          => \$args{DBCONFIG},
 	     "storagemap=s"  => \$args{STORAGEMAP},
 	     "maxfiles=i"    => \$args{MAXFILES},
+	     "batch-files=i" => \$args{BATCHFILES},
              "waittime=i"    => \$args{WAITTIME},
              "timeout=i"     => \$args{TIMEOUT},
 	     "stage-stale=i" => \$args{STAGE_STALE},
