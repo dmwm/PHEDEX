@@ -84,9 +84,6 @@ PHEDEX.Util.makeInlineDiv = function(args) {
   return div;
 }
 
-// PHEDEX.Util.makeNode({width:width,className:'treeview-header',format:linkHeader1,
-//         values:[ 'Node','Rate','Quality','Done','Queued','Errors' ]
-// 	]})
 // build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
 // nominally identical, except values in the Value object can override the Specification object.
 // This lets us create a template Specification and use it in several places (header, body) with
@@ -199,9 +196,10 @@ PHEDEX.Util.getConfig=function(element) {
 }
 
 // generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
-PHEDEX.Util.sequence_count=0;
 PHEDEX.Util.Sequence=function() {
-  return ++PHEDEX.Util.sequence_count;
+  var me = arguments.callee;
+  if ( ! me.value ) { me.value = 0; }
+  return me.value++;
 }
 
 // generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
@@ -225,7 +223,11 @@ PHEDEX.Util.sumArrayField=function(q,f,p) {
 PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
 // First, create a callback function that uses the payload to identify what to do with the returned data.
   var loadTreeNodeData_callback = function(result) {
-    node.payload.callback(node,result);
+    if ( result.stack ) {
+      YAHOO.log('loadTreeNodeData: failed to get data','error','Core.TreeView');
+    } else {
+      node.payload.callback(node,result);
+    }
     fnLoadComplete(); // Signal that the operation is complete, the tree can re-draw itself
   }
 
@@ -243,7 +245,7 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
     {
 //    payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
 //    and conform to the calling specification for the data-service module
-      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call);
+      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call,'Core.TreeView');
       var query = [];
       query.api = node.payload.call;
       query.args = node.payload.args;
