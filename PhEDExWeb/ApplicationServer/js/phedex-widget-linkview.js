@@ -285,9 +285,11 @@ var f = {};
   }
 
   that.receive=function(event,data) {
-    if ( data[0].request_call == 'TransferQueueStats' ) { that.data_queue = data[0].link; }
-    if ( data[0].request_call == 'TransferHistory' )    { that.data_hist  = data[0].link; }
-    if ( data[0].request_call == 'ErrorLogSummary' )    { that.data_error = data[0].link; }
+    var result   = data[0];
+    var context  = data[1];
+    if ( context.api == 'TransferQueueStats' ) { that.data_queue = result.link; }
+    if ( context.api == 'TransferHistory' )    { that.data_hist  = result.link; }
+    if ( context.api == 'ErrorLogSummary' )    { that.data_error = result.link; }
     if ( that.data_hist && that.data_error && that.data_queue )
     {
       that.finishLoading();
