@@ -38,18 +38,18 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width:180,className:'phedex-tree-requestor-name align-left'},
           {width:180,className:'phedex-tree-request-date'},
 	  {width:150,className:'phedex-tree-comments',hideByDefault:true},
-	  {          className:'phedex-tree-requestor-dn',hideByDefault:true},
+	  {width:150,className:'phedex-tree-requestor-dn',hideByDefault:true},
 	  {width:100,className:'phedex-tree-requestor-host',hideByDefault:true},
-	  {width:250,className:'phedex-tree-requestor-useragent',hideByDefault:true}
+	  {width:200,className:'phedex-tree-requestor-useragent',hideByDefault:true}
     ];
   var linkHeader3 = [
           {width:180,className:'phedex-tree-approver-name align-left'},
           {width:180,className:'phedex-tree-approval-date'},
 	  {width:120,className:'phedex-tree-approval-status'},
 	  {width:140,className:'phedex-tree-approval-node'},
-	  {          className:'phedex-tree-approver-dn',hideByDefault:true},
+	  {width:150,className:'phedex-tree-approver-dn',hideByDefault:true},
 	  {width:100,className:'phedex-tree-approver-host',hideByDefault:true},
-	  {width:250,className:'phedex-tree-approver-useragent',hideByDefault:true}
+	  {width:200,className:'phedex-tree-approver-useragent',hideByDefault:true}
     ];
   var linkHeader4 = [
           {          className:'phedex-tree-block-name align-left'},
