@@ -78,11 +78,19 @@ sub AUTOLOAD
 sub idle
 {
   my ($self, @pending) = @_;
-
-  # Skip the cycle if we're still working on the last one...
-  return if $self->{JOBMANAGER}->jobsRemaining();
-
   my $dbh;
+
+  # If we're busy, wait until next cycle before doing more work
+  if (my $njobs = $self->{JOBMANAGER}->jobsRemaining()) {
+      # Just report that we're still alive
+      eval { $dbh = $self->connectAgent(); }
+      do { chomp ($@); $self->Alert ("database error: $@");
+	   eval { $dbh->rollback() } if $dbh } if $@;
+
+      $self->Logmsg("waiting for $njobs commands to finish...");
+      return;
+  }
+
   # tie state file
   my %state;
   tie %state, 'DB_File', "$self->{DROPDIR}/state.dbfile"
@@ -157,6 +165,9 @@ sub idle
 
   # Flush memory to the state file
   (tied %state)->sync();
+
+  # Untie when the jobs are finished
+  $self->{JOBMANAGER}->whenQueueDrained( sub { unite %state; } );
 
   # Disconnect from the database
   &disconnectFromDatabase ($self, $dbh, 1);
