@@ -28,13 +28,13 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 
   var linkHeader1 = [
           {width:160,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
-	  {width:130,className:'phedex-tree-done'},
-          {width:130,className:'phedex-tree-failed'},
-          {width:130,className:'phedex-tree-expired'},
-          {width: 80,className:'phedex-tree-rate'},
-	  {width: 80,className:'phedex-tree-quality'},
-	  {width:130,className:'phedex-tree-queue'},
-	  {width: 80,className:'phedex-tree-error-total'},
+	  {width:130,className:'phedex-tree-done align-right'},
+          {width:130,className:'phedex-tree-failed align-right'},
+          {width:130,className:'phedex-tree-expired align-right'},
+          {width: 80,className:'phedex-tree-rate align-right'},
+	  {width: 80,className:'phedex-tree-quality align-right'},
+	  {width:130,className:'phedex-tree-queue align-right'},
+	  {width: 80,className:'phedex-tree-error-total align-right'},
 	  {width: 80,className:'phedex-tree-error-log',hideByDefault:true}
     ];
   var linkHeader2 = [
@@ -42,16 +42,16 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
 	  {width: 80,className:'phedex-tree-block-id',hideByDefault:true},
 	  {width:100,className:'phedex-tree-state'},
           {width:100,className:'phedex-tree-priority'},
-          {width: 80,className:'phedex-tree-block-files'},
-	  {width:100,className:'phedex-tree-block-bytes'},
-	  {width:100,className:'phedex-tree-block-errors'}
+          {width: 80,className:'phedex-tree-block-files align-right'},
+	  {width:100,className:'phedex-tree-block-bytes align-right'},
+	  {width:100,className:'phedex-tree-block-errors align-right'}
     ];
   var linkHeader3 = [
 	  {width:200,className:'phedex-tree-file-name align-left'},
 	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
-	  {width:100,className:'phedex-tree-file-bytes'},
-	  {width:100,className:'phedex-tree-file-errors'},
-          {width:140,className:'phedex-tree-file-cksum',hideByDefault:true}
+	  {width:100,className:'phedex-tree-file-bytes align-right'},
+	  {width:100,className:'phedex-tree-file-errors align-right'},
+          {width:140,className:'phedex-tree-file-cksum align-right',hideByDefault:true}
     ];
 
 // Build the options for the pull-down menus.
@@ -106,56 +106,59 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     try {
       var link = result.link[0];
       var call = node.payload.call; // copy the value because of the dangers of shallow-copying in javascript
-      for (var i in link.transfer_queue )
+      if ( link && link.transfer_queue )
       {
-        var tq = link.transfer_queue[i];
-        for (var j in tq.block)
-        {
-          var block = tq.block[j];
+       for (var i in link.transfer_queue )
+       {
+         var tq = link.transfer_queue[i];
+         for (var j in tq.block)
+         {
+           var block = tq.block[j];
 // distinguish the type of node to build based on what the 'call' was that got me here
-          if ( call == 'TransferQueueBlocks' ) // if I hadn't copied 'call' earlier, it would be overwritten by the first pass through here.
-          {
-            var payload = {};
-	    for (var i in node.payload)
-	    {
-	      if ( typeof(node.payload[i]) == 'string' ) { payload[i] = node.payload[i]; }
-	      else { payload[i] = {}; for (var j in node.payload[i]) { payload[i][j] = node.payload[i][j]; } }
-	    }
-	    var errors = {};
-	    for (var i in payload.data.errors)
-	    {
-	      var b = payload.data.errors[i];
-	      errors[b.id] = { num_errors:b.num_errors, files:b.files };
-	    }
-            payload.call = 'TransferQueueFiles';
-	    payload.data = errors;
-            payload.args.block = block.name;
-            var tNode = node.payload.obj.addNode(
-              {format:linkHeader2},
-              [ block.name, block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), b.num_errors ],
-	      node,
-	      {payload:payload}
-            );
-          }
-          else if ( call == 'TransferQueueFiles' )
-          {
-            for (var k in block.file)
-            {
-debugger;
-var f = {};
-              var file = block.file[k];
-              var tNode = node.payload.obj.addNode(
-                {format:linkHeader3},
-                [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), f.num_errors, file.checksum ],
-	        node
+           if ( call == 'TransferQueueBlocks' ) // if I hadn't copied 'call' earlier, it would be overwritten by the first pass through here.
+           {
+             var payload = {};
+	     for (var i in node.payload)
+	     {
+	       if ( typeof(node.payload[i]) == 'string' ) { payload[i] = node.payload[i]; }
+	       else { payload[i] = {}; for (var j in node.payload[i]) { payload[i][j] = node.payload[i][j]; } }
+	     }
+	     var errors = {};
+	     for (var i in payload.data.errors)
+	     {
+	       var b = payload.data.errors[i];
+	       errors[b.id] = { num_errors:b.num_errors, files:b.files };
+	     }
+             payload.call = 'TransferQueueFiles';
+	     payload.data = errors;
+             payload.args.block = block.name;
+             var tNode = node.payload.obj.addNode(
+               {format:linkHeader2},
+               [ block.name, block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), b.num_errors ],
+	        node,
+	       {payload:payload}
               );
-              tNode.isLeaf = true;
             }
-          }
-          else {
-            var errstr = 'No action specified for handling callback data for "'+node.payload.callback+'"';
-            YAHOO.log(errstr,'error','Widget.TransfersNode');
-            throw new Error(errstr);
+            else if ( call == 'TransferQueueFiles' )
+            {
+             for (var k in block.file)
+             {
+// debugger;
+var f = {};
+               var file = block.file[k];
+               var tNode = node.payload.obj.addNode(
+                 {format:linkHeader3},
+                 [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), f.num_errors, file.checksum ],
+	          node
+                );
+                tNode.isLeaf = true;
+              }
+            }
+            else {
+             var errstr = 'No action specified for handling callback data for "'+node.payload.callback+'"';
+             YAHOO.log(errstr,'error','Widget.TransfersNode');
+             throw new Error(errstr);
+            }
           }
         }
       }
