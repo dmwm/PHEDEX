@@ -106,13 +106,66 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
+/*
+  that.locateNode=function(el) {
+//  find the nearest ancestor that has a phedex-dnode-* class applied to it, either
+//  phedex-dnode-field or phedex-dnode-header
+    while (el.id != that.div_content.id) { // walk up only as far as the content-div
+      if(YAHOO.util.Dom.hasClass(el,'phedex-dnode-field')) { // phedex-dnode fields hold the values.
+        return el;
+      }
+      if(YAHOO.util.Dom.hasClass(el,'phedex-dnode-header')) { // phedex-dnode headers hold the value-names.
+        return el;
+      }
+      el = el.parentNode;
+    }
+  }
+
+  that.onContextMenuBeforeShow=function(p_sType, p_aArgs, a, b, c) {
+debugger;
+    var oTarget = this.contextEventTarget,
+      aMenuItems,
+      aClasses;
+    if (this.getRoot() == this) {
+//    Get the <tr> that was the target of the "contextmenu" event.
+
+      var tgt = this.contextEventTarget;
+      var elCol = that.dataTable.getColumn(tgt);
+      var elRow = that.dataTable.getTrEl(tgt);
+      var label = tgt.textContent;
+      var payload = {};
+
+//    Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+      aClasses = tgt.className.split(" ");
+
+debugger;
+      this.clearContent();
+      PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
+      this.addItems(aClasses);
+      this.render();
+//    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
+      YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
+    }
+  }
+
+  that.onContextMenuHide= function(p_sType, p_aArgs) {
+debugger;
+    var tgt = this.contextEventTarget;
+    if (this.getRoot() == this && tgt ) {
+      YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
+    }
+  }
+*/
+
 // Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
-    var args=[];
-    for (var i=0; i< arguments.length; i++ ) { args[args.length] = arguments[i]; }
-    args.push('dataTable');
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create(args[0],{trigger:that.dataTable.getTbodyEl()});
-    PHEDEX.Core.ContextMenu.Build(that.contextMenu,args);
+    that.contextMenuArgs=[];
+    for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
+    that.contextMenuArgs.push('dataTable');
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.dataTable.getTbodyEl()});
+//     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
+//     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
+    PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
   }
   that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.DataTable');
