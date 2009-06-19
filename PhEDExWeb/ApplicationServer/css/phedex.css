@@ -42,11 +42,13 @@ body {
 .phedex-tnode-field {
   overflow: hidden;
   height: 1.4em;
+  padding-right: 6px;
 }
 .phedex-tnode-header {
   font-weight: bold;
   height: 1.6em;
   overflow-x: auto;
+  padding-right: 6px;
 }
 
 .phedex-drow-highlight { /*not actually used at the moment*/
@@ -90,7 +92,7 @@ body {
 .yui-panel .bd {
   overflow:auto;
   position: relative; /* Apparently fixes a problem in IE7 */
-  background-color: #eaeaea;
+  background-color: #f8f8f8;
   padding: 2px;
   margin: 0 5px 0 0;
 }
@@ -126,4 +128,11 @@ body {
 
 .yui-panel.show-scrollbars .underlay {
   overflow: visible;
+}
+
+.yui-skin-sam .yui-resize .yui-resize-handle {
+/*   background-color: #888; */
+}
+.yui-skin-sam .yui-resize .yui-resize-handle-inner-r {
+ top: 0%;
 }
