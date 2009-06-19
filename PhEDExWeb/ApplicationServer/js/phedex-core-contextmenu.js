@@ -4,12 +4,11 @@ PHEDEX.namespace('Core.ContextMenu');
 PHEDEX.Core.ContextMenu.menus = [];
 PHEDEX.Core.ContextMenu.items = [];
 
-PHEDEX.Core.ContextMenu.Create=function(name,trigger) {
+PHEDEX.Core.ContextMenu.Create=function(name,config) {
   YAHOO.log('Create: '+name,'info','Core.ContextMenu');
   var i = PHEDEX.Util.Sequence();
-//   if ( !i ) { i=0; }
-//   PHEDEX.Core.ContextMenu.count = i+1;
-  var m = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,trigger);
+  if ( !config.lazyload ) { config.lazyload = true; }
+  var m = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,config);
   m.cfg.setProperty('zindex',10);
   return m;
 }
@@ -37,4 +36,5 @@ PHEDEX.Core.ContextMenu.Build=function(menu,components) {
     }
   }
 }
+
 YAHOO.log('loaded...','info','Core.ContextMenu');
