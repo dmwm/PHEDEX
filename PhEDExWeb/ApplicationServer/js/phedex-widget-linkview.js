@@ -120,7 +120,7 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
              var payload = {};
 	     for (var i in node.payload)
 	     {
-	       if ( typeof(node.payload[i]) == 'string' ) { payload[i] = node.payload[i]; }
+	       if ( typeof(node.payload[i]) != 'object' ) { payload[i] = node.payload[i]; }
 	       else { payload[i] = {}; for (var j in node.payload[i]) { payload[i][j] = node.payload[i][j]; } }
 	     }
 	     var errors = {};
