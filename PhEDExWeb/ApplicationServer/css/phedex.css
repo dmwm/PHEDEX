@@ -72,6 +72,10 @@ body {
 .phedex-tree-block-name .phedex-tree-file-name {
 /*   overflow-x: hidden; */
 }
+.phedex-tree-approver-dn,  .phedex-tree-approver-useragent, /* These fields should be multi-line by default */
+.phedex-tree-requestor-dn, .phedex-tree-requestor-useragent {
+  height: 100%;
+}
 
 .yui-panel .container-close {
   position:absolute;
