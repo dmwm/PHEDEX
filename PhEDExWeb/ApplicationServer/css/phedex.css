@@ -34,6 +34,11 @@ body {
   display:none
 }
 
+.phedex-core-selected {
+  border: 1px solid red;
+  font-weight: bold;
+}
+
 .phedex-tnode-field {
   overflow: hidden;
   height: 1.4em;
