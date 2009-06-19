@@ -78,6 +78,10 @@ sub AUTOLOAD
 sub idle
 {
   my ($self, @pending) = @_;
+
+  # Skip the cycle if we're still working on the last one...
+  return if $self->{JOBMANAGER}->jobsRemaining();
+
   my $dbh;
   # tie state file
   my %state;
@@ -152,7 +156,7 @@ sub idle
     eval { $dbh->rollback() } if $dbh } if $@;
 
   # Flush memory to the state file
-  (tied %state)->flush();
+  (tied %state)->sync();
 
   # Disconnect from the database
   &disconnectFromDatabase ($self, $dbh, 1);
