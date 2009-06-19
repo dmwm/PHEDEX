@@ -151,19 +151,11 @@ sub idle
   do { chomp ($@); $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh } if $@;
 
+  # Flush memory to the state file
+  (tied %state)->flush();
+
   # Disconnect from the database
   &disconnectFromDatabase ($self, $dbh, 1);
-
-  # Wait for all jobs to finish
-#  while (@{$self->{JOBS}})
-#  {
-#      $self->pumpJobs();
-#      select (undef, undef, undef, 0.1);
-#  }
-#
-#  # untie
-#  untie %state;
-  $self->{JOBMANAGER}->whenQueueDrained( sub { untie %state; } );
 
   # Have a little nap
   $self->nap ($self->{WAITTIME});
