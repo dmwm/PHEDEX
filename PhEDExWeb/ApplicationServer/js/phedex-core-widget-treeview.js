@@ -38,8 +38,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   }
 
   that.getPhedexFieldClass=function(el) {
-//  find the phedex-tree-* classname of this element
     var treeMatch = /^phedex-tree-/;
+//  find the phedex-tree-* classname of this element
     var elClasses = el.className.split(' ');
     for (var i in elClasses) {
       if ( elClasses[i].match(treeMatch) ) {
@@ -181,13 +181,58 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
+// Context-menu handlers, for all sorts of magic...
+  that.onContextMenuBeforeShow=function(p_sType, p_aArgs, a, b, c) {
+    var oTarget = this.contextEventTarget,
+      aMenuItems = [],
+      aClasses;
+    if (this.getRoot() == this) {
+
+      var tgt = that.locateNode(this.contextEventTarget);
+      if ( ! tgt ) { return; }
+      var type;
+      if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-header')) { type = 'phedex-tnode-header'; }
+      if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' )) { type = 'phedex-tnode-field'; }
+      if ( !type ) { return; }
+      aMenuItems[0] = type;
+
+      YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
+      var label = tgt.textContent;
+      var payload = {};
+
+//    Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+      aClasses = tgt.className.split(" ");
+
+      this.clearContent();
+      PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
+      var treeMatch = /^phedex-tree-/;
+      for (var i in aClasses) {
+	if ( aClasses[i].match(treeMatch) ) {
+	  aMenuItems[aMenuItems.length] = aClasses[i];
+	}
+      }
+      this.addItems(aMenuItems);
+      this.render();
+//    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
+    }
+  }
+
+  that.onContextMenuHide= function(p_sType, p_aArgs) {
+    var tgt = that.locateNode(this.contextEventTarget);
+    if (this.getRoot() == this && tgt ) {
+      YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
+    }
+  }
+
 // Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
-    var args=[];
-    for (var i=0; i< arguments.length; i++ ) { args[args.length] = arguments[i]; }
-    args.push('treeView');
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create(args[0],{trigger:that.div_content});
-    PHEDEX.Core.ContextMenu.Build(that.contextMenu,args);
+    that.contextMenuArgs=[];
+    for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
+    that.contextMenuArgs.push('treeView');
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.div_content});
+    that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
+    that.contextMenu.subscribe("hide",       that.onContextMenuHide);
+//     PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
   }
   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
 //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
