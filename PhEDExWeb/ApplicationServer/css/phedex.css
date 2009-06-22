@@ -25,7 +25,7 @@ body {
   text-align: center;
 }
 
-.node-progress {
+.phedex-core-widget-progress {
   position:absolute;
   right:6px;
   top:1px;
@@ -62,10 +62,10 @@ body {
   background-color: #ff8;
 }
 
-.phedex-data-odd {
+.phedex-data-odd { /* not used at present */
   background-color: #EDF5FF;
 }
-.phedex-data-even {
+.phedex-data-even { /* not used at present */
   background-color: #fff;
 }
 
@@ -73,7 +73,8 @@ body {
 /*   overflow-x: hidden; */
 }
 .phedex-tree-approver-dn,  .phedex-tree-approver-useragent, /* These fields should be multi-line by default */
-.phedex-tree-requestor-dn, .phedex-tree-requestor-useragent {
+.phedex-tree-requestor-dn, .phedex-tree-requestor-useragent,
+.phedex-tree-comments {
   height: 100%;
 }
 
@@ -109,10 +110,7 @@ body {
 }
 
 .yui-panel .ft {
-  padding: 0 0 5px 0;
-}
-
-.yui-panel .content {
+  padding: 0 0 5px 0; /* leave spoace for resize-handles */
 }
 
 .yui-panel .yui-resize-handle-br {
@@ -122,21 +120,17 @@ body {
     width: 8px;
     position:absolute;
 }
-.yui-panel.hide-scrollbars .yui-resize .bd {
+/* make sure resize-handles are clearly visible in treeview-headers by raising them up */
+.yui-panel .yui-resize .yui-resize-handle-inner-r {
+ top: 0%;
+}
+
+.yui-panel .hide-scrollbars .yui-resize .bd {
   overflow: hidden;
 }
-
-.yui-panel.show-scrollbars .yui-resize .bd {
+.yui-panel .show-scrollbars .yui-resize .bd {
   overflow: auto;
 }
-
-.yui-panel.show-scrollbars .underlay {
+.yui-panel .show-scrollbars .underlay {
   overflow: visible;
-}
-
-.yui-skin-sam .yui-resize .yui-resize-handle {
-/*   background-color: #888; */
-}
-.yui-skin-sam .yui-resize .yui-resize-handle-inner-r {
- top: 0%;
 }
