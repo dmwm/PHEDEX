@@ -194,7 +194,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-header')) { type = 'phedex-tnode-header'; }
       if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' )) { type = 'phedex-tnode-field'; }
       if ( !type ) { return; }
-      aMenuItems[0] = type;
+      YAHOO.log('found '+type+' to key new menu entries','info','Core.TreeView');
+//       aMenuItems[0] = type;
 
       YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
       var label = tgt.textContent;
@@ -208,10 +209,11 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       var treeMatch = /^phedex-tree-/;
       for (var i in aClasses) {
 	if ( aClasses[i].match(treeMatch) ) {
-	  aMenuItems[aMenuItems.length] = aClasses[i];
+	  YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
+// 	  aMenuItems[aMenuItems.length] = aClasses[i];
 	}
       }
-      this.addItems(aMenuItems);
+      if ( aMenuItems.length ) { this.addItems(aMenuItems); }
       this.render();
 //    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
     }
