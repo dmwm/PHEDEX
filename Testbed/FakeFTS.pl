@@ -5,7 +5,7 @@ use PHEDEX::Core::Logging;
 my ($cmd,@args) = @ARGV;
 my ($me,$cache);
 
-$cache = "/tmp/phedex";
+$cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || "/tmp/phedex";
 $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};
