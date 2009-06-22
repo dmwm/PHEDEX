@@ -1,28 +1,28 @@
-// instantiate the PHEDEX.Widget.TransfersNode namespace
-PHEDEX.namespace('Widget.TransfersNode','Widget.TransferQueueBlock','Widget.TransferQueueFiles');
+// instantiate the PHEDEX.Widget.LinkView namespace
+PHEDEX.namespace('Widget.LinkView','Widget.TransferQueueBlock','Widget.TransferQueueFiles');
 
-// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument, by the YUI
-// toolkit the node has a 'payload' hash which we create when we build the tree, it contains the necessary information to allow
-// the callback to know which data-items to pick up and insert in the tree.
+// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
+// The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
+// allow the callback to know which data-items to pick up and insert in the tree.
 //
 // The callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense
 
-PHEDEX.Page.Widget.TransfersNode=function(divid) {
+PHEDEX.Page.Widget.LinkView=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-  xfer_node = new PHEDEX.Widget.TransfersNode(node,divid);
+  xfer_node = new PHEDEX.Widget.LinkView(node,divid);
   xfer_node.update();
 }
 
-PHEDEX.Widget.TransfersNode=function(node,divid) {
+PHEDEX.Widget.LinkView=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width = 1000;
   var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+node,null,{
 		width:width,
 		height:300
 	      });
-  that.me=function() { return 'PHEDEX.Core.Widget.TransfersNode'; }
+  that.me=function() { return 'PHEDEX.Core.Widget.LinkView'; }
   that.node = node;
   var config = PHEDEX.Util.getConfig(divid);
 
@@ -106,64 +106,79 @@ PHEDEX.Widget.TransfersNode=function(node,divid) {
     try {
       var link = result.link[0];
       var call = node.payload.call; // copy the value because of the dangers of shallow-copying in javascript
-      if ( link && link.transfer_queue )
+      if ( !link  ) { return; }
+      if ( !link.transfer_queue ) { return; }
+//    distinguish the type of node to build based on what the 'call' was that got me here
+      if ( call == 'TransferQueueBlocks' ) // if I hadn't copied 'call' earlier, it would be overwritten by the first pass through here.
       {
-       for (var i in link.transfer_queue )
-       {
-         var tq = link.transfer_queue[i];
-         for (var j in tq.block)
-         {
-           var block = tq.block[j];
-// distinguish the type of node to build based on what the 'call' was that got me here
-           if ( call == 'TransferQueueBlocks' ) // if I hadn't copied 'call' earlier, it would be overwritten by the first pass through here.
-           {
-             var payload = {};
-	     for (var i in node.payload)
-	     {
-	       if ( typeof(node.payload[i]) != 'object' ) { payload[i] = node.payload[i]; }
-	       else { payload[i] = {}; for (var j in node.payload[i]) { payload[i][j] = node.payload[i][j]; } }
-	     }
-	     var errors = {};
-	     for (var i in payload.data.errors)
-	     {
-	       var b = payload.data.errors[i];
-	       errors[b.id] = { num_errors:b.num_errors, files:b.files };
-	     }
-             payload.call = 'TransferQueueFiles';
-	     payload.data = errors;
-             payload.args.block = block.name;
-             var tNode = node.payload.obj.addNode(
-               {format:linkHeader2},
-               [ block.name, block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), b.num_errors ],
-	        node,
-	       {payload:payload}
-              );
-            }
-            else if ( call == 'TransferQueueFiles' )
+	for (var i in link.transfer_queue )
+	{
+	  var tq = link.transfer_queue[i];
+	  for (var j in tq.block)
+	  {
+	    var block = tq.block[j];
+	    var payload = [];
+	    for (var k in node.payload)
+	    {
+	      if ( typeof(node.payload[k]) != 'object' ) { payload[k] = node.payload[k]; }
+	      else { payload[k] = {}; for (var l in node.payload[k]) { payload[k][l] = node.payload[k][l]; } }
+	    }
+	    var errors = [];
+	    for (var k in payload.data.errors)
+	    {
+	      var b = payload.data.errors[k];
+	      errors[b.id] = { num_errors:b.num_errors, file:b.file };
+YAHOO.log('block:'+b.id+' errors:'+b.num_errors+' position:'+k,'warn','Widget.LinkView');
+	    }
+            payload.call = 'TransferQueueFiles';
+	    payload.data = errors;
+            payload.args.block = block.name;
+            var tNode = node.payload.obj.addNode(
+              {format:linkHeader2},
+              [ block.name, block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), b.num_errors ],
+	       node,
+	      {payload:payload}
+             );
+          }
+	}
+      }
+      else if ( call == 'TransferQueueFiles' )
+      {
+	for (var i in link.transfer_queue )
+	{
+	  var tq = link.transfer_queue[i];
+	  for (var j in tq.block)
+	  {
+	    var block = tq.block[j];
+	    var payload = [];
+	    for (var k in node.payload)
+	    {
+	      if ( typeof(node.payload[k]) != 'object' ) { payload[k] = node.payload[k]; }
+	      else { payload[k] = {}; for (var l in node.payload[k]) { payload[k][l] = node.payload[k][l]; } }
+	    }
+	    var errors = [];
+            for (var k in block.file)
             {
-             for (var k in block.file)
-             {
-// debugger;
-var f = {};
-               var file = block.file[k];
-               var tNode = node.payload.obj.addNode(
-                 {format:linkHeader3},
-                 [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), f.num_errors, file.checksum ],
-	          node
-                );
-                tNode.isLeaf = true;
-              }
-            }
-            else {
-             var errstr = 'No action specified for handling callback data for "'+node.payload.callback+'"';
-             YAHOO.log(errstr,'error','Widget.TransfersNode');
-             throw new Error(errstr);
+var f = [];
+              var file = block.file[k];
+              var tNode = node.payload.obj.addNode(
+                {format:linkHeader3},
+                [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), f.num_errors, file.checksum ],
+	         node
+               );
+              tNode.isLeaf = true;
             }
           }
-        }
+	}
+      }
+      else
+      {
+        var errstr = 'No action specified for handling callback data for "'+node.payload.callback+'"';
+        YAHOO.log(errstr,'error','Widget.LinkView');
+        throw new Error(errstr);
       }
     } catch(e) {
-      YAHOO.log('Error of some sort in PHEDEX.Widget.TransfersNode.callback_Treeview','error','Widget.LinkView');
+      YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview','error','Widget.LinkView');
       var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
       tNode.isLeaf = true;
     }
@@ -197,7 +212,7 @@ var f = {};
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       var text = oMenuItem.cfg.getProperty("text");
-      YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Core.TransfersNode');
+      YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Widget.LinkView');
       this.set("label", text);
     };
     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
@@ -231,7 +246,7 @@ var f = {};
       var h = this.data_hist[i];
       var node = h[antidirection];
       var d = {};
-      var e={num_errors:0};
+      var e = {num_errors:0};
       for (var j in this.data_queue) {
         if (this.data_queue[j][antidirection]==node) {
           d = this.data_queue[j];
@@ -271,6 +286,8 @@ var f = {};
       var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:that.callback_Treeview }; // so I can use this in the callback
       payload.args.from = h.from;
       payload.args.to   = h.to;
+//       payload.args.binwidth = h.transfer[0].binwidth;
+YAHOO.log('remind Tony to put the binwidth in!','info','Widget.LinkView');
       payload.opts.selected_node = h[antidirection];
       payload.opts.direction = that.direction;
       payload.data.errors    = e.block;
@@ -339,5 +356,5 @@ var f = {};
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.TransfersNode(opts.selected_node).update(); });
-YAHOO.log('loaded...','info','Widget.TransfersNode');
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.selected_node).update(); });
+YAHOO.log('loaded...','info','Widget.LinkView');
