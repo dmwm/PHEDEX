@@ -286,8 +286,8 @@ var f = [];
       var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:that.callback_Treeview }; // so I can use this in the callback
       payload.args.from = h.from;
       payload.args.to   = h.to;
-//       payload.args.binwidth = h.transfer[0].binwidth;
-YAHOO.log('remind Tony to put the binwidth in!','info','Widget.LinkView');
+      payload.args.binwidth = h.transfer[0].binwidth;
+// YAHOO.log('remind Tony to put the binwidth in!','info','Widget.LinkView');
       payload.opts.selected_node = h[antidirection];
       payload.opts.direction = that.direction;
       payload.data.errors    = e.block;
