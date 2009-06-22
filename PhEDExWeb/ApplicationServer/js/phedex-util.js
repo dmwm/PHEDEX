@@ -10,7 +10,6 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name)
   if ( !div )
   {
     div = document.createElement('div');
-    div.className = 'node';
     div.id = name;
     var phedex_main = document.getElementById('phedex_main');
     phedex_main.appendChild(div);
