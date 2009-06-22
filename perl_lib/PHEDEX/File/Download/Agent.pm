@@ -86,8 +86,6 @@ sub _poe_init
   my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
 # $session->option(trace => 1);  $|++; # XXX Debugging
 
-  $self->init();
-
   my @poe_subs = qw( advertise_self verify_tasks purge_lost_tasks
 		     fill_backend maybe_disconnect
 		     sync_tasks report_tasks update_tasks fetch_tasks
@@ -1040,6 +1038,8 @@ sub init
 	$self->{WORKFLOW}->{$subtask}->{NEXT}  = $i+1 <= $#workflow ? $workflow[$i+1] : undef;
 	$self->{WORKFLOW}->{$subtask}->{PREV}  = $i-1 >= 0 ? $workflow[$i-1] : undef;
     }
+
+    $self->Logmsg("task workflow: @workflow") if $self->{VERBOSE};
 }
 
 # Returns the next subtask based on the task workflow.  If the current
