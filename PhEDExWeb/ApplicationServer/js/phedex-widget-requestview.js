@@ -26,8 +26,8 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   var linkHeader1 = [
           {width: 80,className:'phedex-tree-request-id align-left',id:'phedex-widget-requestview-node'},
           {width: 90,className:'phedex-tree-username'},
-	  {width:130,className:'phedex-tree-volume'},
-	  {width:100,className:'phedex-tree-status'},
+	  {width:120,className:'phedex-tree-volume'},
+	  {width: 70,className:'phedex-tree-status'},
 	  {width:100,className:'phedex-tree-custodial'},
           {width: 50,className:'phedex-tree-move'},
           {width: 60,className:'phedex-tree-static'},
@@ -52,7 +52,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 	  {width:200,className:'phedex-tree-approver-useragent',hideByDefault:true}
     ];
   var linkHeader4 = [
-          {          className:'phedex-tree-block-name align-left'},
+          {width:500,className:'phedex-tree-block-name align-left'},
           {width: 70,className:'phedex-tree-block-id',hideByDefault:true},
 	  {width:120,className:'phedex-tree-block-volume'}
     ];
