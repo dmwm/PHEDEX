@@ -120,7 +120,7 @@ sub job_queued
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
   # Check if we can start the job now, or whether we need to wait
-  if ( $self->{NJOBS} && scalar(keys %{$self->{JOBS_RUNNING}}) >= $self->{NJOBS} )
+  if ( $self->{NJOBS} && $self->jobsRunning() >= $self->{NJOBS} )
   {
     $kernel->delay_set('job_queued',0.3);
     return;
@@ -366,7 +366,7 @@ sub killAllJobs
 {
   my $self = shift;
 
-  foreach my $wheelID ( keys %{$self->{JOB_PAYLOADS}} )
+  foreach my $wheelID ( keys %{$self->{JOBS_RUNNING}} )
   {
     POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'timeout', $wheelID);
   }
@@ -406,7 +406,7 @@ sub queue_drained
 sub jobsRemaining()
 {
   my $self = shift;
-  return $self->jobsActive() + $self->jobsQueued();
+  return $self->jobsRunning() + $self->jobsQueued();
 }
 
 sub jobsQueued()
@@ -415,10 +415,10 @@ sub jobsQueued()
     return $self->{JOB_QUEUE}->get_item_count();
 }
 
-sub jobsActive()
+sub jobsRunning()
 {
     my $self = shift;
-    return scalar(keys %{$self->{JOB_PAYLOADS}});
+    return scalar(keys %{$self->{JOBS_RUNNING}});
 }
  
 sub maybe_clear_alarms
