@@ -117,12 +117,19 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  for (var j in tq.block)
 	  {
 	    var block = tq.block[j];
+
+//	    Manual deep-copy of payload, prevents overwriting contents...
 	    var payload = [];
-	    for (var k in node.payload)
-	    {
-	      if ( typeof(node.payload[k]) != 'object' ) { payload[k] = node.payload[k]; }
-	      else { payload[k] = {}; for (var l in node.payload[k]) { payload[k][l] = node.payload[k][l]; } }
-	    }
+	    payload.opts = {};
+	    for (var l in node.payload.opts) { payload.opts[l] = node.payload.opts[l];  }
+	    payload.data = {};
+	    for (var l in node.payload.data) { payload.data[l] = node.payload.data[l];  }
+	    payload.args = {};
+            payload.args.from = node.payload.args.from;
+            payload.args.to   = node.payload.args.to;
+            payload.obj       = node.payload.obj;
+            payload.callback  = node.payload.callback;
+
 	    var errors = [];
 	    for (var k in payload.data.errors)
 	    {
