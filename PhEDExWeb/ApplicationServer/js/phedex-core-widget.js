@@ -42,27 +42,28 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
 
+  YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
 // Everything is a resizeable panel now
-  this.div.className = 'resizablepanel';
+  YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
 // Create divs for the embedded panel
   this.div_header = document.createElement('div');
   this.div_header.className = 'hd';
-  this.div_header.id = this.id+'_hd';
+  this.div_header.id = this.id+'_head';
   this.div.appendChild(this.div_header);
 
   this.div_body = document.createElement('div');
   this.div_body.className = 'bd';
-  this.div_body.id = this.id+'_bd';
+  this.div_body.id = this.id+'_body';
   this.div.appendChild(this.div_body);
 
   this.div_footer = document.createElement('div');
   this.div_footer.className = 'ft';
-  this.div_footer.id = this.id+'_ft';
+  this.div_footer.id = this.id+'_foot';
   this.div.appendChild(this.div_footer);
 // Within the body_div, create a content div. This gives a separate handle for styling and control,
 // rather than having too many things all trying to control the body_div element
   this.div_content = document.createElement('div');
-  this.div_content.className = 'content';
+  this.div_content.className = 'phedex-core-content';
   this.div_content.id = this.id+'_content';
   this.div_body.appendChild(this.div_content);
 
@@ -206,7 +207,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // Create a (usually hidden) progress indicator.
   this.progress_img = document.createElement('img');
   this.progress_img.src = '/images/progress.gif';
-  this.progress_img.className = 'node-progress';
+  this.progress_img.className = 'phedex-core-widget-progress';
   this.div_header.appendChild(this.progress_img);
 
   this.startLoading();
