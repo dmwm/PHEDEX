@@ -57,15 +57,24 @@ do
   do
     wget --quiet -O /dev/null "$jsonUrl/transferqueueblocks?from=$from;to=$to"
     echo -n "all timebins for $from -> $to "
+    for bin in 3600 10800 21600 43200 86400 172800 345600 604800
+    do
+      echo -n "$bin "
+      wget --quiet -O /dev/null "$jsonUrl/transferqueueblocks?from=$from;to=$to;binwidth=$bin"
+    done
+    echo  " "
 #   Now for the files. Yikes!
     for block in `wget --quiet -O - "$jsonUrl/transferqueueblocks?from=$from;to=$to" | tr -d '"' | tr ',' "\n" | grep name: | awk -F: '{ print $2 }' | sed -e 's|/|%2F|g' -e 's|#|%23|'g`
     do
       echo $block
       wget --quiet -O /dev/null "$jsonUrl/transferqueuefiles?from=$from;to=$to;block=$block"
+      echo -n "all timebins for $from -> $to "
       for bin in 3600 10800 21600 43200 86400 172800 345600 604800
       do
-        wget --quiet -O /dev/null "$jsonUrl/transferqueueblocks?from=$from;to=$to;block=$block;binwidth=$bin"
+        echo -n "$bin "
+        wget --quiet -O /dev/null "$jsonUrl/transferqueuefiles?from=$from;to=$to;block=$block;binwidth=$bin"
       done
+      echo  " "
     done
   done
 done
@@ -79,8 +88,10 @@ do
     echo -n "all timebins for $from -> $to "
     for bin in 3600 10800 21600 43200 86400 172800 345600 604800
     do
+      echo -n "$bin "
       wget --quiet -O /dev/null "$jsonUrl/transferqueueblocks?from=$from;to=$to;binwidth=$bin"
     done
+    echo  " "
   done
 done
 
