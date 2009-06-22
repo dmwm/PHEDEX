@@ -329,7 +329,7 @@ sub batch_tasks
 	foreach my $task (@$tasklist) {
 	    if ($n < $batch_size &&
 		&pfn2se($task->{FROM_PFN}) eq $fromSE &&
-		&pfn2se($task->{TO_PFN)    eq $toSE)) {
+		&pfn2se($task->{TO_PFN})   eq $toSE) {
 		push @batch, $task;
 		$n++;
 	    } else {
