@@ -29,60 +29,6 @@ PHEDEX.Util.makeUList = function(args) {
   return list;
 }
 
-// create a UL from an array of strings or objects. If given objects, accept 'width' and 'class' elements to apply to each item.
-// globally, accept width and class for the entire div. This is a messy but adequate way of getting started with formatting treeview
-// leaf nodes to some extent.
-PHEDEX.Util.makeInlineDiv = function(args) {
-  var wtot = args.width || 0; // || 900;
-  var list = document.createElement('ul');
-  var div = document.createElement('div');
-  list.className = 'inline_list';
-  if ( wtot )
-  {
-    div.style.width = wtot+'px';
-    var n = args.fields.length;
-    for ( var i in args.fields )
-    {
-      if ( typeof(args.fields[i]) == 'object' )
-      {
-	var w_el = parseInt(args.fields[i].width);
-	if ( w_el ) { wtot -= w_el; n--; }
-      }
-    }
-  }
-  var w = Math.round(wtot/n);
-  if ( w < 0 ) { w=0; }
-  for ( var i in args.fields )
-  {
-    var d1 = document.createElement('div');
-    if ( typeof(args.fields[i]) == 'object' )
-    {
-	d1.innerHTML = args.fields[i].text;
-	var w_el = parseInt(args.fields[i].width);
-	if ( w_el ) {
-	    d1.style.width = w_el+'px';
-	} else {
-	    if ( w ) { d1.style.width = w+'px'; }
-	}
-	
- 	if ( args.fields[i].className ) {
- 	    d1.className = args.fields[i].className; 
- 	}
-    }
-    else
-    {
-      d1.innerHTML = args.fields[i];
-      d1.style.width = w+'px';
-    }
-    var li = document.createElement('li');
-    li.appendChild(d1);
-    list.appendChild(li);
-  }
-  div.appendChild(list);
-//   if ( args.className ) { list.className += ' '+args.className; }
-  return div;
-}
-
 // build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
 // nominally identical, except values in the Value object can override the Specification object.
 // This lets us create a template Specification and use it in several places (header, body) with
@@ -111,22 +57,17 @@ PHEDEX.Util.makeNode = function(spec,val) {
   for ( var i in spec.format )
   {
     var d1 = document.createElement('div');
-    d1.innerHTML = val[i] || spec.format[i].text;
+    d1.innerHTML = ( val.length > 0 ? val[i] : spec.format[i].text);
     var w_el = parseInt(spec.format[i].width);
     if ( w_el ) {
       d1.style.width = w_el+'px';
     } else {
       if ( w ) { d1.style.width = w+'px'; }
     }
-
-    if ( spec.format[i].id ) {
-      d1.id = spec.format[i].id; 
-    }
     if ( spec.format[i].className ) {
       d1.className = spec.format[i].className; 
     }
     if ( spec.className ) { d1.className += ' '+spec.className; }
-    d1.innerHTML = val[i];
     var li = document.createElement('li');
     li.appendChild(d1);
     list.appendChild(li);
@@ -147,6 +88,9 @@ PHEDEX.Util.format={
     },
     '%':function(raw) {
       return (100*parseFloat(raw)).toFixed(2)+'%';
+    },
+    longString:function(raw) {
+      return "<acronym title='"+raw+"'>"+raw+"</acronym>";
     },
     block:function(raw) {
       if (raw.length>50) {
