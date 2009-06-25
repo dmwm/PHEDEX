@@ -97,27 +97,30 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
   }
-  that.addNode=function(spec,values,parent,opts) {
+  that.addNode=function(spec,values,parent) {
     if ( !parent ) { parent = that.tree.getRoot(); }
-    if ( !opts ) { opts = {}; }
-    if ( spec.format.length != values.length )
+    var isHeader = false;
+    if ( !values ) { isHeader = true; }
+    if ( values && (spec.format.length != values.length) )
     {
       throw new Error('PHEDEX.Core.TreeView: length of "values" array and "format" arrays differs ('+values.length+' != '+spec.format.length+'). Not good!');
     }
     if ( ! spec.className )
     {
-      if ( opts.isHeader ) { spec.className = 'phedex-tnode-header'; }
-      else                 { spec.className = 'phedex-tnode-field'; }
+      if ( isHeader ) { spec.className = 'phedex-tnode-header'; }
+      else            { spec.className = 'phedex-tnode-field'; }
     }
     var el = PHEDEX.Util.makeNode(spec,values);
     var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
     that.textNodeMap[tNode.labelElId] = tNode;
-    if ( opts.payload ) { tNode.payload = opts.payload; }
-    if ( opts.isHeader ) {
+    if ( spec.payload ) { tNode.payload = spec.payload; }
+    if ( isHeader ) {
       for (var i in spec.format) {
 	var className = spec.format[i].className;
-	var value = values[i];
-	if ( opts.prefix ) { value = opts.prefix+': '+value; }
+	var value;
+	if ( values ) { value = values[i]; }
+	else { value = spec.format[i].text; }
+	if ( spec.prefix ) { value = spec.prefix+': '+value; }
 	if ( that.headerNames[className] ) {
 	  YAHOO.log('duplicate entry for '+className+': "'+that.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
 	} else {
@@ -314,7 +317,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     for (var i in elList)
     {
       var el = elList[i];
-      var elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // this is cute if I can make it work properly!
+      var elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
       elResize.payload = el;
       elResize.subscribe('endResize',function(e) {
 	var elTarget = YAHOO.util.Event.getTarget(e);
