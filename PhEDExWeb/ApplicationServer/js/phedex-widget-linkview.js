@@ -27,31 +27,31 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var config = PHEDEX.Util.getConfig(divid);
 
   var linkHeader1 = [
-          {width:160,className:'phedex-tree-node align-left',id:'phedex-widget-linkview-node'},
-	  {width:130,className:'phedex-tree-done align-right'},
-          {width:130,className:'phedex-tree-failed align-right'},
-          {width:130,className:'phedex-tree-expired align-right'},
-          {width: 80,className:'phedex-tree-rate align-right'},
-	  {width: 80,className:'phedex-tree-quality align-right'},
-	  {width:130,className:'phedex-tree-queue align-right'},
-	  {width: 80,className:'phedex-tree-error-total align-right'},
-	  {width: 80,className:'phedex-tree-error-log',hideByDefault:true}
+          {width:160,text:'Node',         className:'phedex-tree-node align-left'},
+	  {width:120,text:'Done',         className:'phedex-tree-done align-right'},
+          {width:120,text:'Failed',       className:'phedex-tree-failed align-right'},
+          {width:120,text:'Expired',      className:'phedex-tree-expired align-right'},
+          {width: 70,text:'Rate',         className:'phedex-tree-rate align-right'},
+	  {width: 70,text:'Quality',      className:'phedex-tree-quality align-right'},
+	  {width:120,text:'Queued',       className:'phedex-tree-queue align-right'},
+	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total align-right'},
+	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
     ];
   var linkHeader2 = [
-	  {width:200,className:'phedex-tree-block-name align-left'},
-	  {width: 80,className:'phedex-tree-block-id',hideByDefault:true},
-	  {width:100,className:'phedex-tree-state'},
-          {width:100,className:'phedex-tree-priority'},
-          {width: 80,className:'phedex-tree-block-files align-right'},
-	  {width:100,className:'phedex-tree-block-bytes align-right'},
-	  {width:100,className:'phedex-tree-block-errors align-right'}
+	  {width:200,text:'Block Name',  className:'phedex-tree-block-name align-left'},
+	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
+	  {width: 80,text:'State',       className:'phedex-tree-state'},
+          {width: 80,text:'Priority',    className:'phedex-tree-priority'},
+          {width: 80,text:'Files',       className:'phedex-tree-block-files align-right'},
+	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes align-right'},
+	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors align-right'}
     ];
   var linkHeader3 = [
-	  {width:200,className:'phedex-tree-file-name align-left'},
-	  {width:100,className:'phedex-tree-file-id',hideByDefault:true},
-	  {width:100,className:'phedex-tree-file-bytes align-right'},
-	  {width:100,className:'phedex-tree-file-errors align-right'},
-          {width:140,className:'phedex-tree-file-cksum align-right',hideByDefault:true}
+	  {width:200,text:'File Name',  className:'phedex-tree-file-name align-left'},
+	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
+	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes align-right'},
+	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors align-right'},
+          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum align-right',hideByDefault:true}
     ];
 
 // Build the options for the pull-down menus.
@@ -109,11 +109,17 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       if ( !link  ) { return; }
       if ( !link.transfer_queue ) { return; }
 //    distinguish the type of node to build based on what the 'call' was that got me here
-      if ( call == 'TransferQueueBlocks' ) // if I hadn't copied 'call' earlier, it would be overwritten by the first pass through here.
+      if ( call == 'TransferQueueBlocks' )
       {
 	for (var i in link.transfer_queue )
 	{
 	  var tq = link.transfer_queue[i];
+	  var errors = [];
+	  for (var k in node.payload.data.errors)
+	  {
+	    var b = node.payload.data.errors[k];
+	    errors[b.id] = { num_errors:b.num_errors, file:b.file };
+	  }
 	  for (var j in tq.block)
 	  {
 	    var block = tq.block[j];
@@ -130,21 +136,15 @@ PHEDEX.Widget.LinkView=function(node,divid) {
             payload.obj       = node.payload.obj;
             payload.callback  = node.payload.callback;
 
-	    var errors = [];
-	    for (var k in payload.data.errors)
-	    {
-	      var b = payload.data.errors[k];
-	      errors[b.id] = { num_errors:b.num_errors, file:b.file };
-YAHOO.log('block:'+b.id+' errors:'+b.num_errors+' position:'+k,'warn','Widget.LinkView');
-	    }
             payload.call = 'TransferQueueFiles';
 	    payload.data = errors;
             payload.args.block = block.name;
+	    var num_errors = 0;
+	    if ( errors[block.id] ) { num_errors = errors[block.id].num_errors; }
             var tNode = node.payload.obj.addNode(
-              {format:linkHeader2},
-              [ block.name, block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), b.num_errors ],
-	       node,
-	      {payload:payload}
+              { format:linkHeader2, payload:payload },
+              [ PHEDEX.Util.format.longString(block.name), block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), num_errors ],
+	       node
              );
           }
 	}
@@ -157,20 +157,22 @@ YAHOO.log('block:'+b.id+' errors:'+b.num_errors+' position:'+k,'warn','Widget.Li
 	  for (var j in tq.block)
 	  {
 	    var block = tq.block[j];
-	    var payload = [];
-	    for (var k in node.payload)
-	    {
-	      if ( typeof(node.payload[k]) != 'object' ) { payload[k] = node.payload[k]; }
-	      else { payload[k] = {}; for (var l in node.payload[k]) { payload[k][l] = node.payload[k][l]; } }
-	    }
 	    var errors = [];
+	    if (node.payload.data[block.id])
+	    {
+	      var files = node.payload.data[block.id].file;
+	      for (var f in files)
+	      {
+		errors[files[f].id] = files[f].num_errors;
+	      }
+	    }
             for (var k in block.file)
             {
-var f = [];
               var file = block.file[k];
+	      var num_errors = errors[file.id] || 0;
               var tNode = node.payload.obj.addNode(
                 {format:linkHeader3},
-                [ file.name, file.id, PHEDEX.Util.format.bytes(file.bytes), f.num_errors, file.checksum ],
+                [ PHEDEX.Util.format.longString(file.name), file.id, PHEDEX.Util.format.bytes(file.bytes), num_errors, file.checksum ],
 	         node
                );
               tNode.isLeaf = true;
@@ -294,16 +296,13 @@ var f = [];
       payload.args.from = h.from;
       payload.args.to   = h.to;
       payload.args.binwidth = h.transfer[0].binwidth;
-// YAHOO.log('remind Tony to put the binwidth in!','info','Widget.LinkView');
       payload.opts.selected_node = h[antidirection];
       payload.opts.direction = that.direction;
       payload.data.errors    = e.block;
       var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
       that.addNode(
-        {width:width,format:linkHeader1},
-        [ node,done,fail,expire,rate,qual,queue,link_errors,e.num_errors ],
-	null,
-	{payload:payload}
+        { format:linkHeader1, payload:payload },
+        [ node,done,fail,expire,rate,qual,queue,link_errors,e.num_errors ]
       );
     }
     that.tree.render();
@@ -336,24 +335,9 @@ var f = [];
 
   that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.div_content);
-  var tNode = that.addNode(
-        {width:width,format:linkHeader1}, // node layout specification
-        [ 'Node','Done','Failed','Expired','Rate','Quality','Queued','Link Errors','Logged Errors' ], // node text
-	null,				// parent node
-	{isHeader:true, prefix:'Link'}	// extra parameters
-    );
-  var tNode1 = that.addNode(
-        {format:linkHeader2},
-        [ 'Block Name','Block ID','State','Priority','Files','Bytes','Block Errors' ],
-	tNode,
-	{isHeader:true, prefix:'Block'}
-    );
-  var tNode2 = that.addNode(
-        {format:linkHeader3},
-        [ 'File Name','File ID','Bytes','File Errors','Checksum' ],
-	tNode1,
-	{isHeader:true, prefix:'File'}
-    );
+  var tNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  } );
+  var tNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, tNode );
+  var tNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, tNode1 );
   tNode2.isLeaf = true;
 
   that.buildContextMenu('Node');

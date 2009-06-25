@@ -24,44 +24,44 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that._move      = {y:'move',      n:'copy'};
 
   var linkHeader1 = [
-          {width: 80,className:'phedex-tree-request-id align-left',id:'phedex-widget-requestview-node'},
-          {width: 90,className:'phedex-tree-username'},
-	  {width:120,className:'phedex-tree-volume'},
-	  {width: 70,className:'phedex-tree-status'},
-	  {width:100,className:'phedex-tree-custodial'},
-          {width: 50,className:'phedex-tree-move'},
-          {width: 60,className:'phedex-tree-static'},
-          {width: 70,className:'phedex-tree-priority'},
-          {width: 70,className:'phedex-tree-group'}
+          {width: 80,text:'Request ID',className:'phedex-tree-request-id align-left'},
+          {width: 90,text:'Username',  className:'phedex-tree-username'},
+	  {width:120,text:'Volume',    className:'phedex-tree-volume'},
+	  {width: 70,text:'Status',    className:'phedex-tree-status'},
+	  {width:100,text:'Custodial', className:'phedex-tree-custodial'},
+          {width: 50,text:'Move',      className:'phedex-tree-move'},
+          {width: 60,text:'Static',    className:'phedex-tree-static'},
+          {width: 70,text:'Priority',  className:'phedex-tree-priority'},
+          {width: 70,text:'Group',     className:'phedex-tree-group'}
     ];
   var linkHeader2 = [
-          {width:180,className:'phedex-tree-requestor-name align-left'},
-          {width:180,className:'phedex-tree-request-date'},
-	  {width:150,className:'phedex-tree-comments',hideByDefault:true},
-	  {width:150,className:'phedex-tree-requestor-dn',hideByDefault:true},
-	  {width:100,className:'phedex-tree-requestor-host',hideByDefault:true},
-	  {width:200,className:'phedex-tree-requestor-useragent',hideByDefault:true}
+          {width:180,text:'Requestor',           className:'phedex-tree-requestor-name align-left'},
+          {width:180,text:'Request Date',        className:'phedex-tree-request-date'},
+	  {width:150,text:'Comments',            className:'phedex-tree-comments',           hideByDefault:true},
+	  {width:150,text:'Requestor DN',        className:'phedex-tree-requestor-dn',       hideByDefault:true},
+	  {width:100,text:'Requestor Host',      className:'phedex-tree-requestor-host',     hideByDefault:true},
+	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true}
     ];
   var linkHeader3 = [
-          {width:180,className:'phedex-tree-approver-name align-left'},
-          {width:180,className:'phedex-tree-approval-date'},
-	  {width:120,className:'phedex-tree-approval-status'},
-	  {width:140,className:'phedex-tree-approval-node'},
-	  {width:150,className:'phedex-tree-approver-dn',hideByDefault:true},
-	  {width:100,className:'phedex-tree-approver-host',hideByDefault:true},
-	  {width:200,className:'phedex-tree-approver-useragent',hideByDefault:true}
+          {width:180,text:'Approver',            className:'phedex-tree-approver-name align-left'},
+          {width:180,text:'Approval Date',       className:'phedex-tree-approval-date'},
+	  {width:120,text:'Approval Status',     className:'phedex-tree-approval-status'},
+	  {width:140,text:'Node',                className:'phedex-tree-approval-node'},
+	  {width:150,text:'Approver DN',         className:'phedex-tree-approver-dn',       hideByDefault:true},
+	  {width:100,text:'Approver Host',       className:'phedex-tree-approver-host',     hideByDefault:true},
+	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent',hideByDefault:true}
     ];
   var linkHeader4 = [
-          {width:500,className:'phedex-tree-block-name align-left'},
-          {width: 70,className:'phedex-tree-block-id',hideByDefault:true},
-	  {width:120,className:'phedex-tree-block-volume'}
+          {width:500,text:'Block Name',  className:'phedex-tree-block-name align-left'},
+          {width: 70,text:'Block ID',    className:'phedex-tree-block-id',hideByDefault:true},
+	  {width:120,text:'Data Volume', className:'phedex-tree-block-volume'}
     ];
 
   that.fillBody = function(div) {
     var tNode;
     var root = that.tree.getRoot();
     tNode = that.addNode(
-      {width:width,format:linkHeader1},
+      {format:linkHeader1},
       [ that.data.id,
         that.data.requested_by.username,
         PHEDEX.Util.format.filesBytes(this.data.data.files,this.data.data.bytes),
@@ -75,7 +75,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     );
 
     that.addNode(
-      {width:width,format:linkHeader2},
+      {format:linkHeader2},
       [ that.data.requested_by.name,
         PHEDEX.Util.format.date(that.data.time_create),
         that.data.comments || '(no comments)',
@@ -93,7 +93,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       if ( d.decided_by.decision == 'y' ) { destinationDetail = 'Approved'; }
       else                                { destinationDetail = 'Rejected'; }
       that.addNode(
-          {width:width,format:linkHeader3},
+          {format:linkHeader3},
           [
             d.decided_by.name,
             PHEDEX.Util.format.date(d.decided_by.time_decided),
@@ -109,10 +109,8 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 
     for (var i in this.data.data.dbs.dataset) {
       var d = this.data.data.dbs.dataset[i];
-      that.addNode(
-          {width:width,format:linkHeader4},
-          [ d.name,d.id,PHEDEX.Util.format.filesBytes(d.files,d.bytes) ]
-        );
+      that.addNode( {format:linkHeader4},
+		    [ PHEDEX.Util.format.longString(d.name),d.id,PHEDEX.Util.format.filesBytes(d.files,d.bytes) ] );
     }
     that.tree.render();
   }
@@ -145,30 +143,10 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that.isDynamic = false; // disable dynamic loading of data
 
   that.buildTree(that.div_content);
-  var tNode = that.addNode(
-      {width:width,format:linkHeader1},
-      [ 'Request ID','Username','Volume','Status','Custodial','Move','Static','Priority', 'Group' ],
-      null,
-      {isHeader:true, prefix:'Request'}
-    );
-  that.addNode(
-      {width:width,format:linkHeader2},
-      [ 'Requestor', 'Request Date','Comments','Requestor DN','Requestor Host','Requestor User Agent' ],
-       tNode,
-      {isHeader:true, prefix:'Requestor'}
-    );
-  that.addNode(
-      {width:width,format:linkHeader3},
-      [ 'Approver','Approval Date','Approval Status','Node','Approver DN','Approver Host','Approver User Agent' ],
-       tNode,
-      {isHeader:true, prefix:'Approver'}
-    );
-  that.addNode(
-      {width:width,format:linkHeader4},
-      [ 'Block name','Block ID','Data volume' ],
-       null,
-      {isHeader:true, prefix:'Block'}
-    );
+  var tNode = that.addNode( { width:width, format:linkHeader1, prefix:'Request' });
+	      that.addNode( {              format:linkHeader2, prefix:'Requestor' }, null, tNode );
+	      that.addNode( {              format:linkHeader3, prefix:'Approver' },  null, tNode );
+	      that.addNode( {              format:linkHeader4, prefix:'Block' } );
 
   that.buildContextMenu('Request');
   that.build();
