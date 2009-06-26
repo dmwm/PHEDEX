@@ -169,6 +169,7 @@ sub getStagerFiles
 	    do { $self->Alert ("@{$$self{STATUS_CMD}} output unrecognised file $_"); next }
 	    if ! exists $pfn2f{$1};
             $self->Logmsg ("$1 STAGED");
+	    $pfn2f{$1}->{STATUS} = "STAGED";
 	    $$self{STAGE_CACHE}{$1} = { TIME => time(), VALUE => "STAGED" };
 	}
 	close (QRY);
