@@ -59,6 +59,32 @@ sub new
   return $self;
 }
 
+sub init
+{
+    my $self = shift;
+    $self->SUPER::init();
+
+    # tie state file
+    $self->Logmsg('tying state file');
+    $self->{STATE} = {};
+    tie %{$self->{STATE}}, 'DB_File', "$self->{DROPDIR}/state.dbfile"
+ 	or die "Could not tie state file:  $!\n";
+}
+
+sub stop
+{
+    my $self = shift;
+    
+    # kill jobs
+    $self->{JOBMANAGER}->killAllJobs();
+
+    # untie state file
+    (tied %{$self->{STATE}})->sync();
+    $self->Logmsg('untying state file');
+    untie %{$self->{STATE}}
+ 	or die "Could not untie state file:  $!\n";
+}
+
 sub AUTOLOAD
 {
   my $self = shift;
@@ -83,19 +109,17 @@ sub idle
   # If we're busy, wait until next cycle before doing more work
   if (my $njobs = $self->{JOBMANAGER}->jobsRemaining()) {
       # Just report that we're still alive
-      eval { $dbh = $self->connectAgent(); }
+      eval { $dbh = $self->connectAgent() };
       do { chomp ($@); $self->Alert ("database error: $@");
 	   eval { $dbh->rollback() } if $dbh } if $@;
 
-      $self->Logmsg("waiting for $njobs commands to finish...");
+      $self->Logmsg("waiting for $njobs commands to finish");
       return;
   }
+  
+  my $state = $self->{STATE};
 
-  # tie state file
-  my %state;
-  tie %state, 'DB_File', "$self->{DROPDIR}/state.dbfile"
-	or die "Could not tie state file:  $!\n";
-
+  my ($n_del, $n_mig) = (0, 0);
   eval
   {
     # Connect to database
@@ -119,8 +143,8 @@ sub idle
     {
       # If we've updated already, skip this
       my $cachekey = "$self->{TARGET_DBS} $block->{BLOCK_NAME} $block->{NODE_NAME}";
-      next if exists $state{$cachekey} && $state{$cachekey} =~ /$block->{COMMAND}/;
-      $state{$cachekey} = -1;
+      next if exists $state->{$cachekey} && $state->{$cachekey} =~ /$block->{COMMAND}/;
+      $state->{$cachekey} = -1;
 
       # Queue the block for consistency-checking. Ignore return values
 
@@ -143,19 +167,21 @@ sub idle
       if ( $block->{COMMAND} eq 'migrateBlock' )
       {
         @cmd = ($self->{MIGR_COMMAND}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
+	$n_mig++;
       }
       elsif ( $block->{COMMAND} eq 'deleteBlock' )
       {
         @cmd = ($self->{DEL_COMMAND}, "-u", $self->{TARGET_DBS}, "-b", $block->{BLOCK_NAME});
+	$n_del++;
       }
       else { die("Command not supported: $block->{COMMAND}") }
 
       if ( defined $self->{DUMMY} )
       {
-        if ( $self->{DUMMY} ) { unshift @cmd,'/bin/false'; }
-        else                  { unshift @cmd,'/bin/true'; }
+        if ( $self->{DUMMY} ) { unshift @cmd,'/bin/true'; }
+        else                  { unshift @cmd,'/bin/false'; }
       }
-      $self->{JOBMANAGER}->addJob(sub { $self->registered ($block, \%state, $cachekey, @_) },
+      $self->{JOBMANAGER}->addJob(sub { $self->registered ($block, $state, $cachekey, @_) },
 	          { TIMEOUT => $self->{TIMEOUT}, LOGFILE => $log },
 	          @cmd);
     }
@@ -163,17 +189,16 @@ sub idle
   do { chomp ($@); $self->Alert ("database error: $@");
     eval { $dbh->rollback() } if $dbh } if $@;
 
-  # Flush memory to the state file
-  (tied %state)->sync();
+  # Report what we did
+  if ($n_mig || $n_del) {
+      $self->Logmsg("statistics: migrating $n_mig, deleting $n_del blocks");
+  }
 
-  # Untie when the jobs are finished
-  $self->{JOBMANAGER}->whenQueueDrained( sub { unite %state; } );
+  # Flush memory to the state file
+  (tied %$state)->sync();
 
   # Disconnect from the database
-  &disconnectFromDatabase ($self, $dbh, 1);
-
-  # Have a little nap
-  $self->nap ($self->{WAITTIME});
+  &disconnectFromDatabase ($self, $dbh);
 }
 
 # Handle finished jobs.
@@ -187,6 +212,7 @@ sub registered
                 . " on block $block->{BLOCK_NAME} for $block->{NODE_NAME}");
         unlink ($job->{LOGFILE});
         $state->{$cachekey} = $block->{COMMAND}.':'.&mytimeofday();
+	(tied %$state)->sync();
     }
     else
     {
