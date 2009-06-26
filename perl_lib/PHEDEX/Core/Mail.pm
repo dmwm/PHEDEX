@@ -10,8 +10,8 @@ use strict;
 use warnings;
 use base 'Exporter';
 
-our $TESTING = 0;
-our $TESTING_MAIL = undef;
+my $TESTING = 0;
+my $TESTING_MAIL = undef;
 
 sub new
 {
