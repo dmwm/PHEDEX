@@ -31,8 +31,8 @@ our %params =
 	  DBCONFIG => undef,		# Database configuration file
 	  WAITTIME => 60,		# Agent activity cycle
 	  NODES => undef,  	        # Nodes this agent runs for, default all
-          MIGR_COMMAND => undef,	# Migrate command
-	  DEL_COMMAND => undef,		# DBS Invalidate command
+	  MIGR_COMMAND => [],	        # Migrate command
+	  DEL_COMMAND => [],		# DBS Invalidate command
 	  TIMEOUT => 600,               # Timeout for commands
           TARGET_DBS => undef,          # Target DBS
 	  DUMMY => 0,			# Test purpose
@@ -166,12 +166,12 @@ sub idle
 
       if ( $block->{COMMAND} eq 'migrateBlock' )
       {
-        @cmd = ($self->{MIGR_COMMAND}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
+        @cmd = (@{$self->{MIGR_COMMAND}}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
 	$n_mig++;
       }
       elsif ( $block->{COMMAND} eq 'deleteBlock' )
       {
-        @cmd = ($self->{DEL_COMMAND}, "-u", $self->{TARGET_DBS}, "-b", $block->{BLOCK_NAME});
+        @cmd = (@{$self->{DEL_COMMAND}}, "-u", $self->{TARGET_DBS}, "-b", $block->{BLOCK_NAME});
 	$n_del++;
       }
       else { die("Command not supported: $block->{COMMAND}") }

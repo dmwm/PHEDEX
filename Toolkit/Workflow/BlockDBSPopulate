@@ -30,8 +30,8 @@ use PHEDEX::BlockDBSPopulate::Agent;
              "label=s"        => \$args{LABEL},
 	     "log=s"          => \$args{LOGFILE},
 	     "target_dbs=s"   => \$args{TARGET_DBS},
-             "migr_command=s" => \$args{MIGR_COMMAND},
-             "del_command=s"  => \$args{DEL_COMMAND},
+             "migr_command=s" => sub { push(@{$args{MIGR_COMMAND}}, split(/,/, $_[1])) },
+             "del_command=s"  => sub { push(@{$args{DEL_COMMAND}}, split(/,/, $_[1])) },
 	     "timeout=i"      => \$args{TIMEOUT},
 	     "dummy"	      => \$args{DUMMY},	
 	     "help|h"      => sub { &usage() });
