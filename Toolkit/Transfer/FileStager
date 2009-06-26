@@ -15,15 +15,22 @@
 ##H arguments.  For example:  --stage 'stager_qry','-M'
 ##H The list of PFNs to stage/check will be apended to this.
 ##H
+##H The -stage command requires no special output format. The
+##H output the command does provide will be sent to the log file.
+##H
+##H The -status command should only output the PFNs of files which are
+##H staged.  Any other output may cause failures with the agent.
+##H
 ##H Usage:
 ##H   FileStager
 ##H      -state DIRECTORY -db FILE[:SECTION] [-log OUT]
-##H	 -nodes PATTERN[,PATTERN...] -storagemap PATH
-##H      -stage CMD[,ARGS..] -status CMD[,ARGS]
-##H      [-timeout SECONDS]
-##H	 [-protect PROGRAM[,ARGS...]]
-##H      [-maxfiles N]
+##H	 -nodes PATTERN[,PATTERN...]
 ##H      [-ignore NODE[,NODE...]] [-accept NODE[,NODE...]]
+##H      -storagemap PATH -protocol PROTOCOL
+##H      -stage CMD[,ARGS..] -status CMD[,ARGS]
+##H	 [-protect PROGRAM[,ARGS...]]
+##H      [-timeout SECONDS] [-stage-stale SECONDS]
+##H      [-maxfiles N] [-batch-files N]
 ##H
 ##H -state       agent state directory
 ##H -nodes       the nodes where this agent runs
