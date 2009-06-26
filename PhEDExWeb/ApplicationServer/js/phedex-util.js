@@ -64,10 +64,14 @@ PHEDEX.Util.makeNode = function(spec,val) {
     } else {
       if ( w ) { d1.style.width = w+'px'; }
     }
+    if ( spec.className ) { d1.className = spec.className; }
     if ( spec.format[i].className ) {
-      d1.className = spec.format[i].className; 
+      YAHOO.util.Dom.addClass(d1,spec.format[i].className);
     }
-    if ( spec.className ) { d1.className += ' '+spec.className; }
+    if ( spec.format[i].otherClasses ) {
+      var oc = spec.format[i].otherClasses.split(' ');
+      for (var c in oc) { YAHOO.util.Dom.addClass(d1,oc[c]); }
+    }
     var li = document.createElement('li');
     li.appendChild(d1);
     list.appendChild(li);

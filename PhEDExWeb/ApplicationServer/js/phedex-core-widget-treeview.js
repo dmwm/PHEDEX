@@ -5,7 +5,7 @@ PHEDEX.namespace('Core.Widget.TreeView');
 PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   var that=new PHEDEX.Core.Widget(divid,parent,opts);
   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
-  that.headerNames=[];
+  that.structure={headerNames:[], hideByDefault:[], contextArgs:[]};
 
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {
@@ -17,7 +17,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var class     = 'phedex-tnode-highlight';
     var class_alt = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
-//       YAHOO.log('mouseover: '+el.className,'info','Core.TreeView');
       action = YAHOO.util.Dom.addClass;
     } else {
       action = YAHOO.util.Dom.removeClass;
@@ -37,6 +36,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'info', 'Core.TreeView');
   }
 
+// Now a series of functions for manipulating an element based on its CSS classes. Use two namespaces, phedex-tnode-* which describes
+// the tree structure, and phedex-tree-* which describe the data-contents.
   that.getPhedexFieldClass=function(el) {
     var treeMatch = /^phedex-tree-/;
 //  find the phedex-tree-* classname of this element
@@ -49,7 +50,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     return;
   }
   that.locatePartnerFields=function(el) {
-//  for a header-field, find all displayed nodes of that type. For a value-field, find only the header
+//  for a header-field, find all displayed nodes of that type. For a value-field, find only the header node that matches
     var treeMatch = /^phedex-tree-/;
     var treeOther;
     var candList;
@@ -75,9 +76,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 //  find the nearest ancestor that has a phedex-tnode-* class applied to it, either
 //  phedex-tnode-field or phedex-tnode-header
     while (el.id != that.div_content.id) { // walk up only as far as the content-div
-      if ( that.textNodeMap[el.id] ) { // look for tree-nodes
-        YAHOO.log('Activated node: '+el.id,'info','Core.TreeView');
-      }
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
         return el;
       }
@@ -87,6 +85,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       el = el.parentNode;
     }
   }
+
   that.buildTree=function(div,dlist) {
     that.tree = new YAHOO.widget.TreeView(div);
     var currentIconMode=0;
@@ -121,19 +120,18 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 	if ( values ) { value = values[i]; }
 	else { value = spec.format[i].text; }
 	if ( spec.prefix ) { value = spec.prefix+': '+value; }
-	if ( that.headerNames[className] ) {
-	  YAHOO.log('duplicate entry for '+className+': "'+that.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
+	if ( that.structure.headerNames[className] ) {
+	  YAHOO.log('duplicate entry for '+className+': "'+that.structure.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
 	} else {
-	  var classNames = className.split(' ');
-	  that.headerNames[classNames[0]] = value;
+	  that.structure.headerNames[className] = value;
+	  if ( spec.format[i].contextArgs ) { that.structure.contextArgs[className] = spec.format[i].contextArgs; }
 	}
       }
     }
     for (var i in spec.format) {
       if ( spec.format[i].hideByDefault )
       {
-	var classNames = spec.format[i].className.split(' ');
-	that.hideByDefault[classNames[0]]=1;
+	that.structure.hideByDefault[spec.format[i].className]=1;
       }
     }
     return tNode;
@@ -184,47 +182,46 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
-// Context-menu handlers, for all sorts of magic...
+// Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
   that.onContextMenuBeforeShow=function(p_sType, p_aArgs, a, b, c) {
     var oTarget = this.contextEventTarget,
       aMenuItems = [],
       aClasses;
-    if (this.getRoot() == this) {
+    if (this.getRoot() != this) { return; } // Not sure what this means, but YUI use it in their examples!
+    var tgt = that.locateNode(this.contextEventTarget);
+    if ( ! tgt ) { return; }
+    var isHeader;
+    if      ( YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
+    else if ( YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
+    else    { return; }
 
-      var tgt = that.locateNode(this.contextEventTarget);
-      if ( ! tgt ) { return; }
-      var type;
-      if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-header')) { type = 'phedex-tnode-header'; }
-      if(YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' )) { type = 'phedex-tnode-field'; }
-      if ( !type ) { return; }
-      YAHOO.log('found '+type+' to key new menu entries','info','Core.TreeView');
-//       aMenuItems[0] = type;
+//  Highlight the <tr> element in the table that was the target of the "contextmenu" event.
+    YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
+    var label = tgt.textContent;
+    var payload = {};
 
-      YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
-      var label = tgt.textContent;
-      var payload = {};
+//  Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+    aClasses = tgt.className.split(" ");
 
-//    Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
-      aClasses = tgt.className.split(" ");
-
-      this.clearContent();
-      PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
-      var treeMatch = /^phedex-tree-/;
-      for (var i in aClasses) {
-	if ( aClasses[i].match(treeMatch) ) {
-	  YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
-// 	  aMenuItems[aMenuItems.length] = aClasses[i];
+    PHEDEX.Core.ContextMenu.Clear(this);
+    PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
+    var treeMatch = /^phedex-tree-/;
+    for (var i in aClasses) {
+      if ( aClasses[i].match(treeMatch) ) {
+	YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
+	if ( !isHeader && that.structure.contextArgs[aClasses[i]] ) {
+	  aMenuItems[aMenuItems.length] = that.structure.contextArgs[aClasses[i]];
 	}
       }
-      if ( aMenuItems.length ) { this.addItems(aMenuItems); }
-      this.render();
-//    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
     }
+    if ( aMenuItems.length ) { PHEDEX.Core.ContextMenu.Build(this,aMenuItems); }
+    this.render();
   }
 
   that.onContextMenuHide= function(p_sType, p_aArgs) {
     var tgt = that.locateNode(this.contextEventTarget);
     if (this.getRoot() == this && tgt ) {
+//    Remove any highlighting that was applied
       YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
     }
   }
@@ -237,7 +234,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.div_content});
     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
-//     PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
   }
   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
 //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
@@ -281,7 +277,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     YAHOO.util.Dom.getElementsByClassName(className,null,that.div_content,function(element) {
       element.style.display = 'none';
     });
-    that.column_menu.addItem({text: that.headerNames[className],value: className});
+    that.column_menu.addItem({text: that.structure.headerNames[className],value: className});
     that.refreshButton();
   }
   that.hideAllFieldsThatShouldBeHidden=function() {
@@ -337,15 +333,14 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   });
 
   that.onPopulateComplete.subscribe(function() {
-    for (var className in that.hideByDefault) { that.hideFieldByClass(className); }
-    that.hideByDefault = []; // don't want to do this every time the build is complete...?
+    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
+    that.structure.hideByDefault = []; // don't want to do this every time the tree is populated, such as opening sub-trees!
     that.addResizeHandles();
   });
 
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
 //I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
-  var t = that;
   var w1 = that.div_body.clientWidth;
   var el = that.tree._el;
 // debugger;

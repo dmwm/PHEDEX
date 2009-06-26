@@ -24,7 +24,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that._move      = {y:'move',      n:'copy'};
 
   var linkHeader1 = [
-          {width: 80,text:'Request ID',className:'phedex-tree-request-id align-left'},
+          {width: 80,text:'Request ID',className:'phedex-tree-request-id', otherClasses:'align-left'},
           {width: 90,text:'Username',  className:'phedex-tree-username'},
 	  {width:120,text:'Volume',    className:'phedex-tree-volume'},
 	  {width: 70,text:'Status',    className:'phedex-tree-status'},
@@ -35,7 +35,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width: 70,text:'Group',     className:'phedex-tree-group'}
     ];
   var linkHeader2 = [
-          {width:180,text:'Requestor',           className:'phedex-tree-requestor-name align-left'},
+          {width:180,text:'Requestor',           className:'phedex-tree-requestor-name', otherClasses:'align-left'},
           {width:180,text:'Request Date',        className:'phedex-tree-request-date'},
 	  {width:150,text:'Comments',            className:'phedex-tree-comments',           hideByDefault:true},
 	  {width:150,text:'Requestor DN',        className:'phedex-tree-requestor-dn',       hideByDefault:true},
@@ -43,7 +43,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true}
     ];
   var linkHeader3 = [
-          {width:180,text:'Approver',            className:'phedex-tree-approver-name align-left'},
+          {width:180,text:'Approver',            className:'phedex-tree-approver-name', otherClasses:'align-left'},
           {width:180,text:'Approval Date',       className:'phedex-tree-approval-date'},
 	  {width:120,text:'Approval Status',     className:'phedex-tree-approval-status'},
 	  {width:140,text:'Node',                className:'phedex-tree-approval-node'},
@@ -52,7 +52,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent',hideByDefault:true}
     ];
   var linkHeader4 = [
-          {width:500,text:'Block Name',  className:'phedex-tree-block-name align-left'},
+          {width:500,text:'Block Name',  className:'phedex-tree-block-name', otherClasses:'align-left'},
           {width: 70,text:'Block ID',    className:'phedex-tree-block-id',hideByDefault:true},
 	  {width:120,text:'Data Volume', className:'phedex-tree-block-volume'}
     ];

@@ -27,31 +27,31 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var config = PHEDEX.Util.getConfig(divid);
 
   var linkHeader1 = [
-          {width:160,text:'Node',         className:'phedex-tree-node align-left'},
-	  {width:120,text:'Done',         className:'phedex-tree-done align-right'},
-          {width:120,text:'Failed',       className:'phedex-tree-failed align-right'},
-          {width:120,text:'Expired',      className:'phedex-tree-expired align-right'},
-          {width: 70,text:'Rate',         className:'phedex-tree-rate align-right'},
-	  {width: 70,text:'Quality',      className:'phedex-tree-quality align-right'},
-	  {width:120,text:'Queued',       className:'phedex-tree-queue align-right'},
-	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total align-right'},
+          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:'Node'},
+	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right'},
+          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right'},
+          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right'},
+          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right'},
+	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right'},
+	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right'},
+	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right'},
 	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
     ];
   var linkHeader2 = [
-	  {width:200,text:'Block Name',  className:'phedex-tree-block-name align-left'},
+	  {width:200,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
 	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
 	  {width: 80,text:'State',       className:'phedex-tree-state'},
           {width: 80,text:'Priority',    className:'phedex-tree-priority'},
-          {width: 80,text:'Files',       className:'phedex-tree-block-files align-right'},
-	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes align-right'},
-	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors align-right'}
+          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'align-right'},
+	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'align-right'},
+	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right'}
     ];
   var linkHeader3 = [
-	  {width:200,text:'File Name',  className:'phedex-tree-file-name align-left'},
+	  {width:200,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
 	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
-	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes align-right'},
-	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors align-right'},
-          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum align-right',hideByDefault:true}
+	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right'},
+	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right'},
+          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right',hideByDefault:true}
     ];
 
 // Build the options for the pull-down menus.
@@ -340,7 +340,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var tNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, tNode1 );
   tNode2.isLeaf = true;
 
-  that.buildContextMenu('Node');
+  that.buildContextMenu();//'Node');
   that.build();
 
   return that;

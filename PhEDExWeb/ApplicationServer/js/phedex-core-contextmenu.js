@@ -8,9 +8,11 @@ PHEDEX.Core.ContextMenu.Create=function(name,config) {
   YAHOO.log('Create: '+name,'info','Core.ContextMenu');
   var i = PHEDEX.Util.Sequence();
   if ( !config.lazyload ) { config.lazyload = true; }
-  var m = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,config);
-  m.cfg.setProperty('zindex',10);
-  return m;
+  var menu = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,config);
+
+  menu.cfg.setProperty('zindex',10);
+  menu.payload = [];
+  return menu;
 }
 
 PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
@@ -19,10 +21,12 @@ PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
   YAHOO.log('Add: '+name+': #items:'+PHEDEX.Core.ContextMenu.items[name].length,'info','Core.ContextMenu');
 }
 
-PHEDEX.Core.ContextMenu.Build=function(menu,components) {
+PHEDEX.Core.ContextMenu.Clear=function(menu) {
   menu.clearContent();
   menu.payload = [];
+}
 
+PHEDEX.Core.ContextMenu.Build=function(menu,components) {
   var name;
   for (var i in components)
   {
