@@ -540,8 +540,6 @@ sub doStop
     unlink($self->{STOPFLAG});
 
     # Stop the rest
-    $self->{jobmanager}->killAllJobs() if exists $self->{jobmanager};
-#   $self->stopWorkers() if $self->{NWORKERS};
     $self->stop();
     exit (0);
 }
