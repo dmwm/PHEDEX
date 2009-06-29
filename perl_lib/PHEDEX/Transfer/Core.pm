@@ -231,14 +231,16 @@ sub check_transfer_job
     my ($n_pend, $n_ready, $n_done, $n_lost) = (0,0,0,0);
     foreach my $taskid (keys %{$job->{TASKS}}) {
 	my $task = $job->{TASKS}->{$taskid};
-	if    (!$task)            { $n_lost++; delete $job->{TASKS}->{$taskid}   }
-	elsif ($task->{FINISHED}) { $n_done++; delete $job->{TASKS}->{$taskid};  }
-	elsif ($task->{READY})    { $n_ready++ }
-	else                      { $n_pend++  }
+	if    (!$task || !%$task ||
+	       $task->{FORGOTTEN}) { $n_lost++; delete $job->{TASKS}->{$taskid};  }
+	elsif ($task->{FINISHED})  { $n_done++; delete $job->{TASKS}->{$taskid};  }
+	elsif ($task->{READY})     { $n_ready++ }
+	else                       { $n_pend++  }
     }
 
     $self->Dbgmsg("copy job $jobid status:  pend=$n_pend ready=$n_ready done=$n_done lost=$n_lost ") 
 	if $self->{DEBUG};
+    $self->saveJob($job);
 
     if ($n_pend == 0 && $n_ready == 0) {
 	$self->Dbgmsg("finish copy job $jobid") if $self->{DEBUG};
@@ -246,7 +248,6 @@ sub check_transfer_job
 	return; # do not check this job anymore
     } elsif ($n_pend == 0 && !$job->{ASKSTART}) {
 	$job->{ASKSTART} = &mytimeofday();
-	$self->saveJob($job);
 	$self->Dbgmsg("start copy job $jobid") if $self->{DEBUG};
 	$kernel->yield('start_transfer_job', $jobid);
     }
