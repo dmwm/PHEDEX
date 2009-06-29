@@ -9,6 +9,7 @@ body {
 .align-left    { text-align: left; }
 .align-right   { text-align: right; }
 .align-justify { text-align: justify; }
+.invisible     { display: none; }
 
 .inline_list {
   display: table;
