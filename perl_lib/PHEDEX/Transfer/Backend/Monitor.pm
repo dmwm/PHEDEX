@@ -332,7 +332,15 @@ sub poll_job_postback
 
   if ( $job->VERBOSE )
   {
+    # Log the command
+    my $logsafe_cmd = join(' ', @{$command->{CMD}});
+    $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+    $job->Log($logsafe_cmd);
+
+    # Log any extra info
     foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
+
+    # Only do this once
     $job->VERBOSE(0);
   };
 
@@ -584,11 +592,6 @@ sub QueueJob
   $self->Dbgmsg('enqueue JOBID=',$job->ID) if $self->{DEBUG};
   $self->{QUEUE}->enqueue( $priority, $job );
   $self->{JOBS}{$job->{ID}} = $job;
-  $self->{JOBMANAGER}->addJob(
-                             undef,
-                             { FTSJOB => $job, LOGFILE => '/dev/null', TIMEOUT => $self->{Q_TIMEOUT} },
-                             $self->{Q_INTERFACE}->Command('SetPriority',$job)
-                           );
 }
 
 1;
