@@ -1179,7 +1179,8 @@ sub forgetTask
     my ($self, $taskid) = @_;
     my $taskfile = "$$self{TASKDIR}/$taskid";
     unlink($taskfile) if -e $taskfile;
-    delete $self->{TASKS}->{$taskid} if exists $self->{TASKS}->{$taskid};
+    my $task = delete $self->{TASKS}->{$taskid} if exists $self->{TASKS}->{$taskid};
+    $task->{FORGOTTEN} = &mytimeofday();  # a signal to backend job references of this task
     return 1;
 }
 
