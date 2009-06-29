@@ -495,6 +495,11 @@ sub fts_job_submitted
   my $ftsjob = $command->{FTSJOB};
   my $result = $self->{Q_INTERFACE}->ParseSubmit( $ftsjob, $command->{STDOUT} );
   
+  # Log the command
+  my $logsafe_cmd = join(' ', @{$command->{CMD}});
+  $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+  $ftsjob->Log($logsafe_cmd);
+
   if ( $self->{DEBUG} && $command->{DURATION} > 8 )
   {
     my $id = $ftsjob->{ID} || 'unknown';
@@ -518,11 +523,19 @@ sub fts_job_submitted
   $self->Logmsg("FTS job JOBID=",$ftsjob->ID,' submitted');
   # Save this job for retrieval if the agent is restarted
   my $jobsave = $ftsjob->WORKDIR . '/ftsjob.dmp';
-  &output($jobsave, $ftsjob) or $self->Fatal("$jobsave: $!");
+  &output($jobsave, Dumper($ftsjob)) or $self->Fatal("$jobsave: $!");
 
-  #register this job with queue monitor.
+  # Register this job with queue monitor.
   $self->{FTS_Q_MONITOR}->QueueJob($ftsjob);
   
+  # Set priority
+  $self->{JOBMANAGER}->addJob(
+                             undef,
+                             { FTSJOB => $ftsjob, LOGFILE => '/dev/null', 
+			       TIMEOUT => $self->{Q_TIMEOUT} },
+			      $self->{Q_INTERFACE}->Command('SetPriority', $ftsjob)
+                           );
+
   # the job has officially started
   $job->{STARTED} = &mytimeofday();
 }
