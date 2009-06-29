@@ -86,7 +86,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
   }
 
-  that.buildTree=function(div,dlist) {
+  that.buildTree=function(div) {
     that.tree = new YAHOO.widget.TreeView(div);
     var currentIconMode=0;
 // turn dynamic loading on for entire tree?
