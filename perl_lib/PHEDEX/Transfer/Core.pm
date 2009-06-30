@@ -86,10 +86,14 @@ sub _poe_init
     $kernel->yield('manage_archives');
 }
 
-# Stop the backend.  We abandon all jobs always.
+# Stop the backend
 sub stop
 {
-    # my ($self) = @_;
+    my ($self) = @_;
+    # Save all jobs
+    foreach my $job (values %{$self->{JOBS}}) {
+	$self->saveJob($job);
+    }
 }
 
 # Check if the backend is busy.  Without $from, $to arguments, checks
@@ -373,7 +377,7 @@ sub resume_transfer_jobs
 	else
 	{
           $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid by declaring PHEDEX_XC_NOXFER");
-          $kernel->call($self->{SESSION_ID},'transfer_done', $taskid, $bypass_xferinfo);
+          $kernel->call($session, 'transfer_done', $taskid, $bypass_xferinfo);
 	}
       }
       # do step 5...
@@ -399,11 +403,11 @@ sub resume_transfer_jobs
           $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
 	  $xferinfo = $bypass_xferinfo;
 	}
-        $kernel->call($self->{SESSION_ID},'transfer_done',$taskid,$xferinfo);
+        $kernel->call($session, 'transfer_done', $taskid, $xferinfo);
       }
     }
     # do step 6...
-    $kernel->post($self->{SESSION_ID},'check_transfer_job',$job->{ID});
+    $kernel->post($session, 'check_transfer_job', $job->{ID});
   }
 
 # cleanup
