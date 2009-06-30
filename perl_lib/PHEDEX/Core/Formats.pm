@@ -30,7 +30,7 @@ sub parseChecksums
 	my ($kind, $value) = split /:/, $c;
 	die "bad format for checksums string '$checksums'\n" unless ($kind && $value);
 	die "checksum '$kind' is not valid\n" unless (grep $kind eq $_, @types);
-	$result{$kind} = $value;
+	$result->{$kind} = $value;
     }
     return undef unless %$result;
     return $result;
