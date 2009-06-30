@@ -1089,11 +1089,8 @@ sub next_event_time
 sub stop
 {
     my ($self) = @_;
-
-    return;
-    # XXX TODO handle stops / restarts
-
-    # Clear to exit.
+    $self->{BACKEND}->stop();
+    # TODO:  Actually allow utility jobs to run to completion...
 }
 
 # turn a JobManager job STATUS into a number
