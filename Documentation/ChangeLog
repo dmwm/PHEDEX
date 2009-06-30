@@ -16,6 +16,10 @@ Changes for Site Agents:
    - FTS backend: timeout for glite-transfer-submit
    - FTS backend: recover from errors when glite-transfer-status gives
      unexpected output (#46379)
+   - FTS backend: group batches by SE-to-SE pairs, as required for FTS
+     jobs
+   - SRM backend: new -syntax option, with support for BestMan srmcp
+     syntax
  - BlockDownloadVerify:
    - Add --namespace argument for loading a plugin from the new
      namespace plug-in framework.  This framework contains plug-ins for
@@ -24,6 +28,11 @@ Changes for Site Agents:
      pnfs, posix, rfio, srm, and tmdb.
    - --storage-mapping optional.  If not present, TFC saved to TMDB is
      used instead.
+  - FileStager: new generic staging agent, based off of
+    Custom/Castor/FileStager, which accepts arbitrary scripts for
+    issuing staging submission and status commands from a list of
+    PFNs.  Templates added for submition/status scripts for castor,
+    dcache and gfal based stage-ins.
 
 Changes for Site Tools:
  - ErrorQuery:  --lfn option to list the lfns affected by the errors found
@@ -35,6 +44,9 @@ Bugfixes for Central Agents:
    destination PFN
  - FileIssue: optimization: only check for TFC changes at 5 minute
    intervals, instead of for every task
+ - LoadTestInject: change generated LFN structure (non-LoadTest07
+   compatibility mode only) to reduce the number of files that will
+   appear in the same directory.
 
 Changes for Admin Tools:
  - FileDeleteTMDB: fix deletion of empty blocks when provided a list
