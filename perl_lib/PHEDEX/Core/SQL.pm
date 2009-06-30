@@ -729,7 +729,8 @@ sub getBlockIDsFromDatasetWildcard
     my $sql = qq{ select b.id
 		    from t_dps_dataset ds
 		    join t_dps_block b on b.dataset = ds.id
-		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+		   where } . 
+		   '('.filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -750,7 +751,8 @@ sub getDatasetIDsFromDatasetWildcard
     my %p;
     my $sql = qq{ select ds.id
 		    from t_dps_dataset ds
-		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+		   where } .
+		   '('.filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -772,7 +774,8 @@ sub getBlockIDsFromBlockWildcard
     my $sql = qq{ select b.id
 		    from t_dps_block b
 		    join t_dps_dataset ds on ds.id = b.dataset
-		   where } . filter_or_like( $self, undef, \%p, 'b.name', @block_patterns );
+		   where } .
+		   '('.filter_or_like( $self, undef, \%p, 'b.name', @block_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -793,8 +796,9 @@ sub getBlockIDsFromDatasetIDs
     my %p;
     my $sql = qq{ select b.id
 		    from t_dps_block b 
-		   where } . filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids );
-
+		   where } .
+		   '('.filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids ).')';
+    
     my $r = select_single( $self, $sql, %p );
 
     return $r;
