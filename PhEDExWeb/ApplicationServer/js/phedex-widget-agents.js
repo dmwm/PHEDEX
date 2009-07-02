@@ -28,8 +28,8 @@ PHEDEX.Widget.Agents=function(node,divid) {
     var now = new Date() / 1000;
     var minDate = now;
     var maxDate = 0;
-    for ( var i in this.data) {
-      var a = this.data[i];
+    for ( var i in that.data) {
+      var a = that.data[i];
       var u = a['time_update'];
       if ( u > maxDate ) { maxDate = u; }
       if ( u < minDate ) { minDate = u; }
