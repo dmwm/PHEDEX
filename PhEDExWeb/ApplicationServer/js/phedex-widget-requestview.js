@@ -38,18 +38,18 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width:180,text:'Requestor',           className:'phedex-tree-requestor-name', otherClasses:'align-left'},
           {width:180,text:'Request Date',        className:'phedex-tree-request-date'},
 	  {width:150,text:'Comments',            className:'phedex-tree-comments',           hideByDefault:true},
-	  {width:150,text:'Requestor DN',        className:'phedex-tree-requestor-dn',       hideByDefault:true},
+	  {width:150,text:'Requestor DN',        className:'phedex-tree-requestor-dn',       hideByDefault:true, otherClasses:'phedex-tnode-auto-height' },
 	  {width:100,text:'Requestor Host',      className:'phedex-tree-requestor-host',     hideByDefault:true},
-	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true}
+	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true, otherClasses:'phedex-tnode-auto-height'}
     ];
   var linkHeader3 = [
           {width:180,text:'Approver',            className:'phedex-tree-approver-name', otherClasses:'align-left'},
           {width:180,text:'Approval Date',       className:'phedex-tree-approval-date'},
 	  {width:120,text:'Approval Status',     className:'phedex-tree-approval-status'},
 	  {width:140,text:'Node',                className:'phedex-tree-approval-node'},
-	  {width:150,text:'Approver DN',         className:'phedex-tree-approver-dn',       hideByDefault:true},
-	  {width:100,text:'Approver Host',       className:'phedex-tree-approver-host',     hideByDefault:true},
-	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent',hideByDefault:true}
+	  {width:150,text:'Approver DN',         className:'phedex-tree-approver-dn',        hideByDefault:true, otherClasses:'phedex-tnode-auto-height' },
+	  {width:100,text:'Approver Host',       className:'phedex-tree-approver-host',      hideByDefault:true},
+	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent', hideByDefault:true, otherClasses:'phedex-tnode-auto-height' }
     ];
   var linkHeader4 = [
           {width:500,text:'Block Name',  className:'phedex-tree-block-name', otherClasses:'align-left'},
@@ -143,10 +143,21 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that.isDynamic = false; // disable dynamic loading of data
 
   that.buildTree(that.div_content);
-  var tNode = that.addNode( { width:width, format:linkHeader1, prefix:'Request' });
-	      that.addNode( {              format:linkHeader2, prefix:'Requestor' }, null, tNode );
-	      that.addNode( {              format:linkHeader3, prefix:'Approver' },  null, tNode );
-	      that.addNode( {              format:linkHeader4, prefix:'Block' } );
+
+  that.buildExtra(that.div_extra);
+  var root = that.headerTree.getRoot();
+  var tNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Request' },   null, root);   tNode.expand();
+  var tNode1 = that.addNode( {              format:linkHeader2, prefix:'Requestor' }, null, tNode ); tNode1.expand();
+  var tNode2 = that.addNode( {              format:linkHeader3, prefix:'Approver' },  null, tNode ); tNode2.expand();
+  var tNode3 = that.addNode( {              format:linkHeader4, prefix:'Block' },     null, root );  tNode3.expand();
+  tNode1.isLeaf = tNode2.isLeaf = tNode3.isLeaf = true;
+
+  that.headerTree.render();
+  that.makeControl( {name:'Headers', type:'a', text:'Headers',
+		    events:[{event:'mouseover', handler:that.headerHandler},
+			    {event:'click',     handler:that.headerHandler}
+			   ] }
+		  );
 
   that.buildContextMenu('Request');
   that.build();
