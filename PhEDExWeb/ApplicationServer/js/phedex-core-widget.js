@@ -225,6 +225,10 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.onDataReady        = new YAHOO.util.CustomEvent("onDataReady",        this, false, YAHOO.util.CustomEvent.LIST);
   this.onDataFailed       = new YAHOO.util.CustomEvent("onDataFailed",       this, false, YAHOO.util.CustomEvent.LIST);
 
+// for showing/hiding extra control-divs, like the classic extra-div
+  this.onShowControl      = new YAHOO.util.CustomEvent("onShowControl",      this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideControl      = new YAHOO.util.CustomEvent("onHideControl",      this, false, YAHOO.util.CustomEvent.LIST);
+
   this.panel.render();
 
 // adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
@@ -245,6 +249,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
       ctl.appendChild(document.createTextNode(args.text));
     }
     if ( args.target ) { ctl.payload.target = args.target } else { ctl.payload.target = this.div_extra; }
+    YAHOO.util.Dom.addClass(ctl.payload.target,'phedex-invisible');
     ctl.className = args.className || 'phedex-core-control-widget-inactive';
     YAHOO.util.Dom.insertBefore(ctl,this.span_control.firstChild);
     for (var i in args.events) {
@@ -255,24 +260,30 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     }
     this.control[args.name] = ctl;
   }
+  this.onShowControl.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
+  this.onHideControl.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
   this.headerHandler=function(ev,obj) {
     var eHeight;
-    var tgt = this.payload.arget || obj.div_extra;
+    var tgt = this.payload.target || obj.div_extra;
+    var fillFn = this.payload.fillFn || obj.fillExtra;
     if ( ev.type == 'mouseover' ) {
-      if ( obj.div_extra.style.display == 'block' ) { return; }
-      obj.fillExtra(tgt); // how do I distinguish 'extra' from other controls...?
-      tgt.style.display = 'block';
+      if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; } // if ( !tgt.style.display ) { return; }
+      if ( fillFn ) { fillFn(tgt); }
+      YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
       eHeight = tgt.offsetHeight;
-      obj.adjustHeader(eHeight);
-      if ( this.className == 'phedex-core-control-widget-inactive' ) { this.className = 'phedex-core-control-widget-active'; }
+      obj.onShowControl.fire(eHeight);
+      YAHOO.util.Dom.removeClass(this,'phedex-core-control-widget-inactive');
+      YAHOO.util.Dom.addClass   (this,'phedex-core-control-widget-active');
+//       if ( this.className == 'phedex-core-control-widget-inactive' ) { this.className = 'phedex-core-control-widget-active'; }
     } else if ( ev.type == 'click' ) {
       eHeight = obj.div_extra.offsetHeight;
-      obj.div_extra.style.display = 'none';
-      obj.adjustHeader(-eHeight);
-      if ( this.className == 'phedex-core-control-widget-active' ) { this.className = 'phedex-core-control-widget-inactive'; }
+      YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
+      obj.onHideControl.fire(eHeight);
+      YAHOO.util.Dom.addClass   (this,'phedex-core-control-widget-inactive');
+      YAHOO.util.Dom.removeClass(this,'phedex-core-control-widget-active');
+//       if ( this.className == 'phedex-core-control-widget-active' ) { this.className = 'phedex-core-control-widget-inactive'; }
     }
   }
-
 
 // Create a (usually hidden) progress indicator.
   this.control.progress = document.createElement('img');
