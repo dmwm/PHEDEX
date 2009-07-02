@@ -20,6 +20,11 @@ PHEDEX.Widget.Agents=function(node,divid) {
   that.node=node;
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
   that.fillHeader=function(div) {
+    var msg = this.node+', '+this.data.length+' agents.';
+    that.span_title.innerHTML = msg;
+  }
+  that.fillExtra=function(div) {
+    var msg = 'If you are reading this, there is a bug somewhere...';
     var now = new Date() / 1000;
     var minDate = now;
     var maxDate = 0;
@@ -29,18 +34,15 @@ PHEDEX.Widget.Agents=function(node,divid) {
       if ( u > maxDate ) { maxDate = u; }
       if ( u < minDate ) { minDate = u; }
     }
-    var msg = "Node: "+this.node+", agents: "+this.data.length;
     if ( maxDate > 0 )
     {
       var minGMT = new Date(minDate*1000).toGMTString();
       var maxGMT = new Date(maxDate*1000).toGMTString();
       var dMin = Math.round(now - minDate);
       var dMax = Math.round(now - maxDate);
-      msg += " Update-times range: "+dMin+" - "+dMax+" seconds ago";
+      msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
     }
-    var s = document.createElement('span');
-    div.appendChild(s);
-    s.innerHTML = msg;
+    that.div_extra.innerHTML = msg;
   }
   that.buildTable(that.div_content,
             [ 'Agent',
@@ -60,6 +62,7 @@ PHEDEX.Widget.Agents=function(node,divid) {
     else { that.failedLoading(); }
   }
 
+  that.buildExtra(that.div_extra);
   that.buildContextMenu('Agent');
   that.build();
   return that;

@@ -20,9 +20,7 @@ PHEDEX.Widget.Nodes=function(node,divid) {
   that.data = null;
   that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
   that.fillHeader=function(div) {
-    var s = document.createElement('span');
-    div.appendChild(s);
-    s.innerHTML = 'PHEDEX Nodes: '+this.data.length+" nodes";
+    that.span_title.innerHTML = 'Nodes: '+this.data.length+" found";
   }
   that.buildTable(that.div_content,
             [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
@@ -36,7 +34,7 @@ PHEDEX.Widget.Nodes=function(node,divid) {
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
-
+  that.buildExtra(that.div_extra);
   that.buildContextMenu('Node');
   that.build();
   return that;
