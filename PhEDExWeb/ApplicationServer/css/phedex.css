@@ -75,6 +75,35 @@ div#phedex-heading h2 {
   text-shadow:		3px 3px 3px #ffc;
 }
 
+.phedex-core-param {
+}
+.phedex-core-title {
+}
+.phedex-core-control {
+  position: absolute;
+  right: 6px;
+  top: 3px;
+}
+.phedex-core-control-widget-inactive {
+  background-color: #9f0; /* light-green */
+  margin: 0 1px 0;
+  padding: 0 1px 0;
+}
+.phedex-core-control-widget-active {
+  background-color: yellow;
+  margin: 0 1px 0;
+  padding: 0 1px 0;
+}
+a.phedex-core-control-widget-inactive, a.phedex-core-control-widget-active {
+  text-decoration: none;
+}
+
+.phedex-core-extra {
+  background-color: white;
+  overflow-x: hidden;
+/*   border: 1px solid red; */
+}
+
 .phedex-core-selected {
   border: 1px solid red;
   font-weight: bold;
@@ -84,12 +113,19 @@ div#phedex-heading h2 {
   overflow: hidden;
   height: 1.4em;
   padding-right: 6px;
+  background-color: #f8f8f8;
+  border-right: 1px dotted #aaa;
 }
 .phedex-tnode-header {
   font-weight: bold;
   height: 1.6em;
   overflow-x: auto;
   padding-right: 6px;
+  background-color: #eee;
+}
+.phedex-tnode-auto-height {
+  height: 100%;
+  padding-bottom: 3px;
 }
 
 .phedex-drow-highlight { /*not actually used at the moment*/
@@ -113,11 +149,6 @@ div#phedex-heading h2 {
 .phedex-tree-block-name .phedex-tree-file-name {
 /*   overflow-x: hidden; */
 }
-.phedex-tree-approver-dn,  .phedex-tree-approver-useragent, /* These fields should be multi-line by default */
-.phedex-tree-requestor-dn, .phedex-tree-requestor-useragent,
-.phedex-tree-comments {
-  height: 100%;
-}
 
 .yui-panel .container-close {
   position:absolute;
@@ -138,7 +169,7 @@ div#phedex-heading h2 {
 .yui-panel .bd {
   overflow:auto;
   position: relative; /* Apparently fixes a problem in IE7 */
-  background-color: #f8f8f8;
+  background-color: #fdfdfd;
   padding: 2px;
   margin: 0 5px 0 0;
 }
