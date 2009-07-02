@@ -35,19 +35,19 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right'},
 	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right'},
 	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right'},
-	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
+	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  hideByDefault:true}
     ];
   var linkHeader2 = [
-	  {width:200,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
+	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
 	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
-	  {width: 80,text:'State',       className:'phedex-tree-state'},
-          {width: 80,text:'Priority',    className:'phedex-tree-priority'},
-          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'align-right'},
-	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'align-right'},
+	  {width: 80,text:'State',       className:'phedex-tree-state',       otherClasses:'phedex-tnode-auto-height'},
+          {width: 80,text:'Priority',    className:'phedex-tree-priority',    otherClasses:'phedex-tnode-auto-height'},
+          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'phedex-tnode-auto-height align-right'},
+	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'phedex-tnode-auto-height align-right'},
 	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right'}
     ];
   var linkHeader3 = [
-	  {width:200,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
+	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
 	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
 	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right'},
 	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right'},
@@ -111,18 +111,22 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 //    distinguish the type of node to build based on what the 'call' was that got me here
       if ( call == 'TransferQueueBlocks' )
       {
+	var errors = [];
+	for (var k in node.payload.data.errors)
+	{
+	  var b = node.payload.data.errors[k];
+	  errors[b.id] = { num_errors:b.num_errors, file:b.file };
+	}
+	var blocks = [];
 	for (var i in link.transfer_queue )
 	{
 	  var tq = link.transfer_queue[i];
-	  var errors = [];
-	  for (var k in node.payload.data.errors)
-	  {
-	    var b = node.payload.data.errors[k];
-	    errors[b.id] = { num_errors:b.num_errors, file:b.file };
-	  }
 	  for (var j in tq.block)
 	  {
-	    var block = tq.block[j];
+	    var block;
+	    block = tq.block[j];
+	    if ( ! blocks[block.id] ) { blocks[block.id] = {id:block.id, name:block.name, queue:[]}; }
+	    blocks[block.id].queue.push({state:tq.state, priority:tq.priority, files:block.files, bytes: block.bytes});
 
 //	    Manual deep-copy of payload, prevents overwriting contents...
 	    var payload = [];
@@ -139,14 +143,26 @@ PHEDEX.Widget.LinkView=function(node,divid) {
             payload.call = 'TransferQueueFiles';
 	    payload.data = errors;
             payload.args.block = block.name;
+	    blocks[block.id].payload = payload;
 	    var num_errors = 0;
 	    if ( errors[block.id] ) { num_errors = errors[block.id].num_errors; }
-            var tNode = node.payload.obj.addNode(
-              { format:linkHeader2, payload:payload },
-              [ PHEDEX.Util.format.longString(block.name), block.id, tq.state, tq.priority, block.files, PHEDEX.Util.format.bytes(block.bytes), num_errors ],
-	       node
-             );
+	    blocks[block.id].num_errors = num_errors;
           }
+	}
+	for (var i in blocks) {
+	  var block = blocks[i];
+	  var state = priority = files = bytes = '';
+	  for (var j in block.queue) {
+	    state    += block.queue[j].state+'<br/>';
+	    priority += block.queue[j].priority+'<br/>';
+	    files    += block.queue[j].files+'<br/>';
+	    bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
+	  }
+          var tNode = node.payload.obj.addNode(
+            { format:linkHeader2, payload:block.payload },
+            [ PHEDEX.Util.format.longString(block.name), block.id, state, priority, files, bytes, block.num_errors ],
+	    node
+          );
 	}
       }
       else if ( call == 'TransferQueueFiles' )
@@ -187,22 +203,17 @@ PHEDEX.Widget.LinkView=function(node,divid) {
         throw new Error(errstr);
       }
     } catch(e) {
-      YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview','error','Widget.LinkView');
+      YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','Widget.LinkView');
       var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
       tNode.isLeaf = true;
     }
   }
 
   that.buildHeader=function(div) {
-    var title = document.createElement('span');
-    title.id = div.id+'_title';
-    div.appendChild(title);
-    that.title = title;
-
 // Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
-// before anything inserted by the core widgets. 
+// before anything inserted by the core widgets.
     var button_span = document.createElement('span');
-    div.appendChild(button_span);
+    YAHOO.util.Dom.insertBefore(button_span,that.span_param.firstChild);
     var changeDirectionButton = new YAHOO.widget.Button(
 	{ type: "menu",
 	  label: that.direction_text(),
@@ -217,6 +228,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  menu: timeSelectMenu,
 	  container: button_span
 	});
+    YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.span_param.firstChild);
 
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
@@ -226,12 +238,8 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     };
     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
-
   }
-
-  that.fillHeader=function(div) {
-    this.title.innerHTML=this.node;
-  }
+  that.fillHeader=function(div) { }
 
   that.deleteBodyContents=function(div) {
 //  In this case, I don't need the div, I can just operate on the tree object and null my data fields
@@ -265,6 +273,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       for (var j in this.data_error) {
         if (this.data_error[j][antidirection]==node) {
           e = this.data_error[j];
+          break;
         }
       }
 
@@ -307,7 +316,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     }
     that.tree.render();
 //  Place the focus on the second node. The first is the 'title' node
-    that.tree.root.children[1].focus();
+//     that.tree.root.children[1].focus();
   }
 
   that.receive=function(event,data) {
@@ -332,17 +341,24 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     PHEDEX.Datasvc.Call({api:'ErrorLogSummary',    args:args, success_event:that.onDataReady, failure_event:that.onDataFailed });
     this.startLoading();
   }
-
   that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.div_content);
-  var tNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  } );
-  var tNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, tNode );
-  var tNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, tNode1 );
-  tNode2.isLeaf = true;
 
-  that.buildContextMenu();//'Node');
+  that.buildExtra(that.div_extra);
+  var root = that.headerTree.getRoot();
+  var htNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  }, null, root );    htNode.expand();
+  var htNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, htNode );  htNode1.expand();
+  var htNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+  htNode2.isLeaf = true;
+  that.headerTree.render();
+  that.makeControl( {name:'Headers', type:'a', text:'Headers',
+		    events:[{event:'mouseover', handler:that.headerHandler},
+			    {event:'click',     handler:that.headerHandler}
+			   ] }
+		  );
+
+  that.buildContextMenu();
   that.build();
-
   return that;
 }
 
