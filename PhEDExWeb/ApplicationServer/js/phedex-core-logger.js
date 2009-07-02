@@ -3,7 +3,7 @@
 PHEDEX.namespace('Logger');
 
 PHEDEX.Logger.Create=function(args,opts,divid) {
-  if ( !divid ) { divid = 'phedex_logger'; }
+  if ( !divid ) { divid = 'phedex-logger'; }
   var myDiv = document.getElementById(divid);
   if ( !myDiv ) { return; }
 
