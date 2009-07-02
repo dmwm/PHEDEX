@@ -176,20 +176,20 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
   {
-    if ( this.control.progress ) { this.control.progress.style.display='inline-block'; }
+    if ( this.control.progress ) { this.control.progress.style.display=null; }
     if ( this.control.close )    { this.control.close.style.display='none'; }
     this.onLoadingBegin.fire();
   }
   this.finishLoading=function()
   {
     if ( this.control.progress ) { this.control.progress.style.display='none'; }
-    if ( this.control.close )    { this.control.close.style.display='inline-block'; }
+    if ( this.control.close )    { this.control.close.style.display=null; }
     this.onLoadingComplete.fire();
   }
   this.failedLoading=function()
   {
     if ( this.control.progress ) { this.control.progress.style.display='none'; }
-    if ( this.control.close )    { this.control.close.style.display='inline-block'; }
+    if ( this.control.close )    { this.control.close.style.display=null; }
     this.onLoadingFailed.fire();
   }
 
