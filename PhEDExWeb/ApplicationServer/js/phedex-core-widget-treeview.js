@@ -60,7 +60,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var elClasses = el.className.split(' ');
     for (var i in elClasses) {
       if ( elClasses[i].match(treeMatch) ) {
-	candList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div_body);
+	candList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div);
       }
     }
     for (var i in candList )
@@ -86,6 +86,11 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
   }
 
+  that.buildExtra=function(div) {
+    that.headerTree = new YAHOO.widget.TreeView(div);
+    YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
+    YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
+  }
   that.buildTree=function(div) {
     that.tree = new YAHOO.widget.TreeView(div);
     var currentIconMode=0;
@@ -137,15 +142,17 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     return tNode;
   }
 
-// A split-button and menu for the show-all-fields function
+// A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
+  var aSpan = document.createElement('span');
+  that.span_param.appendChild(aSpan);
   that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all fields",
       name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
-      container: that.div_header,
+      container: aSpan,
       disabled:true
     }
   );
@@ -153,7 +160,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.showFields.on("click", function () {
     var m = that.column_menu.getItems();
     for (var i = 0; i < m.length; i++) {
-      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div_content,function(element) {
+      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div,function(element) {
 	element.style.display = null;
       });
     }
@@ -166,7 +173,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     m.subscribe("click", function onMenuClick(sType, oArgs) {
       var oMenuItem = oArgs[1];
       if (oMenuItem) {
-      YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div_content,function(element) {
+      YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
 	element.style.display = null;
       });
         m.removeItem(oMenuItem.index);
@@ -273,8 +280,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.hideFieldByClass(elClass);
   });
   that.hideFieldByClass=function(className) {
-    YAHOO.log('hideField: '+className,'info','Core.TreeView');
-    YAHOO.util.Dom.getElementsByClassName(className,null,that.div_content,function(element) {
+    YAHOO.log('hideFieldByClass: '+className,'info','Core.TreeView');
+    YAHOO.util.Dom.getElementsByClassName(className,null,that.div,function(element) {
       element.style.display = 'none';
     });
     that.column_menu.addItem({text: that.structure.headerNames[className],value: className});
@@ -305,11 +312,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     that.tree.subscribe('expandComplete',function(node) {
       that.hideAllFieldsThatShouldBeHidden();
-      that.addResizeHandles();
     });
   });
   that.addResizeHandles=function() {
-    var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div_body);
+    var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div);
     for (var i in elList)
     {
       var el = elList[i];

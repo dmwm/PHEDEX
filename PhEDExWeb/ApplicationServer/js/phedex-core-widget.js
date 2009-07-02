@@ -37,7 +37,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   }
   this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
   this.textNodeMap = [];
-  this.hideByDefault=[];
+  this.hideByDefault = [];
+  this.control = [];
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
@@ -45,32 +46,51 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
 // Everything is a resizeable panel now
   YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
-// Create divs for the embedded panel
+// Create the structure for the embedded panel
   this.div_header = document.createElement('div');
   this.div_header.className = 'hd';
   this.div_header.id = this.id+'_head';
   this.div.appendChild(this.div_header);
+
+  this.span_param = document.createElement('span');
+  this.span_param.className = 'phedex-core-param';
+  this.span_param.id = this.id+'_param';
+  this.div_header.appendChild(this.span_param);
+
+  this.span_title = document.createElement('span');
+  this.span_title.className = 'phedex-core-title';
+  this.span_title.id = this.id+'_title';
+  this.div_header.appendChild(this.span_title);
+
+  this.span_control = document.createElement('span');
+  this.span_control.className = 'phedex-core-control';
+  this.span_control.id = this.id+'_control';
+  this.div_header.appendChild(this.span_control);
+
+  this.div_extra = document.createElement('div');
+  this.div_extra.className = 'phedex-core-extra';
+  this.div_extra.id = this.id+'_extra';
+  this.div_header.appendChild(this.div_extra);
 
   this.div_body = document.createElement('div');
   this.div_body.className = 'bd';
   this.div_body.id = this.id+'_body';
   this.div.appendChild(this.div_body);
 
-  this.div_footer = document.createElement('div');
-  this.div_footer.className = 'ft';
-  this.div_footer.id = this.id+'_foot';
-  this.div.appendChild(this.div_footer);
-// Within the body_div, create a content div. This gives a separate handle for styling and control,
-// rather than having too many things all trying to control the body_div element
   this.div_content = document.createElement('div');
   this.div_content.className = 'phedex-core-content';
   this.div_content.id = this.id+'_content';
   this.div_body.appendChild(this.div_content);
 
+  this.div_footer = document.createElement('div');
+  this.div_footer.className = 'ft';
+  this.div_footer.id = this.id+'_foot';
+  this.div.appendChild(this.div_footer);
+
 // Create the panel
   this.panel = new YAHOO.widget.Panel(this.id,
     {
-      close:this.options.close,
+      close:false,  //this.options.close,
       visible:true,
       draggable:true,
 //       effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
@@ -121,8 +141,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
       that.div.removeChild(that.div.firstChild);
     }
   }
-  YAHOO.util.Event.addListener(this.panel.close, "click", this.destroyContent, this);
-
+  if ( this.panel.close ) {
+    YAHOO.util.Event.addListener(this.panel.close, "click", this.destroyContent, this);
+  }
   this.build=function() {
     this.buildHeader(this.div_header);
     this.buildBody(this.div_content);
@@ -149,24 +170,26 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 
   this.buildFooter=function(div) {}
   this.fillFooter=function(div) {}
+
+  this.fillExtra=function(div) {} // For filling extra information, if needed...
   
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
   {
-    this.progress_img.style.display='block';
-    this.panel.close.style.display='none';
+    if ( this.control.progress ) { this.control.progress.style.display='inline-block'; }
+    if ( this.control.close )    { this.control.close.style.display='none'; }
     this.onLoadingBegin.fire();
   }
   this.finishLoading=function()
   {
-    this.progress_img.style.display='none';
-    this.panel.close.style.display='block';
+    if ( this.control.progress ) { this.control.progress.style.display='none'; }
+    if ( this.control.close )    { this.control.close.style.display='inline-block'; }
     this.onLoadingComplete.fire();
   }
   this.failedLoading=function()
   {
-    this.progress_img.style.display='none';
-    this.panel.close.style.display='block';
+    if ( this.control.progress ) { this.control.progress.style.display='none'; }
+    if ( this.control.close )    { this.control.close.style.display='inline-block'; }
     this.onLoadingFailed.fire();
   }
 
@@ -204,11 +227,63 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 
   this.panel.render();
 
+// adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
+  this.adjustHeader=function(arg) {
+    var oheight = parseInt(this.panel.cfg.getProperty("height"));
+    var hheight = parseInt(this.panel.header.offsetHeight);
+    this.panel.header.style.height=(hheight+arg)+'px';
+    this.panel.cfg.setProperty("height",(oheight+arg)+'px');
+  }
+
+  this.makeControl=function(args) {
+    var ctl = document.createElement(args.type);
+    ctl.payload = [];
+    if ( args.type == 'img' ) {
+      ctl.src = args.src;
+    } else if ( args.type == 'a' ) {
+      ctl.href='#';
+      ctl.appendChild(document.createTextNode(args.text));
+    }
+    if ( args.target ) { ctl.payload.target = args.target } else { ctl.payload.target = this.div_extra; }
+    ctl.className = args.className || 'phedex-core-control-widget-inactive';
+    YAHOO.util.Dom.insertBefore(ctl,this.span_control.firstChild);
+    for (var i in args.events) {
+      var ev = args.events[i].event;
+      var fn = args.events[i].handler;
+      var el = args.events[i].element || ctl; // doesn't seem to work when I use something other than the ctl itself...
+      YAHOO.util.Event.addListener(el,ev,fn,this);
+    }
+    this.control[args.name] = ctl;
+  }
+  this.headerHandler=function(ev,obj) {
+    var eHeight;
+    var tgt = this.payload.arget || obj.div_extra;
+    if ( ev.type == 'mouseover' ) {
+      if ( obj.div_extra.style.display == 'block' ) { return; }
+      obj.fillExtra(tgt); // how do I distinguish 'extra' from other controls...?
+      tgt.style.display = 'block';
+      eHeight = tgt.offsetHeight;
+      obj.adjustHeader(eHeight);
+      if ( this.className == 'phedex-core-control-widget-inactive' ) { this.className = 'phedex-core-control-widget-active'; }
+    } else if ( ev.type == 'click' ) {
+      eHeight = obj.div_extra.offsetHeight;
+      obj.div_extra.style.display = 'none';
+      obj.adjustHeader(-eHeight);
+      if ( this.className == 'phedex-core-control-widget-active' ) { this.className = 'phedex-core-control-widget-inactive'; }
+    }
+  }
+
+
 // Create a (usually hidden) progress indicator.
-  this.progress_img = document.createElement('img');
-  this.progress_img.src = '/images/progress.gif';
-  this.progress_img.className = 'phedex-core-widget-progress';
-  this.div_header.appendChild(this.progress_img);
+  this.control.progress = document.createElement('img');
+  this.control.progress.src = '/images/progress.gif';
+  this.span_control.appendChild(this.control.progress);
+//   YAHOO.util.Event.addListener(this.control.progress, "click", this.failedLoading, this); // for some reason this doesn't work, context is not preserved...
+
+  this.control.close = document.createElement('img');
+  this.control.close.src = '/images/widget-close.gif';
+  this.span_control.appendChild(this.control.close);
+  YAHOO.util.Event.addListener(this.control.close, "click", this.destroyContent, this);
 
   this.startLoading();
   return this;

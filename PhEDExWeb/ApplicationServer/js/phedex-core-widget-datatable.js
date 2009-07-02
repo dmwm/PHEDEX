@@ -66,13 +66,15 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
 // A split-button and menu for the show-all-columns function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
+  var aSpan = document.createElement('span');
+  YAHOO.util.Dom.insertBefore(aSpan,that.span_control.firstChild);
   that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all columns",
       name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
-      container: that.div_header,
+      container: that.span_param, //aSpan, // that.div_header,
       disabled:true
     }
   );
@@ -120,42 +122,19 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       el = el.parentNode;
     }
   }
-
-  that.onContextMenuBeforeShow=function(p_sType, p_aArgs, a, b, c) {
-debugger;
-    var oTarget = this.contextEventTarget,
-      aMenuItems,
-      aClasses;
-    if (this.getRoot() == this) {
-//    Get the <tr> that was the target of the "contextmenu" event.
-
-      var tgt = this.contextEventTarget;
-      var elCol = that.dataTable.getColumn(tgt);
-      var elRow = that.dataTable.getTrEl(tgt);
-      var label = tgt.textContent;
-      var payload = {};
-
-//    Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
-      aClasses = tgt.className.split(" ");
-
-debugger;
-      this.clearContent();
-      PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
-      this.addItems(aClasses);
-      this.render();
-//    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
-      YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
-    }
-  }
-
-  that.onContextMenuHide= function(p_sType, p_aArgs) {
-debugger;
-    var tgt = this.contextEventTarget;
-    if (this.getRoot() == this && tgt ) {
-      YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
-    }
-  }
 */
+
+// create the controls for the 'extra' div
+  that.buildExtra=function(div) {
+//     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
+//     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
+    div.innerHTML='this is some sample text for the extra-div';
+  }
+  that.makeControl( {name:'Extra', type:'a', text:'Extra',
+		    events:[{event:'mouseover', handler:that.headerHandler},
+			    {event:'click',     handler:that.headerHandler}
+			   ] }
+		  );
 
 // Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
@@ -223,7 +202,6 @@ debugger;
   });
 
   that.onPopulateComplete.subscribe(function() {
-// Hide columns by default. TODO this is fired on PopulateComplete because I don't know how to do it earlier. Would be better if I did
     for (var i in that.hideByDefault)
     {
       var column = that.dataTable.getColumn(that.hideByDefault[i]);
@@ -232,7 +210,7 @@ debugger;
     that.hideByDefault = null; // don't want to do this every time the build is complete...?
   });
 
-// Allow the table to be build again after updates
+// Allow the table to be built again after updates
   that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
 
   that.onDataFailed.subscribe(function() {
@@ -255,7 +233,6 @@ debugger;
 
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(table) {
-//I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
     var old_width = table.getContainerEl().clientWidth;
     var offset = that.div_header.offsetWidth - that.div_content.offsetWidth;
     var x = table.getTableEl().offsetWidth + offset;
