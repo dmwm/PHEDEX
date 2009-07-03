@@ -238,52 +238,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.panel.header.style.height=(hheight+arg)+'px';
     this.panel.cfg.setProperty("height",(oheight+arg)+'px');
   }
-
-  this.makeControl=function(args) {
-    var ctl = document.createElement(args.type);
-    ctl.payload = [];
-    if ( args.type == 'img' ) {
-      ctl.src = args.src;
-    } else if ( args.type == 'a' ) {
-      ctl.href='#';
-      ctl.appendChild(document.createTextNode(args.text));
-    }
-    if ( args.target ) { ctl.payload.target = args.target } else { ctl.payload.target = this.div_extra; }
-    YAHOO.util.Dom.addClass(ctl.payload.target,'phedex-invisible');
-    ctl.className = args.className || 'phedex-core-control-widget-inactive';
-    YAHOO.util.Dom.insertBefore(ctl,this.span_control.firstChild);
-    for (var i in args.events) {
-      var ev = args.events[i].event;
-      var fn = args.events[i].handler;
-      var el = args.events[i].element || ctl; // doesn't seem to work when I use something other than the ctl itself...
-      YAHOO.util.Event.addListener(el,ev,fn,this);
-    }
-    this.control[args.name] = ctl;
-  }
   this.onShowControl.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
   this.onHideControl.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
-  this.headerHandler=function(ev,obj) {
-    var eHeight;
-    var tgt = this.payload.target || obj.div_extra;
-    var fillFn = this.payload.fillFn || obj.fillExtra;
-    if ( ev.type == 'mouseover' ) {
-      if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; } // if ( !tgt.style.display ) { return; }
-      if ( fillFn ) { fillFn(tgt); }
-      YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
-      eHeight = tgt.offsetHeight;
-      obj.onShowControl.fire(eHeight);
-      YAHOO.util.Dom.removeClass(this,'phedex-core-control-widget-inactive');
-      YAHOO.util.Dom.addClass   (this,'phedex-core-control-widget-active');
-//       if ( this.className == 'phedex-core-control-widget-inactive' ) { this.className = 'phedex-core-control-widget-active'; }
-    } else if ( ev.type == 'click' ) {
-      eHeight = obj.div_extra.offsetHeight;
-      YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
-      obj.onHideControl.fire(eHeight);
-      YAHOO.util.Dom.addClass   (this,'phedex-core-control-widget-inactive');
-      YAHOO.util.Dom.removeClass(this,'phedex-core-control-widget-active');
-//       if ( this.className == 'phedex-core-control-widget-active' ) { this.className = 'phedex-core-control-widget-inactive'; }
-    }
-  }
 
 // Create a (usually hidden) progress indicator.
   this.control.progress = document.createElement('img');

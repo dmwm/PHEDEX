@@ -1,5 +1,3 @@
-//This 'class' represents a tree-view widget for PhEDEx. It assumes it is derived for proper widget-specific behaviour, and it uses
-// the base PHEDEX.Core.Widget for the basic implementation. I.e. it's only the fluff for tree-views that goes in here.
 PHEDEX.namespace('Core.Widget.TreeView');
 
 PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
@@ -21,9 +19,11 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     } else {
       action = YAHOO.util.Dom.removeClass;
     }
+YAHOO.log('Found: el:'+el+' classes:'+el.className,'info','Core.TreeView');
     var elList = that.locatePartnerFields(el);
     for (var i in elList )
     {
+YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'info','Core.TreeView');
       action(elList[i],class_alt);
     }
     action(el,class);
@@ -75,7 +75,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.locateNode=function(el) {
 //  find the nearest ancestor that has a phedex-tnode-* class applied to it, either
 //  phedex-tnode-field or phedex-tnode-header
-    while (el.id != that.div_content.id) { // walk up only as far as the content-div
+    while (el.id != that.div.id) { // walk up only as far as the widget-div
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
         return el;
       }
@@ -141,6 +141,14 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
     return tNode;
   }
+
+  var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that},
+		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
+			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
+			   ] }
+		  );
+  YAHOO.util.Dom.insertBefore(ctl,that.span_control.firstChild);
 
 // A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
@@ -290,7 +298,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   that.hideAllFieldsThatShouldBeHidden=function() {
     var m = that.column_menu.getItems();
     for (var i = 0; i < m.length; i++) {
-      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div_content,function(element) {
+      YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div,function(element) {
 	element.style.display = 'none';
       });
     }

@@ -126,15 +126,15 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
 // create the controls for the 'extra' div
   that.buildExtra=function(div) {
-//     YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
-//     YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
     div.innerHTML='this is some sample text for the extra-div';
   }
-  that.makeControl( {name:'Extra', type:'a', text:'Extra',
-		    events:[{event:'mouseover', handler:that.headerHandler},
-			    {event:'click',     handler:that.headerHandler}
+  var ctl = new PHEDEX.Core.Control( {name:'Extra', type:'a', text:'Extra',
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that},
+		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
+			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
 			   ] }
 		  );
+  YAHOO.util.Dom.insertBefore(ctl,that.span_control.firstChild);
 
 // Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
