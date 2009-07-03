@@ -19,10 +19,10 @@
   <script type="text/javascript" src="/yui/build/event/event-min.js"></script>
   <script type="text/javascript" src="/yui/build/connection/connection-min.js"></script>
   <script type="text/javascript" src="/yui/build/json/json-min.js"></script>
-  <script type="text/javascript" src="/yui/build/dom/dom-min.js"></script>
+  <script type="text/javascript" src="/yui/build/dom/dom-debug.js"></script>
   <script type="text/javascript" src="/yui/build/treeview/treeview-min.js"></script>
   <script type="text/javascript" src="/yui/build/logger/logger-min.js"></script>
-  <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<!--   <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script> -->
   <script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
   <script type="text/javascript" src="/yui/build/element/element-min.js"></script>
   <script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
@@ -87,23 +87,18 @@ YAHOO.util.Event.onDOMReady(function() {
 	    }
 	);
       PHEDEX.Page.Create(Page.Config);
-      var phedexHeadingControl = document.getElementById('phedex-heading-control');
-      var phedexHeadingDisplay = document.getElementById('phedex-heading-display');
-      var phedexLogger         = document.getElementById('phedex-logger');
-      var ctl1 = new PHEDEX.Core.Control({name:'Page info',text:'Page info', type:'a',
-                    payload:{render:phedexHeadingControl, target:phedexHeadingDisplay},
+      var ctl1 = new PHEDEX.Core.Control({name:'About',text:'About', type:'a',
+                    payload:{render:'phedex-heading-control', target:'phedex-heading-display'},
 		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
 			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
 			   ] }
                 );
       var ctl2 = new PHEDEX.Core.Control({name:'Show Logger',text:'Show Logger', type:'a',
-                    payload:{render:phedexHeadingControl, target:phedexLogger},
+                    payload:{render:'phedex-heading-control', target:'phedex-logger'},
 		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
 			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
 			   ] }
                 );
-      phedexHeadingControl.appendChild(ctl1);
-      phedexHeadingControl.appendChild(ctl2);
     });
 </script>
 
