@@ -151,13 +151,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   var tNode2 = that.addNode( {              format:linkHeader3, prefix:'Approver' },  null, tNode ); tNode2.expand();
   var tNode3 = that.addNode( {              format:linkHeader4, prefix:'Block' },     null, root );  tNode3.expand();
   tNode1.isLeaf = tNode2.isLeaf = tNode3.isLeaf = true;
-
   that.headerTree.render();
-  that.makeControl( {name:'Headers', type:'a', text:'Headers',
-		    events:[{event:'mouseover', handler:that.headerHandler},
-			    {event:'click',     handler:that.headerHandler}
-			   ] }
-		  );
 
   that.buildContextMenu('Request');
   that.build();
