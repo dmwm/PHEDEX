@@ -216,8 +216,9 @@ sub idle
 		# which can be changed even for inactive blocks
 		{
 		    no warnings 'uninitialized';
-		    if (    $b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL}
-			    || $b->{USER_GROUP}   != $new->{USER_GROUP} ) {
+		    if ( $new &&
+			 ($b->{IS_CUSTODIAL} ne $new->{IS_CUSTODIAL} || 
+			  $b->{USER_GROUP}   != $new->{USER_GROUP}) ) {
 			$self->Logmsg ("updating flags for block $b->{BLOCK} at node $b->{NODE}");
 			$self->updateBlockFlags( NOW => $now, %{$new} )
 			    unless $self->{DUMMY};
@@ -241,8 +242,7 @@ sub idle
 		# Remove obsolete replicas.  This inludes replicas for
 		# source nodes which have since deleted their files and
 		# they are not trying to transfer them back
-		if (! exists $active{$b->{BLOCK}}{$b->{NODE}}
-		    || $active{$b->{BLOCK}}{$b->{NODE}}{EMPTY_SOURCE} )
+		if (! $new || $new->{EMPTY_SOURCE} )
 		{
 		    $self->Logmsg ("removing block $b->{BLOCK} at node $b->{NODE}");
 		    $self->removeBlockAtNode( $b ) unless $self->{DUMMY};
