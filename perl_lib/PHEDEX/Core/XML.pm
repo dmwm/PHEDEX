@@ -107,9 +107,7 @@ sub parseData
 		        ->{DATASETS}->{$dsname}
 		        ->{BLOCKS}->{$bname}
 		        ->{FILES}->{$fname} = {
-#						NAME => $fattrs->{'name'},
 					        LOGICAL_NAME => $fattrs->{'name'},
-#					        BYTES => $fattrs->{'bytes'},
 					        SIZE => $fattrs->{'bytes'},
 					        CHECKSUM => $fattrs->{'checksum'} };
 		    } # /files
@@ -302,4 +300,5 @@ sub gaussian_rand {
     # return both if wanted, else just one
     return wantarray ? ($g1, $g2) : $g1;
 }
+
 1;
