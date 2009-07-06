@@ -150,7 +150,7 @@ sub injectData
     die "injectData requires a SOURCE_NODE\n" unless $src_node;
 
     my $verbose = exists $h{VERBOSE} ? $h{VERBOSE} : 1;
-    my $strict = exists $h{STRICT} ? $h{STRICT} : 1;
+    my $strict  = exists $h{STRICT}  ? $h{STRICT}  : 1;
 
     my $now = &mytimeofday();
 
@@ -652,6 +652,46 @@ sub getFile
     return $q->fetchrow_hashref();
 }
 
+=pod
+
+=item SEs2InjectionNodes($selist, %h)
+
+Returns a suitable injection nodes given a list of storage elements
+
+=cut
+
+sub SEs2InjectionNodes
+{
+    my ($self, $selist, %h);
+
+    my @all_nodes = &PHEDEX::Core::SQL::getNodes($self);
+    my @nodes;
+
+    # Map storage elements to nodes.  If we have a choice of more than
+    # one, discard tape nodes, but only if that leaves at least one
+    # node.  If we have only tape nodes to match, keep them.
+    # T0 is a special case. We only accept injection here, if we are told
+    # explicitly by supplying a node name.
+    foreach my $name (@{$selist})
+    {
+        my @match = grep(defined $$_{SE}
+			 && $$_{SE} eq $name, @$all_nodes);
+	die "storage element $name not known to the database\n"
+	    if ! @match;
+	if (scalar @match > 1)
+	{
+	    my @notape = grep($$_{KIND} ne 'MSS'
+			      && $$_{NAME} !~ /^T0/, @match);
+	    @match = @notape if @notape;
+	}
+
+	push(@nodes, @match);
+	print "storage element $name mapped to @{[ map { $$_{NAME} } @match ]}\n"
+	    if $h{VERBOSE};
+    }
+
+    return @nodes;
+}
 
 1;
 
