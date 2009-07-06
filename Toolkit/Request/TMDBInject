@@ -29,7 +29,8 @@
 ##H -filedata          description of files to add
 ##H
 ##H The argument to "-filedata" must be an XML file.  It must contain
-##H a top-level "<dbs>" element, which should contain any number of
+##H a top-level "<data>" element, containing any number of "<dbs>" 
+##H elements, which should contain any number of
 ##H "<dataset>" elements, containing any number of "<block>" elements
 ##H containing "<file>" elements.
 ##H
@@ -38,13 +39,17 @@
 ##H However in the end each file must belong to exactly one DBS,
 ##H dataset and block.
 ##H
+##H The "<data>" element must have a "version" attribute, which
+##H specifies the version of the injection XML format.  The current
+##H version is 2.0.
+##H
 ##H The "<dbs>" element must have an attribute "name", which is the
 ##H canonical name of the dataset bookkeeping system which owns the
 ##H files.  Usually this should be the contact address of the DBS.
 ##H
 ##H The "<dataset>" element must have an attribute "name", the name
-##H of the dataset in the DBS, and two boolean attributes, "is-open"
-##H and "is-transient", both which must have value 'y' or 'n'.  The
+##H of the dataset in the DBS, and the attribute "is-open"
+##H which must have value 'y' or 'n'.  The
 ##H options are checked before processing and new values are applied
 ##H at the end of the processing, allowing datasets and blocks to be
 ##H closed by injecting them with these attributes set, possibly not
@@ -69,23 +74,27 @@
 ##H New blocks cannot be introduced to closed datasets.  If the
 ##H dataset is closed, all its blocks must be closed too.
 ##H
-##H Each "<file>" must have attributes "lfn", the logical file name
-##H which must be unique, "size", the size of the file in bytes, and
-##H "checksum", the cksum checksum of the file data.
-##H
+##H Each "<file>" must have attributes "name", the logical file name
+##H which must be unique, "bytes", the size of the file in bytes, and
+##H "checksum", a comma-separatied list of checksums for the file data
+##H in colon-separated name-value pairs.  Currently 'cksum' (MD5) and
+##H 'adler32' checksums are supported.  See the example below for how
+##H the checksum attribute should be formated.
+##H 
 ##H All elements may contain other attributes; they will be ignored.
 ##H Only white-space character data is allowed; only information from
 ##H the attributes of the above elements are added.
 ##H
 ##H Example:
+##H <data version="2.0">
 ##H   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
-##H     <dataset name="/sample/dataset" is-open="y" is-transient="n">
+##H     <dataset name="/sample/dataset" is-open="y">
 ##H       <block name="/sample/dataset#1" is-open="y">
-##H         <file lfn="file1" size="10" checksum="cksum:1234"/>
-##H         <file lfn="file2" size="22" checksum="cksum:456"/>
+##H         <file name="file1" bytes="10" checksum="cksum:1234,adler32:9876"/>
+##H         <file name="file2" bytes="22" checksum="cksum:456,adler32:789"/>
 ##H       </block>
 ##H       <block name="/sample/dataset#2" is-open="y">
-##H         <file lfn="file3" size="1" checksum="cksum:2"/>
+##H         <file name="file3" bytes="1" checksum="cksum:2,adler32:4"/>
 ##H       </block>
 ##H     </dataset>
 ##H     <dataset name="/sample/dataset2" is-open="n" is-transient="n">
@@ -93,6 +102,7 @@
 ##H       <block name="/sample/dataset2#2" is-open="n"/>
 ##H     </dataset>
 ##H   </dbs>
+##H </data>
 
 # Developer Note:
 # All SQL bind variables referring to character data in this script
