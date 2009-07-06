@@ -10,7 +10,7 @@ PHEDEX.Datasvc = (function() {
   // TODO: should provide getters & setters
   var _instance = 'prod';
   var _instances = [{name:'Production',instance:'prod'},
-		    {name:'Dev',instance:'dev'},
+		    {name:'Dev',instance:'test'},
 		    {name:'Debug',instance:'debug'}
 		   ];
 
@@ -208,7 +208,27 @@ PHEDEX.Datasvc = (function() {
 	clearTimeout(timer);
       }
       delete _poll_timers[poll_id];
+    },
+
+    // Instances: return the array of instances
+    Instances: function() {
+      return _instances;
+    },
+
+    // Instance: return the current instance
+    Instance: function(instance) {
+      if ( instance && instance != _instance )
+      {
+        _instance = instance;
+        PHEDEX.Datasvc.InstanceChanged.fire();
+      }
+      for (var i in _instances) {
+        if ( _instances[i].instance == _instance ) { return _instances[i]; }
+      }
     }
+
   };
 })();
+
+PHEDEX.Datasvc.InstanceChanged = new YAHOO.util.CustomEvent('InstanceChanged');
 YAHOO.log('loaded...','info','Core.Datasvc');
