@@ -47,10 +47,17 @@ Bugfixes for Central Agents:
  - LoadTestInject: change generated LFN structure (non-LoadTest07
    compatibility mode only) to reduce the number of files that will
    appear in the same directory.
+ - BlockMonitor: prevent "updating flags" log lines for all
+   non-subscribed + collapsed blocks
 
 Changes for Admin Tools:
  - FileDeleteTMDB: fix deletion of empty blocks when provided a list
    of block names
+ - TMDBInject: 
+   - update to use "version 2.0" XML and bring code in sync
+     with the data service "inject" API.
+   - supports injecting multiple checksum types (cksum: and adler32:)
+   - note: has lost the ability to inject replicas at non-source nodes.
 
 Documentation:
  - Update ftsmap templates
