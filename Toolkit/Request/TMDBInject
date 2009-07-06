@@ -140,22 +140,23 @@ if (@ARGV || !$args{DBCONFIG} || !$args{FILEDATA}
     die "Insufficient parameters, use -h for help.\n";
 }
 
+my %opts = (VERBOSE => $verbose, STRICT => $strict);
+
 # Ensure file data is readable
 -r $args{FILEDATA} || die "$args{FILEDATA}: cannot read: $!\n";
 
 # Parse file
-print "Parsing $file\n";
+print "Parsing XML $args{FILEDATA}\n" if $verbose;
 my $data;
-if ($args{VERSION0})
+if ($args{VERSION0}) {
     # initial XML verison, before version was written in the file
-    $data = &PHEDEX::Core::XML::parseData_0(FILE => $args{FILEDATA});
+    $data = &PHEDEX::Core::XML::parseData_0(FILE => $args{FILEDATA}, %opts);
 } else {
     # all future versions
-    $data = &PHEDEX::Core::XML::parseData(FILE => $args{FILEDATA});
+    $data = &PHEDEX::Core::XML::parseData(FILE => $args{FILEDATA}, %opts);
 }
 
 # Connect to database
-print "Connecting to $args{DBCONFIG}\n";
 my $self = { DBCONFIG => $args{DBCONFIG} };
 bless $self;
 my $dbh = &connectToDatabase ($self);
@@ -164,11 +165,11 @@ my $dbh = &connectToDatabase ($self);
 my @nodes;
 if ($args{SES})
 {
-    @nodes = &PHEDEX::Core::Inject::SEs2InjectionNodes($self, $args{SES});
+    @nodes = &PHEDEX::Core::Inject::SEs2InjectionNodes($self, $args{SES}, %opts);
 }
 else
 {
-    my @all_nodes = &PHEDEX::Core::SQL::getNodes($self);
+    my $all_nodes = &PHEDEX::Core::SQL::getNodes($self);
     # Check all nodes are known
     foreach my $node (@{$args{NODES}})
     {
@@ -183,14 +184,22 @@ else
 # TODO:  Support non-source replica creation?
 my $src_node = shift @nodes;
 
+print "Using $src_node->{NAME} as origin node\n";
+
 # Inject data to source node
-&PHEDEX::Core::Inject::injectData ($self, $data, $src_node,
-				   VERBOSE => $verbose,
-				   STRICT => $strict);
-print "Done.\n";
+my $stats = &PHEDEX::Core::Inject::injectData ($self, $data, $src_node->{ID}, %opts);
+
+if ($stats && ref $stats eq 'HASH') {
+    print "Injection Stats:\n";
+    foreach my $s (qw( new_datasets new_blocks new_files closed_datasets closed_blocks)) {
+	my $pretty = $s;
+	$pretty = join(' ', map { ucfirst $_ } split(/_/, $s));
+	printf "  %-15s : %d\n", $pretty, $stats->{$s};
+    }
+}
 
 &PHEDEX::Core::Inject::execute_commit($self);
 
 &disconnectFromDatabase($self);
 
-exit;
+exit 0;
