@@ -662,9 +662,9 @@ Returns a suitable injection nodes given a list of storage elements
 
 sub SEs2InjectionNodes
 {
-    my ($self, $selist, %h);
+    my ($self, $selist, %h) = @_;
 
-    my @all_nodes = &PHEDEX::Core::SQL::getNodes($self);
+    my $all_nodes = &PHEDEX::Core::SQL::getNodes($self);
     my @nodes;
 
     # Map storage elements to nodes.  If we have a choice of more than
@@ -672,11 +672,11 @@ sub SEs2InjectionNodes
     # node.  If we have only tape nodes to match, keep them.
     # T0 is a special case. We only accept injection here, if we are told
     # explicitly by supplying a node name.
-    foreach my $name (@{$selist})
+    foreach my $se (@{$selist})
     {
         my @match = grep(defined $$_{SE}
-			 && $$_{SE} eq $name, @$all_nodes);
-	die "storage element $name not known to the database\n"
+			 && $$_{SE} eq $se, @$all_nodes);
+	die "storage element $se not known to the database\n"
 	    if ! @match;
 	if (scalar @match > 1)
 	{
@@ -686,7 +686,7 @@ sub SEs2InjectionNodes
 	}
 
 	push(@nodes, @match);
-	print "storage element $name mapped to @{[ map { $$_{NAME} } @match ]}\n"
+	print "storage element $se mapped to @{[ map { $$_{NAME} } @match ]}\n"
 	    if $h{VERBOSE};
     }
 
