@@ -13,8 +13,10 @@
 ##H    STATUS:        exit code of the transfer process 
 ##H                   (or "pre" for pre-transfer valiation check)
 ##H    PFN:           PFN of transfered file to verify
-##H    SIZE:          reference size of transfered file
-##H    CHECKSUM:      reference chskum of transfered file
+##H    SIZE:          reference size of transferred file
+##H    CHECKSUM:      reference checksums of the transferred file
+##H                   may contain MD5 (cksum:) or adler32 (adler32:) checksums
+##H                   in a comma-separated list
 ##H    IS_CUSTODIAL:  whether the transfer was for custodial storage (0 or 1)
 ##H
 ##H Verifies that the PFN has been successfully transferred.  The exit
@@ -95,6 +97,7 @@ if $do_checksum && [ $validity = 0 ]; then
 	dcap )
 	    csumvals=$(dccp "$file" - 2>/dev/null | cksum | sed 's/[^0-9][^0-9]*/:/g');;
     esac
+  checksum=$(echo "$checksum" | sed 's/.*cksum:\([0-9][0-9]*\).*/\1/')
   csum=$(echo "$csumvals" | sed 's/:.*//')
   csize=$(echo "$csumvals" | sed 's/.*://')
   [ X"$csize" != X"$size" ] && validity=3
