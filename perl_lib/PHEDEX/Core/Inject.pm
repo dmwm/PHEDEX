@@ -210,7 +210,7 @@ sub injectData
 		if ($db_b && $db_b->{ID}) { # block exists
 		    $b->{ID} = $db_b->{ID};
 		} else { # block does not exist
-		    push @$new_blocks, $b;			
+		    push @$new_blocks, $b;
 		}
 
 		my $block_closed = ($db_b && $db_b->{IS_OPEN} eq 'n') ? 1 : 0;
@@ -231,7 +231,7 @@ sub injectData
 			    $f->{NODE} = $src_node;
 			    push @$new_files, $f;
 			} else {
-			    my $msg = "block $b->{NAME} is closed, cannot inject new file";
+			    my $msg = "block $b->{NAME} is closed, cannot inject new file $f->{LOGICAL_NAME}";
 			    die "injectData error: $msg\n" if $strict;
 			    print "$msg ...skipping\n" if $verbose; next;
 			}
