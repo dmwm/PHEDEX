@@ -6,6 +6,13 @@ body {
   line-height:		1.6em;
 }
 
+.phedex-instance, .phedex-logger {
+  float: right;
+}
+.phedex-controls {
+  text-align: right;
+}
+
 .align-left    { text-align: left; }
 .align-right   { text-align: right; }
 .align-justify { text-align: justify; }
@@ -36,18 +43,18 @@ body {
   width:20px;
 }
 
-div#phedex-heading-logo {
+.phedex-heading-logo {
   position:		absolute;
   width:		100px;
   height:		100px;
   padding-left:		10px;
 }
 
-div#phedex-heading-logo img {
+.phedex-heading-logo img {
   border:		none;
 }
 
-div#phedex-heading {
+.phedex-heading {
   margin:		0;
   margin-top:		16px;
   padding:		0;
@@ -57,7 +64,7 @@ div#phedex-heading {
   border-bottom:	1px solid black;
 }
 
-div#phedex-heading h1 {
+.phedex-heading h1 {
   padding:		0;
   margin:		0;
   text-align:		left;
@@ -65,13 +72,29 @@ div#phedex-heading h1 {
   text-shadow:		3px 3px 5px #ffc;
 }
 
-div#phedex-heading h2 {
+.phedex-heading h2 {
   padding:		0;
   margin:		0;
   margin-top:		5px;
   text-align:		left;
   color:		#105000;
   text-shadow:		3px 3px 3px #ffc;
+}
+
+a.phedex-link {
+  text-decoration: none;
+  background-color: #9f0; /* light-green */
+  color:black;
+}
+a:hover.phedex-link {
+  text-decoration: none;
+  background-color: yellow;
+}
+a:visited.phedex-link {
+  color:black;
+}
+a.phedex-link-current {
+  background-color: yellow;
 }
 
 .phedex-core-param {
