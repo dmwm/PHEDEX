@@ -34,7 +34,7 @@ sub parseChecksums
 	my ($kind, $value) = split /:/, $c;
 	die "bad format for checksums string '$checksums'\n" unless ($kind && $value);
 	die "checksum type '$kind' is not allowed\n" unless (grep $kind eq $_, @types);
-	die "$kind value '$value' is not valid\n" unless ($value =~ /^\d+$/);
+	die "$kind value '$value' is not valid\n" unless ($value =~ /^[0-9A-Fa-f]+$/);
 	die "multiple values for $kind checksum in checksums string '$checksums'\n" if exists $result->{$kind};
 	$result->{$kind} = $value;
     }
