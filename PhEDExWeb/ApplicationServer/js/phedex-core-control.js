@@ -2,6 +2,7 @@ PHEDEX.namespace('Core.Control');
 
 PHEDEX.Core.Control = function(args) {
   var ctl;
+  if ( !args.type ) { args.type = 'a'; }
   ctl = document.createElement(args.type);
   ctl.payload = [];
   if ( args.type == 'img' ) {
@@ -13,6 +14,10 @@ PHEDEX.Core.Control = function(args) {
   for (var i in args.payload) { ctl.payload[i] = args.payload[i]; }
   YAHOO.util.Dom.addClass(ctl.payload.target,'phedex-invisible');
   ctl.className = args.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
+  if ( !args.events ) {
+    args.events = [{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
+                   {event:'click',     handler:PHEDEX.Core.Control.controlHandler}];
+  }
   for (var i in args.events) {
     var ev = args.events[i].event;
     var fn = args.events[i].handler || PHEDEX.Core.Control;
@@ -46,6 +51,9 @@ PHEDEX.Core.Control = function(args) {
     if ( obj.onHideControl ) { obj.onHideControl.fire(eHeight); }
     YAHOO.util.Dom.addClass   (this,'phedex-core-control-widget-inactive');
     YAHOO.util.Dom.removeClass(this,'phedex-core-control-widget-active');
+  }
+  ctl.Label = function(text) {
+    this.innerHTML = text;
   }
   return ctl;
 }
