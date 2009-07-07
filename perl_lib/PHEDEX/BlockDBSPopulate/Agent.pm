@@ -135,11 +135,24 @@ sub idle
     # Downstream users of this information must handle duplicates.
     my $completed = $self->getCompleted(@nodefilter);
     my $deleted   = $self->getDeleted(@nodefilter);
+    my %todo;
+    foreach my $block (@$completed) {
+	my $key = join (':', $block->{DBS_ID}, $block->{BLOCK_ID}, $block->{NODE_ID});
+	$block->{COMMAND} = 'migrateBlock';
+	$todo{$key} = $block;
+    }
+    foreach my $block (@$deleted) {
+	my $key = join (':', $block->{DBS_ID}, $block->{BLOCK_ID}, $block->{NODE_ID});
+	# skip deletions if block completion is newer
+	next if (exists $todo{$key} && $todo{$key}->{STATE_TIME} > $block->{STATE_TIME});
+	$block->{COMMAND} = 'deleteBlock';
+	$todo{$key} = $block;
+    }
 
     # Get the ID for DBS test-requests from the t_dvs_test table.
     my $test = PHEDEX::BlockConsistency::SQL::get_TDVS_Tests($self,'dbs')->{ID};
 
-    foreach my $block (@$deleted, @$completed)
+    foreach my $block (values %todo)
     {
       # If we've updated already, skip this
       my $cachekey = "$self->{TARGET_DBS} $block->{BLOCK_NAME} $block->{NODE_NAME}";
