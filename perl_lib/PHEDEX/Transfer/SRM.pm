@@ -97,21 +97,24 @@ sub srm_job_done
     my %taskstatus = ();
     if (-s $report)
     {
-	# Read in the report.
-	my %reported;
-	foreach (split (/\n/, &input($report) || ''))
-	{
-	    my ($from, $to, $status, @rest) = split(/\s+/);
-	    $reported{$from}{$to} = [ $status, "@rest" ];
-	}
-
-	# Read in tasks and correlate with report.
+	# Read in tasks to get the PFNs
+	my %pfns2task;
 	foreach my $task (values %{$job->{TASKS}})
 	{
 	    next if ! $task;
 	    
 	    my ($from, $to) = @$task{"FROM_PFN", "TO_PFN"};
-	    $taskstatus{$task->{TASKID}} = $reported{$from}{$to};
+	    $pfns2task{$from}{$to} = $task->{TASKID};
+	}
+
+	# Read in the report and correlate with a task
+	foreach (split (/\n/, &input($report) || ''))
+	{
+	    my ($from, $to, $status, @rest) = split(/\s+/);
+	    # skip garbage
+	    next if !($from && $to && defined $status &&
+		      exists $pfns2task{$from}{$to});
+	    $taskstatus{$pfns2task{$from}{$to}} = [ $status, "@rest" ];
 	}
     }
 
