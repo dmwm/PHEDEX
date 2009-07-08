@@ -2,10 +2,16 @@
 use warnings;
 use strict;
 use PHEDEX::Core::Logging;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Command;
 my ($cmd,@args) = @ARGV;
-my ($me,$cache);
+my ($me,$cache,$rate,$size);
 
+# set these environment variables in the configuration to alter the behavior of this script
+# default rate settings will make the "job" last 20 seconds per file
 $cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || "/tmp/phedex";
+$rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 100 * (1024**2); # 100 MB/s
+$size  = $ENV{PHEDEX_FAKEFTS_SIZE} ||   2 * (1024**3); # 2 GB
 $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};
@@ -45,20 +51,29 @@ if ( $cmd eq 'glite-transfer-status' )
   my $id = $args[-1];
   my $files = getFiles($id);
   my $nfiles = scalar keys %{$files};
-  if ( $args[1] eq '--verbose' )
+  my $start = &input("$cache/${id}.start");
+  my $startstamp = &formatTime($start, 'stamp');
+  $startstamp =~ s/ UTC$//;
+  my $duration = &mytimeofday() - $start;
+  my $ndone = int(($rate*$duration)/$size);
+  $ndone = $nfiles if $ndone >= $nfiles;
+  my $nactive = $nfiles - $ndone;
+  my $status = $ndone == $nfiles ? "Finished" : "Active";
+
+  if ( $args[1] && $args[1] eq '--verbose' )
   {
     print
 "Request ID:     $id
-Status:         Finished
+Status:         $status
 Channel:        MADAGASCAR-CERN
 Client DN:      /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse
 Reason:         <None>
-Submit time:    2008-02-29 22:06:41.808
+Submit time:    $startstamp
 Files:          $nfiles
 Priority:       1
 VOName:         cms
-        Done:           $nfiles
-        Active:         0
+        Done:           $ndone
+        Active:         $nactive
         Pending:        0
         Ready:          0
         Canceled:       0
@@ -72,23 +87,24 @@ VOName:         cms
   }
   else
   {
-    print "Finished\n";
+    print "$status\n";
   }
-  my $first=1;
-  my ($s,$d);
-  foreach $s ( keys %{$files} )
+  my $n = 0;
+  foreach my $s ( sort keys %{$files} )
   {
-    $d = $files->{$s};
-    print "\n" unless $first;
-    $first=0;
+    my $d = $files->{$s};
+    my $state = $n < $ndone ? "Done" : "Active";
+    print "\n" unless $n == 0;
     print
 "  Source:       $s
   Destination:  $d
-  State:        Done
+  State:        $state
   Retries:      0
   Reason:       error during  phase: [] 
   Duration:     0
 ";
+    $n++;
+    
   }
 # unlink "$cache/$id";
 }
@@ -112,7 +128,9 @@ if ( $cmd eq 'glite-transfer-submit' )
 #			rand() * $i, rand() * $i * $i);
   $me->Notify("JobID=$id for $cmd @args\n");
   my $copyjob = $args[-1];
+  &output("$cache/${id}.start", &mytimeofday());
   symlink $copyjob, "$cache/$id";
+  
   print $id,"\n";
 }
 
