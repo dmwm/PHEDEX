@@ -324,7 +324,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       that.hideAllFieldsThatShouldBeHidden();
     });
     var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that} } );
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false} } );
     YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
   that.addResizeHandles=function() {
