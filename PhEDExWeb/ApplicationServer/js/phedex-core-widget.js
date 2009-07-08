@@ -68,7 +68,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.div_header.appendChild(this.span_control);
 
   this.div_extra = document.createElement('div');
-  this.div_extra.className = 'phedex-core-extra';
+  this.div_extra.className = 'phedex-core-extra phedex-invisible';
   this.div_extra.id = this.id+'_extra';
   this.div_header.appendChild(this.div_extra);
 
