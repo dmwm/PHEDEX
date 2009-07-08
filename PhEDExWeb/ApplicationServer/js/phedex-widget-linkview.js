@@ -1,14 +1,6 @@
 // instantiate the PHEDEX.Widget.LinkView namespace
 PHEDEX.namespace('Widget.LinkView','Widget.TransferQueueBlock','Widget.TransferQueueFiles');
 
-// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
-// The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
-// allow the callback to know which data-items to pick up and insert in the tree.
-//
-// The callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
-// nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
-// I'm not sure if that makes sense
-
 PHEDEX.Page.Widget.LinkView=function(divid) {
   var node = document.getElementById(divid+'_select').value;
   xfer_node = new PHEDEX.Widget.LinkView(node,divid);
@@ -67,7 +59,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var changeTimebin = function(e) {
     if ( that.time == this.value ) { return; }
     that.time = this.value;
-    that.deleteBodyContents();
+    that.emptyBody();
     that.update();
   }
   var timeSelectMenu=[];
@@ -87,7 +79,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var changeDirection = function(e) {
     if ( that.direction == this.value ) { return; }
     that.direction = this.value;
-    that.deleteBodyContents();
+    that.emptyBody();
     that.update();
   }
   var changeDirectionMenu=[];
@@ -102,13 +94,20 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   that.direction_text=function() { return that.directions[that.direction].text; }
   that.anti_direction_key=function() { return that.directions[1-that.direction].key; }
 
+// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
+// The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
+// allow the callback to know which data-items to pick up and insert in the tree, once the data is loaded.
+//
+// This callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
+// nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
+// I'm not sure if that makes sense. Probably it doesn't
   that.callback_Treeview=function(node,result) {
     try {
       var link = result.link[0];
       var call = node.payload.call; // copy the value because of the dangers of shallow-copying in javascript
       if ( !link  ) { return; }
       if ( !link.transfer_queue ) { return; }
-//    distinguish the type of node to build based on what the 'call' was that got me here
+//    distinguish the type of node to build based on what the 'call' was that got me here. These 'if' clauses are too long for my liking...
       if ( call == 'TransferQueueBlocks' )
       {
 	var errors = [];
@@ -241,7 +240,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   }
   that.fillHeader=function(div) { }
 
-  that.deleteBodyContents=function(div) {
+  that.emptyBody=function(div) {
 //  In this case, I don't need the div, I can just operate on the tree object and null my data fields
     var node;
     while ( node = that.tree.root.children[1] ) { that.tree.removeNode(node); }
@@ -250,7 +249,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     that.data_queue = null;
     that.data_error = null;
   }
-
   that.fillBody=function(div) {
     var root = this.tree.getRoot();
     var antidirection=that.anti_direction_key();
@@ -301,7 +299,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 //    I did see a better way to do this in the YUI docs, but will find that later...
 //    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
 //    payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
-      var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:that.callback_Treeview }; // so I can use this in the callback
+      var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:that.callback_Treeview };
       payload.args.from = h.from;
       payload.args.to   = h.to;
       payload.args.binwidth = h.transfer[0].binwidth;
@@ -315,8 +313,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       );
     }
     that.tree.render();
-//  Place the focus on the second node. The first is the 'title' node
-//     that.tree.root.children[1].focus();
   }
 
   that.receive=function(event,data) {
@@ -351,11 +347,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var htNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
   htNode2.isLeaf = true;
   that.headerTree.render();
-  that.makeControl( {name:'Headers', type:'a', text:'Headers',
-		    events:[{event:'mouseover', handler:that.headerHandler},
-			    {event:'click',     handler:that.headerHandler}
-			   ] }
-		  );
 
   that.buildContextMenu();
   that.build();
