@@ -316,19 +316,25 @@ sub resume_transfer_jobs
 # 1.  Scan the job directories to find the jobs which were not finished
 # 2.  Get the tasks of the job and build the job object
 #     ($jobdir/info should be the place to look for this)
-# 3.  For tasks which are !READY it should trigger start_task
-# 4.  For tasks which are READY but have no XFER_CODE, we try to resume the
-# transfer(s) in the backend-specific way
-# 5.  For tasks which are READY, XFER_CODE but ! FINISHED it could trigger
-# transfer_done, with some ~bogus $xferinfo object
+# 3.  For jobs which have been started before (ASKSTART set) we try to resume the
+#     transfer(s) in the backend-specific way
+# 4.  For tasks which are !READY it should trigger start_task
+# 5.  For tasks which are READY, ! FINISHED we trigger
+#     transfer_done, with some ~bogus $xferinfo object if one is not available
 # 6.  Finally, call check_transfer_job for the job.  Everything we've done before
-# this should allow the job to complete and be archived away in the usual manner.
+#     this should allow the job to complete and be archived away in the usual manner.
 #
-# Since only step 4 is backend-specific, this functionality belongs in the Core.
+# Since only step 3 is backend-specific, this functionality belongs in the Core.
+#
+# Backends may provide 'resume_backend_job' for resuming jobs.
+# Backends which implement this must ensure the following:
+#  - resume_backend_job returns false if the whole job could not be resumed
+#  - resume_backend_job returns true if the job could be resumed
+#  - transfer_done must eventually be called for every task in the resumed job
 #
 # Note also: this happens before verify_tasks() from the Agent, so effectively it has to
-# start from scratch, there are no tasks known to the agent or backend yet.
-#
+# start from scratch, there are no tasks known to the agent or backend
+# yet.  This routine makes the tasks known to the Agent.
   my ($self,$kernel,$session) = @_;
 
   my $bypass_xferinfo = {
@@ -342,76 +348,75 @@ sub resume_transfer_jobs
   my $master = $self->{MASTER};
   my ($info,$infofiles,$taskid,@tasks);
   $infofiles = $self->{WORKDIR}.'/*/info';
-  foreach $info ( glob($infofiles) )
+  JOB: foreach $info ( glob($infofiles) )
   {
     my ($job,$task,$jobdir,$backend_job,%resumed);
     $job = &evalinfo("$info");
     next if (! $job || $@); # don't bother reporting it...
-    next if $job->{FINISHED}; # this completes step 1.
+    next if $job->{FINISHED};
     $self->{JOBS}->{$job->{ID}} = $job;
     foreach $taskid ( keys %{$job->{TASKS}} )
     {
       $task = $job->{TASKS}{$taskid};
+      if (!$task || !%{$task} || !$task->{TASKID}) { # minimal validation
+	  delete $job->{TASKS}{$taskid};
+	  next;
+      }
       $master->{TASKS}{$taskid} = $task;
+    }
+    $kernel->post($session, 'check_transfer_job', $job->{ID});
+    my $resume_hdr = "Resume JOB=$job->{ID}";
 
-      # do step 3...
+    if ($job->{ASKSTART} && 
+	$self->can('resume_backend_job') && $self->resume_backend_job($job)) {
+	# We've started this job before.  Try to resume in the backend
+	$self->Logmsg("$resume_hdr: resumed in the backend");
+	next JOB;
+    }
+
+    # This job has not been started before, or it can't be restarted.
+    $job->{ASKSTART} ||= -1;  # ensure the job doesn't get started
+    # Go through the tasks and decide what to do depending on its state
+    foreach $taskid ( keys %{$job->{TASKS}} )
+    {
+      $resume_hdr = "Resume JOB=$job->{ID} TASK=$taskid";
       if ( ! defined( $task->{READY} ) )
       {
-        $master->{TASKS}{$taskid} = $task;
-	$self->Logmsg("call start_task for JOBID=$job->{ID}");
+	# The task has not been prepared for transfer.  We start it from the beginning.
+	$self->Logmsg("$resume_hdr: task was not ready, call start_task");
         $kernel->call($session, 'start_task', $taskid, { JOBID => $job->{ID}, JOBDIR => $job->{DIR} });
       }
-      # do step 4...
-      if ( $task->{READY} && ! defined( $task->{XFER_CODE} ) )
+      elsif ( $task->{READY} && !defined( $task->{FINISHED} ) )
       {
-        if ( $self->can('resume_backend_job') && $self->resume_backend_job($job,$taskid))
-	{
-          $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid in the backend");
-#	  resume_backend_job is called with both the job and the taskid, in
-#	  case it needs both. It is up to the backend to deal with being
-#	  called multiple times for the same job (but different tasks) in the
-#	  case that this is not useful. It can use $self->{_resumed_jobs} for
-#	  bookkeeping, this will be deleted at the end of this routine so will
-#	  not leak memory.
-	}
-	else
-	{
-          $self->Logmsg("Resume JOB=$job->{ID}, TASK=$taskid by declaring PHEDEX_XC_NOXFER");
-          $kernel->call($session, 'transfer_done', $taskid, $bypass_xferinfo);
-	}
-      }
-      # do step 5...
-      if ( $task->{READY} && defined($task->{XFER_CODE}) && ! defined( $task->{FINISHED} ) )
-      {
+	# The task was prepared for transfer, and may have been
+	# transferred.  We move the task to the "transfer_done" state.
+	# If the transfer status could be found and loaded, we use it,
+	# otherwise we use a dummy transfer status that will trigger
+	# post-transfer validation and allow us to move on
 	my ($xferinfo,$xferinfo_file);
 	$xferinfo_file = $task->{JOBDIR} . "/T${taskid}-xferinfo";
 	if ( -f $xferinfo_file )
 	{
 	  $xferinfo = &evalinfo($xferinfo_file);
-	  if ( ! $xferinfo || $@ )
+	  if ( !$xferinfo || $@ )
 	  {
-	    $self->Logmsg("Failed to load xferinfo from $xferinfo_file");
+	    $self->Logmsg("$resume_hdr: failed to load xferinfo from $xferinfo_file");
 	    undef $xferinfo; # to be sure it's empty...
 	  }
           else
 	  {
-	    $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with recovered xferinfo");
+	    $self->Logmsg("$resume_hdr: call transfer_done with recovered xferinfo");
           }
 	}
 	if ( !$xferinfo )
 	{
-          $self->Logmsg("Resume job: call transfer_done for JOBID=$job->{ID}, TASKID=$taskid with a fake xferinfo object");
+          $self->Logmsg("$resume_hdr: call transfer_done with fake xferinfo");
 	  $xferinfo = $bypass_xferinfo;
 	}
         $kernel->call($session, 'transfer_done', $taskid, $xferinfo);
       }
     }
-    # do step 6...
-    $kernel->post($session, 'check_transfer_job', $job->{ID});
   }
-
-# cleanup
-  delete $self->{_resumed_jobs} if exists $self->{_resumed_jobs};
 }
 
 1;

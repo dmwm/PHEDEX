@@ -448,16 +448,11 @@ sub setup_callbacks
   }
 }
 
+# Resume a previously created job.  Return 1 for successful resumption, 0 for failure to resume
 sub resume_backend_job
 {
-  my ( $self, $job, $taskid ) = @_;
+  my ( $self, $job ) = @_;
   my ($ftsjob_dmp,$ftsjob);
-
-  if ( exists($self->{_resumed_jobs}{$job->{ID}}) )
-  {
-    $self->Logmsg("Already resumed JOBID=$job->{ID}, NOP this time...");
-    return;
-  }
 
   $ftsjob_dmp = "$job->{DIR}/ftsjob.dmp";
   if ( ! -f $ftsjob_dmp )
@@ -465,8 +460,7 @@ sub resume_backend_job
 #   Job has not been submitted. Queue for submission.
     $self->Logmsg("Resume JOBID=$job->{ID} by submitting to FTS");
     POE::Kernel->post( $self->{SESSION_ID}, 'start_transfer_job', $job->{ID} );
-    $self->{_resumed_jobs}{$job->{ID}}{$taskid}++;
-    return 0;
+    return 1;
   }
 
 # Job was previously submitted. Recover the job and re-queue for monitoring
@@ -483,7 +477,7 @@ sub resume_backend_job
   
   # the job has officially started
   $job->{STARTED} = &mytimeofday();
-  $self->{_resumed_jobs}{$job->{ID}}{$taskid}++;
+  return 1;
 }
 
 sub fts_job_submitted
