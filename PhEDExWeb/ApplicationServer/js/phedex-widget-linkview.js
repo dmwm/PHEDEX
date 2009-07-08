@@ -19,15 +19,15 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var config = PHEDEX.Util.getConfig(divid);
 
   var linkHeader1 = [
-          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:'Node'},
-	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right'},
-          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right'},
-          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right'},
-          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right'},
-	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right'},
-	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right'},
-	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right'},
-	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  hideByDefault:true}
+          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
+	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:'sort-num' },
+          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:'sort-num' },
+          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:'sort-num' },
+          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
     ];
   var linkHeader2 = [
 	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
