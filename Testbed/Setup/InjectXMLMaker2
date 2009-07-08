@@ -40,7 +40,8 @@ unless ($xmlfile) {
 #my $dls = "lfc:unknown";
 my @xml = PHEDEX::Core::XML::makeData(
 			dbs	=> $dbs,
-			open	=> $open,
+			dataset_open => 'y',
+			block_open => $open,
 			dataset	=> $dataset,
 			blocks	=> $blocks,
 			files	=> $files,
