@@ -4,6 +4,7 @@ use warnings;
 use base 'PHEDEX::Transfer::Core';
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
+use PHEDEX::Error::Constants;
 use POE;
 use Getopt::Long;
 
@@ -99,19 +100,19 @@ sub report_detail
     if (defined $self->{SIGNALLED})
     {
 	# We got a signal.
-	$xferinfo->{STATUS} = -6;
+	$xferinfo->{STATUS} = PHEDEX_XC_AGENTKILLED;
 	$xferinfo->{DETAIL} = "agent was terminated with signal $self->{SIGNALLED}";
     }
     elsif ($jobinfo->{SIGNAL} && !$jobinfo->{TIMED_OUT})
     {
-	# We got a signal.
-	$xferinfo->{STATUS} = -4;
+	# The job got a signal.
+	$xferinfo->{STATUS} = PHEDEX_XC_KILLED;
 	$xferinfo->{DETAIL} = "transfer was terminated with signal $jobinfo->{SIGNAL}";
     }
     elsif ($jobinfo->{TIMED_OUT})
     {
 	# The transfer timed out.
-	$xferinfo->{STATUS} = -5;
+	$xferinfo->{STATUS} = PHEDEX_XC_TIMEOUT;
 	$xferinfo->{DETAIL} = "transfer timed out after $jobinfo->{TIMEOUT}"
 	    . " seconds with signal $jobinfo->{SIGNAL}";
     }
