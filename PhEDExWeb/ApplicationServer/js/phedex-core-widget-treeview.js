@@ -195,8 +195,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // update the 'Show all columns' button state
   that.refreshButton = function() {
-    that.column_menu.render(document.body);
-    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
+    if ( that.column_menu.parent ) { // hack to prevent premature display? Probably better ways to do this...
+      that.column_menu.render(document.body);
+      that.showFields.set('disabled', that.column_menu.getItems().length === 0);
+    }
   };
 
 // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
@@ -371,20 +373,42 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // Sort tree-branches!
 PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
-debugger;
     var textNode  = el.textNode;
     var container = el.tree;
     var node      = el.node;
     var target    = el.target;
     var obj       = el.obj;
-debugger;
+
+// find which value-index corresponds to my class, so I know which field to sort on
+    var thisClass = obj.getPhedexFieldClass(target);
+    var index;
+    for (var i in node.data.spec.format) {
+      var f = node.data.spec.format[i];
+      if ( f.className == thisClass ) { index = i; break; }
+    }
+    if ( !index ) {
+      YAHOO.log('cannot identify class-type','error','Core.TreeView');
+      return;
+    }
+
+    var parent = node.parent;
+    var map = [];
+    map.push( {node:node, value:node.data.values[index]} );
 // this retrieves the other branches at the same level, but then what...?
     var siblings = node.getSiblings();
     for (var i in siblings) {
       YAHOO.log('Found sibling in '+siblings[i].labelElId,'info','Core.TreeView');
       YAHOO.log('Sibling maps to '+obj.textNodeMap[siblings[i].labelElId],'info','Core.TreeView');
+      map.push( {node:siblings[i], value:siblings[i].data.values[index]} );
     }
 debugger;
+    var j=1;
+    if ( dir == 'desc' ) { j=-1; }
+    map.sort(function(a,b){ if (a.value>b.value) { return j;} if (a.value<b.value) {return -j;} return 0; });
+    for (var i in map) {
+      parent.children[i] = map[i].node;
+    }
+    obj.tree.render();
   }
 PHEDEX.Core.Widget.TreeView.sortNum=function(args,opts,el,dir) {
 debugger;
