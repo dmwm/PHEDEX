@@ -6,62 +6,69 @@ body {
   line-height:		1.6em;
 }
 
-.phedex-instance, .phedex-logger {
-  float: right;
-}
-.phedex-controls {
-  text-align: right;
-}
-
+.phedex-box-blue      { border: 1px solid #88f; background-color: #eef; }
+.phedex-box-green     { border: 1px solid #8f8; background-color: #efe; }
+.phedex-box-red       { border: 1px solid #f88; background-color: #fee; }
+.phedex-box-yellow    { border: 1px solid #ff8; background-color: #ffe; }
+.phedex-box-mauve     { border: 1px solid #f8f; background-color: #fef; }
+.phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
 .align-left    { text-align: left; }
 .align-right   { text-align: right; }
 .align-justify { text-align: justify; }
 .phedex-invisible { display: none; }
-
 .inline_list {
   display: table;
   width: 100%;
   margin: 0;
   padding: 0;
 }
-
 .inline_list ul {
   display: table-row;
 }
-
 .inline_list li {
   display: table-cell;
   list-style-type: none;
   text-align: center;
 }
 
-.phedex-core-widget-progress {
-  position:absolute;
-  right:6px;
-  top:1px;
-  height:20px;
-  width:20px;
+.phedex-widget-selector {
+  width: 50em;
 }
-
+.phedex-about {
+  width: 50em;
+}
+.phedex-instance {
+  position: absolute;
+  right: 0;
+  top: 1.7em;
+  width: 14em;
+  padding: 0 1em 0;
+}
+.phedex-logger {
+  float: right;
+}
+.phedex-controls {
+  text-align: right;
+}
 .phedex-heading-logo {
   position:		absolute;
   width:		100px;
   height:		100px;
   padding-left:		10px;
 }
-
 .phedex-heading-logo img {
-  border:		none;
+  border:	none;
+  padding-top:	5px;
 }
 
 .phedex-heading {
-  margin:		0;
-  margin-top:		16px;
+  margin:		16px 0 5px;
+/*   margin-top:		16px; */
   padding:		0;
   padding-left:		100px;
-  margin-bottom:	5px;
+/*   margin-bottom:	5px; */
   min-height:		85px;
-  border-bottom:	1px solid black;
+/*   border-bottom:	1px solid black; */
 }
 
 .phedex-heading h1 {
@@ -74,8 +81,8 @@ body {
 
 .phedex-heading h2 {
   padding:		0;
-  margin:		0;
-  margin-top:		5px;
+  margin:		5px 0 0;
+/*   margin-top:		5px; */
   text-align:		left;
   color:		#105000;
   text-shadow:		3px 3px 3px #ffc;
@@ -120,16 +127,22 @@ a.phedex-core-control-widget-inactive, a.phedex-core-control-widget-active {
   text-decoration: none;
   padding: 0 0.3em;
 }
-
 .phedex-core-extra {
   background-color: white;
   overflow-x: hidden;
   cursor: default; /* would be 'move' otherwise, since the extra div in in the header */
 }
-
 .phedex-core-selected {
   border: 1px solid red;
   font-weight: bold;
+}
+
+.phedex-core-widget-progress {
+  position:absolute;
+  right:6px;
+  top:1px;
+  height:20px;
+  width:20px;
 }
 
 .phedex-tnode-field {
