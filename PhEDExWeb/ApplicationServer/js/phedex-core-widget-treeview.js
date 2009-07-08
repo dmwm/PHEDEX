@@ -19,11 +19,9 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     } else {
       action = YAHOO.util.Dom.removeClass;
     }
-YAHOO.log('Found: el:'+el+' classes:'+el.className,'info','Core.TreeView');
     var elList = that.locatePartnerFields(el);
     for (var i in elList )
     {
-YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'info','Core.TreeView');
       action(elList[i],class_alt);
     }
     action(el,class);
@@ -117,6 +115,8 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
     var el = PHEDEX.Util.makeNode(spec,values);
     var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
     that.textNodeMap[tNode.labelElId] = tNode;
+    tNode.data.values = values;
+    tNode.data.spec   = spec;
     if ( spec.payload ) { tNode.payload = spec.payload; }
     if ( isHeader ) {
       for (var i in spec.format) {
@@ -129,7 +129,17 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
 	  YAHOO.log('duplicate entry for '+className+': "'+that.structure.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
 	} else {
 	  that.structure.headerNames[className] = value;
-	  if ( spec.format[i].contextArgs ) { that.structure.contextArgs[className] = spec.format[i].contextArgs; }
+	  if ( spec.format[i].contextArgs )
+	  {
+	    that.structure.contextArgs[className]=[];
+	    if ( typeof(spec.format[i].contextArgs) == 'string' ) {
+	      that.structure.contextArgs[className].push(spec.format[i].contextArgs);
+	    } else {
+	      for (var j in spec.format[i].contextArgs) {
+		that.structure.contextArgs[className].push(spec.format[i].contextArgs[j]);
+	      }
+	    }
+	  }
 	}
       }
     }
@@ -141,14 +151,6 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
     }
     return tNode;
   }
-
-  var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that},
-		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
-			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
-			   ] }
-		  );
-  YAHOO.util.Dom.insertBefore(ctl,that.span_control.firstChild);
 
 // A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
@@ -198,7 +200,7 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
   };
 
 // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
-  that.onContextMenuBeforeShow=function(p_sType, p_aArgs, a, b, c) {
+  that.onContextMenuBeforeShow=function(p_sType, p_aArgs) {
     var oTarget = this.contextEventTarget,
       aMenuItems = [],
       aClasses;
@@ -225,7 +227,9 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
       if ( aClasses[i].match(treeMatch) ) {
 	YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
 	if ( !isHeader && that.structure.contextArgs[aClasses[i]] ) {
-	  aMenuItems[aMenuItems.length] = that.structure.contextArgs[aClasses[i]];
+	  for(var j in that.structure.contextArgs[aClasses[i]]) {
+	    aMenuItems[aMenuItems.length] = that.structure.contextArgs[aClasses[i]][j];
+	  }
 	}
       }
     }
@@ -236,7 +240,6 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
   that.onContextMenuHide= function(p_sType, p_aArgs) {
     var tgt = that.locateNode(this.contextEventTarget);
     if (this.getRoot() == this && tgt ) {
-//    Remove any highlighting that was applied
       YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
     }
   }
@@ -263,7 +266,6 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
       oCurrentTextNode = that.textNodeMap[oTextNode.id];
     }
     else {
-// Cancel the display of the ContextMenu instance.
       this.cancel();
       return;
     }
@@ -278,7 +280,7 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
       }
       YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
       if (task) {
-	this.payload[task.index](args, opts, {tree:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode});
+	this.payload[task.index](args, opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
       }
     }
   }
@@ -321,6 +323,9 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
     that.tree.subscribe('expandComplete',function(node) {
       that.hideAllFieldsThatShouldBeHidden();
     });
+    var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that} } );
+    YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
   that.addResizeHandles=function() {
     var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div);
@@ -354,18 +359,39 @@ YAHOO.log('action:'+action+' el:'+elList[i].id+' classes:'+elList[i].className,'
 
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
-//I have no idea if this is the _best_ way to calculate the new size, but it seems to work, so I stick with it.
-  var w1 = that.div_body.clientWidth;
-  var el = that.tree._el;
+//   var w1 = that.div_body.clientWidth;
+//   var el = that.tree._el;
 // debugger;
 //     var old_width = 1500; // tree.getContainerEl().clientWidth;
-//     var offset = 25; // No idea how to determine the correct value here, but this seems to fit.
-//     var x = table.getTableEl().clientWidth + offset;
 //     var x = 700;
 //     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
   }
-
   return that;
 }
 
+// Sort tree-branches!
+PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
+debugger;
+    var textNode  = el.textNode;
+    var container = el.tree;
+    var node      = el.node;
+    var target    = el.target;
+    var obj       = el.obj;
+debugger;
+// this retrieves the other branches at the same level, but then what...?
+    var siblings = node.getSiblings();
+    for (var i in siblings) {
+      YAHOO.log('Found sibling in '+siblings[i].labelElId,'info','Core.TreeView');
+      YAHOO.log('Sibling maps to '+obj.textNodeMap[siblings[i].labelElId],'info','Core.TreeView');
+    }
+debugger;
+  }
+PHEDEX.Core.Widget.TreeView.sortNum=function(args,opts,el,dir) {
+debugger;
+  }
+
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortAlpha(args,opts,el,'asc' ); });
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortAlpha(args,opts,el,'desc'); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortNum(  args,opts,el,'asc' ); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortNum(  args,opts,el,'desc'); });
 YAHOO.log('loaded...','info','Core.TreeView');
