@@ -1,6 +1,3 @@
-//This 'class' represents a data-table widget for PhEDEx. It assumes it is derived for proper widget-specific behaviour, and it uses
-// the base PHEDEX.Core.Widget for the basic implementation. I.e. it's only the fluff for data-tables that goes in here.
-
 PHEDEX.namespace('Core.Widget.DataTable');
 
 PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
@@ -78,7 +75,6 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       disabled:true
     }
   );
-//   that.showFields.on('render',that.hideDefaultFields);
 // event-handlers for driving the split button
   that.showFields.on("click", function () {
     var m = that.column_menu.getItems();
@@ -123,18 +119,6 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     }
   }
 */
-
-// create the controls for the 'extra' div
-  that.buildExtra=function(div) {
-    div.innerHTML='this is some sample text for the extra-div';
-  }
-  var ctl = new PHEDEX.Core.Control( {name:'Extra', type:'a', text:'Extra',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that},
-		    events:[{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
-			    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}
-			   ] }
-		  );
-  YAHOO.util.Dom.insertBefore(ctl,that.span_control.firstChild);
 
 // Create a context menu, with default entries for dataTable widgets
   that.buildContextMenu=function() {
@@ -199,6 +183,9 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       that.refreshButton();
     } );
     that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
+    var ctl = new PHEDEX.Core.Control( {name:'Extra', type:'a', text:'Extra',
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that} } ); //,
+    YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
 
   that.onPopulateComplete.subscribe(function() {
@@ -215,7 +202,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 
   that.onDataFailed.subscribe(function() {
 //  Empty the dataTable if it is there
-    if ( that.dataTable ) { that.dataTable.destroy(); that.dataTable = null; }
+    if ( that.dataTable ) { that.dataTable.destroy(); that.dataTable = null; } // overkill? Who cares!...
     that.div_content.innerHTML='Data-load error, try again later...';
   });
 

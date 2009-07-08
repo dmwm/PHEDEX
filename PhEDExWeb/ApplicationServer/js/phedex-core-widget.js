@@ -171,7 +171,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.buildFooter=function(div) {}
   this.fillFooter=function(div) {}
 
-  this.fillExtra=function(div) {} // For filling extra information, if needed...
+// For filling extra information, if needed...
+  this.buildExtra=function(div) { div.innerHTML='No extra information defined...';}
+  this.fillExtra=function(div) {}
   
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
