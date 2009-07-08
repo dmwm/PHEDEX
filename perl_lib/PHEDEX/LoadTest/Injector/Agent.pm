@@ -497,6 +497,7 @@ sub pickNewLFN
 			   $$block{BLOCK_NUMBER},
 			   &makeGUID()
 			   );
+	$$lfn{LFN} =~ s:/+:/:g; # remove double slashes //
     }
 
     # Associate new block and source
