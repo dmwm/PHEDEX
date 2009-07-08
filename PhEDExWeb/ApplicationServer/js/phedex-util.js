@@ -1,18 +1,19 @@
 // Utility functions, not PhEDEx-specific, such as adding listeners for on-load etc.
 PHEDEX.namespace('Util');
 
-PHEDEX.Util.findOrCreateWidgetDiv = function(name)
+PHEDEX.Util.findOrCreateWidgetDiv = function(name,container)
 {
 // Find a div named 'name' and return it. If that div doesn't exist, create it, append it to a div called
 // 'phedex-main', and then return it. This lets me create widgets in the top-level phedex-main div, on demand.
-  YAHOO.log('Find or create '+name);
+  if ( !container ) { container = 'phedex-main'; }
+  YAHOO.log('Find or create '+name+' in '+container);
   var div = document.getElementById(name);
   if ( !div )
   {
     div = document.createElement('div');
     div.id = name;
-    var phedexMain = document.getElementById('phedex-main');
-    phedexMain.appendChild(div);
+    var parent = document.getElementById(container);
+    parent.appendChild(div);
   }
   return div;
 }
