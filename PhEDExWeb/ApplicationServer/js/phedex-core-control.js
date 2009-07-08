@@ -32,25 +32,21 @@ PHEDEX.Core.Control = function(args) {
   }
   this.Show = function() {
     var tgt = this.payload.target;
-//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
     if ( this.payload.fillFn ) { this.payload.fillFn(tgt); }
     var obj = this.payload.obj || {};
     YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
     var eHeight = tgt.offsetHeight;
-//         tgt.style.height=null;
     if ( obj.onShowControl ) { obj.onShowControl.fire(eHeight); }
     YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
     YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
   }
   this.Hide = function() {
     var tgt = this.payload.target;
-//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     var eHeight = tgt.offsetHeight;
     var reallyHide=function(ctl) {
       return function() {
         var tgt = ctl.payload.target;
-//         if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
         YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
         YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
         tgt.style.height=null;
@@ -76,7 +72,6 @@ PHEDEX.Core.Control = function(args) {
   }
   this.isHidden = function() {
     var tgt = this.payload.target;
-//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     return YAHOO.util.Dom.hasClass(tgt,'phedex-invisible');
   }
   this.Label = function(text) {
