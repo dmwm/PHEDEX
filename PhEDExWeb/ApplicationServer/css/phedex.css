@@ -16,6 +16,7 @@ body {
 .align-right   { text-align: right; }
 .align-justify { text-align: justify; }
 .phedex-invisible { display: none; }
+.phedex-hide-overflow { overflow: hidden; }
 .inline_list {
   display: table;
   width: 100%;
@@ -63,12 +64,9 @@ body {
 
 .phedex-heading {
   margin:		16px 0 5px;
-/*   margin-top:		16px; */
   padding:		0;
   padding-left:		100px;
-/*   margin-bottom:	5px; */
   min-height:		85px;
-/*   border-bottom:	1px solid black; */
 }
 
 .phedex-heading h1 {
@@ -82,7 +80,6 @@ body {
 .phedex-heading h2 {
   padding:		0;
   margin:		5px 0 0;
-/*   margin-top:		5px; */
   text-align:		left;
   color:		#105000;
   text-shadow:		3px 3px 3px #ffc;
