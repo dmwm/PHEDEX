@@ -639,19 +639,21 @@ sub makeXML
   }
 
   open XML, '>', $xmlfile or $self->Fatal("open: $xmlfile: $!");
+  print XML qq{<data version="2.0">};
   print XML qq{<dbs name="$dbs"  dls="$dls">\n};
-  print XML qq{\t<dataset name="$dataset" is-open="$disopen" is-transient="$istransient">\n};
+  print XML qq{\t<dataset name="$dataset" is-open="$disopen">\n};
   print XML qq{\t\t<block name="$block" is-open="$bisopen">\n};
   for my $file ( @{$h->{files}} )
   {
     my $lfn = $file->{lfn} || $self->Fatal("lfn not defined");
     my $size = $file->{size} || $self->Fatal("filesize not defined");
     my $cksum = $file->{cksum} || $self->Fatal("cksum not defined");
-    print XML qq{\t\t\t<file lfn="$lfn" size="$size" checksum="$cksum"/>\n};
+    print XML qq{\t\t\t<file name="$lfn" bytes="$size" checksum="$cksum"/>\n};
   }
   print XML qq{\t\t</block>\n};
   print XML qq{\t</dataset>\n};
   print XML qq{</dbs>\n};
+  print XML qq{</data>};
   close XML;
 
   $self->Logmsg("Wrote injection file to $xmlfile") if $self->{Debug};
