@@ -194,7 +194,7 @@ eval
        push(@{$dargs{$arg++}}, $$tasks{$task}{TIME_UPDATE});
 
        # Log errors.  We ignore expired tasks
-       if ($$tasks{$task}{REPORT_CODE} != 0 &&
+       if ($$tasks{$task}{REPORT_CODE} != PHEDEX_RC_SUCCESS &&
 	   $$tasks{$task}{REPORT_CODE} != PHEDEX_RC_EXPIRED)
        {
 	   my $arg = 1;
@@ -897,15 +897,24 @@ sub postvalidate_done
     my $log = &input($jobargs->{LOGFILE});
     my $done = $statcode == PHEDEX_VC_SUCCESS ? 1 : 0;
 
-    # FIXME: More elaborate transfer code reporting?
-    #  - validation: successful/terminated/timed out/error + detail + log
-    #      where detail specifies specific error (size mismatch, etc.)
-    #  - transfer: successful/terminated/timed out/error + detail + log
+    # Set the report code.  This is the final arbitrator of transfer task success/failure.
+    # Negative values are treated as an "acceptable error", and do not result in penalties.
+    # The report code is:
+    #   equal to the validation status if XFER_CODE was defined and positive
+    #   equal to the validation status if the validation status was negative or zero
+    #   equal to -255 - the validation status otherwise
+    # The idea is that a transfer task should not be an error if the
+    # transfer itself was not an error (XFER_CODE negative)
+    # We move the "converted" validation status codes to be less than
+    # -255 to distinguish them from PhEDEx-generated errors, which are
+    # in the [-255,-1] range.
+    my $reportcode = ((defined $$task{XFER_CODE} && $$task{XFER_CODE} >= 0) 
+		      || $statcode <= 0) ? $statcode 
+		                         : -255 - $statcode;
 
-    # string STATUS (e.g. 'signal 1') means the child process
-    # was terminated/killed
+    # Set task parameters
     $$task{POSTVALIDATE_CODE} = $statcode;
-    $$task{REPORT_CODE}  = $statcode;
+    $$task{REPORT_CODE}  = $reportcode;
     $$task{LOG_VALIDATE} = $log || '';
     $$task{TIME_UPDATE}  = &mytimeofday();
     $self->saveTask($taskid) || return;
