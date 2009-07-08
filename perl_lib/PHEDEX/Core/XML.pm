@@ -227,26 +227,28 @@ sub next_element
 sub makeData
 {
   my %h = @_;
-  my ($dbs,$open,$dataset,$blocks,$files,$mean_size,$sdev_size);
+  my ($dbs,$b_open,$d_open,$dataset,$blocks,$files,$mean_size,$sdev_size);
   my (@xml);
 
   $dbs = $h{dbs} || "test";
 # $dls = $h{dls} || "lfc:unknown";
-  $open      = $h{open} || 'n';
+  $d_open    = $h{dataset_open} || 'y';
+  $b_open    = $h{block_open}   || 'n';
   $dataset   = $h{dataset};
   $blocks    = $h{blocks} || 1;
   $files     = $h{files}  || 1;
   $mean_size = $h{mean_size} || 1;
   $sdev_size = $h{sdev_size} || 0;
-  $open = lc $open;
-  if ( $open !~ m%^[y,n]$% ) { $open = $open ? 'y' : 'n'; }
+
+  if ( $b_open  !~ m%^[y,n]$% ) { $b_open = $b_open ? 'y' : 'n'; }
+  if ( $d_open  !~ m%^[y,n]$% ) { $d_open = $d_open ? 'y' : 'n'; }
 
   push @xml, qq{<data version="$PHEDEX::Core::XML::VERSION">\n};
   push @xml, qq{  <dbs name="$dbs">\n};
-  push @xml, qq{    <dataset name="$dataset" is-open="y">\n};
+  push @xml, qq{    <dataset name="$dataset" is-open="$d_open">\n};
   for my $n_block (1..$blocks) {
     my $block = $dataset . "#" . &makeGUID();
-    push @xml, qq{      <block name="$block" is-open="$open">\n};
+    push @xml, qq{      <block name="$block" is-open="$$b_open">\n};
     for my $n_file (1..$files) {
 	my $lfn = $block;
 	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
