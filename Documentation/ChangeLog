@@ -106,7 +106,10 @@ Bugfixes for Site Agents:
 Bugfixes for Central Agents:
  - fix bug where changes to group would not be updated for inactive
    blocks
- - BlockDBSPopulate: configurable timeout for commands
+ - BlockDBSPopulate:
+   - configurable timeout for commands
+   - fix bug on deletion/retransfer issuing oscillating
+     deletion/migration commands
 
 Changes for Tools:
  - InspectPhedexLog: fix for bug #37073: trailing whitespace removed
