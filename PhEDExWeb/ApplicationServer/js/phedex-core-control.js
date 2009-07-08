@@ -11,10 +11,12 @@ PHEDEX.Core.Control = function(args) {
     this.el.appendChild(document.createTextNode(args.text));
   }
   for (var i in args.payload) { this.payload[i] = args.payload[i]; }
+  if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
   YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
   this.el.className = args.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
   if ( !args.events ) {
-    args.events = [{event:'mouseover', handler:PHEDEX.Core.Control.controlHandler},
+    args.events = [{event:'mouseover', handler:PHEDEX.Core.Control.mouseoverHandler},
+                   {event:'mouseout',  handler:PHEDEX.Core.Control.mouseoutHandler},
                    {event:'click',     handler:PHEDEX.Core.Control.controlHandler}];
   }
   for (var i in args.events) {
@@ -30,7 +32,7 @@ PHEDEX.Core.Control = function(args) {
   }
   this.Show = function() {
     var tgt = this.payload.target;
-    if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
     if ( this.payload.fillFn ) { this.payload.fillFn(tgt); }
     var obj = this.payload.obj || {};
@@ -43,12 +45,12 @@ PHEDEX.Core.Control = function(args) {
   }
   this.Hide = function() {
     var tgt = this.payload.target;
-    if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     var eHeight = tgt.offsetHeight;
     var reallyHide=function(ctl) {
       return function() {
         var tgt = ctl.payload.target;
-        if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+//         if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
         YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
         YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
         tgt.style.height=null;
@@ -72,20 +74,34 @@ PHEDEX.Core.Control = function(args) {
       reallyHide();
     }
   }
+  this.isHidden = function() {
+    var tgt = this.payload.target;
+//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+    return YAHOO.util.Dom.hasClass(tgt,'phedex-invisible');
+  }
   this.Label = function(text) {
     this.el.innerHTML = text;
   }
   return this;
 };
 
+PHEDEX.Core.Control.mouseoverHandler=function(ev,obj) {
+  obj.payload.timer = setTimeout(function() { PHEDEX.Core.Control.controlHandler(ev,obj) },500);
+}
+PHEDEX.Core.Control.mouseoutHandler=function(ev,obj) {
+  if ( obj.payload.timer ) { clearTimeout(obj.payload.timer); }
+  obj.payload.timer = null
+}
+
 PHEDEX.Core.Control.controlHandler=function(ev,obj) {
     var eHeight;
     var tgt = obj.payload.target;
-    if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     if ( ev.type == 'mouseover' ) {
       obj.Show();
     } else if ( ev.type == 'click' ) {
-      obj.Hide();
+      if ( obj.isHidden() ) { obj.Show(); }
+      else { obj.Hide(); }
     }
   }
 
