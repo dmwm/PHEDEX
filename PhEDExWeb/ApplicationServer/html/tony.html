@@ -4,6 +4,7 @@
   <title>PhEDEx Web Interface</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 
+  <!-- YUI stylesheets-->
   <link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
   <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
   <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
@@ -15,6 +16,7 @@
   <link rel="stylesheet" type="text/css" href="/yui/build/assets/skins/sam/button.css">
   <link rel="stylesheet" type="text/css" href="/yui/build/fonts/fonts-min.css" />
 
+  <!-- YUI libs -->
   <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
   <script type="text/javascript" src="/yui/build/connection/connection-min.js"></script>
   <script type="text/javascript" src="/yui/build/json/json-min.js"></script>
@@ -30,6 +32,10 @@
   <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
   <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
 
+  <!-- PhEDEx stylesheets -->
+  <link rel="stylesheet" type="text/css" href="/css/phedex.css">
+
+  <!-- PhEDEx libs -->
   <script type="text/javascript" src="/js/phedex-base.js"></script>
   <script type="text/javascript" src="/js/phedex-core-logger.js"></script>
   <script type="text/javascript" src="/js/phedex-core-contextmenu.js"></script>
@@ -45,7 +51,6 @@
   <script type="text/javascript" src="/js/phedex-widget-linkview.js"></script>
   <script type="text/javascript" src="/js/phedex-widget-requestview.js"></script>
   <script type="text/javascript" src="/js/phedex-widget-template.js"></script>
-  <link rel="stylesheet" type="text/css" href="/css/phedex.css">
 </head>
 
 <body class="yui-skin-sam">
@@ -67,6 +72,7 @@
  <div id='phedex-instance' class='phedex-invisible phedex-instance phedex-box-blue'></div>
  <div id='phedex-widget-selector' class='phedex-visible phedex-widget-selector phedex-box-turquoise'></div>
  <div id='phedex-main'></div>
+
 <script type="text/javascript">
 // This Page.Config object defines the page structure, using JSON
 Page = { Config: [
@@ -88,13 +94,16 @@ YAHOO.util.Event.onDOMReady(function() {
 	    }
 	);
       PHEDEX.Page.Create(Page);
-      var ctl1 = new PHEDEX.Core.Control({text:'Widget Selector', payload:{render:'phedex-controls', target:'phedex-widget-selector'} } );
+      var ctl1 = new PHEDEX.Core.Control({text:'Widget Selector',
+                    payload:{render:'phedex-controls', target:'phedex-widget-selector'} } );
       ctl1.Show();
-      var ctl2 = new PHEDEX.Core.Control({text:'About',           payload:{render:'phedex-controls', target:'phedex-about'} } );
+      var ctl2 = new PHEDEX.Core.Control({text:'About',
+                    payload:{render:'phedex-controls', target:'phedex-about'} } );
       var ctl3 = new PHEDEX.Core.Control({text:PHEDEX.Datasvc.Instance().name,
                     payload:{render:'phedex-controls', target:'phedex-instance', fillFn:function(){PHEDEX.Page.Widget.Instance('phedex-instance');} } } );
       PHEDEX.Datasvc.InstanceChanged.subscribe(function() { ctl3.Hide(); ctl3.Label(PHEDEX.Datasvc.Instance().name); } );
-      var ctl4 = new PHEDEX.Core.Control({text:'Show Logger',     payload:{render:'phedex-controls', target:'phedex-logger'} } );
+      var ctl4 = new PHEDEX.Core.Control({text:'Show Logger',
+                    payload:{render:'phedex-controls', target:'phedex-logger'} } );
     });
 </script>
 
