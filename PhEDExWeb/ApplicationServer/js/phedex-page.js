@@ -3,8 +3,9 @@
 PHEDEX.namespace('Page.Widget','Page.Config.Elements','Page.Config.Order');
 PHEDEX.Page.Config.Count=0;
 
-PHEDEX.Page.Create = function( config ) {
-  if ( !config ) { config = Page.Config; }
+PHEDEX.Page.Create = function( page ) {
+  var config = page.Config;
+  var container = page.container || 'phedex-main';
   for ( var i in config )
   {
     var myDivId = config[i].div;
@@ -14,7 +15,7 @@ PHEDEX.Page.Create = function( config ) {
       var pattern = /PHEDEX.Page.Widget./;
       myDivId = call.replace(pattern,'');
     }
-    var myDiv = PHEDEX.Util.findOrCreateWidgetDiv(myDivId);
+    var myDiv = PHEDEX.Util.findOrCreateWidgetDiv(myDivId,container);
 
     var input_box = document.createElement('input');
     input_box.setAttribute('type','text');
@@ -39,47 +40,54 @@ PHEDEX.Page.Create = function( config ) {
   }
 }
 
-PHEDEX.Page.Widget.About = function(el) {
-  if ( !el ) { el = document.body; }
-  if ( typeof(el) != 'object' ) { el = document.getElementById(el); }
-  var div = document.createElement('div');
-  div.className='phedex-heading-display';
-  var divLogo = document.createElement('div');
-  div.appendChild(divLogo);
-  divLogo.className = 'phedex-heading-logo';
-  var a = document.createElement('a');
-  a.setAttribute('href','/html/phedex.html');
-  a.setAttribute('title','PhEDEx Home Page');
-  var img = document.createElement('img');
-  img.setAttribute('src','/images/phedex-logo-small.gif');
-  img.setAttribute('alt','PhEDEx');
-  img.setAttribute('height','80px');
-  a.appendChild(img);
-  divLogo.appendChild(a);
-  div.appendChild(divLogo);
+PHEDEX.Page.Widget = (function() {
+  var _getElement = function(id) {
+// Locate the element that is to be used, either by name, or directly from the DOM. Remove all its children.
+    if ( !id ) { throw new Error('PHEDEX.Page.Widget.Instance: expect an element name or object'); }
+    var el = id;
+    if ( typeof(id) != 'object' ) { el = document.getElementById(id); }
+    if ( !el ) { throw new Error('PHEDEX.Page.Widget.Instance: element not found with ID='+id); }
+    while ( el.hasChildNodes() ) { el.removeChild(el.firstChild); }
+    return el;
+  };
+  return {
+    About: function(el) {
+      el = _getElement(el);
+      var div = document.createElement('div');
+      div.className='phedex-heading-display';
+      var divLogo = document.createElement('div');
+      div.appendChild(divLogo);
+      divLogo.className = 'phedex-heading-logo';
+      var a = document.createElement('a');
+      a.setAttribute('href','/html/phedex.html');
+      a.setAttribute('title','PhEDEx Home Page');
+      var img = document.createElement('img');
+      img.setAttribute('src','/images/phedex-logo-small.gif');
+      img.setAttribute('alt','PhEDEx');
+      img.setAttribute('height','80px');
+      a.appendChild(img);
+      divLogo.appendChild(a);
+      div.appendChild(divLogo);
 
-  var divHeading = document.createElement('div');
-  divHeading.className='phedex-heading';
-  divHeading.innerHTML = '<h1>PhEDEx Web Interface</h1>' +
-      '<h2>Next-generation Alpha Version</h1>' +
-      '<p>Send feedback to <a href="mailto:cms-phedex-admins@cern.ch">cms-phedex-admins@cern.ch</a></p>';
-  div.appendChild(divHeading);
-  el.appendChild(div);
-  return div;
-}
-
-PHEDEX.Page.Widget.Instance = function(el) {
-  if ( !el ) { throw new Error('PHEDEX.Page.Widget.Instance: expect an element name or object'); }
-  if ( typeof(el) != 'object' ) { el = document.getElementById(el); }
-  while ( el.hasChildNodes() ) { el.removeChild(el.firstChild); }
-  var div = document.createElement('div');
-  div.className='phedex-heading-instance';
-  div.appendChild(document.createTextNode('Select an instance:'));
-  var ul = document.createElement('ul');
-  var currentInstance = PHEDEX.Datasvc.Instance();
-  var instances = PHEDEX.Datasvc.Instances();
+      var divHeading = document.createElement('div');
+      divHeading.className='phedex-heading';
+      divHeading.innerHTML = '<h1>PhEDEx Web Interface</h1>' +
+	  '<h2>Next-generation Alpha Version</h1>' +
+	  '<p>Send feedback to <a href="mailto:cms-phedex-admins@cern.ch">cms-phedex-admins@cern.ch</a></p>';
+      div.appendChild(divHeading);
+      el.appendChild(div);
+      return div;
+    },
+  Instance: function(el) {
+    el = _getElement(el);
+    var div = document.createElement('div');
+    div.className='phedex-heading-instance';
+    div.appendChild(document.createTextNode('Select an instance:'));
+    var ul = document.createElement('ul');
+    var currentInstance = PHEDEX.Datasvc.Instance();
+    var instances = PHEDEX.Datasvc.Instances();
     var clickFn = function(ev,x) { YAHOO.log('Set instance '+x,'info','Core.Control'); PHEDEX.Datasvc.Instance(x); }
-  for (var i in instances ) {
+    for (var i in instances ) {
     var instance = instances[i];
     var a = document.createElement('a');
     a.setAttribute('href','#');
@@ -92,7 +100,9 @@ PHEDEX.Page.Widget.Instance = function(el) {
     li.appendChild(a);
     ul.appendChild(li);
   };
-  div.appendChild(ul);
-  el.appendChild(div);
-  return div;
-}
+      div.appendChild(ul);
+      el.appendChild(div);
+      return div;
+    }
+  }
+})();
