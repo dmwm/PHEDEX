@@ -36,6 +36,7 @@ PHEDEX.Core.Control = function(args) {
     var obj = this.payload.obj || {};
     YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
     var eHeight = tgt.offsetHeight;
+//         tgt.style.height=null;
     if ( obj.onShowControl ) { obj.onShowControl.fire(eHeight); }
     YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
     YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
@@ -44,11 +45,32 @@ PHEDEX.Core.Control = function(args) {
     var tgt = this.payload.target;
     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     var eHeight = tgt.offsetHeight;
-    var obj = this.payload.obj || {};
-    YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
-    if ( obj.onHideControl ) { obj.onHideControl.fire(eHeight); }
-    YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-inactive');
-    YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-active');
+    var reallyHide=function(ctl) {
+      return function() {
+        var tgt = ctl.payload.target;
+        if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
+        YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
+        YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
+        tgt.style.height=null;
+        var obj = ctl.payload.obj || {};
+        if ( obj.onHideControl ) { obj.onHideControl.fire(eHeight); }
+        YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
+        YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
+      };
+    }(this);
+//  Only fail to animate if payload.animate was explicitly set to 'false'
+    if ( typeof(this.payload.animate) == 'undefined' ) { this.payload.animate=true; }
+    if ( this.payload.animate ) {
+      var attributes = { height: { to: 0 }  }; 
+      if ( typeof(this.payload.animate) == 'object' ) { attributes = this.payload.animate.attributes; }
+      var duration = this.payload.animate.duration_hide || this.payload.animate.duration || 0.5;
+      var anim = new YAHOO.util.Anim(tgt, attributes, duration);
+      YAHOO.util.Dom.addClass(tgt,'phedex-hide-overflow');
+      anim.onComplete.subscribe(reallyHide);
+      anim.animate();
+    } else {
+      reallyHide();
+    }
   }
   this.Label = function(text) {
     this.el.innerHTML = text;
