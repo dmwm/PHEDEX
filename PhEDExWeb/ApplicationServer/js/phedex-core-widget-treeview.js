@@ -401,7 +401,6 @@ PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
       YAHOO.log('Sibling maps to '+obj.textNodeMap[siblings[i].labelElId],'info','Core.TreeView');
       map.push( {node:siblings[i], value:siblings[i].data.values[index]} );
     }
-debugger;
     var j=1;
     if ( dir == 'desc' ) { j=-1; }
     map.sort(function(a,b){ if (a.value>b.value) { return j;} if (a.value<b.value) {return -j;} return 0; });
