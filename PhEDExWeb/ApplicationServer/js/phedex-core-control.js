@@ -81,7 +81,8 @@ PHEDEX.Core.Control = function(args) {
 };
 
 PHEDEX.Core.Control.mouseoverHandler=function(ev,obj) {
-  obj.payload.timer = setTimeout(function() { PHEDEX.Core.Control.controlHandler(ev,obj) },500);
+  var timeout = obj.payload.hover_timeout || 500;
+  obj.payload.timer = setTimeout(function() { PHEDEX.Core.Control.controlHandler(ev,obj) },timeout);
 }
 PHEDEX.Core.Control.mouseoutHandler=function(ev,obj) {
   if ( obj.payload.timer ) { clearTimeout(obj.payload.timer); }
@@ -91,7 +92,6 @@ PHEDEX.Core.Control.mouseoutHandler=function(ev,obj) {
 PHEDEX.Core.Control.controlHandler=function(ev,obj) {
     var eHeight;
     var tgt = obj.payload.target;
-//     if ( typeof(tgt) != 'object' ) { tgt = document.getElementById(tgt); }
     if ( ev.type == 'mouseover' ) {
       obj.Show();
     } else if ( ev.type == 'click' ) {
