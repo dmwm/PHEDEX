@@ -416,17 +416,22 @@ PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
     }
 
     var parent = node.parent;
-    var map = [];
-    map.push( {node:node, value:node.data.values[index]} );
-// this retrieves the other branches at the same level, but then what...?
-    var siblings = node.getSiblings();
-    for (var i in siblings) {
-      map.push( {node:siblings[i], value:siblings[i].data.values[index]} );
+    var children = parent.children;
+    var map = [], indices=[];
+    for (var i in children)
+    {
+      var x = children[i].getEl();
+      var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,children[i].getEl());
+      if ( elList.length ) {
+        map.push( {node:children[i], value:children[i].data.values[index]} );
+        indices.push( i );
+      }
     }
     map.sort(function(a,b){ return sortFn(a.value,b.value); });
     for (var i in map) {
-      parent.children[i] = map[i].node;
+      parent.children[indices[i]] = map[i].node;
     }
+
     obj.tree.render();
     obj.hideAllFieldsThatShouldBeHidden();
     for (var i in node.data.spec.format) {
@@ -446,6 +451,6 @@ PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending',       function(args,o
 PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.alpha.desc); });
 PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.asc ); });
 PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.desc); });
-PHEDEX.Core.ContextMenu.Add('treeView','Move branch to top',     function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 0; } ); });
-PHEDEX.Core.ContextMenu.Add('treeView','Move branch to bottom',  function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 1; } ); });
+// PHEDEX.Core.ContextMenu.Add('treeView','Move branch to top',     function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 0; } ); });
+// PHEDEX.Core.ContextMenu.Add('treeView','Move branch to bottom',  function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 1; } ); });
 YAHOO.log('loaded...','info','Core.TreeView');
