@@ -58,7 +58,14 @@ PHEDEX.Util.makeNode = function(spec,val) {
   for ( var i in spec.format )
   {
     var d1 = document.createElement('div');
-    d1.innerHTML = ( val.length > 0 ? val[i] : spec.format[i].text);
+    if ( val.length > 0 )
+    {
+      var v = val[i];
+      if ( spec.format[i].format ) { v = spec.format[i].format(val[i]); }
+      d1.innerHTML = v;
+    } else {
+      d1.innerHTML = spec.format[i].text;
+    }
     var w_el = parseInt(spec.format[i].width);
     if ( w_el ) {
       d1.style.width = w_el+'px';
@@ -126,11 +133,45 @@ PHEDEX.Util.format={
       }
     },
     filesBytes:function(f,b) {
+//    allow a single object to be passed in instead of two literals
+      if ( typeof(f) == 'object' ) { b = f.bytes; f=f.files; }
       var str = f+' files';
       if ( f > 0  ) { str += " / "+PHEDEX.Util.format.bytes(b); }
       return str;
+    },
+    spanWrap:function(raw) {
+//    wrap the raw data in a span, to allow it to be tagged/found in the DOM. Can use this for detecting long
+//    strings that are partially hidden because the div is too short, and show a tooltip or something...
+      return "<span class='spanWrap'>"+raw+"</span>";
     }
 }
+
+PHEDEX.Util.Sort={
+  alpha: {
+    asc: function (a,b) {
+      if ( a > b ) { return  1; }
+      if ( a < b ) { return -1; }
+      return 0;
+    },
+    desc: function (a,b) {
+      if ( a > b ) { return -1; }
+      if ( a < b ) { return  1; }
+      return 0;
+    }
+  },
+  numeric: {
+    asc:  function(a,b) { return a-b; },
+    desc: function(a,b) { return b-a; }
+  },
+  files: {
+    asc:  function(a,b) { return a.files-b.files; },
+    desc: function(a,b) { return b.files-a.files; }
+  },
+  bytes: {
+    asc:  function(a,b) { return a.bytes-b.bytes; },
+    desc: function(a,b) { return b.bytes-a.bytes; }
+  }
+};
 
 // for a given element, return the global configuration object defined for it. This allows to find configurations
 // for elements created on the fly. If no configuration found, return a correct empty object, to avoid the need
