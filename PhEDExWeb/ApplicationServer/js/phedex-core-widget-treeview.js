@@ -11,6 +11,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var elTarget = YAHOO.util.Event.getTarget(e);
     var el = that.locateNode(elTarget);
     if ( ! el ) { return; }
+    var aList = YAHOO.util.Dom.getElementsByClassName('spanWrap','span',el);
+    for (var i in aList) {
+      YAHOO.log('Found span '+aList[i].innerHTML,'debug','Core.TreeView');
+    }
     var action;
     var class     = 'phedex-tnode-highlight';
     var class_alt = 'phedex-tnode-highlight-associated';
@@ -31,7 +35,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     var el = that.locateNode(elTarget);
     if ( !el ) { return; }
     var fieldClass = that.getPhedexFieldClass(el);
-    YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'info', 'Core.TreeView');
+    YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'debug', 'Core.TreeView');
   }
 
 // Now a series of functions for manipulating an element based on its CSS classes. Use two namespaces, phedex-tnode-* which describes
@@ -76,6 +80,19 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     while (el.id != that.div.id) { // walk up only as far as the widget-div
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
         return el;
+      }
+      if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
+        return el;
+      }
+      el = el.parentNode;
+    }
+  }
+  that.locateHeader=function(el) {
+//  find the phedex-tnode-header element for this element
+    while (el.id != that.div.id) { // walk up only as far as the widget-div
+      if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+        var elList = that.locatePartnerFields(el);
+        return elList[0];
       }
       if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
         return el;
@@ -187,18 +204,21 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 	element.style.display = null;
       });
         m.removeItem(oMenuItem.index);
-        that.refreshButton();
+//         that.refreshButton();
       }
+      that.refreshButton();
       that.resizePanel(that.tree);
     });
   });
 
 // update the 'Show all columns' button state
   that.refreshButton = function() {
-    if ( that.column_menu.parent ) { // hack to prevent premature display? Probably better ways to do this...
+// debugger;
+//     if ( that.column_menu.parent ) { // hack to prevent premature display? Probably better ways to do this...
       that.column_menu.render(document.body);
+//     }
       that.showFields.set('disabled', that.column_menu.getItems().length === 0);
-    }
+//     }
   };
 
 // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
@@ -223,7 +243,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     aClasses = tgt.className.split(" ");
 
     PHEDEX.Core.ContextMenu.Clear(this);
-    PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
     var treeMatch = /^phedex-tree-/;
     for (var i in aClasses) {
       if ( aClasses[i].match(treeMatch) ) {
@@ -236,6 +255,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       }
     }
     if ( aMenuItems.length ) { PHEDEX.Core.ContextMenu.Build(this,aMenuItems); }
+    PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
     this.render();
   }
 
@@ -246,7 +266,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     }
   }
 
-// Create a context menu, with default entries for dataTable widgets
+// Create a context menu, with default entries for treeView widgets
   that.buildContextMenu=function() {
     that.contextMenuArgs=[];
     for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
@@ -326,9 +346,14 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       that.hideAllFieldsThatShouldBeHidden();
     });
     var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false} } );
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200} } );
     YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
+  that.resizeFields=function(el) {
+    var tgt = that.locateHeader(el);
+    var elList = that.locatePartnerFields(tgt);
+    for (var i in elList ) { elList[i].style.width = tgt.style.width; }
+  }
   that.addResizeHandles=function() {
     var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div);
     for (var i in elList)
@@ -339,11 +364,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       elResize.subscribe('endResize',function(e) {
 	var elTarget = YAHOO.util.Event.getTarget(e);
 	var el = elTarget.payload
-	var eList = that.locatePartnerFields(el);
-	for (var i in eList )
-	{
-	  eList[i].style.width = el.style.width;
-	}
+	that.resizeFields(el);
       });
     }
   }
@@ -372,7 +393,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 }
 
 // Sort tree-branches!
-PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
+PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
     var textNode  = el.textNode;
     var container = el.tree;
     var node      = el.node;
@@ -380,6 +401,7 @@ PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
     var obj       = el.obj;
 
 // find which value-index corresponds to my class, so I know which field to sort on
+    target = obj.locateNode(target);
     var thisClass = obj.getPhedexFieldClass(target);
     var index;
     for (var i in node.data.spec.format) {
@@ -397,24 +419,30 @@ PHEDEX.Core.Widget.TreeView.sortAlpha=function(args,opts,el,dir) {
 // this retrieves the other branches at the same level, but then what...?
     var siblings = node.getSiblings();
     for (var i in siblings) {
-      YAHOO.log('Found sibling in '+siblings[i].labelElId,'info','Core.TreeView');
-      YAHOO.log('Sibling maps to '+obj.textNodeMap[siblings[i].labelElId],'info','Core.TreeView');
       map.push( {node:siblings[i], value:siblings[i].data.values[index]} );
     }
-    var j=1;
-    if ( dir == 'desc' ) { j=-1; }
-    map.sort(function(a,b){ if (a.value>b.value) { return j;} if (a.value<b.value) {return -j;} return 0; });
+    map.sort(function(a,b){ return sortFn(a.value,b.value); });
     for (var i in map) {
       parent.children[i] = map[i].node;
     }
     obj.tree.render();
-  }
-PHEDEX.Core.Widget.TreeView.sortNum=function(args,opts,el,dir) {
+    obj.hideAllFieldsThatShouldBeHidden();
 debugger;
+// this doesn't work, because locateHeader wants an element, not a classname...
+    for (var i in node.data.spec.format) {
+      var header = obj.locateHeader(node.data.spec.format[i].className);
+      obj.resizeFields(header);
+    }
   }
 
-PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortAlpha(args,opts,el,'asc' ); });
-PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortAlpha(args,opts,el,'desc'); });
-PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortNum(  args,opts,el,'asc' ); });
-PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sortNum(  args,opts,el,'desc'); });
+PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.bytes.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.bytes.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.alpha.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.alpha.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.desc); });
+PHEDEX.Core.ContextMenu.Add('treeView','Move branch to top',     function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 0; } ); });
+PHEDEX.Core.ContextMenu.Add('treeView','Move branch to bottom',  function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 1; } ); });
 YAHOO.log('loaded...','info','Core.TreeView');
