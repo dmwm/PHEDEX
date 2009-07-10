@@ -52,7 +52,9 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     return;
   }
   that.locatePartnerFields=function(el) {
-//  for a header-field, find all displayed nodes of that type. For a value-field, find only the header node that matches
+//  for a tnode-header, find all tnode-fields of that type. For a tnode-field, find only the tnode-header that matches
+//  assumes that the element it is given is already either a tnode-header or a tnode-field, use locateNode to ensure that
+//  before calling this function
     var treeMatch = /^phedex-tree-/;
     var treeOther;
     var candList;
@@ -427,10 +429,11 @@ PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
     }
     obj.tree.render();
     obj.hideAllFieldsThatShouldBeHidden();
-debugger;
-// this doesn't work, because locateHeader wants an element, not a classname...
     for (var i in node.data.spec.format) {
-      var header = obj.locateHeader(node.data.spec.format[i].className);
+      var className = node.data.spec.format[i].className;
+      var container = node.getEl();
+      var tgt = YAHOO.util.Dom.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl());
+      var header = obj.locateHeader(tgt[0]);
       obj.resizeFields(header);
     }
   }
