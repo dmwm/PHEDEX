@@ -20,30 +20,35 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 
   var linkHeader1 = [
           {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
-	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:'sort-num' },
-          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:'sort-num' },
-          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:'sort-num' },
-          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PHEDEX.Util.format.bytes(x)+'/s';} },
+	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
+	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
 	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
+	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hideByDefault:true }
     ];
+// using spanWrap for the block-name, I can (in principla):
+// - locate the div with the block-name
+// - locate the spanWrap child from it
+// - compare their offsetHeights.
+// - if the span offsetHeight is greater than the div, the word is truncated to fit!
   var linkHeader2 = [
-	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
-	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
-	  {width: 80,text:'State',       className:'phedex-tree-state',       otherClasses:'phedex-tnode-auto-height'},
-          {width: 80,text:'Priority',    className:'phedex-tree-priority',    otherClasses:'phedex-tnode-auto-height'},
-          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'phedex-tnode-auto-height align-right'},
-	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'phedex-tnode-auto-height align-right'},
-	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right'}
+	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left',  contextArgs:['Block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id',    otherClasses:'align-right', contextArgs:['Block','sort-num'] },
+	  {width: 80,text:'State',       className:'phedex-tree-state',       otherClasses:'phedex-tnode-auto-height' },
+          {width: 80,text:'Priority',    className:'phedex-tree-priority',    otherClasses:'phedex-tnode-auto-height' },
+          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'phedex-tnode-auto-height align-right' },
+	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'phedex-tnode-auto-height align-right' },
+	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right', contextArgs:'sort-num' }
     ];
   var linkHeader3 = [
-	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
-	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
-	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right'},
-	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right'},
-          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right',hideByDefault:true}
+	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['File','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+	  {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['File','sort-num'] },
+	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-bytes', format:PHEDEX.Util.format.bytes },
+	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-num' },
+          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
     ];
 
 // Build the options for the pull-down menus.
@@ -159,7 +164,8 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  }
           var tNode = node.payload.obj.addNode(
             { format:linkHeader2, payload:block.payload },
-            [ PHEDEX.Util.format.longString(block.name), block.id, state, priority, files, bytes, block.num_errors ],
+//             [ PHEDEX.Util.format.longString(block.name), block.id, state, priority, files, bytes, block.num_errors ],
+            [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
 	    node
           );
 	}
@@ -279,21 +285,11 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       var quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat);
       if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
       quality /= h.transfer.length;
-      var rate   = PHEDEX.Util.format.bytes(done_bytes/parseInt(h.transfer[0].binwidth))+'/s';
-      var qual   = PHEDEX.Util.format['%'](quality);
-      var done   = PHEDEX.Util.format.filesBytes(PHEDEX.Util.sumArrayField(h.transfer,'done_files'),done_bytes);
-      var fail   = PHEDEX.Util.format.filesBytes(
-                      PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),
-                      PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')
-                   );
-      var expire = PHEDEX.Util.format.filesBytes(
-                      PHEDEX.Util.sumArrayField(h.transfer,'expire_files'),
-                      PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes')
-                   );
-      var queue  = PHEDEX.Util.format.filesBytes(
-                      PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),
-                      PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')
-                   );
+      var rate   = done/parseInt(h.transfer[0].binwidth);
+      var done   = { files:PHEDEX.Util.sumArrayField(h.transfer,'done_files'), bytes:done_bytes };
+      var fail   = { files:PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),   bytes:PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')   };
+      var expire = { files:PHEDEX.Util.sumArrayField(h.transfer,'expire_files'), bytes:PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes') };
+      var queue  = { files:PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),  bytes:PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')  };
 
 //    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level.
 //    I did see a better way to do this in the YUI docs, but will find that later...
@@ -309,7 +305,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
       that.addNode(
         { format:linkHeader1, payload:payload },
-        [ node,done,fail,expire,rate,qual,queue,link_errors,e.num_errors ]
+        [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
       );
     }
     that.tree.render();
