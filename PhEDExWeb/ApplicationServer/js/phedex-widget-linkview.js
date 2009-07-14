@@ -313,7 +313,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 
   that.applyFilter=function() { // Apply the filter to the data
     var args = that.filter.args;
-debugger;
+// debugger;
 // cheat, until I know how to do this properly...
   that.filter.count++;
   }
