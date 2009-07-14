@@ -311,6 +311,36 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     that.tree.render();
   }
 
+  that.applyFilter=function() { // Apply the filter to the data
+    var args = that.filter.args;
+debugger;
+// cheat, until I know how to do this properly...
+  that.filter.count++;
+  }
+  that.fillFilter = function(div) { // Create the filter-form in the div allocated
+    var cfg = [
+		{type:'input', name:'phedex-tree-node',    value:'T.*', text:'Node-name (simple regex)' },
+// 		{type:'input', name:'phedex-tree-done',    value:'0',   text:'Files-done (int, min)' },
+// 		{type:'input', name:'phedex-tree-failed',  value:'0',   text:'Files-failed (int, min)' },
+// 		{type:'input', name:'phedex-tree-expired', value:'0',   text:'Files-expired (int, min)' },
+// 		{type:'input', name:'phedex-tree-rate',    value:'0',   text:'Transfer-rate (MB/sec)' },
+		{type:'input', name:'phedex-tree-quality', value:'0',   text:'Transfer-quality (pct)' },
+// 		{type:'input', name:'phedex-tree-queued',  value:'0',   text:'Files-queued (int, min)' }
+	      ];
+    for (var i in cfg) {
+      var el = document.createElement('div');
+      var input = document.createElement(cfg[i].type);
+      input.setAttribute('type',cfg[i].text);
+      input.setAttribute('id','phedex_filter_field_'+PHEDEX.Util.Sequence());
+      input.setAttribute('class','phedex-filter-elem');
+      input.setAttribute('name',cfg[i].name);
+      input.setAttribute('value',cfg[i].value);
+      el.appendChild(input);
+      el.appendChild(document.createTextNode(cfg[i].text));
+      div.appendChild(el);
+    }
+  }
+
   that.receive=function(event,data) {
     var result   = data[0];
     var context  = data[1];
