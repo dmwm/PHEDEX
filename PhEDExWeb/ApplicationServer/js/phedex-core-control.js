@@ -34,10 +34,9 @@ PHEDEX.Core.Control = function(args) {
     var tgt = this.payload.target;
     if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
     if ( this.payload.fillFn ) { this.payload.fillFn(tgt); }
-    var obj = this.payload.obj || {};
     YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
     var eHeight = tgt.offsetHeight;
-    if ( obj.onShowControl ) { obj.onShowControl.fire(eHeight); }
+    if ( this.payload.onShowControl ) { this.payload.onShowControl.fire(eHeight); }
     YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
     YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
   }
@@ -50,8 +49,7 @@ PHEDEX.Core.Control = function(args) {
         YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
         YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
         tgt.style.height=null;
-        var obj = ctl.payload.obj || {};
-        if ( obj.onHideControl ) { obj.onHideControl.fire(eHeight); }
+        if ( ctl.payload.onHideControl ) { ctl.payload.onHideControl.fire(eHeight); }
         YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
         YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
       };
