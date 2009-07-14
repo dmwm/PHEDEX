@@ -215,12 +215,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // update the 'Show all columns' button state
   that.refreshButton = function() {
-// debugger;
-//     if ( that.column_menu.parent ) { // hack to prevent premature display? Probably better ways to do this...
-      that.column_menu.render(document.body);
-//     }
-      that.showFields.set('disabled', that.column_menu.getItems().length === 0);
-//     }
+    that.column_menu.render(document.body);
+    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
   };
 
 // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
@@ -347,9 +343,12 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.tree.subscribe('expandComplete',function(node) {
       that.hideAllFieldsThatShouldBeHidden();
     });
-    var ctl = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200} } );
-    YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
+    that.ctl_extra = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
+    YAHOO.util.Dom.insertBefore(that.ctl_extra.el,that.span_control.firstChild);
+    that.ctl_filter = new PHEDEX.Core.Control( {text:'Filter',
+                    payload:{target:that.div_filter, fillFn:that.buildFilter, obj:that, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+    YAHOO.util.Dom.insertBefore(that.ctl_filter.el,that.span_control.firstChild);
   });
   that.resizeFields=function(el) {
     var tgt = that.locateHeader(el);
@@ -383,65 +382,86 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   });
 
 // Resize the panel when extra columns are shown, to accomodate the width
-  that.resizePanel=function(tree) {
+//   that.resizePanel=function(tree) {
 //   var w1 = that.div_body.clientWidth;
 //   var el = that.tree._el;
 // debugger;
 //     var old_width = 1500; // tree.getContainerEl().clientWidth;
 //     var x = 700;
 //     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
-  }
+//   }
+
   return that;
 }
 
 // Sort tree-branches!
 PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
-    var textNode  = el.textNode;
-    var container = el.tree;
-    var node      = el.node;
-    var target    = el.target;
-    var obj       = el.obj;
+  var textNode  = el.textNode;
+  var container = el.tree;
+  var node      = el.node;
+  var target    = el.target;
+  var obj       = el.obj;
 
 // find which value-index corresponds to my class, so I know which field to sort on
-    target = obj.locateNode(target);
-    var thisClass = obj.getPhedexFieldClass(target);
-    var index;
-    for (var i in node.data.spec.format) {
-      var f = node.data.spec.format[i];
-      if ( f.className == thisClass ) { index = i; break; }
-    }
-    if ( !index ) {
-      YAHOO.log('cannot identify class-type','error','Core.TreeView');
-      return;
-    }
+  target = obj.locateNode(target);
+  var thisClass = obj.getPhedexFieldClass(target);
+  var index;
+  for (var i in node.data.spec.format) {
+    var f = node.data.spec.format[i];
+    if ( f.className == thisClass ) { index = i; break; }
+  }
+  if ( !index ) {
+    YAHOO.log('cannot identify class-type','error','Core.TreeView');
+    return;
+  }
 
-    var parent = node.parent;
-    var children = parent.children;
-    var map = [], indices=[];
-    for (var i in children)
-    {
-      var x = children[i].getEl();
-      var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,children[i].getEl());
-      if ( elList.length ) {
-        map.push( {node:children[i], value:children[i].data.values[index]} );
-        indices.push( i );
-      }
-    }
-    map.sort(function(a,b){ return sortFn(a.value,b.value); });
-    for (var i in map) {
-      parent.children[indices[i]] = map[i].node;
-    }
-
-    obj.tree.render();
-    obj.hideAllFieldsThatShouldBeHidden();
-    for (var i in node.data.spec.format) {
-      var className = node.data.spec.format[i].className;
-      var container = node.getEl();
-      var tgt = YAHOO.util.Dom.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl());
-      var header = obj.locateHeader(tgt[0]);
-      obj.resizeFields(header);
+  var parent = node.parent;
+  var children = parent.children;
+  var map = [], indices=[];
+  for (var i in children)
+  {
+    var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,children[i].getEl());
+    if ( elList.length ) {
+      map.push( {node:children[i], value:children[i].data.values[index]} );
+      indices.push( i );
     }
   }
+  map.sort(function(a,b){ return sortFn(a.value,b.value); });
+  for (var i in map) {
+    parent.children[indices[i]] = map[i].node;
+  }
+
+  obj.tree.render();
+  obj.hideAllFieldsThatShouldBeHidden();
+  for (var i in node.data.spec.format) {
+    var className = node.data.spec.format[i].className;
+    var container = node.getEl();
+    var tgt = YAHOO.util.Dom.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl());
+    var header = obj.locateHeader(tgt[0]);
+    obj.resizeFields(header);
+  }
+}
+
+// PHEDEX.Core.Widget.TreeView.Filter=function(args,opts,el) {
+//   var textNode  = el.textNode;
+//   var container = el.tree;
+//   var node      = el.node;
+//   var target    = el.target;
+//   var obj       = el.obj;
+// 
+//   var selectPanel = new YAHOO.widget.Overlay(obj.div_overlay, { context:[obj.div_body.id,"tl","tl", ["beforeShow", "windowResize"]],
+//           visible:false,
+//           width:"200px" } );
+//   selectPanel.setHeader('Select panel header...');
+//   selectPanel.setBody('Select panel body...');
+//   selectPanel.setFooter('Select panel footer...');
+//   selectPanel.render(document.body);
+//   selectPanel.show();
+//   selectPanel.cfg.setProperty('zindex',10);
+//   selectPanel.cfg.setProperty('width',obj.div_content.offsetWidth+'px');
+// //   selectPanel.cfg.setProperty('height',obj.div_content.offsetHeight+'px'); // Nope, need panel height!
+// //   YAHOO.util.Dom.addClass(selectPanel.element,'phedex-core-overlay')
+// }
 
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.asc ); });
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.desc); });
@@ -451,6 +471,4 @@ PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending',       function(args,o
 PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.alpha.desc); });
 PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.asc ); });
 PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.numeric.desc); });
-// PHEDEX.Core.ContextMenu.Add('treeView','Move branch to top',     function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 0; } ); });
-// PHEDEX.Core.ContextMenu.Add('treeView','Move branch to bottom',  function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,function() { return 1; } ); });
 YAHOO.log('loaded...','info','Core.TreeView');
