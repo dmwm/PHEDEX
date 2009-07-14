@@ -344,10 +344,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
       that.hideAllFieldsThatShouldBeHidden();
     });
     that.ctl_extra = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideExtra, onShowControl:that.onShowExtra} } );
     YAHOO.util.Dom.insertBefore(that.ctl_extra.el,that.span_control.firstChild);
     that.ctl_filter = new PHEDEX.Core.Control( {text:'Filter',
-                    payload:{target:that.div_filter, fillFn:that.buildFilter, obj:that, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+                    payload:{target:that.div_filter, fillFn:that.buildFilter, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideFilter, onShowControl:that.onShowFilter} } );
     YAHOO.util.Dom.insertBefore(that.ctl_filter.el,that.span_control.firstChild);
   });
   that.resizeFields=function(el) {

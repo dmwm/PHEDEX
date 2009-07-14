@@ -184,7 +184,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
     } );
     that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
     var ctl = new PHEDEX.Core.Control( {name:'Extra', type:'a', text:'Extra',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200} } ); //,
+                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideExtra, onShowControl:that.onShowExtra} } ); //,
     YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
 
