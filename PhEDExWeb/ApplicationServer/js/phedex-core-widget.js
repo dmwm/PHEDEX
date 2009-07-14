@@ -87,6 +87,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.div_footer.id = this.id+'_foot';
   this.div.appendChild(this.div_footer);
 
+  this.div_filter = document.createElement('div');
+  this.div_filter.id = this.id+'_filter';
+
 // Create the panel
   this.panel = new YAHOO.widget.Panel(this.id,
     {
@@ -198,6 +201,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, body and footer. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
 
+  this.panel.render();
+
 // A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
 //
 // To fire one of these methods:
@@ -228,10 +233,13 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.onDataFailed       = new YAHOO.util.CustomEvent("onDataFailed",       this, false, YAHOO.util.CustomEvent.LIST);
 
 // for showing/hiding extra control-divs, like the classic extra-div
-  this.onShowControl      = new YAHOO.util.CustomEvent("onShowControl",      this, false, YAHOO.util.CustomEvent.LIST);
-  this.onHideControl      = new YAHOO.util.CustomEvent("onHideControl",      this, false, YAHOO.util.CustomEvent.LIST);
+  this.onShowExtra      = new YAHOO.util.CustomEvent("onShowExtra", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideExtra      = new YAHOO.util.CustomEvent("onHideExtra", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onShowExtra.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
+  this.onHideExtra.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
 
-  this.panel.render();
+  this.onShowFilter     = new YAHOO.util.CustomEvent("onShowFilter", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideFilter     = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
 
 // adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
   this.adjustHeader=function(arg) {
@@ -240,14 +248,78 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.panel.header.style.height=(hheight+arg)+'px';
     this.panel.cfg.setProperty("height",(oheight+arg)+'px');
   }
-  this.onShowControl.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
-  this.onHideControl.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
+
+// These need to be overridden in the derived widgets...
+  this.applyFilter=function() {}     // Apply the filter to the data
+//   this.fillFilter = function(div) {} // Create the filter-form in the div allocated
+
+// These filter-functions are generic
+  this.acceptFilter=function() {
+    YAHOO.log('acceptFilter:'+this.me(),'info','Core.Widget');
+    var elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem');
+    for (var i in elList) {
+      var el = elList[i];
+      this.filter.args[el.name] = el.value;
+    }
+    this.applyFilter();
+    this.hideFilter();
+  }
+  this.resetFilter=function() { this.filter = {args:{}, count:0}; }
+  this.cancelFilter=function() {
+    this.filter = {count:0, args:{}};
+    this.hideFilter();
+    YAHOO.log('cancelFilter:'+this.me(),'info','Core.Widget');
+  }
+// Build the filter-div, allow the widget to define its contents...
+  this.buildFilter=function(div) {
+    var obj = this.obj;
+    obj.filter_overlay = new YAHOO.widget.Overlay(obj.div_filter.id, { context:[obj.div_body.id,"tl","tl", ["beforeShow", "windowResize"]],
+            visible:false,
+	    autofillheight:'body'} );
+    obj.filter_overlay.setHeader('Filter data selection');
+    obj.filter_overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
+    obj.filter_overlay.setFooter('&nbsp;');
+    YAHOO.util.Dom.addClass(obj.filter_overlay.element,'phedex-core-overlay')
+
+    var body = obj.filter_overlay.body;
+    body.innerHTML=null;
+    var fieldset = document.createElement('fieldset');
+    fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
+    var legend = document.createElement('legend');
+    legend.appendChild(document.createTextNode('filter parameters'));
+    fieldset.appendChild(legend);
+    var filterDiv = document.createElement('div');
+    filterDiv.id = 'filterDiv_'+PHEDEX.Util.Sequence();
+    fieldset.appendChild(filterDiv);
+    var buttonDiv = document.createElement('div');
+    buttonDiv.id = 'buttonDiv_'+PHEDEX.Util.Sequence();
+    fieldset.appendChild(buttonDiv);
+    body.appendChild(fieldset);
+
+    obj.filter_overlay.render(document.body);
+    obj.filter_overlay.cfg.setProperty('width',obj.div_body.offsetWidth+'px');
+    obj.filter_overlay.show();
+    obj.filter_overlay.cfg.setProperty('zindex',10);
+    obj.fillFilter(filterDiv);
+
+    var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
+    buttonAcceptFilter.on('click', function(){ this.acceptFilter(filterDiv); }, obj, obj );
+    var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
+    buttonCancelFilter.on('click', function(){ this.cancelFilter(); }, obj, obj );
+  }
+  this.hideFilter = function() {
+// Hide the filter-div, destroying the contents of the filter-overlay and applying the filter to the tree.
+    if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl_filter.el,'phedex-core-control-widget-applied'); }
+    else                     { YAHOO.util.Dom.removeClass(this.ctl_filter.el,'phedex-core-control-widget-applied'); }
+    this.filter_overlay.destroy();
+    this.ctl_filter.Hide();
+  }
+  this.resetFilter();
 
 // Create a (usually hidden) progress indicator.
   this.control.progress = document.createElement('img');
   this.control.progress.src = '/images/progress.gif';
   this.span_control.appendChild(this.control.progress);
-//   YAHOO.util.Event.addListener(this.control.progress, "click", this.failedLoading, this); // for some reason this doesn't work, context is not preserved...
 
   this.control.close = document.createElement('img');
   this.control.close.src = '/images/widget-close.gif';
