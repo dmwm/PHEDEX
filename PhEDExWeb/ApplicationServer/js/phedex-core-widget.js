@@ -143,7 +143,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     while (that.div.hasChildNodes()) {
       that.div.removeChild(that.div.firstChild);
     }
-    if ( that.filter_overlay ) { that.filter_overlay.destroy(); }
+    if ( that.filter_overlay && that.filter_overlay.element ) { that.filter_overlay.destroy(); }
   }
   if ( this.panel.close ) {
     YAHOO.util.Event.addListener(this.panel.close, "click", this.destroyContent, this);
