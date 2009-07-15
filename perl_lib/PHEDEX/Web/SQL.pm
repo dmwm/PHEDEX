@@ -875,6 +875,12 @@ sub getRequestData
     $$self{DBH}->{LongReadLen} = 10_000;
     $$self{DBH}->{LongTruncOk} = 1;
 
+    # if $h{REQUEST} is specified, get its type from database
+    if (exists $h{'REQUEST'} and not exists $h{'TYPE'})
+    {
+        $h{'TYPE'} = &getRequestType($self, ("REQUEST" => $h{'REQUEST'}));
+    }
+
     my @r;
     my $data = {};
     my $sql = qq {
@@ -1097,6 +1103,33 @@ sub getRequestData
     $$self{DBH}->{LongTruncOk} = $LongTruncOk;
 
     return \@r;
+}
+
+# get the type of request
+sub getRequestType
+{
+    my ($core, %h) = @_;
+    my $sql = qq {
+        select
+            t.name as type
+        from
+            t_req_request r,
+            t_req_type t
+        where
+            r.type = t.id and
+            r.id = :rid
+    };
+
+    my $q = execute_sql($core, $sql, (':rid' => $h{REQUEST}));
+    $_ = $q->fetchrow_hashref();
+    if ($_)
+    {
+        return $_->{'TYPE'};
+    }
+    else
+    {
+        return "unknown";
+    }
 }
 
 # get Group Usage information
