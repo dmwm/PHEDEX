@@ -62,6 +62,9 @@ YAHOO.util.Event.onDOMReady(function() {
   My = {};
   My.Widget = function() {
     var that = new PHEDEX.Core.Widget( 'phedex-main', {width:400, height:200, constraintoviewport:true, minwidth:250} );
+    that.fillHeader = function(div) {
+      that.dom.param.appendChild(document.createTextNode('put something in the param element'));
+    }
     that.buildBody = function(div) {
       div.appendChild(document.createTextNode('Loading...'));
     }
@@ -75,7 +78,7 @@ YAHOO.util.Event.onDOMReady(function() {
       div.style.border = '1px solid green';
     }
     that.fillExtra = function(div) {
-      div.appendChild(document.createTextNode('And now for something extra, in addition to our normal programming...'));
+      div.innerHTML = 'And now for something extra, in addition to our normal programming...';
     }
     that.update = function() {
       that.receive();
