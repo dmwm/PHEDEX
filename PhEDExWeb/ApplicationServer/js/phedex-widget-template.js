@@ -15,7 +15,7 @@ PHEDEX.Widget.Template = function(request,divid) {
   that.me=function() { return 'PHEDEX.Core.Widget.Template'; }
 
   var width = 1000;
-  var linkHeader1 = [
+  var branchDef1 = [
           {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
 	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:'sort-num' },
           {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:'sort-num' },
@@ -26,7 +26,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
 	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
     ];
-  var linkHeader2 = [
+  var branchDef2 = [
 	  {width:200,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
 	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
 	  {width: 80,text:'State',       className:'phedex-tree-state'},
@@ -35,7 +35,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'align-right'},
 	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right'}
     ];
-  var linkHeader3 = [
+  var branchDef3 = [
 	  {width:200,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
 	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
 	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right'},
@@ -43,9 +43,9 @@ PHEDEX.Widget.Template = function(request,divid) {
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right',hideByDefault:true}
     ];
   var structure = [
-    { width:width, format:linkHeader1, prefix:'Link'  },
-    {              format:linkHeader2, prefix:'Block',  parent:'Link'  },
-    {              format:linkHeader3, prefix:'File',   parent:'Block' }
+    { width:width, format:branchDef1, prefix:'Link'  },
+    {              format:branchDef2, prefix:'Block',  parent:'Link'  },
+    {              format:branchDef3, prefix:'File',   parent:'Block' }
    ];
 
   that.buildTree(that.dom.content);
@@ -90,9 +90,9 @@ PHEDEX.Widget.Template = function(request,divid) {
 
   that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
-  var htNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  }, null, root );    htNode.expand();
-  var htNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, htNode );  htNode1.expand();
-  var htNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+  var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
+  var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
+  var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
   htNode2.isLeaf = true;
   that.headerTree.render();
 

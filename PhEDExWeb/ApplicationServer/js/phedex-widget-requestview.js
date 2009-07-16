@@ -23,7 +23,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   that._static    = {y:'static',    n:'dynamic'};
   that._move      = {y:'move',      n:'copy'};
 
-  var linkHeader1 = [
+  var branchDef1 = [
           {width: 80,text:'Request ID',className:'phedex-tree-request-id', otherClasses:'align-left'},
           {width: 90,text:'Username',  className:'phedex-tree-username'},
 	  {width:120,text:'Volume',    className:'phedex-tree-volume'},
@@ -34,7 +34,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
           {width: 70,text:'Priority',  className:'phedex-tree-priority'},
           {width: 70,text:'Group',     className:'phedex-tree-group'}
     ];
-  var linkHeader2 = [
+  var branchDef2 = [
           {width:180,text:'Requestor',           className:'phedex-tree-requestor-name', otherClasses:'align-left'},
           {width:180,text:'Request Date',        className:'phedex-tree-request-date'},
 	  {width:150,text:'Comments',            className:'phedex-tree-comments',           hideByDefault:true},
@@ -42,7 +42,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 	  {width:100,text:'Requestor Host',      className:'phedex-tree-requestor-host',     hideByDefault:true},
 	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true, otherClasses:'phedex-tnode-auto-height'}
     ];
-  var linkHeader3 = [
+  var branchDef3 = [
           {width:180,text:'Approver',            className:'phedex-tree-approver-name', otherClasses:'align-left', contextArgs:'sort-alpha'},
           {width:180,text:'Approval Date',       className:'phedex-tree-approval-date',   contextArgs:'sort-num', format:PHEDEX.Util.format.date },
 	  {width:120,text:'Approval Status',     className:'phedex-tree-approval-status', contextArgs:'sort-alpha'},
@@ -51,7 +51,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 	  {width:100,text:'Approver Host',       className:'phedex-tree-approver-host',      hideByDefault:true},
 	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent', hideByDefault:true, otherClasses:'phedex-tnode-auto-height' }
     ];
-  var linkHeader4 = [
+  var branchDef4 = [
           {width:500,text:'Block Name',  className:'phedex-tree-block-name',   otherClasses:'align-left',  contextArgs:['Block','sort-alpha'], format:PHEDEX.Util.format.spanWrap},
           {width: 70,text:'Block ID',    className:'phedex-tree-block-id',     otherClasses:'align-right', contextArgs:['Block','sort-num'], hideByDefault:true},
 	  {width:120,text:'Data Volume', className:'phedex-tree-block-volume', otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes}
@@ -61,7 +61,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     var tNode;
     var root = that.tree.getRoot();
     tNode = that.addNode(
-      {format:linkHeader1},
+      {format:branchDef1},
       [ that.data.id,
         that.data.requested_by.username,
         PHEDEX.Util.format.filesBytes(this.data.data.files,this.data.data.bytes),
@@ -75,7 +75,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     );
 
     that.addNode(
-      {format:linkHeader2},
+      {format:branchDef2},
       [ that.data.requested_by.name,
         PHEDEX.Util.format.date(that.data.time_create),
         that.data.comments || '(no comments)',
@@ -93,7 +93,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       if ( d.decided_by.decision == 'y' ) { destinationDetail = 'Approved'; }
       else                                { destinationDetail = 'Rejected'; }
       that.addNode(
-          {format:linkHeader3},
+          {format:branchDef3},
           [
             d.decided_by.name,
             d.decided_by.time_decided,
@@ -108,7 +108,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
     }
     for (var i in this.data.data.dbs.dataset) {
       var d = this.data.data.dbs.dataset[i];
-      that.addNode( {format:linkHeader4},
+      that.addNode( {format:branchDef4},
 		    [ d.name, d.id, {files:d.files,bytes:d.bytes} ] );
     }
     tNode1.expand();
@@ -146,10 +146,10 @@ PHEDEX.Widget.RequestView = function(request,divid) {
 
   that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
-  var tNode1 = that.addNode( { width:width, format:linkHeader1, prefix:'Request' },   null, root);    tNode1.expand();
-  var tNode2 = that.addNode( {              format:linkHeader2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();
-  var tNode3 = that.addNode( {              format:linkHeader3, prefix:'Approver' },  null, tNode1 ); tNode3.expand();
-  var tNode4 = that.addNode( {              format:linkHeader4, prefix:'Block' },     null, root );   tNode4.expand();
+  var tNode1 = that.addNode( { width:width, format:branchDef1, prefix:'Request' },   null, root);    tNode1.expand();
+  var tNode2 = that.addNode( {              format:branchDef2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();
+  var tNode3 = that.addNode( {              format:branchDef3, prefix:'Approver' },  null, tNode1 ); tNode3.expand();
+  var tNode4 = that.addNode( {              format:branchDef4, prefix:'Block' },     null, root );   tNode4.expand();
   tNode2.isLeaf = tNode3.isLeaf = tNode4.isLeaf = true;
   that.headerTree.render();
 

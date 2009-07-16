@@ -18,7 +18,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   that.node = node;
   var config = PHEDEX.Util.getConfig(divid);
 
-  var linkHeader1 = [
+  var branchDef1 = [
           {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
 	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
           {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
@@ -34,7 +34,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 // - locate the spanWrap child from it
 // - compare their offsetHeights.
 // - if the span offsetHeight is greater than the div, the word is truncated to fit!
-  var linkHeader2 = [
+  var branchDef2 = [
 	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left',  contextArgs:['Block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
 	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id',    otherClasses:'align-right', contextArgs:['Block','sort-num'] },
 	  {width: 80,text:'State',       className:'phedex-tree-state',       otherClasses:'phedex-tnode-auto-height' },
@@ -43,7 +43,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'phedex-tnode-auto-height align-right' },
 	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right', contextArgs:'sort-num' }
     ];
-  var linkHeader3 = [
+  var branchDef3 = [
 	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['File','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
 	  {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['File','sort-num'] },
 	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-bytes', format:PHEDEX.Util.format.bytes },
@@ -163,7 +163,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	    bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
 	  }
           var tNode = node.payload.obj.addNode(
-            { format:linkHeader2, payload:block.payload },
+            { format:branchDef2, payload:block.payload },
 //             [ PHEDEX.Util.format.longString(block.name), block.id, state, priority, files, bytes, block.num_errors ],
             [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
 	    node
@@ -192,7 +192,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
               var file = block.file[k];
 	      var num_errors = errors[file.id] || 0;
               var tNode = node.payload.obj.addNode(
-                {format:linkHeader3},
+                {format:branchDef3},
                 [ PHEDEX.Util.format.longString(file.name), file.id, PHEDEX.Util.format.bytes(file.bytes), num_errors, file.checksum ],
 	         node
                );
@@ -304,7 +304,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       payload.data.errors    = e.block;
       var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
       that.addNode(
-        { format:linkHeader1, payload:payload },
+        { format:branchDef1, payload:payload },
         [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
       );
     }
@@ -368,9 +368,9 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 
   that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
-  var htNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  }, null, root );    htNode.expand();
-  var htNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, htNode );  htNode1.expand();
-  var htNode2 = that.addNode( {              format:linkHeader3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+  var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
+  var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
+  var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
   htNode2.isLeaf = true;
   that.headerTree.render();
 
