@@ -9,7 +9,7 @@ PHEDEX.Page.Widget.Nodes=function(divid) {
 
 PHEDEX.Widget.Nodes=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_display',null,
+  var that=new PHEDEX.Core.Widget.DataTable(divid+'_display',
 	{width:500,
 	 height:200,
 	 minwidth:400,
@@ -20,9 +20,9 @@ PHEDEX.Widget.Nodes=function(node,divid) {
   that.data = null;
   that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
   that.fillHeader=function(div) {
-    that.span_title.innerHTML = 'Nodes: '+this.data.length+" found";
+    that.dom.title.innerHTML = 'Nodes: '+this.data.length+" found";
   }
-  that.buildTable(that.div_content,
+  that.buildTable(that.dom.content,
             [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
 	     );
   that.update=function() {
@@ -34,8 +34,9 @@ PHEDEX.Widget.Nodes=function(node,divid) {
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
-  that.buildExtra(that.div_extra);
+  that.buildExtra(that.dom.extra);
   that.buildContextMenu('Node');
   that.build();
+  that.ctl.extra.Disable();
   return that;
 }

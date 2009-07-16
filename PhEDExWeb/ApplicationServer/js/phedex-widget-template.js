@@ -8,7 +8,7 @@ PHEDEX.Page.Widget.Template=function(divid) {
 
 PHEDEX.Widget.Template = function(request,divid) {
   divid = PHEDEX.Util.generateDivName();
-  var that = new PHEDEX.Core.Widget.TreeView(divid,null,{
+  var that = new PHEDEX.Core.Widget.TreeView(divid,{
 		width:width,
 		height:300
 	      });
@@ -48,7 +48,7 @@ PHEDEX.Widget.Template = function(request,divid) {
     {              format:linkHeader3, prefix:'File',   parent:'Block' }
    ];
 
-  that.buildTree(that.div_content);
+  that.buildTree(that.dom.content);
   var map = [];
   map.Root = that.tree.getRoot();
   for (var i in structure)
@@ -88,7 +88,7 @@ PHEDEX.Widget.Template = function(request,divid) {
     that.tree.render();
   }
 
-  that.buildExtra(that.div_extra);
+  that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
   var htNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  }, null, root );    htNode.expand();
   var htNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, htNode );  htNode1.expand();
@@ -96,14 +96,14 @@ PHEDEX.Widget.Template = function(request,divid) {
   htNode2.isLeaf = true;
   that.headerTree.render();
 
-//   var fillOther=function() { YAHOO.util.Dom.insertBefore(document.createTextNode('Other...'),that.div_extra.firstChild); }
-//   var fillMore=function() {  YAHOO.util.Dom.insertBefore(document.createTextNode('More...'),that.div_extra.firstChild); }
+//   var fillOther=function() { YAHOO.util.Dom.insertBefore(document.createTextNode('Other...'),that.dom.extra.firstChild); }
+//   var fillMore=function() {  YAHOO.util.Dom.insertBefore(document.createTextNode('More...'),that.dom.extra.firstChild); }
 //   var ctl1 = new PHEDEX.Core.Control( {name:'Other', text:'Other',
-//                     payload:{target:that.div_extra, fillFn:fillOther, obj:that} } );
-//   YAHOO.util.Dom.insertBefore(ctl1.el,that.span_control.firstChild);
+//                     payload:{target:that.dom.extra, fillFn:fillOther, obj:that} } );
+//   YAHOO.util.Dom.insertBefore(ctl1.el,that.dom.control.firstChild);
 //   var ctl2 = new PHEDEX.Core.Control( {name:'More', text:'More',
-//                     payload:{target:that.div_extra, fillFn:fillMore, obj:that} } );
-//   YAHOO.util.Dom.insertBefore(ctl2.el,that.span_control.firstChild);
+//                     payload:{target:that.dom.extra, fillFn:fillMore, obj:that} } );
+//   YAHOO.util.Dom.insertBefore(ctl2.el,that.dom.control.firstChild);
 
   that.buildContextMenu();
   that.build();

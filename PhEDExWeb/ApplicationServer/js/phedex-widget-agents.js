@@ -9,7 +9,7 @@ PHEDEX.Page.Widget.Agents=function(divid) {
 
 PHEDEX.Widget.Agents=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node,null,
+  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node,
     {
 	width:500,
 	height:200,
@@ -21,7 +21,7 @@ PHEDEX.Widget.Agents=function(node,divid) {
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
   that.fillHeader=function(div) {
     var msg = this.node+', '+this.data.length+' agents.';
-    that.span_title.innerHTML = msg;
+    that.dom.title.innerHTML = msg;
   }
   that.fillExtra=function(div) {
     var msg = 'If you are reading this, there is a bug somewhere...';
@@ -42,9 +42,9 @@ PHEDEX.Widget.Agents=function(node,divid) {
       var dMax = Math.round(now - maxDate);
       msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
     }
-    that.div_extra.innerHTML = msg;
+    that.dom.extra.innerHTML = msg;
   }
-  that.buildTable(that.div_content,
+  that.buildTable(that.dom.content,
             [ 'Agent',
 	      {key:"Date", formatter:'UnixEpochToGMT'},
 	      {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
@@ -62,7 +62,7 @@ PHEDEX.Widget.Agents=function(node,divid) {
     else { that.failedLoading(); }
   }
 
-  that.buildExtra(that.div_extra);
+  that.buildExtra(that.dom.extra);
   that.buildContextMenu('Agent');
   that.build();
   return that;

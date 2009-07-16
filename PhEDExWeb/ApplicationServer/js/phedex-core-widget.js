@@ -1,5 +1,5 @@
 //This 'class' represents the basic header,body,footer node for a dynamic PhEDEx page.
-//Required arguments either a div object or a id name for a div for the item to be built in (divid), a parent node (if one exists).
+//Required arguments either a div object or a id name for a div for the item to be built in (divid), and a options-object.
 //Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
 //implement their own methods to generate the content, and handle updates.
 
@@ -9,13 +9,13 @@ PHEDEX.namespace('Core.Widget');
 //This should be subclassed for each class and then specific child node.
 //TODO: Prototype instead of instance based subclassing.
 
-PHEDEX.Core.Widget = function(divid,parent,opts) {
-  // Copy the options over the defaults.
+PHEDEX.Core.Widget = function(divid,opts) {
+// Set defaults, then copy the options over the defaults.
   this.options = {width:700,
 		  height:150,
 		  minwidth:10,
 		  minheight:10,
-		  close:true,
+		  close:false,
 		  draggable:true,
 		  constraintoviewport:false,
 		  handles:['b','br','r']
@@ -39,6 +39,9 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   this.textNodeMap = [];
   this.hideByDefault = [];
   this.control = [];
+  this.dom    = [];
+  this.ctl    = [];
+  this.filter = [];
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
@@ -47,48 +50,48 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 // Everything is a resizeable panel now
   YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
 // Create the structure for the embedded panel
-  this.div_header = document.createElement('div');
-  this.div_header.className = 'hd';
-  this.div_header.id = this.id+'_head';
-  this.div.appendChild(this.div_header);
+  this.dom.header = document.createElement('div');
+  this.dom.header.className = 'hd';
+  this.dom.header.id = this.id+'_head';
+  this.div.appendChild(this.dom.header);
 
-  this.span_param = document.createElement('span');
-  this.span_param.className = 'phedex-core-param';
-  this.span_param.id = this.id+'_param';
-  this.div_header.appendChild(this.span_param);
+  this.dom.param = document.createElement('span');
+  this.dom.param.className = 'phedex-core-param';
+  this.dom.param.id = this.id+'_param';
+  this.dom.header.appendChild(this.dom.param);
 
-  this.span_title = document.createElement('span');
-  this.span_title.className = 'phedex-core-title';
-  this.span_title.id = this.id+'_title';
-  this.div_header.appendChild(this.span_title);
+  this.dom.title = document.createElement('span');
+  this.dom.title.className = 'phedex-core-title';
+  this.dom.title.id = this.id+'_title';
+  this.dom.header.appendChild(this.dom.title);
 
-  this.span_control = document.createElement('span');
-  this.span_control.className = 'phedex-core-control';
-  this.span_control.id = this.id+'_control';
-  this.div_header.appendChild(this.span_control);
+  this.dom.control = document.createElement('span');
+  this.dom.control.className = 'phedex-core-control';
+  this.dom.control.id = this.id+'_control';
+  this.dom.header.appendChild(this.dom.control);
 
-  this.div_extra = document.createElement('div');
-  this.div_extra.className = 'phedex-core-extra phedex-invisible';
-  this.div_extra.id = this.id+'_extra';
-  this.div_header.appendChild(this.div_extra);
+  this.dom.extra = document.createElement('div');
+  this.dom.extra.className = 'phedex-core-extra phedex-invisible';
+  this.dom.extra.id = this.id+'_extra';
+  this.dom.header.appendChild(this.dom.extra);
 
-  this.div_body = document.createElement('div');
-  this.div_body.className = 'bd';
-  this.div_body.id = this.id+'_body';
-  this.div.appendChild(this.div_body);
+  this.dom.body = document.createElement('div');
+  this.dom.body.className = 'bd';
+  this.dom.body.id = this.id+'_body';
+  this.div.appendChild(this.dom.body);
 
-  this.div_content = document.createElement('div');
-  this.div_content.className = 'phedex-core-content';
-  this.div_content.id = this.id+'_content';
-  this.div_body.appendChild(this.div_content);
+  this.dom.content = document.createElement('div');
+  this.dom.content.className = 'phedex-core-content';
+  this.dom.content.id = this.id+'_content';
+  this.dom.body.appendChild(this.dom.content);
 
-  this.div_footer = document.createElement('div');
-  this.div_footer.className = 'ft';
-  this.div_footer.id = this.id+'_foot';
-  this.div.appendChild(this.div_footer);
+  this.dom.footer = document.createElement('div');
+  this.dom.footer.className = 'ft';
+  this.dom.footer.id = this.id+'_foot';
+  this.div.appendChild(this.dom.footer);
 
-  this.div_filter = document.createElement('div');
-  this.div_filter.id = this.id+'_filter';
+  this.dom.filter = document.createElement('div');
+  this.dom.filter.id = this.id+'_filter';
 
 // Create the panel
   this.panel = new YAHOO.widget.Panel(this.id,
@@ -105,8 +108,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     }
   ); this.panel.render();
   var resize = new YAHOO.util.Resize(this.id, {
-//       handles: ['br','b','r'],
-      handles: this.options.handles, // ['br','b','r'],
+      handles: this.options.handles,
       autoRatio: false,
       minWidth:  this.options.minwidth,
       minHeight: this.options.minheight,
@@ -143,23 +145,23 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     while (that.div.hasChildNodes()) {
       that.div.removeChild(that.div.firstChild);
     }
-    if ( that.filter_overlay && that.filter_overlay.element ) { that.filter_overlay.destroy(); }
+    if ( that.filter.overlay && that.filter.overlay.element ) { that.filter.overlay.destroy(); }
   }
   if ( this.panel.close ) {
     YAHOO.util.Event.addListener(this.panel.close, "click", this.destroyContent, this);
   }
   this.build=function() {
-    this.buildHeader(this.div_header);
-    this.buildBody(this.div_content);
-    this.buildFooter(this.div_footer);
+    this.buildHeader(this.dom.header);
+    this.buildBody(this.dom.content);
+    this.buildFooter(this.dom.footer);
     this.onBuildComplete.fire();
   }
 
   this.populate=function() {
     this.onUpdateComplete.fire();
-    this.fillHeader(this.div_header);
-    this.fillBody(this.div_content);
-    this.fillFooter(this.div_footer);
+    this.fillHeader(this.dom.header);
+    this.fillBody(this.dom.content);
+    this.fillFooter(this.dom.footer);
     this.finishLoading();
     this.onPopulateComplete.fire();
   }
@@ -170,7 +172,6 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
   
   this.buildBody=function(div) {}
   this.fillBody=function(div) {}
-  this.deleteBodyContent=function(div) {}
 
   this.buildFooter=function(div) {}
   this.fillFooter=function(div) {}
@@ -241,6 +242,7 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
 
   this.onShowFilter     = new YAHOO.util.CustomEvent("onShowFilter", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideFilter     = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideFilter.subscribe(function(ev,arg) { this.destroyFilter(); });
 
 // adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
   this.adjustHeader=function(arg) {
@@ -250,9 +252,8 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     this.panel.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
-// These need to be overridden in the derived widgets...
+// This needs to be overridden in the derived widgets...
   this.applyFilter=function() {}     // Apply the filter to the data
-//   this.fillFilter = function(div) {} // Create the filter-form in the div allocated
 
 // These filter-functions are generic
   this.acceptFilter=function() {
@@ -263,26 +264,29 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
       this.filter.args[el.name] = el.value;
     }
     this.applyFilter();
-    this.hideFilter();
+    this.ctl.filter.Hide();
   }
-  this.resetFilter=function() { this.filter = {args:{}, count:0}; }
+  this.resetFilter=function() {
+    this.filter.count=0;
+    this.filter.args={};
+  }
   this.cancelFilter=function() {
-    this.filter = {count:0, args:{}};
-    this.hideFilter();
     YAHOO.log('cancelFilter:'+this.me(),'info','Core.Widget');
+    this.resetFilter();
+    this.ctl.filter.Hide();
   }
 // Build the filter-div, allow the widget to define its contents...
   this.buildFilter=function(div) {
     var obj = this.obj;
-    obj.filter_overlay = new YAHOO.widget.Overlay(obj.div_filter.id, { context:[obj.div_body.id,"tl","tl", ["beforeShow", "windowResize"]],
+    obj.filter.overlay = new YAHOO.widget.Overlay(obj.dom.filter.id, { context:[obj.dom.body.id,"tl","tl", ["beforeShow", "windowResize"]],
             visible:false,
 	    autofillheight:'body'} );
-    obj.filter_overlay.setHeader('Filter data selection');
-    obj.filter_overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-    obj.filter_overlay.setFooter('&nbsp;');
-    YAHOO.util.Dom.addClass(obj.filter_overlay.element,'phedex-core-overlay')
+    obj.filter.overlay.setHeader('Filter data selection');
+    obj.filter.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
+    obj.filter.overlay.setFooter('&nbsp;');
+    YAHOO.util.Dom.addClass(obj.filter.overlay.element,'phedex-core-overlay')
 
-    var body = obj.filter_overlay.body;
+    var body = obj.filter.overlay.body;
     body.innerHTML=null;
     var fieldset = document.createElement('fieldset');
     fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
@@ -297,10 +301,10 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     fieldset.appendChild(buttonDiv);
     body.appendChild(fieldset);
 
-    obj.filter_overlay.render(document.body);
-    obj.filter_overlay.cfg.setProperty('width',obj.div_body.offsetWidth+'px');
-    obj.filter_overlay.show();
-    obj.filter_overlay.cfg.setProperty('zindex',10);
+    obj.filter.overlay.render(document.body);
+    obj.filter.overlay.cfg.setProperty('width',obj.dom.body.offsetWidth+'px');
+    obj.filter.overlay.show();
+    obj.filter.overlay.cfg.setProperty('zindex',10);
     obj.fillFilter(filterDiv);
 
     var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
@@ -308,23 +312,34 @@ PHEDEX.Core.Widget = function(divid,parent,opts) {
     var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
     buttonCancelFilter.on('click', function(){ this.cancelFilter(); }, obj, obj );
   }
-  this.hideFilter = function() {
-// Hide the filter-div, destroying the contents of the filter-overlay and applying the filter to the tree.
-    if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl_filter.el,'phedex-core-control-widget-applied'); }
-    else                     { YAHOO.util.Dom.removeClass(this.ctl_filter.el,'phedex-core-control-widget-applied'); }
-    this.filter_overlay.destroy();
-    this.ctl_filter.Hide();
+  this.destroyFilter = function() {
+// Destroy the contents of the filter-overlay.
+    if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl.filter.el,'phedex-core-control-widget-applied'); }
+    else                     { YAHOO.util.Dom.removeClass(this.ctl.filter.el,'phedex-core-control-widget-applied'); }
+    if ( this.filter.overlay && this.filter.overlay.element ) {
+      this.filter.overlay.destroy();
+    }
   }
   this.resetFilter();
+  this.onBuildComplete.subscribe(function() {
+    YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
+    this.ctl.extra = new PHEDEX.Core.Control( {text:'Extra',
+                    payload:{target:this.dom.extra, fillFn:this.fillExtra, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
+    YAHOO.util.Dom.insertBefore(this.ctl.extra.el,this.dom.control.firstChild);
+    this.ctl.filter = new PHEDEX.Core.Control( {text:'Filter',
+                    payload:{target:this.dom.filter, fillFn:this.buildFilter, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+    YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
+    if ( !this.fillFilter ) { this.ctl.filter.Disable(); }
+  });
 
 // Create a (usually hidden) progress indicator.
   this.control.progress = document.createElement('img');
   this.control.progress.src = '/images/progress.gif';
-  this.span_control.appendChild(this.control.progress);
+  this.dom.control.appendChild(this.control.progress);
 
   this.control.close = document.createElement('img');
   this.control.close.src = '/images/widget-close.gif';
-  this.span_control.appendChild(this.control.close);
+  this.dom.control.appendChild(this.control.close);
   YAHOO.util.Event.addListener(this.control.close, "click", this.destroyContent, this);
 
   this.startLoading();

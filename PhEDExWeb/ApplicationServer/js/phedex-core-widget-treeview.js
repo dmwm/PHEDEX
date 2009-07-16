@@ -1,7 +1,7 @@
 PHEDEX.namespace('Core.Widget.TreeView');
 
-PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
-  var that=new PHEDEX.Core.Widget(divid,parent,opts);
+PHEDEX.Core.Widget.TreeView = function(divid,opts) {
+  var that=new PHEDEX.Core.Widget(divid,opts);
   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
   that.structure={headerNames:[], hideByDefault:[], contextArgs:[]};
 
@@ -174,7 +174,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 // A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
   var aSpan = document.createElement('span');
-  that.span_param.appendChild(aSpan);
+  that.dom.param.appendChild(aSpan);
   that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
@@ -215,8 +215,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // update the 'Show all columns' button state
   that.refreshButton = function() {
-    that.column_menu.render(document.body);
-    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
+    try {
+      that.column_menu.render(document.body);
+      that.showFields.set('disabled', that.column_menu.getItems().length === 0);
+    } catch(e) {};
   };
 
 // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
@@ -269,7 +271,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.contextMenuArgs=[];
     for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
     that.contextMenuArgs.push('treeView');
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.div_content});
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.dom.content});
     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
   }
@@ -343,12 +345,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
     that.tree.subscribe('expandComplete',function(node) {
       that.hideAllFieldsThatShouldBeHidden();
     });
-    that.ctl_extra = new PHEDEX.Core.Control( {name:'Headers', type:'a', text:'Headers',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideExtra, onShowControl:that.onShowExtra} } );
-    YAHOO.util.Dom.insertBefore(that.ctl_extra.el,that.span_control.firstChild);
-    that.ctl_filter = new PHEDEX.Core.Control( {text:'Filter',
-                    payload:{target:that.div_filter, fillFn:that.buildFilter, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideFilter, onShowControl:that.onShowFilter} } );
-    YAHOO.util.Dom.insertBefore(that.ctl_filter.el,that.span_control.firstChild);
+    that.ctl.extra.el.innerHTML = 'Headers';
   });
   that.resizeFields=function(el) {
     var tgt = that.locateHeader(el);
@@ -371,7 +368,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
   }
   that.onDataFailed.subscribe(function() {
     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
-    that.div_content.innerHTML='Data-load error, try again later...';
+    that.dom.content.innerHTML='Data-load error, try again later...';
     that.finishLoading();
   });
 
@@ -383,7 +380,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,parent,opts) {
 
 // Resize the panel when extra columns are shown, to accomodate the width
 //   that.resizePanel=function(tree) {
-//   var w1 = that.div_body.clientWidth;
+//   var w1 = that.dom.body.clientWidth;
 //   var el = that.tree._el;
 // debugger;
 //     var old_width = 1500; // tree.getContainerEl().clientWidth;
@@ -441,27 +438,6 @@ PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
     obj.resizeFields(header);
   }
 }
-
-// PHEDEX.Core.Widget.TreeView.Filter=function(args,opts,el) {
-//   var textNode  = el.textNode;
-//   var container = el.tree;
-//   var node      = el.node;
-//   var target    = el.target;
-//   var obj       = el.obj;
-// 
-//   var selectPanel = new YAHOO.widget.Overlay(obj.div_overlay, { context:[obj.div_body.id,"tl","tl", ["beforeShow", "windowResize"]],
-//           visible:false,
-//           width:"200px" } );
-//   selectPanel.setHeader('Select panel header...');
-//   selectPanel.setBody('Select panel body...');
-//   selectPanel.setFooter('Select panel footer...');
-//   selectPanel.render(document.body);
-//   selectPanel.show();
-//   selectPanel.cfg.setProperty('zindex',10);
-//   selectPanel.cfg.setProperty('width',obj.div_content.offsetWidth+'px');
-// //   selectPanel.cfg.setProperty('height',obj.div_content.offsetHeight+'px'); // Nope, need panel height!
-// //   YAHOO.util.Dom.addClass(selectPanel.element,'phedex-core-overlay')
-// }
 
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.asc ); });
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.sort(args,opts,el,PHEDEX.Util.Sort.files.desc); });

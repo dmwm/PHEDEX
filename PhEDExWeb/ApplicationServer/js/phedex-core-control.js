@@ -10,6 +10,7 @@ PHEDEX.Core.Control = function(args) {
     this.el.href='#';
     this.el.appendChild(document.createTextNode(args.text));
   }
+  this.enabled = 1;
   for (var i in args.payload) { this.payload[i] = args.payload[i]; }
   if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
   YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
@@ -17,11 +18,11 @@ PHEDEX.Core.Control = function(args) {
   if ( !args.events ) {
     args.events = [{event:'mouseover', handler:PHEDEX.Core.Control.mouseoverHandler},
                    {event:'mouseout',  handler:PHEDEX.Core.Control.mouseoutHandler},
-                   {event:'click',     handler:PHEDEX.Core.Control.controlHandler}];
+                   {event:'click',     handler:PHEDEX.Core.Control.clickHandler}];
   }
   for (var i in args.events) {
     var ev = args.events[i].event;
-    var fn = args.events[i].handler || PHEDEX.Core.Control.controlHandler;
+    var fn = args.events[i].handler || PHEDEX.Core.Control.clickHandler;
     var el = args.events[i].element || this.el; // doesn't seem to work when I use something other than the ctl itself...
     YAHOO.util.Event.addListener(el,ev,fn,this,true);
   }
@@ -32,6 +33,7 @@ PHEDEX.Core.Control = function(args) {
   }
   this.Show = function() {
     var tgt = this.payload.target;
+    if ( !this.enabled ) { return; }
     if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
     if ( this.payload.fillFn ) { this.payload.fillFn(tgt); }
     YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
@@ -75,19 +77,27 @@ PHEDEX.Core.Control = function(args) {
   this.Label = function(text) {
     this.el.innerHTML = text;
   }
+  this.Enable=function() {
+    YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-disabled');
+    this.enabled = 1;
+  }
+  this.Disable=function() {
+    YAHOO.util.Dom.addClass(this.el,'phedex-core-control-widget-disabled');
+    this.enabled = 0;
+  }
   return this;
 };
 
 PHEDEX.Core.Control.mouseoverHandler=function(ev,obj) {
   var timeout = obj.payload.hover_timeout || 500;
-  obj.payload.timer = setTimeout(function() { PHEDEX.Core.Control.controlHandler(ev,obj) },timeout);
+  obj.payload.timer = setTimeout(function() { PHEDEX.Core.Control.clickHandler(ev,obj) },timeout);
 }
 PHEDEX.Core.Control.mouseoutHandler=function(ev,obj) {
   if ( obj.payload.timer ) { clearTimeout(obj.payload.timer); }
   obj.payload.timer = null
 }
 
-PHEDEX.Core.Control.controlHandler=function(ev,obj) {
+PHEDEX.Core.Control.clickHandler=function(ev,obj) {
     var eHeight;
     var tgt = obj.payload.target;
     if ( ev.type == 'mouseover' ) {

@@ -10,7 +10,7 @@ PHEDEX.Page.Widget.Requests=function(divid) {
 PHEDEX.Widget.RequestView = function(request,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width=800;
-  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+request,null,
+  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+request,
 		{
 		width:width,
 		height:200,
@@ -142,9 +142,9 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   }
   that.isDynamic = false; // disable dynamic loading of data
 
-  that.buildTree(that.div_content);
+  that.buildTree(that.dom.content);
 
-  that.buildExtra(that.div_extra);
+  that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
   var tNode1 = that.addNode( { width:width, format:linkHeader1, prefix:'Request' },   null, root);    tNode1.expand();
   var tNode2 = that.addNode( {              format:linkHeader2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();

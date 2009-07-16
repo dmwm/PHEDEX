@@ -10,7 +10,7 @@ PHEDEX.Page.Widget.LinkView=function(divid) {
 PHEDEX.Widget.LinkView=function(node,divid) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   var width = 1000;
-  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+node,null,{
+  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+node,{
 		width:width,
 		height:300
 	      });
@@ -218,7 +218,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 // Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
 // before anything inserted by the core widgets.
     var button_span = document.createElement('span');
-    YAHOO.util.Dom.insertBefore(button_span,that.span_param.firstChild);
+    YAHOO.util.Dom.insertBefore(button_span,that.dom.param.firstChild);
     var changeDirectionButton = new YAHOO.widget.Button(
 	{ type: "menu",
 	  label: that.direction_text(),
@@ -233,7 +233,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  menu: timeSelectMenu,
 	  container: button_span
 	});
-    YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.span_param.firstChild);
+    YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.dom.param.firstChild);
 
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
@@ -364,9 +364,9 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     this.startLoading();
   }
   that.isDynamic = true; // enable dynamic loading of data
-  that.buildTree(that.div_content);
+  that.buildTree(that.dom.content);
 
-  that.buildExtra(that.div_extra);
+  that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
   var htNode  = that.addNode( { width:width, format:linkHeader1, prefix:'Link'  }, null, root );    htNode.expand();
   var htNode1 = that.addNode( {              format:linkHeader2, prefix:'Block' }, null, htNode );  htNode1.expand();

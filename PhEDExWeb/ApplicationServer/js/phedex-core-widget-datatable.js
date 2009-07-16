@@ -1,7 +1,7 @@
 PHEDEX.namespace('Core.Widget.DataTable');
 
-PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
-  var that=new PHEDEX.Core.Widget(divid,parent,opts);
+PHEDEX.Core.Widget.DataTable = function(divid,opts) {
+  var that=new PHEDEX.Core.Widget(divid,opts);
   that.buildTable=function(div,columns,map) {
 // Arguments are: the div to instantiate the table into, an array of column definitions, and a map:
 // The column definitions can be simply names of fields, or full datasource-column object specifications. They will
@@ -64,14 +64,14 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 // A split-button and menu for the show-all-columns function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
   var aSpan = document.createElement('span');
-  YAHOO.util.Dom.insertBefore(aSpan,that.span_control.firstChild);
+  YAHOO.util.Dom.insertBefore(aSpan,that.dom.control.firstChild);
   that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all columns",
       name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
-      container: that.span_param, //aSpan, // that.div_header,
+      container: that.dom.param, //aSpan, // that.dom.header,
       disabled:true
     }
   );
@@ -108,7 +108,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   that.locateNode=function(el) {
 //  find the nearest ancestor that has a phedex-dnode-* class applied to it, either
 //  phedex-dnode-field or phedex-dnode-header
-    while (el.id != that.div_content.id) { // walk up only as far as the content-div
+    while (el.id != that.dom.content.id) { // walk up only as far as the content-div
       if(YAHOO.util.Dom.hasClass(el,'phedex-dnode-field')) { // phedex-dnode fields hold the values.
         return el;
       }
@@ -183,9 +183,6 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
       that.refreshButton();
     } );
     that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
-    var ctl = new PHEDEX.Core.Control( {name:'Extra', type:'a', text:'Extra',
-                    payload:{target:that.div_extra, fillFn:that.fillExtra, obj:that, animate:false, hover_timeout:200, onHideControl:that.onHideExtra, onShowControl:that.onShowExtra} } ); //,
-    YAHOO.util.Dom.insertBefore(ctl.el,that.span_control.firstChild);
   });
 
   that.onPopulateComplete.subscribe(function() {
@@ -203,7 +200,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
   that.onDataFailed.subscribe(function() {
 //  Empty the dataTable if it is there
     if ( that.dataTable ) { that.dataTable.destroy(); that.dataTable = null; } // overkill? Who cares!...
-    that.div_content.innerHTML='Data-load error, try again later...';
+    that.dom.content.innerHTML='Data-load error, try again later...';
   });
 
   that.onRowMouseOut = function(event) {
@@ -221,7 +218,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,parent,opts) {
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(table) {
     var old_width = table.getContainerEl().clientWidth;
-    var offset = that.div_header.offsetWidth - that.div_content.offsetWidth;
+    var offset = that.dom.header.offsetWidth - that.dom.content.offsetWidth;
     var x = table.getTableEl().offsetWidth + offset;
     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
   }
