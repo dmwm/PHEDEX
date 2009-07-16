@@ -193,7 +193,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	      var num_errors = errors[file.id] || 0;
               var tNode = node.payload.obj.addNode(
                 {format:branchDef3},
-                [ PHEDEX.Util.format.longString(file.name), file.id, PHEDEX.Util.format.bytes(file.bytes), num_errors, file.checksum ],
+                [ file.name, file.id, file.bytes, num_errors, file.checksum ],
 	         node
                );
               tNode.isLeaf = true;
