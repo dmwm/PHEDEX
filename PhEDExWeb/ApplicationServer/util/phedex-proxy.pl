@@ -12,6 +12,7 @@ my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
 
 @accept = qw %	^html/[^./]+.html$
+		^examples/[^./]+.html$
 		^js/[^./]+.js$
 		^images/[^./]+.(gif|png|jpg)$
 		^css/[^./]+.css$
