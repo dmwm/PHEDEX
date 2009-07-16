@@ -110,25 +110,31 @@ a.phedex-link-current {
   right: 6px;
   top: 3px;
 }
-.phedex-core-control-widget-inactive {
-  background-color: #9f0; /* light-green */
+.phedex-core-control-widget {
   margin: 0 1px 0;
   padding: 0 1px 0;
 }
-.phedex-core-control-widget-active {
-  background-color: yellow;
-  margin: 0 1px 0;
-  padding: 0 1px 0;
-}
-a.phedex-core-control-widget-inactive, a.phedex-core-control-widget-active {
+a.phedex-core-control-widget {
   text-decoration: none;
   padding: 0 0.3em;
 }
-.phedex-core-control-widget-applied {
+.phedex-core-control-widget .phedex-core-control-widget-applied {
   background-color: #fd6; /* light orange */
-  margin: 0 1px 0;
-  padding: 0 1px 0;
 }
+a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
+  background-color: #fd6; /* light orange */
+}
+a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take precedence over active/inactive values */
+  background-color: #eee;
+  border: 1px dotted #888;
+}
+.phedex-core-control-widget-inactive {
+  background-color: #9f0; /* light-green */
+}
+.phedex-core-control-widget-active {
+  background-color: yellow;
+}
+
 .phedex-core-extra {
   background-color: white;
   overflow-x: hidden;
