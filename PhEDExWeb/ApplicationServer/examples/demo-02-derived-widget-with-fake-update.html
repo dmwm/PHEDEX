@@ -60,8 +60,8 @@
 // instantiate the page and other things when the DOM is ready!
 YAHOO.util.Event.onDOMReady(function() {
   My = {};
-  My.Widget = function() {
-    var that = new PHEDEX.Core.Widget( 'phedex-main', {width:400, height:200, constraintoviewport:true, minwidth:250} );
+  My.Widget = function( div, args ) {
+    var that = new PHEDEX.Core.Widget( div, args );
     that.fillHeader = function(div) {
       that.dom.param.appendChild(document.createTextNode('put something in the param element'));
     }
