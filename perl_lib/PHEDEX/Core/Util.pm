@@ -115,8 +115,10 @@ the mapping
           MAP ::= { _KEY => KEY, ELEMENT_LIST }
  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
       ELEMENT ::= KEY => VALUE
-          KEY ::= identifier
+          KEY ::= identifier | identifier+KEY
         VALUE ::= string | number | MAP
+
+ * KEY could be a compound key made from multiple elements in above input
 
 =head3 output:
 
@@ -146,7 +148,7 @@ the mapping
 #           MAP ::= { _KEY => KEY, ELEMENT_LIST }
 #  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
 #       ELEMENT ::= KEY => VALUE
-#           KEY ::= identifier
+#           KEY ::= identifier | identifier+KEY
 #         VALUE ::= string | number | MAP
 # 
 #  output:
@@ -168,8 +170,8 @@ sub build_hash
     # the $map must be a hash reference
     if (ref($map) eq "HASH")
     {
-        # if there is an element witht the key
-        my $key = $input->{$map->{_KEY}};
+        # if there is an element with the key
+        my $key = join ('+', (map {$input->{$_}} split('\+', $map->{_KEY})));
 
         if (exists $output->{$key})
         {
@@ -233,8 +235,12 @@ sub hash2list
 # flat2tree -- turn list of flat hashes into list of structured list of hashes
 sub flat2tree
 {
-    my ($map, $input) = @_;
-    my $out = {};
+    my ($map, $input, $out) = @_;
+    if (not defined $out)
+    {
+        $out = {};
+    }
+
     foreach(@$input)
     {
         build_hash($map, $_, $out);
