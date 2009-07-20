@@ -271,7 +271,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     that.contextMenuArgs=[];
     for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
     that.contextMenuArgs.push('treeView');
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.dom.content});
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dom.content});
     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
   }

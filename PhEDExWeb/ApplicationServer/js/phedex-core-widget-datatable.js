@@ -125,7 +125,7 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
     that.contextMenuArgs=[];
     for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
     that.contextMenuArgs.push('dataTable');
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create(that.contextMenuArgs[0],{trigger:that.dataTable.getTbodyEl()});
+    that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dataTable.getTbodyEl()});
 //     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
 //     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
     PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
@@ -146,12 +146,12 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 	var args = payload.args || {};
 	var opts = payload.opts || {};
 	var oRecord = p_DataTable.getRecord(elRow);
-	var selected_node = opts.selected_node; // allows me to specify a node in the payload, to override guesses here
+	var selected_node = args.node; // allows me to specify a node in the payload, to override guesses here
 	if ( ! selected_node ) { selected_node = oRecord.getData('Name'); }
 	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_node+')','info','Core.DataTable');
 //	this is not good, I should be building a payload inside the table object and passing it here, not
 //	building specific payloads in a generic base-widget!
-	opts.selected_node = selected_node;
+	opts.node = selected_node;
 	this.payload[task.index](args, opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
       }
     }

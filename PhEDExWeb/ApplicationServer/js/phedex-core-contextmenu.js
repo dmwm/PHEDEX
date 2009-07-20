@@ -1,14 +1,12 @@
 // Manage context-menus for PHEDEX widgets
 
 PHEDEX.namespace('Core.ContextMenu');
-PHEDEX.Core.ContextMenu.menus = [];
 PHEDEX.Core.ContextMenu.items = [];
 
-PHEDEX.Core.ContextMenu.Create=function(name,config) {
-  YAHOO.log('Create: '+name,'info','Core.ContextMenu');
+PHEDEX.Core.ContextMenu.Create=function(config) {
   var i = PHEDEX.Util.Sequence();
   if ( !config.lazyload ) { config.lazyload = true; }
-  var menu = new YAHOO.widget.ContextMenu("contextmenu_"+i+'_'+name,config);
+  var menu = new YAHOO.widget.ContextMenu("contextmenu_"+i,config);
 
   menu.cfg.setProperty('zindex',10);
   menu.payload = [];
