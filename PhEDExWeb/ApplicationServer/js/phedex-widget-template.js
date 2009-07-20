@@ -17,30 +17,30 @@ PHEDEX.Widget.Template = function(request,divid) {
   var width = 1000;
   var branchDef1 = [
           {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
-	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:'sort-num' },
-          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:'sort-num' },
-          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:'sort-num' },
-          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:'sort-num' },
-	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
+	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:'sort-alpha' },
+          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:'sort-alpha' },
+          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:'sort-alpha' },
+          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-alpha' },
+	  {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-alpha' },
+	  {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:'sort-alpha' },
+	  {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-alpha' },
 	  {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',hideByDefault:true}
     ];
   var branchDef2 = [
-	  {width:200,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left'},
-	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id'},
-	  {width: 80,text:'State',       className:'phedex-tree-state'},
-          {width: 80,text:'Priority',    className:'phedex-tree-priority'},
-          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'align-right'},
-	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'align-right'},
-	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right'}
+	  {width:200,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left', contextArgs:'sort-alpha'},
+	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id', contextArgs:'sort-alpha'},
+	  {width: 80,text:'State',       className:'phedex-tree-state',    contextArgs:'sort-alpha'},
+          {width: 80,text:'Priority',    className:'phedex-tree-priority', contextArgs:'sort-alpha'},
+          {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'align-right', contextArgs:'sort-alpha'},
+	  {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes', otherClasses:'align-right', contextArgs:'sort-alpha'},
+	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right', contextArgs:'sort-alpha'}
     ];
   var branchDef3 = [
-	  {width:200,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left'},
-	  {width: 80,text:'File ID',    className:'phedex-tree-file-id'},
-	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right'},
-	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right'},
-          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right',hideByDefault:true}
+	  {width:200,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left', contextArgs:'sort-alpha'},
+	  {width: 80,text:'File ID',    className:'phedex-tree-file-id', contextArgs:'sort-alpha'},
+	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-alpha'},
+	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-alpha'},
+          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', contextArgs:'sort-alpha' ,hideByDefault:true}
     ];
   var structure = [
     { width:width, format:branchDef1, name:'Link'  },
@@ -49,14 +49,17 @@ PHEDEX.Widget.Template = function(request,divid) {
    ];
 
   that.buildTree(that.dom.content);
-  var map = [];
-  map.Root = that.tree.getRoot();
-  for (var i in structure)
-  {
-    var iNode = structure[i];
-    if ( !iNode.parent ) { iNode.parent = 'Root'; }
-//     map[iNode.name] = that.addNode( iNode, null, map[iNode.parent] );
-//     map[iNode.name].expand();
+  that.buildHeader=function(div) {
+    var map = [];
+    map.Root = that.headerTree.getRoot();
+    for (var i in structure)
+    {
+      var iNode = structure[i];
+      if ( !iNode.parent ) { iNode.parent = 'Root'; }
+      map[iNode.name] = that.addNode( iNode, null, map[iNode.parent] );
+      map[iNode.name].expand();
+    }
+    that.headerTree.render();
   }
   that.fillBody = function(div) {
     var map=[];
@@ -77,7 +80,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 	  var values = [];
 	  for (var l in iNode.format) {
 	    var start = Math.floor(Math.random()*20);
-	    values[l] = longString.substring(start,Math.floor(iNode.format[l].width/10)+start+1);
+	    values[l] = longString.substring(start,Math.floor(iNode.format[l].width/25)+start+1);
 	  }
 	  var tNode = that.addNode( iNode, values, map[parent][j] );
 	  map[iNode.name].push(tNode);
@@ -88,14 +91,6 @@ PHEDEX.Widget.Template = function(request,divid) {
     that.tree.render();
   }
 
-  that.buildExtra(that.dom.extra);
-  var root = that.headerTree.getRoot();
-  var htNode  = that.addNode( { width:width, format:branchDef1, name:'Link'  }, null, root );    htNode.expand();
-  var htNode1 = that.addNode( {              format:branchDef2, name:'Block' }, null, htNode );  htNode1.expand();
-  var htNode2 = that.addNode( {              format:branchDef3, name:'File'  }, null, htNode1 ); htNode2.expand();
-  htNode2.isLeaf = true;
-  that.headerTree.render();
-
 //   var fillOther=function() { YAHOO.util.Dom.insertBefore(document.createTextNode('Other...'),that.dom.extra.firstChild); }
 //   var fillMore=function() {  YAHOO.util.Dom.insertBefore(document.createTextNode('More...'),that.dom.extra.firstChild); }
 //   var ctl1 = new PHEDEX.Core.Control( {name:'Other', text:'Other',
@@ -105,6 +100,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 //                     payload:{target:that.dom.extra, fillFn:fillMore, obj:that} } );
 //   YAHOO.util.Dom.insertBefore(ctl2.el,that.dom.control.firstChild);
 
+  that.buildExtra(that.dom.extra);
   that.buildContextMenu();
   that.build();
   that.populate();
