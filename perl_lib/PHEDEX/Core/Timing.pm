@@ -9,15 +9,86 @@ PHEDEX::Core::Timing - a drop-in replacement for Toolkit/UtilsTiming
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(mytimeofday formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
+our @EXPORT = qw(mytimeofday gmmktime str2time formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
 use Time::HiRes 'gettimeofday';
-use POSIX qw(strftime);
+use POSIX qw(strftime mktime);
 
 
 # High-resolution timing.
 sub mytimeofday
 {
     return scalar (&gettimeofday());
+}
+
+# Stolen from SEAL Time.cpp.  Convert broken down time (mktime format)
+# into UTC time in seconds in UNIX epoch format.  Uses mktime in a way
+# that returns UTC, not local time.
+sub gmmktime
+{
+    my @args = @_;
+    my $t1 = mktime (@args);
+    my @gmt = gmtime ($t1);
+    my $t2 = mktime (@gmt);
+    return $t1 + ($t1 - $t2);
+}
+
+# str2time -- convert string to timestamp
+# possible input values:
+#    UNIX time
+#    YYYY-MM-DD[_hh:mm:ss]
+#    now
+#    last_hour
+#    last_12hours
+#    last_day
+#    last_7days
+#    last_30days
+#    last_180days
+sub str2time
+{
+    my $str = shift @_;
+
+    if ($str =~ m!(^\d*$)!)	# UNIX time
+    {
+        return $str;
+    }
+    elsif ($str eq "now")
+    {
+        return time();
+    }
+    elsif ($str eq "last_hour")
+    {
+        return time() - 3600;
+    }
+    elsif ($str eq "last_12hours")
+    {
+        return time() - 43200;
+    }
+    elsif ($str eq "last_day")
+    {
+        return time() - 86400;
+    }
+    elsif ($str eq "last_7days")
+    {
+        return time() - 604800;
+    }
+    elsif ($str eq "last_30days")
+    {
+        return time() - 2592000;
+    }
+    elsif ($str eq "last_180days")
+    {
+        return time() - 15552000;
+    }
+
+    # YYYY-MM-DD[_hh:mm:ss]
+    my @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
+    if (not $t[3]) # no time information, assume 00:00:00
+    {
+        $t[4] = 0;
+        $t[5] = 0;
+        $t[6] = 0;
+    }
+    return &gmmktime($t[6], $t[5], $t[4], $t[2], $t[1]-1, $t[0]-1900);
 }
 
 # Format TIME as unit of RANGE ("hour", "day", "week" or "month").
