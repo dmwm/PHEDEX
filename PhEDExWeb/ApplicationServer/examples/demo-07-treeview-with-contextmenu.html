@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
-  <title>PhEDEx Web Interface Widget Library Examples</title>
+  <title>PhEDEx Web Interface</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 
   <!-- YUI stylesheets-->
@@ -55,20 +55,65 @@
 
 <body class="yui-skin-sam">
  <div id='phedex-main'></div>
-<h1>PhEDEx Widget examples</h1>
-<p>See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary</a> for the accompanying documentation. These examples are coded with the assumption that you have the YUI toolkit installed locally, and are running the PhEDEx proxy-server configured to use it. See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide</a> for the documentation about that.</p>
-<p>Source code for these examples is in CVS in *PhEDExWeb/ApplicationServer/examples*</p>
 
-<ul>
-<li><a href="demo-01-core-widget-with-dom-elements.html">Core widget</a> with simple manipulation of its DOM elements.</li>
-<li><a href="demo-02-derived-widget-with-fake-update.html">Derived widget</a> with sample 'Extra' information and a delayed (but fake) 'update' call.</li>
-<li><a href="demo-03-datatable-nodes.html">Simplified DataTable widget</a> which implements the API 'Nodes' call.</li>
-<li><a href="demo-04-treeview-minimal-widget.html">Simplified TreeView widget</a> with random data.</li>
-<li><a href="demo-05-treeview-with-dynamic-data.html">TreeView</a> with dynamically loaded data.</li>
-<li><a href="demo-06-simple-contextmenu.html">ContextMenu</a> with simple example of use of registration.</li>
-<li><a href="demo-07-treeview-with-contextmenu.html">A TreeView with a ContextMenu</a> which calls out to other widgets.</li>
-<li><a href="demo-08-generic-nodehandler.html">A ContextMenu handler</a> which serves anything that can give it a node-name.</li>
-<li><a href="demo-09-use-of-control-widgets.html">Control-elements</a> and a few variations thereon.</li>
-</ul>
+<script type="text/javascript">
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {
+  My = {};
+  My.Widget = function(div,args) {
+    var that = new PHEDEX.Core.Widget.TreeView( div, args );
+    var width = 800;
+    var branchDef = [
+          {width:170,text:'Node', className:'phedex-tree-demo-node', otherClasses:'align-left', contextArgs:['Node','sort-alpha','country']}
+      ];
+    that.buildHeader = function(div) {
+      var root = that.headerTree.getRoot();
+      var tNode = that.addNode( { width:width, format:branchDef, prefix:'Top-level' }, null, root);
+      tNode.expand();
+      tNode.isLeaf = true;
+      that.headerTree.render();
+    }
+    that.fillBody = function(div) {
+      var root = that.tree.getRoot();
+      var nodes = ['T0_CH_CERN_Export','T1_DE_FZK_Buffer','T1_ES_PIC_Buffer','T1_FR_CCIN2P3_Buffer','T1_IT_CNAF_Buffer','T1_TW_ASGC_Buffer','T1_UK_RAL_Buffer','T1_US_FNAL_Buffer'];
+      for (var i in nodes) {
+        that.addNode( {format:branchDef, payload:{opts:{node:nodes[i]}}}, [ nodes[i], ] );
+      }
+      that.tree.render();
+    }
+
+    that.update = function() {
+      that.receive();
+    }
+    that.receive = function() {
+      that.populate();
+    }
+
+    that.buildTree(that.dom.content);
+    that.buildExtra(that.dom.extra);
+    that.buildContextMenu();
+    that.build();
+    return that;
+  }
+
+  var contextHandler_Country = function(args,opts,el,tgt)  {
+    var map = { T0_CH_CERN_Export:'Switzerland',
+	        T1_DE_FZK_Buffer:'Germany',
+	        T1_ES_PIC_Buffer:'Spain',
+	        T1_FR_CCIN2P3_Buffer:'France',
+	        T1_IT_CNAF_Buffer:'Italy',
+	        T1_TW_ASGC_Buffer:'Taiwan',
+	        T1_UK_RAL_Buffer:'Great Britain',
+	        T1_US_FNAL_Buffer:'USA' };
+    node = opts.node;
+    alert('"'+node+'" is in '+map[node]);
+  }
+  PHEDEX.Core.ContextMenu.Add('country', 'Show Host Country', contextHandler_Country);
+
+  var widget = new My.Widget( 'phedex-main', {width:400, height:200, constraintoviewport:true, minwidth:250} );
+  widget.update();
+});
+</script>
+
 </body>
 </html>

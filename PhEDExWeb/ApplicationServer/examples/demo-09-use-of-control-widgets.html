@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
-  <title>PhEDEx Web Interface Widget Library Examples</title>
+  <title>PhEDEx Web Interface</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 
   <!-- YUI stylesheets-->
@@ -54,21 +54,46 @@
 </head>
 
 <body class="yui-skin-sam">
+ <div id='phedex-controls' class='phedex-controls'></div>
+ <div id='phedex-about'    class='phedex-invisible phedex-about phedex-box-green'>
+   <div class='phedex-heading-logo'>
+     <a href="/html/phedex.html" title="PhEDEx Home Page">
+       <img src="/images/phedex-logo-small.gif" alt="PhEDEx" height="80" />
+     </a>
+   </div>
+   <div class='phedex-heading'/>
+      <h1>PhEDEx Web Interface</h1>
+      <h2>Next-generation Alpha Version</h1>
+      <p>See the <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a>,
+      send feedback to <a href="mailto:cms-phedex-admins@cern.ch">cms-phedex-admins@cern.ch</a></p>
+   </div>
+ </div>
+ <div id='phedex-instance' class='phedex-invisible phedex-instance phedex-box-blue'></div>
+ <div id='phedex-control3' class='phedex-invisible phedex-control3 phedex-box-yellow' style='width:200px;'></div>
  <div id='phedex-main'></div>
-<h1>PhEDEx Widget examples</h1>
-<p>See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary</a> for the accompanying documentation. These examples are coded with the assumption that you have the YUI toolkit installed locally, and are running the PhEDEx proxy-server configured to use it. See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide</a> for the documentation about that.</p>
-<p>Source code for these examples is in CVS in *PhEDExWeb/ApplicationServer/examples*</p>
 
-<ul>
-<li><a href="demo-01-core-widget-with-dom-elements.html">Core widget</a> with simple manipulation of its DOM elements.</li>
-<li><a href="demo-02-derived-widget-with-fake-update.html">Derived widget</a> with sample 'Extra' information and a delayed (but fake) 'update' call.</li>
-<li><a href="demo-03-datatable-nodes.html">Simplified DataTable widget</a> which implements the API 'Nodes' call.</li>
-<li><a href="demo-04-treeview-minimal-widget.html">Simplified TreeView widget</a> with random data.</li>
-<li><a href="demo-05-treeview-with-dynamic-data.html">TreeView</a> with dynamically loaded data.</li>
-<li><a href="demo-06-simple-contextmenu.html">ContextMenu</a> with simple example of use of registration.</li>
-<li><a href="demo-07-treeview-with-contextmenu.html">A TreeView with a ContextMenu</a> which calls out to other widgets.</li>
-<li><a href="demo-08-generic-nodehandler.html">A ContextMenu handler</a> which serves anything that can give it a node-name.</li>
-<li><a href="demo-09-use-of-control-widgets.html">Control-elements</a> and a few variations thereon.</li>
-</ul>
+<script type="text/javascript">
+
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {
+  var ctl1 = new PHEDEX.Core.Control({text:'About', payload:{render:'phedex-controls', target:'phedex-about'} } );
+  ctl1.Show();
+
+  var ctl2 = new PHEDEX.Core.Control({text:PHEDEX.Datasvc.Instance().name,
+    payload:{render:'phedex-controls', target:'phedex-instance', fillFn:function(){PHEDEX.Page.Widget.Instance('phedex-instance');} } } );
+  PHEDEX.Datasvc.InstanceChanged.subscribe(function() { ctl2.Hide(); ctl2.Label(PHEDEX.Datasvc.Instance().name); } );
+
+  var onHideCtl3 = new YAHOO.util.CustomEvent('onHideCtl3', this, false, YAHOO.util.CustomEvent.LIST);
+  onHideCtl3.subscribe(function(ev,arg) {
+    ctl3.Disable();
+    ctl3.Label('Disabled...');
+  });
+  var fillCtl3 = function(el) { el.innerHTML='When you close the control for this element, it will be permanently disabled!'; }
+  var ctl3 = new PHEDEX.Core.Control({text:'Enabled...', payload:{target:'phedex-control3', fillFn:fillCtl3, onHideControl:onHideCtl3} } );
+  var phedexControls = document.getElementById('phedex-controls');
+  phedexControls.appendChild(ctl3.el);
+});
+</script>
+
 </body>
 </html>
