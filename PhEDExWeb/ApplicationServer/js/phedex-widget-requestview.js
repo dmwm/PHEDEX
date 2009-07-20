@@ -111,7 +111,7 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       that.addNode( {format:branchDef4},
 		    [ d.name, d.id, {files:d.files,bytes:d.bytes} ] );
     }
-    tNode1.expand();
+    tNode.expand();
     that.tree.render();
   }
   that.approval=function() {
@@ -140,20 +140,20 @@ PHEDEX.Widget.RequestView = function(request,divid) {
       that.populate();
     }
   }
+  that.buildHeader=function(div) {
+    var root = that.headerTree.getRoot();
+    var tNode1 = that.addNode( { width:width, format:branchDef1, prefix:'Request' },   null, root);    tNode1.expand();
+    var tNode2 = that.addNode( {              format:branchDef2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();
+    var tNode3 = that.addNode( {              format:branchDef3, prefix:'Approver' },  null, tNode1 ); tNode3.expand();
+    var tNode4 = that.addNode( {              format:branchDef4, prefix:'Block' },     null, root );   tNode4.expand();
+    tNode2.isLeaf = tNode3.isLeaf = tNode4.isLeaf = true;
+    that.headerTree.render();
+  }
+
   that.isDynamic = false; // disable dynamic loading of data
-
   that.buildTree(that.dom.content);
-
   that.buildExtra(that.dom.extra);
-  var root = that.headerTree.getRoot();
-  var tNode1 = that.addNode( { width:width, format:branchDef1, prefix:'Request' },   null, root);    tNode1.expand();
-  var tNode2 = that.addNode( {              format:branchDef2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();
-  var tNode3 = that.addNode( {              format:branchDef3, prefix:'Approver' },  null, tNode1 ); tNode3.expand();
-  var tNode4 = that.addNode( {              format:branchDef4, prefix:'Block' },     null, root );   tNode4.expand();
-  tNode2.isLeaf = tNode3.isLeaf = tNode4.isLeaf = true;
-  that.headerTree.render();
-
-  that.buildContextMenu('Request');
+  that.buildContextMenu();
   that.build();
   return that;
 }

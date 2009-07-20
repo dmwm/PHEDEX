@@ -164,7 +164,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  }
           var tNode = node.payload.obj.addNode(
             { format:branchDef2, payload:block.payload },
-//             [ PHEDEX.Util.format.longString(block.name), block.id, state, priority, files, bytes, block.num_errors ],
             [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
 	    node
           );
@@ -243,6 +242,13 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     };
     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
+
+    var root = that.headerTree.getRoot();
+    var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
+    var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
+    var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+    htNode2.isLeaf = true;
+    that.headerTree.render();
   }
   that.fillHeader=function(div) { }
 
@@ -299,7 +305,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
       payload.args.from = h.from;
       payload.args.to   = h.to;
       payload.args.binwidth = h.transfer[0].binwidth;
-      payload.opts.selected_node = h[antidirection];
+      payload.opts.node = h[antidirection];
       payload.opts.direction = that.direction;
       payload.data.errors    = e.block;
       var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
@@ -365,20 +371,12 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   }
   that.isDynamic = true; // enable dynamic loading of data
   that.buildTree(that.dom.content);
-
   that.buildExtra(that.dom.extra);
-  var root = that.headerTree.getRoot();
-  var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
-  var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
-  var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
-  htNode2.isLeaf = true;
-  that.headerTree.render();
-
   that.buildContextMenu();
   that.build();
   return that;
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.selected_node).update(); });
+PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.node).update(); });
 YAHOO.log('loaded...','info','Widget.LinkView');
