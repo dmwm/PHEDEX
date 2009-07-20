@@ -27,6 +27,7 @@ use Carp;
 use POSIX;
 use Data::Dumper;
 use PHEDEX::Core::Identity;
+use PHEDEX::Core::Timing;
 
 our @EXPORT = qw( );
 our (%params);
@@ -610,7 +611,7 @@ sub getTransferHistory
     # default endtime is now
     if (exists $h{ENDTIME})
     {
-        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
+        $param{':ENDTIME'} = &str2time($h{ENDTIME});
     }
     else
     {
@@ -620,7 +621,7 @@ sub getTransferHistory
     # default start time is 1 hour before
     if (exists $h{STARTTIME})
     {
-        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
+        $param{':STARTTIME'} = &str2time($h{STARTTIME});
     }
     else
     {
@@ -763,7 +764,7 @@ sub getTransferQueueHistory
     # default endtime is now
     if (exists $h{ENDTIME})
     {
-        $param{':ENDTIME'} = PHEDEX::Core::Util::str2time($h{ENDTIME});
+        $param{':ENDTIME'} = &str2time($h{ENDTIME});
     }
     else
     {
@@ -783,7 +784,7 @@ sub getTransferQueueHistory
     # default start time is 1 hour before
     if (exists $h{STARTTIME})
     {
-        $param{':STARTTIME'} = PHEDEX::Core::Util::str2time($h{STARTTIME});
+        $param{':STARTTIME'} = &str2time($h{STARTTIME});
     }
     else
     {
@@ -949,7 +950,7 @@ sub getRequestData
 
     if (exists $h{CREATE_SINCE})
     {
-        my $t = PHEDEX::Core::Util::str2time($h{CREATE_SINCE});
+        my $t = &str2time($h{CREATE_SINCE});
         $sql .= qq {\n            and r.time_create >= $t};
     }
 
@@ -1849,7 +1850,7 @@ sub getBlockTestFiles
         {
             $sql .= " where time_reported >= :test_since ";
         }
-        $p{':test_since'} = PHEDEX::Core::Util::str2time($h{TEST_SINCE});
+        $p{':test_since'} = &str2time($h{TEST_SINCE});
     }
 
     $sql .= " order by time_reported ";
