@@ -3,7 +3,7 @@ PHEDEX.namespace('Core.Widget.TreeView');
 PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   var that=new PHEDEX.Core.Widget(divid,opts);
   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
-  that.structure={headerNames:[], hideByDefault:[], contextArgs:[]};
+  that.structure={headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {
@@ -143,11 +143,12 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	var value;
 	if ( values ) { value = values[i]; }
 	else { value = spec.format[i].text; }
-	if ( spec.prefix ) { value = spec.prefix+': '+value; }
+	if ( spec.name ) { value = spec.name+': '+value; }
 	if ( that.structure.headerNames[className] ) {
-	  YAHOO.log('duplicate entry for '+className+': "'+that.structure.headerNames[className]+'" and "'+value+'"','error','Core.TreeView');
+	  YAHOO.log('duplicate entry for '+className+': "'+that.structure.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
 	} else {
-	  that.structure.headerNames[className] = value;
+	  that.structure.headerNames[className] = {value:value, group:spec.name};
+	  that.structure.sortFields[spec.name] = null;
 	  if ( spec.format[i].contextArgs )
 	  {
 	    that.structure.contextArgs[className]=[];
@@ -316,7 +317,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     YAHOO.util.Dom.getElementsByClassName(className,null,that.div,function(element) {
       element.style.display = 'none';
     });
-    that.column_menu.addItem({text: that.structure.headerNames[className],value: className});
+    that.column_menu.addItem({text: that.structure.headerNames[className].value,value: className});
     that.refreshButton();
   }
   that.hideAllFieldsThatShouldBeHidden=function() {
@@ -412,6 +413,8 @@ PHEDEX.Core.Widget.TreeView.sort=function(args,opts,el,sortFn) {
     return;
   }
 
+  var s = obj.structure.sortFields;
+  s[obj.structure.headerNames[thisClass].group] = thisClass;
   var parent = node.parent;
   var children = parent.children;
   var map = [], indices=[];

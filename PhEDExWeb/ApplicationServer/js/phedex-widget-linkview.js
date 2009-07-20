@@ -244,9 +244,9 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
 
     var root = that.headerTree.getRoot();
-    var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
-    var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
-    var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+    var htNode  = that.addNode( { width:width, format:branchDef1, name:'Link'  }, null, root );    htNode.expand();
+    var htNode1 = that.addNode( {              format:branchDef2, name:'Block' }, null, htNode );  htNode1.expand();
+    var htNode2 = that.addNode( {              format:branchDef3, name:'File'  }, null, htNode1 ); htNode2.expand();
     htNode2.isLeaf = true;
     that.headerTree.render();
   }

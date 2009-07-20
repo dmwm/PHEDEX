@@ -142,10 +142,10 @@ PHEDEX.Widget.RequestView = function(request,divid) {
   }
   that.buildHeader=function(div) {
     var root = that.headerTree.getRoot();
-    var tNode1 = that.addNode( { width:width, format:branchDef1, prefix:'Request' },   null, root);    tNode1.expand();
-    var tNode2 = that.addNode( {              format:branchDef2, prefix:'Requestor' }, null, tNode1 ); tNode2.expand();
-    var tNode3 = that.addNode( {              format:branchDef3, prefix:'Approver' },  null, tNode1 ); tNode3.expand();
-    var tNode4 = that.addNode( {              format:branchDef4, prefix:'Block' },     null, root );   tNode4.expand();
+    var tNode1 = that.addNode( { width:width, format:branchDef1, name:'Request' },   null, root);    tNode1.expand();
+    var tNode2 = that.addNode( {              format:branchDef2, name:'Requestor' }, null, tNode1 ); tNode2.expand();
+    var tNode3 = that.addNode( {              format:branchDef3, name:'Approver' },  null, tNode1 ); tNode3.expand();
+    var tNode4 = that.addNode( {              format:branchDef4, name:'Block' },     null, root );   tNode4.expand();
     tNode2.isLeaf = tNode3.isLeaf = tNode4.isLeaf = true;
     that.headerTree.render();
   }

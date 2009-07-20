@@ -68,7 +68,7 @@ YAHOO.util.Event.onDOMReady(function() {
       ];
     that.buildHeader = function(div) {
       var root = that.headerTree.getRoot();
-      var tNode = that.addNode( { width:width, format:branchDef, prefix:'Top-level' }, null, root);
+      var tNode = that.addNode( { width:width, format:branchDef, name:'Top-level' }, null, root);
       tNode.expand();
       tNode.isLeaf = true;
       that.headerTree.render();

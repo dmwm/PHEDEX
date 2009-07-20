@@ -43,9 +43,9 @@ PHEDEX.Widget.Template = function(request,divid) {
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right',hideByDefault:true}
     ];
   var structure = [
-    { width:width, format:branchDef1, prefix:'Link'  },
-    {              format:branchDef2, prefix:'Block',  parent:'Link'  },
-    {              format:branchDef3, prefix:'File',   parent:'Block' }
+    { width:width, format:branchDef1, name:'Link'  },
+    {              format:branchDef2, name:'Block',  parent:'Link'  },
+    {              format:branchDef3, name:'File',   parent:'Block' }
    ];
 
   that.buildTree(that.dom.content);
@@ -55,8 +55,8 @@ PHEDEX.Widget.Template = function(request,divid) {
   {
     var iNode = structure[i];
     if ( !iNode.parent ) { iNode.parent = 'Root'; }
-//     map[iNode.prefix] = that.addNode( iNode, null, map[iNode.parent] );
-//     map[iNode.prefix].expand();
+//     map[iNode.name] = that.addNode( iNode, null, map[iNode.parent] );
+//     map[iNode.name].expand();
   }
   that.fillBody = function(div) {
     var map=[];
@@ -71,7 +71,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 
       iNode.className = 'phedex-tnode-field';
 
-      if ( !map[iNode.prefix] ) { map[iNode.prefix] = []; }
+      if ( !map[iNode.name] ) { map[iNode.name] = []; }
       for (var j in map[parent]) {
 	for (var k=0; k<Math.floor(Math.random()*4+3); k++) {
 	  var values = [];
@@ -80,7 +80,7 @@ PHEDEX.Widget.Template = function(request,divid) {
 	    values[l] = longString.substring(start,Math.floor(iNode.format[l].width/10)+start+1);
 	  }
 	  var tNode = that.addNode( iNode, values, map[parent][j] );
-	  map[iNode.prefix].push(tNode);
+	  map[iNode.name].push(tNode);
 // 	  tNode.expand();
 	}
       }
@@ -90,9 +90,9 @@ PHEDEX.Widget.Template = function(request,divid) {
 
   that.buildExtra(that.dom.extra);
   var root = that.headerTree.getRoot();
-  var htNode  = that.addNode( { width:width, format:branchDef1, prefix:'Link'  }, null, root );    htNode.expand();
-  var htNode1 = that.addNode( {              format:branchDef2, prefix:'Block' }, null, htNode );  htNode1.expand();
-  var htNode2 = that.addNode( {              format:branchDef3, prefix:'File'  }, null, htNode1 ); htNode2.expand();
+  var htNode  = that.addNode( { width:width, format:branchDef1, name:'Link'  }, null, root );    htNode.expand();
+  var htNode1 = that.addNode( {              format:branchDef2, name:'Block' }, null, htNode );  htNode1.expand();
+  var htNode2 = that.addNode( {              format:branchDef3, name:'File'  }, null, htNode1 ); htNode2.expand();
   htNode2.isLeaf = true;
   that.headerTree.render();
 

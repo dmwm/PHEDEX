@@ -103,9 +103,9 @@ YAHOO.util.Event.onDOMReady(function() {
 
     that.buildHeader= function(div) {
       var root = that.headerTree.getRoot();
-      var tNode1 = that.addNode( { width:width, format:branchDef1, prefix:'Top-level' }, null, root);    tNode1.expand();
-      var tNode2 = that.addNode( {              format:branchDef2, prefix:'Thing' },     null, tNode1 ); tNode2.expand();
-      var tNode3 = that.addNode( {              format:branchDef3, prefix:'Object' },    null, tNode2 ); tNode3.expand();
+      var tNode1 = that.addNode( { width:width, format:branchDef1, name:'Top-level' }, null, root);    tNode1.expand();
+      var tNode2 = that.addNode( {              format:branchDef2, name:'Thing' },     null, tNode1 ); tNode2.expand();
+      var tNode3 = that.addNode( {              format:branchDef3, name:'Object' },    null, tNode2 ); tNode3.expand();
       tNode3.isLeaf = true;
       that.headerTree.render();
     }
