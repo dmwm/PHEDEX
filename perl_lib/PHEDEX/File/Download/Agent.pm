@@ -154,10 +154,12 @@ sub sync_tasks
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $self->delay_max($kernel, 'sync_tasks', 1800);
 
-  $self->reconnect() unless $self->connectionValid();
-  $kernel->call($session, 'report_tasks');
-  $kernel->call($session, 'update_tasks');
-  $kernel->call($session, 'fetch_tasks') if ! -f "$$self{DROPDIR}/drain";
+  if ($self->connectionValid() || $self->reconnect()) {
+      $kernel->call($session, 'report_tasks');
+      $kernel->call($session, 'update_tasks');
+      $kernel->call($session, 'fetch_tasks') if ! -f "$$self{DROPDIR}/drain";
+      $$self{DBH_LAST_USE} = &mytimeofday();
+  }
 }
 
 # Upload final task status to the database.
@@ -458,7 +460,8 @@ eval
     my $tasks = $self->{TASKS};
     my $now = &mytimeofday();
 
-    $self->reconnect() if ! $self->connectionValid();
+    # Come back later if we can't get a connection
+    return unless ($self->connectionValid() || $self->reconnect());
 
     # Compare local transfer pool with database and reset everything one
     # or the other doesn't know about.  We assume this is the only agent
@@ -1127,6 +1130,7 @@ sub reconnect
 {
     my ($self) = @_;
 
+    my $rv = 0;
 eval
 {
     my $now = &mytimeofday();
@@ -1153,7 +1157,9 @@ eval
 
     $$self{DBH_LAST_USE} = $now;
     $$self{LAST_CONNECT} = $now;
+    $rv = 1; # reconnected OK
 }; $self->clean_death();
+return $rv;
 }
 
 # Save a task after change of status.
