@@ -1856,10 +1856,119 @@ sub getBlockTestFiles
     $sql .= " order by time_reported ";
     $q = execute_sql( $core, $sql, %p);
 
-    my %node;
-
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
     return \@r;
 }
 
+sub getDataSubscriptions
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            s.request,
+            NVL2(s.block, 'BLOCK', 'DATASET') "level",
+            NVL2(s.block, s.block, s.dataset) item_id,
+            NVL2(s.block, b.name, ds.name) item_name,
+            NVL2(s.block, b.is_open, ds.is_open) open,
+            NVL2(s.block, b.time_update, ds.time_update) time_update,
+            ds.id dataset_id,
+            ds.name dataset_name,
+            n.id node_id,
+            n.name node,
+            n.se_name se,
+            s.dataset subs_dataset,
+            s.block subs_block,
+            s.priority,
+            s.is_move move,
+            s.is_custodial custodial,
+            g.name "group",
+            NVL2(s.time_suspend_until, 'y', 'n') suspended,
+            s.time_suspend_until suspend_until,
+            s.time_create,
+            b.files files,
+            b.bytes bytes,
+            reps.node_files,
+            reps.node_bytes
+        from
+            t_dps_subscription s
+            join t_adm_node n on n.id = s.destination
+            left join t_dps_block b on b.id = s.block
+            left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+            left join t_adm_group g on g.id = s.user_group
+            join t_req_request r on r.id = s.request
+            join t_req_xfer x on x.request = r.id
+            join
+            (select
+                s2.destination,
+                s2.dataset,
+                s2.block,
+                sum(br.node_files) node_files,
+                sum(br.node_bytes) node_bytes
+            from
+                t_dps_subscription s2
+                left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
+                left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
+            group by
+                s2.destination,
+                s2.dataset,
+                s2.block
+            ) reps
+            on reps.destination = s.destination
+            and (reps.dataset = s.dataset or reps.block = s.block)
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, ( NODE => 'n.name',
+						      BLOCK => 'b.name',
+                                                      DATASET => 'ds.name',
+                                                      SE => 'n.se_name',
+                                                      REQUEST => 's.request',
+                                                      CUSTODIAL => 's.is_custodial',
+                                                      GROUP => 'g.name'
+						      ));
+
+    if (exists $h{CREATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= " and s.time_create >= :create_since ";
+        }
+        else
+        {
+            $filters = " s.time_create >= :create_since ";
+        }
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= " and (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
+        }
+        else
+        {
+            $filters .= " (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
+        }
+        $p{':update_since'} = &str2time($h{UPDATE_SINCE});
+    }
+
+    $sql .= "where ($filters) " if ($filters);
+    $sql .= qq {
+        order by
+            s.time_create desc,
+            s.dataset desc,
+            s.block desc,
+            n.name
+    };
+
+    $q = execute_sql( $core, $sql, %p);
+
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+    return \@r;
+    
+}
 1;
