@@ -12,6 +12,15 @@ PHEDEX::Web::API::TransferHistory - history of completed transfer attempts
 
 Serves historical statistics about completed transfer attempts.
 
+Note: PhEDEx monitoring is not "real time", which means that statistics
+for past events are added to the history as they are received. For
+example, if you are interested in the transfers for the last day, you
+are advised to make the call to the data service at least 3 hours
+after that day ends, to give PhEDEx time to add the statistics to the
+DB tables.  Even waiting this amount of time does not guaruntee that
+more statistics will be added to the day later, but in most cases it
+is sufficient.
+
 =head2 Options
 
  required inputs: none (default to be the last hour)
@@ -34,8 +43,8 @@ Serves historical statistics about completed transfer attempts.
 
   starttime and endtime could in one of the following format
   [1] <UNIX time>            (integer)
-  [2] "YYYY-MM-DD"           (assuming 00:00:00)
-  [3] "YYYY-MM-DD hh:mm:ss"
+  [2] "YYYY-MM-DD"           (assuming 00:00:00 UTC)
+  [3] "YYYY-MM-DD hh:mm:ss"  (UTC)
 
 =head2 Output
 

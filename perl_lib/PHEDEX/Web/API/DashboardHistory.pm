@@ -35,8 +35,8 @@ returned in 4 predefined values.
 
   starttime and endtime could in one of the following format
   [1] <UNIX time>            (integer)
-  [2] "YYYY-MM-DD"           (assuming 00:00:00)
-  [3] "YYYY-MM-DD hh:mm:ss"
+  [2] "YYYY-MM-DD"           (assuming 00:00:00 UTC)
+  [3] "YYYY-MM-DD hh:mm:ss"  (UTC)
 
 =head2 Output
 
