@@ -76,7 +76,7 @@ use PHEDEX::Core::Util;
 
 # mapping format for the output
 my $map = {
-    _KEY => 'REQUEST',
+    _KEY => 'REQUEST+DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
     files => 'NODE_FILES',
@@ -99,7 +99,7 @@ my $map = {
 };
 
 my $map2 = {
-    _KEY => 'REQUEST',
+    _KEY => 'REQUEST+DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
     files => 'NODE_FILES',
