@@ -24,6 +24,8 @@ Show existing subscriptions and their parameters.
   custodial        y or n to filter custodial/non subscriptions.
                    default is null (either)
   group            group name filter 
+  priority         priority, one of "low", "normal" and "high"
+  move             y (move) or n (replica)
 
 =head2 Output
 
@@ -76,14 +78,14 @@ use PHEDEX::Core::Util;
 
 # mapping format for the output
 my $map = {
-    _KEY => 'REQUEST+DATASET_ID',
+    _KEY => 'DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
     files => 'NODE_FILES',
     bytes => 'NODE_BYTES',
     is_open => 'OPEN',
     subscription => {
-        _KEY => 'LEVEL',
+        _KEY => 'REQUEST',
         level => 'LEVEL',
         node => 'NODE',
         node_id => 'NODE_ID',
@@ -99,26 +101,12 @@ my $map = {
 };
 
 my $map2 = {
-    _KEY => 'REQUEST+DATASET_ID',
+    _KEY => 'DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
     files => 'NODE_FILES',
     bytes => 'NODE_BYTES',
     is_open => 'OPEN',
-    subscription => {
-        _KEY => 'LEVEL',
-        level => 'LEVEL',
-        node => 'NODE',
-        node_id => 'NODE_ID',
-        request => 'REQUEST',
-        priority => 'PRIORITY',
-        move => 'MOVE',
-        custodial => 'CUSTODIAL',
-        group => 'GROUP',
-        time_created => 'TIME_CREATE',
-        suspended => 'SUSPENDED',
-        suspend_until => 'SUSPEND_UNTIL'
-    },
     block => {
         _KEY => 'ITEM_ID',
         id => 'ITEM_ID',
@@ -152,7 +140,7 @@ sub subscriptions
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / dataset block node se create_since update_since request custodial group / )
+    foreach ( qw / dataset block node se create_since update_since request custodial group move priority / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
