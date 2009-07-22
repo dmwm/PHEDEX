@@ -1956,6 +1956,32 @@ sub getDataSubscriptions
         $p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= " and s.priority = :priority ";
+        }
+        else
+        {
+            $filters .= " s.priority = :priority ";
+        }
+        $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
+    }
+
+    if (exists $h{MOVE})
+    {
+        if ($filters)
+        {
+            $filters .= " and s.is_move = :move ";
+        }
+        else
+        {
+            $filters .= " s.is_move = :move ";
+        }
+        $p{':move'} = $h{MOVE};
+    }
+
     $sql .= "where ($filters) " if ($filters);
     $sql .= qq {
         order by
@@ -1967,7 +1993,11 @@ sub getDataSubscriptions
 
     $q = execute_sql( $core, $sql, %p);
 
-    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
+        push @r, $_;
+    }
     return \@r;
     
 }
