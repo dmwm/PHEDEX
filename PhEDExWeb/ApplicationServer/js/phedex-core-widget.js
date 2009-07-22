@@ -41,7 +41,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.control = [];
   this.dom    = [];
   this.ctl    = [];
-  this.filter = [];
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
@@ -259,84 +258,47 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.panel.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
-// This needs to be overridden in the derived widgets...
-  this.applyFilter=function() {}     // Apply the filter to the data
-
-// These filter-functions are generic
-  this.acceptFilter=function() {
-    YAHOO.log('acceptFilter:'+this.me(),'info','Core.Widget');
-    var elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem');
-    for (var i in elList) {
-      var el = elList[i];
-      this.filter.args[el.name] = el.value;
+// This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
+// Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
+  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.Widget');
+      obj.ctl.filter.Hide();
+      obj.filter.Reset();
     }
-    this.applyFilter();
-    this.ctl.filter.Hide();
-  }
-  this.resetFilter=function() {
-    this.filter.count=0;
-    this.filter.args={};
-  }
-  this.cancelFilter=function() {
-    YAHOO.log('cancelFilter:'+this.me(),'info','Core.Widget');
-    this.resetFilter();
-    this.ctl.filter.Hide();
-  }
-// Build the filter-div, allow the widget to define its contents...
-  this.buildFilter=function(div) {
-    var obj = this.obj;
-    obj.filter.overlay = new YAHOO.widget.Overlay(obj.dom.filter.id, { context:[obj.dom.body.id,"tl","tl", ["beforeShow", "windowResize"]],
-            visible:false,
-	    autofillheight:'body'} );
-    obj.filter.overlay.setHeader('Filter data selection');
-    obj.filter.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-    obj.filter.overlay.setFooter('&nbsp;');
-    YAHOO.util.Dom.addClass(obj.filter.overlay.element,'phedex-core-overlay')
+  }(this));
+  PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onFilterAccept:'+obj.me(),'info','Core.Widget');
+      obj.filter.Parse();
+    }
+  }(this));
+  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+    return function(ev,arr) {
+    debugger;
+      YAHOO.log('onFilterParsed:'+obj.me(),'info','Core.Widget');
+      obj.ctl.filter.Hide();
+      var args = arr[0];
+    }
+  }(this));
 
-    var body = obj.filter.overlay.body;
-    body.innerHTML=null;
-    var fieldset = document.createElement('fieldset');
-    fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
-    var legend = document.createElement('legend');
-    legend.appendChild(document.createTextNode('filter parameters'));
-    fieldset.appendChild(legend);
-    var filterDiv = document.createElement('div');
-    filterDiv.id = 'filterDiv_'+PHEDEX.Util.Sequence();
-    fieldset.appendChild(filterDiv);
-    var buttonDiv = document.createElement('div');
-    buttonDiv.id = 'buttonDiv_'+PHEDEX.Util.Sequence();
-    fieldset.appendChild(buttonDiv);
-    body.appendChild(fieldset);
-
-    obj.filter.overlay.render(document.body);
-    obj.filter.overlay.cfg.setProperty('width',obj.dom.body.offsetWidth+'px');
-    obj.filter.overlay.show();
-    obj.filter.overlay.cfg.setProperty('zindex',10);
-    obj.fillFilter(filterDiv);
-
-    var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
-    buttonAcceptFilter.on('click', function(){ this.acceptFilter(filterDiv); }, obj, obj );
-    var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
-    buttonCancelFilter.on('click', function(){ this.cancelFilter(); }, obj, obj );
-  }
   this.destroyFilter = function() {
-// Destroy the contents of the filter-overlay.
+//  Destroy the contents of the filter-overlay.
     if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl.filter.el,'phedex-core-control-widget-applied'); }
     else                     { YAHOO.util.Dom.removeClass(this.ctl.filter.el,'phedex-core-control-widget-applied'); }
     if ( this.filter.overlay && this.filter.overlay.element ) {
       this.filter.overlay.destroy();
     }
   }
-  this.resetFilter();
   this.onBuildComplete.subscribe(function() {
     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
     this.ctl.extra = new PHEDEX.Core.Control( {text:'Extra',
                     payload:{target:this.dom.extra, fillFn:this.fillExtra, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
     YAHOO.util.Dom.insertBefore(this.ctl.extra.el,this.dom.control.firstChild);
     this.ctl.filter = new PHEDEX.Core.Control( {text:'Filter',
-                    payload:{target:this.dom.filter, fillFn:this.buildFilter, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+                    payload:{target:this.dom.filter, fillFn:this.filter.Build, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
     YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
-    if ( !this.fillFilter ) { this.ctl.filter.Disable(); }
+    if ( !this.filter.cfg ) { this.ctl.filter.Disable(); }
   });
 
 // Create a (usually hidden) progress indicator.
@@ -352,4 +314,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.startLoading();
   return this;
 }
+
+YAHOO.lang.augmentProto(PHEDEX.Core.Widget,PHEDEX.Core.Filter);
+
 YAHOO.log('loaded...','info','Core.Widget');
