@@ -101,6 +101,26 @@ a.phedex-link-current {
   background-color: yellow;
 }
 
+.phedex-filter-buttons {
+  padding: 5px 0 0;
+}
+.phedex-filter-outer {
+  border-bottom:  1px dotted #888;
+  padding: 3px 0 0 0;
+}
+.phedex-filter-inner {
+  display: inline-block;
+  width: 250px;
+/*  padding: 0 1em 0 0;*/
+  margin:  0 0.5em 0 0;
+  text-align: right;
+}
+.phedex-filter-elem-minmax {
+  width: 80px;
+  padding: 0 0 0 2em;
+  border-right: 1px dotted black;
+}
+
 .phedex-core-param {
 }
 .phedex-core-title {
