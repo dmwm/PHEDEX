@@ -1,3 +1,23 @@
+* Changes for 1.4.1
+
+ Changes for APIs:
+
+  * blockreplicas, filereplicas - add 'subscribed' filter option and
+    output value, for indicating whether or not the replica is
+    subscribed
+  * inject - allow multiple checksums for files (adler32 and cksum)
+
+ Bug Fixes for APIs:
+
+  * transferhistory - bug localtime/gmtime bug when specifying string
+    timestamps in options
+
+ Etc.:
+
+  * allow "Store Results" => "DataOps" SiteDB role to inject and
+    subscribe
+  * minor documentation fixes
+
 * Changes for 1.4.0
 
  New APIs:
