@@ -323,29 +323,15 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 // cheat, until I know how to do this properly...
   that.filter.count++;
   }
-  that.fillFilter = function(div) { // Create the filter-form in the div allocated
-    var cfg = [
-		{type:'input', name:'phedex-tree-node',    value:'T.*', text:'Node-name (simple regex)' },
-// 		{type:'input', name:'phedex-tree-done',    value:'0',   text:'Files-done (int, min)' },
-// 		{type:'input', name:'phedex-tree-failed',  value:'0',   text:'Files-failed (int, min)' },
-// 		{type:'input', name:'phedex-tree-expired', value:'0',   text:'Files-expired (int, min)' },
-// 		{type:'input', name:'phedex-tree-rate',    value:'0',   text:'Transfer-rate (MB/sec)' },
-		{type:'input', name:'phedex-tree-quality', value:'0',   text:'Transfer-quality (pct)' },
-// 		{type:'input', name:'phedex-tree-queued',  value:'0',   text:'Files-queued (int, min)' }
-	      ];
-    for (var i in cfg) {
-      var el = document.createElement('div');
-      var input = document.createElement(cfg[i].type);
-      input.setAttribute('type',cfg[i].text);
-      input.setAttribute('id','phedex_filter_field_'+PHEDEX.Util.Sequence());
-      input.setAttribute('class','phedex-filter-elem');
-      input.setAttribute('name',cfg[i].name);
-      input.setAttribute('value',cfg[i].value);
-      el.appendChild(input);
-      el.appendChild(document.createTextNode(cfg[i].text));
-      div.appendChild(el);
-    }
-  }
+  that.filter.cfg = {
+	'phedex-tree-node'    :{type:'regex',   value:null, text:'Node-name',        tip:'simple perl-style regular expression' },
+	'phedex-tree-rate'    :{type:'float',   value:null, text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
+	'phedex-tree-quality' :{type:'percent', value:null, text:'Transfer-quality', tip:'transfer-quality in percent' },
+	'phedex-tree-done'    :{type:'minmax',  value:null, text:'Files-done',       tip:'number of files successfully transferred' },
+	'phedex-tree-failed'  :{type:'minmax',  value:null, text:'Files-failed',     tip:'number of failed transfer attempts' },
+	'phedex-tree-expired' :{type:'minmax',  value:null, text:'Files-expired',    tip:'number of expired files' },
+	'phedex-tree-queued'  :{type:'minmax',  value:null, text:'Files-queued',     tip:'number of files queued for transfer' }
+      };
 
   that.receive=function(event,data) {
     var result   = data[0];
