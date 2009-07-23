@@ -142,6 +142,17 @@ PHEDEX.Core.Filter.prototype = {
 	  el.setAttribute('type',e.type);
 	  el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
 	  el.setAttribute('value',c.value);
+	  if ( this.args && this.args[key] ) {
+	    var def = this.args[key];
+	    if ( fields[i] ) {
+	      if ( def[fields[i]] ) {
+	        def = def[fields[i]];
+	      } else {
+	        def = null;
+	      }
+	    }
+	    el.setAttribute('value',def);
+	  }
 	  inner.appendChild(el);
 	  if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
 	  if ( !focusOn ) { focusOn = el; }
