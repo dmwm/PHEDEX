@@ -1,17 +1,42 @@
 PHEDEX.namespace('Core.Filter');
 
+// borrowed the coding style from the YUI EventProvider class. This apparently makes it suitable for passing to YAHOO.lang.augmentProto,
+// which means the core-widget can 'inherit' this code without having to have it cluttering up the core-widget directly. Makes it more
+// maintainable.
+//
+// As an extra effort towards clean code, I put everything in a sub-object, 'filter'. So instead of inheriting methods which become
+// PHEDEX.Core.Widget.filterMethod I have PHEDEX.Core.Widget.filter.Method. This helps reduce namespace-collisions while keeping sensible
+// names for methods, and makes it easier to inspect the code in firebug, by giving a hierarchy which can save screen-space. It also makes
+// it easier to understand the code: anything in this.filter must be related to this file!
 PHEDEX.Core.Filter = function() { }
 PHEDEX.Core.Filter.prototype = {
   filter: {
-    TypeMap: {
-      regex:  {type:'input', size:20},
-      minmax: {type:'input', size:7, fields:['min','max'], class:'minmax' },
-      int:    {type:'input', size:7 },
-      float:  {type:'input', size:7 },
-      percent:{type:'input', size:5 }
+    TypeMap: { // map a 'logical element' (such as 'floating-point range') toone or more DOM selection elements
+      regex:       {type:'input', size:20},
+      int:         {type:'input', size:7 },
+      float:       {type:'input', size:7 },
+      percent:     {type:'input', size:5 },
+      minmax:      {type:'input', size:7, fields:['min','max'], class:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
+      minmaxFloat: {type:'input', size:7, fields:['min','max'], class:'minmaxFloat' },
+      minmaxPct:   {type:'input', size:5, fields:['min','max'], class:'minmaxPercent' }
     },
     Validate: {
-      regex: function(arg) { return {result:true, value:arg}; }, // ...no sensible way to validate a regex except to compile it...
+      regex: function(arg) { return {result:true, value:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
+      int: function(arg) {
+	var i = parseInt(arg);
+	return {result:true, value:i};
+      },
+      float: function(arg) {
+	var i = parseFloat(arg);
+	if ( isNaN(i) ) { return {result:false}; }
+	return {result:true, value:i};
+      },
+      percent: function(arg) {
+	var i = parseFloat(arg);
+	if ( isNaN(i) ) { return {result:false}; }
+	if ( i>100.0 || i<0.0 ) { return {result:false}; }
+	return {result:true, value:i};
+      },
       minmax: function(arg) {
 	var v = { result:false };
 	if ( arg.min ) { v.min = parseInt(arg.min); if ( isNaN(v.min) ) { return v; } }
@@ -28,21 +53,15 @@ PHEDEX.Core.Filter.prototype = {
 	v.result = true;
 	return v;
       },
-      int: function(arg) {
-	var i = parseInt(arg);
-	return {result:true, value:i};
-      },
-      float: function(arg) {
-	var i = parseFloat(arg);
-	if ( isNaN(i) ) { return {result:false}; } 
-	return {result:true, value:i};
-      },
-      percent: function(arg) {
- debugger;
-	var i = parseFloat(arg);
-	if ( isNaN(i) ) { return {result:false}; }
-	if ( i>100.0 || i<0.0 ) { return {result:false}; }
-	return {result:true, value:i};
+      minmaxPct: function(arg) {
+	var v = { result:false };
+	if ( arg.min ) { v.min = parseFloat(arg.min); if ( isNaN(v.min) ) { return v; } }
+	if ( arg.max ) { v.max = parseFloat(arg.max); if ( isNaN(v.max) ) { return v; } }
+	if ( v.min && v.max && v.min > v.max ) { return v; }
+	if ( v.min && ( v.min < 0 || v.min > 100 ) ) { return v; }
+	if ( v.max && ( v.max < 0 || v.max > 100 ) ) { return v; }
+	v.result = true;
+	return v;
       }
     },
 
@@ -90,7 +109,9 @@ PHEDEX.Core.Filter.prototype = {
     },
 
     Fill: function(div) {
+      this.focusMap={};
       for (var key in this.cfg) {
+	var focusOn;
 	var c = this.cfg[key];
 	if ( !c.value ) { c.value = null; }
 
@@ -98,6 +119,7 @@ PHEDEX.Core.Filter.prototype = {
 	outer.className = 'phedex-filter-outer';
 	var inner = document.createElement('div');
 	inner.className = 'phedex-filter-inner';
+	inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
 	var e = this.TypeMap[c.type];
 	if ( !e ) {
 	  YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
@@ -111,9 +133,9 @@ PHEDEX.Core.Filter.prototype = {
 	    inner.appendChild(document.createTextNode(fields[i]+' '));
 	  }
 	  var el = document.createElement(e.type);
-	  el.setAttribute('id','phedex_filter_field_'+PHEDEX.Util.Sequence());
-	  el.setAttribute('class','phedex-filter-elem');
-	  if ( fields[i] ) { YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]); }
+	  el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
+	  el.className = 'phedex-filter-elem';
+	  YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
 	  if ( e.class   ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
 	  var size = e.size || c.size;
 	  if ( size ) { el.setAttribute('size',size); }
@@ -121,23 +143,27 @@ PHEDEX.Core.Filter.prototype = {
 	  el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
 	  el.setAttribute('value',c.value);
 	  inner.appendChild(el);
+	  if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
+	  if ( !focusOn ) { focusOn = el; }
 	}
 	outer.appendChild(inner);
-// 	if ( c.tip ) { outer.setAttribute('tip',c.tip); }
+// 	if ( c.tip ) { outer.setAttribute('tip',c.tip); } // would be nice to set a tooltip
 	outer.appendChild(document.createTextNode(c.text));
 	div.appendChild(outer);
+	focusOn.focus();
       }
     },
 
     Parse: function() {
       this.Reset();
+      var isValid = true;
+      var keyMatch = /^phedex-filter-key-/;
       var innerList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-inner');
       for (var i in innerList) {
 	var nItems = 0, nSet = 0;
 	var values = {};
 	var value = null;
 	var elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem',null,innerList[i]);
-	var keyMatch = /^phedex-filter-key-/;
 	for (var j in elList) {
 	  var el = elList[j];
 	  var key;
@@ -158,19 +184,38 @@ PHEDEX.Core.Filter.prototype = {
 	if ( nSet ) {
 	  if ( nItems > 1 ) {
 	    s = this.Validate[type](values);
-	    if ( s.result ) { this.args[el.name] = values; }
+	    if ( s.result ) {
+	      this.args[el.name] = values;
+	      this.setValid(innerList[i]);
+	    }
 	  } else {
 	    s = this.Validate[type](value);
-	    if ( s.result ) { this.args[el.name] = value; }
+	    if ( s.result ) {
+	      this.args[el.name] = value;
+	      this.setValid(innerList[i]);
+	    }
 	  }
 	  if ( !s.result ) {
-	    YAHOO.log('Invalid entry for "'+this.cfg[key].text+'", aborting accept','error','Core.Widget');
-	    PHEDEX.Event.onFilterCancel.fire();
-	    return;
+	    YAHOO.log('Invalid entry for "'+this.cfg[el.name].text+'", aborting accept','error','Core.Widget');
+	    this.setInvalid(innerList[i],isValid);
+	    isValid = false;
 	  }
 	}
       }
-      PHEDEX.Event.onFilterValidated.fire(this.args);
+      if ( isValid ) { PHEDEX.Event.onFilterValidated.fire(this.args); }
+      return isValid; // in case it's useful...
+    },
+
+    setValid:   function(el) {
+      YAHOO.util.Dom.removeClass(el,'phedex-filter-elem-invalid');
+      this.count++;
+    },
+    setInvalid: function(el,setFocus) {
+      YAHOO.util.Dom.addClass(el,'phedex-filter-elem-invalid');
+      if ( setFocus ) {
+	var focusOn = document.getElementById(this.focusMap[el.id]);
+	focusOn.focus();
+      }
     }
   }
 }

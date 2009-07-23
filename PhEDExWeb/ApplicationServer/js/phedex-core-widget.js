@@ -248,7 +248,13 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
   this.onShowFilter     = new YAHOO.util.CustomEvent("onShowFilter", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideFilter     = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
-  this.onHideFilter.subscribe(function(ev,arg) { this.destroyFilter(); });
+  this.onHideFilter.subscribe(function() {
+      if ( this.filter.overlay && this.filter.overlay.element ) {
+	this.filter.overlay.destroy();
+      }
+      if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl.filter.el,'phedex-core-control-widget-applied'); }
+      else                     { YAHOO.util.Dom.removeClass(this.ctl.filter.el,'phedex-core-control-widget-applied'); }
+    });
 
 // adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
   this.adjustHeader=function(arg) {
@@ -264,6 +270,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
     return function() {
       YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.Widget');
       obj.ctl.filter.Hide();
+      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.filter.Reset();
     }
   }(this));
@@ -273,23 +280,15 @@ PHEDEX.Core.Widget = function(divid,opts) {
       obj.filter.Parse();
     }
   }(this));
-  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+    PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
-    debugger;
       YAHOO.log('onFilterParsed:'+obj.me(),'info','Core.Widget');
       obj.ctl.filter.Hide();
       var args = arr[0];
+debugger;
     }
   }(this));
 
-  this.destroyFilter = function() {
-//  Destroy the contents of the filter-overlay.
-    if ( this.filter.count ) { YAHOO.util.Dom.addClass   (this.ctl.filter.el,'phedex-core-control-widget-applied'); }
-    else                     { YAHOO.util.Dom.removeClass(this.ctl.filter.el,'phedex-core-control-widget-applied'); }
-    if ( this.filter.overlay && this.filter.overlay.element ) {
-      this.filter.overlay.destroy();
-    }
-  }
   this.onBuildComplete.subscribe(function() {
     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
     this.ctl.extra = new PHEDEX.Core.Control( {text:'Extra',
