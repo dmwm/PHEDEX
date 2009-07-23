@@ -324,13 +324,13 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   that.filter.count++;
   }
   that.filter.cfg = {
-	'phedex-tree-node'    :{type:'regex',   value:null, text:'Node-name',        tip:'simple perl-style regular expression' },
-	'phedex-tree-rate'    :{type:'float',   value:null, text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
-	'phedex-tree-quality' :{type:'percent', value:null, text:'Transfer-quality', tip:'transfer-quality in percent' },
-	'phedex-tree-done'    :{type:'minmax',  value:null, text:'Files-done',       tip:'number of files successfully transferred' },
-	'phedex-tree-failed'  :{type:'minmax',  value:null, text:'Files-failed',     tip:'number of failed transfer attempts' },
-	'phedex-tree-expired' :{type:'minmax',  value:null, text:'Files-expired',    tip:'number of expired files' },
-	'phedex-tree-queued'  :{type:'minmax',  value:null, text:'Files-queued',     tip:'number of files queued for transfer' }
+	'phedex-tree-node'    :{type:'regex',     value:null, text:'Node-name',        tip:'simple perl-style regular expression' },
+	'phedex-tree-rate'    :{type:'float',     value:null, text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
+	'phedex-tree-quality' :{type:'minmaxPct', value:null, text:'Transfer-quality', tip:'transfer-quality in percent' },
+	'phedex-tree-done'    :{type:'minmax',    value:null, text:'Files-done',       tip:'number of files successfully transferred' },
+	'phedex-tree-failed'  :{type:'minmax',    value:null, text:'Files-failed',     tip:'number of failed transfer attempts' },
+	'phedex-tree-expired' :{type:'minmax',    value:null, text:'Files-expired',    tip:'number of expired files' },
+	'phedex-tree-queued'  :{type:'minmax',    value:null, text:'Files-queued',     tip:'number of files queued for transfer' }
       };
 
   that.receive=function(event,data) {
