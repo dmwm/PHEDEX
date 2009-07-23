@@ -1921,14 +1921,47 @@ sub getDataSubscriptions
     };
 
     my $filters = '';
-    build_multi_filters($core, \$filters, \%p, \%h, ( NODE => 'n.name',
-						      BLOCK => 'b.name',
-                                                      DATASET => 'ds.name',
+    build_multi_filters($core, \$filters, \%p, \%h, ( 
                                                       SE => 'n.se_name',
                                                       REQUEST => 's.request',
-                                                      CUSTODIAL => 's.is_custodial',
                                                       GROUP => 'g.name'
 						      ));
+
+    if (exists $h{NODE})
+    {
+        if ($filters)
+        {
+            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
+        }
+        else
+        {
+            $filters = " (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
+        }
+    }
+
+    if (exists $h{BLOCK})
+    {
+        if ($filters)
+        {
+            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{BLOCK}) . ") ";
+        }
+        else
+        {
+            $filters = " (" . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . ") ";
+        }
+    }
+
+    if (exists $h{DATASET})
+    {
+        if ($filters)
+        {
+            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{DATASET}) . ") ";
+        }
+        else
+        {
+            $filters = " (" . filter_and_like($core, undef, \%p, 'ds.name', $h{DATASET}) . ") ";
+        }
+    }
 
     if (exists $h{CREATE_SINCE})
     {
@@ -1951,7 +1984,7 @@ sub getDataSubscriptions
         }
         else
         {
-            $filters .= " (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
+            $filters = " (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
         }
         $p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
@@ -1964,7 +1997,7 @@ sub getDataSubscriptions
         }
         else
         {
-            $filters .= " s.priority = :priority ";
+            $filters = " s.priority = :priority ";
         }
         $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
     }
@@ -1977,9 +2010,22 @@ sub getDataSubscriptions
         }
         else
         {
-            $filters .= " s.is_move = :move ";
+            $filters = " s.is_move = :move ";
         }
         $p{':move'} = $h{MOVE};
+    }
+
+    if (exists $h{CUSTODIAL})
+    {
+        if ($filters)
+        {
+            $filters .= " and s.is_custodial = :custodial";
+        }
+        else
+        {
+            $filters = " s.is_custodial = :custodial";
+        }
+        $p{':custodial'} = $h{CUSTODIAL};
     }
 
     $sql .= "where ($filters) " if ($filters);
