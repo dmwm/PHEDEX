@@ -328,14 +328,12 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       });
     }
   }
+  that.onPopulateComplete.subscribe( that.hideAllFieldsThatShouldBeHidden );
 
   that.onUpdateBegin.subscribe(function() {
     var node;
     while ( node = that.tree.root.children[0] ) { that.tree.removeNode(node); }
     that.tree.render();
-  });
-  that.onPopulateComplete.subscribe(function() {
-    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
   });
 
 // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
@@ -379,6 +377,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   }
   var populateCompleteHandler=function() {
     that.addResizeHandles();
+    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
 //  this only needs doing once, so unsubscribe myself now!
     that.onPopulateComplete.unsubscribe(populateCompleteHandler);
   }
