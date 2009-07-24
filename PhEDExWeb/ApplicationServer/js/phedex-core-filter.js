@@ -1,4 +1,4 @@
-PHEDEX.namespace('Core.Filter');
+PHEDEX.namespace('Core');
 
 // borrowed the coding style from the YUI EventProvider class. This apparently makes it suitable for passing to YAHOO.lang.augmentProto,
 // which means the core-widget can 'inherit' this code without having to have it cluttering up the core-widget directly. Makes it more
@@ -227,6 +227,13 @@ PHEDEX.Core.Filter.prototype = {
 	var focusOn = document.getElementById(this.focusMap[el.id]);
 	focusOn.focus();
       }
+    },
+
+    isApplied: function() { return this.count; },
+    destroy: function() {
+      if ( this.overlay && this.overlay.element ) { this.overlay.destroy(); }
     }
   }
 }
+
+YAHOO.log('loaded Core.Filter...','info','Core.Widget');
