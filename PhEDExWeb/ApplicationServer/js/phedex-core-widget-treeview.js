@@ -329,6 +329,15 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     }
   }
 
+  that.onUpdateBegin.subscribe(function() {
+    var node;
+    while ( node = that.tree.root.children[0] ) { that.tree.removeNode(node); }
+    that.tree.render();
+  });
+  that.onPopulateComplete.subscribe(function() {
+    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
+  });
+
 // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
@@ -368,19 +377,18 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       });
     }
   }
-  that.onDataFailed.subscribe(function() {
-    if ( that.tree ) { that.tree.destroy(); that.tree = null; }
-    that.dom.content.innerHTML='Data-load error, try again later...';
-    that.finishLoading();
-  });
-
   var populateCompleteHandler=function() {
-    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
     that.addResizeHandles();
 //  this only needs doing once, so unsubscribe myself now!
     that.onPopulateComplete.unsubscribe(populateCompleteHandler);
   }
   that.onPopulateComplete.subscribe(populateCompleteHandler);
+
+  that.onDataFailed.subscribe(function() {
+    if ( that.tree ) { that.tree.destroy(); that.tree = null; }
+    that.dom.content.innerHTML='Data-load error, try again later...';
+    that.finishLoading();
+  });
 
 // Resize the panel when extra columns are shown, to accomodate the width
   that.resizePanel=function(tree) {
