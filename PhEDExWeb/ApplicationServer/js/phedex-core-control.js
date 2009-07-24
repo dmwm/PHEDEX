@@ -86,6 +86,10 @@ PHEDEX.Core.Control = function(args) {
     YAHOO.util.Dom.addClass(this.el,'phedex-core-control-widget-disabled');
     this.enabled = 0;
   }
+  this.setApplied=function(isApplied) {
+    if ( isApplied ) { YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-applied'); }
+    else             { YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-applied'); }
+  }
   return this;
 };
 
