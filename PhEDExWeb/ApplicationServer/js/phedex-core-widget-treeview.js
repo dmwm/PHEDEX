@@ -356,12 +356,13 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     });
     that.ctl.extra.el.innerHTML = 'Headers';
   });
+
   that.resizeFields=function(el) {
     var tgt = that.locateHeader(el);
     var elList = that.locatePartnerFields(tgt);
     for (var i in elList ) { elList[i].style.width = tgt.style.width; }
   }
-  that.addResizeHandles=function() {
+  var populateCompleteHandler=function() {
     var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div);
     for (var i in elList)
     {
@@ -374,11 +375,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	that.resizeFields(el);
       });
     }
-  }
-  var populateCompleteHandler=function() {
-    that.addResizeHandles();
     for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
-//  this only needs doing once, so unsubscribe myself now!
+//  All this only needed doing once, so unsubscribe myself now!
     that.onPopulateComplete.unsubscribe(populateCompleteHandler);
   }
   that.onPopulateComplete.subscribe(populateCompleteHandler);
