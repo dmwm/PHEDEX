@@ -64,9 +64,10 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var changeTimebin = function(e) {
     if ( that.time == this.value ) { return; }
     that.time = this.value;
-    that.emptyBody();
+//     that.emptyBody();
     that.update();
   }
+
   var timeSelectMenu=[];
   that.timebin_selected='';
   for (var i in timeselect_opts)
@@ -84,7 +85,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var changeDirection = function(e) {
     if ( that.direction == this.value ) { return; }
     that.direction = this.value;
-    that.emptyBody();
+//     that.emptyBody();
     that.update();
   }
   var changeDirectionMenu=[];
@@ -252,15 +253,12 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   }
   that.fillHeader=function(div) { }
 
-  that.emptyBody=function(div) {
-//  In this case, I don't need the div, I can just operate on the tree object and null my data fields
-    var node;
-    while ( node = that.tree.root.children[1] ) { that.tree.removeNode(node); }
-    that.tree.render();
+  that.onUpdateBegin.subscribe( function() {
     that.data_hist = null;
     that.data_queue = null;
     that.data_error = null;
-  }
+  });
+
   that.fillBody=function(div) {
     var root = this.tree.getRoot();
     var antidirection=that.anti_direction_key();
@@ -347,6 +345,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   }
   that.onDataReady.subscribe(that.receive);
   that.update=function() {
+    this.onUpdateBegin.fire();
     var args={};
     args[that.direction_key()]=this.node;
     args['binwidth']=parseInt(this.time)*3600;
