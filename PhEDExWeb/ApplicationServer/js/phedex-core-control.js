@@ -16,8 +16,9 @@ PHEDEX.Core.Control = function(args) {
   YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
   this.el.className = args.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
   if ( !args.events ) {
-    args.events = [{event:'mouseover', handler:PHEDEX.Core.Control.mouseoverHandler},
-                   {event:'mouseout',  handler:PHEDEX.Core.Control.mouseoutHandler},
+    args.events = [
+//                    {event:'mouseover', handler:PHEDEX.Core.Control.mouseoverHandler},
+//                    {event:'mouseout',  handler:PHEDEX.Core.Control.mouseoutHandler},
                    {event:'click',     handler:PHEDEX.Core.Control.clickHandler}];
   }
   for (var i in args.events) {
