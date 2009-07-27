@@ -3,7 +3,6 @@ PHEDEX.namespace('Core.Widget.TreeView');
 PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   var that=new PHEDEX.Core.Widget(divid,opts);
   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
-  that.structure={headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {
@@ -144,19 +143,19 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	if ( values ) { value = values[i]; }
 	else { value = spec.format[i].text; }
 	if ( spec.name ) { value = spec.name+': '+value; }
-	if ( that.structure.headerNames[className] ) {
-	  YAHOO.log('duplicate entry for '+className+': "'+that.structure.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
+	if ( that._cfg.headerNames[className] ) {
+	  YAHOO.log('duplicate entry for '+className+': "'+that._cfg.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
 	} else {
-	  that.structure.headerNames[className] = {value:value, group:spec.name};
-	  that.structure.sortFields[spec.name] = {};
+	  that._cfg.headerNames[className] = {value:value, group:spec.name};
+	  that._cfg.sortFields[spec.name] = {};
 	  if ( spec.format[i].contextArgs )
 	  {
-	    that.structure.contextArgs[className]=[];
+	    that._cfg.contextArgs[className]=[];
 	    if ( typeof(spec.format[i].contextArgs) == 'string' ) {
-	      that.structure.contextArgs[className].push(spec.format[i].contextArgs);
+	      that._cfg.contextArgs[className].push(spec.format[i].contextArgs);
 	    } else {
 	      for (var j in spec.format[i].contextArgs) {
-		that.structure.contextArgs[className].push(spec.format[i].contextArgs[j]);
+		that._cfg.contextArgs[className].push(spec.format[i].contextArgs[j]);
 	      }
 	    }
 	  }
@@ -166,7 +165,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     for (var i in spec.format) {
       if ( spec.format[i].hideByDefault )
       {
-	that.structure.hideByDefault[spec.format[i].className]=1;
+	that._cfg.hideByDefault[spec.format[i].className]=1;
       }
     }
     return tNode;
@@ -248,9 +247,9 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     for (var i in aClasses) {
       if ( aClasses[i].match(treeMatch) ) {
 	YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
-	if ( !isHeader && that.structure.contextArgs[aClasses[i]] ) {
-	  for(var j in that.structure.contextArgs[aClasses[i]]) {
-	    aMenuItems[aMenuItems.length] = that.structure.contextArgs[aClasses[i]][j];
+	if ( !isHeader && that._cfg.contextArgs[aClasses[i]] ) {
+	  for(var j in that._cfg.contextArgs[aClasses[i]]) {
+	    aMenuItems[aMenuItems.length] = that._cfg.contextArgs[aClasses[i]][j];
 	  }
 	}
       }
@@ -317,7 +316,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     YAHOO.util.Dom.getElementsByClassName(className,null,that.div,function(element) {
       element.style.display = 'none';
     });
-    that.column_menu.addItem({text: that.structure.headerNames[className].value,value: className});
+    that.column_menu.addItem({text: that._cfg.headerNames[className].value,value: className});
     that.refreshButton();
   }
   that.hideAllFieldsThatShouldBeHidden=function() {
@@ -375,7 +374,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	that.resizeFields(el);
       });
     }
-    for (var className in that.structure.hideByDefault) { that.hideFieldByClass(className); }
+    for (var className in that._cfg.hideByDefault) { that.hideFieldByClass(className); }
 //  All this only needed doing once, so unsubscribe myself now!
     that.onPopulateComplete.unsubscribe(populateCompleteHandler);
   }
@@ -402,7 +401,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 //  thisClass is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //  sortFn is the actual sorting function, either passed or taken from set defaults
 
-    var s = that.structure.sortFields;
+    var s = that._cfg.sortFields;
     var sNode;
 //  find which value-index corresponds to my class, so I know which field to sort on
     if ( !thisClass ) {
@@ -421,7 +420,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       YAHOO.log('cannot identify class-type','error','Core.TreeView');
       return;
     }
-    sNode = s[that.structure.headerNames[thisClass].group];
+    sNode = s[that._cfg.headerNames[thisClass].group];
     sNode.class = thisClass;
     sNode.func  = sortFn;
     var parent = node.parent;
