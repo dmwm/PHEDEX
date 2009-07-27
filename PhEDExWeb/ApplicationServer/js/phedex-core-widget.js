@@ -41,6 +41,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.control = [];
   this.dom    = [];
   this.ctl    = [];
+//   this.structure = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}, filter:{}};
+  this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
@@ -166,8 +168,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
 // For filling extra information, if needed...
   this.buildExtra=function(div) { div.innerHTML='No extra information defined...';}
-  this.fillExtra=function(div) {}
-  
+  this.fillExtra=function(div) { }
+
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.showBusy=function()
   {
@@ -278,8 +280,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
     PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
       YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
-      obj.ctl.filter.Hide();
 debugger;
+      obj.ctl.filter.Hide();
       var args = arr[0];
     }
   }(this));
@@ -292,7 +294,7 @@ debugger;
     this.ctl.filter = new PHEDEX.Core.Control( {text:'Filter',
                     payload:{target:this.dom.filter, fillFn:this.filter.Build, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
     YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
-    if ( !this.filter.cfg ) { this.ctl.filter.Disable(); }
+    if ( !this.filter.isDefined() ) { this.ctl.filter.Disable(); }
   });
 
 // Create a (usually hidden) progress indicator.
@@ -306,9 +308,10 @@ debugger;
   YAHOO.util.Event.addListener(this.control.close, "click", function(obj) { return function() { obj.onDestroy.fire(); } } (this), this);
 
   this.startLoading();
+//   YAHOO.lang.augmentObject(PHEDEX.Core.Widget,PHEDEX.Core.Filter);
+  YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
   return this;
 }
 
-YAHOO.lang.augmentProto(PHEDEX.Core.Widget,PHEDEX.Core.Filter);
 
 YAHOO.log('loaded...','info','Core.Widget');
