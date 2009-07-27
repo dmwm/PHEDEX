@@ -321,7 +321,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 // cheat, until I know how to do this properly...
   that.filter.count++;
   }
-  that.filter.cfg = {
+  that.filter.Fields( {
 	'phedex-tree-node'    :{type:'regex',     value:null, text:'Node-name',        tip:'simple perl-style regular expression' },
 	'phedex-tree-rate'    :{type:'float',     value:null, text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
 	'phedex-tree-quality' :{type:'minmaxPct', value:null, text:'Transfer-quality', tip:'transfer-quality in percent' },
@@ -329,7 +329,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	'phedex-tree-failed'  :{type:'minmax',    value:null, text:'Files-failed',     tip:'number of failed transfer attempts' },
 	'phedex-tree-expired' :{type:'minmax',    value:null, text:'Files-expired',    tip:'number of expired files' },
 	'phedex-tree-queued'  :{type:'minmax',    value:null, text:'Files-queued',     tip:'number of files queued for transfer' }
-      };
+      } );
 
   that.receive=function(event,data) {
     var result   = data[0];
