@@ -41,6 +41,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.control = [];
   this.dom    = [];
   this.ctl    = [];
+  this.data   = [];
 //   this.structure = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}, filter:{}};
   this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 
@@ -280,9 +281,9 @@ PHEDEX.Core.Widget = function(divid,opts) {
     PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
       YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
-debugger;
       obj.ctl.filter.Hide();
       var args = arr[0];
+debugger;
     }
   }(this));
 

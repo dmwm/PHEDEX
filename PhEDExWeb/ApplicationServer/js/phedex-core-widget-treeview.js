@@ -453,7 +453,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   return that;
 }
 
-
 PHEDEX.Core.Widget.TreeView.prepareSort=function(el,sortFn) {
 // simply unpack the interesting bits and feed it to the object
   var node      = el.node;

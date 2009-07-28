@@ -46,7 +46,7 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   var branchDef3 = [
 	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['File','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
 	  {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['File','sort-num'] },
-	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-bytes', format:PHEDEX.Util.format.bytes },
+	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
 	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-num' },
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
     ];
@@ -254,33 +254,34 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   that.fillHeader=function(div) { }
 
   that.onUpdateBegin.subscribe( function() {
-    that.data_hist = null;
-    that.data_queue = null;
-    that.data_error = null;
+    that.data = [];
+//     that.data.hist = null;
+//     that.data.queue = null;
+//     that.data.error = null;
   });
 
   that.fillBody=function(div) {
     var root = this.tree.getRoot();
     var antidirection=that.anti_direction_key();
-    if ( !this.data_hist.length )
+    if ( !this.data.hist.length )
     {
       var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
       tLeaf.isLeaf = true;
     }
-    for (var i in this.data_hist) {
-      var h = this.data_hist[i];
+    for (var i in this.data.hist) {
+      var h = this.data.hist[i];
       var node = h[antidirection];
       var d = {};
       var e = {num_errors:0};
-      for (var j in this.data_queue) {
-        if (this.data_queue[j][antidirection]==node) {
-          d = this.data_queue[j];
+      for (var j in this.data.queue) {
+        if (this.data.queue[j][antidirection]==node) {
+          d = this.data.queue[j];
           break;
         }
       }
-      for (var j in this.data_error) {
-        if (this.data_error[j][antidirection]==node) {
-          e = this.data_error[j];
+      for (var j in this.data.error) {
+        if (this.data.error[j][antidirection]==node) {
+          e = this.data.error[j];
           break;
         }
       }
@@ -334,10 +335,10 @@ PHEDEX.Widget.LinkView=function(node,divid) {
   that.receive=function(event,data) {
     var result   = data[0];
     var context  = data[1];
-    if ( context.api == 'TransferQueueStats' ) { that.data_queue = result.link; }
-    if ( context.api == 'TransferHistory' )    { that.data_hist  = result.link; }
-    if ( context.api == 'ErrorLogSummary' )    { that.data_error = result.link; }
-    if ( that.data_hist && that.data_error && that.data_queue )
+    if ( context.api == 'TransferQueueStats' ) { that.data.queue = result.link; }
+    if ( context.api == 'TransferHistory' )    { that.data.hist  = result.link; }
+    if ( context.api == 'ErrorLogSummary' )    { that.data.error = result.link; }
+    if ( that.data.hist && that.data.error && that.data.queue )
     {
       that.finishLoading();
       that.populate();
