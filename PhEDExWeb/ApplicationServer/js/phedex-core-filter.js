@@ -15,7 +15,7 @@ PHEDEX.namespace('Core');
 // argument. This gives it access to the outer-scope (via 'obj') while still keeping internal data private to the object. This seems to
 // work well enough and keep the code acceptably clean, though I'm sure there really ought to be a better way than this.
 PHEDEX.Core.Filter = function(obj) {
-  var Cfg = obj.filter;
+//   var Cfg = obj.filter;
   return {
     filter: {
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -83,16 +83,22 @@ PHEDEX.Core.Filter = function(obj) {
         this.args={};
       },
 
-      Build: function(div) {
-        this.filter.overlay = new YAHOO.widget.Overlay(this.dom.filter.id, { context:[this.dom.body.id,"tl","tl", ["beforeShow", "windowResize"]],
-              visible:false,
-	     autofillheight:'body'} );
-        this.filter.overlay.setHeader('Filter data selection');
-        this.filter.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-        this.filter.overlay.setFooter('&nbsp;');
-        YAHOO.util.Dom.addClass(this.filter.overlay.element,'phedex-core-overlay')
+      Build: function(div,args) {
+//      Build is provided to the filter-control element as a callback function, so it is called in the scope of the parent object.
+//      Hence here we refer to this.filter.XYZ, instead of this.XYZ directly. 'Build' needs access to the panel for the dragEvent,
+//      so access to the outer scope is important. Other functions here should not need the outer scope.
+	this.filter._reallyBuild(div,args);
+//	make sure the filter moves with the widget when it is dragged!
+	this.panel.dragEvent.subscribe(function(type,args) { this.filter.overlay.align('tl','tl'); }, obj, true);
+      },
+      _reallyBuild: function(div,args) {
+        this.overlay = new YAHOO.widget.Overlay(div, args);
+        this.overlay.setHeader('Filter data selection');
+        this.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
+        this.overlay.setFooter('&nbsp;');
+        YAHOO.util.Dom.addClass(this.overlay.element,'phedex-core-overlay')
 
-        var body = this.filter.overlay.body;
+        var body = this.overlay.body;
         body.innerHTML=null;
         var fieldset = document.createElement('fieldset');
         fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
@@ -108,21 +114,21 @@ PHEDEX.Core.Filter = function(obj) {
         fieldset.appendChild(buttonDiv);
         body.appendChild(fieldset);
 
-        this.filter.overlay.render(document.body);
-        this.filter.overlay.cfg.setProperty('width',this.dom.body.offsetWidth+'px');
-        this.filter.overlay.show();
-        this.filter.overlay.cfg.setProperty('zindex',10);
-        this.filter.Fill(filterDiv); // 'Build' is called in the context of the parent object...
+	YAHOO.util.Dom.removeClass(div,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
+        this.overlay.render(document.body);
+        this.overlay.show();
+        this.overlay.cfg.setProperty('zindex',10);
+        this.Fill(filterDiv);
 
-//      fire global events when the buttons are clicked. 
+//      fire global events when the buttons are clicked. There is no need for setting a scope to the fire(), subscribers control their own context for global events
         var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
-        buttonAcceptFilter.on('click', function() { PHEDEX.Event.onFilterAccept.fire(); }, this, this );
+        buttonAcceptFilter.on('click', function() { PHEDEX.Event.onFilterAccept.fire(); } );
         var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
-        buttonCancelFilter.on('click', function() { PHEDEX.Event.onFilterCancel.fire(); }, this, this );
+        buttonCancelFilter.on('click', function() { PHEDEX.Event.onFilterCancel.fire(); } );
       },
 
       Fill: function(div) {
-        this.focusMap={}; // TODO
+        this.focusMap={};
         for (var key in this.fields) {
 	  var focusOn;
 	  var c = this.fields[key];
