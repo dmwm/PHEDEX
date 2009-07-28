@@ -291,8 +291,9 @@ debugger;
     this.ctl.extra = new PHEDEX.Core.Control( {text:'Extra',
                     payload:{target:this.dom.extra, fillFn:this.fillExtra, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
     YAHOO.util.Dom.insertBefore(this.ctl.extra.el,this.dom.control.firstChild);
+    var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]], visible:false, autofillheight:'body', width:this.dom.body.offsetWidth+'px'};
     this.ctl.filter = new PHEDEX.Core.Control( {text:'Filter',
-                    payload:{target:this.dom.filter, fillFn:this.filter.Build, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+                    payload:{target:this.dom.filter, fillFn:this.filter.Build, fillArgs:fillArgs, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
     YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
     if ( !this.filter.isDefined() ) { this.ctl.filter.Disable(); }
   });
@@ -308,7 +309,6 @@ debugger;
   YAHOO.util.Event.addListener(this.control.close, "click", function(obj) { return function() { obj.onDestroy.fire(); } } (this), this);
 
   this.startLoading();
-//   YAHOO.lang.augmentObject(PHEDEX.Core.Widget,PHEDEX.Core.Filter);
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
   return this;
 }

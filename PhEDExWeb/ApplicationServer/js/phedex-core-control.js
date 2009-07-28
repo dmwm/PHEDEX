@@ -36,7 +36,7 @@ PHEDEX.Core.Control = function(args) {
     var tgt = this.payload.target;
     if ( !this.enabled ) { return; }
     if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
-    if ( this.payload.fillFn ) { this.payload.fillFn.apply(this.payload.obj,[tgt]); }
+    if ( this.payload.fillFn ) { this.payload.fillFn.apply(this.payload.obj,[tgt, this.payload.fillArgs]); }
     YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
     var eHeight = tgt.offsetHeight;
     if ( this.payload.onShowControl ) { this.payload.onShowControl.fire(eHeight); }
