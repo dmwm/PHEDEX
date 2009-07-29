@@ -120,22 +120,14 @@ sub job_queued
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
   # Check if we can start the job now, or whether we need to wait
-  if ( $self->{NJOBS} && $self->jobsRunning() >= $self->{NJOBS} )
-  {
-    $kernel->delay_set('job_queued',0.3);
-    return;
-  }
+  if ( $self->{NJOBS} && $self->jobsRunning() >= $self->{NJOBS} ) { return; }
 
   # Get the job from the queue
   my ($priority,$id,$job) = $self->{JOB_QUEUE}->dequeue_next();
 
   # Validate the job
   # FIXME:  Should we really ignore this?
-  if ( !$job )
-  {
-    $kernel->delay_set('job_queued',0.1);
-    return;
-  }
+  if ( !$job ) { return; }
 
   # Start the job and record the PID
   my $wheelid = $self->{_child}->run(@{$job->{CMD}});
@@ -191,6 +183,10 @@ sub job_queued
   {
     open($job->{_logfh}, '>&', \*STDOUT);
   }
+
+# I just started a job. Check again soon for another job, just in case someone is playing
+# with NJOBS on the fly. You never know...
+  $kernel->delay_set('job_queued',0.03);
 }
 
 # Cleanup actions.  Only call when completely done with a job
@@ -202,14 +198,17 @@ sub _cleanup
     delete $PAYLOADS{$wheelid};
     delete $self->{JOBS_RUNNING}{$wheelid};
 
-    # Cleanup any timeout alramrs
-    POE::Kernel->post( $self->{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms', $payload->{_timer_id} ) 
+    # Cleanup any timeout alarms
+    POE::Kernel->post( $self->{JOB_MANAGER_SESSION_ID}, 'maybe_clear_alarms', $payload->{_timer_id} )
 	if $payload->{_timer_id};
 
     # Cleanup any private keys we stuck onto the job paylaod
     delete $payload->{$_} foreach ( qw(_start _signals _timer_id _timeout_grace 
 				       _logfh _logprefix _keep_output _cmdname
 				       _priority _cleanup) );
+
+#   See if there's anything else to submit...?
+    POE::Kernel->post( $self->{JOB_MANAGER_SESSION_ID}, 'job_queued' );
 }
 
 sub _child_stdout {
