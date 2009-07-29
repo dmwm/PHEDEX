@@ -260,6 +260,13 @@ sub idle
     my $dbh = undef;
     my @nodes = ();
 
+#   If I am already swamped with work, don't get more!
+    if ( $self->{JOBMANAGER}->jobsQueued() > $self->{LIMIT} )
+    {
+      $self->Warn("number of queued jobs exceeds work-limit per cycle. Waiting...");
+      return;
+    }
+
     eval
     {
 	$dbh = $self->connectAgent();
