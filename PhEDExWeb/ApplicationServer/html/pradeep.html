@@ -1,0 +1,82 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/xhtml1-strict.dtd">
+<html>
+<head>
+
+<!-- JQuery UI library files for the progress bar control --> 
+<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.core.css"/>
+<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.theme.css"/>
+<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.progressbar.css"/>
+
+<!-- For Yahoo form controls (Button, Slider, Paginator and DialogBox) styling -->
+<link rel="stylesheet" type="text/css" href="/yui/build/fonts/fonts-min.css"/>
+<link rel="stylesheet" type="text/css" href="/yui/build/button/assets/skins/sam/button.css"/>
+<link rel="stylesheet" type="text/css" href="/yui/build/slider/assets/skins/sam/slider.css"/>
+<link rel="stylesheet" type="text/css" href="/yui/build/container/assets/skins/sam/container.css"/>
+<link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css"/>
+<link rel="stylesheet" type="text/css" href="/yui/build/paginator/assets/skins/sam/paginator.css"> 
+
+<!-- For the web page styling --> 
+<link rel="stylesheet" type="text/css" href="/css/datalookup.css"/>
+
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
+<title>PheDex - Data Lookup</title>
+
+</head>
+
+<!-- For YUI form controls (Button, Slider and DialogBox) functionalities -->
+<script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script type="text/javascript" src="/yui/build/element/element-min.js"></script>
+<script type="text/javascript" src="/yui/build/button/button-min.js"></script>
+<script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
+<script type="text/javascript" src="/yui/build/container/container-min.js"></script>
+<script type="text/javascript" src="/yui/build/slider/slider-min.js"></script>
+
+<!-- For making connection to Phedex web API and parsing the JSON response-->
+<script type ="text/javascript" src="/yui/build/yahoo/yahoo-min.js"></script>
+<script type ="text/javascript" src="/yui/build/json/json-min.js"></script>
+<script type ="text/javascript" src="/yui/build/event/event-min.js"></script>
+<script type ="text/javascript" src="/yui/build/connection/connection-min.js"></script>
+
+<!-- For YUI datasource, datatable, Paginator functionalities -->
+<script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
+<script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
+<script type="text/javascript" src="/yui/build/paginator/paginator-min.js"></script>
+
+<!-- For communicating with Phedex web API and getting block information --> 
+<script type="text/javascript" src="/js/datalookup.js"></script>
+
+<body class="yui-skin-sam" onload="InitializeForm(); return false;">
+    <div id = "formtitle">&nbsp;CMS Phedex Data Lookup</div>
+    <table id="tableBlkNode" border="0" cellspacing="3" cellpadding="3">
+    <tr>
+        <td>
+            <div class="sometext">Enter data block(s) name (separated by whitespace):</div>
+            <textarea id="txtboxBlock" rows="5" cols="80" class="txtboxBlkNode"></textarea>
+        </td>
+        <td>
+            <div class="sometext">Enter node(s) name (separated by whitespace):</div>
+            <textarea id="txtboxNode" rows="5" cols="60" class="txtboxBlkNode"></textarea>
+        </td>
+    </tr>
+    </table>
+    
+    <table class="yui-skin-sam" border="0" cellspacing="3">
+        <tr>
+            <td><span class="sometext">Select data transfer percentage range:</span>&nbsp;&nbsp;</td>
+            <td>
+                <div id="sliderRange" class="yui-h-slider" title="Move the slider to select the range">
+                    <div id="sliderLower" class="yui-slider-thumb"><img src="/yui/build/slider/assets/left-thumb.png"/></div>
+                    <div id="sliderHigher" class="yui-slider-thumb"><img src="/yui/build/slider/assets/right-thumb.png"/></div>
+                </div>
+            </td>
+            <td><span class="sometext" id="txtRange">0 - 100</span></td>
+        </tr>
+    </table>
+    <br/>
+    <span id="GetInfoBtn" class="yui-skin-sam"></span>&nbsp;&nbsp;&nbsp;&nbsp;<span id="ResetBtn" class="yui-skin-sam"></span>
+    <br/>
+    <hr width="100%" size="3" style="background-color: #3399FF;"/>
+    <div id = "Result"></div>
+    <div id = "MissingBlks" class ="sometext"></div>
+</body>
+</html>

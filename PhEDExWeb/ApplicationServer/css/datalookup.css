@@ -1,0 +1,108 @@
+/*
+//=================================================================================================
+//File Name  : datalookup.css
+//Purpose    : The css file for Phedex data lookup web page. The file has style information of the
+//             elements of the web page.
+//=================================================================================================
+*/
+
+body /*For the body of the web page*/
+{
+    font-family:Calibri;
+    color: #000080;
+}
+
+#formtitle /*For the web page title*/
+{
+    font-family: Calibri; 
+    font-size: x-large; 
+    font-weight: bold; 
+    font-style: normal; 
+    font-variant: normal; 
+    text-transform: none; 
+    color: #000080;
+}
+
+.txtboxBlkNode /*For the block name text box*/
+{
+    font-family: Calibri; 
+    font-size: 15px; 
+    font-weight: lighter; 
+    font-style: normal; 
+    font-variant: normal; 
+    text-transform: none;
+}
+
+.subresbutton /*For the Generate and reset button*/
+{
+    font-family: Calibri; 
+    font-size: medium; 
+    font-weight: lighter; 
+    font-style: normal; 
+    font-variant: normal; 
+    text-transform: none; 
+    width: 150px; 
+    height: 25px;
+}
+
+.buttons /*For the Generate and reset button*/
+{
+    font-family: Calibri; 
+    width: 150px; 
+    height: 25px;
+}
+
+.rangetext /*For the data transfer percentage range text box*/
+{
+    font-family: Calibri; 
+    font-size: 15px; 
+    font-weight: lighter; 
+    font-style: normal; 
+    font-variant: normal; 
+    text-transform: none; 
+    width: 50px;
+}
+
+.progressbar /*For the progress bar*/
+{
+	height: 17px; 
+	width: 300px;
+}
+.percent /*For the label that displays percentage over progress bar #99CCFF*/
+{
+    padding-left:2px;
+    padding-top:0px;
+    padding-right:2px;
+    padding-bottom:2px;
+    font-size:12px;
+    font-weight:bold;
+    margin-left:32%;
+    margin-top:-16px;
+}
+
+.disablepercent
+{
+	padding-left: 2px;
+	padding-top: 0px;
+	padding-right: 2px;
+	padding-bottom: 2px;
+	font-size: 12px;
+	font-weight: bold;
+	margin-left: 32%;
+	margin-top: -16px;
+	color: #3366CC;
+}
+.resulttable /*For the table that displays the block info with progress bar*/
+{
+	font-family: Calibri; 
+    font-size: 15px; 
+    font-weight: lighter; 
+    font-style: normal; 
+    font-variant: normal; 
+    text-transform: none;
+}
+
+.sometext /*For some text*/
+{
+	font-size: 16px;
+}
