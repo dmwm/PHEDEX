@@ -96,20 +96,14 @@ sub deleteOneFile
 	&dbexec($dbh, qq{
 	    delete from t_xfer_replica where fileid = :fileid and node in ($node_list)},
 	    ":fileid" => $$file{FILEID}, %node_binds);
-	    
+
+	$$file{DROP} = $drop; # We will need this in the JobManager callback
+
 	# Issue file removal from disk now.
 	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
 	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($file, @_) },
 		       { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
 		       (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
-
-	# Report completition time to DB. If the physical deletion fails,
-	# we will roll back.
-	my $now = &mytimeofday();
-	&dbexec($dbh, qq{
-	    update t_xfer_delete set time_complete = :now
-		where fileid = :fileid and node = :node},
-		":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
 	return 1;
     };
 
@@ -133,6 +127,35 @@ sub deleteJob
     {
 	$self->Logmsg("deleted file $$file{PFN} at node $$file{NODE}");
 	unlink ($$job{LOGFILE});
+
+        my $dbh = undef;
+        my $status = eval {
+	  $dbh = $self->connectAgent();
+#	  @nodes = $self->expandNodes();
+	  # Report completition time to DB. If the physical deletion fails,
+	  # we will roll back.
+	  my $now = &mytimeofday();
+	  &dbexec($dbh, qq{
+	    update t_xfer_delete set time_complete = :now
+		where fileid = :fileid and node = :node},
+		":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
+        };
+
+        do { chomp ($@); $self->Alert ("database error: $@");
+	  eval { $dbh->rollback() } if $dbh;
+	  return; } if $@;
+
+	# Mark drop done so it will be nuked
+        my $dropdir = "$$self{WORKDIR}/$$file{DROP}";
+	&touch ("$dropdir/done");
+
+	# Log transfer delay stats
+	my $dtransfer = &mytimeofday() - $$file{TIME_START};
+	$self->Logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
+	     . " $$file{LFN} => $$file{PFN}");
+
+	# OK, got far enough to nuke and log it
+	$self->relayDrop ($$file{DROP});
     }
 }
 
@@ -157,18 +180,9 @@ sub processDrop
 
     # Try deleting this file.  If something fails, keep this drop as
     # is, we'll come back to it later.
-    return unless $self->deleteOneFile ($drop, $file);
-
-    # Mark drop done so it will be nuked
-    &touch ("$dropdir/done");
-
-    # Log transfer delay stats
-    my $dtransfer = &mytimeofday() - $$file{TIME_START};
-    $self->Logmsg ("xstats: $$file{NODE} " . sprintf('%.2fs', $dtransfer)
-	     . " $$file{LFN} => $$file{PFN}");
-
-    # OK, got far enough to nuke and log it
-    $self->relayDrop ($drop);
+    # Add the drop to the file, so the callback from the JobManager
+    # can delete the drop if the file-delete succeeds
+    $self->deleteOneFile ($drop, $file);
 }
 
 # Get a list of files to delete.
