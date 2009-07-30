@@ -316,12 +316,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     that.tree.render();
   }
 
-  that.applyFilter=function() { // Apply the filter to the data
-    var args = that.filter.args;
-// debugger;
-// cheat, until I know how to do this properly...
-  that.filter.count++;
-  }
   that.filter.Fields( {
 	'phedex-tree-node'    :{type:'regex',     value:null, text:'Node-name',        tip:'simple perl-style regular expression' },
 	'phedex-tree-rate'    :{type:'float',     value:null, text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
