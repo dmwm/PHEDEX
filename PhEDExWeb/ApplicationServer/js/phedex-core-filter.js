@@ -72,6 +72,29 @@ PHEDEX.Core.Filter = function(obj) {
         }
       },
 
+      Apply: {
+        regex:   function(arg,val) {
+	  var re = new RegExp(arg);
+	  if ( val.match(re) ) { return true; }
+	  return false;
+	},
+        int:     function(arg,val) { return val > arg; },
+        float:   function(arg,val) { return val > arg; },
+        percent: function(arg,val) { return val > arg; },
+        minmax: function(arg,val) {
+	  if ( val > arg.min && val <= arg.max ) { return true; }
+	  return false;
+        },
+        minmaxFloat: function(arg,val) {
+	  if ( val > arg.min && val <= arg.max ) { return true; }
+	  return false;
+        },
+        minmaxPct: function(arg,val) {
+	  if ( val > arg.min && val <= arg.max ) { return true; }
+	  return false;
+        }
+      },
+
       Fields: function(args) { this.fields = args; },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
@@ -128,8 +151,10 @@ PHEDEX.Core.Filter = function(obj) {
       },
 
       Fill: function(div) {
+	if ( !this.args ) { this.args = []; }
         this.focusMap={};
         for (var key in this.fields) {
+	  if ( !this.args[key] ) { this.args[key] = []; }
 	  var focusOn;
 	  var c = this.fields[key];
 	  if ( !c.value ) { c.value = null; }
@@ -155,27 +180,31 @@ PHEDEX.Core.Filter = function(obj) {
 	    el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
 	    el.className = 'phedex-filter-elem';
 	    YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
-	    if ( e.class   ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
+	    if ( e.class ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
 	    var size = e.size || c.size;
 	    if ( size ) { el.setAttribute('size',size); }
 	    el.setAttribute('type',e.type);
 	    el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
 	    el.setAttribute('value',c.value);
-	    if ( this.args && this.args[key] ) {
-	      var def = this.args[key];
-	      if ( fields[i] ) {
-	        if ( def[fields[i]] ) {
-	          def = def[fields[i]];
-	        } else {
-	          def = null;
-	        }
+	    var def = this.args[key].value || null;
+	    if ( fields[i] ) {
+	      if ( !def ) { def = []; }
+	      if ( def[fields[i]] ) {
+	        def = def[fields[i]];
+	      } else {
+	        def = null;
 	      }
-	      el.setAttribute('value',def);
 	    }
+	    el.setAttribute('value',def);
 	    inner.appendChild(el);
 	    if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
 	    if ( !focusOn ) { focusOn = el; }
 	  }
+	  var cBox = document.createElement('input');
+	  cBox.type = 'checkbox';
+	  cBox.className = 'phedex-filter-checkbox';
+	  cBox.checked = this.args[key].negate;
+	  inner.appendChild(cBox);
 	  outer.appendChild(inner);
 // 	  if ( c.tip ) { outer.setAttribute('tip',c.tip); } // TODO would be nice to set a tooltip
 	  outer.appendChild(document.createTextNode(c.text));
@@ -203,28 +232,30 @@ PHEDEX.Core.Filter = function(obj) {
 	      if ( elClasses[k].match(keyMatch) ) {
 	        key = elClasses[k].split('-')[3];
 	        if ( key != '' ) { values[key] = el.value; } // single-valued elements don't have a key!
-	        else	       { value       = el.value; }
+	        else	         { value       = el.value; }
 	        nItems++;
 	        if ( el.value ) { nSet++; }
 	      }
 	    }
 	  }
 	  var type = this.fields[el.name].type;
+	  this.args[el.name] = [];
 	  var s;
 	  if ( nSet ) {
 	    if ( nItems > 1 ) {
 	      s = this.Validate[type](values);
 	      if ( s.result ) {
-	        this.args[el.name] = values;
+	        this.args[el.name].value = values;
 	        this.setValid(innerList[i]);
 	      }
 	    } else {
-	      s = this.filter.Validate[type](value);
+	      s = this.Validate[type](value);
 	      if ( s.result ) {
-	        this.args[el.name] = value;
+	        this.args[el.name].value = value;
 	        this.setValid(innerList[i]);
 	      }
 	    }
+	    this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
 	    if ( !s.result ) {
 	      YAHOO.log('Invalid entry for "'+this.fields[el.name].text+'", aborting accept','error','Core.Widget');
 	      this.setInvalid(innerList[i],isValid);
