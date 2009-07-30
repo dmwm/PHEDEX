@@ -262,16 +262,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.panel.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
-// This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
-// Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
-  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
-    return function() {
-      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.Widget');
-      obj.ctl.filter.Hide();
-      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-      obj.filter.Reset();
-    }
-  }(this));
   PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
     return function() {
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Core.Widget');
@@ -282,8 +272,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
     return function(ev,arr) {
       YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
       obj.ctl.filter.Hide();
-      var args = arr[0];
-debugger;
+      obj.applyFilter(arr[0]);
     }
   }(this));
 
