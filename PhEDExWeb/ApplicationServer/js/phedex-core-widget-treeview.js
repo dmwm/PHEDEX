@@ -284,7 +284,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	oTarget : YAHOO.util.Dom.getAncestorByClassName(oTarget, "ygtvlabel");
 
     if (oTextNode) {
-      var tNodeMap  = that.textNodeMap;
       oCurrentTextNode = that.textNodeMap[oTextNode.id];
     }
     else {
@@ -449,6 +448,53 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       that.resizeFields(header);
     }
     that.showNotBusy();
+  }
+
+// This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
+// Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
+  that.revealAllBranches=function() {
+    var elList = YAHOO.util.Dom.getElementsByClassName('ygtvitem',null,that.dom.content);
+    for (var i in elList) {
+      if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
+        YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+      }
+    }
+  }
+  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.Widget');
+      obj.ctl.filter.Hide();
+      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+      obj.revealAllBranches();
+      obj.filter.Reset();
+    }
+  }(that));
+  that.applyFilter=function(args) {
+//  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
+    that.revealAllBranches();
+    if ( ! args ) { args = that.filter.args; }
+    for (var key in args) {
+      if ( typeof(args[key].value) == 'undefined' ) { continue; }
+      var fValue = args[key].value;
+      var negate = args[key].negate;
+      for (var elId in that.textNodeMap) {
+	var tNode = that.textNodeMap[elId];
+	if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
+	for (var i in tNode.data.spec.format) {
+	  var className = tNode.data.spec.format[i].className;
+	  if ( className != key ) { continue; }
+	  var kValue = tNode.data.values[i];
+	  var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
+	  if ( args[key].negate ) { status = !status; }
+	  if ( !status ) { // Keep the element if the match succeeded!
+	    var elAncestor = YAHOO.util.Dom.getAncestorByClassName(elId,'ygtvitem');
+	    YAHOO.util.Dom.addClass(elAncestor,'phedex-invisible');
+	    that.filter.count++;
+	  }
+	  break;
+	}
+      }
+    }
   }
   return that;
 }
