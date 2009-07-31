@@ -351,6 +351,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     that.tree.subscribe('expandComplete',function(node) {
       if ( node.children ) { that.sort(node.children[0]); }
       that.hideAllFieldsThatShouldBeHidden();
+      that.applyFilter();
     });
     that.ctl.extra.el.innerHTML = 'Headers';
   });
@@ -453,10 +454,13 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 // This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
 // Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
   that.revealAllBranches=function() {
-    var elList = YAHOO.util.Dom.getElementsByClassName('ygtvitem',null,that.dom.content);
+    var elList = YAHOO.util.Dom.getElementsByClassName('ygtvrow',null,that.dom.content);
     for (var i in elList) {
       if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
         YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+      }
+      if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
+        YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
       }
     }
   }
@@ -472,6 +476,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   that.applyFilter=function(args) {
 //  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
     that.revealAllBranches();
+    var elParents={};
     if ( ! args ) { args = that.filter.args; }
     for (var key in args) {
       if ( typeof(args[key].value) == 'undefined' ) { continue; }
@@ -487,13 +492,20 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	  var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
 	  if ( args[key].negate ) { status = !status; }
 	  if ( !status ) { // Keep the element if the match succeeded!
-	    var elAncestor = YAHOO.util.Dom.getAncestorByClassName(elId,'ygtvitem');
+	    var elAncestor = YAHOO.util.Dom.getAncestorByClassName(elId,'ygtvrow');
 	    YAHOO.util.Dom.addClass(elAncestor,'phedex-invisible');
 	    that.filter.count++;
+	    if ( tNode.parent ) {
+	      elParents[tNode.parent.labelElId] = 1;
+	    }
 	  }
 	  break;
 	}
       }
+    }
+    for (var elParent in elParents) {
+      var ancestor = YAHOO.util.Dom.getAncestorByClassName(elParent,'ygtvrow');
+      YAHOO.util.Dom.addClass(ancestor,'phedex-core-control-widget-applied');
     }
   }
   return that;
