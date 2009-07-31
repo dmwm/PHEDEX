@@ -24,7 +24,7 @@ PHEDEX.Widget.Agents=function(node,divid) {
     var d = new Date();
     var now = d.getTime()/1000;
     var y = {min:null, max:null};
-    if ( x.min ) { y.max = now-x.min; }
+    if ( x.min ) { y.max = now-x.min; } // N.B. y.max from x.min because subtracting x from now inverts the selection!
     if ( x.max ) { y.min = now-x.max; }
     return y;
   }
