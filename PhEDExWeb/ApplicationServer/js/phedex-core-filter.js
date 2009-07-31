@@ -95,7 +95,17 @@ PHEDEX.Core.Filter = function(obj) {
         }
       },
 
-      Fields: function(args) { this.fields = args; },
+      fields: [],
+      structure: [],
+      init: function(args) {
+	for (var i in args) {
+	  this.structure[i] = [];
+	  for (var j in args[i]) {
+	    this.structure[i][j]=0;
+	    this.fields[j] = args[i][j];
+	  }
+	}
+      },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
         return 0;
@@ -123,19 +133,11 @@ PHEDEX.Core.Filter = function(obj) {
 
         var body = this.overlay.body;
         body.innerHTML=null;
-        var fieldset = document.createElement('fieldset');
-        fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
-        var legend = document.createElement('legend');
-        legend.appendChild(document.createTextNode('filter parameters'));
-        fieldset.appendChild(legend);
         var filterDiv = document.createElement('div');
-        filterDiv.id = 'filterDiv_'+PHEDEX.Util.Sequence();
-        fieldset.appendChild(filterDiv);
         var buttonDiv = document.createElement('div');
-        buttonDiv.id = 'buttonDiv_'+PHEDEX.Util.Sequence();
         buttonDiv.className = 'phedex-filter-buttons';
-        fieldset.appendChild(buttonDiv);
-        body.appendChild(fieldset);
+        body.appendChild(filterDiv);
+        body.appendChild(buttonDiv);
 
 	YAHOO.util.Dom.removeClass(div,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         this.overlay.render(document.body);
@@ -151,64 +153,73 @@ PHEDEX.Core.Filter = function(obj) {
       },
 
       Fill: function(div) {
+	var container = div
 	if ( !this.args ) { this.args = []; }
         this.focusMap={};
-        for (var key in this.fields) {
-	  if ( !this.args[key] ) { this.args[key] = []; }
-	  var focusOn;
-	  var c = this.fields[key];
-	  if ( !c.value ) { c.value = null; }
+        for (var label in this.structure) {
+          container = document.createElement('fieldset');
+//         fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
+          var legend = document.createElement('legend');
+          legend.appendChild(document.createTextNode(label));
+          container.appendChild(legend);
+	  div.appendChild(container);
+	  for (var key in this.structure[label]) {
+	    if ( !this.args[key] ) { this.args[key] = []; }
+	    var focusOn;
+	    var c = this.fields[key];
+	    if ( !c.value ) { c.value = null; }
 
-	  var outer = document.createElement('div');
-	  outer.className = 'phedex-filter-outer';
-	  var inner = document.createElement('div');
-	  inner.className = 'phedex-filter-inner';
-	  inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
-	  var e = this.typeMap[c.type];
-	  if ( !e ) {
-	    YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
-	    return;
-	  }
-	  var fields = e.fields;
-	  if ( !fields ) { fields = [ '' ]; }
-	  for (var i in fields) {
-	    if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
-	    if ( fields[i] != '' ) {
-	      inner.appendChild(document.createTextNode(fields[i]+' '));
+	    var outer = document.createElement('div');
+	    outer.className = 'phedex-filter-outer';
+	    var inner = document.createElement('div');
+	    inner.className = 'phedex-filter-inner';
+	    inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
+	    var e = this.typeMap[c.type];
+	    if ( !e ) {
+	      YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
+	      return;
 	    }
-	    var el = document.createElement(e.type);
-	    el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
-	    el.className = 'phedex-filter-elem';
-	    YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
-	    if ( e.class ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
-	    var size = e.size || c.size;
-	    if ( size ) { el.setAttribute('size',size); }
-	    el.setAttribute('type',e.type);
-	    el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
-	    el.setAttribute('value',c.value);
-	    var def = this.args[key].value || null;
-	    if ( fields[i] ) {
-	      if ( !def ) { def = []; }
-	      if ( def[fields[i]] ) {
-	        def = def[fields[i]];
-	      } else {
-	        def = null;
+	    var fields = e.fields;
+	    if ( !fields ) { fields = [ '' ]; }
+	    for (var i in fields) {
+	      if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
+	      if ( fields[i] != '' ) {
+		inner.appendChild(document.createTextNode(fields[i]+' '));
 	      }
+	      var el = document.createElement(e.type);
+	      el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
+	      el.className = 'phedex-filter-elem';
+	      YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
+	      if ( e.class ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
+	      var size = e.size || c.size;
+	      if ( size ) { el.setAttribute('size',size); }
+	      el.setAttribute('type',e.type);
+	      el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
+	      el.setAttribute('value',c.value);
+	      var def = this.args[key].value || null;
+	      if ( fields[i] ) {
+		if ( !def ) { def = []; }
+		if ( def[fields[i]] ) {
+		  def = def[fields[i]];
+		} else {
+		  def = null;
+		}
+	      }
+	      el.setAttribute('value',def);
+	      inner.appendChild(el);
+	      if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
+	      if ( !focusOn ) { focusOn = el; }
 	    }
-	    el.setAttribute('value',def);
-	    inner.appendChild(el);
-	    if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
-	    if ( !focusOn ) { focusOn = el; }
-	  }
-	  var cBox = document.createElement('input');
-	  cBox.type = 'checkbox';
-	  cBox.className = 'phedex-filter-checkbox';
-	  cBox.checked = this.args[key].negate;
-	  inner.appendChild(cBox);
-	  outer.appendChild(inner);
+	    var cBox = document.createElement('input');
+	    cBox.type = 'checkbox';
+	    cBox.className = 'phedex-filter-checkbox';
+	    cBox.checked = this.args[key].negate;
+	    inner.appendChild(cBox);
+	    outer.appendChild(inner);
 // 	  if ( c.tip ) { outer.setAttribute('tip',c.tip); } // TODO would be nice to set a tooltip
-	  outer.appendChild(document.createTextNode(c.text));
-	  div.appendChild(outer);
+	    outer.appendChild(document.createTextNode(c.text));
+	    container.appendChild(outer);
+	  }
 	  focusOn.focus();
         }
       },
