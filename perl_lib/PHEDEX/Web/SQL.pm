@@ -2047,4 +2047,114 @@ sub getDataSubscriptions
     return \@r;
     
 }
+
+
+# getMissingFiles
+sub getMissingFIles
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            b.id block_id,
+            b.name block_name,
+            b.files block_files,
+            b.bytes block_bytes,
+            b.is_open,
+            f.id file_id,
+            f.logical_name,
+            f.filesize,
+            f.checksum,
+            f.time_create,
+            ns.name origin_node,
+            n.id node_id,
+            n.name node_name,
+            n.se_name se_name,
+            case
+                when br.dest_files = 0 then 'n'
+                else 'y'
+            end subscribed,
+            br.is_custodial,
+            g.name user_group
+        from t_dps_block b
+        join t_dps_file f on f.inblock = b.id
+        join t_adm_node ns on ns.id = f.node
+        join t_dps_block_replica br on br.block = b.id
+        left join t_adm_group g on g.id = br.user_group
+        left join t_adm_node n on n.id = br.node
+        where
+            br.node_files != 0 and
+            not exists (
+                select
+                    id
+                from
+                    t_xfer_replica xr
+                where
+                    xr.node = br.node and xr.fileid = f.id
+            )
+            and not ns.name like 'X%'
+            and not n.name like 'X%'
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+                                              SE => 'n.se_name',
+                                              GROUP => 'g.name',
+                                              LFN => 'f.logical_name'));
+
+    $sql .= " and ($filters) " if ($filters);
+
+    if (exists $h{BLOCK})
+    {
+        # translate the wildcard character
+        $h{BLOCK} =~ s/\*/%/g;
+
+        $sql .= " and (" . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . ") ";
+    }
+
+    if (exists $h{NODE})
+    {
+        # translate the wildcard character
+        $h{NODE} =~ s/\*/%/g;
+
+        $sql .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
+    }
+
+    if (exists $h{SUBSCRIBED})
+    {
+        if ($h{SUBSCRIBED} eq 'y')
+        {
+            $sql .= " and br.dest_files <> 0 ";
+        }
+        elsif ($h{SUBSCRIBED} eq 'n')
+        {
+            $sql .= " and br.dest_files = 0 ";
+        }
+    }
+
+    if (exists $h{CUSTODIAL})
+    {
+        $sql .= " and br.is_custodial = :custodial ";
+        $p{':custodial'} = $h{CUSTODIAL};
+    }
+
+    $sql .= qq {
+        order by
+            b.name,
+            f.logical_name,
+            n.name
+    };
+
+    $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref())
+    {
+        push @r, $_;
+    }
+    return \@r
+
+}
+
 1;
