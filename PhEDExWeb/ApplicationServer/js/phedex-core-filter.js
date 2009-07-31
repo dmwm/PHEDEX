@@ -111,6 +111,18 @@ PHEDEX.Core.Filter = function(obj) {
         return 0;
       },
 
+      revealAllElements: function(className) {
+	var elList = YAHOO.util.Dom.getElementsByClassName(className,null,obj.dom.content);
+	for (var i in elList) {
+	  if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
+	    YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+	  }
+	  if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
+	    YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
+	  }
+	}
+      },
+
       Reset: function() {
         this.count=0;
         this.args={};
@@ -251,20 +263,15 @@ PHEDEX.Core.Filter = function(obj) {
 	  }
 	  var type = this.fields[el.name].type;
 	  this.args[el.name] = [];
-	  var s;
+	  var s, v;
 	  if ( nSet ) {
-	    if ( nItems > 1 ) {
-	      s = this.Validate[type](values);
-	      if ( s.result ) {
-	        this.args[el.name].value = values;
-	        this.setValid(innerList[i]);
-	      }
-	    } else {
-	      s = this.Validate[type](value);
-	      if ( s.result ) {
-	        this.args[el.name].value = value;
-	        this.setValid(innerList[i]);
-	      }
+	    if ( nItems > 1 ) { v = values; }
+	    else              { v = value; }
+	    s = this.Validate[type](v);
+	    if ( s.result ) {
+	      this.args[el.name].value = v;
+	      this.setValid(innerList[i]);
+	      if ( this.fields[el.name].format ) { this.args[el.name].format = this.fields[el.name].format; }
 	    }
 	    this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
 	    if ( !s.result ) {
