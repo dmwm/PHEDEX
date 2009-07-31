@@ -32,7 +32,9 @@ sub gmmktime
     return $t1 + ($t1 - $t2);
 }
 
-# str2time -- convert string to timestamp
+# str2time($str, $default) -- convert string to timestamp
+#    When parsing fails, returns the defaul
+#
 # possible input values:
 #    UNIX time
 #    YYYY-MM-DD[_hh:mm:ss]
@@ -45,11 +47,24 @@ sub gmmktime
 #    last_180days
 sub str2time
 {
-    my $str = shift @_;
+    my ($str, $default) = @_;
+    my @dh;
 
     if ($str =~ m!(^\d*$)!)	# UNIX time
     {
         return $str;
+    }
+    elsif ($str =~ m!(^\d*\.\d*$)!)	# UNIX time in float
+    {
+        return int($str);
+    }
+    elsif (@dh = $str =~ m!(^-{0,1}\d*)d$!)	# number of days
+    {
+        return time() + int($dh[0])*3600*24;
+    }
+    elsif (@dh = $str =~ m!(^-{0,1}\d*)h$!)	# number of hours
+    {
+        return time() + int($dh[0])*3600;
     }
     elsif ($str eq "now")
     {
@@ -82,6 +97,12 @@ sub str2time
 
     # YYYY-MM-DD[_hh:mm:ss]
     my @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
+    # if it failed to parse the time string, just return undef
+    if (not exists $t[0])
+    {
+        return $default;
+    }
+
     if (not $t[3]) # no time information, assume 00:00:00
     {
         $t[4] = 0;
