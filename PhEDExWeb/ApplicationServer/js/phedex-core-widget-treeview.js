@@ -451,28 +451,20 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     that.showNotBusy();
   }
 
-// This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
-// Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
-  that.revealAllBranches=function() {
-    var elList = YAHOO.util.Dom.getElementsByClassName('ygtvrow',null,that.dom.content);
-    for (var i in elList) {
-      if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
-        YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
-      }
-      if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
-        YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
-      }
-    }
-  }
   PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.Widget');
+      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.TreeView');
       obj.ctl.filter.Hide();
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.revealAllBranches();
       obj.filter.Reset();
     }
   }(that));
+// This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
+// Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
+  that.revealAllBranches=function() {
+    that.filter.revealAllElements('ygtvrow');
+  }
   that.applyFilter=function(args) {
 //  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
     that.revealAllBranches();

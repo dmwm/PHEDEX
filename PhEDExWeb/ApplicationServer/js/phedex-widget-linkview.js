@@ -50,6 +50,34 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-num' },
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
     ];
+// Filter-structure mimics the branch-structure. Use the same classnames as keys.
+  that.filter.init( {
+	'Link-level attributes':{
+	'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
+	'phedex-tree-rate'        :{type:'float',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
+	'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent' },
+	'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
+	'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
+	'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
+	'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' }
+	},
+	'Block-level attributes':{
+	'phedex-tree-block-name'  :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
+	'phedex-tree-block-id'    :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
+	'phedex-tree-state'       :{type:'regex',     text:'Block-state',      tip:'block-state' },
+	'phedex-tree-priority'    :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
+	'phedex-tree-block-files' :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' },
+	'phedex-tree-block-bytes' :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' },
+	'phedex-tree-block-errors':{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
+	},
+	'File-level attributes':{
+	'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
+	'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
+	'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
+	'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
+	'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
+	}
+      } );
 
 // Build the options for the pull-down menus.
 // 1. extract the default option from the configuration, or provide one if none given
@@ -315,34 +343,6 @@ PHEDEX.Widget.LinkView=function(node,divid) {
     }
     that.tree.render();
   }
-
-  that.filter.init( {
-	'Link-level attributes':{
-	'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
-	'phedex-tree-rate'        :{type:'float',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
-	'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent' },
-	'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
-	'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
-	'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
-	'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' }
-	},
-	'Block-level attributes':{
-	'phedex-tree-block-name'  :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
-	'phedex-tree-block-id'    :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
-	'phedex-tree-state'       :{type:'regex',     text:'Block-state',      tip:'block-state' },
-	'phedex-tree-priority'    :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
-	'phedex-tree-block-files' :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' },
-	'phedex-tree-block-bytes' :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' },
-	'phedex-tree-block-errors':{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
-	},
-	'File-level attributes':{
-	'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
-	'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
-	'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
-	'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
-	'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
-	}
-      } );
 
   that.receive=function(event,data) {
     var result   = data[0];
