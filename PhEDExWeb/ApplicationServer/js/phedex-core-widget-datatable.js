@@ -34,15 +34,15 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
   that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); return 'PHEDEX.Core.Widget.DataTable'; }
   that.fillDataSource=function(data) {
     var table = [];
-    for (var i in that.data) {
-      var a = that.data[i];
+    for (var i in data) {
+      var a = data[i];
       var y = [];
       for (var j in that.columnDefs )
       {
 	var c = that.columnDefs[j];
 	var val = a[that.columnMap[c.key]];
-// This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
-// Declare fields to be numeric in your columns specified to buildTable, see above
+//      This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
+//      Declare fields to be numeric in your columns specified to buildTable, see above
 	if ( c.parser )
 	{
 	  if (typeof c.parser == 'function' ) { val = c.parser(val); }
@@ -229,6 +229,40 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
     elCell.innerHTML = gmt;
   };
   YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = that.UnixEpochToGMTFormatter
+  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.DataTable');
+      obj.ctl.filter.Hide();
+      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+      obj.fillDataSource(obj.data);
+      obj.filter.Reset();
+    }
+  }(that));
+
+  that.applyFilter=function(args) {
+// this is much easier for tables than for branches. Just go through the data-table and build a new one,
+// then feed that to the DataSource!
+    var table=[];
+    if ( ! args ) { args = that.filter.args; }
+    for (var i in that.data) {
+      var keep=true;
+      for (var key in args) {
+	if ( typeof(args[key].value) == 'undefined' ) { continue; }
+	var fValue = args[key].value;
+	if ( args[key].format ) { fValue = args[key].format(fValue); }
+	var kValue = that.data[i][key];
+	var negate = args[key].negate;
+	var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
+	if ( args[key].negate ) { status = !status; }
+	if ( !status ) { // Keep the element if the match succeeded!
+	  that.filter.count++;
+	  keep=false;
+	}
+      }
+      if ( keep ) { table.push(that.data[i]); }
+    }
+    that.fillDataSource(table);
+  }
 
   return that;
 }

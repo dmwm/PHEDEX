@@ -19,6 +19,15 @@ PHEDEX.Widget.Nodes=function(node,divid) {
   that.node=node;
   that.data = null;
   that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
+  that.filter.init( {
+    'Node attributes':{
+      'id'         :{type:'int',   text:'Node-ID',    tip:'Node-ID in TMDB' },
+      'name'       :{type:'regex', text:'Node-name',  tip:'javascript regular expression' },
+      'se'         :{type:'regex', text:'SE-name',    tip:'javascript regular expression' },
+      'kind'       :{type:'regex', text:'Kind',       tip:'javascript regular expression' },
+      'technology' :{type:'regex', text:'Technology', tip:'javascript regular expression' }
+    } } );
+
   that.fillHeader=function(div) {
     that.dom.title.innerHTML = 'Nodes: '+this.data.length+" found";
   }

@@ -19,6 +19,25 @@ PHEDEX.Widget.Agents=function(node,divid) {
   that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
   that.node=node;
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
+  that.offsetTime = function(x)
+  {
+    var d = new Date();
+    var now = d.getTime()/1000;
+    var y = {min:null, max:null};
+    if ( x.min ) { y.max = now-x.min; }
+    if ( x.max ) { y.min = now-x.max; }
+    return y;
+  }
+ that.filter.init( {
+    'Node attributes':{
+      'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
+      'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
+      'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
+      'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', format:that.offsetTime },
+      'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
+      'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
+      'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
+    } } );
   that.fillHeader=function(div) {
     var msg = this.node+', '+this.data.length+' agents.';
     that.dom.title.innerHTML = msg;
