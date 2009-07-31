@@ -141,10 +141,15 @@ a.phedex-core-control-widget {
   padding: 0 0.3em;
 }
 .phedex-core-control-widget .phedex-core-control-widget-applied {
-  background-color: #fd6; /* light orange */
+/*  background-color: #fd6; /* light orange */
+  background-color: orange;
 }
 a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
-  background-color: #fd6; /* light orange */
+  background-color: orange;
+}
+
+tr.phedex-core-control-widget-applied {
+  background-color: orange;
 }
 a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take precedence over active/inactive values */
   background-color: #eee;
