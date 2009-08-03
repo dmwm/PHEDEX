@@ -41,6 +41,10 @@ sub new
     $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
 				   $self->{JOBMANAGER}->killAllJobs() };
 
+#   Finagle the WAITTIME so I can speed up deletions if the queue is full
+    $self->{WAITTIME_SLOW} = $self->{WAITTIME};
+    $self->{WAITTIME_FAST} = 2;
+
     bless $self, $class;
     return $self;
 }
@@ -127,6 +131,7 @@ sub deleteJob
     {
 	$self->Logmsg("deleted file $$file{PFN} at node $$file{NODE}");
 	unlink ($$job{LOGFILE});
+        delete $self->{_drops}{$file->{DROP}};
 
         my $dbh = undef;
         my $status = eval {
@@ -162,7 +167,7 @@ sub deleteJob
 sub processDrop
 {
     my ($self, $drop) = @_;
-
+    return if $self->{_drops}{$drop}++;
     # Sanity checking
     return if (! $self->inspectDrop ($drop));
     delete $$self{BAD}{$drop};
@@ -189,6 +194,7 @@ sub processDrop
 sub filesToDelete
 {
     my ($self, $dbh, $limit, $node) = @_;
+    $self->{WAITTIME} = $self->{WAITTIME_SLOW};
 
     my $now = &mytimeofday();
 
@@ -208,7 +214,11 @@ sub filesToDelete
     while (my ($id, $lfn) = $q->fetchrow())
     {
 	$files{$lfn} = $id;
-	last if scalar keys %files >= $limit;
+	if ( scalar keys %files >= $limit )
+	{
+	  $self->{WAITTIME} = $self->{WAITTIME_FAST};
+	  last;
+	}
     }
     $q->finish();  # free resources in case we didn't use all results
 
@@ -277,7 +287,7 @@ sub idle
 #   If I am already swamped with work, don't get more!
     if ( $self->{JOBMANAGER}->jobsQueued() > $self->{LIMIT} )
     {
-      $self->Warn("number of queued jobs exceeds work-limit per cycle. Waiting...");
+      $self->Warn("number of queued jobs (",$self->{JOBMANAGER}->jobsQueued(),") exceeds work-limit per cycle (",$self->{LIMIT},"). Waiting...");
       return;
     }
 
