@@ -286,7 +286,24 @@ sub readConfig
           next if m%^\s*$%;
           $opts .= " $_";
           next unless m%^\s*(\S+)\s+(.*)\s*$%;
-          $params{OPTIONS}{$1} = $2;
+	  my $k = $1;
+	  my $v = $2;
+	  $k =~ s%^-+%%;
+	  $k = uc $k;
+	  if ( exists($params{OPTIONS}{$k}) )
+	  {
+	    if ( ref($params{OPTIONS}{$k}) ne 'ARRAY' )
+	    {
+	      my $v1 = $params{OPTIONS}{$k};
+	      $params{OPTIONS}{$k} = [];
+              push @{$params{OPTIONS}{$k}},$v1;
+	    }
+            push @{$params{OPTIONS}{$k}},$v;
+	  }
+	  else
+	  {
+            $params{OPTIONS}{$k} = $v;
+	  }
         }
         my $agent = PHEDEX::Core::Config::Agent->new
 		(
@@ -324,6 +341,7 @@ sub readConfig
           "\n";
     $self->{ENVIRONMENTS}{common}->Environment($e);
   }
+  $self->{_readTime} = time();
 }
 
 sub getEnviron
@@ -516,7 +534,7 @@ sub jobcount
 
   foreach $agent ( $self->select_agents(@_) )
   {
-    $jobs += $agent->OPTIONS->{-jobs} || 0;
+    $jobs += $agent->OPTIONS->{JOBS} || 0;
   }
   die "No agents selected\n" unless defined($jobs);
   return $jobs;
