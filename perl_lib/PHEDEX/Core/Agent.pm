@@ -244,6 +244,9 @@ sub new
     $self->init();
     # Validate the object!
     die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
+
+#   Announce myself...
+    $self->Notify("label=$label");
     return $self;
 }
 
@@ -445,73 +448,6 @@ sub isInvalid
   return $errors;
 }
 
-#sub initWorkers
-#{
-#    my $self = shift;
-#    return if ! $self->{NWORKERS};
-#    $self->{WORKERS} = [ (0) x $self->{NWORKERS} ];
-#    $self->checkWorkers();
-#}
-#
-## Ensure workers are running, if not, restart them
-#sub checkWorkers
-#{
-#    my $self = shift;
-#    my $nworkers = scalar @{$self->{WORKERS}};
-#    for (my $i = 0; $i < $nworkers; ++$i)
-#    {
-#	if (! $self->{WORKERS}[$i] || waitpid($self->{WORKERS}[$i], WNOHANG) > 0) {
-#	    my ($old, $new) = ($self->{WORKERS}[$i], $self->startWorker ($i));
-#	    $self->{WORKERS}[$i] = $new;
-#
-#	    if (! $old) {
-#		$self->Logmsg ("worker $i ($new) started");
-#	    } else {
-#	        $self->Logmsg ("worker $i ($old) stopped, restarted as $new");
-#	    }
-#	}
-#    }
-#}
-#
-## Start a worker
-#sub startWorker
-#{
-#    my $self = shift;
-#    die "derived class asked for workers, but didn't override startWorker!\n";
-#}
-#
-## Stop workers
-#sub stopWorkers
-#{
-#    my $self = shift;
-#    return if ! $self->{NWORKERS};
-#
-#    # Make workers quit
-#    my @workers = @{$self->{WORKERS}};
-#    my @stopflags = map { "$self->{DROPDIR}/worker-$_/stop" }
-#    			0 .. ($self->{NWORKERS}-1);
-#    $self->Note ("stopping worker threads");
-#    &touch (@stopflags);
-#    while (scalar @workers)
-#    {
-#	my $pid = waitpid (-1, 0);
-#	@workers = grep ($pid ne $_, @workers);
-#	$self->Logmsg ("child process $pid exited, @{[scalar @workers]} workers remain") if $pid > 0;
-#    }
-#    unlink (@stopflags);
-#}
-#
-# Pick least-loaded worker
-#sub pickWorker
-#{
-#    my ($self) = @_;
-#    my $nworkers = scalar @{$self->{WORKERS}};
-#    my $basedir = $self->{DROPDIR};
-#    return (sort { $a->[1] <=> $b->[1] }
-#    	    map { [ $_, scalar @{[<$basedir/worker-$_/{inbox,work}/*>]} ] }
-#	    0 .. $nworkers-1) [0]->[0];
-#}
-
 # Check if the agent should stop.  If the stop flag is set, cleans up
 # and quits.  Otherwise returns.
 sub maybeStop
@@ -537,11 +473,12 @@ sub doStop
 
     # Remove stop flag and pidfile
     unlink($self->{PIDFILE});
-    unlink($self->{STOPFLAG});
+#    unlink($self->{STOPFLAG});
 
     # Stop the rest
     $self->stop();
-    exit (0);
+    POE::Kernel->alarm_remove_all();
+#    exit (0);
 }
 
 =head2 stop
@@ -895,12 +832,9 @@ sub process
   $self->maybeStop();
   my $pmon = $self->{pmon};
   $pmon->State('idle','start');
-# my $t1 = &mytimeofday();
   $self->idle (@pending);
-# my $t2 = &mytimeofday();
   $pmon->State('idle','stop');
   print $self->Hdr,$pmon->FormatStates,"\n" if $self->{DEBUG};
-# $self->Dbgmsg(sprintf("cycle time %.6f s", $t2-$t1)) if $self->{DEBUG};
 }
 
 # Agents should override this to do their work. It's an unfortunate name
@@ -1581,6 +1515,7 @@ sub _maybeStop
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
 
+  $kernel->delay_set('_maybeStop', 1);
   my $DontStopMe = $self->{_DONTSTOPME} || 0;
   if ( !$DontStopMe )
   {
@@ -1590,7 +1525,6 @@ sub _maybeStop
     $self->maybeStop();
     $self->Dbgmsg("ending '_maybeStop'") if $self->{VERBOSE} >= 3;
   }
-  $kernel->delay_set('_maybeStop', 1);
 }
 
 sub _stop
