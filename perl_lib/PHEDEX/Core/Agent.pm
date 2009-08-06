@@ -123,6 +123,7 @@ sub new
       $cfg = PHEDEX::Core::Config->new();
       foreach ( split(',',$config) ) { $cfg->readConfig($_); }
       $self->{AGENT} = $cfg->select_agents($label);
+      $self->{CONFIGURATION} = $cfg;
 
 #     Is it really an error to not find the agent label in the config file?
       die "Cannot find agent \"$label\" in $config\n"
@@ -835,6 +836,25 @@ sub process
   $self->idle (@pending);
   $pmon->State('idle','stop');
   print $self->Hdr,$pmon->FormatStates,"\n" if $self->{DEBUG};
+
+  # Check to see if the config-file should be reloaded
+  $self->checkConfigFile();
+}
+
+sub checkConfigFile
+{
+  my $self = shift;
+  my ($mtime,$Config);
+
+  $mtime = (stat($self->{CONFIG}))[9];
+  if ( $mtime > $self->{CONFIGURATION}{_readTime} )
+  {
+    $self->Logmsg("Config file has changed, re-reading...");
+    $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
+    $Config->readConfig( $self->{CONFIG} );
+    $self->{CONFIGURATION} = $Config;
+    $self->reloadConfig($Config);
+  }
 }
 
 # Agents should override this to do their work. It's an unfortunate name
@@ -1414,6 +1434,15 @@ sub otherNodeFilter
   }
   return ("", ());
 }
+
+=head2 reloadConfig
+
+Override this in an agent subclass to reload the configuration after the
+config-file has changed
+
+=cut
+
+sub reloadConfig {}
 
 sub _start
 {
