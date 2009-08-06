@@ -407,17 +407,20 @@ sub stop
 {
   my $self = shift;
   my ($env,%h);
+
   foreach my $agent ( $self->select_agents(@_) )
   {
     $env = $self->ENVIRONMENTS->{$agent->ENVIRON};
     my $dropdir  = $env->getExpandedString($agent->DROPDIR);
     my $pidfile  = $env->getExpandedString($agent->PIDFILE);
 
-    open PID, "<$pidfile" or next; # Agent not running? die "Cannot read PID file $pidfile\n";
-    $_ = <PID>;
-    close PID;
-    chomp;
-    $h{$_} = $agent->{LABEL};
+    if ( open PID, "<$pidfile" )
+    {
+      $_ = <PID>;
+      close PID;
+      chomp;
+      $h{$_} = $agent->{LABEL};
+    }
 
     open STOP, ">$dropdir/stop" or die "Cannot create $dropdir/stop\n";
     close STOP;
