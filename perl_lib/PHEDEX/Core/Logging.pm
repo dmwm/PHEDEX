@@ -35,6 +35,7 @@ use base 'Exporter';
 our @EXPORT = qw( Hdr new Logmsg Notify Alert Warn Dbgmsg Fatal Note get_log_level set_log_level logger_stat); # logmsg alert dbgmsg fatal note
 use POSIX;
 use File::Basename;
+use IO::Socket;
 
 our $shared_me = ''; # for log4perl subroutine, set by me()
 
@@ -52,12 +53,12 @@ sub new
 my $config_file;
 BEGIN
 {
-  # As a demonstration, prepare to throw out UDP messages if required.
-  if ( defined($ENV{PHEDEX_NOTIFICATION_PORT}) )
-  {
-    eval("use IO::Socket");
-    if ( $@ ) { undef $ENV{PHEDEX_NOTIFICATION_PORT}; }
-  };
+#  # As a demonstration, prepare to throw out UDP messages if required.
+#  if ( defined($ENV{PHEDEX_NOTIFICATION_PORT}) )
+#  {
+#    eval("use IO::Socket");
+#    if ( $@ ) { undef $ENV{PHEDEX_NOTIFICATION_PORT}; }
+#  };
 
   # initiailze PhEDEx logger
 
@@ -101,16 +102,16 @@ sub Logmsg
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->info(@_);
-  if ( $self && $self->{NOTIFICATION_PORT} && $self->{NOTIFICATION_HOST})
-  {
-#   This is cheating a bit...
-    $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
-    $ENV{PHEDEX_NOTIFICATION_HOST} = $self->{NOTIFICATION_HOST};
-  }
-  else
-  {
-    PHEDEX::Core::Logging::Notify(undef,@_);
-  }
+#  if ( $self && $self->{NOTIFICATION_PORT} && $self->{NOTIFICATION_HOST})
+#  {
+##   This is cheating a bit...
+#    $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
+#    $ENV{PHEDEX_NOTIFICATION_HOST} = $self->{NOTIFICATION_HOST};
+#  }
+#  else
+#  {
+#    PHEDEX::Core::Logging::Notify(undef,@_);
+#  }
 }
 
 # Notify(msg) -- log through udp socket to remote -- not using Log4perl
