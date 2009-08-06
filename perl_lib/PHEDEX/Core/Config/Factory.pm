@@ -23,20 +23,29 @@ use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use POE;
 use PHEDEX::Core::Timing;
+use PHEDEX::Core::JobManager;
+use IO::Socket::INET;
+use constant DATAGRAM_MAXLEN => 1024;
 
 our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
 	  ME		=> 'AgentFactory',
-	  WAITTIME	=> 3600 + rand(3),	# This agent cycle time
+	  WAITTIME	=> 300 + rand(3),	# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
 	  AGENTS	=> undef,		# Which agents am I to start?
 	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
 	  NODAEMON	=> 1,			# Don't daemonise by default!
 	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
-	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
-	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
+	  NJOBS		=> 3,			# start 3 agents at a time
+
+	  LAST_SEEN_ALERT	=> 3600,	# send alerts & restart after this much inactivity
+	  LAST_SEEN_WARNING	=> 1200,	# send warnings after this much inactivity
+	  TIMEOUT		=> 11,		# interval between signals
+
+	  STATISTICS_INTERVAL	=> 3600*12,	# My own reporting frequency
+	  STATISTICS_DETAIL	=>    0,	# reporting level: 0, 1, or 2
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -47,6 +56,8 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
+
+  undef $self->{NOTIFICATION_PORT}; # Don't talk to myself...
   bless $self, $class;
   return $self;
 }
@@ -86,39 +97,48 @@ sub createAgents
     {
       die "given \"$agent\", but found \"",$Agent->LABEL,"\"\n";
     }
-
-    my $module = $Agent->PROGRAM;
-    $self->Logmsg("$agent is in $module");
-    if ( !exists($Modules{$module}) )
+    if ( $Agent->PROGRAM =~ m%^PHEDEX::% )
     {
-      $self->Logmsg("Attempt to load $module");
-      eval("use $module");
-      do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
-      $Modules{$module}++;
-    }
-    my %a = @_;
-    $a{NODAEMON} = 1;
-    $a{LABEL} = $agent;
-    my $opts = $Agent->OPTIONS;
-    $opts->{DROPDIR} = '${PHEDEX_STATE}/' . $agent;
-    $opts->{LOGFILE} = '${PHEDEX_LOGS}/'  . $agent;
-    $opts->{SHARED_DBH} = 1 unless exists($opts->{SHARED_DBH});
+      my $module = $Agent->PROGRAM;
+      $self->Logmsg("$agent is in $module");
+      if ( !exists($Modules{$module}) )
+      {
+        $self->Logmsg("Attempt to load $module");
+        eval("use $module");
+        do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
+        $Modules{$module}++;
+      }
+      my %a = @_;
+      $a{NODAEMON} = 1;
+      $a{LABEL} = $agent;
+      my $opts = $Agent->OPTIONS;
+      $opts->{DROPDIR} = '${PHEDEX_STATE}/' . $agent;
+      $opts->{LOGFILE} = '${PHEDEX_LOGS}/'  . $agent;
+      $opts->{SHARED_DBH} = 1 unless exists($opts->{SHARED_DBH});
 
-    my $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
-    foreach ( keys %{$opts} )
+      my $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
+      foreach ( keys %{$opts} )
+      {
+        $a{$_} = $env->getExpandedString($opts->{$_}) unless exists($a{$_});
+      }
+      $Agents{$agent}{self} = eval("new $module(%a)");
+      do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
+
+#     Enable statistics for this agent
+      $Agents{$agent}{self}{stats}{process} = undef;
+    }
+    else
     {
-      $a{$_} = $env->getExpandedString($opts->{$_}) unless exists($a{$_});
+      my $env = $self->{ENVIRONMENT};
+      my $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
+      my $Master = $scripts . '/Utilities/Master';
+      my @cmd = ($Master,'--config',$self->{CONFIG},'start',$agent);
+      $Agents{$agent}{cmd} = \@cmd;
     }
-
-    $Agents{$agent} = eval("new $module(%a)");
-    do { chomp ($@); die "Failed to create agent $module: $@\n" } if $@;
-
-#   Enable statistics for this agent
-    $Agents{$agent}{stats}{process} = undef;
   }
 
 # Monitor myself too!
-  $Agents{$self->{ME}} = $self;
+  $Agents{$self->{ME}}{self} = $self;
 
   return ($self->{AGENTS} = \%Agents);
 }
@@ -130,7 +150,7 @@ sub really_daemon
 # this up if I can.
   my $self = shift;
   $self->{NODAEMON} = $self->{REALLY_NODAEMON} || 0;
-  $self->SUPER::daemon( $self->{ME} );
+  my $pid = $self->SUPER::daemon( $self->{ME} );
   $self->Logmsg('I have successfully become a daemon');
   $self->Logmsg('I am running these agents: ',join(', ',sort keys %{$self->{AGENTS}}));
 }
@@ -138,41 +158,184 @@ sub really_daemon
 sub idle
 {
   my $self = shift;
-  $self->Logmsg("entering idle") if $self->{VERBOSE};
-  $self->SUPER::idle(@_);
-  $self->Logmsg("exiting idle") if $self->{VERBOSE};
+
+  my ($agent,$Agent,$Config,$pidfile,$pid,$env,$stopfile,$now,$last_seen);
+
+  $now = time();
+  $Config = $self->{CONFIGURATION};
+  foreach $agent ( keys %{$self->{AGENTS}} )
+  {
+    next if $self->ME() eq $agent;
+    if ( $self->{AGENTS}{$agent}{cmd} )
+    {
+#     This one was started externally, so check the PID and time since we last heard from it
+      $Agent = $Config->select_agents( $agent );
+      $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
+      $pidfile = $env->getExpandedString($Agent->PIDFILE());
+
+      if ( open PID, "<$pidfile" )
+      {
+        $pid = <PID>;
+        close PID;
+        chomp $pid;
+      }
+      if ( $pid && (kill 0 => $pid) )
+      {
+        if ( !$self->{AGENT_PID}{$pid} ) { $self->{AGENT_PID}{$pid} = $Agent->LABEL; }
+        if ( !$self->{AGENTS}{$agent}{last_seen} ) { $self->{AGENTS}{$agent}{last_seen} = $now; }
+        $last_seen = $self->{AGENTS}{$agent}{last_seen};
+        $last_seen = $now - $last_seen;
+        if ( $last_seen > $self->{LAST_SEEN_ALERT} )
+        {
+	  $self->Alert("Agent=$agent, PID=$pid, no news for $last_seen seconds");
+          POE::Kernel->post($self->{SESSION_ID},'restartAgent',{ AGENT => $agent, PID => $pid });
+	}
+	elsif ( $last_seen > $self->{LAST_SEEN_WARNING} )
+        {
+	  $self->Warn("Agent=$agent, PID=$pid, no news for $last_seen seconds");
+	}
+
+        $self->Dbgmsg("Agent=$agent, PID=$pid, LAST_SEEN=$last_seen, still alive...") if $self->{DEBUG};
+        next;
+      }
+
+#     Now check for a stopfile, which means the agent _should_ be down
+      $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
+      if ( -f $stopfile )
+      {
+        $self->Logmsg("Agent=$agent is down by request, not restarting...");
+        next;
+      }
+
+#     Agent is down and should not be. Create a jobmanager if I don't have one, and restart the agent
+      $self->Logmsg("Agent=$agent is down. Starting...");
+      my $cmd = $self->{AGENTS}{$agent}{cmd};
+      if ( !$self->{JOBMANAGER} )
+      {
+        $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+                              NJOBS     => $self->{NJOBS},
+                              VERBOSE   => $self->{VERBOSE},
+                              DEBUG     => $self->{DEBUG},
+			      KEEPALIVE => 0,
+                            );
+        $self->{JOBMANAGER}->whenQueueDrained( sub { delete $self->{JOBMANAGER}; } );
+      }
+      $self->{JOBMANAGER}->addJob(
+			sub { $self->handleJob($agent) },
+			{ TIMEOUT => 300 },
+			@{$cmd}
+		);
+    }
+    else
+    {
+#     This is a session in the current process, ping it...
+      $self->Dbgmsg("Agent=$agent, in this process, ignore for now...") if $self->{DEBUG};
+    }
+  }
 }
 
-sub isInvalid
+sub handleJob
 {
-  my $self = shift;
-  my $errors = 0;
-  $self->Logmsg("entering isInvalid") if $self->{VERBOSE};
-  $self->Logmsg("exiting isInvalid") if $self->{VERBOSE};
-
-  return $errors;
+  my ($self,$agent) = @_;
+  $self->Logmsg("$agent started...");
+  $self->{AGENTS}{$agent}{start}{time()}=1;
 }
 
-sub readInbox   { return (); }
-sub readOutbox  { return (); }
-sub readPending { return (); }
-
-sub stop
-{
-  my $self = shift;
-  $self->Logmsg("entering stop") if $self->{VERBOSE};
-  $self->SUPER::stop(@_);
-  $self->Logmsg("exiting stop") if $self->{VERBOSE};
-}
+#sub isInvalid
+#{
+#  my $self = shift;
+#  my $errors = 0;
+#  $self->Logmsg("entering isInvalid") if $self->{VERBOSE};
+#  $self->Logmsg("exiting isInvalid") if $self->{VERBOSE};
+#
+#  return $errors;
+#}
+#
+#sub readInbox   { return (); }
+#sub readOutbox  { return (); }
+#sub readPending { return (); }
+#
+#sub stop
+#{
+#  my $self = shift;
+#  $self->Logmsg("entering stop") if $self->{VERBOSE};
+#  $self->SUPER::stop(@_);
+#  $self->Logmsg("exiting stop") if $self->{VERBOSE};
+#}
 
 sub _poe_init
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+  $kernel->state('restartAgent', $self);
   $kernel->state('_make_stats', $self);
+  $kernel->state('_udp_listen', $self);
   $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
   $self->{stats}{START} = time;
   $self->{stats}{maybeStop}=0;
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
+
+  if ( $ENV{PHEDEX_NOTIFICATION_PORT} )
+  {
+    my $socket = IO::Socket::INET->new(
+      Proto     => 'udp',
+      LocalPort => $ENV{PHEDEX_NOTIFICATION_PORT},
+    );
+    $kernel->select_read($socket,'_udp_listen');
+  }
+}
+
+sub restartAgent
+{
+  my ($self, $kernel, $h) = @_[OBJECT, KERNEL, ARG0];
+  my ($agent,$pid,$signal);
+  if ( ! $h->{signals} ) { $h->{signals} = [ qw / 1 15 9 9 / ]; }
+  $signal = shift @{$h->{signals}};
+  $pid = $h->{PID};
+  $agent = $h->{AGENT};
+
+# If the process is dead, there is nothing more to do...
+  if ( ! (kill 0 => $pid) )
+  {
+    delete $self->{AGENT_PID}{$pid};
+    return;
+  }
+
+# If we have run out of signals, there is nothing more we can do either...
+  if ( !$signal )
+  {
+    $self->Alert("Cannot kill Agent=$agent, PID=$pid! Giving up...");
+    return;
+  }
+  $self->Logmsg("Sending signal=$signal to pid=$pid (agent=$agent)");
+  kill $signal => $pid;
+  $kernel->delay_set('restartAgent',$self->{TIMEOUT},$h);
+}
+
+sub _udp_listen
+{
+  my ($self, $kernel, $socket) = @_[OBJECT, KERNEL, ARG0];
+  my ($remote_address,$message);
+  my ($agent,$pid,$label,$message_left);
+
+  $message = '';
+  $remote_address = recv($socket, $message, DATAGRAM_MAXLEN, 0);
+
+  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]: (.*)$% )
+  {
+    $agent = $1;
+    $pid = $2;
+    $message_left = $3;
+    return if ( $agent eq $self->ME() );
+    if ( $message_left =~ m%^label=(\S+)$% )
+    {
+      $label = $1;
+      $self->{AGENT_PID}{$pid} = $label;
+    }
+    $label = $self->{AGENT_PID}{$pid};
+    $self->{AGENTS}{$label}{last_seen} = time() if $label;
+    return if ( $message_left eq 'ping' ) # allows contact without flooding the logfile
+  }
+  print $message;
 }
 
 sub _make_stats
@@ -183,13 +346,13 @@ sub _make_stats
   $totalWall = $totalOnCPU = $totalOffCPU = 0;
   foreach my $agent ( sort keys %{$self->{AGENTS}} )
   {
-    next unless $self->{AGENTS}{$agent}{stats};
+    next unless $self->{AGENTS}{$agent}{self}{stats};
     my $summary = "STATISTICS: $agent";
-    my $h = $self->{AGENTS}{$agent}{stats};
+    my $h = $self->{AGENTS}{$agent}{self}{stats};
     if ( exists($h->{maybeStop}) )
     {
       $summary .= ' maybeStop=' . $h->{maybeStop};
-      $self->{AGENTS}{$agent}{stats}{maybeStop}=0;
+      $self->{AGENTS}{$agent}{self}{stats}{maybeStop}=0;
     }
 
     my ($onCPU,$offCPU);
@@ -222,7 +385,7 @@ sub _make_stats
         $totalOffCPU += $offCPU;
         $max = $a[-1];
         $median = $a[int($count/2-0.9)];
-        my $waittime = $self->{AGENTS}{$agent}->{WAITTIME} || 0;
+        my $waittime = $self->{AGENTS}{$agent}{self}->{WAITTIME} || 0;
         if ( !defined($median) ) { print "median not defined for $agent\n"; }
         if ( !defined($max   ) ) { print "max    not defined for $agent\n"; }
         $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
@@ -237,7 +400,7 @@ sub _make_stats
         }
       }
 
-      $self->{AGENTS}{$agent}{stats}{process} = undef;
+      $self->{AGENTS}{$agent}{self}{stats}{process} = undef;
     }
     $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
     $self->Notify($summary,"\n") if $delay > 1.25;
