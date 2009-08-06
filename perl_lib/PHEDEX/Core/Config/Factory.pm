@@ -27,6 +27,8 @@ use PHEDEX::Core::JobManager;
 use IO::Socket::INET;
 use constant DATAGRAM_MAXLEN => 1024;
 
+$PHEDEX::Core::Factory::rerun = 0;
+
 our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
@@ -34,7 +36,7 @@ our %params =
 	  WAITTIME	=> 300 + rand(3),	# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
-	  AGENTS	=> undef,		# Which agents am I to start?
+	  AGENT_LIST	=> undef,		# Which agents am I to start?
 	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
 	  NODAEMON	=> 1,			# Don't daemonise by default!
 	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
@@ -77,17 +79,27 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+sub reloadConfig
+{
+  my ($self,$Config) = @_;
+  my $config = $Config->select_agents($self->{LABEL});
+  foreach ( qw / AGENT_LIST LAST_SEEN_ALERT LAST_SEEN_WARNING TIMEOUT / )
+  {
+    $self->{$_} = $config->{OPTIONS}{$_} if $config->{OPTIONS}{$_};
+  }
+  $self->createAgents();
+}
+
 sub createAgents
 {
   my $self = shift;
-
   my ($Config,$Agent,%Agents,%Modules,$agent);
+  $Config = $self->{CONFIGURATION};
 
-  $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
-  $Config->readConfig( $self->{CONFIG} );
-  $self->{CONFIGURATION} = $Config;
+  if ( ref($self->{AGENT_LIST}) ne 'ARRAY' )
+  { $self->{AGENT_LIST} = [ $self->{AGENT_LIST} ]; }
 
-  foreach $agent ( @{$self->{AGENTS}} )
+  foreach $agent ( @{$self->{AGENT_LIST}} )
   {
     $self->Logmsg("Lookup agent \"$agent\"");
     $Agent = $Config->select_agents( $agent );
@@ -139,7 +151,7 @@ sub createAgents
 
 # Monitor myself too!
   $Agents{$self->{ME}}{self} = $self;
-
+  $self->Logmsg('I am running these agents: ',join(', ',sort keys %Agents));
   return ($self->{AGENTS} = \%Agents);
 }
 
@@ -152,17 +164,18 @@ sub really_daemon
   $self->{NODAEMON} = $self->{REALLY_NODAEMON} || 0;
   my $pid = $self->SUPER::daemon( $self->{ME} );
   $self->Logmsg('I have successfully become a daemon');
-  $self->Logmsg('I am running these agents: ',join(', ',sort keys %{$self->{AGENTS}}));
 }
 
 sub idle
 {
   my $self = shift;
 
-  my ($agent,$Agent,$Config,$pidfile,$pid,$env,$stopfile,$now,$last_seen);
+  my ($agent,$Agent,$Config,$pidfile,$pid,$env,$stopfile);
+  my ($now,$last_seen,$mtime);
 
   $now = time();
   $Config = $self->{CONFIGURATION};
+
   foreach $agent ( keys %{$self->{AGENTS}} )
   {
     next if $self->ME() eq $agent;
