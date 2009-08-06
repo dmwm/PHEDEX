@@ -120,14 +120,15 @@ Pick up work from the database and start site specific scripts if necessary
 sub idle
 {
   my $self = shift;
-  $self->Notify("entering idle\n");
+#  $self->Notify("ping\n");
+# $self->Notify("entering idle\n");
   my $pmon = $self->{PMON};
   $pmon->State('idle','start');
   sleep(1);
-  print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
+#  print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
   $self->SUPER::idle(@_);
   $pmon->State('idle','stop');
-  print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
+#  print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
 }
 
 =head2 isInvalid
