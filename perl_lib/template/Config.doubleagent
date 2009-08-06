@@ -33,14 +33,19 @@ export PHEDEX_NOTIFICATION_PORT=2222
 export PHEDEX_NOTIFICATION_HOST=localhost
 PHEDEX_DEBUGGER="rlwrap perl -MPHEDEX::Debug -d"
 
-### AGENT LABEL=AgentWatchdog PROGRAM=Utilities/AgentFactory.pl
+### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
-  STATISTICS_INTERVAL 60
-  STATISTICS_DETAIL 1
- -agent test-agent
+ -agent_list test-agent1
+ -agent_list test-agent2
+ -agent_list test-agent3
  REALLY_NODAEMON 1
+ STATISTICS_INTERVAL 60
+ STATISTICS_DETAIL 1
+ --
+ LAST_SEEN_WARNING 31
+ LAST_SEEN_ALERT 55
 
 ### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
  -db     ${PHEDEX_DBPARAM}
@@ -66,14 +71,29 @@ PHEDEX_DEBUGGER="rlwrap perl -MPHEDEX::Debug -d"
  WAITTIME 15
  ME template-slow-agent
 
-### AGENT LABEL=test-agent PROGRAM=perl_lib/template/Agent.pl DEFAULT=off
+### AGENT LABEL=test-agent1 PROGRAM=perl_lib/template/Agent.pl DEFAULT=off
  -db     ${PHEDEX_DBPARAM}
-  STATISTICS_INTERVAL 3000
+  STATISTICS_INTERVAL 20
   STATISTICS_DETAIL 1
-  --verbose
-  --debug
   --
-  WAITTIME 2
+  WAITTIME 5
+  ME test-agent1
+
+### AGENT LABEL=test-agent2 PROGRAM=perl_lib/template/Agent.pl DEFAULT=off
+ -db     ${PHEDEX_DBPARAM}
+  STATISTICS_INTERVAL 30
+  STATISTICS_DETAIL 1
+  --
+  WAITTIME 17
+  ME test-agent2
+
+### AGENT LABEL=test-agent3 PROGRAM=perl_lib/template/Agent.pl DEFAULT=off
+ -db     ${PHEDEX_DBPARAM}
+  STATISTICS_INTERVAL 40
+  STATISTICS_DETAIL 1
+  --
+  WAITTIME 33
+  ME test-agent3
 
 ### AGENT LABEL=blockverify PROGRAM=PHEDEX::BlockConsistency::Agent DEFAULT=off
   -db          ${PHEDEX_DBPARAM}
