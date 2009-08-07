@@ -50,7 +50,8 @@ sub new
 		  BOOTTIME => time(),		# Time this agent started
 		);
     my %args = (@_);
-    $$self{$_} = $args{$_} || $params{$_} for keys %params;
+#   use 'defined' instead of testing on value to allow for arguments which are set to zero.
+    map { $$self{$_} = defined($args{$_}) ? $args{$_} : $params{$_} } keys %params;
 
     # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
@@ -85,6 +86,8 @@ sub _poe_init
 {
   my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
 # $session->option(trace => 1);  $|++; # XXX Debugging
+
+  $self->defineWorkflow();
 
   my @poe_subs = qw( advertise_self verify_tasks purge_lost_tasks
 		     fill_backend maybe_disconnect
@@ -1024,8 +1027,8 @@ sub finish_task
 # Utility functions (non-POE events)
 #
 
-# Initialise agent.
-sub init
+# Define the workflow. This must be called after both command-line and default arguments are processed!
+sub defineWorkflow
 {
     my ($self) = @_;
 
