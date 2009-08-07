@@ -29,6 +29,13 @@ PHEDEX.Core.ContextMenu.Build=function(menu,components) {
   for (var i in components)
   {
     name = components[i];
+    var w = PHEDEX.Core.Widget.Registry.getWidgetsByInputType(name);
+    for (var j in w)
+    {
+      menu.addItem(w[j].label);
+      menu.payload.push(w[j].construct);
+      YAHOO.log('Build: '+name+' label:'+w[j].label,'info','Core.ContextMenu');
+    }
     var list = PHEDEX.Core.ContextMenu.items[name];
     for (var j in list)
     {
