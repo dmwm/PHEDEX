@@ -13,6 +13,7 @@ use strict;
 ##H Master -config FILE[,FILE...] listagents [AGENT... | all]
 ##H Master -config FILE[,FILE...] clean      [AGENT... | all]
 ##H Master -config FILE[,FILE...] debug      [AGENT... | all]
+##H Master -config FILE[,FILE...] checkdb
 ##H
 ##H Manage an agent configuration.  If more than one configuration file
 ##H is given, the different sections of each file are merged and the
@@ -66,6 +67,18 @@ use strict;
 ##H environment, or 'perl -MPHEDEX::Debug -d' by default, and start the
 ##H agent in the perl debugger accordingly.
 ##H
+##H The "checkdb" command will check your database connection, using the value
+##H of PHEDEX_DBPARAM from the 'common' environment. You can use this to see if
+##H you have a problem with your database connection.
+##H
+##H The database connection will also be verified automatically before any
+##H agent is started. This is to avoid situations where the parameter is
+##H invalid, but that is not discovered until the agent itself starts up. If
+##H you did not check the agent logfile you would not find out.
+##H
+##H You can disable the database check on starting agents by adding "-nocheckdb"
+##H to the command line, before the command option.
+##H
 ##H Adding "-dummy" to the command line before the command option will cause
 ##H the script to not actually execute the commands, but only to print them to
 ##H stdout. Useful for debugging.
@@ -83,8 +96,11 @@ BEGIN {
 
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
+use PHEDEX::Core::Logging;
+use PHEDEX::Core::DB;
 
-my (%args,$config,$dummy);
+my (%args,$config,$dummy,$checkdb);
+$checkdb=1;
 $config = PHEDEX::Core::Config->new( PARANOID => 1 );
 
 # First we need to parse the command line arguments
@@ -95,6 +111,7 @@ while (@ARGV)
     { shift (@ARGV); push (@{$args{CONFIG}}, split(/,/, shift(@ARGV))); }
     elsif ($ARGV[0] eq "-h") { usage(); }
     elsif ($ARGV[0] eq "-dummy") { shift @ARGV; $dummy=1; }
+    elsif ($ARGV[0] eq "-nocheckdb" || $ARGV[0] eq "-no-checkdb" ) { shift @ARGV; $checkdb=0; }
     elsif ($ARGV[0] =~ /^-/) 
     { die "Unexpected option $ARGV[0], please use -h for help\n"; }
     else
@@ -102,6 +119,7 @@ while (@ARGV)
 }
 
 my $mode = shift(@ARGV);
+
 if (!$args{CONFIG} || !$mode)
 { 
     die "Insufficient parameters, please use -h for help\n";
@@ -119,6 +137,17 @@ if ( $mode eq 'environ' )
   exit 0;
 }
 
+if ( ($mode eq 'start' || $mode eq 'checkdb') && $checkdb )
+{
+  &PHEDEX::Core::Logging::Logmsg(undef,'Testing your DB connection');
+  my $env = $config->{ENVIRONMENTS}{common};
+  my $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM');
+  my $h = {DBCONFIG => $dbparam};
+  connectToDatabase($h);
+  disconnectFromDatabase($h,$h->{DBH},1);
+  &PHEDEX::Core::Logging::Logmsg(undef,'Your DB connection is good, proceeding...');
+  if ( $mode eq 'checkdb' ) { exit 0; }
+}
 if ( $mode eq 'jobcount' )
 {
   print "Total of ",$config->jobcount(@ARGV)," jobs for this configuration\n";
