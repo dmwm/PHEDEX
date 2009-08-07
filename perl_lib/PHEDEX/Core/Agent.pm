@@ -844,9 +844,11 @@ sub process
 sub checkConfigFile
 {
   my $self = shift;
-  my ($mtime,$Config);
+  my ($config,$mtime,$Config);
 
-  $mtime = (stat($self->{CONFIG}))[9];
+  $config = $self->{CONFIGURATION}{CONFIG_FILES}->[0];
+  $mtime = (stat($config))[9];
+  print "$config, $mtime\n";
   if ( $mtime > $self->{CONFIGURATION}{_readTime} )
   {
     $self->Logmsg("Config file has changed, re-reading...");
