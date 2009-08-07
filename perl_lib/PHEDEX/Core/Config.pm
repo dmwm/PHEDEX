@@ -154,6 +154,7 @@ The list of agent names can be "all" or empty, for all default agents.
 
 use PHEDEX::Core::Config::Environment;
 use PHEDEX::Core::Config::Agent;
+use Cwd;
 
 our %params = (
 		AGENTS       => undef,
@@ -233,6 +234,11 @@ sub readConfig
 
 # Record initial config-files (i.e. not recursively-opened files)
   my $depth = $fhpattern || 0;
+  if ( $file !~ m%^/% )
+  {
+    my $cwd = getcwd();
+    $file = $cwd . '/' . $file;
+  }
   push @{$self->{CONFIG_FILES}}, $file unless $depth;
 
   $fhpattern++; # Avoid stomping over recursed files
