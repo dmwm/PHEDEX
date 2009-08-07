@@ -3,7 +3,8 @@ PHEDEX.namespace('Widget.LinkView','Widget.TransferQueueBlock','Widget.TransferQ
 
 PHEDEX.Page.Widget.LinkView=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-  xfer_node = new PHEDEX.Widget.LinkView(node,divid);
+//   var xfer_node = new PHEDEX.Widget.LinkView(node,divid);
+  var xfer_node = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.LinkView','node',node,divid);
   xfer_node.update();
 }
 
@@ -377,4 +378,5 @@ PHEDEX.Widget.LinkView=function(node,divid) {
 
 // What can I respond to...?
 PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.node).update(); });
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.LinkView','node','Show Links',PHEDEX.Widget.LinkView);
 YAHOO.log('loaded...','info','Widget.LinkView');

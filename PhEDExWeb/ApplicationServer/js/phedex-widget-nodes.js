@@ -3,7 +3,9 @@ PHEDEX.namespace('Widget.Nodes');
 
 PHEDEX.Page.Widget.Nodes=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-  var nodes = new PHEDEX.Widget.Nodes(node,divid);
+//   var nodes = new PHEDEX.Widget.Nodes(node,divid);
+//   nodes.update();
+  var nodes = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.Nodes','node',node,divid);
   nodes.update();
 }
 
@@ -49,3 +51,5 @@ PHEDEX.Widget.Nodes=function(node,divid) {
   that.ctl.extra.Disable();
   return that;
 }
+
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Nodes','node','Show Nodes',PHEDEX.Widget.Nodes);

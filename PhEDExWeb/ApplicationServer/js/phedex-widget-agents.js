@@ -3,7 +3,8 @@ PHEDEX.namespace('Widget.Agents');
 
 PHEDEX.Page.Widget.Agents=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-  var agent_node = new PHEDEX.Widget.Agents(node,divid);
+//   var agent_node = new PHEDEX.Widget.Agents(node,divid);
+  var agent_node = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.Agents','node',node,divid);
   agent_node.update();
 }
 
@@ -89,3 +90,4 @@ PHEDEX.Widget.Agents=function(node,divid) {
 
 // What can I respond to...?
 PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(args,opts,el) { PHEDEX.Widget.Agents(opts.node).update(); });
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Agents','node','Show Agents',PHEDEX.Widget.Agents);
