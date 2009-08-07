@@ -71,7 +71,7 @@ PHEDEX.Core.Widget.Registry=(function() {
 	throw new Error("cannot construct unregistered widget '"+widget+"' by input type '"+inputType+"'");
       }
       var w = _widgets[inputType][widget];
-      w.construct(inputData, divid, args);
+      return w.construct(inputData, divid, args);
     }
   };
 })();
