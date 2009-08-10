@@ -16,14 +16,15 @@ use PHEDEX::Core::Help;
 use PHEDEX::Core::Config::Factory;
 
 &GetOptions (
-             "state=s"   => \$args{DROPDIR},
-             "log=s"     => \$args{LOGFILE},
-             "db=s"      => \$args{DBCONFIG},
-             "config=s"  => \$args{CONFIG},
-             "node=s"    => \$args{MYNODE},
-	     "help|h"    => sub { &usage() },
-	     "agent=s@"  => sub { push(@{$args{AGENTS}}, split(/,/, $_[1])) },
-	     "memuse"	 => sub { eval "use Devel::Size"; },
+             "state=s"		=> \$args{DROPDIR},
+             "log=s"		=> \$args{LOGFILE},
+             "db=s"		=> \$args{DBCONFIG},
+             "config=s"		=> \$args{CONFIG},
+             "node=s"		=> \$args{MYNODE},
+	     "help|h"		=> sub { &usage() },
+	     "agent-list=s@"	=> sub { push(@{$args{AGENT_LIST}}, split(/,/, $_[1])) },
+	     "agent_list=s@"	=> sub { push(@{$args{AGENT_LIST}}, split(/,/, $_[1])) },
+	     "memuse"		=> sub { eval "use Devel::Size"; },
 	     );
 
 $Factory = PHEDEX::Core::Config::Factory->new( %args, @ARGV );
