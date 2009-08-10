@@ -91,6 +91,7 @@ sub _poe_init
 }
 
 sub _child {}
+sub stop { exit(0); }
 
 sub Config { return (shift)->{LIFECYCLE_CONFIG}; }
 
