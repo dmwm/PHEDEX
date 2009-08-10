@@ -848,7 +848,6 @@ sub checkConfigFile
 
   $config = $self->{CONFIGURATION}{CONFIG_FILES}->[0];
   $mtime = (stat($config))[9];
-  print "$config, $mtime\n";
   if ( $mtime > $self->{CONFIGURATION}{_readTime} )
   {
     $self->Logmsg("Config file has changed, re-reading...");
