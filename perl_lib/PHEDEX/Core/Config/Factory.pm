@@ -33,7 +33,7 @@ our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
 	  ME		=> 'AgentFactory',
-	  WAITTIME	=> 300 + rand(3),	# This agent cycle time
+	  WAITTIME	=> 90 + rand(3),	# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
 	  AGENT_LIST	=> undef,		# Which agents am I to start?
@@ -144,7 +144,7 @@ sub createAgents
       my $env = $self->{ENVIRONMENT};
       my $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
       my $Master = $scripts . '/Utilities/Master';
-      my @cmd = ($Master,'--config',$self->{CONFIG},'start',$agent);
+      my @cmd = ($Master,'--nocheckdb','--config',$self->{CONFIG},'start',$agent);
       $Agents{$agent}{cmd} = \@cmd;
     }
   }
