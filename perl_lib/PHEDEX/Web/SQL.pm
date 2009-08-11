@@ -2157,4 +2157,333 @@ sub getMissingFIles
 
 }
 
+# NOT DONE YET
+sub getLinks
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            fn.name from_node,
+            tn.name to_node,
+            l.is_active,
+            fn.kind from_kind,
+            tn.kind to_kind,
+            xso.time_update source_update,
+            xso.protocols source_protos,
+            xsi.time_update sink_update,
+            xsi.protocols sink_protos
+        from
+            t_adm_link l
+            join t_adm_node fn on fn.id = l.from_node
+            join t_adm_node tn on tn.id = l.to_node
+            left join t_xfer_source xso on xso.from_node = fn.id
+                    and xso.to_node = tn.id
+            left join t_xfer_sink xsi on xsi.from_node = fn.id
+                    and xsi.to_node = tn.id
+        where
+            not fn.name like 'X%' and
+            not tn.name like 'X%'
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM => 'fn.name',
+        TO => 'tn.name'
+    ));
+
+    $sql .= " and ($filters) " if ($filters);
+
+    my $now = time();
+    my $downtime = 5400 + 15*60;  # Hour and a half (real expiration) + 15 minutes grace time
+
+    $q = execute_sql($core, $sql, %p);
+    my $links = $q->fetchall_arrayref();
+    my %link_params;
+    my (%from_nodes, %to_nodes);
+    foreach my $link (@{$links}) {
+        my ($from, $to, $is_active, $from_kind, $to_kind,
+            $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
+        my $key = $from.'-->'.$to;
+        $link_params{$key} = { EXISTS => 1,
+                               FROM => $from,
+                               TO => $to,
+                               IS_ACTIVE => $is_active,
+                               XSI_UPDATE => $xsi_update,
+                               XSO_UPDATE => $xso_update,
+                               FROM_KIND => $from_kind,
+                               TO_KIND => $to_kind,
+                               XSO_PROTOS => $xso_protos,
+                               XSI_PROTOS => $xsi_protos
+                               };
+
+	# Explain why links are valid or invalid.  For now we benefit
+	# from the fact the xfer_source/xfer_sink tables are never
+	# cleaned up.  Exclusion deletes from xfer_source, and
+	# xfer_sink, so if there is an old update we know the agent is
+	# down, if there is no entry, we know the node has been
+	# excluded.  It would be nice to do a more explicit check for
+	# this but for now the logic is ok.
+	if ($from_kind eq 'MSS' && $to_kind eq 'Buffer') { # Staging link
+	    $link_params{$key}{VALID} = 1;
+	    $link_params{$key}{REASON} = 'Staging link OK';
+	} elsif ($from_kind eq 'Buffer' && $to_kind eq 'MSS') { # Migration link
+	    if (!$xsi_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Migration agent excluded';
+	    } elsif ($xsi_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Migration agent down';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    } else {
+		$link_params{$key}{VALID} = 1;
+		$link_params{$key}{REASON} = 'Migration link OK';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    }
+	} else { # WAN link
+	    if (!$xso_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Source agent excluded';
+	    } elsif ($xso_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Source agent down';
+		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
+	    } elsif (!$xsi_update) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{EXCLUDED} = 1;
+		$link_params{$key}{REASON} = 'Destination agent excluded';
+	    } elsif ($xsi_update <= ($now - $downtime)) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = 'Destination agent down';
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    } else {
+		$link_params{$key}{VALID} = 1;
+		$link_params{$key}{REASON} = 'WAN Link OK';
+		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
+		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+	    }
+	}
+
+ 	# Check active state
+ 	if ($link_params{$key}{IS_ACTIVE} ne 'y') {
+ 	    $link_params{$key}{VALID} = 0;
+ 	    $link_params{$key}{REASON} = "Link is deactivated";
+ 	}
+	
+	# Check protocols
+	if ($link_params{$key}{VALID}) {
+	    my @from_protos = split(/\s+/, $xso_protos || '');
+	    my @to_protos   = split(/\s+/, $xso_protos || '');
+	    my $match = 0;
+	    foreach my $p (@to_protos) {
+		next if ! grep($_ eq $p, @from_protos);
+		$match = 1;
+		last;
+	    }
+	    unless ($match) {
+		$link_params{$key}{VALID} = 0;
+		$link_params{$key}{REASON} = "No matching protocol";
+	    }
+	}
+
+    }
+
+    while (my ($key, $link) = each(%link_params))
+    {
+        if ($$link{EXISTS} && $$link{IS_ACTIVE} ne 'y')
+        {
+            $$link{COLOR} = 'purple';
+        }
+        elsif ($$link{EXISTS} && $$link{VALID})
+        {
+            $$link{COLOR} = 'green';
+        }
+        elsif ($$link{EXCLUDED})
+        {
+            $$link{COLOR} = 'orange';
+        }
+        elsif ($$link{EXISTS})
+        {
+            $$link{COLOR} = 'red';
+        }
+
+        push @r, $link;
+    }
+
+    return \@r;
+}
+
+sub getDeletionQueue
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            del.request,
+            n.name node,
+            n.id node_id,
+            n.se_name se,
+            b.name block,
+            b.id block_id,
+            b.files,
+            b.bytes,
+            del.time_request,
+            del.time_complete
+        from
+            t_dps_block_delete del
+            join t_dps_block b on b.id = del.block
+            join t_adm_node n on n.id = del.node
+        where
+            not n.name like 'X%'
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        NODE => 'n.name',
+        ID => 'b.id',
+        REQUEST => 'del.request',
+        SE => 'n.se_name'));
+
+    $sql .= qq { and ($filters) } if ($filters);
+
+    if (exists $h{BLOCK})
+    {
+        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
+    }
+
+    if (exists $h{REQUEST_SINCE})
+    {
+        $sql .= " and del.time_resuest >= " . str2time($h{REQUEST_SINCE}, $h{REQUEST_SINCE}) . " ";
+    }
+
+    if (exists $h{COMPLETE_SINCE})
+    {
+        $sql .= " and del.time_resuest >= " . str2time($h{COMPLETE_SINCE}, $h{COMPLETE_SINCE}) . " ";
+    }
+
+    $sql .= qq {
+            order by del.time_complete desc, del.time_request desc
+    };
+
+    $q = execute_sql( $core, $sql, %p);
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
+sub getRoutingInfo
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            nd.name destination,
+            ns.name source,
+            b.name block,
+            b.id block_id,
+            b.files,
+            b.bytes,
+            s.priority,
+            s.is_valid,
+            s.route_files,
+            s.route_bytes,
+            s.xfer_attempts,
+            s.time_request
+        from
+            t_status_block_path s
+            join t_adm_node nd on nd.id = s.destination
+            join t_adm_node ns on ns.id = s.src_node
+            join t_dps_block b on b.id = s.block
+        where
+            not nd.name like 'X%' and
+            not ns.name like 'X%'
+    };
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        SOURCE => 'ns.name',
+        DESTINATION => 'nd.name'));
+
+    $sql .= qq { and ($filters) } if ($filters);
+
+    if (exists $h{BLOCK})
+    {
+        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
+    }
+
+    $sql .= qq {
+        order by s.time_request
+    };
+
+    $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref())
+    {
+        $_->{'PRIORITY'} = &PHEDEX::Core::Util::priority($_->{'PRIORITY'});
+        $_->{AVG_ATTEMPTS} = ($_->{ROUTE_FILES})?($_->{XFER_ATTEMPTS}/$_->{ROUTE_FILES}): 'N/A';
+
+        push @r, $_;
+    }
+
+    return \@r;
+
+}
+
+sub getAgentHistory
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    if (not exists $h{UPDATE_SINCE})
+    {
+        $h{UPDATE_SINCE} = time() - 3600*24;
+    }
+
+    $sql = qq {
+        select
+            time_update,
+            reason,
+            user_name,
+            host_name,
+            process_id pid,
+            working_directory,
+            state_directory
+        from
+            t_agent_log
+    };
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        USER => 'user_name',
+        HOST => 'host_name'));
+
+    $sql .= " where time_update >= " . str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE}) . " ";
+
+    $sql .= " and ($filters) " if ($filters);
+
+    $sql .= " order by time_update ";
+
+    $q = execute_sql($core, $sql, %p);
+    while ($_ = $q->fetchrow_hashref())
+    {
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 1;
