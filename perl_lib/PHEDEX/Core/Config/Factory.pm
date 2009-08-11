@@ -42,8 +42,8 @@ our %params =
 	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
 	  NJOBS		=> 3,			# start 3 agents at a time
 
-	  LAST_SEEN_ALERT	=> 3600,	# send alerts & restart after this much inactivity
-	  LAST_SEEN_WARNING	=> 1200,	# send warnings after this much inactivity
+	  LAST_SEEN_ALERT	=> 60*120,	# send alerts & restart after this much inactivity
+	  LAST_SEEN_WARNING	=> 60*75,	# send warnings after this much inactivity
 	  TIMEOUT		=> 11,		# interval between signals
 
 	  STATISTICS_INTERVAL	=> 3600*12,	# My own reporting frequency
@@ -185,7 +185,7 @@ sub idle
       $Agent = $Config->select_agents( $agent );
       $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
       $pidfile = $env->getExpandedString($Agent->PIDFILE());
-
+      undef $pid;
       if ( open PID, "<$pidfile" )
       {
         $pid = <PID>;
@@ -208,7 +208,7 @@ sub idle
 	  $self->Warn("Agent=$agent, PID=$pid, no news for $last_seen seconds");
 	}
 
-        $self->Dbgmsg("Agent=$agent, PID=$pid, LAST_SEEN=$last_seen, still alive...") if $self->{DEBUG};
+#       $self->Dbgmsg("Agent=$agent, PID=$pid, LAST_SEEN=$last_seen, still alive...") if $self->{DEBUG};
         next;
       }
 
@@ -241,8 +241,8 @@ sub idle
     }
     else
     {
-#     This is a session in the current process, ping it...
-      $self->Dbgmsg("Agent=$agent, in this process, ignore for now...") if $self->{DEBUG};
+#     This is either a session in the current process, or not in my list...
+#     $self->Dbgmsg("Agent=$agent, in this process, ignore for now...") if $self->{DEBUG};
     }
   }
 }
@@ -301,7 +301,7 @@ sub restartAgent
 {
   my ($self, $kernel, $h) = @_[OBJECT, KERNEL, ARG0];
   my ($agent,$pid,$signal);
-  if ( ! $h->{signals} ) { $h->{signals} = [ qw / 1 15 9 9 / ]; }
+  if ( ! $h->{signals} ) { $h->{signals} = [ qw / 1 15 3 9 9 / ]; }
   $signal = shift @{$h->{signals}};
   $pid = $h->{PID};
   $agent = $h->{AGENT};
