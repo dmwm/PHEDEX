@@ -35,11 +35,14 @@ Show current link status
   xsi_update       destination node update time
   xso_protos       source node protocols
   xsi_protos       destination node protocols
+  xso_age          time elapsed at source node
+  xsi_age          time elapsed at destination node
   exists           0 or 1, if the link exists
   excluded         0 or 1, if the link is excluded
   valid            0 or 1, if the link is valid
   is_active        'y' or 'n', if the link is active
   color            status
+  reason           reason for update
 
 =cut
 
