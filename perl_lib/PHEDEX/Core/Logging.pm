@@ -150,7 +150,7 @@ sub Alert
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->error("alert: ",@_);
-  PHEDEX::Core::Logging::Notify($self,@_);
+  PHEDEX::Core::Logging::Notify($self,'alert: ',@_);
 }
 
 # Warn(msg) -- log as WARN
@@ -175,7 +175,7 @@ sub Fatal
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->fatal("fatal: ", @_);
-  PHEDEX::Core::Logging::Notify($self,@_);
+  PHEDEX::Core::Logging::Notify($self,'fatal: ',@_);
   exit(1);
 }
 
