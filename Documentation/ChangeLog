@@ -32,7 +32,7 @@ Changes for Site Agents
    - The watchdog will only watch watch agents it is configured for, checking
      every 90 seconds. If an agent is down, it will be restarted.
    - You must set PHEDEX_NOTIFICATION_PORT=nnnn in your 'common' environment.
-     The watchdog will then receive alert and warning messages from all the
+     The watchdog will then receive alert and fatal messages from all the
      other agents, as well as informational messages (startup, shutdown, and
      hourly process-level statistics). These will all be re-printed in the
      watchdog logfile, so you can check this one logfile to see the health of
@@ -64,6 +64,11 @@ Changes for Site Agents
      to the configuration of the watchdog, and stop/start your agents in the
      usual way. If you want an agent to be down, stop it with Utilities/Master,
      then restart it with Utilities/Master when you are done.
+
+Changes for Site Tools:
+ - Master:  Check DB connectivity by default when starting agents. Use '--checkdb'
+            to check connectivity without starting an agent, or '--nocheckdb' to
+            inhibit the checks
 
 Changes for PhEDEx 3.2.0
 
