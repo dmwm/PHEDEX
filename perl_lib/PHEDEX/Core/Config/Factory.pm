@@ -254,28 +254,6 @@ sub handleJob
   $self->{AGENTS}{$agent}{start}{time()}=1;
 }
 
-#sub isInvalid
-#{
-#  my $self = shift;
-#  my $errors = 0;
-#  $self->Logmsg("entering isInvalid") if $self->{VERBOSE};
-#  $self->Logmsg("exiting isInvalid") if $self->{VERBOSE};
-#
-#  return $errors;
-#}
-#
-#sub readInbox   { return (); }
-#sub readOutbox  { return (); }
-#sub readPending { return (); }
-#
-#sub stop
-#{
-#  my $self = shift;
-#  $self->Logmsg("entering stop") if $self->{VERBOSE};
-#  $self->SUPER::stop(@_);
-#  $self->Logmsg("exiting stop") if $self->{VERBOSE};
-#}
-
 sub _poe_init
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
