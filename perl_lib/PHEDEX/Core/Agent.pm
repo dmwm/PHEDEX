@@ -479,8 +479,9 @@ sub doStop
     # Stop the rest
     $self->stop();
     POE::Kernel->alarm_remove_all();
-#    exit (0);
+    $self->doExit(0);
 }
+sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 =head2 stop
 
@@ -845,6 +846,7 @@ sub checkConfigFile
 {
   my $self = shift;
   my ($config,$mtime,$Config);
+  return unless $self->can('reloadConfig');
 
   $config = $self->{CONFIGURATION}{CONFIG_FILES}->[0];
   $mtime = (stat($config))[9];
@@ -1284,7 +1286,7 @@ sub checkAgentMessages
     {
       $self->Logmsg ("agent stopped via control message at $time");
       $self->doStop ();
-      exit(0); # Still running?
+      $self->doExit(0); # Still running?
     }
     elsif ($action eq 'SUSPEND')
     {
@@ -1438,12 +1440,13 @@ sub otherNodeFilter
 
 =head2 reloadConfig
 
-Override this in an agent subclass to reload the configuration after the
-config-file has changed
+Declare this in an agent subclass to reload the configuration after the
+config-file has changed. Do not declare it if you don't want the config
+file monitored.
 
 =cut
 
-sub reloadConfig {}
+#sub reloadConfig {}
 
 sub _start
 {
