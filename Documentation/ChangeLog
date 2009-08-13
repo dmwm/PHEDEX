@@ -1,3 +1,70 @@
+Changes for PhEDEx 3.2.1pre1
+
+Changes for Site Agents
+ - FileDownload
+   - pre-validation now used by default if '--validate' is given. In 3.2.0
+     there was a bug that caused pre-validation to only happen if it was
+     explicitly specified on the command line. This restores the behaviour
+     to what it should have been.
+ - FileRemove
+   - several minor bug-fixes related to handling deletions asynchronously.
+     In 3.2.0, the agent could lose tasks if stopped/started while doing
+     work, and could get asymptotically slowed down if it could not complete
+     its work in one cycle. This release corrects that, and restores the
+     expected behaviour.
+   - note to sites: specify '-jobs <n>' in your configuration to allow <n>
+     deletion tasks to run in parallel. This may improve throughput. 2-5 is
+     probably a good choice
+   - do not set '-limit' too high, it will slow down the agent. The agent
+     will execute the next cycle sooner rather than later if it had a full
+     load of work in the current cycle, so throughput should be improved.
+ - new agent: watchdog
+   - this agent will watch other agents and restart them if they are down.
+     Configuration is similar to normal agents:
+	### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
+	 -db     ${PHEDEX_DBPARAM}
+	 -node   ${PHEDEX_NODE}
+	 -config ${PHEDEX_CONFIG_FILE}
+	 -agent_list download
+	 -agent_list download-migrate
+	 -agent_list remove
+	 -agent_list ...
+   - The watchdog will only watch watch agents it is configured for, checking
+     every 90 seconds. If an agent is down, it will be restarted.
+   - You must set PHEDEX_NOTIFICATION_PORT=nnnn in your 'common' environment.
+     The watchdog will then receive alert and warning messages from all the
+     other agents, as well as informational messages (startup, shutdown, and
+     hourly process-level statistics). These will all be re-printed in the
+     watchdog logfile, so you can check this one logfile to see the health of
+     all your agents. If you run multiple sets of agents on one vobox, choose
+     a different port-value per configuration.
+   - If an agent does not send notification to the watchdog within 75 minutes,
+     the watchdog prints a warning to that effect in its logfile. If an agent
+     does not send notification for 2 hours, the watchdog assumes it is stuck,
+     explicitly kills it, and restarts it.
+   - The watchdog agent may be started or stopped at any time, regardless of
+     which agents are running at that time. Start or stop it with
+     Utilities/Master, in the usual manner. You can start it on its own, in
+     which case it will start all the agents it knows about, or you can start
+     all the agents by default, and the watchdog will figure it out. Stopping
+     the watchdog will _not_ stop the agents it monitors.
+   - if you stop an agent explicitly, using Utilities/Master, the agent will
+     no longer remove the stop-file on exit. This allows the watchdog to know
+     that you have stopped this agent, and it will not restart it. To restart
+     the agent, either remove the stop file from the state directory and let
+     the watchdog take care of it, or use Utilites/Master to start it.
+   - You may be tempted to set agents to DEFAULT=off, so only the watchdog is
+     started by default. If you do this, you will have to stop your other
+     agents explicitly, by name, because they won't be stoppable by any other
+     means. That is probably not what you want.
+   - The watchdog agent will monitor the configuration file itself, and if you
+     change it, it will re-read it. This allows you to add or remove agents
+     from the list of monitored agents without restarting the agent itself.
+   - Recommended practise: leave all agents configured as they are, add them
+     to the configuration of the watchdog, and stop/start your agents in the
+     usual way. If you want an agent to be down, stop it with Utilities/Master,
+     then restart it with Utilities/Master when you are done.
+
 Changes for PhEDEx 3.2.0
 
 Changes for Site Agents:
