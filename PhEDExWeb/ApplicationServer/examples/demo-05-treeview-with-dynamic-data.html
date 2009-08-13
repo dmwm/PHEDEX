@@ -42,8 +42,11 @@
   <script type="text/javascript" src="/js/phedex-util.js"></script>
   <script type="text/javascript" src="/js/phedex-page.js"></script>
   <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
+  <script type="text/javascript" src="/js/phedex-event.js"></script>
   <script type="text/javascript" src="/js/phedex-core-control.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-filter.js"></script>
   <script type="text/javascript" src="/js/phedex-core-widget.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-registry.js"></script>
   <script type="text/javascript" src="/js/phedex-core-widget-datatable.js"></script>
   <script type="text/javascript" src="/js/phedex-core-widget-treeview.js"></script>
   <script type="text/javascript" src="/js/phedex-widget-agents.js"></script>
@@ -91,7 +94,7 @@ YAHOO.util.Event.onDOMReady(function() {
       var agents = result.node[0].agent;
       for (var i in agents)
       {
-        node.payload.obj.addNode(
+        var tNode = node.payload.obj.addNode(
           {format:branchDef2},
           [ agents[i].name, agents[i].label, agents[i].time_update ],
 	  node
