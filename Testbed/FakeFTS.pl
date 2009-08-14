@@ -5,7 +5,7 @@ use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Command;
 my ($cmd,@args) = @ARGV;
-my ($me,$cache,$rate,$size);
+my ($me,$cache,$rate,$size,$debug);
 
 # set these environment variables in the configuration to alter the behavior of this script
 # default rate settings will make the "job" last 20 seconds per file
@@ -16,7 +16,7 @@ $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};
 $me->{NOTIFICATION_HOST} = $ENV{NOTIFICATION_HOST};
-
+$debug = $ENV{PHEDEX_GLITE_DEBUG} || 0;
 sleep(2); # just for fun...
 
 sub getFiles
@@ -24,7 +24,7 @@ sub getFiles
   my $id = shift;
   open JOB, "<$cache/$id" or do
   {
-    $me->Notify("JobID=$id not in cache: $!\n");
+    $debug && $me->Notify("JobID=$id not in cache: $!\n");
     print "Failed\n";
     exit 0;
   };
@@ -38,7 +38,7 @@ sub getFiles
   return $h;
 }
 
-$me->Notify("Command=$cmd @args\n");
+$debug && $me->Notify("Command=$cmd @args\n");
 if ( $cmd eq 'glite-transfer-list' )
 {
 # list a queue...
@@ -126,7 +126,7 @@ if ( $cmd eq 'glite-transfer-submit' )
 			rand() * $i,
 			$$,time);
 #			rand() * $i, rand() * $i * $i);
-  $me->Notify("JobID=$id for $cmd @args\n");
+  $debug && $me->Notify("JobID=$id for $cmd @args\n");
   my $copyjob = $args[-1];
   &output("$cache/${id}.start", &mytimeofday());
   symlink $copyjob, "$cache/$id";
