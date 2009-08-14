@@ -279,7 +279,7 @@ sub restartAgent
 {
   my ($self, $kernel, $h) = @_[OBJECT, KERNEL, ARG0];
   my ($agent,$pid,$signal);
-  if ( ! $h->{signals} ) { $h->{signals} = [ qw / 1 15 3 9 9 / ]; }
+  if ( ! $h->{signals} ) { $h->{signals} = [ qw / HUP TERM QUIT CONT KILL KILL / ]; }
   $signal = shift @{$h->{signals}};
   $pid = $h->{PID};
   $agent = $h->{AGENT};
