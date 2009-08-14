@@ -267,11 +267,19 @@ sub daemon
     my ($self, $me) = @_;
     my $pid;
 
-    return if $self->{NODAEMON};
-    $me = $self->{ME} unless $me;
     # Open the pid file.
     open(PIDFILE, "> $self->{PIDFILE}")
 	|| die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
+    $me = $self->{ME} unless $me;
+    if ( $self->{NODAEMON} )
+    {
+#     I may not be a daemon, but I still have to write the PIDFILE, or the
+#     watchdog may start another incarnation of me!
+      ((print PIDFILE "$$\n") && close(PIDFILE))
+	or die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
+      close PIDFILE;
+      return;
+    }
 
     # Fork once to go to background
     die "failed to fork into background: $!\n"
