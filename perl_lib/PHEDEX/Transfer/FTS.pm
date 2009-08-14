@@ -340,8 +340,12 @@ sub batch_tasks
 	return @batch;
     } else {
 	# otherwise just do the normal thing and hope for the best
-	$self->Alert("Could not create SE-to-SE batch using from=$task0->{FROM_PFN} to=$task0->{TO_PFN}, ".
+	# send an alert to report this phenomenon, but not if we're testing locally
+	if ( !( ($task0->{FROM_PFN} =~ m%^file:%) && ($task0->{TO_PFN} =~ m%^file:%) ) )
+	{
+	  $self->Alert("Could not create SE-to-SE batch using from=$task0->{FROM_PFN} to=$task0->{TO_PFN}, ".
 		     "using to default batch function instead");
+	}
 	return $self->SUPER::batch_tasks($tasklist, $batch_size);
     }
 }
