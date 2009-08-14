@@ -53,13 +53,6 @@ sub new
 my $config_file;
 BEGIN
 {
-#  # As a demonstration, prepare to throw out UDP messages if required.
-#  if ( defined($ENV{PHEDEX_NOTIFICATION_PORT}) )
-#  {
-#    eval("use IO::Socket");
-#    if ( $@ ) { undef $ENV{PHEDEX_NOTIFICATION_PORT}; }
-#  };
-
   # initiailze PhEDEx logger
 
   # Add a pattern spec %N = agent name
@@ -102,16 +95,6 @@ sub Logmsg
   my $self = shift; me($self);
   my $logger = get_logger("PhEDEx");
   $logger->info(@_);
-#  if ( $self && $self->{NOTIFICATION_PORT} && $self->{NOTIFICATION_HOST})
-#  {
-##   This is cheating a bit...
-#    $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
-#    $ENV{PHEDEX_NOTIFICATION_HOST} = $self->{NOTIFICATION_HOST};
-#  }
-#  else
-#  {
-#    PHEDEX::Core::Logging::Notify(undef,@_);
-#  }
 }
 
 # Notify(msg) -- log through udp socket to remote -- not using Log4perl
