@@ -227,8 +227,8 @@ sub idle
       {
         $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
                               NJOBS     => $self->{NJOBS},
-                              VERBOSE   => $self->{VERBOSE},
-                              DEBUG     => $self->{DEBUG},
+                              VERBOSE   => 0,
+                              DEBUG     => 0,
 			      KEEPALIVE => 0,
                             );
         $self->{JOBMANAGER}->whenQueueDrained( sub { delete $self->{JOBMANAGER}; } );
