@@ -418,7 +418,7 @@ sub insertCatalogue
 sub checkDBCatalogueChange
 {
     my ($dbh, $node_id, $check_time) = @_;
-    $check_time ||= &mytimeofday();
+    $check_time ||= 0;
     my ($newrules) = &dbexec($dbh, qq{ 
 	select 1 from t_xfer_catalogue
 	 where node = :node and time_update > :check_time
