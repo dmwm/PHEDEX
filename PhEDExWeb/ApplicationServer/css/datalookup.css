@@ -6,50 +6,14 @@
 //=================================================================================================
 */
 
-body /*For the body of the web page*/
-{
-    font-family:Calibri;
-    color: #000080;
-}
-
-#formtitle /*For the web page title*/
-{
-    font-family: Calibri; 
-    font-size: x-large; 
-    font-weight: bold; 
-    font-style: normal; 
-    font-variant: normal; 
-    text-transform: none; 
-    color: #000080;
-}
-
 .txtboxBlkNode /*For the block name text box*/
 {
     font-family: Calibri; 
-    font-size: 15px; 
+    font-size: 12px; 
     font-weight: lighter; 
     font-style: normal; 
     font-variant: normal; 
     text-transform: none;
-}
-
-.subresbutton /*For the Generate and reset button*/
-{
-    font-family: Calibri; 
-    font-size: medium; 
-    font-weight: lighter; 
-    font-style: normal; 
-    font-variant: normal; 
-    text-transform: none; 
-    width: 150px; 
-    height: 25px;
-}
-
-.buttons /*For the Generate and reset button*/
-{
-    font-family: Calibri; 
-    width: 150px; 
-    height: 25px;
 }
 
 .rangetext /*For the data transfer percentage range text box*/
@@ -68,7 +32,8 @@ body /*For the body of the web page*/
 	height: 17px; 
 	width: 300px;
 }
-.percent /*For the label that displays percentage over progress bar #99CCFF*/
+
+.percent /*For the label that displays percentage over progress bar*/
 {
     padding-left:2px;
     padding-top:0px;
@@ -78,9 +43,26 @@ body /*For the body of the web page*/
     font-weight:bold;
     margin-left:32%;
     margin-top:-16px;
+    color: #000080;
 }
 
-.disablepercent
+.zeropercent /*For the label that displays 0 percentage over progress bar*/
+{
+    text-align:center;
+    font-size:12px;
+    font-weight:bold;
+    color: #000080;
+}
+
+.zerodisablepercent /*For the label that displays 0 percentage over progress bar*/
+{
+    text-align:center;
+    font-size:12px;
+    font-weight:bold;
+    color: #3366CC;
+}
+
+.disablepercent /*For the label that displays percentage over progress bar and disable it*/
 {
 	padding-left: 2px;
 	padding-top: 0px;
@@ -95,14 +77,16 @@ body /*For the body of the web page*/
 .resulttable /*For the table that displays the block info with progress bar*/
 {
 	font-family: Calibri; 
-    font-size: 15px; 
-    font-weight: lighter; 
-    font-style: normal; 
-    font-variant: normal; 
-    text-transform: none;
+    	font-size: 15px; 
+    	font-weight: lighter; 
+    	font-style: normal; 
+    	font-variant: normal; 
+    	text-transform: none;
 }
 
 .sometext /*For some text*/
 {
-	font-size: 16px;
+	font-size: 13px;
+	font-family:Calibri;
+    	color: #000080;
 }
