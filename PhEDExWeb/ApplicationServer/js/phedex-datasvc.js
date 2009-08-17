@@ -130,19 +130,35 @@ PHEDEX.Datasvc = (function() {
     }
   }
 
-  // _build_query method : for an arbitrary object, construct the URL query by joining the key=value pairs
-  var _build_query = function(query) {
-    if (!query.api) { throw new Error("no 'api' in query object"); }
-    var argstr = "";
-    if (query.args) {
-      argstr = "?";
-      for (a in query.args) {
-	argstr += a.toLowerCase() + "=" + encodeURIComponent(query.args[a]) + ";";
-      }
-      argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
+    //_build_query method : for an arbitrary object, construct the URL query by joining the key=value pairs
+    var _build_query = function(query) 
+    {
+        if (!query.api) { throw new Error("no 'api' in query object"); }
+        var argstr = "", argvals = null, indx = 0;
+        if (query.args) 
+        {
+            argstr = "?";
+            for (a in query.args) 
+            {
+                argvals = query.args[a];
+                if (argvals instanceof Array)
+                {
+                    for (indx = 0; indx < argvals.length; indx++)
+                    {
+                        argstr += a.toLowerCase() + "=" + encodeURIComponent(argvals[indx]) + "&";
+                    }
+                    argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
+                    argstr += ";";
+                }
+                else
+                {
+                    argstr += a.toLowerCase() + "=" + encodeURIComponent(query.args[a]) + ";";
+                }
+            }
+            argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
+        }
+        return query.api.toLowerCase() + argstr;
     }
-    return query.api.toLowerCase() + argstr;
-  }
   
   // public methods/properties below
   return {
