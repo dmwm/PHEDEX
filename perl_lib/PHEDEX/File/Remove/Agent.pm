@@ -24,7 +24,7 @@ sub new
 		  PROTOCOL => 'direct',         # File access protocol
 		  CATALOGUE => {},		# TFC from TMDB
 		  LIMIT => 100,                 # Max number of files per cycle
-		  NJOBS	=> 1,			# Max parallel delete jobs
+		  JOBS	=> 1,			# Max parallel delete jobs
 		  );
     
     my %args = (@_);
@@ -32,7 +32,7 @@ sub new
 
     # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
-						NJOBS	=> $self->{NJOBS},
+						NJOBS	=> $self->{JOBS},
 						VERBOSE	=> $self->{VERBOSE},
 						DEBUG	=> $self->{DEBUG},
 							);
@@ -90,6 +90,7 @@ sub deleteOneFile
 	    %node_binds,
 	    ":fileid" => $$file{FILEID})
 	    ->fetchrow();
+
 	if ($npending)
 	{
 	    $self->Warn ("not removing $$file{LFN}, $npending pending transfers");
@@ -187,14 +188,18 @@ sub processDrop
     # is, we'll come back to it later.
     # Add the drop to the file, so the callback from the JobManager
     # can delete the drop if the file-delete succeeds
-    $self->deleteOneFile ($drop, $file);
+    if ( !$self->deleteOneFile ($drop, $file) )
+    {
+#     Job was not submitted. Delete this drop and move on...
+      $self->Dbgmsg("abandon drop $drop");
+      $self->relayDrop($drop);
+    }
 }
 
 # Get a list of files to delete.
 sub filesToDelete
 {
     my ($self, $dbh, $limit, $node) = @_;
-    $self->{WAITTIME} = $self->{WAITTIME_SLOW};
 
     my $now = &mytimeofday();
 
@@ -284,6 +289,8 @@ sub idle
     my $dbh = undef;
     my @nodes = ();
 
+    $self->{WAITTIME} = $self->{WAITTIME_SLOW};
+
 #   If I am already swamped with work, don't get more!
     if ( $self->{JOBMANAGER}->jobsQueued() > $self->{LIMIT} )
     {
@@ -291,6 +298,7 @@ sub idle
       return;
     }
 
+    my $count=0;
     eval
     {
 	$dbh = $self->connectAgent();
@@ -306,6 +314,7 @@ sub idle
 		
 		# Otherwise initiate destruction and doom
 		$self->startOne ($file);
+		$count++;
 	    }
 	    # Intermediate commit after having dealt with all files at a node
 	    $dbh->commit();
@@ -313,9 +322,29 @@ sub idle
     };
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
+    $self->{WAITTIME} = $self->{WAITTIME_SLOW} unless $count;
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
 }
+
+sub reloadConfig
+{
+  my ($self,$Config) = @_;
+  my $config = $Config->select_agents($self->{LABEL});
+  my $val;
+  foreach ( qw / LIMIT VERBOSE DEBUG / )
+  {
+    next unless defined ($val = $config->{OPTIONS}{$_});
+    $self->Logmsg("reloadConfig: set $_=$val");
+    $self->{$_} = $val;
+  }
+  $val = $config->{OPTIONS}{JOBS};
+  if ( defined($val) )
+  {
+    $self->Logmsg("reloadConfig: set NJOBS=$val in my JobManager");
+    $self->{JOBMANAGER}{NJOBS} = $val;
+  }
+} 
 
 1;
