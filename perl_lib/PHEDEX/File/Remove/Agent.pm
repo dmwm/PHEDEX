@@ -191,15 +191,15 @@ sub processDrop
     if ( !$self->deleteOneFile ($drop, $file) )
     {
 #     Job was not submitted. Delete this drop and move on...
-      $self->Dbgmsg("abandon drop $drop");
-      $self->relayDrop($drop);
+#      $self->Dbgmsg("abandon drop $drop");
+#      $self->relayDrop($drop);
     }
 }
 
 # Get a list of files to delete.
 sub filesToDelete
 {
-    my ($self, $dbh, $limit, $node) = @_;
+    my ($self, $dbh, $limit, $node, $pending) = @_;
 
     my $now = &mytimeofday();
 
@@ -218,6 +218,7 @@ sub filesToDelete
         ":node" => $$self{NODES_ID}{$node});
     while (my ($id, $lfn) = $q->fetchrow())
     {
+	next if grep ($_ eq $id, @{$pending});
 	$files{$lfn} = $id;
 	if ( scalar keys %files >= $limit )
 	{
@@ -307,7 +308,7 @@ sub idle
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
 	{
-	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node))
+	    foreach my $file ($self->filesToDelete ($dbh, $$self{LIMIT}, $node, \@pending))
 	    {
 		# If we are already processing this file, ignore it
 		next if grep ($_ eq $$file{FILEID}, @pending);
@@ -323,6 +324,7 @@ sub idle
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
     $self->{WAITTIME} = $self->{WAITTIME_SLOW} unless $count;
+    $self->Logmsg("Started $count jobs out of " . scalar @pending . " pending");
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
@@ -333,7 +335,7 @@ sub reloadConfig
   my ($self,$Config) = @_;
   my $config = $Config->select_agents($self->{LABEL});
   my $val;
-  foreach ( qw / LIMIT VERBOSE DEBUG / )
+  foreach ( qw / LIMIT VERBOSE DEBUG WAITTIME_SLOW / )
   {
     next unless defined ($val = $config->{OPTIONS}{$_});
     $self->Logmsg("reloadConfig: set $_=$val");
