@@ -1,4 +1,4 @@
-Changes for PhEDEx 3.2.1pre2
+Changes for PhEDEx 3.2.1pre3
 
 Changes for Site Agents
  - FileDownload
@@ -19,6 +19,7 @@ Changes for Site Agents
      will execute the next cycle sooner rather than later if it had a full
      load of work in the current cycle, so throughput should be improved.
  - new agent: watchdog
+   - this agent is optional, you are not required to run it.
    - this agent will watch other agents and restart them if they are down.
      Configuration is similar to normal agents:
 	### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
@@ -60,6 +61,10 @@ Changes for Site Agents
    - The watchdog agent will monitor the configuration file itself, and if you
      change it, it will re-read it. This allows you to add or remove agents
      from the list of monitored agents without restarting the agent itself.
+     N.B. If you import other configuration files in the top-level config file,
+     these are _not_ monitored for changes! Only the top-level config file is
+     monitored. You can 'touch' it to force a re-read if you change a lower-
+     level configuration file.
    - Recommended practise: leave all agents configured as they are, add them
      to the configuration of the watchdog, and stop/start your agents in the
      usual way. If you want an agent to be down, stop it with Utilities/Master,
