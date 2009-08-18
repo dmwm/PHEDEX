@@ -85,7 +85,10 @@ sub reloadConfig
   my $config = $Config->select_agents($self->{LABEL});
   foreach ( qw / AGENT_LIST LAST_SEEN_ALERT LAST_SEEN_WARNING TIMEOUT / )
   {
-    $self->{$_} = $config->{OPTIONS}{$_} if $config->{OPTIONS}{$_};
+    my $val = $config->{OPTIONS}{$_};
+    next unless defined($val);
+    $self->Logmsg("reloadConfig: set $_=$val");
+    $self->{$_} = $val;
   }
   $self->createAgents();
 }
