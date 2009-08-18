@@ -862,7 +862,7 @@ sub checkConfigFile
   {
     $self->Logmsg("Config file has changed, re-reading...");
     $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
-    $Config->readConfig( $self->{CONFIG} );
+    $Config->readConfig( $self->{CONFIG_FILE} );
     $self->{CONFIGURATION} = $Config;
     $self->reloadConfig($Config);
   }
