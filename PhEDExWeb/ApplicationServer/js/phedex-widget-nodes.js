@@ -1,42 +1,64 @@
-// instantiate the PHEDEX.Widget.Nodes namespace
-PHEDEX.namespace('Widget.Nodes');
+PHEDEX.Data.nodes=null;
 
-PHEDEX.Page.Widget.Nodes=function(divid) {
-  var node = document.getElementById(divid+'_select').value;
-  var nodes = new PHEDEX.Widget.Nodes(node,divid);
+nodes=function() {
+  var site = document.getElementById('select_for_nodes').value;
+  var nodes = new PHEDEX.Widget.Nodes(site);
   nodes.update();
+//  PHEDEX.Data.Nodes = nodes;
 }
 
-PHEDEX.Widget.Nodes=function(node,divid) {
-  if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_display',
-	{width:500,
-	 height:200,
-	 minwidth:400,
-	 minheight:50
-	});
-  that.hideByDefault = ['Kind','Technology'];
-  that.node=node;
-  that.data = null;
-  that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
-  that.fillHeader=function(div) {
-    that.dom.title.innerHTML = 'Nodes: '+this.data.length+" found";
-  }
-  that.buildTable(that.dom.content,
-            [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
-	     );
-  that.update=function() {
-    PHEDEX.Datasvc.Call({ api: 'nodes', success_event: that.onDataReady });
-  }
-  that.onDataReady.subscribe(function(type,args) { var data = args[0]; that.receive(data); });
-  that.receive=function(data) {
-    that.data = data.node;
-    if (that.data) { that.populate(); }
-    else { that.failedLoading(); }
-  }
-  that.buildExtra(that.dom.extra);
-  that.buildContextMenu('Node');
-  that.build();
-  that.ctl.extra.Disable();
-  return that;
+PHEDEX.Widget.Nodes=function(site) {
+	var that=new PHEDEX.Widget('phedex_nodes',null,{children:false});
+	that.site=site;
+	that.data = null;
+	that.buildHeader=function() {
+	  return "Sites: "+this.data.length+" known...";
+	}
+	that.buildExtra=function() {
+          var table = [];
+	  for (var i in this.data) {
+	    var a = this.data[i];
+            var y = { ID:a['id'], Name:a['name'], Kind:a['kind'], Technology:a['technology'], SE:a['se'] };
+            table.push( y );
+          }
+          var columnDefs = [
+	            {key:"ID", sortable:true, resizeable:true},
+	            {key:"Name", sortable:true, resizeable:true},
+	            {key:"Kind", sortable:true, resizeable:true},
+	            {key:"Technology", sortable:true, resizeable:true},
+	            {key:"SE", sortable:true, resizeable:true},
+	        ];
+          var dataSource = new YAHOO.util.DataSource(table);
+	        dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+	        dataSource.responseSchema = {
+	            fields: ["ID","Name","Kind","Technology","SE"]
+	        };
+        var dataTable = new YAHOO.widget.ScrollingDataTable(that.id+"_main", columnDefs, dataSource,
+                     {
+                      caption:"PhEDEx Nodes",
+                      height:'80px',
+                      draggableColumns:true
+                     });
+	}
+	that.update=function() {
+	  PHEDEX.Datasvc.Nodes(site,this.receive,this);
+	}
+	that.receive=function(result) {
+	  var data = result.responseText;
+	  data = eval('('+data+')'); 
+	  data = data['phedex']['node'];
+	  if (data.length) {
+            result.argument.data = data;
+	    result.argument.build();
+	    }
+	}
+	return that;
 }
+
+PHEDEX.Datasvc.Nodes = function(site,callback,argument) {
+  var opts = 'nodes';
+  if ( site ) { opts += '?node='+site; }
+  PHEDEX.Datasvc.GET(opts,callback,argument);
+}
+
+PHEDEX.Util.addLoadListener(nodes);

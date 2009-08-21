@@ -1,8 +1,8 @@
-package PHEDEX::BlockDBSPopulate::SQL;
+package PHEDEX::BlockDLSUpdate::SQL;
 
 =head1 NAME
 
-PHEDEX::BlockDBSPopulate::SQL - encapsulated SQL for the Block DBS Populate agent.
+PHEDEX::BlockDLSUpdate::SQL - encapsulated SQL for the Block DLS Update agent.
 
 =head1 SYNOPSIS
 
@@ -59,13 +59,13 @@ sub getCompleted
   my ($sql,$q,@r);
 
   $sql = qq{ select dbs.name dbs_name,
-                   ds.name dataset_name,
+	           dbs.dls dls_name,
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
 	           n.id node_id,
-		   n.se_name se_name, 
-                   'migrateBlock' command
+		   n.se_name se_name,
+	           'dls-add' command
 	    from t_dps_block_replica br
 	      join t_dps_block b on b.id = br.block
 	      join t_dps_dataset ds on ds.id = b.dataset
@@ -75,6 +75,7 @@ sub getCompleted
          qq { and b.is_open = 'n'
 	      and br.dest_files = b.files
 	      and br.node_files = b.files
+	      and dbs.dls is not null
 	      and n.se_name is not null };
   $q = execute_sql( $self, $sql, %p );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
@@ -89,13 +90,13 @@ sub getDeleted
 
   $sql =  qq{
 	    select dbs.name dbs_name,
-	           ds.name dataset_name,
+	           dbs.dls dls_name,
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
 	           n.id node_id,
 		   n.se_name se_name,
-                   'deleteBlock' command
+	           'dls-delete' command
 	    from t_dps_block_delete bd
 	      join t_dps_block b on b.id = bd.block
 	      join t_dps_dataset ds on ds.id = b.dataset
@@ -104,6 +105,7 @@ sub getDeleted
 	    where } . $node_filter .
          qq { and b.is_open = 'n'
 	      and bd.time_complete is not null
+	      and dbs.dls is not null
 	      and n.se_name is not null};
   $q = execute_sql( $self, $sql, %p );
   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }

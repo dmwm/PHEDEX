@@ -4,9 +4,6 @@
 //Individual nodes should subclass this, calling the superconstructor with either a ready div or an ID of an existing div, and then
 //implement their own methods to generate the header, extra and children content, and handle updates.
 
-// This file is obsolete, so may as well shout about it...
-alert("You are using phedex-widget.js, but you should not be. That file is obsolete. Please update your code!");
-
 //This should be subclassed for each class and then specific child node.
 //TODO: Prototype instead of instance based subclassing.
 
@@ -174,7 +171,7 @@ PHEDEX.Widget = function(divid,parent,opts) {
     this.header_div.appendChild(this.menu_div);
     // Create a (usually hidden) progress indicator.
     this.progress_img = document.createElement('img');
-    this.progress_img.src = '/images/progress.gif';
+    this.progress_img.src = '/readfile/progress.gif';
     this.progress_img.className = 'node-progress';
     this.header_div.appendChild(this.progress_img);
 

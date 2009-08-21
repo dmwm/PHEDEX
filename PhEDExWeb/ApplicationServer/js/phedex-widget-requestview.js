@@ -1,161 +1,170 @@
-// instantiate the PHEDEX.Widget.RequestView namespace
-PHEDEX.namespace('Widget.RequestView');
+req_node=null;
 
-PHEDEX.Page.Widget.Requests=function(divid) {
-  var request = document.getElementById(divid+'_select').value;
-  req_node = new PHEDEX.Widget.RequestView(request,divid);
+requestview=function() {
+  var req = document.getElementById('select_for_requestview').value;
+  req_node = new PHEDEX.Widget.RequestView(req);
   req_node.update();
 }
 
-PHEDEX.Widget.RequestView = function(request,divid) {
-  if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var width=800;
-  var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+request,
-		{
-		width:width,
-		height:200,
-		minwidth:400,
-		minheight:80
-		});
-  that.me=function() { return 'PHEDEX.Core.Widget.RequestView'; }
-  that.request=request;
-  that._custodial = {y:'custodial', n:'non-custodial'};
-  that._static    = {y:'static',    n:'dynamic'};
-  that._move      = {y:'move',      n:'copy'};
-
-  var branchDef1 = [
-          {width: 80,text:'Request ID',className:'phedex-tree-request-id', otherClasses:'align-left'},
-          {width: 90,text:'Username',  className:'phedex-tree-username'},
-	  {width:120,text:'Volume',    className:'phedex-tree-volume'},
-	  {width: 70,text:'Status',    className:'phedex-tree-status'},
-	  {width:100,text:'Custodial', className:'phedex-tree-custodial'},
-          {width: 50,text:'Move',      className:'phedex-tree-move'},
-          {width: 60,text:'Static',    className:'phedex-tree-static'},
-          {width: 70,text:'Priority',  className:'phedex-tree-priority'},
-          {width: 70,text:'Group',     className:'phedex-tree-group'}
-    ];
-  var branchDef2 = [
-          {width:180,text:'Requestor',           className:'phedex-tree-requestor-name', otherClasses:'align-left'},
-          {width:180,text:'Request Date',        className:'phedex-tree-request-date'},
-	  {width:150,text:'Comments',            className:'phedex-tree-comments',           hideByDefault:true},
-	  {width:150,text:'Requestor DN',        className:'phedex-tree-requestor-dn',       hideByDefault:true, otherClasses:'phedex-tnode-auto-height' },
-	  {width:100,text:'Requestor Host',      className:'phedex-tree-requestor-host',     hideByDefault:true},
-	  {width:200,text:'Requestor User Agent',className:'phedex-tree-requestor-useragent',hideByDefault:true, otherClasses:'phedex-tnode-auto-height'}
-    ];
-  var branchDef3 = [
-          {width:180,text:'Approver',            className:'phedex-tree-approver-name', otherClasses:'align-left', contextArgs:'sort-alpha'},
-          {width:180,text:'Approval Date',       className:'phedex-tree-approval-date',   contextArgs:'sort-num', format:PHEDEX.Util.format.date },
-	  {width:120,text:'Approval Status',     className:'phedex-tree-approval-status', contextArgs:'sort-alpha'},
-	  {width:140,text:'Node',                className:'phedex-tree-approval-node',   contextArgs:'sort-alpha'},
-	  {width:150,text:'Approver DN',         className:'phedex-tree-approver-dn',        hideByDefault:true, otherClasses:'phedex-tnode-auto-height' },
-	  {width:100,text:'Approver Host',       className:'phedex-tree-approver-host',      hideByDefault:true},
-	  {width:200,text:'Approver User Agent', className:'phedex-tree-approver-useragent', hideByDefault:true, otherClasses:'phedex-tnode-auto-height' }
-    ];
-  var branchDef4 = [
-          {width:500,text:'Block Name',  className:'phedex-tree-block-name',   otherClasses:'align-left',  contextArgs:['Block','sort-alpha'], format:PHEDEX.Util.format.spanWrap},
-          {width: 70,text:'Block ID',    className:'phedex-tree-block-id',     otherClasses:'align-right', contextArgs:['Block','sort-num'], hideByDefault:true},
-	  {width:120,text:'Data Volume', className:'phedex-tree-block-volume', otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes}
-    ];
-
-  that.fillBody = function(div) {
-    var tNode;
-    var root = that.tree.getRoot();
-    tNode = that.addNode(
-      {format:branchDef1},
-      [ that.data.id,
-        that.data.requested_by.username,
-        PHEDEX.Util.format.filesBytes(this.data.data.files,this.data.data.bytes),
-        that.approval(),
-        that._custodial[that.data.custodial],
-        that._move     [that.data.move],
-        that._static   [that.data.static],
-        that.data.priority,
-        that.data.group || '(no group)'
-      ]
-    );
-
-    that.addNode(
-      {format:branchDef2},
-      [ that.data.requested_by.name,
-        PHEDEX.Util.format.date(that.data.time_create),
-        that.data.comments || '(no comments)',
-        that.data.requested_by.dn,
-        that.data.requested_by.host,
-        that.data.requested_by.agent
-      ],
-       tNode
-    );
-
-    var destinationDetail="";
-    for (var i in this.data.destinations.node) {
-      var d = this.data.destinations.node[i];;
-
-      if ( d.decided_by.decision == 'y' ) { destinationDetail = 'Approved'; }
-      else                                { destinationDetail = 'Rejected'; }
-      that.addNode(
-          {format:branchDef3},
-          [
-            d.decided_by.name,
-            d.decided_by.time_decided,
-            destinationDetail,
-            d.name,
-            d.decided_by.dn,
-            d.decided_by.host,
-            d.decided_by.agent
-          ],
-           tNode
-        );
-    }
-    for (var i in this.data.data.dbs.dataset) {
-      var d = this.data.data.dbs.dataset[i];
-      that.addNode( {format:branchDef4},
-		    [ d.name, d.id, {files:d.files,bytes:d.bytes} ] );
-    }
-    tNode.expand();
-    that.tree.render();
+PHEDEX.Widget.RequestView = function(req_num) {
+  var that = new PHEDEX.Widget('phedex_requestview',null);
+  that.req_num=req_num;
+  that.data={};
+  that.buildHeader=function(span) {
+    this.title=document.createElement('span');
+    this.requestor=document.createElement('span');
+    this.requestor.className='col1';
+    this.volume=document.createElement('span');
+    this.volume.className='col2';
+    this.status=document.createElement('span');
+    this.status.className='col3';
+    this.xfertype=document.createElement('span');
+    this.xfertype.className='col4';
+    span.appendChild(this.title);
+    span.appendChild(this.requestor);
+    span.appendChild(this.volume);
+    span.appendChild(this.status);
+    span.appendChild(this.xfertype);
   }
   that.approval=function() {
     var dest_approve=0;
-    var n_dest=this.data.destinations.node.length;
-    for (var i in this.data.destinations.node) {
-      if (this.data.destinations.node[i].decided_by.decision=='y') {
+    var src_approve=0;
+    var n_dest=this.data['destinations'].length;
+    var n_src=this.data['sources'].length;
+    for (var i in this.data['destinations']) {
+      if (this.data['destinations'][i]['decision']=='y') {
         dest_approve+=1;
       }
     }
-    if ( !n_dest ) { return "No destinations, is that possible?"; }
-    if (dest_approve==n_dest )
-    {
-      if ( n_dest == 1 ) { return "Approved"; }
-      else		 { return "Approved ("+n_dest+")"; }
+    for (var i in this.data['sources']) {
+      if (this.data['sources'][i]['decision']=='y') {
+        src_approve+=1;
+      }
     }
-    return "Approved ("+dest_approve+"/"+n_dest+")";
+    if (dest_approve==0 && src_approve==0)
+      return "No approvals";
+    if (dest_approve==n_dest && src_approve==n_src)
+      return "Approved";
+    return "Approved ("+src_approve+"/"+n_src+" sources, "+dest_approve+"/"+src_approve+" destinations";
+  }
+  that.classify=function() {
+    var result=this.data['priority']+' priority';
+    if (this.data['custodial']=='y')
+      result += ', custodial';
+    if (this.data['move']=='y')
+      result += ', move';
+    return result;
+  }
+  that.fillHeader=function() {
+    this.title.innerHTML='Request '+this.data['id'];
+    this.requestor.innerHTML=this.data['requested_by']['username'];
+    this.volume.innerHTML=this.data['files']+' files / '+this.format['bytes'](this.data['bytes']);
+    this.status.innerHTML=this.approval();
+    this.xfertype.innerHTML=this.classify();
+  }
+  that.buildExtra=function(div) {
+    this.comment=document.createElement('div');
+    this.comment.className='comment';
+    div.appendChild(this.comment);
+    this.creator=document.createElement('div');
+    this.creator.className='border';
+    div.appendChild(this.creator);
+    this.approver=document.createElement('div');
+    this.approver.className='border';
+    div.appendChild(this.approver);
+  }
+  that.fillExtra=function() {
+    this.comment.innerHTML = this.data['comments'];
+    this.creator.innerHTML = "<div>Created: "+this.format['date'](this.data['time_create'])+"</div><div>By: <a href='mailto:"+this.data['requested_by']['email']+"'>"+this.data['requested_by']['username']+"</a> ("+this.data['requested_by']['name']+")</div><div>Host: "+this.data['requested_by']['host']+" using "+this.data['requested_by']['agent']+"</div><div>DN: "+this.data['requested_by']['dn']+"</div>";
+    this.approver.innerHTML="";
+    for (var i in this.data['sources']) {
+      this.approver.innerHTML += "<div><div>SOURCE: "+this.data['sources'][i]['name']+"</div><div>Approved: "+this.data['sources'][i]['decision']+"</div><div>Approved by: <a href='mailto:"+this.data['sources'][i]['approved_by']['email']+"'>"+this.data['sources'][i]['approved_by']['username']+"</a> ("+this.data['sources'][i]['approved_by']['name']+")</div><div>Approved at: "+this.format['date'](this.data['sources'][i]['time_decided'])+"</div></div>";
+    }
+    for (var i in this.data['destinations']) {
+      this.approver.innerHTML += "<div><div>DESTINATION: "+this.data['destinations'][i]['name']+"</div><div>Approved: "+this.data['destinations'][i]['decision']+"</div><div>Approved by: <a href='mailto:"+this.data['destinations'][i]['approved_by']['email']+"'>"+this.data['destinations'][i]['approved_by']['username']+"</a> ("+this.data['destinations'][i]['approved_by']['name']+")</div><div>Approved at: "+this.format['date'](this.data['destinations'][i]['time_decided'])+"</div></div>";
+    }
+    
   }
   that.update=function() {
-    PHEDEX.Datasvc.Call({api:'TransferRequests',args:{request:this.request},success_event:this.onDataReady});
+    Data.Call('TransferRequests',{req_num:this.req_num},this.receive,{obj:this});
+    this.startLoading();
   }
-  that.onDataReady.subscribe(function(event,args) { that.receive(args); });
-  that.receive=function(data) {
-    that.data=data[0].request[0];
-    if (that.data) {
-      that.populate();
+  that.receive=function(result) {
+    var data=eval('('+result.responseText+')')['phedex']['request'];
+    if (data.length==1) {
+      result.argument.obj.data=data[0];
     }
+    result.argument.obj.finishLoading();
+    result.argument.obj.populate();
   }
-  that.buildHeader=function(div) {
-    var root = that.headerTree.getRoot();
-    var tNode1 = that.addNode( { width:width, format:branchDef1, name:'Request' },   null, root);    tNode1.expand();
-    var tNode2 = that.addNode( {              format:branchDef2, name:'Requestor' }, null, tNode1 ); tNode2.expand();
-    var tNode3 = that.addNode( {              format:branchDef3, name:'Approver' },  null, tNode1 ); tNode3.expand();
-    var tNode4 = that.addNode( {              format:branchDef4, name:'Block' },     null, root );   tNode4.expand();
-    tNode2.isLeaf = tNode3.isLeaf = tNode4.isLeaf = true;
-    that.headerTree.render();
+  that.buildChildren=function(div) {
+    this.startLoading();
+    this.markChildren();
+    for (var i in this.data['data']['dbs']['dataset']) {
+      var d = this.data['data']['dbs']['dataset'][i];
+      var id = this.id+"_d"+i;
+      var child = this.getChild(id);
+      if (child) {
+        child.data=d;
+        child.marked=false;
+        child.update();
+      } else {
+        var cdiv = document.createElement('div');
+        cdiv.id=id;
+        this.children_div.appendChild(cdiv);
+        var c = new PHEDEX.Widget.ReqBlockNode(cdiv,this,d);
+        this.children.push(c);
+        c.update();
+      }
+    }
+    if (this.children.length==0) {
+      this.children_info_div.innerHTML='No children returned';
+    }
+    this.removeMarkedChildren();
+    this.finishLoading();
   }
-
-  that.isDynamic = false; // disable dynamic loading of data
-  that.buildTree(that.dom.content);
-  that.buildExtra(that.dom.extra);
-  that.buildContextMenu();
+  
   that.build();
   return that;
 }
 
-YAHOO.log('loaded...','info','Widget.RequestView');
+PHEDEX.Widget.ReqBlockNode = function(div,parent,data) {
+  var that = new PHEDEX.Widget(div,parent,{children:false});
+  that.data=data;
+  that.buildHeader=function(span) {
+    this.title=document.createElement('span');
+    this.volume=document.createElement('span');
+    this.volume.className='col3';
+    span.appendChild(this.title);
+    span.appendChild(this.volume);
+  }
+  that.fillHeader=function() {
+    this.title.innerHTML=this.format['dataset'](this.data['name']);
+    this.volume.innerHTML=this.data['files']+" files / "+this.format['bytes'](this.data['bytes']);
+  }
+  that.buildExtra=function(div) {
+    this.dbslink = document.createElement('div');
+    div.appendChild(this.dbslink);
+  }
+  that.fillExtra=function() {
+    this.dbslink.innerHTML="<a href='dbs?"+this.data['name']+"'>DBS</a>";
+  }
+  that.update=function() {
+    this.populate();
+  }
+  that.build();
+  return that;
+}
+
+Data=function(){}
+Data.Call = function(query,args,callback,argument) {
+  var argstr = "";
+  if (args) {
+    argstr = "?";
+    for (a in args) {
+      argstr+=a+"="+args[a]+";";
+    }
+  }
+  var url = '/phedex/datasvc/json/prod/'+query+argstr;
+  var c = YAHOO.util.Connect.asyncRequest('GET',url,{success:callback,argument:argument});
+}

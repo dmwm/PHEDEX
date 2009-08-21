@@ -1,0 +1,42 @@
+{
+  "Request": { // Low priority open replication to RAL and IC, but not to Bristol
+    "Id":1234,
+    "Last_update":1060199000.0,
+    "Status":{"approved":["T1_RAL_MSS", "T2_London_ICHEP"], 
+    					"disapproved": ["T2_Southgrid_Bristol"], 
+    					"pending": [],
+    					"move_pending": []},
+    "Subscription":
+    {
+      "Items":[
+      	{"Type":"Dataset",
+      	"Name":"/PrimaryDS1/ProcessedDS1/Tier"}, 
+      	{"Type":"Block",
+      	"Name":"/PrimaryDS2/ProcessedDS2/Tier/block"}
+      ],
+      "Open": 1,
+      "Priority": 0,
+      "Type": "replicate"
+    }
+  }
+  "Request": { //Normal priority (1) closed move from MIT to FNAL
+    "Id":5678,
+    "Last_update":1060299000.0,
+    "Status":{"approved":["T1_FNAL_MSS"], 
+    					"disapproved": [], 
+    					"pending": [],
+    					"move_pending": ["T2_MIT"]},
+    "Subscription":
+    {
+      "Items":[
+      	{"Type":"Block",
+      	"Name":"/PrimaryDS3/ProcessedDS3/Tier/block1"}, 
+      	{"Type":"Block",
+      	"Name":"/PrimaryDS3/ProcessedDS3/Tier/block2"}
+			],
+      "Open": 0,
+      "Priority": 1,
+      "Type": "move"
+    }
+  }
+}
