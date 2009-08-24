@@ -93,10 +93,11 @@ sub deleteOneFile
 
 	if ($npending)
 	{
-	    $self->Warn ("not removing $$file{LFN}, $npending pending transfers");
+	    $self->Warn ("not removing $$file{LFN}, $npending pending transfers") if !$self->{_drops}{$drop};
 	    return 0;
 	}
-	
+
+	$self->{_drops}{$drop}++;
 	# Now delete the replica entry to avoid new transfer edges.
 	&dbexec($dbh, qq{
 	    delete from t_xfer_replica where fileid = :fileid and node in ($node_list)},
@@ -161,6 +162,7 @@ sub deleteJob
 	     . " $$file{LFN} => $$file{PFN}");
 
 	# OK, got far enough to nuke and log it
+	$self->Logmsg("Delete drop $file->{DROP} ($file->{LFN})") if $self->{DEBUG};
 	$self->relayDrop ($$file{DROP});
     }
 }
@@ -168,7 +170,6 @@ sub deleteJob
 sub processDrop
 {
     my ($self, $drop) = @_;
-    return if $self->{_drops}{$drop}++;
     # Sanity checking
     return if (! $self->inspectDrop ($drop));
     delete $$self{BAD}{$drop};
@@ -188,12 +189,7 @@ sub processDrop
     # is, we'll come back to it later.
     # Add the drop to the file, so the callback from the JobManager
     # can delete the drop if the file-delete succeeds
-    if ( !$self->deleteOneFile ($drop, $file) )
-    {
-#     Job was not submitted. Delete this drop and move on...
-#      $self->Dbgmsg("abandon drop $drop");
-#      $self->relayDrop($drop);
-    }
+    $self->deleteOneFile ($drop, $file);
 }
 
 # Get a list of files to delete.
