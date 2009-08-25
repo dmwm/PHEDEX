@@ -1,3 +1,16 @@
+* Changes for 1.4.2
+
+ Bug Fixes for APIs:
+
+  * lfn2pfn, nodes - fix bug where 'node=' option was ignored,
+    returning all results
+
+ Etc.:
+
+  * Pipe log output to rotatelogs
+  * Safer 'httpd' start/stop script, which doesn't kill httpd
+    processes that are not the data service
+
 * Changes for 1.4.1
 
  Changes for APIs:
