@@ -5377,7 +5377,7 @@ sub output
 			     'LoadTestInjector' => 60*20,
 			     'LoadTestCleanup' => 60*60,
 			     'BlockDownloadVerifyInjector' => 60*60,
-			     'OTHER'        => 60*15 );
+			     'OTHER'        => 60*30 );
   
   
   my $now = time ();
