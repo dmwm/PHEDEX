@@ -1,8 +1,0 @@
-#### Export-side agents
-
-### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
- -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}
- -ignore      ${PHEDEX_MSS}
- -storagemap  ${PHEDEX_MAP}
- -protocols   'srm'
