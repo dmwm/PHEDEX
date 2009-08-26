@@ -11,14 +11,15 @@ PHEDEX.namespace('Core.Widget');
 
 PHEDEX.Core.Widget = function(divid,opts) {
 // Set defaults, then copy the options over the defaults.
-  this.options = {width:700,
+  this.options = {window:true,
+		  width:700,
 		  height:150,
 		  minwidth:10,
 		  minheight:10,
-		  close:false,
 		  draggable:true,
+		  resizable:true,
 		  constraintoviewport:false,
-		  handles:['b','br','r']
+		  handles:['b','br','r'],
 		  };
   if (opts) {
     for (o in opts) {
@@ -49,8 +50,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
 
   YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
-// Everything is a resizeable panel now
-  YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
+
 // Create the structure for the embedded panel
   this.dom.header = document.createElement('div');
   this.dom.header.className = 'hd';
@@ -96,37 +96,47 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.dom.filter.id = this.id+'_filter';
 
 // Create the panel
-  this.panel = new YAHOO.widget.Panel(this.id,
-    {
-      close:false,  //this.options.close,
-      visible:true,
-      draggable:true,
-//       effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
-      width: this.options.width+"px",
-      height: this.options.height+"px",
-      constraintoviewport: this.options.constraintoviewport,
-      context: ["showbtn", "tl", "bl"],
-      underlay: "matte"
-    }
-  ); this.panel.render();
-  this.resize = new YAHOO.util.Resize(this.id, {
+  var panelopts = {
+    close:false,  //this.options.close,
+    visible:true,
+    draggable:this.options.draggable,
+    //       effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
+    width: this.options.width+"px",
+    height: this.options.height+"px",
+    constraintoviewport:this.options.constraintoviewport,
+    context: ["showbtn", "tl", "bl"],
+    underlay: "matte"
+  };
+  if ( !this.options.window ) {
+    delete panelopts['width'];
+    delete panelopts['height'];
+    panelopts.draggable = false;
+  }
+  this.panel = new YAHOO.widget.Panel(this.id, panelopts); 
+  this.panel.render();
+
+// (Optionally) Make resizable
+  if ( this.options.window && this.options.resizable ) {
+    YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
+
+    this.resize = new YAHOO.util.Resize(this.id, {
       handles: this.options.handles,
       autoRatio: false,
       minWidth:  this.options.minwidth,
       minHeight: this.options.minheight,
       status: false
-   });
-  this.resize.on('resize', function(args) {
+    });
+    this.resize.on('resize', function(args) {
       var panelHeight = args.height;
       if ( panelHeight > 0 )
       {
 	this.cfg.setProperty("height", panelHeight + "px");
       }
-  }, this.panel, true);
-// Setup startResize handler, to constrain the resize width/height
-// if the constraintoviewport configuration property is enabled.
-  this.resize.on('startResize', function(args) {
-    if (this.cfg.getProperty("constraintoviewport")) {
+    }, this.panel, true);
+    // Setup startResize handler, to constrain the resize width/height
+    // if the constraintoviewport configuration property is enabled.
+    this.resize.on('startResize', function(args) {
+      if (this.cfg.getProperty("constraintoviewport")) {
         var clientRegion = YAHOO.util.Dom.getClientRegion();
         var elRegion = YAHOO.util.Dom.getRegion(this.element);
         var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
@@ -139,8 +149,9 @@ PHEDEX.Core.Widget = function(divid,opts) {
         this.resize.set("maxHeight", null);
       }
     }, this.panel, true);
-//     this.resize = resize;
-
+    //     this.resize = resize;
+  }
+    
   this.build=function() {
     this.buildHeader(this.dom.header);
     this.buildBody(this.dom.content);
@@ -293,10 +304,12 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.control.progress.src = '/images/progress.gif';
   this.dom.control.appendChild(this.control.progress);
 
-  this.control.close = document.createElement('img');
-  this.control.close.src = '/images/widget-close.gif';
-  this.dom.control.appendChild(this.control.close);
-  YAHOO.util.Event.addListener(this.control.close, "click", function(obj) { return function() { obj.onDestroy.fire(); } } (this), this);
+  if (this.options.window) {
+    this.control.close = document.createElement('img');
+    this.control.close.src = '/images/widget-close.gif';
+    this.dom.control.appendChild(this.control.close);
+    YAHOO.util.Event.addListener(this.control.close, "click", function(obj) { return function() { obj.onDestroy.fire(); } } (this), this);
+  }
 
   this.startLoading();
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
