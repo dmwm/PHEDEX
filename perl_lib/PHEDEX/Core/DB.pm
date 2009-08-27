@@ -323,3 +323,5 @@ sub dbbindexec
   &PHEDEX::Core::Logging::Fatal(undef, $@) if $@ =~ /$ORA_EXIT_REGEX/;
   die $@;
 }
+
+1;
