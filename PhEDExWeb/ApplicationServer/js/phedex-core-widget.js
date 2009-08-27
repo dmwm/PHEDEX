@@ -26,16 +26,29 @@ PHEDEX.Core.Widget = function(divid,opts) {
       this.options[o]=opts[o];
     }
   }
-// Test whether we were passed an object (assumed div) or something else (assumed element.id)
-// Set the div and id appropriately.
-  if (typeof(divid)=='object') {
-    this.id = divid.id;
-    this.div = divid;
+  
+  // Require divid of some kind
+  if ( !divid ) { throw new Error("must provide div name to contain widget"); }
+
+  // Find or create divid, use it as our parent.  If we created it,
+  // note the fact so we can responsibly destroy it later.
+  if ( typeof(divid) != 'object' ) {
+    this.parent = document.getElementById(divid);
+    if ( !this.parent ) {
+      this.parent = PHEDEX.Util.findOrCreateWidgetDiv(divid);
+      this.parent.created = true;
+    }
   } else {
-    if ( !divid ) { divid = PHEDEX.Util.generateDivName(); }
-    this.id = divid;
-    this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id);
+    this.parent = divid;
   }
+
+  /* The YUI panel is attached to an auto-generated div created as a
+     child of the constructor-passed div.  It needs to be done like this to
+     ensure proper cleanup, as the YUI Panel API will create parent divs
+     for the div which is being "panelized". */
+  this.id = PHEDEX.Util.generateDivName(this.parent.id);
+  this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id, this.parent.id);
+
   this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
   this.textNodeMap = [];
   this.hideByDefault = [];
@@ -245,10 +258,13 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
   this.onDestroy  = new YAHOO.util.CustomEvent("onDestroy",  this, false, YAHOO.util.CustomEvent.LIST);
   this.onDestroy.subscribe( function() {
-    while (this.div.hasChildNodes()) {
-      this.div.removeChild(this.div.firstChild);
-    }
+    YAHOO.log('Destroying '+this.div.id+' in '+this.parent.id,'info','Core.Widget');
     this.filter.destroy();
+    this.panel.destroy();
+    if (this.parent.created && ! this.parent.hasChildNodes() ) {
+      YAHOO.log('Destroying '+this.parent.id,'info','Core.Widget');
+      this.parent.parentNode.removeChild(this.parent);
+    }
     PHEDEX.Event.onWidgetDestroy.fire(this);
   });
 
@@ -308,7 +324,9 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.control.close = document.createElement('img');
     this.control.close.src = '/images/widget-close.gif';
     this.dom.control.appendChild(this.control.close);
-    YAHOO.util.Event.addListener(this.control.close, "click", function(obj) { return function() { obj.onDestroy.fire(); } } (this), this);
+    YAHOO.util.Event.addListener(this.control.close, "click", 
+				 function(obj) { return function() { obj.onDestroy.fire(); } } (this), 
+				 this);
   }
 
   this.startLoading();
