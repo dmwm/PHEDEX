@@ -23,9 +23,9 @@ PHEDEX.Core.Filter = function(obj) {
         int:         {type:'input', size:7 },
         float:       {type:'input', size:7 },
         percent:     {type:'input', size:5 },
-        minmax:      {type:'input', size:7, fields:['min','max'], class:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
-        minmaxFloat: {type:'input', size:7, fields:['min','max'], class:'minmaxFloat' },
-        minmaxPct:   {type:'input', size:5, fields:['min','max'], class:'minmaxPercent' }
+        minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
+        minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
+        minmaxPct:   {type:'input', size:5, fields:['min','max'], className:'minmaxPct' }
       },
       Validate: {
         regex: function(arg) { return {result:true, value:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
@@ -202,7 +202,7 @@ PHEDEX.Core.Filter = function(obj) {
 	      el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
 	      el.className = 'phedex-filter-elem';
 	      YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
-	      if ( e.class ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.class); }
+	      if ( e.className ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.className); }
 	      var size = e.size || c.size;
 	      if ( size ) { el.setAttribute('size',size); }
 	      el.setAttribute('type',e.type);

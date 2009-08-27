@@ -15,8 +15,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       YAHOO.log('Found span '+aList[i].innerHTML,'debug','Core.TreeView');
     }
     var action;
-    var class     = 'phedex-tnode-highlight';
-    var class_alt = 'phedex-tnode-highlight-associated';
+    var className = 'phedex-tnode-highlight';
+    var class_alt  = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
       action = YAHOO.util.Dom.addClass;
     } else {
@@ -27,7 +27,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     {
       action(elList[i],class_alt);
     }
-    action(el,class);
+    action(el,className);
   }
   function clickHandler(e) {
     var elTarget = YAHOO.util.Event.getTarget(e);
@@ -406,7 +406,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 //  find which value-index corresponds to my class, so I know which field to sort on
     if ( !thisClass ) {
       sNode = s[node.data.spec.name];
-      if ( sNode ) { thisClass = sNode.class; }
+      if ( sNode ) { thisClass = sNode.className; }
       if ( !thisClass ) { return; } // nothing to sort...
       sortFn = sNode.func;
     }
@@ -421,7 +421,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       return;
     }
     sNode = s[that._cfg.headerNames[thisClass].group];
-    sNode.class = thisClass;
+    sNode.className = thisClass;
     sNode.func  = sortFn;
     var parent = node.parent;
     var children = parent.children;
