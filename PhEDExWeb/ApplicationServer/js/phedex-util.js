@@ -13,9 +13,19 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name,container)
     div = document.createElement('div');
     div.id = name;
     var parent = document.getElementById(container);
+    if (!parent) {
+      throw new Error('could not find parent container '+container);
+    }
     parent.appendChild(div);
   }
   return div;
+}
+
+// generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
+PHEDEX.Util.generateDivName=function(prefix) {
+  var j = ++PHEDEX.Page.Config.Count;
+  if ( ! prefix ) { prefix = 'phedex-auto-widget'; }
+  return prefix+'-'+j;
 }
 
 // not used. Creates a UL from an array of strings
@@ -189,12 +199,6 @@ PHEDEX.Util.Sequence=function() {
   var me = arguments.callee;
   if ( ! me.value ) { me.value = 0; }
   return me.value++;
-}
-
-// generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
-PHEDEX.Util.generateDivName=function() {
-  var j = ++PHEDEX.Page.Config.Count;
-  return 'auto_Widget_'+j;
 }
 
 // Sum an array-field, with an optional parser to handle the field-format
