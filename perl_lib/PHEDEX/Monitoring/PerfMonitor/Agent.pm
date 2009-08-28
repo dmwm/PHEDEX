@@ -89,6 +89,22 @@ sub idle
 	    group by br.node, br.is_custodial },
 	    ":now" => $now);
 
+	# Summarise missing files.  We cannot simply use
+	# t_status_block_dest - t_status_replica because information
+	# about which data is subscribed is lost
+	&dbexec($dbh, qq{delete from t_status_missing});
+	&dbexec($dbh, qq{
+	    insert into t_status_missing
+	    (time_update, node, files, bytes, is_custodial)
+	    select :now, br.node, 0,
+	           nvl(sum (br.dest_files - br.node_files), 0),
+	           nvl(sum (br.dest_bytes - br.node_bytes), 0),
+	           br.is_custodial
+	      from t_dps_block_replica br
+	     where br.dest_files is not null and br.dest_files != 0
+	     group by br.node, br.is_custodial },
+	    ":now" => $now);
+
 	# Sumarize groups
 	# We only count data with a subscription to the node
 	# (dest_files not null), because that is the only data which
@@ -273,6 +289,30 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part V: Update link parameters.
+	# For each of three time periods, 1 hour, 12 hours, and 2
+	# days, this massive query creates or updates link parameters
+	# based on recent history in that time period.  The following
+	# conditions apply:
+	#
+	# If there is no link parameter information for a given link,
+	# the row is created with statistics from the time period:
+	#   pend_bytes = the last timebin from t_history_link_stats.pend_bytes
+	#   done_bytes = the sum of t_history_link_events.done_bytes
+	#   try_bytes  = the sum of t_history_link_events.try_bytes
+	#   time_span  = the sum of the bin width from the history tables
+	#                for bins that have some data (pend_bytes, done_bytes, 
+	#                or try_bytes)
+	# If there is a row for a link (i.e., there were more recent
+	# statistics available) then the row is updated according to
+	# the above if the existing row had:
+	#   time_span of null or 0
+	#   or null try_bytes or done_bytes
+	#
+	# In other words, the row is updated to use statistics from a
+	# longer time window if there was no queue or transfer
+	# information in a smaller time window, or the data was only
+	# for queued transfers, and not completed transfers.
+       
 	&dbexec($dbh, qq{delete from t_adm_link_param});
         foreach my $span (3600, 12*3600, 2*86400)
 	{
@@ -322,6 +362,11 @@ sub idle
 	        ":period" => $timebin - $span, ":now" => $timebin);
 	}
 
+	# Now we add blank rows for any link which had no history in
+	# the time periods above.  This allows queires on
+	# t_adm_link_param to observe all existing links, but links
+	# with no recent activity will have all NULL values.
+
 	&dbexec($dbh, qq{
 	    merge into t_adm_link_param p using
 	      (select from_node, to_node from t_adm_link) n
@@ -331,6 +376,28 @@ sub idle
 	      values (n.from_node, n.to_node, :now)},
 	    ":now" => $timebin);
 
+	# Compute the rate and latency for every link which has some
+	# recent activity.  The rate is the transfer rate over the
+	# most recent time period with activity (see above).  The
+	# latency is the time it would take to complete the current
+	# transfer queue.  It is determined as follows:
+	#
+	# xfer_rate = NULL if no data was queued over this link for 
+	#             the time_span period (pend_bytes = 0)
+	#           = done_bytes / time_span if some data was 
+	#             transfered for the time_span period 
+	#             (done_bytes != 0)
+	#           = 0 if no data was transferred over the time_span 
+	#             period (done_bytes is NULL)
+	# xfer_latency = 0 when no data has been queued over the 
+	#                time_span period (pend_bytes = 0)
+	#              = pend_bytes / xfer_rate (above) if the rate is
+	#                non-zero and it is less than one week
+	#              = one week if the xfer_rate is 0 or NULL, or the 
+	#                calculated rate is more than one week
+	#
+	# In short, 0 really means zero, and NULL means the value
+	# could not be computed.
 	&dbexec($dbh, qq{
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
@@ -352,6 +419,7 @@ sub idle
 		     else 7*86400
 		   end});
 
+	# Log the history of the rate and latency we just calculated.
         &dbexec($dbh, qq{
 	    update t_history_link_stats h
 	    set (param_rate, param_latency) =
