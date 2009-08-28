@@ -61,15 +61,15 @@ create table t_history_link_stats
    priority		integer		not null,
    --
    -- statistics for t_xfer_state during/at end of this timebin
-   pend_files		integer, -- all files
+   pend_files		integer, -- all tasks
    pend_bytes		integer,
-   wait_files		integer, -- waiting (not in transfer, error) files
+   wait_files		integer, -- tasks not exported
    wait_bytes		integer,
-   cool_files		integer, -- cooling off (in error)
+   cool_files		integer, -- cooling off (in error) (obsolete)
    cool_bytes		integer,
-   ready_files		integer, -- available for download
+   ready_files		integer, -- exported, available for transfer
    ready_bytes		integer,
-   xfer_files		integer, -- in transfer
+   xfer_files		integer, -- taken for transfer
    xfer_bytes		integer,
    --
    -- statistics for t_xfer_path during/at end of this bin
@@ -106,9 +106,11 @@ create table t_history_dest
    node_bytes		integer,
    cust_node_files	integer, -- t_status_replica
    cust_node_bytes	integer,
+   miss_files		integer, -- t_status_missing
+   miss_bytes		integer,
    request_files	integer, -- t_status_request
    request_bytes	integer,
-   idle_files		integer,
+   idle_files		integer, -- t_status_request
    idle_bytes		integer,
    --
    constraint pk_history_dest
@@ -172,6 +174,26 @@ create table t_status_replica
    constraint ck_status_replica_cust
      check (is_custodial in ('y', 'n'))
   );
+
+/* Statistics for missing data. */
+create table t_status_missing
+  (time_update		float		not null,
+   node			integer		not null,
+   is_custodial		char (1)	not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   --
+   constraint pk_status_missing
+     primary key (node, is_custodial),
+   --
+   constraint fk_status_missing_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint ck_status_replica_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
 
 /* Statistics for transfer requests. 
  * t_status_request.state:
