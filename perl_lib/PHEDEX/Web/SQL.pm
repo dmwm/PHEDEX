@@ -2441,6 +2441,72 @@ sub getRoutingInfo
 
 }
 
+sub getRoutedBlocks
+{
+    my $core = shift;
+    my %h = @_;
+    my ($sql, $q, %p, @r);
+
+    $sql = qq {
+        select
+            ns.name "from",
+            ns.id from_id,
+            ns.se_name from_se,
+            nd.name "to",
+            nd.id to_id,
+            nd.se_name to_name,
+            b.name block,
+            b.id block_id,
+            b.files,
+            b.bytes,
+            s.priority,
+            s.is_valid valid,
+            s.route_files,
+            s.route_bytes,
+            s.xfer_attempts,
+            s.time_request
+        from
+            t_status_block_path s
+            join t_adm_node nd on nd.id = s.destination
+            join t_adm_node ns on ns.id = s.src_node
+            join t_dps_block b on b.id = s.block
+        where
+            not nd.name like 'X%' and
+            not ns.name like 'X%'
+    };
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM => 'ns.name',
+        VALID => 's.is_valid',
+        TO => 'nd.name'));
+
+    $sql .= qq { and ($filters) } if ($filters);
+
+    if (exists $h{BLOCK})
+    {
+        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
+    }
+
+    $sql .= qq {
+        order by s.time_request
+    };
+
+    $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref())
+    {
+        $_->{'PRIORITY'} = &PHEDEX::Core::Util::priority($_->{'PRIORITY'});
+        $_->{AVG_ATTEMPTS} = ($_->{ROUTE_FILES})?($_->{XFER_ATTEMPTS}/$_->{ROUTE_FILES}): 'N/A';
+
+        push @r, $_;
+    }
+
+    return \@r;
+
+}
+
 sub getAgentHistory
 {
     my $core = shift;
