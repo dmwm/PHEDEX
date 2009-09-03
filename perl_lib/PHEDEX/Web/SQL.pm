@@ -2317,7 +2317,7 @@ sub getLinks
     return \@r;
 }
 
-sub getDeletionQueue
+sub getDeletions
 {
     my $core = shift;
     my %h = @_;
@@ -2333,15 +2333,37 @@ sub getDeletionQueue
             b.id block_id,
             b.files,
             b.bytes,
+            d.is_open,
+            d.name dataset,
+            d.id dataset_id,
             del.time_request,
-            del.time_complete
+            del.time_complete,
+            case
+                when del.time_complete >= del.time_request then 'y'
+                else 'n'
+            end complete
         from
             t_dps_block_delete del
             join t_dps_block b on b.id = del.block
             join t_adm_node n on n.id = del.node
+            join t_dps_dataset d on del.dataset = d.id
         where
             not n.name like 'X%'
     };
+
+    # completness
+    if (exists $h{COMPLETE})
+    {
+        if ($h{COMPLETE} eq 'y')
+        {
+            $sql .= " and del.time_complete >= del.time_request ";
+        }
+        elsif ($h{COMPLETE} eq 'n')
+        {
+            $sql .= " and del.time_complete is null ";
+        }
+        # ignore other values
+    }
 
     my $filters = '';
     build_multi_filters($core, \$filters, \%p, \%h, (
