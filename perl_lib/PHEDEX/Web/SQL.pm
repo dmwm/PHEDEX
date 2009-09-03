@@ -2552,4 +2552,67 @@ sub getAgentHistory
     return \@r;
 }
 
+sub getAgentLogs
+{
+    my ($core, %h) = @_;
+
+    # save LongReadLen & LongTruncOk
+    my $LongReadLen = $$core{DBH}->{LongReadLen};
+    my $LongTruncOk = $$core{DBH}->{LongTruncOk};
+
+    $$core{DBH}->{LongReadLen} = 10_000;
+    $$core{DBH}->{LongTruncOk} = 1;
+
+    my ($sql, $q, %p, @r);
+
+    if (not exists $h{UPDATE_SINCE})
+    {
+        $h{UPDATE_SINCE} = time() - 3600*24;
+    }
+
+    $sql = qq {
+        select
+            l.time_update,
+            l.reason,
+            l.user_name "user",
+            l.host_name host,
+            l.process_id pid,
+            l.working_directory,
+            l.state_directory,
+            nvl(a.name, 'N/A') agent,
+            message
+        from
+            t_agent_log l
+            left join t_agent_status s on
+                l.host_name = s.host_name and
+                l.process_id = s.process_id
+            left join t_agent a on
+                a.id = s.agent
+    };
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        USER => 'l.user_name',
+        HOST => 'l.host_name',
+        PID => 'l.process_id',
+        AGENT => 'a.name'));
+
+    $sql .= " where l.time_update >= " . str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE}) . " ";
+
+    $sql .= " and ($filters) " if ($filters);
+    $sql .= " order by l.time_update ";
+
+    $q = execute_sql($core, $sql, %p);
+    while ($_ = $q->fetchrow_hashref())
+    {
+        push @r, $_;
+    }
+
+    $$core{DBH}->{LongReadLen} = $LongReadLen;
+    $$core{DBH}->{LongTruncOk} = $LongTruncOk;
+
+    return \@r;
+}
+
 1;
