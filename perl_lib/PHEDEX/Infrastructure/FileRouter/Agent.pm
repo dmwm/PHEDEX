@@ -125,6 +125,7 @@ sub report_config
 			      $MAX_REQ_EXPIRE/3600,
 			      $LATENCY_THRESHOLD/(24*3600),
 			      $PROBE_CHANCE,
+			      $DEACTIV_ATTEMPTS,
 			      $DEACTIV_TIME/(24*3600)));
     }
 }
@@ -404,13 +405,19 @@ sub prepare
        ":node" => $node);
     my ($not_for_me) = $q_not_for_me->fetchrow() || 0;
 
-    # Get current level of requests by priority
+    # Get current level of requests by priority.  We count "current
+    # level" in requests with state = 0 or with less than a certain
+    # number of attempts done on them (default 5).  This is to give
+    # requests a fair shot at transferring in the correct
+    # priority-order before we start to give up on them and look for
+    # other requests.
     my %priority_windows = map { ($_ => 0) } 0..100;  # 100 levels of priority available
     my $q_current_requests = &dbexec($dbh, qq{
 	select xq.priority, sum(xf.filesize)
           from t_xfer_request xq 
           join t_xfer_file xf on xf.id = xq.fileid
-	 where xq.state = 0 and xq.destination = :node
+	 where xq.destination = :node
+           and (xq.state = 0 or xq.attempts <= $DEACTIV_ATTEMPTS/10)
          group by xq.priority },
      ":node" => $node);
 
