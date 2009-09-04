@@ -265,13 +265,16 @@ sub idle
 	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes, v.cust_node_files, v.cust_node_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
+	# Update request statistics.  state = 0 is an active request.
+	# Any other state is an inactive request, and therefore the
+	# data is "idle"
 	&dbexec($dbh, qq{
 	    merge into t_history_dest h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, destination,
 	              sum(files) request_files, sum(bytes) request_bytes,
-		      sum(decode(state,1,files)) idle_files,
-	              sum(decode(state,1,bytes)) idle_bytes
+		      sum(decode(state,0,0,files)) idle_files,
+	              sum(decode(state,0,0,bytes)) idle_bytes
 		from t_status_request
 		group by :timebin, :timewidth, destination) v
 	    on (h.timebin = v.timebin and h.node = v.destination)
