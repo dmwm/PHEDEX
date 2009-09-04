@@ -85,7 +85,8 @@ sub subscriptions
 	       from t_dps_subscription s2
 	       left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
 	       left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
-	       group by s2.destination, s2.dataset, s2.block
+	      where br.is_active = 'y'
+	      group by s2.destination, s2.dataset, s2.block
 	    ) reps
 	    on reps.destination = s.destination
 	   and (reps.dataset = s.dataset or reps.block = s.block)
@@ -420,10 +421,10 @@ sub blockDestinations
     $stats{$_} = 0 foreach @stats_order;
 
 
-    # Query all subscriptions and block destinations, along with
-    # replica and block delete information.  Aquire lock on block
-    # destinations to ensure transactional consistency for the
-    # updates to come.
+    # Query block destinations which need to be updated
+    # Careful! Selection logic here must match update logic below!
+    # TODO: Combine selection and update logic into one place (the
+    #       query), while still being able to log statistics
     my $q_blockdest = &dbexec($self->{DBH}, qq{
 	    select
               bd.destination, n.name destination_name,
@@ -436,23 +437,35 @@ sub blockDestinations
               bd.time_subscription bd_subscrption, bd.time_create bd_create, bd.time_active bd_active,
 	      bd.time_complete bd_complete, bd.time_suspend_until bd_suspend,
               nvl(br.node_files,0) node_files, nvl(br.src_files,0) src_files, b.files exist_files
-	      from t_dps_block_dest bd
-	      join t_adm_node n on n.id = bd.destination
-	      join t_dps_block b on b.id = bd.block
-	      join t_dps_subscription s on s.destination = bd.destination
-	                               and (s.dataset = bd.dataset or s.block = bd.block)
-	      left join t_dps_block_replica br on br.node = bd.destination and br.block = bd.block
-	  });
-
-    # Cache all data
-    my @all_blocks;
-    while (my $block = $q_blockdest->fetchrow_hashref()) {
-	push @all_blocks, $block;
-    }
+	    from t_dps_block_dest bd
+	    join t_adm_node n on n.id = bd.destination
+	    join t_dps_block b on b.id = bd.block
+	    join t_dps_subscription s on s.destination = bd.destination
+	                             and (s.dataset = bd.dataset or s.block = bd.block)
+	    left join t_dps_block_replica br on br.node = bd.destination and br.block = bd.block
+           where 
+             -- block is complete, update state
+             (b.is_open = 'y'
+              and br.node_files >= b.files
+              and bd.state != 3)
+             -- block is incomplete, update state
+             or (br.node_files < b.files and bd.state = 3)
+             -- update priority
+             or (bd.priority != s.priority)
+             -- suspension finished, update state
+             or ((bd.state = 2 or bd.state = 4)
+                 and 
+                 (bd.time_suspend_until is null or bd.time_suspend_until <= :now))
+             -- update user suspension
+             or (bd.state <= 2 and trunc(bd.time_suspend_until) != trunc(s.time_suspend_until))
+             -- suspension in effect, update state
+             or (bd.state < 2
+                 and bd.time_suspend_until is not null
+                 and bd.time_suspend_until > :now)
+	  }, ':now' => $now);
 
     my %uargs;
-
-  BLOCK: foreach my $block (@all_blocks) {
+    while (my $block = $q_blockdest->fetchrow_hashref()) {
       my $bd_identifier = "$block->{BLOCK_NAME} at $block->{DESTINATION_NAME}";
       
       # Update parameters for block destination
@@ -482,34 +495,37 @@ sub blockDestinations
 	  $stats{'blockdest reactivated'}++;
       }
 
+      # Update priority
+      if ($block->{BD_PRIORITY} != $block->{SUBS_PRIORITY}) {
+	  $self->Logmsg("updating priority of $bd_identifier");
+	  $bd_update->{BD_PRIORITY} = $block->{SUBS_PRIORITY};
+	  $stats{'blockdest priority changed'}++;
+      }
+
       { no warnings qw(uninitialized);  # lots of undef variables expected here
-	# Update priority and suspended status on existing requests
-	if ($block->{BD_PRIORITY} != $block->{SUBS_PRIORITY}) {
-	    $self->Logmsg("updating priority of $bd_identifier");
-	    $bd_update->{BD_PRIORITY} = $block->{SUBS_PRIORITY};
-	    $stats{'blockdest priority changed'}++;
+	# Update suspended status on existing requests
+	# Only update user-set suspensions (state 2)
+	# when the block is not suspended by the router (state 4)
+	if (($bd_update->{BD_STATE} == 2 || $bd_update->{BD_STATE} == 4) && 
+	    (!defined $bd_update->{BD_SUSPEND} || $bd_update->{BD_SUSPEND} <= $now)) {
+	    $self->Logmsg("unsuspending block destination $bd_identifier");
+	    $bd_update->{BD_STATE} = 0;
+	    $bd_update->{BD_SUSPEND} = undef;
+	    $stats{'blockdest unsuspended'}++;
 	}
 
-	if ((POSIX::floor($block->{BD_SUSPEND}) || 0) != (POSIX::floor($block->{SUBS_SUSPEND}) || 0)) {
+	if ($bd_update->{BD_STATE} <= 2 &&
+	    (POSIX::floor($bd_update->{BD_SUSPEND}) || 0) != (POSIX::floor($block->{SUBS_SUSPEND}) || 0)) {
 	    $self->Logmsg("updating suspension status of $bd_identifier");
 	    $bd_update->{BD_SUSPEND} = $block->{SUBS_SUSPEND};
 	}
 	      
-	# Manage routing state changes for suspended blocks
 	if ($bd_update->{BD_STATE} < 2 &&
 	    defined $bd_update->{BD_SUSPEND} && 
 	    $bd_update->{BD_SUSPEND} > $now) {
 	    $self->Logmsg("suspending block destination $bd_identifier");
 	    $bd_update->{BD_STATE} = 2;
 	    $stats{'blockdest suspended'}++;
-	}
-
-	if ($bd_update->{BD_STATE} == 2 &&
-	    (!defined $bd_update->{BD_SUSPEND} || $bd_update->{BD_SUSPEND} <= $now)) {
-	    $self->Logmsg("unsuspending block destination $bd_identifier");
-	    $bd_update->{BD_STATE} = 0;
-	    $bd_update->{BD_SUSPEND} = undef;
-	    $stats{'blockdest unsuspended'}++;
 	}
     }
 
