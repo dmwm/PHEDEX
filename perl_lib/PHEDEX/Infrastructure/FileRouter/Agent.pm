@@ -39,8 +39,8 @@ sub new
 		  MAX_REQ_EXPIRE => 10,         # Maximum time (hours) to expire a request/paths
 		  LATENCY_THRESHOLD => 3,       # Maximum estimated latency in days to determine if a path is valid
 		  PROBE_CHANCE => 0.02,         # Probability to force routing on failure
-		  DEACTIV_ATTEMPTS => 50,      # Mininum number of request attempts before a block is deactivated
-		  DEACTIV_TIME => 30,           # Minimum age (days) of request before a block is deactivated
+		  DEACTIV_ATTEMPTS => 5,        # Mininum number of request attempts before other blocks are considered
+		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
 		  ME	=> 'FileRouter',
 		  );
     my %args = (@_);
@@ -158,7 +158,7 @@ sub flush
         select xq.destination, xq.inblock 
           from t_xfer_request xq 
          group by xq.destination, xq.inblock
-        having min(xq.attempt) > $DEACTIV_ATTEMPTS
+        having min(xq.attempt) > $DEACTIV_ATTEMPTS*10
            and :now - max(xq.time_create) > $DEACTIV_TIME
 	     )}, ':now' => $now);
     push @stats, ['stuck blocks suspended', $rows];
@@ -417,7 +417,7 @@ sub prepare
           from t_xfer_request xq 
           join t_xfer_file xf on xf.id = xq.fileid
 	 where xq.destination = :node
-           and (xq.state = 0 or xq.attempts <= $DEACTIV_ATTEMPTS/10)
+           and (xq.state = 0 or xq.attempts <= $DEACTIV_ATTEMPTS)
          group by xq.priority },
      ":node" => $node);
 
@@ -435,28 +435,39 @@ sub prepare
     {
 	# First, re-activate requests from already-activated blocks which
 	# either expired or failed to be routed.
+	# (new injections to open blocks are also allocated here)
 	my $q = &dbexec($dbh, qq{
-	    select xq.fileid, xq.priority, f.filesize bytes
+	    select xq.destination, xq.fileid, xq.priority, f.filesize bytes
 	      from t_xfer_request xq
 	      join t_xfer_file f on f.id = xq.fileid
 	     where xq.destination = :node
 	       and :now >= xq.time_expire
-	       and xq.state >= 1
-	     order by xq.priority asc, xq.time_create asc
+	       and xq.state != 0
+	     order by xq.priority asc, xq.time_create asc, xq.attempt asc
 	   }, ':node' => $node, ':now' => $now);
-	  
-	my $n_reactiv = 0;
-	while (my $r = $q->fetchrow_arrayref()) {
-	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
-	    $n_reactiv++;
-	    &dbexec($dbh, qq{
+	
+	my $reactiv_u = &dbprep($dbh, qq{
 		update t_xfer_request
 	           set state = 0,
 	               attempt = attempt+1,
-	               time_expire = :now + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE)
-                 where destination = :node and fileid = :fileid
-	      }, ':node' => $node, ':fileid' => $$r{FILEID});
+	               time_expire = ? + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE)
+                 where destination = ? and fileid = ?
+	     });
+
+	my %reactiv_reqs;
+	while (my $r = $q->fetchrow_arrayref()) {
+	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
+	    my $n = 0;
+	    push(@{$reactiv_reqs{$n++}}, $now);
+	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
+	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
 	}
+	&dbbindexec($reactiv_u, %reactiv_reqs);
+	my $n_reactiv = scalar @{$reactiv_reqs{1}};
+
+	# Commit re-activated requests
+	$dbh->commit();
+	undef %reactiv_reqs; # no longer needed
 
 	# Find block destinations we can activate, requiring that
 	# the block fit into the priority window.  Note that open
@@ -488,6 +499,7 @@ sub prepare
 	# Commit first phase so any concurrent modification of t_xfer_file
 	# and t_xfer_replica is handled by our triggers.
 	$dbh->commit();
+	undef $blocks_to_activate; # no longer needed
 
 	# Create file requests for the activated blocks.  The
 	# expiration time is randomized to prevent massive loads of
