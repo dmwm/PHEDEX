@@ -96,8 +96,6 @@ BEGIN {
 
 use PHEDEX::Core::Help;
 use PHEDEX::Core::Config;
-use PHEDEX::Core::Logging;
-use PHEDEX::Core::DB;
 
 my (%args,$config,$dummy,$checkdb);
 $checkdb=1;
@@ -139,7 +137,7 @@ if ( $mode eq 'environ' )
 
 if ( ($mode eq 'start' || $mode eq 'checkdb') && $checkdb )
 {
-  &PHEDEX::Core::Logging::Logmsg(undef,'Testing your DB connection');
+  print "Testing your DB connection\n";
   my ($env,$ename);
   $ename = $args{ENVIRONMENT} || 'common';
   $env = '';
