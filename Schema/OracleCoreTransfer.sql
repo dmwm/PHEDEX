@@ -129,6 +129,7 @@ create table t_xfer_replica
 
 /*
  * t_xfer_reqest.state:
+ *  -1 = Deactivated, just injected
  *   0 = Active, valid transfer request
  *   1 = Deactivated, transfer failure
  *   2 = Deactivated, expiration
