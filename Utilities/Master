@@ -140,12 +140,21 @@ if ( $mode eq 'environ' )
 if ( ($mode eq 'start' || $mode eq 'checkdb') && $checkdb )
 {
   &PHEDEX::Core::Logging::Logmsg(undef,'Testing your DB connection');
-  my $env = $config->{ENVIRONMENTS}{common};
-  my $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM');
-  my $h = {DBCONFIG => $dbparam};
-  connectToDatabase($h);
-  disconnectFromDatabase($h,$h->{DBH},1);
-  &PHEDEX::Core::Logging::Logmsg(undef,'Your DB connection is good, proceeding...');
+  my ($env,$ename);
+  $ename = $args{ENVIRONMENT} || 'common';
+  $env = '';
+  while ( $ename )
+  {
+    $env   = $config->{ENVIRONMENTS}{$ename}->Environment . $env;
+    $ename = $config->{ENVIRONMENTS}{$ename}->PARENT;
+  }
+  my $cmd = $env . "\n" . '${PHEDEX_SCRIPTS}/Utilities/CheckDBConnection -db ${PHEDEX_DBPARAM}';
+  my $status = system($cmd);
+  if ( $status )
+  {
+    print "Check of your DB connection failed, will not proceed\n";
+    exit 0;
+  }
   if ( $mode eq 'checkdb' ) { exit 0; }
 }
 if ( $mode eq 'jobcount' )
