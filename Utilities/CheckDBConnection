@@ -31,6 +31,6 @@ if ( $@ )
   print $@;
   exit 1;
 }
-&PHEDEX::Core::Logging::Logmsg(undef,'Your DB connection is good, proceeding...');
+print "Connection to TMDB with ",$args{DBCONFIG}," succeeded\n";
 exit 0;
 
