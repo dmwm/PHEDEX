@@ -2207,16 +2207,16 @@ sub getLinks
         my ($from, $to, $is_active, $from_kind, $to_kind,
             $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
         my $key = $from.'-->'.$to;
-        $link_params{$key} = { EXISTS => 1,
+        $link_params{$key} = { 
                                FROM => $from,
                                TO => $to,
                                IS_ACTIVE => $is_active,
-                               XSI_UPDATE => $xsi_update,
-                               XSO_UPDATE => $xso_update,
+                               TO_AGENT_UPDATE => $xsi_update,
+                               FROM_AGENT_UPDATE => $xso_update,
                                FROM_KIND => $from_kind,
                                TO_KIND => $to_kind,
-                               XSO_PROTOS => $xso_protos,
-                               XSI_PROTOS => $xsi_protos
+                               FROM_AGENT_PROTOCOLS => $xso_protos,
+                               TO_AGENT_PROTOCOLS => $xsi_protos
                                };
 
 	# Explain why links are valid or invalid.  For now we benefit
@@ -2228,50 +2228,53 @@ sub getLinks
 	# this but for now the logic is ok.
 	if ($from_kind eq 'MSS' && $to_kind eq 'Buffer') { # Staging link
 	    $link_params{$key}{VALID} = 1;
-	    $link_params{$key}{REASON} = 'Staging link OK';
+	    $link_params{$key}{STATUS} = 'ok';
+            $link_params{$key}{KIND} = 'Staging';
 	} elsif ($from_kind eq 'Buffer' && $to_kind eq 'MSS') { # Migration link
+            $link_params{$key}{KIND} = 'Migration';
 	    if (!$xsi_update) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{EXCLUDED} = 1;
-		$link_params{$key}{REASON} = 'Migration agent excluded';
+		$link_params{$key}{STATUS} = 'mi_excluded';
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{REASON} = 'Migration agent down';
-		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+		$link_params{$key}{STATUS} = 'mi_down';
+		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    } else {
 		$link_params{$key}{VALID} = 1;
-		$link_params{$key}{REASON} = 'Migration link OK';
-		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+		$link_params{$key}{STATUS} = 'ok';
+		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    }
 	} else { # WAN link
+            $link_params{$key}{KIND} = 'WAN';
 	    if (!$xso_update) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{EXCLUDED} = 1;
-		$link_params{$key}{REASON} = 'Source agent excluded';
+		$link_params{$key}{STATUS} = 'from_excluded';
 	    } elsif ($xso_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{REASON} = 'Source agent down';
-		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
+		$link_params{$key}{STATUS} = 'from_down';
+		$link_params{$key}{FROM_AGENT_AGE} = &age($now - $xso_update);
 	    } elsif (!$xsi_update) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{EXCLUDED} = 1;
-		$link_params{$key}{REASON} = 'Destination agent excluded';
+		$link_params{$key}{STATUS} = 'to_excluded';
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{REASON} = 'Destination agent down';
-		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+		$link_params{$key}{STATUS} = 'to_down';
+		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    } else {
 		$link_params{$key}{VALID} = 1;
-		$link_params{$key}{REASON} = 'WAN Link OK';
-		$link_params{$key}{XSO_AGE} = &age($now - $xso_update);
-		$link_params{$key}{XSI_AGE} = &age($now - $xsi_update);
+		$link_params{$key}{STATUS} = 'ok';
+		$link_params{$key}{FROM_AGENT_AGE} = &age($now - $xso_update);
+		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    }
 	}
 
  	# Check active state
  	if ($link_params{$key}{IS_ACTIVE} ne 'y') {
  	    $link_params{$key}{VALID} = 0;
- 	    $link_params{$key}{REASON} = "Link is deactivated";
+ 	    $link_params{$key}{STATUS} = "deactivated";
  	}
 	
 	# Check protocols
@@ -2286,31 +2289,67 @@ sub getLinks
 	    }
 	    unless ($match) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{REASON} = "No matching protocol";
+		$link_params{$key}{STATUS} = "No matching protocol";
 	    }
 	}
 
     }
 
+    # handle status and/or kind arguments
+    # -- perl does not have "in" operator, got to simulate it
+
+    my (%status, %kind);
+
+    if (exists $h{STATUS})
+    {
+        if (ref($h{STATUS}) eq 'ARRAY')
+        {
+            foreach (@{$h{STATUS}})
+            {
+                $status{$_} = 1;
+            }
+        }
+        else
+        {
+            $status{$h{STATUS}} = 1;
+        }
+    }
+    
+    if (exists $h{KIND})
+    {
+        if (ref($h{KIND}) eq 'ARRAY')
+        {
+            foreach (@{$h{KIND}})
+            {
+                $kind{$_} = 1;
+            }
+        }
+        else
+        {
+            $kind{$h{KIND}} = 1;
+        }
+    }
+    
     while (my ($key, $link) = each(%link_params))
     {
-        if ($$link{EXISTS} && $$link{IS_ACTIVE} ne 'y')
+        if (%status)
         {
-            $$link{COLOR} = 'purple';
-        }
-        elsif ($$link{EXISTS} && $$link{VALID})
-        {
-            $$link{COLOR} = 'green';
-        }
-        elsif ($$link{EXCLUDED})
-        {
-            $$link{COLOR} = 'orange';
-        }
-        elsif ($$link{EXISTS})
-        {
-            $$link{COLOR} = 'red';
+            if (not $status{$$link{STATUS}})
+            {
+                next; # short-circuit
+            }
         }
 
+        if (%kind)
+        {
+            if (not $kind{$$link{KIND}})
+            {
+                next; # short-circuit
+            }
+        }
+
+        delete $$link{EXCLUDED};
+        
         push @r, $link;
     }
 
