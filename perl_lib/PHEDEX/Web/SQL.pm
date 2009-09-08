@@ -2349,7 +2349,8 @@ sub getLinks
         }
 
         delete $$link{EXCLUDED};
-        
+        delete $$link{VALID};
+        delete $$link{IS_ACTIVE};
         push @r, $link;
     }
 
