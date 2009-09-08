@@ -40,6 +40,24 @@ PHEDEX.Util.makeUList = function(args) {
   return list;
 }
 
+// Make a child node of some kind
+PHEDEX.Util.makeChild = function(parent, kind, args) {
+  // Optionally get the parent by id
+  if (typeof(parent) != 'object') {
+    parent = document.getElementById(parent); 
+  }
+  if (!parent) { throw new Error("cannot makeChild:  parent is not set"); }
+  if (!kind)   { throw new Error("cannot makeChild:  kind is not set"); }
+
+  var child = document.createElement(kind);
+  if (!child)   { throw new Error("cannot makeChild:  bad child type?"); }
+  for (var a in args) {
+    child[a] = args[a];
+  }
+  parent.appendChild(child);
+  return child;
+}
+
 // build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
 // nominally identical, except values in the Value object can override the Specification object.
 // This lets us create a template Specification and use it in several places (header, body) with
