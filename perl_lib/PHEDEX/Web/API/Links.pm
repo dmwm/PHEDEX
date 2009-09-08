@@ -56,7 +56,7 @@ sub links
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to / )
+    foreach ( qw / from to status kind / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
