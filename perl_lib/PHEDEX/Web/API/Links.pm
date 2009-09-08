@@ -17,8 +17,11 @@ Show current link status
  required inputs: none
  optional inputs: from, to
 
-  from             source node
-  to               destination node
+  from                  source node
+  to                    destination node
+  status                link status (one of: ok, deactivated, to_excluded,
+                       from_excluded, to_down, from_down) 
+  kind                 type of link (one of: WAN, Local, Staging, Migration)
 
 =head2 Output
 
@@ -27,22 +30,19 @@ Show current link status
 
 =head3 <link> elements
 
-  from             source node
-  to               destination node
-  from_kind        type of source node
-  to_kind          type of destination node
-  xso_update       source node update time
-  xsi_update       destination node update time
-  xso_protos       source node protocols
-  xsi_protos       destination node protocols
-  xso_age          time elapsed at source node
-  xsi_age          time elapsed at destination node
-  exists           0 or 1, if the link exists
-  excluded         0 or 1, if the link is excluded
-  valid            0 or 1, if the link is valid
-  is_active        'y' or 'n', if the link is active
-  color            status
-  reason           reason for update
+  from                  source node
+  to                    destination node
+  from_kind             type of source node
+  to_kind               type of destination node
+  from_agent_update     source node update time
+  to_agent_update       destination node update time
+  from_agent_protocols  source node protocols
+  to_agent_protocols    destination node protocols
+  from_agent_age        time elapsed at source node
+  to_agent_age          time elapsed at destination node
+  status                link status (one of: ok, deactivated, to_excluded,
+                        from_excluded, to_down, from_down) 
+  kind                  type of link (one of: WAN, Local, Staging, Migration)
 
 =cut
 
