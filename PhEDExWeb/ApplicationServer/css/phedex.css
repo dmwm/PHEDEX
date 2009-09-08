@@ -226,6 +226,43 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 /*   overflow-x: hidden; */
 }
 
+div#phedex-nav {
+  padding-left:	1em;
+  float:	left;
+}
+
+div#phedex-nav-type {
+  float:	left;
+}
+
+div#phedex-nav-target {
+  float:	left;
+  width:	13em;
+}
+
+div#phedex-nav-target input.yui-ac-input {
+  position:	relative;
+}
+
+div#phedex-nav-page {
+  float:	left;
+}
+
+div#phedex-nav-filter {
+  float:	left;
+  width:	30em;
+}
+
+input#phedex-nav-filter-input {
+  width:	100%;
+}
+
+div#phedex-nav-link {
+  float:	left;
+  margin-left:	1em;
+  padding:	0.2em;
+}
+
 .yui-panel .container-close {
   position:absolute;
   top:3px;
