@@ -2157,7 +2157,7 @@ sub getMissingFIles
 
 }
 
-# NOT DONE YET
+# getLinks -- get link information
 sub getLinks
 {
     my $core = shift;
@@ -2169,6 +2169,7 @@ sub getLinks
             fn.name from_node,
             tn.name to_node,
             l.is_active,
+            l.is_local,
             fn.kind from_kind,
             tn.kind to_kind,
             xso.time_update source_update,
@@ -2204,13 +2205,12 @@ sub getLinks
     my %link_params;
     my (%from_nodes, %to_nodes);
     foreach my $link (@{$links}) {
-        my ($from, $to, $is_active, $from_kind, $to_kind,
+        my ($from, $to, $is_active, $is_local, $from_kind, $to_kind,
             $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
         my $key = $from.'-->'.$to;
         $link_params{$key} = { 
                                FROM => $from,
                                TO => $to,
-                               IS_ACTIVE => $is_active,
                                TO_AGENT_UPDATE => $xsi_update,
                                FROM_AGENT_UPDATE => $xso_update,
                                FROM_KIND => $from_kind,
@@ -2234,7 +2234,6 @@ sub getLinks
             $link_params{$key}{KIND} = 'Migration';
 	    if (!$xsi_update) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{EXCLUDED} = 1;
 		$link_params{$key}{STATUS} = 'mi_excluded';
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
@@ -2245,11 +2244,18 @@ sub getLinks
 		$link_params{$key}{STATUS} = 'ok';
 		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    }
-	} else { # WAN link
-            $link_params{$key}{KIND} = 'WAN';
+	} else { # WAN or Local link
+            if ($is_local eq 'y')
+            {
+                $link_params{$key}{KIND} = 'Local';
+            }
+            else
+            {
+                $link_params{$key}{KIND} = 'WAN';
+            }
+
 	    if (!$xso_update) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{EXCLUDED} = 1;
 		$link_params{$key}{STATUS} = 'from_excluded';
 	    } elsif ($xso_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
@@ -2257,7 +2263,6 @@ sub getLinks
 		$link_params{$key}{FROM_AGENT_AGE} = &age($now - $xso_update);
 	    } elsif (!$xsi_update) {
 		$link_params{$key}{VALID} = 0;
-		$link_params{$key}{EXCLUDED} = 1;
 		$link_params{$key}{STATUS} = 'to_excluded';
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
@@ -2272,7 +2277,7 @@ sub getLinks
 	}
 
  	# Check active state
- 	if ($link_params{$key}{IS_ACTIVE} ne 'y') {
+ 	if ($is_active ne 'y') {
  	    $link_params{$key}{VALID} = 0;
  	    $link_params{$key}{STATUS} = "deactivated";
  	}
@@ -2348,9 +2353,7 @@ sub getLinks
             }
         }
 
-        delete $$link{EXCLUDED};
         delete $$link{VALID};
-        delete $$link{IS_ACTIVE};
         push @r, $link;
     }
 
