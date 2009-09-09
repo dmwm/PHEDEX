@@ -26,11 +26,15 @@ PHEDEX.Navigator=(function() {
   // the current target, set by the target selector
   var _cur_target = "";
 
-  // _filter_str
+  // _cur_page
+  // the current page, set by the page selector
+  var _cur_page = "";
+
+  // _cur_filter
   // a string containing filter arguments
-  var _filter_str = "";
+  var _cur_filter = "";
   // a hash containing the parsed filter key-value pairs
-  var _filter = {};
+  var _parsed_filter = {};
 
   // private methods
   var _initTypeSelector = function(el) {
@@ -53,11 +57,9 @@ PHEDEX.Navigator=(function() {
 					 container:typediv });
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
-      var text = oMenuItem.cfg.getProperty("text");
-      YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Navigator');
-      this.set("label", text);
-      _cur_target_type = text;
-      _setTargetType();
+      var type = oMenuItem.cfg.getProperty("text");
+      this.set("label", type);
+      _setTargetType(type);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -73,6 +75,9 @@ PHEDEX.Navigator=(function() {
       }
     }
   };
+
+  // Function to get the current target from whatever control is active
+  var _getTarget = function() { throw new Error("_getTarget not defined"); };
 
   var _node_ds; // YAHOO.util.LocalDataSource
   var _initNodeSelector = function(el) {
@@ -97,7 +102,12 @@ PHEDEX.Navigator=(function() {
     auto_comp.useShadow = true;
     auto_comp.forceSelection = true;
     auto_comp.queryMatchCase = false;
-    auto_comp.queryMatchContains = true; 
+    auto_comp.queryMatchContains = true;
+    var nodesel_callback = function(type, args) {
+      var node = args[2];
+      _setTarget(node);
+    }
+    auto_comp.itemSelectEvent.subscribe(nodesel_callback);
   };
 
   var _initTextSelector = function(el, type) {
@@ -113,8 +123,9 @@ PHEDEX.Navigator=(function() {
     var menu_data = [];
     for (var w in widgets) {
       w = widgets[w];
-      menu_data.push({ text:w.label, value:w.label } );
+      menu_data.push({ text:w.label, value:w } );
     }
+    _cur_page = widgets[0].widget;
 
     var menu = new YAHOO.widget.Button({ type:"menu",
 					 label:widgets[0].label,
@@ -122,9 +133,9 @@ PHEDEX.Navigator=(function() {
 					 container:pagediv });
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
-      var text = oMenuItem.cfg.getProperty("text");
-      YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Navigator');
-      this.set("label", text);
+      this.set("label", oMenuItem.cfg.getProperty("text"));
+      var page = oMenuItem.value.widget;
+      _setPage(page);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -148,8 +159,10 @@ PHEDEX.Navigator=(function() {
      want to rebuild them on every target-chagne, but maybe there's a
      better way to put them out of the way... */
   var _setTargetType = function(type) {
+    var old = _cur_target_type;
     if (!type) { type = _cur_target_type; }
     else       { _cur_target_type = type; }
+
     var div = document.getElementById('phedex-nav-target');
     // Hide all selectors
     var children = YAHOO.util.Dom.getChildren(div);
@@ -161,18 +174,74 @@ PHEDEX.Navigator=(function() {
     var el = document.getElementById(id);
     el.style.visibility = 'visible';
     el.style.position = 'relative';
+    
+    if (old != _cur_target_type) {
+      _targetTypeChangeEvent.fire({'old':old,'cur':_cur_target_type});
+    }
   };
 
-  // parse _filter_str and set _filter
+  var _setTarget = function(target) {
+    var old = _cur_target;
+    if (!target) { target = _cur_target; }
+    else       { _cur_target = target; }
+
+    if (old != _cur_target_type) {
+      _targetChangeEvent.fire({'old':old,'cur':_cur_target});
+    }
+  };
+
+  var _setPage = function(page) {
+    var old = _cur_page;
+    if (!page) { page = _cur_page; }
+    else       { _cur_page = page; }
+
+    if (old != _cur_target_type) {
+      _pageChangeEvent.fire({'old':old,'cur':_cur_page});
+    }
+  };
+
+  // parse _cur_filter and set _filter
   var _parseFilter = function() {};
 
   // private events
-  // fired whenever any navigation change occurs, passes (target, page, filter)
+  // fired whenever any navigation change occurs, passes the new (type, target, page, filter)
   var _navChangeEvent = new YAHOO.util.CustomEvent('NavChange');
-  // fired when the target changed, passes (targetType, targetValue)
+  // fired when the target type changed, passes {prev:, cur:}
+  var _targetTypeChangeEvent = new YAHOO.util.CustomEvent('TargetTypeChange');
+  // fired when the target changed, passes {prev:, cur:}
   var _targetChangeEvent = new YAHOO.util.CustomEvent('TargetChange');
-  // fired when the page changed, passes (page)
+  // fired when the page changed, passes {prev:, cur:}
   var _pageChangeEvent = new YAHOO.util.CustomEvent('PageChange');
+  // fired when the filter changed, passes (old_page, new_page)
+  var _filterChangeEvent = new YAHOO.util.CustomEvent('FilterChange');
+
+  // event binding
+  var _fireNavChange = function() { 
+    _navChangeEvent.fire({'type':_cur_target_type,
+			  'target':_cur_target,
+			  'page':_cur_page,
+			  'filter':_cur_filter});
+  }
+  _targetTypeChangeEvent.subscribe(_fireNavChange);
+  _targetChangeEvent.subscribe(_fireNavChange);
+  _pageChangeEvent.subscribe(_fireNavChange);
+  _filterChangeEvent.subscribe(_fireNavChange);
+
+  // on nav change, validate current values and (maybe) instantiage widget
+  _navChangeEvent.subscribe(function(evt, args) {
+    args = args[0];
+    YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
+	      " page="+args.page+" filter="+args.filter,
+	      'info', 'Navigator');
+    // TODO: careful validation goes here...
+    if (_cur_page && _cur_target_type && _cur_target) {
+    YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
+	      " widget="+_cur_page,
+	      'info', 'Navigator');
+      var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 'phedex-main');
+      widget.update();
+    }
+  });
 
   return {
     // public properties
@@ -194,10 +263,6 @@ PHEDEX.Navigator=(function() {
       
       // build Permalink
       _initPermaLink(el);
-
-
-
-
 
       // get desired page state (or use defaults)
       // instantiate a widget
