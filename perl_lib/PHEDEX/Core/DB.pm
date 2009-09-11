@@ -25,7 +25,8 @@ our @ORA_INVALID_ERRORS = ( '03113',  # End-of-file on communication channel
 			    '01012',  # not logged on
 			    '01003',  # no statement parsed
 			    '12545',  # target host or object does not exist
-			    '17008'   # closed connection
+			    '17008',  # closed connection
+			    '25408',  # can not safely replay call
 			    );
 my $joined = join "|", @ORA_INVALID_ERRORS;
 our $ORA_INVALID_REGEX = qr/ORA-(?:$joined):/;
