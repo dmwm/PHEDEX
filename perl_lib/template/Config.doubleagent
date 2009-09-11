@@ -8,7 +8,7 @@ PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_CONTEXT=Mgmt;
 
 ### ENVIRON common
-PHEDEX_BASE=/home/tony/PHEDEX_CVS;
+PHEDEX_BASE=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_CVS;
 PHEDEX_INSTANCE=Testbed;
 PHEDEX_VERSION=2_6_2
 PHEDEX_OS_VERSION=slc4_ia32_gcc345;
@@ -27,10 +27,12 @@ PHEDEX_SCRIPTS=${PHEDEX_BASE};
 PHEDEX_LOGS=/tmp/wildish/logs
 PHEDEX_STATE=/tmp/wildish/state
 
+export PERL5LIB=/afs/cern.ch/user/w/wildish/public/COMP/PHEDEX_CVS/perl_lib:/afs/cern.ch/user/w/wildish/public/COMP/WEBTOOLS/SecurityModule/perl/lib:/afs/cern.ch/user/w/wildish/public/COMP/T0_CVS/perl_lib:/afs/cern.ch/user/w/wildish/public/perl
+
 export PHEDEX_VERBOSE=1
 export PHEDEX_DEBUG=1
-export PHEDEX_NOTIFICATION_PORT=2222
-export PHEDEX_NOTIFICATION_HOST=localhost
+PHEDEX_NOTIFICATION_PORT=2222
+PHEDEX_NOTIFICATION_HOST=localhost
 PHEDEX_DEBUGGER="rlwrap perl -MPHEDEX::Debug -d"
 
 ### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
@@ -47,7 +49,7 @@ PHEDEX_DEBUGGER="rlwrap perl -MPHEDEX::Debug -d"
  LAST_SEEN_WARNING 31
  LAST_SEEN_ALERT 55
 
-### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl
+### AGENT LABEL=master-agent PROGRAM=Utilities/AgentFactory.pl DEFAULT=off
  -db     ${PHEDEX_DBPARAM}
  -node   ${PHEDEX_NODE}
  -config ${PHEDEX_CONFIG_FILE}
