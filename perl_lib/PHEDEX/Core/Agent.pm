@@ -856,7 +856,7 @@ sub checkConfigFile
   my ($config,$mtime,$Config);
   return unless $self->can('reloadConfig');
 
-  $config = $self->{CONFIGURATION}{CONFIG_FILES}->[0];
+  $config = $self->{CONFIG_FILE};
   $mtime = (stat($config))[9];
   if ( $mtime > $self->{CONFIGURATION}{_readTime} )
   {
