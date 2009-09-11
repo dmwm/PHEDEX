@@ -37,13 +37,16 @@ our %params =
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
 	  AGENT_LIST	=> undef,		# Which agents am I to start?
-	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
+#	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
 	  NODAEMON	=> 1,			# Don't daemonise by default!
 	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
 	  NJOBS		=> 3,			# start 3 agents at a time
 
 	  LAST_SEEN_ALERT	=> 60*120,	# send alerts & restart after this much inactivity
 	  LAST_SEEN_WARNING	=> 60*75,	# send warnings after this much inactivity
+	  LAST_REPORTED_INTERVAL=> 60*15,	# interval between 'is deliberately down' repeats
+	  RETRY_BACKOFF_COUNT	=> 3,		# number of times to try starting agent before backing off
+	  RETRY_BACKOFF_INTERVAL=> 3600,	# back off this long before attempting to restart the agent again
 	  TIMEOUT		=> 11,		# interval between signals
 
 	  STATISTICS_INTERVAL	=> 3600*12,	# My own reporting frequency
@@ -59,7 +62,17 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
 
-  undef $self->{NOTIFICATION_PORT}; # Don't talk to myself...
+  $self->{_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT} ||
+	$self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_PORT') ||
+	$ENV{PHEDEX_NOTIFICATION_PORT};
+  die "'PHEDEX_NOTIFICATION_PORT' not set correctly in your configuration file, giving up...\n" unless $self->{_NOTIFICATION_PORT};
+  undef $self->{NOTIFICATION_PORT}; # So I don't talk to myself via the logger
+
+# Just prove that I can read the config file safely, before daemonising, so I
+# can spit the dummy if the user has screwed up somehow.
+  my $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
+  $Config->readConfig( $self->{CONFIG_FILE} );
+
   bless $self, $class;
   return $self;
 }
@@ -147,7 +160,7 @@ sub createAgents
       my $env = $self->{ENVIRONMENT};
       my $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
       my $Master = $scripts . '/Utilities/Master';
-      my @cmd = ($Master,'--nocheckdb','--config',$self->{CONFIG},'start',$agent);
+      my @cmd = ($Master,'--nocheckdb','--config',$self->{CONFIG_FILE},'start',$agent);
       $Agents{$agent}{cmd} = \@cmd;
     }
   }
@@ -174,7 +187,7 @@ sub idle
   my $self = shift;
 
   my ($agent,$Agent,$Config,$pidfile,$pid,$env,$stopfile);
-  my ($now,$last_seen,$mtime);
+  my ($now,$last_seen,$last_reported,$mtime);
 
   $now = time();
   $Config = $self->{CONFIGURATION};
@@ -204,14 +217,12 @@ sub idle
         if ( $last_seen > $self->{LAST_SEEN_ALERT} )
         {
 	  $self->Alert("Agent=$agent, PID=$pid, no news for $last_seen seconds");
-          POE::Kernel->post($self->{SESSION_ID},'restartAgent',{ AGENT => $agent, PID => $pid });
+          POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $pid });
 	}
 	elsif ( $last_seen > $self->{LAST_SEEN_WARNING} )
         {
 	  $self->Warn("Agent=$agent, PID=$pid, no news for $last_seen seconds");
 	}
-
-#       $self->Dbgmsg("Agent=$agent, PID=$pid, LAST_SEEN=$last_seen, still alive...") if $self->{DEBUG};
         next;
       }
 
@@ -219,11 +230,37 @@ sub idle
       $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
       if ( -f $stopfile )
       {
-        $self->Logmsg("Agent=$agent is down by request, not restarting...");
+        $last_reported = $self->{AGENTS}{$agent}{last_reported} || 0;
+        $last_reported = $now - $last_reported;
+        if ( $last_reported > $self->{LAST_REPORTED_INTERVAL} )
+        {
+          $self->Logmsg("Agent=$agent is down by request, not restarting...");
+          $self->{AGENTS}{$agent}{last_reported} = $now;
+        }
         next;
       }
 
 #     Agent is down and should not be. Create a jobmanager if I don't have one, and restart the agent
+#     Remove records of restarts that are too old to be of interest
+      my @starts;
+      @starts = sort { $b <=> $a } keys %{$self->{AGENTS}{$agent}{start}};
+#     print "Start times for $agent: ",join(', ',@starts)," backoff-count=$self->{RETRY_BACKOFF_COUNT}, backoff-interval=$self->{RETRY_BACKOFF_INTERVAL}\n";
+      foreach ( keys %{$self->{AGENTS}{$agent}{start}} )
+      {
+        if ( $now - $_ > $self->{RETRY_BACKOFF_INTERVAL} ) { delete $self->{AGENTS}{$agent}{start}{$_}; }
+      }
+#     print "Start times: ",join(', ',@starts),"\n";
+      @starts = sort { $b <=> $a } keys %{$self->{AGENTS}{$agent}{start}};
+      if ( scalar @starts >= $self->{RETRY_BACKOFF_COUNT} )
+      {
+#	I have reached the backoff-count-limit, and within the window. Do not retry again yet, but let the user know
+        if ( !$self->{AGENTS}{$agent}{backoff_reported} )
+	{
+	  $self->Logmsg("$self->{RETRY_BACKOFF_COUNT} retries in the last $starts[0] seconds. Backing off for $self->{RETRY_BACKOFF_INTERVAL} seconds");
+        $self->{AGENTS}{$agent}{backoff_reported}=1;
+	}
+	next;
+      }
       $self->Logmsg("Agent=$agent is down. Starting...");
       my $cmd = $self->{AGENTS}{$agent}{cmd};
       if ( !$self->{JOBMANAGER} )
@@ -253,14 +290,18 @@ sub idle
 sub handleJob
 {
   my ($self,$agent) = @_;
-  $self->Logmsg("$agent started...");
+  $self->Logmsg("$agent started, hopefully...");
   $self->{AGENTS}{$agent}{start}{time()}=1;
+  $self->{AGENTS}{$agent}{backoff_reported}=0;
+# my @starts;
+# @starts = sort { $b <=> $a } keys %{$self->{AGENTS}{$agent}{start}};
+# print "Started $agent: ",join(', ',@starts),"\n";
 }
 
 sub _poe_init
 {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
-  $kernel->state('restartAgent', $self);
+  $kernel->state('killAgent', $self);
   $kernel->state('_make_stats', $self);
   $kernel->state('_udp_listen', $self);
   $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
@@ -268,17 +309,17 @@ sub _poe_init
   $self->{stats}{maybeStop}=0;
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 
-  if ( $ENV{PHEDEX_NOTIFICATION_PORT} )
+  if ( $self->{_NOTIFICATION_PORT} )
   {
     my $socket = IO::Socket::INET->new(
       Proto     => 'udp',
-      LocalPort => $ENV{PHEDEX_NOTIFICATION_PORT},
+      LocalPort => $self->{_NOTIFICATION_PORT},
     );
     $kernel->select_read($socket,'_udp_listen');
   }
 }
 
-sub restartAgent
+sub killAgent
 {
   my ($self, $kernel, $h) = @_[OBJECT, KERNEL, ARG0];
   my ($agent,$pid,$signal);
@@ -302,7 +343,7 @@ sub restartAgent
   }
   $self->Logmsg("Sending signal=$signal to pid=$pid (agent=$agent)");
   kill $signal => $pid;
-  $kernel->delay_set('restartAgent',$self->{TIMEOUT},$h);
+  $kernel->delay_set('killAgent',$self->{TIMEOUT},$h);
 }
 
 sub _udp_listen
