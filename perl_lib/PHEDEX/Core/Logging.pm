@@ -109,8 +109,17 @@ sub Notify
     $port = $self->{NOTIFICATION_PORT};
     $server = $self->{NOTIFICATION_HOST};
   }
+  if ( !$port )
+  {
+    $port = $self->{NOTIFICATION_PORT} = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_PORT');
+  }
   $port = $ENV{PHEDEX_NOTIFICATION_PORT} unless $port;
   return unless defined $port;
+
+  if ( !$server )
+  {
+    $server = $self->{NOTIFICATION_HOST} = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_HOST');
+  }
   $server ||= $ENV{PHEDEX_NOTIFICATION_HOST};
   $server ||= hostname;
 
