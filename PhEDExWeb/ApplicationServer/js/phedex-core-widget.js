@@ -252,8 +252,13 @@ PHEDEX.Core.Widget = function(divid,opts) {
 // for showing/hiding extra control-divs, like the classic extra-div
   this.onShowExtra      = new YAHOO.util.CustomEvent("onShowExtra", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideExtra      = new YAHOO.util.CustomEvent("onHideExtra", this, false, YAHOO.util.CustomEvent.LIST);
-  this.onShowExtra.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
-  this.onHideExtra.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
+  
+  // FIXME:  the below is incompatible with window = false, why?
+  // Or, put another way, can the panel be made to grow correctly without this?
+  if (this.options.window) {
+    this.onShowExtra.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
+    this.onHideExtra.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
+  }
 
   this.onShowFilter     = new YAHOO.util.CustomEvent("onShowFilter", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideFilter     = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
