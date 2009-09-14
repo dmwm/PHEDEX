@@ -6,6 +6,9 @@
 // instantiate the PHEDEX.Core.Widget namespace
 PHEDEX.namespace('Core.Widget');
 
+// useful alias
+var PxU = PHEDEX.Util;
+
 //This should be subclassed for each class and then specific child node.
 //TODO: Prototype instead of instance based subclassing.
 
@@ -29,7 +32,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
   YAHOO.lang.augmentObject(this.options, opts, true);
 
   // Options from a configuration overide constructor
-  var config = PHEDEX.Util.getConfig(divid);
+  var config = PxU.getConfig(divid);
   YAHOO.lang.augmentObject(this.options, config.opts, true);
 
   // Find or create divid, use it as our parent.  If we created it,
@@ -37,19 +40,19 @@ PHEDEX.Core.Widget = function(divid,opts) {
   if ( typeof(divid) != 'object' ) {
     this.parent = document.getElementById(divid);
     if ( !this.parent ) {
-      this.parent = PHEDEX.Util.findOrCreateWidgetDiv(divid);
+      this.parent = PxU.findOrCreateWidgetDiv(divid);
       this.parent.created = true;
     }
   } else {
     this.parent = divid;
   }
 
-  /* The YUI panel is attached to an auto-generated div created as a
+  /* The YUI module is attached to an auto-generated div created as a
      child of the constructor-passed div.  It needs to be done like this to
-     ensure proper cleanup, as the YUI Panel API will create parent divs
-     for the div which is being "panelized". */
-  this.id = PHEDEX.Util.generateDivName(this.parent.id);
-  this.div = PHEDEX.Util.findOrCreateWidgetDiv(this.id, this.parent.id);
+     ensure proper cleanup, as the YUI Module API will create parent divs
+     for the div which is being "moduleized". */
+  this.id = PxU.generateDivName(this.parent.id);
+  this.div = PxU.findOrCreateWidgetDiv(this.id, this.parent.id);
 
   this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
   this.textNodeMap = [];
@@ -65,53 +68,26 @@ PHEDEX.Core.Widget = function(divid,opts) {
   while (this.div.hasChildNodes()) { this.div.removeChild(this.div.firstChild); }
 
   YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
+  if (this.options.window) {
+    YAHOO.util.Dom.addClass(this.div,'phedex-panel');
+  }
 
-// Create the structure for the embedded panel
-  this.dom.header = document.createElement('div');
-  this.dom.header.className = 'hd';
-//   this.dom.header.id = this.id+'_head';
-  this.div.appendChild(this.dom.header);
+  // Create the structure for the embedded module
+  this.dom.header = PxU.makeChild(this.div, 'div', {className:'hd'});
+  this.dom.param = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
+  this.dom.title = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
+  this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'});
+  this.dom.extra = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+  this.dom.body = PxU.makeChild(this.div, 'div', {className:'bd', id:this.id+'_body'});
+  this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
+  this.dom.footer = PxU.makeChild(this.div, 'div', {className:'ft'});
 
-  this.dom.param = document.createElement('span');
-  this.dom.param.className = 'phedex-core-param';
-//   this.dom.param.id = this.id+'_param';
-  this.dom.header.appendChild(this.dom.param);
-
-  this.dom.title = document.createElement('span');
-  this.dom.title.className = 'phedex-core-title';
-//   this.dom.title.id = this.id+'_title';
-  this.dom.header.appendChild(this.dom.title);
-
-  this.dom.control = document.createElement('span');
-  this.dom.control.className = 'phedex-core-control';
-//   this.dom.control.id = this.id+'_control';
-  this.dom.header.appendChild(this.dom.control);
-
-  this.dom.extra = document.createElement('div');
-  this.dom.extra.className = 'phedex-core-extra phedex-invisible';
-//   this.dom.extra.id = this.id+'_extra';
-  this.dom.header.appendChild(this.dom.extra);
-
-  this.dom.body = document.createElement('div');
-  this.dom.body.className = 'bd';
-  this.dom.body.id = this.id+'_body';
-  this.div.appendChild(this.dom.body);
-
-  this.dom.content = document.createElement('div');
-  this.dom.content.className = 'phedex-core-content';
-  this.dom.content.id = this.id+'_content';
-  this.dom.body.appendChild(this.dom.content);
-
-  this.dom.footer = document.createElement('div');
-  this.dom.footer.className = 'ft';
-//   this.dom.footer.id = this.id+'_foot';
-  this.div.appendChild(this.dom.footer);
-
+  // FIXME:  ??? why is this here?
   this.dom.filter = document.createElement('div');
   this.dom.filter.id = this.id+'_filter';
 
-// Create the panel
-  var panelopts = {
+// Create the module
+  var module_options = {
     close:false,  //this.options.close,
     visible:true,
     draggable:this.options.draggable,
@@ -123,13 +99,15 @@ PHEDEX.Core.Widget = function(divid,opts) {
     underlay: "matte"
   };
   if ( !this.options.window ) {
-    delete panelopts['width'];
-    delete panelopts['height'];
-    panelopts.draggable = false;
-    panelopts.zindex = -1; // note:  0 is not a valid value...
+    delete module_options['width'];
+    delete module_options['height'];
+    module_options.draggable = false;
+    this.module = new YAHOO.widget.Module(this.id, module_options);
+  } else {
+    this.module = new YAHOO.widget.Panel(this.id, module_options);
   }
-  this.panel = new YAHOO.widget.Panel(this.id, panelopts);
-  this.panel.render();
+
+  this.module.render();
 
 // (Optionally) Make resizable
   if ( this.options.window && this.options.resizable ) {
@@ -148,7 +126,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
       {
 	this.cfg.setProperty("height", panelHeight + "px");
       }
-    }, this.panel, true);
+    }, this.module, true);
     // Setup startResize handler, to constrain the resize width/height
     // if the constraintoviewport configuration property is enabled.
     this.resize.on('startResize', function(args) {
@@ -164,7 +142,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
         this.resize.set("maxWidth", null);
         this.resize.set("maxHeight", null);
       }
-    }, this.panel, true);
+    }, this.module, true);
     //     this.resize = resize;
   }
     
@@ -182,6 +160,17 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.fillFooter(this.dom.footer);
     this.finishLoading();
     this.onPopulateComplete.fire();
+  }
+
+  this.destroy=function() {
+    YAHOO.log('Destroying '+this.div.id+' in '+this.parent.id,'info','Core.Widget');
+    this.filter.destroy();
+    this.module.destroy();
+    if (this.parent.created && ! this.parent.hasChildNodes() ) {
+      YAHOO.log('Destroying '+this.parent.id,'info','Core.Widget');
+      this.parent.parentNode.removeChild(this.parent);
+    }
+    this.onDestroy.fire();
   }
 
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
@@ -228,12 +217,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
 // Update is the core method that is called both after the object is first created and when the data expires. Depending on whether the implementation node is a level that fetches data itself or that has data injected by a parent, update() should either make a data request (and then parse it when it arrives) or do any data processing necessary and finally call populate() to fill in the header, body and footer. Start/FinishLoading should be used if data is being fetched.
   this.update=function() { alert("Unimplemented update()");}
 
-  this.panel.render();
-
-  this.destroy=function()
-  {
-    this.onDestroy.fire();
-  }
+  this.module.render();
 
 // A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
 //
@@ -263,18 +247,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
 // the DataReady and DataFailed events are for (re-)loading data, for use by the data-service. The *Loading* events above are for DOM-related activities within the widget
   this.onDataReady        = new YAHOO.util.CustomEvent("onDataReady",        this, false, YAHOO.util.CustomEvent.LIST);
   this.onDataFailed       = new YAHOO.util.CustomEvent("onDataFailed",       this, false, YAHOO.util.CustomEvent.LIST);
-
-  this.onDestroy  = new YAHOO.util.CustomEvent("onDestroy",  this, false, YAHOO.util.CustomEvent.LIST);
-  this.onDestroy.subscribe( function() {
-    YAHOO.log('Destroying '+this.div.id+' in '+this.parent.id,'info','Core.Widget');
-    this.filter.destroy();
-    this.panel.destroy();
-    if (this.parent.created && ! this.parent.hasChildNodes() ) {
-      YAHOO.log('Destroying '+this.parent.id,'info','Core.Widget');
-      this.parent.parentNode.removeChild(this.parent);
-    }
-    PHEDEX.Event.onWidgetDestroy.fire(this);
-  });
+  this.onDestroy          = new YAHOO.util.CustomEvent("onDestroy",          this, false, YAHOO.util.CustomEvent.LIST);
 
 // for showing/hiding extra control-divs, like the classic extra-div
   this.onShowExtra      = new YAHOO.util.CustomEvent("onShowExtra", this, false, YAHOO.util.CustomEvent.LIST);
@@ -289,12 +262,13 @@ PHEDEX.Core.Widget = function(divid,opts) {
       this.ctl.filter.setApplied(this.filter.isApplied());
     });
 
-// adjust the header up or down in size by the requisite number of pixels. Used for making/reclaiming space for extra-divs etc
+/* adjust the header up or down in size by the requisite number of
+   pixels. Used for making/reclaiming space for extra-divs etc */
   this.adjustHeader=function(arg) {
-    var oheight = parseInt(this.panel.cfg.getProperty("height"));
-    var hheight = parseInt(this.panel.header.offsetHeight);
-    this.panel.header.style.height=(hheight+arg)+'px';
-    this.panel.cfg.setProperty("height",(oheight+arg)+'px');
+    var oheight = parseInt(this.module.cfg.getProperty("height"));
+    var hheight = parseInt(this.module.header.offsetHeight);
+    this.module.header.style.height=(hheight+arg)+'px';
+    this.module.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
   PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
@@ -313,34 +287,48 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
   this.onBuildComplete.subscribe(function() {
     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
-    this.ctl.extra = new PHEDEX.Core.Control( {text:'Extra',
-                    payload:{target:this.dom.extra, fillFn:this.fillExtra, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideExtra, onShowControl:this.onShowExtra} } );
+    // extra
+    this.ctl.extra = new PHEDEX.Core.Control({text:'Extra',
+					      payload:{target:this.dom.extra, 
+						       fillFn:this.fillExtra, 
+						       obj:this,
+						       animate:false,
+						       hover_timeout:200,
+						       onHideControl:this.onHideExtra,
+						       onShowControl:this.onShowExtra
+						      } 
+					     });
     YAHOO.util.Dom.insertBefore(this.ctl.extra.el,this.dom.control.firstChild);
-    var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]], visible:false, autofillheight:'body', width:this.dom.body.offsetWidth+'px'};
-    this.ctl.filter = new PHEDEX.Core.Control( {text:'Filter',
-                    payload:{target:this.dom.filter, fillFn:this.filter.Build, fillArgs:fillArgs, obj:this, animate:false, hover_timeout:200, onHideControl:this.onHideFilter, onShowControl:this.onShowFilter} } );
+    
+    // filter
+    var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]], 
+		     visible:false, autofillheight:'body', width:this.dom.body.offsetWidth+'px'};
+    this.ctl.filter = new PHEDEX.Core.Control({text:'Filter',
+					       payload:{target:this.dom.filter,
+							fillFn:this.filter.Build,
+							fillArgs:fillArgs,
+							obj:this,
+							animate:false,
+							hover_timeout:200,
+							onHideControl:this.onHideFilter,
+							onShowControl:this.onShowFilter
+						       } 
+					      });
     YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
     if ( !this.filter.isDefined() ) { this.ctl.filter.Disable(); }
   });
-
-// Create a (usually hidden) progress indicator.
-  this.control.progress = document.createElement('img');
-  this.control.progress.src = '/images/progress.gif';
-  this.dom.control.appendChild(this.control.progress);
+  
+  // Create a (usually hidden) progress indicator.
+  this.control.progress = PxU.makeChild(this.dom.control, 'img', {src:'/images/progress.gif'});
 
   if (this.options.window) {
-    this.control.close = document.createElement('img');
-    this.control.close.src = '/images/widget-close.gif';
-    this.dom.control.appendChild(this.control.close);
-    YAHOO.util.Event.addListener(this.control.close, "click", 
-				 function(obj) { return function() { obj.onDestroy.fire(); } } (this), 
-				 this);
+    this.control.close = PxU.makeChild(this.dom.control, 'img', {src:'/images/widget-close.gif'});
+    YAHOO.util.Event.addListener(this.control.close, "click", this.destroy, null, this);
   }
 
   this.startLoading();
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
   return this;
 }
-
 
 YAHOO.log('loaded...','info','Core.Widget');
