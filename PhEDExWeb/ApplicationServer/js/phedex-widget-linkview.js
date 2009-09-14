@@ -11,13 +11,14 @@ PHEDEX.Page.Widget.LinkView=function(divid) {
 PHEDEX.Widget.LinkView=function(node,divid,opts) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   if ( !opts)  { opts = {} };
+
+  var width = 1000; // FIXME:  class attribute?
   // Merge passed options with defaults
   YAHOO.lang.augmentObject(opts, {
     width:width,
     height:300
   });
 
-  var width = 1000;
   var that = new PHEDEX.Core.Widget.TreeView(divid+'_'+node, opts);
   that.me=function() { return 'PHEDEX.Core.Widget.LinkView'; }
   that.node = node;
