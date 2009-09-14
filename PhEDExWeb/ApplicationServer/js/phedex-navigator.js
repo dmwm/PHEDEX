@@ -29,6 +29,7 @@ PHEDEX.Navigator=(function() {
   // _cur_page
   // the current page, set by the page selector
   var _cur_page = "";
+  var _cur_widget_obj;
 
   // _cur_filter
   // a string containing filter arguments
@@ -235,10 +236,13 @@ PHEDEX.Navigator=(function() {
 	      'info', 'Navigator');
     // TODO: careful validation goes here...
     if (_cur_page && _cur_target_type && _cur_target) {
-    YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
-	      " widget="+_cur_page,
-	      'info', 'Navigator');
-      var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 'phedex-main');
+      YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
+		" widget="+_cur_page,
+		'info', 'Navigator');
+      if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
+      var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 
+				 'phedex-main', { window: false });
+      _cur_widget_obj = widget;
       widget.update();
     }
   });
