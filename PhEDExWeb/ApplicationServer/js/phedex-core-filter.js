@@ -130,11 +130,13 @@ PHEDEX.Core.Filter = function(obj) {
 
       Build: function(div,args) {
 //      Build is provided to the filter-control element as a callback function, so it is called in the scope of the parent object.
-//      Hence here we refer to this.filter.XYZ, instead of this.XYZ directly. 'Build' needs access to the panel for the dragEvent,
+//      Hence here we refer to this.filter.XYZ, instead of this.XYZ directly. 'Build' needs access to the module for the dragEvent,
 //      so access to the outer scope is important. Other functions here should not need the outer scope.
 	this.filter._reallyBuild(div,args);
 //	make sure the filter moves with the widget when it is dragged!
-	this.panel.dragEvent.subscribe(function(type,args) { this.filter.overlay.align('tl','tl'); }, obj, true);
+	if (this.options.window) {
+	  this.module.dragEvent.subscribe(function(type,args) { this.filter.overlay.align('tl','tl'); }, obj, true);
+	}
       },
       _reallyBuild: function(div,args) {
         this.overlay = new YAHOO.widget.Overlay(div, args);
