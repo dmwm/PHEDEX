@@ -10,6 +10,9 @@ PHEDEX.namespace('Core.Widget');
 //TODO: Prototype instead of instance based subclassing.
 
 PHEDEX.Core.Widget = function(divid,opts) {
+// Require divid of some kind
+  if ( !divid ) { throw new Error("must provide div name to contain widget"); }
+
 // Set defaults, then copy the options over the defaults.
   this.options = {window:true,
 		  width:700,
@@ -21,14 +24,13 @@ PHEDEX.Core.Widget = function(divid,opts) {
 		  constraintoviewport:false,
 		  handles:['b','br','r'],
 		  };
-  if (opts) {
-    for (o in opts) {
-      this.options[o]=opts[o];
-    }
-  }
-  
-  // Require divid of some kind
-  if ( !divid ) { throw new Error("must provide div name to contain widget"); }
+
+  // Options from the constructor override defaults
+  YAHOO.lang.augmentObject(this.options, opts, true);
+
+  // Options from a configuration overide constructor
+  var config = PHEDEX.Util.getConfig(divid);
+  YAHOO.lang.augmentObject(this.options, config.opts, true);
 
   // Find or create divid, use it as our parent.  If we created it,
   // note the fact so we can responsibly destroy it later.
@@ -124,8 +126,9 @@ PHEDEX.Core.Widget = function(divid,opts) {
     delete panelopts['width'];
     delete panelopts['height'];
     panelopts.draggable = false;
+    panelopts.zindex = -1; // note:  0 is not a valid value...
   }
-  this.panel = new YAHOO.widget.Panel(this.id, panelopts); 
+  this.panel = new YAHOO.widget.Panel(this.id, panelopts);
   this.panel.render();
 
 // (Optionally) Make resizable
@@ -226,6 +229,11 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.update=function() { alert("Unimplemented update()");}
 
   this.panel.render();
+
+  this.destroy=function()
+  {
+    this.onDestroy.fire();
+  }
 
 // A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
 //
