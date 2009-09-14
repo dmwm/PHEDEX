@@ -8,15 +8,19 @@ PHEDEX.Page.Widget.Agents=function(divid) {
   agent_node.update();
 }
 
-PHEDEX.Widget.Agents=function(node,divid) {
+PHEDEX.Widget.Agents=function(node,divid,opts) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node,
-    {
-	width:500,
-	height:200,
-	minwidth:300,
-	minheight:50
-    });
+  if ( !opts)  { opts = {} };
+
+  // Merge passed options with defaults
+  YAHOO.lang.augmentObject(opts, { 
+    width:500,
+    height:200,
+    minwidth:300,
+    minheight:50 
+  });
+
+  var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node, opts);
   that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
   that.node=node;
   that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }

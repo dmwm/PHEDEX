@@ -9,14 +9,18 @@ PHEDEX.Page.Widget.Nodes=function(divid) {
   nodes.update();
 }
 
-PHEDEX.Widget.Nodes=function(node,divid) {
+PHEDEX.Widget.Nodes=function(node,divid,opts) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
-  var that=new PHEDEX.Core.Widget.DataTable(divid+'_display',
-	{width:500,
-	 height:200,
-	 minwidth:400,
-	 minheight:50
-	});
+  if ( !opts)  { opts = {} };
+  // Merge passed options with defaults
+  YAHOO.lang.augmentObject(opts, { 
+    width:500,
+    height:200,
+    minwidth:300,
+    minheight:50
+  });
+ 
+  var that=new PHEDEX.Core.Widget.DataTable(divid+'_display', opts);
   that.hideByDefault = ['Kind','Technology'];
   that.node=node;
   that.data = null;
