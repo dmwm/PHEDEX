@@ -1,4 +1,48 @@
-Changes for PhEDEx 3.2.1pre3
+Changes for PhEDEx 3.2.2
+
+ This is a minor release, fixing a few bugs in 3.2.1 and adding a few 
+small features. The watchdog agent is now considered production-ready, and 
+you are encouraged to use it.
+
+Changes for Site Agents
+ - Watchdog
+  - no longer needs the '-config' argument, it takes the config file it 
+    was started from instead
+  - watchdog will read the configuration file on startup, and will abort 
+    if it cannot successfully do so, since it can't start any agents in 
+    this case.
+  - PHEDEX_NOTIFICATION_PORT does not need to be exported in the 
+    config-file environment, merely defined, like other parameters.
+  - watchdog will abort if there is no PHEDEX_NOTIFICATION_PORT defined. 
+    It cannot function correctly without one.
+  - watchdog will back off from trying to start an agent if it fails three
+    times in a row. It will wait an hour, then try three more times, ad 
+    infinitum.
+
+Changes for central/all agents
+  - The oracle error 'Can not safely replay action' will now cause a 
+    connection to be dropped and re-created. In the past this was not the 
+    case. This may help one or two cases of agents getting stuck (notably, 
+    the blockdownloadverify agent, during DB interventions).
+  - BlockAllocator: Optimized. Memory use and cycle time drastically 
+    reduced.
+
+Changes for utilities/tools
+  - Utilities/Master no longer depends on external Perl modules. This was
+    accidentally introduced when the 'checkdb' argument was added in 
+    3.2.1, and is now fixed.
+  - new tool, Utilities/CheckDBConnection. Takes '-db $PHEDEX_DBPARAM' as 
+    arguments, and checks that your connection to TMDB is operational. 
+    This is used internally by Utilities/Master to implement the checkdb
+    option, but can also be used standalone. It requires the full PhEDEx
+    environment for access to external Perl modules.
+  - new tool, Utilities/ping-watchdog.pl. Takes '--config $CONFIG_FILE' 
+    and attempts to extract the UDP port to communicate with the watchdog,
+    and send a message to it. '--help' shows more options. Use this to 
+    check that your config file is set correctly for your agents to 
+    communicate with the watchdog agent.
+
+Changes for PhEDEx 3.2.1
 
 Changes for Site Agents
  - FileDownload
