@@ -282,7 +282,7 @@ sub doInject
   $self->Fatal('Cannot determine PHEDEX_DBPARAM') unless $dbparam;
   
   my $cmd = $scripts . '/Toolkit/Request/TMDBInject -db ' . $dbparam;
-  $cmd .= ' -verbose' if $self->{Verbose};
+# $cmd .= ' -verbose' if $self->{Verbose};
   $cmd .= ' -nodes ' . $ds->{InjectionSite};
   $cmd .= ' -filedata ' . $xmlfile;
 
