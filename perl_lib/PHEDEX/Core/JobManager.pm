@@ -149,7 +149,7 @@ sub job_queued
     my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheelid);
     $job->{_timer_id} = $timer_id;
     $job->{_timeout_grace} = exists $job->{TIMEOUT_GRACE} ? $job->{TIMEOUT_GRACE} : 3;
-    $job->{_signals} = [ qw / 1 15 9 / ];
+    $job->{_signals} = [ qw / 1 3 15 9 9 / ];
   }
 
   # A closure to clean up after the job is finished
@@ -355,6 +355,7 @@ sub timeout
 
   my $wheel = $self->{_child}->wheel($wheelid);
   $payload->{TIMED_OUT} = &mytimeofday();
+  $self->Warn("Kill wheel=$wheelid, cmd='$payload->{_cmdname}' with signal=$signal");
   $wheel->kill( $signal );
   my $timeout = $payload->{_timeout_grace};
   $kernel->delay_set( 'timeout', $timeout, $wheelid );
