@@ -209,7 +209,10 @@ die "This code has not been tested...";
   $result  = $self->{Q_INTERFACE}->ParseListQueue( $command->{STDOUT} );
 
   if ( $self->{DEBUG} && $command->{DURATION} > 8 )
-  { $self->Dbgmsg('ListQueue took ',$command->{DURATION},' seconds'); }
+  {
+    my $subtime = int(1000*$command->{DURATION})/1000;
+    $self->Dbgmsg('ListQueue took ',$subtime,' seconds');
+   }
 
   if ( $result->{ERROR} )
   {
@@ -296,7 +299,10 @@ sub poll_job_postback
   $result = $self->{Q_INTERFACE}->ParseListJob( $job, $command->{STDOUT} );
 
   if ( $self->{DEBUG} && $command->{DURATION} > 8 )
-  { $self->Dbgmsg('ListJob took ',$command->{DURATION},' seconds'); }
+  {
+    my $subtime = int(1000*$command->{DURATION})/1000;
+    $self->Dbgmsg('ListJob took ',$subtime,' seconds');
+  }
 
 # Arbitrary value, fixed, for now.
   $priority = 30;
