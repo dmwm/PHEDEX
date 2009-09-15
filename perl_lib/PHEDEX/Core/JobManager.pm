@@ -348,16 +348,36 @@ sub addJob
 sub timeout
 {
   my ( $self, $kernel, $wheelid ) = @_[ OBJECT, KERNEL, ARG0 ];
-  my $payload = $PAYLOADS{$wheelid};
-  return unless defined $payload;
-  my $signal = shift @{$payload->{_signals}};
-  return unless $signal; # we couldn't kill -9 the job?
+  my $job = $PAYLOADS{$wheelid};
+  return unless defined $job;
+  my $signal = shift @{$job->{_signals}};
+  my $logfh = \*{$job->{_logfh}};
+  if (!$signal) {
+      # even kill -9 failed?  ok... well try to cleanup and move on...
+      print $logfh
+	  (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+	   " $job->{_cmdname}($job->{PID}): abandoning, not responding to requests to quit\n");
+      $job->{_cleanup}->( $wheelid, $job );
+      return;
+  }
 
   my $wheel = $self->{_child}->wheel($wheelid);
-  $payload->{TIMED_OUT} = &mytimeofday();
-  $self->Warn("Kill wheel=$wheelid, cmd='$payload->{_cmdname}' with signal=$signal");
-  $wheel->kill( $signal );
-  my $timeout = $payload->{_timeout_grace};
+  $job->{TIMED_OUT} = &mytimeofday();
+  
+  # print a message about the timeout
+  print $logfh
+      (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
+       " $job->{_cmdname}($job->{PID}): timed out, sending signal $signal\n");
+
+  # Kill process.  Normally it would be polite to SIGINT the parent
+  # process first and let it INT its children. However, this is
+  # something of a hack because some transfer tools are badly behaved
+  # (their children ignore their elders). So- instead we just address
+  # the whole process group by sending a negative signal.
+  $wheel->kill( SIG => -$signal );
+
+  # wait before trying again
+  my $timeout = $job->{_timeout_grace};
   $kernel->delay_set( 'timeout', $timeout, $wheelid );
 }
 
