@@ -61,8 +61,7 @@ sub new
     # This has nothing to do with $self->{NJOBS}, defined above.  We
     # allow an infinite number of submission and query commands.  They
     # should return quickly, and stalled commands should be killed
-    # according to JOB_AWOL.
-    # TODO:  JOB_AWOL is probably too long to wait for a stuck glite-* command...
+    # according to Q_TIMEOUT.
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
 						NJOBS	=> 0,
 						VERBOSE	=> $self->{VERBOSE},
@@ -262,7 +261,7 @@ sub isBusy
 {
     my ($self, $from, $to)  = @_;
 
-    # Transfer::Core isBusy will honor all limits to jobs, files, and pending submitions
+    # Transfer::Core isBusy will honor all limits to jobs, files, and pending submissions
     my $busy = $self->SUPER::isBusy($from, $to);
     return $busy if $busy;
 
@@ -501,7 +500,8 @@ sub fts_job_submitted
   if ( $self->{DEBUG} && $command->{DURATION} > 8 )
   {
     my $id = $ftsjob->{ID} || 'unknown';
-    $self->Warn('FTS job submition took ',$command->{DURATION},' seconds for JOBID=',$id);
+    my $subtime = int(1000*$command->{DURATION})/1000;
+    $self->Warn('FTS job submission took ',$subtime,' seconds for JOBID=',$id);
   }
 
   if ( exists $result->{ERROR} ) { 
@@ -530,7 +530,7 @@ sub fts_job_submitted
   $self->{JOBMANAGER}->addJob(
                              undef,
                              { FTSJOB => $ftsjob, LOGFILE => '/dev/null', 
-			       TIMEOUT => $self->{Q_TIMEOUT} },
+			       TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
 			      $self->{Q_INTERFACE}->Command('SetPriority', $ftsjob)
                            );
 
