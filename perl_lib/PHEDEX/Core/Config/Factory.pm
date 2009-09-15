@@ -256,7 +256,8 @@ sub idle
 #	I have reached the backoff-count-limit, and within the window. Do not retry again yet, but let the user know
         if ( !$self->{AGENTS}{$agent}{backoff_reported} )
 	{
-	  $self->Logmsg("$self->{RETRY_BACKOFF_COUNT} retries in the last $starts[0] seconds. Backing off for $self->{RETRY_BACKOFF_INTERVAL} seconds");
+          my $since = time() - $starts[0];
+	  $self->Logmsg("$agent: $self->{RETRY_BACKOFF_COUNT} retries in the last $since seconds. Backing off for $self->{RETRY_BACKOFF_INTERVAL} seconds");
         $self->{AGENTS}{$agent}{backoff_reported}=1;
 	}
 	next;
