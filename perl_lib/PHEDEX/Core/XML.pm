@@ -248,7 +248,7 @@ sub makeData
   push @xml, qq{    <dataset name="$dataset" is-open="$d_open">\n};
   for my $n_block (1..$blocks) {
     my $block = $dataset . "#" . &makeGUID();
-    push @xml, qq{      <block name="$block" is-open="$b_open">\n};
+    push @xml, qq{      <block name="$block" is-open="$$b_open">\n};
     for my $n_file (1..$files) {
 	my $lfn = $block;
 	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
