@@ -1,9 +1,9 @@
-Changes for PhEDEx 3.2.4
+Changes for PhEDEx 3.2.5
 
  This is a minor release, fixing a few bugs in 3.2.1 and adding a few 
 small features. The watchdog agent is now considered production-ready, and 
 you are encouraged to use it.
- (There are no versions 3.2.2 or 3.2.3, due to build problems)
+ (There are no versions 3.2.2 -> 3.2.4, due to build problems)
 
 Changes for Site Agents
  - Watchdog
