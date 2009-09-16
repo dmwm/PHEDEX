@@ -374,7 +374,7 @@ sub timeout
   # something of a hack because some transfer tools are badly behaved
   # (their children ignore their elders). So- instead we just address
   # the whole process group by sending a negative signal.
-  $wheel->kill( SIG => -$signal );
+  $wheel->kill( -$signal );
 
   # wait before trying again
   my $timeout = $job->{_timeout_grace};
