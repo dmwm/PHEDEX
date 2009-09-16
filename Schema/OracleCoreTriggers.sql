@@ -31,10 +31,6 @@ create or replace trigger tr_dps_file_block
   end;
 /
 
-/* Insert new requests for new files in an already-active block
-   destination.
-   These requests start in state -1 and will be allocated when 
-   there is space available in the queue.  */
 create or replace trigger tr_xfer_file_insert
   after insert on t_xfer_file for each row declare
     unixtime integer
@@ -44,15 +40,23 @@ create or replace trigger tr_xfer_file_insert
       (fileid, inblock, destination, priority, is_custodial,
        state, attempt, time_create, time_expire)
       select :new.id, :new.inblock, bd.destination, bd.priority,
-             bd.is_custodial, -1 state, 0 attempt, unixtime, unixtime
+             bd.is_custodial, 0 state, 1 attempt, unixtime, unixtime + 8*3600
       from t_dps_block_dest bd where bd.block = :new.inblock and bd.state = 1;
   end;
 /
 
-/* Insert new requests for replicas deleted from an already-active
-   block destination.  (to trigger a retransfer)
-   These requests start in state -1 and will be allocated when 
-   there is space available in the queue.  */
+/* FIXME: Analyse if this trigger is really needed.  At present
+   FileRouter in any cases removes requests for which replica
+   exists because it may create requests for files a node is
+   a source for and therefore this trigger would not delete.
+create or replace trigger tr_xfer_replica_insert
+  after insert on t_xfer_replica for each row begin
+    delete from t_xfer_request
+    where fileid = :new.fileid and destination = :new.node;
+  end;
+/
+*/
+
 create or replace trigger tr_xfer_replica_delete
   after delete on t_xfer_replica for each row declare
     unixtime integer
@@ -62,7 +66,7 @@ create or replace trigger tr_xfer_replica_delete
       (fileid, inblock, destination, priority, is_custodial,
        state, attempt, time_create, time_expire)
       select f.id, f.inblock, bd.destination, bd.priority, bd.is_custodial,
-             -1 state, 0 attempt, unixtime, unixtime
+             0 state, 1 attempt, unixtime, unixtime + 8*3600
       from t_xfer_file f join t_dps_block_dest bd on bd.block = f.inblock
       where f.id = :old.fileid
         and bd.state = 1
