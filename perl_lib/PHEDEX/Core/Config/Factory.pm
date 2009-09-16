@@ -316,6 +316,7 @@ sub _poe_init
       Proto     => 'udp',
       LocalPort => $self->{_NOTIFICATION_PORT},
     );
+    $self->Fatal("Could not bind to port $self->{_NOTIFICATION_PORT} (are you sure the previous watchdog is dead?)") unless $socket;
     $kernel->select_read($socket,'_udp_listen');
   }
 }
