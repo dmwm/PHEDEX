@@ -115,10 +115,9 @@ create table t_dps_block_replica
      0: Assigned but not yet active (= waiting for router to activate
         into t_xfer_request).
      1: Active (= routed has activated into t_xfer_request).
-     2: Subscription suspended by user.
+     2: Subscription suspended.
      3: Block completed and not to be considered further, but the
         entire subscription not yet completed and marked done.
-     4: Suspended by the FileRouter due to bad behavior
 */
 create table t_dps_block_dest
   (block		integer		not null,

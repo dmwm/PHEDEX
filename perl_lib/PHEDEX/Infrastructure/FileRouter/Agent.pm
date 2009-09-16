@@ -5,21 +5,11 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use PHEDEX::Error::Constants;
 
 use constant TERABYTE => 1024**4;
 use constant GIGABYTE => 1024**3;
 use constant MEGABYTE => 1024**2;
-use constant KILOBYTE => 1024;
-use constant BYTE     => 1;
-
-# package globals to avoid using $$self{X} so often
-our $WINDOW_SIZE;
-our $MIN_REQ_EXPIRE;
-our $MAX_REQ_EXPIRE;
-our $LATENCY_THRESHOLD;
-our $PROBE_CHANCE;
-our $DEACTIV_ATTEMPTS;
-our $DEACTIV_TIME;
 
 sub new
 {
@@ -35,16 +25,11 @@ sub new
 		  NEXT_SLOW_FLUSH => 0,	        # Next time to flush
 		  WINDOW_SIZE => 10,            # Size of priority windows in TB
 		  REQUEST_ALLOC => 'BY_AGE',    # Method to use when allocating file requests
-		  MIN_REQ_EXPIRE => 7,          # Minimum time (hours) to expire a request/paths
-		  MAX_REQ_EXPIRE => 10,         # Maximum time (hours) to expire a request/paths
-		  LATENCY_THRESHOLD => 3,       # Maximum estimated latency in days to determine if a path is valid
-		  PROBE_CHANCE => 0.02,         # Probability to force routing on failure
-		  DEACTIV_ATTEMPTS => 5,        # Mininum number of request attempts before other blocks are considered
-		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
 		  ME	=> 'FileRouter',
 		  );
     my %args = (@_);
     map { $$self{$_} = $args{$_} || $params{$_} } keys %params;
+    $$self{WINDOW_SIZE} *= TERABYTE;
     if ($$self{REQUEST_ALLOC} eq 'BY_AGE') {
 	$$self{REQUEST_ALLOC_SUBREF} = \&getDestinedBlocks_ByAge;
     } elsif ($$self{REQUEST_ALLOC} eq 'DATASET_BALANCE') {
@@ -52,20 +37,6 @@ sub new
     } else {
 	die "Request allocation method '$$self{REQUEST_ALLOC}' not known, use -h for help.\n";
     }
-   
-    if ($$self{PROBE_CHANCE} < 0 or $$self{PROBE_CHANCE} > 1) {
-	die "Probe probability '$$self{PROBE_CHANCE}' is not valid.  Must be from 0 to 1.\n";
-    }
-
-    # Set package globals
-    $WINDOW_SIZE       = $$self{WINDOW_SIZE} * TERABYTE;
-    $MIN_REQ_EXPIRE    = $$self{MIN_REQ_EXPIRE}*3600;
-    $MAX_REQ_EXPIRE    = $$self{MAX_REQ_EXPIRE}*3600;
-    $LATENCY_THRESHOLD = $$self{LATENCY_THRESHOLD}*24*3600;
-    $PROBE_CHANCE      = $$self{PROBE_CHANCE};
-    $DEACTIV_ATTEMPTS  = $$self{DEACTIV_ATTEMPTS};
-    $DEACTIV_TIME      = $$self{DEACTIV_TIME}*24*3600;
-
     bless $self, $class;
     return $self;
 }
@@ -83,9 +54,6 @@ sub idle
 	$$self{NODES} = [ '%' ];
 	$dbh = $self->connectAgent();
 	@nodes = $self->expandNodes();
-
-	# Report configuration (once only)
-	$self->report_config();
 
 	# Run general flush.
 	$self->flush($dbh);
@@ -107,29 +75,6 @@ sub idle
     $$self{FLUSH_MARKER} = undef;
 }
 
-sub report_config
-{
-    my $self = shift;
-    if (!$self->{REPORTED_CONFIG}) {
-	$self->{REPORTED_CONFIG} = 1;
-	$self->Logmsg(sprintf("router configuration: ".
-			      "WINDOW_SIZE=%0.2f TB, ".
-			      "MIN_REQ_EXPIRE=%0.2f hours, ".
-			      "MAX_REQ_EXPIRE=%0.2f hours, ".
-			      "LATENCY_THRESHOLD=%0.2f days, ".
-			      "PROBE_CHANCE=%0.2f, ".
-			      "DEACTIV_ATTEMPTS=%i, ".
-			      "DEACTIV_TIME=%0.2f days",
-			      $WINDOW_SIZE/TERABYTE,
-			      $MIN_REQ_EXPIRE/3600,
-			      $MAX_REQ_EXPIRE/3600,
-			      $LATENCY_THRESHOLD/(24*3600),
-			      $PROBE_CHANCE,
-			      $DEACTIV_ATTEMPTS,
-			      $DEACTIV_TIME/(24*3600)));
-    }
-}
-
 # Run general system flush.
 sub flush
 {
@@ -145,23 +90,16 @@ sub flush
 	->fetchrow();
 
     my @stats;
-
-    # De-activate and suspend block destinations when there
-    # have been too many retries for all requests in a block
-    # "too many" means at least 50 attempts for every request
-    # and the newest request created 30 days ago
-    # The blocks will be suspended for 15 days.
+    # Update priority on existing requests.
     my ($stmt, $rows) = &dbexec ($dbh, qq{
-	update t_dps_block_dest 
-           set state = 4, time_suspend_until = :now + $DEACTIV_TIME/2
-         where (destination, block) in (
-        select xq.destination, xq.inblock 
-          from t_xfer_request xq 
-         group by xq.destination, xq.inblock
-        having min(xq.attempt) > $DEACTIV_ATTEMPTS*10
-           and :now - max(xq.time_create) > $DEACTIV_TIME
-	     )}, ':now' => $now);
-    push @stats, ['stuck blocks suspended', $rows];
+	update (select xq.priority req_priority, bd.priority cur_priority
+		from t_xfer_request xq
+		  join t_dps_block_dest bd
+		    on bd.block = xq.inblock
+		    and bd.destination = xq.destination
+		where xq.priority != bd.priority)
+	set req_priority = cur_priority});
+    push @stats, ['request priority updated', $rows];
 
     # Clear requests for files no longer wanted.
     ($stmt, $rows) = &dbexec($dbh, qq{
@@ -185,16 +123,6 @@ sub flush
     push @stats, ['deleted requests with replica', $rows];
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
-    # Update priority on existing requests.
-    ($stmt, $rows) = &dbexec ($dbh, qq{
-	update (select xq.priority req_priority, bd.priority cur_priority
-		from t_xfer_request xq
-		  join t_dps_block_dest bd
-		    on bd.block = xq.inblock
-		    and bd.destination = xq.destination
-		where xq.priority != bd.priority)
-	set req_priority = cur_priority});
-    push @stats, ['request priority updated', $rows];
 
     # Clear old paths and those missing an active request.
     # Clear invalid expired paths.
@@ -243,12 +171,11 @@ sub flush
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
           and l.is_local = 'n'
-	  and lp.xfer_rate >= KILOBYTE },
+	  and lp.xfer_rate >= 1048576 },
 	":now" => $now);
-
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
-	push(@{$extend{':time_expire'}}, $now + $MIN_REQ_EXPIRE + rand($MAX_REQ_EXPIRE));
+	push(@{$extend{':time_expire'}}, $now + 6*3600 + rand(6*3600));
 	push(@{$extend{':to'}}, $to);
 	push(@{$extend{':dest'}}, $dest);
 	push(@{$extend{':fileid'}}, $file);
@@ -280,11 +207,20 @@ sub flush
 	push @stats, ['request expire extended', $rows];
     }
 
+    # Mark as expired tasks which didn't complete in time.
+    ($stmt, $rows) = &dbexec($dbh, qq{
+	merge into t_xfer_task_done xtd using
+	  (select id from t_xfer_task where :now >= time_expire) xt
+	on (xtd.task = xt.id) when not matched then
+	  insert (task, report_code, xfer_code, time_xfer, time_update)
+	  values (xt.id, @{[ PHEDEX_RC_EXPIRED ]}, @{[ PHEDEX_XC_NOXFER ]}, -1, :now)},
+	":now" => $now);
+    push @stats, ['tasks expired', $rows];
+
     # Deactivate requests which reached their expire time limit.
-    # Spread the re-activation time to avoid herding effects
     ($stmt, $rows) = &dbexec($dbh, qq{
 	update t_xfer_request
-	set state = 2, time_expire = :now + dbms_random.value(1,3)*3600
+	set state = 1, time_expire = :now + dbms_random.value(1,3)*3600
 	where state = 0 and :now >= time_expire},
 	":now" => $now);
     push @stats, ['expired requests deactivated', $rows];
@@ -405,19 +341,13 @@ sub prepare
        ":node" => $node);
     my ($not_for_me) = $q_not_for_me->fetchrow() || 0;
 
-    # Get current level of requests by priority.  We count "current
-    # level" in requests with state = 0 or with less than a certain
-    # number of attempts done on them (default 5).  This is to give
-    # requests a fair shot at transferring in the correct
-    # priority-order before we start to give up on them and look for
-    # other requests.
-    my %priority_windows = map { ($_ => 0) } 0..100;  # 100 levels of priority available
+    # Get current level of requests by priority
+    my %priority_windows = map { ($_ => 0) } 0..100; # 100 levels of priority available
     my $q_current_requests = &dbexec($dbh, qq{
 	select xq.priority, sum(xf.filesize)
           from t_xfer_request xq 
           join t_xfer_file xf on xf.id = xq.fileid
 	 where xq.destination = :node
-           and (xq.state = 0 or xq.attempts <= $DEACTIV_ATTEMPTS)
          group by xq.priority },
      ":node" => $node);
 
@@ -426,49 +356,10 @@ sub prepare
 	$priority_windows{$priority} += $bytes;
     }
 
-    # TODO: Optimize: skip attempting to fill windows if they are
-    # already 95% full now
-
     # Fill priority windows up to WINDOW_SIZE each if through traffic
     # is not more than WINDOW_SIZE
-    if ($not_for_me <= $WINDOW_SIZE)
+    if ($not_for_me <= $$self{WINDOW_SIZE})
     {
-	# First, re-activate requests from already-activated blocks which
-	# either expired or failed to be routed.
-	# (new injections to open blocks are also allocated here)
-	my $q = &dbexec($dbh, qq{
-	    select xq.destination, xq.fileid, xq.priority, f.filesize bytes
-	      from t_xfer_request xq
-	      join t_xfer_file f on f.id = xq.fileid
-	     where xq.destination = :node
-	       and :now >= xq.time_expire
-	       and xq.state != 0
-	     order by xq.priority asc, xq.time_create asc, xq.attempt asc
-	   }, ':node' => $node, ':now' => $now);
-	
-	my $reactiv_u = &dbprep($dbh, qq{
-		update t_xfer_request
-	           set state = 0,
-	               attempt = attempt+1,
-	               time_expire = ? + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE)
-                 where destination = ? and fileid = ?
-	     });
-
-	my %reactiv_reqs;
-	while (my $r = $q->fetchrow_arrayref()) {
-	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
-	    my $n = 0;
-	    push(@{$reactiv_reqs{$n++}}, $now);
-	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
-	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
-	}
-	&dbbindexec($reactiv_u, %reactiv_reqs);
-	my $n_reactiv = scalar @{$reactiv_reqs{1}};
-
-	# Commit re-activated requests
-	$dbh->commit();
-	undef %reactiv_reqs; # no longer needed
-
 	# Find block destinations we can activate, requiring that
 	# the block fit into the priority window.  Note that open
 	# blocks can grow beyond the window limits if new files
@@ -488,7 +379,7 @@ sub prepare
 	my @activated_blocks;
 	foreach my $b (@{ $blocks_to_activate })
 	{
-	    next if ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $WINDOW_SIZE;
+	    next if ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $$self{WINDOW_SIZE};
 	    &dbbindexec($u,
 			":block" => $$b{BLOCK},
 			":node" => $node,
@@ -499,7 +390,6 @@ sub prepare
 	# Commit first phase so any concurrent modification of t_xfer_file
 	# and t_xfer_replica is handled by our triggers.
 	$dbh->commit();
-	undef $blocks_to_activate; # no longer needed
 
 	# Create file requests for the activated blocks.  The
 	# expiration time is randomized to prevent massive loads of
@@ -510,7 +400,7 @@ sub prepare
 		 attempt, time_create, time_expire, is_custodial)
 		select
 		id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :now + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE), bd.is_custodial
+		0 state, 1 attempt, :now, :now + dbms_random.value(7,10)*3600, bd.is_custodial
 		from t_xfer_file, t_dps_block_dest bd
 		where inblock = :block and inblock = bd.block and bd.destination = :node});
 		    
@@ -523,8 +413,7 @@ sub prepare
 			":now" => $now);
 	}
 	my $nblocks = scalar @activated_blocks;
-	$self->Logmsg("re-activated $n_reactiv requests, activated $nblocks block destinations for node=$node") 
-	    if ($n_reactiv > 0 || $nblocks > 0);
+	$self->Logmsg("activated $nblocks block destinations for node=$node") if $nblocks > 0;
 	    
 	# Now commit second phase.
 	$dbh->commit();
@@ -537,6 +426,18 @@ sub prepare
 	$self->Warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
 	    if $nblocks;
     }
+    
+
+    ######################################################################
+    # Reactivate expired file requests.
+    &dbexec($dbh, qq{
+	update t_xfer_request
+	set state = 0,
+	    attempt = attempt+1,
+	    time_expire = :now + dbms_random.value(7,10)*3600
+	where destination = :me and state = 1 and :now >= time_expire},
+	":me" => $node, ":now" => $now);
+    $dbh->commit();
 }
 
 # Get a list of blocks destined for a node in order of request age
@@ -678,7 +579,7 @@ sub routeFiles
     {
 	$finished = 1;
 	my %requests;
-	my ($nreqs, $nfail) = (0, 0);
+	my $nreqs = 0;
 	my ($discarded, $existing) = (0, 0);
 	my ($nhops, $nvalid) = (0, 0);
 	my ($inserted, $updated) = (0, 0);
@@ -690,14 +591,7 @@ sub routeFiles
 
 	    my $file = $$row{FILEID};
 	    my $size = $$row{FILESIZE};
-	    
-	    # Round size of file to the nearest 500 of the unit below its scale
-	    my $unit;
-	    if    ($size > TERABYTE) { $unit = GIGABYTE; }
-	    elsif ($size > GIGABYTE) { $unit = MEGABYTE; }
-	    elsif ($size > MEGABYTE) { $unit = KILOBYTE; }
-	    else                     { $unit = BYTE;     }
-	    my $sizebin = (int($size / (500*$unit))+1)*(500*$unit);
+	    my $sizebin = (int($size / (500*MEGABYTE))+1)*(500*MEGABYTE);
 
 	    if (! exists $requests{$dest}{$file})
 	    {
@@ -721,27 +615,22 @@ sub routeFiles
 	    $self->routeCost($links, $costs, $$row{NODE}, $$row{STATE}, $sizebin, 0);
 	}
 
-	# Build collection of all the hops and failed routing attempts
-	my @allreqs = map { values %$_ } values %requests;
-	my %allhops;
-	my @failedreqs;
+	# Build optimal file paths.
 	my $probecosts = {};
+	my @allreqs = map { values %$_ } values %requests;
+	$self->routeFile($now, $links, $costs, $probecosts, $_) for @allreqs;
+
+	# Build collection of all the hops.
+	my %allhops;
 	foreach my $req (@allreqs)
 	{
-	    # Build optimal file path
-	    my $ok = $self->routeFile($now, $links, $costs, $probecosts, $req);
-	    if ($ok) 
+	    foreach my $hop (@{$$req{PATH}})
 	    {
-		foreach my $hop (@{$$req{PATH}})
-		{
-		    $allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
-		}
+		$allhops{$$hop{TO_NODE}}{$$req{FILEID}} ||= $hop;
 	    }
-	    else { push @failedreqs, $req; }
 	}
 
 	# Compare with what is already in the database.  Keep new and better.
-	# TODO: reduce memory:  possible to restrict this by destinations?
 	my $qpath = &dbexec($dbh, qq{
 	    select to_node, fileid, is_valid, is_local, total_cost
 	    from t_xfer_path});
@@ -821,55 +710,18 @@ sub routeFiles
 		time_confirm = ?, time_expire = ?
 	    where fileid = ? and to_node = ?},
 	    %uargs) if %uargs;
-	
-	# Mark requests which could not be routed invalid
-	my %fargs;
-	my %fstats;
-	foreach my $req (@failedreqs) {
-	    # state 3='no path to destination', 4='no source replicas'
-	    my ($state, $texpire);
-	    my $dest = $$req{DESTINATION};
-	    my $file = $$req{FILEID};
-	    if (keys %{$$req{REPLICAS}}) {
-		$fstats{$dest}{'no path to destination'}++;
-		$state = 3;
-	    } else {
-		$fstats{$dest}{'no source replicas'}++;
-		$state = 4;
-	    }
-	    my $n = 1;
-	    push(@{$fargs{$n++}}, $state);
-	    push(@{$fargs{$n++}}, $dest);
-	    push(@{$fargs{$n++}}, $file);
-	}
-	
-	&dbexec($dbh, qq{
-	    update t_xfer_request
-	       set state = ?
-	     where destination = ? and fileid = ?}, %fargs) if %fargs;
 
 	$dbh->commit();
 
-	# Report routing statistics
-	if (%fstats && $$self->{VERBOSE}) {
-	    foreach my $dest (sort keys %fstats) {
-		foreach my $reason (sort keys %{$fstats{$dest}}) {
-		    $self->Warn("failed to route ",
-				$fstats{$dest}{$reason},
-				" files to node=$dest:  $reason");
-		}
-	    }
-	}
-    
+	# Report routing statistics.
 	$inserted = %iargs ? scalar @{$iargs{1}} : 0;
 	$updated = %uargs ? scalar @{$uargs{1}} : 0;
 	$ndone += $inserted + $updated;
-	$nfail = scalar @failedreqs;
 
 	my %node_names = reverse %{$$self{NODES_ID}};
 	my $destnode_list = join ' ', sort @node_names{keys %destnodes};
 	$self->Logmsg("routed files:  $existing existed, $updated updated, $inserted new,"
-		. " $nvalid valid, $discarded discarded of $nhops paths with $nfail failures"
+		. " $nvalid valid, $discarded discarded of $nhops paths"
 		. " computed for $nreqs requests for the destinations"
 		. " $destnode_list")
 	    if $nreqs;
@@ -975,8 +827,8 @@ sub routeCost
 		# This value is larger than cut-off for valid paths later.
 		if ($$paths{$from}{REMOTE_HOPS} && ! $thislocal)
 		{
-		    $xfer  += 100*$LATENCY_THRESHOLD;
-		    $total += 100*$LATENCY_THRESHOLD;
+		    $xfer += 365*86400;
+		    $total += 365*86400;
 		}
 
 		# Update the path if there is none yet, if we have local
@@ -1055,7 +907,7 @@ sub routeFile
     # Select best route.  If it's not a valid one, force re-routing
     # at a reasonably low (2%) probability to create routing probes.
     my ($best, $bestcost) = $self->bestRoute ($costs, $request);
-    if (defined $best && $bestcost >= $LATENCY_THRESHOLD && rand() < $PROBE_CHANCE)
+    if (defined $best && $bestcost >= 3*86400 && rand() < 0.02)
     {
 	$self->routeCost($links, $probecosts, $_, $$request{REPLICAS}{$_},
 			 $$request{SIZEBIN}, 1)
@@ -1063,7 +915,7 @@ sub routeFile
 	($best, $bestcost) = $self->bestRoute ($probecosts, $request);
 	my $prettycost = int($bestcost);
 	$self->Logmsg("probed file $$request{FILEID} to destination $dest: "
-		. ($bestcost < $LATENCY_THRESHOLD
+		. ($bestcost < 3*86400
 		   ? "new cost $prettycost from $$best{$dest}{SRC_NODE}"
 		   : "did not improve the matters, cost is $prettycost"));
     }
@@ -1074,7 +926,7 @@ sub routeFile
     {
 	my $index = 0;
 	my $node = $dest;
-	my $valid = $bestcost < $LATENCY_THRESHOLD ? 1 : 0;
+	my $valid = $bestcost < 3*86400 ? 1 : 0;
 	while ($$best{$node}{FROM_NODE} != $$best{$node}{TO_NODE})
 	{
 	    my $from = $$best{$node}{FROM_NODE};
@@ -1084,22 +936,17 @@ sub routeFile
 	    $$item{DESTINATION} = $$request{DESTINATION};
 	    $$item{PRIORITY} = $$request{PRIORITY};
 	    $$item{TIME_REQUEST} = $$request{TIME_CREATE};
-	    # Note: It is important to have a large spread of
-	    # expiration times for invalid paths avoid
-	    # herding effects.  If the path is re-created to soon, we
-	    # expect the result will be the same anyway.
-	    # Default: 0.5 to 5.0 hours
 	    $$item{TIME_EXPIRE} = ($valid ? $$request{TIME_EXPIRE}
-				   : $now+($MAX_REQ_EXPIRE + rand(9*$MAX_REQ_EXPIRE))/20); 
+				   : $now+(0.5+rand(4))*3600);
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
 
-	return 1;
+	$self->mark_route_success($dest, $$request{FILEID});
     }
     else
     {
-	return 0;
+	$self->mark_route_failure($dest, $$request{FILEID}, keys %{$$request{REPLICAS}} );
     }
 }
 
@@ -1140,18 +987,54 @@ sub stats
 	insert into t_status_block_path
 	(time_update, destination, src_node, block, priority, is_valid,
 	 route_files, route_bytes, xfer_attempts, time_request)
-       select path.destination, path.src_node, f.inblock, path.priority, path.is_valid,
-              count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create)
-         from (
-          select distinct xp.destination, xp.src_node, xp.fileid, xp.priority, xp.is_valid from t_xfer_path xp
-         ) path
-         join t_xfer_request xq on xq.destination = path.destination and xq.fileid = path.fileid
-         join t_xfer_file f on f.id = xq.fileid
-         group by path.destination, path.src_node, f.inblock, path.priority, path.is_valid},
+	select :now, xp.destination, xp.src_node, xf.inblock, xp.priority, xp.is_valid,
+	count(xf.id), sum(xf.filesize), sum(xq.attempt), min(xq.time_create)
+	from t_xfer_path xp
+	join t_xfer_file xf on xf.id = xp.fileid
+	join t_xfer_request xq on xq.fileid = xf.id and xq.destination = xp.destination
+	group by xp.destination, xp.src_node, xf.inblock, xp.priority, xp.is_valid},
 	    ":now" => $now);
 
     $dbh->commit();
     $self->Logmsg("updated statistics");
+}
+
+# Mark the failure of an unroutable file
+sub mark_route_failure
+{
+    my ($self, $dest, $fileid, @sources) = @_;
+
+    if (! $$self{ROUTE_FAILURES}{$dest}{$fileid} ) {
+	$$self{NEW_ROUTE_FAILURE}{$dest} = 1;
+    }
+
+    my $reason = @sources ? 'no path to destination' : 'no source replicas';
+    $$self{ROUTE_FAILURES}{$dest}{$reason}{$fileid} = [@sources];
+}
+
+# Delete an item from the cache of unroutable files
+sub mark_route_success
+{
+    my ($self, $dest, $fileid) = @_;
+    foreach my $reason (keys %{ $$self{ROUTE_FAILURES}{$dest} }) {
+	delete $$self{ROUTE_FAILURES}{$dest}{$reason}{$fileid};
+    }
+}
+
+# Warn about all failed routing attempts when there is a new failure
+# TODO:  Print saved replica information on higher verbosity levels
+sub warn_route_failures
+{
+    my ($self) = @_;
+    
+    foreach my $dest (sort keys %{$$self{NEW_ROUTE_FAILURE}}) {
+	foreach my $reason (keys %{$$self{ROUTE_FAILURES}{$dest}}) {
+	    $self->Warn("failed to route ",
+		    scalar keys %{$$self{ROUTE_FAILURES}{$dest}{$reason}},
+		    " files to node=$dest:  $reason");
+	}
+	delete $$self{NEW_ROUTE_FAILURE}{$dest};
+    }
 }
 
 1;

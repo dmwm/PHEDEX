@@ -41,9 +41,6 @@ sub idle
         # Auto-export/-transfer files for nodes.
 	$self->transfer($dbh);
 
-	# Expire tasks
-	$self->expire($dbh);
-	
 	# First pick up returned task status.
 	$self->receive($dbh);
 
@@ -55,6 +52,48 @@ sub idle
 
     # Disconnect from the database
     $self->disconnectAgent();
+}
+
+# Update transfer task statistics.
+sub stats
+{
+    my ($self, $dbh) = @_;
+    
+    # If we updated stats recently, skip it.
+    my $now = &mytimeofday();
+    return if $now < $$self{NEXT_STATS};
+    $$self{NEXT_STATS} = int($now/300) + 300;
+
+    # Remove previous stats.
+    &dbexec($dbh, qq{delete from t_status_task});
+
+    # Insert new ones.
+    &dbexec($dbh, qq{
+	insert into t_status_task
+	(time_update, from_node, to_node, priority, state, files, bytes, is_custodial)
+	select :now, xt.from_node, xt.to_node, xt.priority,
+	       (case
+		  when xtd.task is not null then 3
+		  when xti.task is not null then 2
+		  when xte.task is not null then 1
+		  else 0
+		end) state,
+	       count(xt.fileid), sum(f.filesize), xt.is_custodial
+	from t_xfer_task xt
+	  join t_xfer_file f on f.id = xt.fileid
+	  left join t_xfer_task_export xte on xte.task = xt.id
+	  left join t_xfer_task_inxfer xti on xti.task = xt.id
+	  left join t_xfer_task_done   xtd on xtd.task = xt.id
+        group by :now, xt.from_node, xt.to_node, xt.priority, xt.is_custodial,
+	       (case
+		  when xtd.task is not null then 3
+		  when xti.task is not null then 2
+		  when xte.task is not null then 1
+		  else 0
+		end)},
+	":now" => $now);
+
+    $dbh->commit();
 }
 
 # Auto-export/-transfer files for nodes.
@@ -102,21 +141,6 @@ sub transfer
 
     # Commit the lot above.
     $dbh->commit();
-}
-
-sub expire
-{
-    my ($self, $dbh) = @_;
-    my $now = &mytimeofday();
-
-    # Mark as expired tasks which didn't complete in time.
-    &dbexec($dbh, qq{
-	merge into t_xfer_task_done xtd using
-	  (select id from t_xfer_task where :now >= time_expire) xt
-	on (xtd.task = xt.id) when not matched then
-	  insert (task, report_code, xfer_code, time_xfer, time_update)
-	  values (xt.id, @{[ PHEDEX_RC_EXPIRED ]}, @{[ PHEDEX_XC_NOXFER ]}, -1, :now)},
-	":now" => $now);
 }
 
 # Harvest completed transfers.
@@ -302,8 +326,6 @@ sub receive
 		  case when new.kind = 'MSS' then 0 else 1 end,
 		  new.time_update, new.time_update)});
 
-    # Deactivate the request for transfers that just failed (to be
-    # re-activated in 40 - 90 minutes.  This is the minimum retry time)
     &dbexec($dbh, qq{
 	update (select xq.state, xq.time_expire
 		from t_xfer_task_harvest xth
@@ -316,7 +338,6 @@ sub receive
 	set state = 1, time_expire = :now + dbms_random.value(2700,5400)},
 	":now" => $now);
 
-    # Exclude from the transfer queue transfers that just failed
     &dbexec($dbh, qq{
 	insert into t_xfer_exclude (from_node, to_node, fileid, time_request)
         select xt.from_node, xt.to_node, xt.fileid, :now
@@ -344,48 +365,6 @@ sub receive
     $self->Logmsg("$n transfer tasks received, $ngood successful,"
 	    . " $nbad failed, @{[$n - $ngood - $nbad]} other")
 	if $n;
-}
-
-# Update transfer task statistics.
-sub stats
-{
-    my ($self, $dbh) = @_;
-    
-    # If we updated stats recently, skip it.
-    my $now = &mytimeofday();
-    return if $now < $$self{NEXT_STATS};
-    $$self{NEXT_STATS} = int($now/300) + 300;
-
-    # Remove previous stats.
-    &dbexec($dbh, qq{delete from t_status_task});
-
-    # Insert new ones.
-    &dbexec($dbh, qq{
-	insert into t_status_task
-	(time_update, from_node, to_node, priority, state, files, bytes, is_custodial)
-	select :now, xt.from_node, xt.to_node, xt.priority,
-	       (case
-		  when xtd.task is not null then 3
-		  when xti.task is not null then 2
-		  when xte.task is not null then 1
-		  else 0
-		end) state,
-	       count(xt.fileid), sum(f.filesize), xt.is_custodial
-	from t_xfer_task xt
-	  join t_xfer_file f on f.id = xt.fileid
-	  left join t_xfer_task_export xte on xte.task = xt.id
-	  left join t_xfer_task_inxfer xti on xti.task = xt.id
-	  left join t_xfer_task_done   xtd on xtd.task = xt.id
-        group by :now, xt.from_node, xt.to_node, xt.priority, xt.is_custodial,
-	       (case
-		  when xtd.task is not null then 3
-		  when xti.task is not null then 2
-		  when xte.task is not null then 1
-		  else 0
-		end)},
-	":now" => $now);
-
-    $dbh->commit();
 }
 
 1;
