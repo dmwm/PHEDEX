@@ -27,11 +27,13 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
       if ( !that.columnMap[cDef.key] ) { that.columnMap[cDef.key] = cDef.key.toLowerCase(); }
     }
     that.dataSource = new YAHOO.util.DataSource();
-    that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, { draggableColumns:true, initialLoad:false });
+    that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, 
+						{ draggableColumns:true, initialLoad:false });
     that.dataTable.subscribe('rowMouseoverEvent',that.onRowMouseOver);
     that.dataTable.subscribe('rowMouseoutEvent', that.onRowMouseOut);
   }
-  that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); return 'PHEDEX.Core.Widget.DataTable'; }
+  that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); 
+		       return 'PHEDEX.Core.Widget.DataTable'; }
   that.fillDataSource=function(data) {
     var table = [];
     for (var i in data) {
@@ -120,43 +122,45 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
   }
 */
 
-// Create a context menu, with default entries for dataTable widgets
-  that.buildContextMenu=function() {
+  // Create a context menu, with default entries for dataTable widgets
+  that.buildContextMenu=function(typeMap) {
+    that.contextMenuTypeMap = typeMap || {};
+
     that.contextMenuArgs=[];
-    for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
+    for (var type in typeMap) {
+      that.contextMenuArgs.push(type);
+    }
     that.contextMenuArgs.push('dataTable');
+    // Create a context menu for any click on the table body
     that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dataTable.getTbodyEl()});
-//     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
-//     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
     PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
   }
+
   that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.DataTable');
-    var task = p_aArgs[1];
-    if(task) {
-//  Extract which TR element triggered the context menu
+    var menuitem = p_aArgs[1];
+    if(menuitem) {
+      //  Extract which <tr> triggered the context menu
       var tgt = this.contextEventTarget;
       var elCol = p_DataTable.getColumn(tgt);
       var elRow = p_DataTable.getTrEl(tgt);
       var label = tgt.textContent;
-      var payload = {};
-      if(elRow) {
-//	TODO I haven't figured out yet how to define a row-payload. Should do that soon...
-	if ( elRow.payload ) { payload = elRow.payload; }
-	var args = payload.args || {};
-	var opts = payload.opts || {};
+      if (elRow) {
+	var opts = {};
 	var oRecord = p_DataTable.getRecord(elRow);
-	var selected_node = args.node; // allows me to specify a node in the payload, to override guesses here
-	if ( ! selected_node ) { selected_node = oRecord.getData('Name'); }
-	YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+selected_node+')','info','Core.DataTable');
-//	this is not good, I should be building a payload inside the table object and passing it here, not
-//	building specific payloads in a generic base-widget!
-	opts.node = selected_node;
-	this.payload[task.index](args, opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
+	// map types to column names in order to prepare our options
+	if (that.contextMenuTypeMap) {
+	  for (var type in that.contextMenuTypeMap) {
+	    var recName = that.contextMenuTypeMap[type];
+	    opts[type] = oRecord.getData(recName);
+	  }
+	}
+	menuitem.value.fn(opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Field', function(args,opts,el) {
+
+  PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Field', function(opts,el) {
     YAHOO.log('hideField: '+el.col.key,'info','Core.DataTable');
     el.table.hideColumn(el.col);
   });
