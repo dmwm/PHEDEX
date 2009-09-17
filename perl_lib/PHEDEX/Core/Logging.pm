@@ -111,16 +111,22 @@ sub Notify
   }
   if ( !$port )
   {
-    $port = $self->{NOTIFICATION_PORT} = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_PORT');
+    eval {
+      $port = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_PORT');
+    };
+    eval { $port = $ENV{PHEDEX_NOTIFICATION_PORT}; } unless $port;
+    $self->{NOTIFICATION_PORT} = $port if $port;
   }
-  $port = $ENV{PHEDEX_NOTIFICATION_PORT} unless $port;
   return unless defined $port;
 
   if ( !$server )
   {
-    $server = $self->{NOTIFICATION_HOST} = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_HOST');
+    eval {
+      $server = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_NOTIFICATION_HOST');
+    };
+    eval { $server = $ENV{PHEDEX_NOTIFICATION_HOST}; } unless $server;
+    $self->{NOTIFICATION_HOST} = $server if $server;
   }
-  $server ||= $ENV{PHEDEX_NOTIFICATION_HOST};
   $server ||= hostname;
 
   my $message = join('',PHEDEX::Core::Logging::Hdr($self),@_);
