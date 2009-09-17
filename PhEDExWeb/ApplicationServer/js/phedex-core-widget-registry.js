@@ -35,7 +35,7 @@ PHEDEX.Core.Widget.Registry=(function() {
       if (_widgets[inputType][widget]) {
 	throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
-      var w = { 'widget': widget, 'label': label, 'construct': constructor };
+      var w = { 'widget': widget, 'type': inputType, 'label': label, 'construct': constructor };
       if (extrakeys) {
 	for (var k in extrakeys) {
 	  w[k] = extrakeys[k];
@@ -71,7 +71,15 @@ PHEDEX.Core.Widget.Registry=(function() {
 	throw new Error("cannot construct unregistered widget '"+widget+"' by input type '"+inputType+"'");
       }
       var w = _widgets[inputType][widget];
+      this.constructEvent.fire({ 'widget':widget,
+				 'type': inputType,
+				 'data': inputData,
+				 'div':  divid,
+				 'args': args });
       return w.construct(inputData, divid, args);
-    }
+    },
+
+    // fired whenever a widget is constructed, passed the construct() args
+    constructEvent: new YAHOO.util.CustomEvent('construct')
   };
 })();
