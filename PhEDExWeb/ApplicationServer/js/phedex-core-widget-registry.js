@@ -71,15 +71,16 @@ PHEDEX.Core.Widget.Registry=(function() {
 	throw new Error("cannot construct unregistered widget '"+widget+"' by input type '"+inputType+"'");
       }
       var w = _widgets[inputType][widget];
-      this.constructEvent.fire({ 'widget':widget,
-				 'type': inputType,
-				 'data': inputData,
-				 'div':  divid,
-				 'args': args });
+      var ok = this.beforeConstructEvent.fire({ 'widget':widget,
+						'type': inputType,
+						'data': inputData,
+						'div':  divid,
+						'args': args });
+      if (!ok) { return null; }
       return w.construct(inputData, divid, args);
     },
 
     // fired whenever a widget is constructed, passed the construct() args
-    constructEvent: new YAHOO.util.CustomEvent('construct')
+    beforeConstructEvent: new YAHOO.util.CustomEvent('beforeConstruct')
   };
 })();

@@ -229,6 +229,7 @@ PHEDEX.Navigator=(function() {
   _filterChangeEvent.subscribe(_fireNavChange);
 
   // on nav change, validate current values and (maybe) instantiate widget
+  var _nav_construct = false;
   _navChangeEvent.subscribe(function(evt, args) {
     args = args[0];
     YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
@@ -240,18 +241,33 @@ PHEDEX.Navigator=(function() {
 		" widget="+_cur_page,
 		'info', 'Navigator');
       if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
+      _nav_construct = true; // prevent interception of our own construct event
       var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 
 				 'phedex-main', { window: false });
+      _nav_construct = false;
       _cur_widget_obj = widget;
       widget.update();
     }
   });
 
-  PxR.constructEvent.subscribe(function(evt, args) {
+  PxR.beforeConstructEvent.subscribe(function(evt, args) {
+    if (_nav_construct) { return true; } // prevent interception of our own construct event
     args = args[0];
-    // TODO:  when construct is called externally, change the navigator elements
-    YAHOO.log("heard a construct of widget="+args.widget+" type="+args.type+" data="+args.data,
+    YAHOO.log("heard beforeConstruct for widget="+args.widget+" type="+args.type+" data="+args.data,
 	      'info', 'Navigator');
+    // TODO:  change the navigator GUI elements
+    _cur_page = args.widget;
+    _cur_target_type = args.type;
+    _cur_target = args.data;
+    var args = args.args || {};
+    args.window = false;
+    // TODO:  same as above... make utility function
+    if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
+    var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 
+			       'phedex-main', args);
+    _cur_widget_obj = widget;
+    widget.update();
+    return false; // prevents Core.Widget.Registry from constructing
   });
 
   return {
