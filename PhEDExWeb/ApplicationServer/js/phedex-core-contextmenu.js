@@ -9,7 +9,6 @@ PHEDEX.Core.ContextMenu.Create=function(config) {
   var menu = new YAHOO.widget.ContextMenu("contextmenu_"+i,config);
 
   menu.cfg.setProperty('zindex',10);
-  menu.payload = [];
   return menu;
 }
 
@@ -21,7 +20,6 @@ PHEDEX.Core.ContextMenu.Add=function(name,label,callback) {
 
 PHEDEX.Core.ContextMenu.Clear=function(menu) {
   menu.clearContent();
-  menu.payload = [];
 }
 
 PHEDEX.Core.ContextMenu.Build=function(menu,components) {
@@ -30,17 +28,43 @@ PHEDEX.Core.ContextMenu.Build=function(menu,components) {
   {
     name = components[i];
     var w = PHEDEX.Core.Widget.Registry.getWidgetsByInputType(name);
+
+    // First check the core widget registry to see if any widgets can be made
     for (var j in w)
     {
-      menu.addItem(w[j].label);
-      menu.payload.push(w[j].construct);
-      YAHOO.log('Build: '+name+' label:'+w[j].label,'info','Core.ContextMenu');
+      var widget = w[j];
+      if (widget.context_item) {
+	YAHOO.log('Adding Widget name='+name+' label='+w[j].label, 'info', 'Core.ContextMenu');
+	var item = new YAHOO.widget.MenuItem(w[j].label);
+	menu.addItem(item);
+	// Build a constructor function (fn) in the menu value object
+	item.value = { 'widget': widget.widget,
+		       'type': widget.type,
+		       'fn':function(opts,el) {
+			 var arg = opts[this.type];
+			 YAHOO.log('Construct registered widget:'+
+				   ' widget='+this.widget+
+				   ' type='+this.type+
+				   ' arg='+arg,
+				   'info', 'Core.ContextMenu');
+			 PHEDEX.Core.Widget.Registry.construct(this.widget,
+							       this.type,
+							       arg).update();
+		       }
+		     };
+	menu.addItem(item);
+	YAHOO.log('Build: '+name+' label:'+w[j].label,'info','Core.ContextMenu');
+      }
     }
+
+    // Next check our own registry
     var list = PHEDEX.Core.ContextMenu.items[name];
     for (var j in list)
     {
-      menu.addItem(list[j].label);
-      menu.payload.push(list[j].callback);
+      var item = new YAHOO.widget.MenuItem(list[j].label);
+      item.value = { 'type':name,
+		     'fn':list[j].callback };
+      menu.addItem(item);
       YAHOO.log('Build: '+name+' label:'+list[j].label,'info','Core.ContextMenu');
     }
   }
