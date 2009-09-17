@@ -824,7 +824,7 @@ sub getNodes
     build_multi_filters($self, \$filters, \%p, \%h,  NODE  => 'n.name');
     $sql .= " and ($filters)" if $filters;
 
-    if ( $h{NOEMPTY} ) {
+    if ( $h{noempty} ) {
 	$sql .= qq{ and exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
     }
 

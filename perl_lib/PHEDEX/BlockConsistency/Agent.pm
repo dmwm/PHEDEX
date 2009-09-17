@@ -315,44 +315,41 @@ sub do_tests
 # Sanity checking
   &timeStart($$self{STARTTIME});
 
-  eval { 
-    $self->connectAgent();
-    $self->{bcc}->DBH( $self->{DBH} );
+  eval { $self->connectAgent(); };
+  do {
+       chomp ($@);
+       $self->Alert ("database error: $@");
+       return;
+  } if $@;
+  $self->{bcc}->DBH( $self->{DBH} );
 
-    if ( $request->{TIME_EXPIRE} <= time() )
-    {
-      $self->setRequestState($request,'Expired');
-      $self->Logmsg("do_tests: return after Expiring $request->{ID}");
-    }
-
-    if ( $request->{TEST} eq 'size' ||
-	 $request->{TEST} eq 'migration' ||
-	 $request->{TEST} eq 'is_migrated' )
-    {
-      $self->setRequestState($request,'Active');
-      my $result = $self->doNSCheck ($request);
-    }
-    elsif ( $request->{TEST} eq 'dbs' )
-    {
-      $self->setRequestState($request,'Active');
-      my $result = $self->doDBSCheck ($request);
-    }
-    else
-    {
-      $self->setRequestState($request,'Rejected');
-      $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
-    }
-  };
-  if ($@) {
-    chomp ($@);
-    $self->Alert ("database error: $@");
-    # put everything back the way it was...
-    $self->{DBH}->rollback();
-    $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
-  } else {
+  if ( $request->{TIME_EXPIRE} <= time() )
+  {
+    $self->setRequestState($request,'Expired');
     $self->{DBH}->commit();
+    $self->Logmsg("do_tests: return after Expiring $request->{ID}");
   }
 
+  if ( $request->{TEST} eq 'size' ||
+       $request->{TEST} eq 'migration' ||
+       $request->{TEST} eq 'is_migrated' )
+  {
+    $self->setRequestState($request,'Active');
+    $self->{DBH}->commit();
+    my $result = $self->doNSCheck ($request);
+  }
+  elsif ( $request->{TEST} eq 'dbs' )
+  {
+    $self->setRequestState($request,'Active');
+    $self->{DBH}->commit();
+    my $result = $self->doDBSCheck ($request);
+  }
+  else
+  {
+    $self->setRequestState($request,'Rejected');
+    $self->{DBH}->commit();
+    $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
+  }
   $self->{pmon}->State('do_tests','stop');
   $kernel->yield('do_tests');
 }
@@ -443,7 +440,6 @@ sub get_work
      chomp ($@);
      $self->Alert ("database error: $@");
      $self->{DBH}->rollback();
-     $kernel->delay_set('get_work',$self->{WAITTIME});
   } if $@;
   $self->{pmon}->State('get_work','stop');
 
