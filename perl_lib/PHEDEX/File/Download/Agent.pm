@@ -73,6 +73,15 @@ sub new
     -d $$self{ARCHIVEDIR} || mkdir($$self{ARCHIVEDIR}) || -d $$self{ARCHIVEDIR}
         || die "$$self{ARCHIVEDIR}: cannot create: $!\n";
 
+    # If we have a notification-port, set it also in the environment, so it
+    # can be picked up for use by other sessions (QMon etc) that may need it.
+    # This is a little kludgy, in that it will affect all sessions in the
+    # process that do not use the config-file to establish an environment.
+    # Nonetheless, it's easier than tramping around a NOTIFICATION_PORT in
+    # every session we create, so we stick with it.
+    if ( $self->{NOTIFICATION_PORT} && !$ENV{PHEDEX_NOTIFICATION_PORT} )
+    { $ENV{PHEDEX_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT}; }
+
     bless $self, $class;
     return $self;
 }
