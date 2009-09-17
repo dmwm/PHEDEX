@@ -87,11 +87,11 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
   }
 
   that.buildExtra(that.dom.extra);
-  that.buildContextMenu('Agent');
+  that.buildContextMenu({'agent':'Name'});
   that.build();
   return that;
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Agents',function(args,opts,el) { PHEDEX.Widget.Agents(opts.node).update(); });
-PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Agents','node','Show Agents',PHEDEX.Widget.Agents);
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Agents','node','Show Agents',
+				PHEDEX.Widget.Agents, {context_item:true});

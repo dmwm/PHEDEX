@@ -38,8 +38,8 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
     that.dom.title.innerHTML = 'Nodes: '+this.data.length+" found";
   }
   that.buildTable(that.dom.content,
-            [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
-	     );
+		  [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
+		 );
   that.update=function() {
     PHEDEX.Datasvc.Call({ api: 'nodes', success_event: that.onDataReady });
   }
@@ -50,7 +50,7 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
     else { that.failedLoading(); }
   }
   that.buildExtra(that.dom.extra);
-  that.buildContextMenu('Node');
+  that.buildContextMenu({'node':'Name'});
   that.build();
   that.ctl.extra.Disable();
   return that;
