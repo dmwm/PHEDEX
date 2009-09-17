@@ -228,7 +228,7 @@ PHEDEX.Navigator=(function() {
   _pageChangeEvent.subscribe(_fireNavChange);
   _filterChangeEvent.subscribe(_fireNavChange);
 
-  // on nav change, validate current values and (maybe) instantiage widget
+  // on nav change, validate current values and (maybe) instantiate widget
   _navChangeEvent.subscribe(function(evt, args) {
     args = args[0];
     YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
@@ -245,6 +245,13 @@ PHEDEX.Navigator=(function() {
       _cur_widget_obj = widget;
       widget.update();
     }
+  });
+
+  PxR.constructEvent.subscribe(function(evt, args) {
+    args = args[0];
+    // TODO:  when construct is called externally, change the navigator elements
+    YAHOO.log("heard a construct of widget="+args.widget+" type="+args.type+" data="+args.data,
+	      'info', 'Navigator');
   });
 
   return {
