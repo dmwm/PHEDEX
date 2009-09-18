@@ -2788,4 +2788,113 @@ sub getNodeUsageHistory
     return \@r;
 }
 
+sub getRouterHistory
+{
+    my ($core, %h) = @_;
+    my ($sql, $q, %p, @r);
+
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
+    {
+        $p{':BINWIDTH'} = $h{BINWIDTH};
+    }
+    else
+    {
+        $p{':BINWIDTH'} = 3600;
+    }
+
+    # default endtime is now
+    if (exists $h{ENDTIME})
+    {
+        $p{':ENDTIME'} = &str2time($h{ENDTIME});
+    }
+    else
+    {
+        $p{':ENDTIME'} = time();
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{STARTTIME})
+    {
+        $p{':STARTTIME'} = &str2time($h{STARTTIME});
+    }
+    else
+    {
+        $p{':STARTTIME'} = $p{':ENDTIME'} - $p{':BINWIDTH'};
+    }
+
+    my $full_extent = ($p{':BINWIDTH'} == ($p{':ENDTIME'} - $p{':STARTTIME'}));
+
+
+    $sql = qq {
+        select
+            fn.name from_node,
+            tn.name to_node,
+    };
+
+    if ($full_extent)
+    {
+        $sql .= qq { :STARTTIME as timebin, };
+    }
+    else
+    {
+        $sql .= qq {
+            trunc(hs.timebin / :BINWIDTH) * :BINWIDTH as timebin, };
+    }
+
+    $sql .= qq {
+            :BINWIDTH as binwidth,
+            to_char(nvl(avg(hs.confirm_files),0), 'FM99999999999999999999') route_files,
+            to_char(nvl(avg(hs.confirm_bytes),0), 'FM99999999999999999999') route_bytes,
+            to_char(avg(hs.param_rate), 'FM999999999999.99') rate,
+            to_char(avg(hs.param_latency), 'FM999999999999.99') latency,
+            to_char(nvl(avg(hd.request_files),0), 'FM99999999999999999999') request_files,
+            to_char(nvl(avg(hd.request_bytes),0), 'FM99999999999999999999') request_bytes,
+            to_char(nvl(avg(hd.idle_files),0), 'FM99999999999999999999') idle_files,
+            to_char(nvl(avg(hd.idle_bytes),0), 'FM99999999999999999999') idle_bytes
+        from
+            t_history_link_stats hs
+            full join t_history_dest hd
+                on hd.timebin = hs.timebin
+                and hd.node = hs.to_node
+            join t_adm_node tn on tn.id = nvl(hs.to_node,hd.node)
+            left join t_adm_node fn on fn.id = hs.from_node
+        where
+            hs.timebin >= :STARTTIME and
+            hs.timebin < :ENDTIME
+    };
+
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        FROM => 'fn.name',
+        TO => 'tn.name'));
+
+    $sql .= " and ($filters) " if ($filters);
+
+    if ($full_extent)
+    {
+        $sql .= qq {\ngroup by fn.name, tn.name };
+        $sql .= qq {\norder by tn.name, fn.name };
+    }
+    else
+    {
+        $sql .= qq {\ngroup by trunc(hs.timebin / :BINWIDTH) * :BINWIDTH, fn.name, tn.name};
+        $sql .= qq {\norder by 2, 3, 1 };
+    }
+
+    $q = execute_sql($core, $sql, %p);
+    while ($_ = $q->fetchrow_hashref())
+    {
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime($_->{'TIMEBIN'}));
+        }
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 1;
