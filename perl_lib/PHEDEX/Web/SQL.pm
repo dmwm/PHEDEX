@@ -2680,4 +2680,112 @@ sub getAgentLogs
     return \@r;
 }
 
+sub getNodeUsageHistory
+{
+    my ($core, %h) = @_;
+    my ($sql, $q, %p, @r);
+
+    # default BINWIDTH is 1 hour
+    if (exists $h{BINWIDTH})
+    {
+        $p{':BINWIDTH'} = $h{BINWIDTH};
+    }
+    else
+    {
+        $p{':BINWIDTH'} = 3600;
+    }
+
+    # default endtime is now
+    if (exists $h{ENDTIME})
+    {
+        $p{':ENDTIME'} = &str2time($h{ENDTIME});
+    }
+    else
+    {
+        $p{':ENDTIME'} = time();
+    }
+
+    # default start time is 1 hour before
+    if (exists $h{STARTTIME})
+    {
+        $p{':STARTTIME'} = &str2time($h{STARTTIME});
+    }
+    else
+    {
+        $p{':STARTTIME'} = $p{':ENDTIME'} - $p{':BINWIDTH'};
+    }
+
+    my $full_extent = ($p{':BINWIDTH'} == ($p{':ENDTIME'} - $p{':STARTTIME'}));
+
+    $sql = qq {
+        select
+            n.name as node_name,
+            n.id as node_id,
+            n.se_name as se, 
+            :BINWIDTH as binwidth,
+    };
+
+    if ($full_extent)
+    {
+        $sql .= qq { :STARTTIME as timebin, };
+    }
+    else
+    {
+        $sql .= qq {
+            trunc(timebin / :BINWIDTH) * :BINWIDTH as timebin, };
+    }
+
+    $sql .= qq {
+            to_char(nvl(avg(d.cust_node_files), 0), 'FM99999999999999999999') as cust_node_files,
+            to_char(nvl(avg(d.cust_node_bytes), 0), 'FM99999999999999999999') as cust_node_bytes,
+            to_char(nvl(avg(d.cust_dest_files), 0), 'FM99999999999999999999') as cust_dest_files,
+            to_char(nvl(avg(d.cust_dest_bytes), 0), 'FM99999999999999999999') as cust_dest_bytes,
+            to_char(nvl(avg(d.node_files - d.cust_node_files), 0), 'FM99999999999999999999') as noncust_node_files,
+            to_char(nvl(avg(d.node_bytes - d.cust_node_bytes), 0), 'FM99999999999999999999') as noncust_node_bytes,
+            to_char(nvl(avg(d.dest_files - d.cust_dest_files), 0), 'FM99999999999999999999') as noncust_dest_files,
+            to_char(nvl(avg(d.dest_bytes - d.cust_dest_bytes), 0), 'FM99999999999999999999') as noncust_dest_bytes,
+            to_char(nvl(avg(d.src_files), 0), 'FM99999999999999999999') as src_node_files,
+            to_char(nvl(avg(d.src_bytes), 0), 'FM99999999999999999999') as src_node_bytes,
+            to_char(nvl(avg(d.node_files - d.src_files), 0), 'FM99999999999999999999') as nonsrc_node_files,
+            to_char(nvl(avg(d.node_bytes - d.src_bytes), 0), 'FM99999999999999999999') as nonsrc_node_bytes
+        from
+            t_history_dest d,
+            t_adm_node n
+        where
+            n.id = d.node and
+            d.timebin >= :STARTTIME and
+            d.timebin < :ENDTIME
+    };
+
+    my $filters = '';
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        NODE => 'n.name'));
+
+    $sql .= " and ($filters) " if ($filters);
+
+    if ($full_extent)
+    {
+        $sql .= qq {\ngroup by n.name, n.id, n.se_name };
+        $sql .= qq {\norder by n.name };
+    }
+    else
+    {
+        $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n.name, n.id, n.se_name };
+        $sql .= qq {\norder by 1 asc, 2 };
+    }
+
+    $q = execute_sql($core, $sql, %p);
+    while ($_ = $q->fetchrow_hashref())
+    {
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime($_->{'TIMEBIN'}));
+        }
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 1;
