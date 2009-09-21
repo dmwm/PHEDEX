@@ -234,13 +234,13 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     else if ( YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
     else    { return; }
 
+//  Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+    aClasses = tgt.className.split(" ");
+
 //  Highlight the <tr> element in the table that was the target of the "contextmenu" event.
     YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
     var label = tgt.textContent;
     var payload = {};
-
-//  Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
-    aClasses = tgt.className.split(" ");
 
     PHEDEX.Core.ContextMenu.Clear(this);
     var treeMatch = /^phedex-tree-/;
@@ -301,7 +301,8 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       }
       YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
       if (task) {
-	this.payload[task.index](args, opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
+        this.activeItem.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
+//	this.payload[task.index](args, opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
       }
     }
   }
