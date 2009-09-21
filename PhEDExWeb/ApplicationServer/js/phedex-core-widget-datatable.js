@@ -65,15 +65,15 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 
 // A split-button and menu for the show-all-columns function
   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
-  var aSpan = document.createElement('span');
-  YAHOO.util.Dom.insertBefore(aSpan,that.dom.control.firstChild);
+//  var aSpan = document.createElement('span');
+//  YAHOO.util.Dom.insertBefore(aSpan,that.dom.control.firstChild);
   that.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all columns",
       name: 'showFields_'+PHEDEX.Util.Sequence(),
       menu: that.column_menu,
-      container: that.dom.param, //aSpan, // that.dom.header,
+      container: that.dom.param,
       disabled:true
     }
   );
