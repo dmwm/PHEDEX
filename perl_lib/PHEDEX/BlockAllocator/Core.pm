@@ -457,7 +457,8 @@ sub blockDestinations
                  and 
                  (bd.time_suspend_until is null or bd.time_suspend_until <= :now))
              -- update user suspension
-             or (bd.state <= 2 and trunc(bd.time_suspend_until) != trunc(s.time_suspend_until))
+             or (bd.state <= 2 
+                 and nvl(trunc(bd.time_suspend_until),-1) != nvl(trunc(s.time_suspend_until),-1))
              -- suspension in effect, update state
              or (bd.state < 2
                  and bd.time_suspend_until is not null
