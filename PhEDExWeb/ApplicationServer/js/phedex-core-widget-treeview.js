@@ -306,7 +306,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       }
     }
   }
-  PHEDEX.Core.ContextMenu.Add('treeView','Hide This Field', function(args,opts,el) {
+  PHEDEX.Core.ContextMenu.Add('treeView','Hide This Field', function(opts,el) {
     var elPhedex = that.locateNode(el.target);
     var elClass = that.getPhedexFieldClass(elPhedex);
     that.hideFieldByClass(elClass);
