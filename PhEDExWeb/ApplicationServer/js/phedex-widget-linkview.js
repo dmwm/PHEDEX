@@ -25,7 +25,7 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
   var config = PHEDEX.Util.getConfig(divid);
 
   var branchDef1 = [
-          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['Node','sort-alpha'] },
+          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['node','sort-alpha'] },
 	  {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
           {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
           {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
@@ -41,8 +41,8 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 // - compare their offsetHeights.
 // - if the span offsetHeight is greater than the div, the word is truncated to fit!
   var branchDef2 = [
-	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left',  contextArgs:['Block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
-	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id',    otherClasses:'align-right', contextArgs:['Block','sort-num'] },
+	  {width:600,text:'Block Name',  className:'phedex-tree-block-name',  otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+	  {width: 80,text:'Block ID',    className:'phedex-tree-block-id',    otherClasses:'align-right', contextArgs:['block','sort-num'] },
 	  {width: 80,text:'State',       className:'phedex-tree-state',       otherClasses:'phedex-tnode-auto-height' },
           {width: 80,text:'Priority',    className:'phedex-tree-priority',    otherClasses:'phedex-tnode-auto-height' },
           {width: 80,text:'Files',       className:'phedex-tree-block-files', otherClasses:'phedex-tnode-auto-height align-right' },
@@ -50,8 +50,8 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 	  {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',otherClasses:'align-right', contextArgs:'sort-num' }
     ];
   var branchDef3 = [
-	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['File','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
-	  {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['File','sort-num'] },
+	  {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+	  {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['file','sort-num'] },
 	  {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
 	  {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-num' },
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
@@ -382,6 +382,6 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 }
 
 // What can I respond to...?
-PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.node).update(); });
+// PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.node).update(); });
 PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.LinkView','node','Show Links',PHEDEX.Widget.LinkView);
 YAHOO.log('loaded...','info','Widget.LinkView');
