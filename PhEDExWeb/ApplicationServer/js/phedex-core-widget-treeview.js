@@ -512,12 +512,12 @@ PHEDEX.Core.Widget.TreeView.prepareSort=function(el,sortFn) {
   var thisClass = obj.getPhedexFieldClass(target);
   obj.sort(node,thisClass,sortFn);
 }
-PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.asc ); });
-PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.desc); });
-PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Ascending', function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.bytes.asc ); });
-PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Descending',function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.bytes.desc); });
-PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.alpha.asc ); });
-PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.alpha.desc); });
-PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending',       function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.numeric.asc ); });
-PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',      function(args,opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.numeric.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Ascending', function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.bytes.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-bytes','Sort Bytes Descending',function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.bytes.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Ascending',       function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.alpha.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-alpha','Sort Descending',      function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.alpha.desc); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Ascending',       function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.numeric.asc ); });
+PHEDEX.Core.ContextMenu.Add('sort-num',  'Sort Descending',      function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.numeric.desc); });
 YAHOO.log('loaded...','info','Core.TreeView');
