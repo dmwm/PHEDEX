@@ -211,7 +211,7 @@ sub start_batch
     return ($jobid, $jobdir, $job->{TASKS});
 }
 
-# Remove and reutrn up to $batch_size tasks from the $tasklist
+# Remove and return up to $batch_size tasks from the $tasklist
 sub batch_tasks
 {
     my ($self, $tasklist, $batch_size) = @_;
@@ -358,7 +358,7 @@ sub resume_transfer_jobs
     foreach $taskid ( keys %{$job->{TASKS}} )
     {
       $task = $job->{TASKS}{$taskid};
-      if (!$task || !%{$task} || !$task->{TASKID}) { # minimal validation
+      if (!$task || (ref($task) ne 'HASH') || !$task->{TASKID}) { # minimal validation
 	  delete $job->{TASKS}{$taskid};
 	  next;
       }
