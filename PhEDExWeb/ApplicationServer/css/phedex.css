@@ -227,38 +227,28 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 /*   overflow-x: hidden; */
 }
 
-div#phedex-nav {
-  float:	left;
+.phedex-nav-component {
+  float: left;
 }
 
-div#phedex-nav-type {
-  float:	left;
-}
 
-div#phedex-nav-target {
-  float:	left;
+div.phedex-nav-target {
   width:	13em;
 }
 
-div#phedex-nav-target input.yui-ac-input {
+div.phedex-nav-target input.yui-ac-input {
   position:	relative;
 }
 
-div#phedex-nav-page {
-  float:	left;
-}
-
-div#phedex-nav-filter {
-  float:	left;
+div.phedex-nav-filter {
   width:	30em;
 }
 
-input#phedex-nav-filter-input {
+input.phedex-nav-filter-input {
   width:	100%;
 }
 
-div#phedex-nav-link {
-  float:	left;
+div.phedex-nav-link {
   margin-left:	1em;
   padding:	0.2em;
 }
