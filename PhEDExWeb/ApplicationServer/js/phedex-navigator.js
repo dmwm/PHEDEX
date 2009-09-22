@@ -39,7 +39,7 @@ PHEDEX.Navigator=(function() {
 
   // private methods
   var _initTypeSelector = function(el) {
-    var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type'});
+    var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type', className:'phedex-nav-component'});
     
     // get registered target types
     var types = PxR.getInputTypes();
@@ -66,7 +66,7 @@ PHEDEX.Navigator=(function() {
   };
 
   var _initTargetSelectors = function(el) {
-    var targetdiv = PxU.makeChild(el, 'div', {id:'phedex-nav-target'});
+    var targetdiv = PxU.makeChild(el, 'div', {id:'phedex-nav-target', className:'phedex-nav-component phedex-nav-target'});
     for (var t in _target_types) {
       // TODO:  possible to call a vairable function name?
       if (t == 'node') {
@@ -82,7 +82,7 @@ PHEDEX.Navigator=(function() {
 
   var _node_ds; // YAHOO.util.LocalDataSource
   var _initNodeSelector = function(el) {
-    var nodesel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-nodesel'});
+    var nodesel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-nodesel', className:'phedex-nav-component'});
     var makeNodeList = function(data) {
       data = data.node;
       var nodelist = [];
@@ -112,13 +112,13 @@ PHEDEX.Navigator=(function() {
   };
 
   var _initTextSelector = function(el, type) {
-    var sel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-'+type});
+    var sel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-'+type, className:'phedex-nav-component'});
     var input = PxU.makeChild(sel, 'input', { type:'text' });
   };
 
   var _initPageSelector = function(el) {
-    var pagediv = PxU.makeChild(el, 'div', { id:'phedex-nav-page' });
-    
+    var pagediv = PxU.makeChild(el, 'div', { id:'phedex-nav-page', className:'phedex-nav-component' });
+
     var widgets = PxR.getWidgetsByInputType(_cur_target_type);
     YAHOO.log('widgets='+YAHOO.lang.dump(widgets));
     var menu_data = [];
@@ -142,14 +142,15 @@ PHEDEX.Navigator=(function() {
   };
 
   var _initGlobalFilter = function(el) {
-    var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter' });
+    var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', className:'phedex-nav-component phedex-nav-filter' });
     var input = PxU.makeChild(filterdiv, 'input', 
-			      { id: 'phedex-nav-filter-input',
+			      { id: 'phedex-nav-filter-input', className:'phedex-nav-filter-input',
 				type: 'text' });
+    var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', className:'phedex-nav-component phedex-nav-link', innerHTML:'(Global Filter Control Placeholder)' });
   };
 
   var _initPermaLink = function(el) {
-    var linkdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-link' });
+    var linkdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-link', className:'phedex-nav-component phedex-nav-link' });
     var a = PxU.makeChild(linkdiv, 'a',
 			  { id:'phedex-nav-filter-link',
 			    innerHTML:'Link',
@@ -287,7 +288,7 @@ PHEDEX.Navigator=(function() {
 
       // build GlobalFilter
       _initGlobalFilter(el);
-      
+
       // build Permalink
       _initPermaLink(el);
 
