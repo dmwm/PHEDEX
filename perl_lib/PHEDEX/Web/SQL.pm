@@ -1869,7 +1869,7 @@ sub getDataSubscriptions
     $sql = qq {
         select
             s.request,
-            NVL2(s.block, 'BLOCK', 'DATASET') "level",
+            NVL2(s.block, 'block', 'dataset') "level",
             NVL2(s.block, s.block, s.dataset) item_id,
             NVL2(s.block, b.name, ds.name) item_name,
             NVL2(s.block, b.is_open, ds.is_open) open,
