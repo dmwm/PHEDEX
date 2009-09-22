@@ -17,7 +17,7 @@ use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw ( process_args checkRequired error auth_nodes );
+our @EXPORT = qw ( process_args checkRequired error auth_nodes check_args );
 
 # process arguments used for common features
 sub process_args
@@ -134,5 +134,24 @@ sub auth_nodes
     }
 }
 
+# check_args -- check arguments
+# so far, it only changes the arguments to upper case, including
+# operator keys (not operators themselves)
+
+sub check_args
+{
+    my ($keys, %h) = @_;
+    foreach (split(' ', $keys))
+    {
+        $h{uc $_} = delete $h{$_} if exists $h{$_};
+    }
+
+    foreach (keys %{$h{OPERATORS}})
+    {
+        $h{OPERATORS}{uc $_} = delete $h{OPERATORS}{$_}
+    }
+
+    return %h;
+}
 
 1;
