@@ -249,9 +249,11 @@ PHEDEX.Core.Widget = function(divid,opts) {
 // for showing/hiding extra control-divs, like the classic extra-div
   this.onShowExtra      = new YAHOO.util.CustomEvent("onShowExtra", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideExtra      = new YAHOO.util.CustomEvent("onHideExtra", this, false, YAHOO.util.CustomEvent.LIST);
-  
-  // FIXME:  the below is incompatible with window = false, why?
-  // Or, put another way, can the panel be made to grow correctly without this?
+
+  this.onFilterAccept   = new YAHOO.util.CustomEvent("onFilterAccept", this, false, YAHOO.util.CustomEvent.LIST);
+
+// adjustHeader is not needed with window = false, because the module-height is not defined if it is not
+// confined in a resizeable component. If the module-height is not defined then there is no need to adjust it.
   if (this.options.window) {
     this.onShowExtra.subscribe(function(ev,arg) { this.adjustHeader( arg[0]); });
     this.onHideExtra.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
@@ -268,19 +270,23 @@ PHEDEX.Core.Widget = function(divid,opts) {
    pixels. Used for making/reclaiming space for extra-divs etc */
   this.adjustHeader=function(arg) {
     var oheight = parseInt(this.module.cfg.getProperty("height"));
+    if ( isNaN(oheight) ) { return; } // nothing to do, no need to adjust if the height is not specified
     var hheight = parseInt(this.module.header.offsetHeight);
     this.module.header.style.height=(hheight+arg)+'px';
     this.module.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
-  PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
+//   PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
+  this.onFilterAccept.subscribe( function(obj) {
     return function() {
+debugger;
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Core.Widget');
       obj.filter.Parse();
     }
   }(this));
     PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
+debugger;
       YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
       obj.ctl.filter.Hide();
       obj.applyFilter(arr[0]);
@@ -303,8 +309,11 @@ PHEDEX.Core.Widget = function(divid,opts) {
     YAHOO.util.Dom.insertBefore(this.ctl.extra.el,this.dom.control.firstChild);
     
     // filter
-    var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]], 
-		     visible:false, autofillheight:'body', width:this.dom.body.offsetWidth+'px'};
+    var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]],
+		     visible:false,
+		     autofillheight:'body',
+		     width:this.dom.body.offsetWidth+'px'
+		   };
     this.ctl.filter = new PHEDEX.Core.Control({text:'Filter',
 					       payload:{target:this.dom.filter,
 							fillFn:this.filter.Build,
