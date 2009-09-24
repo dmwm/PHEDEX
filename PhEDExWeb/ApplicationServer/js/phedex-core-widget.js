@@ -13,6 +13,9 @@ var PxU = PHEDEX.Util;
 //TODO: Prototype instead of instance based subclassing.
 
 PHEDEX.Core.Widget = function(divid,opts) {
+// Base object definitions, shared between all PhEDEx objects
+  YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+
 // Require divid of some kind
   if ( !divid ) { throw new Error("must provide div name to contain widget"); }
 
@@ -58,8 +61,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.textNodeMap = [];
   this.hideByDefault = [];
   this.control = [];
-  this.dom    = [];
-  this.ctl    = [];
   this.data   = [];
 //   this.structure = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}, filter:{}};
   this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
@@ -81,10 +82,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.dom.body = PxU.makeChild(this.div, 'div', {className:'bd', id:this.id+'_body'});
   this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
   this.dom.footer = PxU.makeChild(this.div, 'div', {className:'ft'});
-
-  // FIXME:  ??? why is this here?
-  this.dom.filter = document.createElement('div');
-  this.dom.filter.id = this.id+'_filter';
 
 // Create the module
   var module_options = {
