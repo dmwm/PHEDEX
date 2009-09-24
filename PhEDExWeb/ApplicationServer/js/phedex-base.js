@@ -21,3 +21,14 @@ PHEDEX.namespace = function() {
 
     return o;
 };
+
+PHEDEX.namespace('Base');
+PHEDEX.Base.Object = function() {
+  return {
+//  onHideFilter: new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST),
+    dom: [],
+    ctl: [],
+    options: {},
+    me: function() { YAHOO.log('unimplemented "me"','error','undefined'); return 'undefined'; },
+  };
+}
