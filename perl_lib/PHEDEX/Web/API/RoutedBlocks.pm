@@ -39,7 +39,7 @@ Currently routed blocks, as well as failed routing attempts (invalid routes)
   to_id            to_node id
   to_se            to_node storage element
   priority         priority of the route
-  valid            whether the route is valid
+  valid            y/n, whether the route is valid
 
 =head3 <block> attributes: 
 
