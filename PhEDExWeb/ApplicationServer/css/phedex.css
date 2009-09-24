@@ -13,6 +13,8 @@ body {
 .phedex-box-yellow    { border: 1px solid #ff8; background-color: #ffe; }
 .phedex-box-mauve     { border: 1px solid #f8f; background-color: #fef; }
 .phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
+.float-left    { float: left; }
+.float-right   { float: right; }
 .align-left    { text-align: left; }
 .align-right   { text-align: right; }
 .align-justify { text-align: justify; }
@@ -122,6 +124,10 @@ a.phedex-link-current {
 .phedex-filter-elem-minmax {
   width: 80px;
   padding: 0 0 0 2em;
+}
+.phedex-global-filter {
+  margin: 5px 0 0;
+/*   border: 1px solid blue; */
 }
 
 .phedex-core-param {
