@@ -20,7 +20,9 @@ PHEDEX.Global.Filter=function(el) {
   document.body.appendChild(this.filterPanel);
   document.getElementById(el).innerHTML='';
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
-  this.onHideFilter  = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideFilter   = new YAHOO.util.CustomEvent("onHideFilter",   this, false, YAHOO.util.CustomEvent.LIST);
+  this.onFilterAccept = new YAHOO.util.CustomEvent("onFilterAccept", this, false, YAHOO.util.CustomEvent.LIST);
+
   this.ctl.filter = new PHEDEX.Core.Control({text:'Global Filter',
                                             payload:{render:el, //filterpaneldiv,
 					      target:this.filterPanel,
@@ -42,23 +44,14 @@ PHEDEX.Global.Filter=function(el) {
     }
   }(this));
 
-// TODO This is duplicate code with PHEDEX.Core.Widget. It could be abstracted further, only the 'Global' changes between the two versions
-  PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
+  this.onFilterAccept.subscribe( function(obj) {
     return function() {
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Global');
       obj.filter.Parse();
     }
   }(this));
-//   PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
-//     return function(ev,arr) {
-//       YAHOO.log('onFilterValidated:'+obj.me(),'info','Global');
-//       obj.ctl.filter.Hide();
-//       obj.applyFilter(arr[0]);
-//     }
-//   }(this));
   PHEDEX.Event.onFilterDefinition.subscribe( function(obj) {
     return function(ev,arr) {
-debugger;
       var args = arr[0];
       var widget = arr[1];
       if ( obj.widgets[widget] ) { return; } // already seen this one...
@@ -68,7 +61,7 @@ debugger;
       obj.widgets[widget] = [];
       for (var i in args) {
 	for (var j in args[i]) {
-	  obj.widgets[widget][j] = i; // args[i][j];
+	  obj.widgets[widget][j] = i;
 	}
       }
     }
@@ -76,7 +69,9 @@ debugger;
 
   PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
-      var str = obj.filter.asString();
+debugger;
+      var args = arr[0];
+      var str = obj.filter.asString(args);
       YAHOO.log('onFilterValidated:'+obj.me()+' '+str,'info','Global');
       var el = document.getElementById('phedex-nav-filter-input');
       el.value = str;
