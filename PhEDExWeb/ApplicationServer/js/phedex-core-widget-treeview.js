@@ -267,14 +267,14 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   }
 
 // Create a context menu, with default entries for treeView widgets
-  that.buildContextMenu=function() {
+  that.buildContextMenu=function(typeMap) {
     that.contextMenuArgs=[];
-    for (var i=0; i< arguments.length; i++ ) { that.contextMenuArgs[that.contextMenuArgs.length] = arguments[i]; }
     that.contextMenuArgs.push('treeView');
     that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dom.content});
     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
   }
+
   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
 //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.TreeView');

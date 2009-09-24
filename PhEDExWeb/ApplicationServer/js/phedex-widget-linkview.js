@@ -382,6 +382,6 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 }
 
 // What can I respond to...?
-// PHEDEX.Core.ContextMenu.Add('Node','Show Links',function(args,opts,el) { PHEDEX.Widget.LinkView(opts.node).update(); });
-PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.LinkView','node','Show Links',PHEDEX.Widget.LinkView);
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.LinkView','node','Show Links',
+				PHEDEX.Widget.LinkView,{context_item:true});
 YAHOO.log('loaded...','info','Widget.LinkView');
