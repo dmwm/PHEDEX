@@ -2532,13 +2532,16 @@ sub getRoutedBlocks
             ns.se_name from_se,
             nd.name "to",
             nd.id to_id,
-            nd.se_name to_name,
+            nd.se_name to_se,
             b.name block,
             b.id block_id,
             b.files,
             b.bytes,
             s.priority,
-            s.is_valid valid,
+            case s.is_valid
+                when 1 then 'y'
+                else 'n'
+            end valid,
             s.route_files,
             s.route_bytes,
             s.xfer_attempts,
@@ -2557,10 +2560,21 @@ sub getRoutedBlocks
 
     build_multi_filters($core, \$filters, \%p, \%h, (
         FROM => 'ns.name',
-        VALID => 's.is_valid',
         TO => 'nd.name'));
 
     $sql .= qq { and ($filters) } if ($filters);
+
+    if (exists $h{VALID})
+    {
+        if ($h{VALID} eq 'y')
+        {
+            $sql .= " and s.is_valid = 1 ";
+        }
+        elsif ($h{VALID} eq 'n')
+        {
+            $sql .= " and s.is_valid = 0 ";
+        }
+    }
 
     if (exists $h{BLOCK})
     {
