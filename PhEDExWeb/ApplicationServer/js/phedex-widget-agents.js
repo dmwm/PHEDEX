@@ -34,7 +34,7 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
     return y;
   }
  that.filter.init( {
-    'Node attributes':{
+    'Agent attributes':{
       'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
       'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
       'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
