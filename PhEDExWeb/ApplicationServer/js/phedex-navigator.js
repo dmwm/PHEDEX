@@ -26,9 +26,9 @@ PHEDEX.Navigator=(function() {
   // the current target, set by the target selector
   var _cur_target = "";
 
-  // _cur_page
-  // the current page, set by the page selector
-  var _cur_page = "";
+  // _cur_widget
+  // the current widget, set by the widget selector
+  var _cur_widget = "";
   var _cur_widget_obj;
 
   // _cur_filter
@@ -116,8 +116,8 @@ PHEDEX.Navigator=(function() {
     var input = PxU.makeChild(sel, 'input', { type:'text' });
   };
 
-  var _initPageSelector = function(el) {
-    var pagediv = PxU.makeChild(el, 'div', { id:'phedex-nav-page', className:'phedex-nav-component' });
+  var _initWidgetSelector = function(el) {
+    var widgetdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-widget', className:'phedex-nav-component' });
 
     var widgets = PxR.getWidgetsByInputType(_cur_target_type);
     YAHOO.log('widgets='+YAHOO.lang.dump(widgets));
@@ -126,17 +126,17 @@ PHEDEX.Navigator=(function() {
       w = widgets[w];
       menu_data.push({ text:w.label, value:w } );
     }
-    _cur_page = widgets[0].widget;
+    _cur_widget = widgets[0].widget;
 
     var menu = new YAHOO.widget.Button({ type:"menu",
 					 label:widgets[0].label,
 					 menu:menu_data,
-					 container:pagediv });
+					 container:widgetdiv });
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       this.set("label", oMenuItem.cfg.getProperty("text"));
-      var page = oMenuItem.value.widget;
-      _setPage(page);
+      var widget = oMenuItem.value.widget;
+      _setWidget(widget);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -192,13 +192,13 @@ PHEDEX.Navigator=(function() {
     }
   };
 
-  var _setPage = function(page) {
-    var old = _cur_page;
-    if (!page) { page = _cur_page; }
-    else       { _cur_page = page; }
+  var _setWidget = function(widget) {
+    var old = _cur_widget;
+    if (!widget) { widget = _cur_widget; }
+    else       { _cur_widget = widget; }
 
     if (old != _cur_target_type) {
-      _pageChangeEvent.fire({'old':old,'cur':_cur_page});
+      _widgetChangeEvent.fire({'old':old,'cur':_cur_widget});
     }
   };
 
@@ -206,27 +206,27 @@ PHEDEX.Navigator=(function() {
   var _parseFilter = function() {};
 
   // private events
-  // fired whenever any navigation change occurs, passes the new (type, target, page, filter)
+  // fired whenever any navigation change occurs, passes the new (type, target, widget, filter)
   var _navChangeEvent = new YAHOO.util.CustomEvent('NavChange');
   // fired when the target type changed, passes {prev:, cur:}
   var _targetTypeChangeEvent = new YAHOO.util.CustomEvent('TargetTypeChange');
   // fired when the target changed, passes {prev:, cur:}
   var _targetChangeEvent = new YAHOO.util.CustomEvent('TargetChange');
-  // fired when the page changed, passes {prev:, cur:}
-  var _pageChangeEvent = new YAHOO.util.CustomEvent('PageChange');
-  // fired when the filter changed, passes (old_page, new_page)
+  // fired when the widget changed, passes {prev:, cur:}
+  var _widgetChangeEvent = new YAHOO.util.CustomEvent('WidgetChange');
+  // fired when the filter changed, passes (old_widget, new_widget)
   var _filterChangeEvent = new YAHOO.util.CustomEvent('FilterChange');
 
   // event binding
   var _fireNavChange = function() { 
     _navChangeEvent.fire({'type':_cur_target_type,
 			  'target':_cur_target,
-			  'page':_cur_page,
+			  'widget':_cur_widget,
 			  'filter':_cur_filter});
   }
   _targetTypeChangeEvent.subscribe(_fireNavChange);
   _targetChangeEvent.subscribe(_fireNavChange);
-  _pageChangeEvent.subscribe(_fireNavChange);
+  _widgetChangeEvent.subscribe(_fireNavChange);
   _filterChangeEvent.subscribe(_fireNavChange);
 
   // on nav change, validate current values and (maybe) instantiate widget
@@ -234,16 +234,16 @@ PHEDEX.Navigator=(function() {
   _navChangeEvent.subscribe(function(evt, args) {
     args = args[0];
     YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
-	      " page="+args.page+" filter="+args.filter,
+	      " widget="+args.widget+" filter="+args.filter,
 	      'info', 'Navigator');
     // TODO: careful validation goes here...
-    if (_cur_page && _cur_target_type && _cur_target) {
+    if (_cur_widget && _cur_target_type && _cur_target) {
       YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
-		" widget="+_cur_page,
+		" widget="+_cur_widget,
 		'info', 'Navigator');
       if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
       _nav_construct = true; // prevent interception of our own construct event
-      var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 
+      var widget = PxR.construct(_cur_widget, _cur_target_type, _cur_target, 
 				 'phedex-main', { window: false });
       _nav_construct = false;
       _cur_widget_obj = widget;
@@ -257,14 +257,14 @@ PHEDEX.Navigator=(function() {
     YAHOO.log("heard beforeConstruct for widget="+args.widget+" type="+args.type+" data="+args.data,
 	      'info', 'Navigator');
     // TODO:  change the navigator GUI elements
-    _cur_page = args.widget;
+    _cur_widget = args.widget;
     _cur_target_type = args.type;
     _cur_target = args.data;
     var args = args.args || {};
     args.window = false;
     // TODO:  same as above... make utility function
     if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
-    var widget = PxR.construct(_cur_page, _cur_target_type, _cur_target, 
+    var widget = PxR.construct(_cur_widget, _cur_target_type, _cur_target, 
 			       'phedex-main', args);
     _cur_widget_obj = widget;
     widget.update();
@@ -283,8 +283,8 @@ PHEDEX.Navigator=(function() {
       _initTargetSelectors(el);
       _setTargetType();
 
-      // build Page Selector for each type
-      _initPageSelector(el);
+      // build Widget Selector for each type
+      _initWidgetSelector(el);
 
       // build GlobalFilter
       _initGlobalFilter(el);
@@ -292,19 +292,19 @@ PHEDEX.Navigator=(function() {
       // build Permalink
       _initPermaLink(el);
 
-      // get desired page state (or use defaults)
+      // get desired widget state (or use defaults)
       // instantiate a widget
     },    
     // public methods
     addTarget: function(target) {},
-    addPage: function(page) {},
+    addWidget: function(widget) {},
 
     getTarget: function() {},
-    getPage:   function() {},
+    getWidget:   function() {},
 
-    // call to change the target and/or page
+    // call to change the target and/or widget
     // this is used when  e.g. a context menu item within a widget is selected
-    change: function(target, page) {},
+    change: function(target, widget) {},
 
     // public events
     // fired when the filter changes, passes (filter)
