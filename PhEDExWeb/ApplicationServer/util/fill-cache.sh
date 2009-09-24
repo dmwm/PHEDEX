@@ -6,7 +6,7 @@ perlUrl=http://localhost:30001/phedex/datasvc/perl/prod
 jsonUrl=http://localhost:30001/phedex/datasvc/json/prod
 
 # Fetch the nodes and pull out their names
-wget -O - $perlUrl/nodes | grep NAME | grep -v TX_ | awk -F\' ' { print $4 }' | sort | tee nodes
+wget -O - $perlUrl/nodes | grep NAME | grep -v TX_ | awk -F\' ' { print $4 }' | egrep '^T0|^T1|^T2|^T3' | sort | tee nodes
 
 # fetch it again as JSON, that's what the cache really needs!
 wget --quiet -O /dev/null $jsonUrl/nodes
