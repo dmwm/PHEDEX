@@ -1927,6 +1927,32 @@ sub getDataSubscriptions
                                                       GROUP => 'g.name'
 						      ));
 
+    if (exists $h{SUSPENDED})
+    {
+        if ($h{SUSPENDED} eq 'y')
+        {
+            if ($filters)
+            {
+                $filters .= qq { and not s.time_suspend_until is null };
+            }
+            else
+            {
+                $filters = qq { not s.time_suspend_until is null };
+            }
+        }
+        elsif ($h{SUSPENDED} eq 'n')
+        {
+            if ($filters)
+            {
+                $filters .= qq { and s.time_suspend_until is null };
+            }
+            else
+            {
+               $filters = qq { s.time_suspend_until is null };
+            }
+        }
+    }
+
     if (exists $h{NODE})
     {
         if ($filters)
@@ -1974,19 +2000,6 @@ sub getDataSubscriptions
             $filters = " s.time_create >= :create_since ";
         }
         $p{':create_since'} = &str2time($h{CREATE_SINCE});
-    }
-
-    if (exists $h{UPDATE_SINCE})
-    {
-        if ($filters)
-        {
-            $filters .= " and (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
-        }
-        else
-        {
-            $filters = " (b.time_update >= :update_since or ds.time_update >= :update_since ) ";
-        }
-        $p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
     if (exists $h{PRIORITY})
