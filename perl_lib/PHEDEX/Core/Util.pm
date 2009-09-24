@@ -82,7 +82,7 @@ sub priority_num
     my %priority_nums = reverse %priority_names;
     my $priority = $priority_nums{lc $priority_name};
     
-    if (defined $local_remote) {
+    if ($local_remote) {
 	$priority = $priority*2 + $local_remote;
     }
     
