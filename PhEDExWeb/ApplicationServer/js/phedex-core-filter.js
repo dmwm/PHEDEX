@@ -16,6 +16,10 @@ PHEDEX.namespace('Core');
 // work well enough and keep the code acceptably clean, though I'm sure there really ought to be a better way than this.
 PHEDEX.Core.Filter = function(obj) {
 //   var Cfg = obj.filter;
+
+  obj.dom.filter = document.createElement('div');
+  obj.dom.filter.id = this.id+'_filter';
+
   return {
     filter: {
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -105,6 +109,7 @@ PHEDEX.Core.Filter = function(obj) {
 	    this.fields[j] = args[i][j];
 	  }
 	}
+	PHEDEX.Event.onFilterDefinition.fire(args,obj.me());
       },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
@@ -302,6 +307,32 @@ PHEDEX.Core.Filter = function(obj) {
       isApplied: function() { return this.count; },
       destroy: function() {
         if ( this.overlay && this.overlay.element ) { this.overlay.destroy(); }
+      },
+
+      asString: function() {
+	var str = '';
+	var args = this.args;
+	for (var key in args) {
+          if ( typeof(args[key].value) == 'undefined' ) { continue; }
+	  var fValue = args[key].value;
+	  if ( args[key].format ) { fValue = args[key].format(fValue); }
+	  var negate = args[key].negate;
+	  var seg = '';
+	  if ( negate ) { seg = '!'; }
+          if ( typeof(fValue) == 'object' ) {
+	    var c = 0, seg1, seg2;
+	    if ( fValue.min != null ) { c++; seg1 = key+'>'+fValue.min; }
+	    if ( fValue.max != null ) { c++; seg2 = key+'<'+fValue.max; }
+	    if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
+	    if ( c == 1 ) { seg += ( seg1 || seg2 ); } // one or the other is set
+	    if ( c == 2 ) { seg += seg1 +'&'+ seg2; }  // both are set
+	  } else {
+	    seg += key+'='+fValue;
+	  }
+	  if ( str ) { str += ','; }
+	  str += seg;
+	}
+	return str;
       }
     }
   }
