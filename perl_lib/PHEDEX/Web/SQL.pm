@@ -2437,12 +2437,12 @@ sub getDeletions
 
     if (exists $h{REQUEST_SINCE})
     {
-        $sql .= " and del.time_resuest >= " . str2time($h{REQUEST_SINCE}, $h{REQUEST_SINCE}) . " ";
+        $sql .= " and del.time_request >= " . str2time($h{REQUEST_SINCE}, $h{REQUEST_SINCE}) . " ";
     }
 
     if (exists $h{COMPLETE_SINCE})
     {
-        $sql .= " and del.time_resuest >= " . str2time($h{COMPLETE_SINCE}, $h{COMPLETE_SINCE}) . " ";
+        $sql .= " and del.time_request >= " . str2time($h{COMPLETE_SINCE}, $h{COMPLETE_SINCE}) . " ";
     }
 
     $sql .= qq {
