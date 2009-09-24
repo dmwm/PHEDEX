@@ -19,13 +19,13 @@ Show existing subscriptions and their parameters.
   node             node name (wildcards)
   se               storage element
   create_since     timestamp. only subscriptions created after.
-  update_since     timestamp. only subscriptions updated after.
   request request  number which created the subscription.
   custodial        y or n to filter custodial/non subscriptions.
                    default is null (either)
   group            group name filter 
   priority         priority, one of "low", "normal" and "high"
   move             y (move) or n (replica)
+  suspended        y or n, default is either
 
 =head2 Output
 
@@ -95,6 +95,7 @@ my $map = {
         custodial => 'CUSTODIAL',
         group => 'GROUP',
         time_created => 'TIME_CREATE',
+        time_update => 'TIME_UPDATE',
         suspended => 'SUSPENDED',
         suspend_until => 'SUSPEND_UNTIL'
     }
@@ -125,12 +126,12 @@ my $map2 = {
             custodial => 'CUSTODIAL',
             group => 'GROUP',
             time_created => 'TIME_CREATE',
+            time_update => 'TIME_UPDATE',
             suspended => 'SUSPENDED',
             suspend_until => 'SUSPEND_UNTIL'
         }
     }
 };
-            
 
 sub duration { return 60 * 60; }
 sub invoke { return subscriptions(@_); }
@@ -140,7 +141,7 @@ sub subscriptions
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / dataset block node se create_since update_since request custodial group move priority / )
+    foreach ( qw / dataset block node se create_since request custodial group move priority suspended / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -150,11 +151,11 @@ sub subscriptions
     my (@dataset, @block);
     foreach (@{$r})
     {
-        if ($_->{'LEVEL'} eq 'DATASET')
+        if ($_->{'LEVEL'} eq 'dataset')
         {
             push @dataset, $_;
 	}
-	elsif ($_->{'LEVEL'} eq 'BLOCK')
+	elsif ($_->{'LEVEL'} eq 'block')
         {
             push @block, $_;
         }
