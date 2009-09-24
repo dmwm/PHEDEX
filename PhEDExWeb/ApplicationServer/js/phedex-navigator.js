@@ -21,15 +21,20 @@ PHEDEX.Navigator=(function() {
   //   label   : (string) visible label for this target type
   var _target_types = {};
   var _cur_target_type = "";
+  var _update_target_type_gui = function() {};
 
   // _cur_target
   // the current target, set by the target selector
   var _cur_target = "";
 
+  // function reference: sets the graphical representation to _cur_target
+  var _update_target_gui = function() {};
+
   // _cur_widget
   // the current widget, set by the widget selector
   var _cur_widget = "";
   var _cur_widget_obj;
+  var _update_widget_gui = function() {};
 
   // _cur_filter
   // a string containing filter arguments
@@ -59,8 +64,11 @@ PHEDEX.Navigator=(function() {
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       var type = oMenuItem.cfg.getProperty("text");
-      this.set("label", type);
       _setTargetType(type);
+    };
+
+    _update_target_type_gui = function() {
+      menu.set("label", _cur_target_type);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -109,11 +117,18 @@ PHEDEX.Navigator=(function() {
       _setTarget(node);
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
+
+    _update_target_gui = function() {
+      input.value = _cur_target;
+    };
   };
 
   var _initTextSelector = function(el, type) {
     var sel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-'+type, className:'phedex-nav-component'});
     var input = PxU.makeChild(sel, 'input', { type:'text' });
+    _update_target_gui = function() {
+      input.value = _cur_target;
+    };
   };
 
   var _initWidgetSelector = function(el) {
@@ -134,9 +149,21 @@ PHEDEX.Navigator=(function() {
 					 container:widgetdiv });
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
-      this.set("label", oMenuItem.cfg.getProperty("text"));
       var widget = oMenuItem.value.widget;
       _setWidget(widget);
+    };
+
+    _update_widget_gui = function() {
+      var label;
+      /* FIXME: ugly... I have to iterate through the menu_data to get
+        the relation between widget name (_cur_widget) and widget label, which
+        is all the menu understands... */
+      for (var m in menu_data) {
+	m = menu_data[m];
+	if (m.value.widget == _cur_widget) {
+	  menu.set("label", m.text);
+	}
+      }
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -178,6 +205,7 @@ PHEDEX.Navigator=(function() {
     el.style.position = 'relative';
     
     if (old != _cur_target_type) {
+      _update_target_type_gui();
       _targetTypeChangeEvent.fire({'old':old,'cur':_cur_target_type});
     }
   };
@@ -187,7 +215,8 @@ PHEDEX.Navigator=(function() {
     if (!target) { target = _cur_target; }
     else       { _cur_target = target; }
 
-    if (old != _cur_target_type) {
+    if (old != _cur_target) {
+      _update_target_gui();
       _targetChangeEvent.fire({'old':old,'cur':_cur_target});
     }
   };
@@ -198,6 +227,7 @@ PHEDEX.Navigator=(function() {
     else       { _cur_widget = widget; }
 
     if (old != _cur_target_type) {
+      _update_widget_gui();
       _widgetChangeEvent.fire({'old':old,'cur':_cur_widget});
     }
   };
@@ -257,17 +287,9 @@ PHEDEX.Navigator=(function() {
     YAHOO.log("heard beforeConstruct for widget="+args.widget+" type="+args.type+" data="+args.data,
 	      'info', 'Navigator');
     // TODO:  change the navigator GUI elements
-    _cur_widget = args.widget;
-    _cur_target_type = args.type;
-    _cur_target = args.data;
-    var args = args.args || {};
-    args.window = false;
-    // TODO:  same as above... make utility function
-    if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
-    var widget = PxR.construct(_cur_widget, _cur_target_type, _cur_target, 
-			       'phedex-main', args);
-    _cur_widget_obj = widget;
-    widget.update();
+    _setWidget(args.widget);
+    _setTargetType(args.type);
+    _setTarget(args.data);
     return false; // prevents Core.Widget.Registry from constructing
   });
 
