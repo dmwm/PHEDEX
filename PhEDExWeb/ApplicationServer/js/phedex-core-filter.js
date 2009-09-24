@@ -18,7 +18,7 @@ PHEDEX.Core.Filter = function(obj) {
 //   var Cfg = obj.filter;
 
   obj.dom.filter = document.createElement('div');
-  obj.dom.filter.id = this.id+'_filter';
+  obj.dom.filter.id = obj.id+'_filter';
 
   return {
     filter: {
@@ -137,6 +137,7 @@ PHEDEX.Core.Filter = function(obj) {
 //      Build is provided to the filter-control element as a callback function, so it is called in the scope of the parent object.
 //      Hence here we refer to this.filter.XYZ, instead of this.XYZ directly. 'Build' needs access to the module for the dragEvent,
 //      so access to the outer scope is important. Other functions here should not need the outer scope.
+        if ( args && !obj.options.window ) { args.width = '700px'; } // kludgy way to set filter-overlay-width in 'window:false' mode
 	this.filter._reallyBuild(div,args);
 //	make sure the filter moves with the widget when it is dragged!
 	if (this.options.window) {
@@ -166,7 +167,7 @@ PHEDEX.Core.Filter = function(obj) {
 
 //      fire global events when the buttons are clicked. There is no need for setting a scope to the fire(), subscribers control their own context for global events
         var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
-        buttonAcceptFilter.on('click', function() { PHEDEX.Event.onFilterAccept.fire(); } );
+        buttonAcceptFilter.on('click', function() { /*PHEDEX.Event*/ obj.onFilterAccept.fire(); } );
         var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
         buttonCancelFilter.on('click', function() { PHEDEX.Event.onFilterCancel.fire(); } );
       },
@@ -309,9 +310,9 @@ PHEDEX.Core.Filter = function(obj) {
         if ( this.overlay && this.overlay.element ) { this.overlay.destroy(); }
       },
 
-      asString: function() {
+      asString: function(args) {
 	var str = '';
-	var args = this.args;
+	if ( !args ) { args = this.args; }
 	for (var key in args) {
           if ( typeof(args[key].value) == 'undefined' ) { continue; }
 	  var fValue = args[key].value;
