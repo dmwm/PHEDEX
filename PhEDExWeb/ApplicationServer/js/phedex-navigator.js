@@ -12,8 +12,7 @@ PHEDEX.Navigator=(function() {
   var PxU = PHEDEX.Util;
   var PxR = PHEDEX.Core.Widget.Registry;
 
-  // private properties
-  
+  //========================= Private Properties ======================
   // _target_types
   // hash of targets keyed by the target type name
   // value is an object with the following properties:
@@ -42,9 +41,10 @@ PHEDEX.Navigator=(function() {
   // a hash containing the parsed filter key-value pairs
   var _parsed_filter = {};
 
-  // private methods
+  //========================= Private Methods =========================
   var _initTypeSelector = function(el) {
-    var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type', className:'phedex-nav-component'});
+    var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type', 
+					     className:'phedex-nav-component'});
     
     // get registered target types
     var types = PxR.getInputTypes();
@@ -64,7 +64,7 @@ PHEDEX.Navigator=(function() {
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       var type = oMenuItem.cfg.getProperty("text");
-      _setTargetType(type);
+      _setState({'type':type});
     };
 
     _update_target_type_gui = function() {
@@ -74,7 +74,8 @@ PHEDEX.Navigator=(function() {
   };
 
   var _initTargetSelectors = function(el) {
-    var targetdiv = PxU.makeChild(el, 'div', {id:'phedex-nav-target', className:'phedex-nav-component phedex-nav-target'});
+    var targetdiv = PxU.makeChild(el, 'div', {id:'phedex-nav-target', 
+					      className:'phedex-nav-component phedex-nav-target'});
     for (var t in _target_types) {
       // TODO:  possible to call a vairable function name?
       if (t == 'node') {
@@ -83,14 +84,16 @@ PHEDEX.Navigator=(function() {
 	_initTextSelector(targetdiv, t);
       }
     }
+    _setTargetType();
   };
-
+  
   // Function to get the current target from whatever control is active
   var _getTarget = function() { throw new Error("_getTarget not defined"); };
 
   var _node_ds; // YAHOO.util.LocalDataSource
   var _initNodeSelector = function(el) {
-    var nodesel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-nodesel', className:'phedex-nav-component'});
+    var nodesel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-nodesel', 
+					    className:'phedex-nav-component'});
     var makeNodeList = function(data) {
       data = data.node;
       var nodelist = [];
@@ -102,7 +105,7 @@ PHEDEX.Navigator=(function() {
     };
     PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
   };
-
+  
   var _buildNodeSelector = function(div) {
     var input = PxU.makeChild(div, 'input', { type:'text' });
     var container = PxU.makeChild(div, 'div');
@@ -114,7 +117,7 @@ PHEDEX.Navigator=(function() {
     auto_comp.queryMatchContains = true;
     var nodesel_callback = function(type, args) {
       var node = args[2];
-      _setTarget(node);
+      _setState({'target':node});
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
 
@@ -122,7 +125,7 @@ PHEDEX.Navigator=(function() {
       input.value = _cur_target;
     };
   };
-
+  
   var _initTextSelector = function(el, type) {
     var sel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-'+type, className:'phedex-nav-component'});
     var input = PxU.makeChild(sel, 'input', { type:'text' });
@@ -130,7 +133,7 @@ PHEDEX.Navigator=(function() {
       input.value = _cur_target;
     };
   };
-
+  
   var _initWidgetSelector = function(el) {
     var widgetdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-widget', className:'phedex-nav-component' });
 
@@ -150,9 +153,9 @@ PHEDEX.Navigator=(function() {
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       var widget = oMenuItem.value.widget;
-      _setWidget(widget);
+      _setState({'widget':widget});
     };
-
+    
     _update_widget_gui = function() {
       var label;
       /* FIXME: ugly... I have to iterate through the menu_data to get
@@ -167,22 +170,50 @@ PHEDEX.Navigator=(function() {
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
-
+  
   var _initGlobalFilter = function(el) {
-    var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', className:'phedex-nav-component phedex-nav-filter' });
+    var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', 
+					       className:'phedex-nav-component phedex-nav-filter' });
     var input = PxU.makeChild(filterdiv, 'input', 
-			      { id: 'phedex-nav-filter-input', className:'phedex-nav-filter-input',
+			      { id: 'phedex-nav-filter-input', 
+				className:'phedex-nav-filter-input',
 				type: 'text' });
-    var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', className:'phedex-nav-component phedex-nav-link', innerHTML:'(Global Filter Control Placeholder)' });
+    var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', 
+						    className:'phedex-nav-component phedex-nav-link', 
+						    innerHTML:'(Global Filter Control Placeholder)' });
   };
 
   var _initPermaLink = function(el) {
-    var linkdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-link', className:'phedex-nav-component phedex-nav-link' });
+    var linkdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-link', 
+					     className:'phedex-nav-component phedex-nav-link' });
     var a = PxU.makeChild(linkdiv, 'a',
 			  { id:'phedex-nav-filter-link',
 			    innerHTML:'Link',
 			    href:'#' });
   };
+
+  /* Set the state of the navigator.  If the state has changed, fire
+     the _fireNavChange event.  Note: changes to navigator state *must*
+     pass through this function! */
+  var _setState = function(state) {
+    var changed = 0;
+    if (state.type)   { changed = _setTargetType(state.type) || changed; }
+    if (state.target) { changed = _setTarget(state.target)   || changed; }
+    if (state.widget) { changed = _setWidget(state.widget)   || changed; }
+    if (changed)      { _fireNavChange(); }
+  };
+
+  /* Fire the navigator change event with the current state */
+  var _fireNavChange = function() { 
+    _navChangeEvent.fire({'type'  :_cur_target_type,
+			  'target':_cur_target,
+			  'widget':_cur_widget,
+			  'filter':_cur_filter});
+  }
+
+  /* Below are the individual _set{state} funcitons.  They must not be
+     called execpt through _setState, otherwise widget construction is
+     bypassed! */
 
   /* TODO: hidden/visible a wise way to manage these elements? I don't
      want to rebuild them on every target-chagne, but maybe there's a
@@ -207,7 +238,8 @@ PHEDEX.Navigator=(function() {
     if (old != _cur_target_type) {
       _update_target_type_gui();
       _targetTypeChangeEvent.fire({'old':old,'cur':_cur_target_type});
-    }
+      return 1;
+    } else { return 0; }
   };
 
   var _setTarget = function(target) {
@@ -218,7 +250,8 @@ PHEDEX.Navigator=(function() {
     if (old != _cur_target) {
       _update_target_gui();
       _targetChangeEvent.fire({'old':old,'cur':_cur_target});
-    }
+      return 1;
+    } else { return 0; }
   };
 
   var _setWidget = function(widget) {
@@ -229,13 +262,15 @@ PHEDEX.Navigator=(function() {
     if (old != _cur_target_type) {
       _update_widget_gui();
       _widgetChangeEvent.fire({'old':old,'cur':_cur_widget});
-    }
+      return 1;
+    } else { return 0; }
   };
 
   // parse _cur_filter and set _filter
   var _parseFilter = function() {};
 
-  // private events
+  //========================= Private Events ==========================
+  // TODO:  Make public?
   // fired whenever any navigation change occurs, passes the new (type, target, widget, filter)
   var _navChangeEvent = new YAHOO.util.CustomEvent('NavChange');
   // fired when the target type changed, passes {prev:, cur:}
@@ -247,19 +282,8 @@ PHEDEX.Navigator=(function() {
   // fired when the filter changed, passes (old_widget, new_widget)
   var _filterChangeEvent = new YAHOO.util.CustomEvent('FilterChange');
 
-  // event binding
-  var _fireNavChange = function() { 
-    _navChangeEvent.fire({'type':_cur_target_type,
-			  'target':_cur_target,
-			  'widget':_cur_widget,
-			  'filter':_cur_filter});
-  }
-  _targetTypeChangeEvent.subscribe(_fireNavChange);
-  _targetChangeEvent.subscribe(_fireNavChange);
-  _widgetChangeEvent.subscribe(_fireNavChange);
-  _filterChangeEvent.subscribe(_fireNavChange);
-
-  // on nav change, validate current values and (maybe) instantiate widget
+  //========================= Event Subscriptions =====================
+  // _navChangeEvent : on this event, we build a widget!
   var _nav_construct = false;
   _navChangeEvent.subscribe(function(evt, args) {
     args = args[0];
@@ -281,20 +305,26 @@ PHEDEX.Navigator=(function() {
     }
   });
 
+  /* PHEDEX.Core.Registry.beforeConstructEvent :
+     On this event, something triggered a widget change.  If it was
+     us, do nothing.  If it was something else, (e.g. context menu click)
+     then we need to update our state and GUI elements.  We do this by
+     intercepting the construct event, returning false to cancel the
+     construct(), and triggering our own construct event after we've
+     updated */
   PxR.beforeConstructEvent.subscribe(function(evt, args) {
     if (_nav_construct) { return true; } // prevent interception of our own construct event
     args = args[0];
     YAHOO.log("heard beforeConstruct for widget="+args.widget+" type="+args.type+" data="+args.data,
 	      'info', 'Navigator');
-    // TODO:  change the navigator GUI elements
-    _setWidget(args.widget);
-    _setTargetType(args.type);
-    _setTarget(args.data);
+    _setState({'type':args.type, 
+	       'widget':args.widget, 
+	       'target':args.data });
     return false; // prevents Core.Widget.Registry from constructing
   });
 
   return {
-    // public properties
+    //========================= Public Methods ==========================
     // init(el)
     // called when this object is created, takes the div element the navigator should be built in
     init: function(el) {
@@ -303,7 +333,6 @@ PHEDEX.Navigator=(function() {
 
       // build TargetType selector for each type
       _initTargetSelectors(el);
-      _setTargetType();
 
       // build Widget Selector for each type
       _initWidgetSelector(el);
@@ -316,7 +345,8 @@ PHEDEX.Navigator=(function() {
 
       // get desired widget state (or use defaults)
       // instantiate a widget
-    },    
+    },
+    // TODO:  is there a use case for any of these?
     // public methods
     addTarget: function(target) {},
     addWidget: function(widget) {},
@@ -328,7 +358,7 @@ PHEDEX.Navigator=(function() {
     // this is used when  e.g. a context menu item within a widget is selected
     change: function(target, widget) {},
 
-    // public events
+    //========================= Public Events ===========================
     // fired when the filter changes, passes (filter)
     filterChangeEvent: new YAHOO.util.CustomEvent('FilterChange')
   };
