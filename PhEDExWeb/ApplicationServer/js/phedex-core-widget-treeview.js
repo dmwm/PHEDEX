@@ -466,6 +466,16 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   that.revealAllBranches=function() {
     that.filter.revealAllElements('ygtvrow');
   }
+
+  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+    return function(ev,arr) {
+      YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.TreeView');
+      var x = obj.applyFilter(arr[0]);
+//       obj.filter.count = arr[1];
+      obj.ctl.filter.Hide();
+    }
+  }(that));
+
   that.applyFilter=function(args) {
 //  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
     that.revealAllBranches();
@@ -500,6 +510,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       var ancestor = YAHOO.util.Dom.getAncestorByClassName(elParent,'ygtvrow');
       YAHOO.util.Dom.addClass(ancestor,'phedex-core-control-widget-applied');
     }
+    return this.filter.count;
   }
   return that;
 }
