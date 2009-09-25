@@ -23,7 +23,8 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
   var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node, opts);
   that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
   that.node=node;
-  that.me=function() { return 'PHEDEX.Core.Widget.Agents'; }
+  that._me = 'PHEDEX.Core.Widget.Agents';
+  that.me=function() { return that._me; }
   that.offsetTime = function(x)
   {
     var d = new Date();

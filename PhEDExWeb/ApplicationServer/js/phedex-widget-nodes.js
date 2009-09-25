@@ -24,7 +24,8 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
   that.hideByDefault = ['Kind','Technology'];
   that.node=node;
   that.data = null;
-  that.me=function() { return 'PHEDEX.Core.Widget.Nodes'; }
+  that._me='PHEDEX.Core.Widget.Nodes';
+  that.me=function() { return that._me; }
   that.filter.init( {
     'Node attributes':{
       'id'         :{type:'int',   text:'Node-ID',    tip:'Node-ID in TMDB' },
