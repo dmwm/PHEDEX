@@ -224,7 +224,12 @@ sub hash2list
         {
             if (ref($v->{$k1}) eq "HASH")
             {
-                $h->{$k}->{$k1} = hash2list($v->{$k1});
+                # ignore {'$T' => text }
+                my @k2 = keys %{$v->{$k1}};
+                if (!((@k2 == 1) && ($k2[0] eq '$T')))
+                {
+                    $h->{$k}->{$k1} = hash2list($v->{$k1});
+                }
             }
         }
         push @r, $h->{$k};
