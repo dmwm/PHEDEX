@@ -2702,6 +2702,7 @@ sub getAgentLogs
     $q = execute_sql($core, $sql, %p);
     while ($_ = $q->fetchrow_hashref())
     {
+        $_->{MESSAGE} = {'$T' => delete $_->{MESSAGE}}; 
         push @r, $_;
     }
 
