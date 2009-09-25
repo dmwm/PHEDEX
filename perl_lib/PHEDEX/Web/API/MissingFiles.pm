@@ -105,7 +105,11 @@ sub missingfiles
 {
     my ($core, %h) = @_;
 
-    &checkRequired(\%h, 'block');
+    # block or lfn is required
+    if (!$h{'block'} && !$h{'lfn'})
+    {
+        die "Arguments 'block' or 'lfn' are required.";
+    }
 
     # convert parameter keys to upper case
     foreach ( qw / block node se subscribed custodial group lfn / )
