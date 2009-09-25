@@ -33,7 +33,7 @@ sub process_args
 	foreach my $pair (@ops) {
 	    my ($name, $value) = split /:/, $pair;
 	    next unless defined $name && defined $value && $value =~ /^(and|or)$/;
-	    $ops{$name} = $value;
+	    $ops{uc $name} = $value;
 	}
 	
 	$h->{OPERATORS} = \%ops;
@@ -132,26 +132,6 @@ sub auth_nodes
     } else {
 	return keys %nodes;
     }
-}
-
-# check_args -- check arguments
-# so far, it only changes the arguments to upper case, including
-# operator keys (not operators themselves)
-
-sub check_args
-{
-    my ($keys, %h) = @_;
-    foreach (split(' ', $keys))
-    {
-        $h{uc $_} = delete $h{$_} if exists $h{$_};
-    }
-
-    foreach (keys %{$h{OPERATORS}})
-    {
-        $h{OPERATORS}{uc $_} = delete $h{OPERATORS}{$_}
-    }
-
-    return %h;
 }
 
 1;
