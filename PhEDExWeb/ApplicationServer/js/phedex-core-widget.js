@@ -57,7 +57,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.id = PxU.generateDivName(this.parent.id);
   this.div = PxU.findOrCreateWidgetDiv(this.id, this.parent.id);
 
-  this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return 'PHEDEX.Core.Widget'; }
+  this._me = 'PHEDEX.Core.Widget';
+//  this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return this._me; }
   this.textNodeMap = [];
   this.hideByDefault = [];
   this.control = [];
@@ -279,17 +280,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
 //   PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
   this.onFilterAccept.subscribe( function(obj) {
     return function() {
-debugger;
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Core.Widget');
       obj.filter.Parse();
-    }
-  }(this));
-    PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
-    return function(ev,arr) {
-debugger;
-      YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
-      obj.ctl.filter.Hide();
-      obj.applyFilter(arr[0]);
     }
   }(this));
 
