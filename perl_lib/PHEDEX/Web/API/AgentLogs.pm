@@ -27,7 +27,9 @@ Show messages from the agents
 =head2 Output
 
   <agent>
-    <log/>
+    <log>
+      <message> ... </message>
+    </log>
     ...
   </agent> 
   ...
