@@ -38,6 +38,10 @@ PHEDEX.Global.Filter=function(el) {
   PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
     return function() {
       YAHOO.log('onFilterCancel:'+obj.me(),'info','Global');
+      var str = obj.filter.asString({});
+      YAHOO.log('onFilterCancel:'+obj.me()+' '+str,'info','Global');
+      var el = document.getElementById('phedex-nav-filter-input');
+      el.value = str;
       obj.ctl.filter.Hide();
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.filter.Reset();
@@ -46,6 +50,7 @@ PHEDEX.Global.Filter=function(el) {
 
   this.onFilterAccept.subscribe( function(obj) {
     return function() {
+debugger;
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Global');
       obj.filter.Parse();
     }
@@ -56,7 +61,7 @@ PHEDEX.Global.Filter=function(el) {
       var widget = arr[1];
       if ( obj.widgets[widget] ) { return; } // already seen this one...
       if ( widget == obj.me() ) { return; } // don't process my own input twice!
-      else			{ obj.filter.init(args); } // copy the initialisation arguments
+      else { obj.filter.init(args); } // copy the initialisation arguments
       YAHOO.log('onFilterDefinition:'+widget,'info','Global');
       obj.widgets[widget] = [];
       for (var i in args) {
@@ -69,7 +74,6 @@ PHEDEX.Global.Filter=function(el) {
 
   PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
-debugger;
       var args = arr[0];
       var str = obj.filter.asString(args);
       YAHOO.log('onFilterValidated:'+obj.me()+' '+str,'info','Global');
