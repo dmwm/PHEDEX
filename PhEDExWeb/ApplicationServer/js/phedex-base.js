@@ -25,10 +25,12 @@ PHEDEX.namespace = function() {
 PHEDEX.namespace('Base');
 PHEDEX.Base.Object = function() {
   return {
+// not sure I want to put events here too, do I?
 //  onHideFilter: new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST),
     dom: [],
     ctl: [],
     options: {},
-    me: function() { YAHOO.log('unimplemented "me"','error','undefined'); return 'undefined'; },
+    _me: 'undefined',
+    me: function() { return this._me; },
   };
 }
