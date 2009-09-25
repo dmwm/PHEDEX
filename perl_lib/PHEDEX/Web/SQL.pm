@@ -2763,18 +2763,18 @@ sub getNodeUsageHistory
     }
 
     $sql .= qq {
-            to_char(nvl(avg(d.cust_node_files), 0), 'FM99999999999999999999') as cust_node_files,
-            to_char(nvl(avg(d.cust_node_bytes), 0), 'FM99999999999999999999') as cust_node_bytes,
-            to_char(nvl(avg(d.cust_dest_files), 0), 'FM99999999999999999999') as cust_dest_files,
-            to_char(nvl(avg(d.cust_dest_bytes), 0), 'FM99999999999999999999') as cust_dest_bytes,
-            to_char(nvl(avg(d.node_files - d.cust_node_files), 0), 'FM99999999999999999999') as noncust_node_files,
-            to_char(nvl(avg(d.node_bytes - d.cust_node_bytes), 0), 'FM99999999999999999999') as noncust_node_bytes,
-            to_char(nvl(avg(d.dest_files - d.cust_dest_files), 0), 'FM99999999999999999999') as noncust_dest_files,
-            to_char(nvl(avg(d.dest_bytes - d.cust_dest_bytes), 0), 'FM99999999999999999999') as noncust_dest_bytes,
-            to_char(nvl(avg(d.src_files), 0), 'FM99999999999999999999') as src_node_files,
-            to_char(nvl(avg(d.src_bytes), 0), 'FM99999999999999999999') as src_node_bytes,
-            to_char(nvl(avg(d.node_files - d.src_files), 0), 'FM99999999999999999999') as nonsrc_node_files,
-            to_char(nvl(avg(d.node_bytes - d.src_bytes), 0), 'FM99999999999999999999') as nonsrc_node_bytes
+            trunc(nvl(avg(d.cust_node_files), 0)) as cust_node_files,
+            trunc(nvl(avg(d.cust_node_bytes), 0)) as cust_node_bytes,
+            trunc(nvl(avg(d.cust_dest_files), 0)) as cust_dest_files,
+            trunc(nvl(avg(d.cust_dest_bytes), 0)) as cust_dest_bytes,
+            trunc(nvl(avg(d.node_files - d.cust_node_files), 0)) as noncust_node_files,
+            trunc(nvl(avg(d.node_bytes - d.cust_node_bytes), 0)) as noncust_node_bytes,
+            trunc(nvl(avg(d.dest_files - d.cust_dest_files), 0)) as noncust_dest_files,
+            trunc(nvl(avg(d.dest_bytes - d.cust_dest_bytes), 0)) as noncust_dest_bytes,
+            trunc(nvl(avg(d.src_files), 0)) as src_node_files,
+            trunc(nvl(avg(d.src_bytes), 0)) as src_node_bytes,
+            trunc(nvl(avg(d.node_files - d.src_files), 0)) as nonsrc_node_files,
+            trunc(nvl(avg(d.node_bytes - d.src_bytes), 0)) as nonsrc_node_bytes
         from
             t_history_dest d,
             t_adm_node n
@@ -2871,14 +2871,14 @@ sub getRouterHistory
 
     $sql .= qq {
             :BINWIDTH as binwidth,
-            to_char(nvl(avg(hs.confirm_files),0), 'FM99999999999999999999') route_files,
-            to_char(nvl(avg(hs.confirm_bytes),0), 'FM99999999999999999999') route_bytes,
-            to_char(avg(hs.param_rate), 'FM999999999999.99') rate,
-            to_char(avg(hs.param_latency), 'FM999999999999.99') latency,
-            to_char(nvl(avg(hd.request_files),0), 'FM99999999999999999999') request_files,
-            to_char(nvl(avg(hd.request_bytes),0), 'FM99999999999999999999') request_bytes,
-            to_char(nvl(avg(hd.idle_files),0), 'FM99999999999999999999') idle_files,
-            to_char(nvl(avg(hd.idle_bytes),0), 'FM99999999999999999999') idle_bytes
+            trunc(nvl(avg(hs.confirm_files),0)) route_files,
+            trunc(nvl(avg(hs.confirm_bytes),0)) route_bytes,
+            trunc(avg(hs.param_rate)) rate,
+            trunc(avg(hs.param_latency)) latency,
+            trunc(nvl(avg(hd.request_files),0)) request_files,
+            trunc(nvl(avg(hd.request_bytes),0)) request_bytes,
+            trunc(nvl(avg(hd.idle_files),0)) idle_files,
+            trunc(nvl(avg(hd.idle_bytes),0)) idle_bytes
         from
             t_history_link_stats hs
             full join t_history_dest hd
