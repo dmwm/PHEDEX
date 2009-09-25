@@ -251,9 +251,13 @@ debugger;
 
   PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
-      YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
+      var args = arr[0];
+      if ( ! obj.filter.args ) { obj.filter.args = []; }
+      for (var i in args) {
+	obj.filter.args[i] = args[i];
+      }
       var x = obj.applyFilter(arr[0]);
-//       obj.filter.count = arr[1];
+// FIXME doesn't highligh the 'filter' element when a global-filter is applied to a widget
       obj.ctl.filter.Hide();
     }
   }(this));
