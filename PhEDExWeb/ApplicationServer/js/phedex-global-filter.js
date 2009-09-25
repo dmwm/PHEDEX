@@ -1,8 +1,8 @@
 PHEDEX.namespace('Global');
 
 PHEDEX.Global.Filter=function(el) {
-  YAHOO.lang.augmentObject(this,PHEDEX.Base.Object(this));
-  this.me = function() { return 'PHEDEX.Global.Filter'; }
+  YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+  this._me = 'PHEDEX.Global.Filter';
   this.widgets = [];
 //   this.logClass = function() { return 'Global'; }
 
@@ -50,7 +50,6 @@ PHEDEX.Global.Filter=function(el) {
 
   this.onFilterAccept.subscribe( function(obj) {
     return function() {
-debugger;
       YAHOO.log('onFilterAccept:'+obj.me(),'info','Global');
       obj.filter.Parse();
     }
@@ -79,7 +78,12 @@ debugger;
       YAHOO.log('onFilterValidated:'+obj.me()+' '+str,'info','Global');
       var el = document.getElementById('phedex-nav-filter-input');
       el.value = str;
+      if ( ! obj.filter.args ) { obj.filter.args = []; }
+      for (var i in args) {
+	obj.filter.args[i] = args[i];
+      }
       obj.ctl.filter.Hide();
+      PHEDEX.Event.onGlobalFilterValidated.fire(obj.filter.args);
     }
   }(this));
 
