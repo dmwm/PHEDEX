@@ -2672,14 +2672,17 @@ sub getAgentLogs
             l.working_directory,
             l.state_directory,
             nvl(a.name, 'N/A') agent,
-            message
+            n.name node,
+            n.id node_id,
+            n.se_name se,
+            l.message
         from
             t_agent_log l
             left join t_agent_status s on
                 l.host_name = s.host_name and
                 l.process_id = s.process_id
-            left join t_agent a on
-                a.id = s.agent
+            left join t_agent a on a.id = s.agent
+            join t_adm_node n on s.node = n.id
     };
 
     my $filters = '';
@@ -2687,6 +2690,7 @@ sub getAgentLogs
     build_multi_filters($core, \$filters, \%p, \%h, (
         USER => 'l.user_name',
         HOST => 'l.host_name',
+        NODE => 'n.name',
         PID => 'l.process_id',
         AGENT => 'a.name'));
 
