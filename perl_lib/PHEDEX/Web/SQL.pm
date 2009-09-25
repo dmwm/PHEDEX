@@ -96,7 +96,7 @@ sub getBlockReplicas
 	  join t_dps_dataset ds on ds.id = b.dataset
 	  join t_adm_node n on n.id = br.node
      left join t_adm_group g on g.id = br.user_group
-	 where br.node_files != 0
+	 where (br.node_files != 0 or br.dest_files !=0)
                and not n.name like 'X%' 
        };
 
@@ -134,12 +134,12 @@ sub getBlockReplicas
 
     if (exists $h{CREATE_SINCE}) {
 	$sql .= ' and br.time_create >= :create_since';
-	$p{':create_since'} = $h{CREATE_SINCE};
+	$p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
 
     if (exists $h{UPDATE_SINCE}) {
 	$sql .= ' and br.time_update >= :update_since';
-	$p{':update_since'} = $h{UPDATE_SINCE};
+	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
     $q = execute_sql( $self, $sql, %p );
@@ -183,7 +183,7 @@ sub getFileReplicas
     left join t_xfer_replica xr on xr.node = br.node and xr.fileid = f.id
     left join t_adm_node n on ((br.is_active = 'y' and n.id = xr.node) 
                             or (br.is_active = 'n' and n.id = br.node))
-    where br.node_files != 0 
+    where (br.node_files != 0 or br.dest_files != 0)
             and not ns.name like 'X%'
             and not n.name like 'X%' 
     };
@@ -241,12 +241,12 @@ sub getFileReplicas
 
     if (exists $h{CREATE_SINCE}) {
 	$sql .= ' and br.time_create >= :create_since';
-	$p{':create_since'} = $h{CREATE_SINCE};
+	$p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
 
     if (exists $h{UPDATE_SINCE}) {
 	$sql .= ' and br.time_update >= :update_since';
-	$p{':update_since'} = $h{UPDATE_SINCE};
+	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
     $q = execute_sql( $self, $sql, %p );
