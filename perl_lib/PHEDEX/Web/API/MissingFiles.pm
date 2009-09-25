@@ -117,7 +117,7 @@ sub missingfiles
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getMissingFIles($core, %h);
+    my $r = PHEDEX::Web::SQL::getMissingFiles($core, %h);
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
     # return { subscription => $r };
 }

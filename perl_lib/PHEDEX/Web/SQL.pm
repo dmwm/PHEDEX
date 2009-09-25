@@ -2063,7 +2063,7 @@ sub getDataSubscriptions
 
 
 # getMissingFiles
-sub getMissingFIles
+sub getMissingFiles
 {
     my $core = shift;
     my %h = @_;
