@@ -14,16 +14,18 @@ Show files which are missing from blocks at a node.
 
 =head2 Options
 
-  block            block name (wildcards), required.
-  node             node name (wildcards).
+  block            block name (wildcards) (*)
+  lfn              logical file name (*)
+  node             node name (wildcards)
   se               storage element.
   subscribed       y or n. whether the block is subscribed to the node or not
                    default is null (either)
   custodial        y or n. filter for custodial responsibility,
-                   default is to return either.
-  group            group name.
+                   default is to return either
+  group            group name
                    default is to return missing blocks for any group.
-  lfn              logical file name.
+
+  (*) either block or lfn is required
 
 =head2 Output
 
