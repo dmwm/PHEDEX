@@ -2098,7 +2098,7 @@ sub getMissingFiles
         left join t_adm_group g on g.id = br.user_group
         left join t_adm_node n on n.id = br.node
         where
-            br.node_files != 0 and
+            (br.node_files != 0 or br.dest_files != 0) and
             not exists (
                 select
                     id
