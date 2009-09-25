@@ -17,6 +17,7 @@ Show messages from the agents
  required inputs: at least one of the optional inputs
  optional inputs: (as filters) user, host, pid, agent, update_since
 
+  node              name of the node
   user              user name who owns agent processes
   host              hostname where agent runs
   agent             name of the agent
@@ -57,18 +58,24 @@ sub duration { return 60 * 60; }
 sub invoke { return agentlogs(@_); }
 
 my $map = {
-    _KEY => 'HOST+USER+PID',
-    host => 'HOST',
-    user => 'USER',
-    pid => 'PID',
-    name => 'AGENT',
-    log => {
-        _KEY => 'TIME_UPDATE',
-        working_dir => 'WORKING_DIRECTORY',
-        state_dir => 'STATE_DIRECTORY',
-        reason => 'REASON',
-        message => 'MESSAGE',
-        time => 'TIME_UPDATE'
+    _KEY => 'NODE',
+    name => 'NODE',
+    id => 'NODE_ID',
+    se => 'SE',
+    agent => {
+        _KEY => 'HOST+USER+PID',
+        host => 'HOST',
+        user => 'USER',
+        pid => 'PID',
+        name => 'AGENT',
+        log => {
+            _KEY => 'TIME_UPDATE',
+            working_dir => 'WORKING_DIRECTORY',
+            state_dir => 'STATE_DIRECTORY',
+            reason => 'REASON',
+            message => 'MESSAGE',
+            time => 'TIME_UPDATE'
+        }
     }
 };
         
@@ -79,17 +86,17 @@ sub agentlogs
     # need at least one of the input
     if (! keys %h)
     {
-        die "need at least one of the input arguments: host user pid agent update_since\n";
+        die "need at least one of the input arguments: node host user pid agent update_since\n";
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / host user pid agent update_since / )
+    foreach ( qw / node host user pid agent update_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     my $r = PHEDEX::Web::SQL::getAgentLogs($core, %h);
-    return { agent => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
 1;
