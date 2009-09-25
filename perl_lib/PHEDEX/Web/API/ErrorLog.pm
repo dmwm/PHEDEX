@@ -34,7 +34,7 @@ errors may have occurred then indicated by this API call.
         <transfer_error>
            <transfer_log> ... </transfer_log>
            <detail_log> ... </detail_log>
-           <validate_log> ... </detail_log>
+           <validate_log> ... </validate_log>
         </transfer_error>
       </file>
     </block>
