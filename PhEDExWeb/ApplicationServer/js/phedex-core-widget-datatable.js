@@ -1,8 +1,14 @@
 PHEDEX.namespace('Core.Widget.DataTable');
 
 PHEDEX.Core.Widget.DataTable = function(divid,opts) {
-  var that=new PHEDEX.Core.Widget(divid,opts);
-  that.buildTable=function(div,columns,map) {
+//   var that=new PHEDEX.Core.Widget(divid,opts);
+// instead of creating a Core.Widget and setting it to 'that', augment 'this'. Rather than
+// fix the whole code-base properly to avoid 'that', just set this=that for now. Will fix
+// the rest later...
+  YAHOO.lang.augmentObject(this, new PHEDEX.Core.Widget(divid,opts));
+//   var that=this;
+
+  this.buildTable=function(div,columns,map) {
 // Arguments are: the div to instantiate the table into, an array of column definitions, and a map:
 // The column definitions can be simply names of fields, or full datasource-column object specifications. They will
 // be converted accordingly.
@@ -16,33 +22,33 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 // The map is for mapping JSON field-names in the data to table column-names. By default, column-names are mapped to
 // their lower-case selves in the data returned from the data-service. If you need it to be mapped differently, this
 // is where you specify that mapping, giving the table-column name as the key, and the data-service field as the value.
-    that.columnDefs = columns;
-    that.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
-    for (var i in that.columnDefs )
+    this.columnDefs = columns;
+    this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
+    for (var i in this.columnDefs )
     {
-      var cDef = that.columnDefs[i];
-      if ( typeof cDef != 'object' ) { cDef = {key:cDef}; that.columnDefs[i] = cDef; }
+      var cDef = this.columnDefs[i];
+      if ( typeof cDef != 'object' ) { cDef = {key:cDef}; this.columnDefs[i] = cDef; }
       if ( !cDef.resizeable ) { cDef.resizeable=true; }
       if ( !cDef.sortable   ) { cDef.sortable=true; }
-      if ( !that.columnMap[cDef.key] ) { that.columnMap[cDef.key] = cDef.key.toLowerCase(); }
+      if ( !this.columnMap[cDef.key] ) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
     }
-    that.dataSource = new YAHOO.util.DataSource();
-    that.dataTable = new YAHOO.widget.DataTable(div, that.columnDefs, that.dataSource, 
+    this.dataSource = new YAHOO.util.DataSource();
+    this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource,
 						{ draggableColumns:true, initialLoad:false });
-    that.dataTable.subscribe('rowMouseoverEvent',that.onRowMouseOver);
-    that.dataTable.subscribe('rowMouseoutEvent', that.onRowMouseOut);
+    this.dataTable.subscribe('rowMouseoverEvent',this.onRowMouseOver);
+    this.dataTable.subscribe('rowMouseoutEvent', this.onRowMouseOut);
   }
-  that.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); 
-		       return 'PHEDEX.Core.Widget.DataTable'; }
-  that.fillDataSource=function(data) {
+  this._me = 'PHEDEX.Core.Widget.DataTable';
+  this.me=function() { YAHOO.log('unimplemented "me"','warn','Core.DataTable'); return 'PHEDEX.Core.Widget.DataTable'; }
+  this.fillDataSource=function(data) {
     var table = [];
     for (var i in data) {
       var a = data[i];
       var y = [];
-      for (var j in that.columnDefs )
+      for (var j in this.columnDefs )
       {
-	var c = that.columnDefs[j];
-	var val = a[that.columnMap[c.key]];
+	var c = this.columnDefs[j];
+	var val = a[this.columnMap[c.key]];
 //      This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
 //      Declare fields to be numeric in your columns specified to buildTable, see above
 	if ( c.parser )
@@ -54,111 +60,100 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
       }
       table.push( y );
     }
-    that.dataSource = new YAHOO.util.DataSource(table);
+    this.dataSource = new YAHOO.util.DataSource(table);
     var oCallback = {
-      success : that.dataTable.onDataReturnInitializeTable,
-      failure : that.dataTable.onDataReturnInitializeTable,
-      scope : that.dataTable
+      success : this.dataTable.onDataReturnInitializeTable,
+      failure : this.dataTable.onDataReturnInitializeTable,
+      scope : this.dataTable
     };
-    that.dataSource.sendRequest('', oCallback);
+    this.dataSource.sendRequest('', oCallback);
   }
 
 // A split-button and menu for the show-all-columns function
-  that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
+  this.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
 //  var aSpan = document.createElement('span');
-//  YAHOO.util.Dom.insertBefore(aSpan,that.dom.control.firstChild);
-  that.showFields = new YAHOO.widget.Button(
+//  YAHOO.util.Dom.insertBefore(aSpan,this.dom.control.firstChild);
+  this.showFields = new YAHOO.widget.Button(
     {
       type: "split",
       label: "Show all columns",
       name: 'showFields_'+PHEDEX.Util.Sequence(),
-      menu: that.column_menu,
-      container: that.dom.param,
+      menu: this.column_menu,
+      container: this.dom.param,
       disabled:true
     }
   );
 // event-handlers for driving the split button
-  that.showFields.on("click", function () {
-    var m = that.column_menu.getItems();
-    for (var i = 0; i < m.length; i++) {
-      that.dataTable.showColumn(that.dataTable.getColumn(m[i].value));
-    }
-    that.column_menu.clearContent();
-    that.refreshButton();
-    that.resizePanel(that.dataTable);
-  });
-  that.showFields.on("appendTo", function () {
-    var m = this.getMenu();
-    m.subscribe("click", function onMenuClick(sType, oArgs) {
-      var oMenuItem = oArgs[1];
-      if (oMenuItem) {
-        that.dataTable.showColumn(that.dataTable.getColumn(oMenuItem.value));
-        m.removeItem(oMenuItem.index);
-        that.refreshButton();
+  this.showFields.on("click", function (obj) {
+    return function() {
+      var m = obj.column_menu.getItems();
+      for (var i = 0; i < m.length; i++) {
+        obj.dataTable.showColumn(obj.dataTable.getColumn(m[i].value));
       }
-      that.resizePanel(that.dataTable);
-    });
-  });
+      obj.column_menu.clearContent();
+      obj.refreshButton();
+      obj.resizePanel(obj.dataTable);
+    }
+  }(this));
+  this.showFields.on("appendTo", function (obj) {
+    return function() {
+      var m = this.getMenu();
+      m.subscribe("click", function onMenuClick(sType, oArgs) {
+        var oMenuItem = oArgs[1];
+        if (oMenuItem) {
+          obj.dataTable.showColumn(obj.dataTable.getColumn(oMenuItem.value));
+          m.removeItem(oMenuItem.index);
+          obj.refreshButton();
+        }
+        obj.resizePanel(obj.dataTable);
+      });
+    }
+  }(this));
 
 // update the 'Show all columns' button state
-  that.refreshButton = function() {
-    that.column_menu.render(document.body);
-    that.showFields.set('disabled', that.column_menu.getItems().length === 0);
+  this.refreshButton = function() {
+    this.column_menu.render(document.body);
+    this.showFields.set('disabled', this.column_menu.getItems().length === 0);
   };
 
-/*
-  that.locateNode=function(el) {
-//  find the nearest ancestor that has a phedex-dnode-* class applied to it, either
-//  phedex-dnode-field or phedex-dnode-header
-    while (el.id != that.dom.content.id) { // walk up only as far as the content-div
-      if(YAHOO.util.Dom.hasClass(el,'phedex-dnode-field')) { // phedex-dnode fields hold the values.
-        return el;
-      }
-      if(YAHOO.util.Dom.hasClass(el,'phedex-dnode-header')) { // phedex-dnode headers hold the value-names.
-        return el;
-      }
-      el = el.parentNode;
-    }
-  }
-*/
-
-  // Create a context menu, with default entries for dataTable widgets
-  that.buildContextMenu=function(typeMap) {
-    that.contextMenuTypeMap = typeMap || {};
-
-    that.contextMenuArgs=[];
+// Create a context menu, with default entries for dataTable widgets
+  this.buildContextMenu=function(typeMap) {
+    this.contextMenuTypeMap = typeMap || {};
+    this.contextMenuArgs=[];
     for (var type in typeMap) {
-      that.contextMenuArgs.push(type);
+      this.contextMenuArgs.push(type);
     }
-    that.contextMenuArgs.push('dataTable');
+    this.contextMenuArgs.push('dataTable');
     // Create a context menu for any click on the table body
-    that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dataTable.getTbodyEl()});
-    PHEDEX.Core.ContextMenu.Build(that.contextMenu,that.contextMenuArgs);
+    this.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:this.dataTable.getTbodyEl()});
+    PHEDEX.Core.ContextMenu.Build(this.contextMenu,this.contextMenuArgs);
   }
 
-  that.onContextMenuClick = function(p_sType, p_aArgs, p_DataTable) {
-    YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.DataTable');
-    var menuitem = p_aArgs[1];
-    if(menuitem) {
-      //  Extract which <tr> triggered the context menu
-      var tgt = this.contextEventTarget;
-      var elCol = p_DataTable.getColumn(tgt);
-      var elRow = p_DataTable.getTrEl(tgt);
-      var label = tgt.textContent;
-      if (elRow) {
-	var opts = {};
-	var oRecord = p_DataTable.getRecord(elRow);
-	// map types to column names in order to prepare our options
-	if (that.contextMenuTypeMap) {
-	  for (var type in that.contextMenuTypeMap) {
-	    var recName = that.contextMenuTypeMap[type];
-	    opts[type] = oRecord.getData(recName);
+  this.onContextMenuClick = function(obj) {
+    return function(p_sType, p_aArgs, p_DataTable) {
+      YAHOO.log('ContextMenuClick for '+obj.me(),'info','Core.DataTable');
+      var menuitem = p_aArgs[1];
+      if(menuitem) {
+        //  Extract which <tr> triggered the context menu
+        var tgt = this.contextEventTarget;
+        var elCol = p_DataTable.getColumn(tgt);
+        var elRow = p_DataTable.getTrEl(tgt);
+        var label = tgt.textContent;
+        if (elRow) {
+	  var opts = {};
+	  var oRecord = p_DataTable.getRecord(elRow);
+	  // map types to column names in order to prepare our options
+	  if (obj.contextMenuTypeMap) {
+	    for (var type in obj.contextMenuTypeMap) {
+	      var recName = obj.contextMenuTypeMap[type];
+	      opts[type] = oRecord.getData(recName);
+	    }
 	  }
-	}
-	menuitem.value.fn(opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
+	  menuitem.value.fn(opts, {table:p_DataTable, row:elRow, col:elCol, record:oRecord});
+        }
       }
     }
-  }
+  }(this);
 
   PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Field', function(opts,el) {
     YAHOO.log('hideField: '+el.col.key,'info','Core.DataTable');
@@ -171,68 +166,79 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 // complete. This allows me to ignore the menu completely if the user didn't build one.
 // If I didn't do it like this then the user would have to pass the options in to the constructor, and would then have to take
 // care that the object was assembled in exactly the right way. That would then make things a bit more complex...
-  that.onBuildComplete.subscribe(function() {
-    YAHOO.log('onBuildComplete: '+that.me(),'info','Core.DataTable');
-    if ( that.contextMenu )
-    {
-      YAHOO.log('subscribing context menu: '+that.me(),'info','Core.DataTable');
-      that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.dataTable);
-      that.contextMenu.render(document.body);
+  this.onBuildComplete.subscribe(function(obj) {
+    return function() {
+      YAHOO.log('onBuildComplete: '+this.me(),'info','Core.DataTable');
+      if ( obj.contextMenu )
+      {
+        YAHOO.log('subscribing context menu: '+obj.me(),'info','Core.DataTable');
+        obj.contextMenu.clickEvent.subscribe(obj.onContextMenuClick, obj.dataTable);
+        obj.contextMenu.render(document.body);
+      }
+//    Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
+      obj.dataTable.subscribe('columnHideEvent', function(ev) {
+        var column = obj.dataTable.getColumn(ev.column);
+        YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.DataTable');
+        obj.column_menu.addItem({text: column.label || column.key,value:column.key});
+        obj.refreshButton();
+      } );
+      obj.dataTable.subscribe('renderEvent', function() { obj.resizePanel(obj.dataTable); } );
     }
-//  Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
-    that.dataTable.subscribe('columnHideEvent', function(ev) {
-      var column = this.getColumn(ev.column);
-      YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.DataTable');
-      that.column_menu.addItem({text: column.label || column.key,value:column.key});
-      that.refreshButton();
-    } );
-    that.dataTable.subscribe('renderEvent', function() { that.resizePanel(that.dataTable); } );
-  });
+  }(this));
 
-  that.onPopulateComplete.subscribe(function() {
-    for (var i in that.hideByDefault)
-    {
-      var column = that.dataTable.getColumn(that.hideByDefault[i]);
-      if ( column ) { that.dataTable.hideColumn(column); }
+  this.onPopulateComplete.subscribe(function(obj) {
+    return function() {
+      for (var i in obj.hideByDefault)
+      {
+        var column = obj.dataTable.getColumn(obj.hideByDefault[i]);
+        if ( column ) { obj.dataTable.hideColumn(column); }
+      }
+      obj.hideByDefault = null; // don't want to do this every time the build is complete...?
     }
-    that.hideByDefault = null; // don't want to do this every time the build is complete...?
-  });
+  }(this));
 
 // Allow the table to be built again after updates
-  that.onUpdateComplete.subscribe( function() {that.fillDataSource(that.data); } );
+  this.onUpdateComplete.subscribe( function(obj) {
+    return function() {
+      obj.fillDataSource(obj.data);
+    }
+  }(this) );
 
-  that.onDataFailed.subscribe(function() {
-//  Empty the dataTable if it is there
-    if ( that.dataTable ) { that.dataTable.destroy(); that.dataTable = null; } // overkill? Who cares!...
-    that.dom.content.innerHTML='Data-load error, try again later...';
-  });
+  this.onDataFailed.subscribe(function(obj) {
+    return function() {
+debugger;
+//    Empty the dataTable if it is there
+      if ( obj.dataTable ) { obj.dataTable.destroy(); obj.dataTable = null; } // overkill? Who cares!...
+      obj.dom.content.innerHTML='Data-load error, try again later...';
+    }
+  }(this));
 
-  that.onRowMouseOut = function(event) {
+  this.onRowMouseOut = function(event) {
 // Gratuitously flash yellow when the mouse goes over the rows
 // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
 // Leave this in here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
 //     YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = null;
   }
-  that.onRowMouseOver = function(event) {
+  this.onRowMouseOver = function(event) {
 //     YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = 'yellow';
   }
 
 // Resize the panel when extra columns are shown, to accomodate the width
-  that.resizePanel=function(table) {
+  this.resizePanel=function(table) {
     var old_width = table.getContainerEl().clientWidth;
-    var offset = that.dom.header.offsetWidth - that.dom.content.offsetWidth;
+    var offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth;
     var x = table.getTableEl().offsetWidth + offset;
-    if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
+    if ( x >= old_width ) { this.panel.cfg.setProperty('width',x+'px'); }
   }
 
 // Custom formatter for unix-epoch dates
-  that.UnixEpochToGMTFormatter = function(elCell, oRecord, oColumn, oData) {
+  this.UnixEpochToGMTFormatter = function(elCell, oRecord, oColumn, oData) {
     var gmt = new Date(oData*1000).toGMTString();
     elCell.innerHTML = gmt;
   };
-  YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = that.UnixEpochToGMTFormatter
+  YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter
   PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
     return function() {
       YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.DataTable');
@@ -241,33 +247,43 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
       obj.fillDataSource(obj.data);
       obj.filter.Reset();
     }
-  }(that));
+  }(this));
 
-  that.applyFilter=function(args) {
+  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+    return function(ev,arr) {
+      YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.Widget');
+      var x = obj.applyFilter(arr[0]);
+//       obj.filter.count = arr[1];
+      obj.ctl.filter.Hide();
+    }
+  }(this));
+
+  this.applyFilter=function(args) {
 // this is much easier for tables than for branches. Just go through the data-table and build a new one,
 // then feed that to the DataSource!
     var table=[];
-    if ( ! args ) { args = that.filter.args; }
-    for (var i in that.data) {
+    if ( ! args ) { args = this.filter.args; }
+    for (var i in this.data) {
       var keep=true;
       for (var key in args) {
 	if ( typeof(args[key].value) == 'undefined' ) { continue; }
 	var fValue = args[key].value;
 	if ( args[key].format ) { fValue = args[key].format(fValue); }
-	var kValue = that.data[i][key];
+	var kValue = this.data[i][key];
 	var negate = args[key].negate;
-	var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
+	var status = this.filter.Apply[this.filter.fields[key].type](fValue,kValue);
 	if ( args[key].negate ) { status = !status; }
 	if ( !status ) { // Keep the element if the match succeeded!
-	  that.filter.count++;
+	  this.filter.count++;
 	  keep=false;
 	}
       }
-      if ( keep ) { table.push(that.data[i]); }
+      if ( keep ) { table.push(this.data[i]); }
     }
-    that.fillDataSource(table);
+    this.fillDataSource(table);
+    return this.filter.count;
   }
 
-  return that;
+  return this;
 }
 YAHOO.log('loaded...','info','Core.DataTable');
