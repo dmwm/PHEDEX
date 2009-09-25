@@ -2772,9 +2772,7 @@ sub getNodeUsageHistory
             trunc(nvl(avg(d.dest_files - d.cust_dest_files), 0)) as noncust_dest_files,
             trunc(nvl(avg(d.dest_bytes - d.cust_dest_bytes), 0)) as noncust_dest_bytes,
             trunc(nvl(avg(d.src_files), 0)) as src_node_files,
-            trunc(nvl(avg(d.src_bytes), 0)) as src_node_bytes,
-            trunc(nvl(avg(d.node_files - d.src_files), 0)) as nonsrc_node_files,
-            trunc(nvl(avg(d.node_bytes - d.src_bytes), 0)) as nonsrc_node_bytes
+            trunc(nvl(avg(d.src_bytes), 0)) as src_node_bytes
         from
             t_history_dest d,
             t_adm_node n
