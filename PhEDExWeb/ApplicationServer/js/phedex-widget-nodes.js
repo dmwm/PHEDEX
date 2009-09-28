@@ -9,6 +9,7 @@ PHEDEX.Page.Widget.Nodes=function(divid) {
   nodes.update();
 }
 
+// Note:  'node' is ignored
 PHEDEX.Widget.Nodes=function(node,divid,opts) {
   if ( !divid) { divid = PHEDEX.Util.generateDivName(); }
   if ( !opts)  { opts = {} };
@@ -57,4 +58,4 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
   return that;
 }
 
-PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Nodes','node','Show Nodes',PHEDEX.Widget.Nodes);
+PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Nodes','none','Show Nodes',PHEDEX.Widget.Nodes);
