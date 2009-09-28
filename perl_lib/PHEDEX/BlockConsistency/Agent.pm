@@ -183,12 +183,14 @@ sub doNSCheck
     $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
   }
 
+  my $tfcprotocol = 'direct';
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
+    $tfcprotocol = $ns->Protocol();
   }
   else
   {
@@ -215,6 +217,9 @@ sub doNSCheck
     }
   }
 
+  if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
+  { $tfcprotocol = 'srm'; }
+
   $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
@@ -222,7 +227,6 @@ sub doNSCheck
   {
     no strict 'refs';
     my $pfn;
-    my $tfcprotocol = 'direct';
     my $node = $self->{NODES}[0];
     my $lfn = $r->{LOGICAL_NAME};
     $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
@@ -315,7 +319,7 @@ sub do_tests
 # Sanity checking
   &timeStart($$self{STARTTIME});
 
-  eval { 
+  eval {
     $self->connectAgent();
     $self->{bcc}->DBH( $self->{DBH} );
 
@@ -326,8 +330,8 @@ sub do_tests
     }
 
     if ( $request->{TEST} eq 'size' ||
-	 $request->{TEST} eq 'migration' ||
-	 $request->{TEST} eq 'is_migrated' )
+         $request->{TEST} eq 'migration' ||
+         $request->{TEST} eq 'is_migrated' )
     {
       $self->setRequestState($request,'Active');
       my $result = $self->doNSCheck ($request);
@@ -434,7 +438,6 @@ sub get_work
     if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
     else
     {
-      $kernel->delay_set('get_work',$self->{WAITTIME});
       # Disconnect from the database
       $self->disconnectAgent();
     }
@@ -443,8 +446,8 @@ sub get_work
      chomp ($@);
      $self->Alert ("database error: $@");
      $self->{DBH}->rollback();
-     $kernel->delay_set('get_work',$self->{WAITTIME});
   } if $@;
+  $kernel->delay_set('get_work',$self->{WAITTIME});
   $self->{pmon}->State('get_work','stop');
 
   return;
