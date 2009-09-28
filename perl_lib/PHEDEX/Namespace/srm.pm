@@ -55,6 +55,9 @@ sub new
   return $self;
 }
 
+# do not use 'direct' protocol to look up in tfc for srm requests!
+sub Protocol { return 'srm'; }
+
 sub Help
 {
   my $self = shift;

@@ -132,6 +132,10 @@ sub Command
   return $r;
 }
 
+# Define the protocol to be used in looking up PFNs in the TFC. Most interfaces
+# will not need to change this, but the SRM protocol does!
+sub Protocol { return 'direct'; }
+
 sub _help
 {
   my $self = shift;
