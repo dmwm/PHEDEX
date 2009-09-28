@@ -362,11 +362,18 @@ PHEDEX.Navigator=(function() {
     YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
 	      " widget="+args.widget.widget+" filter="+args.filter,
 	      'info', 'Navigator');
+
+    // out with the old...
+    if (_cur_widget_obj) { 
+      _cur_widget_obj.destroy();
+      _cur_widget_obj = null;
+    }
+
+    // in with the new... (maybe)
     if (_validConstruction()) {
       YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
 		" widget="+_cur_widget.widget,
 		'info', 'Navigator');
-      if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
       _nav_construct = true; // prevent interception of our own construct event
       var widget = PxR.construct(_cur_widget.widget, _cur_target_type, _cur_target, 
 				 'phedex-main', { window: false });
