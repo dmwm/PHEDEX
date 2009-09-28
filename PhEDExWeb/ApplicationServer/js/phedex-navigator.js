@@ -92,8 +92,9 @@ PHEDEX.Navigator=(function() {
   };
 
   var _changeTargetType = function(type) {
-    var widget = _updateWidgetMenu(type); // get a new widget menu
-    var target = _updateTargetSelector(type);
+    if (type == _cur_target_type) { return; } // do nothing if nothing has changed
+    var widget = _updateWidgetMenu(type);     // get a new widget menu, returns default selection
+    var target = _updateTargetSelector(type); // get a new target selector, returns default selection
     _setState({'type':type,
 	       'target':target,
 	       'widget':widget });
