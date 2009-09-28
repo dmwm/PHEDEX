@@ -188,12 +188,18 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 
   this.onPopulateComplete.subscribe(function(obj) {
     return function() {
-      for (var i in obj.hideByDefault)
+      // hide by default that which should be hidden
+      for (var i in this.options.defhide)
       {
-        var column = obj.dataTable.getColumn(obj.hideByDefault[i]);
+        var column = obj.dataTable.getColumn(this.options.defhide[i]);
         if ( column ) { obj.dataTable.hideColumn(column); }
       }
-      obj.hideByDefault = null; // don't want to do this every time the build is complete...?
+      this.options.defhide = null; // don't want to do this every time the build is complete...?
+      
+      // sort by default
+      if (this.options.defsort) {
+	obj.dataTable.sortColumn( obj.dataTable.getColumn( this.options.defsort ) );
+      }
     }
   }(this));
 

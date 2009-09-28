@@ -18,11 +18,12 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
     width:500,
     height:200,
     minwidth:300,
-    minheight:50
+    minheight:50,
+    defsort:'Name',
+    defhide:['Kind','Technology']
   });
  
   var that=new PHEDEX.Core.Widget.DataTable(divid+'_display', opts);
-  that.hideByDefault = ['Kind','Technology'];
   that.node=node;
   that.data = null;
   that._me='PHEDEX.Core.Widget.Nodes';

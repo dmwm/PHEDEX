@@ -17,11 +17,12 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
     width:500,
     height:200,
     minwidth:300,
-    minheight:50 
+    minheight:50,
+    defsort:'Agent',
+    defhide:['PID','Label','Version','Host','State Dir']
   });
 
   var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node, opts);
-  that.hideByDefault = ['PID','Label','Version','Host','State Dir'];
   that.node=node;
   that._me = 'PHEDEX.Core.Widget.Agents';
   that.me=function() { return that._me; }
