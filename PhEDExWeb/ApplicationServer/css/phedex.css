@@ -108,15 +108,19 @@ a.phedex-link-current {
   padding: 5px 0 0;
 }
 .phedex-filter-outer {
+  clear: both;
   border-bottom:  1px dotted #888;
-  padding: 3px 0 0 0;
 }
 .phedex-filter-inner {
-  display: inline-block;
+  float: left;
   width: 250px;
   margin:  0 0.5em 0 0;
   text-align: right;
 }
+.phedex-filter-inner .phedex-filter-elem {
+  height: 1.6em;
+}
+
 .phedex-filter-elem-invalid {
   border: 1px solid red;
   background-color: #fee;
