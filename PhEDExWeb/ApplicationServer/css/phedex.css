@@ -110,6 +110,7 @@ a.phedex-link-current {
 .phedex-filter-outer {
   clear: both;
   border-bottom:  1px dotted #888;
+  height: 2em; /* Without this, FF2.0.0.12 doesn't look good. FF3 doesn't need it */
 }
 .phedex-filter-inner {
   float: left;
@@ -118,7 +119,8 @@ a.phedex-link-current {
   text-align: right;
 }
 .phedex-filter-inner .phedex-filter-elem {
-  height: 1.6em;
+  height: 2.0em;
+  font-size: 10px;
 }
 
 .phedex-filter-elem-invalid {
