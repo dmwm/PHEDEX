@@ -42,32 +42,51 @@ PHEDEX.Navigator=(function() {
   var _updateTargetTypeGUI = function() {};
   var _updateTargetGUI     = function() {};
 
-  var _initTypeSelector = function(el) {
+  var _initTypeSelector = function(el, cfg) {
     var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type', 
 					     className:'phedex-nav-component'});
     
-    // get registered target types
+    // get registered target types and store them with optional config
+    // params
     var types = PxR.getInputTypes();
-    var menu_data = [];
-    for (var t in types) {
-      var text = types[t];
-      _target_types[text] = { name: text, label: text };
-      menu_data.push({ text:text, value:text } );
+    for (var type in types) {
+      type = types[type];
+      var obj = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY };
+      var opts = cfg[type] || {};
+      YAHOO.lang.augmentObject(obj, opts, true);
+      _target_types[type] = obj;
     }
-    _cur_target_type = types[0];
+
+    // sort types by object params
+    YAHOO.log('types 1: '+YAHOO.lang.dump(types));
+    types.sort(function(a,b) {
+      return _target_types[a].order - _target_types[b].order;
+    });
+    YAHOO.log('types 2: '+YAHOO.lang.dump(types));
+
+    // build menu items in sorted order
+    var menu_items = [];
+    for (var type in types) {
+      type = types[type];
+      var obj = _target_types[type];
+      menu_items.push({ 'text':obj.label, 'value':obj.name } );
+    }
+
+    _cur_target_type = menu_items[0].value;
+    var label = menu_items[0].text;
 
     var menu = new YAHOO.widget.Button({ type:"menu",
-					 label:_cur_target_type,
-					 menu:menu_data,
+					 label:label,
+					 menu:menu_items,
 					 container:typediv });
     var onSelectedMenuItemChange = function (event) {
-      var oMenuItem = event.newValue;
-      var type = oMenuItem.cfg.getProperty("text");
+      var menu_item = event.newValue;
+      var type = menu_item.value;
       _changeTargetType(type);
     };
 
     _updateTargetTypeGUI = function() {
-      menu.set("label", _cur_target_type);
+      menu.set("label", _target_types[_cur_target_type].label);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
   };
@@ -377,17 +396,21 @@ PHEDEX.Navigator=(function() {
 
   return {
     //========================= Public Methods ==========================
-    // init(el)
-    // called when this object is created, takes the div element the navigator should be built in
-    init: function(el) {
+    // init(el, opts)
+    //   called when this object is created
+    //   div: element the navigator should be built in
+    //   opts:  options for the navigator, takes the following:
+    //     'typeconfig'   : an array of objects for organizing the type menu.
+    //     'widgetconfig' : an array of objects for organizing the widget menu.
+    init: function(el, cfg) {
       // build the type selection menu
-      _initTypeSelector(el);
+      _initTypeSelector(el, cfg.typecfg);
 
       // build TargetType selector for each type
       _initTargetSelectors(el);
 
       // build Widget Selector for each type
-      _initWidgetSelector(el);
+      _initWidgetSelector(el, cfg.widgetcfg);
 
       // build GlobalFilter
       _initGlobalFilter(el);
@@ -396,8 +419,15 @@ PHEDEX.Navigator=(function() {
       _initPermaLink(el);
 
       // get desired widget state (or use defaults)
+      // TODO:  get from HistoryManager
+
       // instantiate a widget
+      YAHOO.log("initial state type="+_cur_target_type+" target="+_cur_target+
+		" widget="+_cur_widget.widget,
+		'info', 'Navigator');
+      _fireNavChange();
     },
+
     // TODO:  is there a use case for any of these?
     // public methods
     addTarget: function(target) {},
