@@ -20,20 +20,16 @@ PHEDEX.Navigator=(function() {
   //   label   : (string) visible label for this target type
   var _target_types = {};
   var _cur_target_type = "";
-  var _update_target_type_gui = function() {};
 
   // _cur_target
   // the current target, set by the target selector
   var _cur_target = "";
+  var _target_selector_ids = {}; // map of type => div id of selector
 
-  // function reference: sets the graphical representation to _cur_target
-  var _update_target_gui = function() {};
-
-  // _cur_widget
-  // the current widget, set by the widget selector
-  var _cur_widget = "";
-  var _cur_widget_obj;
-  var _update_widget_gui = function() {};
+  var _cur_widget;       // the current widget (Core.Widget.Registry object)
+  var _widget_menu;      // Reference to YUI menu object for widgets
+  var _cur_widget_obj;   // Current widget
+  // FIXME: save *only* the current widget object, use Core.Widget to get other info?
 
   // _cur_filter
   // a string containing filter arguments
@@ -42,13 +38,16 @@ PHEDEX.Navigator=(function() {
   var _parsed_filter = {};
 
   //========================= Private Methods =========================
+  // The following are defined dynamically below
+  var _updateTargetTypeGUI = function() {};
+  var _updateTargetGUI     = function() {};
+
   var _initTypeSelector = function(el) {
     var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type', 
 					     className:'phedex-nav-component'});
     
     // get registered target types
     var types = PxR.getInputTypes();
-    types = ['node', 'group', 'block', 'blah']; // XXX TEST
     var menu_data = [];
     for (var t in types) {
       var text = types[t];
@@ -64,13 +63,21 @@ PHEDEX.Navigator=(function() {
     var onSelectedMenuItemChange = function (event) {
       var oMenuItem = event.newValue;
       var type = oMenuItem.cfg.getProperty("text");
-      _setState({'type':type});
+      _changeTargetType(type);
     };
 
-    _update_target_type_gui = function() {
+    _updateTargetTypeGUI = function() {
       menu.set("label", _cur_target_type);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+  };
+
+  var _changeTargetType = function(type) {
+    var widget = _updateWidgetMenu(type); // get a new widget menu
+    var target = _updateTargetSelector(type);
+    _setState({'type':type,
+	       'target':target,
+	       'widget':widget });
   };
 
   var _initTargetSelectors = function(el) {
@@ -78,22 +85,24 @@ PHEDEX.Navigator=(function() {
 					      className:'phedex-nav-component phedex-nav-target'});
     for (var t in _target_types) {
       // TODO:  possible to call a vairable function name?
+      var id;
       if (t == 'node') {
-	_initNodeSelector(targetdiv);
+	id = _initNodeSelector(targetdiv);
+      } else if (t == 'none') {
+	id = _initNoneSelector(targetdiv);
       } else {
-	_initTextSelector(targetdiv, t);
+	id = _initTextSelector(targetdiv, t);
       }
+      _target_selector_ids[t] = id;
     }
-    _setTargetType();
+    _updateTargetSelector(_cur_target_type);
   };
   
-  // Function to get the current target from whatever control is active
-  var _getTarget = function() { throw new Error("_getTarget not defined"); };
-
   var _node_ds; // YAHOO.util.LocalDataSource
   var _initNodeSelector = function(el) {
-    var nodesel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-nodesel', 
-					    className:'phedex-nav-component'});
+    var id = 'phedex-nav-target-nodesel';
+    var nodesel = PxU.makeChild(el, 'div', {'id':id, 
+					    'className':'phedex-nav-component'});
     var makeNodeList = function(data) {
       data = data.node;
       var nodelist = [];
@@ -104,8 +113,9 @@ PHEDEX.Navigator=(function() {
       _buildNodeSelector(nodesel);
     };
     PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
+    return id;
   };
-  
+
   var _buildNodeSelector = function(div) {
     var input = PxU.makeChild(div, 'input', { type:'text' });
     var container = PxU.makeChild(div, 'div');
@@ -121,56 +131,84 @@ PHEDEX.Navigator=(function() {
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
 
-    _update_target_gui = function() {
+    _updateTargetGUI = function() {
       input.value = _cur_target;
     };
   };
-  
+
+  var _initNoneSelector = function(el) {
+    var id = 'phedex-nav-target-none';
+    var sel = PxU.makeChild(el, 'div', {'id':id, 'className':'phedex-nav-component'});
+    _updateTargetGUI = function() {
+      _cur_target = 'none';
+    };
+    return id;
+  };
+
   var _initTextSelector = function(el, type) {
-    var sel = PxU.makeChild(el, 'div', {id:'phedex-nav-target-'+type, className:'phedex-nav-component'});
+    var id = 'phedex-nav-target-'+type;
+    var sel = PxU.makeChild(el, 'div', {'id':id, 'className':'phedex-nav-component'});
     var input = PxU.makeChild(sel, 'input', { type:'text' });
-    _update_target_gui = function() {
+    _updateTargetGUI = function() {
       input.value = _cur_target;
     };
+    return id;
+  };
+  
+  var _getWidgetMenuItems = function(type) {
+    var widgets = PxR.getWidgetsByInputType(type);
+    var menu_items = [];
+    for (var w in widgets) {
+      w = widgets[w];
+      menu_items.push({ text:w.label, value:w } );
+    }
+    return menu_items;
   };
   
   var _initWidgetSelector = function(el) {
     var widgetdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-widget', className:'phedex-nav-component' });
 
-    var widgets = PxR.getWidgetsByInputType(_cur_target_type);
-    YAHOO.log('widgets='+YAHOO.lang.dump(widgets));
-    var menu_data = [];
-    for (var w in widgets) {
-      w = widgets[w];
-      menu_data.push({ text:w.label, value:w } );
-    }
-    _cur_widget = widgets[0].widget;
+    var menu_items = _getWidgetMenuItems(_cur_target_type);
+    _cur_widget = menu_items[0].value;
+    var label =   menu_items[0].text;
 
-    var menu = new YAHOO.widget.Button({ type:"menu",
-					 label:widgets[0].label,
-					 menu:menu_data,
-					 container:widgetdiv });
+    _widget_menu = new YAHOO.widget.Button({ 'type':"menu",
+					     'label':label,
+					     'menu':menu_items,
+					     'container':widgetdiv });
+    
+    // update state on menu selections
     var onSelectedMenuItemChange = function (event) {
-      var oMenuItem = event.newValue;
-      var widget = oMenuItem.value.widget;
+      var menu_item = event.newValue;
+      var widget = menu_item.value;
       _setState({'widget':widget});
     };
-    
-    _update_widget_gui = function() {
-      var label;
-      /* FIXME: ugly... I have to iterate through the menu_data to get
-        the relation between widget name (_cur_widget) and widget label, which
-        is all the menu understands... */
-      for (var m in menu_data) {
-	m = menu_data[m];
-	if (m.value.widget == _cur_widget) {
-	  menu.set("label", m.text);
-	}
-      }
-    };
-    menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+    _widget_menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+  };
+
+  var _updateWidgetGUI = function(widget) {
+    _widget_menu.set("label", widget.label);
   };
   
+  var _updateWidgetMenu = function(type) {
+//    YAHOO.log('type: '+type);
+    var menu_items = _getWidgetMenuItems(type);
+//    YAHOO.log('menu_items: '+YAHOO.lang.dump(menu_items));
+    var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
+    var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
+    if (YAHOO.util.Dom.inDocument(menu.element)) {
+      menu.clearContent();
+      menu.addItems(menu_items);
+      menu.render();
+//      YAHOO.log('menu rebuild: '); //+YAHOO.lang.dump(menu.itemData));
+    } else {
+//      YAHOO.log('menu assign: '); //+YAHOO.lang.dump(menu.itemData));
+      menu.itemData = menu_items;
+    }
+    _updateWidgetGUI(widget); // set menu to first item
+    return widget;
+  };
+
   var _initGlobalFilter = function(el) {
     var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', 
 					       className:'phedex-nav-component phedex-nav-filter' });
@@ -222,33 +260,36 @@ PHEDEX.Navigator=(function() {
     var old = _cur_target_type;
     if (!type) { type = _cur_target_type; }
     else       { _cur_target_type = type; }
-
-    var div = document.getElementById('phedex-nav-target');
-    // Hide all selectors
-    var children = YAHOO.util.Dom.getChildren(div);
-    YAHOO.util.Dom.batch(children, function(c) { c.style.visibility = 'hidden'; c.style.position = 'absolute'});
-    // Show the one we want
-    var id;
-    if (type == 'node') { id = 'phedex-nav-target-nodesel'; }
-    else                { id = 'phedex-nav-target-'+type }
-    var el = document.getElementById(id);
-    el.style.visibility = 'visible';
-    el.style.position = 'relative';
     
     if (old != _cur_target_type) {
-      _update_target_type_gui();
+      _updateTargetSelector(_cur_target_type);
+      _updateTargetTypeGUI();
       _targetTypeChangeEvent.fire({'old':old,'cur':_cur_target_type});
       return 1;
     } else { return 0; }
   };
 
+  var _updateTargetSelector = function(type) {
+    var div = document.getElementById('phedex-nav-target');
+    // Hide all selectors
+    var children = YAHOO.util.Dom.getChildren(div);
+    YAHOO.util.Dom.batch(children, function(c) { c.style.visibility = 'hidden'; c.style.position = 'absolute'});
+    // Show the one we want
+    var id = _target_selector_ids[type];
+    var el = document.getElementById(id);
+    el.style.visibility = 'visible';
+    el.style.position = 'relative';
+    // TODO: return value of active selector
+    return null;
+  };
+
   var _setTarget = function(target) {
     var old = _cur_target;
     if (!target) { target = _cur_target; }
-    else       { _cur_target = target; }
+    else         { _cur_target = target; }
 
     if (old != _cur_target) {
-      _update_target_gui();
+      _updateTargetGUI();
       _targetChangeEvent.fire({'old':old,'cur':_cur_target});
       return 1;
     } else { return 0; }
@@ -257,13 +298,25 @@ PHEDEX.Navigator=(function() {
   var _setWidget = function(widget) {
     var old = _cur_widget;
     if (!widget) { widget = _cur_widget; }
-    else       { _cur_widget = widget; }
+    else         { _cur_widget = widget; }
 
-    if (old != _cur_target_type) {
-      _update_widget_gui();
+    if (old != _cur_widget) {
+      _updateWidgetGUI(_cur_widget);
       _widgetChangeEvent.fire({'old':old,'cur':_cur_widget});
       return 1;
     } else { return 0; }
+  };
+
+  // For now, just check that all parameters are set
+  var _validConstruction = function() {
+    if (_cur_target_type == 'none') {
+      if (_cur_target_type && _cur_widget) { return true; }
+      else { return false; }
+    } else {
+      // TODO:  careful validation of targets goes here...  function from the registry?
+      if (_cur_target_type && _cur_target && _cur_widget) { return true; }
+      else { return false; }
+    }
   };
 
   // parse _cur_filter and set _filter
@@ -288,16 +341,15 @@ PHEDEX.Navigator=(function() {
   _navChangeEvent.subscribe(function(evt, args) {
     args = args[0];
     YAHOO.log("NavChange:  type="+args.type+" target="+args.target+
-	      " widget="+args.widget+" filter="+args.filter,
+	      " widget="+args.widget.widget+" filter="+args.filter,
 	      'info', 'Navigator');
-    // TODO: careful validation goes here...
-    if (_cur_widget && _cur_target_type && _cur_target) {
+    if (_validConstruction()) {
       YAHOO.log("NavChange:  construct type="+_cur_target_type+" target="+_cur_target+
-		" widget="+_cur_widget,
+		" widget="+_cur_widget.widget,
 		'info', 'Navigator');
       if (_cur_widget_obj) { _cur_widget_obj.destroy(); }
       _nav_construct = true; // prevent interception of our own construct event
-      var widget = PxR.construct(_cur_widget, _cur_target_type, _cur_target, 
+      var widget = PxR.construct(_cur_widget.widget, _cur_target_type, _cur_target, 
 				 'phedex-main', { window: false });
       _nav_construct = false;
       _cur_widget_obj = widget;
@@ -315,7 +367,7 @@ PHEDEX.Navigator=(function() {
   PxR.beforeConstructEvent.subscribe(function(evt, args) {
     if (_nav_construct) { return true; } // prevent interception of our own construct event
     args = args[0];
-    YAHOO.log("heard beforeConstruct for widget="+args.widget+" type="+args.type+" data="+args.data,
+    YAHOO.log("heard beforeConstruct for widget="+args.widget.widget+" type="+args.type+" data="+args.data,
 	      'info', 'Navigator');
     _setState({'type':args.type, 
 	       'widget':args.widget, 
