@@ -37,9 +37,9 @@ PHEDEX.Global.Filter=function(el) {
 //   };
   PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterCancel:'+obj.me(),'info','Global');
+      YAHOO.log('onFilterCancel:'+obj.me(),'info','GlobalFilter');
       var str = obj.filter.asString({});
-      YAHOO.log('onFilterCancel:'+obj.me()+' '+str,'info','Global');
+      YAHOO.log('onFilterCancel:'+obj.me()+' '+str,'info','GlobalFilter');
       var el = document.getElementById('phedex-nav-filter-input');
       el.value = str;
       obj.ctl.filter.Hide();
@@ -50,7 +50,7 @@ PHEDEX.Global.Filter=function(el) {
 
   this.onFilterAccept.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterAccept:'+obj.me(),'info','Global');
+      YAHOO.log('onFilterAccept:'+obj.me(),'info','GlobalFilter');
       obj.filter.Parse();
     }
   }(this));
@@ -61,7 +61,7 @@ PHEDEX.Global.Filter=function(el) {
       if ( obj.widgets[widget] ) { return; } // already seen this one...
       if ( widget == obj.me() ) { return; } // don't process my own input twice!
       else { obj.filter.init(args); } // copy the initialisation arguments
-      YAHOO.log('onFilterDefinition:'+widget,'info','Global');
+      YAHOO.log('onFilterDefinition:'+widget,'info','GlobalFilter');
       obj.widgets[widget] = [];
       for (var i in args) {
 	for (var j in args[i]) {
@@ -75,7 +75,7 @@ PHEDEX.Global.Filter=function(el) {
     return function(ev,arr) {
       var args = arr[0];
       var str = obj.filter.asString(args);
-      YAHOO.log('onFilterValidated:'+obj.me()+' '+str,'info','Global');
+      YAHOO.log('onFilterValidated:'+obj.me()+' '+str,'info','GlobalFilter');
       var el = document.getElementById('phedex-nav-filter-input');
       el.value = str;
       if ( ! obj.filter.args ) { obj.filter.args = []; }
