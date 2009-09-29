@@ -9,7 +9,7 @@ PHEDEX::Core::Timing - a drop-in replacement for Toolkit/UtilsTiming
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(mytimeofday gmmktime str2time formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
+our @EXPORT = qw(mytimeofday gmmktime gmmktime2 str2time formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
 use Time::HiRes 'gettimeofday';
 use POSIX qw(strftime mktime);
 
@@ -32,6 +32,19 @@ sub gmmktime
     return $t1 + ($t1 - $t2);
 }
 
+sub gmmktime2
+{
+    if (@_)
+    {
+        return mktime(gmtime(mktime(@_)));
+    }
+    else
+    {
+        # GMT now()
+        return mktime(gmtime);
+    }
+}
+
 # str2time($str, $default) -- convert string to timestamp
 #    When parsing fails, returns the defaul
 #
@@ -49,6 +62,7 @@ sub str2time
 {
     my ($str, $default) = @_;
     my @dh;
+    my @t;
 
     if ($str =~ m!(^\d*$)!)	# UNIX time
     {
@@ -95,8 +109,13 @@ sub str2time
         return time() - 15552000;
     }
 
+    # try ISO8601
+
+    my $t = interval ($str);
+    return time() - $t if defined $t;
+
     # YYYY-MM-DD[_hh:mm:ss]
-    my @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
+    @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
     # if it failed to parse the time string, just return undef
     if (not exists $t[0])
     {
@@ -210,6 +229,42 @@ sub timeSub
     my $t2 = &mytimeofday();
     print STDERR "timing: $label: ", sprintf("%.6f s", $t2-$t1), "\n";
     return wantarray ? @r : $r[0];
+}
+
+# interval -- parse and convert ISO8601 interval to seconds
+#
+# P[nY][nM][nD][T[nH][nM][nS]]
+#
+# P -- required prefix -- for period
+# Y -- year -- 365 days
+# M -- month -- 30 days
+# D -- days
+# T -- optional time separator
+# H -- hours
+# M -- minutes
+# S -- seconds
+
+sub interval
+{
+    my $s = shift;
+    my @t = $s =~ m!^P((\d+)Y)?((\d+)M)?((\d+)D)?(T((\d+)H)?((\d+)M)?((\d+)S)?)?!;
+
+    if (!@t)
+    {
+        return undef;
+    }
+
+    # make the code more readable
+    my $year = $t[1]?$t[1]:0;
+    my $month = $t[3]?$t[3]:0;
+    my $day = $t[5]?$t[5]:0;
+    my $hour = $t[8]?$t[8]:0;
+    my $minute = $t[10]?$t[10]:0;
+    my $second = $t[12]?$t[12]:0;
+
+    my $t = ($year * 365 + $month * 30 + $day) * 3600 * 24 + ($hour * 60 + $minute) * 60 + $second;
+
+    return $t;
 }
 
 1;
