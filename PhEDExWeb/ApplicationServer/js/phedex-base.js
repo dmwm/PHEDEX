@@ -1,8 +1,10 @@
-// A PhEDEx base-class and global definitions?
+/* A PhEDEx base-class and global definitions
+   This file also contains the version number for the entire
+   application, which must be updated for new releases! */
 
 PHEDEX= {}
 PHEDEX.Appserv = {};
-PHEDEX.Appserv.Version = '0.0.2';
+PHEDEX.Appserv.Version = '0.1.0';
 
 // shamelessly cribbed from PHEDEX. For more information, see
 // http://yuiblog.com/blog/2007/06/12/module-pattern/
