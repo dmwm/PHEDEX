@@ -4,7 +4,12 @@
 
 PHEDEX= {}
 PHEDEX.Appserv = {};
-PHEDEX.Appserv.Version = '0.1.0';
+PHEDEX.Appserv.makeVersion = function() {
+  var version = '@APPSERV_VERSION@'; // set when RPM is built
+  return version.match(/APPSERV_VERSION/) ? '0.0.0' : version;
+};
+PHEDEX.Appserv.Version = PHEDEX.Appserv.makeVersion();
+  
 
 // shamelessly cribbed from PHEDEX. For more information, see
 // http://yuiblog.com/blog/2007/06/12/module-pattern/
