@@ -1889,15 +1889,15 @@ sub getDataSubscriptions
             s.time_suspend_until suspend_until,
             s.time_create,
             b.files files,
-            b.bytes bytes
+            b.bytes bytes,
+            reps.node_files,
+            reps.node_bytes
         from
             t_dps_subscription s
             join t_adm_node n on n.id = s.destination
             left join t_dps_block b on b.id = s.block
             left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
             left join t_adm_group g on g.id = s.user_group
-            join t_req_request r on r.id = s.request
-            join t_req_xfer x on x.request = r.id
             join
             (select
                 s2.destination,
