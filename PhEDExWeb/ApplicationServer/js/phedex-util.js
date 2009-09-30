@@ -277,3 +277,5 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
     fnLoadComplete();
   }
 }
+
+var PxU = PHEDEX.Util;
