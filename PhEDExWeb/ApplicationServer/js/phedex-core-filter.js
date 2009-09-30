@@ -50,8 +50,8 @@ PHEDEX.Core.Filter = function(obj) {
         },
         minmax: function(arg) {
 	  var v = { result:false };
-	  if ( arg.min ) { v.min = parseInt(arg.min); if ( isNaN(v.min) ) { return v; } }
-	  if ( arg.max ) { v.max = parseInt(arg.max); if ( isNaN(v.max) ) { return v; } }
+	  if ( arg.min != '' ) { v.min = parseInt(arg.min); if ( isNaN(v.min) ) { return v; } }
+	  if ( arg.max != '' ) { v.max = parseInt(arg.max); if ( isNaN(v.max) ) { return v; } }
 	  if ( v.min && v.max && v.min > v.max ) { return v; }
 	  v.result = true;
 	  return v;
@@ -86,16 +86,25 @@ PHEDEX.Core.Filter = function(obj) {
         float:   function(arg,val) { return val > arg; },
         percent: function(arg,val) { return val > arg; },
         minmax: function(arg,val) {
-	  if ( val > arg.min && val <= arg.max ) { return true; }
-	  return false;
+	  var min = parseInt(arg.min);
+	  var max = parseInt(arg.max);
+	  if ( !isNaN(min) && val < min ) { return false; }
+	  if ( !isNaN(max) && val > max ) { return false; }
+	  return true;
         },
         minmaxFloat: function(arg,val) {
-	  if ( val > arg.min && val <= arg.max ) { return true; }
-	  return false;
+	  var min = parseFloat(arg.min);
+	  var max = parseFloat(arg.max);
+	  if ( !isNaN(min) && val < min ) { return false; }
+	  if ( !isNaN(max) && val > max ) { return false; }
+	  return true;
         },
         minmaxPct: function(arg,val) {
-	  if ( val > arg.min && val <= arg.max ) { return true; }
-	  return false;
+	  var min = parseFloat(arg.min);
+	  var max = parseFloat(arg.max);
+	  if ( !isNaN(min) && val*100 < min ) { return false; }
+	  if ( !isNaN(max) && val*100 > max ) { return false; }
+	  return true;
         }
       },
 
