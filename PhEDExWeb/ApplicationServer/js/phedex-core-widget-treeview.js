@@ -541,6 +541,7 @@ PHEDEX.Core.Widget.TreeView.prepareSort=function(el,sortFn) {
   var target    = obj.locateNode(el.target);
   var thisClass = obj.getPhedexFieldClass(target);
   obj.sort(node,thisClass,sortFn);
+  obj.applyFilter();
 }
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Ascending', function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.asc ); });
 PHEDEX.Core.ContextMenu.Add('sort-files','Sort Files Descending',function(opts,el) { PHEDEX.Core.Widget.TreeView.prepareSort(el,PHEDEX.Util.Sort.files.desc); });
