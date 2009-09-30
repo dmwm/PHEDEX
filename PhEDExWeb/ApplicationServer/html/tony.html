@@ -61,13 +61,28 @@
 </head>
 
 <body class="yui-skin-sam">
+ <div style='border-bottom:solid black 2px; margin-bottom: 2px;'><img src="/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
+    <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
+    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
+    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
+    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+ </div>
  <div id='phedex-nav' class='phedex-nav'></div><br clear='all'/>
  <div id='phedex-main'></div>
 
 <script type="text/javascript">
 // instantiate the page and other things when the DOM is ready!
 YAHOO.util.Event.onDOMReady(function() {
-  PHEDEX.Navigator.init('phedex-nav');
+  var phedex_app_version = document.getElementById('phedex-app-version');
+  phedex_app_version.innerHTML = PHEDEX.Appserv.Version;
+
+  PHEDEX.Navigator.init('phedex-nav',
+    { typecfg: {
+	none: { label: 'Explore global',  order: 10 },
+        node: { label: 'Explore by node', order: 20 }
+      }
+     }
+  );
   var GlobalFilter = new PHEDEX.Global.Filter('phedex-nav-filter-panel');
 
 // A logger, if I want it..
@@ -93,6 +108,18 @@ YAHOO.util.Event.onDOMReady(function() {
 	  'Navigator']
       }
     );
+
+//     var listWidgetDiv = document.createElement('div');
+//     listWidgetDiv.id = 'phedex-list-widgets';
+//     listWidgetDiv.className='phedex-invisible';
+//     var listWidgetDivCtl = PxU.makeChild('phedex-nav', 'div', { id: 'phedex-list-widget-ctl', className:'phedex-nav-link'});
+//     YAHOO.util.Dom.insertBefore(listWidgetDiv,'phedex-main');
+//     var fillListWidgetDiv = function() {
+//       listWidgetDiv.innerHTML  = 'List of known widgets:<br /><ul>';
+//       PHEDEX.Event.onListWidgets.fire(listWidgetDiv);
+//       listWidgetDiv.innerHTML += '</ul><br />end of list...';
+//     }
+//     var ctlListWidgets = new PHEDEX.Core.Control({text:'List Widgets', payload:{render:'phedex-list-widget-ctl', target:'phedex-list-widgets', fillFn:fillListWidgetDiv} } );
   }
 
 });
