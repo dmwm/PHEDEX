@@ -26,13 +26,22 @@ Show messages from the agents
 
 =head2 Output
 
-  <agent>
-    <log>
-      <message> ... </message>
-    </log>
+  <node>
+    <agent>
+      <log>
+        <message> ... </message>
+      </log>
+      ...
+    </agent>
     ...
-  </agent> 
+  </node>
   ...
+
+=head3 <node> attributes
+
+ name        PhEDEx node name
+ se          storage element
+ id          node id
 
 =head3 <agent> attributes:
 
@@ -47,7 +56,10 @@ Show messages from the agents
   work_dir          agent work directory
   state_dir         agent state directory
   reason            reason for update
-  message           log message 
+
+=head3 <message> element:
+
+  Contains the log message.
 
 =cut
 
