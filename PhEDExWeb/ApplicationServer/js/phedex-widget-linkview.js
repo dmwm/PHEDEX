@@ -65,15 +65,17 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 	'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
 	'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
 	'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
-	'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' }
+	'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' },
+	'phedex-tree-error-total' :{type:'minmax',    text:'Link-errors',      tip:'number of link-errors' },
+	'phedex-tree-error-log'   :{type:'minmax',    text:'Logged-errors',    tip:'number of logged-errors' }
 	},
 	'Block-level attributes':{
 	'phedex-tree-block-name'  :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
 	'phedex-tree-block-id'    :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
 	'phedex-tree-state'       :{type:'regex',     text:'Block-state',      tip:'block-state' },
 	'phedex-tree-priority'    :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
-	'phedex-tree-block-files' :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' },
-	'phedex-tree-block-bytes' :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' },
+// 	'phedex-tree-block-files' :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
+// 	'phedex-tree-block-bytes' :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
 	'phedex-tree-block-errors':{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
 	},
 	'File-level attributes':{
