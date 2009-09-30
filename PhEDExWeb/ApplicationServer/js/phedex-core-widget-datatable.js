@@ -212,7 +212,6 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
 
   this.onDataFailed.subscribe(function(obj) {
     return function() {
-debugger;
 //    Empty the dataTable if it is there
       if ( obj.dataTable ) { obj.dataTable.destroy(); obj.dataTable = null; } // overkill? Who cares!...
       obj.dom.content.innerHTML='Data-load error, try again later...';
@@ -244,26 +243,40 @@ debugger;
     var gmt = new Date(oData*1000).toGMTString();
     elCell.innerHTML = gmt;
   };
-  YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter
-  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
+  YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter;
+
+  this.filter.onFilterCancelled.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.DataTable');
+      YAHOO.log('onWidgetFilterCancelled:'+obj.me(),'info','Core.DataTable');
+      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+      obj.fillDataSource(obj.data);
+      obj.filter.Reset();
       obj.ctl.filter.Hide();
+      PHEDEX.Event.onWidgetFilterCancelled.fire(obj.filter);
+    }
+  }(this));
+  PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.fillDataSource(obj.data);
       obj.filter.Reset();
     }
   }(this));
 
-  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+  PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
       var args = arr[0];
       if ( ! obj.filter.args ) { obj.filter.args = []; }
       for (var i in args) {
 	obj.filter.args[i] = args[i];
       }
-      var x = obj.applyFilter(arr[0]);
-// FIXME doesn't highligh the 'filter' element when a global-filter is applied to a widget
+      obj.applyFilter(arr[0]);
+    }
+  }(this));
+  this.filter.onFilterApplied.subscribe(function(obj) {
+    return function(ev,arr) {
+      obj.applyFilter(arr[0]);
       obj.ctl.filter.Hide();
     }
   }(this));

@@ -15,6 +15,7 @@ var PxU = PHEDEX.Util;
 PHEDEX.Core.Widget = function(divid,opts) {
 // Base object definitions, shared between all PhEDEx objects
   YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+  YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
 
 // Require divid of some kind
   if ( !divid ) { throw new Error("must provide div name to contain widget"); }
@@ -250,9 +251,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
 // for showing/hiding extra control-divs, like the classic extra-div
   this.onShowExtra      = new YAHOO.util.CustomEvent("onShowExtra", this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideExtra      = new YAHOO.util.CustomEvent("onHideExtra", this, false, YAHOO.util.CustomEvent.LIST);
-
-  this.onFilterAccept   = new YAHOO.util.CustomEvent("onFilterAccept", this, false, YAHOO.util.CustomEvent.LIST);
-
 // adjustHeader is not needed with window = false, because the module-height is not defined if it is not
 // confined in a resizeable component. If the module-height is not defined then there is no need to adjust it.
   if (this.options.window) {
@@ -260,11 +258,15 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.onHideExtra.subscribe(function(ev,arg) { this.adjustHeader(-arg[0]); });
   }
 
-  this.onShowFilter     = new YAHOO.util.CustomEvent("onShowFilter", this, false, YAHOO.util.CustomEvent.LIST);
-  this.onHideFilter     = new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST);
+  this.filter.onFilterApplied = new YAHOO.util.CustomEvent("onFilterApplied", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onAcceptFilter         = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
+  this.onShowFilter           = new YAHOO.util.CustomEvent("onShowFilter",  this, false, YAHOO.util.CustomEvent.LIST);
+  this.onHideFilter           = new YAHOO.util.CustomEvent("onHideFilter",  this, false, YAHOO.util.CustomEvent.LIST);
   this.onHideFilter.subscribe(function() {
       this.filter.destroy();
-      this.ctl.filter.setApplied(this.filter.isApplied());
+      var isApplied = this.filter.isApplied();
+      this.ctl.filter.setApplied(isApplied);
+      PHEDEX.Event.onWidgetFilterApplied.fire(isApplied);
     });
 
 /* adjust the header up or down in size by the requisite number of
@@ -277,11 +279,18 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.module.cfg.setProperty("height",(oheight+arg)+'px');
   }
 
-//   PHEDEX.Event.onFilterAccept.subscribe( function(obj) {
-  this.onFilterAccept.subscribe( function(obj) {
+// TODO This callback is identical to code in phedex-global. If we can sort out the scope, it could be made common-code
+  this.onAcceptFilter.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterAccept:'+obj.me(),'info','Core.Widget');
+      YAHOO.log('onAcceptFilter:'+obj.me(),'info','Core.Widget');
       obj.filter.Parse();
+    }
+  }(this));
+
+  PHEDEX.Event.onGlobalFilterApplied.subscribe( function(obj) {
+    return function(ev,arr) {
+      var isApplied = arr[0];
+      obj.ctl.filter.setApplied(isApplied);
     }
   }(this));
 
@@ -330,7 +339,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   }
 
   this.startLoading();
-  YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
   return this;
 }
 

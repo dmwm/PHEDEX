@@ -2,8 +2,8 @@ PHEDEX.namespace('Core.Widget.TreeView');
 
 PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   var that=new PHEDEX.Core.Widget(divid,opts);
-  that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
-
+//   that.me=function() { YAHOO.log('unimplemented "me"','error','Core.TreeView'); return 'PHEDEX.Core.Widget.TreeView'; }
+  that._me='PHEDEX.Core.Widget.TreeView';
 // MouseOver handler, can walk the tree to find interesting elements and fire events on them?
   function mouseOverHandler(e) {
 //  get the resolved (non-text node) target:
@@ -452,27 +452,46 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     that.showNotBusy();
   }
 
-  PHEDEX.Event.onFilterCancel.subscribe( function(obj) {
+  that.filter.onFilterCancelled.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onFilterCancel:'+obj.me(),'info','Core.TreeView');
+      YAHOO.log('onWidgetFilterCancelled:'+obj.me(),'info','Core.TreeView');
+      YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+      obj.revealAllBranches();
+      obj.filter.Reset();
       obj.ctl.filter.Hide();
+      PHEDEX.Event.onWidgetFilterCancelled.fire(obj.filter);
+    }
+  }(that));
+  PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
+    return function() {
+      YAHOO.log('onGlobalFilterCancelled:'+obj.me(),'info','Core.TreeView');
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.revealAllBranches();
       obj.filter.Reset();
     }
   }(that));
+
 // This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
 // Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
   that.revealAllBranches=function() {
     that.filter.revealAllElements('ygtvrow');
   }
 
-  PHEDEX.Event.onFilterValidated.subscribe( function(obj) {
+  that.filter.onFilterApplied.subscribe(function(obj) {
     return function(ev,arr) {
-      YAHOO.log('onFilterValidated:'+obj.me(),'info','Core.TreeView');
-      var x = obj.applyFilter(arr[0]);
-//       obj.filter.count = arr[1];
+      obj.applyFilter(arr[0]);
       obj.ctl.filter.Hide();
+    }
+  }(that));
+
+  PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
+    return function(ev,arr) {
+      var args = arr[0];
+      if ( ! obj.filter.args ) { obj.filter.args = []; }
+      for (var i in args) {
+	obj.filter.args[i] = args[i];
+      }
+      obj.applyFilter(arr[0]);
     }
   }(that));
 
