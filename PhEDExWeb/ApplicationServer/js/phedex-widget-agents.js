@@ -87,6 +87,7 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
     if (that.data) { that.populate(); }
     else { that.failedLoading(); }
   }
+  PHEDEX.Event.onListWidgets.subscribe( function(obj) { return function(ev,arr) { arr[0].innerHTML += '<li>'+that.me()+'</li>'; } }(this));
 
   that.buildExtra(that.dom.extra);
   that.buildContextMenu({'agent':'Name'});
