@@ -342,10 +342,11 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
       payload.opts.direction = that.direction;
       payload.data.errors    = e.block;
       var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
-      that.addNode(
+      var tNode = that.addNode(
         { format:branchDef1, payload:payload },
         [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
       );
+      if ( !queue.files ) { tNode.isLeaf = true; } // a link with no queue can have no children worth seeing, declare it to be a leaf-node
     }
     that.tree.render();
   }
