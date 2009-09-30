@@ -1889,9 +1889,7 @@ sub getDataSubscriptions
             s.time_suspend_until suspend_until,
             s.time_create,
             b.files files,
-            b.bytes bytes,
-            reps.node_files,
-            reps.node_bytes
+            b.bytes bytes
         from
             t_dps_subscription s
             join t_adm_node n on n.id = s.destination
