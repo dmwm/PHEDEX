@@ -99,6 +99,16 @@ PHEDEX.Core.Filter = function(obj) {
         }
       },
 
+//    the global-filter will override these. Global-filter and core-widget communicate by event-pairs. Each
+//    object subscribes to one event of a pair and emits the other. This keeps some symmetry in the code
+//    without having to mess around with inspecting which event actually fired. Essentially the components
+//    communicate via DAGs of events, never loops.
+//    The core-filter code simply fires the event assigned to it, the derived components subscribe explicitly
+//    to the event they are interested in.
+//       onFilterApplied:   PHEDEX.Event.onWidgetFilterApplied,   // event to fire once the filter is applied
+      onFilterValidated: PHEDEX.Event.onWidgetFilterValidated, // event to fire once the filter is validated
+      onFilterCancelled: new YAHOO.util.CustomEvent('onWidgetFilterCancelled', this, false, YAHOO.util.CustomEvent.LIST), // event to fire once the filter is cancelled
+
       fields: [],
       structure: [],
       init: function(args) {
@@ -109,7 +119,7 @@ PHEDEX.Core.Filter = function(obj) {
 	    this.fields[j] = args[i][j];
 	  }
 	}
-	PHEDEX.Event.onFilterDefinition.fire(args,obj.me());
+	PHEDEX.Event.onFilterDefined.fire(args,obj.me());
       },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
@@ -167,9 +177,9 @@ PHEDEX.Core.Filter = function(obj) {
 
 //      fire global events when the buttons are clicked. There is no need for setting a scope to the fire(), subscribers control their own context for global events
         var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Filter', container: buttonDiv });
-        buttonAcceptFilter.on('click', function() { /*PHEDEX.Event*/ obj.onFilterAccept.fire(); } );
+        buttonAcceptFilter.on('click', function() { obj.onAcceptFilter.fire(); } );
         var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Filter', container: buttonDiv });
-        buttonCancelFilter.on('click', function() { PHEDEX.Event.onFilterCancel.fire(); } );
+        buttonCancelFilter.on('click', function() { obj.filter.onFilterCancelled.fire(); } );
       },
 
       Fill: function(div) {
@@ -289,7 +299,10 @@ PHEDEX.Core.Filter = function(obj) {
 	    }
 	  }
         }
-        if ( isValid ) { PHEDEX.Event.onFilterValidated.fire(this.args); }
+        if ( isValid ) {
+	  this.onFilterValidated.fire(this.args);
+	  this.onFilterApplied.fire(this.args);
+	}
         return isValid; // in case it's useful...
       },
 
