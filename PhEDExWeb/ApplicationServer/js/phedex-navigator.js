@@ -237,8 +237,7 @@ PHEDEX.Navigator=(function() {
 				className:'phedex-nav-filter-input',
 				type: 'text' });
     var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', 
-						    className:'phedex-nav-component phedex-nav-link', 
-						    innerHTML:'(Global Filter Control Placeholder)' });
+						    className:'phedex-nav-component phedex-nav-link'});
   };
 
   var _initPermaLink = function(el) {
