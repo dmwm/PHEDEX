@@ -184,7 +184,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
 // For filling extra information, if needed...
   this.buildExtra=function(div) { div.innerHTML='No extra information defined...';}
-  this.fillExtra=function(div) { }
+  this.fillExtra=function(div) { this.onFillExtra.fire(div); }
 
   // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.showBusy=function()
@@ -298,8 +298,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
     // extra
     this.ctl.extra = new PHEDEX.Core.Control({text:'Extra',
-					      payload:{target:this.dom.extra, 
-						       fillFn:this.fillExtra, 
+					      payload:{target:this.dom.extra,
+						       fillFn:this.fillExtra,
 						       obj:this,
 						       animate:false,
 						       hover_timeout:200,
