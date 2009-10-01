@@ -511,9 +511,11 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
 	  var className = tNode.data.spec.format[i].className;
 	  if ( className != key ) { continue; }
 	  var kValue = tNode.data.values[i];
+	  if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
 	  var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
 	  if ( args[key].negate ) { status = !status; }
 	  if ( !status ) { // Keep the element if the match succeeded!
+	    tNode.collapse();
 	    var elAncestor = YAHOO.util.Dom.getAncestorByClassName(elId,'ygtvrow');
 	    YAHOO.util.Dom.addClass(elAncestor,'phedex-invisible');
 	    that.filter.count++;
