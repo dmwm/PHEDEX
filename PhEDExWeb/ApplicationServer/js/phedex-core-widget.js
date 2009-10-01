@@ -163,6 +163,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
 
   this.destroy=function() {
     YAHOO.log('Destroying '+this.div.id+' in '+this.parent.id,'info','Core.Widget');
+    this.cleanup();
     this.filter.destroy();
     this.module.destroy();
     if (this.parent.created && ! this.parent.hasChildNodes() ) {
@@ -217,6 +218,8 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.update=function() { alert("Unimplemented update()");}
 
   this.module.render();
+
+  this.cleanup=function() {}; // for cleanup work; called in destroy()
 
 // A bunch of custom events that can be used by whatever needs them. The core widget fires some of these, but not necessarily all. Derived widgets are free to use them or add their own events
 //
