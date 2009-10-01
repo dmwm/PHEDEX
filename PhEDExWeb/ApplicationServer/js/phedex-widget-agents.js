@@ -1,9 +1,6 @@
-// instantiate the PHEDEX.Widget.Agents namespace
 PHEDEX.namespace('Widget.Agents');
-
 PHEDEX.Page.Widget.Agents=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-//   var agent_node = new PHEDEX.Widget.Agents(node,divid);
   var agent_node = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.Agents','node',node,divid);
   agent_node.update();
 }
@@ -26,21 +23,12 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
   that.node=node;
   that._me = 'PHEDEX.Core.Widget.Agents';
   that.me=function() { return that._me; }
-  that.offsetTime = function(x)
-  {
-    var d = new Date();
-    var now = d.getTime()/1000;
-    var y = {min:null, max:null};
-    if ( x.min ) { y.max = now-x.min; } // N.B. y.max from x.min because subtracting x from now inverts the selection!
-    if ( x.max ) { y.min = now-x.max; }
-    return y;
-  }
- that.filter.init( {
+  that.filter.init( {
     'Agent attributes':{
       'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
       'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
       'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
-      'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', format:that.offsetTime },
+      'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
       'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
       'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
       'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
@@ -49,7 +37,8 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
     var msg = this.node+', '+this.data.length+' agents.';
     that.dom.title.innerHTML = msg;
   }
-  that.fillExtra=function(div) {
+  that.onFillExtra.subscribe( function(ev,arr) {
+    var div = arr[0];
     var msg = 'If you are reading this, there is a bug somewhere...';
     var now = new Date() / 1000;
     var minDate = now;
@@ -68,8 +57,8 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
       var dMax = Math.round(now - maxDate);
       msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
     }
-    that.dom.extra.innerHTML = msg;
-  }
+    div.innerHTML = msg;
+  } );
   that.buildTable(that.dom.content,
             [ 'Agent',
 	      {key:"Date", formatter:'UnixEpochToGMT'},
