@@ -278,4 +278,22 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
   }
 }
 
+PHEDEX.Util.toggleVisible = function(thisClass,el)
+{
+// find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
+  if (typeof(el) != 'object') {
+    el = document.getElementById(el);
+  }
+  var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,el)
+  for (var i in elList) {
+    if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-visible') ) {
+      YAHOO.util.Dom.removeClass(elList[i],'phedex-visible');
+      YAHOO.util.Dom.addClass(elList[i],'phedex-invisible');
+    } else if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
+      YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+      YAHOO.util.Dom.addClass(elList[i],'phedex-visible');
+    }
+  }
+}
+
 var PxU = PHEDEX.Util;
