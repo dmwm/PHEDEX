@@ -34,6 +34,7 @@ PHEDEX.Base.Object = function() {
   return {
 // not sure I want to put events here too, do I?
 //  onHideFilter: new YAHOO.util.CustomEvent("onHideFilter", this, false, YAHOO.util.CustomEvent.LIST),
+    onFillExtra: new YAHOO.util.CustomEvent("onFillExtra", this, false, YAHOO.util.CustomEvent.LIST),
     dom: [],
     ctl: [],
     options: {},
