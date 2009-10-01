@@ -263,6 +263,9 @@ PHEDEX.Core.Filter = function(obj) {
 	  }
 	  focusOn.focus();
         }
+	var kl = new YAHOO.util.KeyListener(container, { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+	                                              { fn:function() { obj.onAcceptFilter.fire(); }, scope:this, correctScope:true } );
+	kl.enable();
       },
 
       Parse: function() {
