@@ -193,17 +193,37 @@ PHEDEX.Core.Filter = function(obj) {
         buttonCancelFilter.on('click', function() { obj.filter.onFilterCancelled.fire(); } );
       },
 
-      Fill: function(div) {
-	var container = div
+      Fill: function(container) {
+// 	var container = div;
 	if ( !this.args ) { this.args = []; }
+	if ( !this.ctl ) { this.ctl = []; }
         this.focusMap={};
         for (var label in this.structure) {
-          container = document.createElement('fieldset');
-//         fieldset.id = 'fieldset_'+PHEDEX.Util.Sequence();
+          var fieldset = document.createElement('fieldset');
+	  var helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence();
+// 	  fieldset.class = helpClass;
           var legend = document.createElement('legend');
           legend.appendChild(document.createTextNode(label));
-          container.appendChild(legend);
-	  div.appendChild(container);
+          fieldset.appendChild(legend);
+
+          var helpCtl = document.createElement('span');
+	  helpCtl.appendChild(document.createTextNode('[?]'));
+	  YAHOO.util.Event.addListener(helpCtl, 'click', function(aClass,anElement) {
+	    return function() { PxU.toggleVisible(aClass,anElement) };
+	  }(helpClass,fieldset) );
+          legend.appendChild(document.createTextNode(' '));
+          legend.appendChild(helpCtl);
+
+	  var hideClass = 'phedex-filter-hide-class-'+PHEDEX.Util.Sequence();
+          var hideCtl = document.createElement('span');
+	  hideCtl.appendChild(document.createTextNode('[x]'));
+	  YAHOO.util.Event.addListener(hideCtl, 'click', function(aClass,anElement) {
+	    return function() { PxU.toggleVisible(aClass,anElement) };
+	  }(hideClass,fieldset) );
+          legend.appendChild(document.createTextNode(' '));
+          legend.appendChild(hideCtl);
+
+	  container.appendChild(fieldset);
 	  for (var key in this.structure[label]) {
 	    if ( !this.args[key] ) { this.args[key] = []; }
 	    var focusOn;
@@ -211,7 +231,7 @@ PHEDEX.Core.Filter = function(obj) {
 	    if ( !c.value ) { c.value = null; }
 
 	    var outer = document.createElement('div');
-	    outer.className = 'phedex-filter-outer';
+	    outer.className = 'phedex-filter-outer phedex-visible '+hideClass;
 	    var inner = document.createElement('div');
 	    inner.className = 'phedex-filter-inner';
 	    inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
@@ -257,9 +277,18 @@ PHEDEX.Core.Filter = function(obj) {
 	    cBox.checked = this.args[key].negate;
 	    inner.appendChild(cBox);
 	    outer.appendChild(inner);
-// 	  if ( c.tip ) { outer.setAttribute('tip',c.tip); } // TODO would be nice to set a tooltip
-	    outer.appendChild(document.createTextNode(c.text));
-	    container.appendChild(outer);
+	    var fieldLabel = document.createElement('div');
+	    fieldLabel.className = 'float-left';
+	    fieldLabel.appendChild(document.createTextNode(c.text));
+	    outer.appendChild(fieldLabel);
+
+	    if ( c.tip ) {
+	      var help = document.createElement('div');
+	      help.className = 'phedex-filter-help phedex-invisible float-right '+helpClass;
+	      help.appendChild(document.createTextNode(c.tip));
+	      outer.appendChild(help);
+	    }
+	    fieldset.appendChild(outer);
 	  }
 	  focusOn.focus();
         }
