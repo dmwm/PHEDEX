@@ -55,10 +55,21 @@ PHEDEX.Widget.Nodes=function(node,divid,opts) {
   }
   that.buildExtra(that.dom.extra);
   that.buildContextMenu({'node':'Name'});
-  PHEDEX.Event.onListWidgets.subscribe( function(obj) { return function(ev,arr) { arr[0].innerHTML += '<li>'+that.me()+'</li>'; } }(this));
 
+  var inclist = (function(obj) { 
+      return function(ev,arr) { 
+	arr[0].innerHTML += '<li>'+that.me()+'</li>'; 
+      };
+  }(this));
+  PHEDEX.Event.onListWidgets.subscribe( inclist );
+  
   that.build();
   that.ctl.extra.Disable();
+
+  that.cleanup = function() { 
+    PHEDEX.Event.onListWidgets.unsubscribe( inclist );
+  }
+
   return that;
 }
 
