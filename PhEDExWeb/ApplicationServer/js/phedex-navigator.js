@@ -82,22 +82,13 @@ PHEDEX.Navigator=(function() {
     var onSelectedMenuItemChange = function (event) {
       var menu_item = event.newValue;
       var type = menu_item.value;
-      _changeTargetType(type);
+      _setState({'type':type});
     };
 
     _updateTargetTypeGUI = function() {
       menu.set("label", _target_types[_cur_target_type].label);
     };
     menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
-  };
-
-  var _changeTargetType = function(type) {
-    if (type == _cur_target_type) { return; } // do nothing if nothing has changed
-    var widget = _updateWidgetMenu(type);     // get a new widget menu, returns default selection
-    var target = _updateTargetSelector(type); // get a new target selector, returns default selection
-    _setState({'type':type,
-	       'target':target,
-	       'widget':widget });
   };
 
   var _initTargetSelectors = function(el) {
@@ -254,9 +245,9 @@ PHEDEX.Navigator=(function() {
      pass through this function! */
   var _setState = function(state) {
     var changed = 0;
-    if (state.type)   { changed = _setTargetType(state.type) || changed; }
-    if (state.target) { changed = _setTarget(state.target)   || changed; }
-    if (state.widget) { changed = _setWidget(state.widget)   || changed; }
+    if (state.type)   { changed = _setTargetType(state) || changed; }
+    if (state.target) { changed = _setTarget(state)     || changed; }
+    if (state.widget) { changed = _setWidget(state)     || changed; }
     if (changed)      { _fireNavChange(); }
   };
 
@@ -275,12 +266,17 @@ PHEDEX.Navigator=(function() {
   /* TODO: hidden/visible a wise way to manage these elements? I don't
      want to rebuild them on every target-chagne, but maybe there's a
      better way to put them out of the way... */
-  var _setTargetType = function(type) {
+  var _setTargetType = function(state) {
+    var type = state.type;
     var old = _cur_target_type;
     if (!type) { type = _cur_target_type; }
     else       { _cur_target_type = type; }
     
     if (old != _cur_target_type) {
+      var new_widget = _updateWidgetMenu(type);     // make a new widget menu, returns the default selection
+      if (!state.widget) { state.widget = new_widget; }
+      var new_target = _updateTargetSelector(type); // get a new target selector, returns default selection
+      if (!state.target) { state.target = new_target; }
       _updateTargetSelector(_cur_target_type);
       _updateTargetTypeGUI();
       _targetTypeChangeEvent.fire({'old':old,'cur':_cur_target_type});
@@ -302,7 +298,8 @@ PHEDEX.Navigator=(function() {
     return null;
   };
 
-  var _setTarget = function(target) {
+  var _setTarget = function(state) {
+    var target = state.target;
     var old = _cur_target;
     if (!target) { target = _cur_target; }
     else         { _cur_target = target; }
@@ -314,7 +311,8 @@ PHEDEX.Navigator=(function() {
     } else { return 0; }
   };
 
-  var _setWidget = function(widget) {
+  var _setWidget = function(state) {
+    var widget = state.widget;
     var old = _cur_widget;
     if (!widget) { widget = _cur_widget; }
     else         { _cur_widget = widget; }
