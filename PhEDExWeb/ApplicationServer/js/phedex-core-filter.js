@@ -15,8 +15,6 @@ PHEDEX.namespace('Core');
 // argument. This gives it access to the outer-scope (via 'obj') while still keeping internal data private to the object. This seems to
 // work well enough and keep the code acceptably clean, though I'm sure there really ought to be a better way than this.
 PHEDEX.Core.Filter = function(obj) {
-//   var Cfg = obj.filter;
-
   obj.dom.filter = document.createElement('div');
   obj.dom.filter.id = obj.id+'_filter';
 
@@ -32,45 +30,45 @@ PHEDEX.Core.Filter = function(obj) {
         minmaxPct:   {type:'input', size:5, fields:['min','max'], className:'minmaxPct' }
       },
       Validate: {
-        regex: function(arg) { return {result:true, value:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
+        regex: function(arg) { return {result:true, parsed:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
         int: function(arg) {
 	  var i = parseInt(arg);
-	  return {result:true, value:i};
+	  return {result:true, parsed:i};
         },
         float: function(arg) {
 	  var i = parseFloat(arg);
 	  if ( isNaN(i) ) { return {result:false}; }
-	  return {result:true, value:i};
+	  return {result:true, parsed:i};
         },
         percent: function(arg) {
 	  var i = parseFloat(arg);
 	  if ( isNaN(i) ) { return {result:false}; }
 	  if ( i>100.0 || i<0.0 ) { return {result:false}; }
-	  return {result:true, value:i};
+	  return {result:true, parsed:i};
         },
         minmax: function(arg) {
-	  var v = { result:false };
-	  if ( arg.min != '' ) { v.min = parseInt(arg.min); if ( isNaN(v.min) ) { return v; } }
-	  if ( arg.max != '' ) { v.max = parseInt(arg.max); if ( isNaN(v.max) ) { return v; } }
-	  if ( v.min && v.max && v.min > v.max ) { return v; }
+	  var v = { result:false, parsed:{} };
+	  if ( arg.min != '' ) { v.parsed.min = parseInt(arg.min); if ( isNaN(v.parsed.min) ) { return v; } }
+	  if ( arg.max != '' ) { v.parsed.max = parseInt(arg.max); if ( isNaN(v.parsed.max) ) { return v; } }
+	  if ( v.parsed.min && v.parsed.max && v.parsed.min > v.parsed.max ) { return v; }
 	  v.result = true;
 	  return v;
         },
         minmaxFloat: function(arg) {
-	  var v = { result:false };
-	  if ( arg.min ) { v.min = parseFloat(arg.min); if ( isNaN(v.min) ) { return v; } }
-	  if ( arg.max ) { v.max = parseFloat(arg.max); if ( isNaN(v.max) ) { return v; } }
-	  if ( v.min && v.max && v.min > v.max ) { return v; }
+	  var v = { result:false, parsed:{} };
+	  if ( arg.min ) { v.parsed.min = parseFloat(arg.min); if ( isNaN(v.parsed.min) ) { return v; } }
+	  if ( arg.max ) { v.parsed.max = parseFloat(arg.max); if ( isNaN(v.parsed.max) ) { return v; } }
+	  if ( v.parsed.min && v.parsed.max && v.parsed.min > v.parsed.max ) { return v; }
 	  v.result = true;
 	  return v;
         },
         minmaxPct: function(arg) {
-	  var v = { result:false };
-	  if ( arg.min ) { v.min = parseFloat(arg.min); if ( isNaN(v.min) ) { return v; } }
-	  if ( arg.max ) { v.max = parseFloat(arg.max); if ( isNaN(v.max) ) { return v; } }
-	  if ( v.min && v.max && v.min > v.max ) { return v; }
-	  if ( v.min && ( v.min < 0 || v.min > 100 ) ) { return v; }
-	  if ( v.max && ( v.max < 0 || v.max > 100 ) ) { return v; }
+	  var v = { result:false, parsed:{} };
+	  if ( arg.min ) { v.parsed.min = parseFloat(arg.min); if ( isNaN(v.parsed.min) ) { return v; } }
+	  if ( arg.max ) { v.parsed.max = parseFloat(arg.max); if ( isNaN(v.parsed.max) ) { return v; } }
+	  if ( v.parsed.min && v.parsed.max && v.parsed.min > v.parsed.max ) { return v; }
+	  if ( v.parsed.min && ( v.parsed.min < 0 || v.parsed.min > 100 ) ) { return v; }
+	  if ( v.parsed.max && ( v.parsed.max < 0 || v.parsed.max > 100 ) ) { return v; }
 	  v.result = true;
 	  return v;
         }
@@ -86,26 +84,30 @@ PHEDEX.Core.Filter = function(obj) {
         float:   function(arg,val) { return val > arg; },
         percent: function(arg,val) { return val > arg; },
         minmax: function(arg,val) {
-	  var min = parseInt(arg.min);
-	  var max = parseInt(arg.max);
-	  if ( !isNaN(min) && val < min ) { return false; }
-	  if ( !isNaN(max) && val > max ) { return false; }
+	  if ( arg.min && val < arg.min ) { return false; }
+	  if ( arg.max && val > arg.max ) { return false; }
 	  return true;
         },
         minmaxFloat: function(arg,val) {
-	  var min = parseFloat(arg.min);
-	  var max = parseFloat(arg.max);
-	  if ( !isNaN(min) && val < min ) { return false; }
-	  if ( !isNaN(max) && val > max ) { return false; }
+	  if ( arg.min && val < arg.min ) { return false; }
+	  if ( arg.max && val > arg.max ) { return false; }
 	  return true;
         },
         minmaxPct: function(arg,val) {
-	  var min = parseFloat(arg.min);
-	  var max = parseFloat(arg.max);
-	  if ( !isNaN(min) && val*100 < min ) { return false; }
-	  if ( !isNaN(max) && val*100 > max ) { return false; }
+	  if ( arg.min && val < arg.min ) { return false; }
+	  if ( arg.max && val > arg.max ) { return false; }
 	  return true;
         }
+      },
+
+      Preprocess: {
+	toTimeAgo: function(x)
+	{
+	  var d = new Date();
+	  var now = d.getTime()/1000;
+	  return now-x;
+	},
+	toPercent: function(x) { return 100*x; },
       },
 
 //    the global-filter will override these. Global-filter and core-widget communicate by event-pairs. Each
@@ -235,9 +237,9 @@ PHEDEX.Core.Filter = function(obj) {
 	      el.setAttribute('type',e.type);
 	      el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
 	      el.setAttribute('value',c.value);
-	      var def = this.args[key].value || null;
+	      var def = this.args[key].value || [];
+	      if ( def.value ) { def = def.value; }
 	      if ( fields[i] ) {
-		if ( !def ) { def = []; }
 		if ( def[fields[i]] ) {
 		  def = def[fields[i]];
 		} else {
@@ -296,9 +298,17 @@ PHEDEX.Core.Filter = function(obj) {
 	    else              { v = value; }
 	    s = this.Validate[type](v);
 	    if ( s.result ) {
-	      this.args[el.name].value = v;
+	      this.args[el.name].value = s.parsed;
 	      this.setValid(innerList[i]);
-	      if ( this.fields[el.name].format ) { this.args[el.name].format = this.fields[el.name].format; }
+	      var x = this.fields[el.name];
+	      if ( x.format ) { this.args[el.name].format = x.format; }
+	      if ( x.preprocess ) {
+		if ( typeof(x.preprocess) == 'string' ) {
+		  this.args[el.name].preprocess = this.Preprocess[x.preprocess];
+		} else {
+		  this.args[el.name].preprocess = x.preprocess;
+		}
+	      }
 	    }
 	    this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
 	    if ( !s.result ) {
