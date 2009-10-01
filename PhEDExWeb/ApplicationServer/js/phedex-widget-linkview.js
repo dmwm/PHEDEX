@@ -61,7 +61,7 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 	'Link-level attributes':{
 	'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
 	'phedex-tree-rate'        :{type:'float',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
-	'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent' },
+	'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
 	'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
 	'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
 	'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
