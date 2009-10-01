@@ -291,8 +291,8 @@ PHEDEX.Core.Widget.DataTable = function(divid,opts) {
       for (var key in args) {
 	if ( typeof(args[key].value) == 'undefined' ) { continue; }
 	var fValue = args[key].value;
-	if ( args[key].format ) { fValue = args[key].format(fValue); }
 	var kValue = this.data[i][key];
+	if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
 	var negate = args[key].negate;
 	var status = this.filter.Apply[this.filter.fields[key].type](fValue,kValue);
 	if ( args[key].negate ) { status = !status; }
