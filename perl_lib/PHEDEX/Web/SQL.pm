@@ -227,16 +227,12 @@ sub getFileReplicas
 	}
     }
 
-    # handle lfn
-    if (exists $h{LFN}) {
-        $sql .= qq { and f.logical_name = '$h{LFN}' };
-    }
-
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h, ( NODE  => 'n.name',
 						      SE    => 'n.se_name',
 						      BLOCK => 'b.name',
-						      GROUP => 'g.name' ));
+						      GROUP => 'g.name',
+                                                      LFN => 'f.logical_name'));
     $sql .= " and ($filters)" if $filters;
 
     if (exists $h{CREATE_SINCE}) {
@@ -933,28 +929,38 @@ sub getRequestData
             rt.name = 'delete'};
     }
 
-    if (exists $h{REQUEST})
+    my %p;
+    my $filters = '';
+
+    build_multi_filters($self, \$filters, \%p, \%h,
+    	( REQUEST => 'r.id' ));
+
+    if ($h{TYPE} eq 'xfer')
     {
-        $sql .= qq {\n            and r.id = $h{REQUEST}};
+        build_multi_filters($self, \$filters, \%p, \%h,
+            ( GROUP => 'g.name' ));
     }
 
-    if ($h{TYPE} eq 'xfer' && exists $h{GROUP})
-    {
-        $sql .= qq {\n            and g.name = '$h{GROUP}'};
-    }
+    $sql .= " and ($filters) " if ($filters);
 
     if (exists $h{LIMIT})
     {
-        $sql .= qq {\n            and rownum <= $h{LIMIT}};
+        $sql .= qq {\n            and rownum <= :limit };
+        $p{':limit'} = $h{LIMIT};
     }
 
     if (exists $h{CREATE_SINCE})
     {
-        my $t = &str2time($h{CREATE_SINCE});
-        $sql .= qq {\n            and r.time_create >= $t};
+        $sql .= qq {\n            and r.time_create >= :create_since };
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
 
-    if (exists $h{NODE})
+    my $filters2 = '';
+    build_multi_filters($self, \$filters2, \%p, \%h,
+        ( NODE => 'an.name' ));
+
+    # if NODE exists
+    if ($filters2)
     {
         $sql .= qq {
             and r.id in (
@@ -965,13 +971,12 @@ sub getRequestData
                     t_adm_node an
                 where
                     rn.node = an.id
-                    and an.name = '$h{NODE}')};
+                    and ($filters2))};
     }
 
     # order by
 
     $sql .= qq {\n        order by r.time_create};
-
     my $node_sql = qq {
 	select
             n.name,
@@ -1040,7 +1045,7 @@ sub getRequestData
         left join t_dps_block b on b.id = rb.block_id
         where rb.request = :request };
 
-    my $q = &execute_sql($$self{DBH}, $sql);
+    my $q = &execute_sql($$self{DBH}, $sql, %p);
 
     while ($data = $q ->fetchrow_hashref())
     {
@@ -2435,12 +2440,14 @@ sub getDeletions
 
     if (exists $h{REQUEST_SINCE})
     {
-        $sql .= " and del.time_request >= " . str2time($h{REQUEST_SINCE}, $h{REQUEST_SINCE}) . " ";
+        $sql .= " and del.time_request >= :request_since ";
+        $p{':request_since'} =  str2time($h{REQUEST_SINCE}, $h{REQUEST_SINCE});
     }
 
     if (exists $h{COMPLETE_SINCE})
     {
-        $sql .= " and del.time_request >= " . str2time($h{COMPLETE_SINCE}, $h{COMPLETE_SINCE}) . " ";
+        $sql .= " and del.time_complete >= :complete_since";
+        $p{':complete_since'} = str2time($h{COMPLETE_SINCE}, $h{COMPLETE_SINCE});
     }
 
     $sql .= qq {
@@ -2627,7 +2634,8 @@ sub getAgentHistory
         USER => 'user_name',
         HOST => 'host_name'));
 
-    $sql .= " where time_update >= " . str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE}) . " ";
+    $sql .= " where time_update >= :update_since ";
+    $p{':update_since'} = str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE});
 
     $sql .= " and ($filters) " if ($filters);
 
@@ -2692,7 +2700,8 @@ sub getAgentLogs
         PID => 'l.process_id',
         AGENT => 'a.name'));
 
-    $sql .= " where l.time_update >= " . str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE}) . " ";
+    $sql .= " where l.time_update >= :update_since ";
+    $p{':update_since'} = str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE});
 
     $sql .= " and ($filters) " if ($filters);
     $sql .= " order by l.time_update ";
