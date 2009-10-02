@@ -1,0 +1,34 @@
+ * Changes in BETA_0_2
+
+   * Improvements to the navigator global filter, including filter
+     field help text and collapsable sections in filter form.
+
+ * Version BETA_0_1
+
+ First release including:
+
+   * Navigator: an application navigation component.  This component
+     sits at the top of the page and allows the user to selcect the
+     "target type" (context, e.g. node), the "target value"
+     (e.g. T0_CH_CERN_Export) and the widget (e.g. Links).  A global
+     filter maintains filter state between widgets and provides a
+     syntax for filter options to be applied to widgets.
+   * Nodes widget: shows a list of nodes and associated properties in
+     a sortable table.
+   * Agents widget: shows a list of agents and associated properties
+     in a sortable table
+   * LinkView widget: shows the incoming/outgoing transfers for a
+     given node, including the recent transfer statistics (rate,
+     errors, quality) and the number of files currently in queue.  The
+     user may drill-down into a link to see the currently queued
+     blocks and files.
+   * Context-Menu based navigation and operation.  Users can right-
+     click on elements to navigate to another view of that element
+     (e.g., see the agents running from some node clicked on) or issue
+     commands to the widget (e.g. sort by that data field)
+
+ This release is for early evaluation of the application and is
+ intended to demonstrate the framework for which further widgets will
+ be built upon.  The widgets provided are intended to be functional
+ for their purpose, but by no means are all requirements of this
+ application met in this release.
