@@ -27,7 +27,7 @@ PHEDEX.Core.Filter = function(obj) {
         percent:     {type:'input', size:5 },
         minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
-        minmaxPct:   {type:'input', size:5, fields:['min','max'], className:'minmaxPct' }
+        minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' }
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
