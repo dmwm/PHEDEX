@@ -124,6 +124,7 @@ PHEDEX.Core.Filter = function(obj) {
       structure:{ f:[], r:[] },  // mapping of field-to-group, and reverse-mapping of same
       map: [],
       init: function(args) {
+	PHEDEX.Event.onFilterDefined.fire(args,obj);
 	for (var i in args) {
 	  if ( args[i].map ) {
 	    this.map[i] = {to:args[i].map.to};
@@ -145,7 +146,6 @@ PHEDEX.Core.Filter = function(obj) {
 	    this.fields[j] = args[i].fields[j];
 	  }
 	}
-	PHEDEX.Event.onFilterDefined.fire(args,obj.me());
       },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
