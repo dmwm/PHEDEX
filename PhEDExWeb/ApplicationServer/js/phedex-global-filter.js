@@ -43,9 +43,9 @@ PHEDEX.Global.Filter=function(el) {
   }(this));
 
   this.ctl.filter = new PHEDEX.Core.Control({text:'Global Filter',
-                                            payload:{render:this.dom.el, //filterpaneldiv,
+                                            payload:{render:this.dom.el,
 					      target:this.dom.filterPanel,
-                                              fillFn:this.filter.Build, //fillGlobalFilter,
+                                              fillFn:this.filter.Build,
                                               obj:this,
                                               animate:false,
                                               hover_timeout:200,
@@ -83,16 +83,43 @@ PHEDEX.Global.Filter=function(el) {
     return function(ev,arr) {
       var args = arr[0];
       var widget = arr[1];
-      if ( obj.widgets[widget] ) { return; } // already seen this one...
-      if ( widget == obj.me() ) { return; } // don't process my own input twice!
+      var widgetMe = widget.me();
+      var nValues=0;
+// TODO ...
+// debugger;
+      if ( obj.widgets[widgetMe] )
+      {
+//      This means the object has been seen before, so the global-filter may have fields set for it.
+//      These need to be passed back to the widget and acted upon.
+// 	widget.filter.args = [];	// hack
+	for (var i in args) {
+// 	  widget.filter.args[i] = [];	// hack
+// 	  widget.filter.args[i].fields = [];	// hack
+	  if ( args[i].map ) { widget.filter.args[i].map = args[i].map; }
+// 	  widget.filter.args[i].fields = [];	// hack
+	  for (var j in args[i].fields) {
+// 	    widget.filter.args[i].fields[j] = obj.filter.args[j];	// hack
+	    if ( obj.filter.args[j].value ) {
+	      args[i].fields[j].value = obj.filter.args[j].value;
+	      nValues++;
+	    }
+	  }
+	}
+	if ( nValues ) {
+// debugger;
+	}
+	return;
+      }
+      if ( widget.me() == obj.me() ) { return; } // don't process my own input twice!
       else { obj.filter.init(args); } // copy the initialisation arguments
-      YAHOO.log('onFilterDefined:'+widget,'info','GlobalFilter');
-      obj.widgets[widget] = [];
+      YAHOO.log('onFilterDefined:'+widgetMe,'info','GlobalFilter');
+      obj.widgets[widgetMe] = [];
       for (var i in args) {
 	for (var j in args[i]) {
-	  obj.widgets[widget][j] = i;
+	  obj.widgets[widgetMe][j] = i;
 	}
       }
+      return;
     }
   }(this));
 
