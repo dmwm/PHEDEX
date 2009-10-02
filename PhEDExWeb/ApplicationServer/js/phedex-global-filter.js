@@ -61,7 +61,7 @@ PHEDEX.Global.Filter=function(el) {
       var filter = arr[0];
       if ( typeof(filter) != 'object' ) { return; } // Got some rubbish here?
       for (var i in filter.fields) {
-	obj.filter.args[i] = []; // v;
+	obj.filter.args[i] = [];
       }
       var str = obj.filter.asString();
       obj.dom.input.value = str;
@@ -99,12 +99,15 @@ PHEDEX.Global.Filter=function(el) {
   PHEDEX.Event.onWidgetFilterValidated.subscribe( function(obj) {
     return function(ev,arr) {
       var args = arr[0];
-      var str = obj.filter.asString(args);
-      obj.dom.input.value = str;
       if ( ! obj.filter.args ) { obj.filter.args = []; }
       for (var i in args) {
 	obj.filter.args[i] = args[i];
       }
+//    If I only want the global-filter to show elements germaine to the active widget, pass the 'args' to it.
+//    If I want to show all set elements of the global filter, don't pass 'args', it will use its internal args.
+//       var str = obj.filter.asString(args);
+      var str = obj.filter.asString();
+      obj.dom.input.value = str;
     }
   }(this));
 
