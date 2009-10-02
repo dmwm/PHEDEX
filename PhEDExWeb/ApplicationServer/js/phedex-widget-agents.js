@@ -25,14 +25,17 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
   that.me=function() { return that._me; }
   that.filter.init( {
     'Agent attributes':{
-      'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
-      'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
-      'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
-      'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
-      'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
-      'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
-      'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
-    } } );
+      map: { to:'A' },
+      fields: {
+	'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
+	'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
+	'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
+	'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
+	'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
+	'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
+	'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
+      }
+  } } );
   that.fillHeader=function(div) {
     var msg = this.node+', '+this.data.length+' agents.';
     that.dom.title.innerHTML = msg;
