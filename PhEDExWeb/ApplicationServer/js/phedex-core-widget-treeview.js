@@ -202,11 +202,10 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
     m.subscribe("click", function onMenuClick(sType, oArgs) {
       var oMenuItem = oArgs[1];
       if (oMenuItem) {
-      YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
-	element.style.display = null;
-      });
+	YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
+	  element.style.display = null;
+	});
         m.removeItem(oMenuItem.index);
-//         that.refreshButton();
       }
       that.refreshButton();
       that.resizePanel(that.tree);
@@ -302,7 +301,6 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
       YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
       if (task) {
         this.activeItem.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
-//	this.payload[task.index](args, opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
       }
     }
   }
@@ -388,14 +386,7 @@ PHEDEX.Core.Widget.TreeView = function(divid,opts) {
   });
 
 // Resize the panel when extra columns are shown, to accomodate the width
-  that.resizePanel=function(tree) {
-//   var w1 = that.dom.body.clientWidth;
-//   var el = that.tree._el;
-// debugger;
-//     var old_width = 1500; // tree.getContainerEl().clientWidth;
-//     var x = 700;
-//     if ( x >= old_width ) { that.panel.cfg.setProperty('width',x+'px'); }
-  }
+  that.resizePanel=function(tree) {  }
 
   that.sort=function(node,thisClass,sortFn) {
 //  node is a tree-node that needs to be sorted, along with its siblings.

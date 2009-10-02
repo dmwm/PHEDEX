@@ -5,10 +5,6 @@
 
 // instantiate the PHEDEX.Core.Widget namespace
 PHEDEX.namespace('Core.Widget');
-
-// useful alias
-var PxU = PHEDEX.Util;
-
 //This should be subclassed for each class and then specific child node.
 //TODO: Prototype instead of instance based subclassing.
 
@@ -64,7 +60,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.hideByDefault = [];
   this.control = [];
   this.data   = [];
-//   this.structure = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}, filter:{}};
   this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 
 // This may be heavy-handed, wipe out all children and rebuild from scratch. For now, it works well enough...
@@ -142,7 +137,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
         this.resize.set("maxHeight", null);
       }
     }, this.module, true);
-    //     this.resize = resize;
   }
     
   this.build=function() {
@@ -187,7 +181,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.buildExtra=function(div) { div.innerHTML='No extra information defined...';}
   this.fillExtra=function(div) { this.onFillExtra.fire(div); }
 
-  // Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.showBusy=function()
   {
     if ( this.control.progress ) { this.control.progress.style.display=null; }
@@ -198,6 +191,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
     if ( this.control.progress ) { this.control.progress.style.display='none'; }
     if ( this.control.close )    { this.control.close.style.display=null; }
   }
+// Start/FinishLoading, surprisingly, show and hide the progress icon.
   this.startLoading=function()
   {
     this.showBusy();

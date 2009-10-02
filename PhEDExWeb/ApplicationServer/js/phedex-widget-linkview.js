@@ -1,9 +1,6 @@
-// instantiate the PHEDEX.Widget.LinkView namespace
 PHEDEX.namespace('Widget.LinkView','Widget.TransferQueueBlock','Widget.TransferQueueFiles');
-
 PHEDEX.Page.Widget.LinkView=function(divid) {
   var node = document.getElementById(divid+'_select').value;
-//   var xfer_node = new PHEDEX.Widget.LinkView(node,divid);
   var xfer_node = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.LinkView','node',node,divid);
   xfer_node.update();
 }
@@ -130,7 +127,6 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
   var changeDirection = function(e) {
     if ( that.direction == this.value ) { return; }
     that.direction = this.value;
-//     that.emptyBody();
     that.update();
   }
   var changeDirectionMenu=[];
@@ -300,9 +296,6 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 
   that.onUpdateBegin.subscribe( function() {
     that.data = [];
-//     that.data.hist = null;
-//     that.data.queue = null;
-//     that.data.error = null;
   });
 
   that.fillBody=function(div) {
@@ -333,7 +326,7 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 
       var done_bytes = PHEDEX.Util.sumArrayField(h.transfer,'done_bytes');
       var quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat);
-      if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives Nan in parseFloat
+      if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives NaN in parseFloat
       quality /= h.transfer.length;
       var done   = { files:PHEDEX.Util.sumArrayField(h.transfer,'done_files'), bytes:done_bytes };
       var rate   = done_bytes/parseInt(h.transfer[0].binwidth);
