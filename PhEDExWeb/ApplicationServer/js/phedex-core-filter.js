@@ -121,13 +121,28 @@ PHEDEX.Core.Filter = function(obj) {
       onFilterCancelled: new YAHOO.util.CustomEvent('onWidgetFilterCancelled', this, false, YAHOO.util.CustomEvent.LIST), // event to fire once the filter is cancelled
 
       fields: [],
-      structure: [],
+      structure:{ f:[], r:[] },  // mapping of field-to-group, and reverse-mapping of same
+      map: [],
       init: function(args) {
 	for (var i in args) {
-	  this.structure[i] = [];
-	  for (var j in args[i]) {
-	    this.structure[i][j]=0;
-	    this.fields[j] = args[i][j];
+	  if ( args[i].map ) {
+	    this.map[i] = {to:args[i].map.to};
+	    if ( args[i].map.from ) {
+	      this.map[i].from = args[i].map.from;
+	      this.map[i].func = function(f,t) {
+		return function(str) {
+		  var re = new RegExp(f,'g');
+		  str = str.replace(re, t+'.');
+		  return str;
+		}
+	      }(args[i].map.from,args[i].map.to);
+	    };
+	  }
+	  this.structure['f'][i] = [];
+	  for (var j in args[i].fields) {
+	    this.structure['f'][i][j]=0;
+	    this.structure['r'][j] = i;
+	    this.fields[j] = args[i].fields[j];
 	  }
 	}
 	PHEDEX.Event.onFilterDefined.fire(args,obj.me());
@@ -198,7 +213,7 @@ PHEDEX.Core.Filter = function(obj) {
 	if ( !this.args ) { this.args = []; }
 	if ( !this.ctl ) { this.ctl = []; }
         this.focusMap={};
-        for (var label in this.structure) {
+        for (var label in this.structure['f']) {
           var fieldset = document.createElement('fieldset');
 	  var helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence();
 // 	  fieldset.class = helpClass;
@@ -224,7 +239,7 @@ PHEDEX.Core.Filter = function(obj) {
           legend.appendChild(hideCtl);
 
 	  container.appendChild(fieldset);
-	  for (var key in this.structure[label]) {
+	  for (var key in this.structure['f'][label]) {
 	    if ( !this.args[key] ) { this.args[key] = []; }
 	    var focusOn;
 	    var c = this.fields[key];
@@ -378,21 +393,29 @@ PHEDEX.Core.Filter = function(obj) {
 	var str = '';
 	if ( !args ) { args = this.args; }
 	for (var key in args) {
+	  var mKey = key;
           if ( typeof(args[key].value) == 'undefined' ) { continue; }
+	  var mKey;
+	  var rKey = this.structure['r'][key];
+	  if ( this.map[rKey].func ) {
+	    mKey = this.map[rKey].func(key);
+	  } else {
+	    mKey = this.map[rKey].to + '.' + key;
+	  }
 	  var fValue = args[key].value;
 	  if ( args[key].format ) { fValue = args[key].format(fValue); }
 	  var negate = args[key].negate;
 	  var seg = '';
 	  if ( negate ) { seg = '!'; }
           if ( typeof(fValue) == 'object' ) {
-	    var c = 0, seg1, seg2;
-	    if ( fValue.min != null ) { c++; seg1 = key+'>'+fValue.min; }
-	    if ( fValue.max != null ) { c++; seg2 = key+'<'+fValue.max; }
+	    var c = 0, seg1 = null, seg2 = null;
+	    if ( fValue.min != null ) { c++; seg1 = mKey+'>'+fValue.min; }
+	    if ( fValue.max != null ) { c++; seg2 = mKey+'<'+fValue.max; }
 	    if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
 	    if ( c == 1 ) { seg += ( seg1 || seg2 ); } // one or the other is set
 	    if ( c == 2 ) { seg += seg1 +'&'+ seg2; }  // both are set
 	  } else {
-	    seg += key+'='+fValue;
+	    seg += mKey+'='+fValue;
 	  }
 	  if ( str ) { str += ','; }
 	  str += seg;
