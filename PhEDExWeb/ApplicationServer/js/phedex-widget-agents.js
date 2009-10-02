@@ -16,7 +16,7 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
     minwidth:300,
     minheight:50,
     defsort:'Agent',
-    defhide:['PID','Label','Version','Host','State Dir']
+    defhide:['PID','Version','Host','State Dir']
   });
 
   var that=new PHEDEX.Core.Widget.DataTable(divid+'_'+node, opts);
