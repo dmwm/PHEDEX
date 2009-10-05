@@ -31,9 +31,11 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
-
+  $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; 
+  $self->{VERBOSE} = $self->{AGENT}->{VERBOSE}; 
+  $self->{DEBUG} = $self->{AGENT}->{DEBUG}; 
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->SUPER::_init_commands;
   $self->Help if $help;
   return $self;

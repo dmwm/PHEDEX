@@ -113,7 +113,9 @@ sub xml_element
         }
 
 	# Text data
-	print $file "<![CDATA[$text]]>";
+	if ($text) {
+	    print $file "<![CDATA[$text]]>";
+	}
     }
 
     foreach my $child (@$children) {

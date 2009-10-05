@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::TransferHistory;
+package PHEDEX::Web::API::DashboardHistory;
 use warnings;
 use strict;
 
@@ -6,20 +6,12 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransferHistory - history of completed transfer attempts
+PHEDEX::Web::API::DashboardHistory - TransferHistory for the Dashboard
 
 =head1 DESCRIPTION
 
-Serves historical statistics about completed transfer attempts.
-
-Note: PhEDEx monitoring is not "real time", which means that statistics
-for past events are added to the history as they are received. For
-example, if you are interested in the transfers for the last day, you
-are advised to make the call to the data service at least 3 hours
-after that day ends, to give PhEDEx time to add the statistics to the
-DB tables.  Even waiting this amount of time does not guaruntee that
-more statistics will be added to the day later, but in most cases it
-is sufficient.
+Same as PHEDEX::Web::API::TransferHistory, except the quality is
+returned in 4 predefined values.
 
 =head2 Options
 
@@ -57,7 +49,7 @@ is sufficient.
 =head3 <link> elements
 
   from            name of the source node
-  to              name of the destinatio node
+  to              name of the destination
 
 =head3 <transfer> elements
 
@@ -71,12 +63,22 @@ is sufficient.
   expire_files    number of files expired in this timebin, binwidth
   expire_bytes    number of bytes expired in this timebin, binwidth
   rate            sum(done_bytes)/binwidth
-  quality         done_files / (done_files + fail_files)
+  quality         (defined below)
 
 =head3 Relation with time
 
   starttime <= timebin < endtime
   number of bins = (endtime - starttime)/binwidth
+
+=head3 Definition of quality
+
+  $q = done_files / (done_files + fail_files)
+
+  quality = undef if (done_files + fail_files) == 0
+  quality = 3     if $q > .66
+  quality = 2     if .66 >= $q > .33
+  quality = 1     if .33 >= $q > 0
+  quality = 0,    otherwise 
 
 =cut 
 
@@ -96,7 +98,6 @@ sub transferhistory
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
-
 
     my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
     my $link;
@@ -122,7 +123,11 @@ sub Quality
       return undef;
   }
 
-  return sprintf('%.4f', $h->{DONE_FILES} / $sum);
+  my $x = $h->{DONE_FILES} / $sum;
+  return 3 if $x > 0.66;
+  return 2 if $x > 0.33;
+  return 1 if $x > 0;
+  return 0;
 }
 
 1;

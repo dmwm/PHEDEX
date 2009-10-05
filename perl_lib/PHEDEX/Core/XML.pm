@@ -3,9 +3,10 @@ package PHEDEX::Core::XML;
 use warnings;
 use strict;
 use vars qw ($VERSION);
-$VERSION = "2.0";
+$VERSION = "2.0"; # version of the XML format we support
 
 use XML::Parser;
+use PHEDEX::Core::Formats;
 
 sub parseData
 {
@@ -87,6 +88,7 @@ sub parseData
 		    ->{BLOCKS}->{$bname} ={ NAME => $$battrs{'name'},
 					    IS_OPEN => $$battrs{'is-open'} };
 
+		    print "  Processing block $bname\n" if $verbose;
 		    while (my ($fattrs, @fcontent) = next_element(\@bcontent, 'file'))
 		    {
 		        die "parseData: <file> may not have content\n"
@@ -95,17 +97,17 @@ sub parseData
 			    if ! defined $$fattrs{'name'} || $$fattrs{'name'} eq '';
 		        die "parseData: <file bytes=''> attribute missing or bad value\n"
 			    if ! defined $$fattrs{'bytes'} || $$fattrs{'bytes'} !~ /^\d+$/;
-		        die "parseData: <file checksum=''> attribute missing or bad value\n"
-			    if ! defined $$fattrs{'checksum'} || $$fattrs{'checksum'} !~ /^cksum:\d+$/;
+			die "parseData: <file checksum=''> attribute missing value\n"
+			    if ! defined $$fattrs{'checksum'};
+			eval { &PHEDEX::Core::Formats::parseChecksums($$fattrs{'checksum'}); };
+			die "parseData: <file checksum=''> attribute formatting error:  $@\n" if $@;
 
 		        my $fname = $fattrs->{'name'};
 		        $result->{DBS}->{$dbsname}
 		        ->{DATASETS}->{$dsname}
 		        ->{BLOCKS}->{$bname}
 		        ->{FILES}->{$fname} = {
-#						NAME => $fattrs->{'name'},
 					        LOGICAL_NAME => $fattrs->{'name'},
-#					        BYTES => $fattrs->{'bytes'},
 					        SIZE => $fattrs->{'bytes'},
 					        CHECKSUM => $fattrs->{'checksum'} };
 		    } # /files
@@ -175,6 +177,7 @@ sub parseData_0
 		->{BLOCKS}->{$bname} ={ NAME => $$battrs{'name'},
 					IS_OPEN => $$battrs{'is-open'} };
 
+		print "  Processing block $bname\n" if $verbose;
 		while (my ($fattrs, @fcontent) = next_element(\@bcontent, 'file'))
 		{
 		    die "parseData: <file> may not have content\n"
@@ -183,8 +186,10 @@ sub parseData_0
 			if ! defined $$fattrs{'lfn'} || $$fattrs{'lfn'} eq '';
 		    die "parseData: <file size=''> attribute missing or bad value\n"
 			if ! defined $$fattrs{'size'} || $$fattrs{'size'} !~ /^\d+$/;
-		    die "parseData: <file checksum=''> attribute missing or bad value\n"
-			if ! defined $$fattrs{'checksum'} || $$fattrs{'checksum'} !~ /^cksum:\d+$/;
+		    die "parseData: <file checksum=''> attribute missing value\n"
+			if ! defined $$fattrs{'checksum'};
+		    eval { &PHEDEX::Core::Formats::parseChecksums($$fattrs{'checksum'}); };
+		    die "parseData: <file checksum=''> attribute formatting error:  $@\n" if $@;
 
 		    my $fname = $fattrs->{'lfn'};
 		    $result->{DBS}->{$dbsname}
@@ -222,26 +227,28 @@ sub next_element
 sub makeData
 {
   my %h = @_;
-  my ($dbs,$open,$dataset,$blocks,$files,$mean_size,$sdev_size);
+  my ($dbs,$b_open,$d_open,$dataset,$blocks,$files,$mean_size,$sdev_size);
   my (@xml);
 
   $dbs = $h{dbs} || "test";
 # $dls = $h{dls} || "lfc:unknown";
-  $open      = $h{open} || 'n';
+  $d_open    = $h{dataset_open} || 'y';
+  $b_open    = $h{block_open}   || 'n';
   $dataset   = $h{dataset};
   $blocks    = $h{blocks} || 1;
   $files     = $h{files}  || 1;
   $mean_size = $h{mean_size} || 1;
   $sdev_size = $h{sdev_size} || 0;
-  $open = lc $open;
-  if ( $open !~ m%^[y,n]$% ) { $open = $open ? 'y' : 'n'; }
+
+  if ( $b_open  !~ m%^[y,n]$% ) { $b_open = $b_open ? 'y' : 'n'; }
+  if ( $d_open  !~ m%^[y,n]$% ) { $d_open = $d_open ? 'y' : 'n'; }
 
   push @xml, qq{<data version="$PHEDEX::Core::XML::VERSION">\n};
   push @xml, qq{  <dbs name="$dbs">\n};
-  push @xml, qq{    <dataset name="$dataset" is-open="y">\n};
+  push @xml, qq{    <dataset name="$dataset" is-open="$d_open">\n};
   for my $n_block (1..$blocks) {
     my $block = $dataset . "#" . &makeGUID();
-    push @xml, qq{      <block name="$block" is-open="$open">\n};
+    push @xml, qq{      <block name="$block" is-open="$$b_open">\n};
     for my $n_file (1..$files) {
 	my $lfn = $block;
 	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
@@ -295,4 +302,5 @@ sub gaussian_rand {
     # return both if wanted, else just one
     return wantarray ? ($g1, $g2) : $g1;
 }
+
 1;

@@ -31,7 +31,8 @@ Serves the file replicas known to PhEDEx.
                 n, return only file replicas from blocks which have
                 file replicas not available at any node.  default is
                 to return either.
- custodial      y or n.  filter for custodial responsibility.  default is
+ subscribed     y or n, filter for subscription. default is to return either.
+ custodial      y or n. filter for custodial responsibility.  default is
                 to return either.
  group          group name.  default is to return replicas for any group.
  lfn            logical file name
@@ -81,6 +82,7 @@ the given options.
  node_id      PhEDEx node id
  se           storage element name
  time_create  unix timestamp
+ subscribed   y or n, if subscribed
  custodial    y or n, if custodial
  group        group the replica is allocated for, can be undefined
 
@@ -95,6 +97,13 @@ sub fileReplicas
     if (!defined($h{lfn}))
     {
         &checkRequired(\%h, 'block');
+    }
+
+    # convert parameter keys to upper case
+    foreach ( qw / node se block group custodial dist_complete complete
+ subscribed lfn / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %h);
@@ -137,6 +146,7 @@ sub fileReplicas
 						     node => $row->{NODE_NAME},
 						     se => $row->{SE_NAME},
 						     time_create => $row->{REPLICA_CREATE},
+                                                     subscribed => $row->{SUBSCRIBED},
 						     custodial => $row->{IS_CUSTODIAL},
 						     group => $row->{USER_GROUP}
 						 };

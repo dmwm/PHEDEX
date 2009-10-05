@@ -729,7 +729,8 @@ sub getBlockIDsFromDatasetWildcard
     my $sql = qq{ select b.id
 		    from t_dps_dataset ds
 		    join t_dps_block b on b.dataset = ds.id
-		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+		   where } . 
+		   '('.filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -750,7 +751,8 @@ sub getDatasetIDsFromDatasetWildcard
     my %p;
     my $sql = qq{ select ds.id
 		    from t_dps_dataset ds
-		   where } . filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns );
+		   where } .
+		   '('.filter_or_like( $self, undef, \%p, 'ds.name', @dataset_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -772,7 +774,8 @@ sub getBlockIDsFromBlockWildcard
     my $sql = qq{ select b.id
 		    from t_dps_block b
 		    join t_dps_dataset ds on ds.id = b.dataset
-		   where } . filter_or_like( $self, undef, \%p, 'b.name', @block_patterns );
+		   where } .
+		   '('.filter_or_like( $self, undef, \%p, 'b.name', @block_patterns ).')';
 
     if ($dbs) {
 	$sql .= ' and ds.dbs = :dbs';
@@ -793,11 +796,65 @@ sub getBlockIDsFromDatasetIDs
     my %p;
     my $sql = qq{ select b.id
 		    from t_dps_block b 
-		   where } . filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids );
-
+		   where } .
+		   '('.filter_or_eq( $self, undef, \%p, 'b.dataset', @dataset_ids ).')';
+    
     my $r = select_single( $self, $sql, %p );
 
     return $r;
+}
+
+#-------------------------------------------------------------------------------
+sub getNodes
+{
+    my ($self, %h) = @_;
+    my ($sql,$q,%p,@r);
+
+    $sql = qq{
+        select n.name,
+	       n.id,
+	       n.se_name se,
+	       n.kind, n.technology
+          from t_adm_node n
+          where
+               not n.name like 'X%' 
+       };
+
+    my $filters = '';
+    build_multi_filters($self, \$filters, \%p, \%h,  NODE  => 'n.name');
+    $sql .= " and ($filters)" if $filters;
+
+    if ( $h{NOEMPTY} ) {
+	$sql .= qq{ and exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
+    }
+
+    $q = execute_sql( $self, $sql, %p );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
+#-------------------------------------------------------------------------------
+sub getGroups
+{
+    my ($core, %h) = @_;
+    my ($sql,$q,%p,@r);
+    $sql = qq{
+        select
+            name,
+            id
+        from
+            t_adm_group g
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, GROUP => 'g.name');
+    $sql .= " where ($filters)" if  $filters;
+
+    $q = execute_sql( $core, $sql, %p );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
 }
 
 #-------------------------------------------------------------------------------
@@ -840,6 +897,7 @@ sub getGroupMap
     }
     return $map;
 }
+
 
 
 1;

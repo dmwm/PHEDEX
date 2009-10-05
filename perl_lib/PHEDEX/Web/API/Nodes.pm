@@ -40,6 +40,13 @@ sub invoke { return nodes(@_); }
 sub nodes
 {
     my ($core,%h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / node noempty / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+
     return { node => PHEDEX::Web::SQL::getNodes($core,%h) };
 }
 

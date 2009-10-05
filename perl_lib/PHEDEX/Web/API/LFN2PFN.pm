@@ -53,7 +53,7 @@ sub lfn2pfn
     $h{custodial} ||= 'n';
 
     # TODO:  cache nodemap and TFC
-    my $nodes = &PHEDEX::Web::SQL::getNodes($core, node => $h{node});
+    my $nodes = &PHEDEX::Web::SQL::getNodes($core, NODE => $h{node});
 
     unless (@$nodes) {
 	die "no nodes found for '", join(', ', &PHEDEX::Core::SQL::arrayref_expand($h{node})), "'\n";

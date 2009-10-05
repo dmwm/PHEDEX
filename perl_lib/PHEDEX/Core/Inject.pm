@@ -1,5 +1,7 @@
 package PHEDEX::Core::Inject;
 
+=pod
+
 =head1 NAME
 
 PHEDEX::Core::Inject - encapsulated SQL for writing CMS data
@@ -148,7 +150,7 @@ sub injectData
     die "injectData requires a SOURCE_NODE\n" unless $src_node;
 
     my $verbose = exists $h{VERBOSE} ? $h{VERBOSE} : 1;
-    my $strict = exists $h{STRICT} ? $h{STRICT} : 1;
+    my $strict  = exists $h{STRICT}  ? $h{STRICT}  : 1;
 
     my $now = &mytimeofday();
 
@@ -158,7 +160,7 @@ sub injectData
     my $close_datasets = [];
     my $close_blocks = [];
 
-    print "processing injections...\n" if $verbose;
+    print "Processing injections...\n" if $verbose;
     foreach my $dbs (values %{$data->{DBS}}) {
 	unless ($dbs->{ID}) {
 	    # try to fetch
@@ -208,7 +210,7 @@ sub injectData
 		if ($db_b && $db_b->{ID}) { # block exists
 		    $b->{ID} = $db_b->{ID};
 		} else { # block does not exist
-		    push @$new_blocks, $b;			
+		    push @$new_blocks, $b;
 		}
 
 		my $block_closed = ($db_b && $db_b->{IS_OPEN} eq 'n') ? 1 : 0;
@@ -229,7 +231,7 @@ sub injectData
 			    $f->{NODE} = $src_node;
 			    push @$new_files, $f;
 			} else {
-			    my $msg = "block $b->{NAME} is closed, cannot inject new file";
+			    my $msg = "block $b->{NAME} is closed, cannot inject new file $f->{LOGICAL_NAME}";
 			    die "injectData error: $msg\n" if $strict;
 			    print "$msg ...skipping\n" if $verbose; next;
 			}
@@ -241,12 +243,13 @@ sub injectData
 
     # inject everything we need to
     my %stats;
-    print "inserting data.\n" if $verbose;
+    print "Inserting data..." if $verbose;
     $stats{'new_datasets'} = &bulkCreateDatasets($self, $new_datasets, TIME_CREATE => $now);
     $stats{'new_blocks'} = &bulkCreateBlocks($self, $new_blocks, TIME_CREATE => $now);
     $stats{'new_files'} = &bulkCreateFiles($self, $new_files, TIME_CREATE => $now, NO_ID => 1);
     $stats{'closed_datasets'} = &bulkCloseDatasets($self, $close_datasets, TIME_UPDATE => $now);
     $stats{'closed_blocks'} = &bulkCloseBlocks($self, $close_blocks, TIME_UPDATE => $now);
+    print "Done.\n" if $verbose;
 
     return \%stats;
 }
@@ -649,6 +652,46 @@ sub getFile
     return $q->fetchrow_hashref();
 }
 
+=pod
+
+=item SEs2InjectionNodes($selist, %h)
+
+Returns a suitable injection nodes given a list of storage elements
+
+=cut
+
+sub SEs2InjectionNodes
+{
+    my ($self, $selist, %h) = @_;
+
+    my $all_nodes = &PHEDEX::Core::SQL::getNodes($self);
+    my @nodes;
+
+    # Map storage elements to nodes.  If we have a choice of more than
+    # one, discard tape nodes, but only if that leaves at least one
+    # node.  If we have only tape nodes to match, keep them.
+    # T0 is a special case. We only accept injection here, if we are told
+    # explicitly by supplying a node name.
+    foreach my $se (@{$selist})
+    {
+        my @match = grep(defined $$_{SE}
+			 && $$_{SE} eq $se, @$all_nodes);
+	die "storage element $se not known to the database\n"
+	    if ! @match;
+	if (scalar @match > 1)
+	{
+	    my @notape = grep($$_{KIND} ne 'MSS'
+			      && $$_{NAME} !~ /^T0/, @match);
+	    @match = @notape if @notape;
+	}
+
+	push(@nodes, @match);
+	print "storage element $se mapped to @{[ map { $$_{NAME} } @match ]}\n"
+	    if $h{VERBOSE};
+    }
+
+    return @nodes;
+}
 
 1;
 

@@ -24,7 +24,8 @@ Return block replicas known to PhEDEx.
                 time
  complete       y or n, whether or not to require complete or incomplete
                 blocks. Default is to return either
- custodial      y or n.  filter for custodial responsibility.  default is
+ subscribed     y or n, filter for subscription. default is to return either.
+ custodial      y or n. filter for custodial responsibility.  default is
                 to return either.
  group          group name.  default is to return replicas for any group.
 
@@ -62,6 +63,7 @@ block replicas exist for the given options.
  complete     y or n, if complete
  time_create  unix timestamp of creation
  time_update  unix timestamp of last update
+ subscribed   y or n, if subscribed
  custodial    y or n, if custodial
  group        group the replica is allocated for, can be undefined
 
@@ -73,9 +75,9 @@ sub blockReplicas
 {
     my ($core,%h) = @_;
 
-    foreach ( qw / BLOCK NODE SE CREATE_SINCE UPDATE_SINCE COMPLETE / )
+    foreach ( qw / block node se create_since update_since complete custodial subscribed group / )
     {
-      $h{lc $_} = delete $h{$_} if $h{$_};
+      $h{uc $_} = delete $h{$_} if $h{$_};
     }
     my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
 
@@ -104,6 +106,7 @@ sub blockReplicas
 						 time_create => $row->{REPLICA_CREATE},
 						 time_update => $row->{REPLICA_UPDATE},
 						 complete => $row->{REPLICA_COMPLETE},
+                                                 subscribed => $row->{SUBSCRIBED},
 						 custodial => $row->{IS_CUSTODIAL},
 						 group => $row->{USER_GROUP}
 					     };
