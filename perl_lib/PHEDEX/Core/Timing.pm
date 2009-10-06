@@ -9,7 +9,7 @@ PHEDEX::Core::Timing - a drop-in replacement for Toolkit/UtilsTiming
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(mytimeofday gmmktime gmmktime2 str2time formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
+our @EXPORT = qw(mytimeofday gmmktime str2time formatTime formatTimespan age timeStart elapsedTime formatElapsedTime timeSub);
 use Time::HiRes 'gettimeofday';
 use POSIX qw(strftime mktime);
 
@@ -30,24 +30,6 @@ sub gmmktime
     my @gmt = gmtime ($t1);
     my $t2 = mktime (@gmt);
     return $t1 + ($t1 - $t2);
-}
-
-sub gmmktime2
-{
-    if (@_)
-    {
-        return mktime(gmtime(mktime(@_)));
-    }
-    else
-    {
-        # GMT now()
-        return mktime(gmtime);
-    }
-}
-
-sub gmnow
-{
-    return mktime(gmtime);
 }
 
 # str2time($str, $default) -- convert string to timestamp
@@ -79,45 +61,45 @@ sub str2time
     }
     elsif (@dh = $str =~ m!(^-{0,1}\d*)d$!)	# number of days
     {
-        return gmnow() + int($dh[0])*3600*24;
+        return time() + int($dh[0])*3600*24;
     }
     elsif (@dh = $str =~ m!(^-{0,1}\d*)h$!)	# number of hours
     {
-        return gmnow() + int($dh[0])*3600;
+        return time() + int($dh[0])*3600;
     }
     elsif ($str eq "now")
     {
-        return gmnow();
+        return time();
     }
     elsif ($str eq "last_hour")
     {
-        return gmnow() - 3600;
+        return time() - 3600;
     }
     elsif ($str eq "last_12hours")
     {
-        return gmnow() - 43200;
+        return time() - 43200;
     }
     elsif ($str eq "last_day")
     {
-        return gmnow() - 86400;
+        return time() - 86400;
     }
     elsif ($str eq "last_7days")
     {
-        return gmnow() - 604800;
+        return time() - 604800;
     }
     elsif ($str eq "last_30days")
     {
-        return gmnow() - 2592000;
+        return time() - 2592000;
     }
     elsif ($str eq "last_180days")
     {
-        return gmnow() - 15552000;
+        return time() - 15552000;
     }
 
     # try ISO8601
 
     my $t = interval ($str);
-    return gmnow() - $t if defined $t;
+    return time() - $t if defined $t;
 
     # YYYY-MM-DD[_hh:mm:ss]
     @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
