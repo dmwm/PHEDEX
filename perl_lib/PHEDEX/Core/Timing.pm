@@ -45,6 +45,11 @@ sub gmmktime2
     }
 }
 
+sub gmnow
+{
+    return mktime(gmtime);
+}
+
 # str2time($str, $default) -- convert string to timestamp
 #    When parsing fails, returns the defaul
 #
@@ -74,45 +79,45 @@ sub str2time
     }
     elsif (@dh = $str =~ m!(^-{0,1}\d*)d$!)	# number of days
     {
-        return time() + int($dh[0])*3600*24;
+        return gmnow() + int($dh[0])*3600*24;
     }
     elsif (@dh = $str =~ m!(^-{0,1}\d*)h$!)	# number of hours
     {
-        return time() + int($dh[0])*3600;
+        return gmnow() + int($dh[0])*3600;
     }
     elsif ($str eq "now")
     {
-        return time();
+        return gmnow();
     }
     elsif ($str eq "last_hour")
     {
-        return time() - 3600;
+        return gmnow() - 3600;
     }
     elsif ($str eq "last_12hours")
     {
-        return time() - 43200;
+        return gmnow() - 43200;
     }
     elsif ($str eq "last_day")
     {
-        return time() - 86400;
+        return gmnow() - 86400;
     }
     elsif ($str eq "last_7days")
     {
-        return time() - 604800;
+        return gmnow() - 604800;
     }
     elsif ($str eq "last_30days")
     {
-        return time() - 2592000;
+        return gmnow() - 2592000;
     }
     elsif ($str eq "last_180days")
     {
-        return time() - 15552000;
+        return gmnow() - 15552000;
     }
 
     # try ISO8601
 
     my $t = interval ($str);
-    return time() - $t if defined $t;
+    return gmnow() - $t if defined $t;
 
     # YYYY-MM-DD[_hh:mm:ss]
     @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
