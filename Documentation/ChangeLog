@@ -1,3 +1,21 @@
+Changes for PhEDEx 3.2.7
+
+ This is a minor release, fixing a few bugs in 3.2.6. All sites should 
+upgrade to this version.
+
+Changes for Site Agents
+ - FileDownload
+  - fix bug in protection for rare case of badly-defined tasks. Without 
+this the agent would crash, now it will skip the task and move on. Genuine 
+tasks will be retried in time, so no transfers will be lost.
+ - BlockVerify
+  - fix bug in handling of TFC lookup when using SRM(2) and the new 
+Namespace framework.
+
+Changes for central agents
+ - BlockAllocator
+  - fix bug relating to suspension of requests
+
 Changes for PhEDEx 3.2.6
 
  This is a minor release, fixing a few bugs in 3.2.1 and adding a few 
