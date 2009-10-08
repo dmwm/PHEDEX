@@ -5,7 +5,8 @@
   * routerhistory - history of router activity and input parameters
   * nodeusagehistory - history of space usage at a node
   * links - existing transfer links and their state
-  * missingfiles - show which files are missing from a block
+  * missingfiles - which files are missing from a block
+  * subscriptions - existing subscriptions and their parameters
 
  Changes for APIs:
 
