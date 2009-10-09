@@ -23,7 +23,7 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
   that.node=node;
   that._me = 'PHEDEX.Core.Widget.Agents';
   that.me=function() { return that._me; }
-  that.filter.init( {
+  var filterDef = {
     'Agent attributes':{
       map: { to:'A' },
       fields: {
@@ -35,7 +35,9 @@ PHEDEX.Widget.Agents=function(node,divid,opts) {
 	'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
 	'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
       }
-  } } );
+    }
+  };
+  PHEDEX.Event.onFilterDefined.fire(filterDef,that);
   that.fillHeader=function(div) {
     var msg = this.node+', '+this.data.length+' agents.';
     that.dom.title.innerHTML = msg;

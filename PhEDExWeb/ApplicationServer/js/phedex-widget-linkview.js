@@ -54,7 +54,7 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
           {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
     ];
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
-  that.filter.init( {
+  var filterDef = {
 	'Link-level attributes':{
 	  map:{from:'phedex-tree-', to:'L'},
 	  fields:{
@@ -91,7 +91,8 @@ PHEDEX.Widget.LinkView=function(node,divid,opts) {
 	    'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
 	  }
 	}
-      } );
+      };
+  PHEDEX.Event.onFilterDefined.fire(filterDef,that);
 
 // Build the options for the pull-down menus.
 // 1. extract the default option from the configuration, or provide one if none given
