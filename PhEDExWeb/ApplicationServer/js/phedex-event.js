@@ -14,4 +14,6 @@ PHEDEX.Event = {
 
     onWidgetFilterApplied:    new YAHOO.util.CustomEvent('onWidgetFilterApplied',   this, false, YAHOO.util.CustomEvent.LIST),
     onGlobalFilterApplied:    new YAHOO.util.CustomEvent('onGlobalFilterApplied',   this, false, YAHOO.util.CustomEvent.LIST),
+
+    CreateGlobalFilter:       new YAHOO.util.CustomEvent('CreateGlobalFilter',      this, false, YAHOO.util.CustomEvent.LIST),
 }

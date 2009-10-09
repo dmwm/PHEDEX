@@ -221,14 +221,7 @@ PHEDEX.Navigator=(function() {
   };
 
   var _initGlobalFilter = function(el) {
-    var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', 
-					       className:'phedex-nav-component phedex-nav-filter' });
-    var input = PxU.makeChild(filterdiv, 'input', 
-			      { id: 'phedex-nav-filter-input', 
-				className:'phedex-nav-filter-input',
-				type: 'text' });
-    var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', 
-						    className:'phedex-nav-component phedex-nav-link'});
+    PHEDEX.Event.CreateGlobalFilter.fire(el);
   };
 
   var _initPermaLink = function(el) {

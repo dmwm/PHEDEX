@@ -1,14 +1,10 @@
 PHEDEX.namespace('Global');
 
-PHEDEX.Global.Filter=function(el) {
+PHEDEX.Global.Filter=function(parent) {
   YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
   this._me = 'PHEDEX.Global.Filter';
-  if ( typeof(el) == 'object' ) {
-    this.dom.el = el;
-  } else {
-    this.dom.el = document.getElementById(el);
-  }
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
+  this.dom.el = PxU.makeChild(parent, 'div', { /*id:'phedex-nav-filter',*/ className:'phedex-nav-component phedex-nav-filter' });
   this.widgets = [];
 
 // replace widget-level events with global-level events for proper two-way communication
@@ -17,21 +13,19 @@ PHEDEX.Global.Filter=function(el) {
   this.filter.onFilterValidated = PHEDEX.Event.onGlobalFilterValidated;
 
   this.fillGlobalFilter = function(el) {
+debugger;
     el.innerHTML = 'this is the filter-panel div';
   }
-//   var _initGlobalFilter = function(el) {
-//     var filterdiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter', className:'phedex-nav-component phedex-nav-filter' });
-//     var input = PxU.makeChild(filterdiv, 'input',
-// 			      { id: 'phedex-nav-filter-input', className:'phedex-nav-filter-input',
-// 				type: 'text' });
-//     var filterpaneldiv = PxU.makeChild(el, 'div', { id:'phedex-nav-filter-panel', className:'phedex-nav-component phedex-nav-link' /*, innerHTML:'Filter'*/ });
-  this.dom.el = PxU.makeChild(el, 'div', { className:'phedex-nav-component phedex-nav-link' /*, innerHTML:'Filter'*/ });
+// This are the user-interaction elements
+  this.dom.input = PxU.makeChild(this.dom.el, 'input',
+			      { /*id: 'phedex-nav-filter-input',*/ className:'phedex-nav-filter-input',
+				type: 'text' });
+  this.dom.ctl = PxU.makeChild(this.dom.el, 'div', { className:'phedex-nav-component phedex-nav-link' /*, innerHTML:'Filter'*/ });
+
+// This is the element the global-filter will be displayed in
   this.dom.filterPanel = document.createElement('div');
   this.dom.filterPanel.className = 'phedex-global-filter phedex-visible phedex-widget-selector phedex-box-turquoise';
   document.body.appendChild(this.dom.filterPanel);
-
-// FIXME This should come from somewhere else!
-  this.dom.input = document.getElementById('phedex-nav-filter-input');
 
   this.onHideFilter   = new YAHOO.util.CustomEvent("onHideFilter",   this, false, YAHOO.util.CustomEvent.LIST);
   this.onAcceptFilter = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
@@ -43,7 +37,7 @@ PHEDEX.Global.Filter=function(el) {
   }(this));
 
   this.ctl.filter = new PHEDEX.Core.Control({text:'Global Filter',
-                                            payload:{render:this.dom.el,
+                                            payload:{render:this.dom.ctl,
 					      target:this.dom.filterPanel,
                                               fillFn:this.filter.Build,
                                               obj:this,
@@ -161,3 +155,5 @@ PHEDEX.Global.Filter=function(el) {
 
   return this;
 };
+
+PHEDEX.Event.CreateGlobalFilter.subscribe(function(ev,arr) { new PHEDEX.Global.Filter(arr[0]); });
