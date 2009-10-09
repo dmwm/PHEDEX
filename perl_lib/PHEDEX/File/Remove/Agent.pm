@@ -147,6 +147,7 @@ sub deleteJob
 		where fileid = :fileid and node = :node},
 		":fileid" => $$file{FILEID}, ":node" => $$file{NODEID}, ":now" => $now);
         };
+	$dbh->commit(); # don't hold this row lock for long.
 
         do { chomp ($@); $self->Alert ("database error: $@");
 	  eval { $dbh->rollback() } if $dbh;
@@ -288,18 +289,19 @@ sub idle
 
     $self->{WAITTIME} = $self->{WAITTIME_SLOW};
 
-#   If I am already swamped with work, don't get more!
-    if ( $self->{JOBMANAGER}->jobsQueued() > $self->{LIMIT} )
-    {
-      $self->Warn("number of queued jobs (",$self->{JOBMANAGER}->jobsQueued(),") exceeds work-limit per cycle (",$self->{LIMIT},"). Waiting...");
-      return;
-    }
-
     my $count=0;
     eval
     {
 	$dbh = $self->connectAgent();
 	@nodes = $self->expandNodes();
+
+	#   If I am already swamped with work, don't get more!
+	if ( $self->{JOBMANAGER}->jobsQueued() > $self->{LIMIT} )
+	{
+	    $self->Warn("number of queued jobs (",$self->{JOBMANAGER}->jobsQueued(),
+			") exceeds work-limit per cycle (",$self->{LIMIT},"). Waiting...");
+	    return; # exit eval block
+	}
 
 	# Get a list of victims to evict.
 	foreach my $node (@nodes)
@@ -320,7 +322,7 @@ sub idle
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
     $self->{WAITTIME} = $self->{WAITTIME_SLOW} unless $count;
-    $self->Logmsg("Started $count jobs out of " . scalar @pending . " pending");
+    $self->Logmsg("Started $count jobs with " . scalar @pending . " pending");
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
