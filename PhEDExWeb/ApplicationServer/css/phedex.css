@@ -252,17 +252,19 @@ div.phedex-nav-target input.yui-ac-input {
   position:	relative;
 }
 
-div.phedex-nav-filter {
-  width:	30em;
-}
-
 input.phedex-nav-filter-input {
-  width:	100%;
+  width:	30em;
+  float:	left;
+  margin-left:	1em;
 }
 
 div.phedex-nav-link {
   margin-left:	1em;
   padding:	0.2em;
+}
+
+.phedex-nav-filter .phedex-nav-link {
+  margin-left: 0;
 }
 
 .yui-panel .container-close {
