@@ -47,9 +47,10 @@ PHEDEX.Core.ContextMenu.Build=function(menu,components) {
 				   ' type='+this.type+
 				   ' arg='+arg,
 				   'info', 'Core.ContextMenu');
-			 PHEDEX.Core.Widget.Registry.construct(this.widget,
+			 var w = PHEDEX.Core.Widget.Registry.construct(this.widget,
 							       this.type,
-							       arg).update();
+							       arg);
+			 if ( w ) { w.update(); }
 		       }
 		     };
 	menu.addItem(item);
