@@ -11,7 +11,8 @@ PHEDEX.namespace('Core.Widget');
 PHEDEX.Core.Widget = function(divid,opts) {
 // Base object definitions, shared between all PhEDEx objects
   YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
-  YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
+//   this._me = 'PHEDEX.Core.Widget';
+  YAHOO.lang.augmentObject(this, PHEDEX.Core.Filter(this));
 
 // Require divid of some kind
   if ( !divid ) { throw new Error("must provide div name to contain widget"); }
@@ -54,8 +55,6 @@ PHEDEX.Core.Widget = function(divid,opts) {
   this.id = PxU.generateDivName(this.parent.id);
   this.div = PxU.findOrCreateWidgetDiv(this.id, this.parent.id);
 
-  this._me = 'PHEDEX.Core.Widget';
-//  this.me=function() { YAHOO.log('unimplemented "me"','error','Core.Widget'); return this._me; }
   this.textNodeMap = [];
   this.hideByDefault = [];
   this.control = [];
@@ -143,16 +142,16 @@ PHEDEX.Core.Widget = function(divid,opts) {
     this.buildHeader(this.dom.header);
     this.buildBody(this.dom.content);
     this.buildFooter(this.dom.footer);
-    this.onBuildComplete.fire();
+    this.onBuildComplete.fire(this);
   }
 
   this.populate=function() {
-    this.onUpdateComplete.fire();
+    this.onUpdateComplete.fire(this);
     this.fillHeader(this.dom.header);
     this.fillBody(this.dom.content);
     this.fillFooter(this.dom.footer);
     this.finishLoading();
-    this.onPopulateComplete.fire();
+    this.onPopulateComplete.fire(this);
   }
 
   this.destroy=function() {
@@ -164,7 +163,7 @@ PHEDEX.Core.Widget = function(divid,opts) {
       YAHOO.log('Destroying '+this.parent.id,'info','Core.Widget');
       this.parent.parentNode.removeChild(this.parent);
     }
-    this.onDestroy.fire();
+    this.onDestroy.fire(this);
   }
 
   // Implementations should provide their own versions of these functions. The build* functions should be used to create a layout and store references to each element , which the fill* functions should populate with data when it arrives (but not usually alter the HTML) - this is to prevent issues like rebuilding select lists and losing your place.
@@ -290,6 +289,14 @@ PHEDEX.Core.Widget = function(divid,opts) {
       obj.ctl.filter.setApplied(isApplied);
     }
   }(this));
+
+  PHEDEX.Event.onFilterDefined.subscribe( function() {
+    return function(ev,arr) {
+      var args = arr[0];
+      var widget = arr[1];
+      widget.filter.init(args);
+    }
+  }());
 
   this.onBuildComplete.subscribe(function() {
     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
