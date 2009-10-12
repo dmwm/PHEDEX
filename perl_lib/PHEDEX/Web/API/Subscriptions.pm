@@ -19,7 +19,7 @@ Show existing subscriptions and their parameters.
   node             node name (wildcards)
   se               storage element
   create_since     timestamp. only subscriptions created after.
-  request request  number which created the subscription.
+  request          request number which created the subscription.
   custodial        y or n to filter custodial/non subscriptions.
                    default is null (either)
   group            group name filter 
@@ -94,7 +94,7 @@ my $map = {
         move => 'MOVE',
         custodial => 'CUSTODIAL',
         group => 'GROUP',
-        time_created => 'TIME_CREATE',
+        time_create => 'TIME_CREATE',
         time_update => 'TIME_UPDATE',
         suspended => 'SUSPENDED',
         suspend_until => 'SUSPEND_UNTIL'
@@ -125,7 +125,7 @@ my $map2 = {
             move => 'MOVE',
             custodial => 'CUSTODIAL',
             group => 'GROUP',
-            time_created => 'TIME_CREATE',
+            time_create => 'TIME_CREATE',
             time_update => 'TIME_UPDATE',
             suspended => 'SUSPENDED',
             suspend_until => 'SUSPEND_UNTIL'
