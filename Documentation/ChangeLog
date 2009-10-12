@@ -6,11 +6,14 @@ upgrade to this version.
 Changes for Site Agents
  - FileDownload
   - fix bug in protection for rare case of badly-defined tasks. Without 
-this the agent would crash, now it will skip the task and move on. Genuine 
-tasks will be retried in time, so no transfers will be lost.
+    this the agent would crash, now it will skip the task and move on.
+    Genuine tasks will be retried in time, so no transfers will be lost.
  - BlockVerify
   - fix bug in handling of TFC lookup when using SRM(2) and the new 
-Namespace framework.
+    Namespace framework.
+ - FileRemove
+  - add an extra commit() to release row-locks early. This prevents the
+    agent from blocking central agents because of these locks.
 
 Changes for central agents
  - BlockAllocator
