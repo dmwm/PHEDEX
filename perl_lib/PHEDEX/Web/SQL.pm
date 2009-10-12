@@ -108,15 +108,17 @@ sub getBlockReplicas
 	}
     }
 
-    if ($h{SUBSCRIBED} eq "y")
-    {
-        $sql .= qq{ and br.dest_files <> 0 };
+    if (exists $h{SUBSCRIBED}) {
+	if ($h{SUBSCRIBED} eq "y")
+	{
+	    $sql .= qq{ and br.dest_files <> 0 };
+	}
+	elsif ($h{SUBSCRIBED} eq "n")
+	{
+	    $sql .= qq{ and br.dest_files = 0 };
+	}
     }
-    elsif ($h{SUBSCRIBED} eq "n")
-    {
-        $sql .= qq{ and br.dest_files = 0 };
-    }
-
+    
     if (exists $h{CUSTODIAL}) {
 	if ($h{CUSTODIAL} eq 'n') {
 	    $sql .= qq{ and br.is_custodial = 'n' };
@@ -196,13 +198,15 @@ sub getFileReplicas
 	}
     }
 
-    if ($h{SUBSCRIBED} eq "y")
-    {
-        $sql .= qq{ and br.dest_files <> 0 };
-    }
-    elsif ($h{SUBSCRIBED} eq "n")
-    {
-        $sql .= qq{ and br.dest_files = 0 };
+    if (exists $h{SUBSCRIBED}) {
+	if ($h{SUBSCRIBED} eq "y")
+	{
+	    $sql .= qq{ and br.dest_files <> 0 };
+	}
+	elsif ($h{SUBSCRIBED} eq "n")
+	{
+	    $sql .= qq{ and br.dest_files = 0 };
+	}
     }
 
     if (exists $h{DIST_COMPLETE}) {
