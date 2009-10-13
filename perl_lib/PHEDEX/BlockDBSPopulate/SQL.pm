@@ -59,14 +59,13 @@ sub getCompleted
   my ($sql,$q,@r);
 
   $sql = qq{ select dbs.name dbs_name,
-  	            dbs.id dbs_id,
-                    ds.name dataset_name,
-	            b.name block_name,
-	            b.id block_id,
-	            n.name node_name,
-	            n.id node_id,
-		    n.se_name se_name,
-	            br.time_update state_time
+                   ds.name dataset_name,
+	           b.name block_name,
+	           b.id block_id,
+	           n.name node_name,
+	           n.id node_id,
+		   n.se_name se_name, 
+                   'migrateBlock' command
 	    from t_dps_block_replica br
 	      join t_dps_block b on b.id = br.block
 	      join t_dps_dataset ds on ds.id = b.dataset
@@ -90,14 +89,13 @@ sub getDeleted
 
   $sql =  qq{
 	    select dbs.name dbs_name,
-	           dbs.id dbs_id,
 	           ds.name dataset_name,
 	           b.name block_name,
 	           b.id block_id,
 	           n.name node_name,
 	           n.id node_id,
 		   n.se_name se_name,
-	           bd.time_complete state_time
+                   'deleteBlock' command
 	    from t_dps_block_delete bd
 	      join t_dps_block b on b.id = bd.block
 	      join t_dps_dataset ds on ds.id = b.dataset
