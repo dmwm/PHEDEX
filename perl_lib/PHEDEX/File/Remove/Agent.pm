@@ -25,6 +25,7 @@ sub new
 		  CATALOGUE => {},		# TFC from TMDB
 		  LIMIT => 100,                 # Max number of files per cycle
 		  JOBS	=> 1,			# Max parallel delete jobs
+		  RETRY => 1,			# Retry failed attempts, forever!
 		  );
     
     my %args = (@_);
@@ -165,6 +166,11 @@ sub deleteJob
 	# OK, got far enough to nuke and log it
 	$self->Logmsg("Delete drop $file->{DROP} ($file->{LFN})") if $self->{DEBUG};
 	$self->relayDrop ($$file{DROP});
+    }
+    if ( !$self->{RETRY} && $job->{STATUS} )
+    {
+        $self->Logmsg("Delete drop $file->{DROP} ($file->{LFN}), despite failure") if $self->{DEBUG};
+        $self->relayDrop ($$file{DROP});
     }
 }
 
