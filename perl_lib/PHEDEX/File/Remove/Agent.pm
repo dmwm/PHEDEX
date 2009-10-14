@@ -169,6 +169,9 @@ sub deleteJob
     }
     if ( !$self->{RETRY} && $job->{STATUS} )
     {
+#	give up on the drop despite the failure
+        my $dropdir = "$$self{WORKDIR}/$$file{DROP}";
+	&touch ("$dropdir/done");
         $self->Logmsg("Delete drop $file->{DROP} ($file->{LFN}), despite failure") if $self->{DEBUG};
         $self->relayDrop ($$file{DROP});
     }
