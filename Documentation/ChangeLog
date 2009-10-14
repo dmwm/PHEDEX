@@ -14,6 +14,13 @@ Changes for Site Agents
  - FileRemove
   - add an extra commit() to release row-locks early. This prevents the
     agent from blocking central agents because of these locks.
+  - add --no-retry option. The behaviour of FileRemove changed in 3.2.0,
+    such that failed transfers will be retried forever. If you do not
+    want that, you can use this flag to revert to the previous one-shot
+    behaviour. Note that, if your deletion script returns a non-zero
+    value, the deletion is considered to have failed. If the deletion
+    succeeds, or the file was not there in the first place, you should
+    return zero from your file-deletion script.
 
 Changes for central agents
  - BlockAllocator
