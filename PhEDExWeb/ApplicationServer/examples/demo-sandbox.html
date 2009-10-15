@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+</head>
+
+<body class="yui-skin-sam">
+<div id='phedex-logger' class='phedex-logger'></div>
+<div id='main'></div>
+<script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script type="text/javascript" src="/yui/build/yuiloader/yuiloader-min.js"></script>
+<script type="text/javascript" src="/js/phedex-base.js"></script>
+<script type="text/javascript" src="/js/phedex-loader.js"></script>
+<script type="text/javascript">
+
+// a simple logging function, to show it all working
+var myLog = function(str) {
+  var main = document.getElementById('main');
+  main.innerHTML += str+'<br/>';
+}
+
+// dynamic loaders for PhEDEx and YUI. Maybe they could be combined, but I don't want to couple them yet
+var PxL = new PHEDEX.Loader();
+var YL  = new PHEDEX.Loader( { base: '/yui/build/' } );
+YL.name('YLoader');
+
+var PxS; // this will become the sandbox, but the code for that isn't loaded yet
+
+YAHOO.util.Event.onDOMReady(function() {
+  PxL.load(startCoreApp,['phedex-core-app','phedex-module','phedex-sandbox']);
+})
+
+var create_logger = function() {
+  PHEDEX.Logger.Create();
+// now that I have a logger, I can redefine the simple logging function I wrote earlier!
+  myLog = function(str) { YAHOO.log(str, 'info', 'app'); }
+};
+
+var yui_loaded = function() {
+  setTimeout( function() {
+      PxL.load(create_logger,'phedex-core-logger');
+      YL.load(null,['autocomplete','button','container','resize','treeview','datatable']);
+    }, 0);
+};
+
+function startCoreApp() {
+// Now I can start the core application, but also, create a YAHOO logger for debugging purposes.
+
+  PxS = new PHEDEX.Sandbox();
+  YL.load(yui_loaded,['logger']);
+
+  var m1 = new PHEDEX.Module(PxS, 'my first module');
+  var m2 = new PHEDEX.Module(PxS, 'my second module');
+  PxC = new PHEDEX.Core.App(PxS);
+  PxC.start();
+  var m3 = new PHEDEX.Module(PxS, 'my third module');
+  var m4 = new PHEDEX.Module(PxS, 'my fourth module');
+  myLog('CoreApp: Dumping list of known modules...');
+  PxC.dumpList();
+  myLog('CoreApp is started. Note that there is other stuff still happening...');
+};
+</script>
+
+</body>
+</html>
