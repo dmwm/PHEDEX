@@ -56,7 +56,12 @@ sub new
 }
 
 # do not use 'direct' protocol to look up in tfc for srm requests!
-sub Protocol { return 'srm'; }
+sub Protocol
+{
+  my $self = shift;
+  if ( $self->{VERSION} != 2 ) { return 'srm'; }
+  return 'srmv2';
+}
 
 sub Help
 {
