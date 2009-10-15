@@ -26,7 +26,7 @@ sub process_args
 
     # get rid of empty keys
     foreach my $arg (keys %$h) {
-	delete $h->{$arg} unless defined $h->{$arg};
+	delete $h->{$arg} unless defined $h->{$arg} && $_->{$arg} ne '';
     }
 
     # multiply occuring option operators go to OPERATORS
