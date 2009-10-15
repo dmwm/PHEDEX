@@ -61,7 +61,6 @@ sub usage
   print <<EOF;
 
   Usage: $me [--proxy=s] [--cert_file=s] [--key_file=s]
-	    [--nocert] [--ca_file=s] [--ca_dir=s]
 	    [--method=s] [--url=s]
 	    [--instance=s] [--format=s]
 	    [--timeout=i] [--paranoid]
@@ -76,9 +75,6 @@ sub usage
  in ~/.globus are assumed. If you specify any of them then you must specify
  all that are needed, the defaults are only taken if none are set.
 
- --ca_file and --ca_dir specify locations for certificate-authority
- information.
-
  If you don't want to use a certificate at all, use --nocert, and you had
  better specify a --url that doesn't connect to https as well.
 
@@ -88,9 +84,9 @@ sub usage
 
  --instance	name of PhEDEx instance to use: 'prod', 'dev', 'test' etc.
 		The default is '$instance'.
- --format	format for returned data: 'perl', 'xml', 'json' or 'report'.
-                The default is 'xml'. Not all commands support the
-                'report' format, check the command's documentation individually.
+ --format	format for returned data: 'perl', 'xml', 'json' or 'report'. The 
+                default is 'xml'.  Not all commands support the
+                'report' format, check the command documentation.
  --timeout	is the time to wait for a server response. The default is
 		5 minutes, set in PHEDEX::CLI::UserAgent
  --paranoid	consider an XML-formatted 'error' message to be fatal, and
