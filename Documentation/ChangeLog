@@ -22,9 +22,15 @@ Changes for Site Agents
     succeeds, or the file was not there in the first place, you should
     return zero from your file-deletion script.
 
-Changes for central agents
+Changes for central/all agents
  - BlockAllocator
   - fix bug relating to suspension of requests
+ - Core JobManager will not now abandon a job that cannot be killed. This
+   is a change in behaviour, and only affects agents that run processes
+   that will not respond to kill -KILL. This means that your agent may
+   block now, whereas previously it would instead have gone on to the next
+   failure. In practise, if this condition is hit, it means you have a
+   bigger problem to fix anyway. This condition is now logged more clearly.
 
 Changes for PhEDEx 3.2.6
 
