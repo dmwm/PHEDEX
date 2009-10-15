@@ -148,7 +148,7 @@ sub job_queued
   {
     my $timer_id = $kernel->delay_set('timeout',$job->{TIMEOUT},$wheelid);
     $job->{_timer_id} = $timer_id;
-    $job->{_timeout_grace} = exists $job->{TIMEOUT_GRACE} ? $job->{TIMEOUT_GRACE} : 3;
+    $job->{_timeout_grace} = exists $job->{TIMEOUT_GRACE} ? $job->{TIMEOUT_GRACE} : 7;
     $job->{_signals} = [ qw / 1 3 15 18 9 9 / ]; # HUP TERM QUIT CONT KILL KILL
   }
 
@@ -354,10 +354,9 @@ sub timeout
   my $logfh = \*{$job->{_logfh}};
   if (!$signal) {
       # even kill -9 failed?  ok... well try to cleanup and move on...
-      print $logfh
-	  (strftime ("%Y-%m-%d %H:%M:%S", gmtime),
-	   " $job->{_cmdname}($job->{PID}): abandoning, not responding to requests to quit\n");
-      $job->{_cleanup}->( $wheelid, $job );
+      my $msg = "$job->{_cmdname}($job->{PID}): job will not die after timeout, and does not respond to kill signals\n";
+      print $logfh (strftime ("%Y-%m-%d %H:%M:%S ", gmtime), $msg);
+      $self->Alert($msg);
       return;
   }
 
