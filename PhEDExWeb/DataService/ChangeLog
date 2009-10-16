@@ -1,3 +1,10 @@
+* Changes for 1.5.1
+
+  * Bug fix for all APIs: Empty arguments 'e.g. api?name=' are removed
+    from the argument list. This fixes a bug where some APIs would
+    generate a large request (all possible data) when some argement
+    should have been required.
+
 * Changes for 1.5.0
 
  New APIs:
