@@ -24,6 +24,11 @@ sub process_args
 {
     my $h = shift;
 
+    # get rid of empty keys
+    foreach my $arg (keys %$h) {
+	delete $h->{$arg} unless defined $h->{$arg} && $_->{$arg} ne '';
+    }
+
     # multiply occuring option operators go to OPERATORS
     if (exists $h->{op}) {
 	my %ops;
