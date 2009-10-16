@@ -3,6 +3,7 @@ PHEDEX.Sandbox = function() {
   var _getEvent = function(event) {
     if ( !_events[event] ) {
       _events[event] = new YAHOO.util.CustomEvent(event, this, false, YAHOO.util.CustomEvent.LIST);
+      log('Sandbox: new listen-event: '+event);
     }
     return _events[event];
   }
@@ -11,10 +12,12 @@ PHEDEX.Sandbox = function() {
       var event, arr=[];
       event = arguments[0];
       for (var i=1; i<arguments.length; i=i+1) { arr.push(arguments[i]); }
+      log('Sandbox: notify event: '+event);
       _getEvent(event).fire(arr);
     },
     listen: function(event,fn) {
       _getEvent(event).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
+      log('Sandbox: new listener for event: '+event);
     },
 //     stopListening: function(event,fn) {
 //	  I don't know how I would do this. I would need to know the function that was subscribed, so would
