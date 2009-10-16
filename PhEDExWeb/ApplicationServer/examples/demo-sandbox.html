@@ -2,62 +2,111 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define CSS for the body here, so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css'>
+    body {
+      margin:	0;
+      margin-left:	1em;
+      padding:	0;
+      font-size:	80%;
+      font-family:	'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:	1.6em;
+    }
+  </style>
 </head>
 
 <body class="yui-skin-sam">
-<div id='phedex-logger' class='phedex-logger'></div>
-<div id='main'></div>
+ <div class='phedex-banner'>
+    <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
+    <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
+    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
+    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
+    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <div id='phedex-controls' class='phedex-controls float-right'></div>
+ </div>
+ <div id='phedex-nav'></div>
+ <div id='phedex-logger' class='phedex-logger'>
+   <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-main'>Loading, please be patient...</div>
+
 <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
 <script type="text/javascript" src="/yui/build/yuiloader/yuiloader-min.js"></script>
 <script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
 
-// a simple logging function, to show it all working
-var myLog = function(str) {
-  var main = document.getElementById('main');
-  main.innerHTML += str+'<br/>';
-}
-
-// dynamic loaders for PhEDEx and YUI. Maybe they could be combined, but I don't want to couple them yet
-var PxL = new PHEDEX.Loader();
-var YL  = new PHEDEX.Loader( { base: '/yui/build/' } );
-YL.name('YLoader');
-
-var PxS; // this will become the sandbox, but the code for that isn't loaded yet
+// a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
+log = function() {
+  var _buffer = [];
+  return function(str,level,group) {
+    var el = document.getElementById('phedex-logger-inner');
+    if ( str ) {
+      if ( el ) {
+	el.innerHTML += str+'<br/>';
+	if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
+	_buffer.push([str,level,group]);
+      }
+    } else {
+      return _buffer;
+    }
+  };
+}();
 
 YAHOO.util.Event.onDOMReady(function() {
-  PxL.load(startCoreApp,['phedex-core-app','phedex-module','phedex-sandbox']);
+// dynamic loaders for PhEDEx and YUI. Maybe they could be combined, but I don't want to couple them yet
+  PxL = new PHEDEX.Loader();
+  YL  = new PHEDEX.Loader( { base: '/yui/build/' } );
+  YL.name('YLoader');
+  PxL.load(createCoreApp,'phedex-core-app','phedex-core-module','phedex-sandbox');
 })
 
-var create_logger = function() {
-  PHEDEX.Logger.Create();
-// now that I have a logger, I can redefine the simple logging function I wrote earlier!
-  myLog = function(str) { YAHOO.log(str, 'info', 'app'); }
-};
+var yui_load_logger = function() {
+// Now that the YUI logger is loaded, I can load the phedex-logger and create it.
+// I then go on to load the rest of the YUI components I will need
+  phedexMain.innerHTML='Creating logger...';
+  PxL.load( function() {
+      PHEDEX.Logger.Create();
+      var ctl = new PHEDEX.Core.Control({
+	  text:'Show Logger',
+	  payload:{render:'phedex-controls', target:'phedex-logger'},
+	  className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+	}
+      );
+    },
+    'phedex-core-logger','phedex-core-control'
+  );
+  phedexMain.innerHTML='Loading remaining YUI components...';
+  YL.load( { onProgress:yui_loader_progress, onSuccess:yui_loader_success }, /*'autocomplete','button','container','resize','treeview',*/'datatable' );
+}
 
-var yui_loaded = function() {
-  setTimeout( function() {
-      PxL.load(create_logger,'phedex-core-logger');
-      YL.load(null,['autocomplete','button','container','resize','treeview','datatable']);
-    }, 0);
-};
+var yui_loader_progress = function(item) {
+  phedexMain.innerHTML='Loading remaining YUI components: '+item.name;
+}
 
-function startCoreApp() {
-// Now I can start the core application, but also, create a YAHOO logger for debugging purposes.
+var yui_loader_success = function() {
+  phedexMain.innerHTML='all done...';
+  PxC.createModule('Nodes');
+  PxC.init();
+  PxC.send('initDom');
+  PxC.send('draw','*',{a:23,b:45,c:67});
+  PxC.send('hide','Nodes');
+  setTimeout(function() { PxC.send('show','Nodes'); },5000);
+}
 
+var phedexMain = document.getElementById('phedex-main');
+function createCoreApp() {
+// Now I can create the core application, but also, start loading the YAHOO logger
+  phedexMain.innerHTML='Create sandbox...';
   PxS = new PHEDEX.Sandbox();
-  YL.load(yui_loaded,['logger']);
-
-  var m1 = new PHEDEX.Module(PxS, 'my first module');
-  var m2 = new PHEDEX.Module(PxS, 'my second module');
   PxC = new PHEDEX.Core.App(PxS);
-  PxC.start();
-  var m3 = new PHEDEX.Module(PxS, 'my third module');
-  var m4 = new PHEDEX.Module(PxS, 'my fourth module');
-  myLog('CoreApp: Dumping list of known modules...');
+  PxC.create();
+  YL.load(yui_load_logger,'logger');
+
+  phedexMain.innerHTML='Starting core application...';
+  log('CoreApp: Dumping list of known modules...');
   PxC.dumpList();
-  myLog('CoreApp is started. Note that there is other stuff still happening...');
+  log('CoreApp is created. Note that there is other stuff still happening...');
 };
 </script>
 
