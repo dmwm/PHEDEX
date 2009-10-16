@@ -93,20 +93,19 @@ sub invoke { return fileReplicas(@_); }
 sub fileReplicas
 {
     my ($core,%h) = @_;
-
-    if (!defined($h{lfn}))
-    {
-        &checkRequired(\%h, 'block');
-    }
-
-    # convert parameter keys to upper case
-    foreach ( qw / node se block group custodial dist_complete complete
- subscribed lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getFileReplicas($core, %h);
+    my %p = &validate_args(\%h,
+			   allow => [qw(block node se update_since create_since
+					complete dist_complete subscribed custodial group lfn)],
+			   require_one_of => qw(block lfn),
+			   spec => {
+			       block         => { using => 'block' },
+			       complete      => { using => 'yesno' },
+			       dist_complete => { using => 'yesno' },
+			       subscribed    => { using => 'yesno' },
+			       custodial     => { using => 'yesno' },
+			   });
+				
+    my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
 
     my $blocks = {};
     my $files = {};
