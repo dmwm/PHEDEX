@@ -50,6 +50,17 @@ body {
 }
 .phedex-logger {
   float: right;
+  line-height: 1em;
+}
+.phedex-logger-inner {
+  width: 500px;
+  height: 10em;
+  overflow: auto;
+  border: 1px solid black;
+}
+.phedex-banner {
+  border-bottom: 2px solid black;
+  margin-bottom: 2px;
 }
 .phedex-controls {
   text-align: right;
