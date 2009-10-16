@@ -33,12 +33,13 @@
   <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
   <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
   <script type="text/javascript" src="/yui/build/autocomplete/autocomplete-min.js"></script>
+  <script type="text/javascript" src="/yui/build/yuiloader/yuiloader-min.js"></script>
 
   <!-- PhEDEx stylesheets -->
   <link rel="stylesheet" type="text/css" href="/css/phedex.css">
 
   <!-- PhEDEx libs -->
-  <script type="text/javascript" src="/js/phedex-base.js"></script>
+ <script type="text/javascript" src="/js/phedex-base.js"></script>
   <script type="text/javascript" src="/js/phedex-util.js"></script>
   <script type="text/javascript" src="/js/phedex-page.js"></script>
   <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
@@ -107,20 +108,7 @@ YAHOO.util.Event.onDOMReady(function() {
 	  'Navigator']
       }
     );
-
-//     var listWidgetDiv = document.createElement('div');
-//     listWidgetDiv.id = 'phedex-list-widgets';
-//     listWidgetDiv.className='phedex-invisible';
-//     var listWidgetDivCtl = PxU.makeChild('phedex-nav', 'div', { id: 'phedex-list-widget-ctl', className:'phedex-nav-link'});
-//     YAHOO.util.Dom.insertBefore(listWidgetDiv,'phedex-main');
-//     var fillListWidgetDiv = function() {
-//       listWidgetDiv.innerHTML  = 'List of known widgets:<br /><ul>';
-//       PHEDEX.Event.onListWidgets.fire(listWidgetDiv);
-//       listWidgetDiv.innerHTML += '</ul><br />end of list...';
-//     }
-//     var ctlListWidgets = new PHEDEX.Core.Control({text:'List Widgets', payload:{render:'phedex-list-widget-ctl', target:'phedex-list-widgets', fillFn:fillListWidgetDiv} } );
   }
-
 });
 </script>
 
