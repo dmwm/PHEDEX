@@ -1,82 +1,89 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/xhtml1-strict.dtd">
-<html>
+<!DOCTYPE HTML PUBLIC -//W3C//DTD HTML 4.01//EN http://www.w3.org/TR/html4/strict.dtd>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
+<title>PhEDEx Web Application</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 
-<!-- JQuery UI library files for the progress bar control --> 
-<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.core.css"/>
-<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.theme.css"/>
-<link rel="stylesheet" type="text/css" href="/jqueryui1.7/development-bundle/themes/smoothness/ui.progressbar.css"/>
+  <!-- YUI stylesheets-->
+  <link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/resize/assets/skins/sam/resize.css"> 
+  <link rel="stylesheet" type="text/css" href="/yui/build/logger/assets/skins/sam/logger.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/menu/assets/skins/sam/menu.css">
+  <link rel="stylesheet" type="text/css" href="/yui/examples/treeview/assets/css/menu/tree.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/button/assets/button-core.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/assets/skins/sam/button.css">
+  <link rel="stylesheet" type="text/css" href="/yui/build/fonts/fonts-min.css" />
+  <link rel="stylesheet" type="text/css" href="/yui/build/autocomplete/assets/skins/sam/autocomplete.css" />
 
-<!-- For Yahoo form controls (Button, Slider, Paginator and DialogBox) styling -->
-<link rel="stylesheet" type="text/css" href="/yui/build/fonts/fonts-min.css"/>
-<link rel="stylesheet" type="text/css" href="/yui/build/button/assets/skins/sam/button.css"/>
-<link rel="stylesheet" type="text/css" href="/yui/build/slider/assets/skins/sam/slider.css"/>
-<link rel="stylesheet" type="text/css" href="/yui/build/container/assets/skins/sam/container.css"/>
-<link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css"/>
-<link rel="stylesheet" type="text/css" href="/yui/build/paginator/assets/skins/sam/paginator.css"> 
+  <!-- YUI libs -->
+  <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+  <script type="text/javascript" src="/yui/build/connection/connection-min.js"></script>
+  <script type="text/javascript" src="/yui/build/json/json-min.js"></script>
+  <script type="text/javascript" src="/yui/build/treeview/treeview-min.js"></script>
+  <script type="text/javascript" src="/yui/build/logger/logger-min.js"></script>
+  <script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
+  <script type="text/javascript" src="/yui/build/element/element-min.js"></script>
+  <script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
+  <script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
+  <script type="text/javascript" src="/yui/build/animation/animation-min.js"></script>
+  <script type="text/javascript" src="/yui/build/container/container-min.js"></script>
+  <script type="text/javascript" src="/yui/build/resize/resize-min.js"></script>
+  <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
+  <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
+  <script type="text/javascript" src="/yui/build/autocomplete/autocomplete-min.js"></script>
+  <script type="text/javascript" src="/yui/build/history/history.js"></script>
+  <script type="text/javascript" src="/yui/build/slider/slider-min.js"></script>
 
-<!-- For the web page styling --> 
-<link rel="stylesheet" type="text/css" href="/css/datalookup.css"/>
 
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"/>
-<title>PheDex - Data Lookup</title>
+  <!-- PhEDEx stylesheets -->
+  <link rel="stylesheet" type="text/css" href="/css/phedex.css">
 
+  <!-- PhEDEx libs -->
+  <script type="text/javascript" src="/js/phedex-base.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-logger.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-contextmenu.js"></script>
+  <script type="text/javascript" src="/js/phedex-util.js"></script>
+  <script type="text/javascript" src="/js/phedex-page.js"></script>
+  <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
+  <script type="text/javascript" src="/js/phedex-event.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-control.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-filter.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-registry.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-datatable.js"></script>
+  <script type="text/javascript" src="/js/phedex-core-widget-treeview.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-agents.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-nodes.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-linkview.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-requestview.js"></script>
+  <script type="text/javascript" src="/js/phedex-widget-template.js"></script>
+  <script type="text/javascript" src="/js/phedex-navigator.js"></script>
 </head>
 
-<!-- For YUI form controls (Button, Slider and DialogBox) functionalities -->
-<script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-<script type="text/javascript" src="/yui/build/element/element-min.js"></script>
-<script type="text/javascript" src="/yui/build/button/button-min.js"></script>
-<script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
-<script type="text/javascript" src="/yui/build/container/container-min.js"></script>
-<script type="text/javascript" src="/yui/build/slider/slider-min.js"></script>
+<body class="yui-skin-sam">
+<iframe id="yui-history-iframe" src="yui/build/history/assets/blank.html"></iframe>
+<input id="yui-history-field" type="hidden">
+ <div style='border-bottom:solid black 2px; margin-bottom: 2px;'><img src="/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
+    <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
+    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> - 
+    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> - 
+    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+ </div>
+ <div id='phedex-nav'></div><br clear='all'/>
+ <div id='phedex-main'></div>
 
-<!-- For making connection to Phedex web API and parsing the JSON response-->
-<script type ="text/javascript" src="/yui/build/yahoo/yahoo-min.js"></script>
-<script type ="text/javascript" src="/yui/build/json/json-min.js"></script>
-<script type ="text/javascript" src="/yui/build/event/event-min.js"></script>
-<script type ="text/javascript" src="/yui/build/connection/connection-min.js"></script>
+<script type="text/javascript">
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {
+  var phedex_app_version = document.getElementById('phedex-app-version');
+  phedex_app_version.innerHTML = PHEDEX.Appserv.Version;
 
-<!-- For YUI datasource, datatable, Paginator functionalities -->
-<script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
-<script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
-<script type="text/javascript" src="/yui/build/paginator/paginator-min.js"></script>
-
-<!-- For communicating with Phedex web API and getting block information --> 
-<script type="text/javascript" src="/js/datalookup.js"></script>
-
-<body class="yui-skin-sam" onload="InitializeForm(); return false;">
-    <div id = "formtitle">&nbsp;CMS Phedex Data Lookup</div>
-    <table id="tableBlkNode" border="0" cellspacing="3" cellpadding="3">
-    <tr>
-        <td>
-            <div class="sometext">Enter data block(s) name (separated by whitespace):</div>
-            <textarea id="txtboxBlock" rows="5" cols="80" class="txtboxBlkNode"></textarea>
-        </td>
-        <td>
-            <div class="sometext">Enter node(s) name (separated by whitespace):</div>
-            <textarea id="txtboxNode" rows="5" cols="60" class="txtboxBlkNode"></textarea>
-        </td>
-    </tr>
-    </table>
-    
-    <table class="yui-skin-sam" border="0" cellspacing="3">
-        <tr>
-            <td><span class="sometext">Select data transfer percentage range:</span>&nbsp;&nbsp;</td>
-            <td>
-                <div id="sliderRange" class="yui-h-slider" title="Move the slider to select the range">
-                    <div id="sliderLower" class="yui-slider-thumb"><img src="/yui/build/slider/assets/left-thumb.png"/></div>
-                    <div id="sliderHigher" class="yui-slider-thumb"><img src="/yui/build/slider/assets/right-thumb.png"/></div>
-                </div>
-            </td>
-            <td><span class="sometext" id="txtRange">0 - 100</span></td>
-        </tr>
-    </table>
-    <br/>
-    <span id="GetInfoBtn" class="yui-skin-sam"></span>&nbsp;&nbsp;&nbsp;&nbsp;<span id="ResetBtn" class="yui-skin-sam"></span>
-    <br/>
-    <hr width="100%" size="3" style="background-color: #3399FF;"/>
-    <div id = "Result"></div>
-    <div id = "MissingBlks" class ="sometext"></div>
+  InitializeNavigator('phedex-nav', { typecfg: { 
+        none: { label: 'Explore global',  order: 10 },
+        node: { label: 'Explore by node', order: 20 }} } );
+});
+</script>
 </body>
 </html>
