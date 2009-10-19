@@ -1,3 +1,8 @@
+* Changes for 1.5.2
+
+  * Bug fix for previous bug fix, which caused all API arguments to be
+    ignored.
+
 * Changes for 1.5.1
 
   * Bug fix for all APIs: Empty arguments 'e.g. api?name=' are removed
