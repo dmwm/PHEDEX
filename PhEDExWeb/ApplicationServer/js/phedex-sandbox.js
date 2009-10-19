@@ -13,7 +13,11 @@ PHEDEX.Sandbox = function() {
       event = arguments[0];
       for (var i=1; i<arguments.length; i=i+1) { arr.push(arguments[i]); }
       log('Sandbox: notify event: '+event);
-      _getEvent(event).fire(arr);
+//    by using setTimeout here, I can allow the flow to continue in the 'parent thread', and deal with the
+//    handlers afterwards. Essentially I queue the event for later.
+      setTimeout(function() {
+        _getEvent(event).fire(arr);
+      }, 0);
     },
     listen: function(event,fn) {
       _getEvent(event).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
