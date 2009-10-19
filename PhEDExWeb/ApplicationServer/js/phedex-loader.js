@@ -23,11 +23,11 @@ PHEDEX.Loader = function(opts) {
     { name: 'phedex-core-widget-registry', requires: ['phedex-util'] },
 //     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes'] },
 
-    { name: 'phedex-core-logger',  requires:['phedex-util'] },
+    { name: 'phedex-core-logger',  requires:['phedex-util', 'logger'] },
     { name: 'phedex-sandbox',      requires:['phedex-util'] },
     { name: 'phedex-core-app',     requires:['phedex-sandbox'] },
-    { name: 'phedex-core-module',  requires:['phedex-core-app'] },
-    { name: 'phedex-module-nodes', requires:['phedex-core-module'] },
+    { name: 'phedex-core-module',  requires:['phedex-core-app','autocomplete','button','container','resize'] },
+    { name: 'phedex-module-nodes', requires:['phedex-core-module','treeview','datatable'] },
   ];
 
   var _name = 'PxLoader';
@@ -55,7 +55,7 @@ PHEDEX.Loader = function(opts) {
   var conf = {
     loadOptional:  true,
     allowRollup:  false,
-    base:	  '/js/',
+    base:	  '/yui/build/',
     timeout:	10000,
     onSuccess:  function(item) { _callback([_name, 'Success',  _loader.inserted]); },
     onProgress: function(item) { _callback([_name, 'Progress', item]); },
