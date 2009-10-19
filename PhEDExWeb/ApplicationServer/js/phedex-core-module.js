@@ -4,32 +4,23 @@ PHEDEX.Core.Module = function(sandbox, string) {
   var _name = string;
   log('Module: creating "'+_name+'"');
 
-  onRegistryCreate = function() {
+  onCoreAppCreate = function() {
     return function() {
-      _sbx.notify('moduleCreate',_name,this);
+      _sbx.notify('ModuleExists',_name,this);
     }
   }();
 
   return {
-    connect: function() {
-      _sbx.listen('registryCreate',onRegistryCreate);
-      _sbx.notify('moduleCreate',_name,this);
-    },
-
-    initObj: function(parent) {
-      YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+    _initModule: function() {
       log(_name+': initialising');
-      if ( typeof(parent) == 'string' ) {
-	this.el = document.getElementById(parent);
-      } else {
-	this.el = parent;
-      }
-      if ( !this.el ) { throw new Error('no or invalid parent for module "'+_name+'" ('+parent+')'); }
+      YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+      _sbx.listen('CoreAppCreate',onCoreAppCreate);
+      _sbx.notify('ModuleExists',_name,this);
 
       var coreHandler = function(obj) {
 	return function(ev,arr) {
-	  var action = arr[0];
-	  var who = arr[1];
+	  var who = arr[0];
+	  var action = arr[1];
 	  if ( who && who != '*' && who != _name ) { return; }
 	  if ( typeof(obj[action]) != 'function' ) {
 	    throw new Error('Do not now how to execute "'+action+'" for module "'+_name+'"');
@@ -38,17 +29,23 @@ PHEDEX.Core.Module = function(sandbox, string) {
 	}
       }(this);
       _sbx.listen('module',coreHandler);
+      log(_name+' ReadyForAction');
+      _sbx.notify(_name,'ReadyForAction');
     },
 
     initDom: function() {
-      this.dom.header = PxU.makeChild(this.el, 'div', {className:'hd'});
-      this.dom.param = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
-      this.dom.title = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
+      this.el = document.createElement('div');
+      this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
+      this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
+      this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
       this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'});
-      this.dom.extra = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
-      this.dom.body = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
+      this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+      this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
       this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
-      this.dom.footer = PxU.makeChild(this.el, 'div', {className:'ft'});
+      this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
+      log(_name+' initDom complete');
+      _sbx.notify(_name,'initDom');
+      return this.el;
     },
     draw: function(args) {
       this.dom.header.innerHTML = _name+': starting...';
