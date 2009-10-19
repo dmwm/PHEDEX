@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
-<!--define CSS for the body here, so the page doesn't wobble when css files get loaded later.-->
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
   <style type='text/css'>
     body {
       margin:	0;
@@ -22,16 +22,17 @@
     <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
     <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
     <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <span id='phedex-banner-messages' style='margin-left:20px;'>Loading, please be patient...</span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
  <div id='phedex-nav'></div>
  <div id='phedex-logger' class='phedex-logger'>
-   <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
+  <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
  </div>
- <div id='phedex-main'>Loading, please be patient...</div>
+ <div id='phedex-main'></div>
+</body>
 
-<script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-<script type="text/javascript" src="/yui/build/yuiloader/yuiloader-min.js"></script>
+<script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
@@ -45,70 +46,54 @@ log = function() {
       if ( el ) {
 	el.innerHTML += str+'<br/>';
 	if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
-	_buffer.push([str,level,group]);
       }
+    _buffer.push([str,level,group]);
     } else {
       return _buffer;
     }
   };
 }();
 
+banner = function() {
+  return function(str,level,group) {
+    var el = document.getElementById('phedex-banner-messages');
+    if ( el ) {
+//       if ( str ) {
+	el.innerHTML = str;
+//       }
+    }
+  };
+}();
+
 YAHOO.util.Event.onDOMReady(function() {
-// dynamic loaders for PhEDEx and YUI. Maybe they could be combined, but I don't want to couple them yet
-  PxL = new PHEDEX.Loader();
-  YL  = new PHEDEX.Loader( { base: '/yui/build/' } );
-  YL.name('YLoader');
+  banner('Loading core application');
+// dynamic loader for PhEDEx and YUI. This is for the global app to use
+  PxL  = new PHEDEX.Loader();
   PxL.load(createCoreApp,'phedex-core-app','phedex-core-module','phedex-sandbox');
-})
 
-var yui_load_logger = function() {
-// Now that the YUI logger is loaded, I can load the phedex-logger and create it.
-// I then go on to load the rest of the YUI components I will need
-  phedexMain.innerHTML='Creating logger...';
-  PxL.load( function() {
-      PHEDEX.Logger.Create();
-      var ctl = new PHEDEX.Core.Control({
-	  text:'Show Logger',
-	  payload:{render:'phedex-controls', target:'phedex-logger'},
-	  className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
-	}
-      );
-    },
-    'phedex-core-logger','phedex-core-control'
-  );
-  phedexMain.innerHTML='Loading remaining YUI components...';
-  YL.load( { onProgress:yui_loader_progress, onSuccess:yui_loader_success }, /*'autocomplete','button','container','resize','treeview',*/'datatable' );
-}
-
-var yui_loader_progress = function(item) {
-  phedexMain.innerHTML='Loading remaining YUI components: '+item.name;
-}
-
-var yui_loader_success = function() {
-  phedexMain.innerHTML='all done...';
-  PxC.createModule('Nodes');
-  PxC.init();
-  PxC.send('initDom');
-  PxC.send('draw','*',{a:23,b:45,c:67});
-  PxC.send('hide','Nodes');
-  setTimeout(function() { PxC.send('show','Nodes'); },5000);
-}
+// create another loader, to load and instantiate the logger. This shows how to 'multi-thread' with the loader
+  PHEDEX.Loader().load(function() {
+    PHEDEX.Logger.Create();
+    var ctl = new PHEDEX.Core.Control({
+        text:'Show Logger',
+        payload:{render:'phedex-controls', target:'phedex-logger'},
+        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+      }
+    );
+  },'phedex-core-logger','phedex-core-control');
+});
 
 var phedexMain = document.getElementById('phedex-main');
 function createCoreApp() {
 // Now I can create the core application, but also, start loading the YAHOO logger
-  phedexMain.innerHTML='Create sandbox...';
+  banner('Create sandbox and core application...');
   PxS = new PHEDEX.Sandbox();
   PxC = new PHEDEX.Core.App(PxS);
   PxC.create();
-  YL.load(yui_load_logger,'logger');
 
-  phedexMain.innerHTML='Starting core application...';
-  log('CoreApp: Dumping list of known modules...');
-  PxC.dumpList();
-  log('CoreApp is created. Note that there is other stuff still happening...');
+  banner('Core application is running, create PhEDEx data-modules...');
+  PxC.createModule('Nodes');
+  setTimeout(function() { banner(''); }, 5000);
 };
 </script>
-
-</body>
 </html>
