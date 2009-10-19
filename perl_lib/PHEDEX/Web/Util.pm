@@ -16,7 +16,7 @@ use PHEDEX::Core::Util qw( arrayref_expand );
 use PHEDEX::Web::Format;
 
 use HTML::Entities; # for encoding XML
-use Params::Validate;
+use Params::Validate qw(:all);
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw ( process_args validate_args checkRequired error auth_nodes );
@@ -47,6 +47,18 @@ sub process_args
     }
     
 }
+
+# Common validation for web applications.  A name pointing to either a
+# *compiled* regexp of a function which returns true if $_[0] is valid
+# TODO: import some regexps from Regexp::Common (e.g. integer) and
+# make them available here.
+our %COMMON_VALIDATION = (
+    'dataset'      => qr|^(/[^/\#]+){3}$|,
+    'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
+    'lfn'          => qr|^/|,
+    '!wildcard'    => qr|\*|,
+    'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 }
+);
 
 # Validates arguments using Param::Validate, along with a few
 # convenience defaults and capability to use common validation
@@ -119,10 +131,10 @@ sub validate_args
     foreach my $a (keys %$spec) {
 	$allow_uniq{$a} = 1;
     }
-    @$allow = keys %$allow_uniq;
+    @$allow = keys %allow_uniq;
     
     # get the list of required parameters
-    my $require = delete $h{'require'} || [];
+    my $required = delete $h{'required'} || [];
 
     # get the list of OR required parameters
     my $require_one_of = delete $h{require_one_of} || [];
@@ -153,13 +165,13 @@ sub validate_args
 	$s->{type}     = SCALAR   unless defined $s->{type};        # default type is scalar
 	$s->{regexp}   = qr/./    unless defined $s->{regexp};      # no empty string
 	$s->{optional} = 1        unless defined $s->{optional} ||  # all params are optional
-	                                 grep $a eq $_, @$require;  # ... unless otherwise specified
+	                                 grep $a eq $_, @$required;  # ... unless otherwise specified
 	$s->{untaint}  = 1        unless defined $s->{untaint};     # we untaint by default
 	
 	# check for a special key for using common validation functions
 	if (exists $s->{using}) {
 	    my $common = delete $s->{using};
-	    foreach my $c (arrayref_expand($common) {
+	    foreach my $c (arrayref_expand($common)) {
 		my $val = $COMMON_VALIDATION{$c} ||
 		    die "developer error: '$c' is not a known validation function\n";
 		
@@ -180,29 +192,17 @@ sub validate_args
     }
 
     # build the arguments for the validation function
-    my %val_args = (params => %args, spec   => $spec);
+    my %val_args = (params => $args, spec => $spec);
     # use die instead of confess, suppress any stack trace or line number
-    $val_args{on_fail} = sub { die shift, "\n" });
+    $val_args{on_fail} = sub { die shift, "\n" };
     # uppercase keys
     $val_args{normalize_keys} = sub { return uc shift } unless $no_upper;
 
     # now validate the arguments
-    my %good_args = &Params::Validate::validate_with( %val_args );
+    my %good_args = &validate_with( %val_args );
 
     return %good_args;
 }
-
-# Common validation for web applications.  A name pointing to either a
-# *compiled* regexp of a function which returns true if $_[0] is valid
-# TODO: import some regexps from Regexp::Common (e.g. integer) and
-# make them available here.
-our $COMMON_VALIDATION = (
-    'dataset'      => qr|^(/[^/\#]+){3}$|,
-    'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
-    'lfn'          => qr|^/|,
-    '!wildcard'    => qr|\*|,
-    'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 }
-);
 
 # just dies if the required args are not provided or if they are unbounded
 sub checkRequired
