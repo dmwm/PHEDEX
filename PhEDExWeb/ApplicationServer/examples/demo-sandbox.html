@@ -22,7 +22,7 @@
     <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
     <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
     <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
-    <span id='phedex-banner-messages' style='margin-left:20px;'>Loading, please be patient...</span>
+    <span id='phedex-banner-messages' class='phedex-messages'>Loading, please be patient...</span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
  <div id='phedex-nav'></div>
@@ -37,42 +37,58 @@
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
 
+// Some utility functions first. These need a better home, like phedex-base.js
+
+// format an exception object into a sensible error-message
+err = function(ex) {
+debugger;
+ return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.lineNumber+')'; }
+
 // a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
 log = function() {
   var _buffer = [];
   return function(str,level,group) {
     var el = document.getElementById('phedex-logger-inner');
     if ( str ) {
+      if ( typeof(str) == 'object' ) { str = err(str); } // assume it's an exception object!
       if ( el ) {
 	el.innerHTML += str+'<br/>';
 	if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
       }
     _buffer.push([str,level,group]);
     } else {
-      return _buffer;
+      var b = _buffer; // gymnastics to reset _buffer to null within a closure, but still return it!
+      _buffer = null;
+      return b;
     }
   };
 }();
 
+// simple banner messages to show progress. Make it disappear by sending it the null string.
 banner = function() {
+  var el = document.getElementById('phedex-banner-messages');
   return function(str,level,group) {
-    var el = document.getElementById('phedex-banner-messages');
     if ( el ) {
-//       if ( str ) {
+      if ( str ) {
 	el.innerHTML = str;
-//       }
+	YAHOO.util.Dom.removeClass(el,'phedex-invisible');
+      } else {
+	YAHOO.util.Dom.addClass(el,'phedex-invisible');
+      }
     }
   };
 }();
 
+// When the DOM is available, start loading the essential bits and pieces
 YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application');
 // dynamic loader for PhEDEx and YUI. This is for the global app to use
   PxL  = new PHEDEX.Loader();
-  PxL.load(createCoreApp,'phedex-core-app','phedex-core-module','phedex-sandbox');
+  PxL.load(createCoreApp,'phedex-core-app','phedex-core-module','phedex-sandbox','phedex-datasvc');
 
 // create another loader, to load and instantiate the logger. This shows how to 'multi-thread' with the loader
   PHEDEX.Loader().load(function() {
+    banner('instantiating logger...');
     PHEDEX.Logger.Create();
     var ctl = new PHEDEX.Core.Control({
         text:'Show Logger',
@@ -83,17 +99,20 @@ YAHOO.util.Event.onDOMReady(function() {
   },'phedex-core-logger','phedex-core-control');
 });
 
-var phedexMain = document.getElementById('phedex-main');
 function createCoreApp() {
-// Now I can create the core application, but also, start loading the YAHOO logger
+// This is called once the core is fully loaded. Now I can create the core
+// application and sandbox, and then start creating PhEDEx modules
   banner('Create sandbox and core application...');
-  PxS = new PHEDEX.Sandbox();
-  PxC = new PHEDEX.Core.App(PxS);
-  PxC.create();
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
+  try {
+    PxC = new PHEDEX.Core.App(PxS);
+    PxC.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, create PhEDEx data-modules...');
   PxC.createModule('Nodes');
-  setTimeout(function() { banner(''); }, 5000);
 };
 </script>
 </html>
