@@ -5,9 +5,9 @@
 ##H TestCatalogue -c CATALOGUE -p PROTOCOL [-d DESTINATION] { -L | -P } FILE...
 ##H
 ##H Looks up the file names in the trivial file CATALOGUE using PROTOCOL
-##H and optional DESTINATION node.  With "-L", FILE is assumed to be an
-##H LFN and is translated into a PFN; with "-P" FILE is assumed to be
-##H a PFN and is translated into an LFN.
+##H and optional DESTINATION node.  With "-L", FILE is assumed to be a
+##H PFN and is translated into an LFN; with "-P" FILE is assumed to be
+##H a LFN and is translated into a PFN.
 ##H
 ##H Prints out the destination name for each file name.
 

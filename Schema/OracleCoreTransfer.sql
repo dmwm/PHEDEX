@@ -129,12 +129,8 @@ create table t_xfer_replica
 
 /*
  * t_xfer_reqest.state:
- *  -1 = Deactivated, just injected
  *   0 = Active, valid transfer request
- *   1 = Deactivated, transfer failure
- *   2 = Deactivated, expiration
- *   3 = Deactivated, no path from any source
- *   4 = Deactivated, no source replicas
+ *   1 = Deactivated, e.g. expired
  */
 create table t_xfer_request
   (fileid		integer		not null,
