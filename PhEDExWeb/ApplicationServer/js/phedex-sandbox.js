@@ -1,32 +1,31 @@
 PHEDEX.Sandbox = function() {
   var _events = [];
-  var _getEvent = function(event) {
-    if ( !_events[event] ) {
+  var _getEvent = function(event,create) {
+    if ( _events[event] ) { return _events[event]; }
+    if ( create ) {
       _events[event] = new YAHOO.util.CustomEvent(event, this, false, YAHOO.util.CustomEvent.LIST);
-      log('Sandbox: new listen-event: '+event);
+      log('new listen-event: '+event,'info','Sandbox');
+      return _events[event];
     }
-    return _events[event];
+    log('non-existant event: '+event,'warn','Sandbox');
   }
   return {
     notify: function() {
       var event, arr=[];
       event = arguments[0];
       for (var i=1; i<arguments.length; i=i+1) { arr.push(arguments[i]); }
-      log('Sandbox: notify event: '+event);
+      log('notify event: '+event,'info','Sandbox');
 //    by using setTimeout here, I can allow the flow to continue in the 'parent thread', and deal with the
-//    handlers afterwards. Essentially I queue the event for later.
-      setTimeout(function() {
-        _getEvent(event).fire(arr);
-      }, 0);
+//    handlers afterwards. Essentially I queue the event for later. I think I also keep the stack shorter too
+      setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
     },
     listen: function(event,fn) {
-      _getEvent(event).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
-      log('Sandbox: new listener for event: '+event);
+      _getEvent(event,true).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
+      log('new listener for event: '+event,'info','Sandbox');
     },
 //     stopListening: function(event,fn) {
 //	  I don't know how I would do this. I would need to know the function that was subscribed, so would
-//	  need an array of subscribers/callbacks, maintained in the sandbox. If I go that far, I may as well
-//	  simply call the callbacks directly, instead of firing events!
+//	  need an array of subscribers/callbacks, maintained in the sandbox.
 //     }
   }
 };
