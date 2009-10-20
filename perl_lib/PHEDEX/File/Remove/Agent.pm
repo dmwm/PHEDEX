@@ -29,7 +29,10 @@ sub new
 		  );
     
     my %args = (@_);
-    $$self{$_} = $args{$_} || $params{$_} for keys %params;
+    foreach ( keys %params )
+    {
+      $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_};
+    }
 
     # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
@@ -107,7 +110,7 @@ sub deleteOneFile
 	$$file{DROP} = $drop; # We will need this in the JobManager callback
 
 	# Issue file removal from disk now.
-	my $log = "$$self{DROPDIR}/@{[time()]}.$$file{NODEID}.$$file{FILEID}.log";
+	my $log = "$$self{DROPDIR}/$$file{NODEID}.$$file{FILEID}.log";
 	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($file, @_) },
 		       { TIMEOUT => 30, LOGFILE => $log, DB => $dbh },
 		       (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
@@ -130,10 +133,17 @@ sub deleteJob
 	$self->Warn("failed to delete file $$file{PFN} at node "
 	      ."$$file{NODE}, log in $$job{LOGFILE}");
     }
-    else
+    if ( !$job->{STATUS} || !$self->{RETRY} )
     {
-	$self->Logmsg("deleted file $$file{PFN} at node $$file{NODE}");
-	unlink ($$job{LOGFILE});
+        if ( !$job->{STATUS} )
+        {
+	    $self->Logmsg("deleted file $$file{PFN} at node $$file{NODE}");
+	    unlink ($$job{LOGFILE});
+	}
+        if ( $job->{STATUS} && !$self->{RETRY} )
+        {
+	    $self->Logmsg("giving up on file $$file{PFN} at node $$file{NODE}");
+	}
         delete $self->{_drops}{$file->{DROP}};
 
         my $dbh = undef;
@@ -166,14 +176,6 @@ sub deleteJob
 	# OK, got far enough to nuke and log it
 	$self->Logmsg("Delete drop $file->{DROP} ($file->{LFN})") if $self->{DEBUG};
 	$self->relayDrop ($$file{DROP});
-    }
-    if ( !$self->{RETRY} && $job->{STATUS} )
-    {
-#	give up on the drop despite the failure
-        my $dropdir = "$$self{WORKDIR}/$$file{DROP}";
-	&touch ("$dropdir/done");
-        $self->Logmsg("Delete drop $file->{DROP} ($file->{LFN}), despite failure") if $self->{DEBUG};
-        $self->relayDrop ($$file{DROP});
     }
 }
 
