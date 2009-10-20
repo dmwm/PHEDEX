@@ -35,7 +35,6 @@ PHEDEX.Core.Module = function(sandbox, string) {
       _sbx.listen('module',coreHandler);
 
       this.log('initModule complete');
-      _sbx.notify(_name,'OnInitModule');
       _sbx.notify(_name,'initModule');
     },
 
