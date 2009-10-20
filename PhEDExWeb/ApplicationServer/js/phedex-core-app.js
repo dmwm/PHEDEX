@@ -6,12 +6,18 @@ PHEDEX.Core.App = function(sandbox) {
   var _parent = document.getElementById('phedex-main');
   if ( !parent ) { throw new Error('cannot find parent element for core'); }
 
+  var _timer; // used to clear the banner window after a while.
+  var _banner_timeout = 5000;
+  var _setTimeout = function() { _timer = setTimeout( function() { banner(); }, _banner_timeout); }
+  var _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); } }
+
   var moduleHandler = function(obj) {
     return function(who,arr) {
       var action = arr[0];
       var args = arr[1];
       log('module='+who+' action="'+action+'"','info','Core');
       var m = _modules[who].obj;
+      _clearTimeout();
       switch ( action ) {
         case 'initModule': {
           log('calling "'+who+'.initDom()"');
@@ -28,11 +34,12 @@ PHEDEX.Core.App = function(sandbox) {
         case 'getData': {
           log('fetching data for "'+who+'"');
 	  try {
-	    banner('fetching data...');
+	    banner('Connecting to data-service...');
 
 	    var dataReady = new YAHOO.util.CustomEvent("dataReady", this, false, YAHOO.util.CustomEvent.LIST);
 	    dataReady.subscribe(function(type,args) {
 	      return function(_m) {
+		banner('Data-service returned OK...')
 		var data = args[0];
 		var context = args[1];
 		var api = context.api;
@@ -43,19 +50,19 @@ PHEDEX.Core.App = function(sandbox) {
 	    });
 	    var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
 	    dataFail.subscribe(function(type,args) {
-debugger;
-	      var data = args[0];
-	      var context = args[1];
-	      var api = context.api;
+	      var api = args[1].api;
 	      log('api:'+api+' error fetching data','error',who);
-	      banner('Error fetching data!');
+	      banner('Error fetching data: '+api+' '+args[0].message+'!');
+	      _clearTimeout();
 	    });
-
-	    PHEDEX.Datasvc.Call({ api: 'nodes', success_event: dataReady });
+	    args.success_event = dataReady;
+	    args.failure_event = dataFail;
+	    PHEDEX.Datasvc.Call( args );
 	  } catch(ex) { log(ex,'error','Core'); banner('Error fetching data!'); }
           break;
         }
       };
+      _setTimeout();
     }
   }(this);
 
@@ -91,7 +98,7 @@ debugger;
 	      _loaded[name] = {};
 	      try {
 		obj.createModule(name);
-	        setTimeout(function() { banner(); }, 5000);
+		_setTimeout();
 	      } catch(ex) { log(ex,'error',name); banner('Error loading module '+name+'!'); }
 	    }
           }(this),
