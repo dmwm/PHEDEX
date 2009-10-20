@@ -333,7 +333,7 @@ sub idle
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh } if $@;
     $self->{WAITTIME} = $self->{WAITTIME_SLOW} unless $count;
-    $self->Logmsg("Started $count jobs with " . scalar @pending . " pending");
+    $self->Logmsg("Started $count jobs with " . scalar @pending . " pending") if $count;
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
