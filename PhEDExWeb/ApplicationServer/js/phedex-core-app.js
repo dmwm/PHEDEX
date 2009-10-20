@@ -7,21 +7,52 @@ PHEDEX.Core.App = function(sandbox) {
   if ( !parent ) { throw new Error('cannot find parent element for core'); }
 
   var moduleHandler = function(obj) {
-    return function(ev,arr) {
+    return function(who,arr) {
       var action = arr[0];
-      var who = arr[1];
-      log('Core: event='+ev+' module='+who+' has just done '+action);
-      var m = _modules[ev].obj;
+      var args = arr[1];
+      log('module='+who+' action="'+action+'"','info','Core');
+      var m = _modules[who].obj;
       switch ( action ) {
-        case 'ReadyForAction': {
-          log('calling "'+ev+'.initDom()"');
+        case 'initModule': {
+          log('calling "'+who+'.initDom()"');
           var el = m.initDom();
           if ( el ) { _parent.appendChild(el); }
           break;
         }
         case 'initDom': {
-          log('calling "'+ev+'.show()"');
+          log('calling "'+who+'.show()"');
           m.show();
+	  m.getData();
+          break;
+        }
+        case 'getData': {
+          log('fetching data for "'+who+'"');
+	  try {
+	    banner('fetching data...');
+
+	    var dataReady = new YAHOO.util.CustomEvent("dataReady", this, false, YAHOO.util.CustomEvent.LIST);
+	    dataReady.subscribe(function(type,args) {
+	      return function(_m) {
+		var data = args[0];
+		var context = args[1];
+		var api = context.api;
+		try {
+		  _m.gotData(data);
+		} catch(ex) { log(ex,'error',who); banner('Error processing data!'); }
+	      }(m);
+	    });
+	    var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
+	    dataFail.subscribe(function(type,args) {
+debugger;
+	      var data = args[0];
+	      var context = args[1];
+	      var api = context.api;
+	      log('api:'+api+' error fetching data','error',who);
+	      banner('Error fetching data!');
+	    });
+
+	    PHEDEX.Datasvc.Call({ api: 'nodes', success_event: dataReady });
+	  } catch(ex) { log(ex,'error','Core'); banner('Error fetching data!'); }
           break;
         }
       };
@@ -52,14 +83,21 @@ PHEDEX.Core.App = function(sandbox) {
       if ( ! _loaded[name] ) {
         var module = 'phedex-module-'+name.toLowerCase();
         log ('loading "'+module+'" (for '+name+')');
-        PxL.load(function(obj) {
-          return function() {
-            log('module "'+name +'" loaded...');
-            _loaded[name] = {};
-            obj.createModule(name);
-          }
-        }(this), module);
-        return;
+        PxL.load( {
+	  onSuccess: function(obj) {
+	    return function() {
+	      banner('PhEDEx App is up and running!');
+	      log('module "'+name +'" loaded...');
+	      _loaded[name] = {};
+	      try {
+		obj.createModule(name);
+	        setTimeout(function() { banner(); }, 5000);
+	      } catch(ex) { log(ex,'error',name); banner('Error loading module '+name+'!'); }
+	    }
+          }(this),
+	  onProgress: function(item) { banner('Loaded item: '+item.name); }
+	}, module);
+      return;
       }
       log ('creating a module "'+name+'"');
       var m = new PHEDEX.Module[name](PxS,name);
