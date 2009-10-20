@@ -62,6 +62,12 @@ body {
   border-bottom: 2px solid black;
   margin-bottom: 2px;
 }
+.phedex-messages {
+  margin-left: 20px;
+  background-color: #eff;
+  padding: 0 1em 0;
+}
+
 .phedex-controls {
   text-align: right;
 }
