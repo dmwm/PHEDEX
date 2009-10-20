@@ -52,7 +52,7 @@ PHEDEX.Loader = function(opts) {
     };
   };
 
-  var conf = {
+  var _conf = {
     loadOptional:  true,
     allowRollup:  false,
     base:	  '/yui/build/',
@@ -63,17 +63,17 @@ PHEDEX.Loader = function(opts) {
     onTimeout:  function(item) { _callback([_name, 'Timeout',  item]); },
   }
   if ( opts ) {
-    for (var i in opts) { conf[i] = opts[i]; }
+    for (var i in opts) { _conf[i] = opts[i]; }
   }
 
-  var _init = function(conf) {
-    for (var i in conf) {
-      _loader[i] = conf[i];
+  var _init = function(cf) {
+    for (var i in cf) {
+      _loader[i] = cf[i];
     }
   };
 
   var _loader = new YAHOO.util.YUILoader();
-  _init(conf);
+  _init(_conf);
 
   for (var i in _dependencies) {
     var x = _dependencies[i];
@@ -90,10 +90,13 @@ PHEDEX.Loader = function(opts) {
 	_success = null;
 	if ( typeof(args) == 'function' ) { _success = args; }
 	else {
-	  for (var i in args) { _loader[i] = args[i]; }
+	  _loader.onSuccess  = _conf.onSuccess;
+	  _loader.onProgress = _conf.onProgress;
+	  _loader.onFailure  = _conf.onFailure;
+	  _loader.onTimeout  = _conf.onTimeout;
+	  for (var i in args)     { _loader[i] = args[i]; }
 	}
 	for (var i=1; i<=_args.length; i++) { _loader.require(_args[i]); }
-// 	_loader.require(what);
 	_loader.insert();
       }, 0);
     },
