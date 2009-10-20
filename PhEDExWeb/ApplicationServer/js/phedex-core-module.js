@@ -11,9 +11,12 @@ PHEDEX.Core.Module = function(sandbox, string) {
   }();
 
   return {
+    log: function(str,level) { log(str,level||'info',_name); },
+
     _initModule: function() {
       log(_name+': initialising');
       YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+      this.id = _name+'_'+PxU.Sequence();
       _sbx.listen('CoreAppCreate',onCoreAppCreate);
       _sbx.notify('ModuleExists',_name,this);
 
@@ -22,6 +25,7 @@ PHEDEX.Core.Module = function(sandbox, string) {
 	  var who = arr[0];
 	  var action = arr[1];
 	  if ( who && who != '*' && who != _name ) { return; }
+	  if ( typeof(obj[action]) == 'null' ) { return; }
 	  if ( typeof(obj[action]) != 'function' ) {
 	    throw new Error('Do not now how to execute "'+action+'" for module "'+_name+'"');
 	  }
@@ -29,12 +33,18 @@ PHEDEX.Core.Module = function(sandbox, string) {
 	}
       }(this);
       _sbx.listen('module',coreHandler);
-      log(_name+' ReadyForAction');
-      _sbx.notify(_name,'ReadyForAction');
+
+      this.log('initModule complete');
+      _sbx.notify(_name,'OnInitModule');
+      _sbx.notify(_name,'initModule');
     },
 
     initDom: function() {
       this.el = document.createElement('div');
+      YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
+//       if (this.options.window) {
+// 	YAHOO.util.Dom.addClass(this.div,'phedex-panel');
+//       }
       this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
       this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
       this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
