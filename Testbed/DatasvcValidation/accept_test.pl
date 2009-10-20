@@ -1,23 +1,31 @@
 #!/usr/bin/env perl
+use warnings;
+use strict;
 
+use Time::HiRes qw(gettimeofday tv_interval);
 use XML::Simple;
 use IO::File;
 use Getopt::Long;
 
 my $web_server = "cmswttest.cern.ch";
-my $url_prefix = "http://$web_server/phedex/datasvc/xml/prod";
+my $url_prefix = "http://$web_server";
+my $url_path   = "/phedex/datasvc";
+my $url_data   = "/xml/prod";
 my $xml = new XML::Simple;
 
 my $debug = 0;
 my $verbose = 0;
 my $test_file;
+my $output_dir;
 my $help;
 
 GetOptions(
 	"verbose!" => \$verbose,
 	"webserver=s" => \$web_server,
+        "path=s" => \$url_path,
 	"debug!" => \$debug,
 	"file=s" => \$test_file,
+        "output|O=s" => \$output_dir,
 	"help" => \$help,
 );
 
@@ -25,15 +33,19 @@ sub usage()
 {
 	die <<EOF;
 
-Usage: $0 [--verbose] [--webserver <web_host>] [--debug] [--file <test_file>]
+Usage: $0 [--verbose] [--debug] [--webserver <web_host>] [--path <path>] [--file <file>] [--output <dir>]
 
 --verbose               verbose mode
 --help                  show this information
 --webserver <web_host>  host name with optional port number such as
                         "cmswttest.cern.ch:7001"
-                        default to be: "cmswttest.cern.ch"
+                        default: "cmswttest.cern.ch"
+--path <path>           root path to the data service
+                        default: "/phedex/datasvc"
 --file <file>           file that contains test command
                         without --file, the commands are read from stdin
+--ouptut <dir>          save data service output to files in this directory
+
 EOF
 }
 
@@ -43,24 +55,21 @@ if ($help)
 }
 
 open STDERR, ">/dev/null";
-
+our $n = 0;
 sub verify
 {
 	my ($url, $expect) = @_;
-	my $result = "OK   ";
-	if (! defined $expect)
-	{
-		$expect = "OK   ";
-	}
+	die "verify():  $url and $expect required\n" unless $url && $expect;
+	print "verifying '$url', expecting $expect\n" if $debug;
 
-	if (substr($url, 0, 1) eq "-")
-	{
-		$expect = "ERROR";
-		$url = substr($url, 1);
-	}
+	my $result = "OK";
 
-	my $t0 = time();
-	my $fh = IO::File->new("wget -O - '$url' 2>/dev/null 1| ");
+	my $tee = $output_dir ? sprintf("tee $output_dir/%03s.xml|", $n++) : '';
+	my $t0 = [gettimeofday];
+	my $fh = IO::File->new("wget -O - '$url' 2>/dev/null 1|$tee ")
+	    or die "could not execute wget\n";
+	my $elapsed = tv_interval ( $t0, [gettimeofday]);
+
 	my $data = $xml->XMLin($fh);
 	if (ref($data) ne "HASH")
 	{
@@ -68,10 +77,10 @@ sub verify
 	}
 	else
 	{
-		$result = "OK   ";
+		$result = "OK";
 	}
 	my $res = ($result eq $expect)?"PASS ":"FAIL ";
-	print $res, "(", $expect, " ", $result, ") ", time() - $t0, " ",$url, "\n";
+	printf "%4s (%4s %4s) %.4f %s\n", $res, $expect, $result, $elapsed, $url;
 }
 
 my $inf;
@@ -82,24 +91,29 @@ if ($test_file)
 }
 else
 {
-	$inf = scalar STDIN;
+	$inf = scalar *STDIN;
 }
+
+my $root_url = "${url_prefix}${url_path}${url_data}";
 
 while(<$inf>)
 {
 	chomp;
-	my $c1 = substr($_, 0, 1);
+	next if /^\s*$/;
+	my $call = $_;
+	my $c1 = substr($call, 0, 1);
+	my $expect = "OK";
+
 	if ($c1 eq "#")
 	{
 		print $_, "\n";
+		next;
 	}
 	elsif ($c1 eq "-")
 	{
-		verify("$url_prefix/".substr($_, 1), "ERROR");
+	        $expect = "ERROR";
+	        $call = substr($call, 1);
 	}
-	elsif (length($_) > 1)
-	{
-		verify("$url_prefix/$_", "OK   ");
-	}
-}
 
+	verify("$root_url/$call", $expect);
+}
