@@ -3,7 +3,7 @@ PHEDEX.Loader = function(opts) {
     { name: 'phedex-css', type: 'css', fullpath: '/css/phedex.css' },
     { name: 'phedex-base',    requires: ['phedex-css'] },
     { name: 'phedex-util',    requires: ['phedex-base'] },
-    { name: 'phedex-datasvc', requires: ['phedex-util'] },
+    { name: 'phedex-datasvc', requires: ['phedex-util','json'] },
 
 //  these are just guesses, and may not work as-is
     { name: 'phedex-page',             requires:['phedex-util'] },
@@ -27,24 +27,35 @@ PHEDEX.Loader = function(opts) {
     { name: 'phedex-sandbox',      requires:['phedex-util'] },
     { name: 'phedex-core-app',     requires:['phedex-sandbox'] },
     { name: 'phedex-core-module',  requires:['phedex-core-app','autocomplete','button','container','resize'] },
-    { name: 'phedex-module-nodes', requires:['phedex-core-module','treeview','datatable'] },
-  ];
-
-  var _name = 'PxLoader';
-  var _success;
+    { name: 'phedex-core-module-datatable', requires:['phedex-core-module','datatable'] },
+    { name: 'phedex-core-module-treeview',  requires:['phedex-core-module','treeview'] },
+    { name: 'phedex-module-nodes',          requires:['phedex-core-module-datatable'] },
+  ],
+      _me = 'PxLoader',
+      _success,
+      _loader = new YAHOO.util.YUILoader(),
+      _conf = {
+	loadOptional:  true,
+	allowRollup:  false,
+	base:        '/yui/build/',
+	timeout:      15000,
+	onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
+	onProgress: function(item) { _callback([_me, 'Progress', item]); },
+	onFailure:  function(item) { _callback([_me, 'Failure',  item]); },
+	onTimeout:  function(item) { _callback([_me, 'Timeout',  item]); },
+      };
 
   var _callback = function(args) {
-    var ev, type, item;
-    ev   = args[0];
-    type = args[1];
-    item = args[2];
+    var ev   = args[0],
+        type = args[1],
+        item = args[2];
     switch (type) {
       case 'Progress': { log(ev+': '+type+', '+item.name); break; }
       case 'Success':  {
 	var l='';
 	for (var i in item) { l += i+' ';};
 	log(ev+': '+type+', '+l);
-	if ( _success ) { setTimeout( function() { _success(_name,item); },0); }
+	if ( _success ) { setTimeout( function() { _success(_me,item); },0); }
 	break;
       }
       case 'Failure':  { log(ev+': '+type+', '+item.name); break; }
@@ -52,27 +63,15 @@ PHEDEX.Loader = function(opts) {
     };
   };
 
-  var _conf = {
-    loadOptional:  true,
-    allowRollup:  false,
-    base:	  '/yui/build/',
-    timeout:	10000,
-    onSuccess:  function(item) { _callback([_name, 'Success',  _loader.inserted]); },
-    onProgress: function(item) { _callback([_name, 'Progress', item]); },
-    onFailure:  function(item) { _callback([_name, 'Failure',  item]); },
-    onTimeout:  function(item) { _callback([_name, 'Timeout',  item]); },
-  }
-  if ( opts ) {
-    for (var i in opts) { _conf[i] = opts[i]; }
-  }
-
   var _init = function(cf) {
     for (var i in cf) {
       _loader[i] = cf[i];
     }
   };
 
-  var _loader = new YAHOO.util.YUILoader();
+  if ( opts ) {
+    for (var i in opts) { _conf[i] = opts[i]; }
+  }
   _init(_conf);
 
   for (var i in _dependencies) {
@@ -100,9 +99,7 @@ PHEDEX.Loader = function(opts) {
 	_loader.insert();
       }, 0);
     },
-    init: function(args) {
-      _init(args);
-    },
-    name: function(string) { _name = string; },
+    init: function(args) { _init(args); },
+    loaded: function() { return _loader.inserted; },
   }
 }
