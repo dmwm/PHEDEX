@@ -20,6 +20,8 @@ sub new
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
 		  WAITTIME => 60 + rand(15),	# Agent activity cycle
+		  WAITTIME_SLOW => undef,	# for slow-cycling, when there's no work to do
+		  WAITTIME_FAST => undef,	# for fast-cycling, when there's still more to do
 		  CMD_RM   => undef,            # cmd to remove physical files
 		  PROTOCOL => 'direct',         # File access protocol
 		  CATALOGUE => {},		# TFC from TMDB
@@ -46,8 +48,8 @@ sub new
 				   $self->{JOBMANAGER}->killAllJobs() };
 
 #   Finagle the WAITTIME so I can speed up deletions if the queue is full
-    $self->{WAITTIME_SLOW} = $self->{WAITTIME};
-    $self->{WAITTIME_FAST} = 2;
+    $self->{WAITTIME_SLOW} = $self->{WAITTIME} unless $self->{WAITTIME_SLOW};
+    $self->{WAITTIME_FAST} = 2                 unless $self->{WAITTIME_FAST};
 
     bless $self, $class;
     return $self;
@@ -337,6 +339,7 @@ sub idle
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
+$self->Log("waittime/fast/slow = $self->{WAITTIME} / $self->{WAITTIME_FAST} / $self->{WAITTIME_SLOW}");
 }
 
 sub reloadConfig
@@ -344,7 +347,7 @@ sub reloadConfig
   my ($self,$Config) = @_;
   my $config = $Config->select_agents($self->{LABEL});
   my $val;
-  foreach ( qw / LIMIT VERBOSE DEBUG WAITTIME_SLOW / )
+  foreach ( qw / LIMIT VERBOSE DEBUG WAITTIME WAITTIME_SLOW WAITTIME_FAST / )
   {
     next unless defined ($val = $config->{OPTIONS}{$_});
     $self->Logmsg("reloadConfig: set $_=$val");
