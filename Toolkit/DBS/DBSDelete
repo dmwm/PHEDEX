@@ -23,10 +23,10 @@ def delete(url,lblock):
         dbsblock = block_objects.pop(0)
       if dbsblock:
         # TODO:  is dataset required?
-        print "throwing away %" % dbsblock        
-        dbsapi.deleteBlock(dataset=dbsblock['Dataset'], block=dbsblock)
-        print "deleting %" % dbsblock        
-        dbsapi.deleteRecycleBin(dataset=dbsblock['Dataset'], block=dbsblock)
+        print "throwing away %s" % dbsblock['Name']
+        dbsapi.deleteBlock(dbsblock['Path'], dbsblock['Name'])
+        print "deleting %s" % dbsblock['Name']
+        dbsapi.deleteRecycleBin(dbsblock['Path'], dbsblock['Name'])
       else:
         raise Exception("block='%s' not found in dbs='%s'" % (block, url))
 
