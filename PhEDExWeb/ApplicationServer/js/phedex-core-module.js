@@ -1,77 +1,74 @@
 PHEDEX.namespace('Core');
 PHEDEX.Core.Module = function(sandbox, string) {
-  var _sbx = sandbox;
-  var _name = string;
-  log('Module: creating "'+_name+'"');
+  log('creating "'+string+'"','info','Module');
 
-  onCoreAppCreate = function() {
-    return function() {
-      _sbx.notify('ModuleExists',_name,this);
-    }
-  }();
+  var _construct = function() {
+    return {
+      _me: string,
+      _sbx: sandbox,
+      _initModule: function() {
+        log(this._me+': initialising','info','Module');
+//         YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+        this.id = this._me+'_'+PxU.Sequence();
+        this._sbx.listen('CoreAppCreate',function() { this._sbx.notify('ModuleExists',this._me,this); });
+        this._sbx.notify('ModuleExists',this._me,this);
 
-  return {
-    log: function(str,level) { log(str,level||'info',_name); },
-
-    _initModule: function() {
-      log(_name+': initialising');
-      YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
-      this.id = _name+'_'+PxU.Sequence();
-      _sbx.listen('CoreAppCreate',onCoreAppCreate);
-      _sbx.notify('ModuleExists',_name,this);
-
-      var coreHandler = function(obj) {
-	return function(ev,arr) {
-	  var who = arr[0];
-	  var action = arr[1];
-	  if ( who && who != '*' && who != _name ) { return; }
-	  if ( typeof(obj[action]) == 'null' ) { return; }
-	  if ( typeof(obj[action]) != 'function' ) {
-	    throw new Error('Do not now how to execute "'+action+'" for module "'+_name+'"');
+        var coreHandler = function(obj) {
+	  return function(ev,arr) {
+	    var who = arr[0],
+	        action = arr[1];
+	    if ( who && who != '*' && who != this._me ) { return; }
+	    if ( typeof(obj[action]) == 'null' ) { return; }
+	    if ( typeof(obj[action]) != 'function' ) {
+	      throw new Error('Do not now how to execute "'+action+'" for module "'+this._me+'"');
+	    }
+	    obj[action](arr[2]);
 	  }
-	  obj[action](arr[2]);
-	}
-      }(this);
-      _sbx.listen('module',coreHandler);
+        }(this);
+        this._sbx.listen('module',coreHandler);
 
-      this.log('initModule complete');
-      _sbx.notify(_name,'initModule');
-    },
+        log('initModule complete','info','Module');
+        this._sbx.notify(this._me,'initModule');
+      },
 
-    initDom: function() {
-      this.el = document.createElement('div');
-      YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
-//       if (this.options.window) {
-// 	YAHOO.util.Dom.addClass(this.div,'phedex-panel');
-//       }
-      this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
-      this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
-      this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
-      this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'});
-      this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
-      this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
-      this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
-      this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
-      log(_name+' initDom complete');
-      _sbx.notify(_name,'initDom');
-      return this.el;
-    },
-    draw: function(args) {
-      this.dom.header.innerHTML = _name+': starting...';
-      log(_name+': showing');
-    },
-    show: function(args) {
-      log(_name+': showing module "'+_name+'"');
-      YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
-    },
-    hide: function(args) {
-      log(_name+': hiding module "'+_name+'"');
-      YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
-    },
-    destroy: function(args) {
-      log(_name+': destroying');
-    },
+      initDom: function() {
+        this.el = document.createElement('div');
+        YAHOO.util.Dom.addClass(this.div,'phedex-core-widget');
+//         if (this.options.window) {
+// 	  YAHOO.util.Dom.addClass(this.div,'phedex-panel');
+//         }
+        this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
+        this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
+        this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
+        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'});
+        this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+        this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
+        this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
+        this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
+        log(this._me+' initDom complete','info','Module');
+        this._sbx.notify(this._me,'initDom');
+        return this.el;
+      },
+      draw: function(args) {
+        this.dom.header.innerHTML = this._me+': starting...';
+        log(this._me+': showing','info','Module');
+      },
+      show: function(args) {
+        log(this._me+': showing module "'+this._me+'"','info','Module');
+        YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
+      },
+      hide: function(args) {
+        log(this._me+': hiding module "'+this._me+'"','info','Module');
+        YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
+      },
+      destroy: function(args) {
+        log(this._me+': destroying','info','Module');
+      },
+    };
   };
+  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  YAHOO.lang.augmentObject(this, _construct());
+  return this;
 };
 
 // PHEDEX.namespace('Core.Widget');
