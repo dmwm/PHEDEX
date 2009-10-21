@@ -68,9 +68,10 @@ def dbs2Lookup(url, item, verbose):
       lookingfor = 'DATASET'
 
   if lookingfor == 'DATASET':
-    for dataset in api.listProcessedDatasets(patternPrim=prim,
-                                             patternProc=proc,
-                                             patternDT="*"):
+     for dataset in api.listProcessedDatasets(patternPrim=prim,
+                                              patternProc=proc,
+                                              patternDT=tier):
+
       for path in dataset['PathList']:
         print path
   elif lookingfor == 'BLOCK':
