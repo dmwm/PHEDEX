@@ -339,7 +339,6 @@ sub idle
 
     # Disconnect from the database
     $self->{JOBMANAGER}->whenQueueDrained( sub { $self->disconnectAgent(); } );
-$self->Log("waittime/fast/slow = $self->{WAITTIME} / $self->{WAITTIME_FAST} / $self->{WAITTIME_SLOW}");
 }
 
 sub reloadConfig
