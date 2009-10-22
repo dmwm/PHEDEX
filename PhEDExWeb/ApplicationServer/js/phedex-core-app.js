@@ -1,37 +1,49 @@
 PHEDEX.namespace('Core');
 
 PHEDEX.Core.App = function(sandbox) {
-  var _modules = [], _loaded = [],
+  var _modules = {}, _loaded = [],
       _sbx = sandbox,
       _me = 'Core',
       _timer, // used to clear the banner window after a while.
-      _parent = document.getElementById('phedex-main');
+      _parent = document.getElementById('phedex-main'),
+      _global_options = {}; // global application options, such as resizeability etc
   if ( !parent ) { throw new Error('cannot find parent element for core'); }
+
+  _global_options = {
+    window: false,
+    constraintoviewport: true,
+  };
 
   var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 5000 ); },
       _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
 
   var moduleHandler = function(obj) {
     return function(who,arr) {
+// this is the meat of the application. This is where modules interact with the core
       var action = arr[0];
       var args = arr[1];
       log('module='+who+' action="'+action+'"','info',_me);
       var m = _modules[who].obj;
       _clearTimeout();
       switch ( action ) {
-        case 'initModule': {
-          log('calling "'+who+'.initDom()"','info',_me);
-          var el = m.initDom();
-          if ( el ) { _parent.appendChild(el); }
+        case 'init': {
+	  var el = m.initDom();
+	  if ( el ) { _parent.appendChild(el); }
+	  else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
+	  m.initModule();
+	  m.initData();
           break;
         }
-        case 'initDom': {
+        case 'initData': {
           log('calling "'+who+'.show()"','info',_me);
           m.show();
-	  m.initData();
 	  m.getData();
           break;
         }
+	case 'destroy': {
+	  _modules[who] = {};
+	  break;
+	}
         case 'getData': {
           log('fetching data for "'+who+'"','info',_me);
 	  try {
@@ -74,11 +86,12 @@ PHEDEX.Core.App = function(sandbox) {
     create: function() {
       var onModuleExists = function(obj) {
 	return function(ev,arr) {
-	  var string = arr[0],
-	      obj    = arr[1];
-	  if ( !_modules[string] ) { _modules[string]={obj:obj,state:'initialised'}; }
-	  if ( !_loaded[string] ) { _loaded[string]={}; }
-          _sbx.listen(string,moduleHandler);
+	  var obj  = arr[0],
+	      who = obj.me,
+	      id   = obj.id;
+	  _modules[id]={obj:obj,state:'initialised'};
+	  if ( !_loaded[who] ) { _loaded[who]={}; }
+          _sbx.listen(id,moduleHandler);
 	}
       }(this);
       _sbx.listen('ModuleExists',onModuleExists);
@@ -86,12 +99,14 @@ PHEDEX.Core.App = function(sandbox) {
     },
 
     createModule: function(name) {
+// create a module and call its init() function. It is expected that the module will notify the sandbox when it is up, and
+// the core will handle it through the moduleHandler function after that.
 // N.B. createModule() can return _before_ the module is created, if it has to load it first. It will call itself again later.
       if ( ! _loaded[name] ) {
         var module = 'phedex-module-'+name.toLowerCase();
         log ('loading "'+module+'" (for '+name+')','info',_me);
         PxL.load( {
-	  onSuccess: function(obj) {
+	  Success: function(obj) {
 	    return function() {
 	      banner('PhEDEx App is up and running!');
 	      log('module "'+name +'" loaded...','info',_me);
@@ -102,27 +117,13 @@ PHEDEX.Core.App = function(sandbox) {
 	      } catch(ex) { log(ex,'error',_me); banner('Error loading module '+name+'!'); }
 	    }
           }(this),
-	  onProgress: function(item) { banner('Loaded item: '+item.name); }
+	  Progress: function(item) { banner('Loaded item: '+item.name); }
 	}, module);
       return;
       }
       log ('creating a module "'+name+'"','info',_me);
       var m = new PHEDEX.Module[name](PxS,name);
-      m.init();
-    },
-
-    initModule: function() {
-      for (var i in _modules) {
-	log('initialise module: "'+i+'"','info',_me);
-        var el = PxU.makeChild(_parent, 'div', {});
-	_modules[i].obj.initModule(el);
-      }
-      log('all modules initialised','info',_me);
-    },
-
-    send: function(ev,who,args) {
-      log('send '+ev+' to module: "'+who+'"','info',_me);
-      _sbx.notify('module',who,ev,args);
+      m.init(_global_options);
     },
   };
 }
