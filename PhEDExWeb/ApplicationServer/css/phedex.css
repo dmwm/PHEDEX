@@ -201,7 +201,9 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   border: 1px solid red;
   font-weight: bold;
 }
-
+.phedex-core-widget {
+  background-color: #eee;
+}
 .phedex-core-widget-progress {
   position:absolute;
   right:6px;
