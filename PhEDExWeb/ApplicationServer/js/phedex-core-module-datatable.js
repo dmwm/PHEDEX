@@ -30,6 +30,8 @@ PHEDEX.Core.Module.DataTable = function(sandbox,string) {
 	  scope : this.dataTable
 	};
 	this.dataSource.sendRequest('', oCallback);
+	var w = this.dataTable.getTableEl().offsetWidth;
+	this.el.style.width = w+'px';
       },
 
 // Custom formatter for unix-epoch dates
@@ -52,11 +54,12 @@ PHEDEX.Core.Module.DataTable = function(sandbox,string) {
 	}
 	this.dataSource = new YAHOO.util.DataSource();
 	this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
+	var w = this.dataTable.getTableEl().offsetWidth;
+	this.el.style.width = w+'px';
+// these belong in a decorator...
 // 	this.dataTable.subscribe('rowMouseoverEvent',this.onRowMouseOver);
 // 	this.dataTable.subscribe('rowMouseoutEvent', this.onRowMouseOut);
       },
-
-
     };
   };
   YAHOO.lang.augmentObject(this,new PHEDEX.Core.Module(sandbox,string));
