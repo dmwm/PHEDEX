@@ -30,9 +30,12 @@ PHEDEX.Loader = function(opts) {
     { name: 'phedex-core-module-datatable', requires:['phedex-core-module','datatable'] },
     { name: 'phedex-core-module-treeview',  requires:['phedex-core-module','treeview'] },
     { name: 'phedex-module-nodes',          requires:['phedex-core-module-datatable'] },
+    { name: 'phedex-module-agents',         requires:['phedex-core-module-datatable'] },
   ],
       _me = 'PxLoader',
+      _busy = false,
       _success,
+      _on = {},
       _loader = new YAHOO.util.YUILoader(),
       _conf = {
 	loadOptional:  true,
@@ -55,12 +58,13 @@ PHEDEX.Loader = function(opts) {
 	var l='';
 	for (var i in item) { l += i+' ';};
 	log(ev+': '+type+', '+l);
-	if ( _success ) { setTimeout( function() { _success(_me,item); },0); }
+	_busy = false;
 	break;
       }
-      case 'Failure':  { log(ev+': '+type+', '+item.name); break; }
-      case 'Timeout':  { log(ev+': '+type); break; }
+      case 'Failure':  { log(ev+': '+type+', '+item.name); _busy = false; break; }
+      case 'Timeout':  { log(ev+': '+type); _busy = false; break; }
     };
+    if ( _on[type] ) { setTimeout( function() { _on[type](item); },0); }
   };
 
   var _init = function(cf) {
@@ -84,16 +88,18 @@ PHEDEX.Loader = function(opts) {
 
   return {
     load: function( args, what ) {
+      if ( _busy ) {
+	setTimeout( function() { this.load(args,what) },100);
+	log('Logger is busy, waiting...','info','Logger');
+	return;
+      }
+      _busy = true;
       var _args = arguments;
       setTimeout( function() {
-	_success = null;
-	if ( typeof(args) == 'function' ) { _success = args; }
+	if ( typeof(args) == 'function' ) { _on.Success = args; }
 	else {
-	  _loader.onSuccess  = _conf.onSuccess;
-	  _loader.onProgress = _conf.onProgress;
-	  _loader.onFailure  = _conf.onFailure;
-	  _loader.onTimeout  = _conf.onTimeout;
-	  for (var i in args)     { _loader[i] = args[i]; }
+	  _on = {};
+	  for (var i in args)     { _on[i] = args[i]; }
 	}
 	for (var i=1; i<=_args.length; i++) { _loader.require(_args[i]); }
 	_loader.insert();
