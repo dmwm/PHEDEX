@@ -1,0 +1,86 @@
+PHEDEX.namespace('Module');
+PHEDEX.Module.Agents = function(sandbox, string) {
+  var _sbx = sandbox,
+      node = 'T1_US_FNAL_Buffer';
+  log('Module: creating a genuine "'+string+'"','info',string);
+
+   var _construct = function() {
+    return {
+      init: function(opts) {
+	log('initialising','info',this.id);
+  YAHOO.lang.augmentObject(opts, {
+    width:500,
+    height:200,
+    minwidth:300,
+    minheight:50,
+    defsort:'Agent',
+    defhide:['PID','Version','Host','State Dir']
+  });
+	this._init(opts);
+	_sbx.notify( this.id, 'init' );
+      },
+      initData: function() {
+	log('initData','info',this.id);
+	this.buildTable(this.dom.content,
+	    [ 'Agent',
+	      {key:"Date", formatter:'UnixEpochToGMT'},
+	      {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
+	      'Version','Label','Host','State Dir'
+	    ],
+	    {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
+          );
+	_sbx.notify( this.id, 'initData' );
+      },
+      getData: function() {
+	log('Fetching data','info',this.id);
+	this.dom.title.innerHTML = this.me+': fetching data...';
+	_sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
+      },
+      gotData: function(data) {
+	log('Got new data','info',this.id);
+	this.data = data.node[0].agent;
+	this.dom.title.innerHTML = node+': '+this.data.length+" agents";
+        this.fillDataSource(this.data);
+      },
+      fillExtra: function() {
+	var msg = 'If you are reading this, there is a bug somewhere...',
+	    now = new Date() / 1000,
+	    minDate = now,
+	    maxDate = 0;
+	for ( var i in this.data) {
+	  var u = this.data[i]['time_update'];
+	  if ( u > maxDate ) { maxDate = u; }
+	  if ( u < minDate ) { minDate = u; }
+	}
+	if ( maxDate > 0 )
+	{
+	  var minGMT = new Date(minDate*1000).toGMTString(),
+	      maxGMT = new Date(maxDate*1000).toGMTString(),
+	      dMin = Math.round(now - minDate),
+	      dMax = Math.round(now - maxDate);
+	  msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
+	}
+	this.dom.extra.innerHTML = msg;
+      },
+    };
+  };
+  YAHOO.lang.augmentObject(this,new PHEDEX.Core.Module.DataTable(_sbx,string));
+  YAHOO.lang.augmentObject(this,_construct(),true);
+  return this;
+};
+//   var filterDef = {
+//     'Agent attributes':{
+//       map: { to:'A' },
+//       fields: {
+// 	'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
+// 	'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
+// 	'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
+// 	'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
+// 	'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
+// 	'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
+// 	'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
+//       }
+//     }
+//   };
+
+// PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Agents','node','Show Agents',PHEDEX.Widget.Agents, {context_item:true});
