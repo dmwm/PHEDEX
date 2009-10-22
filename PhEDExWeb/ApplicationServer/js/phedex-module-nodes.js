@@ -1,44 +1,33 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Nodes = function(sandbox, string) {
-
   var _sbx = sandbox;
   log('Module: creating a genuine "'+string+'"','info',string);
 
    var _construct = function() {
     return {
-      init: function() {
-	log('initialising','info',this._me);
-	this._initModule();
-      },
-      show: function() {
-	log('showing','info',this._me);
-	this.dom.title.innerHTML = 'Nodes...';
+      init: function(opts) {
+	log('initialising','info',this.id);
+	this._init(opts);
+	_sbx.notify( this.id, 'init' );
       },
       initData: function() {
-	log('initData','info',this._me);
+	log('initData','info',this.id);
 	this.buildTable(this.dom.content,
                   [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
                  );
-      },
-      hide: function() {
-	log('hiding','info',this._me);
-      },
-      destroy: function() {
-	log('destroying','info',this._me);
+	_sbx.notify( this.id, 'initData' );
       },
       getData: function() {
-	log('Fetching data','info',this._me);
-	_sbx.notify( this._me, 'getData', { api: 'nodes' } );
+	log('Fetching data','info',this.id);
+	this.dom.title.innerHTML = this.me+': fetching data...';
+	_sbx.notify( this.id, 'getData', { api: 'nodes' } );
       },
       gotData: function(data) {
-	log('Got new data','info',this._me);
+	log('Got new data','info',this.id);
 	this.data = data.node;
-	this.fillHeader();
+	this.dom.title.innerHTML = this.me+': '+this.data.length+" found";
         this.fillDataSource(this.data);
       },
-      fillHeader: function(div) {
-	this.dom.title.innerHTML = 'Nodes: '+this.data.length+" found";
-      }
     };
   };
   YAHOO.lang.augmentObject(this,new PHEDEX.Core.Module.DataTable(_sbx,string));
