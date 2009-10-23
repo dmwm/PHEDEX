@@ -1,5 +1,7 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Agents = function(sandbox, string) {
+  YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
+
   var _sbx = sandbox,
       node = 'T1_US_FNAL_Buffer';
   log('Module: creating a genuine "'+string+'"','info',string);
@@ -64,7 +66,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       },
     };
   };
-  YAHOO.lang.augmentObject(this,new PHEDEX.Core.Module.DataTable(_sbx,string));
   YAHOO.lang.augmentObject(this,_construct(),true);
   return this;
 };

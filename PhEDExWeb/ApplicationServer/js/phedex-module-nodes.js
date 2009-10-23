@@ -1,5 +1,7 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Nodes = function(sandbox, string) {
+  YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
+
   var _sbx = sandbox;
   log('Module: creating a genuine "'+string+'"','info',string);
 
@@ -30,7 +32,6 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       },
     };
   };
-  YAHOO.lang.augmentObject(this,new PHEDEX.Core.Module.DataTable(_sbx,string));
   YAHOO.lang.augmentObject(this,_construct(),true);
   return this;
 };
