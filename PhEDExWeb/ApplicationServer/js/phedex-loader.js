@@ -24,8 +24,8 @@ PHEDEX.Loader = function(opts) {
 
     'phedex-logger':      { requires:['phedex-util', 'logger'] },
     'phedex-sandbox':     { requires:['phedex-util'] },
-    'phedex-core-app':    { requires:['phedex-sandbox'] },
-    'phedex-core-module': { requires:['phedex-core-app','autocomplete','button','container','resize'] },
+    'phedex-core':        { requires:['phedex-sandbox'] },
+    'phedex-core-module': { requires:['phedex-core','autocomplete','button','container','resize'] },
     'phedex-core-module-datatable': { requires:['phedex-core-module','datatable'] },
     'phedex-core-module-treeview':  { requires:['phedex-core-module','treeview'] },
     'phedex-module-nodes':          { requires:['phedex-core-module-datatable'] },
