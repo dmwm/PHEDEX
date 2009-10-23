@@ -85,7 +85,7 @@ YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
 // dynamic loader for PhEDEx and YUI. This is for the global app to use
   PxL  = new PHEDEX.Loader();
-  PxL.load(createCoreApp,'phedex-core-app','phedex-core-module','phedex-sandbox','phedex-datasvc');
+  PxL.load(createCoreApp,'core','core-module','sandbox','datasvc');
 
 // create another loader, to load and instantiate the logger. This shows how to 'multi-thread' with the loader
   PHEDEX.Loader().load(function() {
@@ -97,7 +97,7 @@ YAHOO.util.Event.onDOMReady(function() {
         className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
       }
     );
-  },'phedex-core-logger','phedex-core-control');
+  },'logger','core-control');
 });
 
 function createCoreApp() {
@@ -108,7 +108,7 @@ function createCoreApp() {
     PxS = new PHEDEX.Sandbox();
   } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
   try {
-    PxC = new PHEDEX.Core.App(PxS);
+    PxC = new PHEDEX.Core(PxS);
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
@@ -135,7 +135,7 @@ function createCoreApp() {
     var a   = document.createElement('a');
     a.href='#';
     a.innerHTML = modules[i];
-    a.setAttribute('onclick',"PxC.createModule('"+modules[i]+"');");
+    a.setAttribute('onclick',"PxS.notify('LoadModule','"+modules[i]+"');");
     div.appendChild(a);
     el.appendChild(div);
   }
