@@ -84,7 +84,7 @@ PHEDEX.Core.Module = function(sandbox, string) {
 	YAHOO.lang.augmentObject(this.options, opts, true);
 	// this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
         this.id = this.me+'_'+PxU.Sequence();
-        this._sbx.listen('CoreAppCreate',function() { this._sbx.notify('ModuleExists',this.id,this); });
+        this._sbx.listen('CoreCreated',function() { this._sbx.notify('ModuleExists',this.id,this); });
         this._sbx.notify('ModuleExists',this);
       },
 
