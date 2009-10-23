@@ -103,7 +103,8 @@ PHEDEX.Core.App = function(sandbox) {
 // the core will handle it through the moduleHandler function after that.
 // N.B. createModule() can return _before_ the module is created, if it has to load it first. It will call itself again later.
       if ( ! _loaded[name] ) {
-        var module = 'phedex-module-'+name.toLowerCase();
+        var module = name.toLowerCase();
+        if ( ! module.match('/^phedex-/') ) { module = 'phedex-module-'+module; }
         log ('loading "'+module+'" (for '+name+')','info',_me);
         PxL.load( {
 	  Success: function(obj) {
