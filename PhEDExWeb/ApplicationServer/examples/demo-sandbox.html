@@ -41,9 +41,7 @@
 // Some utility functions first. These need a better home, like phedex-base.js
 
 // format an exception object into a sensible error-message
-err = function(ex) {
-debugger;
- return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.lineNumber+')'; }
+err = function(ex) { return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.lineNumber+')'; }
 
 // a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
 log = function() {
@@ -85,7 +83,7 @@ YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
 // dynamic loader for PhEDEx and YUI. This is for the global app to use
   PxL  = new PHEDEX.Loader();
-  PxL.load(createCoreApp,'core','core-module','sandbox','datasvc');
+  PxL.load(createCoreApp,'core','sandbox','datasvc');
 
 // create another loader, to load and instantiate the logger. This shows how to 'multi-thread' with the loader
   PHEDEX.Loader().load(function() {
@@ -113,7 +111,6 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, create PhEDEx data-modules...');
-//   PxC.createModule('Nodes');
 
 // cheat, providing a few links to create modules from...
   var el = document.getElementById('phedex-debug');
