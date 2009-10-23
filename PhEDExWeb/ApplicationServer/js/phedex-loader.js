@@ -22,7 +22,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-core-widget-registry': { requires: ['phedex-util'] },
 //     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes'] },
 
-    'phedex-core-logger': { requires:['phedex-util', 'logger'] },
+    'phedex-logger':      { requires:['phedex-util', 'logger'] },
     'phedex-sandbox':     { requires:['phedex-util'] },
     'phedex-core-app':    { requires:['phedex-sandbox'] },
     'phedex-core-module': { requires:['phedex-core-app','autocomplete','button','container','resize'] },
