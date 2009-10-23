@@ -1,37 +1,36 @@
 PHEDEX.Loader = function(opts) {
-  var _dependencies = [
-    { name: 'phedex-css', type: 'css', fullpath: '/css/phedex.css' },
-    { name: 'phedex-base',    requires: ['phedex-css'] },
-    { name: 'phedex-util',    requires: ['phedex-base'] },
-    { name: 'phedex-datasvc', requires: ['phedex-util','json'] },
+  var _dependencies = {
+    'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
+    'phedex-base':    { requires: ['phedex-css'] },
+    'phedex-util':    { requires: ['phedex-base'] },
+    'phedex-datasvc': { requires: ['phedex-util','json'] },
 
 //  these are just guesses, and may not work as-is
-    { name: 'phedex-page',             requires:['phedex-util'] },
-    { name: 'phedex-event',            requires:['phedex-util'] },
-    { name: 'phedex-core-logger',      requires:['phedex-util'] },
-    { name: 'phedex-core-contextmenu', requires:['phedex-util'] },
-    { name: 'phedex-core-control',     requires:['phedex-util'] },
-    { name: 'phedex-core-filter',      requires:['phedex-util'] },
-    { name: 'phedex-core-widget',      requires:['phedex-core-widget-registry', 'phedex-core-control', 'phedex-core-filter', 'phedex-core-contextmenu', 'phedex-event', 'phedex-datasvc', 'phedex-page'] },
-    { name: 'phedex-core-widget-datatable', requires:['phedex-core-widget'] },
+    'phedex-page':             { requires:['phedex-util'] },
+    'phedex-event':            { requires:['phedex-util'] },
+    'phedex-core-contextmenu': { requires:['phedex-util'] },
+    'phedex-core-control':     { requires:['phedex-util'] },
+    'phedex-core-filter':      { requires:['phedex-util'] },
+    'phedex-core-widget': { requires:['phedex-core-widget-registry', 'phedex-core-control', 'phedex-core-filter', 'phedex-core-contextmenu', 'phedex-event', 'phedex-datasvc', 'phedex-page'] },
+    'phedex-core-widget-datatable': { requires:['phedex-core-widget'] },
 //     { name: 'phedex-core-widget-treeview',  requires:['phedex-core-widget'] },
 //     { name: 'phedex-global-filter',         requires:[] },
 //     { name: 'phedex-widget-agents',         requires:['phedex-core-widget-datatable'] },
 //     { name: 'phedex-widget-nodes',          requires:['phedex-core-widget-datatable'] },
 //     { name: 'phedex-widget-linkview',       requires:['phedex-core-widget-treeview'] },
 //     { name: 'phedex-widget-requestview',    requires:['phedex-core-widget-treeview'] },
-    { name: 'phedex-core-widget-registry', requires: ['phedex-util'] },
+    'phedex-core-widget-registry': { requires: ['phedex-util'] },
 //     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes'] },
 
-    { name: 'phedex-core-logger',  requires:['phedex-util', 'logger'] },
-    { name: 'phedex-sandbox',      requires:['phedex-util'] },
-    { name: 'phedex-core-app',     requires:['phedex-sandbox'] },
-    { name: 'phedex-core-module',  requires:['phedex-core-app','autocomplete','button','container','resize'] },
-    { name: 'phedex-core-module-datatable', requires:['phedex-core-module','datatable'] },
-    { name: 'phedex-core-module-treeview',  requires:['phedex-core-module','treeview'] },
-    { name: 'phedex-module-nodes',          requires:['phedex-core-module-datatable'] },
-    { name: 'phedex-module-agents',         requires:['phedex-core-module-datatable'] },
-  ],
+    'phedex-core-logger': { requires:['phedex-util', 'logger'] },
+    'phedex-sandbox':     { requires:['phedex-util'] },
+    'phedex-core-app':    { requires:['phedex-sandbox'] },
+    'phedex-core-module': { requires:['phedex-core-app','autocomplete','button','container','resize'] },
+    'phedex-core-module-datatable': { requires:['phedex-core-module','datatable'] },
+    'phedex-core-module-treeview':  { requires:['phedex-core-module','treeview'] },
+    'phedex-module-nodes':          { requires:['phedex-core-module-datatable'] },
+    'phedex-module-agents':         { requires:['phedex-core-module-datatable'] },
+  },
       _me = 'PxLoader',
       _busy = false,
       _success,
@@ -80,6 +79,7 @@ PHEDEX.Loader = function(opts) {
 
   for (var i in _dependencies) {
     var x = _dependencies[i];
+    x.name = i;
     if ( !x.type ) { x.type = 'js'; }
     if ( !x.fullpath ) { x.fullpath = '/'+x.type+'/'+x.name+'.'+x.type; }
     if ( !x.requires ) { x.requires = []; }
@@ -99,9 +99,14 @@ PHEDEX.Loader = function(opts) {
 	if ( typeof(args) == 'function' ) { _on.Success = args; }
 	else {
 	  _on = {};
-	  for (var i in args)     { _on[i] = args[i]; }
+	  for (var i in args) { _on[i] = args[i]; }
 	}
-	for (var i=1; i<=_args.length; i++) { _loader.require(_args[i]); }
+	for (var i=1; i<=_args.length; i++)
+        {
+          var m = _args[i];
+          if ( _dependencies['phedex-'+m] ) { m = 'phedex-'+m; }
+          _loader.require(m);
+        }
 	_loader.insert();
       }, 0);
     },
