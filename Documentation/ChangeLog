@@ -1,3 +1,8 @@
+Changes for PhEDEx 3.2.10
+
+ -  Dependency Change: dbs-client DBS_2_0_6_patch5 -> DBS_2_0_9,
+    needed for compatibility with new DBS server release.
+
 Changes for PhEDEx 3.2.9
 
  This is a minor release, fixing a few bugs in 3.2.6. All sites should 
