@@ -215,13 +215,13 @@ PHEDEX.Module = function(sandbox, string) {
       },
       destroy: function() {
 	this.destroyDom();
+        this._sbx.notify(this.id,'destroy');
 	for (var i in this) {
-	  if ( typeof(this[i]) == 'object' ) {
+	  if ( typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
 	    try { this[i].destroy(); } catch(ex) {} // blindly destroy everything we can!
 	  }
 	  this[i] = null;
 	}
-        this._sbx.notify(this.id,'destroy');
       },
 
       destroyDom: function(args) {
