@@ -34,7 +34,6 @@
 </body>
 
 <script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
-<script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
 
@@ -110,7 +109,7 @@ function createCoreApp() {
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
-  banner('Core application is running, create PhEDEx data-modules...');
+  banner('Core application is running, ready to create PhEDEx data-modules...');
 
 // cheat, providing a few links to create modules from...
   var el = document.getElementById('phedex-debug');
