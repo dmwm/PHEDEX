@@ -125,7 +125,7 @@ function createCoreApp() {
     el.appendChild(div);
   };
   el.appendChild(document.createTextNode('Create module(s)'));
-  var modules = [ 'Nodes', 'Agents' ];
+  var modules = PxL.knownModules();
   for (var i in modules) {
     var div = document.createElement('div');
     var a   = document.createElement('a');
