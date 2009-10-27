@@ -296,4 +296,8 @@ PHEDEX.Util.toggleVisible = function(thisClass,el)
   }
 }
 
+PHEDEX.Util.initialCaps = function(str) {
+  return str.substring(0,1).toUpperCase() + str.substring(1,str.length);
+}
+
 var PxU = PHEDEX.Util;
