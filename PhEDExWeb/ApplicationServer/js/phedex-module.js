@@ -7,192 +7,216 @@ PHEDEX.Module = function(sandbox, string) {
       me: string,
       _sbx: sandbox,
       _init: function(opts) {
-	/** Options which alter the window behavior of this widget.  The
-	* options are taken in priority order from:
-	*  1. the constructor 'opts' argument 2. The PHEDEX.Util.Config
-	* 'opts' for this element 3. The defaults.
-	* @property options
-	* @type object
-	* @protected
-	*/
-	this.options = {
-	  /** Whether to make the widget behave like an OS window.
-	  * @property options.window
-	  * @type boolean
-	  * @private
-	  */
-	  window:true,
+        /** Options which alter the window behavior of this widget.  The
+        * options are taken in priority order from:
+        *  1. the constructor 'opts' argument 2. The PHEDEX.Util.Config
+        * 'opts' for this element 3. The defaults.
+        * @property options
+        * @type object
+        * @protected
+        */
+        this.options = {
+          /** Whether to make the widget behave like an OS window.
+          * @property options.window
+          * @type boolean
+          * @private
+          */
+          window:true,
 
-	  /** Width of this widget.
-	  * @property options.width
-	  * @type int
-	  * @private
-	  */
-	  width:700,
+          /** Width of this widget.
+          * @property options.width
+          * @type int
+          * @private
+          */
+          width:700,
 
-	  /** Height of this widget.
-	  * @property options.height
-	  * @type int
-	  * @private
-	  */
-	  height:150,
+          /** Height of this widget.
+          * @property options.height
+          * @type int
+          * @private
+          */
+          height:150,
 
-	  /** Minimum width of this widget.
-	  * @property options.minwidth
-	  * @type int
-	  * @private
-	  */
-	  minwidth:10,
+          /** Minimum width of this widget.
+          * @property options.minwidth
+          * @type int
+          * @private
+          */
+          minwidth:10,
 
-	  /** Minimum width of this widget.
-	  * @property options.minwidth
-	  * @type int
-	  * @private
-	  */
-	  minheight:10,
+          /** Minimum width of this widget.
+          * @property options.minwidth
+          * @type int
+          * @private
+          */
+          minheight:10,
 
-	  /** Whether a floating window should be draggable.
-	  * @property options.minwidth
-	  * @type boolean
-	  * @private
-	  */
-	  draggable:true,
+          /** Whether a floating window should be draggable.
+          * @property options.minwidth
+          * @type boolean
+          * @private
+          */
+          draggable:true,
 
-	  /** Wheather the window should be resizable.
-	  * @property options.resizeable
-	  * @type boolean
-	  * @private
-	  */
-	  resizable:true,
+          /** Wheather the window should be resizable.
+          * @property options.resizeable
+          * @type boolean
+          * @private
+          */
+          resizable:true,
 
-	  /** Whether a draggable window should be able to go outside the browser window.
-	  * @property options.constraintoviewport
-	  * @type boolean
-	  * @private
-	  */
-	  constraintoviewport:false,
+          /** Whether a draggable window should be able to go outside the browser window.
+          * @property options.constraintoviewport
+          * @type boolean
+          * @private
+          */
+          constraintoviewport:false,
 
-	  /** Where a resizable window should be have resize handles.  Use
-	  *  abbreviations t,r,b,l or a combination, e.g. 'tr'.
-	  * @property options.handles
-	  * @type array
-	  * @private
-	  */
-	  handles:['b','br','r'],
-	};
-	// Options from the constructor override defaults
-	YAHOO.lang.augmentObject(this.options, opts, true);
-	// this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
+          /** Where a resizable window should be have resize handles.  Use
+          *  abbreviations t,r,b,l or a combination, e.g. 'tr'.
+          * @property options.handles
+          * @type array
+          * @private
+          */
+          handles:['b','br','r'],
+        };
+        // Options from the constructor override defaults
+        YAHOO.lang.augmentObject(this.options, opts, true);
+        // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
         this.id = this.me+'_'+PxU.Sequence();
         this._sbx.listen('CoreCreated',function() { this._sbx.notify('ModuleExists',this.id,this); });
         this._sbx.notify('ModuleExists',this);
       },
 
+      adjustHeader: function() {},
+
       initModule: function() {
         log(this.id+': initialising','info','Module');
 
+//      handle messages from the core...
         var coreHandler = function(obj) {
-	  return function(ev,arr) {
-	    var who = arr[0],
-	        action = arr[1];
-	    if ( who && who != '*' && who != this.id ) { return; }
-	    if ( typeof(obj[action]) == 'null' ) { return; }
-	    if ( typeof(obj[action]) != 'function' ) {
-	      throw new Error('Do not now how to execute "'+action+'" for module "'+this.id+'"');
-	    }
-	    obj[action](arr[2]);
-	  }
+          return function(ev,arr) {
+            var who = arr[0],
+                action = arr[1];
+            if ( who && who != '*' && who != this.id ) { return; }
+            if ( typeof(obj[action]) == 'null' ) { return; }
+            if ( typeof(obj[action]) != 'function' ) {
+//            is this really an error? Should I always be able to respond to a message from the core?
+              throw new Error('Do not now how to execute "'+action+'" for module "'+this.id+'"');
+            }
+            obj[action](arr[2]);
+          }
         }(this);
         this._sbx.listen('module',coreHandler);
 
-	/** The module used by this widget.  If options.window is true, then
-	* it is a Panel, otherwise it is a Module.
-	* @property module
-	* @type YAHOO.widget.Module|YAHOO.widget.Panel
-	* @private
-	*/
-	var module_options = {
-	  close:false,  //this.options.close,
-	  visible:true,
-	  draggable:this.options.draggable,
-	  // effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
-	  width: this.options.width+"px",
-	  height: this.options.height+"px",
-	  constraintoviewport:this.options.constraintoviewport,
-	  context: ["showbtn", "tl", "bl"],
-	  underlay: "matte"
-	};
-	if ( this.options.window ) {
-	  YAHOO.util.Dom.addClass(this.el,'phedex-panel');
-	  this.module = new YAHOO.widget.Panel(this.el, module_options);
-	} else {
-	  delete module_options['width'];
-	  delete module_options['height'];
-	  module_options.draggable = false;
-	  this.module = new YAHOO.widget.Module(this.el, module_options);
-	}
-	this.module.render();
-//	YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't need it there...
-	this.el.style.display=null;
+//      handle messages directly to me...
+        var selfHandler = function(obj) {
+          return function(ev,arr) {
+            var action = arr[0],
+                value = arr[1];
+            switch (action) {
+              case 'grow header':   { obj.adjustHeader( value); break; }
+              case 'shrink header': { obj.adjustHeader(-value); break; }
+            }
+          }
+        }(this);
+        this._sbx.listen(this.id,selfHandler);
 
-	// (Optionally) Make resizable
-	if ( this.options.window && this.options.resizable ) {
-	  YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
+        /** The module used by this widget.  If options.window is true, then
+        * it is a Panel, otherwise it is a Module.
+        * @property module
+        * @type YAHOO.widget.Module|YAHOO.widget.Panel
+        * @private
+        */
+        var module_options = {
+          close:false,  //this.options.close,
+          visible:true,
+          draggable:this.options.draggable,
+          // effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
+          width: this.options.width+"px",
+          height: this.options.height+"px",
+          constraintoviewport:this.options.constraintoviewport,
+          context: ["showbtn", "tl", "bl"],
+          underlay: "matte"
+        };
+        if ( this.options.window ) {
+          YAHOO.util.Dom.addClass(this.el,'phedex-panel');
+          this.module = new YAHOO.widget.Panel(this.el, module_options);
+          this.adjustHeader = function(arg) { // 'window' panels need to respond to header-resizing
+            var oheight = parseInt(this.module.cfg.getProperty("height"));
+            if ( isNaN(oheight) ) { return; } // nothing to do if the height is not specified
+            var hheight = parseInt(this.module.header.offsetHeight);
+            this.module.header.style.height=(hheight+arg)+'px';
+            this.module.cfg.setProperty("height",(oheight+arg)+'px');
+          };
+        } else {
+          delete module_options['width'];
+          delete module_options['height'];
+          module_options.draggable = false;
+          this.module = new YAHOO.widget.Module(this.el, module_options);
+        }
+        this.module.render();
+//        YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't need it there...
+        this.el.style.display=null;
 
-	  /** Handles the resizing of this widget.
-	  * @property resize
-	  * @type YAHOO.util.Resize
-	  * @private
-	  */
-	  this.resize = new YAHOO.util.Resize(this.el, {
-	    handles: this.options.handles,
-	    autoRatio: false,
-	    minWidth:  this.options.minwidth,
-	    minHeight: this.options.minheight,
-	    status: false
-	  });
-	  this.resize.on('resize', function(args) {
-	    var panelHeight = args.height;
-	    if ( panelHeight > 0 )
-	    {
-	      this.cfg.setProperty("height", panelHeight + "px");
-	    }
-	  }, this.module, true);
-	  // Setup startResize handler, to constrain the resize width/height
-	  // if the constraintoviewport configuration property is enabled.
-	  this.resize.on('startResize', function(args) {
-	    if (this.module.cfg.getProperty("constraintoviewport")) {
-	      var clientRegion = YAHOO.util.Dom.getClientRegion();
-	      var elRegion = YAHOO.util.Dom.getRegion(this.module.element);
-	      var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
-	      var h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+        // (Optionally) Make resizable
+        if ( this.options.window && this.options.resizable ) {
+          YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
 
-	      this.resize.set("maxWidth", w);
-	      this.resize.set("maxHeight", h);
-	    } else {
-	      this.resize.set("maxWidth", null);
-	      this.resize.set("maxHeight", null);
-	    }
-	  }, this, true);
-	}
+          /** Handles the resizing of this widget.
+          * @property resize
+          * @type YAHOO.util.Resize
+          * @private
+          */
+          this.resize = new YAHOO.util.Resize(this.el, {
+            handles: this.options.handles,
+            autoRatio: false,
+            minWidth:  this.options.minwidth,
+            minHeight: this.options.minheight,
+            status: false
+          });
+          this.resize.on('resize', function(args) {
+            var panelHeight = args.height;
+            if ( panelHeight > 0 )
+            {
+              this.cfg.setProperty("height", panelHeight + "px");
+            }
+          }, this.module, true);
+          // Setup startResize handler, to constrain the resize width/height
+          // if the constraintoviewport configuration property is enabled.
+          this.resize.on('startResize', function(args) {
+            if (this.module.cfg.getProperty("constraintoviewport")) {
+              var clientRegion = YAHOO.util.Dom.getClientRegion();
+              var elRegion = YAHOO.util.Dom.getRegion(this.module.element);
+              var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+              var h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+
+              this.resize.set("maxWidth", w);
+              this.resize.set("maxHeight", h);
+            } else {
+              this.resize.set("maxWidth", null);
+              this.resize.set("maxHeight", null);
+            }
+          }, this, true);
+        }
 
         log('initModule complete','info','Module');
       },
 
       initDom: function() {
-	/** The HTML element containing this widget.
-	* @property el
-	* @type HTML element
-	* @private
-	*/
+        /** The HTML element containing this widget.
+        * @property el
+        * @type HTML element
+        * @private
+        */
         this.el = document.createElement('div');
         YAHOO.util.Dom.addClass(this.el,'phedex-core-widget');
 
         this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
         this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
         this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
-	this.dom.title.innerHTML = this.me+': initialising...';
-        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'});
+        this.dom.title.innerHTML = this.me+': initialising...';
+        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control float-right'});
         this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
         this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
         this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
@@ -201,10 +225,6 @@ PHEDEX.Module = function(sandbox, string) {
         return this.el;
       },
 
-//       draw: function(args) {
-//         this.dom.header.innerHTML = this.id+': starting...';
-//         log(this.id+': showing','info','Module');
-//       },
       show: function(args) {
         log(this.id+': showing module "'+this.id+'"','info','Module');
         YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
@@ -214,20 +234,20 @@ PHEDEX.Module = function(sandbox, string) {
         YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
       },
       destroy: function() {
-	this.destroyDom();
+        this.destroyDom();
         this._sbx.notify(this.id,'destroy');
-	for (var i in this) {
-	  if ( typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
-	    try { this[i].destroy(); } catch(ex) {} // blindly destroy everything we can!
-	  }
-	  this[i] = null;
-	}
+        for (var i in this) {
+          if ( typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
+            try { this[i].destroy(); } catch(ex) {} // blindly destroy everything we can!
+          }
+          this[i] = null;
+        }
       },
 
       destroyDom: function(args) {
         log(this.id+': destroying DOM elements','info','Module');
         while (this.el.hasChildNodes()) { this.el.removeChild(this.el.firstChild); }
-	this.dom = [];
+        this.dom = [];
       },
     };
   };
