@@ -7,6 +7,15 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
 
    var _construct = function() {
     return {
+      decorators: {
+        'phedex-core-control': {
+          handler: function() {
+debugger;
+            return 'hello world';
+          }
+        }
+      },
+
       init: function(opts) {
 	log('initialising','info',this.id);
 	this._init(opts);
