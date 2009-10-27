@@ -96,7 +96,7 @@ sub fileReplicas
     my %p = &validate_args(\%h,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
-			   require_one_of => qw(block lfn),
+			   require_one_of => [ qw(block lfn) ],
 			   spec => {
 			       block         => { using => 'block' },
 			       complete      => { using => 'yesno' },
