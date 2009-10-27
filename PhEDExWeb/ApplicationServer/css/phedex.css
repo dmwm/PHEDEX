@@ -154,8 +154,10 @@ a.phedex-link-current {
 }
 
 .phedex-core-param {
+  font-weight: normal;
 }
 .phedex-core-title {
+  font-weight: normal;
 }
 .phedex-panel .phedex-core-control {
   position:	absolute;
@@ -165,6 +167,7 @@ a.phedex-link-current {
 .phedex-core-control-widget {
   margin: 0 1px 0;
   padding: 0 1px 0;
+  font-weight: normal;
 }
 a.phedex-core-control-widget {
   text-decoration: none;
@@ -193,9 +196,11 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 }
 
 .phedex-core-extra {
+  border: 1px solid #ddd;
   background-color: white;
   overflow-x: hidden;
   cursor: default; /* would be 'move' otherwise, since the extra div in in the header */
+  font-weight: normal;
 }
 .phedex-core-selected {
   border: 1px solid red;
@@ -306,7 +311,7 @@ div.phedex-nav-link {
   overflow:auto;
   position: relative; /* Apparently fixes a problem in IE7 */
   background-color: #fdfdfd;
-  padding: 2px;
+/*   padding: 2px; */
   margin: 0 5px 0 0;
 }
 
