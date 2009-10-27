@@ -101,6 +101,14 @@ PHEDEX.Base.Object = function() {
     options: {},
 
     /**
+     * Decorations to apply for this object. E.g, context-menus, 'extra' handlers etc
+     * @property decorators
+     * @type object
+     * @protected
+     */
+    decorators: {},
+
+    /**
      * Returns the class name of this object
      * @method me
      * @returns string
@@ -124,16 +132,19 @@ PHEDEX.Loader = function(opts) {
 
 //  these are just guesses, and may not work as-is
     'phedex-core-contextmenu': { requires:['phedex-util'] },
-    'phedex-core-control':     { requires:['phedex-util'] },
+    'phedex-core-control':     { requires:['phedex-util','animation'] },
     'phedex-core-filter':      { requires:['phedex-util'] },
+
+    'phedex-component-control':     { requires:['phedex-util','animation'] },
+
 //     { name: 'phedex-global-filter',         requires:[] },
 //     'phedex-core-widget-registry': { requires: ['phedex-util'] },
-//     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes'] },
+//     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes','autocomplete','button'] },
 
     'phedex-logger':    { requires:['phedex-util', 'logger'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
-    'phedex-core':      { requires:['phedex-sandbox','autocomplete','button'] },
-    'phedex-module':    { requires:['phedex-core','container','resize'] },
+    'phedex-core':      { requires:['phedex-sandbox'] },
+    'phedex-module':    { requires:['phedex-core','container','resize','button'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires:['treeview'] },
     'phedex-module-nodes':  { requires:['phedex-module','phedex-datatable'] },
@@ -145,14 +156,14 @@ PHEDEX.Loader = function(opts) {
       _on = {},
       _loader = new YAHOO.util.YUILoader(),
       _conf = {
-	loadOptional:  true,
-	allowRollup:  false,
-	base:        '/yui/build/',
-	timeout:      15000,
-	onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
-	onProgress: function(item) { _callback([_me, 'Progress', item]); },
-	onFailure:  function(item) { _callback([_me, 'Failure',  item]); },
-	onTimeout:  function(item) { _callback([_me, 'Timeout',  item]); },
+        loadOptional:  true,
+        allowRollup:  false,
+        base:        '/yui/build/',
+        timeout:      15000,
+        onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
+        onProgress: function(item) { _callback([_me, 'Progress', item]); },
+        onFailure:  function(item) { _callback([_me, 'Failure',  item]); },
+        onTimeout:  function(item) { _callback([_me, 'Timeout',  item]); },
       };
 
   var _callback = function(args) {
@@ -162,11 +173,11 @@ PHEDEX.Loader = function(opts) {
     switch (type) {
       case 'Progress': { log(ev+': '+type+', '+item.name); break; }
       case 'Success':  {
-	var l='';
-	for (var i in item) { l += i+' ';};
-	log(ev+': '+type+', '+l);
-	_busy = false;
-	break;
+        var l='';
+        for (var i in item) { l += i+' ';};
+        log(ev+': '+type+', '+l);
+        _busy = false;
+        break;
       }
       case 'Failure':  { log(ev+': '+type+', '+item.msg); _busy = false; break; }
       case 'Timeout':  { log(ev+': '+type); _busy = false; break; }
@@ -197,28 +208,37 @@ PHEDEX.Loader = function(opts) {
   return {
     load: function( args, what ) {
       if ( _busy ) {
-	setTimeout( function() { this.load(args,what) },100);
-	log('Logger is busy, waiting...','info','Logger');
-	return;
+        setTimeout( function() { this.load(args,what) },100);
+        log('Logger is busy, waiting...','info','Logger');
+        return;
       }
       _busy = true;
       var _args = arguments;
       setTimeout( function() {
-	if ( typeof(args) == 'function' ) { _on.Success = args; }
-	else {
-	  _on = {};
-	  for (var i in args) { _on[i] = args[i]; }
-	}
-	for (var i=1; i<_args.length; i++)
+        if ( typeof(args) == 'function' ) { _on.Success = args; }
+        else {
+          _on = {};
+          for (var i in args) { _on[i] = args[i]; }
+        }
+        for (var i=1; i<_args.length; i++)
         {
           var m = _args[i];
           if ( _dependencies['phedex-'+m] ) { m = 'phedex-'+m; }
           _loader.require(m);
         }
-	_loader.insert();
+        _loader.insert();
       }, 0);
     },
     init: function(args) { _init(args); },
     loaded: function() { return _loader.inserted; },
+    knownModules: function() {
+      var km=[];
+      for (var str in _dependencies) {
+        if ( str.match('^phedex-module-(.+)$') ) {
+          km.push(RegExp.$1);
+        }
+      }
+      return km;
+    },
   }
 }
