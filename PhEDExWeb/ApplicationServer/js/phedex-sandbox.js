@@ -12,10 +12,10 @@ PHEDEX.Sandbox = function() {
   }
   return {
     notify: function() {
-      var event, arr=[];
-      event = arguments[0];
-      for (var i=1; i<arguments.length; i=i+1) { arr.push(arguments[i]); }
-      log('notify event: '+event,'info',_me);
+      var event,
+          arr = Array.apply(null,arguments);
+      event = arr.shift();
+      log('notify event: '+event+' ('+arr.join(', ')+')','info',_me);
 //    by using setTimeout here, I can allow the flow to continue in the 'parent thread', and deal with the
 //    handlers afterwards. Essentially I queue the event for later. I think I also keep the stack shorter too
       setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
