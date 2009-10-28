@@ -179,8 +179,8 @@ PHEDEX.Loader = function(opts) {
         _busy = false;
         break;
       }
-      case 'Failure':  { log(ev+': '+type+', '+item.msg); _busy = false; break; }
-      case 'Timeout':  { log(ev+': '+type); _busy = false; break; }
+      case 'Failure':  { log(ev+': '+type+', '+item.msg,'error',_me); _busy = false; break; }
+      case 'Timeout':  { log(ev+': '+type,'error',_me); _busy = false; break; }
     };
     if ( _on[type] ) { setTimeout( function() { _on[type](item); },0); }
   };
