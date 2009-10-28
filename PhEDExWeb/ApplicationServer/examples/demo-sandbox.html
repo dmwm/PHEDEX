@@ -50,8 +50,8 @@ log = function() {
     if ( str ) {
       if ( typeof(str) == 'object' ) { str = err(str); } // assume it's an exception object!
       if ( el ) {
-	el.innerHTML += str+'<br/>';
-	if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
+        el.innerHTML += str+'<br/>';
+        if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
       }
     _buffer.push([str,level,group]);
     } else {
@@ -68,49 +68,16 @@ banner = function() {
   return function(str,level,group) {
     if ( el ) {
       if ( str ) {
-	el.innerHTML = str;
-	YAHOO.util.Dom.removeClass(el,'phedex-invisible');
+        el.innerHTML = str;
+        YAHOO.util.Dom.removeClass(el,'phedex-invisible');
       } else {
-	YAHOO.util.Dom.addClass(el,'phedex-invisible');
+        YAHOO.util.Dom.addClass(el,'phedex-invisible');
       }
     }
   };
 }();
 
-// When the DOM is available, start loading the essential bits and pieces
-YAHOO.util.Event.onDOMReady(function() {
-  banner('Loading core application...');
-// dynamic loader for PhEDEx and YUI. This is for the global app to use
-  PxL  = new PHEDEX.Loader();
-  PxL.load(createCoreApp,'core','sandbox','datasvc');
-
-// create another loader, to load and instantiate the logger. This shows how to 'multi-thread' with the loader
-  PHEDEX.Loader().load(function() {
-    banner('Instantiating logger...');
-    PHEDEX.Logger.Create();
-    var ctl = new PHEDEX.Core.Control({
-        text:'Show Logger',
-        payload:{render:'phedex-controls', target:'phedex-logger'},
-        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
-      }
-    );
-  },'logger','core-control');
-});
-
-function createCoreApp() {
-// This is called once the core is fully loaded. Now I can create the core
-// application and sandbox, and then start creating PhEDEx modules
-  banner('Create sandbox and core application...');
-  try {
-    PxS = new PHEDEX.Sandbox();
-  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
-  try {
-    PxC = new PHEDEX.Core(PxS);
-    PxC.create();
-  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
-
-  banner('Core application is running, ready to create PhEDEx data-modules...');
-
+debugLinks = function() {
 // cheat, providing a few links to create modules from...
   var el = document.getElementById('phedex-debug');
   var methods = [ 'show','hide','destroy' ];
@@ -135,6 +102,48 @@ function createCoreApp() {
     div.appendChild(a);
     el.appendChild(div);
   }
+}
+// When the DOM is available, start loading the essential bits and pieces
+YAHOO.util.Event.onDOMReady(function() {
+  banner('Loading core application...');
+// dynamic loader for PhEDEx and YUI. This is for the global app to use
+  PxL  = new PHEDEX.Loader();
+  PxL.load(createCoreApp,'core','sandbox','datasvc');
+});
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the core
+// application and sandbox, and then start creating PhEDEx modules
+  banner('Create sandbox and core application...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
+  try {
+    PxC = new PHEDEX.Core(PxS);
+    PxC.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
+
+  banner('Core application is running, ready to create PhEDEx data-modules...');
+
+  PxL.load(function() {
+    PHEDEX.Logger.Create();
+    var ctl = new PHEDEX.Component.Control(PxS,{
+        text:'Show Logger',
+        payload:{target:'phedex-logger', animate:true},
+        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+    ctl = new PHEDEX.Component.Control(PxS,{
+        text:'Debug controls',
+        payload:{target:'phedex-debug'},
+        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+    debugLinks();
+    ctl.Show();
+  },'logger','component-control'); // 'core-control');
 };
 </script>
 </html>
