@@ -3,7 +3,7 @@ PHEDEX.namespace('Component');
 PHEDEX.Component.Control = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   var _sbx = sandbox,
-      _obj_id;
+      _notify = function() {};
 
   _clickHandler=function(ev,obj) {
     var eHeight;
@@ -15,7 +15,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
       else { obj.Hide(); }
     }
   };
-  _mouseoverHandler = function(ev, obj) {
+  _mouseoverHandler = function(ev,obj) {
     try {
       this.el.style.cursor = "pointer"; //Change the mouse cursor to hand symbol
     }
@@ -33,12 +33,13 @@ PHEDEX.Component.Control = function(sandbox,args) {
 
   _construct = function() {
     return {
-      me: 'ComponentControl_'+PxU.Sequence(),
+      me: 'Component-Control',
       _sbx: sandbox,
       enabled: 1,
       payload: {},
       _init: function(args) {
         if ( !args.type ) { args.type = 'a'; }
+        this.id = this.me+'_'+PxU.Sequence();
         this.el = document.createElement(args.type);
         if ( args.type == 'img' ) {
           this.el.src = args.src;
@@ -64,17 +65,41 @@ PHEDEX.Component.Control = function(sandbox,args) {
               el = args.events[i].element || this.el; // doesn't seem to work when I use something other than the ctl itself...
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
-        _obj_id = this.payload.obj.id;
+        if ( this.payload.obj ) {
+          var partner = this.payload.obj.id;
+          _notify = function() {
+            var x = Array.apply(null,arguments);
+            x.unshift(partner);
+            _sbx.notify.apply(_sbx,x);
+          }
+        }
+
+        var selfHandler = function(obj) {
+          return function(ev,arr) {
+            var action = arr[0],
+                value = arr[1];
+            switch (action) {
+              case 'expand': {
+                var tgt = obj.payload.target;
+                var eHeight = tgt.offsetHeight;
+                _notify('grow header',eHeight);
+                break;
+              }
+              default: { log('unhandled event: '+action,'warn',me); break; }
+            }
+          }
+        }(this);
+        _sbx.listen(this.id,selfHandler);
+
       },
       Show: function() {
         var tgt = this.payload.target;
         if ( !this.enabled ) { return; }
         if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
-        if ( this.payload.handler ) { this.payload.handler.apply(this.payload.obj,[tgt, this.payload.fillArgs]); } this.payload.target.innerHTML='asdf';
+        if ( this.payload.handler ) {
+          _notify('expand',this.payload.handler,this.id);
+        }
         YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
-        var eHeight = tgt.offsetHeight;
-        if ( this.payload.onShowControl ) { this.payload.onShowControl.fire(eHeight); }
-        _sbx.notify(_obj_id,'grow header',eHeight);
         YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
         YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
       },
@@ -88,13 +113,12 @@ PHEDEX.Component.Control = function(sandbox,args) {
             YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
             tgt.style.height=null;
             if ( ctl.payload.onHideControl ) { ctl.payload.onHideControl.fire(eHeight); }
-            _sbx.notify(_obj_id,'shrink header',eHeight);
+            _notify('shrink header',eHeight);
             YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
             YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
           };
         }(this);
 //      Only fail to animate if payload.animate was explicitly set to 'false'
-        if ( typeof(this.payload.animate) == 'undefined' ) { this.payload.animate=true; }
         if ( this.payload.animate ) {
           var attributes = { height: { to: 0 }  }; 
           if ( typeof(this.payload.animate) == 'object' ) { attributes = this.payload.animate.attributes; }
