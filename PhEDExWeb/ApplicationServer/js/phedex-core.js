@@ -107,19 +107,20 @@ PHEDEX.Core = function(sandbox) {
           for (var i in m.decorators) {
             var d = m.decorators[i];
 //          deduce the constructor from the module name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
-            var x = d.module;
+            var x = d.module.split('-');
             var _constructor;
-            x.match('^phedex-(.+)$');
-            x = RegExp.$1;
             _constructor = PHEDEX;
-            while ( x ) {
-              x.match('^([^-]+)(-(.+))?$');
-              var a=PxU.initialCaps(RegExp.$1), b=RegExp.$3;
-              _constructor = _constructor[PxU.initialCaps(RegExp.$1)];
-              x = RegExp.$3;
+            for (var i in x ) {
+              if ( x[i] == 'phedex' ) { continue; }
+              _constructor = _constructor[PxU.initialCaps(x[i])];
+              if ( !_constructor ) {
+                log('decorator '+d.module+' not constructible at level '+x[i]+' ('+d.name+')');
+                throw new Error('decorator '+d.module+' not constructible at level '+x[i]+' ('+d.name+')');
+              }
             }
             setTimeout(function() {
-                                    m.ctl[d.name] = new _constructor(_sbx,d);
+                                    try { m.ctl[d.name] = new _constructor(_sbx,d); }
+                                    catch (ex) { log(err(ex),'error','Core'); }
                                     m.dom[d.parent].appendChild(m.ctl[d.name].el);
                                   },0);
           };
@@ -154,6 +155,7 @@ PHEDEX.Core = function(sandbox) {
           } catch(ex) { log(ex,'error',_me); banner('Error fetching data!'); }
           break;
         }
+        default: { log('unhandled event: '+action,'warn',me); break; }
       };
       _setTimeout();
     }
