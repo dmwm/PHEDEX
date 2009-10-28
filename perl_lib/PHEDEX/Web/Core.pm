@@ -80,6 +80,9 @@ use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::Cache;
 use PHEDEX::Web::Format;
+use PHEDEX::Web::FormatXML;
+use PHEDEX::Web::FormatPERL;
+use PHEDEX::Web::FormatJSON;
 use HTML::Entities; # for encoding XML
 
 our (%params);
@@ -184,39 +187,81 @@ sub call
 	}
 
 	# capture STDOUT of $self->{CALL}
-        open (local *STDOUT,'>',\$stdout);
-        my $invoke = $api . '::invoke';
 
-	# make the call
-        $obj = $invoke->($self, %args);
+        if ($api->can('spool'))
+        {
+            my $fmt;
+            # open (local *STDOUT,'>/dev/null');
+            my $spool = $api . '::spool';
+            if ($format eq "xml")
+            {
+                $fmt = new PHEDEX::Web::FormatXML;
+            }
+            elsif ($format eq 'perl')
+            {
+                $fmt = new PHEDEX::Web::FormatPERL;
+            }
+            elsif ($format eq 'json')
+            {
+                $fmt = new PHEDEX::Web::FormatJSON;
+            }
+                
+            #create header
+            
+            my $phedex = {};
+            $phedex->{instance} = $self->{INSTANCE};
+            $phedex->{request_version} = $self->{VERSION};
+            $phedex->{request_url} = $self->{REQUEST_URL};
+            $phedex->{request_call} = $self->{CALL};
+            $phedex->{request_timestamp} = $self->{REQUEST_TIME};
+            $phedex->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
+            $phedex = { phedex => $phedex };
+            $fmt->header($phedex);
+
+            $obj = $spool->($self, %args);
+            do
+            {
+                $fmt->output($obj);
+            } while (($obj = $spool->($self, %args))
+                     && $fmt->separator());
+            $t2 = &mytimeofday();
+            $fmt->footer($phedex, $t2-$t1);
+        }
+        elsif ($api->can('invoke'))
+        {
+            #open (local *STDOUT,'>',\$stdout);
+            my $invoke = $api . '::invoke';
+	    # make the call
+            $obj = $invoke->($self, %args);
+            $t2 = &mytimeofday();
+            my $duration = $self->getCacheDuration() || 0;
+            $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
+    # wrap the object in a 'phedex' element with useful metadata
+            $obj->{stdout}->{'$t'} = $stdout if $stdout;
+            $obj->{instance} = $self->{INSTANCE};
+            $obj->{request_version} = $self->{VERSION};
+            $obj->{request_url} = $self->{REQUEST_URL};
+            $obj->{request_call} = $self->{CALL};
+            $obj->{request_timestamp} = $self->{REQUEST_TIME};
+            $obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
+            $obj->{call_time} = sprintf('%.5f', $t2 - $t1);
+            $obj = { phedex => $obj };
+            $t1 = &mytimeofday();
+            &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
+            $t2 = &mytimeofday();
+            warn "api call '$self->{CALL}' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+        }
+        else
+        {
+            die "API error: can not be called";
+        }
+        warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
       };
       if ($@) {
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $@");
 	  return;
       }
-      $t2 = &mytimeofday();
-      warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
-      my $duration = $self->getCacheDuration() || 0;
-      $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
     }
-
-    # wrap the object in a 'phedex' element with useful metadata
-    $obj->{stdout}->{'$t'} = $stdout if $stdout;
-    $obj->{instance} = $self->{INSTANCE};
-    $obj->{request_version} = $self->{VERSION};
-    $obj->{request_url} = $self->{REQUEST_URL};
-    $obj->{request_call} = $self->{CALL};
-    $obj->{request_timestamp} = $self->{REQUEST_TIME};
-    $obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
-    $obj->{call_time} = sprintf('%.5f', $t2 - $t1);
-    $obj = { phedex => $obj };
-
-    $t1 = &mytimeofday();
-    &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
-    $t2 = &mytimeofday();
-    warn "api call '$self->{CALL}' delivered in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-
-    return $obj;
 }
 
 # Cache controls
