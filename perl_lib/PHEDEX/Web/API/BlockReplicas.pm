@@ -1,7 +1,10 @@
 package PHEDEX::Web::API::BlockReplicas;
 use warnings;
 use strict;
+use PHEDEX::Web::Util;
 use PHEDEX::Web::SQL;
+
+# modules that used to be provided through PHEDEX::Web::SQL
 
 =pod
 
@@ -69,6 +72,29 @@ block replicas exist for the given options.
 
 =cut
 
+my $map = {
+    _KEY => 'BLOCK_ID',
+    id => 'BLOCK_ID',
+    name => 'BLOCK_NAME',
+    files => 'BLOCK_FILES',
+    bytes => 'BLOCK_BYTES',
+    is_open => 'IS_OPEN',
+    replica => {
+        _KEY => 'NODE_ID',
+        node_id => 'NODE_ID',
+        node => 'NODE_NAME',
+        se => 'SE_NAME',
+        files => 'REPLICA_FILES',
+        bytes => 'REPLICA_BYTES',
+        time_create => 'REPLICA_CREATE',
+        time_update => 'REPLICA_UPDATE',
+        complete => 'REPLICA_COMPLETE',
+        subscribed => 'SUBSCRIBED',
+        custodial => 'IS_CUSTODIAL',
+        group => 'USER_GROUP'
+    }
+};
+
 sub duration { return 5 * 60; }
 sub invoke { return blockReplicas(@_); }
 sub blockReplicas
@@ -81,38 +107,40 @@ sub blockReplicas
     }
     my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
 
-    # Format into block->replica heirarchy
-    my $blocks = {};
-    foreach my $row (@$r) {
-	my $id = $row->{BLOCK_ID};
-	
-	# <block> element
-	if (!exists $blocks->{ $id }) {
-	    $blocks->{ $id } = { id => $id,
-				 name => $row->{BLOCK_NAME},
-				 files => $row->{BLOCK_FILES},
-				 bytes => $row->{BLOCK_BYTES},
-				 is_open => $row->{IS_OPEN},
-				 replica => []
-				 };
-	}
-	
-	# <replica> element
-	push @{ $blocks->{ $id }->{replica} }, { node_id => $row->{NODE_ID},
-						 node => $row->{NODE_NAME},
-						 se => $row->{SE_NAME},
-						 files => $row->{REPLICA_FILES},
-						 bytes => $row->{REPLICA_BYTES},
-						 time_create => $row->{REPLICA_CREATE},
-						 time_update => $row->{REPLICA_UPDATE},
-						 complete => $row->{REPLICA_COMPLETE},
-                                                 subscribed => $row->{SUBSCRIBED},
-						 custodial => $row->{IS_CUSTODIAL},
-						 group => $row->{USER_GROUP}
-					     };
-    }
+    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+}
 
-    return { block => [values %$blocks] };
+# spooling
+
+my $last = undef;
+my $sth;
+my $limit = 1000;
+my @keys = ('BLOCK_ID');
+my $EndOfData = undef;
+
+sub spool
+{
+    my ($core, %h) = @_;
+    foreach ( qw / block node se create_since update_since complete custodial subscribed group / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    my $r;
+    my $data;
+    my $count = 0;
+
+    $sth = PHEDEX::Web::SQL::getBlockReplicas($core, %h) if !$sth;
+    $r = PHEDEX::Web::Util::spool($sth, $limit, @keys);
+    if ($r)
+    {
+        return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;
