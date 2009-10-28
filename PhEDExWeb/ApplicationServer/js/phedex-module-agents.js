@@ -6,30 +6,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       node = 'T1_US_FNAL_Buffer';
   log('Module: creating a genuine "'+string+'"','info',string);
 
-  var _fillExtra = function() {
-debugger;
-    var el = this.dom.extra;
-    var msg = 'If you are reading this, there is a bug somewhere...';
-    var now = new Date() / 1000;
-    var minDate = now;
-    var maxDate = 0;
-    for ( var i in this.data) {
-      var a = this.data[i];
-      var u = a['time_update'];
-      if ( u > maxDate ) { maxDate = u; }
-      if ( u < minDate ) { minDate = u; }
-    }
-    if ( maxDate > 0 )
-    {
-      var minGMT = new Date(minDate*1000).toGMTString();
-      var maxGMT = new Date(maxDate*1000).toGMTString();
-      var dMin = Math.round(now - minDate);
-      var dMax = Math.round(now - maxDate);
-      msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
-    }
-    el.innerHTML = msg;
-  }
-
    var _construct = function(obj) {
     return {
       decorators: [
@@ -39,7 +15,7 @@ debugger;
           parent: 'control',
           payload:{
             target: 'extra',
-            handler: obj._fillExtra,
+            handler: 'fillExtra',
             obj:obj,
             animate:false,
 //             hover_timeout:200,
@@ -48,7 +24,7 @@ debugger;
       ],
 
       init: function(opts) {
-        log('initialising','info',this.id);
+        log('initialising','info',this.me);
         YAHOO.lang.augmentObject(opts, {
           width:500,
           height:200,
@@ -61,7 +37,7 @@ debugger;
         _sbx.notify( this.id, 'init' );
       },
       initData: function() {
-        log('initData','info',this.id);
+        log('initData','info',this.me);
         this.buildTable(this.dom.content,
             [ 'Agent',
               {key:"Date", formatter:'UnixEpochToGMT'},
@@ -73,12 +49,12 @@ debugger;
         _sbx.notify( this.id, 'initData' );
       },
       getData: function() {
-        log('Fetching data','info',this.id);
+        log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
         _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
       gotData: function(data) {
-        log('Got new data','info',this.id);
+        log('Got new data','info',this.me);
         this.data = data.node[0].agent;
         this.dom.title.innerHTML = node+': '+this.data.length+" agents";
         this.fillDataSource(this.data);
