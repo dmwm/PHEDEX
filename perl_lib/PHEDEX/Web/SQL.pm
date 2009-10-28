@@ -144,7 +144,13 @@ sub getBlockReplicas
 	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
+     # return $q in spooling mode
     $q = execute_sql( $self, $sql, %p );
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
     return \@r;
