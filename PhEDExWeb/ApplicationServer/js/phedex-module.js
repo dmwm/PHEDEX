@@ -1,11 +1,11 @@
 PHEDEX.Module = function(sandbox, string) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   log('creating "'+string+'"','info','Module');
+  var _sbx = sandbox;
 
   var _construct = function() {
     return {
       me: string,
-      _sbx: sandbox,
       _init: function(opts) {
         /** Options which alter the window behavior of this widget.  The
         * options are taken in priority order from:
@@ -84,8 +84,8 @@ PHEDEX.Module = function(sandbox, string) {
         YAHOO.lang.augmentObject(this.options, opts, true);
         // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
         this.id = this.me+'_'+PxU.Sequence();
-        this._sbx.listen('CoreCreated',function() { this._sbx.notify('ModuleExists',this.id,this); });
-        this._sbx.notify('ModuleExists',this);
+        _sbx.listen('CoreCreated',function() { _sbx.notify('ModuleExists',this.id,this); });
+        _sbx.notify('ModuleExists',this);
       },
 
       adjustHeader: function() {},
@@ -107,7 +107,7 @@ PHEDEX.Module = function(sandbox, string) {
             obj[action](arr[2]);
           }
         }(this);
-        this._sbx.listen('module',coreHandler);
+        _sbx.listen('module',coreHandler);
 
 //      handle messages directly to me...
         var selfHandler = function(obj) {
@@ -117,10 +117,16 @@ PHEDEX.Module = function(sandbox, string) {
             switch (action) {
               case 'grow header':   { obj.adjustHeader( value); break; }
               case 'shrink header': { obj.adjustHeader(-value); break; }
+              case 'expand': {
+                obj[value]();
+                _sbx.notify(arr[2],action,'done');
+                break;
+              }
+              default: { log('unhandled event: '+action,'warn',me); break; }
             }
           }
         }(this);
-        this._sbx.listen(this.id,selfHandler);
+        _sbx.listen(this.id,selfHandler);
 
         /** The module used by this widget.  If options.window is true, then
         * it is a Panel, otherwise it is a Module.
@@ -218,8 +224,8 @@ PHEDEX.Module = function(sandbox, string) {
         this.dom.title.innerHTML = this.me+': initialising...';
         this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control float-right'});
         this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
-        this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd', id:this.id+'_body'});
-        this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content',id:this.id+'_content'});
+        this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd'});
+        this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content'});
         this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
         log(this.id+' initDom complete','info','Module');
         return this.el;
@@ -235,7 +241,7 @@ PHEDEX.Module = function(sandbox, string) {
       },
       destroy: function() {
         this.destroyDom();
-        this._sbx.notify(this.id,'destroy');
+        _sbx.notify(this.id,'destroy');
         for (var i in this) {
           if ( typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
             try { this[i].destroy(); } catch(ex) {} // blindly destroy everything we can!
