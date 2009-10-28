@@ -195,15 +195,15 @@ sub call
             my $spool = $api . '::spool';
             if ($format eq "xml")
             {
-                $fmt = new PHEDEX::Web::FormatXML;
+                $fmt = PHEDEX::Web::FormatXML->new(*STDOUT);
             }
             elsif ($format eq 'perl')
             {
-                $fmt = new PHEDEX::Web::FormatPERL;
+                $fmt = PHEDEX::Web::FormatPERL->new(*STDOUT);
             }
             elsif ($format eq 'json')
             {
-                $fmt = new PHEDEX::Web::FormatJSON;
+                $fmt = PHEDEX::Web::FormatJSON->new(*STDOUT);
             }
                 
             #create header
