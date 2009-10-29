@@ -20,6 +20,19 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             animate:false,
 //             hover_timeout:200,
           }
+        },
+        {
+          name: 'Context', 
+          module:'phedex-component-contextmenu',
+//           parent: 'control',
+          payload:{
+//             target: 'extra',
+//             handler: 'fillExtra',
+            obj:obj,
+            args: {'agent':'Name'}
+//             animate:false,
+// //             hover_timeout:200,
+          }
         }
       ],
 
