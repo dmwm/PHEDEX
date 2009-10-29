@@ -155,7 +155,6 @@ PHEDEX.Core = function(sandbox) {
           } catch(ex) { log(ex,'error',_me); banner('Error fetching data!'); }
           break;
         }
-        default: { log('unhandled event: '+action,'warn',me); break; }
       };
       _setTimeout();
     }
