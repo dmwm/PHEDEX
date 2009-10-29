@@ -137,6 +137,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-core-filter':      { requires:['phedex-util'] },
 
     'phedex-component-control':     { requires:['phedex-util','animation'] },
+    'phedex-component-contextmenu': { requires:['phedex-util'] }, //'phedex-registry'] },
 
 //     { name: 'phedex-global-filter',         requires:[] },
 //     'phedex-core-widget-registry': { requires: ['phedex-util'] },
