@@ -129,6 +129,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'phedex-util':    { requires: ['phedex-css'] },
     'phedex-datasvc': { requires: ['phedex-util','json'] },
+    'phedex-util-idletimer': { },
 
 //  these are just guesses, and may not work as-is
     'phedex-core-contextmenu': { requires:['phedex-util'] },
@@ -208,8 +209,11 @@ PHEDEX.Loader = function(opts) {
   return {
     load: function( args, what ) {
       if ( _busy ) {
-        setTimeout( function() { this.load(args,what) },100);
-        log('Logger is busy, waiting...','info','Logger');
+        setTimeout( function(obj) {
+          return function() {
+            obj.load(args,what);
+          }
+        }(this),100);
         return;
       }
       _busy = true;
