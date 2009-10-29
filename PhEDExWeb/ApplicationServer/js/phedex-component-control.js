@@ -2,7 +2,8 @@ PHEDEX.namespace('Component');
 
 PHEDEX.Component.Control = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
-  var _sbx = sandbox,
+  var _me = 'Component-Control',
+      _sbx = sandbox,
       _notify = function() {};
 
   _clickHandler=function(ev,obj) {
@@ -33,8 +34,6 @@ PHEDEX.Component.Control = function(sandbox,args) {
 
   _construct = function() {
     return {
-      me: 'Component-Control',
-      _sbx: sandbox,
       enabled: 1,
       payload: {},
       _init: function(args) {
