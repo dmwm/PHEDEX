@@ -122,7 +122,7 @@ PHEDEX.Module = function(sandbox, string) {
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-              default: { log('unhandled event: '+action,'warn',me); break; }
+              default: { log('unhandled event: '+action,'warn',obj.me); break; }
             }
           }
         }(this);
