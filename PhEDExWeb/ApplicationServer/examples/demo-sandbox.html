@@ -143,7 +143,30 @@ function createCoreApp() {
     document.getElementById('phedex-controls').appendChild(ctl.el);
     debugLinks();
     ctl.Show();
-  },'logger','component-control'); // 'core-control');
+  },'logger','component-control');
+
+// just for fun, using the IdleTimer from Zackas, do a couple of things:
+// 1. Prompt the user that we are waiting for them to do something, and
+// 2. pre-load the rest of the code in idle-time
+  PxL.load(function() {
+    var IdleTimer = new PHEDEX.Util.IdleTimer();
+    IdleTimer.subscribe('idle',   function() { banner('waiting for input'); });
+    IdleTimer.subscribe('active', function() { banner(); });
+    IdleTimer.start(10000);
+    var preLoader = new PHEDEX.Util.IdleTimer();
+    var modules = ['datatable',/*'treeview',*/'module','module-nodes','module-agents'];
+    preLoader.subscribe('idle', function() {
+          var m = modules.shift();
+          if ( !m ) { preLoader.stop(); return; }
+          log('preload '+m,'warn','Loader');
+          var fn = function(obj) {
+            return function() { obj.start(5000); }
+          }(preLoader);
+          PxL.load(fn,m);
+        },preLoader,true);
+    preLoader.start(4000);
+  },'util-idletimer');
 };
+
 </script>
 </html>
