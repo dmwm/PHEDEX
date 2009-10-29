@@ -121,7 +121,7 @@ PHEDEX.Core = function(sandbox) {
             setTimeout(function() {
                                     try { m.ctl[d.name] = new _constructor(_sbx,d); }
                                     catch (ex) { log(err(ex),'error','Core'); }
-                                    m.dom[d.parent].appendChild(m.ctl[d.name].el);
+                                    if ( d.parent ) { m.dom[d.parent].appendChild(m.ctl[d.name].el); }
                                   },0);
           };
           break;
