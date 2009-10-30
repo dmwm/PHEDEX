@@ -131,7 +131,7 @@ sub advertise_self
   eval {
       $self->reconnect();
   };
-  $self->clean_death();
+  $self->rollbackOnError();
 }
 
 # disconnect if we have nothing to do that requires the database
@@ -157,7 +157,7 @@ eval
 	$self->Logmsg("disconnecting from database");
 	$self->disconnectAgent(1);
     }
-}; $self->clean_death();
+}; $self->rollbackOnError();
 }
 
 # sync local task cache with database
@@ -257,7 +257,7 @@ eval
 	   $self->forgetTask($t);
        }
    }
-}; $self->clean_death();
+}; $self->rollbackOnError();
 }
 
 # Fetch new tasks from the database.
@@ -384,7 +384,7 @@ eval
 
     $q->finish(); # In case we left before going through all the results
    $self->{DBH}->commit();
-}; $self->clean_death();
+}; $self->rollbackOnError();
 }
 
 # update expire time changes to tasks
@@ -422,7 +422,7 @@ eval
 	$$existing{TIME_EXPIRE} = $$row{TIME_EXPIRE};
 	&output("$$self{TASKDIR}/$$existing{TASKID}", Dumper($existing));
     }
-}; $self->clean_death();
+}; $self->rollbackOnError();
 }
 
 # Read in and verify all transfer tasks.
@@ -528,7 +528,7 @@ eval
     }
 
     $$self{DBH_LAST_USE} = $now;
-}; $self->clean_death();
+}; $self->rollbackOnError();
 }
 
 # Fill the backend with as many transfers as it can take.
@@ -1170,7 +1170,7 @@ eval
     $$self{DBH_LAST_USE} = $now;
     $$self{LAST_CONNECT} = $now;
     $rv = 1; # reconnected OK
-}; $self->clean_death();
+}; $self->rollbackOnError();
 return $rv;
 }
 
@@ -1271,18 +1271,6 @@ sub check_task_expire
     
     # OK, it's not expired
     return 0;
-}
-
-# For use after eval { } protected DB-interaction code.  Logs the
-# error and rolls back any transaction.
-sub clean_death
-{
-    my ($self, $err) = @_;
-    $err ||= $@;
-    return unless $err;
-    chomp ($err);
-    $self->Alert($err);
-    eval { $$self{DBH}->rollback() } if $$self{DBH};
 }
 
 1;
