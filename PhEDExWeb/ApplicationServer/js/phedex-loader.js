@@ -70,19 +70,20 @@ PHEDEX.namespace('Base');
 PHEDEX.Base.Object = function() {
   return {
     /**
-     * Fired when the "extra" div has been populated.
-     * @event onFillExtra
-     */
-// TODO replace events with notifications...
-    onFillExtra: new YAHOO.util.CustomEvent("onFillExtra", this, false, YAHOO.util.CustomEvent.LIST),
-
-    /**
      * Namespace for DOM elements managed by this object.
      * @property dom
      * @type object
      * @protected
      */
     dom: {},
+
+    /**
+     * Namespace for DOM element IDs of elements managed by this object. Used only for communicating elements that may not exist at the time a reference is needed
+     * @property dId
+     * @type object
+     * @protected
+     */
+    dId: {},
 
     /**
      * Namespace for control elements managed by this object.
