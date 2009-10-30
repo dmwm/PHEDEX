@@ -78,6 +78,8 @@ sub parseDatabaseInfo
 	    $self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
 	} elsif (/^LogSQL (on|off)$/) {
 	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
+	} elsif (/^SimDBFail (\S+)$/) {
+	    $ENV{PHEDEX_SIM_DB_FAIL} = $1 if $insection;
 	} elsif (/^SessionSQL (.*)$/) {
 	    push(@{$self->{DBH_SESSION_SQL}}, $1);
 	} elsif (/^SchemaPrefix (.*)$/) {
@@ -311,6 +313,12 @@ sub dbbindexec
   }
 
   my $rv = eval {
+    # Used to simulate an oracle failure
+    if ($ENV{PHEDEX_SIM_DB_FAIL} &&
+	$ENV{PHEDEX_SIM_DB_FAIL} < rand()) {
+	die "ORA-XXXXX: simulating oracle failure with probability P=",sprintf("%.2f",$ENV{PHEDEX_SIM_DB_FAIL});
+    }
+    
     return $isarray
 	    ? $stmt->execute_array({ ArrayTupleResult => [] })
 	    : $stmt->execute();
