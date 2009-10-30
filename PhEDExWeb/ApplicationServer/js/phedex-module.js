@@ -115,14 +115,14 @@ PHEDEX.Module = function(sandbox, string) {
             var action = arr[0],
                 value = arr[1];
             switch (action) {
-              case 'grow header':   { obj.adjustHeader( value); break; }
-              case 'shrink header': { obj.adjustHeader(-value); break; }
+              case 'show target': { obj.adjustHeader( value); break; }
+              case 'hide target': { obj.adjustHeader(-value); break; }
               case 'expand': {
                 obj[value]();
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-              default: { log('unhandled event: '+action,'warn',obj.me); break; }
+//               default: { log('unhandled event: '+action,'warn',obj.me); break; }
             }
           }
         }(this);
