@@ -7,8 +7,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
       _notify = function() {};
 
   _clickHandler=function(ev,obj) {
-    var eHeight;
-    var tgt = obj.payload.target;
+//     var eHeight;
+//     var tgt = obj.payload.target;
     if ( ev.type == 'mouseover' ) {
       obj.Show();
     } else if ( ev.type == 'click' ) {
@@ -34,6 +34,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
 
   _construct = function() {
     return {
+      me: _me,
       enabled: 1,
       payload: {},
       _init: function(args) {
@@ -46,10 +47,12 @@ PHEDEX.Component.Control = function(sandbox,args) {
           this.el.appendChild(document.createTextNode(args.text || args.name));
         }
         for (var i in args.payload) { this.payload[i] = args.payload[i]; }
-        if ( this.payload.obj ) {
-          if ( typeof(this.payload.target) != 'object' ) {  this.payload.target = this.payload.obj.dom[this.payload.target]; }
+        if ( this.payload.target ) {
+          if ( this.payload.obj ) {
+            if ( typeof(this.payload.target) != 'object' ) {  this.payload.target = this.payload.obj.dom[this.payload.target]; }
+          }
+          if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
         }
-        if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
         YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
         this.el.className = args.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
         if ( !args.events ) {
@@ -80,8 +83,12 @@ PHEDEX.Component.Control = function(sandbox,args) {
             switch (action) {
               case 'expand': {
                 var tgt = obj.payload.target;
-                var eHeight = tgt.offsetHeight;
-                _notify('grow header',eHeight);
+                if ( tgt ) {
+                  var eHeight = tgt.offsetHeight;
+                  _notify('show target',eHeight);
+                } else {
+                  if ( value == 'done' ) { obj.Hide(); }
+                }
                 break;
               }
               default: { log('unhandled event: '+action,'warn',me); break; }
@@ -89,34 +96,50 @@ PHEDEX.Component.Control = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(this.id,selfHandler);
-
       },
       Show: function() {
-        var tgt = this.payload.target;
+        var p   = this.payload,
+            tgt = p.target;
         if ( !this.enabled ) { return; }
-        if ( !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
-        if ( this.payload.handler ) {
-          _notify('expand',this.payload.handler,this.id);
+        if ( tgt && !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
+        if ( p.handler ) {
+          if ( typeof(p.handler) == 'string' ) {
+            _notify('expand',p.handler,this.id);
+          }
+          else if ( typeof(p.handler) == 'function' ) {
+            p.handler();
+          }
         }
-        YAHOO.util.Dom.removeClass(tgt,'phedex-invisible');
+        if ( tgt ) { YAHOO.util.Dom.removeClass(tgt,'phedex-invisible'); }
         YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
         YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
       },
       Hide: function() {
         var tgt = this.payload.target,
-            eHeight = tgt.offsetHeight,
-            reallyHide=function(ctl) {
-          return function() {
-            var tgt = ctl.payload.target;
-            YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
-            YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
-            tgt.style.height=null;
-            if ( ctl.payload.onHideControl ) { ctl.payload.onHideControl.fire(eHeight); }
-            _notify('shrink header',eHeight);
-            YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
-            YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
-          };
-        }(this);
+            eHeight, reallyHide;
+        if ( tgt ) {
+          eHeight = tgt.offsetHeight;
+          reallyHide=function(ctl) {
+            return function() {
+              var tgt = ctl.payload.target;
+              YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
+              YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
+              tgt.style.height=null;
+//             if ( ctl.payload.onHideControl ) { ctl.payload.onHideControl.fire(eHeight); }
+              _notify('hide target',eHeight);
+              YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
+              YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
+            };
+          }(this);
+        } else {
+          reallyHide=function(ctl) {
+            return function() {
+              YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
+              YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
+            };
+          }(this);
+        }
+
 //      Only fail to animate if payload.animate was explicitly set to 'false'
         if ( this.payload.animate ) {
           var attributes = { height: { to: 0 }  }; 
@@ -132,6 +155,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
       },
       isHidden: function() {
         var tgt = this.payload.target;
+        if ( !tgt ) { return 1; }
         return YAHOO.util.Dom.hasClass(tgt,'phedex-invisible');
       },
       Label: function(text) {
