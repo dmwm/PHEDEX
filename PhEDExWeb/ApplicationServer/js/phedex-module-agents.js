@@ -39,7 +39,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             obj:obj,
             args: {'agent':'Name'},
             typeMap: [ 'dataTable' ],
-            config: { trigger:obj.dId.dataTable },
           }
         }
       ],
