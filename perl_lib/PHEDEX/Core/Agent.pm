@@ -503,7 +503,7 @@ sub stop {}
 # Look for pending drops in inbox.
 sub readInbox
 {
-    my $self = shift;
+    my ($self, $get_all) = @_;
 
     die "$self->{ME}: fatal error: no inbox directory given\n" if ! $self->{INBOX};
 
@@ -528,8 +528,8 @@ sub readInbox
         }
     }
 
-    # Return those that are ready
-    return grep(-f "$self->{INBOX}/$_/go", @files);
+    # Return those that are ready, unless we want all;
+    return $get_all ? @files : grep(-f "$self->{INBOX}/$_/go", @files);
 }
 
 # Look for pending tasks in the work directory.
@@ -807,9 +807,11 @@ sub process
   my $self = shift;
   # Work.
   my $drop;
+  my $pmon = $self->{pmon};
 
   # Check for new inputs.  Move inputs to pending work queue.
   $self->maybeStop();
+  $pmon->State('inbox','start');
   foreach $drop ($self->readInbox ())
   {
     $self->maybeStop();
@@ -819,9 +821,11 @@ sub process
       $self->Alert("failed to move job '$drop' to pending queue: $!");
     }
   }
+  $pmon->State('inbox','stop');
 
   # Check for pending work to do.
   $self->maybeStop();
+  $pmon->State('work','start');
   my @pending = $self->readPending ();
   my $npending = scalar (@pending);
   foreach $drop (@pending)
@@ -829,18 +833,20 @@ sub process
     $self->maybeStop();
     $self->processDrop ($drop, --$npending);
   }
+  $pmon->State('work','stop');
 
   # Check for drops waiting for transfer to the next agent.
   $self->maybeStop();
+  $pmon->State('outbox','start');
   foreach $drop ($self->readOutbox())
   {
     $self->maybeStop();
     $self->relayDrop ($drop);
   }
+  $pmon->State('outbox','stop');
 
   # Wait a little while.
   $self->maybeStop();
-  my $pmon = $self->{pmon};
   $pmon->State('idle','start');
   $self->idle (@pending);
   $pmon->State('idle','stop');
@@ -909,6 +915,20 @@ sub disconnectAgent
     my ($self, $force) = @_;
     return if ($self->{SHARED_DBH});
     &disconnectFromDatabase($self, $self->{DBH}, $force);
+}
+
+# For use after eval { } protected DB-interaction code.  Logs the
+# error and rolls back any transaction.  Returns 1 if there was an
+# error and it was rolled back, returns 0 otherwise.
+sub rollbackOnError
+{
+    my ($self, $err) = @_;
+    $err ||= $@;
+    return 0 unless $err;
+    chomp ($err);
+    $self->Alert($err);
+    eval { $$self{DBH}->rollback() } if $$self{DBH};
+    return 1;
 }
 
 # Check that nodes used are valid
