@@ -78,14 +78,6 @@ PHEDEX.Base.Object = function() {
     dom: {},
 
     /**
-     * Namespace for DOM element IDs of elements managed by this object. Used only for communicating elements that may not exist at the time a reference is needed
-     * @property dId
-     * @type object
-     * @protected
-     */
-    dId: {},
-
-    /**
      * Namespace for control elements managed by this object.
      * @property ctl
      * @type object
