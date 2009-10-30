@@ -45,24 +45,6 @@ PHEDEX.Core = function(sandbox) {
       var m = new PHEDEX.Module[name](PxS,name);
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!"); }
     m.init(_global_options);
-    var _m=[],
-        _d=m.decorators;
-    for (var i in _d) {
-      if ( _d[i].module ) { _m.push(_d[i].module); }
-      if ( _m.length ) {
-//      Load the decorators first, then notify when ready...
-        log('loading decorators','info','Core');
-        PxL.load( {
-          Success: function() {
-            _sbx.notify(m.id,'decoratorsLoaded');
-          },
-          Progress: function(item) { banner('Loaded item: '+item.name); }
-        }, _m);
-      } else {
-//      nothing needs loading, I can notify the decorators directly
-        _sbx.notify(m.id,'decoratorsLoaded');
-      }
-    }
   }
 
   var _moduleExists = function(obj) {
@@ -79,8 +61,8 @@ PHEDEX.Core = function(sandbox) {
   var moduleHandler = function(obj) {
     return function(who,arr) {
 // this is the meat of the application. This is where modules interact with the core
-      var action = arr[0];
-      var args = arr[1];
+      var action = arr[0],
+          args   = arr[1];
       log('module='+who+' action="'+action+'"','info',_me);
       var m = _modules[who].obj;
       _clearTimeout();
@@ -91,6 +73,28 @@ PHEDEX.Core = function(sandbox) {
           else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
           m.initModule();
           m.initData();
+
+//        the module is complete, now load the decorators!
+          var _m=[],
+              _d=m.decorators;
+          for (var i in _d) {
+            if ( _d[i].module ) { _m.push(_d[i].module); }
+            if ( _m.length ) {
+//          Load the decorators first, then notify when ready...
+              log('loading decorators','info','Core');
+              PxL.load( {
+                Success: function() {
+                  log('Successfully loaded decorators','warn','Core');
+                  _sbx.notify(m.id,'decoratorsLoaded');
+                },
+                Progress: function(item) { banner('Loaded item: '+item.name); }
+              }, _m);
+            } else {
+//          nothing needs loading, I can notify the decorators directly
+              log('Already loaded decorators','warn','Core');
+              _sbx.notify(m.id,'decoratorsLoaded');
+            }
+          }
           break;
         }
         case 'initData': {
@@ -106,23 +110,45 @@ PHEDEX.Core = function(sandbox) {
         case 'decoratorsLoaded': {
           for (var i in m.decorators) {
             var d = m.decorators[i];
+            if ( m.ctl[d.name] ) {
+//            I'm not too clear why this happens, in principle it shouldn't...?
+              log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
+              continue;
+            }
 //          deduce the constructor from the module name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
+//          If I can't find an initialCaps match for a sub-component, try case-insensitive compare
             var x = d.module.split('-');
-            var _constructor;
-            _constructor = PHEDEX;
-            for (var i in x ) {
-              if ( x[i] == 'phedex' ) { continue; }
-              _constructor = _constructor[PxU.initialCaps(x[i])];
-              if ( !_constructor ) {
-                log('decorator '+d.module+' not constructible at level '+x[i]+' ('+d.name+')');
-                throw new Error('decorator '+d.module+' not constructible at level '+x[i]+' ('+d.name+')');
+            var ctor;
+            ctor = PHEDEX;
+            for (var j in x ) {
+              if ( x[j] == 'phedex' ) { continue; }
+              var field = PxU.initialCaps(x[j]);
+              if ( ctor[field] ) { ctor = ctor[field] }
+              else {
+                for (var k in ctor) {
+                  field = k.toLowerCase();
+                  if ( field == x[j] ) {
+                    ctor = ctor[k];
+                    break;
+                  }
+                }
+              }
+              if ( !ctor ) {
+                log('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
+                throw new Error('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
               }
             }
-            setTimeout(function() {
-                                    try { m.ctl[d.name] = new _constructor(_sbx,d); }
-                                    catch (ex) { log(err(ex),'error','Core'); }
-                                    if ( d.parent ) { m.dom[d.parent].appendChild(m.ctl[d.name].el); }
-                                  },0);
+            if ( typeof(ctor) != 'function' ) {
+              log('decorator '+d.module+' constructor is not a function');
+              throw new Error('decorator '+d.module+' is not a function');
+            }
+            setTimeout(function(_m,_d,_ctor) {
+              return function() {
+                try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
+                catch (ex) { log(err(ex),'error','Core'); }
+                if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+                }
+              }(m,d,ctor),10);
           };
           break;
         }
@@ -161,10 +187,6 @@ PHEDEX.Core = function(sandbox) {
   }(this);
 
   return {
-    dumpList: function() {
-      for (var i in _modules) { log('dump of registered modules: "'+i+'"','info',_me); }
-    },
-
     create: function() {
       _sbx.listen('ModuleExists', _moduleExists);
       _sbx.listen('LoadModule',   LoadModule);
