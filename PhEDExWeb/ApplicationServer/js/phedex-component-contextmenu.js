@@ -11,7 +11,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   if ( obj ) {
     try {
       var f = PHEDEX[obj.type];
-      YAHOO.lang.augmentObject(obj,new f.ContextMenu(obj),true);
+      YAHOO.lang.augmentObject(obj,f.ContextMenu(obj,args),true);
     } catch(ex) {
       log('cannot augment object of type '+obj.type,'warn',_me);
     }
