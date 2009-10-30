@@ -124,6 +124,7 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
+  PxS.notify('LoadModule','Agents');
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
@@ -160,11 +161,11 @@ function createCoreApp() {
           if ( !m ) { preLoader.stop(); return; }
           log('preload '+m,'warn','Loader');
           var fn = function(obj) {
-            return function() { obj.start(5000); }
+            return function() { obj.start(2000); }
           }(preLoader);
           PxL.load(fn,m);
         },preLoader,true);
-    preLoader.start(4000);
+//     preLoader.start(2000);
   },'util-idletimer');
 };
 
