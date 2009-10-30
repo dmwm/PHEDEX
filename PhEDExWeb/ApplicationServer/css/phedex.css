@@ -48,6 +48,13 @@ body {
   width: 14em;
   padding: 0 1em 0;
 }
+.phedex-login {
+    margin-left:55%;
+}
+.phedex-login-status {
+	text-align:right;
+	margin-right:4%;
+}
 .phedex-logger {
   float: right;
   line-height: 1em;
