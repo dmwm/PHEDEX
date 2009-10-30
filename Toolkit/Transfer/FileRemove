@@ -21,16 +21,17 @@
 ##H Usage:
 ##H   FileRemove
 ##H      -state DIRECTORY -nodes NAME -db FILE[:SECTION] [-log OUT]
-##H      [-protocol NAME] -delete COMMAND[,ARG...] [jobs N] [-limit N]
-##H      [-retries N]
+##H      [-protocol NAME] -delete COMMAND[,ARG...] [-jobs N] [-timeout SECONDS] 
+##H      [-limit N] [-retries N]
 ##H
 ##H -state         agent state directory.
 ##H -nodes         nodes to run and clean files for.
 ##H -db            database connection configuration parameter file.
 ##H -protocol      protocol to use with storage map, by default "direct".
 ##H -delete        command to remove physical copy (typically FileDownloadDelete).
-##H -limit         limit on the number of files to delete per minute, default 100
+##H -limit         limit on the number of files to queue at a time, default is 5000
 ##H -jobs          number of parallel deletion jobs, default is 1
+##H -timeout       timeout in seconds for deletion jobs, default is 30
 ##H -log           where to redirect logging information.
 ##H -(no-)retry    retry failed removals (forever), or abandon on the first failure.
 
@@ -48,6 +49,7 @@ use PHEDEX::File::Remove::Agent;
 	     "limit=i"     => \$args{LIMIT},
 	     "retry!"      => \$args{RETRY},
 	     "jobs=i"      => \$args{JOBS},
+	     "timeout=i"   => \$args{TIMEOUT},
 	     "help|h"	   => sub { &usage() });
 
 if (!$args{NODES} || !$args{DROPDIR} || !$args{DBCONFIG} || !$args{CMD_RM} )
