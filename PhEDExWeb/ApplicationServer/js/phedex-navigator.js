@@ -36,12 +36,17 @@ PHEDEX.Navigator = (function() {
     var _cur_filter = "";     // a string containing filter arguments
     var _parsed_filter = {};  // a hash containing the parsed filter key-value pairs
 
+    var _cur_widget_state;     // object that stores widget details obtained from permalink
+
+    var _hist_sym_sep = "+";    //This character separates the states in the history URL
+    var _hist_sym_equal = "~";  //This character indicates the state value
+
     //========================= Private Methods =========================
     // The following are defined dynamically below
     var _updateTargetTypeGUI = function() { };
     var _updateTargetGUI = function() { };
     var _updateInstanceGUI = function() { };
-    var _updateLinkGUI = function() { };
+    var _updateLinkGUI = function(permalinkurl) { };
 
     var _initInstanceSelector = function(el) {
         var instances = PxD.Instances(); // Get current instances
@@ -127,6 +132,10 @@ PHEDEX.Navigator = (function() {
         menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
     };
 
+    var _initLoginComp = function(el) {
+        PHEDEX.Login.init(el);
+    };
+
     var _initTargetSelectors = function(el) {
         var targetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-target',
             className: 'phedex-nav-component phedex-nav-target'
@@ -156,7 +165,9 @@ PHEDEX.Navigator = (function() {
     var _afterBuild = function() {
         var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
         if (currentState) {
+            currentState = unescape(currentState);
             _setState(currentState); //Set the current state on page
+
         }
         else {
             _fireNavChange(); //Fire the page to load the current settings
@@ -277,9 +288,9 @@ PHEDEX.Navigator = (function() {
         return widget;
     };
 
-  var _initGlobalFilter = function(el) {
-    PHEDEX.Event.CreateGlobalFilter.fire(el);
-  };
+    var _initGlobalFilter = function(el) {
+        PHEDEX.Event.CreateGlobalFilter.fire(el);
+    };
 
     var _initPermaLink = function(el) {
         var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link',
@@ -290,8 +301,14 @@ PHEDEX.Navigator = (function() {
 			      innerHTML: 'Link',
 			      href: '#'
 			  });
-        _updateLinkGUI = function() {
-            a.href = document.location.href; //Update the link with current browser URL
+        _updateLinkGUI = function(permalinkurl) {
+            if (permalinkurl) {
+                a.href = permalinkurl; //Update the link with current browser URL
+            }
+            else {
+                a.href = document.location.href; //Update the link with current browser URL
+            }
+
         };
     };
 
@@ -337,9 +354,66 @@ PHEDEX.Navigator = (function() {
         changed = _setTarget(state) || changed;                           //Update the target node state
         if (state.widget) { changed = _setWidget(state) || changed; }     //Update the widget state
         if (changed || (!changed && !_cur_widget_obj)) {
+            if (state.hiddencolumns || state.sortcolumn) {
+                _cur_widget_state = state;
+            }
             _fireNavChange(); //Build widgte if there is any change in state
+
         }
     };
+
+    /**
+    * @method _setWidgetState
+    * @description This sets the state of the widget after it has been constucted. The widget states are   
+    * visible columns and sorted column 
+    * @param {Object} wdgtstate Object specifying the state of the widget to be set.
+    */
+    var _setWidgetState = function() {
+        var indx = 0;
+        var hiddencolumns = {};
+        if (_cur_widget_state && _cur_widget_obj.dataTable) {
+            if (_cur_widget_state.hiddencolumns) {
+                var arrCols = _cur_widget_state.hiddencolumns.split("^");
+                for (indx = 0; indx < arrCols.length; indx++) {
+                    if (arrCols[indx]) {
+                        hiddencolumns[unescape(arrCols[indx])] = 1;
+                    }
+                }
+            }
+            var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
+            var defnColumns = dtColumnSet.getDefinitions();
+            for (indx = 0; indx < defnColumns.length; indx++) {
+                if (hiddencolumns[defnColumns[indx].key]) {
+                    if (!defnColumns[indx].hidden) {
+                        var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
+                        if (objColumn) {
+                            _cur_widget_obj.dataTable.hideColumn(objColumn);
+                        }
+                    }
+
+                }
+                else if (defnColumns[indx].hidden) {
+                    var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
+                    if (objColumn) {
+                        _cur_widget_obj.dataTable.showColumn(objColumn);
+                        _cur_widget_obj.removeBtnMenuItem(defnColumns[indx].key);
+                    }
+                }
+            }
+        }
+        if (_cur_widget_state && _cur_widget_obj.dataTable && _cur_widget_state.sortcolumn) {
+            var objColumn = _cur_widget_obj.dataTable.getColumn(unescape(_cur_widget_state.sortcolumn)); //Get the object of column
+            if (objColumn) {
+                if (_cur_widget_state.sortdir.toLowerCase() == 'asc') {
+                    _cur_widget_obj.dataTable.sortColumn(objColumn, 'YAHOO.widget.DataTable.CLASS_ASC'); //Sort the column in ascending order
+                }
+                else if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
+                    _cur_widget_obj.dataTable.sortColumn(objColumn, 'YAHOO.widget.DataTable.CLASS_DESC'); //Sort the column in descending order
+                }
+            }
+        }
+        _cur_widget_state = null; //Reset the widget state object
+    }
 
     /**
     * @method _parseQueryString
@@ -349,9 +423,9 @@ PHEDEX.Navigator = (function() {
     var _parseQueryString = function(strQuery) {
         var strTemp = "", indx = 0;
         var arrResult = {};
-        var arrQueries = strQuery.split("&");
+        var arrQueries = strQuery.split(_hist_sym_sep);
         for (indx = 0; indx < arrQueries.length; indx++) {
-            strTemp = arrQueries[indx].split("=");
+            strTemp = arrQueries[indx].split(_hist_sym_equal);
             if (strTemp[1].length > 0) {
                 arrResult[strTemp[0]] = unescape(strTemp[1]);
             }
@@ -387,7 +461,9 @@ PHEDEX.Navigator = (function() {
             if (state.target) { strTarget = state.target; }        //Update target value if present
             if (state.widget) { strWidget = state.widget.widget; } //Update widget value if present
         }
-        var newState = 'instance=' + strInstance + '&type=' + strType + '&target=' + strTarget + '&widget=' + strWidget + '&filter=' + _cur_filter; //Form the query string
+        var newState = 'instance' + _hist_sym_equal + strInstance + _hist_sym_sep + 'type' + _hist_sym_equal + strType + _hist_sym_sep +
+                       'target' + _hist_sym_equal + strTarget + _hist_sym_sep + 'widget' + _hist_sym_equal + strWidget + _hist_sym_sep +
+                       'filter' + _hist_sym_equal + _cur_filter; //Form the query string
         return newState; // Return the string that specifies the state of the page
     }
 
@@ -423,6 +499,68 @@ PHEDEX.Navigator = (function() {
             'filter': _cur_filter
         });
     };
+
+    /**
+    * @method _formPermalinkURL
+    * @description This gets the datatable state and is used to update the permalink
+    */
+    var _formPermalinkURL = function() {
+        var baseURL = document.location.href;
+        var hashindx = baseURL.indexOf('#');
+        if (hashindx > -1) {
+            baseURL = baseURL.substring(0, hashindx);
+        }
+        var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
+        currentState = unescape(currentState);
+        if (!currentState) {
+            currentState = _defaultPageState;
+        }
+        else {
+            var state = _parseQueryString(currentState); //Parse the current history state and get the key and its values
+            if (!state.target) {
+                state.target = '';
+            }
+            if (!state.filter) {
+                state.filter = '';
+            }
+            currentState = 'instance' + _hist_sym_equal + state.instance + _hist_sym_sep + 'type' + _hist_sym_equal + state.type + _hist_sym_sep +
+                           'target' + _hist_sym_equal + state.target + _hist_sym_sep + 'widget' + _hist_sym_equal + state.widget + _hist_sym_sep +
+                           'filter' + _hist_sym_equal + state.filter; //Form the query string
+        }
+        baseURL = '#page=' + escape(currentState);
+
+        var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
+        var defnColumns = dtColumnSet.getDefinitions();
+        var indx = 0;
+        var wdgtState = _hist_sym_sep + "hiddencolumns" + _hist_sym_equal;
+        for (indx = 0; indx < defnColumns.length; indx++) {
+            if (defnColumns[indx].hidden) {
+                wdgtState = wdgtState + defnColumns[indx].key + '^';
+            }
+        }
+        if (wdgtState.charAt(wdgtState.length - 1) == '^') {
+            wdgtState = wdgtState.substring(0, wdgtState.length - 1);
+        }
+        baseURL = baseURL + escape(wdgtState);
+        wdgtState = '';
+
+        var sortcolumn = _cur_widget_obj.dataTable.get('sortedBy');
+        if (sortcolumn) {
+            wdgtState = _hist_sym_sep + 'sortcolumn' + _hist_sym_equal + sortcolumn.key + _hist_sym_sep + 'sortdir' + _hist_sym_equal + sortcolumn.dir.substring(7);
+        }
+        baseURL = baseURL + escape(wdgtState);
+        _updateLinkGUI(baseURL);
+    };
+
+    /**
+    * @method _afterRender
+    * @description This gets called after datatable is formed. This is used to set inter widget state (if any) 
+    * and later update the permalink
+    */
+    var _afterRender = function() {
+        _setWidgetState();
+        _formPermalinkURL();
+    }
 
     /* Below are the individual _set{state} funcitons.  They must not be
     called execpt through _setState, otherwise widget construction is
@@ -555,6 +693,10 @@ PHEDEX.Navigator = (function() {
             _nav_construct = false;
             _cur_widget_obj = widget;
             widget.update();
+            if (widget.dataTable) {
+                widget.dataTable.subscribe('renderEvent', _afterRender);   //Assign the function to the event (after column gets sorted)
+                widget.dataTable.subscribe('columnShowEvent', _formPermalinkURL);   //Assign the function to the event (after column gets sorted)
+            }
         }
     });
 
@@ -589,7 +731,7 @@ PHEDEX.Navigator = (function() {
         init: function(el, cfg) {
 
             // Build the YUI menu button for instance selection
-            _initInstanceSelector(el); 
+            _initInstanceSelector(el);
 
             // Build the type selection menu
             _initTypeSelector(el, cfg.typecfg);
@@ -606,8 +748,10 @@ PHEDEX.Navigator = (function() {
             // Build Permalink
             _initPermaLink(el);
 
+            _initLoginComp(el);
+
             // Get the current state that would also be default state for the page
-            _defaultPageState = _getCurrentState(null); 
+            _defaultPageState = _getCurrentState(null);
         },
 
         // TODO:  is there a use case for any of these?
