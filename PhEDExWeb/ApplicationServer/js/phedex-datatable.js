@@ -55,9 +55,7 @@ PHEDEX.DataTable = function(sandbox,string) {
         }
         this.dataSource = new YAHOO.util.DataSource();
         this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
-        var tBody = this.dataTable.getTbodyEl();
-        tBody.id = this.dId.dataTable;
-        var w = /*this.dataTable.getTableEl()*/ tBody.offsetWidth;
+        var w = this.dataTable.getTableEl().offsetWidth;
         this.el.style.width = w+'px';
 // these belong in a decorator...
 // 	this.dataTable.subscribe('rowMouseoverEvent',this.onRowMouseOver);
@@ -66,18 +64,21 @@ PHEDEX.DataTable = function(sandbox,string) {
     };
   };
 
-  this.dId.dataTable = 'dataTable_'+PxU.Sequence();
   YAHOO.lang.augmentObject(this,_construct(),true);
   YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter;
   return this;
 }
 
 // decorators for the datatable.
-PHEDEX.DataTable.ContextMenu = function() {
+PHEDEX.DataTable.ContextMenu = function(obj,args) {
   PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
     log('hideField: ' + el.col.key, 'info', 'ContextMenu');
     el.table.hideColumn(el.col);
   });
+  var p = args.payload;
+  if ( !p.config ) { p.config={}; }
+  if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
+
   return {
    onContextMenuClick: function(p_sType, p_aArgs, obj) {
       log('ContextMenuClick for ' + obj.me, 'info', 'ContextMenu');
