@@ -3,68 +3,108 @@ PHEDEX.DataTable = function(sandbox,string) {
 
   var _construct = function() {
     return {
+      type: 'DataTable',
       fillDataSource: function(data) {
-	var table = [];
-	for (var i in data) {
-	  var a = data[i];
-	  var y = [];
-	  for (var j in this.columnDefs )
-	  {
-	    var c = this.columnDefs[j];
-	    var val = a[this.columnMap[c.key]];
+        var table = [];
+        for (var i in data) {
+          var a = data[i];
+          var y = [];
+          for (var j in this.columnDefs )
+          {
+            var c = this.columnDefs[j];
+            var val = a[this.columnMap[c.key]];
 //          This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
 //          Declare fields to be numeric in your columns specified to buildTable, see above
-	    if ( c.parser )
-	    {
-	      if (typeof c.parser == 'function' ) { val = c.parser(val); }
-	      else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
-	    }
-	    y[c.key] = val;
-	  }
-	  table.push( y );
-	}
-	this.dataSource = new YAHOO.util.DataSource(table);
-	var oCallback = {
-	  success : this.dataTable.onDataReturnInitializeTable,
-	  failure : this.dataTable.onDataReturnInitializeTable,
-	  scope : this.dataTable
-	};
-	this.dataSource.sendRequest('', oCallback);
-	var w = this.dataTable.getTableEl().offsetWidth;
-	this.el.style.width = w+'px';
+            if ( c.parser )
+            {
+              if (typeof c.parser == 'function' ) { val = c.parser(val); }
+              else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+            }
+            y[c.key] = val;
+          }
+          table.push( y );
+        }
+        this.dataSource = new YAHOO.util.DataSource(table);
+        var oCallback = {
+          success : this.dataTable.onDataReturnInitializeTable,
+          failure : this.dataTable.onDataReturnInitializeTable,
+          scope : this.dataTable
+        };
+        this.dataSource.sendRequest('', oCallback);
+        var w = this.dataTable.getTableEl().offsetWidth;
+        this.el.style.width = w+'px';
       },
 
 // Custom formatter for unix-epoch dates
       UnixEpochToGMTFormatter: function(elCell, oRecord, oColumn, oData) {
-	var gmt = new Date(oData*1000).toGMTString();
-	elCell.innerHTML = gmt;
+        var gmt = new Date(oData*1000).toGMTString();
+        elCell.innerHTML = gmt;
       },
 
       buildTable: function(div,columns,map,dsschema) {
-	this.columnDefs = columns;
-	this.dsResponseSchema = dsschema; //Stores the response schema for the datasource
-	this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
-	for (var i in this.columnDefs )
-	{
-	  var cDef = this.columnDefs[i];
-	  if ( typeof cDef != 'object' ) { cDef = {key:cDef}; this.columnDefs[i] = cDef; }
-	  if ( !cDef.resizeable ) { cDef.resizeable=true; }
-	  if ( !cDef.sortable   ) { cDef.sortable=true; }
-	  if ( !this.columnMap[cDef.key] ) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
-	}
-	this.dataSource = new YAHOO.util.DataSource();
-	this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
-	var w = this.dataTable.getTableEl().offsetWidth;
-	this.el.style.width = w+'px';
+        this.columnDefs = columns;
+        this.dsResponseSchema = dsschema; //Stores the response schema for the datasource
+        this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
+        for (var i in this.columnDefs )
+        {
+          var cDef = this.columnDefs[i];
+          if ( typeof cDef != 'object' ) { cDef = {key:cDef}; this.columnDefs[i] = cDef; }
+          if ( !cDef.resizeable ) { cDef.resizeable=true; }
+          if ( !cDef.sortable   ) { cDef.sortable=true; }
+          if ( !this.columnMap[cDef.key] ) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
+        }
+        this.dataSource = new YAHOO.util.DataSource();
+        this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
+        var tBody = this.dataTable.getTbodyEl();
+        tBody.id = this.dId.dataTable;
+        var w = /*this.dataTable.getTableEl()*/ tBody.offsetWidth;
+        this.el.style.width = w+'px';
 // these belong in a decorator...
 // 	this.dataTable.subscribe('rowMouseoverEvent',this.onRowMouseOver);
 // 	this.dataTable.subscribe('rowMouseoutEvent', this.onRowMouseOut);
       },
     };
   };
+
+  this.dId.dataTable = 'dataTable_'+PxU.Sequence();
   YAHOO.lang.augmentObject(this,_construct(),true);
   YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter;
   return this;
+}
+
+// decorators for the datatable.
+PHEDEX.DataTable.ContextMenu = function() {
+  PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
+    log('hideField: ' + el.col.key, 'info', 'ContextMenu');
+    el.table.hideColumn(el.col);
+  });
+  return {
+   onContextMenuClick: function(p_sType, p_aArgs, obj) {
+      log('ContextMenuClick for ' + obj.me, 'info', 'ContextMenu');
+      var menuitem = p_aArgs[1];
+      if (menuitem) {
+        //  Extract which <tr> triggered the context menu
+        var tgt = this.contextEventTarget;
+        var elCol = obj.dataTable.getColumn(tgt);
+        var elRow = obj.dataTable.getTrEl(tgt);
+        var label = tgt.textContent;
+        if (elRow) {
+          var opts = {};
+          var oRecord = obj.dataTable.getRecord(elRow);
+          // map types to column names in order to prepare our options
+          if (obj.contextMenuTypeMap) {
+            for (var type in obj.contextMenuTypeMap) {
+              var recName = obj.contextMenuTypeMap[type];
+              opts[type] = oRecord.getData(recName);
+            }
+          }
+          menuitem.value.fn(opts, { table: obj.dataTable, row: elRow, col: elCol, record: oRecord });
+        }
+      }
+    },
+  };
+}
+
 //   //******************************************************************************************************************************
 //   //Function:buildTable
 //   //Purpose :This function builds new data table for the widget. The arguments are 'div' to instantiate the table into, an array
@@ -168,48 +208,7 @@ PHEDEX.DataTable = function(sandbox,string) {
 //     this.column_menu.render(document.body);
 //     this.showFields.set('disabled', this.column_menu.getItems().length === 0);
 //   };
-// 
-// // Create a context menu, with default entries for dataTable widgets
-//   this.buildContextMenu=function(typeMap) {
-//     this.contextMenuTypeMap = typeMap || {};
-//     this.contextMenuArgs=[];
-//     for (var type in typeMap) {
-//       this.contextMenuArgs.push(type);
-//     }
-//     this.contextMenuArgs.push('dataTable');
-//     this.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:this.dataTable.getTbodyEl()});
-//     PHEDEX.Core.ContextMenu.Build(this.contextMenu,this.contextMenuArgs);
-//   }
-// 
-//   this.onContextMenuClick = function(p_sType, p_aArgs, obj) {
-//     YAHOO.log('ContextMenuClick for '+obj.me(),'info','Core.DataTable');
-//     var menuitem = p_aArgs[1];
-//     if(menuitem) {
-//       //  Extract which <tr> triggered the context menu
-//       var tgt = this.contextEventTarget;
-//       var elCol = obj.dataTable.getColumn(tgt);
-//       var elRow = obj.dataTable.getTrEl(tgt);
-//       var label = tgt.textContent;
-//       if (elRow) {
-// 	var opts = {};
-// 	var oRecord = obj.dataTable.getRecord(elRow);
-// 	// map types to column names in order to prepare our options
-// 	if (obj.contextMenuTypeMap) {
-// 	  for (var type in obj.contextMenuTypeMap) {
-// 	    var recName = obj.contextMenuTypeMap[type];
-// 	    opts[type] = oRecord.getData(recName);
-// 	  }
-// 	}
-// 	menuitem.value.fn(opts, {table:obj.dataTable, row:elRow, col:elCol, record:oRecord});
-//       }
-//     }
-//   }
-// 
-//   PHEDEX.Core.ContextMenu.Add('dataTable','Hide This Field', function(opts,el) {
-//     YAHOO.log('hideField: '+el.col.key,'info','Core.DataTable');
-//     el.table.hideColumn(el.col);
-//   });
-// 
+//
 // // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
@@ -352,6 +351,4 @@ PHEDEX.DataTable = function(sandbox,string) {
 //     return this.filter.count;
 //   }
 
-  return this;
-}
-YAHOO.log('loaded...','info','Core.DataTable');
+log('loaded...','info','DataTable');
