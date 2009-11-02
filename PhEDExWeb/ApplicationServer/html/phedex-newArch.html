@@ -1,0 +1,173 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css'>
+    body {
+      margin:	0;
+      margin-left:	1em;
+      padding:	0;
+      font-size:	80%;
+      font-family:	'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:	1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <div class='phedex-banner'>
+    <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
+    <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
+    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
+    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
+    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <span id='phedex-banner-messages' class='phedex-messages'>Loading, please be patient...</span>
+    <div id='phedex-controls' class='phedex-controls float-right'></div>
+ </div>
+ <div id='phedex-nav'></div>
+ <div id='phedex-logger' class='phedex-logger'>
+  <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-debug' class='float-right'></div>
+ <div id='phedex-main'></div>
+</body>
+
+<script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/js/phedex-loader.js"></script>
+<script type="text/javascript">
+
+// Some utility functions first. These need a better home, like phedex-base.js
+
+// format an exception object into a sensible error-message
+err = function(ex) { return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.lineNumber+')'; }
+
+// a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
+log = function() {
+  var _buffer = [];
+  return function(str,level,group) {
+    var el = document.getElementById('phedex-logger-inner');
+    if ( str ) {
+      if ( typeof(str) == 'object' ) { str = err(str); } // assume it's an exception object!
+      if ( el ) {
+        el.innerHTML += str+'<br/>';
+        if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
+      }
+    _buffer.push([str,level,group]);
+    } else {
+      var b = _buffer; // gymnastics to reset _buffer to null within a closure, but still return it!
+      _buffer = null;
+      return b;
+    }
+  };
+}();
+
+// simple banner messages to show progress. Make it disappear by sending it the null string.
+banner = function() {
+  var el = document.getElementById('phedex-banner-messages');
+  return function(str,level,group) {
+    if ( el ) {
+      if ( str ) {
+        el.innerHTML = str;
+        YAHOO.util.Dom.removeClass(el,'phedex-invisible');
+      } else {
+        YAHOO.util.Dom.addClass(el,'phedex-invisible');
+      }
+    }
+  };
+}();
+
+debugLinks = function() {
+// cheat, providing a few links to create modules from...
+  var el = document.getElementById('phedex-debug');
+  var methods = [ 'show','hide','destroy' ];
+  el.appendChild(document.createTextNode('Core operations (all modules)'));
+  for (var i in methods) {
+    var div = document.createElement('div');
+    var a   = document.createElement('a');
+    a.href='#';
+    a.innerHTML = methods[i];
+    a.setAttribute('onclick',"PxS.notify('module','*','"+methods[i]+"');");
+    div.appendChild(a);
+    el.appendChild(div);
+  };
+  el.appendChild(document.createTextNode('Create module(s)'));
+  var modules = PxL.knownModules();
+  for (var i in modules) {
+    var div = document.createElement('div');
+    var a   = document.createElement('a');
+    a.href='#';
+    a.innerHTML = modules[i];
+    a.setAttribute('onclick',"PxS.notify('LoadModule','"+modules[i]+"');");
+    div.appendChild(a);
+    el.appendChild(div);
+  }
+}
+// When the DOM is available, start loading the essential bits and pieces
+YAHOO.util.Event.onDOMReady(function() {
+  banner('Loading core application...');
+// dynamic loader for PhEDEx and YUI. This is for the global app to use
+  PxL  = new PHEDEX.Loader();
+  PxL.load(createCoreApp,'core','sandbox','datasvc');
+});
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the core
+// application and sandbox, and then start creating PhEDEx modules
+  banner('Create sandbox and core application...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
+  try {
+    PxC = new PHEDEX.Core(PxS);
+    PxC.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
+
+  banner('Core application is running, ready to create PhEDEx data-modules...');
+  PxS.notify('LoadModule','Agents');
+
+  PxL.load(function() {
+    PHEDEX.Logger.Create();
+    var ctl = new PHEDEX.Component.Control(PxS,{
+        text:'Show Logger',
+        payload:{target:'phedex-logger', animate:true},
+        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+    ctl = new PHEDEX.Component.Control(PxS,{
+        text:'Debug controls',
+        payload:{target:'phedex-debug'},
+        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+    debugLinks();
+    ctl.Show();
+  },'logger','component-control');
+
+// just for fun, using the IdleTimer from Zackas, do a couple of things:
+// 1. Prompt the user that we are waiting for them to do something, and
+// 2. pre-load the rest of the code in idle-time
+  PxL.load(function() {
+    var IdleTimer = new PHEDEX.Util.IdleTimer();
+    IdleTimer.subscribe('idle',   function() { banner('waiting for input'); });
+    IdleTimer.subscribe('active', function() { banner(); });
+    IdleTimer.start(10000);
+    var preLoader = new PHEDEX.Util.IdleTimer();
+    var modules = ['datatable',/*'treeview',*/'module','module-nodes','module-agents'];
+    preLoader.subscribe('idle', function() {
+          var m = modules.shift();
+          if ( !m ) { preLoader.stop(); return; }
+          log('preload '+m,'warn','Loader');
+          var fn = function(obj) {
+            return function() { obj.start(2000); }
+          }(preLoader);
+          PxL.load(fn,m);
+        },preLoader,true);
+//     preLoader.start(2000);
+  },'util-idletimer');
+};
+
+</script>
+</html>
