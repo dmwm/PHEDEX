@@ -16,7 +16,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           payload:{
             target: 'extra',
             handler: 'fillExtra',
-            obj:obj,
             animate:false,
 //             hover_timeout:200,
           }
@@ -27,7 +26,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           parent: 'control',
           payload:{
             handler: 'getData',
-            obj:obj,
             animate:false,
           }
         },
@@ -36,11 +34,11 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           module:'phedex-component-contextmenu',
           payload:{
             handler: 'onContextMenuClick',
-            obj:obj,
             args: {'agent':'Name'},
             typeMap: [ 'dataTable' ],
           }
-        }
+        },
+        { name: 'MouseOver' },
       ],
 
       init: function(opts) {
