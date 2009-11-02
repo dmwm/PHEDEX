@@ -57,9 +57,6 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
         var w = this.dataTable.getTableEl().offsetWidth;
         this.el.style.width = w+'px';
-// these belong in a decorator...
-// 	this.dataTable.subscribe('rowMouseoverEvent',this.onRowMouseOver);
-// 	this.dataTable.subscribe('rowMouseoutEvent', this.onRowMouseOut);
       },
     };
   };
@@ -105,6 +102,27 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     },
   };
 }
+
+PHEDEX.DataTable.MouseOver = function(sandbox,args) {
+  var obj = args.payload.obj;
+//   obj[args.name] = {};
+  var onRowMouseOut = function(event) {
+// Gratuitously flash yellow when the mouse goes over the rows
+// Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
+
+// Leave this next line here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
+//     YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
+    event.target.style.backgroundColor = null;
+  }
+  var onRowMouseOver = function(event) {
+//     YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
+    event.target.style.backgroundColor = 'yellow';
+  }
+  obj.dataTable.subscribe('rowMouseoverEvent',onRowMouseOver);
+  obj.dataTable.subscribe('rowMouseoutEvent', onRowMouseOut);
+// return the functions, so they can be overridden if needed without having to redo the event subscription
+  return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
+};
 
 //   //******************************************************************************************************************************
 //   //Function:buildTable
@@ -267,18 +285,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
 //     }
 //   }(this));
 // 
-//   this.onRowMouseOut = function(event) {
-// // Gratuitously flash yellow when the mouse goes over the rows
-// // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
-// // Leave this in here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
-// //     YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
-//     event.target.style.backgroundColor = null;
-//   }
-//   this.onRowMouseOver = function(event) {
-// //     YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
-//     event.target.style.backgroundColor = 'yellow';
-//   }
-// 
+//
 //   //****************************************************************************************************
 //   //Function:resizePanel
 //   //Purpose :This function resizes the panel when extra columns are shown, to accomodate the width
