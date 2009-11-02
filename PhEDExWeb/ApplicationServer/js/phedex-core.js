@@ -115,28 +115,40 @@ PHEDEX.Core = function(sandbox) {
               log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
               continue;
             }
+            var ctor = PHEDEX;
+//          I need a constructor for this decorator. Try three methods to get one:
+//          1) look in the decorator specification
+//          2) deduce it from the module-name, if there is an external module to load
+//          3) deduce it from the type of the module it attaches to, and the name of the decorator
+            if ( d.ctor ) {
+              ctor = d.ctor;
+            }
 //          deduce the constructor from the module name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
 //          If I can't find an initialCaps match for a sub-component, try case-insensitive compare
-            var x = d.module.split('-');
-            var ctor;
-            ctor = PHEDEX;
-            for (var j in x ) {
-              if ( x[j] == 'phedex' ) { continue; }
-              var field = PxU.initialCaps(x[j]);
-              if ( ctor[field] ) { ctor = ctor[field] }
-              else {
-                for (var k in ctor) {
-                  field = k.toLowerCase();
-                  if ( field == x[j] ) {
-                    ctor = ctor[k];
-                    break;
+//          If no module-name is given, assume a constructor PHEDEX[type][name], where type is the group of
+//          this module (DataTable|TreeView) and name is the name of this decorator.
+            else if ( d.module ) {
+              var x = d.module.split('-');
+              for (var j in x ) {
+                if ( x[j] == 'phedex' ) { continue; }
+                var field = PxU.initialCaps(x[j]);
+                if ( ctor[field] ) { ctor = ctor[field] }
+                else {
+                  for (var k in ctor) {
+                    field = k.toLowerCase();
+                    if ( field == x[j] ) {
+                      ctor = ctor[k];
+                      break;
+                    }
                   }
                 }
+                if ( !ctor ) {
+                  log('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
+                  throw new Error('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
+                }
               }
-              if ( !ctor ) {
-                log('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
-                throw new Error('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
-              }
+            } else {
+              ctor = PHEDEX[m.type][d.name];
             }
             if ( typeof(ctor) != 'function' ) {
               log('decorator '+d.module+' constructor is not a function');
@@ -144,6 +156,8 @@ PHEDEX.Core = function(sandbox) {
             }
             setTimeout(function(_m,_d,_ctor) {
               return function() {
+                if ( !_d.payload )     { _d.payload = {}; }
+                if ( !_d.payload.obj ) { _d.payload.obj = _m; }
                 try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
                 catch (ex) { log(err(ex),'error','Core'); }
                 if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
