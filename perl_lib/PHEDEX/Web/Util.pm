@@ -14,6 +14,7 @@ use strict;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Util qw( arrayref_expand );
 use PHEDEX::Web::Format;
+use PHEDEX::Core::Timing;
 
 use HTML::Entities; # for encoding XML
 use Params::Validate qw(:all);
@@ -57,7 +58,10 @@ our %COMMON_VALIDATION = (
     'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
     'lfn'          => qr|^/|,
     '!wildcard'    => qr|\*|,
-    'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 }
+    'node'         => qr|^T\d|,
+    'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
+    'time'         => sub { PHEDEX::Core::Timing::str2time($_[0], 0) ? 1 : 0 },
+    'any'          => sub { 1 }
 );
 
 # Validates arguments using Param::Validate, along with a few
@@ -120,6 +124,9 @@ sub validate_args
 {
     my ($args, %h) = @_;
 
+    # deal with nocache
+    my $nocache = delete $args->{nocache} || 0;
+
     # get a pre-defined spec, or create an empty one
     my $spec = delete $h{spec} || {};
 
@@ -149,7 +156,7 @@ sub validate_args
 	    $ok = 1; last;
 	}
     }
-    die "invalid parameters: one of (",join(', ',@$require_one_of),") are required\n";
+    die "invalid parameters: one of (",join(', ',@$require_one_of),") are required\n" if not $ok;
 
     # check that we have something to validate
     if (scalar @$allow == 0) {
@@ -175,7 +182,7 @@ sub validate_args
 		my $val = $COMMON_VALIDATION{$c} ||
 		    die "developer error: '$c' is not a known validation function\n";
 		
-		if (ref $val eq 'CODEREF') { 
+		if (ref $val eq 'CODE') { 
 		    $s->{callbacks}->{$c} = $val;
 		} elsif (ref $val eq 'Regexp') {
 		    # note: we could have used $s->{regexp}, but doing it
@@ -200,6 +207,12 @@ sub validate_args
 
     # now validate the arguments
     my %good_args = &validate_with( %val_args );
+
+    # nocache?
+    if ($nocache)
+    {
+        $good_args{nocache} = 1;
+    }
 
     return %good_args;
 }
