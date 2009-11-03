@@ -27,6 +27,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           payload:{
             handler: 'getData',
             animate:false,
+            map: { gotData:'Disable' },
           }
         },
         {
@@ -75,6 +76,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         this.data = data.node[0].agent;
         this.dom.title.innerHTML = node+': '+this.data.length+" agents";
         this.fillDataSource(this.data);
+        _sbx.notify( this.id, 'gotData' );
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',
