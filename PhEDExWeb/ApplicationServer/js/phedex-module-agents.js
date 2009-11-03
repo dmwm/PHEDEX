@@ -11,7 +11,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       decorators: [
         {
           name: 'Extra',
-          module:'phedex-component-control',
+          source:'phedex-component-control',
           parent: 'control',
           payload:{
             target: 'extra',
@@ -22,7 +22,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         },
         {
           name: 'Refresh',
-          module:'phedex-component-control',
+          source:'phedex-component-control',
           parent: 'control',
           payload:{
             handler: 'getData',
@@ -31,9 +31,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         },
         {
           name: 'ContextMenu',
-          module:'phedex-component-contextmenu',
+          source:'phedex-component-contextmenu',
           payload:{
-            handler: 'onContextMenuClick',
             args: {'agent':'Name'},
             typeMap: [ 'dataTable' ],
           }
