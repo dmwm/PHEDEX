@@ -11,7 +11,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   if ( obj ) {
     try {
       var f = PHEDEX[obj.type];
-      YAHOO.lang.augmentObject(obj,f.ContextMenu(obj,args),true);
+      YAHOO.lang.augmentObject(this,f.ContextMenu(obj,args),true);
     } catch(ex) {
       log('cannot augment object of type '+obj.type,'warn',_me);
     }
@@ -41,7 +41,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         this.Build(this.contextMenu,this.contextMenuArgs);
         var handler = args.payload.handler;
         if ( handler ) {
-          this.contextMenu.clickEvent.subscribe(obj[handler], obj);
+          this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
         }
         this.contextMenu.render(document.body);
       },
