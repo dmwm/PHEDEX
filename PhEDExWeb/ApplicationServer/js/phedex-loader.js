@@ -124,14 +124,11 @@ PHEDEX.Loader = function(opts) {
     'phedex-datasvc': { requires: ['phedex-util','json'] },
     'phedex-util-idletimer': { },
 
-//  these are just guesses, and may not work as-is
-    'phedex-core-contextmenu': { requires:['phedex-util'] },
-    'phedex-core-control':     { requires:['phedex-util','animation'] },
-    'phedex-core-filter':      { requires:['phedex-util'] },
 
     'phedex-component-control':     { requires:['phedex-util','animation'] },
     'phedex-component-contextmenu': { requires:['phedex-util'] }, //'phedex-registry'] },
 
+//     'phedex-core-filter':      { requires:['phedex-util'] },
 //     { name: 'phedex-global-filter',         requires:[] },
 //     'phedex-core-widget-registry': { requires: ['phedex-util'] },
 //     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes','autocomplete','button'] },
