@@ -38,7 +38,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
       _init: function(args) {
         if ( !args.payload.type ) { args.payload.type = 'a'; }
         this.id = this.me+'_'+PxU.Sequence();
-        this.el = document.createElement(args.type);
+        this.el = document.createElement(args.payload.type);
         if ( args.payload.type == 'img' ) {
           this.el.src = args.src;
         } else if ( args.payload.type == 'a' ) {
@@ -94,6 +94,19 @@ PHEDEX.Component.Control = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(this.id,selfHandler);
+
+        if ( this.payload.obj ) {
+          var moduleHandler = function(obj) {
+            return function(ev,arr) {
+              var action = arr[0];
+              if ( action && obj.payload.map[action] ) {
+                obj[obj.payload.map[action]]();
+              }
+            }
+          }(this);
+          _sbx.listen(this.payload.obj.id,moduleHandler);
+        }
+
       },
       Show: function() {
         var p   = this.payload,
