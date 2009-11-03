@@ -79,7 +79,7 @@ PHEDEX.Core = function(sandbox,loader) {
           var _m=[],
               _d=m.decorators;
           for (var i in _d) {
-            if ( _d[i].module ) { _m.push(_d[i].module); }
+            if ( _d[i].source ) { _m.push(_d[i].source); }
             if ( _m.length ) {
 //          Load the decorators first, then notify when ready...
               log('loading decorators','info','Core');
@@ -124,12 +124,12 @@ PHEDEX.Core = function(sandbox,loader) {
             if ( d.ctor ) {
               ctor = d.ctor;
             }
-//          deduce the constructor from the module name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
+//          deduce the constructor from the source-name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
 //          If I can't find an initialCaps match for a sub-component, try case-insensitive compare
-//          If no module-name is given, assume a constructor PHEDEX[type][name], where type is the group of
+//          If no source-name is given, assume a constructor PHEDEX[type][name], where type is the group of
 //          this module (DataTable|TreeView) and name is the name of this decorator.
-            else if ( d.module ) {
-              var x = d.module.split('-');
+            else if ( d.source ) {
+              var x = d.source.split('-');
               for (var j in x ) {
                 if ( x[j] == 'phedex' ) { continue; }
                 var field = PxU.initialCaps(x[j]);
@@ -144,16 +144,16 @@ PHEDEX.Core = function(sandbox,loader) {
                   }
                 }
                 if ( !ctor ) {
-                  log('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
-                  throw new Error('decorator '+d.module+' not constructible at level '+x[j]+' ('+d.name+')');
+                  log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
+                  throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
                 }
               }
             } else {
               ctor = PHEDEX[m.type][d.name];
             }
             if ( typeof(ctor) != 'function' ) {
-              log('decorator '+d.module+' constructor is not a function');
-              throw new Error('decorator '+d.module+' is not a function');
+              log('decorator '+d.source+' constructor is not a function');
+              throw new Error('decorator '+d.source+' is not a function');
             }
             setTimeout(function(_m,_d,_ctor) {
               return function() {
