@@ -22,11 +22,20 @@ def delete(url,lblock):
       if len(block_objects):
         dbsblock = block_objects.pop(0)
       if dbsblock:
-        # TODO:  is dataset required?
-        print "throwing away %s" % dbsblock['Name']
-        dbsapi.deleteBlock(dbsblock['Path'], dbsblock['Name'])
-        print "deleting %s" % dbsblock['Name']
-        dbsapi.deleteRecycleBin(dbsblock['Path'], dbsblock['Name'])
+        block = dbsblock['Name']
+        path  = dbsblock['Path']
+        
+        print "throwing away block=%s" % block
+        dbsapi.deleteBlock(path, block)
+
+        summary = dbsapi.listDatasetSummary(path)
+        nblocks = summary['number_of_blocks']
+        if (nblocks == 0):
+          print "throwing away empty dataset=%s" % path
+          dbsapi.deleteProcDS(path)
+        
+        print "deleting block=%s" % block
+        dbsapi.deleteRecycleBin(path, block)
       else:
         raise Exception("block='%s' not found in dbs='%s'" % (block, url))
 
@@ -39,7 +48,7 @@ def main ():
   parser = OptionParser(usage=usage)
 
   parser.add_option('-u', '--url', dest='url', default='https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet', help='DBS URL')
-  parser.add_option('-b', '--block', dest='block', default=None, help='Block to be invalidated')
+  parser.add_option('-b', '--block', dest='block', default=None, help='Block to be deleted')
 
   (opts, args) = parser.parse_args()
 
