@@ -263,8 +263,6 @@ sub getFileReplicas
     return \@r;
 }
 
-
-
 sub getTFC {
    my ($self, %h) = @_;
    my ($sql,$q,%p,@r);
