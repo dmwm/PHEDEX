@@ -7,8 +7,6 @@ PHEDEX.Component.Control = function(sandbox,args) {
       _notify = function() {};
 
   _clickHandler=function(ev,obj) {
-//     var eHeight;
-//     var tgt = obj.payload.target;
     if ( ev.type == 'mouseover' ) {
       obj.Show();
     } else if ( ev.type == 'click' ) {
@@ -38,13 +36,13 @@ PHEDEX.Component.Control = function(sandbox,args) {
       enabled: 1,
       payload: {},
       _init: function(args) {
-        if ( !args.type ) { args.type = 'a'; }
+        if ( !args.payload.type ) { args.payload.type = 'a'; }
         this.id = this.me+'_'+PxU.Sequence();
         this.el = document.createElement(args.type);
-        if ( args.type == 'img' ) {
+        if ( args.payload.type == 'img' ) {
           this.el.src = args.src;
-        } else if ( args.type == 'a' ) {
-          this.el.appendChild(document.createTextNode(args.text || args.name));
+        } else if ( args.payload.type == 'a' ) {
+          this.el.appendChild(document.createTextNode(args.payload.text || args.name));
         }
         for (var i in args.payload) { this.payload[i] = args.payload[i]; }
         if ( this.payload.target ) {
@@ -54,7 +52,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
           if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
         }
         YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
-        this.el.className = args.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
+        this.el.className = args.payload.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
         if ( !args.events ) {
           args.events = [
                     {event:'mouseover', handler:_mouseoverHandler},
@@ -64,7 +62,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         for (var i in args.events) {
           var ev = args.events[i].event,
               fn = args.events[i].handler || PHEDEX.Component.Control.clickHandler,
-              el = args.events[i].element || this.el; // doesn't seem to work when I use something other than the ctl itself...
+              el = args.events[i].element || this.el;
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
         if ( this.payload.obj ) {
