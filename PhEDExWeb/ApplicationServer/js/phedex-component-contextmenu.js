@@ -39,10 +39,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         var config = args.payload.config || {};
         this.contextMenu = this.Create(config);
         this.Build(this.contextMenu,this.contextMenuArgs);
-        var handler = args.payload.handler;
-        if ( handler ) {
-          this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
-        }
+        this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
         this.contextMenu.render(document.body);
       },
 
