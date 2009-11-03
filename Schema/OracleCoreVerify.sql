@@ -145,6 +145,7 @@ create index ix_dvs_block_test on t_dvs_block(test);
 create index ix_dvs_file_file on t_dvs_file(fileid);
 create index ix_dvs_file_result_file on t_dvs_file_result(fileid);
 create index ix_dvs_file_result_request on t_dvs_file_result(request);
+create index ix_status_block_verify_block on t_status_block_verify(block);
 create index ix_status_block_verify_node on t_status_block_verify(node);
 create index ix_status_block_verify_test on t_status_block_verify(test);
 
