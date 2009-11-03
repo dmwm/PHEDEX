@@ -850,7 +850,7 @@ sub process
   $pmon->State('idle','start');
   $self->idle (@pending);
   $pmon->State('idle','stop');
-  print $self->Hdr,$pmon->FormatStates,"\n" if $self->{DEBUG};
+  $self->Dbgmsg($pmon->FormatStates) if $self->{DEBUG};
 
   # Check to see if the config-file should be reloaded
   $self->checkConfigFile();
@@ -1495,7 +1495,7 @@ sub _start
   $self->{stats}{START} = time;
 # $self->{stats}{maybeStop} = 0;
 # $self->{stats}{process} = {};
-  $kernel->yield('_make_stats');
+ $kernel->yield('_make_stats');
 
   $self->Logmsg("has successfully initialised");
 }
