@@ -112,11 +112,9 @@ sub blockReplicas
 
 # spooling
 
-my $last = undef;
 my $sth;
 my $limit = 1000;
 my @keys = ('BLOCK_ID');
-my $EndOfData = undef;
 
 sub spool
 {
@@ -128,8 +126,6 @@ sub spool
     $h{'__spool__'} = 1;
 
     my $r;
-    my $data;
-    my $count = 0;
 
     $sth = PHEDEX::Web::SQL::getBlockReplicas($core, %h) if !$sth;
     $r = PHEDEX::Web::Util::spool($sth, $limit, @keys);
