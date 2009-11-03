@@ -1,6 +1,7 @@
-PHEDEX.Core = function(sandbox) {
+PHEDEX.Core = function(sandbox,loader) {
   var _modules = {}, _loaded = [],
       _sbx = sandbox,
+      _ldr = loader,
       _me = 'Core',
       _timer, // used to clear the banner window after a while.
       _parent = document.getElementById('phedex-main'),
@@ -15,14 +16,14 @@ PHEDEX.Core = function(sandbox) {
   var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 5000 ); },
       _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
 
-  var LoadModule =  function(ev,arr) {
+  var _loadModule =  function(ev,arr) {
 // N.B. loadModule() can return _before_ the module is created, if it has to load it first. It will call itself again later.
     var name = arr[0];
     if ( _loaded[name] ) { _sbx.notify('ModuleLoaded',name); return; }
     var module = name.toLowerCase();
     if ( ! module.match('/^phedex-/') ) { module = 'phedex-module-'+module; }
     log ('loading "'+module+'" (for '+name+')','info',_me);
-    PxL.load( {
+    _ldr.load( {
       Success: function(obj) {
         return function() {
           banner('Loaded "'+name+'"!');
@@ -36,13 +37,13 @@ PHEDEX.Core = function(sandbox) {
     return;
   };
 
-  var CreateModule = function(ev,arr) {
+  var _createModule = function(ev,arr) {
 // create a module and call its init() function. It is expected that the module will notify the sandbox when it is up, and
 // the core will handle it through the moduleHandler function after that.
     var name = PxU.initialCaps(arr[0]);
     log ('creating a module "'+name+'"','info',_me);
     try {
-      var m = new PHEDEX.Module[name](PxS,name);
+      var m = new PHEDEX.Module[name](_sbx,name);
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!"); }
     m.init(_global_options);
   }
@@ -82,7 +83,7 @@ PHEDEX.Core = function(sandbox) {
             if ( _m.length ) {
 //          Load the decorators first, then notify when ready...
               log('loading decorators','info','Core');
-              PxL.load( {
+              _ldr.load( {
                 Success: function() {
                   log('Successfully loaded decorators','warn','Core');
                   _sbx.notify(m.id,'decoratorsLoaded');
@@ -203,8 +204,8 @@ PHEDEX.Core = function(sandbox) {
   return {
     create: function() {
       _sbx.listen('ModuleExists', _moduleExists);
-      _sbx.listen('LoadModule',   LoadModule);
-      _sbx.listen('ModuleLoaded', CreateModule);
+      _sbx.listen('LoadModule',   _loadModule);
+      _sbx.listen('ModuleLoaded', _createModule);
       _sbx.notify('CoreCreated');
       banner('PhEDEx App is up and running!');
     },
