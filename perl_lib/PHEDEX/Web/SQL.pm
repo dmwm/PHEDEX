@@ -255,6 +255,8 @@ sub getFileReplicas
 	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
+    $sql .= qq{ order by block_id };
+
     $q = execute_sql( $self, $sql, %p );
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
