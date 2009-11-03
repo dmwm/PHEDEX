@@ -93,7 +93,7 @@ PHEDEX.Module = function(sandbox, string) {
       initModule: function() {
         log(this.id+': initialising','info','Module');
 
-//      handle messages from the core...
+//      handle messages from the core. Not actually used anywhere yet!
         var coreHandler = function(obj) {
           return function(ev,arr) {
             var who = arr[0],
