@@ -119,7 +119,7 @@ function createCoreApp() {
     PxS = new PHEDEX.Sandbox();
   } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
   try {
-    PxC = new PHEDEX.Core(PxS);
+    PxC = new PHEDEX.Core(PxS,PxL);
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
@@ -129,16 +129,21 @@ function createCoreApp() {
   PxL.load(function() {
     PHEDEX.Logger.Create();
     var ctl = new PHEDEX.Component.Control(PxS,{
-        text:'Show Logger',
-        payload:{target:'phedex-logger', animate:true},
-        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        payload: {
+          text:'Show Logger',
+          target:'phedex-logger',
+          animate:true,
+          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        }
       }
     );
     document.getElementById('phedex-controls').appendChild(ctl.el);
     ctl = new PHEDEX.Component.Control(PxS,{
-        text:'Debug controls',
-        payload:{target:'phedex-debug'},
-        className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        payload: {
+          text:'Debug controls',
+          target:'phedex-debug',
+          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        }
       }
     );
     document.getElementById('phedex-controls').appendChild(ctl.el);
@@ -151,7 +156,7 @@ function createCoreApp() {
 // 2. pre-load the rest of the code in idle-time
   PxL.load(function() {
     var IdleTimer = new PHEDEX.Util.IdleTimer();
-    IdleTimer.subscribe('idle',   function() { banner('waiting for input'); });
+    IdleTimer.subscribe('idle',   function() { banner('waiting for your input'); });
     IdleTimer.subscribe('active', function() { banner(); });
     IdleTimer.start(10000);
     var preLoader = new PHEDEX.Util.IdleTimer();
