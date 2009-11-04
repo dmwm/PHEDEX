@@ -11,7 +11,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       decorators: [
         {
           name: 'Extra',
-          source:'phedex-component-control',
+          source:'component-control',
           parent: 'control',
           payload:{
             target: 'extra',
@@ -22,21 +22,34 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         },
         {
           name: 'Refresh',
-          source:'phedex-component-control',
+          source:'component-control',
           parent: 'control',
           payload:{
             handler: 'getData',
             animate:false,
-            map: { gotData:'Disable' },
+            map: {
+                   gotData:     'Disable',
+                   dataExpires: 'Enable',
+                  },
           }
         },
         {
           name: 'ContextMenu',
-          source:'phedex-component-contextmenu',
+          source:'component-contextmenu',
           payload:{
             args: {'agent':'Name'},
             typeMap: [ 'dataTable' ],
           }
+        },
+        {
+          name: 'cMenuButton',
+          source:'component-splitbutton',
+          payload:{
+            name:'Show all fields',
+            map: {
+              hideColumn:'addMenuItem',
+            },
+          },
         },
         { name: 'MouseOver' },
       ],
@@ -77,6 +90,10 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         this.dom.title.innerHTML = node+': '+this.data.length+" agents";
         this.fillDataSource(this.data);
         _sbx.notify( this.id, 'gotData' );
+//      Fake notification that the data is now stale. This should use the 'Expires' or 'Cache-Control' header from the data-service, but that isn't returned in the data
+        setTimeout( function(obj) {
+            return function() { _sbx.notify(obj.id,'dataExpires'); };
+          }(this), 300 * 1000 );
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',
