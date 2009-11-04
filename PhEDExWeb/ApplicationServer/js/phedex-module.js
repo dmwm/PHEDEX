@@ -122,6 +122,12 @@ PHEDEX.Module = function(sandbox, string) {
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
+              case 'resizePanel':
+              case 'showField': {
+                arr.shift();
+                obj[action](arr);
+                break;
+              }
 //               default: { log('unhandled event: '+action,'warn',obj.me); break; }
             }
           }
