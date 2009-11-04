@@ -4,7 +4,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   var _me = 'Component-Control',
       _sbx = sandbox,
-      _notify = function() {};
+      partner = args.partner,
 
   _clickHandler=function(ev,obj) {
     if ( ev.type == 'mouseover' ) {
@@ -45,6 +45,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
           this.el.appendChild(document.createTextNode(args.payload.text || args.name));
         }
         for (var i in args.payload) { this.payload[i] = args.payload[i]; }
+        if ( this.payload.obj ) { partner = this.payload.obj.id; }
         if ( this.payload.target ) {
           if ( this.payload.obj ) {
             if ( typeof(this.payload.target) != 'object' ) {  this.payload.target = this.payload.obj.dom[this.payload.target]; }
@@ -65,14 +66,6 @@ PHEDEX.Component.Control = function(sandbox,args) {
               el = args.events[i].element || this.el;
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
-        if ( this.payload.obj ) {
-          var partner = this.payload.obj.id;
-          _notify = function() {
-            var x = Array.apply(null,arguments);
-            x.unshift(partner);
-            _sbx.notify.apply(_sbx,x);
-          }
-        }
 
         var selfHandler = function(obj) {
           return function(ev,arr) {
@@ -83,7 +76,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
                 var tgt = obj.payload.target;
                 if ( tgt ) {
                   var eHeight = tgt.offsetHeight;
-                  _notify('show target',eHeight);
+                  _sbx.notify(partner,'show target',eHeight);
                 } else {
                   if ( value == 'done' ) { obj.Hide(); }
                 }
@@ -115,7 +108,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         if ( tgt && !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
         if ( p.handler ) {
           if ( typeof(p.handler) == 'string' ) {
-            _notify('expand',p.handler,this.id);
+            _sbx.notify(partner,'expand',p.handler,this.id);
           }
           else if ( typeof(p.handler) == 'function' ) {
             p.handler();
@@ -136,8 +129,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
               YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
               YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
               tgt.style.height=null;
-//             if ( ctl.payload.onHideControl ) { ctl.payload.onHideControl.fire(eHeight); }
-              _notify('hide target',eHeight);
+              _sbx.notify(partner,'hide target',eHeight);
               YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
               YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
             };
