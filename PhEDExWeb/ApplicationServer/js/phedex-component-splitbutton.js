@@ -4,7 +4,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   var _me = 'Component-SplitButton',
       _sbx = sandbox,
-      _notify = function() {},
+      partner = args.partner,
       column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence()),
       button = new YAHOO.widget.Button(
           {
@@ -12,11 +12,11 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
             label: args.payload.name,
             name: 'splitButton_'+PHEDEX.Util.Sequence(),
             menu: column_menu,
-            container: /*'phedex-test', //*/args.payload.obj.dom.param,
+            container: args.payload.obj.dom[args.payload.container],
             disabled:true
           }
-        ),
-      partner = args.payload.obj.id;
+        );
+
 
   _construct = function() {
     return {
@@ -24,7 +24,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
       payload: {},
 
        addMenuItem: function(args) {
-         column_menu.addItem({text: args[0].text,value:args[0].value});
+         column_menu.addItem({text:args[0].text, value:args[0].value});
          this.refreshButton();
        },
 
@@ -35,12 +35,13 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
 
       _init: function(args) {
         for (var i in args.payload) { this.payload[i] = args.payload[i]; }
+        if ( this.payload.obj ) { partner = this.payload.obj.id; }
 
         button.on("click", function (obj) {
           return function() {
             var m = column_menu.getItems();
             for (var i = 0; i < m.length; i++) {
-              _sbx.notify(partner,'showField',m[i].value);
+              _sbx.notify(partner,'menuSelectItem',m[i].value,obj.id);
             }
             column_menu.clearContent();
             obj.refreshButton();
@@ -54,11 +55,11 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
             m.subscribe("click", function onMenuClick(sType, oArgs) {
               var oMenuItem = oArgs[1];
               if (oMenuItem) {
-                _sbx.notify(partner,'showField',oMenuItem.value);
+                _sbx.notify(partner,'menuSelectItem',oMenuItem.value);
                 m.removeItem(oMenuItem.index);
                 obj.refreshButton();
               }
-            _sbx.notify(partner,'resize');
+            _sbx.notify(partner,'resizePanel');
             });
           }
         }(this));
