@@ -46,10 +46,8 @@ PHEDEX.DataTable = function(sandbox,string) {
         if ( x >= old_width ) { this.module.cfg.setProperty('width',x+'px'); }
       },
 
-      showField: function(arr) {
-        for (var i in arr ) {
-          this.dataTable.showColumn(this.dataTable.getColumn(arr[i]));
-        }
+      menuSelectItem: function(arr) {
+        this.dataTable.showColumn(this.dataTable.getColumn(arr[0]));
       },
 
       buildTable: function(div,columns,map,dsschema) {
