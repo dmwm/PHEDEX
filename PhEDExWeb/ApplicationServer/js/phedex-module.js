@@ -123,7 +123,7 @@ PHEDEX.Module = function(sandbox, string) {
                 break;
               }
               case 'resizePanel':
-              case 'showField': {
+              case 'menuSelectItem': {
                 arr.shift();
                 obj[action](arr);
                 break;
@@ -152,65 +152,17 @@ PHEDEX.Module = function(sandbox, string) {
           underlay: "matte"
         };
         if ( this.options.window ) {
-          YAHOO.util.Dom.addClass(this.el,'phedex-panel');
-          this.module = new YAHOO.widget.Panel(this.el, module_options);
-          this.adjustHeader = function(arg) { // 'window' panels need to respond to header-resizing
-            var oheight = parseInt(this.module.cfg.getProperty("height"));
-            if ( isNaN(oheight) ) { return; } // nothing to do if the height is not specified
-            var hheight = parseInt(this.module.header.offsetHeight);
-            this.module.header.style.height=(hheight+arg)+'px';
-            this.module.cfg.setProperty("height",(oheight+arg)+'px');
-          };
+          YAHOO.lang.augmentObject(this, new PHEDEX.Module.Window(this,module_options),true);
         } else {
           delete module_options['width'];
           delete module_options['height'];
           module_options.draggable = false;
           this.module = new YAHOO.widget.Module(this.el, module_options);
         }
+
         this.module.render();
-//        YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't need it there...
+//        YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't want it there...
         this.el.style.display=null;
-
-        // (Optionally) Make resizable
-        if ( this.options.window && this.options.resizable ) {
-          YAHOO.util.Dom.addClass(this.div,'phedex-resizeable-panel');
-
-          /** Handles the resizing of this widget.
-          * @property resize
-          * @type YAHOO.util.Resize
-          * @private
-          */
-          this.resize = new YAHOO.util.Resize(this.el, {
-            handles: this.options.handles,
-            autoRatio: false,
-            minWidth:  this.options.minwidth,
-            minHeight: this.options.minheight,
-            status: false
-          });
-          this.resize.on('resize', function(args) {
-            var panelHeight = args.height;
-            if ( panelHeight > 0 )
-            {
-              this.cfg.setProperty("height", panelHeight + "px");
-            }
-          }, this.module, true);
-          // Setup startResize handler, to constrain the resize width/height
-          // if the constraintoviewport configuration property is enabled.
-          this.resize.on('startResize', function(args) {
-            if (this.module.cfg.getProperty("constraintoviewport")) {
-              var clientRegion = YAHOO.util.Dom.getClientRegion();
-              var elRegion = YAHOO.util.Dom.getRegion(this.module.element);
-              var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
-              var h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
-
-              this.resize.set("maxWidth", w);
-              this.resize.set("maxHeight", h);
-            } else {
-              this.resize.set("maxWidth", null);
-              this.resize.set("maxHeight", null);
-            }
-          }, this, true);
-        }
 
         log('initModule complete','info','Module');
       },
@@ -267,6 +219,58 @@ PHEDEX.Module = function(sandbox, string) {
   return this;
 };
 
+PHEDEX.Module.Window = function(obj,module_options) {
+          YAHOO.util.Dom.addClass(obj.el,'phedex-panel');
+          this.module = new YAHOO.widget.Panel(obj.el, module_options);
+          this.adjustHeader = function(arg) { // 'window' panels need to respond to header-resizing
+            var oheight = parseInt(this.module.cfg.getProperty("height"));
+            if ( isNaN(oheight) ) { return; } // nothing to do if the height is not specified
+            var hheight = parseInt(this.module.header.offsetHeight);
+            this.module.header.style.height=(hheight+arg)+'px';
+            this.module.cfg.setProperty("height",(oheight+arg)+'px');
+          };
+
+        // (Optionally) Make resizable
+          if ( obj.options.resizable ) {
+            YAHOO.util.Dom.addClass(obj.el,'phedex-resizeable-panel');
+
+            /** Handles the resizing of this widget.
+            * @property resize
+            * @type YAHOO.util.Resize
+            * @private
+            */
+            this.resize = new YAHOO.util.Resize(obj.el, {
+              handles: obj.options.handles,
+              autoRatio: false,
+              minWidth:  obj.options.minwidth,
+              minHeight: obj.options.minheight,
+              status: false
+            });
+            this.resize.on('resize', function(args) {
+              var panelHeight = args.height;
+              if ( panelHeight > 0 )
+              {
+                this.cfg.setProperty("height", panelHeight + "px");
+              }
+            }, this.module, true);
+            // Setup startResize handler, to constrain the resize width/height
+            // if the constraintoviewport configuration property is enabled.
+            this.resize.on('startResize', function(args) {
+              if (this.module.cfg.getProperty("constraintoviewport")) {
+                var clientRegion = YAHOO.util.Dom.getClientRegion();
+                var elRegion = YAHOO.util.Dom.getRegion(this.module.element);
+                var w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+                var h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+
+                this.resize.set("maxWidth", w);
+                this.resize.set("maxHeight", h);
+              } else {
+                this.resize.set("maxWidth", null);
+                this.resize.set("maxHeight", null);
+              }
+            }, this, true);
+          }
+}
 // PHEDEX.namespace('Core.Widget');
 // PHEDEX.Core.Widget = function(divid,opts) {
 //   YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
