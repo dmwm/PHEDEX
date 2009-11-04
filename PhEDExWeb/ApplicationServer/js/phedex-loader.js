@@ -124,19 +124,19 @@ PHEDEX.Loader = function(opts) {
     'phedex-datasvc': { requires: ['phedex-util','json'] },
     'phedex-util-idletimer': { },
 
-
     'phedex-component-control':     { requires:['phedex-util','animation'] },
-    'phedex-component-contextmenu': { requires:['phedex-util'] }, //'phedex-registry'] },
+    'phedex-component-contextmenu': { requires:['phedex-util','menu'] }, //'phedex-registry'] },
+    'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
 
 //     'phedex-core-filter':      { requires:['phedex-util'] },
-//     { name: 'phedex-global-filter',         requires:[] },
+//     'phedex-global-filter':    { requires:[] },
 //     'phedex-core-widget-registry': { requires: ['phedex-util'] },
-//     { name: 'phedex-navigator', requires: ['phedex-core-widget','phedex-widget-nodes','autocomplete','button'] },
+//     'phedex-navigator': { requires: ['phedex-core-widget','phedex-widget-nodes','autocomplete','button'] },
 
     'phedex-logger':    { requires:['phedex-util', 'logger'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
-    'phedex-module':    { requires:['phedex-core','container','resize','button'] },
+    'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires:['treeview'] },
     'phedex-module-nodes':  { requires:['phedex-module','phedex-datatable'] },
@@ -208,14 +208,16 @@ PHEDEX.Loader = function(opts) {
         return;
       }
       _busy = true;
-      var _args = arguments;
+      var _args = Array.apply(null,arguments);
+      _args.shift();
+      if ( typeof(_args[0]) == 'object' || typeof(_args[0]) == 'array' ) { _args = _args[0]; }
       setTimeout( function() {
         if ( typeof(args) == 'function' ) { _on.Success = args; }
         else {
           _on = {};
           for (var i in args) { _on[i] = args[i]; }
         }
-        for (var i=1; i<_args.length; i++)
+        for (var i=0; i<_args.length; i++)
         {
           var m = _args[i];
           if ( _dependencies['phedex-'+m] ) { m = 'phedex-'+m; }
