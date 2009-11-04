@@ -80,21 +80,21 @@ PHEDEX.Core = function(sandbox,loader) {
               _d=m.decorators;
           for (var i in _d) {
             if ( _d[i].source ) { _m.push(_d[i].source); }
-            if ( _m.length ) {
-//          Load the decorators first, then notify when ready...
-              log('loading decorators','info','Core');
-              _ldr.load( {
-                Success: function() {
-                  log('Successfully loaded decorators','warn','Core');
-                  _sbx.notify(m.id,'decoratorsLoaded');
-                },
-                Progress: function(item) { banner('Loaded item: '+item.name); }
-              }, _m);
-            } else {
+          }
+          if ( _m.length ) {
+//          load the decorators first, then notify when ready...
+            log('loading decorators','info','Core');
+            _ldr.load( {
+              Success: function() {
+                log('Successfully loaded decorators','warn','Core');
+                _sbx.notify(m.id,'decoratorsLoaded');
+              },
+              Progress: function(item) { banner('Loaded item: '+item.name); }
+            }, _m);
+          } else {
 //          nothing needs loading, I can notify the decorators directly
-              log('Already loaded decorators','warn','Core');
-              _sbx.notify(m.id,'decoratorsLoaded');
-            }
+            log('Already loaded decorators','warn','Core');
+            _sbx.notify(m.id,'decoratorsLoaded');
           }
           break;
         }
