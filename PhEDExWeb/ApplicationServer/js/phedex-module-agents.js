@@ -49,6 +49,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             map: {
               hideColumn:'addMenuItem',
             },
+            container: 'param',
           },
         },
         { name: 'MouseOver' },
