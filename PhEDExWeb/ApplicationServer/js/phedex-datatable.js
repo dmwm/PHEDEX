@@ -1,5 +1,7 @@
 PHEDEX.DataTable = function(sandbox,string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
+  var _me  = 'DataTable',
+      _sbx = sandbox;
 
   var _construct = function() {
     return {
@@ -35,10 +37,19 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.el.style.width = w+'px';
       },
 
-// Custom formatter for unix-epoch dates
-      UnixEpochToGMTFormatter: function(elCell, oRecord, oColumn, oData) {
-        var gmt = new Date(oData*1000).toGMTString();
-        elCell.innerHTML = gmt;
+// TODO: This only matters for resizeable panels, so belongs in a decorator to that effect. The core module class needs sorting for that.
+      resizePanel: function() {
+        var table = this.dataTable;
+        var old_width = table.getContainerEl().clientWidth;
+        var offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth;
+        var x = table.getTableEl().offsetWidth + offset;
+        if ( x >= old_width ) { this.module.cfg.setProperty('width',x+'px'); }
+      },
+
+      showField: function(arr) {
+        for (var i in arr ) {
+          this.dataTable.showColumn(this.dataTable.getColumn(arr[i]));
+        }
       },
 
       buildTable: function(div,columns,map,dsschema) {
@@ -57,14 +68,27 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
         var w = this.dataTable.getTableEl().offsetWidth;
         this.el.style.width = w+'px';
+
+        this.dataTable.subscribe('columnHideEvent', function(obj) {
+          return function(ev) {
+            var column = obj.dataTable.getColumn(ev.column);
+            log('columnHideEvent: label:'+column.label+' key:'+column.key,'info',_me);
+            _sbx.notify(obj.id, 'hideColumn', {text: column.label || column.key,value:column.key} );
+          }
+        }(this));
+        this.dataTable.subscribe('renderEvent', function() { this.resizePanel(); } );
       },
     };
   };
-
   YAHOO.lang.augmentObject(this,_construct(),true);
-  YAHOO.widget.DataTable.Formatter.UnixEpochToGMT = this.UnixEpochToGMTFormatter;
   return this;
 }
+
+// Custom formatter for unix-epoch dates
+YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
+  var gmt = new Date(oData*1000).toGMTString();
+  elCell.innerHTML = gmt;
+};
 
 // decorators for the datatable.
 PHEDEX.DataTable.ContextMenu = function(obj,args) {
@@ -124,23 +148,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-//   //******************************************************************************************************************************
-//   //Function:buildTable
-//   //Purpose :This function builds new data table for the widget. The arguments are 'div' to instantiate the table into, an array
-//   //         of column definitions, a map and response schema for data source. The column definitions can be simply names of
-//   //         fields, or full datasource-column object specifications. They will be converted accordingly. Columns are sortable and
-//   //         resizeable by default, so explicitly turn that off if you do not want it for your columns.
-//   //
-//   //         Columns which are to be treated as numbers need a 'parser' specified. E.g. {key:'ID' parser:'number' }
-//   //         Parsers from YAHOO.util.DataSourceBase may be specified by name (i.e. 'string', 'number', or 'date'), or a function
-//   //         may be given which takes the single input argument and returns the parsed value. By default, everything is a string.
-//   //
-//   //         The map is for mapping JSON field-names in the data to table column-names. By default, column-names are mapped to
-//   //         their lower-case selves in the data returned from the data-service. If you need it to be mapped differently, this
-//   //         is where you specify that mapping, giving the table-column name as the key, and the data-service field as the value.
-//   //******************************************************************************************************************************
-//   this._me = 'PHEDEX.Core.Widget.DataTable';
-// 
 //   //*******************************************************************************************************
 //   //Function:fillDataSourceWithSchema
 //   //Purpose :This function fills the datasource with the data and response schema
@@ -156,78 +163,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //       this.dataSource.sendRequest('', oCallback); //This is to update the datatable on UI
 //   }
 // 
-//   //*******************************************************************************************************
-//   //Function:fillDataSource
-//   //Purpose :This function fills the datasource with the data by parsing data if response schema is
-//   //         undefined and finally triggers datatable to update its status on UI
-//   //*******************************************************************************************************
-//
-//   this.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence()); //For split button menu items
-// 
-//   //Create new Split button to show the list of hidden column names
-//   this.showFields = new YAHOO.widget.Button(
-//     {
-//       type: "split",
-//       label: "Show all columns",
-//       name: 'showFields_'+PHEDEX.Util.Sequence(),
-//       menu: this.column_menu,
-//       container: this.dom.param,
-//       disabled:true
-//     }
-//   );
-// 
-//   //*******************************************************************************************************
-//   //Function:showFields - click event handler
-//   //Purpose :This function is event handler for split button that gets called on clicking it. This is used
-//   //         to show all hidden columns in the datatable
-//   //*******************************************************************************************************
-//   this.showFields.on("click", function (obj) {
-//     return function() {
-//       var m = obj.column_menu.getItems();
-//       for (var i = 0; i < m.length; i++) {
-//         obj.dataTable.showColumn(obj.dataTable.getColumn(m[i].value));
-//       }
-//       obj.column_menu.clearContent();
-//       obj.refreshButton();
-//       obj.resizePanel(obj.dataTable);
-//     }
-//   }(this));
-// 
-//   //*******************************************************************************************************
-//   //Function:showFields - appendTo event handler
-//   //Purpose :This function is event handler for split button that gets called on adding menu item to it.
-//   //         This is used to add hidden column names to split button
-//   //*******************************************************************************************************
-//   this.showFields.on("appendTo", function (obj) {
-//     return function() {
-//       var m = this.getMenu();
-//       //***************************************************************************************************
-//       //Function:showFields - menu items - click event handler
-//       //Purpose :This function is event handler for split button menu items that gets called on clicking
-//       //         menu item. This is used to show hidden column name.
-//       //***************************************************************************************************
-//       m.subscribe("click", function onMenuClick(sType, oArgs) {
-//         var oMenuItem = oArgs[1];
-//         if (oMenuItem) {
-//           obj.dataTable.showColumn(obj.dataTable.getColumn(oMenuItem.value));
-//           m.removeItem(oMenuItem.index);
-//           obj.refreshButton();
-//         }
-//         obj.resizePanel(obj.dataTable);
-//       });
-//     }
-//   }(this));
-// 
-//   //*******************************************************************************************************
-//   //Function:refreshButton
-//   //Purpose :This function is used to refresh the split button status after any hidden column is shown. If
-//   //         the split button has no more menu items, then it is disabled.
-//   //*******************************************************************************************************
-//   this.refreshButton = function() {
-//     this.column_menu.render(document.body);
-//     this.showFields.set('disabled', this.column_menu.getItems().length === 0);
-//   };
-//
 // // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
@@ -243,13 +178,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //         obj.contextMenu.clickEvent.subscribe(obj.onContextMenuClick, obj);
 //         obj.contextMenu.render(document.body);
 //       }
-// //    Event-subscriptions for the 'Show all columns' button. Require that the dataTable exist, so post-build!
-//       obj.dataTable.subscribe('columnHideEvent', function(ev) {
-//         var column = obj.dataTable.getColumn(ev.column);
-//         YAHOO.log('column_menu.addItem: label:'+column.label+' key:'+column.key,'info','Core.DataTable');
-//         obj.column_menu.addItem({text: column.label || column.key,value:column.key});
-//         obj.refreshButton();
-//       } );
+
 //       obj.dataTable.subscribe('renderEvent', function() { obj.resizePanel(obj.dataTable); } );
 //     }
 //   }(this));
