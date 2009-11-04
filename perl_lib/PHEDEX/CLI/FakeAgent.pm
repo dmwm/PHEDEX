@@ -22,7 +22,7 @@ pending...
 
 use strict;
 use warnings;
-use base 'PHEDEX::CLI::UserAgent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::CLI::UserAgent';
 use PHEDEX::Core::Timing;
 use Data::Dumper;
 use Getopt::Long;

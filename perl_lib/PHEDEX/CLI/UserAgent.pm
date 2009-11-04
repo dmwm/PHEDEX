@@ -19,7 +19,7 @@ pending...
 
 use strict;
 use warnings;
-use base 'LWP::UserAgent', 'PHEDEX::Core::Logging';
+use base 'LWP::UserAgent';
 use PHEDEX::Core::Timing;
 use Data::Dumper;
 use Getopt::Long;
