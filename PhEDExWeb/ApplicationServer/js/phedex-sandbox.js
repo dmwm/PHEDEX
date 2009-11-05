@@ -20,9 +20,17 @@ PHEDEX.Sandbox = function() {
 //    handlers afterwards. Essentially I queue the event for later. I think I also keep the stack shorter too
       setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
     },
+
     listen: function(event,fn) {
       _getEvent(event,true).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
       log('new listener for event: '+event,'info',_me);
+    },
+
+    deleteEvent: function(event) {
+      var ev = _getEvent(event);
+      if ( !ev ) { return; }
+      ev.unsubscribeAll();
+      delete _events[event];
     },
 //     stopListening: function(event,fn) {
 //	  I don't know how I would do this. I would need to know the function that was subscribed, so would
