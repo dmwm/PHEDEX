@@ -87,7 +87,7 @@ stressTest = function() {
 
   var moduleHandler = function(who,arr) {
     switch ( arr[0] ) {
-      case 'updated': {
+      case 'gotData': {
         PxS.notify('module',who,'destroy');
         break;
       }
@@ -164,7 +164,7 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-//   PxS.notify('LoadModule','Nodes');
+  PxS.notify('LoadModule','Agents');
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
