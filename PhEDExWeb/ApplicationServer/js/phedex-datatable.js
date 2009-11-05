@@ -37,6 +37,18 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.el.style.width = w+'px';
       },
 
+      hideByDefault: function() {
+        if ( this.options.defhide ) {
+          for (var i in this.options.defhide)
+          {
+            var column = this.dataTable.getColumn(this.options.defhide[i]);
+            if ( column ) { this.dataTable.hideColumn(column); }
+          }
+        }
+        var w = this.dataTable.getTableEl().offsetWidth;
+        this.el.style.width = w+'px';
+      },
+
       fillDataSourceWithSchema: function(jsonData, dsSchema) {
         this.dataSource = new YAHOO.util.DataSource(jsonData);
         this.dataSource.responseSchema = dsSchema;
@@ -47,7 +59,6 @@ PHEDEX.DataTable = function(sandbox,string) {
         };
         this.dataSource.sendRequest('', oCallback); //This is to update the datatable on UI
       },
-
 
       menuSelectItem: function(arr) {
         this.dataTable.showColumn(this.dataTable.getColumn(arr[0]));
@@ -90,6 +101,7 @@ PHEDEX.DataTable = function(sandbox,string) {
         }(this));
         this.dataTable.subscribe('renderEvent', function() { this.resizePanel(); } );
       },
+
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
@@ -159,24 +171,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-PHEDEX.DataTable.Resizeable = function(obj) {
-  return {
-//     resizePanel: function() {
-//       var table = this.dataTable,
-//           old_width = table.getContainerEl().clientWidth,
-//           offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
-//           x = table.getTableEl().offsetWidth + offset;
-//       if ( x >= old_width ) { this.module.cfg.setProperty('width',x+'px'); }
-//     },
-  };
-}
 
-
-//   //*******************************************************************************************************
-//   //Function:fillDataSourceWithSchema
-//   //Purpose :This function fills the datasource with the data and response schema
-//   //*******************************************************************************************************
-//
 // // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
