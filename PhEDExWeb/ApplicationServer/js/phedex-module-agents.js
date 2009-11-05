@@ -95,6 +95,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         setTimeout( function(obj) {
             return function() { _sbx.notify(obj.id,'dataExpires'); };
           }(this), 300 * 1000 );
+        _sbx.notify( this.id, 'updated' );
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',
