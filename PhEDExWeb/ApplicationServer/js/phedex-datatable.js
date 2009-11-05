@@ -37,17 +37,31 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.el.style.width = w+'px';
       },
 
-// TODO: This only matters for resizeable panels, so belongs in a decorator to that effect. The core module class needs sorting for that.
-      resizePanel: function() {
-        var table = this.dataTable;
-        var old_width = table.getContainerEl().clientWidth;
-        var offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth;
-        var x = table.getTableEl().offsetWidth + offset;
-        if ( x >= old_width ) { this.module.cfg.setProperty('width',x+'px'); }
+      fillDataSourceWithSchema: function(jsonData, dsSchema) {
+        this.dataSource = new YAHOO.util.DataSource(jsonData);
+        this.dataSource.responseSchema = dsSchema;
+        var oCallback = {
+            success: this.dataTable.onDataReturnInitializeTable,
+            failure: this.dataTable.onDataReturnInitializeTable,
+            scope: this.dataTable
+        };
+        this.dataSource.sendRequest('', oCallback); //This is to update the datatable on UI
       },
+
 
       menuSelectItem: function(arr) {
         this.dataTable.showColumn(this.dataTable.getColumn(arr[0]));
+      },
+
+      resizePanel: function() {
+        var table = this.dataTable,
+            old_width = table.getContainerEl().clientWidth,
+            offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
+            x = table.getTableEl().offsetWidth + offset;
+        if ( x >= old_width ) {
+          this.module.cfg.setProperty('width',x+'px');
+          this.el.style.width = x+'px';
+        }
       },
 
       buildTable: function(div,columns,map,dsschema) {
@@ -127,7 +141,6 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
 
 PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   var obj = args.payload.obj;
-//   obj[args.name] = {};
   var onRowMouseOut = function(event) {
 // Gratuitously flash yellow when the mouse goes over the rows
 // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
@@ -146,21 +159,24 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
+PHEDEX.DataTable.Resizeable = function(obj) {
+  return {
+//     resizePanel: function() {
+//       var table = this.dataTable,
+//           old_width = table.getContainerEl().clientWidth,
+//           offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
+//           x = table.getTableEl().offsetWidth + offset;
+//       if ( x >= old_width ) { this.module.cfg.setProperty('width',x+'px'); }
+//     },
+  };
+}
+
+
 //   //*******************************************************************************************************
 //   //Function:fillDataSourceWithSchema
 //   //Purpose :This function fills the datasource with the data and response schema
 //   //*******************************************************************************************************
-//   this.fillDataSourceWithSchema = function(jsonData, dsSchema) {
-//       this.dataSource = new YAHOO.util.DataSource(jsonData);
-//       this.dataSource.responseSchema = dsSchema;
-//       var oCallback = {
-//           success: this.dataTable.onDataReturnInitializeTable,
-//           failure: this.dataTable.onDataReturnInitializeTable,
-//           scope: this.dataTable
-//       };
-//       this.dataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-//   }
-// 
+//
 // // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
 // // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
 // // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
@@ -196,33 +212,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //       }
 //     }
 //   }(this));
-// 
-// // Allow the table to be built again after updates
-//   this.onUpdateComplete.subscribe( function(obj) {
-//     return function() {
-//       obj.fillDataSource(obj.data);
-//     }
-//   }(this) );
-// 
-//   this.onDataFailed.subscribe(function(obj) {
-//     return function() {
-// //    Empty the dataTable if it is there
-//       if ( obj.dataTable ) { obj.dataTable.destroy(); obj.dataTable = null; } // overkill? Who cares!...
-//       obj.dom.content.innerHTML='Data-load error, try again later...';
-//     }
-//   }(this));
-// 
-//
-//   //****************************************************************************************************
-//   //Function:resizePanel
-//   //Purpose :This function resizes the panel when extra columns are shown, to accomodate the width
-//   //****************************************************************************************************
-//   this.resizePanel=function(table) {
-//     var old_width = table.getContainerEl().clientWidth;
-//     var offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth;
-//     var x = table.getTableEl().offsetWidth + offset;
-//     if ( x >= old_width ) { this.panel.cfg.setProperty('width',x+'px'); }
-//   }
 //
 //   this.filter.onFilterCancelled.subscribe( function(obj) {
 //     return function() {
