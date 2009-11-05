@@ -91,5 +91,6 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
   this._init(args);
+  if ( args.payload.onInit ) { _sbx.notify(partner,args.payload.onInit); }
   return this;
 };
