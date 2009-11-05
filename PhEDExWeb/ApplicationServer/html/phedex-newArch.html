@@ -78,14 +78,43 @@ banner = function() {
   };
 }();
 
+stressTest = function() {
+  var el = document.getElementById('phedex-debug');
+  var d = document.createElement('div'),
+      i = 0;
+  el.appendChild(d);
+  d.innerHTML='starting...';
+
+  var moduleHandler = function(who,arr) {
+    switch ( arr[0] ) {
+      case 'updated': {
+        PxS.notify('module',who,'destroy');
+        break;
+      }
+      case 'destroy': {
+        i++;
+        d.innerHTML = 'loop: '+i;
+        PxS.notify('CreateModule','Agents');
+        break;
+      }
+    }
+  };
+
+  var _moduleExists = function(ev,arr) {
+    PxS.listen(arr[0].id,moduleHandler);
+  };
+  PxS.listen('ModuleExists', _moduleExists);
+  PxS.notify('LoadModule','Agents');
+}
+
 debugLinks = function() {
 // cheat, providing a few links to create modules from...
-  var el = document.getElementById('phedex-debug');
-  var methods = [ 'show','hide','destroy' ];
+  var el = document.getElementById('phedex-debug'),
+      methods = [ 'show','hide','destroy' ];
   el.appendChild(document.createTextNode('Core operations (all modules)'));
   for (var i in methods) {
-    var div = document.createElement('div');
-    var a   = document.createElement('a');
+    var div = document.createElement('div'),
+        a   = document.createElement('a');
     a.href='#';
     a.innerHTML = methods[i];
     a.setAttribute('onclick',"PxS.notify('module','*','"+methods[i]+"');");
@@ -95,14 +124,24 @@ debugLinks = function() {
   el.appendChild(document.createTextNode('Create module(s)'));
   var modules = PxL.knownModules();
   for (var i in modules) {
-    var div = document.createElement('div');
-    var a   = document.createElement('a');
+    var div = document.createElement('div'),
+        a   = document.createElement('a');
     a.href='#';
     a.innerHTML = modules[i];
     a.setAttribute('onclick',"PxS.notify('LoadModule','"+modules[i]+"');");
     div.appendChild(a);
     el.appendChild(div);
   }
+
+  el.appendChild(document.createTextNode('Stress-test modules'));
+  var d = document.createElement('div');
+  var a = document.createElement('a');
+  a.href='#';
+  a.innerHTML = 'infinite agents';
+
+  a.setAttribute('onclick',"stressTest()");
+  d.appendChild(a);
+  el.appendChild(d);
 }
 // When the DOM is available, start loading the essential bits and pieces
 YAHOO.util.Event.onDOMReady(function() {
@@ -125,7 +164,7 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-  PxS.notify('LoadModule','Agents');
+//   PxS.notify('LoadModule','Nodes');
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
@@ -148,6 +187,7 @@ function createCoreApp() {
       }
     );
     document.getElementById('phedex-controls').appendChild(ctl.el);
+    ctl.Show();
     debugLinks();
     ctl.Show();
   },'logger','component-control');
