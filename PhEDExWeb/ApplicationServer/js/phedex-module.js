@@ -1,5 +1,6 @@
 PHEDEX.Module = function(sandbox, string) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  this.id = string+'_'+PxU.Sequence();
   log('creating "'+string+'"','info','Module');
   var _sbx = sandbox;
 
@@ -83,7 +84,6 @@ PHEDEX.Module = function(sandbox, string) {
         // Options from the constructor override defaults
         YAHOO.lang.augmentObject(this.options, opts, true);
         // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
-        this.id = this.me+'_'+PxU.Sequence();
         _sbx.listen('CoreCreated',function() { _sbx.notify('ModuleExists',this.id,this); });
         _sbx.notify('ModuleExists',this);
       },
@@ -123,6 +123,7 @@ PHEDEX.Module = function(sandbox, string) {
                 break;
               }
               case 'resizePanel':
+              case 'hideByDefault':
               case 'menuSelectItem': {
                 if ( obj[action] ) {
                   arr.shift();
