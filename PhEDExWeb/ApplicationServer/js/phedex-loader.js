@@ -15,8 +15,7 @@ PHEDEX= {}
  * @param namespace {string} Namespace to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
  * @return {object} The namespace created.
  */
-// For more information, see:
-//   http://yuiblog.com/blog/2007/06/12/module-pattern/
+// For more information, see: http://yuiblog.com/blog/2007/06/12/module-pattern/
 PHEDEX.namespace = function() {
     var a=arguments, o=null, i, j, d;
     for (i=0; i<a.length; i=i+1) {
@@ -100,24 +99,25 @@ PHEDEX.Base.Object = function() {
      * @protected
      */
     decorators: {},
-
-    /**
-     * Returns the class name of this object
-     * @method me
-     * @returns string
-     */
-    // TODO:  There must be a lower-level way to do this, using obj.constructor or simmilar
-//     me: function() { return this._me; },
   };
 }
 
 /**
  * on-demand loading of all phedex code and the YUI code it depends on
- * @namespace PHEDEX.Loader
- * @class Object
+ * @namespace PHEDEX
+ * @class Loader
  * @constructor
+ * @param {object} options contains options for the YAHOO.util.Loader. Can (should!) be empty
  */
+
 PHEDEX.Loader = function(opts) {
+  /**
+   * dependency-relationships between PhEDEx classes, and between PhEDEx classes and YUI. Needs to be updated every time a
+   * new file is added to the distribution, or when objects are changed to depend on more or fewer files
+   * @property _dependencies
+   * @type object
+   * @protected
+   */
   var _dependencies = {
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'phedex-util':    { requires: ['phedex-css'] },
@@ -142,6 +142,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-nodes':  { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents': { requires:['phedex-module','phedex-datatable'] },
   },
+
       _me = 'PxLoader',
       _busy = false,
       _success,
@@ -158,6 +159,11 @@ PHEDEX.Loader = function(opts) {
         onTimeout:  function(item) { _callback([_me, 'Timeout',  item]); },
       };
 
+/**
+ * handles events from the loader, specifically <strong>Progress</strong>, <strong>Success</strong>, <strong>Failure</strong>, and <strong>Timeout</strong>. Calls the user-defined function, if any, to handle that particular event. Logs all events, using the default group/severity.
+ * @method _callback
+ * @private
+ */
   var _callback = function(args) {
     var ev   = args[0],
         type = args[1],
@@ -177,6 +183,11 @@ PHEDEX.Loader = function(opts) {
     if ( _on[type] ) { setTimeout( function() { _on[type](item); },0); }
   };
 
+/**
+ * @method _init
+ * @private
+ * @param {object} config the default options updated with the configuration object passed in to the constructor
+ */
   var _init = function(cf) {
     for (var i in cf) {
       _loader[i] = cf[i];
@@ -198,6 +209,15 @@ PHEDEX.Loader = function(opts) {
   }
 
   return {
+/**
+ * asynchronously load one or more javascript or CSS source files from the PhEDEx and YUI installations
+ * @method load
+ * @param {object|function} callback function to be called on successful loading, or object containing separate callbacks for each of the <strong>Progress</strong>, <strong>Success</strong>, <strong>Failure</strong>, and <strong>Timeout</strong> keys.<br/>The callbacks are passed an argument containing information about the item that triggered the call.
+ * <br/><strong>Progress</strong> and <strong>Failure</strong> both have the name of the relevant source file in <strong>item.name</strong>.
+ * <br/><strong>Timeout</strong> doesn't have any useful information about which source file triggered the timeout, but you can inspect the return of <strong>loaded()</strong> for more information.
+ * <br/><strong>Success</strong> is called with the list of loaded modules.<br>&nbsp;
+ * @param {arbitrary number of strings|single array of strings} modules these are the modules to load.<br/>Either a series of additional string arguments, or an array of strings. Each string is either a PhEDEx or a YUI component name. In the case of PhEDEx components, the leading <strong>phedex-</strong> can be omitted, it is assumed if there is a matching component. This means that PhEDEx components can mask YUI components in some cases. E.g, a PhEDEx component stored in a file <strong>phedex-button.js</strong> would mask the YUI <strong>button</strong> component. This can be covered in the <strong>_dependencies</strong> map, where items that a component requires are named in full.
+ */
     load: function( args, what ) {
       if ( _busy ) {
         setTimeout( function(obj) {
@@ -226,8 +246,23 @@ PHEDEX.Loader = function(opts) {
         _loader.insert();
       }, 0);
     },
+/**
+ * Initialise the loader. Called internally in the constructor, you only need to call it if you wish to override something.
+ * @method init
+ * @param config {object} configuration object. Takes the same keys at the YUI loader.
+ */
     init: function(args) { _init(args); },
+
+/**
+ * @method loaded
+ * @return {string} with a full list of modules loaded by this loader. This is the full list since the loader was instantiated, so will grow monotonically if the loader is used several times
+ */
     loaded: function() { return _loader.inserted; },
+
+/**
+ * @method knownModules
+ * @return {array} list of all source-files matching <strong>/^phedex-module-/</strong>. Use this to determine the names of instantiatable data-display modules before they are loaded.
+ */
     knownModules: function() {
       var km=[];
       for (var str in _dependencies) {
