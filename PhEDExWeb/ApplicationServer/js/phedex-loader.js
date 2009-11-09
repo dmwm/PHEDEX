@@ -17,7 +17,7 @@ PHEDEX= {}
  * PHEDEX.namespace('Core','Component');
  * </pre>
  * @method namespace
- * @param namespace {string*} Namespace\(s\) to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
+ * @param namespace {string*} Namespace(s) to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
  * @return {object} The namespace created.
  */
 // For more information, see: http://yuiblog.com/blog/2007/06/12/module-pattern/
