@@ -1,18 +1,23 @@
 /**
  * The PhEDEx Application.
  * @module PHEDEX
+ * @title Documentation for the PhEDEx website packages
  */
 
 /**
  * The PHEDEX global namespace object.
  * @class PHEDEX
+ * @static
  */
 PHEDEX= {}
 
 /** 
  * Creates a namespace rooted from PHEDEX.
+ * <pre>
+ * PHEDEX.namespace('Core','Component');
+ * </pre>
  * @method namespace
- * @param namespace {string} Namespace to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
+ * @param namespace {string*} Namespace\(s\) to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
  * @return {object} The namespace created.
  */
 // For more information, see: http://yuiblog.com/blog/2007/06/12/module-pattern/
@@ -60,7 +65,7 @@ PHEDEX.Appserv.makeVersion = function() {
 PHEDEX.Appserv.Version = PHEDEX.Appserv.makeVersion();
 
 /**
- * Base object for all graphical entities in the application.
+ * Base object for all graphical entities in the application. Should not be instantiated on its own. It has no methods, only structural components, so that derived objects do not have to test for the existance of such components before accessing elements of them.
  * @namespace PHEDEX.Base
  * @class Object
  * @constructor
