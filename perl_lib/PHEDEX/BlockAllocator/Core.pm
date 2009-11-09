@@ -445,7 +445,7 @@ sub blockDestinations
 	    left join t_dps_block_replica br on br.node = bd.destination and br.block = bd.block
            where 
              -- block is complete, update state
-             (b.is_open = 'y'
+             (b.is_open = 'n'
               and br.node_files >= b.files
               and bd.state != 3)
              -- block is incomplete, update state
