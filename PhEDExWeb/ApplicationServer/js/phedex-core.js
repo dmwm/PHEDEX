@@ -1,3 +1,11 @@
+/**
+ * PhEDEx Core application class. Manages module lifetimes, drives the workflow of the application
+ * @namespace PHEDEX
+ * @class Core
+ * @constructor
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+ * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
+ */
 PHEDEX.Core = function(sandbox,loader) {
   var _modules = {}, _loaded = [],
       _sbx = sandbox,
@@ -8,6 +16,11 @@ PHEDEX.Core = function(sandbox,loader) {
       _global_options = {}; // global application options, such as resizeability etc
   if ( !parent ) { throw new Error('cannot find parent element for core'); }
 
+/**
+ * Options defining the behaviour of the modules, i.e. resizeability, draggability etc.
+ * @property _global_options
+ * @private
+ */
   _global_options = {
 // window:false && resizeable:true do not work perfectly. The panel does not resize correctly following the handles.
 // all other combinations work OK-ish
@@ -19,6 +32,18 @@ PHEDEX.Core = function(sandbox,loader) {
   var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 5000 ); },
       _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
 
+/**
+ * loads a module. Used as a sandbox-listener, which defines its signature. The name of the module to be loaded can be either the full base-name of the source-code file, or it can have the leading <strong>phedex-</strong> missing, in which case it is assumed to be <strong>phedex-module-<em>name</em></strong>
+ * The function invokes the PhEDEx loader, and on successfully loading the source code, will notify the world with event='ModuleLoaded' and the name of the module, as originally given to it. Clients can listen for the 'ModuleLoaded' and then know that it is safe to instantiate a module of the given type.<br/>
+ * _loadModule is used to listen to <strong>LoadModule</strong> events, so can be invoked via the sandbox:
+ * <pre>
+ * sandbox.notify('LoadModule','agents');
+ * </pre>
+ * @method _loadModule
+ * @private
+ * @param ev {string} name of event passed from the sandbox
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the module to load
+ */
   var _loadModule =  function(ev,arr) {
 // N.B. loadModule() can return _before_ the module is created, if it has to load it first. It will call itself again later.
     var name = arr[0];
@@ -40,9 +65,19 @@ PHEDEX.Core = function(sandbox,loader) {
     return;
   };
 
+/**
+ * instantiates a module, based on its name. Used as a sandbox-listener, which defines its signature. Once the module is created, its <strong>init()</strong> method will be called. It is expected that the module will send notifications from the init method which will trigger further activity by invoking listeners, either in the core or elsewhere in the application.<br/>
+ * Once the module is instantiated, the core will listen for it's <strong>id</strong> as an event-name, assigning the <strong>moduleHandler</strong> routine to handle the events.<br/>
+ * _createModule is used to listen to <strong>ModuleLoaded</strong> and <strong>CreateModule</strong> events, so can be invoked via the sandbox:
+ * <pre>
+ * sandbox.notify('CreateModule','agents');
+ * </pre>
+ * @method _createModule
+ * @private
+ * @param ev {string} name of event passed from the sandbox
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the module to instantiate.
+ */
   var _createModule = function(ev,arr) {
-// create a module and call its init() function. It is expected that the module will notify the sandbox when it is up, and
-// the core will handle it through the moduleHandler function after that.
     var name = PxU.initialCaps(arr[0]);
     log ('creating a module "'+name+'"','info',_me);
     try {
@@ -60,8 +95,14 @@ PHEDEX.Core = function(sandbox,loader) {
     _sbx.listen(id,moduleHandler);
   };
 
+/**
+ * drives an instantiated module through its lifecycle. Used as a sandbox-listener, which defines its signature. This is the heart of the application, where modules interact with the core
+* @method moduleHandler
+ * @private
+ * @param who {string} id of module to handle, passed from the sandbox
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the action the module has notified, other array elements are specific to the action.
+ */
   var moduleHandler = function(who,arr) {
-// this is the meat of the application. This is where modules interact with the core
      var action = arr[0],
         args   = arr[1];
     log('module='+who+' action="'+action+'"','info',_me);
@@ -202,6 +243,10 @@ PHEDEX.Core = function(sandbox,loader) {
   };
 
   return {
+/**
+ create the core module. Or rather, invoke the sandbox to listen for events that will start the ball rolling. Until <strong>create</strong> is called, the core will sit there, doing nothing at all.
+ * method create
+ */
     create: function() {
       _sbx.listen('ModuleExists', _moduleExists);
       _sbx.listen('LoadModule',   _loadModule);
