@@ -5,6 +5,11 @@
  - implement caching
 */
 
+/**
+ * implement AJAX-communication with the PhEDEx data-service, handling errors for the client
+ * @class Datasvc
+ */
+
 PHEDEX.namespace('Datasvc');
 PHEDEX.Datasvc = (function() {
   // TODO: should provide getters & setters
@@ -71,7 +76,7 @@ PHEDEX.Datasvc = (function() {
     return query.poll_id;
   }
 
-  /**  method _got : basic success callback does the following:
+  /*   method _got : basic success callback does the following:
    *    - parse response
    *    - unwrap response
    *    - check for errors from the data service or null responses
@@ -163,17 +168,21 @@ PHEDEX.Datasvc = (function() {
   // public methods/properties below
   return {
 
-    /* Call(query) : access the data service once, sending the result data to a callback function
-     *               or firing an event when the data is returned and validated.
-     *   query object attributes:
-     *   api           : the datasvc api name
-     *   args          : hash of arguments for the api call
-     *   callback      : a callback function for result (data, context)
-     *   success_event : an event to fire(data, context)) on success
-     *   failure_event : an event to fire(Error, context) on failure, defaults to success_event
-     *   context       : an object to return back with the response, in order to
-     *                   help identify the response or perform some other magic.  Will have
-     *                  .api, .path, .poll_id, and .poll_number set automatically
+    /**
+     * access the data service once, sending the result data to a callback function
+     * or firing an event when the data is returned and validated.
+     * @method Call
+     * @param query {object} object defining the API and parameters to pass to the data-service
+     * <br/>query object attributes:<br/>
+     * <pre><table>
+     * <tr><td><strong>api</strong></td><td>the datasvc api name</td>
+     * <tr><td><strong>args</strong></td><td>hash of arguments for the api call</td>
+     * <tr><td><strong>callback</strong></td><td>a callback function for result (data, context)</td>
+     * <tr><td><strong>success_event</strong></td><td>an event to fire(data, context)) on success</td>
+     * <tr><td><strong>failure_event</strong></td><td>an event to fire(Error, context) on failure, defaults to success_event</td>
+     * <tr><td><strong>context</strong></td><td>an object to return back with the response, in order to help identify the response or perform some other magic.<br/>Will have <strong>.api</strong>, <strong>.path</strong>, <strong>.poll_id</strong>, and <strong>.poll_number</strong> set automatically</td>
+     * </table>
+     * </pre>
      */
     Call: function(query) {
       query.text = _build_query(query);
