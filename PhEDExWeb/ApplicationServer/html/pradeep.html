@@ -33,7 +33,7 @@
   <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
   <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
   <script type="text/javascript" src="/yui/build/autocomplete/autocomplete-min.js"></script>
-  <script type="text/javascript" src="/yui/build/history/history.js"></script>
+  <script type="text/javascript" src="/yui/build/history/history-min.js"></script>
   <script type="text/javascript" src="/yui/build/slider/slider-min.js"></script>
 
 
@@ -72,6 +72,7 @@
     <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> - 
     <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
  </div>
+ <div id='phedex-login'></div>
  <div id='phedex-nav'></div><br clear='all'/>
  <div id='phedex-main'></div>
 
@@ -84,6 +85,7 @@ YAHOO.util.Event.onDOMReady(function() {
   InitializeNavigator('phedex-nav', { typecfg: { 
         none: { label: 'Explore global',  order: 10 },
         node: { label: 'Explore by node', order: 20 }} } );
+	PHEDEX.Login.init('phedex-login');
 });
 </script>
 </body>
