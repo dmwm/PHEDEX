@@ -258,6 +258,10 @@ PHEDEX.Core.Widget.DataTable = function(divid, opts) {
     // Allow the table to be built again after updates
     this.onUpdateComplete.subscribe(function(obj) {
         return function() {
+        if (obj.dsResponseSchema) {
+                obj.fillDataSourceWithSchema(obj.data, obj.dsResponseSchema);
+                return;
+            }
             obj.fillDataSource(obj.data);
         }
     } (this));
