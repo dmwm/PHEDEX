@@ -11,16 +11,22 @@ PHEDEX.namespace('Widget.GroupUsage');
 //Purpose :This initializes the group usage widget i.e variables, form controls 
 //****************************************************************************************************
 PHEDEX.Widget.GroupUsage = function(groups, divid, widgetargs) {
-    var widargs = { width: 600, height: 200, minwidth: 400, minheight: 50 };
-    if (widgetargs) {
-        for (arg in widgetargs) {
-            widargs[arg] = opts[arg];
-        }
-    }
-    var that = new PHEDEX.Core.Widget.DataTable(divid, widargs); //Create new datatable widget as base widget
-    that.hideByDefault = ['se', 'id', 'group[0].node_files', 'group[0].dest_files']; //The columns to be hidden by default
+    if (!divid) { divid = PHEDEX.Util.generateDivName(); }
+    if (!widgetargs) { widgetargs = {} };
+    
+    // Merge passed options with defaults
+    YAHOO.lang.augmentObject(widgetargs, {
+        width: 600,
+        height: 200,
+        minwidth: 400,
+        minheight: 50,
+        defhide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files']
+    });
+
+    var that = new PHEDEX.Core.Widget.DataTable(divid, widgetargs); //Create new datatable widget as base widget
     that.strGroupName = groups;
-    that.me = function() { return 'PHEDEX.Core.Widget.GroupUsage'; }
+    that._me = 'PHEDEX.Core.Widget.GroupUsage';
+    that.me = function() { return that._me; }
 
     //****************************************************************************************************
     //Function:fillHeader
