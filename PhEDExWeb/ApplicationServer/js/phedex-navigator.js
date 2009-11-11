@@ -132,10 +132,6 @@ PHEDEX.Navigator = (function() {
         menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
     };
 
-    var _initLoginComp = function(el) {
-        PHEDEX.Login.init(el);
-    };
-
     var _initTargetSelectors = function(el) {
         var targetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-target',
             className: 'phedex-nav-component phedex-nav-target'
@@ -165,7 +161,7 @@ PHEDEX.Navigator = (function() {
     var _afterBuild = function() {
         var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
         if (currentState) {
-            currentState = unescape(currentState);
+            currentState = currentState;
             _setState(currentState); //Set the current state on page
 
         }
@@ -292,23 +288,21 @@ PHEDEX.Navigator = (function() {
         PHEDEX.Event.CreateGlobalFilter.fire(el);
     };
 
+    /**
+    * @method _initPermaLink
+    * @description This creates the permalink element and defines function to set the permalink URL.
+    * @param {Object} el Object specifying the element in the HTML page to be used for permalink.
+    */
     var _initPermaLink = function(el) {
-        var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link',
-            className: 'phedex-nav-component phedex-nav-link'
-        });
-        var a = PxU.makeChild(linkdiv, 'a',
-			  { id: 'phedex-nav-filter-link',
-			      innerHTML: 'Link',
-			      href: '#'
-			  });
+        var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
+        var a = PxU.makeChild(linkdiv, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#' });
         _updateLinkGUI = function(permalinkurl) {
             if (permalinkurl) {
-                a.href = permalinkurl; //Update the link with current browser URL
+                a.href = permalinkurl; //Update the link with permalink URL
             }
             else {
                 a.href = document.location.href; //Update the link with current browser URL
             }
-
         };
     };
 
@@ -317,6 +311,7 @@ PHEDEX.Navigator = (function() {
     /**
     * @method _getWidget
     * @description This gets the widget given the state and widget name.
+    * @param {Object} state Object specifying the state of the page to be set.
     */
     var _getWidget = function(state) {
         var indx = 0;
@@ -376,7 +371,7 @@ PHEDEX.Navigator = (function() {
                 var arrCols = _cur_widget_state.hiddencolumns.split("^");
                 for (indx = 0; indx < arrCols.length; indx++) {
                     if (arrCols[indx]) {
-                        hiddencolumns[unescape(arrCols[indx])] = 1;
+                        hiddencolumns[arrCols[indx]] = 1;
                     }
                 }
             }
@@ -402,13 +397,11 @@ PHEDEX.Navigator = (function() {
             }
         }
         if (_cur_widget_state && _cur_widget_obj.dataTable && _cur_widget_state.sortcolumn) {
-            var objColumn = _cur_widget_obj.dataTable.getColumn(unescape(_cur_widget_state.sortcolumn)); //Get the object of column
+            var objColumn = _cur_widget_obj.dataTable.getColumn(_cur_widget_state.sortcolumn); //Get the object of column
             if (objColumn) {
-                if (_cur_widget_state.sortdir.toLowerCase() == 'asc') {
-                    _cur_widget_obj.dataTable.sortColumn(objColumn, 'YAHOO.widget.DataTable.CLASS_ASC'); //Sort the column in ascending order
-                }
-                else if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
-                    _cur_widget_obj.dataTable.sortColumn(objColumn, 'YAHOO.widget.DataTable.CLASS_DESC'); //Sort the column in descending order
+                _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort in ascending order
+                if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
+                    _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort again if descending order is the direction
                 }
             }
         }
@@ -427,7 +420,7 @@ PHEDEX.Navigator = (function() {
         for (indx = 0; indx < arrQueries.length; indx++) {
             strTemp = arrQueries[indx].split(_hist_sym_equal);
             if (strTemp[1].length > 0) {
-                arrResult[strTemp[0]] = unescape(strTemp[1]);
+                arrResult[strTemp[0]] = strTemp[1];
             }
         }
         return arrResult;
@@ -511,7 +504,7 @@ PHEDEX.Navigator = (function() {
             baseURL = baseURL.substring(0, hashindx);
         }
         var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
-        currentState = unescape(currentState);
+        currentState = currentState;
         if (!currentState) {
             currentState = _defaultPageState;
         }
@@ -527,7 +520,7 @@ PHEDEX.Navigator = (function() {
                            'target' + _hist_sym_equal + state.target + _hist_sym_sep + 'widget' + _hist_sym_equal + state.widget + _hist_sym_sep +
                            'filter' + _hist_sym_equal + state.filter; //Form the query string
         }
-        baseURL = '#page=' + escape(currentState);
+        baseURL = '#page=' + currentState;
 
         var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
         var defnColumns = dtColumnSet.getDefinitions();
@@ -541,14 +534,14 @@ PHEDEX.Navigator = (function() {
         if (wdgtState.charAt(wdgtState.length - 1) == '^') {
             wdgtState = wdgtState.substring(0, wdgtState.length - 1);
         }
-        baseURL = baseURL + escape(wdgtState);
+        baseURL = baseURL + wdgtState;
         wdgtState = '';
 
         var sortcolumn = _cur_widget_obj.dataTable.get('sortedBy');
         if (sortcolumn) {
             wdgtState = _hist_sym_sep + 'sortcolumn' + _hist_sym_equal + sortcolumn.key + _hist_sym_sep + 'sortdir' + _hist_sym_equal + sortcolumn.dir.substring(7);
         }
-        baseURL = baseURL + escape(wdgtState);
+        baseURL = baseURL + wdgtState;
         _updateLinkGUI(baseURL);
     };
 
@@ -747,8 +740,6 @@ PHEDEX.Navigator = (function() {
 
             // Build Permalink
             _initPermaLink(el);
-
-            _initLoginComp(el);
 
             // Get the current state that would also be default state for the page
             _defaultPageState = _getCurrentState(null);
