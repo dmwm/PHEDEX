@@ -49,11 +49,17 @@ body {
   padding: 0 1em 0;
 }
 .phedex-login {
-    margin-left:55%;
+    margin-left:57%;
+	text-align:right;
 }
 .phedex-login-status {
 	text-align:right;
 	margin-right:4%;
+}
+.phedex-login-username {
+	cursor:pointer;
+	color:Blue;
+	text-decoration: underline;
 }
 .phedex-logger {
   float: right;
