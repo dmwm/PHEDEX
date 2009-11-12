@@ -1,12 +1,32 @@
+*/**
+ * This is the base class for all PhEDEx data-related modules. It provides the basic interaction needed for the core to be able to control it.
+ * @namespace PHEDEX
+ * @class Module
+ * @constructor
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+ * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
+ */
 PHEDEX.Module = function(sandbox, string) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+// this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
   this.id = string+'_'+PxU.Sequence();
   log('creating "'+string+'"','info','Module');
   var _sbx = sandbox;
 
+  /**
+   * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
+   * @method _construct
+   * @private
+   */
   var _construct = function() {
     return {
       me: string,
+      /**
+       * initialise the object by setting its properties
+       * @method _init
+       * @private
+       * @param opts {object} object containing initialisation parameters.
+       */
       _init: function(opts) {
         /** Options which alter the window behavior of this widget.  The
         * options are taken in priority order from:
@@ -83,13 +103,16 @@ PHEDEX.Module = function(sandbox, string) {
         };
         // Options from the constructor override defaults
         YAHOO.lang.augmentObject(this.options, opts, true);
-        // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
         _sbx.listen('CoreCreated',function() { _sbx.notify('ModuleExists',this.id,this); });
         _sbx.notify('ModuleExists',this);
       },
 
       adjustHeader: function() {},
 
+      /**
+       * now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
+       * @method initModule
+       */
       initModule: function() {
         log(this.id+': initialising','info','Module');
 
@@ -137,8 +160,8 @@ PHEDEX.Module = function(sandbox, string) {
         }(this);
         _sbx.listen(this.id,selfHandler);
 
-        /** The module used by this widget.  If options.window is true, then
-        * it is a Panel, otherwise it is a Module.
+        /** The YAHOO container module used by this PhEDEx module.  If options.window is true, then
+        * it is a YAHOO Panel, otherwise it is a YAHOO Module. The PhEDEx module is augmented with an appropriate subclass, depending on the value of options.window
         * @property module
         * @type YAHOO.widget.Module|YAHOO.widget.Panel
         * @private
@@ -175,6 +198,12 @@ PHEDEX.Module = function(sandbox, string) {
         log('initModule complete','info','Module');
       },
 
+      /**
+       * initialise the DOM elements for this module. Until this is called, the module has not interacted with the DOM. This function creates a container-element first, then creates all the necessary DOM substructure inside that element. It does not attach itself to the document body, it leaves that to the caller.
+       * DOM substructure is created in the this.dom sub-object
+       * @method initDom
+       * @returns el (HTML element} the top-level container-element for this module
+       */
       initDom: function() {
         /** The HTML element containing this widget.
         * @property el
@@ -197,14 +226,27 @@ PHEDEX.Module = function(sandbox, string) {
         return this.el;
       },
 
-      show: function(args) {
+      /**
+       * allow the module to be visible on-screen by removing the <strong>phedex-invisible</strong> class from the container element
+       * @method show
+       */
+      show: function() {
         log(this.id+': showing module "'+this.id+'"','info','Module');
         YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
       },
-      hide: function(args) {
+      /**
+       * make the module invisible on-screen by adding the <strong>phedex-invisible</strong> class to the container element
+       * @method show
+       */
+      hide: function() {
         log(this.id+': hiding module "'+this.id+'"','info','Module');
         YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
       },
+      /**
+       * destroy the object. Attempts to do this thoroughly by first destroying all the DOM elements, then attempting to find and destroy all sub-objects. It does this by calling this.subobject.destroy() for all subobjects that have a destroy method. It then deletes the sub-object from the module, so the garbage collecter can get its teeth into it.
+       * Also signal the sandbox with (this.id,'destroy'), so that decorations can be notified that they should shoot themselves too.
+       * @method destroy
+       */
       destroy: function() {
         this.destroyDom();
         _sbx.notify(this.id,'destroy');
@@ -224,6 +266,11 @@ PHEDEX.Module = function(sandbox, string) {
         }
       },
 
+      /**
+       * destroy all DOM elements. Used by destroy()
+       * @method destroyDom
+       * @private
+       */
       destroyDom: function(args) {
         log(this.id+': destroying DOM elements','info','Module');
         while (this.el.hasChildNodes()) { this.el.removeChild(this.el.firstChild); }
@@ -235,6 +282,13 @@ PHEDEX.Module = function(sandbox, string) {
   return this;
 };
 
+/**
+ * @namespace PHEDEX.Module
+ * @class Window
+ * @constructor
+ * @param obj {object} the PHEDEX.Module toat should be augmented with a PHEDEX.Module.Window
+ * @param module_options {object} options used to set the module properties
+ */
 PHEDEX.Module.Window = function(obj,module_options) {
   if ( PHEDEX[obj.type].Window ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Window(obj),true);
@@ -258,6 +312,12 @@ PHEDEX.Module.Window = function(obj,module_options) {
   obj.decorators.push(close);
 }
 
+/**
+ * @namespace PHEDEX.Module
+ * @class Resizeable
+ * @constructor
+ * @param obj {object} the PHEDEX.Module whose on-screen representation should be resizeable
+ */
 PHEDEX.Module.Resizeable = function(obj) {
   if ( PHEDEX[obj.type].Resizeable ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Resizeable(obj),true);
