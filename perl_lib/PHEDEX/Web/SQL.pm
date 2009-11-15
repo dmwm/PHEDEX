@@ -1994,7 +1994,7 @@ sub getDataSubscriptions
     {
         if ($filters)
         {
-            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{DATASET}) . ") ";
+            $filters .= " and (" . filter_and_like($core, undef, \%p, 'ds.name', $h{DATASET}) . ") ";
         }
         else
         {
