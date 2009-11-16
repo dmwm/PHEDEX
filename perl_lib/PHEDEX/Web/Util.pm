@@ -18,6 +18,7 @@ use PHEDEX::Core::Timing;
 
 use HTML::Entities; # for encoding XML
 use Params::Validate qw(:all);
+use Carp;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw ( process_args validate_args checkRequired error auth_nodes );
@@ -57,11 +58,10 @@ our %COMMON_VALIDATION = (
     'dataset'      => qr|^(/[^/\#]+){3}$|,
     'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
     'lfn'          => qr|^/|,
-    '!wildcard'    => qr|\*|,
+    'wildcard'     => qr|\*|,
     'node'         => qr|^T\d|,
     'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
     'time'         => sub { PHEDEX::Core::Timing::str2time($_[0], 0) ? 1 : 0 },
-    'any'          => sub { 1 }
 );
 
 # Validates arguments using Param::Validate, along with a few
@@ -75,11 +75,11 @@ our %COMMON_VALIDATION = (
 # overridden by defaults.  Any specification parameter which exists
 # will override the defaults described below.
 #
-# allow: an arrayref for a list of args to allow.  Anything that
-# is not in this list or with an explicit spec entry will trigger an
-# error.
+# allow: an arrayref for a list of args to allow.  Parameters
+# specified in 'required', 'require_one_of', and 'spec' are
+# automatically added to the list of allowed parameters.
 #
-# require: an arrayref for a list of args to require.  By default
+# required: an arrayref for a list of args to require.  By default
 # anything that is allowed is optional.
 #
 # require_one_of: an arrayref for a list of args to require at least
@@ -122,7 +122,21 @@ our %COMMON_VALIDATION = (
 # die() with an appropriate error message.
 sub validate_args
 {
+    # what to do when validation fails
+    &validation_options(on_fail => sub { Carp::croak shift });
+
+    # first we validate the use of this function!
     my ($args, %h) = @_;
+    
+    &validate_with(params => [$args], spec => [{ type => HASHREF, optional => 0 }]);
+    &validate_with(params => \%h,
+		   spec => { allow          => { type => ARRAYREF, optional => 1 },
+			     required       => { type => ARRAYREF, optional => 1 },
+			     require_one_of => { type => ARRAYREF, optional => 1 },
+			     spec           => { type => HASHREF,  optional => 1 },
+			     no_upper       => { type => SCALAR,   optional => 1 },
+			     full_trace     => { type => SCALAR,   optional => 1 },
+			 });
 
     # deal with nocache
     my $nocache = delete $args->{nocache} || 0;
@@ -132,31 +146,35 @@ sub validate_args
 
     # get the list of allowed parameters
     my $allow = delete $h{allow} || [];
-    
-    # add all args defined in %$spec to @$allow
-    my %allow_uniq = map { $_ => 1 } @$allow;
-    foreach my $a (keys %$spec) {
-	$allow_uniq{$a} = 1;
-    }
-    @$allow = keys %allow_uniq;
-    
+        
     # get the list of required parameters
     my $required = delete $h{'required'} || [];
 
     # get the list of OR required parameters
     my $require_one_of = delete $h{require_one_of} || [];
 
-    # do not change key case
+    # option to  not change key case
     my $no_upper = delete $h{no_upper} || 0;
 
-    # require_one is supported by Param::Validate, so we check that here:
+    # option to give a full trace on validation failure
+    my $full_trace = delete $h{full_trace} || 0;
+
+    # add all args defined in spec, required, and require_one_of to @$allow
+    my %allow_uniq;
+    foreach my $a (@$allow, keys(%$spec), @$required, @$require_one_of) {
+	$allow_uniq{$a} = 1;
+    }
+    @$allow = keys %allow_uniq;
+
+    # require_one_of is not supported by Param::Validate, so we check that here:
     my $ok = 0;
     foreach my $req (@$require_one_of) {
 	if (exists $args->{$req} && defined $args->{$req}) {
 	    $ok = 1; last;
 	}
     }
-    die "invalid parameters: one of (",join(', ',@$require_one_of),") are required\n" if not $ok;
+    die "invalid parameters: one of (",join(', ',@$require_one_of),") are required\n" 
+	if @$require_one_of and not $ok;
 
     # check that we have something to validate
     if (scalar @$allow == 0) {
@@ -169,41 +187,63 @@ sub validate_args
 	my $s = exists $spec->{$a} && ref $spec->{$a} eq 'HASH' ? $spec->{$a} : {};
 	
 	# now we set the defaults
-	$s->{type}     = SCALAR   unless defined $s->{type};        # default type is scalar
-	$s->{regexp}   = qr/./    unless defined $s->{regexp};      # no empty string
-	$s->{optional} = 1        unless defined $s->{optional} ||  # all params are optional
-	                                 grep $a eq $_, @$required;  # ... unless otherwise specified
-	$s->{untaint}  = 1        unless defined $s->{untaint};     # we untaint by default
-	
+	$s->{type}     = SCALAR   unless defined $s->{type};           # default type is scalar
+	$s->{regexp}   = qr/./    unless defined $s->{regexp};         # no empty string
+	$s->{optional} = defined $s->{optional} ? $s->{optional} : 1;  # all params are optional
+	$s->{optional} = 0        if grep $a eq $_, @$required;        # ...unless specified otherwise
+	$s->{untaint}  = 1        unless defined $s->{untaint};        # we untaint by default
+
+	# check to see if we should allow (and validate) multiple values, i.e 'a' or [qw(a b c)]
+	my $multiple = 0;
+	if (exists $s->{multiple} && $s->{multiple}) {
+	    $multiple = 1;
+	    $s->{type} = SCALAR | ARRAYREF;
+	}
+	# TODO:  transform scalar 'using' and 'regexp' checks to iterative checks when $multiple
+
 	# check for a special key for using common validation functions
 	if (exists $s->{using}) {
 	    my $common = delete $s->{using};
 	    foreach my $c (arrayref_expand($common)) {
+		# check for a negation symbol
+		my $negate = 0;
+		if (substr($c,0,1) eq '!') {
+		    $negate = 1;
+		    $c = substr($c,1);
+		}
 		my $val = $COMMON_VALIDATION{$c} ||
 		    die "developer error: '$c' is not a known validation function\n";
 		
 		if (ref $val eq 'CODE') { 
-		    $s->{callbacks}->{$c} = $val;
+		    $s->{callbacks}->{$c} = $negate ? sub { return !&$val(@_) } : $val;
 		} elsif (ref $val eq 'Regexp') {
 		    # note: we could have used $s->{regexp}, but doing it
 		    # this way allows us to easily use both a common
 		    # validation and a more specific one
 		    $s->{callbacks}->{$c} = 
-			sub { if (substr($c,0,1) ne '!') { return $_[0] =~ $val ? 1 : 0 }    # positive match
-			      else                       { return $_[0] !~ $val ? 1 : 0 } }; # negative match
+			sub { if ($negate)  { return $_[0] !~ $val ? 1 : 0 }    # negative match
+			      else          { return $_[0] =~ $val ? 1 : 0 } }; # positive match
 		} else {
 		    die "developer error: unknown type of validation for '$c'\n";
 		}
 	    }
 	}
+	
+	# set the spec for this parameter
+	$spec->{$a} = $s;
     }
 
     # build the arguments for the validation function
     my %val_args = (params => $args, spec => $spec);
-    # use die instead of confess, suppress any stack trace or line number
-    $val_args{on_fail} = sub { die shift, "\n" };
+    # use use confess if we want a full trace
+    $val_args{on_fail} = sub { Carp::confess shift } if $full_trace;
     # uppercase keys
     $val_args{normalize_keys} = sub { return uc shift } unless $no_upper;
+    # set the caller one frame up
+    $val_args{stack_skip} = 2;
+
+    # use Data::Dumper;
+    # warn "final validate spec:", Dumper(\%val_args), "\n"; # XXX Debug
 
     # now validate the arguments
     my %good_args = &validate_with( %val_args );
