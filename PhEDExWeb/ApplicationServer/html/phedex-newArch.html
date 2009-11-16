@@ -88,13 +88,15 @@ stressTest = function(type) {
   var moduleHandler = function(who,arr) {
     switch ( arr[0] ) {
       case 'gotData': {
+        if ( i == 0 ) { break; }
         PxS.notify('module',who,'destroy');
         break;
       }
       case 'destroy': {
+        if ( i == 0 ) { break; }
         i--;
         d.innerHTML = 'iterations remaining: '+i;
-        if ( i != 0 ) { setTimeout(function() { PxS.notify('CreateModule',type); }, 50); }
+        setTimeout(function() { PxS.notify('CreateModule',type); }, 50);
         break;
       }
     }
@@ -134,6 +136,7 @@ debugLinks = function() {
   }
 
   el.appendChild(document.createTextNode('Stress-test modules'));
+  modules.push('dummy');
   for (var i in modules) {
     var type = PxU.initialCaps(modules[i]);
     var d = document.createElement('div');
