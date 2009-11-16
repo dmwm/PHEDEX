@@ -49,7 +49,8 @@ PHEDEX.Core = function(sandbox,loader) {
     var name = arr[0];
     if ( _loaded[name] ) { _sbx.notify('ModuleLoaded',name); return; }
     var module = name.toLowerCase();
-    if ( ! module.match('/^phedex-/') ) { module = 'phedex-module-'+module; }
+    if ( module == 'dummy' ) { module = 'phedex-module'; }
+    if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
     log ('loading "'+module+'" (for '+name+')','info',_me);
     _ldr.load( {
       Success: function(obj) {
@@ -81,7 +82,12 @@ PHEDEX.Core = function(sandbox,loader) {
     var name = PxU.initialCaps(arr[0]);
     log ('creating a module "'+name+'"','info',_me);
     try {
-      var m = new PHEDEX.Module[name](_sbx,name);
+      var m;
+      if ( name.toLowerCase() == 'dummy' ) {
+        m = new PHEDEX.Module(_sbx,name);
+      } else {
+        m = new PHEDEX.Module[name](_sbx,name);
+      }
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!"); }
     m.init(_global_options);
   }
