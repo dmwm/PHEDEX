@@ -78,10 +78,10 @@ banner = function() {
   };
 }();
 
-stressTest = function() {
+stressTest = function(type) {
   var el = document.getElementById('phedex-debug');
   var d = document.createElement('div'),
-      i = 0;
+      i = 10;
   el.appendChild(d);
   d.innerHTML='starting...';
 
@@ -92,9 +92,9 @@ stressTest = function() {
         break;
       }
       case 'destroy': {
-        i++;
-        d.innerHTML = 'loop: '+i;
-        PxS.notify('CreateModule','Agents');
+        i--;
+        d.innerHTML = 'iterations remaining: '+i;
+        if ( i != 0 ) { setTimeout(function() { PxS.notify('CreateModule',type); }, 50); }
         break;
       }
     }
@@ -104,7 +104,7 @@ stressTest = function() {
     PxS.listen(arr[0].id,moduleHandler);
   };
   PxS.listen('ModuleExists', _moduleExists);
-  PxS.notify('LoadModule','Agents');
+  PxS.notify('LoadModule',type);
 }
 
 debugLinks = function() {
@@ -134,14 +134,17 @@ debugLinks = function() {
   }
 
   el.appendChild(document.createTextNode('Stress-test modules'));
-  var d = document.createElement('div');
-  var a = document.createElement('a');
-  a.href='#';
-  a.innerHTML = 'infinite agents';
+  for (var i in modules) {
+    var type = PxU.initialCaps(modules[i]);
+    var d = document.createElement('div');
+    var a = document.createElement('a');
+    a.href='#';
+    a.innerHTML = '"infinite" '+type;
 
-  a.setAttribute('onclick',"stressTest()");
-  d.appendChild(a);
-  el.appendChild(d);
+    a.setAttribute('onclick',"stressTest('"+type+"')");
+    d.appendChild(a);
+    el.appendChild(d);
+  }
 }
 // When the DOM is available, start loading the essential bits and pieces
 YAHOO.util.Event.onDOMReady(function() {
@@ -164,7 +167,7 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-  PxS.notify('LoadModule','Agents');
+//   PxS.notify('LoadModule','Agents');
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
