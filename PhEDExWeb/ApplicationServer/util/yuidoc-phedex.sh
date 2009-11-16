@@ -1,19 +1,26 @@
 #!/bin/sh
 # The location of your yuidoc install
+cd `dirname $0`
+cd ..
 yuidoc_home=~/YUI/yuidoc
 
 # The location of the files to parse.  Parses subdirectories, but will fail if
 # there are duplicate file names in these directories.  You can specify multiple
 # source trees:
-parser_in="/home/wildish/PHEDEX_CVS/PhEDExWeb/ApplicationServer/js"
+[ -d tmp ] || mkdir tmp || exit 0
+parser_in=tmp
 
 # The location to output the parser data.  This output is a file containing a 
 # json string, and copies of the parsed files.
-parser_out=~/html/phedex/parser
+parser_out=/tmp/$USER/parser
+[ -d $parser_out ] && rm -rf $parser_out && mkdir $parser_out
 
 # The directory to put the html file outputted by the generator
-generator_out=~/html//phedex/docs
+generator_out=docs
+[ -d $generator_out ] && rm -rf $generator_out && mkdir $generator_out
 
+#cp js/phedex-{core,datasvc,loader,module,sandbox}.js tmp
+cp js/phedex-{core,datasvc,loader,module,sandbox}.js tmp
 # The location of the template files.  Any subdirectories here will be copied
 # verbatim to the destination directory.
 template=$yuidoc_home/template
@@ -35,3 +42,5 @@ $yuidoc_home/bin/yuidoc.py $parser_in \
 	--version	$version \
 	--yuiversion	$yuiversion \
 	--showprivate
+
+rm -rf tmp
