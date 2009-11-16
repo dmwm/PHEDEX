@@ -1,4 +1,4 @@
-*/**
+/**
  * This is the base class for all PhEDEx data-related modules. It provides the basic interaction needed for the core to be able to control it.
  * @namespace PHEDEX
  * @class Module
@@ -31,7 +31,7 @@ PHEDEX.Module = function(sandbox, string) {
         /** Options which alter the window behavior of this widget.  The
         * options are taken in priority order from:
         *  1. the constructor 'opts' argument 2. The PHEDEX.Util.Config
-        * 'opts' for this element 3. The defaults.
+        * 'opts' for this element 3. The defaults. These options are passed to the <strong>_init</strong> method, not the constructor
         * @property options
         * @type object
         * @protected
@@ -65,15 +65,15 @@ PHEDEX.Module = function(sandbox, string) {
           */
           minwidth:10,
 
-          /** Minimum width of this widget.
-          * @property options.minwidth
+          /** Minimum height of this widget.
+          * @property options.minheight
           * @type int
           * @private
           */
           minheight:10,
 
           /** Whether a floating window should be draggable.
-          * @property options.minwidth
+          * @property options.draggable
           * @type boolean
           * @private
           */
@@ -178,7 +178,7 @@ PHEDEX.Module = function(sandbox, string) {
           underlay: "matte"
         };
         if ( this.options.window ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.Module.Window(this,module_options),true);
+          YAHOO.lang.augmentObject(this, new PHEDEX.Module._window(this,module_options),true);
         } else {
           delete module_options['width'];
           delete module_options['height'];
@@ -187,7 +187,7 @@ PHEDEX.Module = function(sandbox, string) {
         }
         this.dom.body.style.padding = 0; // lame, but needed if our CSS is loaded before the YUI module CSS...
         if ( this.options.resizeable ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.Module.Resizeable(this),true);
+          YAHOO.lang.augmentObject(this, new PHEDEX.Module._resizeable(this),true);
 //         } else {
         }
 
@@ -236,7 +236,7 @@ PHEDEX.Module = function(sandbox, string) {
       },
       /**
        * make the module invisible on-screen by adding the <strong>phedex-invisible</strong> class to the container element
-       * @method show
+       * @method hide
        */
       hide: function() {
         log(this.id+': hiding module "'+this.id+'"','info','Module');
@@ -283,18 +283,24 @@ PHEDEX.Module = function(sandbox, string) {
 };
 
 /**
+ * For 'window-like' behaviour (multiple modules on-screen, draggable, closeable), this object provides the necessary extra initialisation. Never called or created in isolation, it is used only by the PHEDEX.Module class internally, in the constructor.
  * @namespace PHEDEX.Module
- * @class Window
- * @constructor
- * @param obj {object} the PHEDEX.Module toat should be augmented with a PHEDEX.Module.Window
+ * @class _window
+ * @param obj {object} the PHEDEX.Module toat should be augmented with a PHEDEX.Module._window
  * @param module_options {object} options used to set the module properties
  */
-PHEDEX.Module.Window = function(obj,module_options) {
+PHEDEX.Module._window = function(obj,module_options) {
   if ( PHEDEX[obj.type].Window ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Window(obj),true);
   }
   YAHOO.util.Dom.addClass(obj.el,'phedex-panel');
   this.module = new YAHOO.widget.Panel(obj.el, module_options);
+  /**
+   * adjust the height of the panel header element to accomodate new stuff inside it. Used for showing 'extra' information, etc
+   * @method adjustHeader
+   * @private
+   * @param arg {int} number of pixels (positive or negative) by which the height of the header should be adjusted
+   */
   this.adjustHeader = function(arg) { // 'window' panels need to respond to header-resizing
     var oheight = parseInt(this.module.cfg.getProperty("height"));
     if ( isNaN(oheight) ) { return; } // nothing to do if the height is not specified
@@ -313,12 +319,12 @@ PHEDEX.Module.Window = function(obj,module_options) {
 }
 
 /**
+ * For resizeable modules ('window-like'), this object provides the necessary extra initialisation. Never called or created in isolation, it is used only by the PHEDEX.Module class internally, in the constructor.
  * @namespace PHEDEX.Module
- * @class Resizeable
- * @constructor
+ * @class _resizeable
  * @param obj {object} the PHEDEX.Module whose on-screen representation should be resizeable
  */
-PHEDEX.Module.Resizeable = function(obj) {
+PHEDEX.Module._resizeable = function(obj) {
   if ( PHEDEX[obj.type].Resizeable ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Resizeable(obj),true);
   }

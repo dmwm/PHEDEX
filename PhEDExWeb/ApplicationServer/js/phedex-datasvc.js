@@ -7,6 +7,7 @@
 
 /**
  * implement AJAX-communication with the PhEDEx data-service, handling errors for the client
+ * @namespace PHEDEX
  * @class Datasvc
  */
 
@@ -62,14 +63,14 @@ PHEDEX.Datasvc = (function() {
 
     // identify ourselves to the web-server logfiles
     YAHOO.util.Connect.initHeader('user-agent',
-				  'PhEDEx-AppServ/'+PHEDEX.Appserv.Version+' (CMS) '+navigator.userAgent);
+                                  'PhEDEx-AppServ/'+PHEDEX.Appserv.Version+' (CMS) '+navigator.userAgent);
     YAHOO.util.Connect.asyncRequest('GET',
-				    query.path,
-				    { success:_got,
-				      failure:_fail,
-				      timeout:60*1000, // 1 minute (too soon?)
-				      argument:query }
-				   );
+                                    query.path,
+                                    { success:_got,
+                                      failure:_fail,
+                                      timeout:60*1000, // 1 minute (too soon?)
+                                      argument:query }
+                                   );
 
     if (! query.poll_id ) { query.poll_id = _nextID(); }
     query.context.poll_id = query.poll_id;
@@ -168,21 +169,45 @@ PHEDEX.Datasvc = (function() {
   // public methods/properties below
   return {
 
-    /**
+/**
+ * the query-object describes the data that must be fetched from the data-service and how to handle it or how to handle failure.
+ * @property query
+ * @type object
+ * @protected
+ */
+/** (input, mandatory) the dataservice API name
+ * @property query.api
+ * @type string
+ */
+
+/** (input, optional) reference to an object containing arguments for the call. See the data-service documentation for the API you are using to find out what set of valid arguments you may use
+ * @property query.args
+ * @type object
+ */
+/** (input, optional) a callback function for results. Takes two arguments, (data, context). The data is API-specific, see the data-service documentation for each API to understand it. The context object is described below. The callback argument may be omitted if a success_event is given instead
+ * @property query.callback
+ * @type function
+ */
+/**
+ * (input, optional) An event to fire when the data is ready. Used instead of a callback if it is provided. The event is fired with the same arguments as the callback would have received
+ * @property query.success_event
+ * @type YAHOO.util.CustomEvent
+ */
+/**
+ * (input, optional) An event to fire on failure. If not given, the success_event or callback will be called for failed transfers, and it is up to them to understand from the response that the call has failed.
+ *  @property query.failure_event
+ * @type YAHOO.util.CustomEvent
+ */
+/**
+ * (output) An object, containing <strong>.api</strong>, <strong>.path</strong>, <strong>.poll_id</strong>, and <strong>.poll_number</strong> keys, with values set automatically. Can be used by the caller for advanced data-service call management, apparently.
+ * @property query.context
+ * @type object
+ */
+   /**
      * access the data service once, sending the result data to a callback function
      * or firing an event when the data is returned and validated.
      * @method Call
      * @param query {object} object defining the API and parameters to pass to the data-service
-     * <br/>query object attributes:<br/>
-     * <pre><table>
-     * <tr><td><strong>api</strong></td><td>the datasvc api name</td>
-     * <tr><td><strong>args</strong></td><td>hash of arguments for the api call</td>
-     * <tr><td><strong>callback</strong></td><td>a callback function for result (data, context)</td>
-     * <tr><td><strong>success_event</strong></td><td>an event to fire(data, context)) on success</td>
-     * <tr><td><strong>failure_event</strong></td><td>an event to fire(Error, context) on failure, defaults to success_event</td>
-     * <tr><td><strong>context</strong></td><td>an object to return back with the response, in order to help identify the response or perform some other magic.<br/>Will have <strong>.api</strong>, <strong>.path</strong>, <strong>.poll_id</strong>, and <strong>.poll_number</strong> set automatically</td>
-     * </table>
-     * </pre>
      */
     Call: function(query) {
       query.text = _build_query(query);
@@ -191,14 +216,24 @@ PHEDEX.Datasvc = (function() {
       PHEDEX.Datasvc.Poll(query);
     },
 
-    /* Poll(query) : access the data service repeatedly, sending the result data to a callback function
-     *               or firing an event when the data is returned and validated.  The period of the poll is
-     *               determined by the data service API.
-     *   the query object is the same as in Call, with the following additions:
-     *   limit          : limit to the number of times to poll, default is Number.POSITIVE_INFINITY
-     *   force_polltime : time in milliseconds to poll the query, ignoring
-     *                    the api preferences.  Use for testing only.
+    /**
+     * access the data service repeatedly, sending the result data to a callback function
+     * or firing an event when the data is returned and validated. The period of the poll is
+     * determined by the data service API.
+     * the query object is the same as in Call, except that the <strong>limit</strong> and <strong>force_polltime</strong> fields only apply to <strong>Poll</strong>
+     * @method Poll
+     * @param query {object} object defining the API and parameters to pass to the data-service
      */
+/**
+ * (input,optional) limit to the number of times to poll, default is Number.POSITIVE_INFINITY. Only valid with the <strong>Poll</strong> method
+ * @property query.limit
+ * @type {integer}
+ */
+/**
+ * (input,optional) time in milliseconds to poll the query, ignoring the api preferences. Use for testing only. Only valid with the <strong>Poll</strong> method
+ * @property query.force_polltime
+ * @type {integer}
+ */
     Poll: function(query) {
       query.text = _build_query(query);
       YAHOO.log('POLL '+query.text,'info','Core.Datasvc');
