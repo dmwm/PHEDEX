@@ -181,7 +181,7 @@ sub connectToDatabase
     # Cache it.
     $dbh->{FetchHashKeyName} = "NAME_uc";
     $dbh->{LongReadLen} = 4096;
-    $dbh->{RowCacheSize} = 10000;
+    $dbh->{RowCacheSize} = 1000;
     $dbh->{private_phedex_invalid} = 0;
     $dbh->{private_phedex_prefix} = $self->{DBH_SCHEMA_PREFIX};
     $dbh->{private_phedex_newconn} = 1;
