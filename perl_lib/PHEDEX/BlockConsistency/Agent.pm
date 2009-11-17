@@ -327,6 +327,7 @@ sub do_tests
     {
       $self->setRequestState($request,'Expired');
       $self->Logmsg("do_tests: return after Expiring $request->{ID}");
+      return;
     }
 
     if ( $request->{TEST} eq 'size' ||
