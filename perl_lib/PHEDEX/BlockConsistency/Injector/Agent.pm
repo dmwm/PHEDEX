@@ -92,7 +92,7 @@ sub stuckOnWan
 {
   my ($self, $dbh, $filter, $filter_args) = @_;
   my (@requests,$sql,%p,$q);
-  my ($now,$t,$interval);
+  my ($now,$t,$interval,$last_checked);
 
   $self->Logmsg("find candidates stuckOnWan: starting");
   $now = &mytimeofday();
@@ -115,9 +115,11 @@ sub stuckOnWan
        };
   $t = time();
   $interval = $t - $self->{CHECK_INTERVAL};
-  $self->Logmsg('Search between ', (scalar localtime $interval), ' and ', (scalar localtime $self->{LAST_CHECKED}));
+  $last_checked = $self->{LAST_CHECKED} - $self->{CHECK_INTERVAL};
+  if ( $last_checked < 0 ) { $last_checked = 0; }
+  $self->Logmsg('Search between ', (scalar localtime $interval), ' and ', (scalar localtime $last_checked));
   %p = ( ":interval"     => $interval,
-	 ":last_checked" => $self->{LAST_CHECKED},
+	 ":last_checked" => $last_checked,
 	 %{$filter_args}
        );
   $q = &dbexec($dbh,$sql,%p);
@@ -200,7 +202,7 @@ sub idle
         PHEDEX::BlockConsistency::Core::InjectTest( $self, %p );
       }
     }
-    $self->Logmsg("Started $counter requests");
+    $self->Logmsg("Injected $counter test-requests");
     $dbh->commit();
   };
   do { chomp ($@);
