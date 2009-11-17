@@ -369,7 +369,12 @@ sub poll_job_postback
 
     if ( ! exists $f->ExitStates->{$s->{STATE}} )
     { 
-	$self->Alert("Unknown file-state: " . $s->{STATE});
+      my $last = $self->{_new_file_states}{$s->{STATE}} || 0;
+      if ( time - $last > 300 )
+      {
+        $self->{_new_file_states}{$s->{STATE}} = time;
+        $self->Alert("Unknown file-state: " . $s->{STATE});
+      }
     }
 
     $self->WorkStats('FILES', $f->Destination, $f->State);
@@ -411,7 +416,12 @@ sub poll_job_postback
 
   if ( ! exists $job->ExitStates->{$result->{JOB_STATE}} )
   { 
+    my $last = $self->{_new_job_states}{$result->{JOB_STATE}} || 0;
+    if ( time - $last > 300 )
+    {
+      $self->{_new_job_states}{$result->{JOB_STATE}} = time;
       $self->Alert("Unknown job-state: " . $result->{JOB_STATE});
+    }
   }
 
   $job->State($result->{JOB_STATE});
