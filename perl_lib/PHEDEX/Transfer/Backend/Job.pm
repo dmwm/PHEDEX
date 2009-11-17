@@ -66,6 +66,7 @@ our %exit_states =
 	  FinishedDirty		=> 1,
 	  Canceling		=> 0,
 	  Canceled		=> 1,
+	  Hold			=> 0,
 	  undefined		=> 0,
 	  lost			=> 1,
 	  abandoned		=> 1,
