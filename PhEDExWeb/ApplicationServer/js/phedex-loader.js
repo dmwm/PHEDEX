@@ -144,6 +144,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires:['treeview'] },
+    'phedex-module-dummy':  { requires:['phedex-module'] },
     'phedex-module-nodes':  { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents': { requires:['phedex-module','phedex-datatable'] },
   },
@@ -260,17 +261,21 @@ PHEDEX.Loader = function(opts) {
 
 /**
  * @method loaded
- * @return {string} with a full list of modules loaded by this loader. This is the full list since the loader was instantiated, so will grow monotonically if the loader is used several times
+ * @return {string} A full list of modules loaded by this loader. This is the full list since the loader was instantiated, so will grow monotonically if the loader is used several times
  */
     loaded: function() { return _loader.inserted; },
 
 /**
  * @method knownModules
- * @return {array} list of all source-files matching <strong>/^phedex-module-/</strong>. Use this to determine the names of instantiatable data-display modules before they are loaded.
+ * @param all {boolean} Return all known modules. Defaults to <strong>false</strong>, which explicitly excludes dummy module(s) used for debugging
+ * @return {array} List of all source-files matching <strong>/^phedex-module-/</strong>. Use this to determine the names of instantiatable data-display modules before they are loaded.
  */
-    knownModules: function() {
+    knownModules: function(all) {
       var km=[];
       for (var str in _dependencies) {
+        if ( !all && str.match('^phedex-module-dummy') ) {
+          continue;
+        }
         if ( str.match('^phedex-module-(.+)$') ) {
           km.push(RegExp.$1);
         }
