@@ -276,17 +276,6 @@ PHEDEX.Module = function(sandbox, string) {
         while (this.el.hasChildNodes()) { this.el.removeChild(this.el.firstChild); }
         this.dom = [];
       },
-
-// Stub functions to allow a bare PHEDEX.Module to be driven by the core. Real modules will never call these functions!
-      init: function(opts) { this._init(opts); _sbx.notify( this.id, 'init' ); },
-      initData: function() { _sbx.notify( this.id, 'initData' ); },
-      getData: function() {
-// dummy-out the call to get data, skip the dataservice completely.
-//         _sbx.notify( this.id, 'getData', { api:'bounce' } ); },
-//       gotData: function(data) {
-        _sbx.notify( this.id, 'gotData' );
-      },
-
     };
   };
   YAHOO.lang.augmentObject(this, _construct());
