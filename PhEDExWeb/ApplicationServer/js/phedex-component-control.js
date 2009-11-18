@@ -24,6 +24,12 @@
 /** The name (in the <strong>obj.dom</strong> partner-object) of the element that is to be controlled by this control.
  * @property args.payload.target {string}
  */
+/** Controls are enabled by default. Setting <strong>args.payload.disabled</strong> to <strong>true</strong> will cause it to start disabled.
+ * @property args.payload.disabled {boolead}
+ */
+/** Controls are shown by default. Setting <strong>args.payload.hidden</strong> to <strong>true</strong> will cause it to be hidden at creation-time.
+ * @property args.payload.hidden {boolead}
+ */
 /** The handler, either a function-reference or an event-name, that will be called or invoked (via the sandbox) when the controlled element is to be shown. Our architectural model frowns upon using a function, as objects should not call each other, so it's better to use the string form. The partner object will then receive a notification from the sandbox with the following three arguments:<br />
  * - <strong>expand</strong>, so the partner should listen for this keyword<br />
  * - <strong>handler</strong>, the name of the handler, used for dismbiguating multiple controls in a single partner<br />
@@ -121,7 +127,6 @@ PHEDEX.Component.Control = function(sandbox,args) {
         if ( !args.payload.type ) { args.payload.type = 'a'; }
         this.id = this.me+'_'+PxU.Sequence();
         this.el = document.createElement(args.payload.type);
-        this.el.style.cursor = 'pointer'; //Change the mouse cursor to hand symbol
         if ( args.payload.type == 'img' ) {
           this.el.src = args.src;
         } else if ( args.payload.type == 'a' ) {
@@ -149,7 +154,9 @@ PHEDEX.Component.Control = function(sandbox,args) {
               el = args.events[i].element || this.el;
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
-
+        if ( args.payload.disabled ) { this.Disable(); }
+        if ( args.payload.hidden )   { this.Hide(); }
+        else { this.Enable(); }
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
@@ -274,19 +281,21 @@ PHEDEX.Component.Control = function(sandbox,args) {
         this.el.innerHTML = text;
       },
 /**
- * enable the control. Remove the CSS class <strong>phedex-core-control-widget-disabled</strong>, and set the <strong>enabled</strong> property to 1
+ * enable the control. Remove the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 1, and set the cursor to 'pointer' for this element.
  * @method Enable
  */
       Enable: function() {
         YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 1;
+        this.el.style.cursor = 'pointer';
       },
 /**
- * disable the control. Add the CSS class <strong>phedex-core-control-widget-disabled</strong>, and set the <strong>enabled</strong> property to 0
+ * disable the control. Add the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 0, and set the cursor to normal
  * @method Enable
  */      Disable: function() {
         YAHOO.util.Dom.addClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 0;
+        this.el.style.cursor = '';
       },
 /**
  * add or remove the <strong>phedex-core-control-widget-applied</strong> CSS class depending on the input argument (true ==> add). Used to show that 'something' has happened, such as a module has had a filter applied to it. Gives visual indication of state without the controlled element having to be visible.
