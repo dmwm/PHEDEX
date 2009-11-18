@@ -8,6 +8,8 @@ use strict;
 use JSON::XS;     # for json format output
 use Data::Dumper; # for perl format output
 
+use PHEDEX::Core::Loader;
+
 our (%params);
 
 %params = ( );
@@ -15,16 +17,13 @@ our (%params);
 sub new
 {
     my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $self  = ref($proto) ? $class->SUPER::new(@_) : {};
-    
-    my %args = (@_);
-    map {
-        $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_}
-    } keys %params; 
+    my $format = shift;
+    my $file = shift;
 
-    bless $self, $class;
-    return $self;
+    my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Web::Format');
+    my $module = $loader->Load($format);
+    die "no formatter module for $format" if ! $module;
+    return $module->new($file);
 }
 
 sub output
