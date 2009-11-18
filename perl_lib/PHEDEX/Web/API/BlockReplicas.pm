@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Spooler;
 
 # modules that used to be provided through PHEDEX::Web::SQL
 
@@ -127,8 +128,8 @@ sub spool
 
     my $r;
 
-    $sth = PHEDEX::Web::SQL::getBlockReplicas($core, %h) if !$sth;
-    $r = PHEDEX::Web::Util::spool($sth, $limit, @keys);
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %h), $limit, @keys) if !$sth;
+    $r = $sth->spool();
     if ($r)
     {
         return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
