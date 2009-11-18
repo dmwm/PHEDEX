@@ -79,24 +79,29 @@ banner = function() {
 }();
 
 stressTest = function(type) {
-  var el = document.getElementById('phedex-debug');
-  var d = document.createElement('div'),
-      i = 1000;
-  el.appendChild(d);
+  var el = document.getElementById('phedex-debug'),
+      d  = document.getElementById('phedex-debug-status'),
+      i  = 0,
+      run = 1;
+  if ( !d ) {
+    d = document.createElement('div');
+    d.id = 'phedex-debug-status';
+    el.appendChild(d);
+  }
   d.innerHTML='starting...';
-
+  var start = new Date();
   var moduleHandler = function(who,arr) {
     switch ( arr[0] ) {
       case 'gotData': {
-        if ( i == 0 ) { break; }
+        if ( run == 0 ) { break; }
         PxS.notify('module',who,'destroy');
         break;
       }
       case 'destroy': {
-        if ( i == 0 ) { break; }
-        i--;
+        if ( run == 0 ) { break; }
+        i++;
         d.innerHTML = 'iterations remaining: '+i;
-        setTimeout(function() { PxS.notify('CreateModule',type); }, 5);
+        setTimeout(function() { PxS.notify('CreateModule',type); }, 0);
         break;
       }
     }
@@ -106,6 +111,12 @@ stressTest = function(type) {
     PxS.listen(arr[0].id,moduleHandler);
   };
   PxS.listen('ModuleExists', _moduleExists);
+  setTimeout(function() {
+      run = 0;
+      var stop = new Date();
+      stop = (stop.getTime() - start.getTime())/1000;
+      d.innerHTML += '<br />Test took '+stop+'seconds';
+    }, 60000);
   PxS.notify('LoadModule',type);
 }
 
