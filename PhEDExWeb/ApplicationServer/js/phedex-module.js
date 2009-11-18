@@ -105,6 +105,24 @@ PHEDEX.Module = function(sandbox, string) {
         YAHOO.lang.augmentObject(this.options, opts, true);
         _sbx.listen('CoreCreated',function() { _sbx.notify('ModuleExists',this.id,this); });
         _sbx.notify('ModuleExists',this);
+
+        this.decorators.push(
+          {
+            name:'Filter',
+            source: 'component-control',
+            parent: 'control',
+            payload:{
+              disabled: true,
+              hidden:   true,
+              target:  'filter',
+              fillFn:  'filter.Build',
+              fillArgs:'fillArgs',
+              animate:  false,
+//              onHideControl:this.onHideFilter,
+//              onShowControl:this.onShowFilter
+            }
+          }
+        );
       },
 
       adjustHeader: function() {},
@@ -296,7 +314,7 @@ PHEDEX.Module._window = function(obj,module_options) {
   YAHOO.util.Dom.addClass(obj.el,'phedex-panel');
   this.module = new YAHOO.widget.Panel(obj.el, module_options);
   /**
-   * adjust the height of the panel header element to accomodate new stuff inside it. Used for showing 'extra' information, etc
+   * adjust the height of the panel header element to accomodate new stuff inside it. Used for showing 'extra' information, etc. Useful for 'window'-mode panels, where the size of the container on display is fixed. When 'extra' information is shown, the fixed-size needs to be adjusted to make room for it.
    * @method adjustHeader
    * @private
    * @param arg {int} number of pixels (positive or negative) by which the height of the header should be adjusted
@@ -369,14 +387,8 @@ PHEDEX.Module._resizeable = function(obj) {
 //
 //   this.textNodeMap = [];
 //   this.hideByDefault = [];
-//   this.control = [];
-//   this.data   = [];
 //   this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
 //
-//   this.filter.onFilterApplied = new YAHOO.util.CustomEvent("onFilterApplied", this, false, YAHOO.util.CustomEvent.LIST);
-//   this.onAcceptFilter         = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
-//   this.onShowFilter           = new YAHOO.util.CustomEvent("onShowFilter",  this, false, YAHOO.util.CustomEvent.LIST);
-//   this.onHideFilter           = new YAHOO.util.CustomEvent("onHideFilter",  this, false, YAHOO.util.CustomEvent.LIST);
 //   this.onHideFilter.subscribe(function() {
 //       this.filter.destroy();
 //       var isApplied = this.filter.isApplied();
