@@ -80,9 +80,6 @@ use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::Cache;
 use PHEDEX::Web::Format;
-use PHEDEX::Web::FormatXML;
-use PHEDEX::Web::FormatPERL;
-use PHEDEX::Web::FormatJSON;
 use HTML::Entities; # for encoding XML
 
 our (%params);
@@ -193,19 +190,9 @@ sub call
             my $fmt;
             # open (local *STDOUT,'>/dev/null');
             my $spool = $api . '::spool';
-            if ($format eq "xml")
-            {
-                $fmt = PHEDEX::Web::FormatXML->new(*STDOUT);
-            }
-            elsif ($format eq 'perl')
-            {
-                $fmt = PHEDEX::Web::FormatPERL->new(*STDOUT);
-            }
-            elsif ($format eq 'json')
-            {
-                $fmt = PHEDEX::Web::FormatJSON->new(*STDOUT);
-            }
-                
+            $fmt = PHEDEX::Web::Format->new($format, *STDOUT);
+            die "unknown format $format" if (not $fmt);
+
             #create header
             
             my $phedex = {};
