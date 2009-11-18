@@ -258,6 +258,12 @@ sub getFileReplicas
     $sql .= qq{ order by block_id };
 
     $q = execute_sql( $self, $sql, %p );
+
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
     return \@r;
