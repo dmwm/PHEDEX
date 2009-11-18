@@ -22,15 +22,20 @@ PHEDEX= {}
  */
 // For more information, see: http://yuiblog.com/blog/2007/06/12/module-pattern/
 PHEDEX.namespace = function() {
-    var a=arguments, o=null, i, j, d;
-    for (i=0; i<a.length; i=i+1) {
+    var a=arguments, o=null, i, j, d, k;
+    i=a.length;
+    while ( i > 0 ) {
+        i--;
         d=(""+a[i]).split(".");
         o=PHEDEX;
 
         // PHEDEX is implied, so it is ignored if it is included
-        for (j=(d[0] == "PHEDEX") ? 1 : 0; j<d.length; j=j+1) {
+        k=d.length;
+        j=(d[0] == "PHEDEX") ? 1 : 0;
+        while ( j<k ) {
             o[d[j]]=o[d[j]] || {};
             o=o[d[j]];
+            j=j+1;
         }
     }
 
@@ -243,11 +248,13 @@ PHEDEX.Loader = function(opts) {
           _on = {};
           for (var i in args) { _on[i] = args[i]; }
         }
-        for (var i=0; i<_args.length; i++)
+        var i = 0, j = _args.length;
+        while ( i<j )
         {
           var m = _args[i];
           if ( _dependencies['phedex-'+m] ) { m = 'phedex-'+m; }
           _loader.require(m);
+          i++;
         }
         _loader.insert();
       }, 0);

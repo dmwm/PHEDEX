@@ -151,7 +151,9 @@ PHEDEX.Core = function(sandbox,loader) {
         break;
       }
       case 'decoratorsLoaded': {
-        for (var i in m.decorators) {
+        var ii = m.decorators.length,
+            i  = 0;
+        while ( i < ii ) {
           var d = m.decorators[i];
           if ( m.ctl[d.name] ) {
 //          I'm not too clear why this happens, in principle it shouldn't...?
@@ -206,6 +208,7 @@ PHEDEX.Core = function(sandbox,loader) {
               if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
               }
             }(m,d,ctor),10);
+          i++;
         };
         break;
       }
