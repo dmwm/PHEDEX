@@ -4,7 +4,7 @@
  * @class Module
  * @constructor
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
- * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
+ * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.Module = function(sandbox, string) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
@@ -134,8 +134,13 @@ PHEDEX.Module = function(sandbox, string) {
       initModule: function() {
         log(this.id+': initialising','info','Module');
 
-//      handle messages from the core. Not actually used anywhere yet!
-        var coreHandler = function(obj) {
+/** Handle messages sent with the <strong>module</strong> event. This allows other components of the application to broadcast a message that will be caught by all modules. There is in principle some overlap between this function and the <strong>selfHandler</strong>, but they have different responses, so are not in fact equivalent. The <strong>genericHandler</strong> is not actually used anywhere yet!
+ * @method genericHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event. The first argument is either null, or '*', or the name of a module. If it is null or '*', the event will be accepted. If it is anything else, it will only be accepted if it matches the name of this particular module. The second argument is the name of a member-function of this module, which is then invoked directly. The function will be invoked with a single argument, the third element of the array.
+ * @private
+ */
+        this.genericHandler = function(obj) {
           return function(ev,arr) {
             var who = arr[0],
                 action = arr[1];
@@ -148,10 +153,16 @@ PHEDEX.Module = function(sandbox, string) {
             obj[action](arr[2]);
           }
         }(this);
-        _sbx.listen('module',coreHandler);
+        _sbx.listen('module',this.genericHandler);
 
-//      handle messages directly to me...
-        var selfHandler = function(obj) {
+/**
+ * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly. This is primarily for interaction with decorators, so actions are specific to the types of decorator. Some are toggles, e.g. <strong>show target</strong> and <strong>hide target</strong>. Others are hidden method-invocations (e.g. <strong>hideByDefault</strong>), where the action is used to invoke a function with the same name. Still others are more generic, such as <strong>expand</strong>, which require that the module that created the decoration specify a handler to be named when this function is invoked. <strong>expand</strong> specifically applies to <strong>PHEDEX.Component.Control</strong>, when used for the <strong>Extra</strong> field. The handler passed to the control constructor tells it which function will fill in the information in the expanded field.
+ * @method selfHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+        this.selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
                 value = arr[1];
@@ -176,7 +187,7 @@ PHEDEX.Module = function(sandbox, string) {
             }
           }
         }(this);
-        _sbx.listen(this.id,selfHandler);
+        _sbx.listen(this.id,this.selfHandler);
 
         /** The YAHOO container module used by this PhEDEx module.  If options.window is true, then
         * it is a YAHOO Panel, otherwise it is a YAHOO Module. The PhEDEx module is augmented with an appropriate subclass, depending on the value of options.window
@@ -196,7 +207,7 @@ PHEDEX.Module = function(sandbox, string) {
           underlay: "matte"
         };
         if ( this.options.window ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.Module._window(this,module_options),true);
+          YAHOO.lang.augmentObject(this, new PHEDEX.AppStyle.Window(this,module_options),true);
         } else {
           delete module_options['width'];
           delete module_options['height'];
@@ -205,7 +216,7 @@ PHEDEX.Module = function(sandbox, string) {
         }
         this.dom.body.style.padding = 0; // lame, but needed if our CSS is loaded before the YUI module CSS...
         if ( this.options.resizeable ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.Module._resizeable(this),true);
+          YAHOO.lang.augmentObject(this, new PHEDEX.AppStyle.Resizeable(this),true);
 //         } else {
         }
 
@@ -302,12 +313,13 @@ PHEDEX.Module = function(sandbox, string) {
 
 /**
  * For 'window-like' behaviour (multiple modules on-screen, draggable, closeable), this object provides the necessary extra initialisation. Never called or created in isolation, it is used only by the PHEDEX.Module class internally, in the constructor.
- * @namespace PHEDEX.Module
- * @class _window
- * @param obj {object} the PHEDEX.Module toat should be augmented with a PHEDEX.Module._window
+ * @namespace PHEDEX.AppStyle
+ * @class Window
+ * @param obj {object} the PHEDEX.Module that should be augmented with a PHEDEX.AppStyle.Window
  * @param module_options {object} options used to set the module properties
  */
-PHEDEX.Module._window = function(obj,module_options) {
+PHEDEX.namespace('AppStyle');
+PHEDEX.AppStyle.Window = function(obj,module_options) {
   if ( PHEDEX[obj.type].Window ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Window(obj),true);
   }
@@ -338,12 +350,12 @@ PHEDEX.Module._window = function(obj,module_options) {
 
 /**
  * For resizeable modules ('window-like'), this object provides the necessary extra initialisation. Never called or created in isolation, it is used only by the PHEDEX.Module class internally, in the constructor.
- * @namespace PHEDEX.Module
- * @class _resizeable
+ * @namespace PHEDEX.AppStyle
+ * @class Resizeable
  * @param obj {object} the PHEDEX.Module whose on-screen representation should be resizeable
  */
-PHEDEX.Module._resizeable = function(obj) {
-  if ( PHEDEX[obj.type].Resizeable ) {
+PHEDEX.AppStyle.Resizeable = function(obj) {
+  if ( PHEDEX[obj.type].hasOwnProperty('Resizeable') ) {
     YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Resizeable(obj),true);
   }
   YAHOO.util.Dom.addClass(obj.el,'phedex-resizeable-panel');
