@@ -1,22 +1,53 @@
+/**
+ * This is the base class for all PhEDEx datatable-related modules. It extends PHEDEX.Module to provide the functionality needed for modules that use a YAHOO.Widget.DataTable.
+ * @namespace PHEDEX
+ * @class Datatable
+ * @constructor
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+ * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
+ */
 PHEDEX.DataTable = function(sandbox,string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
   var _me  = 'DataTable',
       _sbx = sandbox;
 
+  /**
+   * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
+   * @method _construct
+   * @private
+   */
   var _construct = function() {
     return {
+/**
+ * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
+ * @property type 'DataTable', constant!
+ * @type string
+ * @private
+ */
       type: 'DataTable',
-      fillDataSource: function(data) {
-        var table = [];
-        for (var i in data) {
-          var a = data[i];
-          var y = [];
-          for (var j in this.columnDefs )
-          {
-            var c = this.columnDefs[j];
-            var val = a[this.columnMap[c.key]];
-//          This applies the parser, if any. This is needed to ensure that numbers are sorted numerically, and not as strings.
-//          Declare fields to be numeric in your columns specified to buildTable, see above
+/**
+ * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
+ * @method fillDataSource
+ * @param data {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+ */
+      fillDataSource: function(data,schema) {
+        if ( schema ) {
+          this.fillDataSourceWithSchema(data,schema);
+          return;
+        }
+        var table = [],
+            i = data.length,
+            k = this.columnDefs.length,
+            j;
+        while ( i > 0 ) {
+          i--
+          var a = data[i],
+              y = [];
+          j = k;
+          while ( j > 0 ) {
+            j--;
+            var c = this.columnDefs[j],
+                val = a[this.columnMap[c.key]];
             if ( c.parser )
             {
               if (typeof c.parser == 'function' ) { val = c.parser(val); }
@@ -37,6 +68,10 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.el.style.width = w+'px';
       },
 
+/**
+ * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.defHide</strong> to determine what to hide.
+ * @method hideByDefault
+ */
       hideByDefault: function() {
         if ( this.options.defhide ) {
           for (var i in this.options.defhide)
@@ -49,6 +84,12 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.el.style.width = w+'px';
       },
 
+/** Fill a data-source with JSON data, using a schema to describe it. Used internally by <strong>fillDataSource</strong> if a schema is provided
+ * @method fillDataSourceWithSchema
+ * @param jsonData {JSON data} a JSON object that contains the data for the table
+ * @param dsDchema {YAHOO.util.DataSource.responseSchema} an object describing the contents of the JSON object
+ * @private
+ */
       fillDataSourceWithSchema: function(jsonData, dsSchema) {
         this.dataSource = new YAHOO.util.DataSource(jsonData);
         this.dataSource.responseSchema = dsSchema;
@@ -60,10 +101,21 @@ PHEDEX.DataTable = function(sandbox,string) {
         this.dataSource.sendRequest('', oCallback); //This is to update the datatable on UI
       },
 
+/**
+ * A callback for the 'show-fields' button. Used to show a column that has been hidden thus far
+ * @method menuSelectItem
+ * @private
+ * @param arr {array} An array, the first element of which is the name of a column.
+ */
       menuSelectItem: function(arr) {
         this.dataTable.showColumn(this.dataTable.getColumn(arr[0]));
       },
 
+/**
+ * Used to resize the panel when viewing modules in 'window' mode. Specifically, when the table is redrawn, either for new data or for a column being shown or hidden, this will make sure the width of the table is extended to show all the data.
+ * @method resizePanel
+ * @private
+ */
       resizePanel: function() {
         var table = this.dataTable,
             old_width = table.getContainerEl().clientWidth,
@@ -75,12 +127,23 @@ PHEDEX.DataTable = function(sandbox,string) {
         }
       },
 
-      buildTable: function(div,columns,map,dsschema) {
+/**
+ * Build a table. This does not draw the table on-screen, use <strong>fillDataSource</strong> for that. This function needs to be called once, to create the DOM elements, and to prepare the module to receive data.
+ * @method buildTable
+ * @param columns {array} An array containing column-definitions. Each element in the array is either a simple string, which must correspond one-to-one with column-headers (case-blind), or an object.<br /><br />
+ * If an object, it must have a key called <strong>key</strong>, which contains the column-header name (case-blind), and zero or more other keys, from the following.<br /><br />
+ * The <strong>parser</strong> key tells the module to parse the field-value accordingly. It's either a reference (e.g. <strong>parser:YAHOO.util.DataSource.parseNumber</strong>) to a function that takes the value and returns the correct data-type, or the name (string) of a member of YAHOO.util.DataSourceBase.Parser (e.g. <strong>'parseNumber'</strong>). Useful for turning numeric data into integers or floats, instead of strings, for example.<br /><br />
+ * The <strong>formatter</strong> formats the field for display. It's either a reference to a function that takes (elCell,oRecord,oColumn,oData) and returns a formatted string representation of it, or the name (string) of a member of YAHOO.widget.DataTable.Formatter. Useful for formatting dates, or for convering bytes to GB, for example.<br /><br />
+ * @param map {object} (optional) a key-value map used map column-names returned by the data-service to more friendly names for display on-screen. The key is the on-screen name (i.e. matches a <strong>key</strong> in the <strong>columns</strong> object), the value is the name of the field returned by the data-service. Order of entries in the map is irrelevant.
+ * @param dsschema {YAHOO.util.DataSource.responseSchema} (optional) a responseSchema to describe how to parse the data.
+ */
+      buildTable: function(columns,map,dsschema) {
         this.columnDefs = columns;
         this.dsResponseSchema = dsschema; //Stores the response schema for the datasource
         this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
-        for (var i in this.columnDefs )
-        {
+        var i = this.columnDefs.length;
+        while ( i>0 ) {
+          i--;
           var cDef = this.columnDefs[i];
           if ( typeof cDef != 'object' ) { cDef = {key:cDef}; this.columnDefs[i] = cDef; }
           if ( !cDef.resizeable ) { cDef.resizeable=true; }
@@ -88,7 +151,7 @@ PHEDEX.DataTable = function(sandbox,string) {
           if ( !this.columnMap[cDef.key] ) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
         }
         this.dataSource = new YAHOO.util.DataSource();
-        this.dataTable = new YAHOO.widget.DataTable(div, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
+        this.dataTable = new YAHOO.widget.DataTable(this.dom.content, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
         var w = this.dataTable.getTableEl().offsetWidth;
         this.el.style.width = w+'px';
 
@@ -108,13 +171,36 @@ PHEDEX.DataTable = function(sandbox,string) {
   return this;
 }
 
-// Custom formatter for unix-epoch dates
+/** A custom formatter for unix-epoch dates. Sets the elCell innerHTML to the GMT representation of oDate
+ * @method YAHOO.widget.DataTable.Formatter.UnixEpochToGMT
+ * @param elCell {HTML element} Cell for which the formatter must be applied
+ * @param oRecord {datatable record}
+ * @param oColumn {datatable column}
+ * @param oData {data-value} unix epoch seconds
+ */
 YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
   var gmt = new Date(oData*1000).toGMTString();
   elCell.innerHTML = gmt;
 };
 
-// decorators for the datatable.
+/** A custom formatter for byte-counts. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
+ * @method YAHOO.widget.DataTable.Formatter.customBytes
+ * @param elCell {HTML element} Cell for which the formatter must be applied
+ * @param oRecord {datatable record}
+ * @param oColumn {datatable column}
+ * @param oData {data-value} number of bytes
+ */
+YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, OData) {
+  elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+};
+
+/**
+ * This is the base class for all PhEDEx datatable-related modules. It extends PHEDEX.Module to provide the functionality needed for modules that use a YAHOO.Widget.DataTable. This is called by PHEDEX.Component.ContextMenu to create the correct handler for datatable context menus.
+ * @namespace PHEDEX.DataTable
+ * @class ContextMenu
+ * @param obj {object} reference to the parent PHEDEX.DataTable object that this context-menu applies to.
+ * @param args {object} reference to an object that specifies details of how the control should operate.
+ */
 PHEDEX.DataTable.ContextMenu = function(obj,args) {
   PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
     log('hideField: ' + el.col.key, 'info', 'ContextMenu');
@@ -125,23 +211,27 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
   if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
 
   return {
+/**
+ * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the generic menu-handler.
+ * @method onContextMenuClick
+ * @private
+ */
    onContextMenuClick: function(p_sType, p_aArgs, obj) {
       log('ContextMenuClick for ' + obj.me, 'info', 'ContextMenu');
       var menuitem = p_aArgs[1];
       if (menuitem) {
         //  Extract which <tr> triggered the context menu
-        var tgt = this.contextEventTarget;
-        var elCol = obj.dataTable.getColumn(tgt);
-        var elRow = obj.dataTable.getTrEl(tgt);
-        var label = tgt.textContent;
+        var tgt = this.contextEventTarget,
+            elCol = obj.dataTable.getColumn(tgt),
+            elRow = obj.dataTable.getTrEl(tgt);
+//             label = tgt.textContent;
         if (elRow) {
-          var opts = {};
-          var oRecord = obj.dataTable.getRecord(elRow);
+          var opts = {},
+              oRecord = obj.dataTable.getRecord(elRow);
           // map types to column names in order to prepare our options
           if (obj.contextMenuTypeMap) {
             for (var type in obj.contextMenuTypeMap) {
-              var recName = obj.contextMenuTypeMap[type];
-              opts[type] = oRecord.getData(recName);
+              opts[type] = oRecord.getData(obj.contextMenuTypeMap[type]);
             }
           }
           menuitem.value.fn(opts, { table: obj.dataTable, row: elRow, col: elCol, record: oRecord });
@@ -151,16 +241,30 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
   };
 }
 
+/**
+ * @namespace PHEDEX.DataTable
+ * @class MouseOver
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object (unused)
+ * @param args {object} reference to an object that specifies details of how the control should operate. Only <strong>args.payload.obj.dataTable</strong> is used, to subscribe to the <strong>onRowMouseOver</strong> and >strong>onRowMouseOut</strong> events.
+ */
 PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   var obj = args.payload.obj;
+/**
+ * Reset the background-colour of the row after the mouse leaves it
+ * @method onRowMouseOut
+ * @private
+ */
   var onRowMouseOut = function(event) {
-// Gratuitously flash yellow when the mouse goes over the rows
 // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
-
 // Leave this next line here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
 //     YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = null;
   }
+/**
+ * Gratuitously set the background colour to yellow when the mouse goes over the rows
+ * @method onRowMouseOver
+ * @private
+ */
   var onRowMouseOver = function(event) {
 //     YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
     event.target.style.backgroundColor = 'yellow';
@@ -171,27 +275,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
   return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-
-// // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
-// // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
-// // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
-// // complete. This allows me to ignore the menu completely if the user didn't build one.
-// // If I didn't do it like this then the user would have to pass the options in to the constructor, and would then have to take
-// // care that the object was assembled in exactly the right way. That would then make things a bit more complex...
-//   this.onBuildComplete.subscribe(function(obj) {
-//     return function() {
-//       YAHOO.log('onBuildComplete: '+this.me(),'info','Core.DataTable');
-//       if ( obj.contextMenu )
-//       {
-//         YAHOO.log('subscribing context menu: '+obj.me(),'info','Core.DataTable');
-//         obj.contextMenu.clickEvent.subscribe(obj.onContextMenuClick, obj);
-//         obj.contextMenu.render(document.body);
-//       }
-
-//       obj.dataTable.subscribe('renderEvent', function() { obj.resizePanel(obj.dataTable); } );
-//     }
-//   }(this));
-// 
 //   this.onPopulateComplete.subscribe(function(obj) {
 //     return function() {
 //       for (var i in this.options.defhide)
