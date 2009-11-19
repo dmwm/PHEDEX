@@ -13,7 +13,6 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
           source:'component-contextmenu',
           payload:{
             args: {'agent':'Name'},
-            typeMap: [ 'dataTable' ],
           }
         },
         {

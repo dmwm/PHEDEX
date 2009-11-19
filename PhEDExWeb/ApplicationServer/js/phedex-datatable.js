@@ -202,13 +202,15 @@ YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn
  * @param args {object} reference to an object that specifies details of how the control should operate.
  */
 PHEDEX.DataTable.ContextMenu = function(obj,args) {
+  var p = args.payload;
+  if ( !p.config ) { p.config={}; }
+  if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
+  if ( !p.typeMap ) { p.typeMap=[]; }
+  p.typeMap.push('dataTable');
   PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
     log('hideField: ' + el.col.key, 'info', 'ContextMenu');
     el.table.hideColumn(el.col);
   });
-  var p = args.payload;
-  if ( !p.config ) { p.config={}; }
-  if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
 
   return {
 /**
