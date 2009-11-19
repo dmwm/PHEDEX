@@ -100,7 +100,7 @@ stressTest = function(type) {
       case 'destroy': {
         if ( run == 0 ) { break; }
         i++;
-        d.innerHTML = 'iterations remaining: '+i;
+        d.innerHTML = 'iterations so far: '+i;
         setTimeout(function() { PxS.notify('CreateModule',type); }, 0);
         break;
       }
