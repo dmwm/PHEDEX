@@ -8,6 +8,26 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
    var _construct = function() {
     return {
       decorators: [
+        {
+          name: 'ContextMenu',
+          source:'component-contextmenu',
+          payload:{
+            args: {'agent':'Name'},
+            typeMap: [ 'dataTable' ],
+          }
+        },
+        {
+          name: 'cMenuButton',
+          source:'component-splitbutton',
+          payload:{
+            name:'Show all fields',
+            map: {
+              hideColumn:'addMenuItem',
+            },
+            onInit: 'hideByDefault',
+            container: 'param',
+          },
+        },
       ],
 
       init: function(opts) {

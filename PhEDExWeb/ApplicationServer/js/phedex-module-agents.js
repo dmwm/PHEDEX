@@ -28,9 +28,9 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             handler: 'getData',
             animate:false,
             map: {
-                   gotData:     'Disable',
-                   dataExpires: 'Enable',
-                  },
+              gotData:     'Disable',
+              dataExpires: 'Enable',
+            },
           }
         },
         {
@@ -53,7 +53,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             container: 'param',
           },
         },
-        { name: 'MouseOver' },
       ],
 
       init: function(opts) {
