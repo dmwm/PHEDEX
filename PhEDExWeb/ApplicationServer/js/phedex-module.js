@@ -123,6 +123,7 @@ PHEDEX.Module = function(sandbox, string) {
             }
           }
         );
+        this.decorators.push( { name: 'MouseOver' } );
       },
 
       adjustHeader: function() {},
