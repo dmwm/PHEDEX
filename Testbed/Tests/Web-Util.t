@@ -107,6 +107,10 @@ ok( lives(\&validate_params, { foo => 'y' }, spec => $using_spec),              
 ok( lives(\&validate_params, { foo => 'n' }, spec => $using_spec),                  'good yesno: n') or whydie;
 ok( dies (\&validate_params, { foo => 'yes' }, spec => $using_spec),                'bad yesno: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad yesno: 2');
+my $using_spec = { foo => { using => 'andor' } };
+ok( lives(\&validate_params, { foo => 'and' }, spec => $using_spec),                'good andor: and') or whydie;
+ok( lives(\&validate_params, { foo => 'or' }, spec => $using_spec),                 'good andor: or') or whydie;
+ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad andor: 1');
 my $using_spec = { foo => { using => 'time' } };
 ok( lives(\&validate_params, { foo => time() }, spec => $using_spec),               'good time: time()') or whydie;
 ok( lives(\&validate_params, { foo => '2000-01-01' }, spec => $using_spec),         'good time: date') or whydie;
@@ -117,6 +121,13 @@ ok( lives(\&validate_params, { foo => 'last_7days' }, spec => $using_spec),     
 ok( lives(\&validate_params, { foo => 'P20H12M' }, spec => $using_spec),            'good time: ISO8601') or whydie;
 ok( dies (\&validate_params, { foo => 'yesterday'  }, spec => $using_spec),         'bad time: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad time: 2');
+my $using_spec = { foo => { using => 'pos_int' } };
+ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good pos_int: 1') or whydie;
+ok( dies (\&validate_params, { foo => -2 }, spec => $using_spec),                   'bad pos_int: -2');
+ok( dies (\&validate_params, { foo => 1.1 }, spec => $using_spec),                  'bad pos_int: 1.1');
+ok( dies (\&validate_params, { foo => 'hello' }, spec => $using_spec),              'bad pos_int: hello');
+
+
 
 # multiple-value checking
 my $multiple_spec = { foo => { multiple => 1 } };
