@@ -291,7 +291,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
       },
 /**
  * disable the control. Add the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 0, and set the cursor to normal
- * @method Enable
+ * @method Disable
  */      Disable: function() {
         YAHOO.util.Dom.addClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 0;

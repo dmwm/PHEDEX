@@ -4,19 +4,25 @@
  * @title Documentation for the PhEDEx website packages
  */
 
-/**
+/*
  * The PHEDEX global namespace object.
  * @class PHEDEX
  * @static
  */
 PHEDEX= {}
 
-/** 
+/**
+ * The base-class of everything, the only point at which we pollute the global namespace
+ * @namespace
+ * @class PHEDEX
+ */
+/**
  * Creates a namespace rooted from PHEDEX.
  * <pre>
  * PHEDEX.namespace('Core','Component');
  * </pre>
  * @method namespace
+ * @static
  * @param namespace {string*} Namespace(s) to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
  * @return {object} The namespace created.
  */
