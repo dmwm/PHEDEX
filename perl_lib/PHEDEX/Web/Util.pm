@@ -55,14 +55,19 @@ sub process_args
 # *compiled* regexp of a function which returns true if $_[0] is valid
 # TODO: import some regexps from Regexp::Common (e.g. integer) and
 # make them available here.
-our %COMMON_VALIDATION = (
-    'dataset'      => qr|^(/[^/\#]+){3}$|,
-    'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
-    'lfn'          => qr|^/|,
-    'wildcard'     => qr|\*|,
-    'node'         => qr|^T\d|,
-    'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
-    'time'         => sub { PHEDEX::Core::Timing::str2time($_[0], 0) ? 1 : 0 },
+our %COMMON_VALIDATION = 
+(
+ 'dataset'      => qr|^(/[^/\#]+){3}$|,
+ 'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
+ 'lfn'          => qr|^/|,
+ 'wildcard'     => qr|\*|,
+ 'node'         => qr|^T\d|,
+ 'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
+ 'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
+ 'andor'        => sub { $_[0] eq 'and' || $_[0] eq 'or' ? 1 : 0 },
+ 'time'         => sub { PHEDEX::Core::Timing::str2time($_[0], 0) ? 1 : 0 },
+ 'regex'        => sub { eval { qr/$_[0]/; }; return $@ ? 0 : 1; }, # this might be slow...
+ 'pos_int'      => qr/^\d+$/,
 );
 
 # Validates parameters using Param::Validate, along with a few
@@ -80,11 +85,21 @@ our %COMMON_VALIDATION = (
 # specified in 'required', 'require_one_of', and 'spec' are
 # automatically added to the list of allowed parameters.
 #
+# allow_empty: if true, empty string values ('') are allowed.  The
+# default is not to allow empty strings.
+#
 # required: an arrayref for a list of args to require.  By default
 # anything that is allowed is optional.
 #
 # require_one_of: an arrayref for a list of params to require at least
 # one of.
+#
+# uc_keys: if true, validated params in the output will have uppercase keys
+#
+# full_trace: if true, failed validations will generate a full stack trace
+#
+# stack_skip: if true, failed validations will appear to come from
+# this many call frames above the actual calling function.
 #
 # Param::Validate spec defaults:
 # By default, each parameter is an optional non-empty scalar.  Specifically:
@@ -146,12 +161,13 @@ sub validate_params
 			     required       => { type => ARRAYREF, optional => 1 },
 			     require_one_of => { type => ARRAYREF, optional => 1 },
 			     spec           => { type => HASHREF,  optional => 1 },
-			     no_upper       => { type => SCALAR,   optional => 1 },
+			     allow_empty    => { type => SCALAR,   optional => 1 },
+			     uc_keys        => { type => SCALAR,   optional => 1 },
 			     full_trace     => { type => SCALAR,   optional => 1 },
+			     stack_skip     => { type => SCALAR,   optional => 1 },
 			 });
 
     # warn "input spec: ", Dumper(\%h), "\n"; # XXX Debug
-
 
     # deal with nocache
     # FIXME:  remove nocache from params when it is needed, before it goes to APIs
@@ -170,10 +186,16 @@ sub validate_params
     my $require_one_of = delete $h{require_one_of} || [];
 
     # option to  not change key case
-    my $no_upper = delete $h{no_upper} || 0;
+    my $uc_keys = delete $h{uc_keys} || 0;
 
     # option to give a full trace on validation failure
     my $full_trace = delete $h{full_trace} || 0;
+
+    # optionally allow empty params (value of '') by default
+    my $allow_empty = delete $h{allow_empty} || 0;
+
+    # add to the stack_skip option
+    my $stack_skip = delete $h{stack_skip} || 0;
 
     # add all params defined in spec, required, and require_one_of to @$allow
     my %allow_uniq;
@@ -204,7 +226,7 @@ sub validate_params
 	
 	# now we set the defaults
 	$s->{type}     = SCALAR   unless defined $s->{type};           # default type is scalar
-	$s->{regex}   = qr/./    unless defined $s->{regex};           # no empty string
+	$s->{regex}    = qr/./    unless defined $s->{regex} || $allow_empty; # no empty string
 	$s->{optional} = defined $s->{optional} ? $s->{optional} : 1;  # all params are optional
 	$s->{optional} = 0        if grep $a eq $_, @$required;        # ...unless specified otherwise
 	$s->{untaint}  = 1        unless defined $s->{untaint};        # we untaint by default
@@ -244,7 +266,7 @@ sub validate_params
 
 	    # turn a regex into a callback
 	    if (my $re = delete $s->{regex}) {
-		$s->{callbacks}{__regex} = sub { return $_[0] =~ $re ? 1 : 0 };
+		$s->{callbacks}{__regex} = sub { return defined $_[0] && $_[0] =~ $re ? 1 : 0 };
 	    }
 
 	    # only allow scalar values in the array
@@ -272,9 +294,9 @@ sub validate_params
     # use use confess if we want a full trace
     $val_args{on_fail} = sub { Carp::confess shift } if $full_trace;
     # uppercase keys
-    $val_args{normalize_keys} = sub { return uc shift } unless $no_upper;
-    # set the caller one frame up
-    $val_args{stack_skip} = 2;
+    $val_args{normalize_keys} = sub { return uc shift } if $uc_keys;
+    # set the caller one frame up + (optional) stack_skip
+    $val_args{stack_skip} = 2 + $stack_skip;
 
     # use Data::Dumper;  warn "final validate spec: ", Dumper(\%val_args), "\n"; # XXX Debug
 
