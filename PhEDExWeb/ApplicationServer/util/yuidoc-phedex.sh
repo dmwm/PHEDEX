@@ -20,9 +20,10 @@ generator_out=docs
 [ -d $generator_out ] && rm -rf $generator_out && mkdir $generator_out
 
 # Copy only the modules I have documented so far.
-cp js/phedex-{core,datasvc,loader,module,sandbox}.js tmp
+cp js/phedex-{core,datasvc,loader,module,sandbox,datatable}.js tmp
 cp js/phedex-module-dummy.js tmp
 cp js/phedex-component-control.js tmp
+
 # The location of the template files.  Any subdirectories here will be copied
 # verbatim to the destination directory.
 template=$yuidoc_home/template
