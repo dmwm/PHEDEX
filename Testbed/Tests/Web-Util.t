@@ -59,6 +59,9 @@ ok( dies (\&validate_params, {},
 ok( dies (\&validate_params, { foo => 1 },
 	  allow => [qw(foo bar)],  required_one_of => [qw(bar baz)]),            'missing option 2');
 
+# options which affect the defaults
+ok( lives(\&validate_params, { foo => '' }, allow => ['foo'], allow_empty => 1), 'empty string allowed') or whydie;
+
 # spec checking
 my $optional_spec = { foo => { optional => 0 }};
 ok( lives(\&validate_params, { foo => 1},  spec => $optional_spec),              'good optional override') or whydie;
@@ -107,6 +110,10 @@ ok( lives(\&validate_params, { foo => 'y' }, spec => $using_spec),              
 ok( lives(\&validate_params, { foo => 'n' }, spec => $using_spec),                  'good yesno: n') or whydie;
 ok( dies (\&validate_params, { foo => 'yes' }, spec => $using_spec),                'bad yesno: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad yesno: 2');
+my $using_spec = { foo => { using => 'onoff' } };
+ok( lives(\&validate_params, { foo => 'on' }, spec => $using_spec),                 'good onoff: y') or whydie;
+ok( lives(\&validate_params, { foo => 'off' }, spec => $using_spec),                'good onoff: n') or whydie;
+ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad onoff: 1');
 my $using_spec = { foo => { using => 'andor' } };
 ok( lives(\&validate_params, { foo => 'and' }, spec => $using_spec),                'good andor: and') or whydie;
 ok( lives(\&validate_params, { foo => 'or' }, spec => $using_spec),                 'good andor: or') or whydie;
@@ -121,6 +128,10 @@ ok( lives(\&validate_params, { foo => 'last_7days' }, spec => $using_spec),     
 ok( lives(\&validate_params, { foo => 'P20H12M' }, spec => $using_spec),            'good time: ISO8601') or whydie;
 ok( dies (\&validate_params, { foo => 'yesterday'  }, spec => $using_spec),         'bad time: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad time: 2');
+my $using_spec = { foo => { using => 'regex' } };
+ok( lives(\&validate_params, { foo => 'abc' }, spec => $using_spec),                'good regex: abc') or whydie;
+ok( lives(\&validate_params, { foo => 'a[b](c)' }, spec => $using_spec),            'good regex: a(b)[c]') or whydie;
+ok( dies (\&validate_params, { foo => '[' }, spec => $using_spec),                  'bad regex: [');
 my $using_spec = { foo => { using => 'pos_int' } };
 ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good pos_int: 1') or whydie;
 ok( dies (\&validate_params, { foo => -2 }, spec => $using_spec),                   'bad pos_int: -2');
