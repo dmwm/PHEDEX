@@ -224,7 +224,6 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
         var tgt = this.contextEventTarget,
             elCol = obj.dataTable.getColumn(tgt),
             elRow = obj.dataTable.getTrEl(tgt);
-//             label = tgt.textContent;
         if (elRow) {
           var opts = {},
               oRecord = obj.dataTable.getRecord(elRow);
