@@ -6,7 +6,6 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
       _sbx = sandbox,
       _notify = function() {};
 
-// Pick up extra functionality for the base object to serve this decorator
   var obj = args.payload.obj;
   if ( obj ) {
     try {
