@@ -17,7 +17,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       },
       initData: function() {
         log('initData','info',this.me);
-        this.buildTable(this.dom.content,
+        this.buildTable(
                   [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
                  );
         _sbx.notify( this.id, 'initData' );

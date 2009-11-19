@@ -64,14 +64,14 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           minwidth:300,
           minheight:50,
           defsort:'Agent',
-          defhide:['PID','Version','Host','State Dir']
+          defhide:['PID','Host','State Dir']
         });
         this._init(opts);
         _sbx.notify( this.id, 'init' );
       },
       initData: function() {
         log('initData','info',this.me);
-        this.buildTable(this.dom.content,
+        this.buildTable(
             [ 'Agent',
               {key:"Date", formatter:'UnixEpochToGMT'},
               {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
