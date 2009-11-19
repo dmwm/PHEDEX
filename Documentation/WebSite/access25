@@ -15,13 +15,14 @@ use PHEDEX::Core::SQL;
 
 ######################################################################
 package Web25::Common; use strict; use warnings; use base "Exporter";
-use CGI qw(:standard unescape);
+use CGI qw(:standard unescape Vars);
+use PHEDEX::Web::Util;
 use Net::hostent;
 require Socket;
 use POSIX qw(strftime mktime);
 use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
-our @EXPORT = qw(urlencode dblink toclink pagelink
+our @EXPORT = qw(allparams validate_all urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
 		 age format_num format_percent format_size format_timespan shorten
 		 badcolor warncolor pendcolor goodcolor altcolor
@@ -41,6 +42,39 @@ our $warncolor = '#ffd89e';
 our $pendcolor = '#ccccff'; # ececff
 our $goodcolor = '#ccffcc';
 our $altcolor = '#f0f0f0';
+
+# Return a hash of all parameters
+sub allparams
+{
+    my %params = Vars();
+    foreach my $key (keys %params) {
+	my @vals = split("\0", $params{$key});
+	$params{$key} = \@vals if ($#vals > 0);
+    }
+    return \%params;
+}
+
+# Validates all parameters
+sub validate_all
+{
+    my %spec = @_;
+    my $params = &allparams();
+
+    # the following are allowed on any page and set by this application
+    # FIXME:  avoid this if possible.  save into $self instead of push into param() ?
+    my @tosave = qw(page view);
+    my %save;
+    foreach my $p (keys %$params) {
+	$save{$p} = delete $params->{$p} if grep $_ eq $p, @tosave;
+    }
+    %save = &validate_params(\%save, allow => \@tosave);
+
+    return &validate_params
+	($params, %spec,
+	 allow_empty => 1,    # HTML forms send empty strings for empty text fields
+	 stack_skip => 1),    # report errors as coming from one call above this
+	%save;                # tack on the saved common parameters to the output
+}
 
 # Encode arguments into a URL query string.
 sub urlencode
@@ -2651,6 +2685,16 @@ sub generate
         " <p>This PhEDEx instance is not capable of providing",
         " this feature.  Perhaps you meant to select another PhEDEx",
         " instance in the instance menu above?</p></div></center>\n";
+    }
+    elsif ($message =~ /The (\S+) parameter (\S+) to \S+ did not pass/) # validation problem
+    {
+	my ($key, $val) = ($1, $2);
+      print { $$self{CONTENT} }
+        "<center><div class='alert'>\n",
+        " <p>Input parameter for $key did pass validation with value $val. Please correct the input, or ",
+        " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
+        " <p><i>Error time=$time id=$id</i></p>\n",
+        "</div></center>\n";	
     }
     else
     {
@@ -5928,6 +5972,18 @@ sub myurl
 sub output
 {
   my ($self) = @_;
+  my %params = &validate_all
+      (
+       allow => [qw(span errors tofilter fromfilter andor)],
+       spec  => 
+       {
+	   errors     => { using => 'onoff' },
+	   tofilter   => { using => 'regex' },
+	   fromfilter => { using => 'regex' },
+	   andor      => { using => 'andor' },
+       }
+       );
+
   my $now = time();
   my %stats = ();
   my @spans = qw(h 2h d w m);
@@ -5936,7 +5992,7 @@ sub output
 	       d => [ 'Last day', $now, 86400 ],
 	       w => [ 'Last 7 days', int($now/86400)*86400, 7*86400 ],
 	       m => [ 'Last 30 days', int($now/86400)*86400, 30*86400 ]);
-  my $span = param('span') || $spans[0];
+  my $span = $params{span} || $spans[0];
   $span = $spans[0] if ! grep($span eq $_, @spans);
   my $q = &dbexec($$self{DBH}, qq{
     select
@@ -5979,10 +6035,10 @@ sub output
   }
 
   $stats{$span}{T}{1} = { DONE_FILES => 0, DONE_BYTES => 0, FAIL_FILES => 0, EXPIRE_FILES => 0 };
-  my $errors = param('errors') ? "checked='checked'" : "";
-  my $tofilter = param('tofilter') || "";
-  my $fromfilter = param('fromfilter') || "";
-  my $andor = param('andor') || 'or';
+  my $errors = $params{errors} ? "checked='checked'" : "";
+  my $tofilter = $params{tofilter} || "";
+  my $fromfilter = $params{fromfilter} || "";
+  my $andor = $params{andor} || 'or';
   print { $$self{CONTENT} }
     "<form method='get' action='@{[$self->myurl()]}'><p>\n",
     "<label for='span'>Time span</label>\n",
@@ -9922,16 +9978,16 @@ sub output
   my %params = ( 
 		 good_ds => '/X/Y/Z', 
 		 bad_ds  => '/I/AM/BAD',
-		 foo     => '/bop/baz/bar*'
+		 foo     => [qw(/a/b/c /x/y/z /bop/baz/bar* /one/two/three)],
 		 );
   my %val_spec = (allow => [qw(good_ds bad_ds foo)],
-		  spec =>  { foo => { using => [qw(dataset !wildcard)] } },
+		  spec =>  { foo => { using => [qw(dataset)], multiple => 1 } },
 	      );
 
 			
   &dump_var($$self{CONTENT}, 'original args', \%params);
   &dump_var($$self{CONTENT}, 'validation spec', \%val_spec);
-  my %args = &validate_args(\%params, %val_spec); # dies on problems
+  my %args = &validate_params(\%params, %val_spec); # dies on problems
   print {$$self{CONTENT}} "<p>validation passed!</p>";
   &dump_var($$self{CONTENT}, 'clean args', \%args);
   
