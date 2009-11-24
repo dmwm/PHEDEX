@@ -242,7 +242,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
   };
 }
 
-/**
+/** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
  * @namespace PHEDEX.DataTable
  * @class MouseOver
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object (unused)
