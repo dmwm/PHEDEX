@@ -1,3 +1,11 @@
+/**
+ * This is the base class for all PhEDEx data-related modules. It provides the basic interaction needed for the core to be able to control it.
+ * @namespace PHEDEX.Module
+ * @class Agents
+ * @constructor
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+ * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
+ */
 PHEDEX.namespace('Module');
 PHEDEX.Module.Agents = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));

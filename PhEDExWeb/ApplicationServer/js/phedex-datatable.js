@@ -195,7 +195,7 @@ YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn
 };
 
 /**
- * This is the base class for all PhEDEx datatable-related modules. It extends PHEDEX.Module to provide the functionality needed for modules that use a YAHOO.Widget.DataTable. This is called by PHEDEX.Component.ContextMenu to create the correct handler for datatable context menus.
+ * This class is called by PHEDEX.Component.ContextMenu to create the correct handler for datatable context menus. 
  * @namespace PHEDEX.DataTable
  * @class ContextMenu
  * @param obj {object} reference to the parent PHEDEX.DataTable object that this context-menu applies to.
@@ -214,7 +214,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
 
   return {
 /**
- * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the generic menu-handler.
+ * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, the second argument contains pointers to the datatable, the row, column, and record that were selected.
  * @method onContextMenuClick
  * @private
  */

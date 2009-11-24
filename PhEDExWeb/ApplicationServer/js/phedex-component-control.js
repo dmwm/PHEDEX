@@ -1,15 +1,13 @@
 /**
- * This class creates a clickable element that can be used to drive showing/hiding of other fields, or other custom actions. For example, it is used for the 'Extra' information, for showing the 'filter' panel, or for a 'Refresh' button. It is used to decorate modules or other on-screen elements.<br />
- * Typically, there will be two DOM elements involved, one for rendering the control, one that is controlled by the control (though this one is optional). The module that is being decorated is referred to as the <strong>partner</strong>.<br />
- * The control will set up two sandbox-listeners, one to listen for events with its own <strong>id</strong>, and one to listed to events with the <strong>id</strong> of the partner-object. This allows it to respond to the partner or to messages to the partner, without having to call the partner directly.
- * @namespace PHEDEX.Component
- * @class Control
+ * A PHEDEX.Component.object is a decorator, applied to an on-screen element to add some subsidiary functionality. There is no concrete PHEDEX.Component base-class, but since all such components have common initialisation, it is described here. The module that is being decorated is referred to as the <strong>partner</strong>.<br />
+ * @namespace PHEDEX
+ * @class Component
  * @constructor
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
  * @param args {object} reference to an object that specifies details of how the control should operate.
  */
 
-/** An arbitrary name for this control. Will be used as the HTML label if <strong>args.payload.text</strong> is not specified too.
+/** An arbitrary name for this control. Used to index the <strong>this.ctl</strong> object with a reference to the created control
  * @property args.name {string}
  */
 /** Name of the module to load, if any. Prefix 'phedex-' is assumed, if not specified.
@@ -18,9 +16,21 @@
 /** (optional) name of the parent element to which this control will be attached. This is expected to be an element that exists in the <strong>obj.dom</strong> structure of the partner object. Not used by the control itself, the core will attach the component when it is ready.
  * @property args.parent {string}
  */
-/** Control-specific attributes. There are various sub-groupings that make more or less sense to put together. All of these are optional.
+/** Control-specific attributes, vary from one control-type to another.
  * @property args.payload {object}
  */
+
+/**
+ * This class creates a clickable element that can be used to drive showing/hiding of other fields, or other custom actions. For example, it is used for the 'Extra' information, for showing the 'filter' panel, or for a 'Refresh' button. It is used to decorate modules or other on-screen elements.<br />
+ * Typically, there will be two DOM elements involved, one for rendering the control, one that is controlled by the control (though this one is optional).
+ * The control will set up two sandbox-listeners, one to listen for events with its own <strong>id</strong>, and one to listed to events with the <strong>id</strong> of the partner-object. This allows it to respond to the partner or to messages to the partner, without having to call the partner directly.
+ * @namespace PHEDEX.Component
+ * @class Control
+ * @constructor
+ * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+ * @param args {object} reference to an object that specifies details of how the control should operate. See PHEDEX.Component for a description of the common parts of this object.
+ */
+
 /** The name (in the <strong>obj.dom</strong> partner-object) of the element that is to be controlled by this control.
  * @property args.payload.target {string}
  */
@@ -55,7 +65,7 @@
 /** The partner object. This is added by the core. The control should only use this to take the <strong>obj.id</strong> of the partner, so it can set up a listener for events from that specific partner.
  * @property args.payload.obj {PHEDEX.Module, or derivative thereof}
  */
-/** Text to use for the on-screen representation of the control. By default, the <strong>args.name</strong> will be used, but this allows you to set a different value.
+/** Text to use to label the on-screen representation of the control. By default, the <strong>args.name</strong> will be used, but this allows you to set a different value.
  * @property args.payload.text {string}
  */
 PHEDEX.namespace('Component');
