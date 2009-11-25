@@ -3,13 +3,15 @@ use warnings;
 use strict;
 $|=1;
 use Getopt::Long;
-use POE qw(Component::Server::TCP Component::Client::HTTP Filter::HTTPD);
+use POE qw(Component::Server::TCP);
 use HTTP::Response;
 use File::Basename qw (dirname);
+use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
+my ($cert_file,$key_file,$proxy);
 
 @accept = qw %	^html/[^./]+.html$
 		^examples/[^./]+.html$
@@ -68,6 +70,15 @@ sub usage()
  delay=i		delay server-response for cached entries, if you want
 			to see how events unfold in the browser
  expires=i		set the default expiry time for the response header
+ cert_file=s		location of your certificate, defaults to usercert.pem in
+			~/.globus
+ key_file=s		location of your user-key, defaults to userkey.pem.nok in
+			~/.globus. N.B. If you don't want to have to type in your
+			passphrase with every request, create a key-file with the
+			passphrase stripped from it. Do this only on secure
+			machines, not ones that just anybody can access!
+			You can strip the passphrase from a key-file as follows:
+			openssl rsa -in userkey.pem -out userkey.pem.nok
 
 EOF
 }
@@ -89,6 +100,9 @@ GetOptions( 'help'	=> \$help,
 	    'cache_ro'		=> \$cache_ro,
 	    'delay=i'		=> \$delay,
 	    'expires=i'		=> \$expires_default,
+	    'cert_file=s'	=> \$cert_file,
+	    'key_file=s'	=> \$key_file,
+	    'proxy=s'		=> \$proxy,
 	  );
 
 usage() if $help;
@@ -107,7 +121,18 @@ if ( $cache )
 }
 die "--cache_only without --cache doesn't make much sense...\n" if $cache_only && !$cache;
 
-POE::Component::Client::HTTP->spawn( Alias => 'ua' );
+#-----------------------------------------------------------
+#POE::Component::Client::HTTP->spawn( Alias => 'ua' );
+#-----------------------------------------------------------
+my ($url,$format,$instance,$service);
+if ( !( $cert_file || $key_file || $proxy ||
+        $ENV{HTTPS_PROXY} || $ENV{HTTPS_CERT_FILE} || $ENV{HTTPS_KEY_FILE} ) )
+{
+  $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
+  $key_file  = $ENV{HOME} . '/.globus/userkey.pem.nok';
+}
+#-----------------------------------------------------------
+
 POE::Component::Server::TCP->new
   ( Alias => "web_server",
     Port         => $listen_port,
@@ -116,7 +141,6 @@ POE::Component::Server::TCP->new
     ClientInput => sub {
         my ( $kernel, $heap, $request ) = @_[ KERNEL, HEAP, ARG0 ];
 	my ($buf,$data,$n,$error,$h);
-
         if ( $request->isa("HTTP::Response") ) {
             $heap->{client}->put($request);
             $kernel->yield("shutdown");
@@ -236,7 +260,27 @@ DONE:
         $request->remove_header("Keep-Alive");
         $request->uri($redirect_to . $request->uri()->path_query());
         display_thing( $request ) if $dump_requests;
-        $kernel->post( "ua" => "request", "got_response", $request );
+	my $uri = $request->uri;
+	my @n = split('/',$uri);
+	$format = $n[5];
+	$instance = $n[6];
+	my $ua = PHEDEX::CLI::UserAgent->new
+        (
+          DEBUG         => $debug,
+          CERT_FILE     => $cert_file,
+          KEY_FILE      => $key_file,
+          PROXY         => $proxy,
+          CA_FILE       => undef, # $ca_file,
+          CA_DIR        => undef, # $ca_dir,
+          URL           => $url,
+          FORMAT        => $n[5],
+          INSTANCE      => $n[6],
+          NOCERT        => undef, # $nocert,
+          SERVICE       => $service,
+        );
+	my $response = $ua->post($uri);
+	  $heap->{client}->put($response);
+	  $kernel->yield("shutdown");
       },
 
     InlineStates => {
