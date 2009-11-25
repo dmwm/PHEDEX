@@ -94,7 +94,7 @@ GetOptions( 'help'	=> \$help,
 usage() if $help;
 $redirect_to =~ s%/$%%;
 $host = $redirect_to unless $host;
-$host =~ s%^http://%%;
+$host =~ s%^https*://%%;
 $host =~ s%/$%%;
 map { m%^[^=]+=(.*)$%; push @accept, $1; } @map;
 
@@ -123,7 +123,7 @@ POE::Component::Server::TCP->new
             return;
         }
 
-        if ( $debug && ($request->uri() =~ m%^http://%) )
+        if ( $debug && ($request->uri() =~ m%^https*://%) )
         {
           print scalar localtime,": Look for ",$request->uri()," in cache\n";
 	}
