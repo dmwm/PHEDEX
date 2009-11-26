@@ -33,6 +33,41 @@ PHEDEX.Core = function(sandbox,loader) {
       _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
 
 /**
+ * loads non-module code (Registry, Navigator etc). Used as a sandbox-listener, which defines its signature. The name of the code to be loaded can be either the full base-name of the source-code file, or it can have the leading <strong>phedex-</strong> missing, in which case it is assumed
+ * The function invokes the PhEDEx loader, and on successfully loading the source code, will notify the world with event='Loaded' and the name of the code, as originally given to it. Clients can listen for the 'Loaded' and then know that it is safe to instantiate an object of the given type.<br/>
+ * _load is used to listen to <strong>Load</strong> events, so can be invoked via the sandbox:
+ * <pre>
+ * sandbox.notify('Load','Registry');
+ * </pre>
+ * @method _load
+ * @private
+ * @param ev {string} name of event passed from the sandbox
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the code to load
+ */
+  var _load =  function(ev,arr) {
+// N.B. load() can return _before_ the code is loaded, if it has to load it first. It will call itself again later.
+    var name = arr[0],
+        code = name.toLowerCase();
+    if ( ! code.match('^phedex-') ) { code = 'phedex-'+code; }
+    log ('loading "'+code+'" (for '+name+')','info',_me);
+    _ldr.load( {
+      Success: function(obj) {
+        return function() {
+          banner('Loaded "'+name+'"!');
+          log('code "'+name +'" loaded...','info',_me);
+          _loaded[name] = {};
+          _sbx.notify('Loaded',name);
+          var ctor = PxU.getConstructor(name),
+              m = new ctor(_sbx);
+          m.init();
+        }
+      }(this),
+      Progress: function(item) { banner('Loaded item: '+item.name); }
+    }, code);
+    return;
+  };
+
+/**
  * loads a module. Used as a sandbox-listener, which defines its signature. The name of the module to be loaded can be either the full base-name of the source-code file, or it can have the leading <strong>phedex-</strong> missing, in which case it is assumed to be <strong>phedex-module-<em>name</em></strong>
  * The function invokes the PhEDEx loader, and on successfully loading the source code, will notify the world with event='ModuleLoaded' and the name of the module, as originally given to it. Clients can listen for the 'ModuleLoaded' and then know that it is safe to instantiate a module of the given type.<br/>
  * _loadModule is used to listen to <strong>LoadModule</strong> events, so can be invoked via the sandbox:
@@ -173,24 +208,25 @@ PHEDEX.Core = function(sandbox,loader) {
 //        If no source-name is given, assume a constructor PHEDEX[type][name], where type is the group of
 //        this module (DataTable|TreeView) and name is the name of this decorator.
           else if ( d.source ) {
-            var x = d.source.split('-');
-            for (var j in x ) {
-              if ( x[j] == 'phedex' ) { continue; }
-              var field = PxU.initialCaps(x[j]);
-              if ( ctor[field] ) { ctor = ctor[field] }
-              else {
-                for (var k in ctor) {
-                  field = k.toLowerCase();
-                  if ( field == x[j] ) {
-                    ctor = ctor[k];
-                    break;
-                  }
-                }
-              }
+//             var x = d.source.split('-');
+//             for (var j in x ) {
+//               if ( x[j] == 'phedex' ) { continue; }
+//               var field = PxU.initialCaps(x[j]);
+//               if ( ctor[field] ) { ctor = ctor[field] }
+//               else {
+//                 for (var k in ctor) {
+//                   field = k.toLowerCase();
+//                   if ( field == x[j] ) {
+//                     ctor = ctor[k];
+//                     break;
+//                   }
+//                 }
+//               }
+              ctor = PxU.getConstructor(d.source);
               if ( !ctor ) {
                 log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
                 throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
-              }
+//               }
             }
           } else {
             ctor = PHEDEX[m.type][d.name];
@@ -252,6 +288,7 @@ PHEDEX.Core = function(sandbox,loader) {
  */
     create: function() {
       _sbx.listen('ModuleExists', _moduleExists);
+      _sbx.listen('Load',         _load);
       _sbx.listen('LoadModule',   _loadModule);
       _sbx.listen('ModuleLoaded', _createModule);
       _sbx.listen('CreateModule', _createModule);
