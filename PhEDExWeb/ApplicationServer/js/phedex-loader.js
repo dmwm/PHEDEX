@@ -140,15 +140,15 @@ PHEDEX.Loader = function(opts) {
     'phedex-datasvc': { requires: ['phedex-util','json'] },
     'phedex-util-idletimer': { },
 
-    'phedex-component-control':     { requires:['phedex-util','animation'] },
-    'phedex-component-contextmenu': { requires:['phedex-util','menu'] }, //'phedex-registry'] },
-    'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
+    'phedex-component-control':     { requires:['phedex-util','phedex-registry','animation'] },
+    'phedex-component-contextmenu': { requires:['phedex-util','phedex-registry','menu'] },
+    'phedex-component-splitbutton': { requires:['phedex-util','phedex-registry','menu','button'] },
 
 //     'phedex-core-filter':      { requires:['phedex-util'] },
 //     'phedex-global-filter':    { requires:[] },
-//     'phedex-core-widget-registry': { requires: ['phedex-util'] },
-//     'phedex-navigator': { requires: ['phedex-core-widget','phedex-widget-nodes','autocomplete','button'] },
+//     'phedex-navigator': { requires: ['phedex-registry','autocomplete','button'] },
 
+    'phedex-registry':  { requires: ['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util', 'logger'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
