@@ -6,12 +6,13 @@ use Getopt::Long;
 use POE qw(Component::Server::TCP);
 use HTTP::Response;
 use File::Basename qw (dirname);
+use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
-my ($cert_file,$key_file,$proxy);
+my ($cert_file,$key_file,$proxy,$pk12);
 
 @accept = qw %	^html/[^./]+.html$
 		^examples/[^./]+.html$
@@ -79,6 +80,14 @@ sub usage()
 			machines, not ones that just anybody can access!
 			You can strip the passphrase from a key-file as follows:
 			openssl rsa -in userkey.pem -out userkey.pem.nok
+ pk12=s			Use a pk12 certificate. You will be prompted for the password.
+ 			use this to avoid being asked for a passphrase and to
+			avoid having to have a passphrase-less key-file. (i.e. it's
+			more secure!). You can create a pk12 file from your certificate
+			as follows:
+			openssl pkcs12 -export -in usercert.pem -inkey userkey.pem -out user.p12
+			(you will be prompted for an 'export password', remember it,
+			you will need to enter it for this script to work!)
 
 EOF
 }
@@ -103,6 +112,7 @@ GetOptions( 'help'	=> \$help,
 	    'cert_file=s'	=> \$cert_file,
 	    'key_file=s'	=> \$key_file,
 	    'proxy=s'		=> \$proxy,
+	    'pk12=s'		=> \$pk12,
 	  );
 
 usage() if $help;
@@ -125,12 +135,24 @@ die "--cache_only without --cache doesn't make much sense...\n" if $cache_only &
 #POE::Component::Client::HTTP->spawn( Alias => 'ua' );
 #-----------------------------------------------------------
 my ($url,$format,$instance,$service);
-if ( !( $cert_file || $key_file || $proxy ||
+if ( !( $cert_file || $key_file || $proxy || $pk12 ||
         $ENV{HTTPS_PROXY} || $ENV{HTTPS_CERT_FILE} || $ENV{HTTPS_KEY_FILE} ) )
 {
   $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
   $key_file  = $ENV{HOME} . '/.globus/userkey.pem.nok';
 }
+if ( $pk12 )
+{
+  $ENV{HTTPS_PKCS12_FILE} = $pk12;
+  print "Enter the password for $pk12: ";
+  ReadMode 'noecho';
+  my $password = ReadLine 0;
+  chomp $password;
+  ReadMode 'normal';
+  print "Got it, thanks...\n";
+  $ENV{HTTPS_PKCS12_PASSWORD} = $password;
+}
+
 #-----------------------------------------------------------
 
 POE::Component::Server::TCP->new
