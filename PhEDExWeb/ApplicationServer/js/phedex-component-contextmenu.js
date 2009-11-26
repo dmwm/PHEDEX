@@ -39,6 +39,8 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
 
   _construct = function() {
     return {
+        id: _me + '_' + PxU.Sequence(),
+
 /**
  * Create the context-menu, storing it in <strong>this.menu</strong>
  * @method Create
@@ -54,7 +56,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
       },
 
 /**
- * Initialise the control. Called internally. Initialises the type-map, creates the menu, adds the clickEvent handler
+ * Initialise the control. Called internally. Initialises the type-map, creates the menu, adds the clickEvent handler, and listens for notifications to itself
  * @method _init
  * @private
  * @param args {object} the arguments passed into the contructor
@@ -63,23 +65,57 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         var tMap = args.payload.typeMap,
             obj  = args.payload.obj;
         this.contextMenuTypeMap = tMap || {};
-        this.groupNames=[];
+        this.groupNames = [];
+        this.getInputTypes = [];
+        this.getWidgetsByInputType = [];
         for (var type in tMap) {
           this.groupNames.push(tMap[type]);
+          _sbx.notify('Registry','getWidgetsByInputType',tMap[type],this.id);
         }
         var config = args.payload.config || {};
         this.contextMenu = this.Create(config);
-        this.Build();
+        var buildMe = function(o) {
+          return function(){
+            o.Build();
+          }
+        }(this);
+        this.contextMenu.subscribe( 'beforeShow', buildMe );
         this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
-        this.contextMenu.render(document.body);
+        this.contextMenu.clickEvent.subscribe(this.contextMenu.clearContent); // clear the menu after use!
+
+/**
+ * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly.
+ * @method selfHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+        this.selfHandler = function(obj) {
+          return function(ev,arr) {
+            var action = arr[0],
+                value = arr[1];
+            switch (action) {
+              case 'getWidgetsByInputType': {
+                obj[action][value] = arr[2];
+                break;
+              }
+              case 'getInputTypes': {
+                obj[action] = value;
+                break;
+              }
+//             default: { log('unhandled event: '+action,'warn',obj.me); break; }
+            }
+          }
+        }(this);
+        _sbx.listen(this.id,this.selfHandler);
       },
 
 /** reset the menu to empty
  * @method Clear
  */
-      Clear: function(menu) { menu.clearContent(); },
+      Clear: function() { this.contextMenu.clearContent(); },
 
-/** build the menu. Looks up two sources of information, the global registry, and the local info in the <strong>groupNames</strong>. The global registry knows about big things, like creating modules. <strong>groupNames</strong> knows all the rest, like column-sorting, field-hiding, and stuff like that.
+/** build the menu and render it. Looks up two sources of information, the global registry, and the local info in the <strong>groupNames</strong>. The global registry knows about big things, like creating modules. <strong>groupNames</strong> knows all the rest, like column-sorting, field-hiding, and stuff like that. Called in response to a 'beforeShow' event on the context menu, to create the content just-in-time.
  * @method Build
  */
       Build: function() {
@@ -87,11 +123,12 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         for (var i in this.groupNames)
         {
           name = this.groupNames[i];
+          var w = this.getWidgetsByInputType[name];
 //           var w = PHEDEX.Core.Widget.Registry.getWidgetsByInputType(name);
-// 
-// //         First check the core widget registry to see if any widgets can be made
-//           for (var j in w)
-//           {
+
+//         First check the core widget registry to see if any widgets can be made
+          for (var j in w)
+          {
 //             var widget = w[j];
 //             if (widget.context_item) {
 //               log('Adding Widget name='+name+' label='+w[j].label, 'info', _me);
@@ -116,7 +153,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
 //                 this.contextMenu.addItem(item);
 //                 log('Build: '+name+' label:'+w[j].label,'info',_me);
 //             }
-//           }
+          }
 
 //        Next check our own registry
           var list = PHEDEX.Component.ContextMenu.items[name];
@@ -129,6 +166,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
             log('Build: '+name+' label:'+list[j].label,'info',_me);
           }
         }
+        this.contextMenu.render();
       },
     };
   };
