@@ -103,7 +103,12 @@ PHEDEX.Module = function(sandbox, string) {
         };
         // Options from the constructor override defaults
         YAHOO.lang.augmentObject(this.options, opts, true);
-        _sbx.listen('CoreCreated',function() { _sbx.notify('ModuleExists',this.id,this); });
+        var ILive = function(obj) {
+          return function() {
+            _sbx.notify('ModuleExists',obj); }
+          }(this);
+        _sbx.listen('CoreCreated',     ILive );
+//         _sbx.listen('RegistryCreated', ILive );
         _sbx.notify('ModuleExists',this);
 
         this.decorators.push(
@@ -182,6 +187,11 @@ PHEDEX.Module = function(sandbox, string) {
                   arr.shift();
                   obj[action](arr);
                 }
+                break;
+              }
+              case 'getWidgetsByInputType':
+              case 'getInputTypes': {
+                var t = arr[2];
                 break;
               }
 //               default: { log('unhandled event: '+action,'warn',obj.me); break; }
