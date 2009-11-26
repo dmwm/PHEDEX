@@ -300,4 +300,26 @@ PHEDEX.Util.initialCaps = function(str) {
   return str.substring(0,1).toUpperCase() + str.substring(1,str.length);
 }
 
+PHEDEX.Util.getConstructor = function( string ) {
+  var x = string.split('-'),
+      ctor = PHEDEX,
+      c;
+  for (var j in x ) {
+    if ( j == 0 && x[j] == 'phedex' ) { continue; }
+    var field = PxU.initialCaps(x[j]);
+    if ( ctor[field] ) { c = ctor[field] }
+    else {
+      for (var k in ctor) {
+        field = k.toLowerCase();
+        if ( field == x[j] ) {
+          c = ctor[k];
+          break;
+        }
+      }
+    }
+    if ( !c ) { return null; }
+    ctor = c;
+  }
+  return ctor;
+}
 var PxU = PHEDEX.Util;
