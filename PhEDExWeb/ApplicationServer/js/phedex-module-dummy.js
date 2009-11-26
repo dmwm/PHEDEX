@@ -4,7 +4,7 @@
  * @class Dummy
  * @constructor
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
- * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
+ * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.namespace('Module');
 PHEDEX.Module.Dummy = function(sandbox, string) {
