@@ -53,8 +53,8 @@ sub process_args
 
 # Common validation for web applications.  A name pointing to either a
 # *compiled* regexp of a function which returns true if $_[0] is valid
-# TODO: import some regexps from Regexp::Common (e.g. integer) and
-# make them available here.
+# NOTE:  Do not add anything here without making a test case for it in
+# PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
  'dataset'      => qr|^(/[^/\#]+){3}$|,
@@ -64,10 +64,17 @@ our %COMMON_VALIDATION =
  'node'         => qr|^T\d|,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
  'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
+ 'boolean'      => sub { $_[0] eq 'true' || $_[0] eq 'false' ? 1 : 0 },
  'andor'        => sub { $_[0] eq 'and' || $_[0] eq 'or' ? 1 : 0 },
  'time'         => sub { PHEDEX::Core::Timing::str2time($_[0], 0) ? 1 : 0 },
  'regex'        => sub { eval { qr/$_[0]/; }; return $@ ? 0 : 1; }, # this might be slow...
  'pos_int'      => qr/^\d+$/,
+ 'pos_int_list' => sub { return 1 if ! $_[0]; # allow empty list and '0'
+			 foreach (split(/\s*[, ]+/, $_[0])) {
+			     return 0 unless /^\d+$/;
+			 }
+			 return 1; },
+
 );
 
 # Validates parameters using Param::Validate, along with a few
@@ -162,12 +169,14 @@ sub validate_params
 			     require_one_of => { type => ARRAYREF, optional => 1 },
 			     spec           => { type => HASHREF,  optional => 1 },
 			     allow_empty    => { type => SCALAR,   optional => 1 },
+			     allow_undef    => { type => SCALAR,   optional => 1 },
+			     delete_empty   => { type => SCALAR,   optional => 1 },
 			     uc_keys        => { type => SCALAR,   optional => 1 },
 			     full_trace     => { type => SCALAR,   optional => 1 },
 			     stack_skip     => { type => SCALAR,   optional => 1 },
 			 });
 
-    # warn "input spec: ", Dumper(\%h), "\n"; # XXX Debug
+    # use Data::Dumper; warn "input spec: ", Dumper(\%h), "\n"; # XXX Debug
 
     # deal with nocache
     # FIXME:  remove nocache from params when it is needed, before it goes to APIs
@@ -193,6 +202,18 @@ sub validate_params
 
     # optionally allow empty params (value of '') by default
     my $allow_empty = delete $h{allow_empty} || 0;
+
+    # optionally allow undef params by default
+    my $allow_undef = delete $h{allow_undef} || 0;
+
+    # optionally undefine empty params (value of '') in order to let "default" work
+    my $delete_empty = delete $h{delete_empty} || 0;
+    if ($delete_empty) {
+	foreach (keys %$params) { 
+	    delete $$params{$_} if ( (!defined $$params{$_} && !$allow_undef)
+				     || $$params{$_} eq '');
+	}
+    }
 
     # add to the stack_skip option
     my $stack_skip = delete $h{stack_skip} || 0;
@@ -225,8 +246,11 @@ sub validate_params
 	my $s = exists $spec->{$a} && ref $spec->{$a} eq 'HASH' ? $spec->{$a} : {};
 	
 	# now we set the defaults
-	$s->{type}     = SCALAR   unless defined $s->{type};           # default type is scalar
-	$s->{regex}    = qr/./    unless defined $s->{regex} || $allow_empty; # no empty string
+	if (!defined $s->{type}) {
+	    if   (!$allow_undef) { $s->{type} = SCALAR; }         # default type is scalar
+	    else                 { $s->{type} = SCALAR | UNDEF; } # unless we allow undefs
+	}
+	$s->{regex}    = qr/./    unless defined $s->{regex} || $allow_empty || $allow_undef; # no empty string
 	$s->{optional} = defined $s->{optional} ? $s->{optional} : 1;  # all params are optional
 	$s->{optional} = 0        if grep $a eq $_, @$required;        # ...unless specified otherwise
 	$s->{untaint}  = 1        unless defined $s->{untaint};        # we untaint by default
@@ -260,9 +284,23 @@ sub validate_params
 	    }
 	}
 
+	# check for a special key for validating a list of values
+	if (exists $s->{allowing}) {
+	    my $allowing = delete $s->{allowing};
+	    if (ref $allowing ne 'ARRAY') {
+		die "developer error: 'allowing' validation should be an array reference\n";
+	    }
+	    $s->{callbacks}{__allowing} = 
+		sub {
+		    if    (!defined($_[0])) { return $allow_undef ? 1 : 0; } # possibly allow undef
+		    elsif (grep $_[0] eq $_,  @$allowing)   { return 1; }    # allow known values
+		    return 0;                                                # otherwise it's bad
+		}
+	}
+
 	# check to see if we should allow (and validate) multiple values, i.e 'a' or [qw(a b c)]
 	if (exists $s->{multiple} && delete $s->{multiple} && ref $params->{$a} eq 'ARRAY' ) {
-	    $s->{type} = SCALAR | ARRAYREF;
+	    $s->{type} |= ARRAYREF;
 
 	    # turn a regex into a callback
 	    if (my $re = delete $s->{regex}) {
