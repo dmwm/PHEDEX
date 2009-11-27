@@ -84,35 +84,6 @@ PHEDEX.Registry = function(sandbox) {
       else { return null; }
     },
 
-/** build a registered widget, throwing an error if the constructor is not defined
- * @method construct
- * @param widget
- * @param inputType
- * @param inputData
- * @param divid
- * @param args
- * @return the constructed widget
- */
-//     construct: function(widget, inputType, inputData, divid, args) {
-//       if (!_widgets[inputType][widget]) {
-//         throw new Error("cannot construct unregistered widget '"+widget+"' by input type '"+inputType+"'");
-//       }
-//       var w = _widgets[inputType][widget];
-//       var ok = this.beforeConstructEvent.fire({ 'widget':w,
-//                                                 'type': inputType,
-//                                                 'data': inputData,
-//                                                 'div':  divid,
-//                                                 'args': args });
-//       if (!ok) { return null; }
-//       var w = w.construct(inputData, divid, args);
-//       w.update();
-//       return w;
-// //       var ctor = PxU.getConstructor(w.widget);
-// //       var w = ctor(_sbx,w.widget);
-//     },
-
-    // fired whenever a widget is constructed, passed the construct() args
-//     beforeConstructEvent: new YAHOO.util.CustomEvent('beforeConstruct'),
 /** initialise the Registry. Or rather, invoke the sandbox to listen for events that will start the ball rolling. Until <strong>create</strong> is called, the Registry will sit there, doing nothing at all.
  * @method create
  */
