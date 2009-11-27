@@ -12,7 +12,8 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
           name: 'ContextMenu',
           source:'component-contextmenu',
           payload:{
-            args: {'agent':'Name'},
+            typeNames: ['node'],
+            typeMap: {node:'Name'},
           }
         },
         {

@@ -87,6 +87,9 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           );
         _sbx.notify( this.id, 'initData' );
       },
+      setArgs: function(arr) {
+        node = arr.node;
+      },
       getData: function() {
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
