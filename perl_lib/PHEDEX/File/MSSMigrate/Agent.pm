@@ -126,8 +126,8 @@ sub idle
 	    values (:task, 0, 0, :now, :now)});
 	my $q = &dbexec($dbh, qq{
 	    select
-	      xt.id, f.filesize, f.logical_name,
-	      xt.time_assign, xt.is_custodial,
+	      xt.id, f.logical_name, f.filesize, f.checksum, 
+              xt.is_custodial, xt.time_assign,
 	      xt.from_node, xt.to_node
 	    from t_xfer_task xt
 	      join t_xfer_file f on f.id = xt.fileid
@@ -135,7 +135,7 @@ sub idle
 	      and not exists
 	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-	while (my ($task, $size, $lfn, $available, $is_custodial,
+	while (my ($task, $lfn, $size, $checksum, $available, $is_custodial,
 		   $from_node, $to_node) = $q->fetchrow())
 	{
 	    my ($status,$pfn,$dest);
@@ -167,7 +167,7 @@ sub idle
 
 	      my $is_custodial_numeric = 1;
 	      if ( $is_custodial eq 'n' ) { $is_custodial_numeric = 0; }
-	      $status = &checkFileInMSS($pfn,$is_custodial_numeric);
+	      $status = &checkFileInMSS($pfn,$size,$checksum,$is_custodial_numeric);
 	    }
 	    else
 	    {
@@ -257,8 +257,7 @@ sub checkFileInMSS_fake {
 
 # Castor Migration routine
 sub checkFileInMSS_castor {
-    my $pfn = shift;
-    my $is_custodial = shift;
+    my ($pfn, $size, $checksum, $is_custodial) = @_;
 
 # Assume non-custodial files don't go to tape?
     if ( ! $is_custodial ) { return 1; }
@@ -277,8 +276,7 @@ sub checkFileInMSS_castor {
 # SRM migration routine, as in original FileSRMMigrate
 # This is not a proper way to check for migration
 sub checkFileInMSS_SRM {
-    my $pfn = shift;
-    my $is_custodial = shift;
+    my ($pfn, $size, $checksum, $is_custodial) = @_;
 
     my $migrated = 0;
             open (SRM, "srm-get-metadata -retry_num=1 $pfn |")
@@ -307,8 +305,7 @@ sub checkFileInMSS_SRM {
 __DATA__
     print "Loading default checkFileInMSS...\n";
 sub checkFileInMSS {
-    my $pfn = shift;
-    my $is_custodial = shift; # 0 for non-custodial data, 1 for custodial...
+    my ($pfn, $size, $checksum, $is_custodial) = @_;
     
 #   Something different about non-custodial files?
     if ( ! $is_custodial )
