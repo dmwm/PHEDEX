@@ -155,9 +155,11 @@ PHEDEX.Loader = function(opts) {
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires:['treeview'] },
-    'phedex-module-dummy':  { requires:['phedex-module'] },
     'phedex-module-nodes':  { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents': { requires:['phedex-module','phedex-datatable'] },
+
+    'phedex-module-dummy':          { requires:['phedex-module'] },
+    'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] },
   },
 
       _me = 'PxLoader',
