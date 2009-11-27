@@ -39,15 +39,15 @@ PHEDEX.Registry = function(sandbox) {
  * @param label
  * @param extrakeys
  */
-    add: function(widget, inputType, label, /*constructor,*/ extrakeys ) {
-      if (!_validTypes[inputType]) { 
+    add: function(widget, inputType, label, extrakeys ) {
+      if (!_validTypes[inputType]) {
         throw new Error("input type '"+inputType+"' is not valid");
       }
       if (!_widgets[inputType]) { _widgets[inputType] = {}; }
       if (_widgets[inputType][widget]) {
         throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
-      var w = { 'widget': widget, 'type': inputType, 'label': label/*, 'construct': constructor*/ };
+      var w = { 'widget': widget, 'type': inputType, 'label': label };
       if (extrakeys) {
         for (var k in extrakeys) {
           w[k] = extrakeys[k];
@@ -107,7 +107,8 @@ PHEDEX.Registry = function(sandbox) {
 //       var ctor = w.construct;
 //       if ( !ctor ) { w.construct = ctor = PxU.getConstructor(w.widget); }
       var ctor = PxU.getConstructor(w.widget);
-      return ctor(inputData, divid, args);
+      var w = ctor(inputData, divid, args);
+      var w = ctor(_sbx,w.widget);
     },
 
     // fired whenever a widget is constructed, passed the construct() args
