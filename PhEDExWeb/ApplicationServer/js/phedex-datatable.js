@@ -20,9 +20,11 @@ PHEDEX.DataTable = function(sandbox,string) {
     return {
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
- * @property type 'DataTable', constant!
+ * @property type
+ * @default DataTable
  * @type string
  * @private
+ * @final
  */
       type: 'DataTable',
 /**
@@ -164,7 +166,6 @@ PHEDEX.DataTable = function(sandbox,string) {
         }(this));
         this.dataTable.subscribe('renderEvent', function() { this.resizePanel(); } );
       },
-
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
