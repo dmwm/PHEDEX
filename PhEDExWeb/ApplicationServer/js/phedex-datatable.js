@@ -195,7 +195,7 @@ YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn
 };
 
 /**
- * This class is called by PHEDEX.Component.ContextMenu to create the correct handler for datatable context menus. 
+ * This class is called by PHEDEX.Component.ContextMenu to create the correct handler for datatable context menus.
  * @namespace PHEDEX.DataTable
  * @class ContextMenu
  * @param obj {object} reference to the parent PHEDEX.DataTable object that this context-menu applies to.
@@ -205,8 +205,8 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
   var p = args.payload;
   if ( !p.config ) { p.config={}; }
   if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
-  if ( !p.typeMap ) { p.typeMap=[]; }
-  p.typeMap.push('dataTable');
+  if ( !p.typeNames ) { p.typeNames=[]; }
+  p.typeNames.push('dataTable');
   PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
     log('hideField: ' + el.col.key, 'info', 'ContextMenu');
     el.table.hideColumn(el.col);
@@ -214,7 +214,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
 
   return {
 /**
- * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, the second argument contains pointers to the datatable, the row, column, and record that were selected.
+ * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, driven by the <strong>args.payload.typeMap</strong> structure which defines the fields and their mapping. The second argument contains pointers to the datatable, the row, column, and record that were selected. This should probably not be used by clients because it represents rather deep and personal knowledge about the object.
  * @method onContextMenuClick
  * @private
  */
@@ -230,9 +230,9 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
           var opts = {},
               oRecord = obj.dataTable.getRecord(elRow);
           // map types to column names in order to prepare our options
-          if (obj.contextMenuTypeMap) {
-            for (var type in obj.contextMenuTypeMap) {
-              opts[type] = oRecord.getData(obj.contextMenuTypeMap[type]);
+          if (p.typeMap) {
+            for (var type in p.typeMap) {
+              opts[type] = oRecord.getData(p.typeMap[type]);
             }
           }
           menuitem.value.fn(opts, { table: obj.dataTable, row: elRow, col: elCol, record: oRecord });
