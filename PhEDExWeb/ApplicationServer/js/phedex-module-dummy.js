@@ -12,9 +12,6 @@ PHEDEX.Module.Dummy = function(sandbox, string) {
   var _sbx = sandbox;
   var _construct = function(obj) {
     return {
-      decorators: [
-        { name: 'MouseOver' },
-      ],
       fillExtra: function() {},
       hideByDefault: function() {},
       addMenuItem: function() {},
