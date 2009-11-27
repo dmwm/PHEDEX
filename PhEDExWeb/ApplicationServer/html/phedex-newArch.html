@@ -186,13 +186,12 @@ function createCoreApp() {
 
   if ( PxR ) {
 // debugger;
-//     PxR.add('PHEDEX.Module.Agents','node','Show Agents','PHEDEX.Module.Agents', {context_item:true});
-    PxS.notify('Registry','add','phedex-module-agents','node','Show Agents',null,{context_item:true});
-//     PxR.add('phedex-module-agents','node','Show Agents',null,{context_item:true});
+    PxS.notify('Registry','add','phedex-module-agents', 'node', 'Show Agents', {context_item:true});
+//     PxR.add('phedex-module-agents','node','Show Agents',{context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-//   PxS.notify('LoadModule','Agents');
+//   PxS.notify('CreateModule','Agents',{node:'T1_IT_CNAF_Buffer'});
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
