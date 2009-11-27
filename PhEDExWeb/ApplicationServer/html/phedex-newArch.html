@@ -117,7 +117,7 @@ stressTest = function(type) {
       stop = (stop.getTime() - start.getTime())/1000;
       d.innerHTML += '<br />Test took '+stop+'seconds';
     }, 60000);
-  PxS.notify('LoadModule',type);
+  PxS.notify('CreateModule',type);
 }
 
 debugLinks = function() {
@@ -141,10 +141,18 @@ debugLinks = function() {
         a   = document.createElement('a');
     a.href='#';
     a.innerHTML = modules[i];
-    a.setAttribute('onclick',"PxS.notify('LoadModule','"+modules[i]+"');");
+    a.setAttribute('onclick',"PxS.notify('CreateModule','"+modules[i]+"');");
     div.appendChild(a);
     el.appendChild(div);
   }
+
+    var div = document.createElement('div'),
+        a   = document.createElement('a');
+    a.href='#';
+    a.innerHTML = 'treeview';
+    a.setAttribute('onclick',"PxS.notify('CreateModule','phedex-module-dummy-treeview');");
+    div.appendChild(a);
+    el.appendChild(div);
 
   el.appendChild(document.createTextNode('Stress-test modules'));
   modules.push('dummy');
