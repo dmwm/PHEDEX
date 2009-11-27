@@ -113,7 +113,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         }(this);
         this.contextMenu.subscribe( 'beforeShow', buildMe );
         this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
-        this.contextMenu.clickEvent.subscribe(this.contextMenu.clearContent); // clear the menu after use!
+        this.contextMenu.hideEvent.subscribe (this.contextMenu.clearContent);
       },
 
 /** reset the menu to empty. This is a trivial function, but it hides the internal contextmenu, which is good.
