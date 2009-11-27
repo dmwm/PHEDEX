@@ -61,6 +61,19 @@ body {
 	color:Blue;
 	text-decoration: underline;
 }
+.phedex-login-overlay-body
+{
+	position:absolute;
+	background:#fff;
+	border:2px solid black;
+	padding:5px;
+	margin:5px;
+}
+.phedex-login-userrole
+{
+	background-color: #9f0; 
+	font-weight: bold;
+}
 .phedex-logger {
   float: right;
   line-height: 1em;
