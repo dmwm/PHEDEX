@@ -131,8 +131,9 @@ PHEDEX.Module = function(sandbox, string) {
         this.decorators.push( { name: 'MouseOver' } );
       },
 
+// These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
-
+      setArgs: function() {},
       /**
        * now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
        * @method initModule
@@ -182,7 +183,8 @@ PHEDEX.Module = function(sandbox, string) {
               }
               case 'resizePanel':
               case 'hideByDefault':
-              case 'menuSelectItem': {
+              case 'menuSelectItem':
+              case 'setArgs': {
                 if ( obj[action] ) {
                   arr.shift();
                   obj[action](arr);
