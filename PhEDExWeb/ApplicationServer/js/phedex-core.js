@@ -74,6 +74,7 @@ PHEDEX.Core = function(sandbox,loader) {
  * <pre>
  * sandbox.notify('LoadModule','agents');
  * </pre>
+ * <strong>_loadModule</strong> is invoked automatically by <strong>_createModule</strong> if the module is not loaded, so is in fact not needed by the application
  * @method _loadModule
  * @private
  * @param ev {string} name of event passed from the sandbox
@@ -82,17 +83,17 @@ PHEDEX.Core = function(sandbox,loader) {
   var _loadModule =  function(ev,arr) {
 // N.B. loadModule() can return _before_ the module is created, if it has to load it first. It will call itself again later.
     var name = arr[0];
-    if ( _loaded[name] ) { _sbx.notify('ModuleLoaded',name); return; }
     var module = name.toLowerCase();
     if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
+    if ( _loaded[module] ) { _sbx.notify('ModuleLoaded',name); return; }
     log ('loading "'+module+'" (for '+name+')','info',_me);
     _ldr.load( {
       Success: function(obj) {
         return function() {
           banner('Loaded "'+name+'"!');
           log('module "'+name +'" loaded...','info',_me);
-          _loaded[name] = {};
-          _sbx.notify('ModuleLoaded',name);
+          _loaded[module] = {};
+          _sbx.notify('ModuleLoaded',name,arr[1]);
         }
       }(this),
       Progress: function(item) { banner('Loaded item: '+item.name); }
@@ -110,15 +111,26 @@ PHEDEX.Core = function(sandbox,loader) {
  * @method _createModule
  * @private
  * @param ev {string} name of event passed from the sandbox
- * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the module to instantiate.
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the module to instantiate. <strong>arr[1]</strong> is an (optional) object containing arguments to the module after it is created.
  */
   var _createModule = function(ev,arr) {
-    var name = PxU.initialCaps(arr[0]);
+    var name = arr[0];
+    var module = name.toLowerCase();
+    if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
+    if ( !_loaded[module] ) {
+      _loadModule(null,arr);
+      return;
+    }
+    name = PxU.initialCaps(name);
     log ('creating a module "'+name+'"','info',_me);
     try {
-      var m = new PHEDEX.Module[name](_sbx,name);
+      var ctor = PxU.getConstructor(module);
+      var m = new ctor(_sbx,name);
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!"); }
     m.init(_global_options);
+    if ( arr[1] ) {
+      m.setArgs(arr[1]);
+    }
   }
 
   var _moduleExists =function(ev,arr) {
