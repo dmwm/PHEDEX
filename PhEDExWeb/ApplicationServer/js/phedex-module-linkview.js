@@ -13,11 +13,12 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 // HARDWIRED for debugging
 var node = 'T1_US_FNAL_Buffer';
 
-  var opts = {};
+  var opts = {},
+      width = 1200;
 
   // Merge passed options with defaults
   YAHOO.lang.augmentObject(opts, {
-    width:1000,
+    width:width,
     height:300
   });
 
