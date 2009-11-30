@@ -60,6 +60,8 @@
   <script type="text/javascript" src="/js/phedex-widget-requestview.js"></script>
   <script type="text/javascript" src="/js/phedex-widget-template.js"></script>
   <script type="text/javascript" src="/js/phedex-login.js"></script>
+  <script type="text/javascript" src="/js/phedex-static.js"></script>
+  <script type="text/javascript" src="/js/phedex-config.js"></script>
   <script type="text/javascript" src="/js/phedex-navigator.js"></script>
 </head>
 
@@ -84,7 +86,8 @@ YAHOO.util.Event.onDOMReady(function() {
 
   InitializeNavigator('phedex-nav', { typecfg: { 
         none: { label: 'Explore global',  order: 10 },
-        node: { label: 'Explore by node', order: 20 }} } );
+        node: { label: 'Explore by node', order: 20 },
+	static: { label: 'Explore Information',  order: 30 }} } );
 	PHEDEX.Login.init('phedex-login');
 });
 </script>
