@@ -193,13 +193,13 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!'); return; }
 
   if ( PxR ) {
-// debugger;
     PxS.notify('Registry','add','phedex-module-agents', 'node', 'Show Agents', {context_item:true});
 //     PxR.add('phedex-module-agents','node','Show Agents',{context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
 //   PxS.notify('CreateModule','Agents',{node:'T1_IT_CNAF_Buffer'});
+  PxS.notify('CreateModule','LinkView',{node:'T1_US_FNAL_Buffer'});
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
