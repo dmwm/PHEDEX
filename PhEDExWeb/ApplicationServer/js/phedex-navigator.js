@@ -585,6 +585,9 @@ PHEDEX.Navigator = (function() {
         // Hide all selectors
         var children = YAHOO.util.Dom.getChildren(div);
         YAHOO.util.Dom.batch(children, function(c) { c.style.visibility = 'hidden'; c.style.position = 'absolute' });
+        if (type == 'static') {
+            return null;
+        }
         // Show the one we want
         var id = _target_selector_ids[type];
         var el = document.getElementById(id);
@@ -634,7 +637,7 @@ PHEDEX.Navigator = (function() {
 
     // For now, just check that all parameters are set
     var _validConstruction = function() {
-        if (_cur_target_type == 'none') {
+        if ((_cur_target_type == 'none') || (_cur_target_type == 'static')) {
             if (_cur_target_type && _cur_widget) { return true; }
             else { return false; }
         } else {
