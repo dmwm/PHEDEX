@@ -220,25 +220,10 @@ PHEDEX.Core = function(sandbox,loader) {
 //        If no source-name is given, assume a constructor PHEDEX[type][name], where type is the group of
 //        this module (DataTable|TreeView) and name is the name of this decorator.
           else if ( d.source ) {
-//             var x = d.source.split('-');
-//             for (var j in x ) {
-//               if ( x[j] == 'phedex' ) { continue; }
-//               var field = PxU.initialCaps(x[j]);
-//               if ( ctor[field] ) { ctor = ctor[field] }
-//               else {
-//                 for (var k in ctor) {
-//                   field = k.toLowerCase();
-//                   if ( field == x[j] ) {
-//                     ctor = ctor[k];
-//                     break;
-//                   }
-//                 }
-//               }
-              ctor = PxU.getConstructor(d.source);
-              if ( !ctor ) {
-                log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
-                throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
-//               }
+            ctor = PxU.getConstructor(d.source);
+            if ( !ctor ) {
+              log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
+              throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
             }
           } else {
             ctor = PHEDEX[m.type][d.name];
@@ -269,10 +254,9 @@ PHEDEX.Core = function(sandbox,loader) {
             return function(_m) {
               banner('Data-service returned OK...')
               var data = args[0],
-                  context = args[1],
-                  api = context.api;
+                  context = args[1];
               try {
-                _m.gotData(data);
+                _m.gotData(data,context);
               } catch(ex) { log(ex,'error',who); banner('Error processing data!'); }
             }(m);
           });
