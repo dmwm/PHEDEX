@@ -21,6 +21,7 @@ PHEDEX.Core.Widget.Registry=(function() {
 		      group    :1,
 		      user     :1,
 		      request  :1,
+		      static   :1,
 		      none     :1 };
 
   return {
@@ -76,7 +77,12 @@ PHEDEX.Core.Widget.Registry=(function() {
 						'data': inputData,
 						'div':  divid,
 						'args': args });
-      if (!ok) { return null; }
+            if (!ok) {
+                return null; 
+            }
+            if (inputType == 'static') {
+                inputData = w.widget;
+            }
       return w.construct(inputData, divid, args);
     },
 
