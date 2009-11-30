@@ -62,7 +62,7 @@ sub validate_all
 
     # the following are allowed on any page and set by this application
     # FIXME:  avoid this if possible.  save into $self instead of push into param() ?
-    my @tosave = qw(page view page_num);
+    my @tosave = qw(page view);
     my %save;
     foreach my $p (keys %$params) {
 	$save{$p} = delete $params->{$p} if grep $_ eq $p, @tosave;
@@ -1355,8 +1355,6 @@ sub init
     } else {
 	if (@{$$self{FILTERED_RESULTS}}) {
 	    my $start_result = $self->page_to_result();
-	    warn "ary size ", scalar @{$$self{FILTERED_RESULTS}}, " start_result ", $start_result, " rpp ",
-	    $$self{RESULTS_PER_PAGE}, "\n";
 	    my @page_results = splice @{$$self{FILTERED_RESULTS}}, $start_result - 1, $$self{RESULTS_PER_PAGE};
 	    my ($result_list, %result_binds) = &dbinlist('result_id', @page_results);
 	    $$self{BINDS}{$_} = $result_binds{$_} foreach keys %result_binds;
@@ -2759,20 +2757,24 @@ import Web25::Common;
 
 sub new
 {
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = {};
-  bless $self, $class;
-  return $self;
+    my ($proto, %args) = @_;
+    my $class = ref($proto) || $proto;
+    my %params = ( CONFIG => undef,
+		   DBID   => undef );
+    my $self = {};
+    while (my ($k, $v) = each %args) {
+	$$self{$k} = $v if exists $params{$k};
+    }
+    bless $self, $class;
+    return $self;
 }
-
-
 
 sub generate
 {
-    my ($self, $config, $db) = @_;
-    $$self{CONFIG} = $config;
-    $$self{DBID} = $db;
+    my ($self) = @_;
+    my $config = $$self{CONFIG};
+    my $db = $$self{DBID};
+
     my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
 
     my ($output) = ("");
@@ -2804,8 +2806,11 @@ sub generate
     };
     if ($@) {
 	my $message = $@;
-	$message = &escapeHTML($message);
-	print {$$self{CONTENT}} "<error>$message</error>";
+	my $id = Digest::MD5::md5_hex($message);
+	my $time = &formatTime(time, 'stamp');
+	warn "$time: error: id=$id $message\n";
+
+	print {$$self{CONTENT}} "<error id='$id' time='$time'/>";
     }
 
     my $root = $$index{ROOT} ? $$index{ROOT} : 'data';
@@ -2841,14 +2846,18 @@ sub new
 sub output
 {
     my ($self) = @_;
-    
-    my @datasets = param('dataset');
-    my @se_names = param('se_name');
-    my $id_suffix = param('id_suffix');
-
-    if (!@datasets or !@se_names) {
-	die "Missing parameters.  'dataset' and 'se_name' are required.\n";
-    }
+    my %params = &validate_all
+	( allow => [qw(dataset se_name id_suffix)],
+	  required => [qw(dataset se_name)],
+	  spec  => {
+	      dataset   => { using => 'dataset', multiple => 1 },
+	      se_name   => { using => 'hostname', multiple => 1 },
+	      id_suffix => { regex => qr/^[A-Za-z0-9]+$/ }
+	  }
+	 );
+    my @datasets = $params{dataset};
+    my @se_names = $params{se_name};
+    my $id_suffix = $params{id_suffix};
 
     my $multiple_se = 0;
     if (grep(/^\*$/, @se_names) || scalar @se_names > 1) {
@@ -3857,10 +3866,26 @@ sub output
 {
     my ($self) = @_;
 
-    my $request = param('request');
-    my $type = param('type');
-    my $nodes = param('nodes');
-    my $state = param('state');
+    my @types = qw(any xfer delete);
+    my %types = ( any => 'any type', xfer => 'transfer', delete => 'deletion' );
+    my @states = qw(any pend appr dis);
+    my %states = ( any => 'any requests', pend => 'pending approval', appr => 'approved', dis => 'disapproved');
+
+    my %params = &validate_all
+	( allow => [qw(request type nodes state)],
+	  spec => {
+	      request => { using => 'pos_int_list' },
+	      type    => { allowing => \@types },
+	      nodes   => { using => 'regex' },
+	      state   => { allowing => \@states },
+	  }
+	 );
+
+
+    my $request = $params{request};
+    my $type    = $params{type};
+    my $nodes   = $params{nodes};
+    my $state   = $params{state};
 
     my $viewurl = $self->myurl();
     print {$$self{CONTENT}}
@@ -3874,13 +3899,13 @@ sub output
 
     "<form class='nice' method='get' action='$viewurl'>",
     "<label class='inline'>View </label>",
-    popup_menu(-name=>'type', -values=>[qw(any xfer delete)],
-	       -labels=>{ any => 'any type', xfer => 'transfer', delete => 'deletion' },
+    popup_menu(-name=>'type', -values=>\@types,
+	       -labels=>\%types,
 	       -class=>'labeled'),
     "<label class='inline'> requests for nodes </label>",
     textfield(-name=>'nodes', -default=>$nodes, -class=>'labeled'),
-    popup_menu(-name=>'state', -values=>[qw(any pend appr dis)],
-	       -labels=>{ any => 'any requests', pend => 'pending approval', appr => 'approved', dis => 'disapproved'},
+    popup_menu(-name=>'state', -values=>\@states,
+	       -labels=>\%states,
 	       -class=>'labeled'),
     submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
 
@@ -3905,7 +3930,7 @@ sub output
 	push @where, "r.id in ($req_list)";
     }
 
-    if ($type && grep($type eq $_, qw(xfer delete))) {
+    if ($type && $type ne 'any') {
 	push @where, 'rt.name = :type';
 	$binds{':type'} = $type;
     }
@@ -3922,9 +3947,9 @@ sub output
     }
     
     if ($state) {
-	if ($state eq 'pend') { push @where, "rd.decision is null"; }
+	if    ($state eq 'pend') { push @where, "rd.decision is null"; }
 	elsif ($state eq 'appr') { push @where, "rd.decision = 'y'"; }
-	elsif ($state eq 'dis') { push @where, "rd.decision = 'n'"; }
+	elsif ($state eq 'dis')  { push @where, "rd.decision = 'n'"; }
     }
 
     my $where_str = '';
@@ -7362,9 +7387,11 @@ sub output
     my ($self) = @_;
     my %params = &validate_all
 	(
-	 allow => [qw(fileid tofilter fromfilter report_code xfer_code from_pfn to_pfn log_detail log_validate)],
+	 allow => [qw(page_num fileid tofilter fromfilter report_code xfer_code 
+		      from_pfn to_pfn log_detail log_validate)],
 	 spec  => 
 	 {
+	     page_num     => { using => 'pos_int'},
 	     fileid       => { using => 'pos_int'},
 	     tofilter     => { using => 'regex', default => '.*' },
 	     fromfilter   => { using => 'regex', default => '.*' },
@@ -7597,20 +7624,36 @@ sub new
 sub init
 {
     my $self = shift @_;
+
+    # build the dbs list
+    $$self{DBS_LIST} = [ sort_dbs $self->dbs_list() ];
+
+    # build the node list
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
-    my %nodesel;
-    if (defined param('node')) {
-	%nodesel = (map { $_ => 1 } param('node'));
-    } else {
-	my %auth_nodes = reverse $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
-	if (%auth_nodes && scalar keys %auth_nodes <= 5) {
-	    %nodesel = (map { $_ => 1 } keys %auth_nodes);
-	} else {
-	    %nodesel = (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
-	}
-    }
-    $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
-    $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
+
+    # build the group list
+    $$self{GROUP_LIST} = ['undefined', sort $self->fetch_groups()];
+    
+    # Data columns
+    $$self{DCOLUMN_NAMES} = [ qw(DBS Name Blocks Files Bytes Open Transient Id) ];
+    $$self{DCOLUMN} = { "DBS" => 0, "Name" => 1, "Blocks" => 0, "Files" => 1,
+			"Bytes" => 1, "Open" => 0, "Transient" => 0, "Id" => 0 };
+    
+    # Replica columns
+    $$self{RCOLUMN_NAMES} = [ qw(DBS Name Files Bytes Source) ];
+    $$self{RCOLUMN} = { "DBS" => 0, "Name" => 1, "Files" => 0, "Bytes" => 0, "Source" => 0 };
+
+    # Subscription columns
+    $$self{SCOLUMN_NAMES} = [ qw(DBS Name Files Bytes Source) ];
+    $$self{SCOLUMN} = { "DBS" => 0, "Name" => 1, "Files" => 0, "Bytes" => 0, "Source" => 0 };
+
+    # Node column values
+    $$self{NVALUES} = [ "Node blocks", "Node files", "Node bytes",
+			"Destined blocks", "Destined files", "Destined bytes",
+			"Missing blocks", "Missing files", "Missing bytes",
+			"% Complete (files)", "% Complete (bytes)"
+			];
+
 }
 
 sub myurl
@@ -7621,7 +7664,8 @@ sub myurl
   return $self->SUPER::myurl(%args)
     if ($args{"page"}
         && $args{"page"} ne "Data::Replicas"
-        && $args{"page"} ne "Data::Subscriptions");
+        && $args{"page"} ne "Data::Subscriptions"
+	&& $args{"page"} ne "Data::LoadTestInject");
 
   # If we stay in the same database, keep all, otherwise strip off db-specific
   my @save = $args{"db"} && $args{"db"} ne $$self{DBID}
@@ -7917,9 +7961,6 @@ sub apply_options
   my ($self) = @_;
 
   # Determine which dataset options we are showing (in dataset mode)
-  $$self{DCOLUMN_NAMES} = [ qw(DBS Name Blocks Files Bytes Open Transient Id) ];
-  $$self{DCOLUMN} = { "DBS" => 0, "Name" => 1, "Blocks" => 0, "Files" => 1,
-                      "Bytes" => 1, "Open" => 0, "Transient" => 0, "Id" => 0 };
   if (defined param('dcolumn'))
   {
     $$self{DCOLUMN}{$_} = 0 for keys %{$$self{DCOLUMN}};
@@ -7927,9 +7968,6 @@ sub apply_options
   }
 
   # Determine which replica options we are showing (in replica mode)
-  $$self{RCOLUMN_NAMES} = [ qw(DBS Name Files Bytes Source) ];
-  $$self{RCOLUMN} = { "DBS" => 0, "Name" => 1, "Files" => 0, "Bytes" => 0, "Source" => 0 };
-		    
   if (defined param('rcolumn'))
   {
     $$self{RCOLUMN}{$_} = 0 for keys %{$$self{RCOLUMN}};
@@ -7937,8 +7975,6 @@ sub apply_options
   }
 
   # Determine which replica options we are showing (in subscription mode)
-  $$self{SCOLUMN_NAMES} = [ qw(DBS Name Files Bytes Source) ];
-  $$self{SCOLUMN} = { "DBS" => 0, "Name" => 1, "Files" => 0, "Bytes" => 0, "Source" => 0 };
   if (defined param('scolumn'))
   {
     $$self{SCOLUMN}{$_} = 0 for keys %{$$self{SCOLUMN}};
@@ -7946,17 +7982,28 @@ sub apply_options
   }
 
   # Determine which replica value we show (in replica mode)
-  $$self{NVALUES} = [ "Node blocks", "Node files", "Node bytes",
-		      "Destined blocks", "Destined files", "Destined bytes",
-		      "Missing blocks", "Missing files", "Missing bytes",
-		      "% Complete (files)", "% Complete (bytes)"
-		      ];
   $$self{NVALUE} = param('nvalue') || "Node files";
   $$self{NVALUE} = "Node files" if !grep($$self{NVALUE} eq $_, @{$$self{NVALUES}});
 
   # Determine if we are showing all or interesting rows
   $$self{ROWS} = param('rows') || 'all';
   $$self{ROWS} = 'all' if !grep($$self{ROWS} eq $_, qw(all interesting));
+
+  # Determine which nodes we show
+  my %nodesel;
+  if (defined param('node')) {
+      %nodesel = (map { $_ => 1 } param('node'));
+  } else {
+      my %auth_nodes = reverse $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin', with_ids => 1);
+      if (%auth_nodes && scalar keys %auth_nodes <= 5) {
+	  %nodesel = (map { $_ => 1 } keys %auth_nodes);
+      } else {
+	  %nodesel = (map { $$_{ID} => 1 } grep($$_{NAME} =~ /CERN/, @{$$self{NODE_LIST}}));
+      }
+  }
+  $$self{NODE_SHOWN} = [ grep($nodesel{$$_{ID}}, @{$$self{NODE_LIST}}) ];
+  $$_{IS_SHOWN} = 1 for @{$$self{NODE_SHOWN}};
+  
 }
 
 sub fetch_data
@@ -7965,7 +8012,6 @@ sub fetch_data
 
   # Obtain the list of DBSes, sort them and pick the ones we show.
   my %shown = map { $_ => 1 } param('dbs');
-  $$self{DBS_LIST} = [ sort_dbs $self->dbs_list() ];
 
   if (keys %shown)
   {
@@ -8180,13 +8226,65 @@ sub output_filter
   return ($filter, $filterform);
 }
 
+sub validate
+{
+  my $self = shift;
+  # Note: the Data::Explore subclasses pass around a large set or
+  # parameters between them to maintain state.  This requires us to
+  # validate them all here, or to have a very similar validation in
+  # multiple pages.  We choose the former.
+  my %params = &validate_all
+	(
+	 allow => [qw(node dcolumn rcolumn scolumn nvalue rows dbs dexp bexp filter
+		      col subsaction reqfilter priority suspended custodial group
+		      groupchange s_id action actionvalue create_source create_dest rate lp_id)],
+	 spec  => 
+	 {
+	     # Params for Data::Replicas
+	     node         => { allowing => [(map { $$_{ID} } @{$$self{NODE_LIST}})],  multiple => 1 },
+	     dcolumn      => { allowing => $$self{DCOLUMN_NAMES}, multiple => 1 },
+	     rcolumn      => { allowing => $$self{RCOLUMN_NAMES}, multiple => 1 },
+	     scolumn      => { allowing => $$self{SCOLUMN_NAMES}, multiple => 1 },
+	     nvalue       => { allowing => $$self{NVALUES} },
+	     rows         => { allowing => [qw(all interesting)] },
+	     dbs          => { allowing => [(map { $$_{ID} } @{$$self{DBS_LIST}})], multiple => 1 },
+	     dexp         => { using => 'pos_int', multiple => 1 },
+	     bexp         => { using => 'pos_int', multiple => 1 },
+	     filter       => { using => 'regex' },
+	     col          => { regex => '^[A-Z_]+$', multiple => 1 },
+
+	     # params for Data::Subscriptions
+	     subsaction   => { allowing => [qw(suspend unsuspend priorityhi prioritymd prioritylo groupchange)]},
+	     reqfilter    => { using => 'pos_int_list' },
+  	     priority     => { allowing => [qw(any high normal low)], default => 'any' },
+ 	     suspended    => { allowing => [qw(any active suspended)], default => 'any' },
+ 	     custodial    => { allowing => [qw(any y n)], default => 'any' },
+ 	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
+	     groupchange  => { allowing => $$self{GROUP_LIST} },
+#	     s_id         => { ... }, # combined ID
+
+	     # params for Data::LoadTest
+	     action       => { allowing => [qw(rate inject_now start stop remove)] },
+#	     actionvalue  => { ... }, # varies according to action
+	     create_source => { using => 'dataset' },
+	     create_dest   => { using => 'dataset' },
+	     rate          => { using => 'pos_float' },
+#	     lp_id => { ...} # combined ID
+	 }
+	 );
+
+  return $$self{PARAMS} = \%params;
+}
+
+
 sub output
 {
   my ($self) = @_;
 
   # Apply form options and fetch the data we show on this form
-  $self->apply_options();
   $self->init();
+  $self->validate();
+  $self->apply_options();
   $self->output_page();
   $self->output_options_form();
 }
@@ -8710,8 +8808,6 @@ sub output_page
   my $custfilter  = param('custodial') || 'any';
   my $groupfilter = param('group') || 'any';
 
-  my @groups = ('undefined', sort $self->fetch_groups());
-
   my $filterform = join('', "<p><i>Subscription data filters</i></p>",
 			"<div class='nice'>",
 			"<label>Requests: </label>",
@@ -8732,7 +8828,7 @@ sub output_page
 					      'n' => 'non-custodial' },
 				   -default=>$custfilter, -class=>'labeled'), "<br/>",
 			"<label>Group: </label>",
-			popup_menu(-name=>'group', -values=>['any', @groups],
+			popup_menu(-name=>'group', -values=>['any', @{$$self{GROUP_LIST}}],
 				   -default=>$groupfilter, -class=>'labeled'), "<br/>",
 
 			"</div>"
@@ -8816,7 +8912,7 @@ sub output_page
       }
       print { $$self{CONTENT} }
       "</select>\n",
-      popup_menu(-name=>'groupchange', -values=>\@groups, -id=>'groupchange', -style=>'display:none'),
+      popup_menu(-name=>'groupchange', -values=>$$self{GROUP_LIST}, -id=>'groupchange', -style=>'display:none'),
       "<input type='submit' value='Update'/>\n",
       "</p>\n"
       ;
@@ -9525,12 +9621,6 @@ sub output
 {
   my ($self) = @_;
 
-  my $nodefilter = param('node') || '.*';
-  my $blockfilter = param('block') || '.*';
-  my $testchoice = param('test') || 'Any';
-  my $statuschoice = param('status') || 'Any';
-
-
   my $q_tests = &dbexec($$self{DBH}, qq{ select name from t_dvs_test order by name });
   my @tests;  
   while (my $row = $q_tests->fetchrow()) {
@@ -9544,7 +9634,23 @@ sub output
       push @status, $row; 
   }
   unshift @status, 'Any';
-  
+
+
+  my %params = &validate_all
+      (
+       allow => [qw(node block test status)],
+       spec => {
+	   node   => { using => 'regex', default => '.*' },
+	   block  => { using => 'regex', default => '.*' },
+	   test   => { allowing => \@tests, default => 'Any' },
+	   status => { allowing => \@status, default => 'Any' },
+       }
+       );
+			    
+  my $nodefilter   = $params{node};
+  my $blockfilter  = $params{block};
+  my $testchoice   = $params{test};
+  my $statuschoice = $params{status};
 
   print {$$self{CONTENT}}
   "<form method='get' action='#' class='nice'/>",
@@ -9557,7 +9663,7 @@ sub output
   "<label class='inline'>with</label",
   popup_menu(-name=>'status', values=>\@status, -class=>'labeled'),
   "<label class='inline'>status</label",
-  submit(-name=>'Update', -class=>'labeled'), "<br/>",
+  submit(-label=>'Update', -class=>'labeled'), "<br/>",
   "</form>";
 
   my @where;
@@ -9869,7 +9975,7 @@ sub output
 	       -default=>$node,
 	       -onchange=>'submit()',
 	       -class=>'labeled'),
-    submit(-value=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
+    submit(-label=>'Submit', -class=>'labeled'), "</form><br clear='all'/>";
 
     my $node_id = $nodes{$node};
 
