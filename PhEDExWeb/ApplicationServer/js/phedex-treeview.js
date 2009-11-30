@@ -7,17 +7,30 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.TreeView = function(sandbox,string) {
-debugger;
   YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
   var _me  = 'TreeView',
       _sbx = sandbox;
+
+/**
+ * An object containing metadata that describes the treeview internals. Used as a convenience to keep from polluting the namespace too much with public variables that the end-module does not need.
+ * @property _cfg
+ * @type object
+ * @private
+ */
+/**
+ * An array mapping DOM element-iDs to treeview-branches, for use in mouse-over handlers etc
+ * @property _cfg.textNodeMap
+ * @type array
+ * @private
+ */
+      _cfg = { textNodeMap:[], headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{} };
 
   /**
    * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
    * @method _construct
    * @private
    */
-  var _construct = function() {
+  _construct = function() {
     return {
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -52,17 +65,17 @@ debugger;
             candList,
             elList=[],
             elClasses;
-        if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
-        else                                                  { treeOther = 'phedex-tnode-header'; }
+        if(YuD.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
+        else                                       { treeOther = 'phedex-tnode-header'; }
         elClasses = el.className.split(' ');
         for (var i in elClasses) {
           if ( elClasses[i].match(treeMatch) ) {
-            candList = YAHOO.util.Dom.getElementsByClassName(elClasses[i], 'div', that.div);
+            candList = YuD.getElementsByClassName(elClasses[i], 'div', this.el);
           }
         }
         for (var i in candList )
         {
-          if ( YAHOO.util.Dom.hasClass(candList[i],treeOther) )
+          if ( YuD.hasClass(candList[i],treeOther) )
           {
             elList.push(candList[i]);
           }
@@ -74,10 +87,10 @@ debugger;
 //      find the nearest ancestor that has a phedex-tnode-* class applied to it, either
 //      phedex-tnode-field or phedex-tnode-header
         while (el.id != this.el.id) { // walk up only as far as the widget-div
-          if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+          if(YuD.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
             return el;
           }
-          if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
+          if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
             return el;
           }
           el = el.parentNode;
@@ -87,32 +100,25 @@ debugger;
       locateHeader: function(el) {
 //      find the phedex-tnode-header element for this element
         while (el.id != this.el.id) { // walk up only as far as the widget-div
-          if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+          if(YuD.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
             var elList = this.locatePartnerFields(el);
             return elList[0];
           }
-          if(YAHOO.util.Dom.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
+          if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
             return el;
           }
           el = el.parentNode;
         }
       },
 
-      buildExtra: function(div) {
-        this.headerTree = new YAHOO.widget.TreeView(div);
-        YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
-        YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
-      },
-
-      buildTree: function(div) {
-        this.tree = new YAHOO.widget.TreeView(div);
+      buildTree: function() {
+        this.tree = new YAHOO.widget.TreeView(this.dom.content);
+        this.headerTree = new YAHOO.widget.TreeView(this.dom.extra);
         var currentIconMode=0;
 //      turn dynamic loading on for entire tree?
         if ( this.isDynamic ) {
           this.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
         }
-        YAHOO.util.Event.on(div, "mouseover", mouseOverHandler);
-        YAHOO.util.Event.on(div, "mouseout",  mouseOverHandler);
       },
 
       addNode: function(spec,values,parent) {
@@ -121,16 +127,16 @@ debugger;
         if ( !values ) { isHeader = true; }
         if ( values && (spec.format.length != values.length) )
         {
-          throw new Error('PHEDEX.Core.TreeView: length of "values" array and "format" arrays differs ('+values.length+' != '+spec.format.length+'). Not good!');
+          throw new Error('PHEDEX.TreeView: length of "values" array and "format" arrays differs ('+values.length+' != '+spec.format.length+'). Not good!');
         }
         if ( ! spec.className )
         {
           if ( isHeader ) { spec.className = 'phedex-tnode-header'; }
           else            { spec.className = 'phedex-tnode-field'; }
         }
-        var el = PHEDEX.Util.makeNode(spec,values);
+        var el = PxU.makeNode(spec,values);
         var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
-        this.textNodeMap[tNode.labelElId] = tNode;
+        _cfg.textNodeMap[tNode.labelElId] = tNode;
         tNode.data.values = values;
         tNode.data.spec   = spec;
         if ( spec.payload ) { tNode.payload = spec.payload; }
@@ -141,19 +147,19 @@ debugger;
             if ( values ) { value = values[i]; }
             else { value = spec.format[i].text; }
             if ( spec.name ) { value = spec.name+': '+value; }
-            if ( this._cfg.headerNames[className] ) {
-              YAHOO.log('duplicate entry for '+className+': "'+this._cfg.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
+            if ( _cfg.headerNames[className] ) {
+              log('duplicate entry for '+className+': "'+_cfg.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
             } else {
-              this._cfg.headerNames[className] = {value:value, group:spec.name};
-              this._cfg.sortFields[spec.name] = {};
+              _cfg.headerNames[className] = {value:value, group:spec.name};
+              _cfg.sortFields[spec.name] = {};
               if ( spec.format[i].contextArgs )
               {
-                this._cfg.contextArgs[className]=[];
+                _cfg.contextArgs[className]=[];
                 if ( typeof(spec.format[i].contextArgs) == 'string' ) {
-                  this._cfg.contextArgs[className].push(spec.format[i].contextArgs);
+                  _cfg.contextArgs[className].push(spec.format[i].contextArgs);
                 } else {
                   for (var j in spec.format[i].contextArgs) {
-                    this._cfg.contextArgs[className].push(spec.format[i].contextArgs[j]);
+                    _cfg.contextArgs[className].push(spec.format[i].contextArgs[j]);
                   }
                 }
               }
@@ -163,7 +169,7 @@ debugger;
         for (var i in spec.format) {
           if ( spec.format[i].hideByDefault )
           {
-            this._cfg.hideByDefault[spec.format[i].className]=1;
+            _cfg.hideByDefault[spec.format[i].className]=1;
           }
         }
         return tNode;
@@ -187,7 +193,7 @@ debugger;
 //   that.showFields.on("click", function () {
 //     var m = that.column_menu.getItems();
 //     for (var i = 0; i < m.length; i++) {
-//       YAHOO.util.Dom.getElementsByClassName(m[i].value,null,that.div,function(element) {
+//       YuD.getElementsByClassName(m[i].value,null,that.div,function(element) {
 // 	element.style.display = null;
 //       });
 //     }
@@ -200,7 +206,7 @@ debugger;
 //     m.subscribe("click", function onMenuClick(sType, oArgs) {
 //       var oMenuItem = oArgs[1];
 //       if (oMenuItem) {
-// 	YAHOO.util.Dom.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
+// 	YuD.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
 // 	  element.style.display = null;
 // 	});
 //         m.removeItem(oMenuItem.index);
@@ -227,15 +233,15 @@ debugger;
 //     var tgt = that.locateNode(this.contextEventTarget);
 //     if ( ! tgt ) { return; }
 //     var isHeader;
-//     if      ( YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
-//     else if ( YAHOO.util.Dom.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
+//     if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
+//     else if ( YuD.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
 //     else    { return; }
 // 
 // //  Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
 //     aClasses = tgt.className.split(" ");
 // 
 // //  Highlight the <tr> element in the table that was the target of the "contextmenu" event.
-//     YAHOO.util.Dom.addClass(tgt, "phedex-core-selected");
+//     YuD.addClass(tgt, "phedex-core-selected");
 //     var label = tgt.textContent;
 //     var payload = {};
 // 
@@ -243,7 +249,7 @@ debugger;
 //     var treeMatch = /^phedex-tree-/;
 //     for (var i in aClasses) {
 //       if ( aClasses[i].match(treeMatch) ) {
-// 	YAHOO.log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
+// 	log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
 // 	if ( !isHeader && that._cfg.contextArgs[aClasses[i]] ) {
 // 	  for(var j in that._cfg.contextArgs[aClasses[i]]) {
 // 	    aMenuItems[aMenuItems.length] = that._cfg.contextArgs[aClasses[i]][j];
@@ -259,7 +265,7 @@ debugger;
 //   that.onContextMenuHide= function(p_sType, p_aArgs) {
 //     var tgt = that.locateNode(this.contextEventTarget);
 //     if (this.getRoot() == this && tgt ) {
-//       YAHOO.util.Dom.removeClass(tgt, "phedex-core-selected");
+//       YuD.removeClass(tgt, "phedex-core-selected");
 //     }
 //   }
 // 
@@ -274,11 +280,11 @@ debugger;
 // 
 //   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
 // //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
-//     YAHOO.log('ContextMenuClick for '+that.me(),'info','Core.TreeView');
+//     log('ContextMenuClick for '+that.me(),'info','Core.TreeView');
 //     var oTarget = this.contextEventTarget,
 // 	oCurrentTextNode;
-//     var oTextNode = YAHOO.util.Dom.hasClass(oTarget, "ygtvlabel") ?
-// 	oTarget : YAHOO.util.Dom.getAncestorByClassName(oTarget, "ygtvlabel");
+//     var oTextNode = YuD.hasClass(oTarget, "ygtvlabel") ?
+// 	oTarget : YuD.getAncestorByClassName(oTarget, "ygtvlabel");
 // 
 //     if (oTextNode) {
 //       oCurrentTextNode = that.textNodeMap[oTextNode.id];
@@ -296,7 +302,7 @@ debugger;
 // 	args = oCurrentTextNode.payload.args;
 // 	opts = oCurrentTextNode.payload.opts;
 //       }
-//       YAHOO.log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
+//       log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
 //       if (task) {
 //         this.activeItem.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
 //       }
@@ -309,17 +315,19 @@ debugger;
 //   });
 
       hideFieldByClass: function(className) {
-        YAHOO.log('hideFieldByClass: '+className,'info','Core.TreeView');
-        YAHOO.util.Dom.getElementsByClassName(className,null,this.el,function(element) {
+debugger;
+        log('hideFieldByClass: '+className,'info','Core.TreeView');
+        YuD.getElementsByClassName(className,null,this.el,function(element) {
           element.style.display = 'none';
         });
         this.column_menu.addItem({text: this._cfg.headerNames[className].value,value: className});
         this.refreshButton();
       },
       hideAllFieldsThatShouldBeHidden: function() {
+debugger;
         var m = this.column_menu.getItems();
         for (var i = 0; i < m.length; i++) {
-          YAHOO.util.Dom.getElementsByClassName(m[i].value,null,this.el,function(element) {
+          YuD.getElementsByClassName(m[i].value,null,this.el,function(element) {
             element.style.display = 'none';
           });
         }
@@ -345,10 +353,10 @@ debugger;
 // // If I didn't do it like this then the user would have to pass the options in to the constructor, and would then have to take
 // // care that the object was assembled in exactly the right way. That would then make things a bit more complex...
 //   that.onBuildComplete.subscribe(function() {
-//     YAHOO.log('onBuildComplete: '+that.me(),'info','Core.TreeView');
+//     log('onBuildComplete: '+that.me(),'info','Core.TreeView');
 //     if ( that.contextMenu )
 //     {
-//       YAHOO.log('subscribing context menu: '+that.me(),'info','Core.TreeView');
+//       log('subscribing context menu: '+that.me(),'info','Core.TreeView');
 //       that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
 //       that.contextMenu.render(document.body);
 //     }
@@ -366,14 +374,14 @@ debugger;
 //     for (var i in elList ) { elList[i].style.width = tgt.style.width; }
 //   }
 //   var populateCompleteHandler=function() {
-//     var elList = YAHOO.util.Dom.getElementsByClassName('phedex-tnode-header',null,that.div);
+//     var elList = YuD.getElementsByClassName('phedex-tnode-header',null,that.div);
 //     for (var i in elList)
 //     {
 //       var el = elList[i];
 //       var elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
 //       elResize.payload = el;
 //       elResize.subscribe('endResize',function(e) {
-// 	var elTarget = YAHOO.util.Event.getTarget(e);
+// 	var elTarget = YuE.getTarget(e);
 // 	var el = elTarget.payload
 // 	that.resizeFields(el);
 //       });
@@ -414,7 +422,7 @@ debugger;
 //       if ( f.className == thisClass ) { index = i; break; }
 //     }
 //     if ( !index ) {
-//       YAHOO.log('cannot identify class-type','error','Core.TreeView');
+//       log('cannot identify class-type','error','Core.TreeView');
 //       return;
 //     }
 //     sNode = s[that._cfg.headerNames[thisClass].group];
@@ -425,7 +433,7 @@ debugger;
 //     var map = [], indices=[];
 //     for (var i in children)
 //     {
-//       var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,children[i].getEl());
+//       var elList = YuD.getElementsByClassName(thisClass,null,children[i].getEl());
 //       if ( elList.length ) {
 //         map.push( {node:children[i], value:children[i].data.values[index]} );
 //         indices.push( i );
@@ -441,7 +449,7 @@ debugger;
 //     for (var i in node.data.spec.format) {
 //       var className = node.data.spec.format[i].className;
 //       var container = node.getEl();
-//       var tgt = YAHOO.util.Dom.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl());
+//       var tgt = YuD.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl());
 //       var header = that.locateHeader(tgt[0]);
 //       that.resizeFields(header);
 //     }
@@ -450,8 +458,8 @@ debugger;
 // 
 //   that.filter.onFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       YAHOO.log('onWidgetFilterCancelled:'+obj.me(),'info','Core.TreeView');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+//       log('onWidgetFilterCancelled:'+obj.me(),'info','Core.TreeView');
+//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.revealAllBranches();
 //       obj.filter.Reset();
 //       obj.ctl.filter.Hide();
@@ -460,8 +468,8 @@ debugger;
 //   }(that));
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       YAHOO.log('onGlobalFilterCancelled:'+obj.me(),'info','Core.TreeView');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+//       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.TreeView');
+//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.revealAllBranches();
 //       obj.filter.Reset();
 //     }
@@ -512,8 +520,8 @@ debugger;
 // 	  if ( args[key].negate ) { status = !status; }
 // 	  if ( !status ) { // Keep the element if the match succeeded!
 // 	    tNode.collapse();
-// 	    var elAncestor = YAHOO.util.Dom.getAncestorByClassName(elId,'ygtvrow');
-// 	    YAHOO.util.Dom.addClass(elAncestor,'phedex-invisible');
+// 	    var elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
+// 	    YuD.addClass(elAncestor,'phedex-invisible');
 // 	    that.filter.count++;
 // 	    if ( tNode.parent ) {
 // 	      elParents[tNode.parent.labelElId] = 1;
@@ -524,8 +532,8 @@ debugger;
 //       }
 //     }
 //     for (var elParent in elParents) {
-//       var ancestor = YAHOO.util.Dom.getAncestorByClassName(elParent,'ygtvrow');
-//       YAHOO.util.Dom.addClass(ancestor,'phedex-core-control-widget-applied');
+//       var ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
+//       YuD.addClass(ancestor,'phedex-core-control-widget-applied');
 //     }
 //     return this.filter.count;
 //   }
@@ -558,25 +566,24 @@ debugger;
  */
 PHEDEX.TreeView.MouseOver = function(sandbox,args) {
   var obj = args.payload.obj;
-
   function mouseOverHandler(e) {
 //  get the resolved (non-text node) target:
-    var elTarget = YAHOO.util.Event.getTarget(e);
-    var el = that.locateNode(elTarget);
+    var elTarget = YuE.getTarget(e);
+    var el = obj.locateNode(elTarget);
     if ( ! el ) { return; }
-    var aList = YAHOO.util.Dom.getElementsByClassName('spanWrap','span',el);
+    var aList = YuD.getElementsByClassName('spanWrap','span',el);
     for (var i in aList) {
-      YAHOO.log('Found span '+aList[i].innerHTML,'debug','Core.TreeView');
+      log('Found span '+aList[i].innerHTML,'debug','Core.TreeView');
     }
     var action;
     var className = 'phedex-tnode-highlight';
     var class_alt  = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
-      action = YAHOO.util.Dom.addClass;
+      action = YuD.addClass;
     } else {
-      action = YAHOO.util.Dom.removeClass;
+      action = YuD.removeClass;
     }
-    var elList = that.locatePartnerFields(el);
+    var elList = obj.locatePartnerFields(el);
     for (var i in elList )
     {
       action(elList[i],class_alt);
@@ -584,11 +591,16 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
     action(el,className);
   }
 //   function clickHandler(e) {
-//     var elTarget = YAHOO.util.Event.getTarget(e);
-//     var el = that.locateNode(elTarget);
+//     var elTarget = YuE.getTarget(e);
+//     var el = obj.locateNode(elTarget);
 //     if ( !el ) { return; }
 //     var fieldClass = that.getPhedexFieldClass(el);
-//     YAHOO.log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'debug', 'Core.TreeView');
+//     log("el id/name "+el.id+"/"+el.nodeName+' class:'+el.className+' contents:'+el.innerHTML, 'debug', 'Core.TreeView');
 //   }
+  YuE.on(obj.dom.content, "mouseover", mouseOverHandler);
+  YuE.on(obj.dom.content, "mouseout",  mouseOverHandler);
+  YuE.on(obj.dom.extra,   "mouseover", mouseOverHandler);
+  YuE.on(obj.dom.extra,   "mouseout",  mouseOverHandler);
 }
+
 log('loaded...','info','TreeView');
