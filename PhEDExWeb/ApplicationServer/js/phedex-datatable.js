@@ -16,7 +16,7 @@ PHEDEX.DataTable = function(sandbox,string) {
    * @method _construct
    * @private
    */
-  var _construct = function() {
+  _construct = function() {
     return {
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.

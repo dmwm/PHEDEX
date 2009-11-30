@@ -10,7 +10,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.Dummy = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
   var _sbx = sandbox;
-  var _construct = function(obj) {
+  _construct = function(obj) {
     return {
       fillExtra: function() {},
       hideByDefault: function() {},

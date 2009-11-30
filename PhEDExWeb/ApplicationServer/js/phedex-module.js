@@ -18,7 +18,7 @@ PHEDEX.Module = function(sandbox, string) {
    * @method _construct
    * @private
    */
-  var _construct = function() {
+  _construct = function() {
     return {
       me: string,
       /**

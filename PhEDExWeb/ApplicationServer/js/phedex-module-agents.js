@@ -14,7 +14,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       node = 'T1_US_FNAL_Buffer';
   log('Module: creating a genuine "'+string+'"','info',string);
 
-   var _construct = function(obj) {
+   _construct = function(obj) {
     return {
       decorators: [
         {

@@ -11,7 +11,7 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
 debugger;
   YAHOO.lang.augmentObject(this,new PHEDEX.TreeView(sandbox,string));
   var _sbx = sandbox;
-  var _construct = function(obj) {
+  _construct = function(obj) {
     return {
       fillExtra: function() {},
       hideByDefault: function() {},

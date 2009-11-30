@@ -5,7 +5,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
   var _sbx = sandbox;
   log('Module: creating a genuine "'+string+'"','info',string);
 
-   var _construct = function() {
+   _construct = function() {
     return {
       decorators: [
         {
