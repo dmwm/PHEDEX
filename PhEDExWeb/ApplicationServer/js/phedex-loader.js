@@ -114,10 +114,10 @@ PHEDEX.Base.Object = function() {
     /**
      * Decorations to apply for this object. E.g, context-menus, 'extra' handlers etc
      * @property decorators
-     * @type object
+     * @type array
      * @protected
      */
-    decorators: {},
+    decorators: [],
   };
 }
 
