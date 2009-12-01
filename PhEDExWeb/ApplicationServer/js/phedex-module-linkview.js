@@ -394,11 +394,11 @@ var node = 'T1_US_FNAL_Buffer';
 //       },
       isDynamic: true, // enable dynamic loading of data
 
-      init: function(opts) {
-        log('initialising','info',this.me);
-        this._init(opts);
-        _sbx.notify( this.id, 'init' );
-      },
+//       init: function(opts) {
+//         log('initialising','info',this.me);
+//         this._init(opts);
+//         _sbx.notify( this.id, 'init' );
+//       },
       initData: function() {
         log('initData','info',this.me);
         this.buildTree();
