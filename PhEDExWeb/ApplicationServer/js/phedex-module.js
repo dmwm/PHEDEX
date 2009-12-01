@@ -151,6 +151,14 @@ PHEDEX.Module = function(sandbox, string) {
  */
       initMe:       function() {},
 
+/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants.
+ * @method initData
+ */
+      initData: function() {
+        _sbx.notify( this.id, 'initData' );
+      },
+
+
       /**
        * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
        * @method initModule
