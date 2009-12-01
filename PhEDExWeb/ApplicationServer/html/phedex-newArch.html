@@ -120,6 +120,7 @@ stressTest = function(type) {
   PxS.notify('CreateModule',type);
 }
 
+var fn=[];
 debugLinks = function() {
 // cheat, providing a few links to create modules from...
   var el = document.getElementById('phedex-debug'),
@@ -167,6 +168,28 @@ debugLinks = function() {
     d.appendChild(a);
     el.appendChild(d);
   }
+
+  el.appendChild(document.createTextNode('Load objects'));
+  var objects = PxL.knownObjects();
+  for (var i in objects) {
+    var div = document.createElement('div'),
+        a   = document.createElement('a');
+    a.href='#';
+    a.innerHTML = objects[i];
+    fn[i] = function(obj) {
+      return function() {
+        PxL.load({
+              Success:  function(item) { banner('Successfully loaded '+obj); },
+              Progress: function(item) { banner('Loaded item: '+obj); },
+              Failure:  function(item) { banner('Failed to load '+obj); }
+        },obj);
+      }
+    }(objects[i]);
+
+    a.setAttribute('onclick',"fn["+[i]+"]();");
+    div.appendChild(a);
+    el.appendChild(div);
+  }
 }
 // When the DOM is available, start loading the essential bits and pieces
 YAHOO.util.Event.onDOMReady(function() {
@@ -199,7 +222,7 @@ function createCoreApp() {
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
 //   PxS.notify('CreateModule','Agents',{node:'T1_IT_CNAF_Buffer'});
-  PxS.notify('CreateModule','LinkView',{node:'T1_US_FNAL_Buffer'});
+//   PxS.notify('CreateModule','LinkView',{node:'T1_US_FNAL_Buffer'});
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
