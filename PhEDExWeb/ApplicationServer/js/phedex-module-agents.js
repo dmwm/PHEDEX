@@ -67,25 +67,22 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         height:200,
         minwidth:300,
         minheight:50,
-        defsort:'Agent',
-        defhide:['PID','Host','State Dir']
       },
 
-      initMe: function() {
-        _sbx.notify( this.id, 'initMe' );
-      },
-      initData: function() {
-        log('initData','info',this.me);
-        this.buildTable(
-            [ 'Agent',
+      meta: {
+        table: {
+          columns: [
+              'Agent',
               {key:"Date", formatter:'UnixEpochToGMT'},
               {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
               'Version','Label','Host','State Dir'
             ],
-            {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
-          );
-        _sbx.notify( this.id, 'initData' );
+          map: {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
+        },
+        defsort:'Agent',
+        defhide:['PID','Host','State Dir']
       },
+
       setArgs: function(arr) {
         node = arr.node;
       },

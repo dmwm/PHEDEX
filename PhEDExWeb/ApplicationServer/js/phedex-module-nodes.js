@@ -30,14 +30,13 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         },
       ],
 
-      initMe: function(opts) {
-        _sbx.notify( this.id, 'initMe' );
+      meta: {
+        table: {
+          columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ],
+        },
       },
+
       initData: function() {
-        log('initData','info',this.me);
-        this.buildTable(
-                  [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
-                 );
         _sbx.notify( this.id, 'initData' );
       },
       getData: function() {

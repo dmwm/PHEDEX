@@ -27,6 +27,17 @@ PHEDEX.DataTable = function(sandbox,string) {
  * @final
  */
       type: 'DataTable',
+/** Initialise the data-table, using the parameters in this.meta.table, set in the module during construction
+ * @method initDerived
+ * @private
+ */
+      initDerived: function() {
+        var t = this.meta.table;
+        if ( t ) {
+          this.buildTable(t.columns,t.map,t.schema)
+          _sbx.notify( this.id, 'initDerived' );
+        }
+      },
 /**
  * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
  * @method fillDataSource
@@ -75,10 +86,10 @@ PHEDEX.DataTable = function(sandbox,string) {
  * @method hideByDefault
  */
       hideByDefault: function() {
-        if ( this.options.defhide ) {
-          for (var i in this.options.defhide)
+        if ( this.meta.defhide ) {
+          for (var i in this.meta.defhide)
           {
-            var column = this.dataTable.getColumn(this.options.defhide[i]);
+            var column = this.dataTable.getColumn(this.meta.defhide[i]);
             if ( column ) { this.dataTable.hideColumn(column); }
           }
         }
@@ -279,13 +290,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 
 //   this.onPopulateComplete.subscribe(function(obj) {
 //     return function() {
-//       for (var i in this.options.defhide)
-//       {
-//         var column = obj.dataTable.getColumn(this.options.defhide[i]);
-//         if ( column ) { obj.dataTable.hideColumn(column); }
-//       }
-//       this.options.defhide = null; // don't want to do this every time the build is complete...?
-//       
 //       // sort by default
 //       if (this.options.defsort) {
 // 	obj.dataTable.sortColumn( obj.dataTable.getColumn( this.options.defsort ) );
