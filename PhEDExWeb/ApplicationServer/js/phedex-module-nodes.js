@@ -30,10 +30,8 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         },
       ],
 
-      init: function(opts) {
-        log('initialising','info',this.me);
-        this._init(opts);
-        _sbx.notify( this.id, 'init' );
+      initMe: function(opts) {
+        _sbx.notify( this.id, 'initMe' );
       },
       initData: function() {
         log('initData','info',this.me);

@@ -15,10 +15,10 @@ PHEDEX.Module.Dummy = function(sandbox, string) {
       fillExtra: function() {},
       hideByDefault: function() {},
       addMenuItem: function() {},
-      init: function(opts) {
-        this._init(opts);
-        _sbx.notify( this.id, 'init' );
-      },
+//       init: function(opts) {
+//         this._init(opts);
+//         _sbx.notify( this.id, 'init' );
+//       },
       initData: function() {
         _sbx.notify( this.id, 'initData' );
       },

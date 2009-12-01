@@ -137,7 +137,7 @@ PHEDEX.Core = function(sandbox,loader) {
     var obj  = arr[0],
         who = obj.me,
         id   = obj.id;
-    _modules[id]={obj:obj,state:'initialised'};
+    _modules[id] = obj; //{obj:obj,state:'initialised'};
     if ( !_loaded[who] ) { _loaded[who]={}; }
     _sbx.listen(id,moduleHandler);
   };
@@ -153,7 +153,7 @@ PHEDEX.Core = function(sandbox,loader) {
      var action = arr[0],
         args   = arr[1];
     log('module='+who+' action="'+action+'"','info',_me);
-    var m = _modules[who].obj;
+    var m = _modules[who];//.obj;
     _clearTimeout();
     switch ( action ) {
       case 'init': {
@@ -161,6 +161,8 @@ PHEDEX.Core = function(sandbox,loader) {
         if ( el ) { _parent.appendChild(el); }
         else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
         m.initModule();
+        m.initDerived();
+        m.initMe();
         m.initData();
 
 //      the module is complete, now load the decorators!
@@ -193,7 +195,7 @@ PHEDEX.Core = function(sandbox,loader) {
         break;
       }
       case 'destroy': {
-        _modules[who] = {};
+        delete _modules[who]; // = {};
         _sbx.deleteEvent(action);
         break;
       }

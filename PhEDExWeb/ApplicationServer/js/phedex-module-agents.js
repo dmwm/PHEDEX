@@ -62,18 +62,17 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         },
       ],
 
-      init: function(opts) {
-        log('initialising','info',this.me);
-        YAHOO.lang.augmentObject(opts, {
-          width:500,
-          height:200,
-          minwidth:300,
-          minheight:50,
-          defsort:'Agent',
-          defhide:['PID','Host','State Dir']
-        });
-        this._init(opts);
-        _sbx.notify( this.id, 'init' );
+      options: {
+        width:500,
+        height:200,
+        minwidth:300,
+        minheight:50,
+        defsort:'Agent',
+        defhide:['PID','Host','State Dir']
+      },
+
+      initMe: function() {
+        _sbx.notify( this.id, 'initMe' );
       },
       initData: function() {
         log('initData','info',this.me);

@@ -22,21 +22,21 @@ PHEDEX.Module = function(sandbox, string) {
     return {
       me: string,
       /**
-       * initialise the object by setting its properties
-       * @method _init
+       * Initialise the object by setting its properties. This simply sets the objects attributes, according to whatever algorithm is appropriate. It does not create DOM elements or PhEDEx data-structures, they are the province of <strong>initDom</strong> and <strong>initDerived</strong> respectively. Granular initialisation like this allows external components to intercede at specific points, should they wish to do so.
+       * @method init
        * @private
        * @param opts {object} object containing initialisation parameters.
        */
-      _init: function(opts) {
+      init: function(opts) {
         /** Options which alter the window behavior of this widget.  The
         * options are taken in priority order from:
         *  1. the constructor 'opts' argument 2. The PHEDEX.Util.Config
-        * 'opts' for this element 3. The defaults. These options are passed to the <strong>_init</strong> method, not the constructor
+        * 'opts' for this element (<strong>is this still true?</strong>) 3. The defaults. These options are passed to the <strong>init</strong> method, not the constructor
         * @property options
         * @type object
         * @protected
         */
-        this.options = {
+        var default_options = {
           /** Whether to make the widget behave like an OS window.
           * @property options.window
           * @type boolean
@@ -101,8 +101,11 @@ PHEDEX.Module = function(sandbox, string) {
           */
           handles:['b','br','r'],
         };
-        // Options from the constructor override defaults
+//      These defaults do not override those of the module (if any)
+        YAHOO.lang.augmentObject(this.options, default_options);
+//      Options from the constructor do override defaults
         YAHOO.lang.augmentObject(this.options, opts, true);
+
         var ILive = function(obj) {
           return function() {
             _sbx.notify('ModuleExists',obj); }
@@ -129,13 +132,27 @@ PHEDEX.Module = function(sandbox, string) {
           }
         );
         this.decorators.push( { name: 'MouseOver' } );
+        _sbx.notify(this.id,'init');
       },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
-      setArgs: function() {},
+/** set the arguments for the module. Specifically, set the arguments that drive the PhEDEx data-service call, to get new or different data. Use for triggering a change of node, or change of link-direction etc.
+ * @method setArgs
+ */
+      setArgs:      function() {},
+/** initialisation specific to derived-types (i.e. PHEDEX.DataTable or PHEDEX.TreeView). May or may not be needed, depending on the specific module. Invoked automatically and internally by the core
+ * @method initDerived
+ * @private
+ */
+      initDerived:  function() {},
+/** initialisation specific to this module. This is the last initialisation function called, by this point everything is live except for the data and the decorators. Implement this only in modules that need it.
+ * @method initMe
+ */
+      initMe:       function() {},
+
       /**
-       * now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
+       * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
        * @method initModule
        */
       initModule: function() {
@@ -237,11 +254,12 @@ PHEDEX.Module = function(sandbox, string) {
 //        YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't want it there...
         this.el.style.display=null;
 
+        _sbx.notify(this.id,'initModule');
         log('initModule complete','info','Module');
       },
 
       /**
-       * initialise the DOM elements for this module. Until this is called, the module has not interacted with the DOM. This function creates a container-element first, then creates all the necessary DOM substructure inside that element. It does not attach itself to the document body, it leaves that to the caller.
+       * initialise the DOM elements for this module. Until this is called, the module has not interacted with the DOM. This function creates a container-element first, then creates all the necessary DOM substructure inside that element. It does not attach itself to the document body, it leaves that to the caller. Delaying the attachment can minimise re-flow in the browser, which would otherwise degrade performance
        * DOM substructure is created in the this.dom sub-object
        * @method initDom
        * @returns el (HTML element} the top-level container-element for this module
@@ -264,6 +282,7 @@ PHEDEX.Module = function(sandbox, string) {
         this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd'});
         this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content'});
         this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
+        _sbx.notify(this.id,'initDom');
         log(this.id+' initDom complete','info','Module');
         return this.el;
       },
