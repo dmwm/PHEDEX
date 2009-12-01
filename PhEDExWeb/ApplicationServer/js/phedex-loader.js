@@ -138,6 +138,7 @@ PHEDEX.Loader = function(opts) {
    * @protected
    */
   var _dependencies = {
+    'treeview-css':   { type: 'css', fullpath: '/yui/examples/treeview/assets/css/menu/tree.css' },
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'phedex-util':    { requires: ['phedex-css'] },
     'phedex-datasvc': { requires: ['phedex-util','json'] },
@@ -157,7 +158,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
-    'phedex-treeview':  { requires:['treeview'] },
+    'phedex-treeview':  { requires:['treeview','treeview-css'] },
     'phedex-module-nodes':    { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents':   { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview': { requires:['phedex-module','phedex-treeview'] },
@@ -278,16 +279,16 @@ PHEDEX.Loader = function(opts) {
  */
     init: function(args) { _init(args); },
 
-/**
+/** Returns a full list of modules loaded by this loader. This is the full list since the loader was instantiated, so will grow monotonically if the loader is used several times
  * @method loaded
- * @return {string} A full list of modules loaded by this loader. This is the full list since the loader was instantiated, so will grow monotonically if the loader is used several times
+ * @return {string}
  */
     loaded: function() { return _loader.inserted; },
 
-/**
+/** Return a list of PHEDEX modules known to the loader. Use this to determine the names of instantiatable data-display modules before they are loaded.
  * @method knownModules
  * @param all {boolean} Return all known modules. Defaults to <strong>false</strong>, which explicitly excludes dummy module(s) used for debugging
- * @return {array} List of all source-files matching <strong>/^phedex-module-/</strong>. Use this to determine the names of instantiatable data-display modules before they are loaded.
+ * @return {array} List of all source-files matching <strong>/^phedex-module-/</strong>.
  */
     knownModules: function(all) {
       var km=[];
@@ -300,6 +301,17 @@ PHEDEX.Loader = function(opts) {
         }
       }
       return km;
+    },
+/** Useful for debugging, e.g. for building a menu of files to test loading them one by one
+ * @method knownFiles
+ * @return {array} a list of names known to the loader that it can be used to load.
+ */
+    knownObjects: function() {
+      var o=[];
+      for (var str in _dependencies) {
+        o.push(str);
+      }
+      return o;
     },
   }
 }
