@@ -8,6 +8,22 @@ PHEDEX.namespace('Module.LinkView','Module.TransferQueueBlock','Module.TransferQ
 PHEDEX.Module.LinkView=function(sandbox, string) {
   var _sbx = sandbox,
       me = string;
+/** time-window, in hours. Set this value in the code to set the default
+ * @property _time {integer}
+ * @private
+ */
+      _time = 6,
+/** direction, represented numerically. Set this value in the code to set the default
+ * @property _direction {integer}
+ * @private
+ */
+      _direction = 0,
+      _direction_map = [],
+      _directions = [
+        { key:'to',   text:'Incoming Links' },
+        { key:'from', text:'Outgoing Links' }
+      ];
+
   YAHOO.lang.augmentObject(this,new PHEDEX.TreeView(sandbox,string));
 
 // HARDWIRED for debugging
@@ -33,20 +49,15 @@ var node = 'T1_US_FNAL_Buffer';
           parent: 'control',
           payload:{
             target: 'extra',
-//             handler: 'fillExtra',
             animate:false,
-//             hover_timeout:200,
           }
         },
         {
           name: 'TimeSelect',
           source: 'component-menu',
-//           parent: 'buttons',
           payload:{
-            type: "menu",
-            initial: 6, //that.timebin_selected,
-//             name: "timeSelect",
-//             menu: timeSelectMenu,
+            type: 'menu',
+            initial: _time,
             container: 'buttons',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
             map: {
@@ -54,47 +65,20 @@ var node = 'T1_US_FNAL_Buffer';
             },
           }
         },
+        {
+          name: 'DirectionSelect',
+          source: 'component-menu',
+          payload:{
+            type: 'menu',
+            initial: _directions[_direction].key,
+            container: 'buttons',
+            menu: _directions,
+            map: {
+              onChange:'changeDirection',
+            },
+          }
+        },
       ],
-
-// Filter-structure mimics the branch-structure. Use the same classnames as keys.
-//       filterDef: {
-//         'Link-level attributes':{
-//           map:{from:'phedex-tree-', to:'L'},
-//           fields:{
-//             'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
-//             'phedex-tree-rate'        :{type:'minmaxFloat',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
-//             'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
-//             'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
-//             'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
-//             'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
-//             'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' },
-//             'phedex-tree-error-total' :{type:'minmax',    text:'Link-errors',      tip:'number of link-errors' },
-//             'phedex-tree-error-log'   :{type:'minmax',    text:'Logged-errors',    tip:'number of logged-errors' }
-//           }
-//         },
-//         'Block-level attributes':{
-//           map:{from:'phedex-tree-block-', to:'B'},
-//           fields:{
-//             'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
-//             'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
-//             'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:'block-state' },
-//             'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
-// // 	    'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
-// // 	    'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
-//             'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
-//           }
-//         },
-//         'File-level attributes':{
-//           map:{from:'phedex-tree-file-', to:'F'},
-//           fields:{
-//             'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
-//             'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
-//             'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
-//             'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
-//             'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
-//           }
-//         }
-//       },
 
       meta: {
         isDynamic: true, // enable dynamic loading of data
@@ -183,37 +167,27 @@ var node = 'T1_US_FNAL_Buffer';
         },
       },
 
+      initMe: function(){
+        for (var i in _directions) {
+          _direction_map[_directions[i].key] = i;
+        }
+      },
 
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
-      time: /*config.opts.time ||*/ '6',
       changeTimebin: function(arr) {
-        this.time = parseInt(arr[0]);
+        _time = parseInt(arr[0]);
+        this.getData();
+      },
+      changeDirection: function(arr) {
+        _direction = this.direction_index(arr[0]);
         this.getData();
       },
 
-      direction_name: /*config.opts.direction ||*/ 'to',
-      directions: [
-        { key:'to',   text:'Incoming Links' },
-        { key:'from', text:'Outgoing Links' }
-      ],
-      changeDirection: function(e) {
-        if ( this.direction == this.value ) { return; }
-        this.direction = this.value;
-        this.update();
-      },
-      changeDirectionMenu: [],
-//   for (var i in that.directions)
-//   {
-//     that.directions[i].value = i;
-//     if ( direction_name == that.directions[i].key ) { that.direction = i; }
-//     changeDirectionMenu[i] = { text: that.directions[i].text, value:i, onclick: { fn: changeDirection } };
-//   }
-
-// A few utility functions, because the 'direction' is a numeric value in some places, (to|from) in others, and a long string again elsewhere
-      direction: 0,
-      direction_key:      function() { return this.directions[this.direction].key; },
-      direction_text:     function() { return this.directions[this.direction].text; },
-      anti_direction_key: function() { return this.directions[1-this.direction].key; },
+// A few utility functions, because the 'direction' has the semantics of a numeric value in some places, (to|from) in others, and a long string again elsewhere
+      direction_key:      function()    { return _directions[_direction].key; },
+      direction_text:     function()    { return _directions[_direction].text; },
+      anti_direction_key: function()    { return _directions[1-_direction].key; },
+      direction_index:    function(arg) { return _direction_map[arg]; },
 
 // This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
 // The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
@@ -409,7 +383,7 @@ var node = 'T1_US_FNAL_Buffer';
           p.args.to   = h.to;
           p.args.binwidth = h.transfer[0].binwidth;
           p.opts.node = h[antidirection];
-          p.opts.direction = this.direction;
+          p.opts.direction = this.direction_index();
           p.data.errors    = e.block;
           var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
           var tNode = this.addNode(
@@ -426,7 +400,7 @@ var node = 'T1_US_FNAL_Buffer';
         this.dom.title.innerHTML = this.me+': fetching data...';
         var args={};
         args[this.direction_key()] = node;
-        args.binwidth = this.time*3600;
+        args.binwidth = _time*3600;
         this.data = {};
         this.truncateTree();
         _sbx.notify( this.id, 'getData', { api: 'TransferQueueStats', args:args } );
