@@ -168,7 +168,6 @@ POE::Component::Server::TCP->new
             $kernel->yield("shutdown");
             return;
         }
-
         if ( $debug && ($request->uri() =~ m%^https*://%) )
         {
           print scalar localtime,": Look for ",$request->uri()," in cache\n";
@@ -288,7 +287,7 @@ DONE:
 	$instance = $n[6];
 	my $ua = PHEDEX::CLI::UserAgent->new
         (
-          DEBUG         => $debug,
+          DEBUG         => 0, # $debug,
           CERT_FILE     => $cert_file,
           KEY_FILE      => $key_file,
           PROXY         => $proxy,
@@ -300,9 +299,10 @@ DONE:
           NOCERT        => undef, # $nocert,
           SERVICE       => $service,
         );
-	my $response = $ua->post($uri);
-	  $heap->{client}->put($response);
-	  $kernel->yield("shutdown");
+        my @form = $uri->query_form();
+        my $response = $ua->post($uri,\@form);
+        $heap->{client}->put($response);
+        $kernel->yield("shutdown");
       },
 
     InlineStates => {
