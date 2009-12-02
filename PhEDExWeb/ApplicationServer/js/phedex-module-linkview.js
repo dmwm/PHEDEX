@@ -40,77 +40,134 @@ var node = 'T1_US_FNAL_Buffer';
         }
       ],
 
-      branchDef1: [
-          {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['node','sort-alpha'] },
-          {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-          {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-          {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-          {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PHEDEX.Util.format.bytes(x)+'/s';} },
-          {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
-          {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-          {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
-          {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hideByDefault:true }
-      ],
-// using spanWrap for the block-name, I can (in principla):
+// Filter-structure mimics the branch-structure. Use the same classnames as keys.
+//       filterDef: {
+//         'Link-level attributes':{
+//           map:{from:'phedex-tree-', to:'L'},
+//           fields:{
+//             'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
+//             'phedex-tree-rate'        :{type:'minmaxFloat',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
+//             'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
+//             'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
+//             'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
+//             'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
+//             'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' },
+//             'phedex-tree-error-total' :{type:'minmax',    text:'Link-errors',      tip:'number of link-errors' },
+//             'phedex-tree-error-log'   :{type:'minmax',    text:'Logged-errors',    tip:'number of logged-errors' }
+//           }
+//         },
+//         'Block-level attributes':{
+//           map:{from:'phedex-tree-block-', to:'B'},
+//           fields:{
+//             'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
+//             'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
+//             'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:'block-state' },
+//             'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
+// // 	    'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
+// // 	    'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
+//             'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
+//           }
+//         },
+//         'File-level attributes':{
+//           map:{from:'phedex-tree-file-', to:'F'},
+//           fields:{
+//             'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
+//             'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
+//             'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
+//             'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
+//             'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
+//           }
+//         }
+//       },
+
+      meta: {
+        isDynamic: true, // enable dynamic loading of data
+        tree: [
+          {
+            width:1200,
+            name:'Link',
+            format: [
+              {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['node','sort-alpha'] },
+              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PHEDEX.Util.format.bytes(x)+'/s';} },
+              {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
+              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+              {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
+              {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hideByDefault:true }
+            ]
+          },
+          {
+            name:'Block',
+            format: [
+// using spanWrap for the block-name, I can (in principle):
 // - locate the div with the block-name
 // - locate the spanWrap child from it
 // - compare their offsetHeights.
-// - if the span offsetHeight is greater than the div, the word is truncated to fit!
-      branchDef2: [
-          {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
-          {width: 80,text:'Block ID',    className:'phedex-tree-block-id',       otherClasses:'align-right', contextArgs:['block','sort-num'] },
-          {width: 80,text:'State',       className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
-          {width: 80,text:'Priority',    className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
-          {width: 80,text:'Files',       className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
-          {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes',    otherClasses:'phedex-tnode-auto-height align-right' },
-          {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',   otherClasses:'align-right', contextArgs:'sort-num' }
-      ],
-      branchDef3: [
-          {width:600,text:'File Name',  className:'phedex-tree-file-name',  otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
-          {width: 80,text:'File ID',    className:'phedex-tree-file-id',    otherClasses:'align-right', contextArgs:['file','sort-num'] },
-          {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes', otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
-          {width: 90,text:'File Errors',className:'phedex-tree-file-errors',otherClasses:'align-right', contextArgs:'sort-num' },
-          {width:140,text:'Checksum',   className:'phedex-tree-file-cksum', otherClasses:'align-right', hideByDefault:true }
-      ],
+// - if the span offsetHeight is greater than the div, the word is truncated to fit, and I can style it to show that!
+              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+              {width: 80,text:'Block ID',    className:'phedex-tree-block-id',       otherClasses:'align-right', contextArgs:['block','sort-num'] },
+              {width: 80,text:'State',       className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
+              {width: 80,text:'Priority',    className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
+              {width: 80,text:'Files',       className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
+              {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes',    otherClasses:'phedex-tnode-auto-height align-right' },
+              {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',   otherClasses:'align-right', contextArgs:'sort-num' }
+            ]
+          },
+          {
+            name:'File',
+            format:[
+              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+              {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', contextArgs:['file','sort-num'] },
+              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
+              {width: 90,text:'File Errors',className:'phedex-tree-file-errors', otherClasses:'align-right', contextArgs:'sort-num' },
+              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hideByDefault:true }
+            ]
+          }
+        ],
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
-      filterDef: {
-        'Link-level attributes':{
-          map:{from:'phedex-tree-', to:'L'},
-          fields:{
-            'phedex-tree-node'        :{type:'regex',     text:'Node-name',        tip:'javascript regular expression' },
-            'phedex-tree-rate'        :{type:'minmaxFloat',     text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
-            'phedex-tree-quality'     :{type:'minmaxPct', text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
-            'phedex-tree-done'        :{type:'minmax',    text:'Files-done',       tip:'number of files successfully transferred' },
-            'phedex-tree-failed'      :{type:'minmax',    text:'Files-failed',     tip:'number of failed transfer attempts' },
-            'phedex-tree-expired'     :{type:'minmax',    text:'Files-expired',    tip:'number of expired files' },
-            'phedex-tree-queued'      :{type:'minmax',    text:'Files-queued',     tip:'number of files queued for transfer' },
-            'phedex-tree-error-total' :{type:'minmax',    text:'Link-errors',      tip:'number of link-errors' },
-            'phedex-tree-error-log'   :{type:'minmax',    text:'Logged-errors',    tip:'number of logged-errors' }
+        filter: {
+          'Link-level attributes':{
+            map:{from:'phedex-tree-', to:'L'},
+            fields:{
+              'phedex-tree-node'        :{type:'regex',       text:'Node-name',        tip:'javascript regular expression' },
+              'phedex-tree-rate'        :{type:'minmaxFloat', text:'Transfer-rate',    tip:'transfer rate in MB/sec' },
+              'phedex-tree-quality'     :{type:'minmaxPct',   text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
+              'phedex-tree-done'        :{type:'minmax',      text:'Files-done',       tip:'number of files successfully transferred' },
+              'phedex-tree-failed'      :{type:'minmax',      text:'Files-failed',     tip:'number of failed transfer attempts' },
+              'phedex-tree-expired'     :{type:'minmax',      text:'Files-expired',    tip:'number of expired files' },
+              'phedex-tree-queued'      :{type:'minmax',      text:'Files-queued',     tip:'number of files queued for transfer' },
+              'phedex-tree-error-total' :{type:'minmax',      text:'Link-errors',      tip:'number of link-errors' },
+              'phedex-tree-error-log'   :{type:'minmax',      text:'Logged-errors',    tip:'number of logged-errors' }
+            }
+          },
+          'Block-level attributes':{
+            map:{from:'phedex-tree-block-', to:'B'},
+            fields:{
+              'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
+              'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
+              'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:'block-state' },
+              'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
+//            'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
+//            'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
+              'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
+            }
+          },
+          'File-level attributes':{
+            map:{from:'phedex-tree-file-', to:'F'},
+            fields:{
+              'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
+              'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
+              'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
+              'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
+              'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
+            }
           }
         },
-        'Block-level attributes':{
-          map:{from:'phedex-tree-block-', to:'B'},
-          fields:{
-            'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
-            'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
-            'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:'block-state' },
-            'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
-// 	    'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
-// 	    'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
-            'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
-          }
-        },
-        'File-level attributes':{
-          map:{from:'phedex-tree-file-', to:'F'},
-          fields:{
-            'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
-            'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
-            'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
-            'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
-            'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
-          }
-        }
       },
+
+
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
 
 // Build the options for the pull-down menus.
@@ -228,7 +285,7 @@ var node = 'T1_US_FNAL_Buffer';
                 bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
               }
               var tNode = obj.addNode(
-                { format:obj.branchDef2, payload:block.payload },
+                { format:obj.meta.tree[1].format, payload:block.payload },
                 [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
                 node
               );
@@ -256,7 +313,7 @@ var node = 'T1_US_FNAL_Buffer';
                   var file = block.file[k];
                   var num_errors = errors[file.id] || 0;
                   var tNode = obj.addNode(
-                    {format:obj.branchDef3},
+                    {format:obj.meta.tree[2].format},
                     [ file.name, file.id, file.bytes, num_errors, file.checksum ],
                     node
                    );
@@ -361,7 +418,7 @@ var node = 'T1_US_FNAL_Buffer';
         payload.data.errors    = e.block;
         var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
         var tNode = this.addNode(
-          { format:this.branchDef1, payload:payload },
+          { format:this.meta.tree[0].format, payload:payload },
           [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
         );
         if ( !queue.files ) { tNode.isLeaf = true; } // a link with no queue can have no children worth seeing, declare it to be a leaf-node
@@ -369,51 +426,25 @@ var node = 'T1_US_FNAL_Buffer';
       this.tree.render();
     },
 
-//       receive: function(event,data) {
-//         var result   = data[0];
-//         var context  = data[1];
-//         if ( context.api == 'TransferQueueStats' ) { that.data.queue = result.link; }
-//         if ( context.api == 'TransferHistory' )    { that.data.hist  = result.link; }
-//         if ( context.api == 'ErrorLogSummary' )    { that.data.error = result.link; }
-//         if ( that.data.hist && that.data.error && that.data.queue )
-//         {
-//           that.finishLoading();
-//           that.populate();
-//         }
-//       },
-//     onDataReady.subscribe(that.receive);
-//       update: function() {
-//         this.onUpdateBegin.fire();
-//         var args={};
-//         args[that.direction_key()]=this.node;
-//         args['binwidth']=parseInt(this.time)*3600;
-//         PHEDEX.Datasvc.Call({api:'TransferQueueStats', args:args, success_event:that.onDataReady, failure_event:that.onDataFailed });
-//         PHEDEX.Datasvc.Call({api:'TransferHistory',    args:args, success_event:that.onDataReady, failure_event:that.onDataFailed });
-//         PHEDEX.Datasvc.Call({api:'ErrorLogSummary',    args:args, success_event:that.onDataReady, failure_event:that.onDataFailed });
-//         this.startLoading();
-//       },
-      isDynamic: true, // enable dynamic loading of data
 
-//       init: function(opts) {
-//         log('initialising','info',this.me);
-//         this._init(opts);
-//         _sbx.notify( this.id, 'init' );
-//       },
       initData: function() {
         log('initData','info',this.me);
-        this.buildTree();
-        var root = this.headerTree.getRoot(),
-            htNode  = this.addNode( { width:width, format:this.branchDef1, name:'Link'  }, null, root ),
-            htNode1 = this.addNode( {              format:this.branchDef2, name:'Block' }, null, htNode ),
-            htNode2 = this.addNode( {              format:this.branchDef3, name:'File'  }, null, htNode1 );
-        htNode.expand(),
-        htNode1.expand();
-        htNode2.expand();
-        htNode2.isLeaf = true;
-        this.headerTree.render();
-//         this.buildTable(
-//                   [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ]
-//                  );
+//         this.buildTree();
+//         var root = this.headerTree.getRoot(),
+//             args = {width:width},
+//             t = this.meta.tree,
+//             htNode;
+//         for (var i in t)
+//         {
+//           args.name   = t[i].name;
+//           args.format = t[i].format;
+//           htNode = this.addNode( args, null, root );
+//           htNode.expand();
+//           root = htNode;
+//           args={};
+//         }
+//         htNode.isLeaf = true;
+//         this.headerTree.render();
         _sbx.notify( this.id, 'initData' );
       },
       getData: function() {
@@ -437,6 +468,7 @@ var node = 'T1_US_FNAL_Buffer';
           this.fillBody();
           _sbx.notify( this.id, 'gotData' );
         }
+        else { banner('Received '+context.api+' data, waiting for more...'); }
       },
     };
   };
