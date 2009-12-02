@@ -131,8 +131,21 @@ PHEDEX.Module = function(sandbox, string) {
           }
         );
         this.decorators.push( { name: 'MouseOver' } );
+        for (var i in this.decorators) {
+          var p = this.decorators[i].payload;
+          if ( p && p.map ) {
+            for (var j in p.map ) {
+              this.allowNotify[p.map[j]] = 1;
+            }
+          }
+        }
         _sbx.notify(this.id,'init');
       },
+
+/** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler<strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
+ * @property allowNotify {object}
+ */
+      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -205,22 +218,19 @@ PHEDEX.Module = function(sandbox, string) {
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-              case 'resizePanel':
-              case 'hideByDefault':
-              case 'menuSelectItem':
-              case 'setArgs': {
-                if ( obj[action] ) {
-                  arr.shift();
-                  obj[action](arr);
-                }
-                break;
-              }
               case 'getWidgetsByInputType':
               case 'getInputTypes': {
                 var t = arr[2];
                 break;
               }
-//               default: { log('unhandled event: '+action,'warn',obj.me); break; }
+              default: {
+                if ( obj[action] && obj.allowNotify[action]) {
+                  log('Default action for event: '+action,'warn',obj.me);
+                  arr.shift();
+                  obj[action](arr);
+                }
+                break;
+              }
             }
           }
         }(this);
@@ -277,21 +287,25 @@ PHEDEX.Module = function(sandbox, string) {
         * @type HTML element
         * @private
         */
-        this.el = document.createElement('div');
-        YAHOO.util.Dom.addClass(this.el,'phedex-core-widget');
+        var d  = this.dom,
+            el = document.createElement('div');
+        this.el = el;
+        YAHOO.util.Dom.addClass(el,'phedex-core-widget');
 
-        this.dom.header  = PxU.makeChild(this.el, 'div', {className:'hd'});
-        this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
-        this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
-        this.dom.title.innerHTML = this.me+': initialising...';
-        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'}); // float-right'});
-        this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
-        this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd'});
-        this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content'});
-        this.dom.footer  = PxU.makeChild(this.el, 'div', {className:'ft'});
+        d.header  = PxU.makeChild(el, 'div', {className:'hd'});
+        d.buttons = PxU.makeChild(d.header, 'span' );
+        d.param   = PxU.makeChild(d.header, 'span', {className:'phedex-core-param'});
+        d.title   = PxU.makeChild(d.header, 'span', {className:'phedex-core-title'});
+        d.title.innerHTML = this.me+': initialising...';
+        d.control = PxU.makeChild(d.header, 'span', {className:'phedex-core-control'}); // float-right'});
+        d.extra   = PxU.makeChild(d.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+        d.body    = PxU.makeChild(el, 'div', {className:'bd'});
+        d.content = PxU.makeChild(d.body, 'div', {className:'phedex-core-content'});
+        d.footer  = PxU.makeChild(el, 'div', {className:'ft'});
+
         _sbx.notify(this.id,'initDom');
         log(this.id+' initDom complete','info','Module');
-        return this.el;
+        return el;
       },
 
       /**
