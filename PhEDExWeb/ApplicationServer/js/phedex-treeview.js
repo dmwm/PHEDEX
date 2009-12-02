@@ -190,6 +190,14 @@ PHEDEX.TreeView = function(sandbox,string) {
         return tNode;
       },
 
+/** Remove all dhild branches from the tree, i.e. wipe it out. Useful when changing parameters and getting fresh data for an already existing tree, or during destruction of the module
+ * @method truncateTree
+ */
+      truncateTree: function() {
+        var i;
+        while (i = this.tree.root.children[0]) { this.tree.removeNode(i); }
+      },
+
 // // A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
 //   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
 //   var aSpan = document.createElement('span');
