@@ -1,5 +1,5 @@
 /**
- * This class creates a split-button. i.e. a combined button and pulldown menu. Typical interaction with the partner would be for the partner to declare a map for an event that it notifies, mapping it to a method in the split-button. This control would then listen for the notification and call the method with the arguments provided. Methods ar provided to add items to the menu or to refresh the button on-screen, these can all be mapped to events in the partner.
+ * This class creates a split-button. i.e. a combined button and pulldown menu. Typical interaction with the partner would be for the partner to declare a map for an event that it notifies, mapping it to a method in the split-button. This control would then listen for the notification and call the method with the arguments provided. Methods are provided to add items to the menu or to refresh the button on-screen, these can all be mapped to events in the partner.
  * @namespace PHEDEX.Component
  * @class SplitButton
  * @constructor
