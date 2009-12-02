@@ -147,6 +147,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-component-control':     { requires:['phedex-util','animation'] },
     'phedex-component-contextmenu': { requires:['phedex-util','phedex-registry','menu'] },
     'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
+    'phedex-component-menu':        { requires:['phedex-util','menu','button'] },
 
 //     'phedex-core-filter':      { requires:['phedex-util'] },
 //     'phedex-global-filter':    { requires:[] },
