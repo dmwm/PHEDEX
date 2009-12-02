@@ -111,7 +111,6 @@ PHEDEX.Module = function(sandbox, string) {
             _sbx.notify('ModuleExists',obj); }
           }(this);
         _sbx.listen('CoreCreated',     ILive );
-//         _sbx.listen('RegistryCreated', ILive );
         _sbx.notify('ModuleExists',this);
 
         this.decorators.push(
@@ -285,7 +284,7 @@ PHEDEX.Module = function(sandbox, string) {
         this.dom.param   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-param'});
         this.dom.title   = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-title'});
         this.dom.title.innerHTML = this.me+': initialising...';
-        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control float-right'});
+        this.dom.control = PxU.makeChild(this.dom.header, 'span', {className:'phedex-core-control'}); // float-right'});
         this.dom.extra   = PxU.makeChild(this.dom.header, 'div', {className:'phedex-core-extra phedex-invisible'});
         this.dom.body    = PxU.makeChild(this.el, 'div', {className:'bd'});
         this.dom.content = PxU.makeChild(this.dom.body, 'div', {className:'phedex-core-content'});
