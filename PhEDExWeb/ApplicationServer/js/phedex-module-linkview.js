@@ -37,7 +37,23 @@ var node = 'T1_US_FNAL_Buffer';
             animate:false,
 //             hover_timeout:200,
           }
-        }
+        },
+        {
+          name: 'TimeSelect',
+          source: 'component-menu',
+//           parent: 'buttons',
+          payload:{
+            type: "menu",
+            initial: 6, //that.timebin_selected,
+//             name: "timeSelect",
+//             menu: timeSelectMenu,
+            container: 'buttons',
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
+            map: {
+              onChange:'changeTimebin',
+            },
+          }
+        },
       ],
 
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
@@ -169,32 +185,12 @@ var node = 'T1_US_FNAL_Buffer';
 
 
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
-
-// Build the options for the pull-down menus.
-// 1. extract the default option from the configuration, or provide one if none given
-// 2. build an array of items to go into the menu-list
-// 3. create the callback function which is to be assigned to the menu-list items
-// 4. build the menu-list, identifying which option corresponds to the selected default
-//    N.B. I do not protect against failure to identify the correct default
-// 5. The menu itself is created later, when the header is being built. The selected-value is used then, so must be stored in
-//    the object, not in a local-scope variable.
       time: /*config.opts.time ||*/ '6',
-      timeselect_opts: /*config.opts.timeselect ||*/ { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
-      changeTimebin: function(e) {
-        if ( this.time == this.value ) { return; }
-        this.time = this.value;
-//         this.update();
+      changeTimebin: function(arr) {
+        this.time = parseInt(arr[0]);
+        this.getData();
       },
 
-      timeSelectMenu: [],
-      timebin_selected: '',
-//   for (var i in timeselect_opts)
-//   {
-//     if ( that.time == i ) { that.timebin_selected=timeselect_opts[i]; }
-//     timeSelectMenu[i] = { text: timeselect_opts[i], value:i, onclick: { fn: changeTimebin} };
-//   }
-// 
-// // rinse and repeat for the direction menu
       direction_name: /*config.opts.direction ||*/ 'to',
       directions: [
         { key:'to',   text:'Incoming Links' },
@@ -338,8 +334,7 @@ var node = 'T1_US_FNAL_Buffer';
       buildHeader: function(div) {
 // Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
 // before anything inserted by the core widgets.
-      var button_span = document.createElement('span');
-      YAHOO.util.Dom.insertBefore(button_span,that.dom.param.firstChild);
+
 //     var changeDirectionButton = new YAHOO.widget.Button(
 // 	{ type: "menu",
 // 	  label: that.direction_text(),
@@ -369,91 +364,71 @@ var node = 'T1_US_FNAL_Buffer';
 
 //   that.onUpdateBegin.subscribe( function() { that.data = []; });
 
-    fillBody: function() {
-      var root = this.tree.getRoot(),
-          antidirection=this.anti_direction_key();
-      if ( !this.data.hist.length )
-      {
-        var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
-        tLeaf.isLeaf = true;
-      }
-      for (var i in this.data.hist) {
-        var h = this.data.hist[i],
-            node = h[antidirection],
-            d = {},
-            e = {num_errors:0};
-        for (var j in this.data.queue) {
-          if (this.data.queue[j][antidirection]==node) {
-            d = this.data.queue[j];
-            break;
-          }
+      fillBody: function() {
+        var root = this.tree.getRoot(),
+            antidirection=this.anti_direction_key();
+        if ( !this.data.hist.length )
+        {
+          var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+          tLeaf.isLeaf = true;
         }
-        for (var j in this.data.error) {
-          if (this.data.error[j][antidirection]==node) {
-            e = this.data.error[j];
-            break;
+        for (var i in this.data.hist) {
+          var h = this.data.hist[i],
+              node = h[antidirection],
+              d = {},
+              e = {num_errors:0};
+          for (var j in this.data.queue) {
+            if (this.data.queue[j][antidirection]==node) {
+              d = this.data.queue[j];
+              break;
+            }
           }
+          for (var j in this.data.error) {
+            if (this.data.error[j][antidirection]==node) {
+              e = this.data.error[j];
+              break;
+            }
+          }
+
+          var done_bytes = PHEDEX.Util.sumArrayField(h.transfer,'done_bytes'),
+              quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat),
+              done   = { files:PHEDEX.Util.sumArrayField(h.transfer,'done_files'), bytes:done_bytes },
+              rate   = done_bytes/parseInt(h.transfer[0].binwidth),
+              fail   = { files:PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),   bytes:PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')   },
+              expire = { files:PHEDEX.Util.sumArrayField(h.transfer,'expire_files'), bytes:PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes') },
+              queue  = { files:PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),  bytes:PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')  };
+          if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives NaN in parseFloat
+          quality /= h.transfer.length;
+
+//        Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level.
+//        I did see a better way to do this in the YUI docs, but will find that later...
+//        populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
+//        payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
+          var p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
+          p.args.from = h.from;
+          p.args.to   = h.to;
+          p.args.binwidth = h.transfer[0].binwidth;
+          p.opts.node = h[antidirection];
+          p.opts.direction = this.direction;
+          p.data.errors    = e.block;
+          var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
+          var tNode = this.addNode(
+            { format:this.meta.tree[0].format, payload:p },
+            [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
+          );
+          if ( !queue.files ) { tNode.isLeaf = true; } // a link with no queue can have no children worth seeing, declare it to be a leaf-node
         }
-
-        var done_bytes = PHEDEX.Util.sumArrayField(h.transfer,'done_bytes'),
-            quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat),
-            done   = { files:PHEDEX.Util.sumArrayField(h.transfer,'done_files'), bytes:done_bytes },
-            rate   = done_bytes/parseInt(h.transfer[0].binwidth),
-            fail   = { files:PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),   bytes:PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')   },
-            expire = { files:PHEDEX.Util.sumArrayField(h.transfer,'expire_files'), bytes:PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes') },
-            queue  = { files:PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),  bytes:PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')  };
-        if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives NaN in parseFloat
-        quality /= h.transfer.length;
-
-//    Hack? Adding a 'payload' object allows me to specify what PhEDEx-y thing to call to get to the next level.
-//    I did see a better way to do this in the YUI docs, but will find that later...
-//    populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
-//    payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
-        var payload = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
-        payload.args.from = h.from;
-        payload.args.to   = h.to;
-        payload.args.binwidth = h.transfer[0].binwidth;
-        payload.opts.node = h[antidirection];
-        payload.opts.direction = this.direction;
-        payload.data.errors    = e.block;
-        var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
-        var tNode = this.addNode(
-          { format:this.meta.tree[0].format, payload:payload },
-          [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
-        );
-        if ( !queue.files ) { tNode.isLeaf = true; } // a link with no queue can have no children worth seeing, declare it to be a leaf-node
-      }
-      this.tree.render();
-    },
-
-
-      initData: function() {
-        log('initData','info',this.me);
-//         this.buildTree();
-//         var root = this.headerTree.getRoot(),
-//             args = {width:width},
-//             t = this.meta.tree,
-//             htNode;
-//         for (var i in t)
-//         {
-//           args.name   = t[i].name;
-//           args.format = t[i].format;
-//           htNode = this.addNode( args, null, root );
-//           htNode.expand();
-//           root = htNode;
-//           args={};
-//         }
-//         htNode.isLeaf = true;
-//         this.headerTree.render();
-        _sbx.notify( this.id, 'initData' );
+        this.tree.render();
       },
+
       getData: function() {
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
         var args={};
         args[this.direction_key()] = node;
-        args['binwidth']=parseInt(this.time)*3600;
+        args.binwidth = this.time*3600;
         this.data = {};
+        this.truncateTree();
         _sbx.notify( this.id, 'getData', { api: 'TransferQueueStats', args:args } );
         _sbx.notify( this.id, 'getData', { api: 'TransferHistory',    args:args } );
         _sbx.notify( this.id, 'getData', { api: 'ErrorLogSummary',    args:args } );
@@ -465,6 +440,7 @@ var node = 'T1_US_FNAL_Buffer';
         if ( context.api == 'ErrorLogSummary' )    { this.data.error = data.link; }
         if ( this.data.hist && this.data.error && this.data.queue )
         {
+          this.dom.title.innerHTML = node;
           this.fillBody();
           _sbx.notify( this.id, 'gotData' );
         }
