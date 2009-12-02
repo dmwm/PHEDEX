@@ -111,14 +111,29 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
-      buildTree: function() {
+/** create the treeview structures for the headers, create the empty tree for the contents (waiting for data), and initialise dynamic loading for the tree, if required. Driven mostly by the <strong>meta</strong> field.
+ * @method initDerived
+ */
+      initDerived: function() {
         this.tree = new YAHOO.widget.TreeView(this.dom.content);
         this.headerTree = new YAHOO.widget.TreeView(this.dom.extra);
         var currentIconMode=0;
 //      turn dynamic loading on for entire tree?
-        if ( this.isDynamic ) {
-          this.tree.setDynamicLoad(PHEDEX.Util.loadTreeNodeData, currentIconMode);
+        if ( this.meta.isDynamic ) {
+          this.tree.setDynamicLoad(PxU.loadTreeNodeData, currentIconMode);
         }
+        var root = this.headerTree.getRoot(),
+            t = this.meta.tree,
+            htNode;
+        for (var i in t)
+        {
+          htNode = this.addNode( t[i], null, root );
+          htNode.expand();
+          root = htNode;
+        }
+        htNode.isLeaf = true;
+        this.headerTree.render();
+        _sbx.notify(this.id,'initDerived');
       },
 
       addNode: function(spec,values,parent) {
