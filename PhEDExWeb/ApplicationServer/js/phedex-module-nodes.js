@@ -34,6 +34,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         table: {
           columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ],
         },
+        defhide: ['ID'],
       },
 
       initData: function() {
