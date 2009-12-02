@@ -6,7 +6,7 @@
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
  * @param args {object} reference to an object that specifies details of how the control should operate.
  */
-
+// TODO THese are common things that should be factored out...
 /** The partner object. This is added by the core. The control should only use this to take the <strong>obj.id</strong> of the partner, so it can set up a listener for events from that specific partner.
  * @property args.payload.obj {PHEDEX.Module, or derivative thereof}
  */
@@ -28,38 +28,28 @@ PHEDEX.Component.Menu = function(sandbox,args) {
   var _me = 'Component-Menu',
       _sbx = sandbox,
       partner = args.partner,
-//       menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence()),
-//       button = new YAHOO.widget.Button(
-//           {
-//             label: args.payload.name || args.name,
-//             name: 'Menu_'+PHEDEX.Util.Sequence(),
-//             menu: menu,
-//             container: args.payload.obj.dom[args.payload.container],
-//             disabled:true
-//           }
-//         );
 
   _construct = function() {
     return {
       me: _me,
       payload: {},
 
-/** Add an item to the menu. Called from the generic module-handler that listens for the partner, hence the complicated arguments
+/* Add an item to the menu. Called from the generic module-handler that listens for the partner, hence the complicated arguments
  * @method addMenuItem
  * @param args {array} array of arguments. The first item in the array must be an object with <strong>text</strong> and <strong>value</strong> fields, which are passed to the menu <strong>addItem</strong> function.
  */
-       addMenuItem: function(args) {
+//        addMenuItem: function(args) {
 //          column_menu.addItem({text:args[0].text, value:args[0].value});
 //          this.refreshButton();
-       },
+//        },
 
-/** refresh the button on-screen. Render it, and set the 'disabled' property depending on the number of items in the menu.
+/* refresh the button on-screen. Render it, and set the 'disabled' property depending on the number of items in the menu.
  * @method refreshButton
  */
-      refreshButton: function() {
+//       refreshButton: function() {
 //         column_menu.render(document.body);
 //         button.set('disabled', column_menu.getItems().length === 0);
-      },
+//       },
 
       _menu: [],
       _bin: args.payload.initial || -1,
@@ -110,26 +100,13 @@ PHEDEX.Component.Menu = function(sandbox,args) {
           if ( p.initial == key ) { this._value=value; }
           this._menu.push({ text: value, value:key, onclick: { fn: changeBin} });
         }
-//         this._button = new YAHOO.widget.Button({
-//           type: 'menu',
-//           label: p.menu[p.initial] || p.label || 'Select a value',
-//           name: 'menu_'+PxU.Sequence();,
-//           menu: this._menu,
-//           container: p.obj.dom[p.container]
-//         });
-//         var label, l = p.menu[p.initial] || p.label || 'Select a value';
-//         if ( typeof(l) == 'object' ) {
-//           label = l.text;
-//         } else {
-//           label = l;
-//         }
-        var x = {
+        this._button = new YAHOO.widget.Button({
           type: 'menu',
           label: this._value,
           name: 'menu_' + PxU.Sequence(),
           menu: this._menu,
           container: p.obj.dom[p.container]
-        };
+        });
         this._button = new YAHOO.widget.Button(x);
         this._button.on('selectedMenuItemChange', onSelectedMenuItemChange);
 
