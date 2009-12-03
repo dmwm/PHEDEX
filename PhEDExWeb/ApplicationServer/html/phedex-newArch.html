@@ -25,7 +25,7 @@
     <span id='phedex-banner-messages' class='phedex-messages'>Loading, please be patient...</span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
- <div id='phedex-nav'></div>
+ <div id='phedex-navigator'></div><div style='clear:both' />
  <div id='phedex-logger' class='phedex-logger'>
   <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
  </div>
@@ -120,6 +120,19 @@ stressTest = function(type) {
   PxS.notify('CreateModule',type);
 }
 
+makeNavigator = function() {
+  PxS.notify('Load','phedex-navigatornew', {
+    el: 'phedex-navigator',
+    cfg: {
+      typecfg: {
+        none:   { label: 'Explore global',  order: 10 },
+        node:   { label: 'Explore by node', order: 20 },
+        static: { label: 'Explore Information', order: 30 }
+      }
+    }
+  });
+};
+
 var fn=[];
 debugLinks = function() {
 // cheat, providing a few links to create modules from...
@@ -150,8 +163,8 @@ debugLinks = function() {
     var div = document.createElement('div'),
         a   = document.createElement('a');
     a.href='#';
-    a.innerHTML = 'treeview';
-    a.setAttribute('onclick',"PxS.notify('CreateModule','phedex-module-dummy-treeview');");
+    a.innerHTML = 'navigator';
+    a.setAttribute('onclick','makeNavigator()');
     div.appendChild(a);
     el.appendChild(div);
 
@@ -215,9 +228,10 @@ function createCoreApp() {
     PxR.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!'); return; }
 
-  if ( PxR ) {
-    PxS.notify('Registry','add','phedex-module-agents', 'node', 'Show Agents', {context_item:true});
-//     PxR.add('phedex-module-agents','node','Show Agents',{context_item:true});
+  if ( PxR ) { // TODO this needs a better home!
+    PxS.notify('Registry','add','phedex-module-agents',   'node', 'Show Agents', {context_item:true});
+    PxS.notify('Registry','add','phedex-module-nodes',    'none', 'Show Nodes');
+    PxS.notify('Registry','add','phedex-module-linkview', 'node', 'Show Links', {context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
