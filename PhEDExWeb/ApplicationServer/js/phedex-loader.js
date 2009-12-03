@@ -151,7 +151,7 @@ PHEDEX.Loader = function(opts) {
 
 //     'phedex-core-filter':      { requires:['phedex-util'] },
 //     'phedex-global-filter':    { requires:[] },
-//     'phedex-navigator': { requires: ['phedex-registry','autocomplete','button'] },
+    'phedex-navigatornew': { requires: ['phedex-registry','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util', 'logger'] },
