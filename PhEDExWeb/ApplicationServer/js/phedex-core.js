@@ -59,7 +59,7 @@ PHEDEX.Core = function(sandbox,loader) {
           _sbx.notify('Loaded',name);
           var ctor = PxU.getConstructor(name),
               m = new ctor(_sbx);
-          m.init();
+          m.init(arr[1]);
         }
       }(this),
       Progress: function(item) { banner('Loaded item: '+item.name); }
