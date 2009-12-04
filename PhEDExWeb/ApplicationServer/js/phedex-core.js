@@ -85,7 +85,7 @@ PHEDEX.Core = function(sandbox,loader) {
     var name = arr[0];
     var module = name.toLowerCase();
     if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
-    if ( _loaded[module] ) { _sbx.notify('ModuleLoaded',name); return; }
+    if ( _loaded[module] ) { _sbx.notify('ModuleLoaded',name,arr[1]); return; }
     log ('loading "'+module+'" (for '+name+')','info',_me);
     _ldr.load( {
       Success: function(obj) {
@@ -133,13 +133,83 @@ PHEDEX.Core = function(sandbox,loader) {
     }
   }
 
-  var _moduleExists =function(ev,arr) {
-    var obj  = arr[0],
+  var _moduleExists = function(ev,arr) {
+    var obj = arr[0],
         who = obj.me,
-        id   = obj.id;
-    _modules[id] = obj; //{obj:obj,state:'initialised'};
+        id  = obj.id;
+    _modules[id] = obj;
     if ( !_loaded[who] ) { _loaded[who]={}; }
     _sbx.listen(id,moduleHandler);
+  };
+
+  var _createDecorators = function(m) {
+    var ii = m.decorators.length,
+        i  = 0;
+    while ( i < ii ) {
+      var d = m.decorators[i];
+      if ( m.ctl[d.name] ) {
+//      I'm not too clear why this happens, in principle it shouldn't...?
+        log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
+        continue;
+      }
+      var ctor = PHEDEX;
+//    I need a constructor for this decorator. Try three methods to get one:
+//    1) look in the decorator specification
+//    2) deduce it from the module-name, if there is an external module to load
+//    3) deduce it from the type of the module it attaches to, and the name of the decorator
+      if ( d.ctor ) {
+        ctor = d.ctor;
+      }
+//    deduce the constructor from the source-name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
+//    If I can't find an initialCaps match for a sub-component, try case-insensitive compare
+//    If no source-name is given, assume a constructor PHEDEX[type][name], where type is the group of
+//    this module (DataTable|TreeView) and name is the name of this decorator.
+      else if ( d.source ) {
+        ctor = PxU.getConstructor(d.source);
+        if ( !ctor ) {
+          log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
+          throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
+        }
+      } else {
+        ctor = PHEDEX[m.type][d.name];
+      }
+      if ( typeof(ctor) != 'function' ) {
+        log('decorator '+d.source+' constructor is not a function');
+        throw new Error('decorator '+d.source+' is not a function');
+      }
+      setTimeout(function(_m,_d,_ctor) {
+        return function() {
+          if ( !_d.payload )     { _d.payload = {}; }
+          if ( !_d.payload.obj ) { _d.payload.obj = _m; }
+          try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
+          catch (ex) { log(err(ex),'error','Core'); }
+          if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+        }
+      }(m,d,ctor),10);
+      i++;
+    }
+  };
+  var _loadDecorators = function(m) {
+    var _m=[],
+        _d=m.decorators;
+    for (var i in _d) {
+      if ( _d[i].source ) { _m.push(_d[i].source); }
+    }
+    if ( _m.length ) {
+//    load the decorators first, then notify when ready...
+      log('loading decorators','info','Core');
+      _ldr.load( {
+        Success: function() {
+          log('Successfully loaded decorators','warn','Core');
+          _sbx.notify(m.id,'createDecorators',m);
+        },
+        Progress: function(item) { banner('Loaded item: '+item.name); }
+      }, _m);
+    } else {
+//    nothing needs loading, I can notify the decorators directly
+      log('Already loaded decorators','warn','Core');
+      _sbx.notify(m.id,'createDecorators',m);
+    }
   };
 
 /**
@@ -151,9 +221,9 @@ PHEDEX.Core = function(sandbox,loader) {
  */
   var moduleHandler = function(who,arr) {
      var action = arr[0],
-        args   = arr[1];
+         args   = arr[1];
     log('module='+who+' action="'+action+'"','info',_me);
-    var m = _modules[who];//.obj;
+    var m = _modules[who];
     _clearTimeout();
     switch ( action ) {
       case 'init': {
@@ -166,26 +236,7 @@ PHEDEX.Core = function(sandbox,loader) {
         m.initData();
 
 //      the module is complete, now load the decorators!
-        var _m=[],
-            _d=m.decorators;
-        for (var i in _d) {
-          if ( _d[i].source ) { _m.push(_d[i].source); }
-        }
-        if ( _m.length ) {
-//        load the decorators first, then notify when ready...
-          log('loading decorators','info','Core');
-          _ldr.load( {
-            Success: function() {
-              log('Successfully loaded decorators','warn','Core');
-              _sbx.notify(m.id,'decoratorsLoaded');
-            },
-            Progress: function(item) { banner('Loaded item: '+item.name); }
-          }, _m);
-        } else {
-//        nothing needs loading, I can notify the decorators directly
-          log('Already loaded decorators','warn','Core');
-          _sbx.notify(m.id,'decoratorsLoaded');
-        }
+        _loadDecorators(m);
         break;
       }
       case 'initData': {
@@ -199,52 +250,12 @@ PHEDEX.Core = function(sandbox,loader) {
         _sbx.deleteEvent(action);
         break;
       }
-      case 'decoratorsLoaded': {
-        var ii = m.decorators.length,
-            i  = 0;
-        while ( i < ii ) {
-          var d = m.decorators[i];
-          if ( m.ctl[d.name] ) {
-//          I'm not too clear why this happens, in principle it shouldn't...?
-            log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
-            continue;
-          }
-          var ctor = PHEDEX;
-//        I need a constructor for this decorator. Try three methods to get one:
-//        1) look in the decorator specification
-//        2) deduce it from the module-name, if there is an external module to load
-//        3) deduce it from the type of the module it attaches to, and the name of the decorator
-          if ( d.ctor ) {
-            ctor = d.ctor;
-          }
-//        deduce the constructor from the source-name. 'phedex-abc-def-ghi' -> PHEDEX.Abc.Def.Ghi()
-//        If I can't find an initialCaps match for a sub-component, try case-insensitive compare
-//        If no source-name is given, assume a constructor PHEDEX[type][name], where type is the group of
-//        this module (DataTable|TreeView) and name is the name of this decorator.
-          else if ( d.source ) {
-            ctor = PxU.getConstructor(d.source);
-            if ( !ctor ) {
-              log('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
-              throw new Error('decorator '+d.source+' not constructible at level '+x[j]+' ('+d.name+')');
-            }
-          } else {
-            ctor = PHEDEX[m.type][d.name];
-          }
-          if ( typeof(ctor) != 'function' ) {
-            log('decorator '+d.source+' constructor is not a function');
-            throw new Error('decorator '+d.source+' is not a function');
-          }
-          setTimeout(function(_m,_d,_ctor) {
-            return function() {
-              if ( !_d.payload )     { _d.payload = {}; }
-              if ( !_d.payload.obj ) { _d.payload.obj = _m; }
-              try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
-              catch (ex) { log(err(ex),'error','Core'); }
-              if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
-              }
-            }(m,d,ctor),10);
-          i++;
-        };
+      case 'createDecorators': {
+        _createDecorators(args/* || m*/);
+        break;
+      }
+      case 'loadDecorators': {
+        _loadDecorators(args/* || m*/);
         break;
       }
       case 'getData': {
