@@ -88,13 +88,14 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       },
       getData: function() {
         log('Fetching data','info',this.me);
-        this.dom.title.innerHTML = this.me+': fetching data...';
+        this.dom.title.innerHTML = 'fetching data...';
         _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
       gotData: function(data) {
         log('Got new data','info',this.me);
-        this.data = data.node[0].agent;
+        this.dom.title.innerHTML = 'Parsing data';
         this.dom.title.innerHTML = node+': '+this.data.length+" agents";
+        this.data = data.node[0].agent;
         this.fillDataSource(this.data);
         _sbx.notify( this.id, 'gotData' );
 //      Fake notification that the data is now stale. This should use the 'Expires' or 'Cache-Control' header from the data-service, but that isn't returned in the data

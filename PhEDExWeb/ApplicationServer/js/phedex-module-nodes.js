@@ -47,6 +47,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       },
       gotData: function(data) {
         log('Got new data','info',this.me);
+        this.dom.title.innerHTML = 'Parsing data';
         this.data = data.node;
         this.dom.title.innerHTML = this.me+': '+this.data.length+" found";
         this.fillDataSource(this.data);
