@@ -14,13 +14,13 @@ PHEDEX.Configuration = (function() {
     * @param {String} displayname of the category to be used for UI
     */
     var _addCategory = function(id, displayname) {
-        if (!_categories[id])
-        {
+        if (!_categories[id]) {
             var category = {};
             category['id'] = id;
             category['name'] = displayname;
             category['sources'] = {};
             _categories[id] = category;
+            YAHOO.log('Category ' + displayname + ' added', 'info', 'Phedex.Configuration');
         }
     };
 
@@ -34,33 +34,39 @@ PHEDEX.Configuration = (function() {
     * @param {String} path is the URI of the source HTML file
     * @param {Array} divids is array of unique divids of elements within source file
     */
-    var _addSource = function(catid, sourcename, type, path, divids){
+    var _addSource = function(catid, sourcename, sourcecfg) {
         var category = _categories[catid];
-        if (category)
-        {
-            if (!category.sources[sourcename])
-            {
+        if (category) {
+            if (!category.sources[sourcename]) {
                 var source = {};
                 source['name'] = sourcename;
-                source['type'] = type;
-                source['path'] = path;
-                source['divids'] = divids;
+                for (var key in sourcecfg) {
+                    source[key] = sourcecfg[key];
+                }
                 category.sources[sourcename] = source;
+                YAHOO.log('Source ' + sourcename + ' added to Category ' + catid, 'info', 'Phedex.Configuration');
             }
         }
     };
-    
-    //Add and register category # 1
-    _addCategory('aboutphedex1','About Phedex 1');
-    _addSource('aboutphedex1', 'source1', 'local', '/html/AboutPhedex.html', ['phedex-about1', 'phedex-about2', 'phedex-about3']);
-    _addSource('aboutphedex1', 'source2', 'local', '/html/PhedexInfo.html', ['phedex-about1', 'phedex-about2', 'phedex-about3']);
-    PHEDEX.Core.Widget.Registry.add('aboutphedex1', 'static', 'About Phedex 1', PHEDEX.Static);
 
-    //Add and register category # 2
-    _addCategory('aboutphedex2', 'About Phedex 2');
-    _addSource('aboutphedex2', 'source12', 'local', '/html/PhedexInfo.html', ['phedex-about1', 'phedex-about2', 'phedex-about3']);
-    PHEDEX.Core.Widget.Registry.add('aboutphedex2', 'static', 'About Phedex 2', PHEDEX.Static);
-    
+    //Add and register category # 1 (local type)
+    _addCategory('aboutphedex1', 'Phedex Local');
+    _addSource('aboutphedex1', 'source1', { type: 'local', path: '/html/AboutPhedex.html', divids: ['phedex-about1', 'phedex-about2', 'phedex-about3'] });
+    _addSource('aboutphedex1', 'source2', { type: 'local', path: '/html/PhedexInfo.html', divids: ['phedex-about1', 'phedex-about3'] });
+    PHEDEX.Core.Widget.Registry.add('aboutphedex1', 'static', 'Phedex Local', PHEDEX.Static);
+
+    //Add and register category # 2 (iframe type)
+    _addCategory('aboutphedex2', 'Phedex Iframe');
+    _addSource('aboutphedex2', 'source1', { type: 'iframe', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation'});
+    PHEDEX.Core.Widget.Registry.add('aboutphedex2', 'static', 'Phedex Iframe', PHEDEX.Static);
+
+    //Add and register category # 3 (out link type)
+    _addCategory('aboutphedex3', 'Phedex Extra'); //displaytext
+    _addSource('aboutphedex3', 'source1', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhEDEx', displaytext: 'Phedex main information: ' });
+    _addSource('aboutphedex3', 'source2', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation', displaytext: 'Phedex Documentation: ' });
+    _addSource('aboutphedex3', 'source3', { type: 'extra', displaytext: '<i>This is testing for displaying direct text in Phedex static component</i>' });
+    PHEDEX.Core.Widget.Registry.add('aboutphedex3', 'static', 'Phedex Extra', PHEDEX.Static);
+
     return {
         /**
         * @method categories
@@ -69,7 +75,7 @@ PHEDEX.Configuration = (function() {
         categories: function() {
             return _categories;
         },
-        
+
         /**
         * @method getCategory
         * @description This returns the available configured categories
@@ -79,4 +85,4 @@ PHEDEX.Configuration = (function() {
         }
     };
 })();
-YAHOO.log('loaded...','info','Core.Configuration');
+YAHOO.log('loaded...','info','Phedex.Configuration');
