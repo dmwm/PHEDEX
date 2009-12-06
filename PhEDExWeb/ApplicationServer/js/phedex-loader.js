@@ -150,6 +150,9 @@ PHEDEX.Loader = function(opts) {
 
     //'phedex-core-filter':      { requires:['phedex-util'] },
     //'phedex-global-filter':    { requires:[] },
+    'phedex-config': {},
+    'phedex-static': { requires: ['phedex-util', 'phedex-config', 'dom'] },
+    'phedex-login': { requires: ['phedex-util'] },
     'phedex-navigatornew': { requires: ['phedex-registry','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
