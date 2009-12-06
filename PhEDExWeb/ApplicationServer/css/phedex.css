@@ -61,6 +61,10 @@ body {
 	color:Blue;
 	text-decoration: underline;
 }
+.phedex-static-iframe {
+	height:82%;
+	width:99%;
+}
 .phedex-login-overlay-body
 {
 	position:absolute;
