@@ -567,8 +567,6 @@ debugger;
           {
             name: 'TargetTypeSelector',
             parent: 'navigator',
-//             payload:{
-//             }
           },
         ],
 
@@ -641,45 +639,49 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox;
 
-  this.id = args.name + '_' +PxU.Sequence();
+  this.id = 'TargetTypeSelector';
   this.el = document.createElement('div');
   this.el.id = 'phedex-nav-targettype';
-  YAHOO.util.Dom.addClass(this.el,'phedex-nav-component');
+  this.el.className = 'phedex-nav-component';
+  this.target_ids = {};
+  this.dom={};
 
   this._initTargetSelectors = function(el,_target_types) {
     var targetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-target',
             className: 'phedex-nav-component phedex-nav-target'
     });
-    this.target_ids = {};
     for (var t in _target_types) {
-      try {
-        this.target_ids[t] = _initSelectors[t](targetdiv,t);
-      } catch (ex) { log(ex,'error',this.id); banner('Error initialising Navigator, unknown type "'+t+'"!'); }
+      if ( !this.dom[t] ) {
+        try {
+          this.dom[t] = _initSelectors[t](targetdiv,t);
+          this.target_ids[t] = this.dom[t].id;;
+        } catch (ex) { log(ex,'error',this.id); banner('Error initialising Navigator, unknown type "'+t+'"!'); }
+      }
     }
   };
 
   var _node_ds; // YAHOO.util.LocalDataSource
   _initSelectors = {
     none: function(el) {
-      var id = 'phedex-nav-target-none',
+      var id = 'phedex-nav-target-none_' + PxU.Sequence(),
           sel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' });
       _updateTargetGUI = function() {
         _cur_target = 'none';
       };
-      return id;
+      return sel;
     },
     text: function(el, type) {
-      var id = 'phedex-nav-target-' + type,
+      var id = 'phedex-nav-target-' + type + '_' + PxU.Sequence(),
           sel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' }),
          input = PxU.makeChild(sel, 'input', { type: 'text' });
       _updateTargetGUI = function() {
         input.value = _cur_target;
       };
-      return id;
+      return sel;
     },
     node: function(el) {
-      var id = 'phedex-nav-target-nodesel',
-          nodesel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' }),
+      var id = 'phedex-nav-target-nodesel_' + PxU.Sequence(),
+          sel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' }),
           makeNodeList = function(data) {
             data = data.node;
             var nodelist = [];
@@ -687,11 +689,11 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
               nodelist.push(data[node].name);
             }
             _node_ds = new YAHOO.util.LocalDataSource(nodelist);
-            _buildNodeSelector(nodesel);
+            _buildNodeSelector(sel);
             _buildNodeEvent.fire(); //Now the data service call is answered. So, set the status of page.
           };
         PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
-        return id;
+        return sel;
       }
     };
 
@@ -716,17 +718,16 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
   };
   this._updateTargetSelector = function(type) {
     var div = this.el; //document.getElementById('phedex-nav-target');
-    // Hide all selectors
-    var children = YAHOO.util.Dom.getChildren(div);
-    YAHOO.util.Dom.batch(children, function(c) { c.style.visibility = 'hidden'; c.style.position = 'absolute' });
-    if (type == 'static') {
-        return null;
+    for (var t in this.target_ids) {
+      var el = document.getElementById(this.target_ids[t]);
+      if ( t == type ) {
+        el.style.visibility = 'visible';
+        el.style.position = 'relative';
+      } else {
+        el.style.visibility = 'hidden';
+        el.style.position = 'absolute';
+      }
     }
-    // Show the one we want
-    var id = this.target_ids[type];
-    var el = document.getElementById(id);
-    el.style.visibility = 'visible';
-    el.style.position = 'relative';
     // TODO: return value of active selector
     return null;
   };
@@ -754,8 +755,9 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       }
     }
   }(this);
-  _sbx.listen(obj.id,this.partnerHandler);
-  _sbx.notify(obj.id,'WantTargetTypes');
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'WantTargetTypes',this.id);
   return this;
 };
 
@@ -768,10 +770,10 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       menu_items = [],
       label;
 
-  this.id = args.name + '_' +PxU.Sequence();
+  this.id = 'TypeSelector';
   this.el = document.createElement('div');
   this.el.id = 'phedex-nav-type';
-  YAHOO.util.Dom.addClass(this.el,'phedex-nav-component');
+  this.el.className = 'phedex-nav-component';
 
   // get registered target types and store them with optional config params
   for (var type in types) {
@@ -805,7 +807,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
     container: this.el
   });
   var onSelectedMenuItemChange = function(event) {
-    if ( event.newValue.value == event.prevValue.value ) { return; }
+    if ( event.prevValue && event.newValue.value == event.prevValue.value ) { return; }
     var type = event.newValue.value;
     _sbx.notify(obj.id,'ExploreBy',type);
 //     _addToHistory({ 'type': type });
@@ -829,12 +831,14 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
         }
         case 'WantTargetTypes': {
           _sbx.notify(value,'TargetTypes',_target_types);
+          _sbx.notify(value,'ExploreBy',_cur_target_type);
           break;
         }
       }
     }
   }(this);
-  _sbx.listen(obj.id,this.partnerHandler);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
   _sbx.notify(obj.id,'TargetTypes',_target_types);
 //         _updateTargetSelector(_cur_target_type);
   return this;
@@ -849,18 +853,19 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       indx, label, jsonInst;
   if (!instances) { return; } //Something is wrong.. So dont process further..
 
-  this.id = args.name + '_' +PxU.Sequence();
+  this.id = 'InstanceSelector';
   this.el = document.createElement('div');
   this.el.id = 'phedex-nav-instance';
-  YAHOO.util.Dom.addClass(this.el,'phedex-nav-component');
+  this.el.className = 'phedex-nav-component';
   for (indx = 0; indx < instances.length; indx++) {
     jsonInst = instances[indx];
     _instances[jsonInst.instance] = jsonInst;
     menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.instance });
    }
 
-  _cur_instance = menu_items[0].value;
-  label = menu_items[0].text;
+  var _x = PHEDEX.Datasvc.Instance();
+  _cur_instance = _x.instance;
+  label = _x.name;
 
   this.menu = new YAHOO.widget.Button({ type: "menu",
     label: label,
@@ -869,7 +874,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
   });
 
   var onSelectedMenuItemChange = function(event) {
-    if ( event.newValue.value == event.prevValue.value ) { return; }
+    if ( event.prevValue && event.newValue.value == event.prevValue.value ) { return; }
     var instanceVal = event.newValue.value;
     _sbx.notify(obj.id,'Instance',instanceVal);
 //     _addToHistory({ 'instance': instanceVal });
@@ -896,7 +901,8 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       }
     }
   }(this);
-  _sbx.listen(obj.id,this.partnerHandler);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
   return this;
 };
 
