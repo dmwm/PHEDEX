@@ -29,7 +29,7 @@ PHEDEX.Core = function(sandbox,loader) {
     resizeable: false,
   };
 
-  var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 5000 ); },
+  var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 10000 ); },
       _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
 
 /**
@@ -126,7 +126,7 @@ PHEDEX.Core = function(sandbox,loader) {
     try {
       var ctor = PxU.getConstructor(module);
       var m = new ctor(_sbx,name);
-    } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!"); }
+    } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!",'error'); }
     m.init(_global_options);
     if ( arr[1] ) {
       m.setArgs(arr[1]);
@@ -144,7 +144,8 @@ PHEDEX.Core = function(sandbox,loader) {
 
   var _createDecorators = function(m) {
     var ii = m.decorators.length,
-        i  = 0;
+        i  = 0,
+        nDec = 0;
     while ( i < ii ) {
       var d = m.decorators[i];
       if ( m.ctl[d.name] ) {
@@ -184,6 +185,10 @@ PHEDEX.Core = function(sandbox,loader) {
           try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
           catch (ex) { log(err(ex),'error','Core'); }
           if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+          nDec++;
+          if ( nDec == m.decorators.length ) {
+            _sbx.notify(m.id,'decoratorsReady');
+          }
         }
       }(m,d,ctor),10);
       i++;
@@ -207,7 +212,7 @@ PHEDEX.Core = function(sandbox,loader) {
       }, _m);
     } else {
 //    nothing needs loading, I can notify the decorators directly
-      log('Already loaded decorators','warn','Core');
+      log('Already loaded decorators','info','Core');
       _sbx.notify(m.id,'createDecorators',m);
     }
   };
@@ -246,16 +251,16 @@ PHEDEX.Core = function(sandbox,loader) {
         break;
       }
       case 'destroy': {
-        delete _modules[who]; // = {};
+        delete _modules[who];
         _sbx.deleteEvent(action);
         break;
       }
       case 'createDecorators': {
-        _createDecorators(args/* || m*/);
+        _createDecorators(args);
         break;
       }
       case 'loadDecorators': {
-        _loadDecorators(args/* || m*/);
+        _loadDecorators(args);
         break;
       }
       case 'getData': {
@@ -270,20 +275,20 @@ PHEDEX.Core = function(sandbox,loader) {
                   context = args[1];
               try {
                 _m.gotData(data,context);
-              } catch(ex) { log(ex,'error',who); banner('Error processing data!'); }
+              } catch(ex) { log(ex,'error',who); banner('Error processing data!','error'); }
             }(m);
           });
           var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
           dataFail.subscribe(function(type,args) {
             var api = args[1].api;
             log('api:'+api+' error fetching data','error',who);
-            banner('Error fetching data: '+api+' '+args[0].message+'!');
+            banner('Error fetching data: '+api+' '+args[0].message+'!','error');
             _clearTimeout();
           });
           args.success_event = dataReady;
           args.failure_event = dataFail;
           PHEDEX.Datasvc.Call( args );
-        } catch(ex) { log(ex,'error',_me); banner('Error fetching data!'); }
+        } catch(ex) { log(ex,'error',_me); banner('Error fetching data!','error'); }
         break;
       }
     };
@@ -302,7 +307,7 @@ PHEDEX.Core = function(sandbox,loader) {
       _sbx.listen('ModuleLoaded', _createModule);
       _sbx.listen('CreateModule', _createModule);
       _sbx.notify('CoreCreated');
-      banner('PhEDEx App is up and running!');
+      banner('PhEDEx App is up and running!','info');
     },
   };
 }
