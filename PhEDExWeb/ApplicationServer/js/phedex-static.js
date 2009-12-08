@@ -11,39 +11,6 @@ PHEDEX.Static = function(category, divStatic, opts) {
     if (!divStatic) { divStatic = PHEDEX.Util.generateDivName(); }
 
     /**
-    * @method _getHTML
-    * @description This makes XMLHTTPrequest and gets the HTML source file for the given path
-    * @param {String} strFilePath is the HTML source file path (local or web file).
-    */
-    var _getHTML = function(strFilePath) {
-        var xhttp;
-        if (window.XMLHttpRequest) {
-            xhttp = new XMLHttpRequest();
-        }
-        else if (window.ActiveXObject) { // For older IE
-            try {
-                xhttp = new ActiveXObject("Msxml2.XMLHTTP");
-            }
-            catch (e) {
-                try {
-                    xhttp = new ActiveXObject("Microsoft.XMLHTTP");
-                }
-                catch (e) {
-                }
-            }
-        }
-        if (!xhttp) {
-            YAHOO.log('Cannot create XMLHTTP instance', 'error', 'PHEDEX.Static');
-            return null;
-        }
-        xhttp.open('GET', strFilePath, false);
-        YAHOO.log('XMLHTTP Request is going to be made', 'info', 'Phedex.Static');
-        xhttp.send("");
-        YAHOO.log('XMLHTTP Response is received', 'info', 'Phedex.Static');
-        return xhttp.responseText;
-    }
-
-    /**
     * @method _checkDivSpanID
     * @description This function is used by YUI DOM to get elements having specific id
     * @param {Object} el is element that is being currently checked.
@@ -86,8 +53,60 @@ PHEDEX.Static = function(category, divStatic, opts) {
         }
     }
 
+    /**
+    * @method _loadSource
+    * @description This makes XMLHTTPrequest using YUI connection manager, gets the HTML source file for the given path. 
+    * The required information is extratced from the source HTML file and is added to navigator page.
+    * @param {Object} source is the object that has source information (path, type and elementids)
+    */
+    var _loadSource = function(source) {
+        var callback = {
+            success: function(obj) {
+                YAHOO.log('YUI Connection manager XMLHTTP response received', 'info', 'Phedex.Static');
+                var divTemp = document.createElement('div'); //This is temporary to store the response as HTML element and use it
+                divTemp.innerHTML = obj.responseText;
+                var strInnerHTML, indx = 0;
+                var source = obj.argument;
+                for (indx = 0; indx < source.divids.length; indx++) {
+                    try {
+                        strInnerHTML = '';
+                        //Parse the HTML content to get div element having given div or span element id
+                        var divStatInfo = _getDivElementById(source.divids[indx], divTemp); 
+                        if (divStatInfo) {
+                            if (divStatInfo.innerHTML) {
+                                strInnerHTML = divStatInfo.innerHTML;
+                            }
+                            else {
+                                strInnerHTML = new XMLSerializer().serializeToString(divStatInfo);
+                            }
+                        }
+                    }
+                    catch (e) {
+                        strInnerHTML = '<div><b><i>Error in getting data from source information file</i></b></div>';
+                    }
+                    var divStaticInfo = document.createElement('div');
+                    divStaticInfo.innerHTML = strInnerHTML;
+                    staticinfo.divInfo.appendChild(divStaticInfo);
+                    staticinfo.divInfo.appendChild(document.createElement('br'));
+                    YAHOO.log('HTML source file content is added to navigator for divid: ' + source.divids[indx], 'info', 'Phedex.Static');
+                }
+                return;
+            },
+
+            failure: function(obj) {
+                YAHOO.log('Communication error. Invalid or unable to read HTML source file ' + source.path, 'error', 'Phedex.Static');
+                staticinfo.divInfo.appendChild(document.createElement('br'));
+                return;
+            },
+            timeout: 10000, //YUI connection manager timeout in milliseconds.
+            argument: source //source information is required later for processing
+        };
+        YAHOO.util.Connect.asyncRequest('GET', source.path, callback, null);
+        YAHOO.log('YUI Connection Manager XMLHTTP Request is made', 'info', 'Phedex.Static');
+    }
+    
     var staticinfo = {};
-    var indx = 0, sourcename = '', strInnerHTML = '';
+    var sourcename = '';
     try {
         if (typeof (divStatic) == 'obj') {
             staticinfo.divStatic = divStatic;
@@ -102,40 +121,8 @@ PHEDEX.Static = function(category, divStatic, opts) {
         for (sourcename in categoryinfo.sources) {
             var source = categoryinfo.sources[sourcename];
             if (source.type == 'local') {
-                var htmlDoc = _getHTML(source.path);
-                YAHOO.log(source.path + ' source file content is obtained!', 'info', 'Phedex.Static');
-                strInnerHTML = '';
-                if (htmlDoc) {
-                    var divTemp = document.createElement('div');
-                    divTemp.innerHTML = htmlDoc;
-                    for (indx = 0; indx < source.divids.length; indx++) {
-                        try {
-                            strInnerHTML = '';
-                            var divStatInfo = _getDivElementById(source.divids[indx], divTemp); //Parse the HTML content to get div element having given divid
-                            if (divStatInfo) {
-                                if (divStatInfo.innerHTML) {
-                                    strInnerHTML = divStatInfo.innerHTML;
-                                }
-                                else {
-                                    strInnerHTML = new XMLSerializer().serializeToString(divStatInfo);
-                                }
-                            }
-                        }
-                        catch (e) {
-                            strInnerHTML = '<div><b><i>Error in getting data from source information file</i></b></div>';
-                            YAHOO.log('Error while parsing read HTML source file ' + source.path, 'error', 'Phedex.Static');
-                        }
-                        var divStaticInfo = document.createElement('div');
-                        divStaticInfo.innerHTML = strInnerHTML;
-                        staticinfo.divInfo.appendChild(divStaticInfo);
-                        staticinfo.divInfo.appendChild(document.createElement('br'));
-                        YAHOO.log('HTML source file content is added to navigator for divid: ' + source.divids[indx], 'info', 'Phedex.Static');
-                    }
-                }
-                else {
-                    YAHOO.log('Invalid or unable to read HTML source file ' + source.path, 'error', 'Phedex.Static');
-                    staticinfo.divInfo.appendChild(document.createElement('br'));
-                }
+                _loadSource(source);
+                YAHOO.log('local source info is added to navigator for source: ' + source.path, 'info', 'Phedex.Static');
             }
             else if (source.type == 'iframe') {
                 //Create iframe element and add to navigator
@@ -166,6 +153,7 @@ PHEDEX.Static = function(category, divStatic, opts) {
             }
         }
 
+        //This is called when static widget is destroyed by navigator. This deletes all the child nodes of static component
         staticinfo.destroy = function() {
             while (staticinfo.divStatic.hasChildNodes()) {
                 staticinfo.divStatic.removeChild(staticinfo.divStatic.lastChild);
