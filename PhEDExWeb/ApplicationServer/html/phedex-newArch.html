@@ -24,7 +24,9 @@
     <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
     <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
     <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
-    <span id='phedex-banner-messages' class='phedex-messages'>Loading, please be patient...</span>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
  <div id='phedex-navigator'></div><div style='clear:both' />
@@ -47,9 +49,9 @@ err = function(ex) { return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.line
 
 // a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
 log = function() {
-  var _buffer = [];
+  var _buffer = [],
+      el = document.getElementById('phedex-logger-inner');
   return function(str,level,group) {
-    var el = document.getElementById('phedex-logger-inner');
     if ( str ) {
       if ( typeof(str) == 'object' ) { str = err(str); } // assume it's an exception object!
       if ( el ) {
@@ -67,15 +69,39 @@ log = function() {
 
 // simple banner messages to show progress. Make it disappear by sending it the null string.
 banner = function() {
-  var el = document.getElementById('phedex-banner-messages');
+  var outer = document.getElementById('phedex-banner-messages-outer'),
+      inner = document.getElementById('phedex-banner-messages-inner'),
+      classNames = {
+        info:'phedex-box-green',
+        warn:'phedex-box-yellow',
+        error:'phedex-box-red',
+        default:'phedex-box-turquoise'
+      },
+      order = { default:0, info:1, warn:2, error:3 },
+      current;
+  if ( !outer ) { return; }
+  var fade = function() {
+    current--;
+    if ( current < 2 ) { return; }
+    setTimeout( function() { fade(); }, 2500 );
+  }
   return function(str,level,group) {
-    if ( el ) {
+    if ( outer ) {
       if ( str ) {
-        el.innerHTML = str;
-        YAHOO.util.Dom.removeClass(el,'phedex-invisible');
+        if ( !level ) { level = 'default'; }
+        if ( order[level] < current ) { return; }
+        inner.innerHTML = str;
+        current = order[level];
+        inner.className = classNames[level] + ' phedex-messages-inner';
+        YAHOO.util.Dom.removeClass(outer,'phedex-invisible');
       } else {
-        YAHOO.util.Dom.addClass(el,'phedex-invisible');
+        YAHOO.util.Dom.addClass(outer,'phedex-invisible');
       }
+//       if ( current > 0 ) { setTimeout( function() { 
+// var x = current;
+// debugger;
+// current--; }, 2000 ); }
+      fade();
     }
   };
 }();
