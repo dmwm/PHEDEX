@@ -5,17 +5,6 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     var _sbx = sandbox, _groupname = 'DataOps';
     log('Module: creating a genuine "'+string+'"','info',string);
 
-    /** A custom formatter for byte-counts. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
-    * @method YAHOO.widget.DataTable.Formatter.customBytes
-    * @param elCell {HTML element} Cell for which the formatter must be applied
-    * @param oRecord {datatable record}
-    * @param oColumn {datatable column}
-    * @param oData {data-value} number of bytes
-    */
-    YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, oData) {
-        elCell.innerHTML = PHEDEX.Util.format.bytes(oData); //Convert the size to higher ranges and then show it to user
-    };
-
     /**
     * Array of object literal Column definitions for group information datatable.
     * @property _dtColumnDefs
@@ -102,7 +91,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = data;
                 this.dom.title.innerHTML = this.me + ': ' + this.data.node.length + ' nodes found';
-                this.fillDataSource(this.data, _dsResponseSchema);
+                this.fillDataSource(data, _dsResponseSchema);
                 _sbx.notify( this.id, 'gotData' );
             }
         };
