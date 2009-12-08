@@ -45,13 +45,13 @@ PHEDEX.Navigatornew = function(sandbox) {
     //========================= Private Methods =========================
     // The following are defined dynamically below
 //     var _updateTargetTypeGUI = function() { };
-    var _updateTargetGUI = function() { };
+//     var _updateTargetGUI = function() { };
 //     var _updateInstanceGUI = function() { };
-    var _updateLinkGUI = function(permalinkurl) { };
+//     var _updateLinkGUI = function(permalinkurl) { };
 
 
-    var _buildNodeEvent = new YAHOO.util.CustomEvent('BuildNode');
-    _buildNodeEvent.subscribe(function(type, args) { _afterBuild(); });
+//     var _buildNodeEvent = new YAHOO.util.CustomEvent('BuildNode');
+//     _buildNodeEvent.subscribe(function(type, args) { _afterBuild(); });
 
     /**
     * @method _afterBuild
@@ -68,61 +68,6 @@ PHEDEX.Navigatornew = function(sandbox) {
         }
     };
 
-    var _getWidgetMenuItems = function(type) {
-        var widgets = PxR.getWidgetsByInputType(type);
-        var menu_items = [];
-        for (var w in widgets) {
-            w = widgets[w];
-            menu_items.push({ text: w.label, value: w });
-        }
-        return menu_items;
-    };
-
-    var _initWidgetSelector = function(el) {
-        var widgetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-widget', className: 'phedex-nav-component' });
-
-        var menu_items = _getWidgetMenuItems(_cur_target_type);
-        _cur_widget = menu_items[0].value;
-        var label = menu_items[0].text;
-
-        _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
-            'label': label,
-            'menu': menu_items,
-            'container': widgetdiv
-        });
-
-        // update state on menu selections
-        var onSelectedMenuItemChange = function(event) {
-            var menu_item = event.newValue;
-            var widget = menu_item.value;
-            _addToHistory({ 'widget': widget });
-        };
-        _widget_menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
-    };
-
-    var _updateWidgetGUI = function(widget) {
-        _widget_menu.set("label", widget.label);
-    };
-
-    var _updateWidgetMenu = function(type) {
-        //    YAHOO.log('type: '+type);
-        var menu_items = _getWidgetMenuItems(type);
-        //    YAHOO.log('menu_items: '+YAHOO.lang.dump(menu_items));
-        var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
-        var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
-        if (YAHOO.util.Dom.inDocument(menu.element)) {
-            menu.clearContent();
-            menu.addItems(menu_items);
-            menu.render();
-            //      YAHOO.log('menu rebuild: '); //+YAHOO.lang.dump(menu.itemData));
-        } else {
-            //      YAHOO.log('menu assign: '); //+YAHOO.lang.dump(menu.itemData));
-            menu.itemData = menu_items;
-        }
-        _updateWidgetGUI(widget); // set menu to first item
-        return widget;
-    };
-
 //     var _initGlobalFilter = function(el) {
 //         PHEDEX.Event.CreateGlobalFilter.fire(el);
 //     };
@@ -132,18 +77,18 @@ PHEDEX.Navigatornew = function(sandbox) {
     * @description This creates the permalink element and defines function to set the permalink URL.
     * @param {Object} el Object specifying the element in the HTML page to be used for permalink.
     */
-    var _initPermaLink = function(el) {
-        var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
-        var a = PxU.makeChild(linkdiv, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#' });
-        _updateLinkGUI = function(permalinkurl) {
-            if (permalinkurl) {
-                a.href = permalinkurl; //Update the link with permalink URL
-            }
-            else {
-                a.href = document.location.href; //Update the link with current browser URL
-            }
-        };
-    };
+//     var _initPermaLink = function(el) {
+//         var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
+//         var a = PxU.makeChild(linkdiv, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#' });
+//         _updateLinkGUI = function(permalinkurl) {
+//             if (permalinkurl) {
+//                 a.href = permalinkurl; //Update the link with permalink URL
+//             }
+//             else {
+//                 a.href = document.location.href; //Update the link with current browser URL
+//             }
+//         };
+//     };
 
     var _defaultPageState = "";
 
@@ -324,7 +269,7 @@ PHEDEX.Navigatornew = function(sandbox) {
     */
     var _fireNavChange = function(obj) {
       return function() {
-        _updateLinkGUI(); //Update the permalink
+//         _updateLinkGUI(); //Update the permalink
         _sbx.notify(obj.id,'changed',{
             'type': _cur_target_type,
             'target': _cur_target,
@@ -339,6 +284,7 @@ PHEDEX.Navigatornew = function(sandbox) {
     * @description This gets the datatable state and is used to update the permalink
     */
     var _formPermalinkURL = function() {
+debugger;
         var baseURL = document.location.href;
         var hashindx = baseURL.indexOf('#');
         if (hashindx > -1) {
@@ -392,12 +338,13 @@ PHEDEX.Navigatornew = function(sandbox) {
     * and later update the permalink
     */
     var _afterRender = function() {
+debugger;
         _setWidgetState();
         _formPermalinkURL();
     }
 
-    /* Below are the individual _set{state} funcitons.  They must not be
-    called execpt through _setState, otherwise widget construction is
+    /* Below are the individual _set{state} functions. They must not be
+    called except through _setState, otherwise widget construction is
     bypassed! */
 
     /* TODO: hidden/visible a wise way to manage these elements? I don't
@@ -491,6 +438,20 @@ debugger;
     var selfHandler = function(who, arr) {
         var action = arr[0],
             args   = arr[1];
+    switch (action) {
+      case 'afterBuild': {
+        var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
+        if (currentState) {
+            currentState = currentState;
+            _setState(currentState); //Set the current state on page
+        }
+        else {
+            _sbx.notify(who,'NavChange');
+//             _fireNavChange(); //Fire the page to load the current settings
+        }
+      }
+      default: {
+// debugger;
         YAHOO.log("NavChange:  type=" + args.type + " target=" + args.target +
               " widget=" + args.widget.widget + " filter=" + args.filter,
               'info', 'Navigator');
@@ -521,7 +482,9 @@ debugger;
 //                 widget.dataTable.subscribe('renderEvent', _afterRender);   //Assign the function to the event (after column gets sorted)
 //                 widget.dataTable.subscribe('columnShowEvent', _formPermalinkURL);   //Assign the function to the event (after column gets sorted)
 //             }
+          }
         }
+      };
     };
 
     /* PHEDEX.Core.Registry.beforeConstructEvent :
@@ -568,11 +531,15 @@ debugger;
             name: 'TargetTypeSelector',
             parent: 'navigator',
           },
+          {
+            name: 'WidgetSelector',
+            parent: 'navigator',
+          },
+          {
+            name: 'Permalink',
+            parent: 'navigator',
+          },
         ],
-
-initDom: function(a,b,c) {
-debugger;
-},
 
         //========================= Public Methods ==========================
         // init(el, opts)
@@ -582,6 +549,19 @@ debugger;
         //     'typeconfig'   : an array of objects for organizing the type menu.
         //     'widgetconfig' : an array of objects for organizing the widget menu.
         init: function(args) {
+            try {
+              YAHOO.util.History.onReady( (function(obj) {
+                return function() {
+                  obj.create(args); //Initializes the form
+                };
+              })(this) );
+              YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
+            } catch (ex) {
+              log(ex,'error','Navigator')
+              this.create(args);
+            }
+        },
+        create: function(args) {
             this.el  = args.el;
             if ( typeof(this.el) != 'object' ) {
               this.el = document.getElementById(this.el);
@@ -604,7 +584,7 @@ debugger;
 //             _sbx.notify('Load','phedex-globalfilter',{el:el});
 
             // Build Permalink
-            _initPermaLink(this.el);
+//             _initPermaLink(this.el);
 
             // Get the current state that would also be default state for the page
             _defaultPageState = _getCurrentState(null);
@@ -616,15 +596,15 @@ debugger;
 
           // TODO:  is there a use case for any of these?
           // public methods
-          addTarget: function(target) { },
-          addWidget: function(widget) { },
-
-          getTarget: function() { },
-          getWidget: function() { },
-
-          // call to change the target and/or widget
-          // this is used when  e.g. a context menu item within a widget is selected
-          change: function(target, widget) { },
+//           addTarget: function(target) { },
+//           addWidget: function(widget) { },
+// 
+//           getTarget: function() { },
+//           getWidget: function() { },
+// 
+//           // call to change the target and/or widget
+//           // this is used when  e.g. a context menu item within a widget is selected
+//           change: function(target, widget) { },
 
           //========================= Public Events ===========================
           // fired when the filter changes, passes (filter)
@@ -632,6 +612,123 @@ debugger;
         }
       };
     YAHOO.lang.augmentObject(this, _construct(), true);
+};
+
+PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox;
+
+  this.id = 'WidgetSelector';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-widget';
+  var _getWidgetMenuItems = function(type) {
+    var widgets = PxR.getWidgetsByInputType(type);
+    var menu_items = [];
+    for (var w in widgets) {
+      w = widgets[w];
+      menu_items.push({ text: w.label, value: w });
+    }
+    return menu_items;
+  };
+
+  var _initWidgetSelector = function(/*el*/) {
+//         var widgetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-widget', className: 'phedex-nav-component' });
+
+    var menu_items = _getWidgetMenuItems(_cur_target_type);
+    _cur_widget = menu_items[0].value;
+    var label = menu_items[0].text;
+
+    _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
+      'label': label,
+      'menu': menu_items,
+      'container': this.el
+    });
+
+    // update state on menu selections
+    var onSelectedMenuItemChange = function(event) {
+      var menu_item = event.newValue;
+      var widget = menu_item.value;
+      _addToHistory({ 'widget': widget });
+    };
+    _widget_menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+  };
+
+  var _updateWidgetGUI = function(widget) {
+    _widget_menu.set("label", widget.label);
+  };
+
+  var _updateWidgetMenu = function(type) {
+    //    YAHOO.log('type: '+type);
+    var menu_items = _getWidgetMenuItems(type);
+    //    YAHOO.log('menu_items: '+YAHOO.lang.dump(menu_items));
+    var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
+    var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
+    if (YAHOO.util.Dom.inDocument(menu.element)) {
+      menu.clearContent();
+      menu.addItems(menu_items);
+      menu.render();
+      //      YAHOO.log('menu rebuild: '); //+YAHOO.lang.dump(menu.itemData));
+      } else {
+      //      YAHOO.log('menu assign: '); //+YAHOO.lang.dump(menu.itemData));
+        menu.itemData = menu_items;
+      }
+      _updateWidgetGUI(widget); // set menu to first item
+      return widget;
+  };
+  this.partnerHandler = function(obj) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+// debugger;
+      switch (action) {
+//         case 'UpdatePermaLink': {
+//           break;
+//         }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _initWidgetSelector();
+  return this;
+};
+
+
+PHEDEX.Navigator.Permalink = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox;
+
+  this.id = 'Permalink';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-link';
+//   var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
+  var a = PxU.makeChild(this.el, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#' });
+  this.partnerHandler = function(obj) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value  = arr[1];
+      switch (action) {
+        case 'NavChange': {
+            a.href = document.location.href;
+          break;
+        }
+        case 'UpdatePermaLink': {
+debugger;
+          if (value) {
+            a.href = value; //Update the link with permalink URL
+          } else {
+            a.href = document.location.href; //Update the link with current browser URL
+          }
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  return this;
 };
 
 PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
@@ -643,10 +740,11 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
   this.el = document.createElement('div');
   this.el.id = 'phedex-nav-targettype';
   this.el.className = 'phedex-nav-component';
-  this.target_ids = {};
   this.dom={};
 
   this._initTargetSelectors = function(el,_target_types) {
+    if ( this.target_ids ) { return; }
+    this.target_ids = {};
     var targetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-target',
             className: 'phedex-nav-component phedex-nav-target'
     });
@@ -690,7 +788,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             }
             _node_ds = new YAHOO.util.LocalDataSource(nodelist);
             _buildNodeSelector(sel);
-            _buildNodeEvent.fire(); //Now the data service call is answered. So, set the status of page.
+            _sbx.notify(obj.id,'afterBuild');
+//             _buildNodeEvent.fire(); //Now the data service call is answered. So, set the status of page.
           };
         PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
         return sel;
@@ -698,7 +797,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     };
 
   var _buildNodeSelector = function(div) {
-    var input = PxU.makeChild(div, 'input', { type: 'text' }),
+    var input     = PxU.makeChild(div, 'input', { type: 'text' }),
         container = PxU.makeChild(div, 'div'),
         auto_comp = new YAHOO.widget.AutoComplete(input, container, _node_ds);
     auto_comp.prehighlightClassName = "yui-ac-prehighlight";
@@ -708,6 +807,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     auto_comp.queryMatchContains = true;
     var nodesel_callback = function(type, args) {
       var node = args[2];
+      _sbx.notify(obj.id,'AddToHistory',{target:node});
 //     _addToHistory({ 'target': node });
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
@@ -717,7 +817,6 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     };
   };
   this._updateTargetSelector = function(type) {
-    var div = this.el; //document.getElementById('phedex-nav-target');
     for (var t in this.target_ids) {
       var el = document.getElementById(this.target_ids[t]);
       if ( t == type ) {
