@@ -7,6 +7,12 @@ body {
   line-height:	1.6em;
 }
 
+.phedex-bkg-blue      { background-color: #eef; }
+.phedex-bkg-green     { background-color: #efe; }
+.phedex-bkg-red       { background-color: #fee; }
+.phedex-bkg-yellow    { background-color: #ffe; }
+.phedex-bkg-mauve     { background-color: #fef; }
+.phedex-bkg-turquoise { background-color: #eff; }
 .phedex-box-blue      { border: 1px solid #88f; background-color: #eef; }
 .phedex-box-green     { border: 1px solid #8f8; background-color: #efe; }
 .phedex-box-red       { border: 1px solid #f88; background-color: #fee; }
