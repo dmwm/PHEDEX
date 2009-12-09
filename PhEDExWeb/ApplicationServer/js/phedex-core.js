@@ -57,9 +57,11 @@ PHEDEX.Core = function(sandbox,loader) {
           log('code "'+name +'" loaded...','info',_me);
           _loaded[name] = {};
           _sbx.notify('Loaded',name);
-          var ctor = PxU.getConstructor(name),
-              m = new ctor(_sbx);
-          m.init(arr[1]);
+          try {
+            var ctor = PxU.getConstructor(name),
+                m = new ctor(_sbx);
+            m.init(arr[1]);
+          } catch (ex) { banner('Cannot construct '+name,'error'); throw ex; }
         }
       }(this),
       Progress: function(item) { banner('Loaded item: '+item.name); }
@@ -182,9 +184,10 @@ PHEDEX.Core = function(sandbox,loader) {
         return function() {
           if ( !_d.payload )     { _d.payload = {}; }
           if ( !_d.payload.obj ) { _d.payload.obj = _m; }
-          try { _m.ctl[_d.name] = new _ctor(_sbx,_d); }
-          catch (ex) { log(err(ex),'error','Core'); }
-          if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+          try {
+            _m.ctl[_d.name] = new _ctor(_sbx,_d);
+            if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+          } catch (ex) { banner(err(ex),'error','Core'); return; }
           nDec++;
           if ( nDec == m.decorators.length ) {
             _sbx.notify(m.id,'decoratorsReady');
