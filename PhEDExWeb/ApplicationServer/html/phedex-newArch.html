@@ -16,8 +16,8 @@
 </head>
 
 <body class="yui-skin-sam">
- <iframe id="yui-history-iframe" src="/yui/build/history/assets/blank.html"></iframe>
- <input id="yui-history-field" type="hidden">
+ <iframe id="yui-history-iframe" src="/yui/build/history/assets/blank.html" style='visibility:hidden'></iframe>
+ <input id="yui-history-field" type="hidden" style='visibility:hidden'>
  <div class='phedex-banner'>
     <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
@@ -72,10 +72,10 @@ banner = function() {
   var outer = document.getElementById('phedex-banner-messages-outer'),
       inner = document.getElementById('phedex-banner-messages-inner'),
       classNames = {
-        info:'phedex-box-green',
-        warn:'phedex-box-yellow',
-        error:'phedex-box-red',
-        default:'phedex-box-turquoise'
+        info:   'phedex-bkg-green',
+        warn:   'phedex-bkg-yellow',
+        error:  'phedex-bkg-red',
+        default:'phedex-bkg-turquoise'
       },
       order = { default:0, info:1, warn:2, error:3 },
       current;
@@ -94,14 +94,10 @@ banner = function() {
         current = order[level];
         inner.className = classNames[level] + ' phedex-messages-inner';
         YAHOO.util.Dom.removeClass(outer,'phedex-invisible');
+        fade();
       } else {
         YAHOO.util.Dom.addClass(outer,'phedex-invisible');
       }
-//       if ( current > 0 ) { setTimeout( function() { 
-// var x = current;
-// debugger;
-// current--; }, 2000 ); }
-      fade();
     }
   };
 }();
