@@ -1,4 +1,5 @@
 package PHEDEX::Core::Inject;
+use base 'PHEDEX::Core::SQL';
 
 =pod
 
@@ -78,9 +79,10 @@ of each bulk insertion.
 
 =cut
 
+
+
 use strict;
 use warnings;
-use base 'PHEDEX::Core::SQL';
 
 use PHEDEX::Core::Timing;
 
@@ -218,11 +220,13 @@ sub injectData
 		    push @$close_blocks, $b;
 		}
 
-		my $dbfiles = &getLFNsFromBlocks($self, $b->{NAME});
-
+		my $dbfiles = &getBlockFiles($self,
+					     ID    => $b->{ID},
+					     NAME  => $b->{NAME});
+		
 		foreach my $f (values %{$b->{FILES}}) {
 		    $f->{BLOCK_REF} = \$b->{ID};
-		    if (grep($_ eq $f->{LOGICAL_NAME}, @$dbfiles)) { # file exists
+		    if (grep($_->{LOGICAL_NAME} eq $f->{LOGICAL_NAME}, @$dbfiles)) { # file exists
 			my $msg = "file $f->{LOGICAL_NAME} exists";
 			die "injectData error: $msg\n" if $strict;
 			print "$msg ...skipping\n" if $verbose; next;
@@ -630,6 +634,32 @@ sub getBlock
 			':dataset' => $h{DATASET_ID});
 
     return $q->fetchrow_hashref();
+}
+
+=pod
+
+=item getBlockFiles(%h)
+
+Returns a list of file hashrefs given a block ID or NAME
+
+=cut
+
+sub getBlockFiles
+{
+    my ($self, %h) = @_;
+    my ($sql,%p);
+    if ($h{ID}) {
+	$sql = qq{ select * from t_dps_file where inblock = :block };
+	$p{':block'} = $h{ID};
+    } elsif ($h{NAME}) {
+	$sql = qq{ select * from t_dps_file f 
+		     join t_dps_block b on b.id = f.inblock
+		    where b.name = :name };
+	$p{':name'} = $h{NAME};
+    }
+    my $q = execute_sql($self, $sql, %p);
+
+    return $q->fetchall_arrayref({});
 }
 
 =pod
