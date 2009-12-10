@@ -261,6 +261,16 @@ function createCoreApp() {
   banner('Core application is running, ready to create PhEDEx data-modules...');
 //   PxS.notify('CreateModule','Agents',{node:'T1_IT_CNAF_Buffer'});
 //   PxS.notify('CreateModule','LinkView',{node:'T1_US_FNAL_Buffer'});
+  PxS.notify('Load',/*'phedex-config',*/'phedex-navigatornew', {
+    el: 'phedex-navigator',
+    cfg: {
+      typecfg: {
+        none:   { label: 'Explore global',  order: 10 },
+        node:   { label: 'Explore by node', order: 20 },
+        static: { label: 'Explore Information', order: 30 }
+      }
+    }
+  });
 
   PxL.load(function() {
     PHEDEX.Logger.Create();
