@@ -62,10 +62,28 @@ sub auth
   $core->{SECMOD}->reqAuthnCert() if $args{require_cert};  
   my $auth = $core->getAuth($args{ability});
 
+  # get $human_name
+  my $human_name;
+  my $first_name = $core->{SECMOD}->getForename();
+  my $last_name = $core->{SECMOD}->getSurname();
+  if ($first_name and $last_name)
+  {
+    $human_name = $first_name . ' ' . $last_name;
+  }
+  elsif ($first_name)
+  {
+    $human_name = $first_name;
+  }
+  elsif ($last_name)
+  {
+    $human_name = $last_name;
+  }
+    
   # make XML-able data structure from our data
   my $obj = { 'state' => $auth->{STATE},
 	      'dn' => $auth->{DN},
-	      'ability' => $args{ability}
+	      'ability' => $args{ability},
+              'human_name' => $human_name
 	  };
 
   foreach my $role (keys %{$auth->{ROLES}}) {
