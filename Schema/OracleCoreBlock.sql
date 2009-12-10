@@ -71,6 +71,49 @@ create table t_dps_block
    constraint ck_dps_block_bytes
      check (bytes >= 0));
 
+create global temporary table t_tmp_br_active
+  (block      		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_src
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_dest
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_node
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_xfer
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_flag
+  (block      		integer		not null,
+   node			integer		not null,
+   is_custodial		char(1)		not null,
+   user_group		integer		,
+   time_update		integer		not null
+) on commit delete rows;
 
 create table t_dps_block_replica
   (block		integer		not null,
