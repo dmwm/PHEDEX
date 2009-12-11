@@ -423,9 +423,8 @@ debugger;
           obj._addToHistory();
           break;
         }
-        case 'WidgetSelected': {
+        case 'WidgetSelected': { // addToHistory, yes, but also create the required module
           obj._addToHistory();
-// debugger;
           _sbx.notify('module','*','destroy');
           _sbx.notify('CreateModule',args);
           break;
@@ -723,7 +722,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
   var p    = args.payload,
       obj  = args.payload.obj,
       _sbx = sandbox,
-      _type; // The currently selected type
+      _type, // The currently selected type
+      _typeArgs = {}; // currently selected arguments for the given types
 
   this.id = 'TargetTypeSelector';
   this.el = document.createElement('div');
@@ -799,6 +799,7 @@ debugger;
         auto_comp = new YAHOO.widget.AutoComplete(input, container, node_ds, cfg);
     var nodesel_callback = function(type, args) {
       _sbx.notify(obj.id,'NodeSelected',args[2][0]);
+      _typeArgs[_type] = {node:args[2][0]};
       _sbx.notify('module','*','setArgs',{node:args[2][0]});
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
@@ -856,6 +857,21 @@ debugger;
   }(this);
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
+  this.moduleHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'needArguments': {
+          if ( _typeArgs[_type] ) {
+            _sbx.notify(arr[1],'setArgs',null/*placeholder!*/,_typeArgs[_type]);
+          }
+        }
+      }
+    }
+  }(this);
+  _sbx.listen('module', this.moduleHandler);
+
   _sbx.notify(obj.id,'statePlugin', {key:'target',state:this.getState});
   return this;
 };
