@@ -88,11 +88,15 @@ PHEDEX.Module.Agents = function(sandbox, string) {
  */
       initData: function() {
         this.dom.title.innerHTML = 'Waiting for parameters to be set...';
-        if ( !node ) { return; }
+        if ( !node ) {
+          _sbx.notify( 'module', 'needArguments', this.id );
+          return;
+        }
         _sbx.notify( this.id, 'initData' );
       },
       setArgs: function(arr) {
         node = arr.node;
+        if ( !node ) { return; }
         this.dom.title.innerHTML = 'setting parameters...';
         _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
