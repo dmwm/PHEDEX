@@ -163,13 +163,12 @@ PHEDEX.Module = function(sandbox, string) {
  */
       initMe:       function() {},
 
-/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants.
+/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed.
  * @method initData
  */
       initData: function() {
         _sbx.notify( this.id, 'initData' );
       },
-
 
       /**
        * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
@@ -264,7 +263,6 @@ PHEDEX.Module = function(sandbox, string) {
         this.dom.body.style.padding = 0; // lame, but needed if our CSS is loaded before the YUI module CSS...
         if ( this.options.resizeable ) {
           YAHOO.lang.augmentObject(this, new PHEDEX.AppStyle.Resizeable(this),true);
-//         } else {
         }
 
         this.module.render();
