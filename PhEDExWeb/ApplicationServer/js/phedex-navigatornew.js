@@ -22,23 +22,25 @@ PHEDEX.Navigatornew = function(sandbox) {
     //   name    : (string) the target name
     //   label   : (string) visible label for this target type
 //         _target_types = {},
-      _cur_target_type = "", // the current target type
+//       _cur_target_type = "", // the current target type
 
-      _cur_target = "",          // the current target, set by the target selector
+//       _cur_target = "",          // the current target, set by the target selector
 //         _target_selector_ids = {}, // map of type => div id of selector
 
-      _cur_widget,       // The current widget (Core.Widget.Registry object)
+//       _cur_widget,       // The current widget (Core.Widget.Registry object)
 //         _widget_menu,      // Reference to YUI menu object for widgets
-      _cur_widget_obj,   // Current widget object
+//       _cur_widget_obj,   // Current widget object
     // FIXME: save *only* the current widget object, use Core.Widget to get other info?
 
-      _cur_filter = "",     // a string containing filter arguments
-      _parsed_filter = {},  // a hash containing the parsed filter key-value pairs
+//       _cur_filter = "",     // a string containing filter arguments
+//       _parsed_filter = {},  // a hash containing the parsed filter key-value pairs
 
-      _cur_widget_state,     // object that stores widget details obtained from permalink
+//       _cur_widget_state,     // object that stores widget details obtained from permalink
 
       _hist_sym_sep = "+",    //This character separates the states in the history URL
-      _hist_sym_equal = "~";  //This character indicates the state value
+      _hist_sym_equal = "~",  //This character indicates the state value
+      _defaultPageState = "",
+      _initialPageState;
 
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   this.state = {}; // plugins from decorators to access state-information easily (cheating a little)
@@ -58,8 +60,6 @@ PHEDEX.Navigatornew = function(sandbox) {
     * @description This creates the permalink element and defines function to set the permalink URL.
     * @param {Object} el Object specifying the element in the HTML page to be used for permalink.
     */
-
-    var _defaultPageState = "";
 
     /**
     * @method _getWidget
@@ -180,9 +180,9 @@ debugger;
     * @param {String} strQuery specifies the state of the page to be set.
     */
     var _parseQueryString = function(strQuery) {
-        var strTemp = "", indx = 0;
-        var arrResult = {};
-        var arrQueries = strQuery.split(_hist_sym_sep);
+        var strTemp = "", indx = 0,
+            arrResult = {},
+            arrQueries = strQuery.split(_hist_sym_sep);
         for (indx = 0; indx < arrQueries.length; indx++) {
             strTemp = arrQueries[indx].split(_hist_sym_equal);
             if (strTemp[1].length > 0) {
@@ -192,7 +192,7 @@ debugger;
         return arrResult;
     };
 
-    var _initialPageState = YAHOO.util.History.getBookmarkedState("page") || '';
+    _initialPageState = YAHOO.util.History.getBookmarkedState("page") || '';
     YAHOO.util.History.register("page", _initialPageState, _setState);
 
     /**
@@ -318,6 +318,7 @@ debugger;
     bypassed! */
 
     var _setTargetType = function(state) {
+debugger;
         var type = state.type;
         var old = _cur_target_type;
         if (!type) { type = _cur_target_type; }
@@ -328,8 +329,6 @@ debugger;
             if (!state.widget) { state.widget = new_widget; }
             var new_target = 'pqr';//_updateTargetSelector(type); // get a new target selector, returns default selection
             if (!state.target) { state.target = new_target; }
-//             _sbx.notify(this.id,'updateTargetTypeGUI',type);
-debugger;
             _sbx.notify(this.id,'TargetType',type);
             return 1;
         } else { return 0; }
@@ -376,6 +375,7 @@ debugger;
 
     // For now, just check that all parameters are set
     var _validConstruction = function() {
+debugger;
         if ((_cur_target_type == 'none') || (_cur_target_type == 'static')) {
             if (_cur_target_type && _cur_widget) { return true; }
             else { return false; }
@@ -419,9 +419,15 @@ debugger;
 // These are to respond to changes in the decorations
 //      case 'TargetType': Not needed! Setting TargetType always leads to WidgetSelected, so that is enough to do the job
         case 'NodeSelected':
-        case 'WidgetSelected':
         case 'Instance': {
           obj._addToHistory();
+          break;
+        }
+        case 'WidgetSelected': {
+          obj._addToHistory();
+// debugger;
+          _sbx.notify('module','*','destroy');
+          _sbx.notify('CreateModule',args);
           break;
         }
 
@@ -617,6 +623,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   var _updateWidgetGUI = function(o) {
     return function(widget) {
       _widget_menu.set("label", widget.label);
+      if ( _widget == widget.widget ) { return; }
       _widget = widget.widget;
       _sbx.notify(obj.id,'WidgetSelected',o.getState());
     };
@@ -792,6 +799,7 @@ debugger;
         auto_comp = new YAHOO.widget.AutoComplete(input, container, node_ds, cfg);
     var nodesel_callback = function(type, args) {
       _sbx.notify(obj.id,'NodeSelected',args[2][0]);
+      _sbx.notify('module','*','setArgs',{node:args[2][0]});
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
   };
