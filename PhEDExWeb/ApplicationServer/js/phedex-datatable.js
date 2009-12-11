@@ -91,6 +91,7 @@ PHEDEX.DataTable = function(sandbox,string) {
                     }
                 }
                 var w = this.dataTable.getTableEl().offsetWidth;
+                if ( this.options.minwidth && w < this.options.minwidth ) { w = this.options.minwidth; }
                 this.el.style.width = w+'px';
             },
 
@@ -172,8 +173,11 @@ PHEDEX.DataTable = function(sandbox,string) {
                     _sbx.notify(obj.id, 'hideColumn', {text: column.label || column.key,value:column.key} );
                     }
                 }(this));
-                
+
                 this.dataTable.subscribe('renderEvent', function() { this.resizePanel(); } );
+                var w = this.dataTable.getTableEl().offsetWidth;
+                if ( this.options.minwidth && w < this.options.minwidth ) { w = this.options.minwidth; }
+                this.el.style.width = w+'px';
             }
         };
     };
