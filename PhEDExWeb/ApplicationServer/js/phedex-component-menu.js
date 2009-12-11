@@ -107,7 +107,6 @@ PHEDEX.Component.Menu = function(sandbox,args) {
           menu: this._menu,
           container: p.obj.dom[p.container]
         });
-        this._button = new YAHOO.widget.Button(x);
         this._button.on('selectedMenuItemChange', onSelectedMenuItemChange);
 
 // these two button-handlers could be factored out as extensions to the basic type...?
