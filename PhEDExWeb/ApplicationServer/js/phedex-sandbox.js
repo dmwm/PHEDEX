@@ -35,7 +35,7 @@ PHEDEX.Sandbox = function() {
       var event,
           arr = Array.apply(null,arguments);
       event = arr.shift();
-      log('notify event: '+event+' ('+YAHOO.lang.dump(arr)+')','info',_me);
+      log('notify event: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
       setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
     },
 
