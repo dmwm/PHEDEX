@@ -11,7 +11,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox,
-      node = 'T1_US_FNAL_Buffer';
+      node; // = 'T1_US_FNAL_Buffer';
   log('Module: creating a genuine "'+string+'"','info',string);
 
    _construct = function(obj) {
@@ -65,7 +65,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       options: {
         width:500,
         height:200,
-        minwidth:300,
+        minwidth:600,
         minheight:50,
       },
 
@@ -83,13 +83,22 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         defhide:['PID','Host','State Dir']
       },
 
+/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed.
+ * @method initData
+ */
+      initData: function() {
+        this.dom.title.innerHTML = 'Waiting for parameters to be set...';
+        if ( !node ) { return; }
+        _sbx.notify( this.id, 'initData' );
+      },
       setArgs: function(arr) {
         node = arr.node;
+        this.dom.title.innerHTML = 'setting parameters...';
+        _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
       getData: function() {
-        log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
+        log('Fetching data','info',this.me);
       },
       gotData: function(data) {
         log('Got new data','info',this.me);
