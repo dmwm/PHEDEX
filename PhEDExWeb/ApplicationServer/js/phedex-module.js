@@ -145,7 +145,7 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler<strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1 },
+      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, destroy:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -188,7 +188,8 @@ PHEDEX.Module = function(sandbox, string) {
             var who = arr[0],
                 action = arr[1];
             if ( who && who != '*' && who != obj.id ) { return; }
-            if ( typeof(obj[action]) == 'null' ) { return; }
+            if ( !obj.allowNotify[action] )           { return; }
+            if ( typeof(obj[action]) == 'null' )      { return; }
             if ( typeof(obj[action]) != 'function' ) {
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
@@ -217,16 +218,12 @@ PHEDEX.Module = function(sandbox, string) {
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-              case 'getWidgetsByInputType':
-              case 'getInputTypes': {
-                var t = arr[2];
-                break;
-              }
               default: {
                 if ( obj[action] && obj.allowNotify[action]) {
                   log('Default action for event: '+action,'warn',obj.me);
-                  arr.shift();
-                  obj[action](arr);
+debugger;
+something wrong here. Need to figure out what to pass to the action: arr, arr[2], or value?
+                  obj[action](arr[2]);
                 }
                 break;
               }
