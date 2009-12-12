@@ -116,10 +116,10 @@ PHEDEX.DataTable = function(sandbox,string) {
             * A callback for the 'show-fields' button. Used to show a column that has been hidden thus far
             * @method menuSelectItem
             * @private
-            * @param arr {array} An array, the first element of which is the name of a column.
+            * @param arg {string} The name of a column.
             */
-            menuSelectItem: function(arr) {
-                this.dataTable.showColumn(this.dataTable.getColumn(arr[0]));
+            menuSelectItem: function(arg) {
+                this.dataTable.showColumn(this.dataTable.getColumn(arg));
             },
 
             /**

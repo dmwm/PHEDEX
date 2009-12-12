@@ -194,6 +194,7 @@ PHEDEX.Module = function(sandbox, string) {
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
             }
+            log('genericHandler action for event: '+action+' '+YAHOO.lang.dump(arr[2]),'warn','Tony');
             obj[action](arr[2]);
           }
         }(this);
@@ -220,10 +221,11 @@ PHEDEX.Module = function(sandbox, string) {
               }
               default: {
                 if ( obj[action] && obj.allowNotify[action]) {
-                  log('Default action for event: '+action,'warn',obj.me);
-debugger;
-something wrong here. Need to figure out what to pass to the action: arr, arr[2], or value?
-                  obj[action](arr[2]);
+                  log('selfHandler: default action for event: '+action,'warn',obj.me);
+                  log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn','Tony');
+// debugger;
+// something wrong here. Need to figure out what to pass to the action: arr, arr[2], or value?
+                  obj[action](value);
                 }
                 break;
               }

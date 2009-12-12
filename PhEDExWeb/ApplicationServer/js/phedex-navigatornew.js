@@ -864,7 +864,7 @@ debugger;
       switch (action) {
         case 'needArguments': {
           if ( _typeArgs[_type] ) {
-            _sbx.notify(arr[1],'setArgs',null/*placeholder!*/,_typeArgs[_type]);
+            _sbx.notify(arr[1],'setArgs',_typeArgs[_type]);
           }
         }
       }
