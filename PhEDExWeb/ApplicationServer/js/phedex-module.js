@@ -187,14 +187,14 @@ PHEDEX.Module = function(sandbox, string) {
           return function(ev,arr) {
             var who = arr[0],
                 action = arr[1];
-            if ( who && who != '*' && who != obj.id ) { return; }
+            if ( who && who != '*' && who != obj.me ) { return; }
             if ( !obj.allowNotify[action] )           { return; }
             if ( typeof(obj[action]) == 'null' )      { return; }
             if ( typeof(obj[action]) != 'function' ) {
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
             }
-            log('genericHandler action for event: '+action+' '+YAHOO.lang.dump(arr[2]),'warn','Tony');
+            log('genericHandler action for event: '+action+' '+YAHOO.lang.dump(arr[2]),'warn',obj.me);
             obj[action](arr[2]);
           }
         }(this);
@@ -221,10 +221,7 @@ PHEDEX.Module = function(sandbox, string) {
               }
               default: {
                 if ( obj[action] && obj.allowNotify[action]) {
-                  log('selfHandler: default action for event: '+action,'warn',obj.me);
-                  log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn','Tony');
-// debugger;
-// something wrong here. Need to figure out what to pass to the action: arr, arr[2], or value?
+                  log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
                   obj[action](value);
                 }
                 break;
