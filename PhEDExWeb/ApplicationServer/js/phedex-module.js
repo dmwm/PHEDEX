@@ -142,7 +142,7 @@ PHEDEX.Module = function(sandbox, string) {
         _sbx.notify(this.id,'init');
       },
 
-/** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler<strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
+/** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
       allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, destroy:1 },

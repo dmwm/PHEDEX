@@ -1,7 +1,7 @@
 /**
  * The sandbox is used for managing communication between components without them having direct knowledge of each other. It allows components to listen for interesting events or to notify other components about interesting things they have done.
  * @namespace PHEDEX
- * @class Sandbox
+ * @class PHEDEX.Sandbox
  * @constructor
  */
 

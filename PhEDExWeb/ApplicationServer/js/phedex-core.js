@@ -1,7 +1,7 @@
 /**
  * PhEDEx Core application class. Manages module lifetimes, drives the workflow of the application
  * @namespace PHEDEX
- * @class Core
+ * @class PHEDEX.Core
  * @constructor
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
  * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
