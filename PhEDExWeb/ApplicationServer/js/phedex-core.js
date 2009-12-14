@@ -242,6 +242,7 @@ PHEDEX.Core = function(sandbox,loader) {
         m.initDerived();
         m.initMe();
         m.initData();
+        m.show();
 
 //      the module is complete, now load the decorators!
         _loadDecorators(m);
@@ -249,7 +250,6 @@ PHEDEX.Core = function(sandbox,loader) {
       }
       case 'initData': {
         log('calling "'+who+'.show()"','info',_me);
-        m.show();
         m.getData();
         break;
       }
