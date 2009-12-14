@@ -11,7 +11,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox,
-      node; // = 'T1_US_FNAL_Buffer';
+      node;
   log('Module: creating a genuine "'+string+'"','info',string);
 
    _construct = function(obj) {
@@ -83,26 +83,34 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         defhide:['PID','Host','State Dir']
       },
 
-/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed.
+/** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed. If the module does not have enough parameters defined, it can notify the sandbox with <strong>needArguments</strong>, and someone out there (e.g. the global filter or the navigator history) can attempt to supply them
  * @method initData
  */
       initData: function() {
         this.dom.title.innerHTML = 'Waiting for parameters to be set...';
-        if ( !node ) {
-          _sbx.notify( 'module', 'needArguments', this.id );
+        if ( node ) {
+          _sbx.notify( this.id, 'initData' );
           return;
         }
-        _sbx.notify( this.id, 'initData' );
+        _sbx.notify( 'module', 'needArguments', this.id );
       },
+/** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
+ * @method setArgs
+ * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+ */
       setArgs: function(arr) {
-        node = arr.node;
+        if ( arr ) { node = arr.node; }
         if ( !node ) { return; }
         this.dom.title.innerHTML = 'setting parameters...';
-        _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
       getData: function() {
+        if ( !node ) {
+          this.initData();
+          return;
+        }
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
+        _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
       gotData: function(data) {
         log('Got new data','info',this.me);
