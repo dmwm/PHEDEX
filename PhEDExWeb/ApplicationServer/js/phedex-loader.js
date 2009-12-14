@@ -168,7 +168,7 @@ PHEDEX.Util = {
   }
 };
 
-PHEDEX.Base = function() {
+PHEDEX.Base = {
 /** Base object for all graphical entities in the application. Should not be instantiated on its own. It has no methods, only structural components, so that derived objects do not have to test for the existance of such components before accessing elements of them.
  * @namespace PHEDEX.Base
  * @class Object
