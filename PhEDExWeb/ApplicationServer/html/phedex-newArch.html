@@ -1,16 +1,17 @@
 <!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
 <head>
+  <title>PhEDEx Web Application</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 <!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
   <style type='text/css'>
     body {
-      margin:	0;
-      margin-left:	1em;
-      padding:	0;
-      font-size:	80%;
-      font-family:	'Lucida Grande', verdana, helvetica, arial, sans-serif;
-      line-height:	1.6em;
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
     }
   </style>
 </head>
@@ -21,9 +22,13 @@
  <div class='phedex-banner'>
     <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
-    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
-    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> -
-    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <a target='new_twiki' title='PhEDEx website planning twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
+<!-- based on http://reliableanswers.com/js/mailme.asp -->
+    <a href="/contact/" title="Send us feedback about this site"
+       onmouseover="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
+       onfocus="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
+       >feedback email</a>
+    <a target='new_bugs' title='PhEDEx Savannah bug-reporting and feature requests' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
     <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
       <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
     </span>
@@ -36,13 +41,38 @@
  <div id='phedex-debug' class='float-right'></div>
  <div id='phedex-test'></div>
  <div id='phedex-main'></div>
+
+<!-- The following section is to
+     1. Give google something to index
+     2. Notifiy people without javascript -->
+<noscript>
+<p>(<b>Note:</b> Javascript is required to use the PhEDEx Web
+    Application.  The following description is intended for
+    web-crawlers).</p>
+<h1>PhEDEx - Physics Experiment Data Export</h1>
+<p>PhEDEx is the data transfer system used by the CMS experiment at CERN.</p>
+
+<h2>Javascript is Required!</h1>
+<p>The PhEDEx Web Application requires a browser with javascript
+available and enabled.  We recommend the latest version of Mozilla
+Firefox, available <a href='http://www.mozilla.com/firefox/'>here</a>.</a>
+
+<p>If it is not possible for you to use a browser with javascript, you
+can write scripts to use the data service directly.  Data service
+documentation is found
+<a href='/phedex/datasvc/doc'>
+here</a>.</p>
+</noscript>
+
 </body>
 
 <script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
+  function mailMe(sDom, sUser){
+    return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,"."));
+  }
 
-// Some utility functions first. These need a better home, like phedex-base.js
 
 stressTest = function(type) {
   var el = document.getElementById('phedex-debug'),
@@ -242,8 +272,13 @@ function createCoreApp() {
     ctl.Show();
   },'logger','component-control');
 
-  PHEDEX.Base.bannerIdleTimer(PxL);
+  PHEDEX.Util.bannerIdleTimer(PxL);
 
+
+  var phedex_app_version = document.getElementById('phedex-app-version');
+  if ( phedex_app_version ) { phedex_app_version.innerHTML = PHEDEX.Appserv.Version; }
+
+//   mailMe('cern%23ch','cms-phedex-admins');
 //   PxL.load(function() {
 //     var preLoader = new PHEDEX.Util.IdleTimer();
 //     var modules = ['datatable',/*'treeview',*/'module','module-nodes','module-agents'];
@@ -259,6 +294,5 @@ function createCoreApp() {
 // //     preLoader.start(2000);
 //   },'util-idletimer');
 };
-
 </script>
 </html>
