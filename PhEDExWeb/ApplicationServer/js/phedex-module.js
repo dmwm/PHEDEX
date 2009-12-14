@@ -145,7 +145,7 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, destroy:1 },
+      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
