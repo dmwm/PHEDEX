@@ -255,7 +255,7 @@ PHEDEX.Core = function(sandbox,loader) {
       }
       case 'destroy': {
         delete _modules[who];
-        _sbx.deleteEvent(action);
+        _sbx.deleteEvent(who);
         break;
       }
       case 'createDecorators': {
