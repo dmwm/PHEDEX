@@ -44,64 +44,6 @@
 
 // Some utility functions first. These need a better home, like phedex-base.js
 
-// format an exception object into a sensible error-message
-err = function(ex) { return ex.name+': '+ex.message+' ('+ex.fileName+':'+ex.lineNumber+')'; }
-
-// a simple logging function, to show it all working. This is overridden by PHEDEX.Logger, later.
-log = function() {
-  var _buffer = [],
-      el = document.getElementById('phedex-logger-inner');
-  return function(str,level,group) {
-    if ( str ) {
-      if ( typeof(str) == 'object' ) { str = err(str); } // assume it's an exception object!
-      if ( el ) {
-        el.innerHTML += str+'<br/>';
-        if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
-      }
-    _buffer.push([str,level,group]);
-    } else {
-      var b = _buffer; // gymnastics to reset _buffer to null within a closure, but still return it!
-      _buffer = null;
-      return b;
-    }
-  };
-}();
-
-// simple banner messages to show progress. Make it disappear by sending it the null string.
-banner = function() {
-  var outer = document.getElementById('phedex-banner-messages-outer'),
-      inner = document.getElementById('phedex-banner-messages-inner'),
-      classNames = {
-        info:   'phedex-bkg-green',
-        warn:   'phedex-bkg-yellow',
-        error:  'phedex-bkg-red',
-        default:'phedex-bkg-turquoise'
-      },
-      order = { default:0, info:1, warn:2, error:3 },
-      current;
-  if ( !outer ) { return; }
-  var fade = function() {
-    current--;
-    if ( current < 2 ) { return; }
-    setTimeout( function() { fade(); }, 2500 );
-  }
-  return function(str,level,group) {
-    if ( outer ) {
-      if ( str ) {
-        if ( !level ) { level = 'default'; }
-        if ( order[level] < current ) { return; }
-        inner.innerHTML = str;
-        current = order[level];
-        inner.className = classNames[level] + ' phedex-messages-inner';
-        YAHOO.util.Dom.removeClass(outer,'phedex-invisible');
-        fade();
-      } else {
-        YAHOO.util.Dom.addClass(outer,'phedex-invisible');
-      }
-    }
-  };
-}();
-
 stressTest = function(type) {
   var el = document.getElementById('phedex-debug'),
       d  = document.getElementById('phedex-debug-status'),
@@ -228,7 +170,9 @@ debugLinks = function() {
 //     el.appendChild(div);
 //   }
 }
+
 // When the DOM is available, start loading the essential bits and pieces
+// This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
 // dynamic loader for PhEDEx and YUI. This is for the global app to use
@@ -298,27 +242,22 @@ function createCoreApp() {
     ctl.Show();
   },'logger','component-control');
 
-// just for fun, using the IdleTimer from Zackas, do a couple of things:
-// 1. Prompt the user that we are waiting for them to do something, and
-// 2. pre-load the rest of the code in idle-time
-  PxL.load(function() {
-    var IdleTimer = new PHEDEX.Util.IdleTimer();
-    IdleTimer.subscribe('idle',   function() { banner('waiting for your input'); });
-    IdleTimer.subscribe('active', function() { banner(); });
-    IdleTimer.start(10000);
-    var preLoader = new PHEDEX.Util.IdleTimer();
-    var modules = ['datatable',/*'treeview',*/'module','module-nodes','module-agents'];
-    preLoader.subscribe('idle', function() {
-          var m = modules.shift();
-          if ( !m ) { preLoader.stop(); return; }
-          log('preload '+m,'warn','Loader');
-          var fn = function(obj) {
-            return function() { obj.start(2000); }
-          }(preLoader);
-          PxL.load(fn,m);
-        },preLoader,true);
-//     preLoader.start(2000);
-  },'util-idletimer');
+  PHEDEX.Base.bannerIdleTimer(PxL);
+
+//   PxL.load(function() {
+//     var preLoader = new PHEDEX.Util.IdleTimer();
+//     var modules = ['datatable',/*'treeview',*/'module','module-nodes','module-agents'];
+//     preLoader.subscribe('idle', function() {
+//           var m = modules.shift();
+//           if ( !m ) { preLoader.stop(); return; }
+//           log('preload '+m,'warn','Loader');
+//           var fn = function(obj) {
+//             return function() { obj.start(2000); }
+//           }(preLoader);
+//           PxL.load(fn,m);
+//         },preLoader,true);
+// //     preLoader.start(2000);
+//   },'util-idletimer');
 };
 
 </script>
