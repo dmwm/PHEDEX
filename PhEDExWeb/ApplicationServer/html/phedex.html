@@ -3,89 +3,46 @@
 <head>
   <title>PhEDEx Web Application</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
-
-  <!-- YUI stylesheets-->
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/treeview/assets/skins/sam/treeview.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/datatable/assets/skins/sam/datatable.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/container/assets/container-core.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/resize/assets/skins/sam/resize.css"> 
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/logger/assets/skins/sam/logger.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/menu/assets/skins/sam/menu.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/examples/treeview/assets/css/menu/tree.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/button/assets/button-core.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/assets/skins/sam/button.css">
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/fonts/fonts-min.css" />
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/yui/build/autocomplete/assets/skins/sam/autocomplete.css" />
-
-  <!-- YUI libs -->
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/connection/connection-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/json/json-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/treeview/treeview-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/logger/logger-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/dragdrop/dragdrop-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/element/element-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/datasource/datasource-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/datatable/datatable-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/animation/animation-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/container/container-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/resize/resize-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/menu/menu-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/button/button-min.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/yui/build/autocomplete/autocomplete-min.js"></script>
-
-  <!-- PhEDEx stylesheets -->
-  <link rel="stylesheet" type="text/css" href="/phedex/datasvc/app/css/phedex.css">
-
-  <!-- PhEDEx libs -->
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-logger.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-contextmenu.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-util.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-page.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-datasvc.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-event.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-control.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-filter.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-widget.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-widget-registry.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-widget-datatable.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-core-widget-treeview.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-widget-agents.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-widget-nodes.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-widget-linkview.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-widget-requestview.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-widget-template.js"></script>
-  <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-navigator.js"></script>
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
 </head>
 
 <body class="yui-skin-sam">
- <div style='border-bottom:solid black 2px; margin-bottom: 2px;'><img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
+ <iframe id="yui-history-iframe" src="/yui/build/history/assets/blank.html" style='visibility:hidden'></iframe>
+ <input id="yui-history-field" type="hidden" style='visibility:hidden'>
+ <div class='phedex-banner'>
+    <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" />
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
-    <a target='new_twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> - 
-    <a href="mailto:cms-phedex-admins@cern.ch">feedback mail</a> - 
-    <a target='new_bugs' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <a target='new_twiki' title='PhEDEx website planning twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
+<!-- based on http://reliableanswers.com/js/mailme.asp -->
+    <a href="/contact/" title="Send us feedback about this site"
+       onmouseover="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
+       onfocus="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
+       >feedback email</a>
+    <a target='new_bugs' title='PhEDEx Savannah bug-reporting and feature requests' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+    <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
- <div id='phedex-nav'></div><br clear='all'/>
+  <div id='phedex-navigator'></div><div style='clear:both' />
+ <div id='phedex-logger' class='phedex-logger'>
+  <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-debug' class='float-right'></div>
+ <div id='phedex-test'></div>
  <div id='phedex-main'></div>
 
-<script type="text/javascript">
-// instantiate the page and other things when the DOM is ready!
-YAHOO.util.Event.onDOMReady(function() {
-  var phedex_app_version = document.getElementById('phedex-app-version');
-  phedex_app_version.innerHTML = PHEDEX.Appserv.Version;
-
-  PHEDEX.Navigator.init('phedex-nav',
-    { typecfg: { 
-	none: { label: 'Explore global',  order: 10 },
-        node: { label: 'Explore by node', order: 20 }
-      }
-     }
-  );
-});
-</script>
-
-<!-- The following secion is to 
+<!-- The following section is to 
      1. Give google something to index
      2. Notifiy people without javascript -->
 <noscript>
@@ -93,13 +50,12 @@ YAHOO.util.Event.onDOMReady(function() {
     Application.  The following description is intended for
     web-crawlers).</p>
 <h1>PhEDEx - Physics Experiment Data Export</h1>
-<p>PhEDEx is the data transfer system used by CMS.
-(TODO: Write something nice.)</p>
+<p>PhEDEx is the data transfer system used by the CMS experiment at CERN.</p>
 
 <h2>Javascript is Required!</h1>
 <p>The PhEDEx Web Application requires a browser with javascript
 available and enabled.  We recommend the latest version of Mozilla
-Firefox, available <a href='www.mozilla.com/firefox/'>here</a>.</a>
+Firefox, available <a href='http://www.mozilla.com/firefox/'>here</a>.</a>
 
 <p>If it is not possible for you to use a browser with javascript, you
 can write scripts to use the data service directly.  Data service
@@ -109,4 +65,76 @@ here</a>.</p>
 </noscript>
 
 </body>
+
+<script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// used in the mailto: link, above.
+function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,".")); }
+
+// When the DOM is available, start loading the essential bits and pieces
+YAHOO.util.Event.onDOMReady(function() {
+  var phedex_app_version = document.getElementById('phedex-app-version');
+  if ( phedex_app_version ) { phedex_app_version.innerHTML = PHEDEX.Appserv.Version; }
+  banner('Loading core application...');
+  PxL  = new PHEDEX.Loader();
+  PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
+});
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the core
+// application and sandbox, and then start creating PhEDEx modules
+  banner('Create sandbox and core application...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
+  try {
+    PxC = new PHEDEX.Core(PxS,PxL);
+    PxC.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
+  try {
+    PxR = new PHEDEX.Registry(PxS);
+    PxR.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Registry!'); return; }
+
+  if ( PxR ) { // TODO this needs a better home!
+    PxS.notify('Registry','add','phedex-module-agents',   'node', 'Show Agents', {context_item:true});
+    PxS.notify('Registry','add','phedex-module-nodes',    'none', 'Show Nodes');
+    PxS.notify('Registry','add','phedex-module-linkview', 'node', 'Show Links', {context_item:true});
+  }
+
+  banner('Core application is running, ready to create PhEDEx data-modules...');
+// Load and create the navigator!
+  PxS.notify('Load','phedex-navigatornew', {
+    el: 'phedex-navigator',
+    cfg: {
+      typecfg: {
+        none:   { label: 'Explore global',  order: 10 },
+        node:   { label: 'Explore by node', order: 20 },
+        static: { label: 'Explore Information', order: 30 }
+      }
+    }
+  });
+
+// Create the logger element, if required...
+  if ( 0 ) {
+    PxL.load(function() {
+      PHEDEX.Logger.Create();
+      var ctl = new PHEDEX.Component.Control(PxS,{
+          payload: {
+            text:'Show Logger',
+            target:'phedex-logger',
+            animate:true,
+            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+          }
+        }
+      );
+      document.getElementById('phedex-controls').appendChild(ctl.el);
+    },'logger','component-control');
+  }
+
+  PHEDEX.Util.bannerIdleTimer(PxL);
+};
+
+</script>
 </html>
