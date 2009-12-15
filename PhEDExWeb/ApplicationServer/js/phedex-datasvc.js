@@ -286,6 +286,13 @@ PHEDEX.Datasvc = (function() {
       for (var i in _instances) {
         if ( _instances[i].instance == _instance ) { return _instances[i]; }
       }
+    },
+
+    // InstanceByName: return the instance whose name matches the input string.
+    InstanceByName: function(name) {
+      for (var i in _instances ) {
+        if ( _instances[i].name == name ) { return _instances[i]; }
+      }
     }
   };
 })();
