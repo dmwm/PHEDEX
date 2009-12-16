@@ -302,10 +302,14 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 /*   overflow-x: hidden; */
 }
 
+.phedex-separator {
+  clear: both;
+  height: 1px;
+}
+
 .phedex-nav-component {
   float: left;
 }
-
 
 div.phedex-nav-target {
   width:	13em;
