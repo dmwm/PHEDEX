@@ -1,7 +1,12 @@
 Changes for PhEDEx 3.2.10
 
- -  Dependency Change: dbs-client DBS_2_0_6_patch5 -> DBS_2_0_9,
-    needed for compatibility with new DBS server release.
+ - Dependency Change: dbs-client DBS_2_0_6_patch5 -> DBS_2_0_9_patch4.
+ - Dependency Change: dls-client DLS_1_1_0 -> DLS_1_1_2
+ - Consistent dependency platform for SLC4 and SLC5 builds.  Build
+   with PKGTOOLS V00-11-00 (from V00-09-02)
+ - Move from 'cms' to 'comp' repository.
+ - BlockAllocator: fix bug which prevented properly updating "done"
+   blocks
 
 Changes for PhEDEx 3.2.9
 
