@@ -214,10 +214,14 @@ PHEDEX.Util.getConfig=function(element) {
 
 // generate a new and page-unique name to use for a div for instantiating on-the-fly widgets
 PHEDEX.Util.Sequence=function() {
-  var me = arguments.callee;
-  if ( ! me.value ) { me.value = 0; }
-  return me.value++;
-}
+  var _seqArr = {},
+      _seq = 0;
+  return function(name) {
+    if ( !name ) { return _seq++; }
+    if (!_seqArr[name] ) { _seqArr[name] = 0; }
+    return _seqArr[name]++;
+  }
+}();
 
 // Sum an array-field, with an optional parser to handle the field-format
 PHEDEX.Util.sumArrayField=function(q,f,p) {
