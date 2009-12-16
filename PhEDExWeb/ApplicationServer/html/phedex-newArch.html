@@ -37,6 +37,7 @@
     </span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
+  <div id='phedex-login'></div>
  <div id='phedex-navigator'></div>
  <div class='phedex-separator'></div>
  <div id='phedex-logger' class='phedex-logger'>
@@ -206,7 +207,6 @@ debugLinks = function() {
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
-// dynamic loader for PhEDEx and YUI. This is for the global app to use
   PxL  = new PHEDEX.Loader();
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
 
@@ -243,9 +243,8 @@ function createCoreApp() {
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-//   PxS.notify('CreateModule','Agents',{node:'T1_IT_CNAF_Buffer'});
-//   PxS.notify('CreateModule','LinkView',{node:'T1_US_FNAL_Buffer'});
-  PxS.notify('Load',/*'phedex-config',*/'phedex-navigatornew', {
+  // Load and create the navigator!
+  PxS.notify('Load','phedex-navigatornew', {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
@@ -256,17 +255,23 @@ function createCoreApp() {
     }
   });
 
-  PxL.load(function() {
-    PHEDEX.Logger.Create();
-    var ctl = new PHEDEX.Component.Control(PxS,{
-        payload: {
-          text:'Show Logger',
-          target:'phedex-logger',
-          animate:true,
-          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+  PxS.notify('Load','phedex-login', {el: 'phedex-login'});
+
+// Create the logger element, if required...
+  if ( 1 ) {
+    PxL.load(function() {
+      PHEDEX.Logger.Create();
+      var ctl = new PHEDEX.Component.Control(PxS,{
+          payload: {
+            text:'Show Logger',
+            target:'phedex-logger',
+            animate:true,
+            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+          }
         }
-      }
-    );
+      );
+      document.getElementById('phedex-controls').appendChild(ctl.el);
+    },'logger','component-control');
     document.getElementById('phedex-controls').appendChild(ctl.el);
     ctl = new PHEDEX.Component.Control(PxS,{
         payload: {
@@ -280,7 +285,7 @@ function createCoreApp() {
     ctl.Show();
     debugLinks();
     ctl.Show();
-  },'logger','component-control');
+  }
 
   PHEDEX.Util.bannerIdleTimer(PxL);
 };
