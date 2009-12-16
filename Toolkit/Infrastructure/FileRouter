@@ -10,7 +10,6 @@
 ##H -log             where to redirect logging information
 ##H -window-size     size in TB for priority windows.  Default 10 TB.
 ##H -request-alloc   method to use when allocating file requests.  Default is BY_AGE
-##H -probe-chance    probability (0 to 1) that a route is forced on failure
 ##H
 ##H Request Allocation methods (METHOD):
 ##H
@@ -30,7 +29,6 @@ use PHEDEX::Infrastructure::FileRouter::Agent;
 	     "db=s"            => \$args{DBCONFIG},
 	     "window-size=n"   => \$args{WINDOW_SIZE},
 	     "request-alloc=s" => \$args{REQUEST_ALLOC},
-	     "probe-chance=f"  => \$args{PROBE_CHANCE},
 	     "help|h"          => sub { &usage() });
 
 if (!$args{DROPDIR} || !$args{DBCONFIG})

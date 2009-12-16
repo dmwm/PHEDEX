@@ -1,4 +1,14 @@
-Changes for PhEDEx 3.2.7
+Changes for PhEDEx 3.2.10
+
+ - Dependency Change: dbs-client DBS_2_0_6_patch5 -> DBS_2_0_9_patch4.
+ - Dependency Change: dls-client DLS_1_1_0 -> DLS_1_1_2
+ - Consistent dependency platform for SLC4 and SLC5 builds.  Build
+   with PKGTOOLS V00-11-00 (from V00-09-02)
+ - Move from 'cms' to 'comp' repository.
+ - BlockAllocator: fix bug which prevented properly updating "done"
+   blocks
+
+Changes for PhEDEx 3.2.9
 
  This is a minor release, fixing a few bugs in 3.2.6. All sites should 
 upgrade to this version.
@@ -21,6 +31,12 @@ Changes for Site Agents
     value, the deletion is considered to have failed. If the deletion
     succeeds, or the file was not there in the first place, you should
     return zero from your file-deletion script.
+  - change in format/content of deletion-job logfiles. The previous log
+    file format was $time.$node.$fileid.log, now the $time is missing,
+    if it simply $node.$fileid.log. This may affect any scripts that you
+    have for analysing these files. Also, the contents may now be
+    different. In the event that multiple attempts are needed to delete
+    a single file, all attempts are recorded in the same file.
 
 Changes for central/all agents
  - BlockAllocator
