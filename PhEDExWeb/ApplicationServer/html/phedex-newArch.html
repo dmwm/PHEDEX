@@ -37,7 +37,7 @@
     </span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
-  <div id='phedex-login'></div>
+ <div id='phedex-login'></div>
  <div id='phedex-navigator'></div>
  <div class='phedex-separator'></div>
  <div id='phedex-logger' class='phedex-logger'>
@@ -240,9 +240,6 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-agents',   'node', 'Show Agents', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-nodes',    'none', 'Show Nodes');
     PxS.notify('Registry', 'add', 'phedex-module-linkview', 'node', 'Show Links',  {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Local',  { args:{subtype:'aboutphedex1'} });
-    PxS.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Iframe', { args:{subtype:'aboutphedex2'}  });
-    PxS.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Extra',  { args:{subtype:'aboutphedex3'}  });
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
