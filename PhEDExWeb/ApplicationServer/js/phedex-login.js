@@ -1,11 +1,11 @@
 /* PHEDEX.Login
- * This is Phedex login component that allows user to login into PhEDEx system using password or certificates 
- * and thereby also view user role information. auth data service is used for user authentication
+*  This is Phedex login component that allows user to login into PhEDEx system using password or certificates 
+*  and thereby also view user role information. auth data service is used for user authentication
 */
 PHEDEX.namespace('Login');
-PHEDEX.Login = (function() {
-    var PxU = PHEDEX.Util;
+PHEDEX.Login = function(sandbox) {
     var PxD = PHEDEX.Datasvc;
+    var _sbx = sandbox;
 
     /**
     * _cur_state indicates the current state (login, logout, certlogin, usepassword)
@@ -178,7 +178,7 @@ PHEDEX.Login = (function() {
             //This is temporary.. simulating the password based authentication
             //This has to be removed later after auth data service call supports password based authentication
             data = {};
-            data["auth"] = { 'state': 'passwd'};
+            data["auth"] = { 'state': 'passwd' };
         }
         var bsucceed = _validateLogin(data);
         YAHOO.log('The user login is validated. User credentials are ' + bsucceed, 'info', 'Phedex.Login');
@@ -327,18 +327,21 @@ PHEDEX.Login = (function() {
         YAHOO.log('The login component is created', 'info', 'Phedex.Login');
     };
 
-    return {
-        /**
-        * @method init
-        * @description This creates the login component
-        * @param {HTML element} el element specifies element where login component should be built
-        */
-        init: function(el) {
-            _initLoginComponent(el);
-            _loginUsingCert();
-        }
-    };
-})();
+    _construct = function() {
+        return {
+            /**
+            * @method init
+            * @description This creates the login component
+            * @param {HTML element} el element specifies element where login component should be built
+            */
+            init: function(args) {
+                _initLoginComponent(args.el);
+                _loginUsingCert();
+            }
+        };
+    }
+    YAHOO.lang.augmentObject(this, _construct(), true);
+};
 
 //This is to trim the string
 String.prototype.trim = function() {
