@@ -288,14 +288,14 @@ PHEDEX.Core = function(sandbox,loader) {
           var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
           dataFail.subscribe(function(type,args) {
             var api = args[1].api;
-            log('api:'+api+' error fetching data','error',who);
-            banner('Error fetching data: '+api+' '+args[0].message+'!','error');
+            log('api:'+api+' error fetching data: '+args[0].message,'error',who);
+            banner('Error fetching data for "'+api+'"','error');
             _clearTimeout();
           });
           args.success_event = dataReady;
           args.failure_event = dataFail;
           PHEDEX.Datasvc.Call( args );
-        } catch(ex) { log(ex,'error',_me); banner('Error fetching data!','error'); }
+        } catch(ex) { log(ex,'error',_me); banner('Error fetching data for "'+api+'"','error'); }
         break;
       }
     };
