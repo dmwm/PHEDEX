@@ -15,7 +15,6 @@ PHEDEX.Navigatornew = function(sandbox) {
     //========================= Private Properties ======================
       _hist_sym_sep = "+",    //This character separates the states in the history URL
       _hist_sym_equal = "~",  //This character indicates the state value
-      _defaultPageState = "",
       _initialPageState;
 
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
@@ -62,7 +61,7 @@ debugger;
             changed = 0,
             value;
         if (!pgstate) {
-            pgstate = _defaultPageState; //Set the state to default state
+            pgstate = _initialPageState; //Set the state to its initial state
         }
         if (pgstate) {
             state = _parseQueryString(pgstate); //Parse the current history state and get the key and its values
@@ -73,6 +72,7 @@ debugger;
         if (!state) { return; } //Do Nothing and return
         for (var key in obj.state)
         {
+          if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
             log('setState: '+key+' ('+state[key]+' => '+value+')','info','Navigator');
@@ -81,6 +81,10 @@ debugger;
         }
         log('setState: '+changed+' changes w.r.t. currently known state','info','Navigator');
         if ( !changed ) { return; }
+var el = document.getElementById('tony');
+if ( el ) {
+  el.innerHTML=PxU.Sequence('changes')+': '+changed+' changes: '+pgstate+' '+PHEDEX.Datasvc.Instance().name;
+}
         _sbx.notify(obj.id,'StateChanged',state);
       };
     }(this);
@@ -158,6 +162,7 @@ debugger;
     _initialPageState = YAHOO.util.History.getBookmarkedState("page") ||
                         YAHOO.util.History.getQueryStringParameter("page") ||
                         '';
+//     if ( _initialPageState ) { _setState(_initialPageState); }
     YAHOO.util.History.register("page", _initialPageState, _setState);
 
     /**
@@ -168,7 +173,7 @@ debugger;
       var newState = '';
       for (var key in this.state)
       {
-        if ( !this.state[key].isValid() ) { return; }
+        if ( !this.state[key].isValid() ) { return null; }
         var value = this.state[key].state();
         if ( !value ) { log('State: key='+key+' got '+value,'warn','Navigator'); continue; }
         if ( newState ) { newState += _hist_sym_sep; }
@@ -200,22 +205,6 @@ debugger;
           _setState(newState); //In case YUI History doesnt work
         }
     };
-
-    /**
-    * @method _fireNavChange
-    * @description This fires the navigator change event with the current state.
-    */
-//     var _fireNavChange = function(obj) {
-//       return function() {
-// debugger;
-//         _sbx.notify(obj.id,'changed',{
-//             type:   _cur_target_type,
-//             target: _cur_target,
-//             widget: _cur_widget,
-//             filter: _cur_filter
-//         });
-//       };
-//     }(this);
 
     /**
     * @method _formPermalinkURL
@@ -270,90 +259,6 @@ debugger;
         _updateLinkGUI(baseURL);
     };
 
-    /**
-    * @method _afterRender
-    * @description This gets called after datatable is formed. This is used to set inter widget state (if any) 
-    * and later update the permalink
-    */
-//     var _afterRender = function() {
-// debugger;
-//         _setWidgetState();
-//         _formPermalinkURL();
-//     }
-
-    /* Below are the individual _set{state} functions. They must not be
-    called except through _setState, otherwise widget construction is
-    bypassed! */
-
-//     var _setTargetType = function(state) {
-// debugger;
-//         var type = state.type;
-//         var old = _cur_target_type;
-//         if (!type) { type = _cur_target_type; }
-//         else { _cur_target_type = type; }
-// 
-//         if (old != _cur_target_type) {
-//             var new_widget = 'xyz';//_updateWidgetMenu(type);     // make a new widget menu, returns the default selection
-//             if (!state.widget) { state.widget = new_widget; }
-//             var new_target = 'pqr';//_updateTargetSelector(type); // get a new target selector, returns default selection
-//             if (!state.target) { state.target = new_target; }
-//             _sbx.notify(this.id,'TargetType',type);
-//             return 1;
-//         } else { return 0; }
-//     };
-
-//     var _setInstance = function(state) {
-// debugger;
-//         var old = _cur_instance,
-//         i = PxD.Instance();
-//         _cur_instance = state.instance;
-// 
-//         if (old != _cur_instance) {
-//           _sbx.notify(this.id,'Instance',_cur_instance);
-//           return 1;
-//         } else { return 0; }
-//     };
-
-//     var _setTarget = function(state) {
-// debugger;
-//         if (!state.target) {
-//             state.target = "";
-//         }
-//         var old = _cur_target;
-//         _cur_target = state.target;
-// 
-//         if (old != _cur_target) {
-//             _sbx.notify(this.id,'updateTargetGUI',_cur_target);
-//             return 1;
-//         } else { return 0; }
-//     };
-
-//     var _setWidget = function(state) {
-// debugger;
-//         var widget = state.widget;
-//         var old = _cur_widget;
-//         if (!widget) { widget = _cur_widget; }
-//         else { _cur_widget = widget; }
-// 
-//         if (old != _cur_widget) {
-//           _sbx.notify(this.id,'updateWidgetGUI',_cur_widget);
-//             return 1;
-//         } else { return 0; }
-//     };
-
-    // For now, just check that all parameters are set
-//     var _validConstruction = function() {
-// debugger;
-//         if ((_cur_target_type == 'none') || (_cur_target_type == 'static')) {
-//             if (_cur_target_type && _cur_widget) { return true; }
-//             else { return false; }
-//         } else {
-//             // TODO:  careful validation of targets goes here...  function from the registry?
-//             if (_cur_target_type && _cur_target && _cur_widget) { return true; }
-//             else { return false; }
-//         }
-//     };
-
     // parse _cur_filter and set _filter
     var _parseFilter = function() { };
 
@@ -366,7 +271,12 @@ debugger;
           args   = arr[1];
       switch (action) {
         case 'decoratorsReady': {
-          _sbx.notify(who,'NavReset');
+          if ( _initialPageState ) {
+            _setState(_initialPageState);
+            _initialPageState = null;
+          } else {
+            _sbx.notify(who,'NavReset');
+          }
           break;
         }
         case 'statePlugin': {
@@ -697,6 +607,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       init: function(el) {
         return PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-none' });
        },
+      needValue: false,
       updateGUI: function() {
 debugger;
 //         _type = 'none';
@@ -707,6 +618,7 @@ debugger;
       init: function(el) {
         return PxU.makeChild(el, 'div');
        },
+      needValue: false,
       updateGUI: function() {
         _type = 'static';
       }
@@ -717,9 +629,9 @@ debugger;
       init: function(el, type) {
         var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target' }),
            input = PxU.makeChild(sel, 'input', { type: 'text' });
+        _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function() {
-debugger;
             i.value = _state[_type]; // Is this correct? What if Instance has changed?
           }
         }(input);
@@ -741,9 +653,9 @@ debugger;
             _buildNodeSelector(input,container,nodelist.sort());
           };
         PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
+        _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function(value) {
-debugger;
             i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
           }
         }(input);
@@ -786,8 +698,10 @@ debugger;
     return;
   };
   this.isStateValid = function() {
-    if ( _type ) { return true; }
-    return false;
+    if ( !_type ) { return false; }
+    if ( !_selectors[_type].needValue ) { return true; }
+    if ( !_state[_type] ) { return false; }
+    return true;
   }
   this.getState = function() {
     return _state[_type];
@@ -819,8 +733,8 @@ debugger;
             o._updateTargetSelector(value.type);
           }
           if ( value.target && value.target != _state[_type] ) {
-            _selectors[value.type].updateGUI(value.target);
             _typeArgs[ value.type] = {node:value.target};
+            _selectors[value.type].updateGUI(value.target);
             _sbx.notify(obj.id,'NodeSelected',value.target);
             _sbx.notify('module','*','setArgs',{node:value.target});
             _sbx.notify('module','*','getData');
@@ -837,6 +751,7 @@ debugger;
   }(this);
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'NeedTargetTypes');
   this.moduleHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -934,6 +849,10 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
           o.menu.set("label", _target_types[_target_type].label);
           break;
         }
+        case 'NeedTargetTypes': {
+          _sbx.notify(obj.id,'TargetTypes',_target_types);
+          break;
+        }
       }
     }
   }(this);
@@ -1026,17 +945,3 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
   _sbx.notify(obj.id,'statePlugin', {key:'instance', state:this.getState, isValid:this.isStateValid});
   return this;
 };
-
-// /**
-// * @method InitializeNavigator
-// * @description This initializes the browser history management library.
-// * @param {HTML element} el element specifies element the navigator should be built in
-// * @param {Object} cfg Object specifies options for the navigator, takes the following:
-// * 'typeconfig'   : an array of objects for organizing the type menu.
-// * 'widgetconfig' : an array of objects for organizing the widget menu.
-// */
-//
-// /**
-// * @method CreateNavigator
-// * @description This initializes the creation of navigator by passing the required parameters.
-// */
