@@ -133,6 +133,20 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
         htNode.isLeaf = true;
         this.headerTree.render();
+//         this.decorators.push(
+//           {
+//             name:'Filter',
+//             source: 'component-control',
+//             parent: 'control',
+//             payload:{
+//               disabled: true,
+//               hidden:   true,
+//               target:  'filter',
+//               fillFn:  'filter.Build',
+//               fillArgs:'fillArgs',
+//               animate:  false,
+//             }
+//           });
         _sbx.notify(this.id,'initDerived');
       },
 

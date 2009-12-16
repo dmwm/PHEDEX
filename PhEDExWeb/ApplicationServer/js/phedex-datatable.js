@@ -31,11 +31,25 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @private
             */
             initDerived: function() {
-                var t = this.meta.table;
-                if ( t ) {
-                    this.buildTable(t.columns,t.map,t.schema)
-                    _sbx.notify( this.id, 'initDerived' );
-                }
+              var t = this.meta.table;
+              if ( t ) {
+                  this.buildTable(t.columns,t.map,t.schema)
+                  _sbx.notify( this.id, 'initDerived' );
+              }
+//               this.decorators.push(
+//                 {
+//                   name:'Filter',
+//                   source: 'component-control',
+//                   parent: 'control',
+//                   payload:{
+//                     disabled: true,
+//                     hidden:   true,
+//                     target:  'filter',
+//                     fillFn:  'filter.Build',
+//                     fillArgs:'fillArgs',
+//                     animate:  false,
+//                   }
+//                 });
             },
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.

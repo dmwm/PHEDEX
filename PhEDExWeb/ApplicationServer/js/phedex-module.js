@@ -113,23 +113,6 @@ PHEDEX.Module = function(sandbox, string) {
         _sbx.listen('CoreCreated',     ILive );
         _sbx.notify('ModuleExists',this);
 
-        this.decorators.push(
-          {
-            name:'Filter',
-            source: 'component-control',
-            parent: 'control',
-            payload:{
-              disabled: true,
-              hidden:   true,
-              target:  'filter',
-              fillFn:  'filter.Build',
-              fillArgs:'fillArgs',
-              animate:  false,
-//              onHideControl:this.onHideFilter,
-//              onShowControl:this.onShowFilter
-            }
-          }
-        );
         this.decorators.push( { name: 'MouseOver' } );
         for (var i in this.decorators) {
           var p = this.decorators[i].payload;
