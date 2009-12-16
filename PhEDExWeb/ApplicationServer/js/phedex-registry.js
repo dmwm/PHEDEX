@@ -44,17 +44,20 @@ PHEDEX.Registry = function(sandbox) {
       if (!_validTypes[inputType]) {
         throw new Error("input type '"+inputType+"' is not valid");
       }
-      if (!_widgets[inputType]) { _widgets[inputType] = {}; }
-      if (_widgets[inputType][widget]) {
+      if (!_widgets[inputType]) {
+        _widgets[inputType] = {};
+        _widgets[inputType][widget] = {};
+      }
+      if (_widgets[inputType][widget][label]) {
         throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
-      var w = { 'widget': widget, 'type': inputType, 'label': label };
+      var w = { widget:widget, type:inputType, label:label, id:PxU.Sequence() };
       if (extrakeys) {
         for (var k in extrakeys) {
           w[k] = extrakeys[k];
         }
       }
-      _widgets[inputType][widget] = w;
+      _widgets[inputType][widget][label] = w;
     },
 
 /** get a list of inputTypes that have registered widgets
@@ -78,7 +81,9 @@ PHEDEX.Registry = function(sandbox) {
       if (_widgets[inputType]) { 
         var widgets = [];
         for (var w in _widgets[inputType]) {
-          widgets.push(_widgets[inputType][w]);
+          for (var l  in _widgets[inputType][w]) {
+            widgets.push(_widgets[inputType][w][l]);
+          }
         }
         return widgets;
       }

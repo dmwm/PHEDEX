@@ -385,13 +385,7 @@ debugger;
         case 'WidgetSelected': { // addToHistory, yes, but also create the required module
           obj._addToHistory();
           _sbx.notify('module','*','destroy');
-          if (arr[2] && arr[2] == 'static') {
-// debugger;
-            _sbx.notify('CreateModule',arr[2], args);
-          }
-          else {
-            _sbx.notify('CreateModule',args);
-          }
+          _sbx.notify('CreateModule',args,arr[2]);
           break;
         }
 
@@ -538,7 +532,8 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _sbx = sandbox,
       _widget_menu,
       _cur_target_type = 'none',
-      _widget; // the current widget name
+      _widget,    // the current widget name
+      _widget_id; // the current widget id
 
   this.id = 'WidgetSelector';
   this.el = document.createElement('div');
@@ -555,7 +550,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
 
   this.initWidgetSelector = function() {
     var menu_items = _getWidgetMenuItems(_cur_target_type);
-    _cur_widget = menu_items[0].value;
+//     _cur_widget = menu_items[0].value;
 
     _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
       'label': '(widget)',
@@ -575,9 +570,10 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   var _updateWidgetGUI = function(o) {
     return function(widget) {
       _widget_menu.set("label", widget.label);
-      if ( _widget == widget.widget ) { return; }
-      _widget = widget.widget;
-      _sbx.notify(obj.id,'WidgetSelected',o.getState(),_cur_target_type);
+      if ( _widget_id == widget.id ) { return; }
+      _widget    = widget.widget;
+      _widget_id = widget.id;
+      _sbx.notify(obj.id,'WidgetSelected',o.getState(),widget.args);
     };
   }(this);
 

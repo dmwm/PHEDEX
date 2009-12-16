@@ -111,6 +111,10 @@ PHEDEX.Module.Static = function(sandbox, string) {
     */
     _construct = function() {
         return {
+            setArgs: function(args) {
+              category = args.subtype;
+            },
+
             /**
             * Create a Phedex.GroupUsage widget to show the information of nodes associated with a group.
             * @method initData
