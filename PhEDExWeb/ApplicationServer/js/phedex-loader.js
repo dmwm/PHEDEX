@@ -245,9 +245,8 @@ PHEDEX.Loader = function(opts) {
     //'phedex-core-filter':      { requires:['phedex-util'] },
     //'phedex-global-filter':    { requires:[] },
     'phedex-config': {},
-    'phedex-static': { requires: ['phedex-util', 'phedex-config'] },
     'phedex-login': { requires: ['phedex-util'] },
-    'phedex-navigatornew': { requires: ['phedex-registry','history','autocomplete','button'] },
+    'phedex-navigatornew': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util', 'logger'] },
@@ -260,6 +259,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-agents':   { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview': { requires:['phedex-module','phedex-treeview'] },
     'phedex-module-groupusage':    { requires:['phedex-module','phedex-datatable'] },
+    'phedex-module-static': { requires: ['phedex-util', 'phedex-config'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
