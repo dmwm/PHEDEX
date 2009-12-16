@@ -55,34 +55,34 @@ body {
   padding: 0 1em 0;
 }
 .phedex-login {
-    margin-left:47%;
-	text-align:right;
+  text-align:right;
+  float: right;
 }
 .phedex-login-status {
-	text-align:right;
-	margin-right:4%;
+  text-align:right;
+  margin-right:4px;
 }
 .phedex-login-username {
-	cursor:pointer;
-	color:Blue;
-	text-decoration: underline;
+  cursor:pointer;
+  color:Blue;
+  text-decoration: underline;
 }
 .phedex-static-iframe {
-	height:82%;
-	width:99%;
+  height:82%;
+  width:99%;
 }
 .phedex-login-overlay-body
 {
-	position:absolute;
-	background:#fff;
-	border:2px solid black;
-	padding:5px;
-	margin:5px;
+  position:absolute;
+  background:#fff;
+  border:2px solid black;
+  padding:5px;
+  margin:5px;
 }
 .phedex-login-userrole
 {
-	background-color: #9f0; 
-	font-weight: bold;
+  background-color: #9f0;
+  font-weight: bold;
 }
 .phedex-logger {
   float: right;
