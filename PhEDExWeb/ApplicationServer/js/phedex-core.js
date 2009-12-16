@@ -125,6 +125,10 @@ PHEDEX.Core = function(sandbox,loader) {
     }
     name = PxU.initialCaps(name);
     log ('creating a module "'+name+'"','info',_me);
+    if (arr[1] && name == 'Static')
+    {
+        name = arr[1];
+    }
     try {
       var ctor = PxU.getConstructor(module);
       var m = new ctor(_sbx,name);
