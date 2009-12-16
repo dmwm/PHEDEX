@@ -53,19 +53,19 @@ PHEDEX.Configuration = (function() {
     _addCategory('aboutphedex1', 'Phedex Local');
     _addSource('aboutphedex1', 'source1', { type: 'local', path: '/html/AboutPhedex.html', divids: ['phedex-about1', 'phedex-about2', 'phedex-about3'] });
     _addSource('aboutphedex1', 'source2', { type: 'local', path: '/html/PhedexInfo.html', divids: ['phedex-about1', 'phedex-about3'] });
-    PHEDEX.Core.Widget.Registry.add('aboutphedex1', 'static', 'Phedex Local', PHEDEX.Static);
+    PxS.notify('Registry', 'add', 'aboutphedex1', 'static', 'Phedex Local', { constructor: 'phedex-module-static' });
 
     //Add and register category # 2 (iframe type)
     _addCategory('aboutphedex2', 'Phedex Iframe');
-    _addSource('aboutphedex2', 'source1', { type: 'iframe', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation'});
-    PHEDEX.Core.Widget.Registry.add('aboutphedex2', 'static', 'Phedex Iframe', PHEDEX.Static);
+    _addSource('aboutphedex2', 'source1', { type: 'iframe', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation' });
+    PxS.notify('Registry', 'add', 'aboutphedex2', 'static', 'Phedex Iframe', { constructor: 'phedex-module-static' });
 
     //Add and register category # 3 (out link type)
     _addCategory('aboutphedex3', 'Phedex Extra'); //displaytext
     _addSource('aboutphedex3', 'source1', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhEDEx', displaytext: 'Phedex main information: ' });
     _addSource('aboutphedex3', 'source2', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation', displaytext: 'Phedex Documentation: ' });
     _addSource('aboutphedex3', 'source3', { type: 'extra', displaytext: '<i>This is testing for displaying direct text in Phedex static component</i>' });
-    PHEDEX.Core.Widget.Registry.add('aboutphedex3', 'static', 'Phedex Extra', PHEDEX.Static);
+    PxS.notify('Registry', 'add', 'aboutphedex3', 'static', 'Phedex Extra', { constructor: 'phedex-module-static' });
 
     return {
         /**
