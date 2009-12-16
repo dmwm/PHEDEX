@@ -149,8 +149,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
             if ( typeof(this.payload.target) != 'object' ) {  this.payload.target = this.payload.obj.dom[this.payload.target]; }
           }
           if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
+          YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
         }
-        YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
         this.el.className = args.payload.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
         if ( !args.events ) {
           args.events = [
@@ -164,8 +164,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
               el = args.events[i].element || this.el;
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
-        if ( args.payload.disabled ) { this.Disable(); }
         if ( args.payload.hidden )   { this.Hide(); }
+        if ( args.payload.disabled ) { this.Disable(); }
         else { this.Enable(); }
         var selfHandler = function(obj) {
           return function(ev,arr) {
