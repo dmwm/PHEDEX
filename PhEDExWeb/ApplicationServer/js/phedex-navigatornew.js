@@ -392,7 +392,12 @@ debugger;
         case 'WidgetSelected': { // addToHistory, yes, but also create the required module
           obj._addToHistory();
           _sbx.notify('module','*','destroy');
-          _sbx.notify('CreateModule',args);
+          if (arr[2] && arr[2] == 'static') {
+            _sbx.notify('CreateModule',arr[2], args);
+          }
+          else {
+            _sbx.notify('CreateModule',args);
+          }
           break;
         }
 
@@ -581,7 +586,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _widget_menu.set("label", widget.label);
       if ( _widget == widget.widget ) { return; }
       _widget = widget.widget;
-      _sbx.notify(obj.id,'WidgetSelected',o.getState());
+      _sbx.notify(obj.id,'WidgetSelected',o.getState(), _cur_target_type);
     };
   }(this);
 
@@ -617,6 +622,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
           break;
         }
         case 'TargetType': {
+          _cur_target_type = value;
           _updateWidgetMenu(value);
           break;
         }
@@ -706,6 +712,14 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       updateGUI: function() {
 debugger;
         _type = 'none';
+      }
+    },
+    static: {
+      init: function(el) {
+        return PxU.makeChild(el, 'div');
+       },
+      updateGUI: function() {
+        _type = 'static';
       }
     },
     text: {
