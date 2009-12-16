@@ -46,6 +46,8 @@ PHEDEX.Registry = function(sandbox) {
       }
       if (!_widgets[inputType]) {
         _widgets[inputType] = {};
+      }
+      if (!_widgets[inputType][widget]) {
         _widgets[inputType][widget] = {};
       }
       if (_widgets[inputType][widget][label]) {
