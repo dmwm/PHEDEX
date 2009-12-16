@@ -246,7 +246,7 @@ PHEDEX.Loader = function(opts) {
     //'phedex-global-filter':    { requires:[] },
     'phedex-config': {},
     'phedex-login': { requires: ['phedex-util'] },
-    'phedex-navigatornew': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
+    'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util', 'logger'] },

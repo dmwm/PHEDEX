@@ -7,7 +7,7 @@
  * apply filters.
 */
 PHEDEX.namespace('Navigator');
-PHEDEX.Navigatornew = function(sandbox) {
+PHEDEX.Navigator = function(sandbox) {
   this.id = 'Navigator_'+PxU.Sequence();
   var _sbx = sandbox,
       PxD  = PHEDEX.Datasvc,
