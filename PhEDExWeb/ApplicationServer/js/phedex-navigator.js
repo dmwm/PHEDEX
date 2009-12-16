@@ -6,307 +6,30 @@
  * type in name:value pairs which are passed to the active widget to
  * apply filters.
 */
-PHEDEX.namespace("Navigator");
-PHEDEX.Navigator = (function() {
-    // package aliases
-    var PxU = PHEDEX.Util;
-    var PxR = PHEDEX.Core.Widget.Registry;
-    var PxD = PHEDEX.Datasvc;
+PHEDEX.namespace('Navigator');
+PHEDEX.Navigatornew = function(sandbox) {
+  this.id = 'Navigator_'+PxU.Sequence();
+  var _sbx = sandbox,
+      PxD  = PHEDEX.Datasvc,
 
     //========================= Private Properties ======================
-    var _instances = {};    //To store the instances information
-    var _cur_instance = ""; //The current selected instance
+      _hist_sym_sep = "+",    //This character separates the states in the history URL
+      _hist_sym_equal = "~",  //This character indicates the state value
+      _initialPageState;
 
-    // _target_types
-    // hash of targets keyed by the target type name
-    // value is an object with the following properties:
-    //   name    : (string) the target name
-    //   label   : (string) visible label for this target type
-    var _target_types = {};
-    var _cur_target_type = ""; // the current target type
-
-    var _cur_target = "";          // the current target, set by the target selector
-    var _target_selector_ids = {}; // map of type => div id of selector
-
-    var _cur_widget;       // The current widget (Core.Widget.Registry object)
-    var _widget_menu;      // Reference to YUI menu object for widgets
-    var _cur_widget_obj;   // Current widget object
-    // FIXME: save *only* the current widget object, use Core.Widget to get other info?
-
-    var _cur_filter = "";     // a string containing filter arguments
-    var _parsed_filter = {};  // a hash containing the parsed filter key-value pairs
-
-    var _cur_widget_state;     // object that stores widget details obtained from permalink
-
-    var _hist_sym_sep = "+";    //This character separates the states in the history URL
-    var _hist_sym_equal = "~";  //This character indicates the state value
+  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  this.state = {}; // plugins from decorators to access state-information easily (cheating a little)
 
     //========================= Private Methods =========================
-    // The following are defined dynamically below
-    var _updateTargetTypeGUI = function() { };
-    var _updateTargetGUI = function() { };
-    var _updateInstanceGUI = function() { };
-    var _updateLinkGUI = function(permalinkurl) { };
-
-    var _initInstanceSelector = function(el) {
-        var instances = PxD.Instances(); // Get current instances
-        if (!instances) { return; } //Something is wrong.. So dont process further..
-        var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-instance', className: 'phedex-nav-component' });
-        var menu_items = [];
-        var indx = 0;
-        for (indx = 0; indx < instances.length; indx++) {
-            var jsonInst = instances[indx];
-            _instances[jsonInst.instance] = jsonInst;
-            menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.instance });
-        }
-
-        _cur_instance = menu_items[0].value;
-        var label = menu_items[0].text;
-
-        var menu = new YAHOO.widget.Button({ type: "menu",
-            label: label,
-            menu: menu_items,
-            container: typediv
-        });
-
-        var onSelectedMenuItemChange = function(event) {
-            var menu_item = event.newValue;
-            var instanceVal = menu_item.value;
-            _addToHistory({ 'instance': instanceVal });
-        };
-
-        _updateInstanceGUI = function() {
-            menu.set("label", _instances[_cur_instance].name);
-        };
-        menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
-    };
-
-
-    var _initTypeSelector = function(el, cfg) {
-        var typediv = PxU.makeChild(el, 'div', { id: 'phedex-nav-type',
-            className: 'phedex-nav-component'
-        });
-
-        // get registered target types and store them with optional config params
-        var types = PxR.getInputTypes();
-        for (var type in types) {
-            type = types[type];
-            var obj = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY };
-            var opts = cfg[type] || {};
-            YAHOO.lang.augmentObject(obj, opts, true);
-            _target_types[type] = obj;
-        }
-
-        // sort types by object params
-        YAHOO.log('types 1: ' + YAHOO.lang.dump(types));
-        types.sort(function(a, b) {
-            return _target_types[a].order - _target_types[b].order;
-        });
-        YAHOO.log('types 2: ' + YAHOO.lang.dump(types));
-
-        // build menu items in sorted order
-        var menu_items = [];
-        for (var type in types) {
-            type = types[type];
-            var obj = _target_types[type];
-            menu_items.push({ 'text': obj.label, 'value': obj.name });
-        }
-
-        _cur_target_type = menu_items[0].value;
-        var label = menu_items[0].text;
-
-        var menu = new YAHOO.widget.Button({ type: "menu",
-            label: label,
-            menu: menu_items,
-            container: typediv
-        });
-        var onSelectedMenuItemChange = function(event) {
-            var menu_item = event.newValue;
-            var type = menu_item.value;
-            _addToHistory({ 'type': type });
-        };
-
-        _updateTargetTypeGUI = function() {
-            menu.set("label", _target_types[_cur_target_type].label);
-        };
-        menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
-    };
-
-    var _initTargetSelectors = function(el) {
-        var targetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-target',
-            className: 'phedex-nav-component phedex-nav-target'
-        });
-        for (var t in _target_types) {
-            // TODO:  possible to call a vairable function name?
-            var id;
-            if (t == 'node') {
-                id = _initNodeSelector(targetdiv);
-            } else if (t == 'none') {
-                id = _initNoneSelector(targetdiv);
-            } else {
-                id = _initTextSelector(targetdiv, t);
-            }
-            _target_selector_ids[t] = id;
-        }
-        _updateTargetSelector(_cur_target_type);
-    };
-
-    var _buildNodeEvent = new YAHOO.util.CustomEvent('BuildNode');
-    _buildNodeEvent.subscribe(function(type, args) { _afterBuild(); });
-
-    /**
-    * @method _afterBuild
-    * @description This is called after datatable is rendered or modified.
-    */
-    var _afterBuild = function() {
-        var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
-        if (currentState) {
-            currentState = currentState;
-            _setState(currentState); //Set the current state on page
-
-        }
-        else {
-            _fireNavChange(); //Fire the page to load the current settings
-        }
-    };
-
-    var _node_ds; // YAHOO.util.LocalDataSource
-    var _initNodeSelector = function(el) {
-        var id = 'phedex-nav-target-nodesel';
-        var nodesel = PxU.makeChild(el, 'div', { 'id': id,
-            'className': 'phedex-nav-component'
-        });
-        var makeNodeList = function(data) {
-            data = data.node;
-            var nodelist = [];
-            for (var node in data) {
-                nodelist.push(data[node].name);
-            }
-            _node_ds = new YAHOO.util.LocalDataSource(nodelist);
-            _buildNodeSelector(nodesel);
-            _buildNodeEvent.fire(); //Now the data service call is answered. So, set the status of page.
-        };
-        PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
-        return id;
-    };
-
-    var _buildNodeSelector = function(div) {
-        var input = PxU.makeChild(div, 'input', { type: 'text' });
-        var container = PxU.makeChild(div, 'div');
-        var auto_comp = new YAHOO.widget.AutoComplete(input, container, _node_ds);
-        auto_comp.prehighlightClassName = "yui-ac-prehighlight";
-        auto_comp.useShadow = true;
-        auto_comp.forceSelection = true;
-        auto_comp.queryMatchCase = false;
-        auto_comp.queryMatchContains = true;
-        var nodesel_callback = function(type, args) {
-            var node = args[2];
-            _addToHistory({ 'target': node });
-        }
-        auto_comp.itemSelectEvent.subscribe(nodesel_callback);
-
-        _updateTargetGUI = function() {
-            input.value = _cur_target;
-        };
-    };
-
-    var _initNoneSelector = function(el) {
-        var id = 'phedex-nav-target-none';
-        var sel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' });
-        _updateTargetGUI = function() {
-            _cur_target = 'none';
-        };
-        return id;
-    };
-
-    var _initTextSelector = function(el, type) {
-        var id = 'phedex-nav-target-' + type;
-        var sel = PxU.makeChild(el, 'div', { 'id': id, 'className': 'phedex-nav-component' });
-        var input = PxU.makeChild(sel, 'input', { type: 'text' });
-        _updateTargetGUI = function() {
-            input.value = _cur_target;
-        };
-        return id;
-    };
-
-    var _getWidgetMenuItems = function(type) {
-        var widgets = PxR.getWidgetsByInputType(type);
-        var menu_items = [];
-        for (var w in widgets) {
-            w = widgets[w];
-            menu_items.push({ text: w.label, value: w });
-        }
-        return menu_items;
-    };
-
-    var _initWidgetSelector = function(el) {
-        var widgetdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-widget', className: 'phedex-nav-component' });
-
-        var menu_items = _getWidgetMenuItems(_cur_target_type);
-        _cur_widget = menu_items[0].value;
-        var label = menu_items[0].text;
-
-        _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
-            'label': label,
-            'menu': menu_items,
-            'container': widgetdiv
-        });
-
-        // update state on menu selections
-        var onSelectedMenuItemChange = function(event) {
-            var menu_item = event.newValue;
-            var widget = menu_item.value;
-            _addToHistory({ 'widget': widget });
-        };
-        _widget_menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
-    };
-
-    var _updateWidgetGUI = function(widget) {
-        _widget_menu.set("label", widget.label);
-    };
-
-    var _updateWidgetMenu = function(type) {
-        //    YAHOO.log('type: '+type);
-        var menu_items = _getWidgetMenuItems(type);
-        //    YAHOO.log('menu_items: '+YAHOO.lang.dump(menu_items));
-        var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
-        var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
-        if (YAHOO.util.Dom.inDocument(menu.element)) {
-            menu.clearContent();
-            menu.addItems(menu_items);
-            menu.render();
-            //      YAHOO.log('menu rebuild: '); //+YAHOO.lang.dump(menu.itemData));
-        } else {
-            //      YAHOO.log('menu assign: '); //+YAHOO.lang.dump(menu.itemData));
-            menu.itemData = menu_items;
-        }
-        _updateWidgetGUI(widget); // set menu to first item
-        return widget;
-    };
-
-    var _initGlobalFilter = function(el) {
-        PHEDEX.Event.CreateGlobalFilter.fire(el);
-    };
+//     var _initGlobalFilter = function(el) {
+//         PHEDEX.Event.CreateGlobalFilter.fire(el);
+//     };
 
     /**
     * @method _initPermaLink
     * @description This creates the permalink element and defines function to set the permalink URL.
     * @param {Object} el Object specifying the element in the HTML page to be used for permalink.
     */
-    var _initPermaLink = function(el) {
-        var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
-        var a = PxU.makeChild(linkdiv, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#' });
-        _updateLinkGUI = function(permalinkurl) {
-            if (permalinkurl) {
-                a.href = permalinkurl; //Update the link with permalink URL
-            }
-            else {
-                a.href = document.location.href; //Update the link with current browser URL
-            }
-        };
-    };
-
-    var _defaultPageState = "";
 
     /**
     * @method _getWidget
@@ -314,6 +37,7 @@ PHEDEX.Navigator = (function() {
     * @param {Object} state Object specifying the state of the page to be set.
     */
     var _getWidget = function(state) {
+debugger;
         var indx = 0;
         var menu_items = _getWidgetMenuItems(state.type);
         for (indx = 0; indx < menu_items.length; indx++) {
@@ -327,35 +51,43 @@ PHEDEX.Navigator = (function() {
     /**
     * @method _setState
     * @description This sets the state of the navigator. If the state has changed, fire _fireNavChange event.  
-    * The changes to navigator state must pass through this function!is called by history navigate functinality 
+    * The changes to navigator state must pass through this function! It is also called by history navigate functionality 
     * to set the status in web page.
     * @param {String} pgstate String specifying the state of the page to be set.
     */
-    var _setState = function(pgstate) {
-        var state = null;
+    _setState = function(obj) {
+      return function(pgstate) {
+        var state = null,
+            changed = 0,
+            value;
         if (!pgstate) {
-            pgstate = _defaultPageState; //Set the state to default state
+            pgstate = _initialPageState; //Set the state to its initial state
         }
         if (pgstate) {
             state = _parseQueryString(pgstate); //Parse the current history state and get the key and its values
-            if (state.widget) {
-                state.widget = _getWidget(state); //Get the widget given the widget name
-            }
+//             if (state.widget) {
+//                 state.widget = _getWidget(state); //Get the widget given the widget name
+//             }
         }
         if (!state) { return; } //Do Nothing and return
-        var changed = 0;
-        if (state.instance) { changed = _setInstance(state) || changed; } //Update the instance state
-        if (state.type) { changed = _setTargetType(state) || changed; }   //Update the target type state
-        changed = _setTarget(state) || changed;                           //Update the target node state
-        if (state.widget) { changed = _setWidget(state) || changed; }     //Update the widget state
-        if (changed || (!changed && !_cur_widget_obj)) {
-            if (state.hiddencolumns || state.sortcolumn) {
-                _cur_widget_state = state;
-            }
-            _fireNavChange(); //Build widgte if there is any change in state
-
+        for (var key in obj.state)
+        {
+          if ( !obj.state[key].isValid() ) { changed++; continue; }
+          value = obj.state[key].state();
+          if ( value != state[key] ) {
+            log('setState: '+key+' ('+state[key]+' => '+value+')','info','Navigator');
+            changed++;
+          }
         }
-    };
+        log('setState: '+changed+' changes w.r.t. currently known state','info','Navigator');
+        if ( !changed ) { return; }
+var el = document.getElementById('tony');
+if ( el ) {
+  el.innerHTML=PxU.Sequence('changes')+': '+changed+' changes: '+pgstate+' '+PHEDEX.Datasvc.Instance().name;
+}
+        _sbx.notify(obj.id,'StateChanged',state);
+      };
+    }(this);
 
     /**
     * @method _setWidgetState
@@ -364,6 +96,7 @@ PHEDEX.Navigator = (function() {
     * @param {Object} wdgtstate Object specifying the state of the widget to be set.
     */
     var _setWidgetState = function() {
+debugger;
         var indx = 0;
         var hiddencolumns = {};
         if (_cur_widget_state && _cur_widget_obj.dataTable) {
@@ -414,9 +147,9 @@ PHEDEX.Navigator = (function() {
     * @param {String} strQuery specifies the state of the page to be set.
     */
     var _parseQueryString = function(strQuery) {
-        var strTemp = "", indx = 0;
-        var arrResult = {};
-        var arrQueries = strQuery.split(_hist_sym_sep);
+        var strTemp = "", indx = 0,
+            arrResult = {},
+            arrQueries = strQuery.split(_hist_sym_sep);
         for (indx = 0; indx < arrQueries.length; indx++) {
             strTemp = arrQueries[indx].split(_hist_sym_equal);
             if (strTemp[1].length > 0) {
@@ -426,71 +159,51 @@ PHEDEX.Navigator = (function() {
         return arrResult;
     };
 
-    var _initialPageState = YAHOO.util.History.getBookmarkedState("page") || '';
+    _initialPageState = YAHOO.util.History.getBookmarkedState("page") ||
+                        YAHOO.util.History.getQueryStringParameter("page") ||
+                        '';
+//     if ( _initialPageState ) { _setState(_initialPageState); }
     YAHOO.util.History.register("page", _initialPageState, _setState);
 
     /**
     * @method _getCurrentState
     * @description This gets the current state of the web page for history maintenance.  
-    * @param {Object} state specifies the current change made to the web page that has to be processed.
     */
-    var _getCurrentState = function(state) {
-        var strInstance = _cur_instance;
-        var strType = _cur_target_type;
-        var strTarget = _cur_target;
-        var strWidget = '';
-        if (_cur_widget) {
-            strWidget = _cur_widget.widget; //Initialize with current widget value
-        }
-        if (state) {
-            if (state.type) {
-                strType = state.type;
-                var menu_items = _getWidgetMenuItems(state.type); //This call is made to get default widget for the type
-                if (menu_items) {
-                    strWidget = menu_items[0].value.widget;
-                }
-            }
-            if (state.instance) { strInstance = state.instance; }  //Update instance value if present
-            if (state.target) { strTarget = state.target; }        //Update target value if present
-            if (state.widget) { strWidget = state.widget.widget; } //Update widget value if present
-        }
-        var newState = 'instance' + _hist_sym_equal + strInstance + _hist_sym_sep + 'type' + _hist_sym_equal + strType + _hist_sym_sep +
-                       'target' + _hist_sym_equal + strTarget + _hist_sym_sep + 'widget' + _hist_sym_equal + strWidget + _hist_sym_sep +
-                       'filter' + _hist_sym_equal + _cur_filter; //Form the query string
-        return newState; // Return the string that specifies the state of the page
+    this._getCurrentState = function() {
+      var newState = '';
+      for (var key in this.state)
+      {
+        if ( !this.state[key].isValid() ) { return null; }
+        var value = this.state[key].state();
+        if ( !value ) { log('State: key='+key+' got '+value,'warn','Navigator'); continue; }
+        if ( newState ) { newState += _hist_sym_sep; }
+        newState += key + _hist_sym_equal + value;
+      }
+      return newState;
     }
 
     /**
     * @method _addToHistory
     * @description This adds the current state of the web page to history for further navigation.
-    * @param {Object} state specifies the current change made to the web page that has to be processed.
     */
-    var _addToHistory = function(state) {
+    this._addToHistory = function() {
         var newState, currentState;
         try {
-            newState = _getCurrentState(state);
+            newState = this._getCurrentState();
+            if ( !newState ) { return; }
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
+                log('State: '+newState,'info','Navigator');
                 YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
+                _sbx.notify(this.id,'UpdatePermalink',newState);
             }
         }
-        catch (e) {
-            _setState(newState); //In case YUI History doesnt work
+        catch (ex) {
+          banner('Error determining page state','error');
+          log(ex,'error','Navigator');
+          _setState(newState); //In case YUI History doesnt work
         }
-    };
-
-    /**
-    * @method _fireNavChange
-    * @description This fires the navigator change event with the current state.
-    */
-    var _fireNavChange = function() {
-        _updateLinkGUI(); //Update the permalink
-        _navChangeEvent.fire({ 'type': _cur_target_type,
-            'target': _cur_target,
-            'widget': _cur_widget,
-            'filter': _cur_filter
-        });
     };
 
     /**
@@ -498,6 +211,7 @@ PHEDEX.Navigator = (function() {
     * @description This gets the datatable state and is used to update the permalink
     */
     var _formPermalinkURL = function() {
+debugger;
         var baseURL = document.location.href;
         var hashindx = baseURL.indexOf('#');
         if (hashindx > -1) {
@@ -545,157 +259,83 @@ PHEDEX.Navigator = (function() {
         _updateLinkGUI(baseURL);
     };
 
-    /**
-    * @method _afterRender
-    * @description This gets called after datatable is formed. This is used to set inter widget state (if any) 
-    * and later update the permalink
-    */
-    var _afterRender = function() {
-        _setWidgetState();
-        _formPermalinkURL();
-    }
-
-    /* Below are the individual _set{state} funcitons.  They must not be
-    called execpt through _setState, otherwise widget construction is
-    bypassed! */
-
-    /* TODO: hidden/visible a wise way to manage these elements? I don't
-    want to rebuild them on every target-chagne, but maybe there's a
-    better way to put them out of the way... */
-    var _setTargetType = function(state) {
-        var type = state.type;
-        var old = _cur_target_type;
-        if (!type) { type = _cur_target_type; }
-        else { _cur_target_type = type; }
-
-        if (old != _cur_target_type) {
-            var new_widget = _updateWidgetMenu(type);     // make a new widget menu, returns the default selection
-            if (!state.widget) { state.widget = new_widget; }
-            var new_target = _updateTargetSelector(type); // get a new target selector, returns default selection
-            if (!state.target) { state.target = new_target; }
-            _updateTargetSelector(_cur_target_type);
-            _updateTargetTypeGUI();
-            _targetTypeChangeEvent.fire({ 'old': old, 'cur': _cur_target_type });
-            return 1;
-        } else { return 0; }
-    };
-
-    var _updateTargetSelector = function(type) {
-        var div = document.getElementById('phedex-nav-target');
-        // Hide all selectors
-        var children = YAHOO.util.Dom.getChildren(div);
-        YAHOO.util.Dom.batch(children, function(c) { c.style.visibility = 'hidden'; c.style.position = 'absolute' });
-        if (type == 'static') {
-            return null;
-        }
-        // Show the one we want
-        var id = _target_selector_ids[type];
-        var el = document.getElementById(id);
-        el.style.visibility = 'visible';
-        el.style.position = 'relative';
-        // TODO: return value of active selector
-        return null;
-    };
-
-    var _setInstance = function(state) {
-        var old = _cur_instance;
-        _cur_instance = state.instance;
-
-        if (old != _cur_instance) {
-            PxD.Instance(_cur_instance);
-            _updateInstanceGUI();
-            return 1;
-        } else { return 0; }
-    };
-
-    var _setTarget = function(state) {
-        if (!state.target) {
-            state.target = "";
-        }
-        var old = _cur_target;
-        _cur_target = state.target;
-
-        if (old != _cur_target) {
-            _updateTargetGUI();
-            _targetChangeEvent.fire({ 'old': old, 'cur': _cur_target });
-            return 1;
-        } else { return 0; }
-    };
-
-    var _setWidget = function(state) {
-        var widget = state.widget;
-        var old = _cur_widget;
-        if (!widget) { widget = _cur_widget; }
-        else { _cur_widget = widget; }
-
-        if (old != _cur_widget) {
-            _updateWidgetGUI(_cur_widget);
-            _widgetChangeEvent.fire({ 'old': old, 'cur': _cur_widget });
-            return 1;
-        } else { return 0; }
-    };
-
-    // For now, just check that all parameters are set
-    var _validConstruction = function() {
-        if ((_cur_target_type == 'none') || (_cur_target_type == 'static')) {
-            if (_cur_target_type && _cur_widget) { return true; }
-            else { return false; }
-        } else {
-            // TODO:  careful validation of targets goes here...  function from the registry?
-            if (_cur_target_type && _cur_target && _cur_widget) { return true; }
-            else { return false; }
-        }
-    };
-
     // parse _cur_filter and set _filter
     var _parseFilter = function() { };
 
-    //========================= Private Events ==========================
-    // TODO:  Make public?
-    // fired whenever any navigation change occurs, passes the new (type, target, widget, filter)
-    var _navChangeEvent = new YAHOO.util.CustomEvent('NavChange');
-    // fired when the target type changed, passes {prev:, cur:}
-    var _targetTypeChangeEvent = new YAHOO.util.CustomEvent('TargetTypeChange');
-    // fired when the target changed, passes {prev:, cur:}
-    var _targetChangeEvent = new YAHOO.util.CustomEvent('TargetChange');
-    // fired when the widget changed, passes {prev:, cur:}
-    var _widgetChangeEvent = new YAHOO.util.CustomEvent('WidgetChange');
-    // fired when the filter changed, passes (old_widget, new_widget)
-    var _filterChangeEvent = new YAHOO.util.CustomEvent('FilterChange');
-
     //========================= Event Subscriptions =====================
-    // _navChangeEvent : on this event, we build a widget!
-    var _nav_construct = false;
-    _navChangeEvent.subscribe(function(evt, args) {
-        args = args[0];
-        YAHOO.log("NavChange:  type=" + args.type + " target=" + args.target +
-	      " widget=" + args.widget.widget + " filter=" + args.filter,
-	      'info', 'Navigator');
+  var _nav_construct = false;
 
-        // out with the old...
-        if (_cur_widget_obj) {
-            _cur_widget_obj.destroy();
-            _cur_widget_obj = null;
+  this.selfHandler = function(obj) {
+    return function(who, arr) {
+      var action = arr[0],
+          args   = arr[1];
+      switch (action) {
+        case 'decoratorsReady': {
+          if ( _initialPageState ) {
+            _setState(_initialPageState);
+            _initialPageState = null;
+          } else {
+            _sbx.notify(who,'NavReset');
+          }
+          break;
+        }
+        case 'statePlugin': {
+          obj.state[args.key] = args;
+          break;
         }
 
-        // in with the new... (maybe)
-        if (_validConstruction()) {
-            YAHOO.log("NavChange:  construct type=" + _cur_target_type + " target=" + _cur_target +
-		" widget=" + _cur_widget.widget,
-		'info', 'Navigator');
-            _nav_construct = true; // prevent interception of our own construct event
-            var widget = PxR.construct(_cur_widget.widget, _cur_target_type, _cur_target,
-				 'phedex-main', { window: false });
-            _nav_construct = false;
-            _cur_widget_obj = widget;
-            widget.update();
-            if (widget.dataTable) {
-                widget.dataTable.subscribe('renderEvent', _afterRender);   //Assign the function to the event (after column gets sorted)
-                widget.dataTable.subscribe('columnShowEvent', _formPermalinkURL);   //Assign the function to the event (after column gets sorted)
-            }
+// These are to respond to changes in the decorations
+//      case 'TargetType': Not needed! Setting TargetType always leads to WidgetSelected, so that is enough to do the job
+        case 'NodeSelected':
+        case 'Instance':
+        case 'addToHistory': {
+          obj._addToHistory();
+          break;
         }
-    });
+        case 'WidgetSelected': { // addToHistory, yes, but also create the required module
+          obj._addToHistory();
+          _sbx.notify('module','*','destroy');
+          _sbx.notify('CreateModule',args,arr[2]);
+          break;
+        }
 
+//         case 'wassitallabout': {
+// debugger;
+//           YAHOO.log("NavChange:  type=" + args.type + " target=" + args.target +
+//               " widget=" + args.widget.widget + " filter=" + args.filter,
+//               'info', 'Navigator');
+// 
+//         // out with the old...
+//           _sbx.notify('module','*','destroy');
+// //         if (_cur_widget_obj) {
+// //             _cur_widget_obj.destroy();
+// //             _cur_widget_obj = null;
+// //         }
+// 
+//         // in with the new... (maybe)
+//           if (_validConstruction()) {
+//             YAHOO.log("NavChange:  construct type=" + _cur_target_type + " target=" + _cur_target +
+//                 " widget=" + _cur_widget.widget,
+//                 'info', 'Navigator');
+//             _nav_construct = true; // prevent interception of our own construct event
+//             var a = {};
+//             if ( _cur_target_type ) { a[_cur_target_type] = _cur_target; }
+//             _sbx.notify('CreateModule',_cur_widget.widget,a);
+// 
+// //             var widget = PxR.construct(_cur_widget.widget, _cur_target_type, _cur_target,
+// //                               'phedex-main', { window: false });
+// //             _nav_construct = false;
+// //             _cur_widget_obj = widget;
+// //             widget.update();
+// //             if (widget.dataTable) {
+// //                 widget.dataTable.subscribe('renderEvent', _afterRender);   //Assign the function to the event (after column gets sorted)
+// //                 widget.dataTable.subscribe('columnShowEvent', _formPermalinkURL);   //Assign the function to the event (after column gets sorted)
+// //             }
+//             }
+//           }
+        };
+      };
+    }(this);
     /* PHEDEX.Core.Registry.beforeConstructEvent :
     On this event, something triggered a widget change.  If it was
     us, do nothing.  If it was something else, (e.g. context menu click)
@@ -703,20 +343,53 @@ PHEDEX.Navigator = (function() {
     intercepting the construct event, returning false to cancel the
     construct(), and triggering our own construct event after we've
     updated */
-    PxR.beforeConstructEvent.subscribe(function(evt, args) {
-        if (_nav_construct) { return true; } // prevent interception of our own construct event
-        args = args[0];
-        YAHOO.log("heard beforeConstruct for widget=" + args.widget.widget + " type=" + args.type + " data=" + args.data,
-	      'info', 'Navigator');
+//     PxR.beforeConstructEvent.subscribe(function(evt, args) {
+//         if (_nav_construct) { return true; } // prevent interception of our own construct event
+//         args = args[0];
+//         YAHOO.log("heard beforeConstruct for widget=" + args.widget.widget + " type=" + args.type + " data=" + args.data,
+// 	      'info', 'Navigator');
+// 
+//         _addToHistory({ 'type': args.type,
+//             'widget': args.widget,
+//             'target': args.data
+//         });
+//         return false; // prevents Core.Widget.Registry from constructing
+//     });
 
-        _addToHistory({ 'type': args.type,
-            'widget': args.widget,
-            'target': args.data
-        });
-        return false; // prevents Core.Widget.Registry from constructing
-    });
+    _construct=function() {
+      return {
+        me:   'Navigator',
+        type: 'Navigator',
 
-    return {
+        decorators: [
+          {
+            name:   'InstanceSelector',
+            parent: 'navigator',
+            payload:{
+              type: 'menu',
+            }
+          },
+          {
+            name:   'TypeSelector',
+            parent: 'navigator',
+            payload:{
+              type: 'menu',
+            }
+          },
+          {
+            name:   'TargetTypeSelector',
+            parent: 'navigator',
+          },
+          {
+            name:   'WidgetSelector',
+            parent: 'navigator',
+          },
+          {
+            name:   'Permalink',
+            parent: 'navigator',
+          },
+        ],
+
         //========================= Public Methods ==========================
         // init(el, opts)
         //   called when this object is created
@@ -724,78 +397,551 @@ PHEDEX.Navigator = (function() {
         //   opts:  options for the navigator, takes the following:
         //     'typeconfig'   : an array of objects for organizing the type menu.
         //     'widgetconfig' : an array of objects for organizing the widget menu.
-        init: function(el, cfg) {
+        init: function(args) {
+              YAHOO.util.History.onReady( (function(obj) {
+                return function() {
+                  setTimeout(function() { obj.create(args); },0); //Initializes the form
+                };
+              })(this) );
+            try {
+              YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
+            } catch (ex) {
+              log(ex,'error','Navigator')
+              this.create(args);
+            }
+        },
+        create: function(args) {
+            this.el  = args.el;
+            if ( typeof(this.el) != 'object' ) {
+              this.el = document.getElementById(this.el);
+            }
+            if ( !this.el ) {
+              throw new Error('Cannot find element for navigator');
+            }
 
-            // Build the YUI menu button for instance selection
-            _initInstanceSelector(el);
-
-            // Build the type selection menu
-            _initTypeSelector(el, cfg.typecfg);
-
-            // Build TargetType selector for each type
-            _initTargetSelectors(el);
-
-            // Build Widget Selector for each type
-            _initWidgetSelector(el, cfg.widgetcfg);
+            this.dom.navigator = this.el; // needed for the decorators
+            this.cfg = args.cfg;
 
             // Build GlobalFilter
-            _initGlobalFilter(el);
+//             _initGlobalFilter(el);
+//             _sbx.notify('Load','phedex-globalfilter',{el:el});
 
-            // Build Permalink
-            _initPermaLink(el);
-
-            // Get the current state that would also be default state for the page
-            _defaultPageState = _getCurrentState(null);
+            _sbx.listen(this.id,this.selfHandler);
+            _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
+            _sbx.notify(this.id,'loadDecorators',this);
         },
 
-        // TODO:  is there a use case for any of these?
-        // public methods
-        addTarget: function(target) { },
-        addWidget: function(widget) { },
+        }
+      };
+    YAHOO.lang.augmentObject(this, _construct(), true);
+};
 
-        getTarget: function() { },
-        getWidget: function() { },
+PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox,
+      _widget_menu,
+      _cur_target_type = 'none',
+      _widget,    // the current widget name
+      _widget_id; // the current widget id
 
-        // call to change the target and/or widget
-        // this is used when  e.g. a context menu item within a widget is selected
-        change: function(target, widget) { },
+  this.id = 'WidgetSelector';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-widget';
+  var _getWidgetMenuItems = function(type) {
+    var widgets = PxR.getWidgetsByInputType(type);
+    var menu_items = [];
+    for (var w in widgets) {
+      w = widgets[w];
+      menu_items.push({ text: w.label, value: w });
+    }
+    return menu_items;
+  };
 
-        //========================= Public Events ===========================
-        // fired when the filter changes, passes (filter)
-        filterChangeEvent: new YAHOO.util.CustomEvent('FilterChange')
+  this.initWidgetSelector = function() {
+    var menu_items = _getWidgetMenuItems(_cur_target_type);
+//     _cur_widget = menu_items[0].value;
+
+    _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
+      'label': '(widget)',
+      'menu': menu_items,
+      'container': this.el
+    });
+
+    // update state on menu selections
+    var onSelectedMenuItemChange = function(event) {
+      var menu_item = event.newValue;
+      var widget = menu_item.value;
+      _updateWidgetGUI(widget);
+      };
+    _widget_menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+  };
+
+  var _updateWidgetGUI = function(o) {
+    return function(widget) {
+      _widget_menu.set("label", widget.label);
+      if ( _widget_id == widget.id ) { return; }
+      _widget    = widget.widget;
+      _widget_id = widget.id;
+      _sbx.notify(obj.id,'WidgetSelected',o.getState(),widget.args);
     };
-})();
+  }(this);
 
-//Use the Browser History Manager onReady method to initialize the application.
-YAHOO.util.History.onReady(function() {
-    CreateNavigator(); //Initializes the form
-});
-
-var divNav, cfgNav; //To store the navigator element and its configuration
-
-/**
-* @method InitializeNavigator
-* @description This initializes the browser history management library.
-* @param {HTML element} el element specifies element the navigator should be built in
-* @param {Object} cfg Object specifies options for the navigator, takes the following:
-* 'typeconfig'   : an array of objects for organizing the type menu.
-* 'widgetconfig' : an array of objects for organizing the widget menu.
-*/
-function InitializeNavigator(el, cfg) {
-    try {
-        divNav = el;
-        cfgNav = cfg;
-        YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
+  var _updateWidgetMenu = function(type) {
+    var menu_items = _getWidgetMenuItems(type);
+    var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
+    var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
+    if (YAHOO.util.Dom.inDocument(menu.element)) {
+      menu.clearContent();
+      menu.addItems(menu_items);
+      menu.render();
+      } else {
+        menu.itemData = menu_items;
+      }
+      _updateWidgetGUI(widget); // set menu to first item
+      return widget;
+  };
+  this.isStateValid = function() {
+    if ( _widget ) { return true; }
+    return false;
+  }
+  this.getState = function() {
+    var state = _widget;
+    if ( state.match('^phedex-module-(.+)$') ) { return RegExp.$1; }
+    if ( state.match('^phedex-(.+)$') ) { return RegExp.$1; }
+    return state;
+  }
+  this.partnerHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'NavReset': {
+          break;
+        }
+        case 'StateChanged': {
+          _updateWidgetMenu(value.type);
+          _sbx.notify('module','*','destroy');
+          _sbx.notify('CreateModule',value.type);
+          break;
+        }
+        case 'TargetType': {
+          _cur_target_type = value;
+          _updateWidgetMenu(value);
+          break;
+        }
+      }
     }
-    catch (e) {
-        CreateNavigator();
-    }
-}
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'statePlugin', {key:'widget', state:this.getState, isValid:this.isStateValid});
+  this.initWidgetSelector();
+  return this;
+};
 
-/**
-* @method CreateNavigator
-* @description This initializes the creation of navigator by passing the required parameters.
-*/
-function CreateNavigator() {
-    PHEDEX.Navigator.init(divNav, cfgNav);
-}
+PHEDEX.Navigator.Permalink = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox;
+
+  this.id = 'Permalink';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-permalink';
+//   var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
+  var a = PxU.makeChild(this.el, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#', title:'Permalink to the current page-state' });
+  this.partnerHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value  = arr[1];
+      switch (action) {
+        case 'NavReset': {
+          a.href = document.location.href;
+          break;
+        }
+//         case 'StateChanged': {
+//           break;
+//         }
+        case 'UpdatePermalink': {
+          if (value) {
+            a.href = '#' + value; //Update the link with permalink URL
+          } else {
+            a.href = document.location.href; //Update the link with current browser URL
+          }
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  return this;
+};
+
+PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox,
+      _type, // The currently selected type
+      _typeArgs = {}, // currently selected arguments for the given types
+      _state = {};    // current state for each type
+
+  this.id = 'TargetTypeSelector';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-targettype';
+// create the targetdiv here rather than in the initTargetSelectors to avoid racing for the DOM parent
+  var targetdiv = PxU.makeChild(this.el, 'div', { className: 'phedex-nav-component phedex-nav-target' });
+
+  this._initTargetSelectors = function(target_types) {
+    if ( this.dom ) { return; }
+    this.dom={};
+    for (var t in target_types) {
+      try {
+        this.dom[t] = _selectors[t].init(targetdiv,t);
+      } catch (ex) { log(ex,'error',this.id); banner('Error initialising Navigator, unknown type "'+t+'"!','error'); }
+    }
+  };
+
+  _selectors = {
+    none: {
+      init: function(el) {
+        return PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-none' });
+       },
+      needValue: false,
+      updateGUI: function() {
+debugger;
+//         _type = 'none';
+      }
+    },
+
+    static: {
+      init: function(el) {
+        return PxU.makeChild(el, 'div');
+       },
+      needValue: false,
+      updateGUI: function() {
+        _type = 'static';
+      }
+    },
+
+
+    text: {
+      init: function(el, type) {
+        var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target' }),
+           input = PxU.makeChild(sel, 'input', { type: 'text' });
+        _selectors[type].needValue = true;
+        _selectors[type].updateGUI = function(i) {
+          return function() {
+            i.value = _state[_type]; // Is this correct? What if Instance has changed?
+          }
+        }(input);
+        return sel;
+      },
+    },
+
+    node: {
+      init: function(el,type) {
+        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-nodesel' }),
+            input     = PxU.makeChild(sel, 'input', { type: 'text' }),
+            container = PxU.makeChild(sel, 'div');
+          makeNodeList = function(data) {
+            data = data.node;
+            var nodelist = [];
+            for (var node in data) {
+              nodelist.push(data[node].name);
+            }
+            _buildNodeSelector(input,container,nodelist.sort());
+          };
+        PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
+        _selectors[type].needValue = true;
+        _selectors[type].updateGUI = function(i) {
+          return function(value) {
+            i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
+          }
+        }(input);
+        return sel;
+      }
+    }
+
+  };
+  var _buildNodeSelector = function(input,container,nodelist) {
+    var node_ds  = new YAHOO.util.LocalDataSource(nodelist),
+        cfg = {
+          prehighlightClassName:"yui-ac-prehighlight",
+          useShadow: true,
+          forceSelection: true,
+          queryMatchCase: false,
+          queryMatchContains: true,
+        },
+        auto_comp = new YAHOO.widget.AutoComplete(input, container, node_ds, cfg);
+    var nodesel_callback = function(type, args) {
+      _state[_type] = args[2][0];
+      _typeArgs[_type] = {node:args[2][0]};
+      _sbx.notify(obj.id,'NodeSelected',args[2][0]);
+      _sbx.notify('module','*','setArgs',{node:args[2][0]});
+      _sbx.notify('module','*','getData');
+    }
+    auto_comp.itemSelectEvent.subscribe(nodesel_callback);
+  };
+  this._updateTargetSelector = function(type) {
+    _type = type;
+    for (var t in this.dom) {
+      var el = this.dom[t];
+      if ( t == type ) {
+        el.style.visibility = 'visible';
+        el.style.position = 'relative';
+      } else {
+        el.style.visibility = 'hidden';
+        el.style.position = 'absolute';
+      }
+    }
+    return;
+  };
+  this.isStateValid = function() {
+    if ( !_type ) { return false; }
+    if ( !_selectors[_type].needValue ) { return true; }
+    if ( !_state[_type] ) { return false; }
+    return true;
+  }
+  this.getState = function() {
+    return _state[_type];
+  }
+/* Permit interaction with the navigator
+ * @method partnerHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+  this.partnerHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'NavReset': {
+          break;
+        }
+        case 'TargetType': {
+          o._updateTargetSelector(value);
+          break;
+        }
+        case 'TargetTypes': {
+          o._initTargetSelectors(value);
+          break;
+        }
+        case 'StateChanged': {
+          if ( value.type && value.type != _type ) {
+            o._updateTargetSelector(value.type);
+          }
+          if ( value.target && value.target != _state[_type] ) {
+            _typeArgs[ value.type] = {node:value.target};
+            _selectors[value.type].updateGUI(value.target);
+            _sbx.notify(obj.id,'NodeSelected',value.target);
+            _sbx.notify('module','*','setArgs',{node:value.target});
+            _sbx.notify('module','*','getData');
+          }
+          break;
+        }
+        case 'updateTargetGUI': {
+debugger;
+          o[target_type].updateTargetGUI(value);
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'NeedTargetTypes');
+  this.moduleHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'needArguments': {
+          if ( _typeArgs[_type] ) {
+            _sbx.notify(arr[1],'setArgs',_typeArgs[_type]);
+            _sbx.notify(arr[1],'getData');
+          }
+        }
+      }
+    }
+  }(this);
+  _sbx.listen('module', this.moduleHandler);
+  _sbx.notify(obj.id,'statePlugin', {key:'target', state:this.getState, isValid:this.isStateValid});
+  return this;
+};
+
+PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox,
+      _target_types = {},
+      _target_type,
+      types = PxR.getInputTypes(),
+      menu_items = [];
+
+  this.id = 'TypeSelector';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-type';
+
+  // get registered target types and store them with optional config params
+  for (var i in types) {
+    type = types[i];
+    var o = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY },
+        opts = obj.cfg.typecfg[type] || {};
+    YAHOO.lang.augmentObject(o, opts, true);
+    _target_types[type] = o;
+  }
+
+  // sort types by object params
+  types.sort(function(a, b) {
+    return _target_types[a].order - _target_types[b].order;
+  });
+
+  // build menu items in sorted order
+  for (var type in types) {
+    var o = _target_types[types[type]];
+    menu_items.push({ 'text': o.label, 'value': o.name });
+  }
+
+  this.menu = new YAHOO.widget.Button({ type: "menu",
+    label: '(type)',
+    menu: menu_items,
+    container: this.el
+  });
+  var onSelectedMenuItemChange = function(event) {
+    if ( event.prevValue && event.newValue.value == event.prevValue.value ) { return; }
+    var type = event.newValue.value;
+    _sbx.notify(obj.id,'TargetType',type);
+  };
+  this.menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+
+  this.isStateValid = function() {
+    if ( _target_type ) { return true; }
+    return false;
+  }
+  this.getState = function() {
+    return _target_type;
+  }
+/* Permit interaction with the navigator
+ * @method partnerHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+  this.partnerHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'NavReset': {
+          _sbx.notify(obj.id,'TargetTypes',_target_types);
+          _sbx.notify(obj.id,'TargetType',menu_items[0].value);
+          break;
+        }
+        case 'TargetType': {
+          _target_type = value;
+          o.menu.set("label", _target_types[value].label);
+          break;
+        }
+        case 'StateChanged': {
+          _target_type = value.type;
+          o.menu.set("label", _target_types[_target_type].label);
+          break;
+        }
+        case 'NeedTargetTypes': {
+          _sbx.notify(obj.id,'TargetTypes',_target_types);
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
+  return this;
+};
+
+PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
+  var p    = args.payload,
+      obj  = args.payload.obj,
+      _sbx = sandbox,
+      instances = PHEDEX.Datasvc.Instances(), // Get current instances
+      _instances={}, menu_items=[],
+      indx, jsonInst;
+  if (!instances) { throw new Error('cannot determine set of DB instances'); } //Something is wrong.. So dont process further..
+
+  this.id = 'InstanceSelector';
+  this.el = document.createElement('div');
+  this.el.className = 'phedex-nav-component phedex-nav-instance';
+  for (indx = 0; indx < instances.length; indx++) {
+    jsonInst = instances[indx];
+    _instances[jsonInst.instance] = jsonInst;
+    menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.instance });
+   }
+
+  this.menu = new YAHOO.widget.Button({ type: "menu",
+    label: '(instance)',
+    menu: menu_items,
+    container: this.el
+  });
+
+  var changeInstance = function(o) {
+    return function(instance) {
+      if ( typeof(instance) != 'object' ) {
+        instance = PHEDEX.Datasvc.Instance(instance);
+      } else {
+        PHEDEX.Datasvc.Instance(instance.instance);
+      }
+      o.menu.set("label", instance.name);
+      _sbx.notify('module','*','getData');
+    };
+  }(this);
+
+  var onSelectedMenuItemChange = function(event) {
+    if ( event.prevValue ) {
+      if ( event.newValue.value == event.prevValue.value ) { return; }
+    } else {
+      if ( event.newValue.value == PHEDEX.Datasvc.Instance().instance ) { return; }
+    }
+    changeInstance(event.newValue.value);
+    _sbx.notify(obj.id,'Instance',event.newValue.value);
+  };
+
+  var _stateIsValid = false;
+  this.isStateValid = function() { return _stateIsValid; }
+  this.getState = function() {
+    return PHEDEX.Datasvc.Instance().name;
+  }
+  this.menu.on('selectedMenuItemChange', onSelectedMenuItemChange);
+/* Permit interaction with the navigator
+ * @method partnerHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+  this.partnerHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'NavReset': {
+          _stateIsValid = true;
+          changeInstance();
+          break;
+        }
+        case 'StateChanged': {
+          var i = PHEDEX.Datasvc.Instance();
+          if ( i.name != value.instance ) {
+            changeInstance(PHEDEX.Datasvc.InstanceByName(value.instance));
+          }
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,this.partnerHandler);
+  _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'statePlugin', {key:'instance', state:this.getState, isValid:this.isStateValid});
+  return this;
+};
