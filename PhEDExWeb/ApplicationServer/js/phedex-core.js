@@ -208,7 +208,7 @@ PHEDEX.Core = function(sandbox,loader) {
       log('loading decorators','info','Core');
       _ldr.load( {
         Success: function() {
-          log('Successfully loaded decorators','warn','Core');
+          log('Successfully loaded decorators','info','Core');
           _sbx.notify(m.id,'createDecorators',m);
         },
         Progress: function(item) { banner('Loaded item: '+item.name); }
@@ -277,8 +277,12 @@ PHEDEX.Core = function(sandbox,loader) {
               var data = args[0],
                   context = args[1];
               try {
-                _m.gotData(data,context);
-              } catch(ex) { log(ex,'error',who); banner('Error processing data!','error'); }
+                if ( !m ) { banner(who+' was nuked before data arrived!'); }
+                else { _m.gotData(data,context); }
+              } catch(ex) {
+                log(ex,'error',who);
+                banner('Error processing data for '+who,'error');
+              }
             }(m);
           });
           var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
