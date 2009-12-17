@@ -28,7 +28,7 @@ PHEDEX.Loader = function(opts) {
     //'phedex-core-filter':      { requires:['phedex-util'] },
     //'phedex-global-filter':    { requires:[] },
     'phedex-config': {},
-    'phedex-login': { requires: ['phedex-util'] },
+    'phedex-login': { requires: ['phedex-util','button'] },
     'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
@@ -76,6 +76,7 @@ PHEDEX.Loader = function(opts) {
     switch (type) {
       case 'Progress': { log(ev+': '+type+', '+item.name); break; }
       case 'Success':  {
+        banner('loading complete');
         var l='';
         for (var i in item) { l += i+' ';};
         log(ev+': '+type+', '+l);
