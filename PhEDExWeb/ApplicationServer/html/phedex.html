@@ -132,7 +132,6 @@ function createCoreApp() {
 // Create the logger element, if required...
   if ( 0 ) {
     PxL.load(function() {
-      PHEDEX.Logger.Create();
       var ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Show Logger',
@@ -143,7 +142,8 @@ function createCoreApp() {
         }
       );
       document.getElementById('phedex-controls').appendChild(ctl.el);
-    },'logger','component-control');
+    },'component-control');
+    PxS.notify('Load','phedex-logger');
   }
 
   PHEDEX.Util.bannerIdleTimer(PxL);

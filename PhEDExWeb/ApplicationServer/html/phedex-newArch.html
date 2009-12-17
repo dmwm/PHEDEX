@@ -261,19 +261,7 @@ function createCoreApp() {
 // Create the logger element, if required...
   if ( 1 ) {
     PxL.load(function() {
-      PHEDEX.Logger.Create();
       var ctl = new PHEDEX.Component.Control(PxS,{
-          payload: {
-            text:'Show Logger',
-            target:'phedex-logger',
-            animate:true,
-            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
-          }
-        }
-      );
-      document.getElementById('phedex-controls').appendChild(ctl.el);
-      document.getElementById('phedex-controls').appendChild(ctl.el);
-      ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Debug controls',
             target:'phedex-debug',
@@ -285,9 +273,19 @@ function createCoreApp() {
       ctl.Show();
       debugLinks();
       ctl.Show();
-    },'logger','component-control');
+      ctl = new PHEDEX.Component.Control(PxS,{
+          payload: {
+            text:'Show Logger',
+            target:'phedex-logger',
+            animate:true,
+            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+          }
+        }
+      );
+      document.getElementById('phedex-controls').appendChild(ctl.el);
+    },'component-control');
+    PxS.notify('Load','phedex-logger', { log2server:{info:false,warn:true,error:true} } );
   }
-
   PHEDEX.Util.bannerIdleTimer(PxL);
 };
 </script>
