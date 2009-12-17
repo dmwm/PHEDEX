@@ -127,6 +127,18 @@ PHEDEX.Component.Control = function(sandbox,args) {
       me: _me,
       enabled: 1,
       payload: {},
+
+/** Wrap the sandbox notifications in a check to see if we are associated with a partner. Adds the partner-name to the argument list
+ * @method notify
+ * @param arr {array} array of arguments to pass to the sandbox notification method
+ * @private
+ */
+      notify: function() {
+        if ( !partner ) { return; }
+        var arr = Array.apply(null,arguments);
+        arr.unshift(partner);
+        _sbx.notify.apply(null,arr);
+      },
 /**
  * Initialise the component
  * @method _init
@@ -176,7 +188,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
                 var tgt = obj.payload.target;
                 if ( tgt ) {
                   var eHeight = tgt.offsetHeight;
-                  _sbx.notify(partner,'show target',eHeight);
+                  obj.notify('show target',eHeight);
                 } else {
                   if ( value == 'done' ) { obj.Hide(); }
                 }
@@ -219,7 +231,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         if ( tgt && !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
         if ( p.handler ) {
           if ( typeof(p.handler) == 'string' ) {
-            _sbx.notify(partner,'expand',p.handler,this.id);
+            this.notify('expand',p.handler,this.id);
           }
           else if ( typeof(p.handler) == 'function' ) {
             p.handler();
@@ -247,7 +259,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
               YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
               YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
               tgt.style.height=null;
-              _sbx.notify(partner,'hide target',eHeight);
+              ctl.notify('hide target',eHeight);
               YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
               YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
             };
