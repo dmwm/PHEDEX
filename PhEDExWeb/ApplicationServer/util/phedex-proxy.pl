@@ -10,7 +10,7 @@ use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
-my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only);
+my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only,$log);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
 my ($cert_file,$key_file,$proxy,$pk12);
 
@@ -88,6 +88,7 @@ sub usage()
 			openssl pkcs12 -export -in usercert.pem -inkey userkey.pem -out user.p12
 			(you will be prompted for an 'export password', remember it,
 			you will need to enter it for this script to work!)
+ logfile=s		file for logging messages from the application, for post-mortem debugging
 
 EOF
 }
@@ -113,6 +114,7 @@ GetOptions( 'help'	=> \$help,
 	    'key_file=s'	=> \$key_file,
 	    'proxy=s'		=> \$proxy,
 	    'pk12=s'		=> \$pk12,
+	    'logfile=s'		=> \$log,
 	  );
 
 usage() if $help;
@@ -153,6 +155,22 @@ if ( $pk12 )
   $ENV{HTTPS_PKCS12_PASSWORD} = $password;
 }
 
+sub writeLog
+{
+  my $pid;
+  return if $pid = open(STDOUT, "|-");
+  die "cannot fork: $!" unless defined $pid;
+  open LOG, ">>$log" or die "Cannot open $log for append: $!\n";
+  select LOG; $|=1;
+  select STDOUT;
+  while (<STDIN>) {
+    print;
+    print LOG;
+  }
+  exit;
+}
+writeLog() if $log;
+
 #-----------------------------------------------------------
 
 POE::Component::Server::TCP->new
@@ -184,6 +202,20 @@ POE::Component::Server::TCP->new
         my $file = $request->uri();
         $file =~ s%^/*%%;
         $file =~ s%\.\./%%g;
+
+	if ( $file =~ m%^log/([^/]+)/([^/]+)/([^/]+)$% )
+	{
+	  my ($level,$group,$str) = ($1,$2,$3);
+	  $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+	  print scalar localtime, " LOG: $level $group $str\n";
+          my $response = HTTP::Response->new(200);
+	  $response->header( 'Content-type', 'text/html' );
+	  $response->header( 'Content-length', 0 );
+	  $heap->{client}->put($response);
+	  $kernel->yield("shutdown");
+	  return;
+	}
+
 	foreach ( @map )
 	{
 	  my ($key,$value) = split('=',$_);
@@ -301,6 +333,7 @@ DONE:
         );
         my @form = $uri->query_form();
         my $response = $ua->post($uri,\@form);
+	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $heap->{client}->put($response);
         $kernel->yield("shutdown");
       },
