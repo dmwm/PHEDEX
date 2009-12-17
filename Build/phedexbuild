@@ -28,9 +28,16 @@ die "$me: $action: config dir $config_dir does not exist\n" unless -d $config_di
 
 my $pkgtools_tag=`cat $config_dir/pkgtools-tag`; chomp $pkgtools_tag;
 my $cmsdist_tag=`cat $config_dir/cmsdist-tag`; chomp $cmsdist_tag;
-my $arch=`uname -p`;  chomp $arch;
+my $cmsos=`cmsos`;  chomp $cmsos;
+my ($os, $arch) = split /_/, $cmsos;
+#my $gcc_tag=`cat $config_dir/${os}-gcc-tag`; chomp $gcc_tag;
+my $gcc_ver;
+$gcc_ver = "345" if $os eq 'slc4';
+$gcc_ver = "434" if $os eq 'slc5';
+my $fullarch = "${cmsos}_gcc${gcc_ver}";
+my $gcc_ver_dots = join('.', split(//, $gcc_ver));
 
-print "$me: $action: using PKGTOOLS=$pkgtools_tag CMSDIST=$cmsdist_tag\n";
+print "$me: $action: using PKGTOOLS=$pkgtools_tag CMSDIST=$cmsdist_tag cmsos=$cmsos os=$os arch=$arch gcc_ver=$gcc_ver fullarch=$fullarch\n";
 
 if ($wipe || !-d "./PKGTOOLS") {
     print "$me: wipe/checkout PKGTOOLS\n";
@@ -44,6 +51,8 @@ if ($wipe || !-d "./CMSDIST") {
     print "$me: wipe/checkout CMSDIST...\n";
     rmtree "./CMSDIST";
     print `cvs co -r $cmsdist_tag CMSDIST`, "\n";
+#    print "$me: getting $gcc_tag version of gcc...\n";
+#    print `cvs up -r $gcc_tag CMSDIST/gcc.spec`, "\n";
 }
 
 my $sync_back  = 0;
@@ -55,7 +64,9 @@ if ($action eq 'release') {
 }
 $wipe = $action eq 'upload' ? 0 : $wipe;
 
-my $cfg = $config_dir . "/${action}-${arch}.cfg";
+#my $cfg = $config_dir . "/${action}-${cmsos}.cfg";
+my $cfg = $config_dir . "/${action}.cfg";
+
 die "$me: config $cfg does not exist\n" unless -f $cfg;
 
 my $ssh_agent = $action eq 'upload' ? 1 : 0;
@@ -74,7 +85,7 @@ if ($wipe) {
     print "$me: wipe work areas...\n";
     rmtree "./work"; rmtree "./tmp"; 
 }
-my $cmd = "$cmsbuild --cfg $cfg --cmsdist CMSDIST --work-dir work";
+my $cmd = "$cmsbuild --architecture $fullarch --compiler-version $gcc_ver_dots --cfg $cfg --cmsdist CMSDIST --work-dir work";
 $cmd .= " --sync-back" if $sync_back;
 exec_command($cmd, $log);
 
