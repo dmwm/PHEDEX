@@ -298,6 +298,10 @@ debugger;
           _sbx.notify('CreateModule',args,arr[2]);
           break;
         }
+        case 'RegistryExists': {
+          var _r = args;
+          break;
+        }
 
 //         case 'wassitallabout': {
 // debugger;
@@ -333,9 +337,10 @@ debugger;
 // //             }
 //             }
 //           }
-        };
       };
-    }(this);
+    };
+  }(this);
+
     /* PHEDEX.Core.Registry.beforeConstructEvent :
     On this event, something triggered a widget change.  If it was
     us, do nothing.  If it was something else, (e.g. context menu click)
@@ -398,17 +403,18 @@ debugger;
         //     'typeconfig'   : an array of objects for organizing the type menu.
         //     'widgetconfig' : an array of objects for organizing the widget menu.
         init: function(args) {
-              YAHOO.util.History.onReady( (function(obj) {
-                return function() {
-                  setTimeout(function() { obj.create(args); },0); //Initializes the form
-                };
-              })(this) );
-            try {
-              YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
-            } catch (ex) {
-              log(ex,'error','Navigator')
-              this.create(args);
-            }
+          YAHOO.util.History.onReady( (function(obj) {
+            return function() {
+              setTimeout(function() { obj.create(args); },0); //Initializes the form
+            };
+          })(this) );
+          try {
+            YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
+          } catch (ex) {
+            log(ex,'error','Navigator')
+            this.create(args);
+          }
+          _sbx.notify('Registry','needRegistry',this.id)
         },
         create: function(args) {
             this.el  = args.el;

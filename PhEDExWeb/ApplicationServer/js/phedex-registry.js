@@ -96,7 +96,7 @@ PHEDEX.Registry = function(sandbox) {
  * @method create
  */
     create: function() {
-      _sbx.notify('RegistryCreated');
+      _sbx.notify('RegistryExists',this.id);
 /**
  * Handle messages sent directly to this module. This function is subscribed to listen for <strong>Registry</strong> events, and will take action accordingly.
  * @method selfHandler
@@ -121,6 +121,9 @@ PHEDEX.Registry = function(sandbox) {
               var value = obj[action]();
               _sbx.notify(arr[1],action,value);
               break;
+            }
+            case 'needRegistry': {
+              _sbx.notify(arr[1],'RegistryExists',obj);
             }
           }
         }
