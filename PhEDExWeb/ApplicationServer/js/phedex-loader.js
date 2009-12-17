@@ -17,7 +17,7 @@ PHEDEX.Loader = function(opts) {
     'treeview-css':   { type: 'css', fullpath: '/yui/examples/treeview/assets/css/menu/tree.css' },
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'phedex-util':    { requires: ['phedex-css'] },
-    'phedex-datasvc': { requires: ['phedex-util','json'] },
+    'phedex-datasvc': { requires: ['phedex-util','connection','json'] },
     'phedex-util-idletimer': { },
 
     'phedex-component-control':     { requires:['phedex-util','animation'] },
@@ -32,7 +32,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
-    'phedex-logger':    { requires:['phedex-util', 'logger'] },
+    'phedex-logger':    { requires:['phedex-util','logger','connection'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
