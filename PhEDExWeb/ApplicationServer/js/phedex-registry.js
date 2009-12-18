@@ -53,7 +53,8 @@ PHEDEX.Registry = function(sandbox) {
       if (_widgets[inputType][widget][label]) {
         throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
-      var w = { widget:widget, type:inputType, label:label, id:PxU.Sequence() };
+      var w = { widget:widget, short_name:widget, type:inputType, label:label, id:PxU.Sequence() };
+      if ( widget.match('^phedex-module-(.+)$') ) { w.short_name = RegExp.$1; }
       if (extrakeys) {
         for (var k in extrakeys) {
           w[k] = extrakeys[k];
