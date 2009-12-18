@@ -207,6 +207,8 @@ debugLinks = function() {
 // When the DOM is available, start loading the essential bits and pieces
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
+  log('initialising','info','app');
+  PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
   PxL  = new PHEDEX.Loader();
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
@@ -270,9 +272,7 @@ function createCoreApp() {
         }
       );
       document.getElementById('phedex-controls').appendChild(ctl.el);
-      ctl.Show();
       debugLinks();
-      ctl.Show();
       ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Show Logger',
