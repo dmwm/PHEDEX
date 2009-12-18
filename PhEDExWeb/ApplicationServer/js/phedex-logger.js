@@ -11,6 +11,25 @@ PHEDEX.Logger = function() {
       if ( !div ) { return; }
       div.innerHTML = '';
 
+      if ( args.log2server ) { this.log2Server = args.log2server; }
+      var ctl = PxU.makeChild(div,'div');
+      ctl.appendChild(document.createTextNode(' Log to server: '));
+      for (var i in this.log2Server) {
+        var c = PxU.makeChild(ctl,'input');
+        c.type    = 'checkbox';
+        c.onclick = function(obj) {
+          return function(ev) {
+            obj.log2Server[this.value] = this.checked;
+          }
+        }(this);
+        c.checked = this.log2Server[i];
+        ctl.appendChild(document.createTextNode('  '+i+':'));
+        c.value   = i;
+      }
+      div = PxU.makeChild(div,'div');
+      divid += '_1';
+      div.id = divid;
+
       YAHOO.widget.Logger.reset();
       var conf = {
         width: "500px",
@@ -39,12 +58,15 @@ PHEDEX.Logger = function() {
         }
         if ( args.opts.collapse ) { PHEDEX.Logger.Reader.collapse(); }
       }
-      if ( args.log2server ) { this.log2Server = args.log2server; }
       YAHOO.widget.Logger.enableBrowserConsole(); // Enable logging to firebug console, or Safari console.
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
         return function(str,level,group) {
+          if ( typeof(str) == 'object' ) {
+            for (var i in str) { this.log2Server[i] = str[i]; }
+            return;
+          }
           if ( !level ) { level = 'info'; }
           if ( !group ) { group = 'app'; }
           YAHOO.log(str, level, group);
