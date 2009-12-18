@@ -23,7 +23,7 @@ PHEDEX.Logger = function() {
           }
         }(this);
         c.checked = this.log2Server[i];
-        ctl.appendChild(document.createTextNode('  '+i+':'));
+        ctl.appendChild(document.createTextNode(i+':  '));
         c.value   = i;
       }
       div = PxU.makeChild(div,'div');
