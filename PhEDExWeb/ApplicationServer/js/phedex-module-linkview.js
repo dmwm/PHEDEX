@@ -26,10 +26,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 
   YAHOO.lang.augmentObject(this,new PHEDEX.TreeView(sandbox,string));
 
-// HARDWIRED for debugging
-var node = 'T1_US_FNAL_Buffer';
-
-  var opts = {},
+  var node,
+      opts = {},
       width = 1200;
 
   // Merge passed options with defaults
@@ -174,12 +172,12 @@ var node = 'T1_US_FNAL_Buffer';
       },
 
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
-      changeTimebin: function(arr) {
-        _time = parseInt(arr[0]);
+      changeTimebin: function(arg) {
+        _time = parseInt(arg);
         this.getData();
       },
-      changeDirection: function(arr) {
-        _direction = this.direction_index(arr[0]);
+      changeDirection: function(arg) {
+        _direction = this.direction_index(arg);
         this.getData();
       },
 
@@ -395,7 +393,28 @@ var node = 'T1_US_FNAL_Buffer';
         this.tree.render();
       },
 
+      initData: function() {
+        this.dom.title.innerHTML = 'Waiting for parameters to be set...';
+        if ( node ) {
+          _sbx.notify( this.id, 'initData' );
+          return;
+        }
+        _sbx.notify( 'module', 'needArguments', this.id );
+      },
+/** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
+ * @method setArgs
+ * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+ */
+      setArgs: function(arr) {
+        if ( arr ) { node = arr.node; }
+        if ( !node ) { return; }
+        this.dom.title.innerHTML = 'setting parameters...';
+      },
       getData: function() {
+        if ( !node ) {
+          this.initData();
+          return;
+        }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
         var args={};
