@@ -7,7 +7,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     var PxC = PHEDEX.Configuration;
     var YDOM = YAHOO.util.Dom;
-    var category = string, _divspanid = '', _divInfo, _sbx = sandbox;
+    var category, _divspanid = '', _divInfo, _sbx = sandbox;
     log('Module: creating a "' + string + '"', 'info', string);
 
     /**
@@ -64,6 +64,8 @@ PHEDEX.Module.Static = function(sandbox, string) {
             success: function(obj) {
                 log('YUI Connection manager XMLHTTP response received', 'info', this.me);
                 var divTemp = document.createElement('div'); //This is temporary to store the response as HTML element and use it
+                //This is to append source specific content to one div so that it doesn't get mixed with other source contents
+                var divTempInfo = document.createElement('div');
                 divTemp.innerHTML = obj.responseText;
                 var strInnerHTML, indx = 0;
                 var source = obj.argument;
@@ -86,10 +88,11 @@ PHEDEX.Module.Static = function(sandbox, string) {
                     }
                     var divStaticInfo = document.createElement('div');
                     divStaticInfo.innerHTML = strInnerHTML;
-                    _divInfo.appendChild(divStaticInfo);
-                    _divInfo.appendChild(document.createElement('br'));
+                    divTempInfo.appendChild(divStaticInfo);
+                    divTempInfo.appendChild(document.createElement('br'));
                     log('HTML source file content is added to navigator for divid: ' + source.divids[indx], 'info', this.me);
                 }
+                _divInfo.appendChild(divTempInfo);
                 return;
             },
 
@@ -106,74 +109,91 @@ PHEDEX.Module.Static = function(sandbox, string) {
     }
 
     /**
-    * Used to construct the group usage widget.
+    * @method _loadCategory
+    * @description This loads the static component category in the navigator using its configured sources.
+    * @param {HTML Element} divTarget is the HTML element object where the category specific static information has to be appended
+    */
+    var _loadCategory = function(divTarget) {
+        var sourcename = '';
+        try {
+            if (_divInfo) {
+                while (_divInfo.hasChildNodes()) {
+                    _divInfo.removeChild(_divInfo.lastChild);
+                }
+                log('The static content is destroyed', 'info', this.me);
+            }
+            _divInfo = PxU.makeChild(divTarget, 'div');
+            var categoryinfo = PxC.getCategory(category); //Get the category info i.e. sources info
+            for (sourcename in categoryinfo.sources) {
+                var source = categoryinfo.sources[sourcename];
+                if (source.type == 'local') {
+                    _loadSource(source);
+                    log('local source info is added to navigator for source: ' + source.path, 'info', this.me);
+                }
+                else if (source.type == 'iframe') {
+                    //Create iframe element and add to navigator
+                    var iframeInfo = document.createElement('iframe');
+                    iframeInfo.src = source.path;
+                    iframeInfo.className = 'phedex-static-iframe';
+                    _divInfo.appendChild(iframeInfo);
+                    log('iframe is added to navigator for source: ' + source.path, 'info', this.me);
+                }
+                else if (source.type == 'extra') {
+                    var divOutLink = document.createElement('div');
+                    if (source.displaytext) {
+                        //Create span element and fill it only if there is data to fill
+                        var spanDispText = document.createElement('span');
+                        spanDispText.innerHTML = source.displaytext;
+                        divOutLink.appendChild(spanDispText);
+                    }
+                    if (source.path) {
+                        //Create href element and fill it only if there is external link
+                        var elHref = document.createElement('a');
+                        elHref.href = source.path;
+                        elHref.target = "_blank"; //To make link open in new tab
+                        elHref.innerHTML = source.path;
+                        divOutLink.appendChild(elHref);
+                    }
+                    _divInfo.appendChild(divOutLink);
+                    log('extra info is added to navigator', 'info', this.me);
+                }
+            }
+        }
+        catch (ex) {
+            log('Error in static component', 'error', this.me);
+        }
+        _sbx.notify(this.id, 'gotData');
+    }
+
+    /**
+    * Used to construct the static component module.
     * @method _construct
     */
     _construct = function() {
         return {
-            setArgs: function(args) {
-              category = args.subtype;
-            },
-
             /**
-            * Create a Phedex.GroupUsage widget to show the information of nodes associated with a group.
+            * Create a Phedex.Static module to show the static information.
             * @method initData
+            * @param {Object} args is the object that has arguments for the module
             */
             initData: function(args) {
-                this.dom.title.innerHTML = 'Loading.. Please wait...';
+                log('module creation initiated', 'info', this.me);
                 if (!category) { return; }
-                log('Got new data', 'info', this.me);
-                var sourcename = '';
-                try {
-                    if (_divInfo) {
-                        while (_divInfo.hasChildNodes()) {
-                            _divInfo.removeChild(_divInfo.lastChild);
-                        }
-                        log('The static content is destroyed', 'info', this.me);
-                    }
-                    _divInfo = PxU.makeChild(this.dom.content, 'div');
-                    var categoryinfo = PxC.getCategory(category); //Get the category info i.e. sources info
-                    for (sourcename in categoryinfo.sources) {
-                        var source = categoryinfo.sources[sourcename];
-                        if (source.type == 'local') {
-                            _loadSource(source);
-                            YAHOO.log('local source info is added to navigator for source: ' + source.path, 'info', 'Phedex.Static');
-                        }
-                        else if (source.type == 'iframe') {
-                            //Create iframe element and add to navigator
-                            var iframeInfo = document.createElement('iframe');
-                            iframeInfo.src = source.path;
-                            iframeInfo.className = 'phedex-static-iframe';
-                            _divInfo.appendChild(iframeInfo);
-                            YAHOO.log('iframe is added to navigator for source: ' + source.path, 'info', 'Phedex.Static');
-                        }
-                        else if (source.type == 'extra') {
-                            var divOutLink = document.createElement('div');
-                            if (source.displaytext) {
-                                //Create span element and fill it only if there is data to fill
-                                var spanDispText = document.createElement('span');
-                                spanDispText.innerHTML = source.displaytext;
-                                divOutLink.appendChild(spanDispText);
-                            }
-                            if (source.path) {
-                                //Create href element and fill it only if there is external link
-                                var elHref = document.createElement('a');
-                                elHref.href = source.path;
-                                elHref.target = "_blank"; //To make link open in new tab
-                                elHref.innerHTML = source.path;
-                                divOutLink.appendChild(elHref);
-                            }
-                            _divInfo.appendChild(divOutLink);
-                            log('extra info is added to navigator', 'info', this.me);
-                        }
-                    }
-                }
-                catch (ex) {
-                    log('Error in static component', 'error', this.me);
-                }
+                this.dom.title.innerHTML = 'Loading content.. Please wait...';
+                _loadCategory(this.dom.content);
+                log('static content loaded for category ' + category, 'info', this.me);
                 this.dom.title.innerHTML = '';
-                _sbx.notify(this.id, 'gotData');
-            }
+            },
+            
+            /**
+            * Sets the category for the module whose information has to be shown on navigator.
+            * @method setArgs
+            * @param {Object} args is the object that has arguments (category id) for the module
+            */
+            setArgs: function(args) {
+                category = args.subtype;
+                log('category is set to ' + category, 'info', this.me);
+            }            
         };
     };
     YAHOO.lang.augmentObject(this, _construct(), true);
