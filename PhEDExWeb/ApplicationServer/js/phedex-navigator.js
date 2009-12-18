@@ -75,16 +75,16 @@ debugger;
           if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
-            log('setState: '+key+' ('+state[key]+' => '+value+')','info','Navigator');
+            log('setState: '+key+' ('+state[key]+' => '+value+')','info',this.me);
             changed++;
           }
         }
-        log('setState: '+changed+' changes w.r.t. currently known state','info','Navigator');
+        log('setState: '+changed+' changes w.r.t. currently known state','info',this.me);
         if ( !changed ) { return; }
-var el = document.getElementById('tony');
-if ( el ) {
-  el.innerHTML=PxU.Sequence('changes')+': '+changed+' changes: '+pgstate+' '+PHEDEX.Datasvc.Instance().name;
-}
+// var el = document.getElementById('tony');
+// if ( el ) {
+//   el.innerHTML=PxU.Sequence('changes')+': '+changed+' changes: '+pgstate+' '+PHEDEX.Datasvc.Instance().name;
+// }
         _sbx.notify(obj.id,'StateChanged',state);
       };
     }(this);
@@ -175,7 +175,7 @@ debugger;
       {
         if ( !this.state[key].isValid() ) { return null; }
         var value = this.state[key].state();
-        if ( !value ) { log('State: key='+key+' got '+value,'warn','Navigator'); continue; }
+        if ( !value ) { log('State: key='+key+' got '+value,'warn',this.me); continue; }
         if ( newState ) { newState += _hist_sym_sep; }
         newState += key + _hist_sym_equal + value;
       }
@@ -194,14 +194,14 @@ debugger;
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
-                log('State: '+newState,'info','Navigator');
+                log('State: '+newState,'info',this.me);
                 YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
                 _sbx.notify(this.id,'UpdatePermalink',newState);
             }
         }
         catch (ex) {
           banner('Error determining page state','error');
-          log(ex,'error','Navigator');
+          log(ex,'error',this.me);
           _setState(newState); //In case YUI History doesnt work
         }
     };
@@ -288,14 +288,9 @@ debugger;
 //      case 'TargetType': Not needed! Setting TargetType always leads to WidgetSelected, so that is enough to do the job
         case 'NodeSelected':
         case 'Instance':
+        case 'WidgetSelected':
         case 'addToHistory': {
           obj._addToHistory();
-          break;
-        }
-        case 'WidgetSelected': { // addToHistory, yes, but also create the required module
-          obj._addToHistory();
-          _sbx.notify('module','*','destroy');
-          _sbx.notify('CreateModule',args,arr[2]);
           break;
         }
         case 'RegistryExists': {
@@ -411,7 +406,7 @@ debugger;
           try {
             YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
           } catch (ex) {
-            log(ex,'error','Navigator')
+            log(ex,'error',obj.me)
             this.create(args);
           }
           _sbx.notify('Registry','needRegistry',this.id)
@@ -447,9 +442,9 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox,
       _widget_menu,
-      _cur_target_type = 'none',
+      asdf_target_type, // = 'none',
       _widget,    // the current widget name
-      _widget_id; // the current widget id
+      _widget_id // the current widget id
 
   this.id = 'WidgetSelector';
   this.el = document.createElement('div');
@@ -465,12 +460,9 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   };
 
   this.initWidgetSelector = function() {
-    var menu_items = _getWidgetMenuItems(_cur_target_type);
-//     _cur_widget = menu_items[0].value;
-
     _widget_menu = new YAHOO.widget.Button({ 'type': "menu",
       'label': '(widget)',
-      'menu': menu_items,
+      'menu': [],
       'container': this.el
     });
 
@@ -489,14 +481,26 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       if ( _widget_id == widget.id ) { return; }
       _widget    = widget.widget;
       _widget_id = widget.id;
-      _sbx.notify(obj.id,'WidgetSelected',o.getState(),widget.args);
+      _sbx.notify(obj.id,'WidgetSelected',o.getState());
+      _sbx.notify('module','*','destroy');
+      _sbx.notify('CreateModule',widget.short_name,widget.args);
     };
   }(this);
 
-  var _updateWidgetMenu = function(type) {
-    var menu_items = _getWidgetMenuItems(type);
-    var widget = menu_items[0].value; // save first value now; passing to addItems alters structure
-    var menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
+  var _updateWidgetMenu = function(type,widget_name) {
+    var menu_items = _getWidgetMenuItems(type),
+        widget,
+        menu;
+    if ( widget_name ) {
+      for (var i in menu_items) {
+        if ( menu_items[i].value.short_name == widget_name ) {
+          widget = menu_items[i].value;
+        }
+      }
+    } else {
+       widget = menu_items[0].value; // save first value now; passing to addItems alters structure
+    }
+    menu = _widget_menu.getMenu(); // _widget_menu is actually a button...
     if (YAHOO.util.Dom.inDocument(menu.element)) {
       menu.clearContent();
       menu.addItems(menu_items);
@@ -526,13 +530,11 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
           break;
         }
         case 'StateChanged': {
-          _updateWidgetMenu(value.type);
-          _sbx.notify('module','*','destroy');
-          _sbx.notify('CreateModule',value.type);
+          _updateWidgetMenu(value.type,value.widget);
           break;
         }
         case 'TargetType': {
-          _cur_target_type = value;
+//           _target_type = value;
           _updateWidgetMenu(value);
           break;
         }
@@ -604,7 +606,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     for (var t in target_types) {
       try {
         this.dom[t] = _selectors[t].init(targetdiv,t);
-      } catch (ex) { log(ex,'error',this.id); banner('Error initialising Navigator, unknown type "'+t+'"!','error'); }
+      } catch (ex) { log(ex,'error',obj.me); banner('Error initialising Navigator, unknown type "'+t+'"!','error'); }
     }
   };
 
@@ -899,6 +901,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       } else {
         PHEDEX.Datasvc.Instance(instance.instance);
       }
+      log('change instance to '+instance.name,'info',obj.me);
       o.menu.set("label", instance.name);
       _sbx.notify('module','*','getData');
     };
