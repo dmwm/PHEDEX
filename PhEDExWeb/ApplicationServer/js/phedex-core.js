@@ -60,10 +60,9 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             var ctor = PxU.getConstructor(name),
                 m = new ctor(_sbx);
-          } catch (ex) { banner('Cannot construct '+name,'error'); log(ex,'error',_me);
-debugger; }
+          } catch (ex) { banner('Cannot construct '+name,'error'); log(ex,'error',_me); }
           try {
-            m.init(arr[1]);
+            if ( m ) { m.init(arr[1]); }
           } catch (ex) { banner('Cannot initialise '+name,'error'); log(ex,'error',_me); }
         }
       }(this),
