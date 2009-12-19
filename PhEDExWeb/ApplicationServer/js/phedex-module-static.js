@@ -1,7 +1,13 @@
-/* PHEDEX.Static
-* This is Phedex static component that fetches static information from source HTML files and displays
-* it on UI. The static information configuration is present in the PHEDEX.Configuration namespace
+/**
+* This is the PhEDEx static module class. It creates and manages modules that show static information to user.
+* The static information configuration is present in the PHEDEX.Config namespace
+* @namespace PHEDEX.Module
+* @class Static
+* @constructor
+* @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+* @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
 */
+
 PHEDEX.namespace('Module');
 PHEDEX.Module.Static = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
@@ -14,6 +20,8 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * @method _checkDivSpanID
     * @description This function is used by YUI DOM to get elements having specific id
     * @param {Object} el is element that is being currently checked.
+    * @return {boolean} true if HTML element (div or span) with given id is present in the source file and false if not found.
+    * @private
     */
     var _checkDivSpanID = function(el) {
         var tempAttr = YDOM.getAttribute(el, 'id');
@@ -31,6 +39,8 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * the given node using an YUI method
     * @param {String} divspanid is the id of the div or span element in HTML source file.
     * @param {HTML Element} node is the HTML element of source file.
+    * @return {HTML Element} HTML element (div or span) with given divspanid.
+    * @private
     */
     var _getDivElementById = function(divspanid, node) {
         var divStatInfo;
@@ -58,6 +68,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * @description This makes XMLHTTPrequest using YUI connection manager, gets the HTML source file for the given path. 
     * The required information is extratced from the source HTML file and is added to navigator page.
     * @param {Object} source is the object that has source information (path, type and elementids)
+    * @private
     */
     var _loadSource = function(source) {
         var callback = {
@@ -112,6 +123,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * @method _loadCategory
     * @description This loads the static component category in the navigator using its configured sources.
     * @param {HTML Element} divTarget is the HTML element object where the category specific static information has to be appended
+    * @private
     */
     var _loadCategory = function(divTarget) {
         var sourcename = '';
@@ -165,10 +177,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
         _sbx.notify(this.id, 'gotData');
     }
 
-    /**
-    * Used to construct the static component module.
-    * @method _construct
-    */
+    //Used to construct the static component module.
     _construct = function() {
         return {
             /**

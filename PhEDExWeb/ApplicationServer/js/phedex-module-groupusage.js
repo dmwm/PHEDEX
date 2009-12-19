@@ -1,3 +1,13 @@
+/**
+* The class is used to create group usage widget that is used to show group information for the given group name.
+* The group information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
+* show it to user in a YUI datatable.
+* @namespace PHEDEX.Module
+* @class GroupUsage
+* @constructor
+* @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
+* @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
+*/
 PHEDEX.namespace('Module');
 PHEDEX.Module.GroupUsage = function(sandbox, string) {
     YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
@@ -9,6 +19,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     * Array of object literal Column definitions for group information datatable.
     * @property _dtColumnDefs
     * @type Object[]
+    * @private
     */
     var _dtColumnDefs = [{ key: 'name', label: 'Node', "sortable": true, "resizeable": true },
                         { key: 'se', label: 'SE', "sortable": true, "resizeable": true },
@@ -23,6 +34,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     * YUI datasource for YUI datatable.
     * @property _dsResponseSchema
     * @type Object
+    * @private
     */
     var _dsResponseSchema = { resultsList: 'node', fields: ['name', 'se', { key: 'id', parser: 'number' },
                                                                           { key: 'group[0].node_bytes', parser: 'number' },
@@ -30,11 +42,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                                                                           { key: 'group[0].dest_bytes', parser: 'number' },
                                                                           { key: 'group[0].dest_files', parser: 'number'}]};
 
-
-    /**
-    * Used to construct the group usage widget.
-    * @method _construct
-    */
+    //Used to construct the group usage widget.
     _construct = function() {
         return {
             /**
@@ -54,7 +62,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             }],
 
             /**
-            * Properties used for configuring the widget.
+            * Properties used for configuring the module.
             * @property meta
             * @type Object
             */
@@ -64,7 +72,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             },
 
             /**
-            * Create a Phedex.GroupUsage widget to show the information of nodes associated with a group.
+            * This inits the Phedex.GroupUsage module and notify to sandbox about its status.
             * @method initData
             */
             initData: function() {
@@ -72,7 +80,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             },
             
             /**
-            * Get the group information from Phedex data service for the given group name.
+            * This gets the group information from Phedex data service for the given group name through sandbox.
             * @method getData
             */
             getData: function() {
@@ -82,7 +90,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             },
             
             /**
-            * Process group information and show in YUI datatable after it is obtained from Phedex data service for the given group name.
+            * This processes the group information obtained from data service and shows in YUI datatable.
             * @method gotData
             * @param data {object} group information in json format used to fill the datatable directly using a defined schema.
             */

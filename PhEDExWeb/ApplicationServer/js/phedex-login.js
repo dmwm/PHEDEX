@@ -1,13 +1,18 @@
-/* PHEDEX.Login
-*  This is Phedex login component that allows user to login into PhEDEx system using password or certificates 
-*  and thereby also view user role information. auth data service is used for user authentication
+/**
+* This is Phedex login component that allows user to login into PhEDEx system using password or certificates 
+* and thereby also view user role information. auth data service is used for user authentication
+* @namespace PHEDEX
+* @class Login
+* @constructor
+* @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
 */
+
 PHEDEX.namespace('Login');
 PHEDEX.Login = function(sandbox) {
     var PxD = PHEDEX.Datasvc;
     var _sbx = sandbox;
 
-    /**
+    /*
     * _cur_state indicates the current state (login, logout, certlogin, usepassword)
     * login       - use password based authentication.
     * logout      - authenticated using password based authentication and can view his role info
@@ -26,6 +31,7 @@ PHEDEX.Login = function(sandbox) {
     /**
     * @method _showOverlay
     * @description This displays the user role information as YUI overlay dialog.
+    * @private
     */
     var _showOverlay = function() {
         if (!_authData.role) {
@@ -51,6 +57,7 @@ PHEDEX.Login = function(sandbox) {
     /**
     * @method _closeOverlay
     * @description This hides the user role information (YUI overlay dialog).
+    * @private
     */
     var _closeOverlay = function() {
         _user_role_info.hide();
@@ -62,6 +69,7 @@ PHEDEX.Login = function(sandbox) {
     * @method _formUserInfo
     * @description This creates the YUI overlay object and creates a table in overlay object to populate
     * the user role information.
+    * @private
     */
     var _formUserInfo = function() {
         if (_authData.role) {
@@ -122,6 +130,7 @@ PHEDEX.Login = function(sandbox) {
     * @method _parseUserDN
     * @description This parses the user DN string and returns the key with its values.
     * @param {String} strUserDN specifies the user DN obtained from auth data service call.
+    * @private
     */
     var _parseUserDN = function(strUserDN) {
         //This is temporary function to get user name from DN. This has to be removed after auth data service call gives user name specifically
@@ -154,6 +163,8 @@ PHEDEX.Login = function(sandbox) {
     * @method _validateLogin
     * @description The validates if user authentication succeeded or not
     * @param {Object} data is the reponse received from from auth data service call.
+    * @return {boolean} true if login is successful and false if login is not successful.
+    * @private
     */
     var _validateLogin = function(data) {
         if (!data.auth) { //Check if reponse has auth info (to be on safer side)
@@ -170,8 +181,9 @@ PHEDEX.Login = function(sandbox) {
     /**
     * @method _processLogin
     * @description The response received from from auth data service call is processed and UI is 
-    * updated based on authentication type
+    * updated based on authentication type.
     * @param {Object} data is the reponse received from from auth data service call.
+    * @private
     */
     var _processLogin = function(data) {
         if (_cur_state == 'login') {
@@ -220,6 +232,7 @@ PHEDEX.Login = function(sandbox) {
     * @description This gets called when there is some problem in making auth data service call 
     * and user is informed about this
     * @param {Object} data is the error reponse received.
+    * @private
     */
     var _loginCallFailure = function(data) {
         banner('Unable to login. Please try again.', 'error');
@@ -234,8 +247,9 @@ PHEDEX.Login = function(sandbox) {
 
     /**
     * @method _onLogin
-    * @description This gets called when user click the button and process user request based on authenticatoin mode 
+    * @description This gets called when user click the button and process user request based on authenticatoin mode.
     * @param {Object} event is the event data.
+    * @private
     */
     var _onLogin = function(event) {
         if (_bVisible) {
@@ -272,8 +286,9 @@ PHEDEX.Login = function(sandbox) {
 
     /**
     * @method _updateLoginButton
-    * @description This updates the text of the button based on current authentication mode 
+    * @description This updates the text of the button based on current authentication mode.
     * @param {Object} event is the event data.
+    * @private
     */
     var _updateLoginButton = function(status) {
         _logincomp.objBtn.set('label', status);
@@ -281,7 +296,8 @@ PHEDEX.Login = function(sandbox) {
 
     /**
     * @method _loginUsingCert
-    * @description This makes data service call to authenticate using certificate
+    * @description This makes data service call to authenticate using certificate.
+    * @private
     */
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
@@ -292,6 +308,7 @@ PHEDEX.Login = function(sandbox) {
     /**
     * @method _resetLoginState
     * @description This resets the UI back to login mode i.e show user name and password text box
+    * @private
     */
     var _resetLoginState = function() {
         YAHOO.util.Dom.removeClass(_logincomp.logininput, 'phedex-invisible'); //Show the login elements
@@ -305,8 +322,9 @@ PHEDEX.Login = function(sandbox) {
 
     /**
     * @method _initLoginComponent
-    * @description This creates the login component
-    * @param {HTML element} divlogin element specifies element where login component should be built
+    * @description This creates the login component.
+    * @param {HTML element} divlogin element specifies element where login component should be built.
+    * @private
     */
     var _initLoginComponent = function(divlogin) {
         var logincomp = PxU.makeChild(divlogin, 'div', { id: 'phedex-nav-login', className: 'phedex-login' });
@@ -327,16 +345,13 @@ PHEDEX.Login = function(sandbox) {
         log('The login component is created', 'info', 'Phedex.Login');
     };
 
-    /**
-    * Used to construct the login component.
-    * @method _construct
-    */
+    //Used to construct the login component.
     _construct = function() {
         return {
             /**
             * @method init
             * @description This creates the login component
-            * @param {HTML element} el element specifies element where login component should be built
+            * @param {Object} args object specifies the 'el' element where login component should be built
             */
             init: function(args) {
                 _initLoginComponent(args.el);
