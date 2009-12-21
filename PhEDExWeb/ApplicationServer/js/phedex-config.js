@@ -21,7 +21,7 @@ PHEDEX.Config = function(sandbox) {
             category['name'] = displayname;
             category['sources'] = {};
             _categories[id] = category;
-            YAHOO.log('Category ' + displayname + ' added', 'info', 'Phedex.Config');
+            YAHOO.log('Category ' + displayname + ' added', 'info', 'Config');
         }
     };
 
@@ -45,10 +45,28 @@ PHEDEX.Config = function(sandbox) {
                     source[key] = sourcecfg[key];
                 }
                 category.sources[sourcename] = source;
-                YAHOO.log('Source ' + sourcename + ' added to Category ' + catid, 'info', 'Phedex.Config');
+                YAHOO.log('Source ' + sourcename + ' added to Category ' + catid, 'info', 'Config');
             }
         }
     };
+
+    var selfHandler = function(o) {
+      return function(ev,arr) {
+        var action = arr[0],
+            value = arr[1];
+        switch (action) {
+          case 'getCategories': {
+            _sbx.notify('Config','Categories',_categories);
+            break;
+          }
+          case 'getCategory': {
+            _sbx.notify('Config','Category',_categories[value]);
+            break;
+          }
+        }
+      }
+    }(this);
+    _sbx.listen('Config',selfHandler);
 
     return {
         init: function(args) {
@@ -88,4 +106,4 @@ PHEDEX.Config = function(sandbox) {
         }
     };
 };
-YAHOO.log('loaded...','info','Phedex.Config');
+YAHOO.log('loaded...','info','Config');
