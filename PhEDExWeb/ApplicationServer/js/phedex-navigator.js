@@ -8,7 +8,7 @@
 */
 PHEDEX.namespace('Navigator');
 PHEDEX.Navigator = function(sandbox) {
-  this.id = 'Navigator_'+PxU.Sequence();
+  this.id = 'Navigator_' + PxU.Sequence();
   var _sbx = sandbox,
       PxD  = PHEDEX.Datasvc,
 
@@ -445,7 +445,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _widget,    // the current widget name
       _widget_id // the current widget id
 
-  this.id = 'WidgetSelector';
+  this.id = 'WidgetSelector_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-widget';
   var _getWidgetMenuItems = function(type) {
@@ -552,7 +552,7 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox;
 
-  this.id = 'Permalink';
+  this.id = 'Permalink_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-permalink';
 //   var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
@@ -593,7 +593,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       _typeArgs = {}, // currently selected arguments for the given types
       _state = {};    // current state for each type
 
-  this.id = 'TargetTypeSelector';
+  this.id = 'TargetTypeSelector_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-targettype';
 // create the targetdiv here rather than in the initTargetSelectors to avoid racing for the DOM parent
@@ -759,7 +759,6 @@ debugger;
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
   _sbx.notify('Registry','getTargetTypes');
-//   _sbx.notify(obj.id,'NeedTargetTypes');
   this.moduleHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -785,10 +784,8 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       _sbx = sandbox,
       _target_types,
       _target_type;//,
-//       types = PxR.getInputTypes(),
-//       menu_items = [];
 
-  this.id = 'TypeSelector';
+  this.id = 'TypeSelector_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-type';
 
@@ -907,7 +904,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       indx, jsonInst;
   if (!instances) { throw new Error('cannot determine set of DB instances'); } //Something is wrong.. So dont process further..
 
-  this.id = 'InstanceSelector';
+  this.id = 'InstanceSelector_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-instance';
   for (indx = 0; indx < instances.length; indx++) {
