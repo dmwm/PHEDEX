@@ -46,6 +46,7 @@ PHEDEX.Registry = function(sandbox) {
       }
       if (!_widgets[inputType]) {
         _widgets[inputType] = {};
+        _sbx.notify('Registry','registeredInputTypes',this.getInputTypes());
       }
       if (!_widgets[inputType][widget]) {
         _widgets[inputType][widget] = {};
@@ -120,11 +121,8 @@ PHEDEX.Registry = function(sandbox) {
             }
             case 'getInputTypes': {
               var value = obj[action]();
-              _sbx.notify(arr[1],action,value);
+              _sbx.notify('Registry','registeredInputTypes',value);
               break;
-            }
-            case 'needRegistry': {
-              _sbx.notify(arr[1],'RegistryExists',obj);
             }
           }
         }
