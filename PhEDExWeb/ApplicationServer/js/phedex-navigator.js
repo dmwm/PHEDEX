@@ -409,7 +409,6 @@ debugger;
             log(ex,'error',obj.me)
             this.create(args);
           }
-          _sbx.notify('Registry','needRegistry',this.id)
         },
         create: function(args) {
             this.el  = args.el;
@@ -759,7 +758,8 @@ debugger;
   }(this);
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
-  _sbx.notify(obj.id,'NeedTargetTypes');
+  _sbx.notify('Registry','getTargetTypes');
+//   _sbx.notify(obj.id,'NeedTargetTypes');
   this.moduleHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -783,38 +783,51 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   var p    = args.payload,
       obj  = args.payload.obj,
       _sbx = sandbox,
-      _target_types = {},
-      _target_type,
-      types = PxR.getInputTypes(),
-      menu_items = [];
+      _target_types,
+      _target_type;//,
+//       types = PxR.getInputTypes(),
+//       menu_items = [];
 
   this.id = 'TypeSelector';
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-type';
 
-  // get registered target types and store them with optional config params
-  for (var i in types) {
-    type = types[i];
-    var o = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY },
-        opts = obj.cfg.typecfg[type] || {};
-    YAHOO.lang.augmentObject(o, opts, true);
-    _target_types[type] = o;
+  this.setInputTypes = function(types) {
+    // get registered target types and store them with optional config params
+    _target_types = {};
+    for (var i in types) {
+      type = types[i];
+      var o = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY },
+          opts = obj.cfg.typecfg[type] || {};
+      YAHOO.lang.augmentObject(o, opts, true);
+      _target_types[type] = o;
+    }
+    _sbx.notify(obj.id,'TargetTypes',_target_types);
+
+    // sort types by object params
+    types.sort(function(a, b) {
+      return _target_types[a].order - _target_types[b].order;
+    });
+
+    // build menu items in sorted order
+    var menu_items = [];
+    for (var type in types) {
+      var o = _target_types[types[type]];
+      menu_items.push({ 'text': o.label, 'value': o.name });
+    }
+    var menu = this.button.getMenu();
+    if (YAHOO.util.Dom.inDocument(menu.element)) {
+      menu.clearContent();
+      menu.addItems(menu_items);
+      menu.render();
+    } else {
+      menu.itemData = menu_items;
+    }
+    _sbx.notify(obj.id,'TargetType',menu_items[0].value);
   }
-
-  // sort types by object params
-  types.sort(function(a, b) {
-    return _target_types[a].order - _target_types[b].order;
-  });
-
-  // build menu items in sorted order
-  for (var type in types) {
-    var o = _target_types[types[type]];
-    menu_items.push({ 'text': o.label, 'value': o.name });
-  }
-
-  this.menu = new YAHOO.widget.Button({ type: "menu",
+  this.button = new YAHOO.widget.Button({ type: "menu",
     label: '(type)',
-    menu: menu_items,
+    menu: [],
     container: this.el
   });
   var onSelectedMenuItemChange = function(event) {
@@ -822,7 +835,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
     var type = event.newValue.value;
     _sbx.notify(obj.id,'TargetType',type);
   };
-  this.menu.on("selectedMenuItemChange", onSelectedMenuItemChange);
+  this.button.on("selectedMenuItemChange", onSelectedMenuItemChange);
 
   this.isStateValid = function() {
     if ( _target_type ) { return true; }
@@ -844,29 +857,44 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       switch (action) {
         case 'NavReset': {
           _sbx.notify(obj.id,'TargetTypes',_target_types);
-          _sbx.notify(obj.id,'TargetType',menu_items[0].value);
+//           _sbx.notify(obj.id,'TargetType',menu_items[0].value);
           break;
         }
         case 'TargetType': {
           _target_type = value;
-          o.menu.set("label", _target_types[value].label);
+          o.button.set("label", _target_types[value].label);
           break;
         }
         case 'StateChanged': {
           _target_type = value.type;
-          o.menu.set("label", _target_types[_target_type].label);
+          o.button.set("label", _target_types[_target_type].label);
           break;
         }
         case 'NeedTargetTypes': {
+debugger;
           _sbx.notify(obj.id,'TargetTypes',_target_types);
           break;
         }
       }
     }
   }(this);
-  _sbx.listen(this.id,this.partnerHandler);
-  _sbx.listen(obj.id, this.partnerHandler);
+  this.registryHandler = function(o) {
+    return function(ev,arr) {
+      var action = arr[0],
+          value = arr[1];
+      switch (action) {
+        case 'registeredInputTypes': {
+          o.setInputTypes(value);
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(this.id,   this.partnerHandler);
+  _sbx.listen(obj.id,    this.partnerHandler);
+  _sbx.listen('Registry',this.registryHandler);
   _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
+  _sbx.notify('Registry','getInputTypes',this.id);
   return this;
 };
 
