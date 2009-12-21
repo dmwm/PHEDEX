@@ -11,9 +11,13 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Static = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
-    var PxC = PHEDEX.Configuration;
-    var YDOM = YAHOO.util.Dom;
-    var category, _divspanid = '', _divInfo, _sbx = sandbox;
+//     var PxC = PHEDEX.Configuration;
+    var YDOM = YAHOO.util.Dom,
+        category,
+        _divspanid = '',
+        _divInfo,
+        _sbx = sandbox,
+        _categories = [];
     log('Module: creating a "' + string + '"', 'info', string);
 
     /**
@@ -135,7 +139,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
                 log('The static content is destroyed', 'info', this.me);
             }
             _divInfo = PxU.makeChild(divTarget, 'div');
-            var categoryinfo = PxC.getCategory(category); //Get the category info i.e. sources info
+            var categoryinfo = _categories[category]; //Get the category info i.e. sources info
             for (sourcename in categoryinfo.sources) {
                 var source = categoryinfo.sources[sourcename];
                 if (source.type == 'local') {
@@ -177,7 +181,25 @@ PHEDEX.Module.Static = function(sandbox, string) {
         _sbx.notify(this.id, 'gotData');
     }
 
-    //Used to construct the static component module.
+    var configHandler = function(o) {
+      return function(ev,arr) {
+        var action = arr[0],
+            value = arr[1];
+        switch (action) {
+          case 'Categories': {
+            _categories = value;
+            _sbx.notify(o.id,'getData');
+            break;
+          }
+        }
+      }
+    }(this);
+    _sbx.listen('Config',configHandler);
+
+    /**
+    * Used to construct the static component module.
+    * @method _construct
+    */
     _construct = function() {
         return {
             /**
@@ -187,7 +209,17 @@ PHEDEX.Module.Static = function(sandbox, string) {
             */
             initData: function(args) {
                 log('module creation initiated', 'info', this.me);
-                if (!category) { return; }
+                if ( !category ) {
+                  _sbx.notify( 'module', 'needArguments', this.id );
+                  return;
+                }
+                if ( !_categories[category] ) {
+                  _sbx.notify('Config','getCategories');
+                  return;
+                }
+                _sbx.notify(this.id,'initData');
+            },
+            getData: function() {
                 this.dom.title.innerHTML = 'Loading content.. Please wait...';
                 _loadCategory(this.dom.content);
                 log('static content loaded for category ' + category, 'info', this.me);
@@ -202,7 +234,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
             setArgs: function(args) {
                 category = args.subtype;
                 log('category is set to ' + category, 'info', this.me);
-            }            
+            }
         };
     };
     YAHOO.lang.augmentObject(this, _construct(), true);
