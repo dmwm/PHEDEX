@@ -51,6 +51,26 @@ agents.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+
+my $map = {
+    _KEY => 'ID',
+    id => 'ID',
+    node => 'NODE',
+    se => 'SE',
+    agent => {
+        _KEY => 'HOST+PID',
+        host => 'HOST',
+        name => 'NAME',
+        pid => 'PID',
+        version => 'VERSION',
+        cvs_tag => 'CVS_TAG',
+        cvs_version => 'CVS_VERSION',
+        time_update => 'TIME_UPDATE',
+        state_dir => 'STATE_DIR',
+        label => 'LABEL'
+    }
+};
 
 sub duration { return 60 * 60; }
 sub invoke { return agents(@_); }
@@ -65,7 +85,8 @@ sub agents
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getAgents($core, %h);
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getAgents($core, %h));
+
     return { node => $r };
 }
 
