@@ -74,10 +74,31 @@ Serves historical information about transfer queues.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
-use Data::Dumper;
+use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
 sub invoke { return transferqueuehistory(@_); }
+
+my $map = {
+    _KEY => 'FROM+TO',
+    FROM => 'FROM',
+    TO => 'TO',
+    transferqueue => {
+        _KEY => 'TIMEBIN',
+        timebin => 'TIMEBIN',
+        binwidth => 'BINWIDTH',
+        ready_files => 'READY_FILES',
+        ready_bytes => 'READY_BYTES',
+        wait_files => 'WAIT_FILES',
+        wait_bytes => 'WAIT_BYTES',
+        pend_files => 'PEND_FILES',
+        pend_bytes => 'PEND_BYTES',
+        xfer_files => 'XFER_FILES',
+        xfer_bytes => 'XFER_BYTES',
+        confirm_files => 'CONFIRM_FILES',
+        confirm_bytes => 'CONFIRM_BYTES'
+    }
+};
 
 sub transferqueuehistory
 {
@@ -91,7 +112,39 @@ sub transferqueuehistory
 
     my $r = PHEDEX::Web::SQL::getTransferQueueHistory($core, %h);
 
-    return { link => $r };
+    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
 }
+
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('FROM', 'TO');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / from to starttime endtime binwidth ctime / )
+    {
+        $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    my $r;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueueHistory($core, %h), $limit, @keys) if !$sth;
+    $r = $sth->spool();
+    if ($r)
+    {
+        return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
+}
+
 
 1;

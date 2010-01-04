@@ -82,10 +82,29 @@ is sufficient.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
-use Data::Dumper;
+use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
 sub invoke { return transferhistory(@_); }
+
+my $map = {
+    _KEY => 'FROM+TO',
+    from => 'FROM',
+    to => 'TO',
+    transfer => {
+        _KEY => 'TIMEBIN',
+        timebin => 'TIMEBIN',
+        binwidth => 'BINWIDTH',
+        done_files => 'DONE_FILES',
+        done_bytes => 'DONE_BYTES',
+        expire_files => 'EXPIRE_FILES',
+        expire_bytes => 'EXPIRE_BYTES',
+        fail_files => 'FAIL_FILES',
+        fail_bytes => 'FAIL_BYTES',
+        rate => 'RATE',
+        quality => 'QUALITY'
+    }
+};
 
 sub transferhistory
 {
@@ -97,19 +116,14 @@ sub transferhistory
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-
     my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
-    my $link;
 
-    foreach $link (@$r)
+    foreach (@$r)
     {
-        foreach (@{$link->{TRANSFER}})
-        {
-            $_ -> {'QUALITY'} = &Quality ($_);
-        }
+        $_ -> {'QUALITY'} = &Quality ($_);
     }
 
-    return { link => $r };
+    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
 sub Quality
@@ -123,6 +137,40 @@ sub Quality
   }
 
   return sprintf('%.4f', $h->{DONE_FILES} / $sum);
+}
+
+my $sth;
+my $limit = 1000;
+my @keys = ('FROM', 'TO');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / from to starttime endtime binwidth ctime / )
+    {
+        $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    my $r;
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferHistory($core, %h), $limit, @keys) if !$sth;
+    $r = $sth->spool();
+
+    if ($r)
+    {
+        foreach (@$r)
+        {
+            $_ -> {'QUALITY'} = &Quality ($_);
+        }
+
+        return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;
