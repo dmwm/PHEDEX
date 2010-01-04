@@ -91,6 +91,7 @@ our (%params);
             REMOTE_HOST => undef,
             USER_AGENT => undef,
 	    REQUEST_TIME => undef,
+            REQUEST_METHOD => undef,
 	    SECMOD => undef,
 	    DEBUG => 0,
 	    CONFIG_FILE => undef,
@@ -177,6 +178,25 @@ sub call
     {
       my $api = $self->{API};
       eval {
+        # check allowed methods
+        if ($api->can('methods_allowed'))
+        {
+            my $methods_allowed = $api->methods_allowed();
+            if (ref($methods_allowed) eq 'ARRAY')
+            {
+                if (not grep {$_ eq $self->{REQUEST_METHOD}} @{$methods_allowed})
+                {
+                    &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
+                    return;
+                }
+            }
+            elsif ($self->{REQUEST_METHOD} ne $methods_allowed)
+            {
+                &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
+                return;
+            }
+        }
+
 	# determine whether we need authorization
 	my $need_auth = $api->need_auth() if $api->can('need_auth');
 	if ($need_auth) {

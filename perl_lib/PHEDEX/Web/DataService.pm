@@ -13,7 +13,7 @@ Checks configuration, parses URL path for parameters, makes API call
 use warnings;
 use strict;
 
-use CGI qw(header path_info url param Vars remote_host user_agent);
+use CGI qw(header path_info url param Vars remote_host user_agent request_method);
 
 use PHEDEX::Web::Config;
 use PHEDEX::Web::Core;
@@ -110,6 +110,7 @@ sub invoke
 				    INSTANCE => $db,
 				    REQUEST_URL => url(-full=>1, -path=>1),
 				    REMOTE_HOST => remote_host(), # TODO:  does this work in reverse proxy?
+                                    REQUEST_METHOD => request_method(),
 				    USER_AGENT => user_agent(),
 				    DEBUG => $TESTING,
 				    CONFIG_FILE => $self->{CONFIG_FILE},
