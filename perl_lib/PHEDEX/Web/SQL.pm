@@ -469,45 +469,9 @@ sub getAgents
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
-    my %node;
     while ( $_ = $q->fetchrow_hashref())
     {
-        if ($node{$_ -> {'NODE'}})
-        {
-            push @{$node{$_ -> {'NODE'}}->{agent}},{
-                    name => $_ -> {'NAME'},
-                    label => $_ -> {'LABEL'},
-                    version =>  $_ -> {'VERSION'},
-                    cvs_version => $_ -> {'CVS_VERSION'},
-                    cvs_tag => $_ -> {'CVS_TAG'},
-                    time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'},
-		    host => $_ -> {'HOST'},
-                    pid => $_ -> {'PID'}};
-        }
-        else
-        {
-            $node{$_ -> {'NODE'}} = {
-                node => $_ -> {'NODE'},
-                se => $_ -> {'SE'},
-                id => $_ -> {'ID'},
-                agent => [{
-                    name => $_ -> {'NAME'},
-                    label => $_ -> {'LABEL'},
-                    version =>  $_ -> {'VERSION'},
-                    cvs_version => $_ -> {'CVS_VERSION'},
-                    cvs_tag => $_ -> {'CVS_TAG'},
-                    time_update => $_ -> {'TIME_UPDATE'},
-                    state_dir => $_ -> {'STATE_DIR'},
-		    host => $_ -> {'HOST'},
-                    pid => $_ -> {'PID'}}]
-             };
-        }
-    }
-
-    while (my ($key, $value) = each(%node))
-    {
-        push @r, $value;
+        push @r, $_;
     }
 
     return \@r;
@@ -700,37 +664,30 @@ sub getTransferHistory
     else
     {
         $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
-        $sql .= qq {\norder by 1 asc, 2, 3};
+        $sql .= qq {\norder by 2, 3, 1 asc};
     };
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    my %links;
-    while ( my $r = $q->fetchrow_hashref() )
-    {
-        # format the time stamp
-        if ($r->{'TIMEBIN'} and exists $h{CTIME})
-        {
-            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
-        }
-        
-	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
-	$links{$linkkey} = { 
-	    FROM => $r -> {'FROM'},
-	    TO => $r -> {'TO'},
-	    TRANSFER => []
-	    } unless $links{$linkkey};
 
-	push @{$links{$linkkey}->{TRANSFER}}, {
-	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
-				      DONE_FILES DONE_BYTES
-				      FAIL_FILES FAIL_BYTES
-				      EXPIRE_FILES EXPIRE_BYTES
-				      RATE)
-	};
+    if (exists $h{__spool__})
+    {
+        return $q;
     }
 
-    return [ values %links ];
+    my @r;
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        # format the time stamp
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+        }
+        
+	push @r, $_;
+    }
+
+    return \@r;
 }
 
 sub getTransferQueueHistory
@@ -818,37 +775,29 @@ sub getTransferQueueHistory
     $sql .= $where_stmt;
 
     $sql .= qq {\ngroup by trunc(timebin / :BINWIDTH) * :BINWIDTH, n1.name, n2.name };
-    $sql .= qq {\norder by 1 asc, 2, 3};
+    $sql .= qq {\norder by 2, 3, 1 asc};
 
     # now execute the query
     my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
-    my %links;
-    while ( my $r = $q->fetchrow_hashref() )
+
+    if (exists $h{__spool__})
     {
-        # format the time stamp
-        if ($r->{'TIMEBIN'} and exists $h{CTIME})
-        {
-            $r->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $r->{'TIMEBIN'}));
-        }
-
-	my $linkkey = $r -> {'FROM'} . "->" . $r -> {'TO'};
-	$links{$linkkey} = { 
-	    FROM => $r -> {'FROM'},
-	    TO => $r -> {'TO'},
-	    TRANSFERQUEUE => []
-	    } unless $links{$linkkey};
-
-	push @{$links{$linkkey}->{TRANSFERQUEUE}}, {
-	    map { $_ => $r->{$_} } qw(TIMEBIN BINWIDTH
-				      PEND_FILES PEND_BYTES
-				      WAIT_FILES WAIT_BYTES
-				      READY_FILES READY_BYTES
-				      XFER_FILES XFER_BYTES
-				      CONFIRM_FILES CONFIRM_BYTES)
-	};
+        return $q;
     }
 
-    return [ values %links ];
+    my @r;
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        # format the time stamp
+        if ($_->{'TIMEBIN'} and exists $h{CTIME})
+        {
+            $_->{'TIMEBIN'} = strftime("%Y-%m-%d %H:%M:%S", gmtime( $_->{'TIMEBIN'}));
+        }
+
+	push @r, $_;
+    }
+
+    return \@r;
 }
 
 
