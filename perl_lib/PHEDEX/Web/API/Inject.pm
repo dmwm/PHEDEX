@@ -65,6 +65,7 @@ not give an error, but all the stats values will be zero.
 
 sub duration  { return 0; }
 sub need_auth { return 1; }
+sub methods_allowed { return 'POST'; }
 sub invoke { return inject(@_); }
 sub inject
 {
