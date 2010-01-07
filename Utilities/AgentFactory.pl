@@ -24,6 +24,7 @@ use PHEDEX::Core::Config::Factory;
 	     "help|h"		=> sub { &usage() },
 	     "agent-list=s@"	=> sub { push(@{$args{AGENT_LIST}}, split(/,/, $_[1])) },
 	     "agent_list=s@"	=> sub { push(@{$args{AGENT_LIST}}, split(/,/, $_[1])) },
+	     "limit=s@"		=> \$args{LIMIT},
 	     "memuse"		=> sub { eval "use Devel::Size"; },
 	     );
 
