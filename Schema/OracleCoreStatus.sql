@@ -190,7 +190,7 @@ create table t_status_missing
      foreign key (node) references t_adm_node (id)
      on delete cascade,
    --
-   constraint ck_status_replica_cust
+   constraint ck_status_missing_cust
      check (is_custodial in ('y', 'n'))
   );
 
