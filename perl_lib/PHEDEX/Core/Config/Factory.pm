@@ -37,7 +37,7 @@ our %params =
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
 	  AGENT_LIST	=> undef,		# Which agents am I to start?
-#	  CONFIG	=> $ENV{PHEDEX_CONFIG_FILE},
+	  LIMIT		=> undef,		# Limits to impose on agents' resource use
 	  NODAEMON	=> 1,			# Don't daemonise by default!
 	  REALLY_NODAEMON=> 0,			# Do daemonise eventually!
 	  NJOBS		=> 3,			# start 3 agents at a time
@@ -74,6 +74,7 @@ sub new
   $Config->readConfig( $self->{CONFIG_FILE} );
 
   bless $self, $class;
+  $self->createLimits();
   return $self;
 }
 
@@ -96,14 +97,28 @@ sub reloadConfig
 {
   my ($self,$Config) = @_;
   my $config = $Config->select_agents($self->{LABEL});
-  foreach ( qw / AGENT_LIST LAST_SEEN_ALERT LAST_SEEN_WARNING TIMEOUT / )
+  foreach ( qw / AGENT_LIST LAST_SEEN_ALERT LAST_SEEN_WARNING TIMEOUT LIMIT / )
   {
     my $val = $config->{OPTIONS}{$_};
     next unless defined($val);
     $self->Logmsg("reloadConfig: set $_=$val");
     $self->{$_} = $val;
   }
+  $self->createLimits();
   $self->createAgents();
+}
+
+sub createLimits
+{
+  my $self = shift;
+  delete $self->{_limits};
+  foreach ( @{$self->{LIMIT}} )
+  {
+    my ($re,$key,$val) = split(',',$_);
+    next unless $re && $key && $val; # minimal syntax-check!
+    $key = lc $key;
+    $self->{_limits}{$re}{ $key } = $val;
+  }
 }
 
 sub createAgents
@@ -250,7 +265,6 @@ sub idle
         if ( $now - $_ > $self->{RETRY_BACKOFF_INTERVAL} ) { delete $self->{AGENTS}{$agent}{start}{$_}; }
       }
 #     print "Start times: ",join(', ',@starts),"\n";
-      @starts = sort { $b <=> $a } keys %{$self->{AGENTS}{$agent}{start}};
       if ( scalar @starts >= $self->{RETRY_BACKOFF_COUNT} )
       {
 #	I have reached the backoff-count-limit, and within the window. Do not retry again yet, but let the user know
@@ -262,23 +276,7 @@ sub idle
 	}
 	next;
       }
-      $self->Logmsg("Agent=$agent is down. Starting...");
-      my $cmd = $self->{AGENTS}{$agent}{cmd};
-      if ( !$self->{JOBMANAGER} )
-      {
-        $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
-                              NJOBS     => $self->{NJOBS},
-                              VERBOSE   => 0,
-                              DEBUG     => 0,
-			      KEEPALIVE => 0,
-                            );
-        $self->{JOBMANAGER}->whenQueueDrained( sub { delete $self->{JOBMANAGER}; } );
-      }
-      $self->{JOBMANAGER}->addJob(
-			sub { $self->handleJob($agent) },
-			{ TIMEOUT => 300 },
-			@{$cmd}
-		);
+      $self->startAgent($agent);
     }
     else
     {
@@ -286,6 +284,28 @@ sub idle
 #     $self->Dbgmsg("Agent=$agent, in this process, ignore for now...") if $self->{DEBUG};
     }
   }
+}
+
+sub startAgent
+{
+  my ($self,$agent) = @_;
+  $self->Logmsg("Agent=$agent is down. Starting...");
+  my $cmd = $self->{AGENTS}{$agent}{cmd};
+  if ( !$self->{JOBMANAGER} )
+  {
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+		NJOBS     => $self->{NJOBS},
+		VERBOSE   => 0,
+		DEBUG     => 0,
+		KEEPALIVE => 0,
+	);
+    $self->{JOBMANAGER}->whenQueueDrained( sub { delete $self->{JOBMANAGER}; } );
+  }
+  $self->{JOBMANAGER}->addJob(
+		sub { $self->handleJob($agent) },
+		{ TIMEOUT => 300 },
+		@{$cmd}
+	);
 }
 
 sub handleJob
@@ -357,22 +377,56 @@ sub _udp_listen
   $message = '';
   $remote_address = recv($socket, $message, DATAGRAM_MAXLEN, 0);
 
-  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]: (.*)$% )
+  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]:(.*)$% )
   {
     $agent = $1;
     $pid = $2;
     $message_left = $3;
     return if ( $agent eq $self->ME() );
-    if ( $message_left =~ m%^label=(\S+)$% )
+    if ( $message_left =~ m%^\s*label=(\S+)$% )
     {
       $label = $1;
       $self->{AGENT_PID}{$pid} = $label;
     }
     $label = $self->{AGENT_PID}{$pid};
-    $self->{AGENTS}{$label}{last_seen} = time() if $label;
-    return if ( $message_left eq 'ping' ) # allows contact without flooding the logfile
+    if ( $label )
+    {
+      $self->{AGENTS}{$label}{last_seen} = time();
+      return if ( $message_left eq 'ping' ); # allows contact without flooding the logfile
+      if ( $message_left =~ m%^\s*AGENT_STATISTICS (.*)$% )
+      {
+        $message_left = $1;
+        foreach ( split(' ',$message_left) )
+        {
+          $_ =~ m%^([^=]+)=(.+)$%;
+          $self->{AGENTS}{$label}{resources}{ lc($1) } = $2;
+        }
+      }
+      $self->checkAgentLimits($label,$pid);
+    }
   }
   print $message;
+}
+
+sub checkAgentLimits
+{
+  my ($self,$agent,$pid) = @_;
+  my ($re,$key,$val);
+  foreach $re ( sort keys %{$self->{_limits}} )
+  {
+    if ( $agent =~ m%$re% )
+    {
+      foreach $key ( keys %{$self->{_limits}{$re}} )
+      {
+        if ( $self->{_limits}{$re}{$key} < $self->{AGENTS}{$agent}{resources}{$key} )
+        {
+          $self->Alert("Agent=$agent, PID=$pid, resource-use too high ($key=$self->{AGENTS}{$agent}{resources}{$key}), killing...");
+          POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $pid });
+          return;
+        }
+      }
+    }
+  }
 }
 
 sub _make_stats
