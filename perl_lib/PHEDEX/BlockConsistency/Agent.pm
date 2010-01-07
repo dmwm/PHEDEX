@@ -46,6 +46,7 @@ our %params =
 	  PRELOAD	=> undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> undef,
+	  max_priority	=> 0,			# private, max of active requests
 	);
 
 sub new
@@ -300,7 +301,8 @@ sub _poe_init
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
   $kernel->state('do_tests',$self);
   $kernel->state('get_work',$self);
-  $kernel->yield('do_tests');
+  $kernel->state('requeue_later',$self);
+  $kernel->yield('get_work');
 }
 
 sub do_tests
@@ -309,11 +311,9 @@ sub do_tests
   my ($request,$r,$id,$priority);
 
   ($priority,$id,$request) = $self->{QUEUE}->dequeue_next();
-  if ( ! $request )
-  {
-    $kernel->yield('get_work');
-    return;
-  }
+  return unless $request;
+# I got a request, so make sure I come back again soon for another one
+  $kernel->yield('do_tests');
 
   $self->{pmon}->State('do_tests','start');
 # Sanity checking
@@ -348,19 +348,40 @@ sub do_tests
       $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
     }
   };
-  if ($@) {
+# if ($@) {
     chomp ($@);
     $self->Alert ("database error: $@");
-    # put everything back the way it was...
+#   put everything back the way it was...
     $self->{DBH}->rollback();
-    $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
-  } else {
-    $self->{DBH}->commit();
-  }
+#   ...and requeue the request in memory. But, schedule it for later, and lower
+#   the priority. That way, if it is a hard error, it should not block things
+#   totally, and if it is a soft error, it should go away eventually.
+#   (N.B. 'lower' priority means numerically higher!)
+    $request->{PRIORITY} = ++$self->{max_priority};
+    $kernel->delay_set('requeue_later',60,$request);
+# } else {
+#   $self->{DBH}->commit();
+# }
 
   $self->{pmon}->State('do_tests','stop');
-  $kernel->yield('do_tests');
 }
+
+sub requeue_later
+{
+  my ($self, $kernel, $request) = @_[ OBJECT, KERNEL, ARG0 ];
+  if ( ++$request->{attempt} > 10 )
+  {
+    $self->Alert('giving up on request ID=',$request->{ID},', too many hard errors');
+    return;
+  }
+
+# Before re-queueing, check if any other requests are active. If not, I need
+# to kick this into action when I re-queue. Otherwise, it waits for the next
+# time get_work finds something to do!
+  $self->Logmsg('Requeue request ID=',$request->{ID},' after ',$request->{attempt},' attempts');
+  if ( ! $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
+  $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
+};
 
 # Get a list of pending requests
 sub requestQueue
@@ -396,6 +417,10 @@ sub requestQueue
 	   };
   while ( my $h = $q->fetchrow_hashref() )
   {
+#   max_priority is guaranteed to be correct at the end of this loop by the
+#  'order by priority asc' in the sql. Use it to adjust priority in case of
+#   unknown problems
+    $self->{max_priority} = $h->{PRIORITY};
     %p = ( ':request' => $h->{ID} );
     $q1 = &dbexec($self->{DBH},$sql,%p);
     my %f;
@@ -413,11 +438,23 @@ sub requestQueue
   return @requests;
 }
 
-# Pick up work from the database.
 sub get_work
 {
+# get work from the database. This function reschedules itself for the future, to fetch
+# newer work. If there is unfinished work, this function will call itself again soon,
+# and then exit without doing anything. Otherwise, it attempts to get a large chunk of
+# work, and re-schedules itself somewhat later.
   my ($self, $kernel) = @_[ OBJECT, KERNEL ];
   my @nodes = ();
+
+  if ( $self->{QUEUE}->get_item_count() )
+  {
+#   There is work queued, so the agent is 'busy'. Check again soon
+    $kernel->delay_set('get_work',10);
+    return;
+  }
+# The agent is idle. Check somewhat less frequently
+  $kernel->delay_set('get_work',$self->{WAITTIME});
 
   $self->{pmon}->State('get_work','start');
   eval
@@ -433,22 +470,24 @@ sub get_work
 						 \$ofilter, \%ofilter_args))
     {
       $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
-#     $self->setRequestState($request,'Queued');
+      $self->setRequestState($request,'Queued');
     }
     $self->{DBH}->commit();
-    if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
-    else
-    {
-      # Disconnect from the database
-      $self->disconnectAgent();
-    }
   };
   do {
      chomp ($@);
      $self->Alert ("database error: $@");
      $self->{DBH}->rollback();
   } if $@;
-  $kernel->delay_set('get_work',$self->{WAITTIME});
+
+# If we found new tests to perform, but there were none already in the queue, kick off
+# the do_tests loop
+  if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
+  else
+  {
+    # Disconnect from the database
+    $self->disconnectAgent();
+  }
   $self->{pmon}->State('get_work','stop');
 
   return;
