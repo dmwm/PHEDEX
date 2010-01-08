@@ -331,6 +331,9 @@ sub initSecurity
       $args{SIGNUP_HANDLER} = sub {
           die "authentication check failed:  user not registered in SiteDB\n"
           };
+      $args{PWDFORM_HANDLER} = sub {
+          die "authentication check failed:  user not registered in SiteDB\n"
+          };
   }
   my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
   if ( ! $secmod->init() )
