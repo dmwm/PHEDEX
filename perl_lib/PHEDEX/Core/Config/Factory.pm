@@ -101,7 +101,14 @@ sub reloadConfig
   {
     my $val = $config->{OPTIONS}{$_};
     next unless defined($val);
-    $self->Logmsg("reloadConfig: set $_=$val");
+    if ( ref($val) == 'ARRAY' )
+    {
+      $self->Logmsg("reloadConfig: set $_=",join(',',@{$val}));
+    }
+    else
+    {
+      $self->Logmsg("reloadConfig: set $_=$val");
+    }
     $self->{$_} = $val;
   }
   $self->createLimits();
