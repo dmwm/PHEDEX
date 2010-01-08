@@ -331,6 +331,7 @@ sub initSecurity
       $args{SIGNUP_HANDLER} = sub {
           die "authentication check failed:  user not registered in SiteDB\n"
           };
+      # disable the password form, too
       $args{PWDFORM_HANDLER} = sub {
           die "authentication check failed:  user not registered in SiteDB\n"
           };
