@@ -898,8 +898,8 @@ sub connectAgent
     # is probably so wedged that we can't do anything useful, so bail
     # out.  The caller is in charge of committing or rolling back on
     # any errors raised.
+    $self->checkNodes();
     if ($self->{MYNODE}) {
-	$self->checkNodes();
 	$self->updateAgentStatus();
 	$self->identifyAgent();
 	$self->checkAgentMessages();
@@ -939,9 +939,12 @@ sub checkNodes
     my $q = &dbprep($self->{DBH}, qq{
         select count(*) from t_adm_node where name like :pat});
 
-    &dbbindexec($q, ':pat' => $self->{MYNODE});
-    $self->Fatal("'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
-	if ($self->{MYNODE} && ! $q->fetchrow());
+    if ( $self->{MYNODE} )
+    {
+      &dbbindexec($q, ':pat' => $self->{MYNODE});
+      $self->Fatal("'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
+	unless $q->fetchrow();
+    }
 
     my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
     while (my ($param, $arg) = each %params) {
@@ -1372,11 +1375,15 @@ sub expandNodes
       $self->{NODES_ID}{$name} = $id;
       push(@result, $name);
 
-      $self->{MYNODE} = $name;
-      $self->updateAgentStatus();
-      $self->identifyAgent();
-      $self->checkAgentMessages();
-      $self->{MYNODE} = undef;
+      my $old_mynode = $self->{MYNODE};
+      eval {
+        $self->{MYNODE} = $name;
+        $self->updateAgentStatus();
+        $self->identifyAgent();
+        $self->checkAgentMessages();
+      };
+      $self->{MYNODE} = $old_mynode;
+      die $@ if $@;
     }
   }
 
