@@ -1,9 +1,4 @@
 PHEDEX.namespace('Module.LinkView','Module.TransferQueueBlock','Module.TransferQueueFiles');
-// PHEDEX.Page.Widget.LinkView=function(divid) {
-//   var node = document.getElementById(divid+'_select').value;
-//   var xfer_node = PHEDEX.Core.Widget.Registry.construct('PHEDEX.Widget.LinkView','node',node,divid);
-//   xfer_node.update();
-// }
 
 PHEDEX.Module.LinkView=function(sandbox, string) {
   var _sbx = sandbox,
@@ -293,11 +288,11 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           else
           {
             var errstr = 'No action specified for handling callback data for "'+p.callback+'"';
-            YAHOO.log(errstr,'error','Widget.LinkView');
+            YAHOO.log(errstr,'error','LinkView');
             throw new Error(errstr);
           }
         } catch(e) {
-          YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','Widget.LinkView');
+          YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','LinkView');
           var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
           tNode.isLeaf = true;
         }
@@ -326,7 +321,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 //     var onSelectedMenuItemChange = function (event) {
 //       var oMenuItem = event.newValue;
 //       var text = oMenuItem.cfg.getProperty("text");
-//       YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','Widget.LinkView');
+//       YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','LinkView');
 //       this.set("label", text);
 //     };
 //     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
@@ -449,6 +444,4 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
   return this;
 }
 
-// What can I respond to...?
-// PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.LinkView','node','Show Links',PHEDEX.Widget.LinkView,{context_item:true});
-YAHOO.log('loaded...','info','Widget.LinkView');
+YAHOO.log('loaded...','info','LinkView');

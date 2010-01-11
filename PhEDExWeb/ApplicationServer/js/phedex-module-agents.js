@@ -163,5 +163,3 @@ PHEDEX.Module.Agents = function(sandbox, string) {
 //       }
 //     }
 //   };
-
-// PHEDEX.Core.Widget.Registry.add('PHEDEX.Widget.Agents','node','Show Agents',PHEDEX.Widget.Agents, {context_item:true});
