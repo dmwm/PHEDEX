@@ -142,19 +142,17 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
               // Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,
-                             'fn':function(opts,el) {
-                                var arg = opts[this.type];
-                                log('Construct registered widget:'+
-                                    ' widget='+this.widget+
-                                    ' type='+this.type+
-                                    ' arg='+arg,
-                                    'info', _me);
-                                _sbx.notify('CreateModule',this.widget,opts);
-//                                 var w = PHEDEX.Registry.construct(this.widget,
-//                                                                               this.type,
-//                                                                               arg);
-//                                 if ( w ) { w.update(); }
-                              }
+                             'fn':function(_w) {
+                                return function(opts,el) {
+                                  var arg = opts[this.type];
+                                  log('Construct registered widget:'+
+                                      ' widget='+this.widget+
+                                      ' type='+this.type+
+                                      ' arg='+arg,
+                                      'info', _me);
+                                  _sbx.notify('CreateModule',_w.short_name,opts);
+                                };
+                              }(widget)
                             };
                 this.contextMenu.addItem(item);
                 log('Build: '+name+' label:'+w[j].label,'info',_me);
