@@ -441,6 +441,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox,
       _widget_menu,
+      _widget_menu_items = [],
       asdf_target_type, // = 'none',
       _widget,    // the current widget name
       _widget_id // the current widget id
@@ -449,8 +450,8 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-widget';
   var _getWidgetMenuItems = function(type) {
-    var widgets = PxR.getWidgetsByInputType(type);
-    var menu_items = [];
+    var widgets = _widget_menu_items[type], // PxR.getWidgetsByInputType(type);
+        menu_items = [];
     for (var w in widgets) {
       w = widgets[w];
       menu_items.push({ text: w.label, value: w });
@@ -486,10 +487,14 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     };
   }(this);
 
-  var _updateWidgetMenu = function(type,widget_name) {
+  this._updateWidgetMenu = function(type,widget_name) {
     var menu_items = _getWidgetMenuItems(type),
         widget,
         menu;
+    if ( !menu_items.length ) {
+      _sbx.notify('Registry','getWidgetsByInputType',type,this.id);
+      return;
+    }
     if ( widget_name ) {
       for (var i in menu_items) {
         if ( menu_items[i].value.short_name == widget_name ) {
@@ -529,12 +534,18 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
           break;
         }
         case 'StateChanged': {
-          _updateWidgetMenu(value.type,value.widget);
+          o._updateWidgetMenu(value.type,value.widget);
           break;
         }
         case 'TargetType': {
-//           _target_type = value;
-          _updateWidgetMenu(value);
+          o._updateWidgetMenu(value);
+          break;
+        }
+        case 'getWidgetsByInputType': {
+          _widget_menu_items[value] = arr[2];
+          if ( ev == o.id ) { // I asked for this, so I must need to update myself
+            o._updateWidgetMenu(value);
+          }
           break;
         }
       }
@@ -749,7 +760,6 @@ debugger;
           break;
         }
         case 'updateTargetGUI': {
-debugger;
           o[target_type].updateTargetGUI(value);
           break;
         }
@@ -868,7 +878,6 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
           break;
         }
         case 'NeedTargetTypes': {
-debugger;
           _sbx.notify(obj.id,'TargetTypes',_target_types);
           break;
         }
