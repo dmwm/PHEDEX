@@ -4,8 +4,6 @@ use strict;
 ##H
 ##H  Inject block-test requests in TMDB, for the BlockDownloadVerify agent
 ##H
-##H  This help is far from complete, ask Tony if you want to use this script.
-##H
 ##H  Options:
 ##H 
 ##H   --db = DBCONFIG     The usual PhEDEx db configuration file
@@ -15,6 +13,10 @@ use strict;
 ##H   --n_files = <num>   Number of files to analyse in the block
 ##H   --expire = <num>    Seconds till this request expires
 ##H   --priority = <num>  Priority for these requests
+##H   --incomplete	  Allow testing of incomplete blocks. Otherwise, only
+##H			  (supposedly) complete blocks will be tested
+##H   --use_srm		  Use the SRM interface, rather than the protocol
+##H			  specified for the SE in TMDB
 ##H 
 ##H   --debug, --verbose  Obvious...
 ##H   --listonly          List the blocks, buffers, and tests matching
