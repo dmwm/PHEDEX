@@ -56,6 +56,7 @@ sub new
   my $self  = $class->SUPER::new(%params,@_);
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   $self->{QUEUE} = POE::Queue::Array->new();
+  $self->{NAMESPACE} =~ s%['"]%%g;
   bless $self, $class;
 
   return $self;
@@ -348,9 +349,9 @@ sub do_tests
       $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
     }
   };
-# if ($@) {
+  if ($@) {
     chomp ($@);
-    $self->Alert ("database error: $@");
+    $self->Alert ("Error during test: $@");
 #   put everything back the way it was...
     $self->{DBH}->rollback();
 #   ...and requeue the request in memory. But, schedule it for later, and lower
@@ -359,9 +360,9 @@ sub do_tests
 #   (N.B. 'lower' priority means numerically higher!)
     $request->{PRIORITY} = ++$self->{max_priority};
     $kernel->delay_set('requeue_later',60,$request);
-# } else {
-#   $self->{DBH}->commit();
-# }
+  } else {
+    $self->{DBH}->commit();
+  }
 
   $self->{pmon}->State('do_tests','stop');
 }
@@ -401,7 +402,7 @@ sub requestQueue
 		from t_dvs_block b join t_dvs_test t on b.test = t.id
 		join t_status_block_verify v on b.id = v.id
 		where ${$mfilter}
-		and status = 0
+		and status in (0,3)
 		${$ofilter}
 		order by priority asc, time_expire asc
        };
@@ -466,7 +467,7 @@ sub get_work
     my ($ofilter, %ofilter_args) = $self->otherNodeFilter ("b.node");
 
 #   Get a list of requests to process
-    foreach my $request ($self->requestQueue(10, \$mfilter, \%mfilter_args,
+    foreach my $request ($self->requestQueue(40, \$mfilter, \%mfilter_args,
 						 \$ofilter, \%ofilter_args))
     {
       $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
