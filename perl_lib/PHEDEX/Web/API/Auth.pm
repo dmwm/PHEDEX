@@ -14,11 +14,18 @@ Serves the requesting user's authentication state.
 
 =head2 Options
 
- ability : (optional) if passed then the nodes (from TMDB) that the user is
-           allowed to operate on is are also returned.
+ required inputs: none
+ optional inputs: ability, require_cert, SecModLogin, SecModPwd
 
- require_cert : (optional) if passed then the call will die if the
-                user is not authenticated by certificate
+  ability       if passed then the nodes (from TMDB) that the user is
+                allowed to operate on is are also returned.
+  require_cert  if passed then the call will die if the user is not
+                authenticated by certificate
+  SecModLogin   username for password authentication
+  SecModPwd     password for password authentication
+
+  * SecModLogin and SecModPwd must be used together and the spelling
+    must be exact as above (mixed cases)
 
 =head2 Output
 
@@ -33,6 +40,8 @@ Serves data in the following structure
      ...
   </auth>
    ...
+
+  * in password authentication, if succeeds, a cookie is returned, too.
 
 =head3 <auth> attributes
 
