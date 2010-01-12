@@ -7,6 +7,7 @@
 
 PHEDEX.Sandbox = function() {
   var _events = [],
+      _map = {},
       _me = 'Sandbox';
 /**
  * get or create a YAHOO.util.CustomEvent for a given event-name
@@ -35,6 +36,10 @@ PHEDEX.Sandbox = function() {
       var event,
           arr = Array.apply(null,arguments);
       event = arr.shift();
+      if ( _map[event] ) {
+        log('remap event: '+event+' ('+_map[event]+')','info',_me);
+        event = _map[event];
+      }
       log('notify event: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
       setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
     },
@@ -62,6 +67,27 @@ PHEDEX.Sandbox = function() {
       ev.unsubscribeAll();
       delete _events[event];
     },
+/** redirect an event, replacing it with another event. This is two-way, if the event is signalled then it is re-mapped to the replacement,
+ * and if the replacement is sent, it is remapped to the original. This allows a component to intervene in the normal workflow of the core
+ * and take some other action. One example would be the <strong>navigator</strong>, which remaps the <strong>CreateModule</strong> event
+ * so it can update its nagivation elements first.<br/>
+ * N.B. only one remapping of each event is allowed at present, for simplicity.
+ * @method replaceEvent
+ * @param event {string} the event to remap
+ * @param remap {string} the name of the event to remap the original event to
+ * @param oneWay {boolean} set to <strong>true</strong> to make the mapping only one-way. Use this if you need complex re-mapping
+ */
+    replaceEvent: function(event,remap,oneWay) {
+      if ( _map[event] && _map[event] != remap ) {
+        throw new Error('Mapping already declared for event='+event+' ('+_map[event]+' trumps '+remap+')');
+      }
+      if ( _map[remap] && _map[remap] != event ) {
+        throw new Error('Mapping already declared for remap='+remap+' ('+_map[remap]+' trumps '+event+')');
+      }
+      _map[event] = remap;
+      if ( !oneWay ) { _map[remap] = event; }
+    },
+
 //     stopListening: function(event,fn) {
 //	  I don't know how I would do this. I would need to know the function that was subscribed, so would
 //	  need an array of subscribers/callbacks, maintained in the sandbox.
