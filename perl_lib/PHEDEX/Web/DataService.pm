@@ -79,12 +79,12 @@ sub invoke
   elsif ($format eq 'json') { $type = 'text/javascript'; }
   elsif ($format eq 'perl') { $type = 'text/plain'; }
   else {
-      &xml_error("Unsupported format '$format'");
+      &error($format, "Unsupported format '$format'");
       return;
   }
 
   if (!$call) {
-      &xml_error("API call was not defined.  Correct URL format is /FORMAT/INSTANCE/CALL?OPTIONS");
+      &error($format, "API call was not defined.  Correct URL format is /FORMAT/INSTANCE/CALL?OPTIONS");
       return;
   }
 
@@ -121,7 +121,7 @@ sub invoke
 				    );
   };
   if ($@) {
-      &xml_error("failed to initialize data service API '$call':  $@");
+      &error($format, "failed to initialize data service API '$call':  $@");
       return;
   }
 
@@ -137,7 +137,22 @@ sub invoke
       warn "cache duration for '$call' is $duration seconds\n" if $TESTING;
   }
 
-  print header(-type => $type, %cache_headers );
+  my $result = $core->prepare_call($format, %args);
+  if ($result)
+  {
+      &error($format, $result);
+      return;
+  }
+
+  # handle cookie(s) here
+  if ($core->{SECMOD}->{COOKIE})
+  {
+      print header(-type => $type, -cookie => $core->{SECMOD}->{COOKIE}, %cache_headers );
+  }
+  else
+  {
+      print header(-type => $type, %cache_headers );
+  }
   return $core->call($format, %args);
 }
 
@@ -147,6 +162,23 @@ sub xml_error
     my $msg = shift;
     print header(-type => 'text/xml');
     &PHEDEX::Web::Format::error(*STDOUT, 'xml', $msg);
+}
+
+sub error
+{
+    my ($format, $msg) = @_;
+    my $type;
+    if    ($format eq 'xml')  { $type = 'text/xml'; }
+    elsif ($format eq 'json') { $type = 'text/javascript'; }
+    elsif ($format eq 'perl') { $type = 'text/plain'; }
+    else # catch all
+    {
+        $type = 'text/xml';
+        $format = 'xml';
+    }
+
+    print header(-type => $type);
+    &PHEDEX::Web::Format::error(*STDOUT, $format, $msg);
 }
 
 sub print_doc
