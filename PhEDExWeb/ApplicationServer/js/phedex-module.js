@@ -100,6 +100,15 @@ PHEDEX.Module = function(sandbox, string) {
           * @private
           */
           handles:['b','br','r'],
+
+          /** Some forms of the web-application may only allow a single module to be displayed at any time,
+          * others will allow many modules to be displayed simultaneously. This flag tells the current module
+          * to destroy itself if another module is created
+          * @property autoDestruct
+          * @type boolean
+          * @private
+          */
+          autoDestruct: true,
         };
 //      These defaults do not override those of the module (if any)
         YAHOO.lang.augmentObject(this.options, default_options);
@@ -110,7 +119,7 @@ PHEDEX.Module = function(sandbox, string) {
           return function() {
             _sbx.notify('ModuleExists',obj); }
           }(this);
-        _sbx.listen('CoreCreated',     ILive );
+        _sbx.listen('CoreCreated', ILive );
         _sbx.notify('ModuleExists',this);
 
         this.decorators.push( { name: 'MouseOver' } );
@@ -159,6 +168,21 @@ PHEDEX.Module = function(sandbox, string) {
        */
       initModule: function() {
         log(this.id+': initialising','info','Module');
+
+/** Automatically destroy this module if another is created, and my <strong>options.autoDestruct</strong> property is set. Achieve this by listening for <strong>ModuleExists</strong> events from newly created modules, and, if it is not from myself, shoot myself.
+ * @method autoDestructHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event. The first argument is the module that has just been created. Compare its <strong>id</strong> to my own to prevent self-termination during my own creation.
+ * @private
+ */        this.autoDestructHandler = function(obj) {
+          return function(ev,arr) {
+            if ( ! obj.options ) { return; }
+            if ( ! obj.options.autoDestruct ) { return; }
+            if ( arr[0].id == obj.id ) { return; }
+            obj.destroy();
+          }
+        }(this);
+        _sbx.listen('ModuleExists',this.autoDestructHandler);
 
 /** Handle messages sent with the <strong>module</strong> event. This allows other components of the application to broadcast a message that will be caught by all modules. There is in principle some overlap between this function and the <strong>selfHandler</strong>, but they have different responses, so are not in fact equivalent. The <strong>genericHandler</strong> is not actually used anywhere yet!
  * @method genericHandler
