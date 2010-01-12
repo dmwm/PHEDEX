@@ -156,6 +156,50 @@ sub DESTROY
 {
 }
 
+# prepare_call() -- before calling the API
+#
+# This is called before the header was sent out (in DataService.pm)
+# Therefore, any cookies generated here could be attached to the header
+#
+# The primary purpose was for password authentication, yet it could
+# be generalized for other pre-call checks.
+#
+sub prepare_call
+{
+    my ($self, $format, %args) = @_;
+    my $api = $self->{API};
+
+    eval {
+        # check allowed methods
+        if ($api->can('methods_allowed'))
+        {
+            my $methods_allowed = $api->methods_allowed();
+            if (ref($methods_allowed) eq 'ARRAY')
+            {
+                if (not grep {$_ eq $self->{REQUEST_METHOD}} @{$methods_allowed})
+                {
+                    &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
+                    return;
+                }
+            }
+            elsif ($self->{REQUEST_METHOD} ne $methods_allowed)
+            {
+                &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
+                return;
+            }
+        }
+    
+        # determine whether we need authorization
+        my $need_auth = $api->need_auth() if $api->can('need_auth');
+        if ($need_auth) {
+            $self->initSecurity();
+        }
+    };
+
+    # pass along the error message, if any.
+    return $@;
+}
+
 sub call
 {
     my ($self, $format, %args) = @_;
@@ -178,32 +222,6 @@ sub call
     {
       my $api = $self->{API};
       eval {
-        # check allowed methods
-        if ($api->can('methods_allowed'))
-        {
-            my $methods_allowed = $api->methods_allowed();
-            if (ref($methods_allowed) eq 'ARRAY')
-            {
-                if (not grep {$_ eq $self->{REQUEST_METHOD}} @{$methods_allowed})
-                {
-                    &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
-                    return;
-                }
-            }
-            elsif ($self->{REQUEST_METHOD} ne $methods_allowed)
-            {
-                &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
-                return;
-            }
-        }
-
-	# determine whether we need authorization
-	my $need_auth = $api->need_auth() if $api->can('need_auth');
-	if ($need_auth) {
-	    $self->initSecurity();
-	}
-
-	# capture STDOUT of $self->{CALL}
 
         if ($api->can('spool'))
         {
