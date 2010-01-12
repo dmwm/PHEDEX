@@ -10,12 +10,20 @@
  */
 // TODO: bind together with Core.ContextMenu.  i.e. if it's registered
 //       here it should also be registered there...  or just have it access this object?
+// TODO: The Registry consists of a set of global data and some API to access it. It would
+// be better to have the API constructible as an object that augments the objects that use
+// it, rather than as a separate object that they all communicate with via the sandbox.
+// That way, we can avoid a lot of fiddling around with the sandbox and synchronising
+// things, but still maintain clean separation of functionality.
 PHEDEX.Registry = function(sandbox) {
   // private data
   var _sbx = sandbox,
 
   // widget lists keyed by input type
       _widgets = {},
+
+  // list of types for known widgets
+      _inputTypes = {},
 
   // types of information widgets can construct by
       _validTypes = { node     :1,
@@ -63,6 +71,7 @@ PHEDEX.Registry = function(sandbox) {
         }
       }
       _widgets[inputType][widget][label] = w;
+      _inputTypes[w.short_name] = inputType;
     },
 
 /** get a list of inputTypes that have registered widgets
@@ -125,10 +134,35 @@ PHEDEX.Registry = function(sandbox) {
               _sbx.notify('Registry','registeredInputTypes',value);
               break;
             }
+            case 'getTypeOfModule': {
+              var value;
+              try { value = _inputTypes[arr[1].toLowerCase()]; } catch (ex) {};
+              if ( value ) {
+                _sbx.notify('Registry','newInputType',value,arr[2]);
+              }
+              break;
+            }
           }
         }
       }(this);
       _sbx.listen('Registry',this.selfHandler);
+/**
+ * Handle messages announcing that new modules have been created, by announcing in turn the type of that widget.
+ * @method moduleHandler
+ * @param ev {string} name of the event that was sent to this module
+ * @param arr {array} array of arguments for the given event
+ * @private
+ */
+//       this.moduleHandler = function(obj) {
+//         return function(ev,arr) {
+//           var value;
+//           try { value = _inputTypes[arr[0].me.toLowerCase()]; } catch (ex) {};
+//           if ( value ) {
+//             _sbx.notify('Registry','newInputType',value); }
+//         }
+//       }(this);
+//       _sbx.listen('ModuleExists',this.moduleHandler);
+
     }
   };
 };
