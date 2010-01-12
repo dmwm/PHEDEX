@@ -121,7 +121,10 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         _sbx.notify( this.id, 'gotData' );
 //      Fake notification that the data is now stale. This should use the 'Expires' or 'Cache-Control' header from the data-service, but that isn't returned in the data
         setTimeout( function(obj) {
-            return function() { _sbx.notify(obj.id,'dataExpires'); };
+            return function() {
+              if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
+              _sbx.notify(obj.id,'dataExpires');
+            };
           }(this), 300 * 1000 );
       },
       fillExtra: function() {
@@ -163,3 +166,4 @@ PHEDEX.Module.Agents = function(sandbox, string) {
 //       }
 //     }
 //   };
+log('loaded...','info','agents');

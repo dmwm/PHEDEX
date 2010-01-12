@@ -21,7 +21,7 @@ PHEDEX.Config = function(sandbox) {
             category['name'] = displayname;
             category['sources'] = {};
             _categories[id] = category;
-            YAHOO.log('Category ' + displayname + ' added', 'info', 'Config');
+            log('Category ' + displayname + ' added', 'info', 'config');
         }
     };
 
@@ -45,7 +45,7 @@ PHEDEX.Config = function(sandbox) {
                     source[key] = sourcecfg[key];
                 }
                 category.sources[sourcename] = source;
-                YAHOO.log('Source ' + sourcename + ' added to Category ' + catid, 'info', 'Config');
+                log('Source ' + sourcename + ' added to Category ' + catid, 'info', 'config');
             }
         }
     };
@@ -106,4 +106,4 @@ PHEDEX.Config = function(sandbox) {
         }
     };
 };
-YAHOO.log('loaded...','info','Config');
+log('loaded...','info','config');

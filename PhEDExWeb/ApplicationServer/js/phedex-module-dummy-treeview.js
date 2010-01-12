@@ -35,3 +35,5 @@ debugger;
   YAHOO.lang.augmentObject(this,_construct(this),true);
   return this;
 };
+
+log('loaded...','info','dummy-treeview');

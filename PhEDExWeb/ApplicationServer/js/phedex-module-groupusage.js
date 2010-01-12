@@ -107,3 +107,5 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     YAHOO.lang.augmentObject(this,_construct(),true);
     return this;
 };
+
+log('loaded...','info','groupusage');

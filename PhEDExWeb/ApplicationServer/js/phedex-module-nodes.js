@@ -58,3 +58,5 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,_construct(),true);
   return this;
 };
+
+log('loaded...','info','nodes');

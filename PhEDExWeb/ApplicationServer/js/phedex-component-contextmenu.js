@@ -23,7 +23,7 @@ PHEDEX.namespace('Component');
 PHEDEX.Component.ContextMenu=function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
 
-  var _me = 'ContextMenu',
+  var _me = 'component-contextmenu',
       _sbx = sandbox,
       _notify = function() {};
 
@@ -199,7 +199,7 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
   if ( !_items[name] ) { _items[name] = {}; }
   if ( _items[name][label] ) { return; }
   _items[name][label] = { label:label, callback:callback };
-  log('Add: '+name+': #items:'+_items[name].length,'info','ContextMenu');
+  log('Add: '+name+': #items:'+_items[name].length,'info','component-contextmenu');
 };
 
-log('loaded...','info','ContextMenu');
+log('loaded...','info','component-contextmenu');

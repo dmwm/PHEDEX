@@ -86,7 +86,7 @@ PHEDEX.Page.Widget = (function() {
     var ul = document.createElement('ul');
     var currentInstance = PHEDEX.Datasvc.Instance();
     var instances = PHEDEX.Datasvc.Instances();
-    var clickFn = function(ev,x) { YAHOO.log('Set instance '+x,'info','Core.Control'); PHEDEX.Datasvc.Instance(x); }
+    var clickFn = function(ev,x) { log('Set instance '+x,'info','page'); PHEDEX.Datasvc.Instance(x); }
     for (var i in instances ) {
     var instance = instances[i];
     var a = document.createElement('a');

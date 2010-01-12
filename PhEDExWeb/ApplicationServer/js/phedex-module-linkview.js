@@ -288,11 +288,11 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           else
           {
             var errstr = 'No action specified for handling callback data for "'+p.callback+'"';
-            YAHOO.log(errstr,'error','LinkView');
+            log(errstr,'error','LinkView');
             throw new Error(errstr);
           }
         } catch(e) {
-          YAHOO.log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','LinkView');
+          log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','linkview');
           var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
           tNode.isLeaf = true;
         }
@@ -321,7 +321,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 //     var onSelectedMenuItemChange = function (event) {
 //       var oMenuItem = event.newValue;
 //       var text = oMenuItem.cfg.getProperty("text");
-//       YAHOO.log('onSelectedMenuItemChange: new value: '+text,'info','LinkView');
+//       log('onSelectedMenuItemChange: new value: '+text,'info','LinkView');
 //       this.set("label", text);
 //     };
 //     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
@@ -444,4 +444,4 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
   return this;
 }
 
-YAHOO.log('loaded...','info','LinkView');
+log('loaded...','info','linkview');

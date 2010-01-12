@@ -6,7 +6,6 @@ PHEDEX.Util.findOrCreateWidgetDiv = function(name,container)
 // Find a div named 'name' and return it. If that div doesn't exist, create it, append it to a div called
 // 'phedex-main', and then return it. This lets me create widgets in the top-level phedex-main div, on demand.
   if ( !container ) { container = 'phedex-main'; }
-  YAHOO.log('Find or create '+name+' in '+container);
   var div = document.getElementById(name);
   if ( !div )
   {
@@ -239,7 +238,7 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
 // First, create a callback function that uses the payload to identify what to do with the returned data.
   var loadTreeNodeData_callback = function(result) {
     if ( result.stack ) {
-      YAHOO.log('loadTreeNodeData: failed to get data','error','Core.TreeView');
+      YAHOO.log('loadTreeNodeData: failed to get data','error','treeview');
     } else {
       node.payload.callback(node,result);
     }
@@ -260,7 +259,7 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
     {
 //    payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
 //    and conform to the calling specification for the data-service module
-      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call,'Core.TreeView');
+      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call,'treeview');
       var query = [];
       query.api = node.payload.call;
       query.args = node.payload.args;
@@ -271,13 +270,13 @@ PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
     {
 //    The call-name isn't a string, assume it's a function and call it directly.
 //    I'm guessing there may be a use for this, but I don't know what it is yet...
-      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','error','Core.Datasvc');
+      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','warn','treeview');
       node.payload.call(node,loadTreeNodeData_callback);
     }
   }
   else
   {
-    YAHOO.log('Apparently require dynamically loaded data but do not know how to get it! (hint: payload probably malformed?)','warn');
+    YAHOO.log('Apparently require dynamically loaded data but do not know how to get it! (hint: payload probably malformed?)','warn','treeview');
     fnLoadComplete();
   }
 }
@@ -327,3 +326,4 @@ PHEDEX.Util.getConstructor = function( string ) {
   return ctor;
 }
 var PxU = PHEDEX.Util;
+log('loaded...','info','util');

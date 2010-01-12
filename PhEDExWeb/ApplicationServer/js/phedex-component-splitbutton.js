@@ -25,7 +25,7 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.SplitButton = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
-  var _me = 'Component-SplitButton',
+  var _me = 'component-splitbutton',
       _sbx = sandbox,
       partner = args.partner,
       column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence()),
@@ -133,3 +133,5 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   if ( args.payload.onInit ) { _sbx.notify(partner,args.payload.onInit); }
   return this;
 };
+
+log('loaded...','info','component-splitbutton');

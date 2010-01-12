@@ -640,4 +640,4 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
   YuE.on(obj.dom.extra,   "mouseout",  mouseOverHandler);
 }
 
-log('loaded...','info','TreeView');
+log('loaded...','info','treeview');

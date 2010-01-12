@@ -14,11 +14,12 @@
 PHEDEX.namespace('Datasvc');
 PHEDEX.Datasvc = (function() {
   // TODO: should provide getters & setters
-  var _instance = 'prod';
-  var _instances = [{name:'Production',instance:'prod'},
+  var _instance = 'prod',
+      _instances = [{name:'Production',instance:'prod'},
                     {name:'Dev',       instance:'test'},
                     {name:'Debug',     instance:'debug'}
-                   ];
+                   ],
+      _me = 'datasvc';
 
   // Whether we should try again for failed queries
   // TODO:  retries not implemented
@@ -37,7 +38,7 @@ PHEDEX.Datasvc = (function() {
 
   // method _get : triggers an asyncRequest from a prepared query object
   var _get = function(query) {
-    YAHOO.log('GET '+query.text,'info','Datasvc');
+    YAHOO.log('GET '+query.text,'info',_me);
 
     !query.poll_number ? query.poll_number = 1 : query.poll_number++;
     query.path = '/phedex/datasvc/json/'+_instance+'/'+query.text;
@@ -54,7 +55,7 @@ PHEDEX.Datasvc = (function() {
     // polling to be stopped by simply destroying the objects that are
     // subscribed to the result events
     if (!( query.success_event.subscribers[0] && query.failure_event.subscribers[0] ) ) {
-      YAHOO.log('Not getting '+query.text+' , no one is listening...','info','Datasvc');
+      YAHOO.log('Not getting '+query.text+' , no one is listening...','info',_me);
       PHEDEX.Datasvc.stopPoll(query.poll_id);
       return;
     }
@@ -86,13 +87,13 @@ PHEDEX.Datasvc = (function() {
    */
   var _got = function(response) {
     var query = response.argument;
-    YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+query.text,'info','Datasvc');
+    YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+query.text,'info',_me);
     var data = {};
     try {
       if ( response.status != 200 ) { throw new Error("bad response"); } // should be unnecessary...
       data = YAHOO.lang.JSON.parse(response.responseText);
-      YAHOO.log('PARSED '+query.text, 'info', 'Datasvc');
-      
+      YAHOO.log('PARSED '+query.text, 'info', _me);
+
       if (data['error']) { throw new Error(data['error']) }
       data = data['phedex'];
       // barely adequate error-checking! Should also use response-headers
@@ -103,7 +104,7 @@ PHEDEX.Datasvc = (function() {
       _fail(response);
       return;
     }
-    YAHOO.log('FIRE '+query.text, 'info', 'Datasvc');
+    YAHOO.log('FIRE '+query.text, 'info', _me);
     query.success_event.fire(data, query.context);
     _maybe_schedule(query, response);
   }
@@ -111,7 +112,7 @@ PHEDEX.Datasvc = (function() {
   // method _fail : fires the error handler
   var _fail = function(response) {
     var query = response.argument;
-    YAHOO.log('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error','Datasvc');
+    YAHOO.log('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error',_me);
     query.failure_event.fire(new Error(response.statusText), query.context);
     _maybe_schedule(query);
   }
@@ -126,7 +127,7 @@ PHEDEX.Datasvc = (function() {
       }
       if (! query.polltime ) { query.polltime = 600*1000; } // default poll time is 10 minutes
       if ( query.force_polltime ) { query.polltime = query.force_polltime; }
-      YAHOO.log('SCHEDULE '+query.text+' in '+query.polltime+' ms', 'info', 'Datasvc');
+      YAHOO.log('SCHEDULE '+query.text+' in '+query.polltime+' ms', 'info', _me);
       var timerid = setTimeout(function() { _get(query) }, query.polltime);
       _poll_timers[query.poll_id] = timerid;
       return query.poll_id;
@@ -211,7 +212,7 @@ PHEDEX.Datasvc = (function() {
      */
     Call: function(query) {
       query.text = _build_query(query);
-      YAHOO.log('CALL '+query.text,'info','Datasvc');
+      YAHOO.log('CALL '+query.text,'info',_me);
       query.limit = 1;
       PHEDEX.Datasvc.Poll(query);
     },
@@ -236,7 +237,7 @@ PHEDEX.Datasvc = (function() {
  */
     Poll: function(query) {
       query.text = _build_query(query);
-      YAHOO.log('POLL '+query.text,'info','Datasvc');
+      YAHOO.log('POLL '+query.text,'info',_me);
 
       if (!query.context) { query.context = {}; }
       query.context.api = query.api;
@@ -264,7 +265,7 @@ PHEDEX.Datasvc = (function() {
     stopPoll: function(poll_id) {
       var timer = _poll_timers[poll_id];
       if (timer) {
-	YAHOO.log('STOP poll_id:'+poll_id+' timer:'+timer,'info','Datasvc');
+	YAHOO.log('STOP poll_id:'+poll_id+' timer:'+timer,'info',_me);
 	clearTimeout(timer);
       }
       delete _poll_timers[poll_id];
@@ -298,4 +299,4 @@ PHEDEX.Datasvc = (function() {
 })();
 
 PHEDEX.Datasvc.InstanceChanged = new YAHOO.util.CustomEvent('InstanceChanged');
-YAHOO.log('loaded...','info','Datasvc');
+YAHOO.log('loaded...','info','datasvc');

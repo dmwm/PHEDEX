@@ -71,7 +71,7 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.Control = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
-  var _me = 'Component-Control',
+  var _me = 'component-control',
       _sbx = sandbox,
       partner = args.partner,
 
@@ -99,7 +99,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
   _mouseoverHandler = function(ev,obj) {
     var timeout = obj.payload.hover_timeout;
     if ( !timeout ) { return; }
-    obj.payload.timer = setTimeout(function() { obj.Show(); },timeout);
+    obj.payload.timer = setTimeout(function() { if ( obj.Show ) { obj.Show(); } },timeout);
   }
 /**
  * Handle mouse-out events.<br />
@@ -194,7 +194,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
                 }
                 break;
               }
-              default: { log('unhandled event: '+action,'warn',me); break; }
+              default: { log('unhandled event: '+action,'warn',_me); break; }
             }
           }
         }(this);
@@ -336,4 +336,4 @@ PHEDEX.Component.Control = function(sandbox,args) {
   return this;
 }
 
-YAHOO.log('loaded...','info','Component.Control');
+log('loaded...','info','component-control');

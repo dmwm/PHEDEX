@@ -55,7 +55,8 @@ PHEDEX.Registry = function(sandbox) {
         throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
       var w = { widget:widget, short_name:widget, type:inputType, label:label, id:PxU.Sequence() };
-      if ( widget.match('^phedex-module-(.+)$') ) { w.short_name = PxU.initialCaps(RegExp.$1); }
+      if ( widget.match('^phedex-module-(.+)$') ) { w.short_name = RegExp.$1; }
+      w.short_name = w.short_name.toLowerCase();
       if (extrakeys) {
         for (var k in extrakeys) {
           w[k] = extrakeys[k];
@@ -131,3 +132,5 @@ PHEDEX.Registry = function(sandbox) {
     }
   };
 };
+
+log('loaded...','info','registry');

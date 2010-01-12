@@ -82,3 +82,5 @@ PHEDEX.Util.IdleTimer = function(){
 
   return IdleTimer;
 };
+
+log('loaded...','info','idletimer');

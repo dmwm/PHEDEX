@@ -68,3 +68,5 @@ PHEDEX.Sandbox = function() {
 //     }
   }
 };
+
+log('loaded...','info','sandbox');

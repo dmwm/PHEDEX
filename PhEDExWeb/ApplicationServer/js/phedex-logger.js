@@ -69,7 +69,7 @@ PHEDEX.Logger = function() {
           }
           if ( !level ) { level = 'info'; }
           if ( !group ) { group = 'app'; }
-          YAHOO.log(str, level, group);
+          YAHOO.log(str, level, group.toLowerCase());
           if ( obj.log2Server[level] ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );

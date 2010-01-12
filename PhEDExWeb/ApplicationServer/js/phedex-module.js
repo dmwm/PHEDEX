@@ -464,7 +464,7 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
 //
 //   this.onAcceptFilter.subscribe( function(obj) {
 //     return function() {
-//       YAHOO.log('onAcceptFilter:'+obj.me(),'info','Core.Widget');
+//       log('onAcceptFilter:'+obj.me(),'info','Core.Widget');
 //       obj.filter.Parse();
 //     }
 //   }(this));
@@ -485,7 +485,7 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
 //   }());
 // 
 //   this.onBuildComplete.subscribe(function() {
-//     YAHOO.log('onBuildComplete: '+this.me(),'info','Core.Widget');
+//     log('onBuildComplete: '+this.me(),'info','Core.Widget');
 //     // filter
 //     var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]],
 // 		     visible:false,
@@ -514,3 +514,5 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
 //     this.control.close = PxU.makeChild(this.dom.control, 'img', {src:'/images/widget-close.gif'});
 //     YAHOO.util.Event.addListener(this.control.close, "click", this.destroy, null, this);
 //   }
+
+log('loaded...','info','module');

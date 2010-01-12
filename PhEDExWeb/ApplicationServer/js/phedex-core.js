@@ -301,7 +301,6 @@ PHEDEX.Core = function(sandbox,loader) {
         break;
       }
     };
-    _setTimeout();
   };
 
   return {
@@ -320,3 +319,5 @@ PHEDEX.Core = function(sandbox,loader) {
     },
   };
 }
+
+log('loaded...','info','core');

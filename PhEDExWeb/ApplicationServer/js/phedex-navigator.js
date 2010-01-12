@@ -300,7 +300,7 @@ debugger;
 
 //         case 'wassitallabout': {
 // debugger;
-//           YAHOO.log("NavChange:  type=" + args.type + " target=" + args.target +
+//           log("NavChange:  type=" + args.type + " target=" + args.target +
 //               " widget=" + args.widget.widget + " filter=" + args.filter,
 //               'info', 'Navigator');
 // 
@@ -313,7 +313,7 @@ debugger;
 // 
 //         // in with the new... (maybe)
 //           if (_validConstruction()) {
-//             YAHOO.log("NavChange:  construct type=" + _cur_target_type + " target=" + _cur_target +
+//             log("NavChange:  construct type=" + _cur_target_type + " target=" + _cur_target +
 //                 " widget=" + _cur_widget.widget,
 //                 'info', 'Navigator');
 //             _nav_construct = true; // prevent interception of our own construct event
@@ -346,7 +346,7 @@ debugger;
 //     PxR.beforeConstructEvent.subscribe(function(evt, args) {
 //         if (_nav_construct) { return true; } // prevent interception of our own construct event
 //         args = args[0];
-//         YAHOO.log("heard beforeConstruct for widget=" + args.widget.widget + " type=" + args.type + " data=" + args.data,
+//         log("heard beforeConstruct for widget=" + args.widget.widget + " type=" + args.type + " data=" + args.data,
 // 	      'info', 'Navigator');
 // 
 //         _addToHistory({ 'type': args.type,
@@ -482,7 +482,6 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _widget    = widget.widget;
       _widget_id = widget.id;
       _sbx.notify(obj.id,'WidgetSelected',o.getState());
-      _sbx.notify('module','*','destroy');
       _sbx.notify('CreateModule',widget.short_name,widget.args);
     };
   }(this);
@@ -988,3 +987,5 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
   _sbx.notify(obj.id,'statePlugin', {key:'instance', state:this.getState, isValid:this.isStateValid});
   return this;
 };
+
+log('loaded...','info','navigator');

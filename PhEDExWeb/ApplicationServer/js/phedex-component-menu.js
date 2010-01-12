@@ -25,7 +25,7 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.Menu = function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
-  var _me = 'Component-Menu',
+  var _me = 'component-menu',
       _sbx = sandbox,
       partner = args.partner,
 
@@ -166,3 +166,5 @@ PHEDEX.Component.Menu = function(sandbox,args) {
   if ( args.payload.onInit ) { _sbx.notify(partner,args.payload.onInit); }
   return this;
 };
+
+log('loaded...','info','component-menu');

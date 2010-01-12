@@ -44,12 +44,12 @@ PHEDEX.Login = function(sandbox) {
             if (_bVisible) {
                 _user_role_info.hide(); //Hide the YUI overlay if it is visible to user
                 _bVisible = false;
-                log('The user role information is hidden now', 'info', 'Phedex.Login');
+                log('The user role information is hidden now', 'info', 'login');
             }
             else {
                 _user_role_info.show(); //Show the YUI overlay if it is not visible to user
                 _bVisible = true;
-                log('The user role information is shown now', 'info', 'Phedex.Login');
+                log('The user role information is shown now', 'info', 'login');
             }
         }
     }
@@ -62,7 +62,7 @@ PHEDEX.Login = function(sandbox) {
     var _closeOverlay = function() {
         _user_role_info.hide();
         _bVisible = false;
-        log('The user role information is hidden now', 'info', 'Phedex.Login');
+        log('The user role information is hidden now', 'info', 'login');
     }
 
     /**
@@ -77,14 +77,14 @@ PHEDEX.Login = function(sandbox) {
                 if (!_user_role_info) {
                     //Create a new YUI overlay to show user role information
                     _user_role_info = new YAHOO.widget.Overlay("_user_role_info", { context: [_username_id, "tl", "bl", ["beforeShow", "windowResize"]], visible: false, width: "300px" });
-                    log('The user role information YUI overlay is created', 'info', 'Phedex.Login');
+                    log('The user role information YUI overlay is created', 'info', 'login');
                 }
                 else {
                     //Delete the previous YUI overlay body content
                     while (_user_role_info.body.hasChildNodes()) {
                         _user_role_info.body.removeChild(_user_role_info.body.lastChild);
                     }
-                    log('The user role information YUI overlay body content is destroyed', 'info', 'Phedex.Login');
+                    log('The user role information YUI overlay body content is destroyed', 'info', 'login');
                 }
                 var overlayBody = document.createElement('div');
                 overlayBody.className = 'phedex-login-overlay-body';
@@ -118,10 +118,10 @@ PHEDEX.Login = function(sandbox) {
                 overlayBody.appendChild(closebtn);
                 _user_role_info.setBody(overlayBody);   //Fill the YUI overlay body with user role information table
                 _user_role_info.render(document.body);  //Render the YUI overlay
-                log('The user role information YUI overlay is rendered', 'info', 'Phedex.Login');
+                log('The user role information YUI overlay is rendered', 'info', 'login');
                 //Create a button within YUI overlay to allow user to hide YUI overlay (on clicking the button)
                 _closebtn = new YAHOO.widget.Button({ label: "Close", id: "buttonClose", container: 'phedex-login-info-close', onclick: { fn: _closeOverlay} });
-                log('The user role information YUI overlay body content close button is created', 'info', 'Phedex.Login');
+                log('The user role information YUI overlay body content close button is created', 'info', 'login');
             }
         }
     };
@@ -155,7 +155,7 @@ PHEDEX.Login = function(sandbox) {
         if (arrDNInfo.length > 1) {
             strDN = arrDNInfo[1].trim();
         }
-        log('The user name from DN is obtained', 'info', 'Phedex.Login');
+        log('The user name from DN is obtained', 'info', 'login');
         return strDN;
     };
 
@@ -193,7 +193,7 @@ PHEDEX.Login = function(sandbox) {
             data["auth"] = { 'state': 'passwd' };
         }
         var bsucceed = _validateLogin(data);
-        log('The user login is validated. User credentials are ' + bsucceed, 'info', 'Phedex.Login');
+        log('The user login is validated. User credentials are ' + bsucceed, 'info', 'login');
         if (bsucceed) { //Authentication succeeded
             _authData = data.auth; //The user data is saved for further use
             if (data.auth.state == 'cert') { //Authentication done using certificate
@@ -215,7 +215,7 @@ PHEDEX.Login = function(sandbox) {
                 _updateLoginButton('Log Out');
             }
             YAHOO.util.Dom.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
-            log('Updated valid user login authentication info on UI', 'info', 'Phedex.Login');
+            log('Updated valid user login authentication info on UI', 'info', 'login');
             _formUserInfo(); //Form the overlay object if authentication succeeded
         }
         else { //Authentication failed
@@ -236,7 +236,7 @@ PHEDEX.Login = function(sandbox) {
     */
     var _loginCallFailure = function(data) {
         banner('Unable to login. Please try again.', 'error');
-        log('Unable to login because of communication failure to make data service call', 'error', 'Phedex.Login');
+        log('Unable to login because of communication failure to make data service call', 'error', 'login');
     };
 
     var _eventSuccess = new YAHOO.util.CustomEvent('login success');
@@ -270,17 +270,17 @@ PHEDEX.Login = function(sandbox) {
             _username = _logincomp.inputname.value;
             //NOTE:Actually the below data service call will be changed later after "auth" supports password based authentication
             //As of now dummy call is made to bounce for password based authentication
-            log('Auth data service call is made for password based authentication', 'info', 'Phedex.Login');
+            log('Auth data service call is made for password based authentication', 'info', 'login');
             PHEDEX.Datasvc.Call({ api: 'bounce', success_event: _eventSuccess, failure_event: _eventFailure });
         }
         else if (_cur_state == 'logout') {
             _resetLoginState();
-            log('Login components are reset as use clicked logout', 'info', 'Phedex.Login');
+            log('Login components are reset as use clicked logout', 'info', 'login');
         }
         else if (_cur_state == 'usepassword') {
             _resetLoginState();
             _username = '';
-            log('Login components are reset as use clicked use password', 'info', 'Phedex.Login');
+            log('Login components are reset as use clicked use password', 'info', 'login');
         }
     };
 
@@ -301,7 +301,7 @@ PHEDEX.Login = function(sandbox) {
     */
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
-        log('Auth data service call is made for certificate based authentication', 'info', 'Phedex.Login');
+        log('Auth data service call is made for certificate based authentication', 'info', 'login');
         PHEDEX.Datasvc.Call({ api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
     };
 
@@ -342,7 +342,7 @@ PHEDEX.Login = function(sandbox) {
         YAHOO.util.Event.addListener(logincomp.username, 'click', _showOverlay, this, true);
         logincomp.objBtn = new YAHOO.widget.Button({ label: 'Login', id: 'buttonOK', container: btnsubmit, onclick: { fn: _onLogin} });
         _logincomp = logincomp;
-        log('The login component is created', 'info', 'Phedex.Login');
+        log('The login component is created', 'info', 'login');
     };
 
     //Used to construct the login component.
@@ -366,3 +366,5 @@ PHEDEX.Login = function(sandbox) {
 String.prototype.trim = function() {
     return (this.replace(/^\s+|\s+$/g, ""));
 }
+
+log('loaded...','info','login');

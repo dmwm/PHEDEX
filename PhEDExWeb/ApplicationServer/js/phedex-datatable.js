@@ -8,7 +8,7 @@
 */
 PHEDEX.DataTable = function(sandbox,string) {
     YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
-    var _me  = 'DataTable', _sbx = sandbox;
+    var _me  = 'datatable', _sbx = sandbox;
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -315,7 +315,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //
 //   this.filter.onFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       YAHOO.log('onWidgetFilterCancelled:'+obj.me(),'info','Core.DataTable');
+//       log('onWidgetFilterCancelled:'+obj.me(),'info','Core.DataTable');
 //       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.fillDataSource(obj.data);
 //       obj.filter.Reset();
@@ -325,7 +325,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //   }(this));
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       YAHOO.log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
+//       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
 //       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.fillDataSource(obj.data);
 //       obj.filter.Reset();
@@ -375,4 +375,4 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 //     return this.filter.count;
 //   }
 
-log('loaded...','info','DataTable');
+log('loaded...','info','datatable');

@@ -2,7 +2,7 @@ PHEDEX.namespace('Global');
 
 PHEDEX.Global.Filter=function(parent) {
   YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
-  this._me = 'PHEDEX.Global.Filter';
+  this._me = 'globalfilter';
   YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
   this.dom.el = PxU.makeChild(parent, 'div', { /*id:'phedex-nav-filter',*/ className:'phedex-nav-component phedex-nav-filter' });
   this.widgets = [];
@@ -31,7 +31,7 @@ debugger;
   this.onAcceptFilter = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
   this.onAcceptFilter.subscribe( function(obj) {
     return function() {
-      YAHOO.log('onAcceptFilter:'+obj.me(),'info','GlobalFilter');
+      log('onAcceptFilter:'+obj.me(),'info','globalfilter');
       obj.filter.Parse();
     }
   }(this));
@@ -50,7 +50,7 @@ debugger;
 
   PHEDEX.Event.onWidgetFilterCancelled.subscribe( function(obj) {
     return function(ev,arr) {
-      YAHOO.log('onFilterCancelled:'+obj.me(),'info','Core.DataTable');
+      log('onFilterCancelled:'+obj.me(),'info','datatable');
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       var filter = arr[0];
       if ( typeof(filter) != 'object' ) { return; } // Got some rubbish here?
@@ -65,7 +65,7 @@ debugger;
 
   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
     return function(ev,arr) {
-      YAHOO.log('onFilterCancelled:'+obj.me(),'info','GlobalFilter');
+      log('onFilterCancelled:'+obj.me(),'info','globalfilter');
       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
       obj.dom.input.value = '';
       obj.filter.Reset();
@@ -106,7 +106,7 @@ debugger;
       }
       if ( widget.me() == obj.me() ) { return; } // don't process my own input twice!
       else { obj.filter.init(args); } // copy the initialisation arguments
-      YAHOO.log('onFilterDefined:'+widgetMe,'info','GlobalFilter');
+      log('onFilterDefined:'+widgetMe,'info','globalfilter');
       obj.widgets[widgetMe] = [];
       for (var i in args) {
 	for (var j in args[i]) {
@@ -157,3 +157,4 @@ debugger;
 };
 
 PHEDEX.Event.CreateGlobalFilter.subscribe(function(ev,arr) { new PHEDEX.Global.Filter(arr[0]); });
+log('loaded...','info','globalfilter');
