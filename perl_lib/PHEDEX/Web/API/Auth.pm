@@ -95,6 +95,8 @@ sub auth
               'human_name' => $human_name
 	  };
 
+  $obj->{'username'} = $core->{SECMOD}->getUsername() if $core->{SECMOD}->getUsername();
+
   foreach my $role (keys %{$auth->{ROLES}}) {
       foreach my $group (@{$auth->{ROLES}->{$role}}) {
 	  $obj->{role} ||= [];
