@@ -293,10 +293,10 @@ debugger;
           obj._addToHistory();
           break;
         }
-        case 'RegistryExists': {
-          var _r = args;
-          break;
-        }
+//         case 'RegistryExists': {
+//           var _r = args;
+//           break;
+//         }
 
 //         case 'wassitallabout': {
 // debugger;
@@ -336,25 +336,20 @@ debugger;
     };
   }(this);
 
-    /* PHEDEX.Core.Registry.beforeConstructEvent :
-    On this event, something triggered a widget change.  If it was
-    us, do nothing.  If it was something else, (e.g. context menu click)
-    then we need to update our state and GUI elements.  We do this by
-    intercepting the construct event, returning false to cancel the
-    construct(), and triggering our own construct event after we've
-    updated */
-//     PxR.beforeConstructEvent.subscribe(function(evt, args) {
-//         if (_nav_construct) { return true; } // prevent interception of our own construct event
-//         args = args[0];
-//         log("heard beforeConstruct for widget=" + args.widget.widget + " type=" + args.type + " data=" + args.data,
-// 	      'info', 'Navigator');
-// 
-//         _addToHistory({ 'type': args.type,
-//             'widget': args.widget,
-//             'target': args.data
-//         });
-//         return false; // prevents Core.Widget.Registry from constructing
-//     });
+  this.coreHandler = function(obj) {
+    return function(who, arr) {
+//       var action = arr[0],
+//           args   = arr[1];
+//       arr.unshift('_navCreateModule');
+//       _sbx.notify.apply(null,arr);
+      _sbx.notify('Registry','getTypeOfModule',arr[0]);
+      PHEDEX.Navigator._widget = arr[0]; // Stash the widget name globally...
+      if ( arr[1] ) { // I have arguments for this module, when it is created. Stash them globally for later use
+        PHEDEX.Navigator._args = arr[1];
+      }
+//       _sbx.notify(this.id,'widget_selector_thingy',arr[2]);
+    };
+  }(this);
 
     _construct=function() {
       return {
@@ -429,10 +424,11 @@ debugger;
             _sbx.listen(this.id,this.selfHandler);
             _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
             _sbx.notify(this.id,'loadDecorators',this);
+            _sbx.replaceEvent('CreateModule','_navCreateModule');
+            _sbx.listen('_navCreateModule',this.coreHandler);
         },
-
-        }
-      };
+      }
+    };
     YAHOO.lang.augmentObject(this, _construct(), true);
 };
 
@@ -450,7 +446,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-widget';
   var _getWidgetMenuItems = function(type) {
-    var widgets = _widget_menu_items[type], // PxR.getWidgetsByInputType(type);
+    var widgets = _widget_menu_items[type],
         menu_items = [];
     for (var w in widgets) {
       w = widgets[w];
@@ -482,7 +478,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _widget    = widget.widget;
       _widget_id = widget.id;
       _sbx.notify(obj.id,'WidgetSelected',o.getState());
-      _sbx.notify('CreateModule',widget.short_name,widget.args);
+      _sbx.notify('_navCreateModule',widget.short_name,widget.args);
     };
   }(this);
 
@@ -493,6 +489,10 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     if ( !menu_items.length ) {
       _sbx.notify('Registry','getWidgetsByInputType',type,this.id);
       return;
+    }
+    if ( PHEDEX.Navigator._widget ) {
+      widget_name = PHEDEX.Navigator._widget;
+      PHEDEX.Navigator._widget = null; // is this premature? What if I pass through here with the wrong menu_items?
     }
     if ( widget_name ) {
       for (var i in menu_items) {
@@ -739,6 +739,15 @@ debugger;
         }
         case 'TargetType': {
           o._updateTargetSelector(value);
+          if ( PHEDEX.Navigator._args ) {
+            var node = PHEDEX.Navigator._args.node;
+            if ( node ) {
+              _typeArgs[ _type] = {node:node};
+              _selectors[_type].updateGUI(node);
+              _sbx.notify(obj.id,'NodeSelected',node);
+            }
+            PHEDEX.Navigator._args = null;
+          }
           break;
         }
         case 'TargetTypes': {
@@ -750,8 +759,8 @@ debugger;
             o._updateTargetSelector(value.type);
           }
           if ( value.target && value.target != _state[_type] ) {
-            _typeArgs[ value.type] = {node:value.target};
-            _selectors[value.type].updateGUI(value.target);
+            _typeArgs[ _type] = {node:value.target};
+            _selectors[_type].updateGUI(value.target);
             _sbx.notify(obj.id,'NodeSelected',value.target);
             _sbx.notify('module','*','setArgs',{node:value.target});
             _sbx.notify('module','*','getData');
@@ -759,7 +768,8 @@ debugger;
           break;
         }
         case 'updateTargetGUI': {
-          o[target_type].updateTargetGUI(value);
+debugger; // I don't think this is actually needed...?
+          o[_type].updateTargetGUI(value);
           break;
         }
       }
@@ -863,7 +873,6 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       switch (action) {
         case 'NavReset': {
           _sbx.notify(obj.id,'TargetTypes',_target_types);
-//           _sbx.notify(obj.id,'TargetType',menu_items[0].value);
           break;
         }
         case 'TargetType': {
@@ -890,6 +899,12 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       switch (action) {
         case 'registeredInputTypes': {
           o.setInputTypes(value);
+          break;
+        }
+        case 'newInputType': {
+          if ( _target_type == value ) { return; }
+          _sbx.notify(obj.id,'TargetType',value);
+//           o.setInputTypes(value);
           break;
         }
       }
@@ -974,7 +989,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
         }
         case 'StateChanged': {
           var i = PHEDEX.Datasvc.Instance();
-          if ( i.name != value.instance ) {
+          if ( value.instance && i.name != value.instance ) {
             changeInstance(PHEDEX.Datasvc.InstanceByName(value.instance));
           }
           break;
