@@ -285,7 +285,7 @@ function createCoreApp() {
       );
       document.getElementById('phedex-controls').appendChild(ctl.el);
     },'component-control');
-    PxS.notify('Load','phedex-logger', { log2server:{info:false,warn:true,error:true} } );
+    PxS.notify('Load','phedex-logger'); //, { log2server:{info:true,warn:true,error:true} } );
   }
   PHEDEX.Util.bannerIdleTimer(PxL);
 };
