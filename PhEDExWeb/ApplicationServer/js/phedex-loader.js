@@ -32,7 +32,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
-    'phedex-logger':    { requires:['phedex-util','logger','connection'] },
+    'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
