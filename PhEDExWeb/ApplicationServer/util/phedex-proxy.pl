@@ -206,7 +206,7 @@ POE::Component::Server::TCP->new
 	{
 	  my ($level,$group,$str) = ($1,$2,$3);
 	  $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
-	  print scalar localtime, ": LOG $level/$group $str\n";
+	  print scalar localtime, ": LOG $group/$level $str\n";
           my $response = HTTP::Response->new(200);
 	  $response->header( 'Content-type', 'text/html' );
 	  $response->header( 'Content-length', 0 );
