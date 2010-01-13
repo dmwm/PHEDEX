@@ -54,7 +54,7 @@ PHEDEX.Registry = function(sandbox) {
       }
       if (!_widgets[inputType]) {
         _widgets[inputType] = {};
-        _sbx.notify('Registry','registeredInputTypes',this.getInputTypes());
+        _sbx.notify('Registry','InputTypes',this.getInputTypes());
       }
       if (!_widgets[inputType][widget]) {
         _widgets[inputType][widget] = {};
@@ -126,19 +126,20 @@ PHEDEX.Registry = function(sandbox) {
             }
             case 'getWidgetsByInputType': {
               var value = obj[action](arr[1]);
-              _sbx.notify(arr[2],action,arr[1],value);
+              _sbx.notify(arr[2],'WidgetsByInputType',arr[1],value);
               break;
             }
             case 'getInputTypes': {
               var value = obj[action]();
-              _sbx.notify('Registry','registeredInputTypes',value);
+              _sbx.notify(arr[1],'InputTypes',value);
               break;
             }
             case 'getTypeOfModule': {
+debugger;
               var value;
               try { value = _inputTypes[arr[1].toLowerCase()]; } catch (ex) {};
               if ( value ) {
-                _sbx.notify('Registry','newInputType',value,arr[2]);
+                _sbx.notify('Registry','TypeOfModule',value,arr[2]);
               }
               break;
             }
