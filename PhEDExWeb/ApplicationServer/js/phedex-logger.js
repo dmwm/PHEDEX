@@ -6,11 +6,22 @@ PHEDEX.Logger = function() {
   return {
     log2Server: { info:false, warn:false, error:false },
     init: function(args) {
+
       var divid = 'phedex-logger',
           div   = document.getElementById(divid);
       if ( !div ) { return; }
       div.innerHTML = '';
 
+      try {
+        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger');
+        if ( cookie ) {
+          for (var i in cookie) {
+            this.log2Server[i] = cookie[i] == 'true' ? true : false;
+          }
+        }
+      } catch (ex) {};
+
+      if ( !args ) { args = {}; }
       if ( args.log2server ) { this.log2Server = args.log2server; }
       var ctl = PxU.makeChild(div,'div');
       ctl.appendChild(document.createTextNode(' Log to server: '));
@@ -20,6 +31,7 @@ PHEDEX.Logger = function() {
         c.onclick = function(obj) {
           return function(ev) {
             obj.log2Server[this.value] = this.checked;
+            YAHOO.util.Cookie.setSubs('PHEDEX.Logger',obj.log2Server);
           }
         }(this);
         c.checked = this.log2Server[i];
