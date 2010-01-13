@@ -466,7 +466,6 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     // update state on menu selections
     var onSelectedMenuItemChange = function(o) {
       return function (event) {
-debugger;
         var menu_item = event.newValue;
         var widget = menu_item.value;
         _updateWidgetGUI(widget);
@@ -971,7 +970,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
   for (indx = 0; indx < instances.length; indx++) {
     jsonInst = instances[indx];
     _instances[jsonInst.instance] = jsonInst;
-    menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.instance });
+    menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.name });
    }
 
   this.menu = new YAHOO.widget.Button({ type: "menu",
@@ -982,13 +981,14 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
 
   var changeInstance = function(o) {
     return function(instance) {
+      var _currInstance = PHEDEX.Datasvc.Instance();
       if ( !instance ) { return; }
       if ( typeof(instance) != 'object' ) {
         instance = PHEDEX.Datasvc.InstanceByName(instance);
+// var i = PHEDEX.Datasvc.Instance(event.newValue.value);
       }
 
-      var _currInstance = PHEDEX.Datasvc.Instance();
-      if ( _currInstance.name != instance || !_stateIsValid ) {
+      if ( _currInstance.name != instance.name || !_stateIsValid ) {
         PHEDEX.Datasvc.Instance(instance.instance);
         log('change instance to '+instance.name,'info',obj.me);
         o.menu.set("label", instance.name);
@@ -1004,7 +1004,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       if ( event.newValue.value == PHEDEX.Datasvc.Instance().instance ) { return; }
     }
     changeInstance(event.newValue.value);
-    _sbx.notify(obj.id,'Instance',event.newValue.value);
+//     _sbx.notify(obj.id,'Instance',event.newValue.text);
     _sbx.notify('module','*','getData');
   };
 
