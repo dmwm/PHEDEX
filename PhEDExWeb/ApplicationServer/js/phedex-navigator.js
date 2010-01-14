@@ -287,7 +287,7 @@ PHEDEX.Navigator = function(sandbox) {
 
 // These are to respond to changes in the decorations
         case 'NodeSelected':
-        case 'Instance':
+        case 'InstanceSelected':
         case 'WidgetSelected':
         case 'addToHistory': {
           obj._addToHistory();
@@ -1005,6 +1005,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       if ( event.newValue.value == PHEDEX.Datasvc.Instance().instance ) { return; }
     }
     changeInstance(event.newValue.value);
+    _sbx.notify(obj.id,'InstanceSelected',event.newValue.value);
     _sbx.notify('module','*','getData');
   };
 
