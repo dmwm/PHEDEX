@@ -12,6 +12,7 @@ use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
 use base 'Exporter';
 use PHEDEX::Web::SQL;
+use Data::Dumper;
 
 #my $TESTING = 0;
 my $TESTING = 1;
@@ -158,11 +159,26 @@ sub send_request_create_email
 {
     my ($self, $rid) = @_;
     # calling PHEDEX::Web::SQL::getRequestData()
-    my $data = PHEDEX::Web::SQL::getRequestData($self, {'REQUEST' => $rid})->[0];
+    my $data = PHEDEX::Web::SQL::getRequestData($self, ('REQUEST' => $rid))->[0];
+
     # silently quit if there is no valid request
     if (not defined $data)
     {
         return;
+    }
+
+    # figure out the type
+    if (exists $$data{'MOVE'})
+    {
+        $$data{'TYPE'} = 'xfer';
+    }
+    elsif (exists $$data{'RM_SUBSCRIPTIONS'})
+    {
+        $$data{'TYPE'} = 'delete';
+    }
+    else
+    {
+        $$data{'TYPE'} = 'unknown';
     }
 
     # Get a list of the sites involved in this request
@@ -215,19 +231,19 @@ sub send_request_create_email
         $auth = "Username:  ".$$data{'REQUESTED_BY'}{'USERNAME'};
     }
     my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
-    # ??? DON'T KNOW $request_type!!!
-    my $request_type = $self->getRequestTitle($data);
+    my $request_type = &getRequestTitle($data);
     my @to;
     push @to, $$_{EMAIL} foreach (@global_admins, @data_managers);
     my @cc = ($email);
     push @cc, $$_{EMAIL} foreach @site_admins;
     # ??? WHAT IS 'page'?
-    my $admin_url = $self->myurl('fullurl' => 1,
-				 'secure' => 1,
-				 'page' => 'Request::View',
-				 'request' => $rid);
-    # ??? WHAT IS special_message?
-    my $special_message = $self->get_special_request_message($data);
+    my $root = webroot($self);
+    my $instance = $self->{INSTANCE};
+    my $page = "Request::View";
+    my $args = "request=$rid";
+    my $admin_url = "https://".$root.'/'.$instance.'/'.$page.'?'.$args;
+
+    my $special_message = &get_special_request_message($data);
 
     my $files = $$data{'DATA'}{'FILES'};
     my $bytes = &format_size($$data{'DATA'}{'BYTES'});
@@ -248,12 +264,15 @@ You may wish to take note of the following new request:
 
 ENDEMAIL
 
-    my $group_name = $$data{'GROUP'} || 'undefined';
-    $message .=<<ENDEMAIL;
+    if ($$data{TYPE} eq 'xfer')
+    {
+        my $group_name = $$data{'GROUP'} || 'undefined';
+        $message .=<<ENDEMAIL;
 * Group:
    $group_name
 
 ENDEMAIL
+}
 
     $message .=<<ENDEMAIL;
 * Request:
@@ -267,8 +286,6 @@ ENDEMAIL
 ENDEMAIL
 
     $message .= join('', map( { "     $_\n" } @datalist));
-
-# NOT DONE YET
 
     my $nodes_by_point = {};
     foreach my $node1 (@{$$data{'DESTINATIONS'}{'NODE'}})
@@ -313,10 +330,12 @@ send_email(subject => "PhEDEx $request_type ($instance instance)",
 	   cc => [ @cc ],
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	   message => $message)
-or $self->alert("Sending request email to admins failed, sorry");
+# or $self->alert("Sending request email to admins failed, sorry");
+or print "Sending request email to admins failed, sorry2\n";
 
 }
 
+# NOT CHECKED YET
 sub send_request_update_email
 {
     my ($self, $rid, $node_actions, $comments) = @_;
@@ -415,9 +434,117 @@ ENDEMAIL
 	    from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	    replyto => [ $admin_email ],
 	    message => $message
-	    ) or $self->alert("Sending request email to admins failed, sorry");;
+	    # ) or $self->alert("Sending request email to admins failed, sorry");;
+	    ) or print "Sending request email to admins failed, sorry\n";
 
     return 1;
+}
+
+# getRequestTitle -- ported from access25
+sub getRequestTitle
+{
+    my $data = shift;
+    if ($$data{TYPE} eq 'xfer') {
+	return "Transfer Request : ".&getRequestTypeSummary($data);
+    } elsif ($$data{TYPE} eq 'delete') {
+	return "Deletion Request";
+    } else {
+	return "Unknown Request";
+    }
+}
+
+# getRequestTypeSummary -- ported from access25
+sub getRequestTypeSummary
+{
+    my ($self, $data) = @_;
+    if ($$data{TYPE} eq 'xfer') {
+	my $kind = $$data{MOVE} eq 'y' ? 'Move' : 'Replication';
+	my $priority = $$data{PRIORITY};
+	my $custodial = $$data{CUSTODIAL} eq 'y' ? ' Custodial ' : ' ';
+	return "$priority Priority$custodial$kind";
+    } elsif ($$data{TYPE} eq 'delete') {
+	return $$data{RM_SUBSCRIPTIONS} eq 'y' ? 'Deletion' : 'Retransfer';
+    } else {
+	return undef;
+    }
+}
+
+sub get_special_request_message
+{
+    my ($self, $data) = @_;
+
+    my $msg = '';
+    if ($$data{TYPE} eq 'xfer') {
+	if ($$data{MOVE} eq 'y') {
+	    $msg .= "Note:  This is a request for a data MOVE. ".
+		"The Data Managers and Site Admins of the source sites have also been notified.  ".
+		"Data Managers of the source sites with subscriptions  must approve the move before ".
+		"data will be deleted from their node.\n";
+	}
+	if ($$data{CUSTODIAL} eq 'y') {
+	    $msg .= "Note: This is a request for CUSTODIAL STORAGE of ".
+		"data.  Please ensure your site is prepared to receive and ".
+		"reliably store this data permanently (e.g. on tape) ".
+		"before accepting this transfer request.\n";
+	}
+    }
+    return $msg;
+}
+
+# webroot() -- figure out the prefix for webserver
+#
+# The prefix is figured out in the following way:
+#
+# [1] input argument, or
+# [2] $SERVICE_PATH in the environment
+# [3] $SERVICE_PATH in config file
+# [4] default: cmsweb.cern.ch
+
+sub webroot
+{
+    my ($self, $root) = @_;
+
+    # if $root is passed in from argument, return it
+
+    return $root if ($root);
+    return $ENV{'SERVICE_PATH'} if ($ENV{'SERVICE_PATH'});
+    return $$self{CONFIG}{SERVICE_PATH} if ($$self{CONFIG}{SERVICE_PATH});
+    # default
+    return "cmsweb.cern.ch/phedex";
+}
+
+# Format a file size as a string.  The value is automatically
+# abbreviated with a k/M/G/T/P/E suffix, either the first that
+# applies or a minimum scale requested by the caller.  The default
+# precision is one decimal point, but the caller can change this.
+sub format_size {
+  my ($bytes, $nodash, $precision, $minscale) = @_;
+  return undef if (!defined $bytes && $nodash);
+
+  my $onescale = 0;
+  if (defined $minscale && $minscale =~ /^=/) {
+      $minscale =~ s/=//; $onescale = 1;
+  }
+
+  my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
+		[ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+  my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
+  do { $val = -$val; $bytes = -$bytes; } if $minus;
+  while (@bounds && ($bytes >= $bounds [0][0] || defined $minscale))
+  {
+    $val = $bytes / $bounds[0][0];
+    $unit = $bounds[0][1];
+    if (defined $minscale && $minscale eq $unit) {
+	undef $minscale;
+	last if $onescale;
+    }
+    shift (@bounds);
+  }
+
+  $precision = "1" if ! defined $precision;
+  return $bytes || $nodash
+    ? sprintf("%s%.${precision}f %sB", $minus, $val, $unit)
+    : '&#8211;';
 }
 
 1;
