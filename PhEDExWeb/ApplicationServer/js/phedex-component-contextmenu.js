@@ -75,16 +75,16 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
           return function(ev,arr) {
             var action = arr[0],
                 value = arr[1];
+            log('selfHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',_me);
             switch (action) {
-              case 'getWidgetsByInputType': {
+              case 'WidgetsByInputType': {
                 o[action][value] = arr[2];
                 break;
               }
-              case 'getInputTypes': {
+              case 'InputTypes': {
                 o[action] = value;
                 break;
               }
-//             default: { log('unhandled event: '+action,'warn',obj.me); break; }
             }
           }
         }(this);
@@ -99,8 +99,8 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
 
         this.typeMap = args.payload.typeMap;
         this.typeNames = args.payload.typeNames;
-        this.getInputTypes = [];
-        this.getWidgetsByInputType = [];
+        this.InputTypes = [];
+        this.WidgetsByInputType = [];
         for (var type in this.typeNames) {
           _sbx.notify('Registry','getWidgetsByInputType',this.typeNames[type],this.id);
         }
@@ -128,8 +128,10 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         var name;
         for (var i in this.typeNames)
         {
+// N.B. Do this rather than just loop over this.WidgetsByInputType keys, in order to guarantee the ordering will be the same
+// as the order of registration. Otherwise it's conceivable the menu-order would differ between runs or between browsers
           name = this.typeNames[i];
-          var w = this.getWidgetsByInputType[name];
+          var w = this.WidgetsByInputType[name];
 
 //         First check the core widget registry to see if any widgets can be made
           for (var j in w)
