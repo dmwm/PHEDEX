@@ -128,7 +128,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * @param {HTML Element} divTarget is the HTML element object where the category specific static information has to be appended
     * @private
     */
-    var _loadCategory = function(divTarget) {
+    this._loadCategory = function(divTarget) {
         var sourcename = '';
         try {
             if (_divInfo) {
@@ -195,46 +195,61 @@ PHEDEX.Module.Static = function(sandbox, string) {
     }(this);
     _sbx.listen('Config',configHandler);
 
+  this.isStateValid = function() { if ( category ) { return true; } return false; };
+  this.getState = function() { return category; };
+  this.getStatePlugin = function(obj) {
+    return function(who) {
+      _sbx.notify(who,'statePlugin',
+                 {
+                  key:'module',
+                  state:function() { return obj.getState(); },
+                  isValid:function() { return obj.isStateValid(); },
+                 });
+    };
+  }(this);
+
+
     /**
     * Used to construct the static component module.
     * @method _construct
     */
     _construct = function() {
-        return {
-            /**
-            * Create a Phedex.Static module to show the static information.
-            * @method initData
-            * @param {Object} args is the object that has arguments for the module
-            */
-            initData: function(args) {
-                log('module creation initiated', 'info', this.me);
-                if ( !category ) {
-                  _sbx.notify( 'module', 'needArguments', this.id );
-                  return;
-                }
-                if ( !_categories[category] ) {
-                  _sbx.notify('Config','getCategories');
-                  return;
-                }
-                _sbx.notify(this.id,'initData');
-            },
-            getData: function() {
-                this.dom.title.innerHTML = 'Loading content.. Please wait...';
-                _loadCategory(this.dom.content);
-                log('static content loaded for category ' + category, 'info', this.me);
-                this.dom.title.innerHTML = '';
-            },
+      return {
+        /**
+         * Create a Phedex.Static module to show the static information.
+         * @method initData
+         * @param {Object} args is the object that has arguments for the module
+         */
+        initData: function(args) {
+          log('module creation initiated', 'info', this.me);
+          if ( !category ) {
+            _sbx.notify( 'module', 'needArguments', this.id );
+            return;
+          }
+          if ( !_categories[category] ) {
+            _sbx.notify('Config','getCategories');
+            return;
+          }
+          _sbx.notify(this.id,'initData');
+        },
+        getData: function() {
+          this.dom.title.innerHTML = 'Loading content.. Please wait...';
+          this._loadCategory(this.dom.content);
+          log('static content loaded for category ' + category, 'info', this.me);
+          this.dom.title.innerHTML = '';
+        },
             
-            /**
-            * Sets the category for the module whose information has to be shown on navigator.
-            * @method setArgs
-            * @param {Object} args is the object that has arguments (category id) for the module
-            */
-            setArgs: function(args) {
-                category = args.subtype;
-                log('category is set to ' + category, 'info', this.me);
-            }
-        };
+        /**
+         * Sets the category for the module whose information has to be shown on navigator.
+         * @method setArgs
+         * @param {Object} args is the object that has arguments (category id) for the module
+         */
+        setArgs: function(args) {
+          category = args.subtype;
+          log('category is set to ' + category, 'info', this.me);
+          _sbx.notify('ModuleStateChange',this.id);
+        },
+      };
     };
     YAHOO.lang.augmentObject(this, _construct(), true);
     return this;
