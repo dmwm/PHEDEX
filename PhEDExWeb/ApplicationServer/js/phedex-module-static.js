@@ -11,7 +11,6 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Static = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
-//     var PxC = PHEDEX.Configuration;
     var YDOM = YAHOO.util.Dom,
         category,
         _divspanid = '',
