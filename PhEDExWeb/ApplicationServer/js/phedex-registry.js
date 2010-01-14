@@ -43,10 +43,10 @@ PHEDEX.Registry = function(sandbox) {
 
 /** add a new widget to the registry
  * @method add
- * @param widget
- * @param inputType
- * @param label
- * @param extrakeys
+ * @param widget {string} the name of the module, e.g. phedex-module-agents
+ * @param inputType {string} the input-type of this module, i.e. the type of information it expects (node, group...)
+ * @param label {string} the label to display on-screen to represent this module
+ * @param extrakeys {object} any additional keys needed to work with this object.
  */
     add: function(widget, inputType, label, extrakeys ) {
       if (!_validTypes[inputType]) {
@@ -62,6 +62,7 @@ PHEDEX.Registry = function(sandbox) {
       if (_widgets[inputType][widget][label]) {
         throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
       }
+      // TODO the 'widget' key is probably redundant, test that hypothesis at some point
       var w = { widget:widget, short_name:widget, type:inputType, label:label, id:PxU.Sequence() };
       if ( widget.match('^phedex-module-(.+)$') ) { w.short_name = RegExp.$1; }
       w.short_name = w.short_name.toLowerCase();
