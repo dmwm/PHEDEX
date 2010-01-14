@@ -137,7 +137,7 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1 },
+      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -161,6 +161,19 @@ PHEDEX.Module = function(sandbox, string) {
       initData: function() {
         _sbx.notify( this.id, 'initData' );
       },
+
+/** return a boolean indicating if the module is in a fit state to be bookmarked
+ * @method isStateValid
+ * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+ */
+      isStateValid: function() { debugger; return false; },
+/** return a string containing the state of the module, in whatever manner is appropriate for the module to be able to restore itself. Must be over-ridden by derived classes.
+ * @method getState
+ * @return state {string} a string, possibly JSON, that can be interpreted by the StateChanged notification
+ */
+      getState: function() {
+debugger;
+},
 
       /**
        * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
@@ -221,7 +234,12 @@ PHEDEX.Module = function(sandbox, string) {
             switch (action) {
               case 'show target': { obj.adjustHeader( value); break; }
               case 'hide target': { obj.adjustHeader(-value); break; }
-              case 'expand': {
+             case 'expand': {
+                obj[value]();
+                _sbx.notify(arr[2],action,'done');
+                break;
+              }
+              case 'StateChanged': {
                 obj[value]();
                 _sbx.notify(arr[2],action,'done');
                 break;
