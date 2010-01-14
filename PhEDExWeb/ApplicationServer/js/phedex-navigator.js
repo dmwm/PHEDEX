@@ -83,10 +83,6 @@ debugger;
         }
         log('setState: '+changed+' changes w.r.t. currently known state','info',this.me);
         if ( !changed ) { return; }
-// var el = document.getElementById('tony');
-// if ( el ) {
-//   el.innerHTML=PxU.Sequence('changes')+': '+changed+' changes: '+pgstate+' '+PHEDEX.Datasvc.Instance().name;
-// }
         _targetPageState = state;
         _sbx.notify(obj.id,'StateChanged',state);
       };
@@ -165,7 +161,6 @@ debugger;
     _initialPageState = YAHOO.util.History.getBookmarkedState("page") ||
                         YAHOO.util.History.getQueryStringParameter("page") ||
                         'instance~Production+type~none+widget~nodes';
-//     if ( _initialPageState ) { _setState(_initialPageState); }
     YAHOO.util.History.register("page", _initialPageState, _setState);
 
     /**
@@ -297,10 +292,6 @@ debugger;
           obj._addToHistory();
           break;
         }
-//         case 'RegistryExists': {
-//           var _r = args;
-//           break;
-//         }
 
 //         case 'wassitallabout': {
 // debugger;
@@ -344,10 +335,11 @@ debugger;
     return function(ev, arr) {
       log('coreHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
       _sbx.notify('Registry','getTypeOfModule',arr[0]);
-      PHEDEX.Navigator._widget = arr[0]; // Stash the widget name globally...
       if ( arr[1] ) { // I have arguments for this module, when it is created. Stash them globally for later use
-        PHEDEX.Navigator._args = arr[1];
+        _sbx.notify(obj.id,'NewModule',arr[0]);
+        _sbx.notify(obj.id,'NewModuleArgs',arr[1]);
       }
+      _sbx.notify('_navCreateModule',arr[0],arr[1]);
     };
   }(this);
 
@@ -441,6 +433,8 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       asdf_target_type, // = 'none',
       _widget,    // the current widget name
       _widget_id, // the current widget id
+      _new_widget_name, // name of widget being created by external means (e.g. context-menu)
+      _need_new_widget = false,
       me = 'widgetselector';
 
   this.id = 'WidgetSelector_' + PxU.Sequence();
@@ -492,12 +486,12 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
         menu;
     if ( !menu_items.length ) {
       _sbx.notify('Registry','getWidgetsByInputType',type,this.id);
-      PHEDEX.Navigator._widget = widget_name;
+      if ( widget_name ) { _new_widget_name = widget_name; }
       return;
     }
-    if ( PHEDEX.Navigator._widget ) {
-      widget_name = PHEDEX.Navigator._widget;
-      PHEDEX.Navigator._widget = null; // is this premature? What if I pass through here with the wrong menu_items?
+    if ( _new_widget_name ) {
+      widget_name = _new_widget_name;
+      _new_widget_name = null; // is this premature? What if I pass through here with the wrong menu_items?
     }
     if ( widget_name ) {
       for (var i in menu_items) {
@@ -530,6 +524,12 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     if ( state.match('^phedex-(.+)$') ) { return RegExp.$1; }
     return state;
   }
+  this.maybeCreateWidget = function(widget) {
+    if ( _need_new_widget && widget ) {
+      _need_new_widget = false;
+      _sbx.notify('_navCreateModule',widget.short_name,widget.args);
+    }
+  };
   this.partnerHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -537,6 +537,14 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
+          break;
+        }
+        case 'NewModule': {
+          _new_widget_name = value;
+          break;
+        }
+        case 'NeedNewModule': {
+          _need_new_widget = true;
           break;
         }
         case 'StateChanged': {
@@ -547,13 +555,13 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
           break;
         }
         case 'TargetType': {
-          o._updateWidgetMenu(value);
+          o.maybeCreateWidget( o._updateWidgetMenu(value) );
           break;
         }
         case 'WidgetsByInputType': {
           _widget_menu_items[value] = arr[2];
           if ( ev == o.id ) { // I asked for this, so I must need to update myself
-            o._updateWidgetMenu(value);
+            o.maybeCreateWidget( o._updateWidgetMenu(value) );
           }
           break;
         }
@@ -612,8 +620,9 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox,
       _type, // The currently selected type
-      _typeArgs = {}, // currently selected arguments for the given types
-      _state = {},    // current state for each type
+      _typeArgs = {},   // currently selected arguments for the given types
+      _state = {},      // current state for each type
+      _moduleArgs = {}, // stored arguments for new module when I don't know what type it is yet
       me = 'targettypeselector';
 
   this.id = 'TargetTypeSelector_' + PxU.Sequence();
@@ -752,16 +761,20 @@ debugger;
         case 'NavReset': {
           break;
         }
+        case 'NewModuleArgs': {
+          _moduleArgs = value;
+          break;
+        }
         case 'TargetType': {
           o._updateTargetSelector(value);
-          if ( PHEDEX.Navigator._args ) {
-            var node = PHEDEX.Navigator._args.node;
+          if ( _moduleArgs ) {
+            var node = _moduleArgs.node; // TODO why am I hardwiring 'node' here? Should I?
             if ( node ) {
               _typeArgs[ _type] = {node:node};
               _selectors[_type].updateGUI(node);
               _sbx.notify(obj.id,'NodeSelected',node);
             }
-            PHEDEX.Navigator._args = null;
+            _moduleArgs = null;
           }
           break;
         }
@@ -856,8 +869,6 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
     } else {
       menu.itemData = menu_items;
     }
-// log('set TargetType from setInputTypes','info',me);
-//     _sbx.notify(obj.id,'TargetType',menu_items[0].value);
   }
   this.button = new YAHOO.widget.Button({ type: "menu",
     label: '(type)',
@@ -867,7 +878,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   var onSelectedMenuItemChange = function(event) {
     if ( event.prevValue && event.newValue.value == event.prevValue.value ) { return; }
     var type = event.newValue.value;
-log('set TargetType from onSelectedMenuItemChange','info',me);
+    _sbx.notify(obj.id,'NeedNewModule'); // because the target-type has changed, I need to create a new widget for the new type
     _sbx.notify(obj.id,'TargetType',type);
   };
   this.button.on("selectedMenuItemChange", onSelectedMenuItemChange);
@@ -913,13 +924,6 @@ log('set TargetType from onSelectedMenuItemChange','info',me);
           o.setInputTypes(value);
           break;
         }
-        case 'TypeOfModule': {
-          if ( _target_type == value ) { return; }
-log('set TargetType from partnerHandler','info',me);
-          _sbx.notify(obj.id,'TargetType',value);
-//           o.setInputTypes(value);
-          break;
-        }
       }
     }
   }(this);
@@ -929,13 +933,12 @@ log('set TargetType from partnerHandler','info',me);
           value = arr[1];
       log('registryHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
       switch (action) {
-//         case 'InputTypes': {
-//           o.setInputTypes(value);
-//           break;
-//         }
+        case 'InputTypes': {
+          o.setInputTypes(value);
+          break;
+        }
         case 'TypeOfModule': {
           if ( _target_type == value ) { return; }
-log('set TargetType from registryHandler','info',me);
           _sbx.notify(obj.id,'TargetType',value);
 //           o.setInputTypes(value);
           break;
