@@ -135,7 +135,6 @@ PHEDEX.Registry = function(sandbox) {
               break;
             }
             case 'getTypeOfModule': {
-debugger;
               var value;
               try { value = _inputTypes[arr[1].toLowerCase()]; } catch (ex) {};
               if ( value ) {
