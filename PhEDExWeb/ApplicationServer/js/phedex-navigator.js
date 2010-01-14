@@ -171,7 +171,10 @@ PHEDEX.Navigator = function(sandbox) {
       var newState = '';
       for (var key in this.state)
       {
-        if ( !this.state[key].isValid() ) { return null; }
+        var valid = false;
+        try { valid = this.state[key].isValid() } catch(ex) {  }
+        if ( !valid ) { return null; }
+//         if ( !this.state[key].isValid() ) { return null; }
         var value = this.state[key].state();
         if ( !value ) { log('State: key='+key+' got '+value,'warn',this.me); continue; }
         if ( newState ) { newState += _hist_sym_sep; }
@@ -344,6 +347,23 @@ PHEDEX.Navigator = function(sandbox) {
     };
   }(this);
 
+  this.moduleHandler = function(o) {
+    return function(ev,arr) {
+      if ( arr[0].id == o.id ) { return; } // ignore myself
+      switch ( ev ) {
+        case 'ModuleExists': {
+          _sbx.notify(arr[0].id,'getStatePlugin',o.id);
+          break;
+        }
+        case 'ModuleStateChange': {
+// debugger;
+          o._addToHistory();
+          break;
+        }
+      }
+    };
+  }(this);
+
     _construct=function() {
       return {
         me:   'Navigator',
@@ -415,6 +435,8 @@ PHEDEX.Navigator = function(sandbox) {
 //             _sbx.notify('Load','phedex-globalfilter',{el:el});
 
             _sbx.listen(this.id,this.selfHandler);
+            _sbx.listen('ModuleExists',      this.moduleHandler);
+            _sbx.listen('ModuleStateChange', this.moduleHandler);
             _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
             _sbx.notify(this.id,'loadDecorators',this);
             _sbx.replaceEvent('CreateModule','_navCreateModule');
