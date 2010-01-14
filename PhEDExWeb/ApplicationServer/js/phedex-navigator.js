@@ -38,17 +38,17 @@ PHEDEX.Navigator = function(sandbox) {
     * @description This gets the widget given the state and widget name.
     * @param {Object} state Object specifying the state of the page to be set.
     */
-    var _getWidget = function(state) {
-debugger;
-        var indx = 0;
-        var menu_items = _getWidgetMenuItems(state.type);
-        for (indx = 0; indx < menu_items.length; indx++) {
-            if (menu_items[indx].value.widget == state.widget) {
-                return menu_items[indx].value;
-            }
-        }
-        return null;
-    };
+//     var _getWidget = function(state) {
+// debugger;
+//         var indx = 0;
+//         var menu_items = _getWidgetMenuItems(state.type);
+//         for (indx = 0; indx < menu_items.length; indx++) {
+//             if (menu_items[indx].value.widget == state.widget) {
+//                 return menu_items[indx].value;
+//             }
+//         }
+//         return null;
+//     };
 
     /**
     * @method _setState
@@ -94,51 +94,51 @@ debugger;
     * visible columns and sorted column 
     * @param {Object} wdgtstate Object specifying the state of the widget to be set.
     */
-    var _setWidgetState = function() {
-debugger;
-        var indx = 0;
-        var hiddencolumns = {};
-        if (_cur_widget_state && _cur_widget_obj.dataTable) {
-            if (_cur_widget_state.hiddencolumns) {
-                var arrCols = _cur_widget_state.hiddencolumns.split("^");
-                for (indx = 0; indx < arrCols.length; indx++) {
-                    if (arrCols[indx]) {
-                        hiddencolumns[arrCols[indx]] = 1;
-                    }
-                }
-            }
-            var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
-            var defnColumns = dtColumnSet.getDefinitions();
-            for (indx = 0; indx < defnColumns.length; indx++) {
-                if (hiddencolumns[defnColumns[indx].key]) {
-                    if (!defnColumns[indx].hidden) {
-                        var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
-                        if (objColumn) {
-                            _cur_widget_obj.dataTable.hideColumn(objColumn);
-                        }
-                    }
-
-                }
-                else if (defnColumns[indx].hidden) {
-                    var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
-                    if (objColumn) {
-                        _cur_widget_obj.dataTable.showColumn(objColumn);
-                        _cur_widget_obj.removeBtnMenuItem(defnColumns[indx].key);
-                    }
-                }
-            }
-        }
-        if (_cur_widget_state && _cur_widget_obj.dataTable && _cur_widget_state.sortcolumn) {
-            var objColumn = _cur_widget_obj.dataTable.getColumn(_cur_widget_state.sortcolumn); //Get the object of column
-            if (objColumn) {
-                _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort in ascending order
-                if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
-                    _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort again if descending order is the direction
-                }
-            }
-        }
-        _cur_widget_state = null; //Reset the widget state object
-    }
+//     var _setWidgetState = function() {
+// debugger;
+//         var indx = 0;
+//         var hiddencolumns = {};
+//         if (_cur_widget_state && _cur_widget_obj.dataTable) {
+//             if (_cur_widget_state.hiddencolumns) {
+//                 var arrCols = _cur_widget_state.hiddencolumns.split("^");
+//                 for (indx = 0; indx < arrCols.length; indx++) {
+//                     if (arrCols[indx]) {
+//                         hiddencolumns[arrCols[indx]] = 1;
+//                     }
+//                 }
+//             }
+//             var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
+//             var defnColumns = dtColumnSet.getDefinitions();
+//             for (indx = 0; indx < defnColumns.length; indx++) {
+//                 if (hiddencolumns[defnColumns[indx].key]) {
+//                     if (!defnColumns[indx].hidden) {
+//                         var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
+//                         if (objColumn) {
+//                             _cur_widget_obj.dataTable.hideColumn(objColumn);
+//                         }
+//                     }
+// 
+//                 }
+//                 else if (defnColumns[indx].hidden) {
+//                     var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
+//                     if (objColumn) {
+//                         _cur_widget_obj.dataTable.showColumn(objColumn);
+//                         _cur_widget_obj.removeBtnMenuItem(defnColumns[indx].key);
+//                     }
+//                 }
+//             }
+//         }
+//         if (_cur_widget_state && _cur_widget_obj.dataTable && _cur_widget_state.sortcolumn) {
+//             var objColumn = _cur_widget_obj.dataTable.getColumn(_cur_widget_state.sortcolumn); //Get the object of column
+//             if (objColumn) {
+//                 _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort in ascending order
+//                 if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
+//                     _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort again if descending order is the direction
+//                 }
+//             }
+//         }
+//         _cur_widget_state = null; //Reset the widget state object
+//     }
 
     /**
     * @method _parseQueryString
@@ -192,9 +192,11 @@ debugger;
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
-                log('State: '+newState,'info',this.me);
+                log('addToHistory: '+newState,'info',this.me);
                 YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
                 _sbx.notify(this.id,'UpdatePermalink',newState);
+            } else {
+                log('addToHistory: state unchanged','info',this.me);
             }
         }
         catch (ex) {
@@ -208,54 +210,54 @@ debugger;
     * @method _formPermalinkURL
     * @description This gets the datatable state and is used to update the permalink
     */
-    var _formPermalinkURL = function() {
-debugger;
-        var baseURL = document.location.href;
-        var hashindx = baseURL.indexOf('#');
-        if (hashindx > -1) {
-            baseURL = baseURL.substring(0, hashindx);
-        }
-        var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
-        currentState = currentState;
-        if (!currentState) {
-            currentState = _defaultPageState;
-        }
-        else {
-            var state = _parseQueryString(currentState); //Parse the current history state and get the key and its values
-            if (!state.target) {
-                state.target = '';
-            }
-            if (!state.filter) {
-                state.filter = '';
-            }
-            currentState = 'instance' + _hist_sym_equal + state.instance + _hist_sym_sep + 'type' + _hist_sym_equal + state.type + _hist_sym_sep +
-                           'target' + _hist_sym_equal + state.target + _hist_sym_sep + 'widget' + _hist_sym_equal + state.widget + _hist_sym_sep +
-                           'filter' + _hist_sym_equal + state.filter; //Form the query string
-        }
-        baseURL = '#page=' + currentState;
-
-        var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
-        var defnColumns = dtColumnSet.getDefinitions();
-        var indx = 0;
-        var wdgtState = _hist_sym_sep + "hiddencolumns" + _hist_sym_equal;
-        for (indx = 0; indx < defnColumns.length; indx++) {
-            if (defnColumns[indx].hidden) {
-                wdgtState = wdgtState + defnColumns[indx].key + '^';
-            }
-        }
-        if (wdgtState.charAt(wdgtState.length - 1) == '^') {
-            wdgtState = wdgtState.substring(0, wdgtState.length - 1);
-        }
-        baseURL = baseURL + wdgtState;
-        wdgtState = '';
-
-        var sortcolumn = _cur_widget_obj.dataTable.get('sortedBy');
-        if (sortcolumn) {
-            wdgtState = _hist_sym_sep + 'sortcolumn' + _hist_sym_equal + sortcolumn.key + _hist_sym_sep + 'sortdir' + _hist_sym_equal + sortcolumn.dir.substring(7);
-        }
-        baseURL = baseURL + wdgtState;
-        _updateLinkGUI(baseURL);
-    };
+//     var _formPermalinkURL = function() {
+// debugger;
+//         var baseURL = document.location.href;
+//         var hashindx = baseURL.indexOf('#');
+//         if (hashindx > -1) {
+//             baseURL = baseURL.substring(0, hashindx);
+//         }
+//         var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
+//         currentState = currentState;
+//         if (!currentState) {
+//             currentState = _defaultPageState;
+//         }
+//         else {
+//             var state = _parseQueryString(currentState); //Parse the current history state and get the key and its values
+//             if (!state.target) {
+//                 state.target = '';
+//             }
+//             if (!state.filter) {
+//                 state.filter = '';
+//             }
+//             currentState = 'instance' + _hist_sym_equal + state.instance + _hist_sym_sep + 'type' + _hist_sym_equal + state.type + _hist_sym_sep +
+//                            'target' + _hist_sym_equal + state.target + _hist_sym_sep + 'widget' + _hist_sym_equal + state.widget + _hist_sym_sep +
+//                            'filter' + _hist_sym_equal + state.filter; //Form the query string
+//         }
+//         baseURL = '#page=' + currentState;
+// 
+//         var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
+//         var defnColumns = dtColumnSet.getDefinitions();
+//         var indx = 0;
+//         var wdgtState = _hist_sym_sep + "hiddencolumns" + _hist_sym_equal;
+//         for (indx = 0; indx < defnColumns.length; indx++) {
+//             if (defnColumns[indx].hidden) {
+//                 wdgtState = wdgtState + defnColumns[indx].key + '^';
+//             }
+//         }
+//         if (wdgtState.charAt(wdgtState.length - 1) == '^') {
+//             wdgtState = wdgtState.substring(0, wdgtState.length - 1);
+//         }
+//         baseURL = baseURL + wdgtState;
+//         wdgtState = '';
+// 
+//         var sortcolumn = _cur_widget_obj.dataTable.get('sortedBy');
+//         if (sortcolumn) {
+//             wdgtState = _hist_sym_sep + 'sortcolumn' + _hist_sym_equal + sortcolumn.key + _hist_sym_sep + 'sortdir' + _hist_sym_equal + sortcolumn.dir.substring(7);
+//         }
+//         baseURL = baseURL + wdgtState;
+//         _updateLinkGUI(baseURL);
+//     };
 
     // parse _cur_filter and set _filter
     var _parseFilter = function() { };
@@ -284,7 +286,6 @@ debugger;
         }
 
 // These are to respond to changes in the decorations
-//      case 'TargetType': Not needed! Setting TargetType always leads to WidgetSelected, so that is enough to do the job
         case 'NodeSelected':
         case 'Instance':
         case 'WidgetSelected':
@@ -430,11 +431,10 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       _sbx = sandbox,
       _widget_menu,
       _widget_menu_items = [],
-      asdf_target_type, // = 'none',
-      _widget,    // the current widget name
-      _widget_id, // the current widget id
+      _widget,          // the current widget short_name
+      _widget_id,       // the current widget id
       _new_widget_name, // name of widget being created by external means (e.g. context-menu)
-      _need_new_widget = false,
+      _need_new_widget = false, // flag to indicate that a new widget is needed, whatever it may be
       me = 'widgetselector';
 
   this.id = 'WidgetSelector_' + PxU.Sequence();
@@ -462,6 +462,9 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       return function (event) {
         var menu_item = event.newValue;
         var widget = menu_item.value;
+        if ( event.prevValue && event.newValue.value.label == event.prevValue.value.label ) { return; }
+//     var type = event.newValue.label;
+//         if ( _widget == widget.short_name ) { return; }
         _updateWidgetGUI(widget);
         _sbx.notify(obj.id,'WidgetSelected',o.getState());
         _sbx.notify('_navCreateModule',widget.short_name,widget.args);
@@ -472,10 +475,10 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
 
   var _updateWidgetGUI = function(o) {
     return function(widget) {
-      _widget_menu.set("label", widget.label);
       if ( _widget_id == widget.id ) { return; }
-      _widget    = widget.widget;
+      _widget_menu.set("label", widget.label);
       _widget_id = widget.id;
+      _widget    = widget.short_name;
     };
   }(this);
 
@@ -527,6 +530,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   this.maybeCreateWidget = function(widget) {
     if ( _need_new_widget && widget ) {
       _need_new_widget = false;
+      _sbx.notify(obj.id,'WidgetSelected',this.getState());
       _sbx.notify('_navCreateModule',widget.short_name,widget.args);
     }
   };
@@ -551,7 +555,6 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
           o._updateWidgetMenu(value.type,value.widget);
          _sbx.notify(obj.id,'WidgetSelected',o.getState());
          _sbx.notify('_navCreateModule',value.widget);
-//          _sbx.notify('_navCreateModule',widget.short_name,widget.args);
           break;
         }
         case 'TargetType': {
@@ -584,7 +587,6 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
   this.id = 'Permalink_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-permalink';
-//   var linkdiv = PxU.makeChild(el, 'div', { id: 'phedex-nav-link', className: 'phedex-nav-component phedex-nav-link' });
   var a = PxU.makeChild(this.el, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#', title:'Permalink to the current page-state' });
   this.partnerHandler = function(o) {
     return function(ev,arr) {
@@ -596,9 +598,6 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
           a.href = document.location.href;
           break;
         }
-//         case 'StateChanged': {
-//           break;
-//         }
         case 'UpdatePermalink': {
           if (value) {
             a.href = '#' + value; //Update the link with permalink URL
@@ -649,8 +648,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
        },
       needValue: false,
       updateGUI: function() {
+log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
 debugger;
-//         _type = 'none';
       }
     },
 
@@ -796,6 +795,7 @@ debugger;
           break;
         }
         case 'updateTargetGUI': {
+log('Deprecated? TargetTypeSelector.partnerHandler.updateTargetGUI','warn',me);
 debugger; // I don't think this is actually needed...?
           o[_type].updateTargetGUI(value);
           break;
@@ -940,7 +940,6 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
         case 'TypeOfModule': {
           if ( _target_type == value ) { return; }
           _sbx.notify(obj.id,'TargetType',value);
-//           o.setInputTypes(value);
           break;
         }
       }
@@ -988,7 +987,6 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       if ( !instance ) { return; }
       if ( typeof(instance) != 'object' ) {
         instance = PHEDEX.Datasvc.InstanceByName(instance);
-// var i = PHEDEX.Datasvc.Instance(event.newValue.value);
       }
 
       if ( _currInstance.name != instance.name || !_stateIsValid ) {
@@ -1007,7 +1005,6 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
       if ( event.newValue.value == PHEDEX.Datasvc.Instance().instance ) { return; }
     }
     changeInstance(event.newValue.value);
-//     _sbx.notify(obj.id,'Instance',event.newValue.text);
     _sbx.notify('module','*','getData');
   };
 
