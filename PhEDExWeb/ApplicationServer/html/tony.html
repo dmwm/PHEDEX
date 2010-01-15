@@ -41,7 +41,9 @@
  <div id='phedex-navigator'></div>
  <div class='phedex-separator'></div>
  <div id='phedex-logger' class='phedex-logger'>
-  <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
+  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
+  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
+  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
  </div>
  <div id='phedex-debug' class='float-right'></div>
  <div id='phedex-test'></div>
@@ -284,6 +286,17 @@ function createCoreApp() {
         }
       );
       document.getElementById('phedex-controls').appendChild(ctl.el);
+      ctl = new PHEDEX.Component.Control(PxS,{
+          payload: {
+            text:'Show Log2Server controls',
+            target:'phedex-logger-log2server',
+            animate:false,
+            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+          }
+        }
+      );
+      document.getElementById('phedex-logger-controls').appendChild(ctl.el);
+
     },'component-control');
     PxS.notify('Load','phedex-logger'); //, { log2server:{info:true,warn:true,error:true} } );
   }
