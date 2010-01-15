@@ -349,16 +349,29 @@ PHEDEX.Navigator = function(sandbox) {
 
   this.moduleHandler = function(o) {
     return function(ev,arr) {
-      if ( arr[0].id == o.id ) { return; } // ignore myself
       switch ( ev ) {
         case 'ModuleExists': {
-          _sbx.notify(arr[0].id,'getStatePlugin',o.id);
+          if ( arr[0].id == o.id ) { return; } // ignore myself
+          _sbx.listen(arr[0].id, o.moduleHandler);
           break;
         }
-        case 'ModuleStateChange': {
-// debugger;
-          o._addToHistory();
-          break;
+        default: {
+          var who = ev,
+              action = arr[0];
+          switch ( action ) {
+            case 'initModule': {
+              _sbx.notify(who,'getStatePlugin',o.id);
+              break;
+            }
+            case 'gotData': {
+              o._addToHistory();
+              break;
+            }
+            case 'destroy': {
+              if ( o.state.module ) { delete o.state.module; }
+              break;
+            }
+          }
         }
       }
     };
@@ -436,7 +449,6 @@ PHEDEX.Navigator = function(sandbox) {
 
             _sbx.listen(this.id,this.selfHandler);
             _sbx.listen('ModuleExists',      this.moduleHandler);
-            _sbx.listen('ModuleStateChange', this.moduleHandler);
             _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
             _sbx.notify(this.id,'loadDecorators',this);
             _sbx.replaceEvent('CreateModule','_navCreateModule');
