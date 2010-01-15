@@ -247,7 +247,6 @@ PHEDEX.Module.Static = function(sandbox, string) {
         setArgs: function(args) {
           category = args.subtype;
           log('category is set to ' + category, 'info', this.me);
-          _sbx.notify('ModuleStateChange',this.id);
         },
       };
     };

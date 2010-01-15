@@ -187,7 +187,8 @@ debugger;
  * @param ev {string} name of the event that was sent to this module
  * @param arr {array} array of arguments for the given event. The first argument is the module that has just been created. Compare its <strong>id</strong> to my own to prevent self-termination during my own creation.
  * @private
- */        this.autoDestructHandler = function(obj) {
+ */
+        this.autoDestructHandler = function(obj) {
           return function(ev,arr) {
             if ( ! obj.options ) { return; }
             if ( ! obj.options.autoDestruct ) { return; }
@@ -239,9 +240,14 @@ debugger;
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-              case 'StateChanged': {
-                obj[value]();
-                _sbx.notify(arr[2],action,'done');
+             case 'StateChanged': {
+debugger;
+//                 obj[value]();
+//                 _sbx.notify(arr[2],action,'done');
+                break;
+              }
+              case 'getStatePlugin': {
+                obj[action](value);
                 break;
               }
               default: {
