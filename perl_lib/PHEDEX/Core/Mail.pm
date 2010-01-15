@@ -198,14 +198,45 @@ sub send_request_create_email
 
     # Get the list of Data Managers affected by this request
     my @data_managers;
+    my $data_manager = "";
     foreach my $site (keys %sites) {
-	push @data_managers, $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
+        @_ = $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
+	push @data_managers, @_;
+        $data_manager .= "   $site:\n";
+        foreach (@_)
+        {
+            $data_manager .= "     $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
+        }
     }
 
     # Get the list of Site Admins affected by this request
     my @site_admins;
+    my $site_admin = "";
     foreach my $site (keys %sites) {
-	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
+	@_ = $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
+	push @site_admins, @_;
+        $site_admin .= "   $site:\n";
+        foreach (@_)
+        {
+            $site_admin .= "     $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
+        }
+
+    }
+
+    # Get the Data Managers of this group
+    my $group_data_manager = "";
+    my @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'}) || ();
+    # @group_data_managers = () if ! defined @group_data_managers;
+    foreach (@group_data_managers)
+    {
+        $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
+    }
+
+    # global admins
+    my $global_admin = "";
+    foreach (@global_admins)
+    {
+        $global_admin .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
     }
 
     # Make a simple list of the data
@@ -230,13 +261,12 @@ sub send_request_create_email
     {
         $auth = "Username:  ".$$data{'REQUESTED_BY'}{'USERNAME'};
     }
-    my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
+    # my $instance = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{TITLE};
     my $request_type = &getRequestTitle($data);
     my @to;
-    push @to, $$_{EMAIL} foreach (@global_admins, @data_managers);
+    push @to, $$_{EMAIL} foreach (@global_admins, @data_managers, @group_data_managers);
     my @cc = ($email);
     push @cc, $$_{EMAIL} foreach @site_admins;
-    # ??? WHAT IS 'page'?
     my $root = webroot($self);
     my $instance = $self->{INSTANCE};
     my $page = "Request::View";
@@ -262,6 +292,15 @@ You may wish to take note of the following new request:
    Host: $$data{'REQUESTED_BY'}{'HOST'}
    Agent: $$data{'REQUESTED_BY'}{'AGENT'}
 
+* Data Managers:
+$data_manager
+* Site Admins:
+$site_admin
+* Group Data Managers:
+$group_data_manager
+* Global Admins:
+$global_admin
+
 ENDEMAIL
 
     if ($$data{TYPE} eq 'xfer')
@@ -272,7 +311,7 @@ ENDEMAIL
    $group_name
 
 ENDEMAIL
-}
+    }
 
     $message .=<<ENDEMAIL;
 * Request:
