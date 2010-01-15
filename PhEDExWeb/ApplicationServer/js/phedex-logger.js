@@ -4,62 +4,91 @@ PHEDEX.namespace('Logger');
 
 PHEDEX.Logger = function() {
   return {
-    log2Server: { info:false, warn:false, error:false },
-    init: function(args) {
+    log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true } },
 
-      var divid = 'phedex-logger',
-          div   = document.getElementById(divid);
-      if ( !div ) { return; }
-      div.innerHTML = '';
+    _addControls: function(el,type) {
+      var ctl = PxU.makeChild(el,'div');
+      ctl.appendChild(document.createTextNode(PxU.initialCaps(type)+'s:'));
+      var keys = [], _keys = {};
+      for (var i in this.log2Server[type]) {
+        var j = i.toLowerCase()
+        if ( !_keys[j]++ ) { keys.push(j); }
+      }
+      if ( type == 'group' ) {
+        keys.sort( function(a,b) { return (a>b) - (b>a); } );
+      }
+      for (var i in keys) {
+        var c = PxU.makeChild(ctl,'input');
+        c.type    = 'checkbox';
+        c.onclick = function(obj) {
+          return function(ev) {
+            obj.log2Server[type][this.value] = this.checked;
+            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
+          }
+        }(this);
+        c.checked = this.log2Server[type][keys[i]];
+        ctl.appendChild(document.createTextNode(keys[i]+':  '));
+        c.value   = keys[i];
+      }
+        var div = PxU.makeChild(el,'div');
+        div.id = el.id+'_'+PxU.Sequence();
+        return div;
+    },
+
+    init: function(args) {
+      var el   = document.getElementById('phedex-logger'),
+          elCtl, elLog2Server, elInner, div, cookie,
+          conf = {
+            width: "500px",
+            height: "20em",
+            fontSize: '100%',
+            newestOnTop: false,
+            footerEnabled: true,
+            verboseOutput: false
+          };
+
+      if ( !el ) { return; }
+      elInner = document.getElementById('phedex-logger-inner')
+      elInner.innerHTML = '';
+      elInner.style.display = 'none';
+      elCtl        = document.getElementById('phedex-logger-controls');
+      elLog2Server = document.getElementById('phedex-logger-log2server');
 
       try {
-        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger');
+        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.level');
         if ( cookie ) {
           for (var i in cookie) {
-            this.log2Server[i] = cookie[i] == 'true' ? true : false;
+            this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
+          }
+        }
+      } catch (ex) {};
+      try {
+        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.group');
+        if ( cookie ) {
+          for (var i in cookie) {
+            this.log2Server.group[i.toLowerCase()] = cookie[i] == 'true' ? true : false;
           }
         }
       } catch (ex) {};
 
       if ( !args ) { args = {}; }
       if ( args.log2server ) { this.log2Server = args.log2server; }
-      var ctl = PxU.makeChild(div,'div');
-      ctl.appendChild(document.createTextNode(' Log to server: '));
-      for (var i in this.log2Server) {
-        var c = PxU.makeChild(ctl,'input');
-        c.type    = 'checkbox';
-        c.onclick = function(obj) {
-          return function(ev) {
-            obj.log2Server[this.value] = this.checked;
-            YAHOO.util.Cookie.setSubs('PHEDEX.Logger',obj.log2Server);
-          }
-        }(this);
-        c.checked = this.log2Server[i];
-        ctl.appendChild(document.createTextNode(i+':  '));
-        c.value   = i;
-      }
-      div = PxU.makeChild(div,'div');
-      divid += '_1';
-      div.id = divid;
+      this._addControls(elLog2Server,'level');
+      this._addControls(elLog2Server,'group');
+
+      div = PxU.makeChild(el,'div');
+      div.id = el.id +'_yui';
 
       YAHOO.widget.Logger.reset();
-      var conf = {
-        width: "500px",
-        height: "20em",
-        fontSize: '100%',
-        newestOnTop: false,
-        footerEnabled: true,
-        verboseOutput: false
-      };
-
       if (args.config) {
         for (var i in args.config) {
           conf[i]=args.config[i];
         }
       }
-      div.style.width    = conf.width;
-      div.style.fontSize = conf.fontSize;
-      PHEDEX.Logger.Reader = new YAHOO.widget.LogReader(divid,conf);
+      el.style.width = conf.width;
+      div.style.width = 'auto';
+      el.style.fontSize = div.style.fontSize = conf.fontSize;
+      PHEDEX.Logger.Reader = new YAHOO.widget.LogReader(div.id,conf);
       PHEDEX.Logger.Reader.hideSource('global');
       PHEDEX.Logger.Reader.hideSource('LogReader');
       if ( args.opts )
@@ -81,8 +110,12 @@ PHEDEX.Logger = function() {
           }
           if ( !level ) { level = 'info'; }
           if ( !group ) { group = 'app'; }
+          if ( !obj.log2Server.group[group] ) {
+            obj.log2Server.group[group] = false;
+            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',obj.log2Server.group);
+          }
           YAHOO.log(str, level, group.toLowerCase());
-          if ( obj.log2Server[level] ) {
+          if ( obj.log2Server.level[level] && obj.log2Server.group[group] ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
