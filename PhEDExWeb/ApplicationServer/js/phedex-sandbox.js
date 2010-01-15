@@ -8,7 +8,7 @@
 PHEDEX.Sandbox = function() {
   var _events = [],
       _map = {},
-      _me = 'Sandbox';
+      _me = 'sandbox';
 /**
  * get or create a YAHOO.util.CustomEvent for a given event-name
  * @method _getEvent

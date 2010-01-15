@@ -10,7 +10,7 @@ PHEDEX.Module = function(sandbox, string) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
 // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
   this.id = string+'_'+PxU.Sequence();
-  log('creating "'+string+'"','info','Module');
+  log('creating "'+string+'"','info','module');
   var _sbx = sandbox;
 
   /**
@@ -180,7 +180,7 @@ debugger;
        * @method initModule
        */
       initModule: function() {
-        log(this.id+': initialising','info','Module');
+        log(this.id+': initialising','info','module');
 
 /** Automatically destroy this module if another is created, and my <strong>options.autoDestruct</strong> property is set. Achieve this by listening for <strong>ModuleExists</strong> events from newly created modules, and, if it is not from myself, shoot myself.
  * @method autoDestructHandler
@@ -291,7 +291,7 @@ debugger;
         this.el.style.display=null;
 
         _sbx.notify(this.id,'initModule');
-        log('initModule complete','info','Module');
+        log('initModule complete','info','module');
       },
 
       /**
@@ -323,7 +323,7 @@ debugger;
         d.footer  = PxU.makeChild(el, 'div', {className:'ft'});
 
         _sbx.notify(this.id,'initDom');
-        log(this.id+' initDom complete','info','Module');
+        log(this.id+' initDom complete','info','module');
         return el;
       },
 
@@ -332,7 +332,7 @@ debugger;
        * @method show
        */
       show: function() {
-        log(this.id+': showing module "'+this.id+'"','info','Module');
+        log(this.id+': showing module "'+this.id+'"','info','module');
         YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
       },
       /**
@@ -340,7 +340,7 @@ debugger;
        * @method hide
        */
       hide: function() {
-        log(this.id+': hiding module "'+this.id+'"','info','Module');
+        log(this.id+': hiding module "'+this.id+'"','info','module');
         YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
       },
       /**
@@ -373,7 +373,7 @@ debugger;
        * @private
        */
       destroyDom: function(args) {
-        log(this.id+': destroying DOM elements','info','Module');
+        log(this.id+': destroying DOM elements','info','module');
         while (this.el.hasChildNodes()) { this.el.removeChild(this.el.firstChild); }
         this.dom = [];
       },

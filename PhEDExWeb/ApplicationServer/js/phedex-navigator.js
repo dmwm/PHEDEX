@@ -366,7 +366,7 @@ PHEDEX.Navigator = function(sandbox) {
 
     _construct=function() {
       return {
-        me:   'Navigator',
+        me:   'navigator',
         type: 'Navigator',
 
         decorators: [

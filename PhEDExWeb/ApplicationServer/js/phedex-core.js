@@ -10,7 +10,7 @@ PHEDEX.Core = function(sandbox,loader) {
   var _modules = {}, _loaded = [],
       _sbx = sandbox,
       _ldr = loader,
-      _me = 'Core',
+      _me = 'core',
       _timer, // used to clear the banner window after a while.
       _parent = document.getElementById('phedex-main'),
       _global_options = {}; // global application options, such as resizeability etc
@@ -189,7 +189,7 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             _m.ctl[_d.name] = new _ctor(_sbx,_d);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
-          } catch (ex) { banner(err(ex),'error','Core'); return; }
+          } catch (ex) { banner(err(ex),'error','core'); return; }
           nDec++;
           if ( nDec == m.decorators.length ) {
             _sbx.notify(m.id,'decoratorsReady');
@@ -207,17 +207,17 @@ PHEDEX.Core = function(sandbox,loader) {
     }
     if ( _m.length ) {
 //    load the decorators first, then notify when ready...
-      log('loading decorators','info','Core');
+      log('loading decorators','info','core');
       _ldr.load( {
         Success: function() {
-          log('Successfully loaded decorators','info','Core');
+          log('Successfully loaded decorators','info','core');
           _sbx.notify(m.id,'createDecorators',m);
         },
         Progress: function(item) { banner('Loaded item: '+item.name); }
       }, _m);
     } else {
 //    nothing needs loading, I can notify the decorators directly
-      log('Already loaded decorators','info','Core');
+      log('Already loaded decorators','info','core');
       _sbx.notify(m.id,'createDecorators',m);
     }
   };
