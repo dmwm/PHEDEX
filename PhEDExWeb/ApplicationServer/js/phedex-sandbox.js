@@ -57,15 +57,17 @@ PHEDEX.Sandbox = function() {
     },
 
 /**
- * delete an event entirely, removing all listeners for it. If the event does not exist, silently return.
+ * delete an event entirely, removing all listeners for it. If the event does not exist, silently return. Do this delayed, so any outstanding handlers still get the chance to respond to the event before it disappears forever.
  * @method deleteEvent
  * @param event {string} name of event to be removed.
  */
     deleteEvent: function(event) {
-      var ev = _getEvent(event);
-      if ( !ev ) { return; }
-      ev.unsubscribeAll();
-      delete _events[event];
+      setTimeout( function() {
+        var ev = _getEvent(event);
+        if ( !ev ) { return; }
+        ev.unsubscribeAll();
+        delete _events[event];
+      } );
     },
 /** redirect an event, replacing it with another event. This is two-way, if the event is signalled then it is re-mapped to the replacement,
  * and if the replacement is sent, it is remapped to the original. This allows a component to intervene in the normal workflow of the core
