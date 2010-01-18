@@ -27,8 +27,8 @@ PHEDEX.Loader = function(opts) {
 
     //'phedex-core-filter':      { requires:['phedex-util'] },
     //'phedex-global-filter':    { requires:[] },
-    'phedex-config': {},
-    'phedex-login': { requires: ['phedex-util','button'] },
+    'phedex-config': { requires:['phedex-util'] },
+    'phedex-login':  { requires:['phedex-util','button'] },
     'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
@@ -38,11 +38,11 @@ PHEDEX.Loader = function(opts) {
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires:['treeview','treeview-css'] },
-    'phedex-module-nodes':    { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-agents':   { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-linkview': { requires:['phedex-module','phedex-treeview'] },
-    'phedex-module-groupusage':    { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-static': { requires: ['phedex-util', 'phedex-config'] },
+    'phedex-module-nodes':      { requires:['phedex-module','phedex-datatable'] },
+    'phedex-module-agents':     { requires:['phedex-module','phedex-datatable'] },
+    'phedex-module-linkview':   { requires:['phedex-module','phedex-treeview'] },
+    'phedex-module-groupusage': { requires:['phedex-module','phedex-datatable'] },
+    'phedex-module-static':     { requires:['phedex-module','phedex-config'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
