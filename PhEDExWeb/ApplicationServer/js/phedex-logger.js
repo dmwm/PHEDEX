@@ -105,8 +105,8 @@ PHEDEX.Logger = function() {
       this.log = function(obj) {
         return function(str,level,group) {
           if ( typeof(str) == 'object' ) {
-            for (var i in str) { this.log2Server[i] = str[i]; }
-            return;
+            try { str = err(str); } // assume it's an exception object!
+            catch (ex) { str = 'unknown object passed to logger'; } // ignore the error if it wasn't an exception object...
           }
           if ( !level ) { level = 'info'; }
           if ( !group ) { group = 'app'; }
