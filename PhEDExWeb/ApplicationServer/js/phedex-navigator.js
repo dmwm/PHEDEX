@@ -157,7 +157,6 @@ PHEDEX.Navigator = function(sandbox) {
         }
         return arrResult;
     };
-
     _initialPageState = YAHOO.util.History.getBookmarkedState("page") ||
                         YAHOO.util.History.getQueryStringParameter("page") ||
                         'instance~Production+type~none+widget~nodes';
@@ -269,6 +268,7 @@ PHEDEX.Navigator = function(sandbox) {
   var _nav_construct = false;
 
   this.selfHandler = function(obj) {
+    var nDec = 0;
     return function(who, arr) {
       var action = arr[0],
           args   = arr[1];
@@ -287,12 +287,20 @@ PHEDEX.Navigator = function(sandbox) {
           obj.state[args.key] = args;
           break;
         }
+        case 'decoratorReady': {
+          nDec++;
+          if ( nDec == obj.decorators.length ) {
+            _sbx.notify(obj.id,'decoratorsReady');
+          }
+          break;
+        }
 
-// These are to respond to changes in the decorations
-        case 'NodeSelected':
-        case 'InstanceSelected':
-        case 'WidgetSelected':
-        case 'addToHistory': {
+// This is to respond to changes in the decorations that are worthy of a bookmark. This is also triggered in response
+// to a 'gotData' from a module. This means that only states with valid modules and/or with changes of instance are
+// recorded as historic/bookmarkable states. This is reasonable, other states are incomplete.
+//         case 'NodeSelected':
+//         case 'WidgetSelected':
+        case 'InstanceSelected': {
           obj._addToHistory();
           break;
         }
@@ -497,8 +505,6 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
         var menu_item = event.newValue;
         var widget = menu_item.value;
         if ( event.prevValue && event.newValue.value.label == event.prevValue.value.label ) { return; }
-//     var type = event.newValue.label;
-//         if ( _widget == widget.short_name ) { return; }
         _updateWidgetGUI(widget);
         _sbx.notify(obj.id,'WidgetSelected',o.getState());
         _sbx.notify('_navCreateModule',widget.short_name,widget.args);
@@ -605,10 +611,11 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       }
     }
   }(this);
+  this.initWidgetSelector();
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
   _sbx.notify(obj.id,'statePlugin', {key:'widget', state:this.getState, isValid:this.isStateValid});
-  this.initWidgetSelector();
+  _sbx.notify(obj.id,'decoratorReady',this.id);
   return this;
 };
 
@@ -645,6 +652,7 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
   }(this);
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
+  _sbx.notify(obj.id,'decoratorReady',this.id);
   return this;
 };
 
@@ -752,7 +760,6 @@ debugger;
       _typeArgs[_type] = {node:args[2][0]};
       _sbx.notify(obj.id,'NodeSelected',args[2][0]);
       _sbx.notify('module','*','setArgs',{node:args[2][0]});
-      _sbx.notify('module','*','getData');
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
   };
@@ -813,9 +820,11 @@ debugger;
         }
         case 'TargetTypes': {
           o._initTargetSelectors(value);
+          _sbx.notify(obj.id,'decoratorReady',o.id);
           break;
         }
         case 'StateChanged': {
+          if ( value.module ) { _moduleArgs = value.module; }
           if ( value.type && value.type != _type ) {
             o._updateTargetSelector(value.type);
           }
@@ -824,7 +833,6 @@ debugger;
             _selectors[_type].updateGUI(value.target);
             _sbx.notify(obj.id,'NodeSelected',value.target);
             _sbx.notify('module','*','setArgs',{node:value.target});
-            _sbx.notify('module','*','getData');
           }
           break;
         }
@@ -849,7 +857,9 @@ debugger; // I don't think this is actually needed...?
         case 'needArguments': {
           if ( _typeArgs[_type] ) {
             _sbx.notify(arr[1],'setArgs',_typeArgs[_type]);
-            _sbx.notify(arr[1],'getData');
+          }
+          if ( _moduleArgs ) {
+            _sbx.notify(arr[1],'setArgs',_moduleArgs);
           }
         }
       }
@@ -969,6 +979,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       switch (action) {
         case 'InputTypes': {
           o.setInputTypes(value);
+          _sbx.notify(obj.id,'decoratorReady',o.id);
           break;
         }
         case 'TypeOfModule': {
@@ -982,8 +993,8 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   _sbx.listen(this.id,   this.partnerHandler);
   _sbx.listen(obj.id,    this.partnerHandler);
   _sbx.listen('Registry',this.registryHandler);
-  _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
   _sbx.notify('Registry','getInputTypes',this.id);
+  _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
   return this;
 };
 
@@ -1074,6 +1085,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
   _sbx.listen(this.id,this.partnerHandler);
   _sbx.listen(obj.id, this.partnerHandler);
   _sbx.notify(obj.id,'statePlugin', {key:'instance', state:this.getState, isValid:this.isStateValid});
+  _sbx.notify(obj.id,'decoratorReady',this.id);
   return this;
 };
 
