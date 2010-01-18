@@ -16,8 +16,10 @@ PHEDEX.Module.Static = function(sandbox, string) {
         _divspanid = '',
         _divInfo,
         _sbx = sandbox,
-        _categories = [];
-    log('Module: creating a "' + string + '"', 'info', string);
+        _categories = [],
+        _me = 'static',
+        _id = _me + '_' + PxU.Sequence();
+    log('Module: creating a "' + string + '"', 'info', _me);
 
     /**
     * @method _checkDivSpanID
@@ -52,16 +54,16 @@ PHEDEX.Module.Static = function(sandbox, string) {
         if (divStatInfo.length == 0) {
             divStatInfo = YDOM.getElementBy(_checkDivSpanID, 'span', node);
             if (divStatInfo.length == 0) {
-                log('Div or span element having id ' + divspanid + ' not found', 'info', this.me);
+                log('Div or span element having id ' + divspanid + ' not found', 'info', _me);
                 return null; //Not found
             }
             else {
-                log('Div or span element having id ' + divspanid + ' is found!', 'info', this.me);
+                log('Div or span element having id ' + divspanid + ' is found!', 'info', _me);
                 return divStatInfo;
             }
         }
         else {
-            log('Div or span element having id ' + divspanid + ' is found!', 'info', this.me);
+            log('Div or span element having id ' + divspanid + ' is found!', 'info', _me);
             return divStatInfo;
         }
     }
@@ -69,14 +71,14 @@ PHEDEX.Module.Static = function(sandbox, string) {
     /**
     * @method _loadSource
     * @description This makes XMLHTTPrequest using YUI connection manager, gets the HTML source file for the given path. 
-    * The required information is extratced from the source HTML file and is added to navigator page.
+    * The required information is extracted from the source HTML file and is added to navigator page.
     * @param {Object} source is the object that has source information (path, type and elementids)
     * @private
     */
     var _loadSource = function(source) {
         var callback = {
             success: function(obj) {
-                log('YUI Connection manager XMLHTTP response received', 'info', this.me);
+                log('YUI Connection manager XMLHTTP response received', 'info', _me);
                 var divTemp = document.createElement('div'); //This is temporary to store the response as HTML element and use it
                 //This is to append source specific content to one div so that it doesn't get mixed with other source contents
                 var divTempInfo = document.createElement('div');
@@ -104,14 +106,14 @@ PHEDEX.Module.Static = function(sandbox, string) {
                     divStaticInfo.innerHTML = strInnerHTML;
                     divTempInfo.appendChild(divStaticInfo);
                     divTempInfo.appendChild(document.createElement('br'));
-                    log('HTML source file content is added to navigator for divid: ' + source.divids[indx], 'info', this.me);
+                    log('HTML source file content is added to navigator for divid: ' + source.divids[indx], 'info', _me);
                 }
                 _divInfo.appendChild(divTempInfo);
                 return;
             },
 
             failure: function(obj) {
-                log('Communication error. Invalid or unable to read HTML source file ' + source.path, 'error', this.me);
+                log('Communication error. Invalid or unable to read HTML source file ' + source.path, 'error', _me);
                 _divInfo.appendChild(document.createElement('br'));
                 return;
             },
@@ -119,7 +121,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
             argument: source //source information is required later for processing
         };
         YAHOO.util.Connect.asyncRequest('GET', source.path, callback, null);
-        log('YUI Connection Manager XMLHTTP Request is made', 'info', this.me);
+        log('YUI Connection Manager XMLHTTP Request is made', 'info', _me);
     }
 
     /**
@@ -135,15 +137,16 @@ PHEDEX.Module.Static = function(sandbox, string) {
                 while (_divInfo.hasChildNodes()) {
                     _divInfo.removeChild(_divInfo.lastChild);
                 }
-                log('The static content is destroyed', 'info', this.me);
+                log('The static content is destroyed', 'info', _me);
             }
             _divInfo = PxU.makeChild(divTarget, 'div');
             var categoryinfo = _categories[category]; //Get the category info i.e. sources info
+            if ( !categoryinfo ) { return; }
             for (sourcename in categoryinfo.sources) {
                 var source = categoryinfo.sources[sourcename];
                 if (source.type == 'local') {
                     _loadSource(source);
-                    log('local source info is added to navigator for source: ' + source.path, 'info', this.me);
+                    log('local source info is added to navigator for source: ' + source.path, 'info', _me);
                 }
                 else if (source.type == 'iframe') {
                     //Create iframe element and add to navigator
@@ -151,7 +154,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
                     iframeInfo.src = source.path;
                     iframeInfo.className = 'phedex-static-iframe';
                     _divInfo.appendChild(iframeInfo);
-                    log('iframe is added to navigator for source: ' + source.path, 'info', this.me);
+                    log('iframe is added to navigator for source: ' + source.path, 'info', _me);
                 }
                 else if (source.type == 'extra') {
                     var divOutLink = document.createElement('div');
@@ -170,14 +173,17 @@ PHEDEX.Module.Static = function(sandbox, string) {
                         divOutLink.appendChild(elHref);
                     }
                     _divInfo.appendChild(divOutLink);
-                    log('extra info is added to navigator', 'info', this.me);
+                    log('extra info is added to navigator', 'info', _me);
                 }
             }
         }
         catch (ex) {
-            log('Error in static component', 'error', this.me);
+            log(ex, 'error', _me);
+            banner('Error in static component', 'error', _me);
+            return;
         }
         _sbx.notify(this.id, 'gotData');
+        this._gettingData = true;
     }
 
     var configHandler = function(o) {
@@ -187,7 +193,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
         switch (action) {
           case 'Categories': {
             _categories = value;
-            _sbx.notify(o.id,'getData');
+            o.initData();
             break;
           }
         }
@@ -220,22 +226,25 @@ PHEDEX.Module.Static = function(sandbox, string) {
          * @method initData
          * @param {Object} args is the object that has arguments for the module
          */
-        initData: function(args) {
-          log('module creation initiated', 'info', this.me);
-          if ( !category ) {
-            _sbx.notify( 'module', 'needArguments', this.id );
-            return;
-          }
+        initData: function() {
+          log('module creation initiated', 'info', _me);
+          var OK = true;
           if ( !_categories[category] ) {
             _sbx.notify('Config','getCategories');
-            return;
+            OK = false;
           }
+          if ( !category ) {
+            _sbx.notify( 'module', 'needArguments', this.id );
+            OK = false;
+          }
+          if ( !OK ) { return; }
           _sbx.notify(this.id,'initData');
         },
         getData: function() {
+          if ( this._gettingData ) { return; }
           this.dom.title.innerHTML = 'Loading content.. Please wait...';
           this._loadCategory(this.dom.content);
-          log('static content loaded for category ' + category, 'info', this.me);
+          log('static content loaded for category ' + category, 'info', _me);
           this.dom.title.innerHTML = '';
         },
             
@@ -245,8 +254,8 @@ PHEDEX.Module.Static = function(sandbox, string) {
          * @param {Object} args is the object that has arguments (category id) for the module
          */
         setArgs: function(args) {
-          category = args.subtype;
-          log('category is set to ' + category, 'info', this.me);
+          category = args;
+          log('category is set to ' + category, 'info', _me);
         },
       };
     };
