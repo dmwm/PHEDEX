@@ -190,10 +190,6 @@ PHEDEX.Core = function(sandbox,loader) {
             _m.ctl[_d.name] = new _ctor(_sbx,_d);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
           } catch (ex) { banner(err(ex),'error','core'); return; }
-          nDec++;
-          if ( nDec == m.decorators.length ) {
-            _sbx.notify(m.id,'decoratorsReady');
-          }
         }
       }(m,d,ctor),10);
       i++;
@@ -269,6 +265,7 @@ PHEDEX.Core = function(sandbox,loader) {
         break;
       }
       case 'getData': {
+        if ( !args ) { break; }
         log('fetching data for "'+who+'"','info',_me);
         try {
           banner('Connecting to data-service...');
