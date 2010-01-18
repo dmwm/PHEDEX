@@ -220,8 +220,7 @@ YAHOO.util.Event.onDOMReady(function() {
   var phedex_home = document.getElementById('phedex-link-home');
   if ( phedex_home ) {
     var uri = location.href;
-    uri.replace(/#.*$/g,'');
-    phedex_home.href = uri;
+    phedex_home.href = uri.replace(/#.*$/g,'');
   }
 });
 
