@@ -12,6 +12,9 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::JobManager;
 
+#use Devel::Size; # XXX debug
+#use PHEDEX::Monitoring::Process; # XXX debug
+
 sub new
 {
     my $proto = shift;
@@ -48,6 +51,11 @@ sub new
     $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
 				   $self->{JOBMANAGER}->killAllJobs() };
 
+    # Enhanced debugging! XXX
+    $self->{STATISTICS_INTERVAL} = 600;
+    &PHEDEX::Monitoring::Process::MonitorSize('JobManager', $self->{JOBMANAGER});
+    &PHEDEX::Monitoring::Process::MonitorSize('DBH', $self->{DBH});
+
     bless $self, $class;
     return $self;
 }
@@ -68,6 +76,8 @@ sub init
 sub _poe_init
 {
     my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
+#    $session->option(trace => 1);  $|++; # XXX Debugging
+
     my @poe_subs = qw( sync_deletions );
     $kernel->state($_, $self) foreach @poe_subs;
 
@@ -91,6 +101,9 @@ sub sync_deletions
       $self->disconnectAgent();
   };
   $self->rollbackOnError();
+#  $self->Dbgmsg("sizeof(self)=",Devel::Size::total_size($self));
+#  $self->Dbgmsg("sizeof(JobManager)=",Devel::Size::total_size($self->{JOBMANAGER}));
+#  $self->Dbgmsg("sizeof(DBH)=",Devel::Size::total_size(\$self->{DBH}));
 #  &output ("$$self{DROPDIR}/".++$$self{DUMPSELF}, Dumper ($self)); # XXX DEBUG
 }
 
@@ -190,7 +203,8 @@ sub logically_delete
     my $ndeleted = 0;
     foreach my $drop ($self->readInbox(1)) { # return all folders in inbox
 	my $dropdir = "$$self{INBOX}/$drop";
-	my $file = $self->loadPacket($drop, $self->{INBOX});
+	my $file = $self->loadPacket($drop, $self->{INBOX}) ||
+	    do { $self->Alert("could not load packet in $dropdir"); next; };
 
 	# Try to logically delete the file
 	next unless $self->delete_replica($file);
@@ -293,7 +307,8 @@ sub processDrop
     return if (! $self->inspectDrop ($drop));
     delete $$self{BAD}{$drop};
 
-    my $file = $self->loadPacket($drop) || return 0;
+    my $file = $self->loadPacket($drop) || 
+	do { $self->Alert("could not load packet in $dropdir"); return undef; };
 
     # Queue deletion command, if not already queued
     if (!(-f "$dropdir/queued" || -f "$dropdir/report")) {
@@ -313,8 +328,9 @@ sub deleteJob
     my $dropdir = "$$self{WORKDIR}/$drop";
     unlink "$dropdir/queued";  # no longer waiting for this file
     my $success = $$job{STATUS_CODE} ? 0 : 1;
-    my $file = $self->loadPacket($drop) || return 0;
-
+    my $file = $self->loadPacket($drop) || 
+	do { $self->Alert("could not load packet in $dropdir"); return undef; };
+    
     if (!$success)
     {
 	$self->Warn("failed to delete file $$file{PFN} at node "
@@ -364,7 +380,8 @@ sub report_work_done
 	$npending++;
 	my $dropdir = "$$self{WORKDIR}/$drop";
 	next unless -f "$dropdir/report"; # check for the report flag
-	my $file = $self->loadPacket($drop);
+	my $file = $self->loadPacket($drop) || 
+	    do { $self->Alert("could not load packet in $dropdir"); next; };
 
 	# Report completition time to DB
 	eval {
