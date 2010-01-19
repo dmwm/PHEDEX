@@ -93,7 +93,7 @@ sub invoke { return fileReplicas(@_); }
 sub fileReplicas
 {
     my ($core,%h) = @_;
-    my %p = &validate_args(\%h,
+    my %p = &validate_params(\%h,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
 			   require_one_of => [ qw(block lfn) ],
@@ -103,6 +103,11 @@ sub fileReplicas
 			       dist_complete => { using => 'yesno' },
 			       subscribed    => { using => 'yesno' },
 			       custodial     => { using => 'yesno' },
+                               create_since  => { using => 'time'  },
+                               lfn           => { using => 'lfn'   },
+                               node          => { using => 'node'  },
+                               se            => { using => 'any'   },
+                               group         => { using => 'any'   },
 			   });
 				
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
