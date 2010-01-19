@@ -66,7 +66,8 @@ sub getBlockReactivationCandidates
 
   $sql = qq{ 
             select b.id, b.name, count(br.block) nreplica,
-			 sum(decode(br.is_active,'y',1,0)) nactive
+			 sum(decode(br.is_active,'y',1,0)) nactive,
+                         sum(decode(br.node_files,b.files,1,0)) ncomplete
             from t_dps_block b
               join t_dps_block_replica br
                 on br.block = b.id
@@ -121,16 +122,20 @@ sub getLockForUpdateWithCheck
   $q = execute_sql( $self, $sql, %p );
 
   $sql = qq{
-      select count(block), sum(decode(br.is_active,'y',1,0))
-      from t_dps_block_replica br where br.block = :block};
-  my ($xnreplica, $xnactive) = execute_sql( $self, $sql, %p )->fetchrow();
+      select count(block) nreplica,
+             sum(decode(br.is_active,'y',1,0)) nactive,
+             sum(decode(br.node_files,b.files,1,0)) ncomplete
+      from t_dps_block_replica br 
+      join t_dps_block b on b.id = br.block
+     where br.block = :block};
+  my ($xnreplica, $xnactive, $xncomplete) = execute_sql( $self, $sql, %p )->fetchrow();
 
-  return ($xnreplica, $xnactive) if wantarray;
-  foreach ( qw / NREPLICA NACTIVE / )
+  return ($xnreplica, $xnactive, $xncomplete) if wantarray;
+  foreach ( qw / NREPLICA NACTIVE NCOMPLETE / )
   {
     $self->Warn("lockForUpdateWithCheck: Explicit check requested but \"$_\" not given") unless defined $h{$_};
   }
-  return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive );
+  return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive && $h{NCOMPLETE} == $xncomplete );
 
 # I do not use $self->{DBH}->rollback() here to preserve procedural access
   execute_rollback( $self );
@@ -159,8 +164,10 @@ sub activateBlock
       (select seq_xfer_replica.nextval, f.id, br.node,
               0, br.time_create, :now
        from t_dps_block_replica br
+       join t_dps_block b on b.id = br.block
        join t_xfer_file f on f.inblock = br.block
-       where br.block = :block)},
+       where br.block = :block
+         and br.node_files = b.files)},
        ":block" => $block, ":now" => $now);
 
   execute_sql ($self, qq{

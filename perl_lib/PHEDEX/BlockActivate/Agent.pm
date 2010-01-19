@@ -72,17 +72,16 @@ sub idle
         my $g = $self->getBlockReactivationCandidates( NOW => $now );
 	foreach my $h ( @{$g} )
         {
-            my ($id,$block,$nreplica,$nactive,$nfile);
-	    $id       = $h->{ID};
-	    $block    = $h->{NAME};
-	    $nreplica = $h->{NREPLICA};
-	    $nactive  = $h->{NACTIVE};
+            my ($id,$block,$nreplica,$nactive,$ncomplete,$nfile);
+	    $id        = $h->{ID};
+	    $block     = $h->{NAME};
+	    $nreplica  = $h->{NREPLICA};
+	    $nactive   = $h->{NACTIVE};
+	    $ncomplete = $h->{NCOMPLETE};
+
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
-		$self->Alert ("block $id ($block) has $nreplica replicas"
-			. " of which only $nactive are active")
-		    if $nreplica != $nactive;
 	        next;
 	    }
 
@@ -91,9 +90,10 @@ sub idle
 	    # case something changes.
 	    if ( ! $self->getLockForUpdateWithCheck
 			(
-			  ID       => $id,
-			  NREPLICA => $nreplica,
-			  NACTIVE  => $nactive,
+			  ID        => $id,
+			  NREPLICA  => $nreplica,
+			  NACTIVE   => $nactive,
+			  NCOMPLETE => $ncomplete,
 			) )
 	    {
 		$self->Warn ("block $id ($block) changed, skipping activation");
