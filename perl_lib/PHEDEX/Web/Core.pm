@@ -173,19 +173,10 @@ sub prepare_call
         # check allowed methods
         if ($api->can('methods_allowed'))
         {
-            my $methods_allowed = $api->methods_allowed();
-            if (ref($methods_allowed) eq 'ARRAY')
+            my @allowed_mathods = $api->methods_allowed();
+            if (! grep $self->{REQUEST_METHOD} eq $_, @allowed_mathods)
             {
-                if (not grep {$_ eq $self->{REQUEST_METHOD}} @{$methods_allowed})
-                {
-                    &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
-                    return;
-                }
-            }
-            elsif ($self->{REQUEST_METHOD} ne $methods_allowed)
-            {
-                &PHEDEX::Web::Format::error(*STDOUT, 'xml', "method ". $self->{REQUEST_METHOD} . " is prohibited");
-                return;
+                die "method ".$self->{REQUEST_METHOD}." is not allowed";
             }
         }
     
