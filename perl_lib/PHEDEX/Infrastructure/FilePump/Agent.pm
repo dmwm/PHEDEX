@@ -44,8 +44,11 @@ sub idle
 	# Expire tasks
 	$self->expire($dbh);
 	
-	# First pick up returned task status.
+	# Handle completed transfer tasks, create replicas on success
 	$self->receive($dbh);
+
+	# Delete logical replicas which were physically deleted
+	$self->delete($dbh);
 
 	# Update stats if necessary.
 	$self->stats($dbh);
@@ -344,6 +347,50 @@ sub receive
     $self->Logmsg("$n transfer tasks received, $ngood successful,"
 	    . " $nbad failed, @{[$n - $ngood - $nbad]} other")
 	if $n;
+}
+
+# Remove replicas for completed deletions
+sub delete
+{
+    my ($self, $dbh) = @_;
+    my $now = &mytimeofday();
+
+    my ($sth, $n, $nbuf);
+
+    # Remove logical replica for completed deletions
+    ($sth, $n) = &dbexec($dbh, qq{
+	delete from t_xfer_replica
+	 where (node, fileid) in
+         (select xr.node, xr.fileid
+            from t_xfer_delete xd
+            join t_xfer_replica xr
+	         on xr.node = xd.node and xr.fileid = xd.fileid
+           where xd.time_complete is not null
+             and xd.time_complete >= xr.time_create)
+     });
+
+    # Remove logical replica at Buffer nodes attached to MSS nodes
+    # with completed deletions
+    ($sth, $nbuf) = &dbexec($dbh, qq{
+	delete from t_xfer_replica
+	 where (node, fileid) in
+         (select xr.node, xr.fileid
+            from t_xfer_delete xd
+            join t_adm_link l on l.from_node = xd.node
+            join t_adm_node fn on fn.id = l.from_node
+            join t_adm_node tn on tn.id = l.to_node
+            join t_xfer_replica xr
+	         on xr.node = tn.id and xr.fileid = xd.fileid
+           where l.is_local = 'y'
+             and fn.kind = 'MSS'
+             and tn.kind = 'Buffer'
+             and xd.time_complete is not null
+             and xd.time_complete >= xr.time_create)
+     });
+
+    $dbh->commit();
+
+    $self->Logmsg("$n replicas removed due to deletions (+$nbuf from buffers)") if ($n + $nbuf);
 }
 
 # Update transfer task statistics.
