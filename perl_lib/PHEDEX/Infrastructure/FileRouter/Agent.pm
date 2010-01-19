@@ -93,9 +93,6 @@ sub idle
 	# Route files.
 	$self->route($dbh);
 
-	# Print any warnings.
-	$self->warn_route_failures();
-
 	# Perhaps update statistics.
 	$self->stats($dbh);
     };
@@ -243,7 +240,7 @@ sub flush
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
           and l.is_local = 'n'
-	  and lp.xfer_rate >= KILOBYTE },
+	  and lp.xfer_rate >= @{[KILOBYTE]} },
 	":now" => $now);
 
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
@@ -417,7 +414,7 @@ sub prepare
           from t_xfer_request xq 
           join t_xfer_file xf on xf.id = xq.fileid
 	 where xq.destination = :node
-           and (xq.state = 0 or xq.attempts <= $DEACTIV_ATTEMPTS)
+           and (xq.state = 0 or xq.attempt <= $DEACTIV_ATTEMPTS)
          group by xq.priority },
      ":node" => $node);
 
@@ -455,15 +452,16 @@ sub prepare
 	     });
 
 	my %reactiv_reqs;
+	my $n_reactiv = 0;
 	while (my $r = $q->fetchrow_arrayref()) {
 	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
 	    my $n = 0;
 	    push(@{$reactiv_reqs{$n++}}, $now);
 	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
 	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
+	    $n_reactiv++;
 	}
-	&dbbindexec($reactiv_u, %reactiv_reqs);
-	my $n_reactiv = scalar @{$reactiv_reqs{1}};
+	&dbbindexec($reactiv_u, %reactiv_reqs) if %reactiv_reqs;
 
 	# Commit re-activated requests
 	$dbh->commit();
@@ -1140,7 +1138,7 @@ sub stats
 	insert into t_status_block_path
 	(time_update, destination, src_node, block, priority, is_valid,
 	 route_files, route_bytes, xfer_attempts, time_request)
-       select path.destination, path.src_node, f.inblock, path.priority, path.is_valid,
+       select :now, path.destination, path.src_node, f.inblock, path.priority, path.is_valid,
               count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create)
          from (
           select distinct xp.destination, xp.src_node, xp.fileid, xp.priority, xp.is_valid from t_xfer_path xp
