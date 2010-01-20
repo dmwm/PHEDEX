@@ -438,6 +438,8 @@ sub stop
     my $dropdir  = $env->getExpandedString($agent->DROPDIR);
     my $pidfile  = $env->getExpandedString($agent->PIDFILE);
 
+    next unless -d $dropdir; # maybe the agent was never started
+
     if ( open PID, "<$pidfile" )
     {
       $_ = <PID>;
