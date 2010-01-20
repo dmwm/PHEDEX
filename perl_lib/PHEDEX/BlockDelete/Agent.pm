@@ -32,37 +32,55 @@ sub idle
 	my $now = &mytimeofday();
 
 	# Trigger deletion of finished blocks at the source end of a complete "move" subscription
-	# We trigger for blocks which:
-	#   1. Have a block replica at some potential source node
+	# We trigger for blocks at nodes which:
+	#   1. Have a block replica
 	#   2. Do not have a subscription
-	#   3. Are not already in the deletion table (TODO:  faster cleanup of deletion table?)
-        #   4. Are not the buffer node of the destination
-        #   5. Are not a T1 node
-	my ($stmt, $nrow) = &dbexec($dbh, qq{
-	    insert into t_dps_block_delete
-                   (block, dataset, node, time_request)
-	    select distinct sb.id, sb.dataset, br.node, :now
-              from t_dps_subscription s
-              join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
-              join t_dps_block_dest bd on bd.destination = s.destination
-                                      and bd.block = sb.id
-              join t_dps_block_replica br on br.node != s.destination
-	                                 and br.block = sb.id
-              join t_adm_node n on n.id = br.node
-         left join t_dps_block_delete bdel on bdel.node = br.node
-                                          and bdel.block = br.block
-         left join t_dps_subscription s2 on s2.destination = br.node
-                                        and (s2.dataset = sb.dataset or s2.block = sb.id)
-             where s.is_move = 'y'
-	       and bd.state = 3
-	       and bdel.block is null
-	       and s2.destination is null
-               and n.name not like 'T1_%'
-               and not exists (select 1 from t_adm_node buf
-                                 join t_adm_link loc on loc.from_node = buf.id and loc.is_local = 'y'
-                                 join t_adm_node mss on mss.id = loc.to_node
-                                where buf.kind = 'Buffer' and mss.kind = 'MSS'
-                                  and buf.id = br.node and mss.id = s.destination)
+        #   3. Are not a T1 node
+        #   4. Are not a Buffer node
+	#
+	# Note: there is a race condition present here: suppose site X
+	# is an unsubscribed source node for block B and site Y is the
+	# move destination.  Then, if site Y receives B and
+	# BlockMonitor runs (setting the statistics for B at both X
+	# and Y), followed by BlockAllocator (setting the "done" state
+	# for B at Y), and at that time the user makes a subscription
+	# for B at site X, if this agent runs BEFORE the next
+	# BlockMonitor cycle, then this agent will not see the change
+	# and will trigger the deletion from X anyway.  This would be
+	# a rare case of trying to halt a move that is in progress,
+	# which an operator would be unlikely to do at the correct
+	# time anyway.
+	#
+	# We accept this race conditions because 1: the old SQL which
+	# checked the actual t_dps_subscription table instead of
+	# dest_files was too slow (~hour for a query) 2. pulling all
+	# subscriptions into memory is too expensive 3. the race
+	# condition is rare and only applies to trying to quckly
+	# correct a mistake already made 4. the situation can be
+	# recovered by retransfering B from Y to X
+	&dbexec($dbh, qq{
+	    merge into t_dps_block_delete bdel
+	    using (
+	      select distinct sb.id block, sb.dataset, br.node
+                from t_dps_subscription s
+                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
+                join t_dps_block_dest bd on bd.destination = s.destination
+                                        and bd.block = sb.id
+                join t_dps_block_replica br on br.node != s.destination
+	                                   and br.block = sb.id
+                join t_adm_node n on n.id = br.node
+               where s.is_move = 'y'
+	         and bd.state = 3
+	         and n.name not like 'T1_%'
+                 and n.kind != 'Buffer'
+	         and br.dest_files = 0
+           ) q
+           on (bdel.block = q.block 
+               and bdel.dataset = q.dataset
+               and bdel.node = q.node)
+	   when not matched then insert
+           (block, dataset, node, time_request)
+	   values (q.block, q.dataset, q.node, :now)
 	   }, ':now' => $now);
 
 	# Log what we just triggered
