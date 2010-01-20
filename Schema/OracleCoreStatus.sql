@@ -108,6 +108,8 @@ create table t_history_dest
    cust_node_bytes	integer,
    miss_files		integer, -- t_status_missing
    miss_bytes		integer,
+   cust_miss_files	integer, -- t_status_missing
+   cust_miss_bytes	integer,
    request_files	integer, -- t_status_request
    request_bytes	integer,
    idle_files		integer, -- t_status_request
