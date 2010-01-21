@@ -58,7 +58,7 @@ sub idle
 	# condition is rare and only applies to trying to quckly
 	# correct a mistake already made 4. the situation can be
 	# recovered by retransfering B from Y to X
-	&dbexec($dbh, qq{
+	my ($stmt, $nrow) = &dbexec($dbh, qq{
 	    merge into t_dps_block_delete bdel
 	    using (
 	      select distinct sb.id block, sb.dataset, br.node
