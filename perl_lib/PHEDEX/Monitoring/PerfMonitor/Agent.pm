@@ -96,7 +96,7 @@ sub idle
 	&dbexec($dbh, qq{
 	    insert into t_status_missing
 	    (time_update, node, files, bytes, is_custodial)
-	    select :now, br.node, 0,
+	    select :now, br.node,
 	           nvl(sum (br.dest_files - br.node_files), 0),
 	           nvl(sum (br.dest_bytes - br.node_bytes), 0),
 	           br.is_custodial
