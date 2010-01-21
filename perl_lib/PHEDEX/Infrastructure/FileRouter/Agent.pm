@@ -453,9 +453,9 @@ sub prepare
 
 	my %reactiv_reqs;
 	my $n_reactiv = 0;
-	while (my $r = $q->fetchrow_arrayref()) {
+	while (my $r = $q->fetchrow_hashref()) {
 	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
-	    my $n = 0;
+	    my $n = 1;
 	    push(@{$reactiv_reqs{$n++}}, $now);
 	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
 	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
@@ -1062,7 +1062,7 @@ sub routeFile
 	my $prettycost = int($bestcost);
 	$self->Logmsg("probed file $$request{FILEID} to destination $dest: "
 		. ($bestcost < $LATENCY_THRESHOLD
-		   ? "new cost $prettycost from $$best{$dest}{SRC_NODE}"
+		   ? "new cost $prettycost from source $$best{$dest}{SRC_NODE}"
 		   : "did not improve the matters, cost is $prettycost"));
     }
 
