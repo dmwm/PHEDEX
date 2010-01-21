@@ -2,8 +2,7 @@ set scan off;
 
 create or replace trigger tr_dps_file_block
   after insert or update or delete on t_dps_file for each row declare
-    unixtime integer
-      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+    unixtime integer := now();
   begin
     if (updating and :old.inblock = :new.inblock) then
         update t_dps_block
@@ -37,8 +36,7 @@ create or replace trigger tr_dps_file_block
    there is space available in the queue.  */
 create or replace trigger tr_xfer_file_insert
   after insert on t_xfer_file for each row declare
-    unixtime integer
-      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+    unixtime integer := now();
   begin
     insert into t_xfer_request
       (fileid, inblock, destination, priority, is_custodial,
@@ -55,8 +53,7 @@ create or replace trigger tr_xfer_file_insert
    there is space available in the queue.  */
 create or replace trigger tr_xfer_replica_delete
   after delete on t_xfer_replica for each row declare
-    unixtime integer
-      := 86400 * (sysdate - to_date('01/01/1970 00:00:00', 'DD/MM/YYYY HH24:MI:SS'));
+    unixtime integer := now();
   begin
     insert into t_xfer_request
       (fileid, inblock, destination, priority, is_custodial,
