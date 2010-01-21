@@ -135,7 +135,7 @@ sub idle
 	      and not exists
 	        (select 1 from t_xfer_task_done xtd where xtd.task = xt.id)
 	    order by xt.time_assign asc, xt.rank asc}, %myargs);
-	while (my ($task, $lfn, $size, $checksum, $available, $is_custodial,
+	while (my ($task, $lfn, $size, $checksum, $is_custodial, $available,
 		   $from_node, $to_node) = $q->fetchrow())
 	{
 	    my ($status,$pfn,$dest);
