@@ -59,6 +59,9 @@ create table t_dps_block
    constraint pk_dps_block
      primary key (id),
    --
+   constraint uq_dps_block_name
+     unique (dataset, name),
+   --
    constraint fk_dps_block_dataset
      foreign key (dataset) references t_dps_dataset (id),
    --
