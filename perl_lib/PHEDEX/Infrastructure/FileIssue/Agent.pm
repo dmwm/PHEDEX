@@ -163,10 +163,6 @@ sub confirm
 		}
 	    }
 
-	    # Reinterpret priority.  This makes local transfers a
-	    # higher priority than WAN transfers	   
-	    $$task{PRIORITY} = 2*$$task{PRIORITY} + (1-$$task{IS_LOCAL});
-
 	    push(@tasks, $task);
 	    do { $finished = 0; last } if scalar @tasks >= 10_000;
         }
