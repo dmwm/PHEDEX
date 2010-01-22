@@ -303,7 +303,7 @@ sub idle
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
 
 	# Part V: Update link parameters.
-	# For each of three time periods, 1 hour, 12 hours, and 2
+	# For each of three time periods, 2 hours, 12 hours, and 2
 	# days, this massive query creates or updates link parameters
 	# based on recent history in that time period.  The following
 	# conditions apply:
@@ -328,7 +328,7 @@ sub idle
 	# for queued transfers, and not completed transfers.
        
 	&dbexec($dbh, qq{delete from t_adm_link_param});
-        foreach my $span (3600, 12*3600, 2*86400)
+        foreach my $span (2*3600, 12*3600, 2*86400)
 	{
 	    &dbexec($dbh, qq{
                 merge into t_adm_link_param p using
@@ -397,7 +397,8 @@ sub idle
 	# transfer queue.  It is determined as follows:
 	#
 	# xfer_rate = NULL if no data was queued over this link for 
-	#             the time_span period (pend_bytes = 0)
+	#             the time_span period (pend_bytes = 0) and
+	#             nothing was transferred (done_bytes = 0)
 	#           = done_bytes / time_span if some data was 
 	#             transfered for the time_span period 
 	#             (done_bytes != 0)
@@ -412,17 +413,23 @@ sub idle
 	#
 	# In short, 0 really means zero, and NULL means the value
 	# could not be computed.
+	#
+	# We require to have at least 1 hour of statistics (time_span
+	# >= 3600) or a transfer attempt before making this
+	# calculation.  This is to give the site agents a reasonable
+	# amount of time to find and attempt any pending tasks.
 	&dbexec($dbh, qq{
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
 		      case
-		        when nvl(pend_bytes,0) = 0 then null
+		        when nvl(pend_bytes,0) = 0 and nvl(done_bytes,0) = 0 then null
 		        when time_span > 0 then
 		          nvl(done_bytes,0)/time_span
 			else 0
 		      end rate
 	            from t_adm_link_param
-		    where time_span is not null and time_span != 0)
+		    where time_span is not null 
+                      and (time_span >= 3600 or try_bytes is not null))
 	    set xfer_rate = rate,
 	        xfer_latency =
 		   case
