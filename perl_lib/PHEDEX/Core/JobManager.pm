@@ -32,6 +32,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     my %params = ( NJOBS      => 1,  # number of parallel jobs, 0 for infinite
 		   KEEPALIVE  => 1,  # whether or not to quit after all jobs are complete
+		   JOB_COUNT  => 0,  # Bookkeeping, track the number of jobs I have submitted
 		   VERBOSE    => 0,
 		   DEBUG      => 0,
 		   POCO_DEBUG => $ENV{POCO_DEBUG} || 0   # special debugging flag
@@ -90,6 +91,7 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
+$DB::single=1;
   $self->Logmsg("stopping JobManager session (id=",$session->ID,")") if $self->{DEBUG};
 }
 
@@ -112,7 +114,7 @@ EOF
 sub heartbeat
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  $kernel->delay_set('heartbeat',60);
+  $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
 }
 
 sub job_queued
@@ -339,10 +341,9 @@ sub addJob
   $job->{_priority} = exists $job->{PRIORITY} ? $job->{PRIORITY} : POSIX::DBL_MAX;
 
   $self->{JOB_QUEUE}->enqueue($job->{_priority} ,$job);
+  $self->{JOB_COUNT}++;
   POE::Kernel->post($self->{JOB_MANAGER_SESSION_ID}, 'job_queued');
 }
-
-
 
 # Event to kill a job
 sub timeout
@@ -420,6 +421,7 @@ sub queue_drained
     &$callback() if $callback;
     $self->{_DOINGSOMETHING}--;
   }
+$DB::single=1;
 }
 
 sub jobsRemaining()
@@ -445,17 +447,12 @@ sub maybe_clear_alarms
 # After a child is completed, if there are no other jobs running or queued,
 # I clear all timers. This makes sure the session can quit early. Otherwise,
 # it will wait for the timeouts to fire, even for tasks that have finished.
-  my ($self,$kernel,$session,$timer_id) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($self,$kernel,$timer_id) = @_[ OBJECT, KERNEL, ARG0 ];
 
   $kernel->alarm_remove($timer_id) if $timer_id;
 
   return if $self->jobsRemaining();
-#  my @removed_alarms = $kernel->alarm_remove_all();
-#  foreach my $alarm (@removed_alarms) {
-#    my ($name, $time, $param) = @$alarm;
-#    print "Cleared alarm: alarm=@{$alarm}, time=$time, param=$param\n";
-#  }
-    $kernel->post( 'queue_drained' );
+  $kernel->post( 'queue_drained' );
 }
 
 1;
