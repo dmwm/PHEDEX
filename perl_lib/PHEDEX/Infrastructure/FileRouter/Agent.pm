@@ -15,11 +15,13 @@ use constant BYTE     => 1;
 # package globals to avoid using $$self{X} so often
 our $WINDOW_SIZE;
 our $MIN_REQ_EXPIRE;
-our $MAX_REQ_EXPIRE;
+our $EXPIRE_JITTER;
 our $LATENCY_THRESHOLD;
 our $PROBE_CHANCE;
 our $DEACTIV_ATTEMPTS;
 our $DEACTIV_TIME;
+our $NOMINAL_RATE;
+our $N_SLOW_VALIDATE;
 
 sub new
 {
@@ -36,11 +38,13 @@ sub new
 		  WINDOW_SIZE => 10,            # Size of priority windows in TB
 		  REQUEST_ALLOC => 'BY_AGE',    # Method to use when allocating file requests
 		  MIN_REQ_EXPIRE => 7,          # Minimum time (hours) to expire a request/paths
-		  MAX_REQ_EXPIRE => 10,         # Maximum time (hours) to expire a request/paths
+		  EXPIRE_JITTER => 3,           # Duration (hours) which to randomize expiration on requests/paths
 		  LATENCY_THRESHOLD => 3,       # Maximum estimated latency in days to determine if a path is valid
 		  PROBE_CHANCE => 0.02,         # Probability to force routing on failure
 		  DEACTIV_ATTEMPTS => 5,        # Mininum number of request attempts before other blocks are considered
 		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
+		  NOMINAL_RATE => 0.5,          # Rate assumed for links with unknown performance.
+		  N_SLOW_VALIDATE => 3,         # Number of invalid paths to validate in the slow flush.
 		  ME	=> 'FileRouter',
 		  );
     my %args = (@_);
@@ -57,14 +61,16 @@ sub new
 	die "Probe probability '$$self{PROBE_CHANCE}' is not valid.  Must be from 0 to 1.\n";
     }
 
-    # Set package globals
+    # Set package globals (and set their units)
     $WINDOW_SIZE       = $$self{WINDOW_SIZE} * TERABYTE;
     $MIN_REQ_EXPIRE    = $$self{MIN_REQ_EXPIRE}*3600;
-    $MAX_REQ_EXPIRE    = $$self{MAX_REQ_EXPIRE}*3600;
+    $EXPIRE_JITTER     = $$self{EXPIRE_JITTER}*3600;
     $LATENCY_THRESHOLD = $$self{LATENCY_THRESHOLD}*24*3600;
     $PROBE_CHANCE      = $$self{PROBE_CHANCE};
     $DEACTIV_ATTEMPTS  = $$self{DEACTIV_ATTEMPTS};
     $DEACTIV_TIME      = $$self{DEACTIV_TIME}*24*3600;
+    $NOMINAL_RATE      = $$self{NOMINAL_RATE} * MEGABYTE;
+    $N_SLOW_VALIDATE   = $$self{N_SLOW_VALIDATE};
 
     bless $self, $class;
     return $self;
@@ -109,21 +115,29 @@ sub report_config
     my $self = shift;
     if (!$self->{REPORTED_CONFIG}) {
 	$self->{REPORTED_CONFIG} = 1;
-	$self->Logmsg(sprintf("router configuration: ".
-			      "WINDOW_SIZE=%0.2f TB, ".
-			      "MIN_REQ_EXPIRE=%0.2f hours, ".
-			      "MAX_REQ_EXPIRE=%0.2f hours, ".
-			      "LATENCY_THRESHOLD=%0.2f days, ".
-			      "PROBE_CHANCE=%0.2f, ".
-			      "DEACTIV_ATTEMPTS=%i, ".
-			      "DEACTIV_TIME=%0.2f days",
+	$self->Logmsg("router configuration: ", 
+		      sprintf(join(", ",
+				   'WINDOW_SIZE=%0.2f TB',
+				   'REQUEST_ALLOC=%s',
+				   'MIN_REQ_EXPIRE=%0.2f hours',
+				   'EXPIRE_JITTER=%0.2f hours',
+				   'LATENCY_THRESHOLD=%0.2f days',
+				   'PROBE_CHANCE=%0.2f',
+				   'DEACTIV_ATTEMPTS=%i',
+				   'DEACTIV_TIME=%0.2f days',
+				   'NOMINAL_RATE=%0.2f MB/s',
+				   'N_SLOW_VALIDATE=%i paths'),
 			      $WINDOW_SIZE/TERABYTE,
+			      $self->{REQUEST_ALLOC},
 			      $MIN_REQ_EXPIRE/3600,
-			      $MAX_REQ_EXPIRE/3600,
+			      $EXPIRE_JITTER/3600,
 			      $LATENCY_THRESHOLD/(24*3600),
 			      $PROBE_CHANCE,
 			      $DEACTIV_ATTEMPTS,
-			      $DEACTIV_TIME/(24*3600)));
+			      $DEACTIV_TIME/(24*3600),
+			      $NOMINAL_RATE/MEGABYTE,
+			      $N_SLOW_VALIDATE,
+			      ));
     }
 }
 
@@ -193,6 +207,22 @@ sub flush
 	set req_priority = cur_priority});
     push @stats, ['request priority updated', $rows];
 
+    # For every source/destination pair, make some (default 3) random
+    # invalid requests valid.  This ensures a kind of low-rate
+    # "heartbeat" of transfer attempts for very poor links.
+    ($stmt, $rows) = &dbexec($dbh, qq{
+	update t_xfer_path 
+           set is_valid = 1
+	 where (src_node, destination, fileid) in 
+         (select src_node, destination, fileid
+            from (select xp.src_node, xp.destination, xp.fileid,
+                         rank() over (partition by xp.src_node, xp.destination 
+                                      order by dbms_random.value) n
+                    from t_xfer_path xp
+		   where xp.is_valid = 0)
+	  where n <= $N_SLOW_VALIDATE)});
+    push @stats, ['invalid paths validated', $rows];
+
     # Clear old paths and those missing an active request.
     # Clear invalid expired paths.
     # Clear valid paths, that expired more than 8 hours ago.
@@ -225,9 +255,10 @@ sub flush
     $dbh->commit() if $ndel;
 
     # If transfers path are about to expire on links which have
-    # reasonable recent transfer rate (1 kBps), give a bit more grace time.
-    # Be sure to extend the entire path from src_node to destination
-    # so that paths are not broken on cleanup.  Ignore local links.
+    # reasonable recent transfer rate (better than the nominal rate),
+    # give a bit more grace time.  Be sure to extend the entire path
+    # from src_node to destination so that paths are not broken on
+    # cleanup.  Ignore local links.
     my %extend;
     my $qextend = &dbexec($dbh, qq{
 	select xp.fileid, xp.destination, xp.from_node, xp.to_node
@@ -240,12 +271,12 @@ sub flush
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
           and l.is_local = 'n'
-	  and lp.xfer_rate >= @{[KILOBYTE]} },
+	  and lp.xfer_rate >= $NOMINAL_RATE },
 	":now" => $now);
 
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
-	push(@{$extend{':time_expire'}}, $now + $MIN_REQ_EXPIRE + rand($MAX_REQ_EXPIRE));
+	push(@{$extend{':time_expire'}}, $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER));
 	push(@{$extend{':to'}}, $to);
 	push(@{$extend{':dest'}}, $dest);
 	push(@{$extend{':fileid'}}, $file);
@@ -281,7 +312,7 @@ sub flush
     # Spread the re-activation time to avoid herding effects
     ($stmt, $rows) = &dbexec($dbh, qq{
 	update t_xfer_request
-	set state = 2, time_expire = :now + dbms_random.value(1,3)*3600
+	set state = 2, time_expire = :now + dbms_random.value(0,$EXPIRE_JITTER)
 	where state = 0 and :now >= time_expire},
 	":now" => $now);
     push @stats, ['expired requests deactivated', $rows];
@@ -447,7 +478,7 @@ sub prepare
 		update t_xfer_request
 	           set state = 0,
 	               attempt = attempt+1,
-	               time_expire = ? + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE)
+	               time_expire = ? + $MIN_REQ_EXPIRE + dbms_random.value(0,$EXPIRE_JITTER)
                  where destination = ? and fileid = ?
 	     });
 
@@ -508,7 +539,7 @@ sub prepare
 		 attempt, time_create, time_expire, is_custodial)
 		select
 		id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :now + dbms_random.value($MIN_REQ_EXPIRE,$MAX_REQ_EXPIRE), bd.is_custodial
+		0 state, 1 attempt, :now, :now + $MIN_REQ_EXPIRE + dbms_random.value(0,$EXPIRE_JITTER), bd.is_custodial
 		from t_xfer_file, t_dps_block_dest bd
 		where inblock = :block and inblock = bd.block and bd.destination = :node});
 		    
@@ -820,6 +851,21 @@ sub routeFiles
 	    where fileid = ? and to_node = ?},
 	    %uargs) if %uargs;
 	
+	# Get requests which have no source replicas, so that we take
+	# them out of the active state and throw a warning about them
+	my $q_nosrc = &dbexec($dbh, qq{
+	    select xq.destination, xq.fileid
+	      from t_xfer_request xq
+	     where xq.state = 0
+	       and xq.time_expire > :now
+	       and not exists (select 1 from t_xfer_replica xr
+			        where xr.fileid = xq.fileid)
+	   }, ":now" => $now);
+
+	while (my $row = $q_nosrc->fetchrow_hashref()) {
+	    push @failedreqs, $row;
+	}
+
 	# Mark requests which could not be routed invalid
 	my %fargs;
 	my %fstats;
@@ -828,7 +874,7 @@ sub routeFiles
 	    my ($state, $texpire);
 	    my $dest = $$req{DESTINATION};
 	    my $file = $$req{FILEID};
-	    if (keys %{$$req{REPLICAS}}) {
+	    if (defined $$req{REPLICAS} && keys %{$$req{REPLICAS}}) {
 		$fstats{$dest}{'no path to destination'}++;
 		$state = 3;
 	    } else {
@@ -849,7 +895,7 @@ sub routeFiles
 	$dbh->commit();
 
 	# Report routing statistics
-	if (%fstats && $$self->{VERBOSE}) {
+	if (%fstats && $$self{VERBOSE}) {
 	    foreach my $dest (sort keys %fstats) {
 		foreach my $reason (sort keys %{$fstats{$dest}}) {
 		    $self->Warn("failed to route ",
@@ -949,14 +995,14 @@ sub routeCost
 	    {
 		# The rate estimate we use is the link nominal rate if
 		# we have no performance data, where the nominal rate
-		# is 0.5 MB/s divided by the database link distance.
+		# (default 0.5 MB/s) is divided by the database link distance.
 		# If we have rate performance data and it shows the
 		# link to be reasonably healthy, use that information.
 		# If the link is unhealthy and we are probing after
 		# failed routing, use the nominal rate.  Otherwise use
 		# an "infinite" rate that will be cut-off by later
 		# route validation.
-		my $nominal = 0.5*MEGABYTE / $$links{$from}{$to}{HOPS};
+		my $nominal = $NOMINAL_RATE / $$links{$from}{$to}{HOPS};
 		my $latency = ($probe ? 0 : ($$links{$from}{$to}{XFER_LATENCY} || 0));
 		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
 			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
@@ -1080,15 +1126,19 @@ sub routeFile
 	    $$item{INDEX} = $index++;
 	    $$item{IS_VALID} = $valid;
 	    $$item{DESTINATION} = $$request{DESTINATION};
-	    $$item{PRIORITY} = $$request{PRIORITY};
+
+	    # Reinterpret priority.  This makes local transfers a
+	    # higher priority than WAN transfers.
+	    $$item{PRIORITY} = 2*$$request{PRIORITY} + (1-$$item{IS_LOCAL});
+
 	    $$item{TIME_REQUEST} = $$request{TIME_CREATE};
 	    # Note: It is important to have a large spread of
 	    # expiration times for invalid paths avoid
 	    # herding effects.  If the path is re-created to soon, we
 	    # expect the result will be the same anyway.
-	    # Default: 0.5 to 5.0 hours
+	    # Default: 0.7 to 3.7 hours
 	    $$item{TIME_EXPIRE} = ($valid ? $$request{TIME_EXPIRE}
-				   : $now+($MAX_REQ_EXPIRE + rand(9*$MAX_REQ_EXPIRE))/20); 
+				   : $now + $MIN_REQ_EXPIRE/10 + rand($EXPIRE_JITTER));
 	    push(@{$$request{PATH}}, $item);
 	    $node = $from;
 	}
@@ -1128,7 +1178,7 @@ sub stats
 	(time_update, destination, state, files, bytes, is_custodial, priority)
 	select :now, xq.destination, xq.state,
 	       count(xq.fileid), nvl(sum(f.filesize),0), xq.is_custodial,
-		xq.priority
+	       xq.priority
 	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
 	group by :now, xq.destination, xq.state, xq.is_custodial, xq.priority},
 	":now" => $now);
