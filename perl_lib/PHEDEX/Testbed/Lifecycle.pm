@@ -600,9 +600,10 @@ sub makeBlock
     $h->{DsetIsOpen}  = $ds->{IsOpen};
     $h->{BlockIsOpen} = $ds->{IsOpen};
     $h->{IsTransient} = $ds->{IsTransient};
-    $h->{_injections_left} = $ds->{InjectionsPerBlock};
     $h->{dataset} = $ds->{Name};
     $h->{block} = $ds->{Name} . "#$blockid";
+    $h->{_injections_left} = $ds->{InjectionsPerBlock};
+    if ( $h->{_injections_left} == 1 ) { $h->{BlockIsOpen} = 'n'; }
   }
 
   my $n = 0;
