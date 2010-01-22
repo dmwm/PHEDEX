@@ -12,9 +12,6 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::JobManager;
 
-#use Devel::Size; # XXX debug
-#use PHEDEX::Monitoring::Process; # XXX debug
-
 sub new
 {
     my $proto = shift;
@@ -46,15 +43,10 @@ sub new
 						VERBOSE	=> $self->{VERBOSE},
 						DEBUG	=> $self->{DEBUG},
 							);
-    
+
     # Handle signals
     $SIG{INT} = $SIG{TERM} = sub { $self->{SIGNALLED} = shift;
 				   $self->{JOBMANAGER}->killAllJobs() };
-
-    # Enhanced debugging! XXX
-    $self->{STATISTICS_INTERVAL} = 600;
-    &PHEDEX::Monitoring::Process::MonitorSize('JobManager', $self->{JOBMANAGER});
-    &PHEDEX::Monitoring::Process::MonitorSize('DBH', $self->{DBH});
 
     bless $self, $class;
     return $self;
@@ -76,8 +68,6 @@ sub init
 sub _poe_init
 {
     my ($self, $kernel, $session) = @_[ OBJECT, KERNEL, SESSION ];
-#    $session->option(trace => 1);  $|++; # XXX Debugging
-
     my @poe_subs = qw( sync_deletions );
     $kernel->state($_, $self) foreach @poe_subs;
 
@@ -101,10 +91,6 @@ sub sync_deletions
       $self->disconnectAgent();
   };
   $self->rollbackOnError();
-#  $self->Dbgmsg("sizeof(self)=",Devel::Size::total_size($self));
-#  $self->Dbgmsg("sizeof(JobManager)=",Devel::Size::total_size($self->{JOBMANAGER}));
-#  $self->Dbgmsg("sizeof(DBH)=",Devel::Size::total_size(\$self->{DBH}));
-#  &output ("$$self{DROPDIR}/".++$$self{DUMPSELF}, Dumper ($self)); # XXX DEBUG
 }
 
 # Get a list of files to delete and write them to our inbox
@@ -194,8 +180,7 @@ sub write_inbox
     return $dropdir;
 }
 
-# Iterate through all drops in the inbox and logically delete them,
-# then mark them as ready for processing
+# Iterate through all drops in the inbox and mark them as ready for processing
 sub logically_delete
 {
     my ($self) = @_;
@@ -206,9 +191,6 @@ sub logically_delete
 	my $file = $self->loadPacket($drop, $self->{INBOX}) ||
 	    do { $self->Alert("could not load packet in $dropdir"); next; };
 
-	# Try to logically delete the file
-	next unless $self->delete_replica($file);
-
 	# Mark the drop ready for processing
 	if (! &mv ("$dropdir/go.pending", "$dropdir/go")) {
 	    $self->Alert ("failed to mark drop $dropdir ready to go, deleting it");
@@ -218,63 +200,6 @@ sub logically_delete
 	$ndeleted++;
     }
     return $ndeleted;
-}
-
-# Delete a file.  We do one step at a time; if the step fails, we just
-# tell the caller to come back here again at a more opportune time.
-# The steps are ordered such that they are safe to execute several
-# times if we have to give for one reason or another.
-sub delete_replica
-{
-    my ($self, $file) = @_;
-    my $status = eval {
-	my $dbh = $self->connectAgent();
-	my @nodes = $self->expandNodes();
-
-	# Get Buffer Node if this is for an MSS node.  We will check
-	# transfers for the buffer node along with the MSS node, and
-	# delete replicas for the buffer node as well as the MSS node.
-	# We will only mark the deletion done for the MSS node
-	# however.
-	# TODO:  Make this feature naming-convention independent
-	my %node_binds = (':node1' => $$file{NODEID});
-	if ($$file{NODE} =~ /_MSS$/) {
-	    my $buffer = $$file{NODE};
-	    $buffer =~ s/_MSS$/_Buffer/;
-	    my ($buffer_id) = &dbexec($dbh, qq{ select id from t_adm_node where name = :buffer },
-				      ':buffer' => $buffer)->fetchrow();
-	    $node_binds{':node2'} = $buffer_id if $buffer_id;
-	}
-	my $node_list = join(',', keys %node_binds);
-	
-	# Make sure the file is still safe to delete.  More transfers
-	# out might have been created for this file while we were not
-	# minding this particular file (sleeping or deleting things).
-	my ($nxfer) = &dbexec($dbh, qq{
-	    select count(fileid) from t_xfer_task xt
- 	     where xt.from_node in ($node_list)
-	      and xt.fileid = :fileid },
-	    %node_binds,
-	    ":fileid" => $$file{FILEID})
-	    ->fetchrow();
-
-	if ($nxfer)
-	{
-	    $self->Warn ("not removing $$file{LFN}, $nxfer pending transfers");
-	    return 0;
-	}
-
-	# Now delete the replica entry to avoid new transfer edges.
-	&dbexec($dbh, qq{
-	    delete from t_xfer_replica where fileid = :fileid and node in ($node_list)},
-	    ":fileid" => $$file{FILEID}, %node_binds);
-
-	return 1; # exit eval
-    };
-    $self->rollbackOnError();
-
-    # Return status code to caller
-    return $status;
 }
 
 sub loadPacket
@@ -314,10 +239,28 @@ sub processDrop
     if (!(-f "$dropdir/queued" || -f "$dropdir/report")) {
 	$self->Dbgmsg("queuing drop $dropdir for lfn=$file->{LFN}") if $self->{DEBUG};
 	my $log = "$dropdir/log";
+#	my $job = { START	=> time,
+#		    FINISH	=> time,
+#		    STATUS_CODE => 0,
+#		    LOGFILE	=> '/dev/null'
+#		  };
+#	$self->deleteJob($drop, $job);
+
+# First, limit the JobManager to a finite number of jobs...
 	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($drop, @_) },
 		       { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
 		       (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 	&touch ("$dropdir/queued");
+	if ( $self->{JOBMANAGER}{JOB_COUNT} > 25000 &&
+	     $self->{JOBMANAGER}{KEEPALIVE} ) {
+$self->Logmsg('Allow jobmanager to stop after ',$self->{JOBMANAGER}{JOB_COUNT},' jobs');
+		$self->{JOBMANAGER}{KEEPALIVE} = 0;
+		$self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+						NJOBS	=> $self->{JOBS},
+						VERBOSE	=> $self->{VERBOSE},
+						DEBUG	=> $self->{DEBUG},
+						);
+	}
     }
 }
 
@@ -376,32 +319,36 @@ sub report_work_done
     my ($self) = @_;
     my $ndone = 0;
     my $npending = 0;
-    foreach my $drop ($self->readPending()) {
+    my $dbh = $self->connectAgent();
+    my (%args,$n);
+    my $sql = qq { update t_xfer_delete 
+			set time_complete = ?
+	      		where fileid = ? and node = ? };
+    foreach my $drop ( $self->readPending() ) {
 	$npending++;
 	my $dropdir = "$$self{WORKDIR}/$drop";
 	next unless -f "$dropdir/report"; # check for the report flag
 	my $file = $self->loadPacket($drop) || 
 	    do { $self->Alert("could not load packet in $dropdir"); next; };
 
-	# Report completition time to DB
-	eval {
-	    my $dbh = $self->connectAgent();
-	    my $time_complete = &input("$dropdir/time-done") || &mytimeofday();
-	    &dbexec($dbh, qq{
-		update t_xfer_delete 
-		    set time_complete = :time_complete
-		    where fileid = :fileid and node = :node },
-		    ":fileid" => $$file{FILEID},
-		    ":node" => $$file{NODEID},
-		    ":time_complete" => $time_complete );
-	};
-	$self->rollbackOnError() && next;
-	
-	# We are done with this drop
+	# Report completion time to DB
+	$n=1;
+	push(@{$args{$n++}}, &input("$dropdir/time-done") || &mytimeofday());
+	push(@{$args{$n++}}, $file->{FILEID});
+	push(@{$args{$n++}}, $file->{NODEID});
+
+	# We are done with these drops
 	$self->Dbgmsg("deleting drop $dropdir for lfn=$file->{LFN}") if $self->{DEBUG};
 	&touch ("$dropdir/done");
 	$self->relayDrop ($drop);
 	$ndone++;
+    }
+
+    if ( %args ) {
+      eval {
+        PHEDEX::Core::SQL::execute_sql( $dbh, $sql, %args );
+      };
+      $self->rollbackOnError();
     }
     return ($npending - $ndone, # number of pending jobs
 	    $ndone);            # number done, reported
