@@ -239,28 +239,22 @@ sub processDrop
     if (!(-f "$dropdir/queued" || -f "$dropdir/report")) {
 	$self->Dbgmsg("queuing drop $dropdir for lfn=$file->{LFN}") if $self->{DEBUG};
 	my $log = "$dropdir/log";
-#	my $job = { START	=> time,
-#		    FINISH	=> time,
-#		    STATUS_CODE => 0,
-#		    LOGFILE	=> '/dev/null'
-#		  };
-#	$self->deleteJob($drop, $job);
 
 # First, limit the JobManager to a finite number of jobs...
 	$self->{JOBMANAGER}->addJob( sub { $self->deleteJob ($drop, @_) },
 		       { TIMEOUT => $$self{TIMEOUT}, LOGFILE => $log },
 		       (@{$$self{CMD_RM}}, 'post', $$file{PFN}) );
 	&touch ("$dropdir/queued");
-	if ( $self->{JOBMANAGER}{JOB_COUNT} > 25000 &&
-	     $self->{JOBMANAGER}{KEEPALIVE} ) {
-$self->Logmsg('Allow jobmanager to stop after ',$self->{JOBMANAGER}{JOB_COUNT},' jobs');
-		$self->{JOBMANAGER}{KEEPALIVE} = 0;
-		$self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
-						NJOBS	=> $self->{JOBS},
-						VERBOSE	=> $self->{VERBOSE},
-						DEBUG	=> $self->{DEBUG},
-						);
-	}
+#	if ( $self->{JOBMANAGER}{JOB_COUNT} > 25000 &&
+#	     $self->{JOBMANAGER}{KEEPALIVE} ) {
+#$self->Logmsg('Allow jobmanager to stop after ',$self->{JOBMANAGER}{JOB_COUNT},' jobs');
+#		$self->{JOBMANAGER}{KEEPALIVE} = 0;
+#		$self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+#						NJOBS	=> $self->{JOBS},
+#						VERBOSE	=> $self->{VERBOSE},
+#						DEBUG	=> $self->{DEBUG},
+#						);
+#	}
     }
 }
 
