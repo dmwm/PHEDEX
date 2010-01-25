@@ -91,7 +91,6 @@ sub _jm_start
 sub _jm_stop
 {
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
-$DB::single=1;
   $self->Logmsg("stopping JobManager session (id=",$session->ID,")") if $self->{DEBUG};
 }
 
@@ -421,7 +420,6 @@ sub queue_drained
     &$callback() if $callback;
     $self->{_DOINGSOMETHING}--;
   }
-$DB::single=1;
 }
 
 sub jobsRemaining()
