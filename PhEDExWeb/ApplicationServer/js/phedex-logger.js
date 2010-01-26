@@ -66,6 +66,7 @@ PHEDEX.Logger = function() {
         var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.group');
         if ( cookie ) {
           for (var i in cookie) {
+            if ( i.match('_[0-9]+$') ) { next; }
             this.log2Server.group[i.toLowerCase()] = cookie[i] == 'true' ? true : false;
           }
         }
