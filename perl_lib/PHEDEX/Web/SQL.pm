@@ -97,7 +97,6 @@ sub getBlockReplicas
 	  join t_adm_node n on n.id = br.node
      left join t_adm_group g on g.id = br.user_group
 	 where (br.node_files != 0 or br.dest_files !=0)
-               and not n.name like 'X%' 
        };
 
     if (exists $h{COMPLETE}) {
@@ -192,8 +191,6 @@ sub getFileReplicas
     left join t_adm_node n on ((br.is_active = 'y' and n.id = xr.node) 
                             or (br.is_active = 'n' and n.id = br.node))
     where (br.node_files != 0 or br.dest_files != 0)
-            and not ns.name like 'X%'
-            and not n.name like 'X%' 
     };
 
     if (exists $h{COMPLETE}) {
