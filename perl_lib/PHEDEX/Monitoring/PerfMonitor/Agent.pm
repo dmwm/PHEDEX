@@ -53,10 +53,13 @@ sub idle
 	#   - This agent maintains the rest, but could rationalise
 	#     in particular with BlockMonitor and BlockAllocate
 
+	my @rv;
+	my @log;
+
 	# Summarise block destination status.
 	# FIXME: block destination -> subscriptions!?
 	&dbexec($dbh, qq{delete from t_status_block_dest});
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    insert into t_status_block_dest
 	    (time_update, destination, state, files, bytes, is_custodial)
 	    select :now, bd.destination, bd.state,
@@ -65,10 +68,11 @@ sub idle
 	      join t_dps_file f on f.inblock = bd.block
 	    group by :now, bd.destination, bd.state, bd.is_custodial},
 	    ":now" => $now);
+	push @log, [$rv[1]+0, "status_block_dest"];
 
 	# Summarise file origins.
 	&dbexec($dbh, qq{delete from t_status_file});
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    insert into t_status_file
 	    (time_update, node, files, bytes)
 	    select :now, br.node,
@@ -77,10 +81,11 @@ sub idle
 	    from t_dps_block_replica br
 	    group by :now, br.node},
 	    ":now" => $now);
+	push @log, [$rv[1]+0, "status_file"];
 
 	# Summarise node replicas
 	&dbexec($dbh, qq{delete from t_status_replica});
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    insert into t_status_replica
 	    (time_update, node, state, files, bytes, is_custodial)
 	    select :now, br.node, 0,
@@ -88,12 +93,13 @@ sub idle
 	    from t_dps_block_replica br
 	    group by br.node, br.is_custodial },
 	    ":now" => $now);
+	push @log, [$rv[1]+0, "status_replica"];
 
 	# Summarise missing files.  We cannot simply use
 	# t_status_block_dest - t_status_replica because information
 	# about which data is subscribed is lost
 	&dbexec($dbh, qq{delete from t_status_missing});
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    insert into t_status_missing
 	    (time_update, node, files, bytes, is_custodial)
 	    select :now, br.node,
@@ -104,13 +110,14 @@ sub idle
 	     where br.dest_files is not null and br.dest_files != 0
 	     group by br.node, br.is_custodial },
 	    ":now" => $now);
+	push @log, [$rv[1]+0, "status_missing"];
 
 	# Sumarize groups
 	# We only count data with a subscription to the node
 	# (dest_files not null), because that is the only data which
 	# could be allocated to a group
 	&dbexec($dbh, qq{delete from t_status_group});
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    insert into t_status_group
 	    (time_update, node, user_group,
 	     dest_files, dest_bytes, node_files, node_bytes)
@@ -121,13 +128,14 @@ sub idle
 	    where br.dest_files is not null and br.dest_files != 0
 	    group by br.node, br.user_group },
 	    ":now" => $now);
+	push @log, [$rv[1]+0, "status_group"];
 
 	# PART II
 
 	# Update statistics from the stats tables into the history.
 	# These are heart beat routines where we don't want to miss
 	# a bin in the time series histogram.
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_link_stats h using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      from_node, to_node, priority,
@@ -159,9 +167,10 @@ sub idle
 	              v.pend_files, v.pend_bytes, v.wait_files, v.wait_bytes,
 		      v.ready_files, v.ready_bytes, v.xfer_files, v.xfer_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_link_stats (tasks)"];
 
 	# Routing statistics.
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_link_stats h using
 	      (select :timebin timebin, :timewidth timewidth,
 	      	      from_node, to_node, priority, files, bytes
@@ -180,35 +189,48 @@ sub idle
 	      values (v.timebin, v.timewidth, v.from_node, v.to_node,
 		      v.priority, v.files, v.bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_link_stats (paths)"];
 
 	# Now "close" the link statistics.  This ensures at least one
 	# row of nulls for links which have previously had stats, and
 	# makes the link parameter calculation below pick up correct
 	# "empty" final state.
-	&dbexec($dbh, qq{
-	    insert into t_history_link_stats
-	    (timebin, timewidth, from_node, to_node, priority)
-	    select :timebin, :timewidth, from_node, to_node, priority
-	    from (select from_node, to_node, priority, max(timebin) prevbin
-	          from t_history_link_stats where timebin < :timebin
-		  group by from_node, to_node, priority) h
-	    where exists
-		(select 1 from t_history_link_stats hh
-		 where hh.from_node = h.from_node
-		   and hh.to_node = h.to_node
-		   and hh.priority = h.priority
-		   and hh.timebin = h.prevbin
-		   and hh.pend_bytes > 0)
-	      and not exists
-		(select 1 from t_history_link_stats hh
-		 where hh.from_node = h.from_node
-		   and hh.to_node = h.to_node
-		   and hh.priority = h.priority
-		   and hh.timebin > h.prevbin)},
-	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	@rv = &dbexec($dbh, qq{
+            insert into t_history_link_stats
+            (timebin, timewidth, from_node, to_node, priority)
+            select :timebin, :timewidth, h.from_node, h.to_node, h.priority
+            from 
+            (
+              -- a view representing the latest timebin before now
+              (select from_node, to_node, priority, max(timebin) timebin
+                 from t_history_link_stats
+                where timebin < :timebin
+                group by from_node, to_node, priority
+              ) prevbin
+              -- joined again with the history table in order to get the pend_bytes value
+              join t_history_link_stats h
+                   on  h.from_node = prevbin.from_node
+                   and h.to_node = prevbin.to_node
+                   and h.priority = prevbin.priority
+                   and h.timebin = prevbin.timebin
+              -- optionally joined with the current timebin
+              left join
+              (select from_node, to_node, priority, 1 testcol
+                 from t_history_link_stats
+                where timebin = :timebin
+                group by from_node, to_node, priority
+              ) currbin
+              on  prevbin.from_node = currbin.from_node
+              and prevbin.to_node = currbin.to_node
+              and prevbin.priority = currbin.priority
+            )
+            -- only those rows which had pend_bytes but do not have a current row
+            where h.pend_bytes > 0 and currbin.testcol is null }, 
+		":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_link_stats (closed)"];
 
 	# PART III: Node statistics.
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, destination,
 	              sum(files) files, sum(bytes) bytes,
@@ -225,8 +247,9 @@ sub idle
 	      insert (h.timebin, h.timewidth, h.node, h.dest_files, h.dest_bytes, h.cust_dest_files, h.cust_dest_bytes)
 	      values (v.timebin, v.timewidth, v.destination, v.files, v.bytes, v.cust_dest_files, v.cust_dest_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_dest (dest)"];
 
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, node, files, bytes
 	       from t_status_file) v
@@ -237,8 +260,9 @@ sub idle
 	      insert (h.timebin, h.timewidth, h.node, h.src_files, h.src_bytes)
 	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_dest (src)"];
 
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, node,
 	              sum(files) files, sum(bytes) bytes,
@@ -256,8 +280,9 @@ sub idle
 	      insert (h.timebin, h.timewidth, h.node, h.node_files, h.node_bytes, h.cust_node_files, h.cust_node_bytes)
 	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes, v.cust_node_files, v.cust_node_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_dest (node)"];
 
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_dest h using
 	      (select :timebin timebin, :timewidth timewidth, node,
 	              sum(files) files, sum(bytes) bytes,
@@ -275,11 +300,12 @@ sub idle
 	      insert (h.timebin, h.timewidth, h.node, h.miss_files, h.miss_bytes, h.cust_miss_files, h.cust_miss_bytes)
 	      values (v.timebin, v.timewidth, v.node, v.files, v.bytes, v.cust_miss_files, v.cust_miss_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_dest (miss)"];
 
 	# Update request statistics.  state = 0 is an active request.
 	# Any other state is an inactive request, and therefore the
 	# data is "idle"
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_history_dest h
 	    using
 	      (select :timebin timebin, :timewidth timewidth, destination,
@@ -301,6 +327,7 @@ sub idle
 	      	      v.request_files, v.request_bytes,
 	      	      v.idle_files, v.idle_bytes)},
 	    ":timebin" => $timebin, ":timewidth" => $timewidth);
+	push @log, [$rv[1]+0, "history_dest (request)"];
 
 	# Part V: Update link parameters.
 	# For each of three time periods, 2 hours, 12 hours, and 2
@@ -330,7 +357,7 @@ sub idle
 	&dbexec($dbh, qq{delete from t_adm_link_param});
         foreach my $span (2*3600, 12*3600, 2*86400)
 	{
-	    &dbexec($dbh, qq{
+	    @rv = &dbexec($dbh, qq{
                 merge into t_adm_link_param p using
 		  (select
                        from_node, to_node,
@@ -374,6 +401,7 @@ sub idle
 		  values (n.from_node, n.to_node, n.pend_bytes, n.done_bytes,
 			  n.try_bytes, n.time_span, :now)},
 	        ":period" => $timebin - $span, ":now" => $timebin);
+	    push @log, [$rv[1]+0, "link_param (span=$span)"];
 	}
 
 	# Now we add blank rows for any link which had no history in
@@ -381,7 +409,7 @@ sub idle
 	# t_adm_link_param to observe all existing links, but links
 	# with no recent activity will have all NULL values.
 
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    merge into t_adm_link_param p using
 	      (select from_node, to_node from t_adm_link) n
 	    on (p.from_node = n.from_node and p.to_node = n.to_node)
@@ -389,6 +417,7 @@ sub idle
 	      insert (from_node, to_node, time_update)
 	      values (n.from_node, n.to_node, :now)},
 	    ":now" => $timebin);
+	push @log, [$rv[1]+0, "link_param (blanks)"];
 
 	# Compute the rate and latency for every link which has some
 	# recent activity.  The rate is the transfer rate over the
@@ -418,7 +447,7 @@ sub idle
 	# >= 3600) or a transfer attempt before making this
 	# calculation.  This is to give the site agents a reasonable
 	# amount of time to find and attempt any pending tasks.
-	&dbexec($dbh, qq{
+	@rv = &dbexec($dbh, qq{
 	    update (select
 	    	      pend_bytes, xfer_rate, xfer_latency,
 		      case
@@ -439,9 +468,10 @@ sub idle
 		       then least(pend_bytes/rate,7*86400)
 		     else 7*86400
 		   end});
+	push @log, [$rv[1]+0, "link_param (rate)"];
 
 	# Log the history of the rate and latency we just calculated.
-        &dbexec($dbh, qq{
+        @rv = &dbexec($dbh, qq{
 	    update t_history_link_stats h
 	    set (param_rate, param_latency) =
 	      (select xfer_rate, xfer_latency
@@ -450,8 +480,10 @@ sub idle
 	         and p.to_node = h.to_node)
 	    where timebin = :timebin},
  	    ":timebin" => $timebin);
+	push @log, [$rv[1]+0, "history_link_stats (rate)"];
 
 	$dbh->commit();
+	$self->Logmsg("updated: ".join(", ", map { "$$_[0] $$_[1]" } @log));
 
 	# Part VI: Compact old time series data to be in per-hour instead
 	# of per-5-minute bins.  We do this only rarely to avoid loading
@@ -477,12 +509,15 @@ sub idle
 sub compactUpdate
 {
     my ($self, $dbh, $limit, $table, $stats, $primary) = @_;
-    &dbexec($dbh, qq{
+    my (@rv, @log);
+    @rv = &dbexec($dbh, qq{
 	delete from $table
 	where timebin < :old and timewidth = 300},
 	":old" => $limit);
+    push @log, [$rv[1]+0, "deleted"];
 
     my $i = undef;
+    my $rv_total = 0;
     foreach my $data (values %$stats)
     {
 	if (! defined $i)
@@ -502,8 +537,10 @@ sub compactUpdate
 		      . join(",", map { "e.$_" } @keys) . ")";
 	    $i = &dbprep($dbh, $sql);
 	}
-	&dbbindexec($i, map { (":$_" => $$data{$_}) } keys %$data);
+	$rv_total += &dbbindexec($i, map { (":$_" => $$data{$_}) } keys %$data);
     }
+    push @log, [$rv_total, "merged"];
+    $self->Logmsg("compacted $table: ".join(", ", map { "$$_[0] $$_[1]" } @log));
 }
 
 sub compactLinkData
