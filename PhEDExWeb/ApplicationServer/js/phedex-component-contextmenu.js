@@ -192,7 +192,7 @@ PHEDEX.Component.ContextMenu.items={};
  * Add an item for use in contextmenus.
  * @method Add
  * @static
- * @param name {string} name(-space) to add the handler to. E.g. 'dataTable' for something common to all datatable modules
+ * @param name {string} name(-space) to add the handler to. E.g. 'datatable' for something common to all datatable modules
  * @param label {string} the text that will be used to label this entry in the context-menu
  * @param callback {function} the function that will be invoked when this menu-item is selected. Takes two arguments, <strong>opts</strong> is an object containing information about the specific data-element that was selected (i.e. in 'phedex data-space'), and <strong>el</strong> contains information about the YUI widget-element that was selected (DataTable, TreeView). See the specific PHEDEX.DataTable.ContextMenu and PHEDEX.TreeView.ContextMenu classes for details.
  */
