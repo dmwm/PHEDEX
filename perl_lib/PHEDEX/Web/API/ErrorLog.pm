@@ -82,9 +82,48 @@ Full text of the transfer log, the detail log, and the validate log.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
 
 sub duration { return 60 * 60; }
 sub invoke { return errorlog(@_); }
+
+my $map = {
+    _KEY => 'FROM+TO',
+    from => 'FROM',
+    to => 'TO',
+    from_id => 'FROM_ID',
+    to_id => 'TO_ID',
+    from_se => 'FROM_SE',
+    to_se => 'TO_SE',
+    block => {
+        _KEY => 'BLOCK_ID',
+        name => 'BLOCK_NAME',
+        id => 'BLOCK_ID',
+        file => {
+            _KEY => 'FILE_ID',
+            name => 'FILE_NAME',
+            id => 'FILE_ID',
+            checksum => 'CHECKSUM',
+            size => 'SIZE',
+            transfer_error => {
+                _KEY => 'TIME_ASSIGN',
+                report_code => 'REPORT_CODE',
+                transfer_code => 'TRANSFER_CODE',
+                time_assign => 'TIME_ASSIGN',
+                time_export => 'TIME_EXPORT',
+                time_inxfer => 'TIME_INXFER',
+                time_xfer => 'TIME_XFER',
+                time_done => 'TIME_DONE',
+                from_pfn => 'FROM_PFN',
+                to_pfn => 'TO_PFN',
+                space_token => 'SPACE_TOKEN',
+                transfer_log => 'LOG_XFER',
+                detail_log => 'LOG_DETAIL',
+                validate_log => 'LOG_VALIDATE'
+            }
+        }
+    }
+};
 
 sub errorlog
 {
@@ -103,7 +142,7 @@ sub errorlog
     }
 
     my $r = PHEDEX::Web::SQL::getErrorLog($core, %h);
-    return { link => $r };
+    return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
 1;
