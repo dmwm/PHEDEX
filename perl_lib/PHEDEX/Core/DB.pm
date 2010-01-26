@@ -77,9 +77,9 @@ sub parseDatabaseInfo
 	} elsif (/^LogConnection (on|off)$/) {
 	    $self->{DBH_LOGGING} = ($1 eq 'on') if $insection;
 	} elsif (/^LogSQL (on|off)$/) {
-	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection;
+	    $ENV{PHEDEX_LOG_SQL} = ($1 eq 'on') if $insection && !exists $ENV{PHEDEX_LOG_SQL};
 	} elsif (/^SimDBFail (\S+)$/) {
-	    $ENV{PHEDEX_SIM_DB_FAIL} = $1 if $insection;
+	    $ENV{PHEDEX_SIM_DB_FAIL} = $1 if $insection && !exists $ENV{PHEDEX_SIM_DB_FAIL};
 	} elsif (/^SessionSQL (.*)$/) {
 	    push(@{$self->{DBH_SESSION_SQL}}, $1);
 	} elsif (/^SchemaPrefix (.*)$/) {
@@ -272,26 +272,32 @@ sub dbprep
   die $@;
 }
 
-# Simple utility to prepare, bind and execute a SQL statement.
+# Simple utility to prepare, bind and execute a SQL statement.  In
+# list context returns the statement handle executed, the return value
+# of the execution, and the duration the execution took.  In scalar
+# context returns only the statement handle.
 sub dbexec
 {
   my ($dbh, $sql, %params) = @_;
   my $stmt = &dbprep ($dbh, $sql);
-  my $rv = &dbbindexec ($stmt, %params);
-  return wantarray ? ($stmt, $rv) : $stmt;
+  my ($rv, $dt) = &dbbindexec ($stmt, %params);
+  return wantarray ? ($stmt, $rv, $dt) : $stmt;
 }
 
-# Simple bind and execute a SQL statement.
+# Simple bind and execute a SQL statement.  In list context returns
+# the return value of the execution and the duration the execution took.
+# In scalar context returns only return value of the execution.
 sub dbbindexec
 {
   my ($stmt, %params) = @_;
+  my $t1 = &mytimeofday();
 
   if ($ENV{PHEDEX_LOG_SQL})
   {
     my $sql = $stmt->{Statement};
     $sql =~ s/\s+/ /g; $sql =~ s/^\s+//; $sql =~ s/\s+$//;
     my $bound = join (", ", map { "($_, " . (defined $params{$_} ? $params{$_} : "undef") . ")" } sort keys %params);
-      print PHEDEX::Core::Logging::Hdr,"executing statement `$sql' [$bound]\n";
+    print PHEDEX::Core::Logging::Hdr,"executing statement `$sql' [$bound]";
   }
 
   my $isarray = 0;
@@ -323,7 +329,18 @@ sub dbbindexec
 	    ? $stmt->execute_array({ ArrayTupleResult => [] })
 	    : $stmt->execute();
   };
-  return $rv if ! $@;
+  my $dt = &mytimeofday() - $t1;
+
+  if ($ENV{PHEDEX_LOG_SQL})
+  {
+      print " dt=",sprintf("%0.5f",$dt),"\n";
+  }
+
+  if (! $@ ) {
+      return wantarray ? ($rv, $dt) : $rv;
+  }
+
+  print "\n" if ($ENV{PHEDEX_LOG_SQL}); # finish log line if exectue failed
 
   # Flag handle bad on disconnected oracle handle
   $stmt->{Database}{private_phedex_invalid} = 1
