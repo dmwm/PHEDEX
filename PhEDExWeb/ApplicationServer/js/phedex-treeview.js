@@ -8,8 +8,16 @@
  */
 PHEDEX.TreeView = function(sandbox,string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
-  var _me  = 'TreeView',
+  var _me  = 'treeview',
       _sbx = sandbox;
+
+  /**
+   * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
+   * @method _construct
+   * @private
+   */
+  _construct = function() {
+    return {
 
 /**
  * An object containing metadata that describes the treeview internals. Used as a convenience to keep from polluting the namespace too much with public variables that the end-module does not need.
@@ -19,19 +27,12 @@ PHEDEX.TreeView = function(sandbox,string) {
  */
 /**
  * An array mapping DOM element-iDs to treeview-branches, for use in mouse-over handlers etc
- * @property _cfg.textNodeMap
+ * @property textNodeMap
  * @type array
  * @private
  */
-      _cfg = { textNodeMap:[], headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{} };
+      _cfg: { textNodeMap:[], headerNames:{}, contextArgs:[], sortFields:{} },
 
-  /**
-   * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
-   * @method _construct
-   * @private
-   */
-  _construct = function() {
-    return {
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
  * @property type
@@ -165,40 +166,40 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
         var el = PxU.makeNode(spec,values);
         var tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
-        _cfg.textNodeMap[tNode.labelElId] = tNode;
+        this._cfg.textNodeMap[tNode.labelElId] = tNode;
         tNode.data.values = values;
         tNode.data.spec   = spec;
         if ( spec.payload ) { tNode.payload = spec.payload; }
+        if ( !this.meta.defhide ) { this.meta.defhide = {}; }
         if ( isHeader ) {
           for (var i in spec.format) {
-            var className = spec.format[i].className;
-            var value;
+            var f = spec.format[i],
+                className = f.className,
+                value;
             if ( values ) { value = values[i]; }
-            else { value = spec.format[i].text; }
+            else { value = f.text; }
             if ( spec.name ) { value = spec.name+': '+value; }
-            if ( _cfg.headerNames[className] ) {
-              log('duplicate entry for '+className+': "'+_cfg.headerNames[className].value+'" and "'+value+'"','error','Core.TreeView');
+            if ( this._cfg.headerNames[className] ) {
+              log('duplicate entry for '+className+': "'+this._cfg.headerNames[className].value+'" and "'+value+'"','error','treeview');
             } else {
-              _cfg.headerNames[className] = {value:value, group:spec.name};
-              _cfg.sortFields[spec.name] = {};
+              this._cfg.headerNames[className] = {value:value, group:spec.name};
+              this._cfg.sortFields[spec.name] = {};
               if ( spec.format[i].contextArgs )
               {
-                _cfg.contextArgs[className]=[];
-                if ( typeof(spec.format[i].contextArgs) == 'string' ) {
-                  _cfg.contextArgs[className].push(spec.format[i].contextArgs);
+                this._cfg.contextArgs[className]=[];
+                if ( typeof(f.contextArgs) == 'string' ) {
+                  this._cfg.contextArgs[className].push(f.contextArgs);
                 } else {
-                  for (var j in spec.format[i].contextArgs) {
-                    _cfg.contextArgs[className].push(spec.format[i].contextArgs[j]);
+                  for (var j in f.contextArgs) {
+                    this._cfg.contextArgs[className].push(f.contextArgs[j]);
                   }
                 }
               }
             }
-          }
-        }
-        for (var i in spec.format) {
-          if ( spec.format[i].hideByDefault )
-          {
-            _cfg.hideByDefault[spec.format[i].className]=1;
+
+            if ( f.hideByDefault ) {
+              this.meta.defhide[className] = 1;
+            }
           }
         }
         return tNode;
@@ -212,170 +213,149 @@ PHEDEX.TreeView = function(sandbox,string) {
         while (i = this.tree.root.children[0]) { this.tree.removeNode(i); }
       },
 
-// // A split-button and menu for the show-all-fields function. Use a separate span for this so I can insert other stuff before it, easily, in the derived widgets.
-//   that.column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence());
-//   var aSpan = document.createElement('span');
-//   that.dom.param.appendChild(aSpan);
-//   that.showFields = new YAHOO.widget.Button(
-//     {
-//       type: "split",
-//       label: "Show all fields",
-//       name: 'showFields_'+PHEDEX.Util.Sequence(),
-//       menu: that.column_menu,
-//       container: aSpan,
-//       disabled:true
-//     }
-//   );
-// // event-handlers for driving the split button
-//   that.showFields.on("click", function () {
-//     var m = that.column_menu.getItems();
-//     for (var i = 0; i < m.length; i++) {
-//       YuD.getElementsByClassName(m[i].value,null,that.div,function(element) {
-// 	element.style.display = null;
-//       });
-//     }
-//     that.column_menu.clearContent();
-//     that.refreshButton();
-//     that.resizePanel(that.tree);
-//   });
-//   that.showFields.on("appendTo", function () {
-//     var m = this.getMenu();
-//     m.subscribe("click", function onMenuClick(sType, oArgs) {
-//       var oMenuItem = oArgs[1];
-//       if (oMenuItem) {
-// 	YuD.getElementsByClassName(oMenuItem.value,null,that.div,function(element) {
-// 	  element.style.display = null;
-// 	});
-//         m.removeItem(oMenuItem.index);
-//       }
-//       that.refreshButton();
-//       that.resizePanel(that.tree);
-//     });
-//   });
-// 
-// // update the 'Show all columns' button state
-//   that.refreshButton = function() {
-//     try {
-//       that.column_menu.render(document.body);
-//       that.showFields.set('disabled', that.column_menu.getItems().length === 0);
-//     } catch(e) {};
-//   };
-// 
-// // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
-//   that.onContextMenuBeforeShow=function(p_sType, p_aArgs) {
-//     var oTarget = this.contextEventTarget,
-//       aMenuItems = [],
-//       aClasses;
-//     if (this.getRoot() != this) { return; } // Not sure what this means, but YUI use it in their examples!
-//     var tgt = that.locateNode(this.contextEventTarget);
-//     if ( ! tgt ) { return; }
-//     var isHeader;
-//     if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
-//     else if ( YuD.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
-//     else    { return; }
-// 
-// //  Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
-//     aClasses = tgt.className.split(" ");
-// 
-// //  Highlight the <tr> element in the table that was the target of the "contextmenu" event.
-//     YuD.addClass(tgt, "phedex-core-selected");
-//     var label = tgt.textContent;
-//     var payload = {};
-// 
-//     PHEDEX.Core.ContextMenu.Clear(this);
-//     var treeMatch = /^phedex-tree-/;
-//     for (var i in aClasses) {
-//       if ( aClasses[i].match(treeMatch) ) {
-// 	log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
-// 	if ( !isHeader && that._cfg.contextArgs[aClasses[i]] ) {
-// 	  for(var j in that._cfg.contextArgs[aClasses[i]]) {
-// 	    aMenuItems[aMenuItems.length] = that._cfg.contextArgs[aClasses[i]][j];
-// 	  }
-// 	}
-//       }
-//     }
-//     if ( aMenuItems.length ) { PHEDEX.Core.ContextMenu.Build(this,aMenuItems); }
-//     PHEDEX.Core.ContextMenu.Build(this,that.contextMenuArgs);
-//     this.render();
-//   }
-// 
-//   that.onContextMenuHide= function(p_sType, p_aArgs) {
-//     var tgt = that.locateNode(this.contextEventTarget);
-//     if (this.getRoot() == this && tgt ) {
-//       YuD.removeClass(tgt, "phedex-core-selected");
-//     }
-//   }
-// 
-// // Create a context menu, with default entries for treeView widgets
-//   that.buildContextMenu=function(typeMap) {
-//     that.contextMenuArgs=[];
-//     that.contextMenuArgs.push('treeView');
-//     that.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:that.dom.content});
-//     that.contextMenu.subscribe("beforeShow", that.onContextMenuBeforeShow);
-//     that.contextMenu.subscribe("hide",       that.onContextMenuHide);
-//   }
-// 
-//   that.onContextMenuClick = function(p_sType, p_aArgs, p_TreeView) {
-// //  Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
-//     log('ContextMenuClick for '+that.me(),'info','Core.TreeView');
-//     var oTarget = this.contextEventTarget,
-// 	oCurrentTextNode;
-//     var oTextNode = YuD.hasClass(oTarget, "ygtvlabel") ?
-// 	oTarget : YuD.getAncestorByClassName(oTarget, "ygtvlabel");
-// 
-//     if (oTextNode) {
-//       oCurrentTextNode = that.textNodeMap[oTextNode.id];
-//     }
-//     else {
-//       this.cancel();
-//       return;
-//     }
-//     if ( oCurrentTextNode )
-//     {
-//       var label = p_aArgs[0].explicitOriginalTarget.textContent;
-//       var task = p_aArgs[1];
-//       var args = {}, opts = {};
-//       if ( oCurrentTextNode.payload )	{
-// 	args = oCurrentTextNode.payload.args;
-// 	opts = oCurrentTextNode.payload.opts;
-//       }
-//       log('ContextMenu: '+'"'+label+'" for '+that.me()+' ('+opts.selected_node+')','info','Core.TreeView');
-//       if (task) {
-//         this.activeItem.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:that});
-//       }
-//     }
-//   }
-//   PHEDEX.Core.ContextMenu.Add('treeView','Hide This Field', function(opts,el) {
-//     var elPhedex = that.locateNode(el.target);
-//     var elClass = that.getPhedexFieldClass(elPhedex);
-//     that.hideFieldByClass(elClass);
-//   });
+      menuSelectItem: function(arg) {
+        YuD.getElementsByClassName(arg,null,this.el,function(element) {
+          element.style.display = null;
+        });
+      },
 
       hideFieldByClass: function(className) {
-debugger;
-        log('hideFieldByClass: '+className,'info','Core.TreeView');
+        log('hideFieldByClass: '+className,'info','treeview');
         YuD.getElementsByClassName(className,null,this.el,function(element) {
           element.style.display = 'none';
         });
-        this.column_menu.addItem({text: this._cfg.headerNames[className].value,value: className});
-        this.refreshButton();
+        _sbx.notify(this.id,'hideColumn',{text: this._cfg.headerNames[className].value, value:className});
       },
-      hideAllFieldsThatShouldBeHidden: function() {
-debugger;
-        var m = this.column_menu.getItems();
-        for (var i = 0; i < m.length; i++) {
-          YuD.getElementsByClassName(m[i].value,null,this.el,function(element) {
-            element.style.display = 'none';
-          });
+
+      /**
+      * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.defHide</strong> to determine what to hide.
+      * @method hideByDefault
+      */
+      hideByDefault: function() {
+        if ( this.meta.defhide ) {
+          for (var i in this.meta.defhide) {
+            this.hideFieldByClass(i);
+          }
         }
       },
+
+      hideAllFieldsThatShouldBeHidden: function() {
+debugger;
+//         var m = this.column_menu.getItems();
+//         for (var i = 0; i < m.length; i++) {
+//           YuD.getElementsByClassName(m[i].value,null,this.el,function(element) {
+//             element.style.display = 'none';
+//           });
+//         }
+      }
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
   return this;
 }
 
+PHEDEX.TreeView.ContextMenu = function(obj,args) {
+    var p = args.payload;
+    if ( !p.config ) { p.config={}; }
+    if ( !p.typeNames ) { p.typeNames=[]; }
+    p.typeNames.push('treeview');
+    if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
+    PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', function(opts,el) {
+      var elPhedex = obj.locateNode(el.target);
+      var elClass = obj.getPhedexFieldClass(elPhedex);
+      obj.meta.defhide[elClass] = 1;
+      obj.hideFieldByClass(elClass);
+    });
+
+    return {
+// Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
+      onContextMenuBeforeShow: function(p_sType, p_aArgs) {
+debugger;
+        var oTarget = this.contextEventTarget,
+          aMenuItems = [],
+          aClasses;
+        if (this.getRoot() != this) { return; } // Not sure what this means, but YUI use it in their examples!
+        var tgt = obj.locateNode(this.contextEventTarget),
+            isHeader, treeMatch, label,
+            payload = {};
+        if ( ! tgt ) { return; }
+        if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
+        else if ( YuD.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
+        else    { return; }
+
+//      Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+        aClasses = tgt.className.split(" ");
+
+//      Highlight the <tr> element in the table that was the target of the "contextmenu" event.
+        YuD.addClass(tgt, "phedex-core-selected");
+        label = tgt.textContent;
+
+        PHEDEX.Core.ContextMenu.Clear(this);
+        treeMatch = /^phedex-tree-/;
+        for (var i in aClasses) {
+          if ( aClasses[i].match(treeMatch) ) {
+          log('found '+aClasses[i]+' to key new menu entries','info','Core.TreeView');
+          if ( !isHeader && obj._cfg.contextArgs[aClasses[i]] ) {
+            for(var j in obj._cfg.contextArgs[aClasses[i]]) {
+              aMenuItems[aMenuItems.length] = obj._cfg.contextArgs[aClasses[i]][j];
+            }
+          }
+        }
+      }
+      if ( aMenuItems.length ) { PHEDEX.Component.ContextMenu.Build(this,aMenuItems); }
+      PHEDEX.Component.ContextMenu.Build(this,obj.contextMenuArgs);
+      this.render();
+    },
+
+    onContextMenuHide: function(p_sType, p_aArgs) {
+debugger;
+      var tgt = obj.locateNode(this.contextEventTarget);
+      if (this.getRoot() == this && tgt ) {
+        YuD.removeClass(tgt, "phedex-core-selected");
+      }
+    },
+
+// Create a context menu, with default entries for treeView widgets
+    buildContextMenu: function(typeMap) {
+debugger;
+      obj.contextMenuArgs=[];
+      obj.contextMenuArgs.push('treeview');
+      obj.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:obj.dom.content});
+      obj.contextMenu.subscribe("beforeShow", obj.onContextMenuBeforeShow);
+      obj.contextMenu.subscribe("hide",       obj.onContextMenuHide);
+    },
+
+    onContextMenuClick: function(p_sType, p_aArgs, p_TreeView) {
+//    Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
+      log('ContextMenuClick for '+obj.me,'info','treeview');
+      var oTarget = this.contextEventTarget,
+          oCurrentTextNode,
+          oTextNode = YuD.hasClass(oTarget, "ygtvlabel") ? oTarget : YuD.getAncestorByClassName(oTarget, "ygtvlabel");
+
+      if (oTextNode) {
+        oCurrentTextNode = obj._cfg.textNodeMap[oTextNode.id];
+      } else {
+        this.cancel();
+        return;
+      }
+      if ( oCurrentTextNode )
+      {
+        var label = p_aArgs[0].explicitOriginalTarget.textContent,
+            task = p_aArgs[1],
+            args = {}, opts = {};
+        if ( oCurrentTextNode.payload )        {
+          args = oCurrentTextNode.payload.args;
+          opts = oCurrentTextNode.payload.opts;
+        }
+        log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
+        if (task) {
+          task.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:obj});
+        }
+      }
+    }
 //   that.onPopulateComplete.subscribe( that.hideAllFieldsThatShouldBeHidden );
+  };
+}
 
 //   that.onUpdateBegin.subscribe(function() {
 //     var node;
