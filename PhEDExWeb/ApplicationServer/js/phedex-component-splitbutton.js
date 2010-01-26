@@ -50,6 +50,10 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
  * @param args {array} array of arguments. The first item in the array must be an object with <strong>text</strong> and <strong>value</strong> fields, which are passed to the menu <strong>addItem</strong> function.
  */
        addMenuItem: function(args) {
+         var m = column_menu.getItems();
+         for (var i = 0; i < m.length; i++) {
+           if ( m[i].value == args[0].value ) { return; }
+         }
          column_menu.addItem({text:args[0].text, value:args[0].value});
          this.refreshButton();
        },
@@ -103,20 +107,18 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
           }
         }(this));
 
-//         var selfHandler = function(obj) {
-//           return function(ev,arr) {
-//             var action = arr[0],
-//                 value = arr[1];
-//             switch (action) {
-//               default: { log('unhandled event: '+action,'warn',me); break; }
-//             }
-//           }
-//         }(this);
-//         _sbx.listen(this.id,selfHandler);
-
         var moduleHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0];
+            switch ( action ) {
+              case 'gotData': {
+                var m = column_menu.getItems();
+                for (var i = 0; i < m.length; i++) {
+                  _sbx.notify(partner,'menuSelectItems',m[i].value);
+                }
+                return;
+              }
+            }
             if ( action && obj.payload.map[action] ) {
               arr.shift();
               obj[obj.payload.map[action]](arr);
