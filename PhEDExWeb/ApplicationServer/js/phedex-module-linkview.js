@@ -45,6 +45,23 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           }
         },
         {
+          name: 'ContextMenu',
+          source:'component-contextmenu',
+//           payload:{ }
+        },
+        {
+          name: 'cMenuButton',
+          source:'component-splitbutton',
+          payload:{
+            name:'Show all fields',
+            map: {
+              hideColumn:'addMenuItem',
+            },
+            onInit: 'hideByDefault',
+            container: 'buttons',
+          },
+        },
+        {
           name: 'TimeSelect',
           source: 'component-menu',
           payload:{
@@ -287,9 +304,10 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           else
           {
             var errstr = 'No action specified for handling callback data for "'+p.callback+'"';
-            log(errstr,'error','LinkView');
+            log(errstr,'error','linkview');
             throw new Error(errstr);
           }
+          _sbx.notify(obj.id,'hideByDefault');
         } catch(e) {
           log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','linkview');
           var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
@@ -320,7 +338,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 //     var onSelectedMenuItemChange = function (event) {
 //       var oMenuItem = event.newValue;
 //       var text = oMenuItem.cfg.getProperty("text");
-//       log('onSelectedMenuItemChange: new value: '+text,'info','LinkView');
+//       log('onSelectedMenuItemChange: new value: '+text,'info','linkview');
 //       this.set("label", text);
 //     };
 //     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
