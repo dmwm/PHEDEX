@@ -234,10 +234,11 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.config ) { p.config={}; }
     if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
     if ( !p.typeNames ) { p.typeNames=[]; }
-    p.typeNames.push('dataTable');
-    PHEDEX.Component.ContextMenu.Add('dataTable','Hide This Field',function(opts, el) {
-    log('hideField: ' + el.col.key, 'info', 'ContextMenu');
-    el.table.hideColumn(el.col);});
+    p.typeNames.push('datatable');
+    PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',function(opts, el) {
+      log('hideField: ' + el.col.key, 'info', 'ContextMenu');
+      el.table.hideColumn(el.col);
+    });
 
     return {
         /**
