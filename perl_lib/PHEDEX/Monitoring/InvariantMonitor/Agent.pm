@@ -48,7 +48,7 @@ sub idle
 	});
 	my ($broken_count) = $q->fetchrow();
 	if ($broken_count != 0) {
-	    $self->Logmsg ("$broken_count broken paths.");
+	    $self->Alert("$broken_count broken paths.");
 	}
 
 	# II:  Unfinished blocks
@@ -62,7 +62,7 @@ sub idle
 	 });
 	my ($not_done_count) = $q->fetchrow();
 	if ($not_done_count != 0) {
-	    $self->Logmsg("$not_done_count blocks marked done with files still to transfer");
+	    $self->Alert("$not_done_count blocks marked done with files still to transfer");
 	}
 
 	# III:  Activate (transfer) blocks not active
@@ -78,7 +78,7 @@ sub idle
 	
 	my ($bad_active_count) = $q->fetchrow();
 	if ($bad_active_count != 0) {
-	    $self->Logmsg("$bad_active_count files not active from an active block");
+	    $self->Alert("$bad_active_count files not active from an active block");
 	}
 
 	# IV:  Deactivated (collapsed) blocks have active files
@@ -92,7 +92,7 @@ sub idle
 	
 	my ($bad_inactive_count) = $q->fetchrow();
 	if ($bad_inactive_count != 0) {
-	    $self->Logmsg("$bad_inactive_count files active from inactive blocks");
+	    $self->Alert("$bad_inactive_count files active from inactive blocks");
 	}
 
         # V:  Activate (expanded) blocks have no active files
@@ -106,7 +106,7 @@ sub idle
 	
 	my ($bad_active_exp_count) = $q->fetchrow();
 	if ($bad_active_exp_count != 0) {
-	    $self->Logmsg("$bad_active_exp_count active blocks with no active files");
+	    $self->Alert("$bad_active_exp_count active blocks with no active files");
 	}
 
 
