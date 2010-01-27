@@ -364,28 +364,23 @@ sub idle
                        nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes,
                        sum(done_bytes) done_bytes,
                        sum(try_bytes) try_bytes,
-                       count(distinct case
-                             when timewidth=300
-                               and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
-                             then timebin end)*300
-                       + count(distinct case
-                               when timewidth=3600
-                                 and (pend_bytes > 0 or done_bytes > 0 or try_bytes > 0)
-                               then timebin end)*3600 time_span
+		       sum(decode(has_data,1,timewidth,0)) time_span
                    from (select nvl(hs.from_node,he.from_node) from_node,
                                 nvl(hs.to_node,he.to_node) to_node,
                                 nvl(hs.timebin,he.timebin) timebin,
                                 nvl(hs.timewidth,he.timewidth) timewidth,
-                                hs.pend_bytes, he.done_bytes, he.try_bytes
+                                hs.pend_bytes, he.done_bytes, he.try_bytes,
+                                sign(nvl(hs.pend_bytes,0) +
+                                     nvl(he.done_bytes,0) +
+                                     nvl(he.try_bytes,0)) has_data
                          from t_history_link_stats hs
                            full join t_history_link_events he
                              on he.timebin = hs.timebin
                              and he.from_node = hs.from_node
                              and he.to_node = hs.to_node
                              and he.priority = hs.priority
-                         where hs.timebin > :period
-                           and he.timebin > :period)
-                   group by from_node, to_node) n
+                       where nvl(hs.timebin,he.timebin) > :period 
+                        ) group by from_node, to_node) n
                 on (p.from_node = n.from_node and p.to_node = n.to_node)
 		when matched then
 		  update set p.pend_bytes = n.pend_bytes,
