@@ -223,42 +223,15 @@ sub flush
 	  where n <= $N_SLOW_VALIDATE)});
     push @stats, ['invalid paths validated', $rows];
 
-    # Clear old paths and those missing an active request.
-    # Clear invalid expired paths.
-    # Clear valid paths, that expired more than 8 hours ago.
-    # Ensure paths are not broken in the proccess.
-    ($stmt, $rows) = &dbexec($dbh, qq{
-	    delete from t_xfer_path xp where (xp.fileid, xp.src_node, xp.destination) in (
-	      select fileid, src_node, destination from (
-		select ixp.fileid, ixp.src_node, ixp.destination,
-		       count(*) total,
-		  sum (case
-		       when xq.fileid is null or xq.state != 0 then 1 --request is invalid
-		       when ixp.is_valid = 1
-			    and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
-		       when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
-		       else 0
-		       end) delete_path
-		from t_xfer_path ixp
-		left join t_xfer_request xq
-		     on xq.fileid = ixp.fileid and xq.destination = ixp.destination
-	       group by ixp.fileid, ixp.src_node, ixp.destination
-	      ) where delete_path != 0 -- any path segment invalid, delete
-	    ) }, ":now" => $now, ":now" => $now);
-    push @stats, ['invalid paths deleted', $rows];
-    do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
-
-    # Set the path go again for issuer.
-    ($stmt, $rows) = &dbexec($dbh, qq{ delete from t_xfer_exclude });
-    push @stats, ['exclusions deleted', $rows];
-    $ndel += $rows;
-    $dbh->commit() if $ndel;
-
     # If transfers path are about to expire on links which have
-    # reasonable recent transfer rate (better than the nominal rate),
+    # reasonable recent transfer rate (better than the nominal rate,
+    # default 0.5 MB/s), and the caluclated latency is still within
+    # limits (better than the allowed latency, default 3 days), then
     # give a bit more grace time.  Be sure to extend the entire path
     # from src_node to destination so that paths are not broken on
-    # cleanup.  Ignore local links.
+    # cleanup.  Ignore local links so that fast local links do not
+    # result in slow WAN links on the same path from being unduly
+    # extended.
     my %extend;
     my $qextend = &dbexec($dbh, qq{
 	select xp.fileid, xp.destination, xp.from_node, xp.to_node
@@ -271,8 +244,9 @@ sub flush
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
           and l.is_local = 'n'
-	  and lp.xfer_rate >= $NOMINAL_RATE },
-	":now" => $now);
+	  and lp.xfer_rate >= $NOMINAL_RATE
+	  and lp.xfer_latency <= $LATENCY_THRESHOLD
+     },	":now" => $now);
 
     while (my ($file, $dest, $from, $to) = $qextend->fetchrow())
     {
@@ -309,13 +283,41 @@ sub flush
     }
 
     # Deactivate requests which reached their expire time limit.
-    # Spread the re-activation time to avoid herding effects
     ($stmt, $rows) = &dbexec($dbh, qq{
 	update t_xfer_request
-	set state = 2, time_expire = :now + dbms_random.value(0,$EXPIRE_JITTER)
+	set state = 2
 	where state = 0 and :now >= time_expire},
 	":now" => $now);
     push @stats, ['expired requests deactivated', $rows];
+
+    # Clear old paths and those missing an active request.
+    # Clear invalid expired paths.
+    # Clear valid paths, that expired more than 8 hours ago.
+    # Ensure paths are not broken in the proccess.
+    ($stmt, $rows) = &dbexec($dbh, qq{
+	    delete from t_xfer_path xp where (xp.fileid, xp.src_node, xp.destination) in (
+	      select fileid, src_node, destination from (
+		select ixp.fileid, ixp.src_node, ixp.destination,
+		       count(*) total,
+		  sum (case
+		       when xq.fileid is null or xq.state != 0 then 1 --request is invalid
+		       when ixp.is_valid = 1
+			    and :now > ixp.time_expire + 8*3600 then 1 --valid path expired 8+ hours ago
+		       when ixp.is_valid = 0 and :now >= ixp.time_expire then 1 -- invalid path expired
+		       else 0
+		       end) delete_path
+		from t_xfer_path ixp
+		left join t_xfer_request xq
+		     on xq.fileid = ixp.fileid and xq.destination = ixp.destination
+	       group by ixp.fileid, ixp.src_node, ixp.destination
+	      ) where delete_path != 0 -- any path segment invalid, delete
+	    ) }, ":now" => $now, ":now" => $now);
+    push @stats, ['invalid paths deleted', $rows];
+    do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
+
+    # Set the path go again for issuer.
+    ($stmt, $rows) = &dbexec($dbh, qq{ delete from t_xfer_exclude });
+    push @stats, ['exclusions deleted', $rows];
 
     # Commit the lot above.
     $dbh->commit();
@@ -478,7 +480,7 @@ sub prepare
 		update t_xfer_request
 	           set state = 0,
 	               attempt = attempt+1,
-	               time_expire = ? + $MIN_REQ_EXPIRE + dbms_random.value(0,$EXPIRE_JITTER)
+	               time_expire = ?
                  where destination = ? and fileid = ?
 	     });
 
@@ -487,7 +489,7 @@ sub prepare
 	while (my $r = $q->fetchrow_hashref()) {
 	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
 	    my $n = 1;
-	    push(@{$reactiv_reqs{$n++}}, $now);
+	    push(@{$reactiv_reqs{$n++}}, $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER));
 	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
 	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
 	    $n_reactiv++;
@@ -539,7 +541,7 @@ sub prepare
 		 attempt, time_create, time_expire, is_custodial)
 		select
 		id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :now + $MIN_REQ_EXPIRE + dbms_random.value(0,$EXPIRE_JITTER), bd.is_custodial
+		0 state, 1 attempt, :now, :time_expire, bd.is_custodial
 		from t_xfer_file, t_dps_block_dest bd
 		where inblock = :block and inblock = bd.block and bd.destination = :node});
 		    
@@ -549,7 +551,9 @@ sub prepare
 			":block" => $$b{BLOCK},
 			":priority" => $$b{PRIORITY},
 			":node" => $node,
-			":now" => $now);
+			":now" => $now,
+			":time_expire" => $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER)
+			);
 	}
 	my $nblocks = scalar @activated_blocks;
 	$self->Logmsg("re-activated $n_reactiv requests, activated $nblocks block destinations for node=$node") 
