@@ -424,14 +424,14 @@ sub prepare
     my $now = &mytimeofday();
     my $q_not_for_me = &dbexec($dbh, qq{
 	select nvl(sum(xf.filesize),0)
-	from t_xfer_path xp
+	  from t_xfer_path xp
 	  join t_xfer_file xf
-	    on xf.id = xp.fileid
+	       on xf.id = xp.fileid
 	  left join t_xfer_request xq
-	    on xq.fileid = xp.fileid
-	    and xq.destination = xp.to_node
-	where xp.to_node = :node
-	  and xq.fileid is null },
+	       on xq.fileid = xp.fileid
+	       and xq.destination = xp.to_node
+	 where xp.to_node = :node
+	   and xq.fileid is null },
        ":node" => $node);
     my ($not_for_me) = $q_not_for_me->fetchrow() || 0;
 
@@ -514,8 +514,9 @@ sub prepare
 	# Activate blocks up to the WINDOW_SIZE limit
 	my $u = &dbprep($dbh, qq{
 	    update t_dps_block_dest
-		set state = 1, time_active = :now
-		where block = :block and destination = :node});
+	       set state = 1, time_active = :now
+	     where block = :block 
+               and destination = :node});
 	my @activated_blocks;
 	foreach my $b (@{ $blocks_to_activate })
 	{
@@ -537,19 +538,20 @@ sub prepare
 	# work in one cycle later.
 	my $i = &dbprep($dbh, qq{
 	    insert into t_xfer_request
-		(fileid, inblock, destination, priority, state,
-		 attempt, time_create, time_expire, is_custodial)
-		select
-		id, :block inblock, :node destination, :priority priority,
-		0 state, 1 attempt, :now, :time_expire, bd.is_custodial
-		from t_xfer_file, t_dps_block_dest bd
-		where inblock = :block and inblock = bd.block and bd.destination = :node});
+	    (fileid, inblock, destination, priority, is_custodial,
+	     state, attempt, time_create, time_expire)
+	    select xf.id, bd.block, bd.destination, bd.priority, bd.is_custodial
+	           0 state, 1 attempt, :now, :time_expire
+	      from t_xfer_file xf
+              join t_dps_block_dest bd 
+                   on xf.inblock = bd.block
+	     where xf.inblock = :block
+               and bd.destination = :node});
 		    
 	foreach my $b (@activated_blocks)
 	{
 	    &dbbindexec($i,
 			":block" => $$b{BLOCK},
-			":priority" => $$b{PRIORITY},
 			":node" => $node,
 			":now" => $now,
 			":time_expire" => $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER)
