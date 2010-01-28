@@ -232,55 +232,6 @@ PHEDEX.Util.sumArrayField=function(q,f,p) {
   return sum;
 }
 
-
-// This is for dynamically loading data into YUI TreeViews.
-PHEDEX.Util.loadTreeNodeData=function(node, fnLoadComplete) {
-// First, create a callback function that uses the payload to identify what to do with the returned data.
-  var loadTreeNodeData_callback = function(result) {
-    if ( result.stack ) {
-      YAHOO.log('loadTreeNodeData: failed to get data','error','treeview');
-    } else {
-      node.payload.callback(node,result);
-    }
-    fnLoadComplete(); // Signal that the operation is complete, the tree can re-draw itself
-  }
-
-// Now, find out what to get, if anything...
-  if ( typeof(node.payload) == 'undefined' )
-  {
-//  This need not be an error, so don't log it. Some branches are built on already-known data, and do not require new
-//  data to be fetched. If dynamic loading is on for the whole tree this code will be hit for those branches.
-    fnLoadComplete();
-    return;
-  }
-  if ( node.payload.call )
-  {
-    if ( typeof(node.payload.call) == 'string' )
-    {
-//    payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
-//    and conform to the calling specification for the data-service module
-      YAHOO.log('in PHEDEX.Util.loadTreeNodeData for '+node.payload.call,'treeview');
-      var query = [];
-      query.api = node.payload.call;
-      query.args = node.payload.args;
-      query.callback = loadTreeNodeData_callback;
-      PHEDEX.Datasvc.Call(query);
-    }
-    else
-    {
-//    The call-name isn't a string, assume it's a function and call it directly.
-//    I'm guessing there may be a use for this, but I don't know what it is yet...
-      YAHOO.log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','warn','treeview');
-      node.payload.call(node,loadTreeNodeData_callback);
-    }
-  }
-  else
-  {
-    YAHOO.log('Apparently require dynamically loaded data but do not know how to get it! (hint: payload probably malformed?)','warn','treeview');
-    fnLoadComplete();
-  }
-}
-
 PHEDEX.Util.toggleVisible = function(thisClass,el)
 {
 // find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
