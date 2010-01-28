@@ -540,7 +540,7 @@ sub prepare
 	    insert into t_xfer_request
 	    (fileid, inblock, destination, priority, is_custodial,
 	     state, attempt, time_create, time_expire)
-	    select xf.id, bd.block, bd.destination, bd.priority, bd.is_custodial
+	    select xf.id, bd.block, bd.destination, bd.priority, bd.is_custodial,
 	           0 state, 1 attempt, :now, :time_expire
 	      from t_xfer_file xf
               join t_dps_block_dest bd 
