@@ -148,12 +148,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 //               animate:  false,
 //             }
 //           });
-        this.decorators.push(
-          {
-            name:'Sort',
-//             source: 'phedex-treeview',
-//             parent:,
-          });
+        this.decorators.push({ name:'Sort', });
         _sbx.notify(this.id,'initDerived');
       },
 
@@ -226,9 +221,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         YuD.getElementsByClassName(arg,null,this.el,function(element) {
           element.style.display = null;
         });
-debugger;
         delete this.meta.hide[arg];
-debugger
       },
 
       hideFieldByClass: function(className,el) {
@@ -251,16 +244,6 @@ debugger
           }
         }
       },
-
-//       hideAllFieldsThatShouldBeHidden: function() {
-// debugger;
-//         var m = this.column_menu.getItems();
-//         for (var i = 0; i < m.length; i++) {
-//           YuD.getElementsByClassName(m[i].value,null,this.el,function(element) {
-//             element.style.display = 'none';
-//           });
-//         }
-//       },
 
 // This is for dynamically loading data into YUI TreeViews.
       loadTreeNodeData: function(node, fnLoadComplete) {
@@ -375,16 +358,6 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
       }
     },
 
-// Create a context menu, with default entries for treeView widgets
-//     buildContextMenu: function(typeMap) {
-// debugger;
-//       obj.contextMenuArgs=[];
-//       obj.contextMenuArgs.push('treeview');
-//       obj.contextMenu = PHEDEX.Core.ContextMenu.Create({trigger:obj.dom.content});
-//       obj.contextMenu.subscribe("beforeShow", obj.onContextMenuBeforeShow);
-//       obj.contextMenu.subscribe("hide",       obj.onContextMenuHide);
-//     },
-
     onContextMenuClick: function(p_sType, p_aArgs, p_TreeView) {
 //    Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
       log('ContextMenuClick for '+obj.me,'info','treeview');
@@ -413,7 +386,6 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
         }
       }
     }
-//   that.onPopulateComplete.subscribe( that.hideAllFieldsThatShouldBeHidden );
   };
 }
 
@@ -495,7 +467,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           if ( !thisClass ) { return; } // nothing to sort...
           sortFn = sNode.func;
         }
-//       that.showBusy();
         var index;
         for (var i in node.data.spec.format) {
           var f = node.data.spec.format[i];
@@ -505,35 +476,49 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           log('cannot identify class-type','error','Core.TreeView');
           return;
         }
-      sNode = s[obj._cfg.headerNames[thisClass].group];
-      sNode.className = thisClass;
-      sNode.func  = sortFn;
-      var parent = node.parent,
-          children = parent.children,
-          map = [], indices=[], elList;
-      for (var i in children)
-      {
-        elList = YuD.getElementsByClassName(thisClass,null,children[i].getEl());
-        if ( elList.length ) {
-          map.push( {node:children[i], value:children[i].data.values[index]} );
-          indices.push( i );
-        }
-      }
-      map.sort(function(a,b){ return sortFn(a.value,b.value); });
-      for (var i in map) {
-        parent.children[indices[i]] = map[i].node;
-      }
 
-      obj.tree.render();
-      obj.hideFields();
-      for (var i in node.data.spec.format) {
-        var className = node.data.spec.format[i].className,
-            container = node.getEl(),
-            tgt = YuD.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl()),
-            header = obj.locateHeader(tgt[0]);
-//         obj.resizeFields(header);
-      }
-//       that.showNotBusy();
+        sNode = s[obj._cfg.headerNames[thisClass].group];
+        sNode.className = thisClass;
+        sNode.func  = sortFn;
+        var parent = node.parent,
+            children = parent.children,
+            map = [], indices=[], elList;
+        for (var i in children)
+        {
+          elList = YuD.getElementsByClassName(thisClass,null,children[i].getEl());
+          if ( elList.length ) {
+            map.push( {node:children[i], value:children[i].data.values[index]} );
+            indices.push( i );
+          }
+        }
+        map.sort(function(a,b){ return sortFn(a.value,b.value); });
+        for (var i in map) {
+          parent.children[indices[i]] = map[i].node;
+        }
+
+        obj.tree.render();
+//      don't ask me why, but rendering the tree seems to reset the classNames of the elements. Hence this comes here, after the render!
+        YuD.getElementsByClassName('phedex-sorted',null,obj.dom.header,function(element) {
+          YuD.removeClass(element,'phedex-sorted');
+        });
+        YuD.getElementsByClassName(thisClass,null,obj.el,function(element) {
+          YuD.addClass(element,'phedex-sorted');
+        });
+        if ( !obj.dom.sorted ) {
+debugger;
+          obj.dom.sorted = PxU.makeChild(obj.dom.control,'span');
+          obj.dom.sorted.innerHTML = 'S';
+          obj.dom.sorted.className = 'phedex-sorted';
+        }
+
+        obj.hideFields();
+        for (var i in node.data.spec.format) {
+          var className = node.data.spec.format[i].className,
+              container = node.getEl(),
+              tgt = YuD.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl()),
+              header = obj.locateHeader(tgt[0]);
+//           obj.resizeFields(header);
+        }
       },
 
       prepare: function(el,sortFn) {
@@ -549,6 +534,8 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       _init: function() {
         try {
           var x = function(o) {
+//          strictly speaking, I should not call the context-menu directly here, in case it isn't loaded yet. However, treeview depends on it, so
+//          that should not be a problem. For now, the try-catch block will suffice...
             PHEDEX.Component.ContextMenu.Add('sort-files','Sort Files Ascending', function(opts,el) { o.prepare(el,PxU.Sort.files.asc ); });
             PHEDEX.Component.ContextMenu.Add('sort-files','Sort Files Descending',function(opts,el) { o.prepare(el,PxU.Sort.files.desc); });
             PHEDEX.Component.ContextMenu.Add('sort-bytes','Sort Bytes Ascending', function(opts,el) { o.prepare(el,PxU.Sort.bytes.asc ); });
@@ -558,7 +545,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             PHEDEX.Component.ContextMenu.Add('sort-num',  'Sort Ascending',       function(opts,el) { o.prepare(el,PxU.Sort.numeric.asc ); });
             PHEDEX.Component.ContextMenu.Add('sort-num',  'Sort Descending',      function(opts,el) { o.prepare(el,PxU.Sort.numeric.desc); });
           }(this);
-        } catch(e) {};
+        } catch(ex) { log(ex,'error',obj.me); };
       },
     };
   }
