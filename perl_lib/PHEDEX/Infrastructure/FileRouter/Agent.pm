@@ -1062,9 +1062,7 @@ sub bestRoute
     my $dest = $$request{DESTINATION};
 
     # Use the precomupted replica path costs to pick the cheapest
-    # available file we could transfer.  The costs are scaled by the
-    # size of the file (it doesn't affect the result, but goes into
-    # the tables on output).
+    # available file we could transfer.
     my $best = undef;
     my $bestcost = undef;
     my $sizebin = $$request{SIZEBIN};
@@ -1079,7 +1077,10 @@ sub bestRoute
 
 	next if ($$this{$dest}{REMOTE_HOPS} > 1); # Multi-WAN-hop paths are never the best.
 
-	my $thiscost = $$this{$dest}{TOTAL_LATENCY};
+	# Randomly add a fraction of a picosecond to the cost.  This
+	# is to randomize the choice of available source replicas if
+	# all other factors are equal.
+	my $thiscost = $$this{$dest}{TOTAL_LATENCY} + (rand(1) * 1e-12);
 
 	if (! defined $best
 	    || $$this{$dest}{IS_LOCAL} > $$best{$dest}{IS_LOCAL}
@@ -1110,9 +1111,9 @@ sub routeFile
 	    for keys %{$$request{REPLICAS}};
 	($best, $bestcost) = $self->bestRoute ($probecosts, $request);
 	my $prettycost = int($bestcost);
-	$self->Logmsg("probed file $$request{FILEID} to destination $dest: "
+	$self->Logmsg("probed file=$$request{FILEID} to destination=$dest: "
 		. ($bestcost < $LATENCY_THRESHOLD
-		   ? "new cost $prettycost from source $$best{$dest}{SRC_NODE}"
+		   ? "new cost $prettycost from src_node=$$best{$dest}{SRC_NODE}"
 		   : "did not improve the matters, cost is $prettycost"));
     }
 
