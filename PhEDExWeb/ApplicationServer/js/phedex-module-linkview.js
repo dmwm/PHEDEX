@@ -47,7 +47,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         {
           name: 'ContextMenu',
           source:'component-contextmenu',
-//           payload:{ }
         },
         {
           name: 'cMenuButton',
@@ -57,7 +56,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             map: {
               hideColumn:'addMenuItem',
             },
-            onInit: 'hideByDefault',
+            onInit: 'hideFields',
             container: 'buttons',
           },
         },
@@ -104,7 +103,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
               {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
               {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
-              {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hideByDefault:true }
+              {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
             ]
           },
           {
@@ -131,7 +130,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', contextArgs:['file','sort-num'] },
               {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
               {width: 90,text:'File Errors',className:'phedex-tree-file-errors', otherClasses:'align-right', contextArgs:'sort-num' },
-              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hideByDefault:true }
+              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
             ]
           }
         ],
@@ -206,154 +205,120 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense. Probably it doesn't
       callback_Treeview: function(node,result) {
-        try {
-          var link = result.link[0],
-              p    = node.payload,
-              obj  = p.obj,
-              call = p.call; // copy the value because of the dangers of shallow-copying in javascript
-          if ( !link  ) { return; }
-          if ( !link.transfer_queue ) { return; }
-//        distinguish the type of node to build based on what the 'call' was that got me here. These 'if' clauses are too long for my liking...
-          if ( call == 'TransferQueueBlocks' )
+        var link = result.link[0],
+            p    = node.payload,
+            obj  = p.obj,
+            call = p.call; // copy the value because of the dangers of shallow-copying in javascript
+        if ( !link  ) { return; }
+        if ( !link.transfer_queue ) { return; }
+//      distinguish the type of node to build based on what the 'call' was that got me here. These 'if' clauses are too long for my liking...
+        if ( call == 'TransferQueueBlocks' )
+        {
+          var errors = [];
+          for (var k in p.data.errors)
           {
-            var errors = [];
-            for (var k in p.data.errors)
+            var b = p.data.errors[k];
+            errors[b.id] = { num_errors:b.num_errors, file:b.file };
+          }
+          var blocks = [];
+          for (var i in link.transfer_queue )
+          {
+            var tq = link.transfer_queue[i];
+            for (var j in tq.block)
             {
-              var b = p.data.errors[k];
-              errors[b.id] = { num_errors:b.num_errors, file:b.file };
-            }
-            var blocks = [];
-            for (var i in link.transfer_queue )
-            {
-              var tq = link.transfer_queue[i];
-              for (var j in tq.block)
-              {
-                var block;
-                block = tq.block[j];
-                if ( ! blocks[block.id] ) { blocks[block.id] = {id:block.id, name:block.name, queue:[]}; }
-                blocks[block.id].queue.push({state:tq.state, priority:tq.priority, files:block.files, bytes: block.bytes});
+              var block;
+              block = tq.block[j];
+              if ( ! blocks[block.id] ) { blocks[block.id] = {id:block.id, name:block.name, queue:[]}; }
+              blocks[block.id].queue.push({state:tq.state, priority:tq.priority, files:block.files, bytes: block.bytes});
 
-//              Manual deep-copy of payload, prevents overwriting contents...
-                var payload = [];
-                payload.opts = {};
-                for (var l in p.opts) { payload.opts[l] = p.opts[l];  }
-                payload.data = {};
-                for (var l in p.data) { payload.data[l] = p.data[l];  }
-                payload.args = {};
-                payload.args.from = p.args.from;
-                payload.args.to   = p.args.to;
-                payload.obj       = p.obj;
-                payload.callback  = p.callback;
+//            Manual deep-copy of payload, prevents overwriting contents...
+              var payload = [];
+              payload.opts = {};
+              for (var l in p.opts) { payload.opts[l] = p.opts[l];  }
+              payload.data = {};
+              for (var l in p.data) { payload.data[l] = p.data[l];  }
+              payload.args = {};
+              payload.args.from = p.args.from;
+              payload.args.to   = p.args.to;
+              payload.obj       = p.obj;
+              payload.callback  = p.callback;
 
-                payload.call = 'TransferQueueFiles';
-                payload.data = errors;
-                payload.args.block = block.name;
-                blocks[block.id].payload = payload;
-                var num_errors = 0;
-                if ( errors[block.id] ) { num_errors = errors[block.id].num_errors; }
-                blocks[block.id].num_errors = num_errors;
-              }
-            }
-            for (var i in blocks) {
-              var block = blocks[i];
-              var state = priority = files = bytes = '';
-              for (var j in block.queue) {
-                state    += block.queue[j].state+'<br/>';
-                priority += block.queue[j].priority+'<br/>';
-                files    += block.queue[j].files+'<br/>';
-                bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
-              }
-              var tNode = obj.addNode(
-                { format:obj.meta.tree[1].format, payload:block.payload },
-                [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
-                node
-              );
+              payload.call = 'TransferQueueFiles';
+              payload.data = errors;
+              payload.args.block = block.name;
+              blocks[block.id].payload = payload;
+              var num_errors = 0;
+              if ( errors[block.id] ) { num_errors = errors[block.id].num_errors; }
+              blocks[block.id].num_errors = num_errors;
             }
           }
-          else if ( call == 'TransferQueueFiles' )
+          for (var i in blocks) {
+            var block = blocks[i],
+                state = priority = files = bytes = '';
+            for (var j in block.queue) {
+              state    += block.queue[j].state+'<br/>';
+              priority += block.queue[j].priority+'<br/>';
+              files    += block.queue[j].files+'<br/>';
+              bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
+            }
+            var tNode = obj.addNode(
+              { format:obj.meta.tree[1].format, payload:block.payload },
+              [ block.name, block.id, state, priority, files, bytes, block.num_errors ],
+              node
+            );
+          }
+        }
+        else if ( call == 'TransferQueueFiles' )
+        {
+          for (var i in link.transfer_queue )
           {
-            for (var i in link.transfer_queue )
+            var tq = link.transfer_queue[i];
+            for (var j in tq.block)
             {
-              var tq = link.transfer_queue[i];
-              for (var j in tq.block)
+              var block = tq.block[j],
+                  errors = [];
+              if (p.data[block.id])
               {
-                var block = tq.block[j];
-                var errors = [];
-                if (p.data[block.id])
+                var files = p.data[block.id].file;
+                for (var f in files)
                 {
-                  var files = p.data[block.id].file;
-                  for (var f in files)
-                  {
-                    errors[files[f].id] = files[f].num_errors;
-                  }
-                }
-                for (var k in block.file)
-                {
-                  var file = block.file[k];
-                  var num_errors = errors[file.id] || 0;
-                  var tNode = obj.addNode(
-                    {format:obj.meta.tree[2].format},
-                    [ file.name, file.id, file.bytes, num_errors, file.checksum ],
-                    node
-                   );
-                  tNode.isLeaf = true;
+                  errors[files[f].id] = files[f].num_errors;
                 }
               }
+              for (var k in block.file)
+              {
+                var file = block.file[k],
+                    num_errors = errors[file.id] || 0,
+                    tNode = obj.addNode(
+                  {format:obj.meta.tree[2].format},
+                  [ file.name, file.id, file.bytes, num_errors, file.checksum ],
+                  node
+                 );
+                tNode.isLeaf = true;
+              }
             }
           }
-          else
-          {
-            var errstr = 'No action specified for handling callback data for "'+p.callback+'"';
-            log(errstr,'error','linkview');
-            throw new Error(errstr);
-          }
-          _sbx.notify(obj.id,'hideByDefault');
-        } catch(e) {
-          log('Error of some sort in PHEDEX.Widget.LinkView.callback_Treeview ('+e+')','error','linkview');
-          var tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
-          tNode.isLeaf = true;
+        }
+        else
+        {
+          var errstr = 'No action specified for handling callback data for "'+p.callback+'"';
+          log(errstr,'error','linkview');
+          throw new Error(errstr);
         }
       },
 
-      buildHeader: function(div) {
-// Create the menu buttons. I create them inside a dedicated span so that they will be rendered on the left,
-// before anything inserted by the core widgets.
-
-//     var changeDirectionButton = new YAHOO.widget.Button(
-// 	{ type: "menu",
-// 	  label: that.direction_text(),
-// 	  name: "changeDirection",
-// 	  menu: changeDirectionMenu,
-// 	  container: button_span
-// 	});
-//     var timeSelectButton = new YAHOO.widget.Button(
-// 	{ type: "menu",
-// 	  label: that.timebin_selected,
-// 	  name: "timeSelect",
-// 	  menu: timeSelectMenu,
-// 	  container: button_span
-// 	});
-      YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.dom.param.firstChild);
-
-//     var onSelectedMenuItemChange = function (event) {
-//       var oMenuItem = event.newValue;
-//       var text = oMenuItem.cfg.getProperty("text");
-//       log('onSelectedMenuItemChange: new value: '+text,'info','linkview');
-//       this.set("label", text);
-//     };
-//     changeDirectionButton.on("selectedMenuItemChange", onSelectedMenuItemChange);
-//     timeSelectButton.on(     "selectedMenuItemChange", onSelectedMenuItemChange);
-    },
-//     fillHeader: function(div) { },
-
-//   that.onUpdateBegin.subscribe( function() { that.data = []; });
+//       buildHeader: function(div) {
+// debugger;
+//         YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.dom.param.firstChild);
+//       },
 
       fillBody: function() {
         var root = this.tree.getRoot(),
-            antidirection=this.anti_direction_key();
+            antidirection=this.anti_direction_key(),
+            tLeaf;
         if ( !this.data.hist.length )
         {
-          var tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+          tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
         for (var i in this.data.hist) {
@@ -388,15 +353,17 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 //        I did see a better way to do this in the YUI docs, but will find that later...
 //        populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
 //        payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
-          var p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
+          var link_errors,
+              tNode,
+              p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
           p.args.from = h.from;
           p.args.to   = h.to;
           p.args.binwidth = h.transfer[0].binwidth;
           p.opts.node = h[antidirection];
           p.opts.direction = this.direction_index();
           p.data.errors    = e.block;
-          var link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
-          var tNode = this.addNode(
+          link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
+          tNode = this.addNode(
             { format:this.meta.tree[0].format, payload:p },
             [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
           );
@@ -457,10 +424,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
-//   this.buildTree(this.dom.content);
-//   this.buildExtra(this.dom.extra);
-//   this.buildContextMenu();
-//   this.build();
   return this;
 }
 
