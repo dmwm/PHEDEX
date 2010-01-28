@@ -148,7 +148,8 @@ PHEDEX.TreeView = function(sandbox,string) {
 //               animate:  false,
 //             }
 //           });
-        this.decorators.push({ name:'Sort', });
+        this.decorators.push({ name:'Sort' });
+        this.decorators.push({ name:'Resize' });
         _sbx.notify(this.id,'initDerived');
       },
 
@@ -389,26 +390,8 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   };
 }
 
-//   that.onUpdateBegin.subscribe(function() {
-//     var node;
-//     while ( node = that.tree.root.children[0] ) { that.tree.removeNode(node); }
-//     that.tree.render();
-//   });
-
-// // This is a bit contorted. I provide a call to create a context menu, adding the default 'dataTable' options to it. But I leave
-// // it to the client widget to call this function, just before calling build(), so the object is fairly complete. This is because
-// // I need much of the object intact to do it right. I also leave the subscription and rendering of the menu till the build() is
-// // complete. This allows me to ignore the menu completely if the user didn't build one.
-// // If I didn't do it like this then the user would have to pass the options in to the constructor, and would then have to take
-// // care that the object was assembled in exactly the right way. That would then make things a bit more complex...
 //   that.onBuildComplete.subscribe(function() {
 //     log('onBuildComplete: '+that.me(),'info','Core.TreeView');
-//     if ( that.contextMenu )
-//     {
-//       log('subscribing context menu: '+that.me(),'info','Core.TreeView');
-//       that.contextMenu.clickEvent.subscribe(that.onContextMenuClick, that.tree.getEl());
-//       that.contextMenu.render(document.body);
-//     }
 //     that.tree.subscribe('expandComplete',function(node) {
 //       if ( node.children ) { that.sort(node.children[0]); }
 //       that.hideAllFieldsThatShouldBeHidden();
@@ -416,30 +399,6 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 //     });
 //     that.ctl.extra.el.innerHTML = 'Headers';
 //   });
-// 
-//   that.resizeFields=function(el) {
-//     var tgt = that.locateHeader(el);
-//     var elList = that.locatePartnerFields(tgt);
-//     for (var i in elList ) { elList[i].style.width = tgt.style.width; }
-//   }
-//   var populateCompleteHandler=function() {
-//     var elList = YuD.getElementsByClassName('phedex-tnode-header',null,that.div);
-//     for (var i in elList)
-//     {
-//       var el = elList[i];
-//       var elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
-//       elResize.payload = el;
-//       elResize.subscribe('endResize',function(e) {
-// 	var elTarget = YuE.getTarget(e);
-// 	var el = elTarget.payload
-// 	that.resizeFields(el);
-//       });
-//     }
-//     for (var className in that._cfg.hideByDefault) { that.hideFieldByClass(className); }
-// //  All this only needed doing once, so unsubscribe myself now!
-//     that.onPopulateComplete.unsubscribe(populateCompleteHandler);
-//   }
-//   that.onPopulateComplete.subscribe(populateCompleteHandler);
 // 
 //   that.onDataFailed.subscribe(function() {
 //     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
@@ -449,6 +408,22 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 // 
 // // Resize the panel when extra columns are shown, to accomodate the width
 //   that.resizePanel=function(tree) {  }
+
+PHEDEX.TreeView.Resize = function(sandbox,args) {
+  var obj = args.payload.obj,
+      elList = YuD.getElementsByClassName('phedex-tnode-header',null,obj.el);
+  for (var i in elList)
+  {
+    var el = elList[i],
+        elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
+    elResize.payload = el;
+    elResize.subscribe('endResize',function(e) {
+      var tgt = obj.locateHeader(YuE.getTarget(e).payload),
+          elList = obj.locatePartnerFields(tgt);
+     for (var i in elList ) { elList[i].style.width = tgt.style.width; }
+    });
+  }
+}
 
 PHEDEX.TreeView.Sort = function(sandbox,args) {
   var obj = args.payload.obj;
@@ -505,7 +480,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           YuD.addClass(element,'phedex-sorted');
         });
         if ( !obj.dom.sorted ) {
-debugger;
           obj.dom.sorted = PxU.makeChild(obj.dom.control,'span');
           obj.dom.sorted.innerHTML = 'S';
           obj.dom.sorted.className = 'phedex-sorted';
