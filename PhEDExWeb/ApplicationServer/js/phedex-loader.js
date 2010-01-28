@@ -54,8 +54,12 @@ PHEDEX.Loader = function(opts) {
   _on = {},
   _loader = new YAHOO.util.YUILoader(),
   _conf = {
-    loadOptional:  true,
-    allowRollup:  false,
+    loadOptional: true,
+    allowRollup:  true,
+// played around with combo-loading, but that didn't work properly with the proxy. Forget it for now...
+//     combine:      false,
+//     comboBase:   '/phedex/datasvc/combo?',
+//     root:        '/yui/build/',
     base:        '/yui/build/',
     timeout:      15000,
     onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
