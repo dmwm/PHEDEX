@@ -90,13 +90,6 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         }(this);
         _sbx.listen(this.id,this.selfHandler);
 
-//         this.typenames = this.typeMap = [];
-//         for (var i in args.payload.types ) {
-//           var t = args.payload.types[i];
-//           this.typeMap.push(t.name);
-//           this.typeMap[t.name]
-//         }
-
         this.typeMap = args.payload.typeMap;
         this.typeNames = args.payload.typeNames;
         this.InputTypes = [];
@@ -107,13 +100,22 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         var config = args.payload.config || {};
         this.contextMenu = this.Create(config);
         var buildMe = function(o) {
-          return function(){
-            o.Build();
+          return function(p_sType, p_aArgs) {
+            o.Build(this.contextEventTarget);
           }
         }(this);
-        this.contextMenu.subscribe( 'beforeShow', buildMe );
+        var hideMe = function(o) {
+          return function() {
+            if ( o.onContextMenuHide ) {
+              o.onContextMenuHide(this.contextEventTarget);
+            }
+            this.clearContent();
+          }
+        }(this);
+//         this.contextMenu.subscribe( 'beforeShow', buildMe );
+        this.contextMenu.beforeShowEvent.subscribe( buildMe );
         this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
-        this.contextMenu.hideEvent.subscribe (this.contextMenu.clearContent);
+        this.contextMenu.hideEvent.subscribe( hideMe );
       },
 
 /** reset the menu to empty. This is a trivial function, but it hides the internal contextmenu, which is good.
@@ -124,13 +126,18 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
 /** build the menu and render it. Looks up two sources of information, the global registry, and the local info in the <strong>typeNames</strong>. The global registry knows about big things, like creating modules. <strong>typeNames</strong> knows all the rest, like column-sorting, field-hiding, and stuff like that. Called in response to a 'beforeShow' event on the context menu, to create the content just-in-time.
  * @method Build
  */
-      Build: function() {
-        var name;
-        for (var i in this.typeNames)
+      Build: function(target) {
+        var typeNames = [],
+            name;
+        for (var i in this.typeNames) { typeNames.push(this.typeNames[i]); } // need a deep copy to avoid overwriting this.typeNames!
+        if ( this.onContextMenuBeforeShow ) {
+          typeNames = this.onContextMenuBeforeShow(target, typeNames);
+        }
+        for (var i in typeNames)
         {
 // N.B. Do this rather than just loop over this.WidgetsByInputType keys, in order to guarantee the ordering will be the same
 // as the order of registration. Otherwise it's conceivable the menu-order would differ between runs or between browsers
-          name = this.typeNames[i];
+          name = typeNames[i];
           var w = this.WidgetsByInputType[name];
 
 //         First check the core widget registry to see if any widgets can be made
@@ -140,8 +147,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
             if (widget.context_item) {
               log('Adding Widget name='+name+' label='+w[j].label, 'info', _me);
               var item = new YAHOO.widget.MenuItem(w[j].label);
-//               this.contextMenu.addItem(item);
-              // Build a constructor function (fn) in the menu value object
+//            Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,
                              'fn':function(_w) {
