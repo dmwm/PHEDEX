@@ -102,8 +102,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PHEDEX.Util.format.bytes(x)+'/s';} },
               {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
               {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-              {width: 70,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
-              {width: 90,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
+              {width: 90,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
+              {width:110,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
             ]
           },
           {
