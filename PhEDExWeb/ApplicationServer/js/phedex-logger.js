@@ -116,7 +116,7 @@ PHEDEX.Logger = function() {
             YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',obj.log2Server.group);
           }
           YAHOO.log(str, level, group.toLowerCase());
-          if ( obj.log2Server.level[level] && obj.log2Server.group[group] ) {
+          if ( obj.log2Server.level[level] && obj.log2Server.group[group] && (location.hostname == 'localhost') ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
