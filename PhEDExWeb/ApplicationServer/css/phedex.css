@@ -157,6 +157,10 @@ a.phedex-link-current {
   background-color: yellow;
 }
 
+div .phedex-sorted {
+ background-color: #fd6; /* light orange */
+}
+
 .phedex-filter-buttons {
   padding: 5px 0 0;
 }
@@ -219,7 +223,6 @@ a.phedex-core-control-widget {
 a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
   background-color: orange;
 }
-
 tr.phedex-core-control-widget-applied {
   background-color: orange;
 }
@@ -284,10 +287,10 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   background-color: yellow;
 }
 
-.phedex-tnode-highlight {
+div .phedex-tnode-highlight {
   background-color: yellow;
 }
-.phedex-tnode-highlight-associated {
+div .phedex-tnode-highlight-associated {
   background-color: #ff8;
 }
 
