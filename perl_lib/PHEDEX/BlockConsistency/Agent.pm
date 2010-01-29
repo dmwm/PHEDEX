@@ -46,7 +46,8 @@ our %params =
 	  PRELOAD	=> undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> undef,
-	  max_priority	=> 0,			# private, max of active requests
+	  max_priority	=> 0,			# max of active requests
+	  QUEUE_LENGTH	=> 40,			# length of queue per cycle
 	);
 
 sub new
@@ -56,7 +57,7 @@ sub new
   my $self  = $class->SUPER::new(%params,@_);
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   $self->{QUEUE} = POE::Queue::Array->new();
-  $self->{NAMESPACE} =~ s%['"]%%g;
+  $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
   bless $self, $class;
 
   return $self;
@@ -467,8 +468,9 @@ sub get_work
     my ($ofilter, %ofilter_args) = $self->otherNodeFilter ("b.node");
 
 #   Get a list of requests to process
-    foreach my $request ($self->requestQueue(40, \$mfilter, \%mfilter_args,
-						 \$ofilter, \%ofilter_args))
+    foreach my $request ($self->requestQueue($self->{QUEUE_LENGTH},
+					\$mfilter, \%mfilter_args,
+					\$ofilter, \%ofilter_args))
     {
       $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
       $self->setRequestState($request,'Queued');
