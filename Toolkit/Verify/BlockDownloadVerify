@@ -37,6 +37,7 @@ use PHEDEX::BlockConsistency::Agent;
 	     "use_srm"      => \$args{USE_SRM},
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	     "preload=s"    => \$args{PRELOAD},
+	     "queue_length=i" => \$args{QUEUE_LENGTH},
 	    );
 
 $args{USE_SRM} = 'y' if defined($args{USE_SRM});
