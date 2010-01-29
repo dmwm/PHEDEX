@@ -101,7 +101,14 @@ sub InjectTest
 # If a named test was given, get the test-id instead
   if ( $h{test} !~ m%^[0-9]+$% )
   {
-    $h{test} = get_TDVS_Tests( $self, $h{test} )->{ID};
+    my $testID = get_TDVS_Tests( $self, $h{test} )->{ID};
+    if ( $testID ) { $h{test} = $testID; }
+    else
+    {
+#     I 'die' here because I do not know that I have access to a logger. This
+#     code can be called from the injector script, which does not have one
+      die "Unknown test-type \"",$h{test},"\"\n";
+    }
   }
 
   if ( !$force )
