@@ -36,20 +36,21 @@ PHEDEX.DataTable = function(sandbox,string) {
                   this.buildTable(t.columns,t.map,t.schema)
                   _sbx.notify( this.id, 'initDerived' );
               }
-//               this.decorators.push(
-//                 {
-//                   name:'Filter',
-//                   source: 'component-control',
-//                   parent: 'control',
-//                   payload:{
-//                     disabled: true,
-//                     hidden:   true,
-//                     target:  'filter',
-//                     fillFn:  'filter.Build',
-//                     fillArgs:'fillArgs',
-//                     animate:  false,
-//                   }
-//                 });
+              this.decorators.push(
+                {
+                  name:'Filter',
+                  source:'component-filter',
+                  payload:{
+                    control: {
+                      parent: 'control',
+                      payload:{
+                        disabled: false, //true,
+                        hidden:   false, //true,
+                      },
+                    },
+                  },
+                  target:  'filter',
+                });
             },
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
@@ -93,14 +94,14 @@ PHEDEX.DataTable = function(sandbox,string) {
             },
 
             /**
-            * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.defHide</strong> to determine what to hide.
+            * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.hide</strong> to determine what to hide.
             * @method hideByDefault
             */
             hideByDefault: function() {
-                if ( this.meta.defhide ) {
-                    for (var i in this.meta.defhide)
+                if ( this.meta.hide ) {
+                    for (var i in this.meta.hide)
                     {
-                        var column = this.dataTable.getColumn(this.meta.defhide[i]);
+                        var column = this.dataTable.getColumn(this.meta.hide[i]);
                         if ( column ) { this.dataTable.hideColumn(column); }
                     }
                 }
@@ -152,6 +153,13 @@ PHEDEX.DataTable = function(sandbox,string) {
                 }
             },
 
+            sort: function() {
+              if ( ! this.meta.sort.dir ) { this.meta.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+              if (this.meta.sort.field) {
+                this.dataTable.sortColumn( this.dataTable.getColumn(this.meta.sort.field), this.meta.sort.dir );
+              }
+            },
+
             /**
             * Build a table. This does not draw the table on-screen, use <strong>fillDataSource</strong> for that. This function needs to be called once, to create the DOM elements, and to prepare the module to receive data.
             * @method buildTable
@@ -180,15 +188,28 @@ PHEDEX.DataTable = function(sandbox,string) {
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w+'px';
 
+                this.dataTable.subscribe('columnSortEvent', function(obj) {
+                  return function(ev) {
+                    var column = obj.dataTable.getColumn(ev.column);
+                    obj.meta.sort.field = column.key;
+                    obj.meta.sort.dir   = ev.dir;
+                  }
+                }(this));
+
                 this.dataTable.subscribe('columnHideEvent', function(obj) {
-                    return function(ev) {
+                  return function(ev) {
                     var column = obj.dataTable.getColumn(ev.column);
                     log('columnHideEvent: label:'+column.label+' key:'+column.key,'info',_me);
                     _sbx.notify(obj.id, 'hideColumn', {text: column.label || column.key,value:column.key} );
-                    }
+                  }
                 }(this));
 
-                this.dataTable.subscribe('renderEvent', function() { this.resizePanel(); } );
+                this.dataTable.subscribe('renderEvent', function(obj) {
+                  return function() {
+                    obj.resizePanel();
+                    obj.sort();
+                  }
+                }(this));
                 var w = this.dataTable.getTableEl().offsetWidth;
                 if ( this.options.minwidth && w < this.options.minwidth ) { w = this.options.minwidth; }
                 this.el.style.width = w+'px';
@@ -304,76 +325,5 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     // return the functions, so they can be overridden if needed without having to redo the event subscription
     return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
-
-//   this.onPopulateComplete.subscribe(function(obj) {
-//     return function() {
-//       // sort by default
-//       if (this.options.defsort) {
-// 	obj.dataTable.sortColumn( obj.dataTable.getColumn( this.options.defsort ) );
-//       }
-//     }
-//   }(this));
-//
-//   this.filter.onFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onWidgetFilterCancelled:'+obj.me(),'info','Core.DataTable');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.fillDataSource(obj.data);
-//       obj.filter.Reset();
-//       obj.ctl.filter.Hide();
-//       PHEDEX.Event.onWidgetFilterCancelled.fire(obj.filter);
-//     }
-//   }(this));
-//   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.fillDataSource(obj.data);
-//       obj.filter.Reset();
-//     }
-//   }(this));
-// 
-//   PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
-//     return function(ev,arr) {
-//       var args = arr[0];
-//       if ( ! obj.filter.args ) { obj.filter.args = []; }
-//       for (var i in args) {
-// 	obj.filter.args[i] = args[i];
-//       }
-//       obj.applyFilter(arr[0]);
-//     }
-//   }(this));
-//   this.filter.onFilterApplied.subscribe(function(obj) {
-//     return function(ev,arr) {
-//       obj.applyFilter(arr[0]);
-//       obj.ctl.filter.Hide();
-//     }
-//   }(this));
-// 
-//   this.applyFilter=function(args) {
-// // this is much easier for tables than for branches. Just go through the data-table and build a new one,
-// // then feed that to the DataSource!
-//     var table=[];
-//     if ( ! args ) { args = this.filter.args; }
-//     for (var i in this.data) {
-//       var keep=true;
-//       for (var key in args) {
-// 	if ( typeof(args[key].value) == 'undefined' ) { continue; }
-// 	var fValue = args[key].value;
-// 	var kValue = this.data[i][key];
-// 	if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-// 	var negate = args[key].negate;
-// 	var status = this.filter.Apply[this.filter.fields[key].type](fValue,kValue);
-// 	if ( args[key].negate ) { status = !status; }
-// 	if ( !status ) { // Keep the element if the match succeeded!
-// 	  this.filter.count++;
-// 	  keep=false;
-// 	}
-//       }
-//       if ( keep ) { table.push(this.data[i]); }
-//     }
-//     this.fillDataSource(table);
-//     return this.filter.count;
-//   }
 
 log('loaded...','info','datatable');
