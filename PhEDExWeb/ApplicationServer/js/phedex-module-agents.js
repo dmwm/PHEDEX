@@ -79,8 +79,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             ],
           map: {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
         },
-        defsort:'Agent',
-        defhide:['PID','Host','State Dir']
+        sort:{field:'Agent'},
+        hide:['PID','Host','State Dir']
       },
 
 /** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed. If the module does not have enough parameters defined, it can notify the sandbox with <strong>needArguments</strong>, and someone out there (e.g. the global filter or the navigator history) can attempt to supply them

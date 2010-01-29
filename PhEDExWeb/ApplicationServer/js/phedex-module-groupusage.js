@@ -68,7 +68,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             */
             meta: {
                 table: { columns: _dtColumnDefs, schema: _dsResponseSchema},
-                defhide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files']
+                hide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files']
             },
 
             /**

@@ -34,7 +34,20 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         table: {
           columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ],
         },
-        defhide: ['ID'],
+        hide: ['ID'],
+        sort: {field:'Name'}, // dir:YAHOO.widget.DataTable.CLASS_ASC}, // this is the default
+        filter: {
+          'Node attributes':{
+            map:{to:'N'},
+            fields:{
+              'id'         :{type:'int',   text:'Node-ID',    tip:'Node-ID in TMDB' },
+              'name'       :{type:'regex', text:'Node-name',  tip:'javascript regular expression' },
+              'se'         :{type:'regex', text:'SE-name',    tip:'javascript regular expression' },
+              'kind'       :{type:'regex', text:'Kind',       tip:'javascript regular expression' },
+              'technology' :{type:'regex', text:'Technology', tip:'javascript regular expression' }
+            }
+          }
+        },
       },
 
       initData: function() {
