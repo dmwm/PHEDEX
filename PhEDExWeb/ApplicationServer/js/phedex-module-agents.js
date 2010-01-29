@@ -80,7 +80,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           map: {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
         },
         sort:{field:'Agent'},
-        hide:['PID','Host','State Dir']
+        hide:['PID','Host','State Dir'],
         filter: {
           'Agent attributes':{
             map: { to:'A' },
