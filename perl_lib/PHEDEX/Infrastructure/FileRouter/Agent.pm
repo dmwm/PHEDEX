@@ -495,9 +495,6 @@ sub prepare
 	    $n_reactiv++;
 	}
 	&dbbindexec($reactiv_u, %reactiv_reqs) if %reactiv_reqs;
-
-	# Commit re-activated requests
-	$dbh->commit();
 	undef %reactiv_reqs; # no longer needed
 
 	# Find block destinations we can activate, requiring that
@@ -527,10 +524,6 @@ sub prepare
 			":now" => $now);
 	    push(@activated_blocks, $b);
 	}
-	
-	# Commit first phase so any concurrent modification of t_xfer_file
-	# and t_xfer_replica is handled by our triggers.
-	$dbh->commit();
 	undef $blocks_to_activate; # no longer needed
 
 	# Create file requests for the activated blocks.  The
@@ -547,22 +540,25 @@ sub prepare
                    on xf.inblock = bd.block
 	     where xf.inblock = :block
                and bd.destination = :node});
-		    
+		
+	my $nreqs = 0;
 	foreach my $b (@activated_blocks)
 	{
-	    &dbbindexec($i,
-			":block" => $$b{BLOCK},
-			":node" => $node,
-			":now" => $now,
-			":time_expire" => $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER)
-			);
+	    $nreqs += &dbbindexec($i,
+				  ":block" => $$b{BLOCK},
+				  ":node" => $node,
+				  ":now" => $now,
+				  ":time_expire" => $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER)
+				  );
 	}
-	my $nblocks = scalar @activated_blocks;
-	$self->Logmsg("re-activated $n_reactiv requests, activated $nblocks block destinations for node=$node") 
-	    if ($n_reactiv > 0 || $nblocks > 0);
-	    
-	# Now commit second phase.
+	
+	# Note: assuming 30 TB windows and 2 GB files, the maximum
+	# rows we commit here is around 15k, which is acceptable.
 	$dbh->commit();
+
+	my $nblocks = scalar @activated_blocks;
+	$self->Logmsg("re-activated $n_reactiv requests, activated $nblocks blocks with $nreqs files for node=$node") 
+	    if ($n_reactiv > 0 || $nblocks > 0);	    
     } else {
 	# Lots of through traffic - don't allocate
 	# Check how many blocks there are waiting
