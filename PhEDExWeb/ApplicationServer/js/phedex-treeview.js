@@ -495,12 +495,23 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             obj       = el.obj,
             target    = obj.locateNode(el.target),
             thisClass = obj.getPhedexFieldClass(target),
-            s         = obj.meta.sort;
+            s         = obj.meta.sort,
+            parent    = node.parent,
+            uncles    = [];
         if ( !s ) { s = obj.meta.sort = {}; }
         s.field = thisClass;
         s.dir   = dir;
         s.type  = type;
-        this.execute(node,thisClass,type,dir);
+        if ( parent.parent ) { uncles = parent.parent.children; }
+        else { uncles.push(parent); } // in case we sorted on a direct descendant of the root tree (i.e. no grandparent)
+
+//      sort on all uncles' children, so all open branches of the same grand-parent get sorted
+        for (var i in uncles) {
+          if ( uncles[i].children && uncles[i].children[0] ) {
+            this.execute(uncles[i].children[0],thisClass,type,dir);
+          }
+        }
+//         this.execute(node,thisClass,type,dir);
 //         obj.applyFilter();
       },
 
