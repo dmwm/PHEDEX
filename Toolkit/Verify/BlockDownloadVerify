@@ -2,8 +2,12 @@
 
 ##H
 ##H This agent performs the verification of downloaded blocks.
-##H Ask Tony how it works...
 ##H
+##H The agent has two operating modes, the old-style and the new style. The
+##H new style is also known as the 'namespace' style, it uses the namespace
+##H framework, documented at https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjConsistency
+##H
+##H The old-style usage is deprecated, and is not documented.
 ##H
 ##H Usage:
 ##H   BlockDownloadVerify
@@ -14,6 +18,15 @@
 ##H -nodes         nodes to run and check files for.
 ##H -db            database connection configuration parameter file.
 ##H -log           where to redirect logging information.
+##H -namespace     namespace - i.e. SE-access-style - to use to perform
+##H                the tests. Examples include 'posix', 'castor', 'dcache'
+##H                and 'srm'. New namespaces can be added easily, as perl
+##H                plugin modules. This allows customisation for optimal
+##H                performance at any site, without having to modify the
+##H                core agent.
+##H -queue_length  <integer>, the number of tasks to fetch from the database
+##H                per cycle. This should not be set without consultation
+##H                with the developers.
 ##H
 
 my $debug_me = 1;
