@@ -575,7 +575,11 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     }
   };
   this.partnerHandler = function(o) {
+var ncalls=0;
     return function(ev,arr) {
+if ( ncalls++ > 1000 ) {
+debugger;
+}
       var action = arr[0],
           value = arr[1];
       log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
@@ -593,8 +597,8 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
         }
         case 'StateChanged': {
           o._updateWidgetMenu(value.type,value.widget);
-         _sbx.notify(obj.id,'WidgetSelected',o.getState());
-         _sbx.notify('_navCreateModule',value.widget);
+          _sbx.notify(obj.id,'WidgetSelected',o.getState());
+          _sbx.notify('_navCreateModule',value.widget);
           break;
         }
         case 'TargetType': {
