@@ -74,6 +74,16 @@ PHEDEX.Logger = function() {
 
       if ( !args ) { args = {}; }
       if ( args.log2server ) { this.log2Server = args.log2server; }
+      var  ctl = PxU.makeChild(elLog2Server,'div');
+      var c = PxU.makeChild(ctl,'input');
+      c.type    = 'button';
+      c.value   = 'clear cookies';
+      c.onclick = function(obj) {
+        return function(ev) {
+          YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',{});
+          YAHOO.util.Cookie.setSubs('PHEDEX.Logger.level',{});
+        }
+      }(this);
       this._addControls(elLog2Server,'level');
       this._addControls(elLog2Server,'group');
 
