@@ -154,9 +154,14 @@ PHEDEX.DataTable = function(sandbox,string) {
             },
 
             sort: function() {
-              if ( ! this.meta.sort.dir ) { this.meta.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
-              if (this.meta.sort.field) {
-                this.dataTable.sortColumn( this.dataTable.getColumn(this.meta.sort.field), this.meta.sort.dir );
+              var s = this.meta.sort;
+              if ( ! s.dir ) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+              if (s.field) {
+                if ( s.sorted_field == s.field &&
+                     s.sorted_dir   == s.dir ) { return; } // break the chain!
+                s.sorted_field = s.field;
+                s.sorted_dir   = s.dir;
+                this.dataTable.sortColumn( this.dataTable.getColumn(s.field), s.dir );
               }
             },
 
@@ -206,6 +211,7 @@ PHEDEX.DataTable = function(sandbox,string) {
 
                 this.dataTable.subscribe('renderEvent', function(obj) {
                   return function() {
+log('renderEvent','info',obj.me);
                     obj.resizePanel();
                     obj.sort();
                   }
