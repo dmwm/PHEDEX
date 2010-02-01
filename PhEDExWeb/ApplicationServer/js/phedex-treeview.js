@@ -85,12 +85,16 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       locateNode: function(el) {
-//      find the nearest ancestor that has a phedex-tnode-* class applied to it, either
-//      phedex-tnode-field or phedex-tnode-header
+//      find the nearest ancestor that has a phedex-tnode-* class applied to it, either phedex-tnode-field or phedex-tnode-header
+//      Explicitly do this as two separate loops as an optimisation. Most of the time I expect to be looking at a value-node, in the data,
+//      so search the headers only as a second step. 
         while (el.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
             return el;
           }
+          el = el.parentNode;
+        }
+        while (el.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
             return el;
           }
@@ -109,6 +113,14 @@ PHEDEX.TreeView = function(sandbox,string) {
             return el;
           }
           el = el.parentNode;
+        }
+      },
+
+      locateBranch: function(el) {
+//      find the tree-branch that this DOM node is in
+        var tgt = YuD.hasClass(el, "ygtvlabel") ? el : YuD.getAncestorByClassName(el, "ygtvlabel");
+        if ( tgt ) {
+          return this._cfg.textNodeMap[tgt.id];
         }
       },
 
@@ -364,29 +376,21 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
     onContextMenuClick: function(p_sType, p_aArgs, p_TreeView) {
 //    Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
       log('ContextMenuClick for '+obj.me,'info','treeview');
-      var oTarget = this.contextEventTarget,
-          oCurrentTextNode,
-          oTextNode = YuD.hasClass(oTarget, "ygtvlabel") ? oTarget : YuD.getAncestorByClassName(oTarget, "ygtvlabel");
-
-      if (oTextNode) {
-        oCurrentTextNode = obj._cfg.textNodeMap[oTextNode.id];
-      } else {
+      var target = this.contextEventTarget,
+          node = obj.locateBranch(target);
+      if ( !node ) {
         this.cancel();
         return;
       }
-      if ( oCurrentTextNode )
-      {
-        var label = p_aArgs[0].explicitOriginalTarget.textContent,
-            task = p_aArgs[1],
-            args = {}, opts = {};
-        if ( oCurrentTextNode.payload )        {
-          args = oCurrentTextNode.payload.args;
-          opts = oCurrentTextNode.payload.opts;
-        }
-        log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
-        if (task) {
-          task.value.fn(opts, {container:p_TreeView, node:oCurrentTextNode, target:oTarget, textNode:oTextNode, obj:obj});
-        }
+      var label = p_aArgs[0].explicitOriginalTarget.textContent,
+          task  = p_aArgs[1],
+          opts  = {};
+      if ( node.payload ) {
+        opts = node.payload.opts;
+      }
+      log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
+      if (task) {
+        task.value.fn(opts, {container:p_TreeView, node:node, target:target, obj:obj});
       }
     }
   };
@@ -491,28 +495,33 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
       prepare: function(el,type,dir) {
 //     simply unpack the interesting bits and feed it to the object
-        var node      = el.node,
-            obj       = el.obj,
+        var obj       = el.obj,
             target    = obj.locateNode(el.target),
             thisClass = obj.getPhedexFieldClass(target),
             s         = obj.meta.sort,
-            parent    = node.parent,
-            uncles    = [];
+            nodes     = {},
+            node, parent, elList, i, j, el;
         if ( !s ) { s = obj.meta.sort = {}; }
         s.field = thisClass;
         s.dir   = dir;
         s.type  = type;
-        if ( parent.parent ) { uncles = parent.parent.children; }
-        else { uncles.push(parent); } // in case we sorted on a direct descendant of the root tree (i.e. no grandparent)
 
-//      sort on all uncles' children, so all open branches of the same grand-parent get sorted
-        for (var i in uncles) {
-          if ( uncles[i].children && uncles[i].children[0] ) {
-            this.execute(uncles[i].children[0],thisClass,type,dir);
-          }
+//      locate all fields of the target-type, find their parents, and sort all children of each parent. This is not a cheap
+//      operation, I have to look up all the elements of this CSS class, then get the node they are in, then the parents,
+//      make a unique list of the parents, and sort each of them. I can gain something by looking up only every other node,
+//      because that way I may miss a parent with a single child, but single-children are already sorted anyway.
+//      Also, skip the first element, because that will be the header, which can be ignored
+        elList = YuD.getElementsByClassName(thisClass,null,obj.el);
+        j = elList.length;
+        for (i=1; i<j; i+=2) {
+          node = obj.locateBranch(elList[i]);
+          parent = node.parent;
+          nodes[parent.index] = parent;
         }
-//         this.execute(node,thisClass,type,dir);
-//         obj.applyFilter();
+
+        for (var i in nodes) {
+          this.execute(nodes[i].children[0],thisClass,type,dir);
+        }
       },
 
       dynamicLoadComplete: function(node) {
