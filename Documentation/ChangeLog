@@ -1,3 +1,109 @@
+Changes for PhEDEx 3.3.0
+
+Changes for Site Agents
+ - FileDownload FTS backend:
+   - Add the 'Hold' FTS job state
+   - Prevent flooding logs with warnings about unknown job stats
+ - FileRemove:
+   - Optimizations to allow faster processing of large deletion
+     queues.  Latencies now ought to be dominated by time to execute
+     deletion command.
+   - Add "dstats" line to the log files for each file deletion, giving
+     relevant timestamps and deletion latencies
+   - Add --timeout option for timing out deletion commands
+ - FileMSSMigrate: provide file checksum to migration checking routine
+ - BlockDownloadVerify
+   - Add --queue_length argument, for [[tony?]]
+   - Rework test retry logic to work better with large queues.  File
+     existence tests are allowed to fail up to 10 times and are
+     retried with a lower priority than untried tests.
+   - Correctly expire requests (#58378)
+   - Correctly set the interval to check (#58223)
+ - Watchdog
+   - New --limit argument, for restarting agents when memory or CPU
+     thresholds are reached.
+ - Master: correctly ignore "stop" when agent was never started
+ - TMDBInject: updated SQL to protect against bad query execution plan
+
+Changes for Central Agents
+ - File Routing:
+   - Allow path-probing probability to be configured with
+     --probe-chance (#51482)
+   - Fix priority mismatch when adding router statistics to
+     t_history_link_stats (#47059)
+   - Change "priority window" accounting to not be a strict 10 TB per
+     priority.  Cease to count requests which have more than 5 routing
+     attempts against the queue limit, giving new files an opportuntiy
+     to be routed.  This prevents a destination from being blocked
+     when the request queue has been completely filled by unroutable
+     or untransferrable files. (#32517)
+   - Put "forgotten blocks" into a special suspension state so that
+     the router can forget about them for awhile.  Blocks which have
+     over 50 attempts for every file and were activated 30 days ago
+     are put into this suspension state, deactivating them for 15
+     days.
+   - Better rounding of filesize when calculating cost prototypes,
+     preventing small files from having an exagerated latency.
+     (#54285)
+   - Failed routings have their request set to a distinct inactive
+     state in the database.  Totals of failed routings are written to
+     the logs.  No longer store the list of failed routings in memory.
+   - In the slow flush (every 30 minutes) make 3 invalid paths valid
+     for every source/destination pair.  This prevents the router from
+     starving a link completely, guarunteeing a minimum number of
+     queued transfers for each destination.  (#47060)
+   - Increase rate threshold for expiration time exention to 0.5 MB/s
+     from 1 kB/s.  Also, do not extend expiration time if the
+     estimated latency over a link is greater than 3 days.  This is
+     done in order to match the extension threshold with the nominal
+     rate and maximum latency values used for path prototype
+     calculation, and to decrease the latency until re-routing for
+     failing links.
+   - Deactivate expired requests before removing paths with
+     deactivated requests.  This reduces re-routing latency by 0.5
+     hours.
+   - No longer add a random delay to file re-routing after expiration.
+   - Randomize path choice when all link parameters are equal, instead
+     of falling back to perl's hash ordering.
+   - Correctly count paths per block for t_status_block_path (#30860)
+ - PerfMonitor:
+   - Fix calculation of recent link performance.  First, require at
+     least 1 hour of pending queue statistics before giving a link a
+     rate of "0", in order to give the system enough time to allow a
+     transfer attempt.  Second, correctly join link _stats and _events
+     tables in a way that doesn't require simultaneous entries in
+     each. (#56009)
+   - Increase the minimum time window for observing statistics to 2
+     hours from 1 hour.  This is to enable the above "at least one
+     hour pending" change above.
+   - Optimize slow SQL for "closing" t_history_link_stats
+   - Monitor missing files/bytes in t_history_dest
+   - Log inserted/updated row counts
+ - FilePump: removes logical replicas due to a deletion, instead of
+   FileRemove.  This reduces lock contention in the database.  Logical
+   replica is now deleted *after* the deletion job is finished,
+   instead of before.
+ - BlockMonitor: rewrite to optimize and eliminate ORA-08177 errors.
+   Entire DB state now updated in one transaction, meaning that the
+   block replica table contains a complete and consistent snapshot of
+   the database state at one moment in time.  Slight change to
+   monitoring of newly subscribed blocks: the statistcs are now
+   updated before the block is re-expanded by BlockActivate.  This
+   fixes #58516.
+ - BlockActivate: only activates blocks which have node_files = the
+   total number of files in the block.  Allow a mixture of is_active
+   state.
+ - BlockDelete: optimize SQL to reduce cycle times (#59722)
+ - InvariantMonitor: change all log output to "Alert".  Everything
+   this agent prints is because of some problem.
+ - LoadTest generation: set default protocol to srmv2 instead of srm
+   in srm.sh
+
+Changes for Developers
+ - All calls to &dbexec and &dbbindexec now return their execution time.
+ - Add PHEDEX_DB_SIM_FAIL environment variable for simulating random
+   SQL statement failures.
+
 Changes for PhEDEx 3.2.10
 
  - Dependency Change: dbs-client DBS_2_0_6_patch5 -> DBS_2_0_9_patch4.
