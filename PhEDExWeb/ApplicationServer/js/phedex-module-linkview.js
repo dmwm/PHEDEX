@@ -96,12 +96,12 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             name:'Link',
             format: [
               {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['node','sort-alpha'] },
-              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
-              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PHEDEX.Util.format.bytes(x)+'/s';} },
-              {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format['%'] },
-              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PHEDEX.Util.format.filesBytes },
+              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
+              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
+              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
+              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PxU.format.bytes(x)+'/s';} },
+              {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PxU.format['%'] },
+              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
               {width: 90,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
               {width:110,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
             ]
@@ -114,7 +114,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 // - locate the spanWrap child from it
 // - compare their offsetHeights.
 // - if the span offsetHeight is greater than the div, the word is truncated to fit, and I can style it to show that!
-              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PxU.format.spanWrap },
               {width: 80,text:'Block ID',    className:'phedex-tree-block-id',       otherClasses:'align-right', contextArgs:['block','sort-num'] },
               {width: 80,text:'State',       className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Priority',    className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
@@ -126,9 +126,9 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'File',
             format:[
-              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PHEDEX.Util.format.spanWrap },
+              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PxU.format.spanWrap },
               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', contextArgs:['file','sort-num'] },
-              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PHEDEX.Util.format.bytes },
+              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PxU.format.bytes },
               {width: 90,text:'File Errors',className:'phedex-tree-file-errors', otherClasses:'align-right', contextArgs:'sort-num' },
               {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
             ]
@@ -259,7 +259,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               state    += block.queue[j].state+'<br/>';
               priority += block.queue[j].priority+'<br/>';
               files    += block.queue[j].files+'<br/>';
-              bytes    += PHEDEX.Util.format.bytes(block.queue[j].bytes)+'<br/>';
+              bytes    += PxU.format.bytes(block.queue[j].bytes)+'<br/>';
             }
             var tNode = obj.addNode(
               { format:obj.meta.tree[1].format, payload:block.payload },
@@ -339,13 +339,13 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             }
           }
 
-          var done_bytes = PHEDEX.Util.sumArrayField(h.transfer,'done_bytes'),
-              quality    = PHEDEX.Util.sumArrayField(h.transfer,'quality',parseFloat),
-              done   = { files:PHEDEX.Util.sumArrayField(h.transfer,'done_files'), bytes:done_bytes },
+          var done_bytes = PxU.sumArrayField(h.transfer,'done_bytes'),
+              quality    = PxU.sumArrayField(h.transfer,'quality',parseFloat),
+              done   = { files:PxU.sumArrayField(h.transfer,'done_files'), bytes:done_bytes },
               rate   = done_bytes/parseInt(h.transfer[0].binwidth),
-              fail   = { files:PHEDEX.Util.sumArrayField(h.transfer,'fail_files'),   bytes:PHEDEX.Util.sumArrayField(h.transfer,'fail_bytes')   },
-              expire = { files:PHEDEX.Util.sumArrayField(h.transfer,'expire_files'), bytes:PHEDEX.Util.sumArrayField(h.transfer,'expire_bytes') },
-              queue  = { files:PHEDEX.Util.sumArrayField(d.transfer_queue,'files'),  bytes:PHEDEX.Util.sumArrayField(d.transfer_queue,'bytes')  };
+              fail   = { files:PxU.sumArrayField(h.transfer,'fail_files'),   bytes:PxU.sumArrayField(h.transfer,'fail_bytes')   },
+              expire = { files:PxU.sumArrayField(h.transfer,'expire_files'), bytes:PxU.sumArrayField(h.transfer,'expire_bytes') },
+              queue  = { files:PxU.sumArrayField(d.transfer_queue,'files'),  bytes:PxU.sumArrayField(d.transfer_queue,'bytes')  };
           if ( isNaN(quality) ) { quality = 0; } // seems h.transfer[i].quality can be 'null', which gives NaN in parseFloat
           quality /= h.transfer.length;
 
@@ -362,7 +362,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           p.opts.node = h[antidirection];
           p.opts.direction = this.direction_index();
           p.data.errors    = e.block;
-          link_errors = PHEDEX.Util.sumArrayField(e.block,'num_errors');
+          link_errors = PxU.sumArrayField(e.block,'num_errors');
           tNode = this.addNode(
             { format:this.meta.tree[0].format, payload:p },
             [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
