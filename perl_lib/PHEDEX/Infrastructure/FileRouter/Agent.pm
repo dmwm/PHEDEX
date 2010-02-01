@@ -207,6 +207,29 @@ sub flush
 	set req_priority = cur_priority});
     push @stats, ['request priority updated', $rows];
 
+    # Create file requests for any active blocks where one does not
+    # exist.  Note: we have triggers for this, but it is possible
+    # (though rare) that some requests are missed if the injections
+    # and activations happen at the same time.
+    ($stmt, $rows) = &dbexec($dbh, qq{
+	insert into t_xfer_request
+        (fileid, inblock, destination, priority, is_custodial,
+         state, attempt, time_create, time_expire)
+         select xf.id, xf.inblock, bd.destination, bd.priority, bd.is_custodial, 
+	        -1 state, 0 attempt, :now, :now
+           from t_dps_block_dest bd
+           join t_xfer_file xf on xf.inblock = bd.block
+      left join t_xfer_request xq
+                on xq.fileid = xf.id
+                and xq.destination = bd.destination
+      left join t_xfer_replica xr
+                on xr.fileid = xf.id
+                and xr.node = bd.destination
+          where bd.state = 1
+            and xq.fileid is null
+            and xr.fileid is null }, ":now" => $now);
+    push @stats, ['stray requests added', $rows];
+           
     # For every source/destination pair, make some (default 3) random
     # invalid requests valid.  This ensures a kind of low-rate
     # "heartbeat" of transfer attempts for very poor links.
