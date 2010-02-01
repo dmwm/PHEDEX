@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], headerNames:{}, contextArgs:[], sortFields:{} },
+      _cfg: { textNodeMap:[], headerNames:{}, contextArgs:[], sortFields:{}, formats:{} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -146,7 +146,12 @@ PHEDEX.TreeView = function(sandbox,string) {
           root = htNode;
         }
         htNode.isLeaf = true;
+
+        this.tree.subscribe('expandComplete', function(obj) {
+          return function(node) { return obj.showOverflows(node); }
+        }(this));
         this.headerTree.render();
+
 //         this.decorators.push(
 //           {
 //             name:'Filter',
@@ -194,6 +199,7 @@ PHEDEX.TreeView = function(sandbox,string) {
             var f = spec.format[i],
                 className = f.className,
                 value;
+            this._cfg.formats[className] = f;
             if ( values ) { value = values[i]; }
             else { value = f.text; }
             if ( spec.name ) { value = spec.name+': '+value; }
@@ -259,6 +265,20 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
+      showOverflows: function(node) {
+        var el, elList = YuD.getElementsByClassName('spanWrap',null,this.el);
+        for (var i in elList) {
+          el = this.locateNode(elList[i]);
+          var h1 = elList[i].offsetHeight,
+              h2 = el.offsetHeight;
+          if ( h1/h2 > 1.2 ) { // the element overflows its container...
+            YuD.addClass(el,'phedex-tree-overflow');
+          } else {
+            YuD.removeClass(el,'phedex-tree-overflow');
+          }
+        }
+      },
+
 // This is for dynamically loading data into YUI TreeViews.
       loadTreeNodeData: function(node, fnLoadComplete) {
 // First, create a callback function that uses the payload to identify what to do with the returned data.
@@ -297,7 +317,7 @@ PHEDEX.TreeView = function(sandbox,string) {
           {
 //          payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
 //          and conform to the calling specification for the data-service module
-            log('in PHEDEX.TreeView.loadTreeNodeData for '+node.payload.call,'treeview','info',_me);
+            log('in PHEDEX.TreeView.loadTreeNodeData for '+node.payload.call,'info',_me);
             var query = [];
             query.api = node.payload.call;
             query.args = node.payload.args;
@@ -397,25 +417,6 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   };
 }
 
-//   that.onBuildComplete.subscribe(function() {
-//     log('onBuildComplete: '+that.me(),'info','Core.TreeView');
-//     that.tree.subscribe('expandComplete',function(node) {
-//       if ( node.children ) { that.sort(node.children[0]); }
-//       that.hideAllFieldsThatShouldBeHidden();
-//       that.applyFilter();
-//     });
-//     that.ctl.extra.el.innerHTML = 'Headers';
-//   });
-// 
-//   that.onDataFailed.subscribe(function() {
-//     if ( that.tree ) { that.tree.destroy(); that.tree = null; }
-//     that.dom.content.innerHTML='Data-load error, try again later...';
-//     that.finishLoading();
-//   });
-// 
-// // Resize the panel when extra columns are shown, to accomodate the width
-//   that.resizePanel=function(tree) {  }
-
 PHEDEX.TreeView.Resize = function(sandbox,args) {
   var obj = args.payload.obj,
       elList = YuD.getElementsByClassName('phedex-tnode-header',null,obj.el);
@@ -424,10 +425,15 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
     var el = elList[i],
         elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
     elResize.payload = el;
-    elResize.subscribe('endResize',function(e) {
-      var tgt = obj.locateHeader(YuE.getTarget(e).payload),
+    elResize.subscribe('endResize',function(ev) {
+      var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
           elList = obj.locatePartnerFields(tgt);
      for (var i in elList ) { elList[i].style.width = tgt.style.width; }
+      obj.showOverflows(obj.tree.getRoot());
+      var node = obj.locateNode(tgt),
+          className = obj.getPhedexFieldClass(node),
+          f = obj._cfg.formats[className];
+      f.width = tgt.offsetWidth;
     });
   }
 }
@@ -451,7 +457,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           if ( f.className == thisClass ) { index = i; break; }
         }
         if ( !index ) {
-          log('cannot identify class-type','error','Core.TreeView');
+          log('cannot identify class-type','error','treeview');
           return;
         }
 
@@ -485,13 +491,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         }
 
         obj.hideFields();
-//         for (var i in node.data.spec.format) {
-//           var className = node.data.spec.format[i].className,
-//               container = node.getEl(),
-//               tgt = YuD.getElementsByClassName(node.data.spec.format[i].className,null,node.getEl()),
-//               header = obj.locateHeader(tgt[0]);
-// //           obj.resizeFields(header);
-//         }
       },
 
       prepare: function(el,type,dir) {
@@ -568,7 +567,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
 //   that.filter.onFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       log('onWidgetFilterCancelled:'+obj.me(),'info','Core.TreeView');
+//       log('onWidgetFilterCancelled:'+obj.me(),'info','treeview');
 //       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.revealAllBranches();
 //       obj.filter.Reset();
@@ -578,7 +577,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //   }(that));
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function() {
-//       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.TreeView');
+//       log('onGlobalFilterCancelled:'+obj.me(),'info','treeview');
 //       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.revealAllBranches();
 //       obj.filter.Reset();
@@ -665,7 +664,7 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
     if ( ! el ) { return; }
     var aList = YuD.getElementsByClassName('spanWrap','span',el);
     for (var i in aList) {
-      log('Found span '+aList[i].innerHTML,'debug','Core.TreeView');
+      log('Found span '+aList[i].innerHTML,'debug','treeview');
     }
     var action;
     var className = 'phedex-tnode-highlight';
