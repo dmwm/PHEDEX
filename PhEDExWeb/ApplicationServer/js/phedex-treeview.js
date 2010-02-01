@@ -87,12 +87,13 @@ PHEDEX.TreeView = function(sandbox,string) {
       locateNode: function(el) {
 //      find the nearest ancestor that has a phedex-tnode-* class applied to it, either phedex-tnode-field or phedex-tnode-header
 //      Explicitly do this as two separate loops as an optimisation. Most of the time I expect to be looking at a value-node, in the data,
-//      so search the headers only as a second step. 
-        while (el.id != this.el.id) { // walk up only as far as the widget-div
-          if(YuD.hasClass(el,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
-            return el;
+//      so search the headers only as a second step.
+        var el1 = el; // preserve the original el in case it's a header
+        while (el1.id != this.el.id) { // walk up only as far as the widget-div
+          if(YuD.hasClass(el1,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+            return el1;
           }
-          el = el.parentNode;
+          el1 = el1.parentNode;
         }
         while (el.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
