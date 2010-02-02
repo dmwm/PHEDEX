@@ -1,5 +1,15 @@
 Changes for PhEDEx 3.3.0
 
+Dependency Changes
+ - oracle: 10.2.0.3 => 11.2.0.1
+ - DBI: 1.5.0 => 1.609
+ - DBD::Oracle: 1.17 => 1.23
+ - POE: 1.003 => 1.284
+ - Log::Log4perl 1.16 => 1.26
+ - Log::Dispatch 2.21 => 2.26
+ - Log::Dispatch::FileRotate 1.17 => 1.19
+ - XML::Parser 2.34 => 2.36
+	
 Changes for Site Agents
  - FileDownload FTS backend:
    - Add the 'Hold' FTS job state
@@ -13,7 +23,8 @@ Changes for Site Agents
    - Add --timeout option for timing out deletion commands
  - FileMSSMigrate: provide file checksum to migration checking routine
  - BlockDownloadVerify
-   - Add --queue_length argument, for [[tony?]]
+   - Add --queue_length argument, to tweak the number of tasks to
+     fetch from the DB per cycle
    - Rework test retry logic to work better with large queues.  File
      existence tests are allowed to fail up to 10 times and are
      retried with a lower priority than untried tests.
