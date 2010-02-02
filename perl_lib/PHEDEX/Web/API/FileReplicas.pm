@@ -94,6 +94,7 @@ sub fileReplicas
 {
     my ($core,%h) = @_;
     my %p = &validate_params(\%h,
+                           uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
 			   require_one_of => [ qw(block lfn) ],
@@ -106,8 +107,8 @@ sub fileReplicas
                                create_since  => { using => 'time'  },
                                lfn           => { using => 'lfn'   },
                                node          => { using => 'node'  },
-                               se            => { using => 'any'   },
-                               group         => { using => 'any'   },
+#                               se            => { using => 'any'   },
+#                               group         => { using => 'any'   },
 			   });
 				
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
