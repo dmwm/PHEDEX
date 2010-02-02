@@ -22,7 +22,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 
   var node,
       opts = {},
-      width = 1200;
+      width = 1200,
+      PxUf = PHEDEX.Util.format;
 
   // Merge passed options with defaults
   YAHOO.lang.augmentObject(opts, {
@@ -96,12 +97,12 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             name:'Link',
             format: [
               {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  contextArgs:['node','sort-alpha'] },
-              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
-              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
-              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
-              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PxU.format.bytes(x)+'/s';} },
+              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PxUf.bytes(x)+'/s';} },
               {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PxU.format['%'] },
-              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxU.format.filesBytes },
+              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
               {width: 90,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
               {width:110,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
             ]
@@ -109,12 +110,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'Block',
             format: [
-// using spanWrap for the block-name, I can (in principle):
-// - locate the div with the block-name
-// - locate the spanWrap child from it
-// - compare their offsetHeights.
-// - if the span offsetHeight is greater than the div, the word is truncated to fit, and I can style it to show that!
-              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PxU.format.spanWrap },
+              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  contextArgs:['block','sort-alpha'], format:PxUf.spanWrap },
               {width: 80,text:'Block ID',    className:'phedex-tree-block-id',       otherClasses:'align-right', contextArgs:['block','sort-num'] },
               {width: 80,text:'State',       className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Priority',    className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
@@ -126,9 +122,9 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'File',
             format:[
-              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PxU.format.spanWrap },
+              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  contextArgs:['file','sort-alpha'], format:PxUf.spanWrap },
               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', contextArgs:['file','sort-num'] },
-              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PxU.format.bytes },
+              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', contextArgs:'sort-num', format:PxUf.bytes },
               {width: 90,text:'File Errors',className:'phedex-tree-file-errors', otherClasses:'align-right', contextArgs:'sort-num' },
               {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
             ]
@@ -306,11 +302,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           throw new Error(errstr);
         }
       },
-
-//       buildHeader: function(div) {
-// debugger;
-//         YAHOO.util.Dom.insertBefore(document.createTextNode(this.node),that.dom.param.firstChild);
-//       },
 
       fillBody: function() {
         var root = this.tree.getRoot(),
