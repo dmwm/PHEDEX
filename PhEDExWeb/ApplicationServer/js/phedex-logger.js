@@ -54,38 +54,40 @@ PHEDEX.Logger = function() {
       elCtl        = document.getElementById('phedex-logger-controls');
       elLog2Server = document.getElementById('phedex-logger-log2server');
 
-      try {
-        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.level');
-        if ( cookie ) {
-          for (var i in cookie) {
-            this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
+      if ( elCtl && elLog2Server ) {
+        try {
+          var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.level');
+          if ( cookie ) {
+            for (var i in cookie) {
+              this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
+            }
           }
-        }
-      } catch (ex) {};
-      try {
-        var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.group');
-        if ( cookie ) {
-          for (var i in cookie) {
-            if ( i.match('_[0-9]+$') ) { next; }
-            this.log2Server.group[i.toLowerCase()] = cookie[i] == 'true' ? true : false;
+        } catch (ex) {};
+        try {
+          var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.group');
+          if ( cookie ) {
+            for (var i in cookie) {
+              if ( i.match('_[0-9]+$') ) { next; }
+              this.log2Server.group[i.toLowerCase()] = cookie[i] == 'true' ? true : false;
+            }
           }
-        }
-      } catch (ex) {};
+        } catch (ex) {};
 
-      if ( !args ) { args = {}; }
-      if ( args.log2server ) { this.log2Server = args.log2server; }
-      var  ctl = PxU.makeChild(elLog2Server,'div');
-      var c = PxU.makeChild(ctl,'input');
-      c.type    = 'button';
-      c.value   = 'clear cookies';
-      c.onclick = function(obj) {
-        return function(ev) {
-          YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',{});
-          YAHOO.util.Cookie.setSubs('PHEDEX.Logger.level',{});
-        }
-      }(this);
-      this._addControls(elLog2Server,'level');
-      this._addControls(elLog2Server,'group');
+        if ( !args ) { args = {}; }
+        if ( args.log2server ) { this.log2Server = args.log2server; }
+        var  ctl = PxU.makeChild(elLog2Server,'div');
+        var c = PxU.makeChild(ctl,'input');
+        c.type    = 'button';
+        c.value   = 'clear cookies';
+        c.onclick = function(obj) {
+          return function(ev) {
+            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',{});
+            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.level',{});
+          }
+        }(this);
+        this._addControls(elLog2Server,'level');
+        this._addControls(elLog2Server,'group');
+      }
 
       div = PxU.makeChild(el,'div');
       div.id = el.id +'_yui';
