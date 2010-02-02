@@ -48,7 +48,7 @@ sub idle
 	});
 	my ($broken_count) = $q->fetchrow();
 	if ($broken_count != 0) {
-	    $self->Alert("$broken_count broken paths.");
+	    $self->Warn("$broken_count broken paths.");
 	}
 
 	# II:  Unfinished blocks
@@ -78,7 +78,7 @@ sub idle
 	
 	my ($bad_active_count) = $q->fetchrow();
 	if ($bad_active_count != 0) {
-	    $self->Alert("$bad_active_count files not active from an active block");
+	    $self->Warn("$bad_active_count files not active from an active block");
 	}
 
 	# IV:  Deactivated (collapsed) blocks have active files
