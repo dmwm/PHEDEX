@@ -20,7 +20,7 @@ PHEDEX.TreeView = function(sandbox,string) {
     return {
 
 /**
- * An object containing metadata that describes the treeview internals. Used as a convenience to keep from polluting the namespace too much with public variables that the end-module does not need.
+ * An object containing metadata that describes the treeview internals. Used as a convenience to keep from polluting the namespace too much with public variables that the end-module does not need. This is essentially re-hashed data from the 'meta' construct used to describe the tree. Keeping this data here distinguishes it from the 'meta' in the debugger, and emphasises that it is not needed for the description of the tree, only to make it work in the application.
  * @property _cfg
  * @type object
  * @private
@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], headerNames:{}, contextArgs:[], sortFields:{}, formats:{} },
+      _cfg: { textNodeMap:[], classes:{}, contextArgs:[], sortFields:{}, formats:{}, classByGroup:{} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -144,6 +144,11 @@ PHEDEX.TreeView = function(sandbox,string) {
           htNode = this.addNode( t[i], null, root );
           htNode.expand();
           root = htNode;
+          var group = t[i].name;
+          if ( !this._cfg.classByGroup[group] ) { this._cfg.classByGroup[group] = {}; }
+          for (var j in t[i].format ) {
+            this._cfg.classByGroup[group][ t[i].format[j].className ] = 1;
+          }
         }
         htNode.isLeaf = true;
 
@@ -199,14 +204,15 @@ PHEDEX.TreeView = function(sandbox,string) {
             var f = spec.format[i],
                 className = f.className,
                 value;
+            f.width = f.width + 'px';
             this._cfg.formats[className] = f;
             if ( values ) { value = values[i]; }
             else { value = f.text; }
             if ( spec.name ) { value = spec.name+': '+value; }
-            if ( this._cfg.headerNames[className] ) {
-              log('duplicate entry for '+className+': "'+this._cfg.headerNames[className].value+'" and "'+value+'"','error','treeview');
+            if ( this._cfg.classes[className] ) {
+              log('duplicate entry for '+className+': "'+this._cfg.classes[className].value+'" and "'+value+'"','error','treeview');
             } else {
-              this._cfg.headerNames[className] = {value:value, group:spec.name};
+              this._cfg.classes[className] = {value:value, group:spec.name};
               this._cfg.sortFields[spec.name] = {};
               if ( spec.format[i].contextArgs )
               {
@@ -250,7 +256,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         YuD.getElementsByClassName(className,null,el,function(element) {
           element.style.display = 'none';
         });
-        _sbx.notify(this.id,'hideColumn',{text: this._cfg.headerNames[className].value, value:className});
+        _sbx.notify(this.id,'hideColumn',{text: this._cfg.classes[className].value, value:className});
       },
 
       /**
@@ -418,7 +424,8 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 }
 
 PHEDEX.TreeView.Resize = function(sandbox,args) {
-  var obj = args.payload.obj,
+  var obj  = args.payload.obj,
+      _sbx = sandbox,
       elList = YuD.getElementsByClassName('phedex-tnode-header',null,obj.el);
   for (var i in elList)
   {
@@ -433,9 +440,44 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       var node = obj.locateNode(tgt),
           className = obj.getPhedexFieldClass(node),
           f = obj._cfg.formats[className];
-      f.width = tgt.offsetWidth;
+      f.width = tgt.style.width /*offsetWidth*/;
     });
   }
+
+  _construct = function() {
+    return {
+      sorted: function(className) {
+//      After sorting, branches need resizing again...
+        var group = obj._cfg.classes[className].group,
+            classes = obj._cfg.classByGroup[group],
+            className, elList, el;
+        for (className in classes) {
+          elList = YuD.getElementsByClassName(className,null,obj.dom.body);
+          for (var i in elList) {
+            if ( elList[i].style.width == obj._cfg.formats[className].width ) {
+              last;
+            }
+            elList[i].style.width = obj._cfg.formats[className].width;
+          }
+        }
+      },
+      _init: function() {
+        var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact sorting
+          return function(ev,arr) {
+            var action = arr[0];
+            if ( action && o[action] && typeof(o[action]) == 'function' ) {
+              o[action](arr[1]);
+            }
+          }
+        }(this);
+        _sbx.listen(obj.id,moduleHandler);
+      },
+    };
+  }
+  YAHOO.lang.augmentObject(this,_construct(this),true);
+  this._init(args);
+  return this;
+
 }
 
 PHEDEX.TreeView.Sort = function(sandbox,args) {
@@ -443,9 +485,9 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       obj = args.payload.obj;
   _construct = function() {
     return {
-      execute: function(node,thisClass,type,dir) {
+      execute: function(node,className,type,dir) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
-//      thisClass is the class to use as the sort-key. If not given, look to see if a default is already set for this group
+//      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
         var sortFn = PxU.Sort[type][dir],
             index,
@@ -454,7 +496,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             map = [], indices=[], elList;
         for (var i in node.data.spec.format) {
           var f = node.data.spec.format[i];
-          if ( f.className == thisClass ) { index = i; break; }
+          if ( f.className == className ) { index = i; break; }
         }
         if ( !index ) {
           log('cannot identify class-type','error','treeview');
@@ -463,7 +505,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
         for (var i in children)
         {
-          elList = YuD.getElementsByClassName(thisClass,null,children[i].getEl());
+          elList = YuD.getElementsByClassName(className,null,children[i].getEl());
           if ( elList.length ) {
             map.push( {node:children[i], value:children[i].data.values[index]} );
             indices.push( i );
@@ -479,7 +521,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         YuD.getElementsByClassName('phedex-sorted',null,obj.dom.header,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
-        YuD.getElementsByClassName(thisClass,null,obj.el,function(element) {
+        YuD.getElementsByClassName(className,null,obj.el,function(element) {
           YuD.addClass(element,'phedex-sorted');
         });
 
@@ -489,20 +531,19 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           obj.dom.sorted.innerHTML = 'S';
           obj.dom.sorted.className = 'phedex-sorted';
         }
-
-        obj.hideFields();
+//         obj.hideFields();
       },
 
       prepare: function(el,type,dir) {
 //     simply unpack the interesting bits and feed it to the object
         var obj       = el.obj,
             target    = obj.locateNode(el.target),
-            thisClass = obj.getPhedexFieldClass(target),
+            className = obj.getPhedexFieldClass(target),
             s         = obj.meta.sort,
             nodes     = {},
             node, parent, elList, i, j, el;
         if ( !s ) { s = obj.meta.sort = {}; }
-        s.field = thisClass;
+        s.field = className;
         s.dir   = dir;
         s.type  = type;
 
@@ -511,7 +552,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //      make a unique list of the parents, and sort each of them. I can gain something by looking up only every other node,
 //      because that way I may miss a parent with a single child, but single-children are already sorted anyway.
 //      Also, skip the first element, because that will be the header, which can be ignored
-        elList = YuD.getElementsByClassName(thisClass,null,obj.el);
+        elList = YuD.getElementsByClassName(className,null,obj.el);
         j = elList.length;
         for (i=1; i<j; i+=2) {
           node = obj.locateBranch(elList[i]);
@@ -520,8 +561,9 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         }
 
         for (var i in nodes) {
-          this.execute(nodes[i].children[0],thisClass,type,dir);
+          this.execute(nodes[i].children[0],className,type,dir);
         }
+        _sbx.notify(obj.id,'sorted',className);
       },
 
       dynamicLoadComplete: function(node) {
