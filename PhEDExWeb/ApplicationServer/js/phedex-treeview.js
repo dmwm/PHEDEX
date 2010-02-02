@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], classes:{}, contextArgs:[], sortFields:{}, formats:{}, classByGroup:{} },
+      _cfg: { textNodeMap:[], classes:{}, contextArgs:[], sortFields:{}, formats:{} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -144,11 +144,6 @@ PHEDEX.TreeView = function(sandbox,string) {
           htNode = this.addNode( t[i], null, root );
           htNode.expand();
           root = htNode;
-          var group = t[i].name;
-          if ( !this._cfg.classByGroup[group] ) { this._cfg.classByGroup[group] = {}; }
-          for (var j in t[i].format ) {
-            this._cfg.classByGroup[group][ t[i].format[j].className ] = 1;
-          }
         }
         htNode.isLeaf = true;
 
@@ -440,7 +435,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       var node = obj.locateNode(tgt),
           className = obj.getPhedexFieldClass(node),
           f = obj._cfg.formats[className];
-      f.width = tgt.style.width /*offsetWidth*/;
+      f.width = tgt.style.width;
     });
   }
 
@@ -449,9 +444,8 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       sorted: function(className) {
 //      After sorting, branches need resizing again...
         var group = obj._cfg.classes[className].group,
-            classes = obj._cfg.classByGroup[group],
-            className, elList, el;
-        for (className in classes) {
+            className, elList;
+        for (className in obj._cfg.classes) {
           elList = YuD.getElementsByClassName(className,null,obj.dom.body);
           for (var i in elList) {
             if ( elList[i].style.width == obj._cfg.formats[className].width ) {
