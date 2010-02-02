@@ -267,7 +267,7 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 .phedex-tnode-field {
   overflow: hidden;
   height: 1.4em;
-  padding-right: 6px;
+  padding-right: 5px; /* why this is 5 and the tnode-header is 6, I don't know. I just know it fits.. */
   background-color: #f8f8f8;
   border-right: 1px dotted #aaa;
 }
