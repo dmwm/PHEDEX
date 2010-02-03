@@ -330,8 +330,17 @@ DONE:
           NOCERT        => undef, # $nocert,
           SERVICE       => $service,
         );
-        my @form = $uri->query_form();
-        my $response = $ua->post($uri,\@form);
+	my ($method,$response,@form);
+	$method = $request->method();
+        @form = $uri->query_form();
+	if ( $method eq 'POST' )
+	{
+          $response = $ua->post($uri,\@form);
+	}
+	else
+	{
+	  $response = $ua->get($uri);
+	}
 	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $heap->{client}->put($response);
         $kernel->yield("shutdown");
