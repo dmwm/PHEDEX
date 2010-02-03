@@ -259,10 +259,10 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   width:20px;
 }
 
-.phedex-core-overlay { position:absolute; background-color:#aaa; border:1px dotted black; padding:0; margin:0; opacity: 0.92;}
-.phedex-core-overlay .hd { background-color:#eee; margin: 25px 25px 0; }
-.phedex-core-overlay .bd { background-color:#fff; margin: 0 25px 0; }
-.phedex-core-overlay .ft { background-color:#eee; margin: 0 25px 25px; }
+.phedex-core-overlay { position:absolute; background-color:#bbf; border:1px dotted black; padding:0; margin:0; opacity: 0.92;}
+.phedex-core-overlay .hd { background-color:#eee; margin: 5px 5px 0; }
+.phedex-core-overlay .bd { background-color:#fff; margin: 0   5px 0; }
+.phedex-core-overlay .ft { background-color:#eee; margin: 0   5px 5px; }
 
 .phedex-tnode-field {
   overflow: hidden;
