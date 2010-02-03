@@ -322,7 +322,7 @@ debugger;
         d.param   = PxU.makeChild(d.header, 'span', {className:'phedex-core-param'});
         d.title   = PxU.makeChild(d.header, 'span', {className:'phedex-core-title'});
         d.title.innerHTML = this.me+': initialising...';
-        d.control = PxU.makeChild(d.header, 'span', {className:'phedex-core-control'}); // float-right'});
+        d.control = PxU.makeChild(d.header, 'span', {className:'phedex-core-control'});
         d.extra   = PxU.makeChild(d.header, 'div', {className:'phedex-core-extra phedex-invisible'});
         d.body    = PxU.makeChild(el, 'div', {className:'bd'});
         d.content = PxU.makeChild(d.body, 'div', {className:'phedex-core-content'});
