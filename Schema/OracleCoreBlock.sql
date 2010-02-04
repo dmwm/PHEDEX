@@ -211,12 +211,10 @@ create table t_dps_block_activate
 ----------------------------------------------------------------------
 -- Create indices
 
--- t_dps_block_dataset
-create index ix_dps_block_dataset
-  on t_dps_block (dataset);
-
+-- t_dps_block
 create index ix_dps_block_name
   on t_dps_block (name);
+
 -- t_dps_block_replica
 create index ix_dps_block_replica_node
   on t_dps_block_replica (node);
