@@ -409,6 +409,7 @@ sub display_thing {
 
     print '-' x 78, "\n";
     print "URI => $uri\n";
+    if ( $thing->can('method') ) { print "METHOD => ",$thing->method(),"\n"; }
     foreach ( sort keys %{$h} ) { print "$_ => $h->{$_}\n"; }
     print '-' x 78, "\n";
 }
