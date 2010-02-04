@@ -12,7 +12,7 @@ use PHEDEX::CLI::UserAgent;
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only,$log);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
-my ($cert_file,$key_file,$proxy,$pk12);
+my ($cert_file,$key_file,$proxy,$pk12,$nocert);
 
 @accept = qw %	^html/[^./]+.html$
 		^examples/[^./]+.html$
@@ -113,6 +113,7 @@ GetOptions( 'help'	=> \$help,
 	    'cert_file=s'	=> \$cert_file,
 	    'key_file=s'	=> \$key_file,
 	    'proxy=s'		=> \$proxy,
+	    'nocert'		=> \$nocert,
 	    'pk12=s'		=> \$pk12,
 	    'logfile=s'		=> \$log,
 	  );
@@ -137,7 +138,7 @@ die "--cache_only without --cache doesn't make much sense...\n" if $cache_only &
 #POE::Component::Client::HTTP->spawn( Alias => 'ua' );
 #-----------------------------------------------------------
 my ($url,$format,$instance,$service);
-if ( !( $cert_file || $key_file || $proxy || $pk12 ||
+if ( !( $cert_file || $key_file || $proxy || $pk12 || $nocert ||
         $ENV{HTTPS_PROXY} || $ENV{HTTPS_CERT_FILE} || $ENV{HTTPS_KEY_FILE} ) )
 {
   $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
