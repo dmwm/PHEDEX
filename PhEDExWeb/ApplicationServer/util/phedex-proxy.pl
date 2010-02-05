@@ -332,16 +332,9 @@ DONE:
           SERVICE       => $service,
         );
 	my ($method,$response,@form);
-	$method = $request->method();
+	$method = lc $request->method();
         @form = $uri->query_form();
-	if ( $method eq 'POST' )
-	{
-          $response = $ua->post($uri,\@form);
-	}
-	else
-	{
-	  $response = $ua->get($uri);
-	}
+	$response = $ua->$method($uri,\@form);
 	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $heap->{client}->put($response);
         $kernel->yield("shutdown");
