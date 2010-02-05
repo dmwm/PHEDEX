@@ -18,7 +18,7 @@ Show existing subscriptions and their parameters.
   block            block name (wildcards)
   node             node name (wildcards)
   se               storage element
-  create_since     timestamp. only subscriptions created after.
+  create_since     timestamp. only subscriptions created after.*
   request          request number which created the subscription.
   custodial        y or n to filter custodial/non subscriptions.
                    default is null (either)
@@ -26,6 +26,8 @@ Show existing subscriptions and their parameters.
   priority         priority, one of "low", "normal" and "high"
   move             y (move) or n (replica)
   suspended        y or n, default is either
+
+  * when no arguments are specified, default create_since is set to 1 day ago
 
 =head2 Output
 
@@ -145,6 +147,13 @@ sub subscriptions
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
+
+    # if there is no input argument, set default "since" to 24 hours ago
+    if (scalar keys %h == 0)
+    {
+        $h{CREATE_SINCE} = time() - 3600*24;
+    }
+
 
     my $r = PHEDEX::Web::SQL::getDataSubscriptions($core, %h);
     # separate DATASET and BLOCK
