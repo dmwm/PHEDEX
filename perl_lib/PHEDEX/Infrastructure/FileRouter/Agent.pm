@@ -1,7 +1,9 @@
 package PHEDEX::Infrastructure::FileRouter::Agent;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -76,8 +78,6 @@ sub new
     return $self;
 }
 
-# Called by agent main routine before sleeping.  Pick up work
-# assignments from the database here and pass them to slaves.
 sub idle
 {
     my ($self, @pending) = @_;
@@ -110,6 +110,7 @@ sub idle
     $$self{FLUSH_MARKER} = undef;
 }
 
+# Report the configuration parameters to the log file.
 sub report_config
 {
     my $self = shift;
@@ -141,7 +142,10 @@ sub report_config
     }
 }
 
-# Run general system flush.
+# Run general system flush.  This is generally for table clean-up
+# actions that don't need to be executed too often or would be
+# prohibitively expensive to the database if they were executed too
+# often.
 sub flush
 {
     my ($self, $dbh) = @_;
@@ -352,30 +356,20 @@ sub flush
     $$self{NEXT_SLOW_FLUSH} = $now + $$self{FLUSH_PERIOD};
 }
 
+# Choose destinations which need file routing, iterate through them
+# activating blocks and routing files.
+#
+# In the case of multi-hop routing, the execution order for the phases
+# is important in that it balances progress for this node
+# (destination) and requests by other nodes (relaying).  Some of the
+# steps feed to the next one.
 sub route
 {
     my ($self, $dbh) = @_;
 
-    # All of this must run in a single agent to avoid database
-    # connection proliferation.  The execution order for the
-    # phases is important in that it balances progress for this
-    # node (destination) and requests by other nodes (relaying).
-    # Some of the steps feed to the next one.
-    #
-    # New requests begin in open state.  Offers will then begin to
-    # build.  Once first offer reaches the destination, we mark
-    # the request to go active in twice the time elapsed from the
-    # opening.  Once a request is active, we confirm the path that
-    # Has least total cost.
-    #
-    # Consider running only one instance of this agent for all
-    # nodes.  If the agent passes one loop quickly enough, this
-    # will reduce number of connections and database load
-    # significantly.
-
     # Read links and their parameters.  Only consider links which
     # are "alive", i.e. have a live download agent at destination
-    # and an export agent at the source.
+    # and an export agent at the source.  Ignore deactivated links.
     my $links = {};
     my $q = &dbexec($dbh, qq{
 	select l.from_node, l.to_node, l.distance, l.is_local, l.is_active,
@@ -421,27 +415,29 @@ sub route
     # Now route for the nodes
     my %node_names = reverse %{$$self{NODES_ID}};
     my $active_node_list = join ' ', sort @node_names{@active_nodes};
+
+    # Prepare new requests for all destination nodes
     $self->prepare ($dbh, $_) for (@active_nodes);
+
+    # Route files for active requests
     $self->routeFiles ($dbh, $links, @active_nodes)
 	|| $self->Logmsg ("no files to route to $active_node_list");
 }
 
-# Run the routing algorithm for one node.
+# Phase 1: Issue file requests for blocks requiring transfer.
+#
+# In this phase, we create file requests and implement the first
+# step of the priority model.  In this model we have N windows of
+# priority each of which can be filled up to WINDOW_SIZE bytes of
+# requests.  The requests are allocated by block, so it is
+# important that block sizes are typically much less than the
+# WINDOW_SIZE.  The order in which blocks are activated into file
+# requests is determined by a command-line argument.  See the
+# getDestinedBlocks_* functions below to see what the options are.
 sub prepare
 {
     my ($self, $dbh, $node) = @_;
 
-    ######################################################################
-    # Phase 1: Issue file requests for blocks pending some of their files.
-    #
-    # In this phase, we create file requests and implement the first
-    # step of the priority model.  In this model we have N windows of
-    # priority each of which can be filled up to WINDOW_SIZE bytes of
-    # requests.  The requests are allocated by block, so it is
-    # important that block sizes are typically much less than the
-    # WINDOW_SIZE.  The order in which blocks are activated into file
-    # requests is determined by a command-line argument.  See the
-    # getDestinedBlocks_* functions below to see what the options are.
 
     # Get current level of through traffic
     my $now = &mytimeofday();
@@ -1229,3 +1225,135 @@ sub stats
 }
 
 1;
+
+=head1 NAME
+
+PHEDEX::Infrastructure::FileRouter::Agent - the file routing agent.
+
+=head1 DESCRIPTION
+
+The file router agent is responsible for activating "destined blocks"
+for transfer, creating file-level transfer requests, and then
+calculating the optimal transfer path for these requests from the
+available source replicas.
+
+This agent is the first in line for determining file transfer order
+and priority, and makes the important choice of which source node to
+use for those transfers.  It also manages the expiration times of
+transfers throughout the system, and determines how volitile the
+transfer system is, where low volitility means sticking with the
+choice of source replica for a long time, giving sites a chance to fix
+problems in situ, and high volitility means giving up on failing
+source nodes quickly and choosing another.
+
+The agent activates a limited number of files per destination at a
+time.  This is to reduce the work the agent has to do and the size of
+the tables it manages to feasible levels.  It should activate files at
+a rate well beyond the bandwidth limits of the destination nodes.  It
+activates destinations and makes a transfer plan that is valid for
+many hours, and which can be extended for days if the plan remains
+good.
+
+The routing is done by using Dijkstra's algorithm to calculate the
+minimum cost path from available source replicas to requested
+destinations.  Cost is calculated in terms of the estimated latency to
+transfer a file over a path, which uses the recent transfer rates and
+pending queue to predict how long an additional transfer would take
+over that link.  This algorithm is capable of routing files over
+multiple wide-area network hops, but this capability is currently
+disabled due to lack of a buffer management mechanism for itermediate
+hops.
+
+=head1 TABLES USED
+
+=over
+
+=item L<t_dps_block_dest|PHEDEX::Schema::Block/t_dps_block_dest>
+
+Activate blocks for transfer.
+
+=item L<t_xfer_request|PHEDEX::Schema::Transfer/t_xfer_request>
+
+Represents a file request, a file which should be transferred to a
+destination. Rows only exist for activated blocks.
+
+=item L<t_xfer_path|PHEDEX::Schema::Transfer/t_xfer_path>
+
+Represents the transfer path.  Each row is one "hop", a
+from_node,to_node pair for a given file.  The collection of hops for a
+given fileid and destination is the whole transfer path.
+
+=item L<t_adm_link_param|PHEDEX::Schema::Topo/t_adm_link_param>
+
+Read by this agent to determine what the rate and latency over a hop
+is, which goes into the path cost calculation.
+
+=back
+
+=head1 COOPERATING AGENTS
+
+=over
+
+=item L<BlockAllocator|PHEDEX::BlockAllocator::Agent>
+
+Before this agent can activate blocks for transfer, BlockAllocator
+decides which blocks should be transferred to destination nodes.
+
+=item L<PerfMonitor|PHEDEX::Monitoring::PerfMonitor::Agent>
+
+Keeps track of recent link rate and latency (pending transfer queue /
+rate), which are inputs to the routing algorithm.
+
+=item L<FileIssue|PHEDEX::Infrastructure::FileIssue::Agent>
+
+After this agent decides the transfer path, FileIssue creates transfer
+tasks.
+
+=item L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>
+
+Creates file replicas, which complete the file request and end the
+life of the transfer path.
+
+=back
+
+=head1 STATISTICS
+
+=over
+
+=item L<t_status_path|Schema::Status::t_status_path>
+
+Per-link sums of files/sizes for routed paths.
+
+=item L<t_status_request|Schema::Status::t_status_request>
+
+Per-destination sums of files/sizes for requested files.
+
+=item L<t_status_block_path|Schema::Status::t_status_block_path>
+
+Per-path, per-block sums of files/sizes of routed paths and requested
+files.
+
+=item L<t_history_link_stats|Schema::Status::t_history_link_stats>
+
+confirm_files and confirm_bytes contain per-link sums of routed paths.
+param_rate and param_latency contains the main inputs to the routing
+algorithm.
+
+=item L<t_history_dest|Schema::Status::t_history_dest>
+
+request_files and request_bytes contain the per-destination sum of
+data activated for routing / transfer by this agent.  idle_files and
+idle_bytes contain the amount of requests which are not in an active
+state.
+
+=back
+
+=head1 SEE ALSO
+
+=over
+
+=item L<PHEDEX::Core::Agent>
+
+=back
+
+=cut
