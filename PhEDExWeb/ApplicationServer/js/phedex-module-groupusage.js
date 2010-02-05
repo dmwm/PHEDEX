@@ -12,7 +12,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.GroupUsage = function(sandbox, string) {
     YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
 
-    var _sbx = sandbox, _groupname = 'DataOps';
+    var _sbx = sandbox, _groupname;
     log('Module: creating a genuine "'+string+'"','info',string);
 
     /**
@@ -21,13 +21,13 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     * @type Object[]
     * @private
     */
-    var _dtColumnDefs = [{ key: 'name', label: 'Node', "sortable": true, "resizeable": true },
-                        { key: 'se', label: 'SE', "sortable": true, "resizeable": true },
-                        { key: 'id', label: 'ID', "sortable": true, "resizeable": true },
-                        { key: 'group[0].node_bytes', label: 'Resident Bytes', "sortable": true, "resizeable": true, "formatter": "customBytes" },
-                        { key: 'group[0].node_files', label: 'Resident Files', "sortable": true, "resizeable": true },
-                        { key: 'group[0].dest_bytes', label: 'Subscribed Bytes', "sortable": true, "resizeable": true, "formatter": "customBytes" },
-                        { key: 'group[0].dest_files', label: 'Subscribed Files', "sortable": true, "resizeable": true}];
+    var _dtColumnDefs = [{ key: 'name', label: 'Node' },
+                        { key: 'se', label: 'SE' },
+                        { key: 'id', label: 'ID', className:'align-right' },
+                        { key: 'group[0].node_bytes', label: 'Resident Bytes',   className:'align-right', "formatter": "customBytes" },
+                        { key: 'group[0].node_files', label: 'Resident Files',   className:'align-right' },
+                        { key: 'group[0].dest_bytes', label: 'Subscribed Bytes', className:'align-right', "formatter": "customBytes" },
+                        { key: 'group[0].dest_files', label: 'Subscribed Files', className:'align-right' }];
 
     /**
     * The responseSchema is an object literal of pointers that is used to parse data from the received response and creates 
@@ -76,15 +76,37 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @method initData
             */
             initData: function() {
+              this.dom.title.innerHTML = 'Waiting for parameters to be set...';
+              if ( _groupname ) {
                 _sbx.notify( this.id, 'initData' );
+                return;
+              }
+              _sbx.notify( 'module', 'needArguments', this.id );
             },
-            
+
+/** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
+ * @method setArgs
+ * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+ */
+            setArgs: function(arr) {
+              if ( arr && arr.groupname ) {
+                _groupname = arr.groupname;
+                if ( !_groupname ) { return; }
+                this.dom.title.innerHTML = 'setting parameters...';
+                _sbx.notify(this.id,'getData');
+              }
+            },
+
             /**
             * This gets the group information from Phedex data service for the given group name through sandbox.
             * @method getData
             */
             getData: function() {
-                log('Fetching data','info',this.me);
+                if ( !_groupname ) {
+                  this.initData();
+                  return;
+                }
+                 log('Fetching data','info',this.me);
                 this.dom.title.innerHTML = this.me+': fetching data...';
                 _sbx.notify( this.id, 'getData', { api: 'groupusage', args: { group: _groupname }});
             },
