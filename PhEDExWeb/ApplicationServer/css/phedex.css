@@ -21,8 +21,8 @@ body {
 .phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
 .float-left    { float: left; }
 .float-right   { float: right; }
-.align-left    { text-align: left; }
-.align-right   { text-align: right; }
+.align-left,  .yui-skin-sam .yui-dt .align-left  { text-align: left; }
+.align-right, .yui-skin-sam .yui-dt .align-right { text-align: right; }
 .align-justify { text-align: justify; }
 .phedex-invisible { display: none; }
 .phedex-hide-overflow { overflow: hidden; }
