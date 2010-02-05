@@ -1,0 +1,301 @@
+** Migration procedure applied to Prod instance **
+
+# This migration should be able to be performed while site agents and
+# web services are still active.  Central agents should be shut down
+# for the instance, however.
+
+# !!! Make sure the DBA has given the schema access to the SCN!
+
+# cd to a directory where the PHEDEX directory exists and there is an
+# RPM installation
+
+# Source environment
+source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
+
+# Set authentication for DB access
+export PHEDEX_INSTANCE=Dev;
+export PHEDEX_DB="./DBParam:${PHEDEX_INSTANCE}/Admin";
+export PHEDEX_DB_R="./DBParam:${PHEDEX_INSTANCE}/Reader";
+export PHEDEX_DB_W="./DBParam:${PHEDEX_INSTANCE}/CERN";
+
+# Update the triggers
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleCoreTriggers.sql </dev/null
+
+# Get rid of X tables
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleResetOld.sql </dev/null
+
+# Connect to DB using SQLPlus
+sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+-- Add new temporary tables for updated BlockMonitor routine
+
+create global temporary table t_tmp_br_active
+  (block      		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_src
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_dest
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_node
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_xfer
+  (block      		integer		not null,
+   node			integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null
+) on commit delete rows;
+
+create global temporary table t_tmp_br_flag
+  (block      		integer		not null,
+   node			integer		not null,
+   is_custodial		char(1)		not null,
+   user_group		integer		,
+   time_update		integer		not null
+) on commit delete rows;
+
+-- New table for midding data statistics
+
+create table t_status_missing
+  (time_update		float		not null,
+   node			integer		not null,
+   is_custodial		char (1)	not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   --
+   constraint pk_status_missing
+     primary key (node, is_custodial),
+   --
+   constraint fk_status_missing_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint ck_status_missing_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+-- Rename some history tables and their indexes
+
+rename t_history_dest to xt_history_dest;
+rename t_history_link_stats to xt_history_link_stats;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name NOT LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND (constraint_name LIKE '%_HISTORY_DEST%' OR
+             constraint_name LIKE '%_HISTORY_LINK_STATS%'))
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+	  || ' rename constraint ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name NOT LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND (index_name LIKE '%_HISTORY_DEST%' OR 
+             index_name LIKE '%_HISTORY_LINK_STATS%'))
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+	  || ' rename to X' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+
+-- Re-create history tables
+
+create table t_history_dest
+  (timebin		float		not null,
+   timewidth		float		not null,
+   node			integer		not null,
+   dest_files		integer, -- t_status_block_dest
+   dest_bytes		integer,
+   cust_dest_files	integer, -- t_status_block_dest
+   cust_dest_bytes	integer,
+   src_files		integer, -- t_status_file
+   src_bytes		integer,
+   node_files		integer, -- t_status_replica
+   node_bytes		integer,
+   cust_node_files	integer, -- t_status_replica
+   cust_node_bytes	integer,
+   miss_files		integer, -- t_status_missing
+   miss_bytes		integer,
+   cust_miss_files	integer, -- t_status_missing
+   cust_miss_bytes	integer,
+   request_files	integer, -- t_status_request
+   request_bytes	integer,
+   idle_files		integer, -- t_status_request
+   idle_bytes		integer,
+   --
+   constraint pk_history_dest
+     primary key (timebin, node),
+   --
+   constraint fk_history_dest_node
+     foreign key (node) references t_adm_node (id)
+  );
+
+create table t_history_link_stats
+  (timebin		float		not null,
+   timewidth		float		not null,
+   from_node		integer		not null,
+   to_node		integer		not null,
+   priority		integer		not null,
+   --
+   -- statistics for t_xfer_state during/at end of this timebin
+   pend_files		integer, -- all tasks
+   pend_bytes		integer,
+   wait_files		integer, -- tasks not exported
+   wait_bytes		integer,
+   cool_files		integer, -- cooling off (in error) (obsolete)
+   cool_bytes		integer,
+   ready_files		integer, -- exported, available for transfer
+   ready_bytes		integer,
+   xfer_files		integer, -- taken for transfer
+   xfer_bytes		integer,
+   --
+   -- statistics for t_xfer_path during/at end of this bin
+   confirm_files	integer, -- t_xfer_path
+   confirm_bytes	integer,
+   confirm_weight	integer,
+   -- 
+   -- statistics from t_link_param calculated at the end of this cycle
+   param_rate		float,
+   param_latency	float,
+   --
+   constraint pk_history_link_stats
+     primary key (timebin, to_node, from_node, priority),
+   --
+   constraint fk_history_link_stats_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_history_link_stats_to
+     foreign key (to_node) references t_adm_node (id)
+  );
+
+/* When filling the new dest table, estimate miss_* as the difference
+ * between dest_files and node_files, disallowing negative values.  This
+ * will be wrong by the amount of unsubscribed data, but for large sites
+ * this should be a small difference.
+ */
+
+insert /*+ append */ into t_history_dest
+(timebin, timewidth, node,
+ dest_files, dest_bytes,
+ cust_dest_files, cust_dest_bytes,
+ src_files, src_bytes,
+ node_files, node_bytes,
+ cust_node_files, cust_node_bytes,
+ request_files, request_bytes,
+ idle_files, idle_bytes)
+select h.timebin, h.timewidth, h.node,
+ h.dest_files, h.dest_bytes,
+ h.cust_dest_files, h.cust_dest_bytes,
+ h.src_files, h.src_bytes,
+ h.node_files, h.node_bytes,
+ h.cust_node_files, h.cust_node_bytes,
+ greatest(h.dest_files - h.node_files,0) miss_files,
+ greatest(h.dest_bytes - h.node_bytes,0) miss_bytes,
+ greatest(h.cust_dest_files - h.cust_node_files,0) cust_miss_files,
+ greatest(h.cust_dest_bytes - h.cust_node_bytes,0) cust_miss_bytes,
+ h.request_files, h.request_bytes,
+ h.idle_files, h.idle_bytes
+from xt_history_dest h join xt_adm_node n on n.id = h.node;
+
+commit;
+
+/* Fix priority mismatch in t_history_link_stats, a bug introduced in V2.5! */
+
+-- First fill the table
+insert /*+ append */ into t_history_link_stats
+select * from xt_history_link_stats;
+
+-- Remove any rows which are *only* confirm_files
+delete from t_history_link_stats
+ where confirm_files is not null
+   and pend_files is null
+   and wait_files is null
+   and cool_files is null
+   and ready_files is null
+   and xfer_files is null;
+
+/* Update the rows in the new table based on a selection from the old
+ * table where confirm_weight is null.  Starting from this point the
+ * priority was wrong, so apply the correct priority and update.
+ */
+
+merge into t_history_link_stats h
+using (
+  select x.timebin, x.timewidth, x.from_node, x.to_node,
+         2 * x.priority + (1- decode(l.is_local,'y',1,0)) priority,
+	 x.confirm_files, x.confirm_bytes, x.confirm_weight
+   from xt_history_link_stats x
+   join t_adm_link l on l.from_node = x.from_node and l.to_node = x.to_node
+  where x.confirm_files is not null
+    and x.confirm_weight is null
+) x
+on (h.timebin = x.timebin and
+    h.timewidth = x.timewidth and
+    h.from_node = x.from_node and
+    h.to_node = x.to_node and
+    h.priority = x.priority)
+when matched then update
+  set h.confirm_files = x.confirm_files,
+      h.confirm_bytes = x.confirm_bytes,
+      h.confirm_weight = x.confirm_weight
+when not matched then insert
+ (timebin, timewidth, from_node, to_node, priority,
+  confirm_files, confirm_bytes, confirm_weight)
+ values
+ (x.timebin, x.timewidth, x.from_node, x.to_node, priority,
+  x.confirm_files, x.confirm_bytes, x.confirm_weight);
+
+-- Create indexes on history tables
+
+create index ix_history_link_stats_from
+  on t_history_link_stats (from_node);
+
+create index ix_history_link_stats_to
+  on t_history_link_stats (to_node);
+--
+create index ix_history_dest_node
+  on t_history_dest (node);
+
+-- Create new index on t_dps_block
+
+alter table t_dps_block add constraint uk_dps_block_dataset unique (dataset, name);
+
+/* Now drop the redundant index.  However, because this index was very
+ * important, make sure the DBA is monitoring the database to see that
+ * the new one (above) is being used.
+ */
+
+drop index ix_dps_block_dataset;
