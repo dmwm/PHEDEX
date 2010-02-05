@@ -259,8 +259,6 @@ sub checkFileInMSS_fake {
 sub checkFileInMSS_castor {
     my ($pfn, $size, $checksum, $is_custodial) = @_;
 
-# Assume non-custodial files don't go to tape?
-    if ( ! $is_custodial ) { return 1; }
     my $migrated = 0;
     open (NSLS, "nsls -l $pfn |")
 	or do { warn ("cannot nsls $pfn: $!"); return 0 };
