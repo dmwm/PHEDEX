@@ -178,7 +178,7 @@ while (my $c = $server->accept)
 	  $response->header( 'Content-type', 'text/html' );
 	  $response->header( 'Content-length', 0 );
           $c->send_response($response);
-	  return;
+	  next;
 	}
 
 	foreach ( @map )
@@ -306,6 +306,8 @@ DONE:
 	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $c->send_response($response);
   }
+  $c->close;
+  undef($c);
 };
 
 sub send_response {
