@@ -32,7 +32,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
 
       meta: {
         table: {
-          columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber },'Name','Kind','Technology','SE' ],
+          columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right' },'Name','Kind','Technology','SE' ],
         },
         hide: ['ID'],
         sort: {field:'Name'}, // dir:YAHOO.widget.DataTable.CLASS_ASC}, // this is the default

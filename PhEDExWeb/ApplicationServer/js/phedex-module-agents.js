@@ -74,7 +74,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           columns: [
               'Agent',
               {key:"Date", formatter:'UnixEpochToGMT'},
-              {key:'PID',parser:YAHOO.util.DataSource.parseNumber},
+              {key:'PID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right'},
               'Version','Label','Host','State Dir'
             ],
           map: {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
