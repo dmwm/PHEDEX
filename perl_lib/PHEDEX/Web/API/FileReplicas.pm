@@ -1,8 +1,11 @@
 package PHEDEX::Web::API::FileReplicas;
 use warnings;
 use strict;
-use PHEDEX::Web::Util;
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
+use PHEDEX::Web::Core;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -88,6 +91,34 @@ the given options.
 
 =cut
 
+my $map = {
+    _KEY => 'BLOCK_ID',
+    id => 'BLOCK_ID',
+    name => 'BLOCK_NAME',
+    files => 'BLOCK_FILES',
+    bytes => 'BLOCK_BYTES',
+    is_open => 'IS_OPEN',
+    file => {
+        _KEY => 'FILE_ID',
+        id => 'FILE_ID',
+        name => 'LOGICAL_NAME',
+        bytes => 'FILESIZE',
+        checksum => 'CHECKSUM',
+        time_create => 'TIME_CREATE',
+        original_node => 'ORIGINAL_NODE',
+        replica => {
+            _KEY => 'NODE_ID',
+            node_id => 'NODE_ID',
+            node => 'NODE_NAME',
+            se => 'SE_NAME',
+            time_create => 'REPLICA_CREATE',
+            subscribed => 'SUBSCRIBED',
+            custodial => 'IS_CUSTODICAL',
+            group => 'USER_GROUP'
+        }
+    }
+};
+
 sub duration{ return 5 * 60; }
 sub invoke { return fileReplicas(@_); }
 sub fileReplicas
@@ -113,51 +144,49 @@ sub fileReplicas
 				
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
 
-    my $blocks = {};
-    my $files = {};
-    my $replicas = {};
-    foreach my $row (@$r) {
-	my $block_id = $row->{BLOCK_ID};
-	my $node_id = $row->{NODE_ID};
-	my $file_id = $row->{FILE_ID};
-
-	# <block> element
-	if (!exists $blocks->{ $block_id }) {
-	    $blocks->{ $block_id } = { id => $block_id,
-				       name => $row->{BLOCK_NAME},
-				       files => $row->{BLOCK_FILES},
-				       bytes => $row->{BLOCK_BYTES},
-				       is_open => $row->{IS_OPEN},
-				       file => []
-				   };
-	}
-
-	# <file> element
-	if (!exists $files->{ $file_id }) {
-	    $files->{ $file_id } = { id => $row->{FILE_ID},
-				     name => $row->{LOGICAL_NAME},
-				     bytes => $row->{FILESIZE},
-				     checksum => $row->{CHECKSUM},
-				     time_create => $row->{TIME_CREATE},
-				     origin_node => $row->{ORIGIN_NODE},
-				     replica => []
-				 };
-	    push @{ $blocks->{ $block_id }->{file} }, $files->{ $file_id };
-	}
-	
-	# <replica> element
-	next unless defined $row->{NODE_ID};
-	push @{ $files->{ $file_id }->{replica} }, { node_id => $row->{NODE_ID},
-						     node => $row->{NODE_NAME},
-						     se => $row->{SE_NAME},
-						     time_create => $row->{REPLICA_CREATE},
-                                                     subscribed => $row->{SUBSCRIBED},
-						     custodial => $row->{IS_CUSTODIAL},
-						     group => $row->{USER_GROUP}
-						 };
-    }
-    
-    return { block => [values %$blocks] };
+    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('BLOCK_ID');
+
+sub spool
+{
+    my ($core,%h) = @_;
+    my %p = &validate_params(\%h,
+                           uc_keys => 1,
+			   allow => [qw(block node se update_since create_since
+					complete dist_complete subscribed custodial group lfn)],
+			   require_one_of => [ qw(block lfn) ],
+			   spec => {
+			       block         => { using => 'block' },
+			       complete      => { using => 'yesno' },
+			       dist_complete => { using => 'yesno' },
+			       subscribed    => { using => 'yesno' },
+			       custodial     => { using => 'yesno' },
+                               create_since  => { using => 'time'  },
+                               lfn           => { using => 'lfn'   },
+                               node          => { using => 'node'  },
+#                               se            => { using => 'any'   },
+#                               group         => { using => 'any'   },
+			   });
+
+    $p{'__spool__'} = 1;
+    my $r;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getFileReplicas($core, %p), $limit, @keys) if !$sth;
+    $r = $sth->spool();
+    if ($r)
+    {
+        return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
+}
+				
 1;
