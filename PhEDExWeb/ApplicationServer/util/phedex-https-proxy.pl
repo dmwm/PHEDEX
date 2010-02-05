@@ -159,6 +159,7 @@ $server = HTTP::Daemon::SSL->new
     SSL_cert_file	=> '/tmp/' . $ENV{USER} . '/certs/server-cert.pem',
   ) || die;
 
+print scalar localtime,": listening on port $listen_port, redirect to $redirect_to\n";
 while (my $c = $server->accept)
 {
   while (my $request = $c->get_request)
@@ -364,5 +365,4 @@ sub display_thing {
     print '-' x 78, "\n";
 }
 
-print scalar localtime,": listening on port $listen_port, redirect to $redirect_to\n";
 exit 0;
