@@ -444,4 +444,38 @@ sub auth_nodes
     }
 }
 
+# lowercase all hash keys
+sub lc_keys
+{
+    my $o = shift;
+    
+    if (ref $o eq 'HASH') {
+	foreach my $k (keys %$o) {
+	    lc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
+	    $o->{lc $k} = delete $o->{$k};
+	}
+    } elsif (ref $o eq 'ARRAY') {
+	foreach my $e (@$o) { lc_keys($e); }   # recurse if array
+    }
+    return $o;
+}
+
+# uppercase all hash keys
+# FIXME: same as above... how do I get a subref of a builtin and the
+# function I'm in to reduce the duplicate?
+sub uc_keys
+{
+    my $o = shift;
+    
+    if (ref $o eq 'HASH') {
+	foreach my $k (keys %$o) {
+	    uc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
+	    $o->{uc $k} = delete $o->{$k};
+	}
+    } elsif (ref $o eq 'ARRAY') {
+	foreach my $e (@$o) { uc_keys($e); }   # recurse if array
+    }
+    return $o;
+}
+
 1;
