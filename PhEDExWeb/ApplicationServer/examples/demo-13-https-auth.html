@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Interface</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+
+  <!-- YUI libs -->
+  <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+  <script type="text/javascript" src="/yui/build/connection/connection-min.js"></script>
+  <script type="text/javascript" src="/yui/build/json/json-min.js"></script>
+</head>
+
+<body class="yui-skin-sam">
+ <div id='phedex-main'></div>
+
+<script type="text/javascript">
+// instantiate the page and other things when the DOM is ready!
+YAHOO.util.Event.onDOMReady(function() {
+
+  var div = document.getElementById('phedex-main');
+  var handleSuccess = function(o){ 
+
+  if(o.responseText !== undefined){ 
+    div.innerHTML = "Transaction id: " + o.tId; 
+    div.innerHTML += "HTTP status: " + o.status; 
+    div.innerHTML += "Status code message: " + o.statusText; 
+    div.innerHTML += "<li>HTTP headers: <ul>" + o.getAllResponseHeaders + "</ul></li>"; 
+    div.innerHTML += "PHP response: " + o.responseText; 
+    div.innerHTML += "Argument object: " + o.argument; 
+   } 
+  } 
+
+  var handleFailure = function(o){
+    YAHOO.log("The failure handler was called.  tId: " + o.tId + ".", "info", "example");
+
+    if(o.responseText !== undefined){
+      div.innerHTML = "<li>Transaction id: " + o.tId + "</li>";
+      div.innerHTML += "<li>HTTP status: " + o.status + "</li>";
+      div.innerHTML += "<li>Status code message: " + o.statusText + "</li>";
+    }
+  };
+
+  var callback = 
+  { 
+    success:handleSuccess, 
+    failure: handleFailure, 
+    argument: ['foo','bar'] 
+  }; 
+
+  var postData = "SecModLogin=wildish&SecModPwd=XXXXXXXXXXX";
+  var sUrl = 'https://localhost:20000/phedex/datasvc/perl/prod/auth';
+  var request = YAHOO.util.Connect.asyncRequest('POST', sUrl, callback, postData);
+});
+</script>
+
+</body>
+</html>
