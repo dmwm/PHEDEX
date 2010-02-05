@@ -3,6 +3,7 @@ package PHEDEX::Web::Format::PERL;
 use warnings;
 use strict;
 use Data::Dumper;
+use PHEDEX::Web::Util;
 
 our (%params);
 
@@ -41,6 +42,7 @@ sub error
 sub header
 {
     my ($self, $obj) = @_;
+    PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper($obj);
     my $end = rindex(substr($s, 0, rindex($s, "}\n")), "\n");
     print { $self->{FILE} } substr($s, 0, $end), ",\n";
@@ -50,6 +52,7 @@ sub header
 sub footer
 {
     my ($self, $obj, $call_time) = @_;
+    PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper($obj);
     my $start = rindex(substr($s, 0, rindex($s, "}\n")), "\n")+1;
     print { $self->{FILE} } "\n"." "x$self->{POS} . "]";
@@ -57,7 +60,7 @@ sub footer
     if (defined $call_time)
     {
         separator($self);
-        my $s1 = Dumper({ phedex =>{ 'call_time' => sprintf('%.5f', $call_time)}});
+        my $s1 = Dumper({ phedex =>{ 'CALL_TIME' => sprintf('%.5f', $call_time)}});
         my $st1 = index($s1, "=> {")+5;
         my $st2 = rindex($s1, "'");
         print { $self->{FILE} } substr($s1, $st1, $st2 - $st1 + 1);
@@ -77,6 +80,7 @@ sub separator
 sub output
 {
     my ($self, $obj) = @_;
+    PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper({phedex => $obj}); # fake the indentation
     my ($start, $end);
     if (! $self->{POS})

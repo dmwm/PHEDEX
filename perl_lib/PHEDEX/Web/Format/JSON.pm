@@ -4,6 +4,7 @@ use warnings;
 use strict;
 use JSON::XS;
 use Data::Dumper;
+use PHEDEX::Web::Util;
 
 our (%params);
 
@@ -42,6 +43,7 @@ sub error
 sub header
 {
     my ($self, $obj) = @_;
+    PHEDEX::Web::Util::lc_keys($obj);
     my $s = encode_json($obj);
     print { $self->{FILE} } substr($s, 0, rindex($s, "}", rindex($s, "}")-1)),",";
 }
@@ -72,6 +74,7 @@ sub separator
 sub output
 {
     my ($self, $obj) = @_;
+    PHEDEX::Web::Util::lc_keys($obj);
     my $s = encode_json($obj);
     my ($start, $end);
     if (! $self->{POS})
