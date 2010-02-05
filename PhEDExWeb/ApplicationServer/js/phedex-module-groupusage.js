@@ -68,7 +68,8 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             */
             meta: {
                 table: { columns: _dtColumnDefs, schema: _dsResponseSchema},
-                hide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files']
+                hide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files'],
+                sort:{field:'name'},
             },
 
             /**
@@ -120,7 +121,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = data;
-                this.dom.title.innerHTML = this.me + ': ' + this.data.node.length + ' nodes found';
+                this.dom.title.innerHTML = _groupname + ': ' + this.data.node.length + ' nodes found';
                 this.fillDataSource(data, _dsResponseSchema);
                 _sbx.notify( this.id, 'gotData' );
             }
