@@ -21,3 +21,11 @@ cat response.txt | \
 openssl req -new -x509 -nodes \
 	-out certs/server-cert.pem \
 	-keyout certs/server-key.pem
+
+echo "
+
+Now run the https proxy. Something like...
+
+phedex-https-proxy.pl --listen 20000 --redirect_to https://cmsweb.cern.ch:443/ --verbose --debug --nocert --map yui=/$HOME/public/yui
+
+"
