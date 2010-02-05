@@ -298,7 +298,6 @@ PHEDEX.Navigator = function(sandbox) {
 // This is to respond to changes in the decorations that are worthy of a bookmark. This is also triggered in response
 // to a 'gotData' from a module. This means that only states with valid modules and/or with changes of instance are
 // recorded as historic/bookmarkable states. This is reasonable, other states are incomplete.
-//         case 'NodeSelected':
 //         case 'WidgetSelected':
         case 'InstanceSelected': {
           obj._addToHistory();
@@ -725,43 +724,36 @@ debugger;
 
     node: {
       init: function(el,type) {
-        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-nodesel' }),
-            input     = PxU.makeChild(sel, 'input', { type: 'text' }),
-            container = PxU.makeChild(sel, 'div');
-          makeNodeList = function(data) {
-            data = data.node;
-            var nodelist = [];
-            for (var node in data) {
-              nodelist.push(data[node].name);
-            }
-            _buildNodeSelector(input,container,nodelist.sort());
-          };
-        PHEDEX.Datasvc.Call({ api: 'nodes', callback: makeNodeList });
-        _selectors[type].needValue = true;
-        _selectors[type].updateGUI = function(i) {
-          return function(value) {
-            i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
-          }
-        }(input);
-        return sel;
+        var dataKey = 'node',
+            api     = 'nodes',
+            argKey  = 'node';
+        return = _makeSelector(el,type,dataKey,api,argKey);
       }
     },
 
-
     group: {
       init: function(el,type) {
-        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-groupsel' }),
+        var dataKey = 'group',
+            api     = 'groups',
+            argKey  = 'groupname';
+        return = _makeSelector(el,type,dataKey,api,argKey);
+      }
+    }
+  };
+
+  var _makeSelector = function(el,type,dataKey,api,argKey) {
+        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-'+argKey+'sel' }),
             input     = PxU.makeChild(sel, 'input', { type: 'text' }),
             container = PxU.makeChild(sel, 'div');
-          makeGroupList = function(data) {
-            data = data.group;
+          makeList = function(data) {
+            data = data[dataKey];
             var list = [];
-            for (var key in data) {
-              list.push(data[key].name);
+            for (var i in data) {
+              list.push(data[i].name);
             }
-            _buildGroupSelector(input,container,list.sort());
+            _autocompleteSelector(input,container,list.sort(),argKey);
           };
-        PHEDEX.Datasvc.Call({ api: 'groups', callback: makeGroupList });
+        PHEDEX.Datasvc.Call({ api:api, callback:makeList });
         _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function(value) {
@@ -769,29 +761,9 @@ debugger;
           }
         }(input);
         return sel;
-      }
-    }
+      };
 
-  };
-  var _buildNodeSelector = function(input,container,nodelist) {
-    var node_ds  = new YAHOO.util.LocalDataSource(nodelist),
-        cfg = {
-          prehighlightClassName:"yui-ac-prehighlight",
-          useShadow: true,
-          forceSelection: true,
-          queryMatchCase: false,
-          queryMatchContains: true,
-        },
-        auto_comp = new YAHOO.widget.AutoComplete(input, container, node_ds, cfg);
-    var nodesel_callback = function(type, args) {
-      _state[_type] = args[2][0];
-      _typeArgs[_type] = {node:args[2][0]};
-      _sbx.notify(obj.id,'NodeSelected',args[2][0]);
-      _sbx.notify('module','*','setArgs',{node:args[2][0]});
-    }
-    auto_comp.itemSelectEvent.subscribe(nodesel_callback);
-  };
-  var _buildGroupSelector = function(input,container,list) {
+  var _autocompleteSelector = function(input,container,list,key) {
     var ds  = new YAHOO.util.LocalDataSource(list),
         cfg = {
           prehighlightClassName:"yui-ac-prehighlight",
@@ -802,10 +774,11 @@ debugger;
         },
         auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg);
     var selection_callback = function(type, args) {
-      _state[_type] = args[2][0];
-      _typeArgs[_type] = {groupname:args[2][0]};
-      _sbx.notify(obj.id,'GroupnameSelected',args[2][0]);
-      _sbx.notify('module','*','setArgs',{groupname:args[2][0]});
+      var value = args[2][0];
+      _state[_type] = value;
+      if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
+      _typeArgs[_type][key] = value;
+      _sbx.notify('module','*','setArgs',_typeArgs[_type]);
     }
     auto_comp.itemSelectEvent.subscribe(selection_callback);
   };
@@ -859,7 +832,6 @@ debugger;
             if ( node ) {
               _typeArgs[ _type] = {node:node};
               _selectors[_type].updateGUI(node);
-              _sbx.notify(obj.id,'NodeSelected',node);
             }
             _moduleArgs = null;
           }
@@ -878,7 +850,6 @@ debugger;
           if ( value.target && value.target != _state[_type] ) {
             _typeArgs[ _type] = {node:value.target};
             _selectors[_type].updateGUI(value.target);
-            _sbx.notify(obj.id,'NodeSelected',value.target);
             _sbx.notify('module','*','setArgs',{node:value.target});
           }
           break;
