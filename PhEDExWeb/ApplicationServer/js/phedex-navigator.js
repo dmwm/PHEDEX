@@ -709,7 +709,6 @@ debugger;
       }
     },
 
-
     text: {
       init: function(el, type) {
         var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target' }),
@@ -746,6 +745,31 @@ debugger;
         }(input);
         return sel;
       }
+    },
+
+
+    group: {
+      init: function(el,type) {
+        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-groupsel' }),
+            input     = PxU.makeChild(sel, 'input', { type: 'text' }),
+            container = PxU.makeChild(sel, 'div');
+          makeGroupList = function(data) {
+            data = data.group;
+            var list = [];
+            for (var key in data) {
+              list.push(data[key].name);
+            }
+            _buildGroupSelector(input,container,list.sort());
+          };
+        PHEDEX.Datasvc.Call({ api: 'groups', callback: makeGroupList });
+        _selectors[type].needValue = true;
+        _selectors[type].updateGUI = function(i) {
+          return function(value) {
+            i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
+          }
+        }(input);
+        return sel;
+      }
     }
 
   };
@@ -767,6 +791,25 @@ debugger;
     }
     auto_comp.itemSelectEvent.subscribe(nodesel_callback);
   };
+  var _buildGroupSelector = function(input,container,list) {
+    var ds  = new YAHOO.util.LocalDataSource(list),
+        cfg = {
+          prehighlightClassName:"yui-ac-prehighlight",
+          useShadow: true,
+          forceSelection: true,
+          queryMatchCase: false,
+          queryMatchContains: true,
+        },
+        auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg);
+    var selection_callback = function(type, args) {
+      _state[_type] = args[2][0];
+      _typeArgs[_type] = {groupname:args[2][0]};
+      _sbx.notify(obj.id,'GroupnameSelected',args[2][0]);
+      _sbx.notify('module','*','setArgs',{groupname:args[2][0]});
+    }
+    auto_comp.itemSelectEvent.subscribe(selection_callback);
+  };
+
   this._updateTargetSelector = function(type) {
     if ( type ) { _type = type; }
     for (var t in this.dom) {
