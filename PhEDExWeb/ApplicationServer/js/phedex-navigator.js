@@ -394,27 +394,27 @@ PHEDEX.Navigator = function(sandbox) {
             name:   'InstanceSelector',
             parent: 'navigator',
             payload:{
-              type: 'menu',
+              type: 'menu'
             }
           },
           {
             name:   'TypeSelector',
             parent: 'navigator',
             payload:{
-              type: 'menu',
+              type: 'menu'
             }
           },
           {
             name:   'TargetTypeSelector',
-            parent: 'navigator',
+            parent: 'navigator'
           },
           {
             name:   'WidgetSelector',
-            parent: 'navigator',
+            parent: 'navigator'
           },
           {
             name:   'Permalink',
-            parent: 'navigator',
+            parent: 'navigator'
           },
         ],
 
@@ -719,7 +719,7 @@ debugger;
           }
         }(input);
         return sel;
-      },
+      }
     },
 
     node: {
@@ -727,7 +727,7 @@ debugger;
         var dataKey = 'node',
             api     = 'nodes',
             argKey  = 'node';
-        return = _makeSelector(el,type,dataKey,api,argKey);
+        return _makeSelector(el,type,dataKey,api,argKey);
       }
     },
 
@@ -736,7 +736,7 @@ debugger;
         var dataKey = 'group',
             api     = 'groups',
             argKey  = 'groupname';
-        return = _makeSelector(el,type,dataKey,api,argKey);
+        return _makeSelector(el,type,dataKey,api,argKey);
       }
     }
   };
@@ -770,7 +770,7 @@ debugger;
           useShadow: true,
           forceSelection: true,
           queryMatchCase: false,
-          queryMatchContains: true,
+          queryMatchContains: true
         },
         auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg);
     var selection_callback = function(type, args) {
