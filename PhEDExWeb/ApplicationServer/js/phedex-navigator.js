@@ -746,6 +746,11 @@ debugger;
             input     = PxU.makeChild(sel, 'input', { type: 'text' }),
             container = PxU.makeChild(sel, 'div');
           makeList = function(data) {
+            if ( !data[dataKey] ) {
+              banner('Error making '+api+' call, autocomplete will not work','error');
+              log('error making '+api+' call: '+err(data),'error',me);
+              return;
+            }
             data = data[dataKey];
             var list = [];
             for (var i in data) {
