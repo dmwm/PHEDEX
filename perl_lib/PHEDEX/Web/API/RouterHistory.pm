@@ -69,6 +69,7 @@ Show history of file routing statistics.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 # mapping format for the output
 my $map = {
@@ -105,6 +106,37 @@ sub routerhistory
 
     my $r = PHEDEX::Web::SQL::getRouterHistory($core, %h);
     return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
+}
+
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('FROM_NODE+TO_NODE');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / from to starttime endtime binwidth ctime / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    my $r;
+
+     $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getRouterHistory($core, %h), $limit, @keys) if !$sth;
+    $r = $sth->spool();
+    if ($r) 
+    {
+        return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;
