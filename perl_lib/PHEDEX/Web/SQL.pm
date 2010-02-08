@@ -2744,6 +2744,12 @@ sub getRouterHistory
     }
 
     $q = execute_sql($core, $sql, %p);
+
+    if (exists $h{'__spool__'})
+    {
+        return $q;
+    }
+
     while ($_ = $q->fetchrow_hashref())
     {
         if ($_->{'TIMEBIN'} and exists $h{CTIME})
