@@ -105,7 +105,11 @@ sub mergeLogBlockLatency
     ($q, $n) = execute_sql( $self, $sql );
     push @r, $n;
 
-    # Create or update unfinished blocks
+    # If a block latency record doesn't exist for a block destination,
+    # create it -- but only consider active blocks because we can't
+    # calculate the latency for inactive ones.  If the record does
+    # exist, update the suspension time as long as the block isn't
+    # complete at the destination.
     $sql = qq{
 	merge into t_log_block_latency l
 	using
@@ -114,18 +118,18 @@ sub mergeLogBlockLatency
 	          nvl2(bd.time_suspend_until, :now, NULL) this_suspend
 	     from t_dps_block_dest bd
 	     join t_dps_block b on b.id = bd.block
-	    where b.is_open = 'n'
-            and bd.time_complete is null
+        left join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
+	    where br.is_active = 'y'
 	   ) d
 	on (d.destination = l.destination
             and d.block = l.block
-            and d.time_subscription = l.time_subscription
-            and l.last_replica is null)
+            and d.time_subscription = l.time_subscription)
 	when matched then
           update set l.priority = d.priority,
 		     l.suspend_time = nvl(l.suspend_time,0) + nvl(:now - l.last_suspend,0),
                      l.last_suspend = d.this_suspend,
 	             l.time_update = :now
+           where l.last_replica is null
 	when not matched then
           insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create,
 		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.suspend_time)
@@ -209,8 +213,7 @@ sub mergeLogBlockLatency
 	             u.last_replica = d.last_replica,
                      u.last_suspend = NULL,
                      u.latency = d.last_replica - 
-	                         case when u.block_create > u.time_subscription then u.block_create
-                                 else u.time_subscription end
+	                         greatest(u.block_create,u.time_subscription)
 			          - u.suspend_time
     };
 
@@ -223,8 +226,7 @@ sub mergeLogBlockLatency
 	update t_log_block_latency l
 	   set l.time_update = :now, 
                l.latency = :now - 
-	                   case when l.block_create > l.time_subscription then l.block_create
-                           else l.time_subscription end
+	                   greatest(l.block_create,l.time_subscription)
 		           - l.suspend_time
          where l.last_replica is null
     };
