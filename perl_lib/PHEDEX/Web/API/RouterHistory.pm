@@ -112,7 +112,7 @@ sub routerhistory
 
 my $sth;
 my $limit = 1000;
-my @keys = ('FROM_NODE+TO_NODE');
+my @keys = ('FROM_NODE', 'TO_NODE');
 
 sub spool
 {
