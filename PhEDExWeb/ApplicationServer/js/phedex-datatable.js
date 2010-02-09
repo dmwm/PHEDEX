@@ -159,9 +159,11 @@ PHEDEX.DataTable = function(sandbox,string) {
               if ( ! s.dir ) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
               if (s.field) {
                 if ( s.sorted_field == s.field &&
-                     s.sorted_dir   == s.dir ) { return; } // break the chain!
+                     s.sorted_dir   == s.dir   &&
+                    !this.sortNeeded ) { return; } // break the chain!
                 s.sorted_field = s.field;
                 s.sorted_dir   = s.dir;
+                this.sortNeeded = false;
                 this.dataTable.sortColumn( this.dataTable.getColumn(s.field), s.dir );
               }
             },
@@ -212,7 +214,6 @@ PHEDEX.DataTable = function(sandbox,string) {
 
                 this.dataTable.subscribe('renderEvent', function(obj) {
                   return function() {
-log('renderEvent','info',obj.me);
                     obj.resizePanel();
                     obj.sort();
                   }
@@ -331,6 +332,37 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     obj.dataTable.subscribe('rowMouseoutEvent', onRowMouseOut);
     // return the functions, so they can be overridden if needed without having to redo the event subscription
     return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
+};
+
+PHEDEX.DataTable.Filter = function(sandbox,obj) {
+//   var _sbx = sandbox;
+  return {
+    applyFilter: function(args) {
+//   this is much easier for tables than for branches. Just go through the data-table and build a new one,
+//   then feed that to the DataSource!
+      var table=[], keep, fValue, kValue, status;
+      if ( ! args ) { args = this.args; }
+      for (var i in obj.data) {
+        keep=true;
+        for (var key in args) {
+          if ( typeof(args[key].value) == 'undefined' ) { continue; }
+          fValue = args[key].value;
+          kValue = obj.data[i][key];
+          if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
+          status = this.Apply[this.fields[key].type](fValue,kValue);
+          if ( args[key].negate ) { status = !status; }
+          if ( !status ) { // Keep the element if the match succeeded!
+            this.count++;
+            keep=false;
+          }
+        }
+        if ( keep ) { table.push(obj.data[i]); }
+      }
+      obj.sortNeeded = true;
+      obj.fillDataSource(table);
+      return this.count;
+    }
+  };
 };
 
 log('loaded...','info','datatable');
