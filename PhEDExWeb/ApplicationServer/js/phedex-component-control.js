@@ -74,6 +74,13 @@ PHEDEX.Component.Control = function(sandbox,args) {
   var _me = 'component-control',
       _sbx = sandbox,
       partner = args.partner,
+      ap = args.payload,
+
+      _defTitle = {
+        Filter: 'Show the filter-panel, which allows you to filter the data shown in this module.',
+        Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize the fields by dragging the header-element',
+        Extra:  'Show extra information about this module',
+      },
 
 /**
  * Handle click events, by toggling the visibility of the controlled element.
@@ -146,24 +153,30 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * @private
  */
       _init: function(args) {
-        if ( !args.payload.type ) { args.payload.type = 'a'; }
+        var p = this.payload;
+        if ( !ap.type ) { ap.type = 'a'; }
         this.id = this.me+'_'+PxU.Sequence();
-        this.el = document.createElement(args.payload.type);
-        if ( args.payload.type == 'img' ) {
+        this.el = document.createElement(ap.type);
+        if ( ap.type == 'img' ) {
           this.el.src = args.src;
-        } else if ( args.payload.type == 'a' ) {
-          this.el.appendChild(document.createTextNode(args.payload.text || args.name));
+        } else if ( ap.type == 'a' ) {
+          this.el.appendChild(document.createTextNode(ap.text || args.name));
         }
-        for (var i in args.payload) { this.payload[i] = args.payload[i]; }
-        if ( this.payload.obj ) { partner = this.payload.obj.id; }
-        if ( this.payload.target ) {
-          if ( this.payload.obj ) {
-            if ( typeof(this.payload.target) != 'object' ) {  this.payload.target = this.payload.obj.dom[this.payload.target]; }
+        if ( ap.title ) {
+          this.el.title = ap.title;
+        } else {
+          if ( _defTitle[ap.text] ) { this.el.title = _defTitle[ap.text]; }
+        }
+        for (var i in ap) { p[i] = ap[i]; }
+        if ( p.obj ) { partner = p.obj.id; }
+        if ( p.target ) {
+          if ( p.obj ) {
+            if ( typeof(p.target) != 'object' ) {  p.target = p.obj.dom[p.target]; }
           }
-          if ( typeof(this.payload.target) != 'object' ) { this.payload.target = document.getElementById(this.payload.target); }
-          YAHOO.util.Dom.addClass(this.payload.target,'phedex-invisible');
+          if ( typeof(p.target) != 'object' ) { p.target = document.getElementById(p.target); }
+          YAHOO.util.Dom.addClass(p.target,'phedex-invisible');
         }
-        this.el.className = args.payload.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
+        this.el.className = ap.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
         if ( !args.events ) {
           args.events = [
                     {event:'mouseover', handler:_mouseoverHandler},
@@ -176,8 +189,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
               el = args.events[i].element || this.el;
           YAHOO.util.Event.addListener(el,ev,fn,this,true);
         }
-        if ( args.payload.hidden )   { this.Hide(); }
-        if ( args.payload.disabled ) { this.Disable(); }
+        if ( ap.hidden )   { this.Hide(); }
+        if ( ap.disabled ) { this.Disable(); }
         else { this.Enable(); }
         var selfHandler = function(obj) {
           return function(ev,arr) {
@@ -200,7 +213,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         }(this);
         _sbx.listen(this.id,selfHandler);
 
-        if ( this.payload.obj ) {
+        if ( p.obj ) {
           var moduleHandler = function(obj) {
             return function(ev,arr) {
               var action = arr[0];
@@ -209,7 +222,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
               }
             }
           }(this);
-          _sbx.listen(this.payload.obj.id,moduleHandler);
+          _sbx.listen(p.obj.id,moduleHandler);
         }
 
       },
@@ -250,6 +263,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
  */
       Hide: function() {
         var tgt = this.payload.target,
+            ani = this.payload.animate,
             eHeight, reallyHide;
         if ( tgt ) {
           eHeight = tgt.offsetHeight;
@@ -273,10 +287,10 @@ PHEDEX.Component.Control = function(sandbox,args) {
           }(this);
         }
 
-        if ( this.payload.animate ) {
+        if ( ani ) {
           var attributes = { height: { to: 0 }  }; 
-          if ( typeof(this.payload.animate) == 'object' ) { attributes = this.payload.animate.attributes; }
-          var duration = this.payload.animate.duration_hide || this.payload.animate.duration || 0.5,
+          if ( typeof(ani) == 'object' ) { attributes = ani.attributes; }
+          var duration = ani.duration_hide || ani.duration || 0.5,
               anim = new YAHOO.util.Anim(tgt, attributes, duration);
           YAHOO.util.Dom.addClass(tgt,'phedex-hide-overflow');
           anim.onComplete.subscribe(reallyHide);

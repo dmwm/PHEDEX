@@ -28,14 +28,19 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   var _me = 'component-splitbutton',
       _sbx = sandbox,
       partner = args.partner,
+      ap = args.payload,
+      _defTitle = {
+        'Show all fields':'Click the button to see all the data-fields for this module, or the pulldown-menu to select individual fields to add to the display',
+      },
       column_menu = new YAHOO.widget.Menu('menu_'+PHEDEX.Util.Sequence()),
       button = new YAHOO.widget.Button(
           {
             type: 'split',
-            label: args.payload.name,
+            label: ap.name,
+            title: ap.title || _defTitle[ap.name],
             name: 'splitButton_'+PHEDEX.Util.Sequence(),
             menu: column_menu,
-            container: args.payload.obj.dom[args.payload.container],
+            container: ap.obj.dom[ap.container],
             disabled:true
           }
         );
@@ -76,7 +81,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
  * @param args {object} the arguments passed into the contructor
  */
       _init: function(args) {
-        for (var i in args.payload) { this.payload[i] = args.payload[i]; }
+        for (var i in ap) { this.payload[i] = ap[i]; }
         if ( this.payload.obj ) { partner = this.payload.obj.id; }
 
 // these two button-handlers could be factored out as extensions to the basic type...?
@@ -132,7 +137,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
   this._init(args);
-  if ( args.payload.onInit ) { _sbx.notify(partner,args.payload.onInit); }
+  if ( ap.onInit ) { _sbx.notify(partner,ap.onInit); }
   return this;
 };
 
