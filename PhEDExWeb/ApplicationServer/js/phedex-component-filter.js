@@ -9,27 +9,27 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
 //   this.decorators.push(args.payload.control);
 
-/**
- * construct a PHEDEX.Component.Filter object. Used internally only.
- * @method _contruct
- * @private
- */
-
-  var moduleHandler = function(obj) {
+  this.id = _me+'_'+PxU.Sequence();
+  this.selfHandler = function(obj) {
     return function(ev,arr) {
       var action = arr[0],
-          value = arr[1];
-      switch (action) {
+          subAction = arr[1];
+      if ( action != 'Filter' ) { return; }
+      switch (subAction) {
         case 'Cancel': {
-          this.ctl.filter.Hide();
+          obj.ctl.filterControl.Hide();
           break;
         }
         case 'Reset': {
-          this.ctl.filter.Hide();
+          obj.ctl.filterControl.Hide();
           break;
         }
-        case 'Accept': {
-          this.ctl.filter.Hide();
+        case 'Validate': {
+          obj.Parse();
+          break;
+        }
+        case 'Apply': {
+          obj.ctl.filterControl.Hide();
           break;
         }
       }
@@ -37,6 +37,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
   }(this);
   _sbx.listen(this.id,this.selfHandler);
 
+/**
+ * construct a PHEDEX.Component.Filter object. Used internally only.
+ * @method _contruct
+ * @private
+ */
   _construct = function() {
     return {
       me: _me,
@@ -47,29 +52,33 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         args.context = [obj.dom.content,'tl','tl'];
         this.overlay = new YAHOO.widget.Overlay(el,args);
         this.overlay.setHeader('Filter data selection ('+obj.me+')');
+        this.overlay.header.id = 'hd_'+PxU.Sequence();
         this.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-        this.overlay.setFooter('&nbsp;');
+        this.overlay.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
         YAHOO.util.Dom.addClass(this.overlay.element,'phedex-core-overlay')
 
         var body = this.overlay.body;
         body.innerHTML=null;
-        var filterDiv = document.createElement('div');
-        var buttonDiv = document.createElement('div');
-        buttonDiv.className = 'phedex-filter-buttons';
-        body.appendChild(filterDiv);
-        body.appendChild(buttonDiv);
+        this.dom.filter  = document.createElement('div');
+        this.dom.buttons = document.createElement('div');
+        this.dom.buttons.className = 'phedex-filter-buttons';
+        body.appendChild(this.dom.filter);
+        body.appendChild(this.dom.buttons);
 
         YAHOO.util.Dom.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         this.overlay.render(document.body);
         this.overlay.cfg.setProperty('zindex',100);
-//         this.Fill(filterDiv);
+        this.Fill();
 
-        var buttonAcceptFilter = new YAHOO.widget.Button({ label: 'Accept Changes', container: buttonDiv });
-        buttonAcceptFilter.on('click', function() { _sbx.notify(this.id,'Filter','Accept'); } );
-        var buttonCancelFilter = new YAHOO.widget.Button({ label: 'Cancel Changes', container: buttonDiv });
-        buttonCancelFilter.on('click', function() { _sbx.notify(this.id,'Filter','Cancel'); } );
-        var buttonResetFilter = new YAHOO.widget.Button({ label: 'Reset Filter', container: buttonDiv });
-        buttonResetFilter.on('click', function() { _sbx.notify(this.id,'Filter','Reset'); } );
+        var buttonApplyFilter  = new YAHOO.widget.Button({ label:'Apply Changes',  title:'Validate your input and apply the filter', container:this.dom.buttons }),
+            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:'Close this window without changing the filter options. Any non-applied changes you have made will be ignored', container:this.dom.buttons }),
+            buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:this.dom.buttons }),
+            buttonNotifier = function(obj) {
+              return function(arg) { _sbx.notify(obj.id,'Filter',arg); }
+            }(this);
+        buttonApplyFilter.on ('click', function() { buttonNotifier('Validate');  } ); // Validate before Applying!
+        buttonCancelFilter.on('click', function() { buttonNotifier('Cancel'); } );
+        buttonResetFilter.on ('click', function() { buttonNotifier('Reset');  } );
 //      make sure the filter moves with the widget when it is dragged!
         if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
           obj.module.dragEvent.subscribe(function(type,args) { this.overlay.align('tl','tl'); }, obj, true);
@@ -84,20 +93,45 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       _init: function(args) {
         var apc = payload.control,
             el;
-        if ( apc ) {
+        this.structure = { f:[], r:[] };  // mapping of field-to-group, and reverse-mapping of same
+        this.map = [];
+        var f = obj.meta.filter;
+        for (var i in f) {
+          if ( f[i].map ) {
+            this.map[i] = {to:f[i].map.to};
+            if ( f[i].map.from ) {
+              this.map[i].from = f[i].map.from;
+              this.map[i].func = function(f,t) {
+                return function(str) {
+                  var re = new RegExp(f,'g');
+                  str = str.replace(re, t+'.');
+                  return str;
+                }
+              }(f[i].map.from,f[i].map.to);
+            };
+          }
+          this.structure['f'][i] = [];
+          for (var j in f[i].fields) {
+            this.structure['f'][i][j]=0;
+            this.structure['r'][j] = i;
+            this.fields[j] = f[i].fields[j];
+          }
+        }
+
+        if ( apc ) { // create a component-control to use to show/hide the filter
           this.dom.filter = document.createElement('div');
           this.Build( this.dom.filter, args.overlay );
+          this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
+          this.dragdrop.setHandleElId( this.overlay.header );
           apc.payload.obj = this;
           apc.payload.text = 'Filter';
-          apc.payload.target = 'filter';
+          apc.payload.target = this.overlay.element;
           apc.payload.hidden = 'true';
           apc.name = 'filterControl';
-//           obj.dom.filter = el;
           this.ctl[apc.name] = new PHEDEX.Component.Control( _sbx, apc );
           if ( apc.parent ) { obj.dom[apc.parent].appendChild(this.ctl[apc.name].el); }
         }
       },
-
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
         regex:       {type:'input', size:20},
@@ -112,7 +146,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         regex: function(arg) { return {result:true, parsed:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
         int: function(arg) {
           var i = parseInt(arg);
-          return {result:true, parsed:i};
+          if ( i == arg ) { return {result:true, parsed:i}; }
+          return { result:false };
         },
         float: function(arg) {
           var i = parseFloat(arg);
@@ -200,31 +235,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 //       onFilterCancelled: new YAHOO.util.CustomEvent('onWidgetFilterCancelled', this, false, YAHOO.util.CustomEvent.LIST), // event to fire once the filter is cancelled
 
       fields: [],
-      structure:{ f:[], r:[] },  // mapping of field-to-group, and reverse-mapping of same
-      map: [],
-      init: function(args) {
-        for (var i in args) {
-          if ( args[i].map ) {
-            this.map[i] = {to:args[i].map.to};
-            if ( args[i].map.from ) {
-              this.map[i].from = args[i].map.from;
-              this.map[i].func = function(f,t) {
-                return function(str) {
-                  var re = new RegExp(f,'g');
-                  str = str.replace(re, t+'.');
-                  return str;
-                }
-              }(args[i].map.from,args[i].map.to);
-            };
-          }
-          this.structure['f'][i] = [];
-          for (var j in args[i].fields) {
-            this.structure['f'][i][j]=0;
-            this.structure['r'][j] = i;
-            this.fields[j] = args[i].fields[j];
-          }
-        }
-      },
       isDefined: function() {
         for (var j in this.fields) { return 1; }
         return 0;
@@ -247,37 +257,48 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         this.args={};
       },
 
-      Fill: function(container) {
-//  var container = div;
-        if ( !this.args ) { this.args = []; }
-        if ( !this.ctl ) { this.ctl = []; }
+      Fill: function() {
+        var ttIds = [], ttHelp = {}, hId;
+        hId = this.overlay.header.id;
+        ttIds.push(hId);
+        ttHelp[hId] = 'Use this grey area to drag the filter elsewhere on the screen';
+        if ( !this.args ) { this.args = {}; }
+        if ( !this.ctl ) { this.ctl = {}; }
         this.focusMap={};
         for (var label in this.structure['f']) {
-          var fieldset = document.createElement('fieldset');
-          var helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence();
-//    fieldset.class = helpClass;
-          var legend = document.createElement('legend');
+          var fieldset = document.createElement('fieldset'),
+              legend = document.createElement('legend'),
+
+              helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence(),
+              helpCtl = document.createElement('span'),
+
+              hideClass = 'phedex-filter-hide-class-'+PHEDEX.Util.Sequence(),
+              hideCtl = document.createElement('span');
+
           legend.appendChild(document.createTextNode(label));
           fieldset.appendChild(legend);
 
-          var helpCtl = document.createElement('span');
           helpCtl.appendChild(document.createTextNode('[?]'));
+          helpCtl.id = 'help_' +PxU.Sequence();
+          ttIds.push(helpCtl.id);
+          ttHelp[helpCtl.id] = 'Click here for any additional help that may have been provided';
           YAHOO.util.Event.addListener(helpCtl, 'click', function(aClass,anElement) {
             return function() { PxU.toggleVisible(aClass,anElement) };
           }(helpClass,fieldset) );
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(helpCtl);
 
-          var hideClass = 'phedex-filter-hide-class-'+PHEDEX.Util.Sequence();
-          var hideCtl = document.createElement('span');
           hideCtl.appendChild(document.createTextNode('[x]'));
+          hideCtl.id = 'help_' +PxU.Sequence();
+          ttIds.push(hideCtl.id);
+          ttHelp[hideCtl.id] = 'Click here to collapse or expand this group of filter-elements';
           YAHOO.util.Event.addListener(hideCtl, 'click', function(aClass,anElement) {
               return function() { PxU.toggleVisible(aClass,anElement) };
           }(hideClass,fieldset) );
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
 
-          container.appendChild(fieldset);
+          this.dom.filter.appendChild(fieldset);
           for (var key in this.structure['f'][label]) {
             if ( !this.args[key] ) { this.args[key] = []; }
             var focusOn;
@@ -294,24 +315,25 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
               return;
             }
-            var fields = e.fields;
+            var fields = e.fields,
+                el, size, def;
             if ( !fields ) { fields = [ '' ]; }
             for (var i in fields) {
               if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
               if ( fields[i] != '' ) {
                 inner.appendChild(document.createTextNode(fields[i]+' '));
               }
-              var el = document.createElement(e.type);
-              el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence();
+              el = document.createElement(e.type);
+              el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
               el.className = 'phedex-filter-elem';
               YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
               if ( e.className ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.className); }
-              var size = e.size || c.size;
+              size = e.size || c.size;
               if ( size ) { el.setAttribute('size',size); }
               el.setAttribute('type',e.type);
               el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
               el.setAttribute('value',c.value);
-              var def = this.args[key].value || [];
+              def = this.args[key].value || [];
               if ( def.value ) { def = def.value; }
               if ( fields[i] ) {
                 if ( def[fields[i]] ) {
@@ -322,16 +344,19 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }
               el.setAttribute('value',def);
               inner.appendChild(el);
-              if ( ! this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
+              if ( !this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
               if ( !focusOn ) { focusOn = el; }
             }
-            var cBox = document.createElement('input');
+            var cBox = document.createElement('input'),
+                fieldLabel = document.createElement('div');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
             cBox.checked = this.args[key].negate;
+            cBox.id = 'cbox_' + PxU.Sequence();
+            ttIds.push(cBox.id);
+            ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
             inner.appendChild(cBox);
             outer.appendChild(inner);
-            var fieldLabel = document.createElement('div');
             fieldLabel.className = 'float-left';
             fieldLabel.appendChild(document.createTextNode(c.text));
             outer.appendChild(fieldLabel);
@@ -344,28 +369,49 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             fieldset.appendChild(outer);
           }
-          focusOn.focus();
+          if ( focusOn ) { focusOn.focus(); }
+          var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds });
+          tt.contextTriggerEvent.subscribe(
+            function(type, args) {
+              var context = args[0],
+                  type = context.id,
+                  text = ttHelp[context.id];
+//               if ( type.match('^(.+)_') )
+//               {
+//                 type = RegExp.$1;
+//                 switch ( type ) {
+//                   case 'help': { text = 'Click here to see more detailed help, if there is any available';   break; }
+//                   case 'hide': { text = 'Click here to collapse/expand this group';                          break; }
+//                   case 'cbox': { text = 'Check this box to negate your selection for this field';            break; }
+//                 }
+              if ( text ) {
+                this.element.style.zIndex = 1000;
+                this.cfg.setProperty('text', text);
+              }
+            }
+          );
         }
-        var kl = new YAHOO.util.KeyListener(container, { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+        var kl = new YAHOO.util.KeyListener(this.dom.filter, { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
                                                 { fn:function() { obj.onAcceptFilter.fire(); }, scope:this, correctScope:true } );
         kl.enable();
       },
 
       Parse: function() {
         this.Reset();
-        var isValid = true;
-        var keyMatch = /^phedex-filter-key-/;
-        var innerList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-inner');
+        var isValid = true,
+            keyMatch = /^phedex-filter-key-/,
+            innerList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-inner'),
+            nItems, nSet, values, value, elList, el, key, elClasses, type;
         for (var i in innerList) {
-          var nItems = 0, nSet = 0;
-          var values = {};
-          var value = null;
-          var elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem',null,innerList[i]);
+          nItems = 0;
+          nSet = 0;
+          values = {};
+          value = null;
+          elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem',null,innerList[i]);
           for (var j in elList) {
-            var el = elList[j];
-            var key;
+            el = elList[j];
 //      find the phedex-filter-key-* classname of this element
-            var elClasses = el.className.split(' ');
+            elClasses = el.className.split(' ');
             for (var k in elClasses) {
               if ( elClasses[k].match(keyMatch) ) {
                 key = elClasses[k].split('-')[3];
@@ -376,7 +422,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }
             }
           }
-          var type = this.fields[el.name].type;
+          type = this.fields[el.name].type;
           this.args[el.name] = [];
           var s, v;
           if ( nSet ) {
@@ -395,9 +441,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
                   this.args[el.name].preprocess = x.preprocess;
                 }
               }
-            }
-            this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
-            if ( !s.result ) {
+              this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
+            } else {
               YAHOO.log('Invalid entry for "'+this.fields[el.name].text+'", aborting accept','error','Core.Widget');
               this.setInvalid(innerList[i],isValid);
               isValid = false;
@@ -405,8 +450,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
         }
         if ( isValid ) {
-          this.onFilterValidated.fire(this.args);
-          this.onFilterApplied.fire(this.args);
+          _sbx.notify(this.id,'Filter','Validated',this.args);
+          _sbx.notify(this.id,'Filter','Apply',this.args);
         }
         return isValid; // in case it's useful...
       },
@@ -426,7 +471,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       isApplied: function() { return this.count; },
       destroy: function() {
         if ( this.overlay && this.overlay.element ) { this.overlay.destroy(); }
-        this.dom.filter.destroy();
       },
 
       asString: function(args) {
