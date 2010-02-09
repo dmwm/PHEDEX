@@ -71,6 +71,7 @@ Show how space is being used at a node
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 # mapping format for the output
 my $map = {
@@ -110,6 +111,35 @@ sub nodeusagehistory
 
     my $r = PHEDEX::Web::SQL::getNodeUsageHistory($core, %h);
     return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+}
+
+my $sth;
+my $limit = 1000;
+my @keys = ('NODE_NAME');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / node starttime endtime binwidth ctime / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getNodeUsageHistory($core, %h), $limit, @keys) if !$sth;
+    
+    my $r = $sth->spool();
+
+    if ($r)
+    {
+        return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;
