@@ -161,28 +161,28 @@ div .phedex-sorted {
  background-color: #fd6; /* light orange */
 }
 
+.phedex-filter-help {
+  padding: 0 0 0 10px;
+}
 .phedex-filter-buttons {
-  padding: 5px 0 0;
+  padding: 2px 0;
 }
 .phedex-filter-outer {
   clear: both;
   border-bottom:  1px dotted #888;
-  height: 2em; /* Without this, FF2.0.0.12 doesn't look good. FF3 doesn't need it */
 }
 .phedex-filter-inner {
   float: left;
   width: 250px;
   margin:  0 0.5em 0 0;
   text-align: right;
-}
-.phedex-filter-inner .phedex-filter-elem {
   height: 2.0em;
-  font-size: 10px;
 }
-
+/*.phedex-filter-elem {
+  height: 2.0em;
+}*/
 .phedex-filter-elem-invalid {
-  border: 1px solid red;
-  background-color: #fee;
+  background-color: #fdd;
 }
 .phedex-filter-elem-minmax {
   width: 80px;
@@ -190,7 +190,6 @@ div .phedex-sorted {
 }
 .phedex-global-filter {
   margin: 5px 0 0;
-/*   border: 1px solid blue; */
 }
 
 .phedex-core-param {
@@ -259,7 +258,7 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   width:20px;
 }
 
-.phedex-core-overlay { position:absolute; background-color:#bbf; border:1px dotted black; padding:0; margin:0; opacity: 0.92;}
+.phedex-core-overlay { position:absolute; background-color:#bbf; border:1px dotted black; padding:0; margin:10 0 0; opacity: 0.92; }
 .phedex-core-overlay .hd { background-color:#eee; margin: 5px 5px 0; }
 .phedex-core-overlay .bd { background-color:#fff; margin: 0   5px 0; }
 .phedex-core-overlay .ft { background-color:#eee; margin: 0   5px 5px; }
