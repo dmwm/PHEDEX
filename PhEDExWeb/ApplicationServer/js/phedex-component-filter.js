@@ -7,29 +7,45 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       obj = payload.obj,
       partner = args.partner;
 
-//   this.decorators.push(args.payload.control);
+  YAHOO.lang.augmentObject(this, new PHEDEX[obj.type].Filter(sandbox,obj));
 
   this.id = _me+'_'+PxU.Sequence();
   this.selfHandler = function(obj) {
     return function(ev,arr) {
       var action = arr[0],
           subAction = arr[1];
-      if ( action != 'Filter' ) { return; }
-      switch (subAction) {
-        case 'Cancel': {
-          obj.ctl.filterControl.Hide();
+      switch (action) {
+        case 'Filter': {
+          switch (subAction) {
+            case 'Cancel': {
+              obj.ResetFilter( true );
+              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              break;
+            }
+            case 'Reset': {
+              obj.ResetFilter( false );
+              obj.applyFilter();
+              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              break;
+            }
+            case 'Validate': {
+              obj.Parse();
+              break;
+            }
+            case 'Apply': {
+              obj.applyFilter();
+              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              break;
+            }
+            case 'cBox': {
+              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              break;
+            }
+          }
           break;
         }
-        case 'Reset': {
-          obj.ctl.filterControl.Hide();
-          break;
-        }
-        case 'Validate': {
-          obj.Parse();
-          break;
-        }
-        case 'Apply': {
-          obj.ctl.filterControl.Hide();
+        case 'expand': { // set focus appropriately when the filter is revealed
+          if ( obj.focusOn ) { obj.focusOn.focus(); }
           break;
         }
       }
@@ -45,43 +61,52 @@ PHEDEX.Component.Filter = function(sandbox,args) {
   _construct = function() {
     return {
       me: _me,
+      meta: { inner:{}, cBox:{}, el:{}, focusMap:{} },
 
       Build: function(el,args) {
-//         if ( args && !obj.options.window ) { args.width = '700px'; } // kludgy way to set filter-overlay-width in 'window:false' mode
+        var o, b, d=this.dom;
         if ( !args ) { args = {}; }
         args.context = [obj.dom.content,'tl','tl'];
-        this.overlay = new YAHOO.widget.Overlay(el,args);
-        this.overlay.setHeader('Filter data selection ('+obj.me+')');
-        this.overlay.header.id = 'hd_'+PxU.Sequence();
-        this.overlay.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-        this.overlay.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
-        YAHOO.util.Dom.addClass(this.overlay.element,'phedex-core-overlay')
+        this.overlay = o = new YAHOO.widget.Overlay(el,args);
+        o.setHeader('Filter data selection ('+obj.me+')');
+        o.header.id = 'hd_'+PxU.Sequence();
+        o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
+        o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
+        YAHOO.util.Dom.addClass(o.element,'phedex-core-overlay')
 
-        var body = this.overlay.body;
+        var body = o.body;
         body.innerHTML=null;
-        this.dom.filter  = document.createElement('div');
-        this.dom.buttons = document.createElement('div');
-        this.dom.buttons.className = 'phedex-filter-buttons';
+        d.filter  = document.createElement('div');
+        d.buttons = b = document.createElement('div');
+        b.className = 'phedex-filter-buttons';
         body.appendChild(this.dom.filter);
         body.appendChild(this.dom.buttons);
 
         YAHOO.util.Dom.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
-        this.overlay.render(document.body);
-        this.overlay.cfg.setProperty('zindex',100);
+        o.render(document.body);
+        o.cfg.setProperty('zindex',100);
         this.Fill();
 
-        var buttonApplyFilter  = new YAHOO.widget.Button({ label:'Apply Changes',  title:'Validate your input and apply the filter', container:this.dom.buttons }),
-            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:'Close this window without changing the filter options. Any non-applied changes you have made will be ignored', container:this.dom.buttons }),
-            buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:this.dom.buttons }),
+        var cBox = document.createElement('input');
+        cBox.type = 'checkbox';
+        cBox.checked = false;
+        d.cBox = cBox;
+        b.appendChild(cBox);
+        b.appendChild(document.createTextNode('Keep this window open'));
+        b.appendChild(document.createElement('br'));
+        var buttonApplyFilter  = new YAHOO.widget.Button({ label:'Apply Changes',  title:'Validate your input and apply the filter', container:b }),
+            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:'Close this window without changing the filter options. Any non-applied changes you have made will be ignored', container:b }),
+            buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:b }),
             buttonNotifier = function(obj) {
               return function(arg) { _sbx.notify(obj.id,'Filter',arg); }
             }(this);
         buttonApplyFilter.on ('click', function() { buttonNotifier('Validate');  } ); // Validate before Applying!
         buttonCancelFilter.on('click', function() { buttonNotifier('Cancel'); } );
         buttonResetFilter.on ('click', function() { buttonNotifier('Reset');  } );
+        cBox.addEventListener('click', function() { buttonNotifier('cBox') }, false );
 //      make sure the filter moves with the widget when it is dragged!
         if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
-          obj.module.dragEvent.subscribe(function(type,args) { this.overlay.align('tl','tl'); }, obj, true);
+          obj.module.dragEvent.subscribe(function(type,args) { o.align('tl','tl'); }, this, true);
         }
       },
 /**
@@ -123,10 +148,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           this.Build( this.dom.filter, args.overlay );
           this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
           this.dragdrop.setHandleElId( this.overlay.header );
-          apc.payload.obj = this;
-          apc.payload.text = 'Filter';
-          apc.payload.target = this.overlay.element;
-          apc.payload.hidden = 'true';
+          apc.payload.obj     = this;
+          apc.payload.target  = this.overlay.element;
+          apc.payload.text    = 'Filter';
+          apc.payload.hidden  = 'true';
+          apc.payload.handler = 'setFocus';
           apc.name = 'filterControl';
           this.ctl[apc.name] = new PHEDEX.Component.Control( _sbx, apc );
           if ( apc.parent ) { obj.dom[apc.parent].appendChild(this.ctl[apc.name].el); }
@@ -194,9 +220,9 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           if ( val.match(re) ) { return true; }
           return false;
         },
-        int:     function(arg,val) { return val > arg; },
-        float:   function(arg,val) { return val > arg; },
-        percent: function(arg,val) { return val > arg; },
+        int:     function(arg,val) { return val == arg; },
+        float:   function(arg,val) { return val == arg; },
+        percent: function(arg,val) { return val == arg; },
         minmax: function(arg,val) {
           if ( arg.min && val < arg.min ) { return false; }
           if ( arg.max && val > arg.max ) { return false; }
@@ -224,16 +250,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         toPercent: function(x) { return 100*x; },
       },
 
-//    the global-filter will override these. Global-filter and core-widget communicate by event-pairs. Each
-//    object subscribes to one event of a pair and emits the other. This keeps some symmetry in the code
-//    without having to mess around with inspecting which event actually fired. Essentially the components
-//    communicate via DAGs of events, never loops.
-//    The core-filter code simply fires the event assigned to it, the derived components subscribe explicitly
-//    to the event they are interested in.
-//       onFilterApplied:   PHEDEX.Event.onWidgetFilterApplied,   // event to fire once the filter is applied
-//       onFilterValidated: PHEDEX.Event.onWidgetFilterValidated, // event to fire once the filter is validated
-//       onFilterCancelled: new YAHOO.util.CustomEvent('onWidgetFilterCancelled', this, false, YAHOO.util.CustomEvent.LIST), // event to fire once the filter is cancelled
-
       fields: [],
       isDefined: function() {
         for (var j in this.fields) { return 1; }
@@ -252,7 +268,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         }
       },
 
-      Reset: function() {
+      ResetState: function() {
         this.count=0;
         this.args={};
       },
@@ -262,9 +278,9 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         hId = this.overlay.header.id;
         ttIds.push(hId);
         ttHelp[hId] = 'Use this grey area to drag the filter elsewhere on the screen';
+
         if ( !this.args ) { this.args = {}; }
-        if ( !this.ctl ) { this.ctl = {}; }
-        this.focusMap={};
+        if ( !this.ctl )  { this.ctl = {}; }
         for (var label in this.structure['f']) {
           var fieldset = document.createElement('fieldset'),
               legend = document.createElement('legend'),
@@ -301,23 +317,23 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           this.dom.filter.appendChild(fieldset);
           for (var key in this.structure['f'][label]) {
             if ( !this.args[key] ) { this.args[key] = []; }
-            var focusOn;
-            var c = this.fields[key];
+            var c = this.fields[key],
+                focusOn, outer, inner, e;
             if ( !c.value ) { c.value = null; }
 
-            var outer = document.createElement('div');
+            outer = document.createElement('div');
+            inner = document.createElement('div');
             outer.className = 'phedex-filter-outer phedex-visible '+hideClass;
-            var inner = document.createElement('div');
             inner.className = 'phedex-filter-inner';
             inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
-            var e = this.typeMap[c.type];
+            this.meta.inner[inner.id] = inner;
+            this.meta.el[inner.id] = [];
+            e = this.typeMap[c.type];
             if ( !e ) {
               YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
               return;
             }
-            var fields = e.fields,
-                el, size, def;
-            if ( !fields ) { fields = [ '' ]; }
+            var fields=e.fields || [''], el, size, def;
             for (var i in fields) {
               if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
               if ( fields[i] != '' ) {
@@ -325,6 +341,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }
               el = document.createElement(e.type);
               el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
+              this.meta.el[inner.id].push(el);
               el.className = 'phedex-filter-elem';
               YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
               if ( e.className ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.className); }
@@ -344,15 +361,17 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }
               el.setAttribute('value',def);
               inner.appendChild(el);
-              if ( !this.focusMap[inner.id] ) { this.focusMap[inner.id] = el.id; }
-              if ( !focusOn ) { focusOn = el; }
+              if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
+              if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
             }
+
             var cBox = document.createElement('input'),
                 fieldLabel = document.createElement('div');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
             cBox.checked = this.args[key].negate;
             cBox.id = 'cbox_' + PxU.Sequence();
+            this.meta.cBox[inner.id] = cBox;
             ttIds.push(cBox.id);
             ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
             inner.appendChild(cBox);
@@ -369,21 +388,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             fieldset.appendChild(outer);
           }
-          if ( focusOn ) { focusOn.focus(); }
           var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds });
           tt.contextTriggerEvent.subscribe(
             function(type, args) {
-              var context = args[0],
-                  type = context.id,
-                  text = ttHelp[context.id];
-//               if ( type.match('^(.+)_') )
-//               {
-//                 type = RegExp.$1;
-//                 switch ( type ) {
-//                   case 'help': { text = 'Click here to see more detailed help, if there is any available';   break; }
-//                   case 'hide': { text = 'Click here to collapse/expand this group';                          break; }
-//                   case 'cbox': { text = 'Check this box to negate your selection for this field';            break; }
-//                 }
+              var text = ttHelp[args[0].id];
               if ( text ) {
                 this.element.style.zIndex = 1000;
                 this.cfg.setProperty('text', text);
@@ -391,23 +399,25 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
           );
         }
-        var kl = new YAHOO.util.KeyListener(this.dom.filter, { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
-                                                { fn:function() { obj.onAcceptFilter.fire(); }, scope:this, correctScope:true } );
-        kl.enable();
+        var k1 = new YAHOO.util.KeyListener(this.dom.filter,
+                                            { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                            { fn:function(obj){ return function() {  _sbx.notify(obj.id,'Filter','Validate'); } }(this),
+                                              scope:this, correctScope:true } );
+        k1.enable();
       },
 
       Parse: function() {
-        this.Reset();
+        this.ResetState();
         var isValid = true,
             keyMatch = /^phedex-filter-key-/,
-            innerList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-inner'),
+            innerList = this.meta.inner,
             nItems, nSet, values, value, elList, el, key, elClasses, type;
         for (var i in innerList) {
           nItems = 0;
           nSet = 0;
           values = {};
           value = null;
-          elList = YAHOO.util.Dom.getElementsByClassName('phedex-filter-elem',null,innerList[i]);
+          elList = this.meta.el[i];
           for (var j in elList) {
             el = elList[j];
 //      find the phedex-filter-key-* classname of this element
@@ -416,7 +426,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( elClasses[k].match(keyMatch) ) {
                 key = elClasses[k].split('-')[3];
                 if ( key != '' ) { values[key] = el.value; } // single-valued elements don't have a key!
-                else           { value       = el.value; }
+                else             { value       = el.value; }
                 nItems++;
                 if ( el.value ) { nSet++; }
               }
@@ -441,7 +451,9 @@ PHEDEX.Component.Filter = function(sandbox,args) {
                   this.args[el.name].preprocess = x.preprocess;
                 }
               }
-              this.args[el.name].negate = YAHOO.util.Dom.getElementsByClassName('phedex-filter-checkbox',null,innerList[i])[0].checked;
+              this.args[el.name].negate = this.meta.cBox[i].checked;
+              this.args[el.name].id = el.id;
+              this.dom[el.id] = el;
             } else {
               YAHOO.log('Invalid entry for "'+this.fields[el.name].text+'", aborting accept','error','Core.Widget');
               this.setInvalid(innerList[i],isValid);
@@ -456,6 +468,19 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         return isValid; // in case it's useful...
       },
 
+      ResetFilter: function( rollback ) { // rollback to last set values? Or wipe clean?
+        var a, el, c; // TODO Still needs to work for double-valued types (minmax*)
+        for (var i in this.args) {
+          a = this.args[i];
+          if ( !a.id ) { continue; }
+          el = this.dom[a.id];
+          c = this.fields[el.name];
+          if ( !rollback ) { a.value = c.value; }
+          el.value = a.value;
+          if ( a.value == null ) { delete a.value; }
+        }
+      },
+
       setValid:   function(el) {
         YAHOO.util.Dom.removeClass(el,'phedex-filter-elem-invalid');
         this.count++;
@@ -463,7 +488,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       setInvalid: function(el,setFocus) {
         YAHOO.util.Dom.addClass(el,'phedex-filter-elem-invalid');
         if ( setFocus ) {
-          var focusOn = document.getElementById(this.focusMap[el.id]);
+          var focusOn = document.getElementById(this.meta.focusMap[el.id]);
           focusOn.focus();
         }
       },
@@ -549,28 +574,3 @@ log('loaded...','info','component-filter');
 //     }
 //   }(this));
 //
-//   this.applyFilter=function(args) {
-// // this is much easier for tables than for branches. Just go through the data-table and build a new one,
-// // then feed that to the DataSource!
-//     var table=[];
-//     if ( ! args ) { args = this.args; }
-//     for (var i in this.data) {
-//       var keep=true;
-//       for (var key in args) {
-//      if ( typeof(args[key].value) == 'undefined' ) { continue; }
-//      var fValue = args[key].value;
-//      var kValue = this.data[i][key];
-//      if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-//      var negate = args[key].negate;
-//      var status = this.Apply[this.fields[key].type](fValue,kValue);
-//      if ( args[key].negate ) { status = !status; }
-//      if ( !status ) { // Keep the element if the match succeeded!
-//        this.count++;
-//        keep=false;
-//      }
-//       }
-//       if ( keep ) { table.push(this.data[i]); }
-//     }
-//     this.fillDataSource(table);
-//     return this.count;
-//   }
