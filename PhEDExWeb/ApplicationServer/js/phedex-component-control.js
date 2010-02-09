@@ -80,6 +80,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         Filter: 'Show the filter-panel, which allows you to filter the data shown in this module.',
         Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize the fields by dragging the header-element',
         Extra:  'Show extra information about this module',
+        Refresh:'Update information in this module from the dataservice',
       },
 
 /**
@@ -162,11 +163,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         } else if ( ap.type == 'a' ) {
           this.el.appendChild(document.createTextNode(ap.text || args.name));
         }
-        if ( ap.title ) {
-          this.el.title = ap.title;
-        } else {
-          if ( _defTitle[ap.text] ) { this.el.title = _defTitle[ap.text]; }
-        }
+        this.el.title = ap.title || _defTitle[args.text] || _defTitle[args.name] || '';
         for (var i in ap) { p[i] = ap[i]; }
         if ( p.obj ) { partner = p.obj.id; }
         if ( p.target ) {
