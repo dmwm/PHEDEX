@@ -47,7 +47,7 @@ PHEDEX.DataTable = function(sandbox,string) {
                         disabled: false, //true,
                         hidden:   true,
                       },
-                      el: 'body',
+                      el: 'content',
                     },
                   },
                   target:  'filter',
