@@ -21,7 +21,10 @@ Changes for Site Agents
    - Add "dstats" line to the log files for each file deletion, giving
      relevant timestamps and deletion latencies
    - Add --timeout option for timing out deletion commands
- - FileMSSMigrate: provide file checksum to migration checking routine
+ - FileMSSMigrate: 
+   - provide file checksum to migration checking routine
+   - allow default Castor routine to check migration of non-custodial
+     data
  - BlockDownloadVerify
    - Add --queue_length argument, to tweak the number of tasks to
      fetch from the DB per cycle
