@@ -62,6 +62,30 @@ errors may have occurred then indicated by this API call.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+
+my $map = {
+    _KEY => 'FROM+TO',
+    from => 'FROM',
+    to => 'TO',
+    from_id => 'FROM_ID',
+    to_id => 'TO_ID',
+    from_se => 'FROM_SE',
+    to_se => 'TO_SE',
+    block => {
+        _KEY => 'BLOCK_ID',
+        name => 'BLOCK_NAME',
+        id => 'BLOCK_ID',
+        file => {
+            _KEY => 'FILE_ID',
+            name => 'FILE_NAME',
+            id => 'FILE_ID',
+            checksum => 'CHECKSUM',
+            size => 'FILE_SIZE',
+            num_errors => 'NUM_ERRORS'
+        }
+    }
+};
 
 sub duration { return 60 * 60; }
 sub invoke { return errorlogsummary(@_); }
@@ -77,7 +101,7 @@ sub errorlogsummary
     }
 
     my $r = PHEDEX::Web::SQL::getErrorLogSummary($core, %h);
-    return { link => $r };
+    return { link => &PHEDEX::Core::Util::flat2tree($map, $r)};
 }
 
 1;
