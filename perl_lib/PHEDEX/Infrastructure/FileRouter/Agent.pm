@@ -805,7 +805,7 @@ sub routeFiles
 	    # If the replacement is not better, skip this.
 	    my $p = $allhops{$to}{$file};
 	    if (! ($$p{IS_LOCAL} > $local
-		   || ($$p{IS_LOCAL} = $local
+		   || ($$p{IS_LOCAL} == $local
 		       && ($$p{IS_VALID} > $valid
 			   || ($$p{IS_VALID} == $valid
 			       && ($$p{TOTAL_LATENCY} || 0) < $cost)))))
@@ -998,6 +998,7 @@ sub routeCost
 	TOTAL_LINK_LATENCY => 0,
 	TOTAL_XFER_LATENCY => $latency,
 	TOTAL_LATENCY => $latency,
+	TOTAL_LOCAL => 1,
 	IS_LOCAL => 1,
 	HOPS => 0,
 	REMOTE_HOPS => 0
@@ -1030,11 +1031,14 @@ sub routeCost
 			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
+
+		# Separately keep track of this hop's locality and
+		# whether the whole path so far is local
 		my $thislocal = 0;
 		$thislocal = 1 if (exists $$links{$from}
 				   && exists $$links{$from}{$to}
 				   && $$links{$from}{$to}{IS_LOCAL});
-		my $local = ($thislocal && $$paths{$from}{IS_LOCAL} ? 1 : 0);
+		my $local = ($thislocal && $$paths{$from}{TOTAL_LOCAL} ? 1 : 0);
 
 		# If we would involve more than one WAN hop, incur penalty.
 		# This value is larger than cut-off for valid paths later.
@@ -1048,8 +1052,8 @@ sub routeCost
 		# path and existing is not local, or if we now have a
 		# better cost without changing local attribute.
 		if (! exists $$paths{$to}
-		    || ($local && ! $$paths{$to}{IS_LOCAL})
-		    || ($local == $$paths{$to}{IS_LOCAL}
+		    || ($local && ! $$paths{$to}{TOTAL_LOCAL})
+		    || ($local == $$paths{$to}{TOTAL_LOCAL}
 			&& $total < $$paths{$to}{TOTAL_LATENCY}))
 		{
 		    # No existing path or it's more expensive.
@@ -1062,7 +1066,8 @@ sub routeCost
 				     TOTAL_LINK_LATENCY => $$paths{$from}{TOTAL_LINK_LATENCY} + $latency,
 				     TOTAL_XFER_LATENCY => $$paths{$from}{TOTAL_XFER_LATENCY} + $xfer,
 				     TOTAL_LATENCY => $total,
-				     IS_LOCAL => $local,
+				     TOTAL_LOCAL => $local,
+				     IS_LOCAL => $thislocal,
 				     HOPS => $$paths{$from}{HOPS} + 1,
 				     REMOTE_HOPS => $$paths{$from}{REMOTE_HOPS} + (1-$thislocal) };
 		    $todo{$to} = 1;
@@ -1100,8 +1105,8 @@ sub bestRoute
 	my $thiscost = $$this{$dest}{TOTAL_LATENCY} + (rand(1) * 1e-12);
 
 	if (! defined $best
-	    || $$this{$dest}{IS_LOCAL} > $$best{$dest}{IS_LOCAL}
-	    || ($$this{$dest}{IS_LOCAL} == $$best{$dest}{IS_LOCAL}
+	    || $$this{$dest}{TOTAL_LOCAL} > $$best{$dest}{TOTAL_LOCAL}
+	    || ($$this{$dest}{TOTAL_LOCAL} == $$best{$dest}{TOTAL_LOCAL}
 		&& $thiscost <= $bestcost))
 	{
 	    $best = $this;
