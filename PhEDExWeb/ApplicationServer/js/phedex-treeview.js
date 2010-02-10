@@ -72,6 +72,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         for (var i in elClasses) {
           if ( elClasses[i].match(treeMatch) ) {
             candList = YuD.getElementsByClassName(elClasses[i], 'div', this.el);
+            break;
           }
         }
         for (var i in candList )
@@ -275,9 +276,9 @@ PHEDEX.TreeView = function(sandbox,string) {
           var h1 = elList[i].offsetHeight,
               h2 = el.offsetHeight;
           if ( h1/h2 > 1.2 ) { // the element overflows its container...
-            YuD.addClass(el,'phedex-tree-overflow');
+            YuD.addClass(el,'phedex-tnode-overflow');
           } else {
-            YuD.removeClass(el,'phedex-tree-overflow');
+            YuD.removeClass(el,'phedex-tnode-overflow');
           }
         }
       },
@@ -634,23 +635,23 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
   var obj = args.payload.obj;
   function mouseOverHandler(e) {
 //  get the resolved (non-text node) target:
-    var elTarget = YuE.getTarget(e);
-    var el = obj.locateNode(elTarget);
+    var elTarget = YuE.getTarget(e),
+        el = obj.locateNode(elTarget),
+        action, className, class_alt, elList, i;
     if ( ! el ) { return; }
-    var aList = YuD.getElementsByClassName('spanWrap','span',el);
-    for (var i in aList) {
-      log('Found span '+aList[i].innerHTML,'debug','treeview');
-    }
-    var action;
-    var className = 'phedex-tnode-highlight';
-    var class_alt  = 'phedex-tnode-highlight-associated';
+//     var aList = YuD.getElementsByClassName('spanWrap','span',el);
+//     for (var i in aList) {
+//       log('Found span '+aList[i].innerHTML,'debug','treeview');
+//     }
+    className = 'phedex-tnode-highlight';
+    class_alt  = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
       action = YuD.addClass;
     } else {
       action = YuD.removeClass;
     }
-    var elList = obj.locatePartnerFields(el);
-    for (var i in elList )
+    elList = obj.locatePartnerFields(el);
+    for (i in elList )
     {
       action(elList[i],class_alt);
     }
