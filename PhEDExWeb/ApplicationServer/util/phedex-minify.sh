@@ -1,10 +1,14 @@
 #!/bin/bash
 # Script to compress (minify) the phedex js files
-yuicompressor_path=~/Desktop/ApplicationServer/yuicompressor/build/yuicompressor-2.4.2.jar
-phedex_js_path=~/Desktop/ApplicationServer/js
-phedex_css_path=~/Desktop/ApplicationServer/css
-phedex_min_js_path=~/Desktop/ApplicationServer/minjs
-phedex_min_css_path=~/Desktop/ApplicationServer/mincss
+yuicompressor_path=/home/tony/YUI/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar
+cd `dirname $0`
+cd ../..
+phedex_base=`pwd`
+echo "Using $phedex_base for setup..."
+phedex_js_path=$phedex_base/ApplicationServer/js
+phedex_css_path=$phedex_base/ApplicationServer/css
+phedex_min_js_path=$phedex_base/ApplicationServer/minjs
+phedex_min_css_path=$phedex_base/ApplicationServer/mincss
 
 echo "========================================================"
 # Check if the YUI compressor file exist or not
