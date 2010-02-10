@@ -151,21 +151,23 @@ PHEDEX.TreeView = function(sandbox,string) {
           return function(node) { return obj.showOverflows(node); }
         }(this));
         this.headerTree.render();
+        this.decorators.push(
+          {
+            name:'Filter',
+            source:'component-filter',
+            payload:{
+              control: {
+                parent: 'control',
+                payload:{
+                  disabled: false, //true,
+                  hidden:   true,
+                },
+                el: 'content',
+              },
+            },
+            target:  'filter',
+          });
 
-//         this.decorators.push(
-//           {
-//             name:'Filter',
-//             source: 'component-control',
-//             parent: 'control',
-//             payload:{
-//               disabled: true,
-//               hidden:   true,
-//               target:  'filter',
-//               fillFn:  'filter.Build',
-//               fillArgs:'fillArgs',
-//               animate:  false,
-//             }
-//           });
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
         _sbx.notify(this.id,'initDerived');
@@ -280,9 +282,9 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
-// This is for dynamically loading data into YUI TreeViews.
+//    This is for dynamically loading data into YUI TreeViews.
       loadTreeNodeData: function(node, fnLoadComplete) {
-// First, create a callback function that uses the payload to identify what to do with the returned data.
+//    First, create a callback function that uses the payload to identify what to do with the returned data.
         var tNode,
             loadTreeNodeData_callback = function(result) {
             if ( result.stack ) {
@@ -298,7 +300,7 @@ PHEDEX.TreeView = function(sandbox,string) {
                 tNode.isLeaf = true;
               }
             }
-            fnLoadComplete(); // Signal that the operation is complete, the tree can re-draw itself
+            fnLoadComplete();
             var obj = node.payload.obj;
             obj.hideFields(obj.dom.body); // ...but this prevents a redraw on the screen when newly-revealed elements should be hidden!
             _sbx.notify(obj.id,'dynamicLoadComplete',node);
@@ -336,6 +338,9 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
+      revealAllBranches: function() {
+        this.revealAllElements('ygtvrow');
+      },
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
@@ -471,7 +476,6 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
   YAHOO.lang.augmentObject(this,_construct(this),true);
   this._init(args);
   return this;
-
 }
 
 PHEDEX.TreeView.Sort = function(sandbox,args) {
@@ -519,13 +523,12 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           YuD.addClass(element,'phedex-sorted');
         });
 
-//      add a visual indicator that the module has been filtered
+//      add a visual indicator that the module has been sorted
         if ( !obj.dom.sorted ) {
           obj.dom.sorted = PxU.makeChild(obj.dom.control,'span');
           obj.dom.sorted.innerHTML = 'S';
           obj.dom.sorted.className = 'phedex-sorted';
         }
-//         obj.hideFields();
       },
 
       prepare: function(el,type,dir) {
@@ -601,16 +604,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
   return this;
 }
 
-//   that.filter.onFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onWidgetFilterCancelled:'+obj.me(),'info','treeview');
-//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.revealAllBranches();
-//       obj.filter.Reset();
-//       obj.ctl.filter.Hide();
-//       PHEDEX.Event.onWidgetFilterCancelled.fire(obj.filter);
-//     }
-//   }(that));
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function() {
 //       log('onGlobalFilterCancelled:'+obj.me(),'info','treeview');
@@ -619,71 +612,17 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //       obj.filter.Reset();
 //     }
 //   }(that));
-// 
-// // This uses a closure to capture the 'this' we are dealing with and then subscribe it to the onFilterCancel event.
-// // Note the pattern: Event.subscribe( function(obj) { return function() { obj.whatever(); ...; } }(this) );
-//   that.revealAllBranches=function() {
-//     that.filter.revealAllElements('ygtvrow');
-//   }
-// 
-//   that.filter.onFilterApplied.subscribe(function(obj) {
-//     return function(ev,arr) {
-//       obj.applyFilter(arr[0]);
-//       obj.ctl.filter.Hide();
-//     }
-//   }(that));
-// 
+//
 //   PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
 //     return function(ev,arr) {
 //       var args = arr[0];
 //       if ( ! obj.filter.args ) { obj.filter.args = []; }
 //       for (var i in args) {
-// 	obj.filter.args[i] = args[i];
+// 	   obj.filter.args[i] = args[i];
 //       }
 //       obj.applyFilter(arr[0]);
 //     }
 //   }(that));
-// 
-//   that.applyFilter=function(args) {
-// //  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
-//     that.revealAllBranches();
-//     var elParents={};
-//     if ( ! args ) { args = that.filter.args; }
-//     for (var key in args) {
-//       if ( typeof(args[key].value) == 'undefined' ) { continue; }
-//       var fValue = args[key].value;
-//       var negate = args[key].negate;
-//       for (var elId in that.textNodeMap) {
-// 	var tNode = that.textNodeMap[elId];
-// 	if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
-// 	for (var i in tNode.data.spec.format) {
-// 	  var className = tNode.data.spec.format[i].className;
-// 	  if ( className != key ) { continue; }
-// 	  var kValue = tNode.data.values[i];
-// 	  if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-// 	  var status = that.filter.Apply[this.filter.fields[key].type](fValue,kValue);
-// 	  if ( args[key].negate ) { status = !status; }
-// 	  if ( !status ) { // Keep the element if the match succeeded!
-// 	    tNode.collapse();
-// 	    var elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
-// 	    YuD.addClass(elAncestor,'phedex-invisible');
-// 	    that.filter.count++;
-// 	    if ( tNode.parent ) {
-// 	      elParents[tNode.parent.labelElId] = 1;
-// 	    }
-// 	  }
-// 	  break;
-// 	}
-//       }
-//     }
-//     for (var elParent in elParents) {
-//       var ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
-//       YuD.addClass(ancestor,'phedex-core-control-widget-applied');
-//     }
-//     return this.filter.count;
-//   }
-//   return that;
-// }
 
 /** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
  * @namespace PHEDEX.DataTable
@@ -722,5 +661,47 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
   YuE.on(obj.dom.extra,   "mouseover", mouseOverHandler);
   YuE.on(obj.dom.extra,   "mouseout",  mouseOverHandler);
 }
+
+PHEDEX.TreeView.Filter = function(sandbox,obj) {
+  return {
+    applyFilter: function(args) {
+//  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
+    obj.revealAllBranches();
+    var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
+    if ( !args ) { args = this.args; }
+    for (key in args) {
+      fValue = args[key].values;
+      negate = args[key].negate;
+      for (elId in obj._cfg.textNodeMap) {
+        tNode = obj._cfg.textNodeMap[elId];
+        if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
+        for (i in tNode.data.spec.format) {
+          className = tNode.data.spec.format[i].className;
+          if ( className != key ) { continue; }
+          kValue = tNode.data.values[i];
+          if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
+          status = this.Apply[this.fields[key].type](fValue,kValue);
+          if ( args[key].negate ) { status = !status; }
+          if ( !status ) { // Keep the element if the match succeeded!
+            tNode.collapse();
+            elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
+            YuD.addClass(elAncestor,'phedex-invisible');
+            this.count++;
+            if ( tNode.parent ) {
+              if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
+            }
+          }
+          break;
+        }
+      }
+    }
+    for (elParent in elParents) {
+      ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
+      YuD.addClass(ancestor,'phedex-core-control-widget-applied');
+    }
+    return this.count;
+    }
+  };
+};
 
 log('loaded...','info','treeview');
