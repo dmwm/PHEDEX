@@ -258,18 +258,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         return 0;
       },
 
-      revealAllElements: function(className) {
-        var elList = YAHOO.util.Dom.getElementsByClassName(className,null,obj.dom.content);
-        for (var i in elList) {
-          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
-            YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
-          }
-          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
-            YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
-          }
-        }
-      },
-
       ResetState: function() {
         this.count=0;
         this.args={};
