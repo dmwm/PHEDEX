@@ -378,6 +378,19 @@ PHEDEX.Module = function(sandbox, string) {
         while (this.el.hasChildNodes()) { this.el.removeChild(this.el.firstChild); }
         this.dom = [];
       },
+
+      revealAllElements: function(className) {
+        var elList = YAHOO.util.Dom.getElementsByClassName(className,null,this.dom.content);
+        for (var i in elList) {
+          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
+            YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+          }
+          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
+            YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
+          }
+        }
+      },
+
     };
   };
   YAHOO.lang.augmentObject(this, _construct());
