@@ -128,7 +128,8 @@ makeNavigator = function() {
       typecfg: {
         none:   { label: 'Explore global',  order: 10 },
         node:   { label: 'Explore by node', order: 20 },
-        static: { label: 'Explore Information', order: 30 }
+        group:  { label: 'Explore by group', order: 40 },
+        static: { label: 'Explore Information', order: 99 },
       }
     }
   });
@@ -249,6 +250,7 @@ function createCoreApp() {
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
+//   PxS.notify('CreateModule','agents',{node:'T0_CH_CERN_Export'});
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {
@@ -270,6 +272,7 @@ function createCoreApp() {
       var ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Debug controls',
+            title:'this opens a panel of debugging controls, for experts only',
             target:'phedex-debug',
             className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
           }
@@ -280,6 +283,7 @@ function createCoreApp() {
       ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Show Logger',
+            title:'This shows the logger component, for debugging. For experts only',
             target:'phedex-logger',
             animate:true,
             className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
@@ -290,6 +294,7 @@ function createCoreApp() {
       ctl = new PHEDEX.Component.Control(PxS,{
           payload: {
             text:'Show Log2Server controls',
+            title:'You can log messages to the proxy-server, if you are using one. This control gives you access to a configuration panel that allows you to set preferences via a cookie, so you can reload and keep the same logging configuration',
             target:'phedex-logger-log2server',
             animate:false,
             className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
