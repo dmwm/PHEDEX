@@ -297,7 +297,7 @@ div .phedex-tnode-highlight-associated {
   background-color: #fff;
 }
 
-.phedex-tree-overflow { /* used to show a field is truncated, if it's not obvious */
+.phedex-tnode-overflow { /* used to show a field is truncated, if it's not obvious */
   border-right: 1px dotted red;
   border-bottom: 1px dotted red;
   background-color: #fee;
