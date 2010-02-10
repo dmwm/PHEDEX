@@ -335,22 +335,22 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 };
 
 PHEDEX.DataTable.Filter = function(sandbox,obj) {
-//   var _sbx = sandbox;
   return {
     applyFilter: function(args) {
 //   this is much easier for tables than for branches. Just go through the data-table and build a new one,
 //   then feed that to the DataSource!
-      var table=[], keep, fValue, kValue, status;
+      var table=[], keep, fValue, kValue, status, a;
       if ( ! args ) { args = this.args; }
       for (var i in obj.data) {
         keep=true;
-        for (var key in args) {
-          if ( typeof(args[key].value) == 'undefined' ) { continue; }
-          fValue = args[key].value;
-          kValue = obj.data[i][key];
-          if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-          status = this.Apply[this.fields[key].type](fValue,kValue);
-          if ( args[key].negate ) { status = !status; }
+        for (var j in args) {
+          a = args[j];
+          if ( typeof(a.values) == 'undefined' ) { continue; }
+          fValue = a.values;
+          kValue = obj.data[i][j];
+          if ( a.preprocess ) { kValue = a.preprocess(kValue); }
+          status = this.Apply[this.fields[j].type](fValue,kValue);
+          if ( a.negate ) { status = !status; }
           if ( !status ) { // Keep the element if the match succeeded!
             this.count++;
             keep=false;
