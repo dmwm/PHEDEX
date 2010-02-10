@@ -1427,9 +1427,15 @@ sub getErrorLogSummary
     $sql .= qq {
         group by fn.name, fn.id, fn.se_name, tn.name, tn.id, tn.se_name,
             b.name, b.id, f.logical_name, f.id, f.filesize, f.checksum
+        order by fn.name, tn.name
         };
 
     my $q = execute_sql($core, $sql, %p);
+
+    if (exists $h{'__spool__'})
+    {
+        return $q;
+    }
 
     while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
 
@@ -1504,10 +1510,15 @@ sub getErrorLog
 
     $sql .= " and ( $filters )" if $filters;
     $sql .= qq {
-        order by xe.time_done desc
+        order by fn.name, tn.name, xe.time_done desc
         };
 
     my $q = execute_sql($core, $sql, %p);
+
+    if (exists $h{'__spool__'})
+    {
+        return $q;
+    }
 
     while ($_ = $q->fetchrow_hashref())
     {
