@@ -35,7 +35,7 @@ PHEDEX.Registry = function(sandbox) {
                       group    :1,
                       user     :1,
                       request  :1,
-                      static   :1,
+                     'static'  :1,
                       none     :1 };
 
   return {

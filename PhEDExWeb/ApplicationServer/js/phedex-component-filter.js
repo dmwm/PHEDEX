@@ -163,8 +163,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
         regex:       {type:'input', size:20},
-        int:         {type:'input', size:7 },
-        float:       {type:'input', size:7 },
+        'int':       {type:'input', size:7 },
+        'float':     {type:'input', size:7 },
         percent:     {type:'input', size:5 },
         minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
@@ -172,12 +172,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
-        int: function(arg) {
+        'int': function(arg) {
           var i = parseInt(arg.value);
           if ( i == arg.value ) { return {result:true, parsed:{value:i}}; }
           return { result:false };
         },
-        float: function(arg) {
+        'float': function(arg) {
           var i = parseFloat(arg.value);
           if ( isNaN(i) ) { return {result:false}; }
           return {result:true, parsed:{value:i}};
@@ -222,10 +222,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           if ( val.match(re) ) { return true; }
           return false;
         },
-        int:     function(arg,val) { return val == arg.value; },
-        float:   function(arg,val) { return val == arg.value; },
+        'int':   function(arg,val) { return val == arg.value; },
+        'float': function(arg,val) { return val == arg.value; },
         percent: function(arg,val) { return val == arg.value; },
-        minmax: function(arg,val) {
+        minmax:  function(arg,val) {
           if ( arg.min && val < arg.min ) { return false; }
           if ( arg.max && val > arg.max ) { return false; }
           return true;

@@ -128,9 +128,9 @@ PHEDEX.Util = {
           info:   'phedex-bkg-green',
           warn:   'phedex-bkg-yellow',
           error:  'phedex-bkg-red',
-          default:'phedex-bkg-turquoise'
+          def:'phedex-bkg-turquoise'
         },
-        order = { default:0, info:1, warn:2, error:3 },
+        order = { def:0, info:1, warn:2, error:3 },
         current;
     if ( !outer ) { return; }
     var fade = function() {
@@ -141,7 +141,7 @@ PHEDEX.Util = {
     return function(str,level,group) {
       if ( outer ) {
         if ( str ) {
-          if ( !level ) { level = 'default'; }
+          if ( !level ) { level = 'def'; }
           if ( order[level] < current ) { return; }
           inner.innerHTML = str;
           current = order[level];

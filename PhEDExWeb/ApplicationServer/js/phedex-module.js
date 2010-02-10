@@ -166,14 +166,12 @@ PHEDEX.Module = function(sandbox, string) {
  * @method isStateValid
  * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
  */
-      isStateValid: function() { debugger; return false; },
+      isStateValid: function() { return false; },
 /** return a string containing the state of the module, in whatever manner is appropriate for the module to be able to restore itself. Must be over-ridden by derived classes.
  * @method getState
  * @return state {string} a string, possibly JSON, that can be interpreted by the StateChanged notification
  */
-      getState: function() {
-debugger;
-},
+      getState: function() { },
 
       /**
        * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
@@ -241,9 +239,6 @@ debugger;
                 break;
               }
              case 'StateChanged': {
-debugger;
-//                 obj[value]();
-//                 _sbx.notify(arr[2],action,'done');
                 break;
               }
               case 'getStatePlugin': {

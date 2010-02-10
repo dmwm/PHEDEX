@@ -133,16 +133,16 @@ PHEDEX.Util.format={
     },
     block:function(raw) {
       if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+        var _short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
       } else {
         return raw;
       }
     },
     file:function(raw) {
       if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+        var _short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
       } else {
         return raw;
       }
@@ -153,8 +153,8 @@ PHEDEX.Util.format={
     },
     dataset:function(raw) {
       if (raw.length>50) {
-        var short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+short+"...</acronym>";
+        var _short = raw.substring(0,50);
+        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
       } else {
         return raw;
       }

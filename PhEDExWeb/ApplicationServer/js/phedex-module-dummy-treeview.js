@@ -8,7 +8,6 @@
  */
 PHEDEX.namespace('Module.Dummy');
 PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
-debugger;
   YAHOO.lang.augmentObject(this,new PHEDEX.TreeView(sandbox,string));
   var _sbx = sandbox;
   _construct = function(obj) {

@@ -13,7 +13,6 @@ PHEDEX.Global.Filter=function(parent) {
   this.filter.onFilterValidated = PHEDEX.Event.onGlobalFilterValidated;
 
   this.fillGlobalFilter = function(el) {
-debugger;
     el.innerHTML = 'this is the filter-panel div';
   }
 // This are the user-interaction elements

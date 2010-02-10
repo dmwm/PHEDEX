@@ -574,11 +574,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     }
   };
   this.partnerHandler = function(o) {
-var ncalls=0;
     return function(ev,arr) {
-if ( ncalls++ > 1000 ) {
-debugger;
-}
       var action = arr[0],
           value = arr[1];
       log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
@@ -694,11 +690,10 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       needValue: false,
       updateGUI: function() {
 log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
-debugger;
       }
     },
 
-    static: {
+    'static': {
       init: function(el) {
         return PxU.makeChild(el, 'div');
        },
@@ -861,7 +856,6 @@ debugger;
         }
         case 'updateTargetGUI': {
 log('Deprecated? TargetTypeSelector.partnerHandler.updateTargetGUI','warn',me);
-debugger; // I don't think this is actually needed...?
           o[_type].updateTargetGUI(value);
           break;
         }
