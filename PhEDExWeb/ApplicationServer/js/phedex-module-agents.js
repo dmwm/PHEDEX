@@ -88,7 +88,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
               'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
               'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
               'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
-              'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
+              'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds ago, i.e. min is most recent)', preprocess:'toTimeAgo' },
               'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
               'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
               'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
