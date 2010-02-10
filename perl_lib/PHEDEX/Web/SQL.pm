@@ -1431,92 +1431,9 @@ sub getErrorLogSummary
 
     my $q = execute_sql($core, $sql, %p);
 
-    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-
-    my %link;
-    # restructuring the output
-    while ($_ = $q->fetchrow_hashref())
-    {
-        my $key = $_->{FROM}.'+'.$_->{TO};
-        if ($link{$key})
-        {
-            if ($link{$key}{block_tmp}{$_->{BLOCK_ID}})
-            {
-                push @{$link{$key}{block_tmp}{$_->{BLOCK_ID}}->{file}}, {
-                    name => $_->{FILE_NAME},
-                    id => $_->{FILE_ID},
-                    checksum => $_->{CHECKSUM},
-                    size => $_->{FILE_SIZE},
-                    num_errors => $_->{NUM_ERRORS}
-                };
-                $link{$key}{block_tmp}{$_->{BLOCK_ID}}{num_errors} += $_->{NUM_ERRORS};
-                $link{$key}{num_errors} += $_->{NUM_ERRORS};
-            }
-            else
-            {
-                $link{$key}{block_tmp}{$_->{BLOCK_ID}} = {
-                    name => $_->{BLOCK_NAME},
-                    id => $_->{BLOCK_ID},
-                    num_errors => $_->{NUM_ERRORS},
-                    file => [{
-                        name => $_->{FILE_NAME},
-                        id => $_->{FILE_ID},
-                        checksum => $_->{CHECKSUM},
-                        size => $_->{FILE_SIZE},
-                        num_errors => $_->{NUM_ERRORS}
-                    }]
-                };
-                $link{$key}{num_errors} += $_->{NUM_ERRORS};
-            }
-        }
-        else
-        {
-            $link{$key} = {
-                from => $_->{FROM},
-                from_id => $_->{FROM_ID},
-                from_se => $_->{FROM_SE},
-                to => $_->{TO},
-                to_id => $_->{TO_ID},
-                to_se => $_->{TO_SE},
-                num_errors => $_->{NUM_ERRORS},
-                block_tmp => {
-                    $_->{BLOCK_ID} => {
-                        name => $_->{BLOCK_NAME},
-                        id => $_->{BLOCK_ID},
-                        num_errors => $_->{NUM_ERRORS},
-                        file => [{
-                            name => $_->{FILE_NAME},
-                            id => $_->{FILE_ID},
-                            checksum => $_->{CHECKSUM},
-                            size => $_->{FILE_SIZE},
-                            num_errors => $_->{NUM_ERRORS}
-                        }]
-                    }
-                }
-            };
-        }
-    }
-
-    # now turn block_tmp to block array
-
-    my ($key, $value, $qkey, $qvalue);
-    while (($key, $value) = each (%link))
-    {
-        $link{$key}{block} = [];
-        while (($qkey, $qvalue) = each (%{$link{$key}{block_tmp}}))
-        {
-            push @{$link{$key}{block}}, $qvalue;
-        }
-        delete $link{$key}{block_tmp};
-    }
-
-    while (($key, $value) = each(%link))
-    {
-        push @r, $value;
-    }
+    while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
 
     return \@r;
-
 }
 
 # get transfer error details from the log
