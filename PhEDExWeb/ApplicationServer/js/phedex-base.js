@@ -106,6 +106,7 @@ PHEDEX.Util = {
           if (typeof el.scrollTop != 'undefined') { el.scrollTop += 100; }
         }
       _buffer.push([str,level,group]);
+      if ( _buffer.length > 100 ) { delete _buffer[0]; }
       } else {
         var b = _buffer; // gymnastics to reset _buffer to empty within a closure, but still return its contents!
         _buffer = [];
