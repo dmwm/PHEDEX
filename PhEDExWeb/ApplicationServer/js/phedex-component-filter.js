@@ -26,6 +26,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               obj.ResetFilter( false );
               obj.applyFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
               break;
             }
             case 'Validate': {
@@ -35,6 +36,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             case 'Apply': {
               obj.applyFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              YAHOO.util.Dom.addClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
               break;
             }
             case 'cBox': {
@@ -95,7 +97,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         b.appendChild(document.createTextNode('Keep this window open'));
         b.appendChild(document.createElement('br'));
         var buttonApplyFilter  = new YAHOO.widget.Button({ label:'Apply Changes',  title:'Validate your input and apply the filter', container:b }),
-            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:'Close this window without changing the filter options. Any non-applied changes you have made will be ignored', container:b }),
+            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:"Cancel any changes to the filter options since your last 'apply'. Any non-applied changes you have made will be ignored", container:b }),
             buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:b }),
             buttonNotifier = function(obj) {
               return function(arg) { _sbx.notify(obj.id,'Filter',arg); }
@@ -169,22 +171,22 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' }
       },
       Validate: {
-        regex: function(arg) { return {result:true, parsed:arg}; }, // ...no sensible way to validate a regex except to compile it, assume true...
+        regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
         int: function(arg) {
-          var i = parseInt(arg);
-          if ( i == arg ) { return {result:true, parsed:i}; }
+          var i = parseInt(arg.value);
+          if ( i == arg.value ) { return {result:true, parsed:{value:i}}; }
           return { result:false };
         },
         float: function(arg) {
-          var i = parseFloat(arg);
+          var i = parseFloat(arg.value);
           if ( isNaN(i) ) { return {result:false}; }
-          return {result:true, parsed:i};
+          return {result:true, parsed:{value:i}};
         },
         percent: function(arg) {
-          var i = parseFloat(arg);
+          var i = parseFloat(arg.value);
           if ( isNaN(i) ) { return {result:false}; }
           if ( i>100.0 || i<0.0 ) { return {result:false}; }
-          return {result:true, parsed:i};
+          return {result:true, parsed:{value:i}};
         },
         minmax: function(arg) {
           var v = { result:false, parsed:{} };
@@ -216,13 +218,13 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
       Apply: {
         regex:   function(arg,val) {
-          var re = new RegExp(arg);
+          var re = new RegExp(arg.value);
           if ( val.match(re) ) { return true; }
           return false;
         },
-        int:     function(arg,val) { return val == arg; },
-        float:   function(arg,val) { return val == arg; },
-        percent: function(arg,val) { return val == arg; },
+        int:     function(arg,val) { return val == arg.value; },
+        float:   function(arg,val) { return val == arg.value; },
+        percent: function(arg,val) { return val == arg.value; },
         minmax: function(arg,val) {
           if ( arg.min && val < arg.min ) { return false; }
           if ( arg.max && val > arg.max ) { return false; }
@@ -277,9 +279,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         var ttIds = [], ttHelp = {}, hId;
         hId = this.overlay.header.id;
         ttIds.push(hId);
-        ttHelp[hId] = 'Use this grey area to drag the filter elsewhere on the screen';
+        ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
 
-        if ( !this.args ) { this.args = {}; }
         if ( !this.ctl )  { this.ctl = {}; }
         for (var label in this.structure['f']) {
           var fieldset = document.createElement('fieldset'),
@@ -316,7 +317,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
           this.dom.filter.appendChild(fieldset);
           for (var key in this.structure['f'][label]) {
-            if ( !this.args[key] ) { this.args[key] = []; }
             var c = this.fields[key],
                 focusOn, outer, inner, e;
             if ( !c.value ) { c.value = null; }
@@ -326,8 +326,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             outer.className = 'phedex-filter-outer phedex-visible '+hideClass;
             inner.className = 'phedex-filter-inner';
             inner.id = 'phedex_filter_inner_'+PHEDEX.Util.Sequence();
-            this.meta.inner[inner.id] = inner;
-            this.meta.el[inner.id] = [];
+            this.meta.el[inner.id] = inner;
+            this.meta.inner[inner.id] = [];
             e = this.typeMap[c.type];
             if ( !e ) {
               YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
@@ -341,7 +341,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }
               el = document.createElement(e.type);
               el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
-              this.meta.el[inner.id].push(el);
+              this.meta.el[el.id] = el;
+              this.meta.inner[inner.id].push(el);
               el.className = 'phedex-filter-elem';
               YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
               if ( e.className ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.className); }
@@ -350,16 +351,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               el.setAttribute('type',e.type);
               el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
               el.setAttribute('value',c.value);
-              def = this.args[key].value || [];
-              if ( def.value ) { def = def.value; }
-              if ( fields[i] ) {
-                if ( def[fields[i]] ) {
-                  def = def[fields[i]];
-                } else {
-                  def = null;
-                }
-              }
-              el.setAttribute('value',def);
               inner.appendChild(el);
               if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
               if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
@@ -369,9 +360,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
                 fieldLabel = document.createElement('div');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
-            cBox.checked = this.args[key].negate;
             cBox.id = 'cbox_' + PxU.Sequence();
-            this.meta.cBox[inner.id] = cBox;
+            this.meta.cBox[key] = cBox;
             ttIds.push(cBox.id);
             ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
             inner.appendChild(cBox);
@@ -411,49 +401,49 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         var isValid = true,
             keyMatch = /^phedex-filter-key-/,
             innerList = this.meta.inner,
-            nItems, nSet, values, value, elList, el, key, elClasses, type;
+            nItems, nSet, values, value, el, key, elClasses, type, s, a;
+        this.args = {};
         for (var i in innerList) {
           nItems = 0;
           nSet = 0;
           values = {};
-          value = null;
-          elList = this.meta.el[i];
-          for (var j in elList) {
-            el = elList[j];
-//      find the phedex-filter-key-* classname of this element
+          for (var j in innerList[i]) {
+            el = innerList[i][j];
+            a = {id:[], values:{}, name:el.name}; //this.args[el.name];
+
+// 1. pick out the values from the element(s)
+//          find the phedex-filter-key-* classname of this element
             elClasses = el.className.split(' ');
             for (var k in elClasses) {
               if ( elClasses[k].match(keyMatch) ) {
                 key = elClasses[k].split('-')[3];
-                if ( key != '' ) { values[key] = el.value; } // single-valued elements don't have a key!
-                else             { value       = el.value; }
+                if ( key == '' ) { key = 'value'; }
+                values[key] = el.value;
+                a.id[key] = el.id;
                 nItems++;
                 if ( el.value ) { nSet++; }
               }
             }
           }
-          type = this.fields[el.name].type;
-          this.args[el.name] = [];
-          var s, v;
+
+// 2. parse the values and validate them
           if ( nSet ) {
-            if ( nItems > 1 ) { v = values; }
-            else              { v = value; }
-            s = this.Validate[type](v);
+            type = this.fields[el.name].type;
+            s = this.Validate[type](values);
             if ( s.result ) {
-              this.args[el.name].value = s.parsed;
+              a.values = s.parsed;
               this.setValid(innerList[i]);
               var x = this.fields[el.name];
-              if ( x.format ) { this.args[el.name].format = x.format; }
+              if ( x.format ) { this.args[i].format = x.format; }
               if ( x.preprocess ) {
                 if ( typeof(x.preprocess) == 'string' ) {
-                  this.args[el.name].preprocess = this.Preprocess[x.preprocess];
+                  a.preprocess = this.Preprocess[x.preprocess];
                 } else {
-                  this.args[el.name].preprocess = x.preprocess;
+                  a.preprocess = x.preprocess;
                 }
               }
-              this.args[el.name].negate = this.meta.cBox[i].checked;
-              this.args[el.name].id = el.id;
-              this.dom[el.id] = el;
+              a.negate = this.meta.cBox[a.name].checked;
+              this.args[a.name] = a;
             } else {
               YAHOO.log('Invalid entry for "'+this.fields[el.name].text+'", aborting accept','error','Core.Widget');
               this.setInvalid(innerList[i],isValid);
@@ -465,19 +455,29 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           _sbx.notify(this.id,'Filter','Validated',this.args);
           _sbx.notify(this.id,'Filter','Apply',this.args);
         }
-        return isValid; // in case it's useful...
+        return;
       },
 
       ResetFilter: function( rollback ) { // rollback to last set values? Or wipe clean?
-        var a, el, c; // TODO Still needs to work for double-valued types (minmax*)
-        for (var i in this.args) {
-          a = this.args[i];
-          if ( !a.id ) { continue; }
-          el = this.dom[a.id];
-          c = this.fields[el.name];
-          if ( !rollback ) { a.value = c.value; }
-          el.value = a.value;
-          if ( a.value == null ) { delete a.value; }
+        var a, el, c, name, key, i;
+        for (name in this.args) {
+          a = this.args[name];
+          i = 0;
+          for (key in a.values) {
+            el = this.meta.el[a.id[key]];
+            c = this.fields[el.name];
+            if ( !rollback ) {
+              if ( c.value ) { a.values[key] = c.value[key]; }
+              else { a.values[key] = null; }
+              this.meta.cBox[name].checked = false;
+            } else {
+              this.meta.cBox[name].checked = a.negate;
+            }
+            el.value = a.values[key];
+            if ( a.values[key] == null ) { delete a.values[key]; }
+            if ( a.values[key] ) { i++; }
+          }
+          if ( !i ) { delete this.args[name]; } // no values left, wipe the slate for this field!
         }
       },
 
@@ -538,16 +538,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 }
 
 log('loaded...','info','component-filter');
-//   this.onFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onWidgetFilterCancelled:'+obj.me(),'info','Core.DataTable');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.fillDataSource(obj.data);
-//       obj.filter.Reset();
-//       obj.ctl.filter.Hide();
-//       PHEDEX.Event.onWidgetFilterCancelled.fire(obj.filter);
-//     }
-//   }(this));
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function() {
 //       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
@@ -567,10 +557,3 @@ log('loaded...','info','component-filter');
 //       obj.applyFilter(arr[0]);
 //     }
 //   }(this));
-//   this.onFilterApplied.subscribe(function(obj) {
-//     return function(ev,arr) {
-//       obj.applyFilter(arr[0]);
-//       obj.ctl.filter.Hide();
-//     }
-//   }(this));
-//
