@@ -382,7 +382,6 @@ sub handle_http_response {
     else {
         print "Response wasn't text.\n" if $dump_responses;
     }
-$DB::single=1;
     if ( $http_response->code != 200 ) { return; }
     if ( $cache && !$cache_ro )
     {
