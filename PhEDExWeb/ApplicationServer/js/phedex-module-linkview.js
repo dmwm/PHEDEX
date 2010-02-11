@@ -151,8 +151,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             fields:{
               'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
               'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
-              'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:'block-state' },
-              'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:'block-priority' },
+              'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:"'assigned', 'exported', 'transferring', or 'transferred'" },
+              'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:"'low', 'medium', or 'high'" },
 //            'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
 //            'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
               'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }

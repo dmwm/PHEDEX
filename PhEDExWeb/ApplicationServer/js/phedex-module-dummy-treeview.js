@@ -13,7 +13,7 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
   _construct = function(obj) {
     return {
       fillExtra: function() {},
-      hideByDefault: function() {},
+      hideFields: function() {},
       addMenuItem: function() {},
       init: function(opts) {
         this._init(opts);

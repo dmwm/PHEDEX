@@ -137,7 +137,7 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideByDefault:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1 },
+      allowNotify: { resizePanel:1, hideFields:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -220,7 +220,7 @@ PHEDEX.Module = function(sandbox, string) {
         _sbx.listen('module',this.genericHandler);
 
 /**
- * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly. This is primarily for interaction with decorators, so actions are specific to the types of decorator. Some are toggles, e.g. <strong>show target</strong> and <strong>hide target</strong>. Others are hidden method-invocations (e.g. <strong>hideByDefault</strong>), where the action is used to invoke a function with the same name. Still others are more generic, such as <strong>expand</strong>, which require that the module that created the decoration specify a handler to be named when this function is invoked. <strong>expand</strong> specifically applies to <strong>PHEDEX.Component.Control</strong>, when used for the <strong>Extra</strong> field. The handler passed to the control constructor tells it which function will fill in the information in the expanded field.
+ * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly. This is primarily for interaction with decorators, so actions are specific to the types of decorator. Some are toggles, e.g. <strong>show target</strong> and <strong>hide target</strong>. Others are hidden method-invocations (e.g. <strong>hideFields</strong>), where the action is used to invoke a function with the same name. Still others are more generic, such as <strong>expand</strong>, which require that the module that created the decoration specify a handler to be named when this function is invoked. <strong>expand</strong> specifically applies to <strong>PHEDEX.Component.Control</strong>, when used for the <strong>Extra</strong> field. The handler passed to the control constructor tells it which function will fill in the information in the expanded field.
  * @method selfHandler
  * @param ev {string} name of the event that was sent to this module
  * @param arr {array} array of arguments for the given event
@@ -482,25 +482,6 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
   }, obj, true);
 }
 
-//
-//   this.textNodeMap = [];
-//   this.hideByDefault = [];
-//   this._cfg = {headerNames:{}, hideByDefault:[], contextArgs:[], sortFields:{}};
-//
-//   this.onHideFilter.subscribe(function() {
-//       this.filter.destroy();
-//       var isApplied = this.filter.isApplied();
-//       this.ctl.filter.setApplied(isApplied);
-//       PHEDEX.Event.onWidgetFilterApplied.fire(isApplied);
-//     });
-//
-//   this.onAcceptFilter.subscribe( function(obj) {
-//     return function() {
-//       log('onAcceptFilter:'+obj.me(),'info','Core.Widget');
-//       obj.filter.Parse();
-//     }
-//   }(this));
-// 
 //   PHEDEX.Event.onGlobalFilterApplied.subscribe( function(obj) {
 //     return function(ev,arr) {
 //       var isApplied = arr[0];
@@ -515,29 +496,6 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
 //       widget.filter.init(args);
 //     }
 //   }());
-// 
-//   this.onBuildComplete.subscribe(function() {
-//     log('onBuildComplete: '+this.me(),'info','Core.Widget');
-//     // filter
-//     var fillArgs = { context:[this.dom.body,"tl","tl", ["beforeShow", "windowResize"]],
-// 		     visible:false,
-// 		     autofillheight:'body',
-// 		     width:this.dom.body.offsetWidth+'px'
-// 		   };
-//     this.ctl.filter = new PHEDEX.Core.Control({text:'Filter',
-// 					       payload:{target:this.dom.filter,
-// 							fillFn:this.filter.Build,
-// 							fillArgs:fillArgs,
-// 							obj:this,
-// 							animate:false,
-// 							hover_timeout:200,
-// 							onHideControl:this.onHideFilter,
-// 							onShowControl:this.onShowFilter
-// 						       }
-// 					      });
-//     YAHOO.util.Dom.insertBefore(this.ctl.filter.el,this.dom.control.firstChild);
-//     if ( !this.filter.isDefined() ) { this.ctl.filter.Disable(); }
-//   });
 // 
 //   // Create a (usually hidden) progress indicator.
 //   this.control.progress = PxU.makeChild(this.dom.control, 'img', {src:'/images/progress.gif'});

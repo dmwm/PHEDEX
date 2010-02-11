@@ -12,9 +12,6 @@ PHEDEX.Module.Dummy = function(sandbox, string) {
   var _sbx = sandbox;
   _construct = function(obj) {
     return {
-//       fillExtra: function() {},
-//       hideByDefault: function() {},
-//       addMenuItem: function() {},
       getData: function() {
 // dummy-out the call to get data, skip the dataservice completely. Uncomment the next three lines to get a module that simply 'bounce's off the data-service
 //         _sbx.notify( this.id, 'getData', { api:'bounce' } );

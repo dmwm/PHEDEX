@@ -96,9 +96,9 @@ PHEDEX.DataTable = function(sandbox,string) {
 
             /**
             * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.hide</strong> to determine what to hide.
-            * @method hideByDefault
+            * @method hideFields
             */
-            hideByDefault: function() {
+            hideFields: function() {
                 if ( this.meta.hide ) {
                     for (var i in this.meta.hide)
                     {
