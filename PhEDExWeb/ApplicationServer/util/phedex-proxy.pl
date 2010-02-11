@@ -337,6 +337,7 @@ DONE:
 	$response = $ua->$method($uri,\@form);
 	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $heap->{client}->put($response);
+	handle_http_response($response);
         $kernel->yield("shutdown");
       },
 
@@ -362,7 +363,6 @@ DONE:
 	  $heap->{client}->put($response);
 	  $kernel->yield("shutdown");
 	},
-        got_response => \&handle_http_response,
       },
   );
 
@@ -374,8 +374,7 @@ sub is_text
 }
 
 sub handle_http_response {
-    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
-    my $http_response = $_[ARG1]->[0];
+    my $http_response = shift;
     my $response_type = $http_response->content_type();
     if ( $response_type =~ /^text/i ) {
         display_thing( $http_response ) if $dump_responses;
@@ -383,6 +382,8 @@ sub handle_http_response {
     else {
         print "Response wasn't text.\n" if $dump_responses;
     }
+$DB::single=1;
+    if ( $http_response->code != 200 ) { return; }
     if ( $cache && !$cache_ro )
     {
       my $query = $http_response->request()->uri()->path_query();
@@ -390,8 +391,6 @@ sub handle_http_response {
       print scalar localtime,": Caching result for $query\n" if $verbose;
       $cache->set($query,$http_response,86400*365*100);
     }
-    $heap->{client}->put($http_response) if defined $heap->{client};
-    $kernel->yield("shutdown");
 }
 
 sub display_thing {
