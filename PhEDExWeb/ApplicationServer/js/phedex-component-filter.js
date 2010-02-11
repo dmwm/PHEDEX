@@ -318,7 +318,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             this.meta.inner[inner.id] = [];
             e = this.typeMap[c.type];
             if ( !e ) {
-              YAHOO.log('unknown filter-type"'+c.type+'", aborting','error','Core.TreeView');
+              log('unknown filter-type"'+c.type+'", aborting','error',_me);
               return;
             }
             var fields=e.fields || [''], el, size, def;
@@ -366,14 +366,23 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             fieldset.appendChild(outer);
           }
-          var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds });
+          var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds }), ttCount={};
+          tt.contextMouseOverEvent.subscribe( // prevent tooltip from showing more than a few times, to avoid upsetting experts
+            function(type, args) {
+              var id = args[0].id,
+                  text = ttHelp[args[0].id];
+              if ( text ) {
+                if ( !ttCount[id] ) { ttCount[id]=0; }
+                if ( ttCount[id]++ > 2 ) { return false; }
+                return true;
+              }
+            }
+          );
           tt.contextTriggerEvent.subscribe(
             function(type, args) {
               var text = ttHelp[args[0].id];
-              if ( text ) {
-                this.element.style.zIndex = 1000;
-                this.cfg.setProperty('text', text);
-              }
+              this.element.style.zIndex = 1000;
+              this.cfg.setProperty('text', text);
             }
           );
         }
