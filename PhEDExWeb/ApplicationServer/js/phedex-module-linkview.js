@@ -409,6 +409,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           this.dom.title.innerHTML = node;
           this.fillBody();
           _sbx.notify( this.id, 'gotData' );
+          _sbx.notify( this.id, 'hideFields' );
         }
         else { banner('Received '+context.api+' data, waiting for more...'); }
       },
