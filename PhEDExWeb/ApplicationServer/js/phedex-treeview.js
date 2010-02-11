@@ -149,7 +149,10 @@ PHEDEX.TreeView = function(sandbox,string) {
         htNode.isLeaf = true;
 
         this.tree.subscribe('expandComplete', function(obj) {
-          return function(node) { return obj.showOverflows(node); }
+          return function(node) {
+            obj.showOverflows(node);
+            _sbx.notify(obj.id,'expanded',node);
+          }
         }(this));
         this.headerTree.render();
         this.decorators.push(
@@ -258,7 +261,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       /**
-      * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.meta.hide</strong> to determine what to hide.
+      * hide all columns which have been declared to be hidden. Needed on initial rendering, on update, or after filtering. Uses <strong>this.meta.hide</strong> to determine what to hide.
       * @method hideFields
       */
       hideFields: function(el) {
@@ -293,7 +296,7 @@ PHEDEX.TreeView = function(sandbox,string) {
             } else {
               try {
                 node.payload.callback(node,result);
-//                 _sbx.notify(node.payload.obj.id,'hideByDefault'); // this may be the kosher way of doing things...
+//                 _sbx.notify(node.payload.obj.id,'hideFields'); // this may be the kosher way of doing things...
               } catch(e) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
@@ -303,8 +306,9 @@ PHEDEX.TreeView = function(sandbox,string) {
             }
             fnLoadComplete();
             var obj = node.payload.obj;
-            obj.hideFields(obj.dom.body); // ...but this prevents a redraw on the screen when newly-revealed elements should be hidden!
+//             obj.hideFields(obj.dom.body); // ...but this prevents a redraw on the screen when newly-revealed elements should be hidden!
             _sbx.notify(obj.id,'dynamicLoadComplete',node);
+            _sbx.notify(obj.id,'hideFields');
           }
 
 //      Now, find out what to get, if anything...
@@ -447,20 +451,24 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
 
   _construct = function() {
     return {
-      sorted: function(className) {
-//      After sorting, branches need resizing again...
-        var group = obj._cfg.classes[className].group,
-            className, elList;
+      doResize: function() {
+//      After sorting or expanding, branches need resizing again...
+        var className, elList;
         for (className in obj._cfg.classes) {
           elList = YuD.getElementsByClassName(className,null,obj.dom.body);
           for (var i in elList) {
-            if ( elList[i].style.width == obj._cfg.formats[className].width ) {
-              last;
-            }
+            if ( elList[i].style.width == obj._cfg.formats[className].width ) { break; }
             elList[i].style.width = obj._cfg.formats[className].width;
           }
         }
       },
+      sorted: function() {
+        this.doResize();
+      },
+      expanded: function( /*node*/ /*don't care about the argument...*/ ) {
+        this.doResize();
+      },
+
       _init: function() {
         var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact sorting
           return function(ev,arr) {
@@ -562,6 +570,16 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           this.execute(nodes[i].children[0],className,type,dir);
         }
         _sbx.notify(obj.id,'sorted',className);
+        _sbx.notify(obj.id,'hideFields');
+        this.sortClass = className;
+      },
+
+      expanded: function(node) {
+        if ( this.sortClass ) {
+          YuD.getElementsByClassName(this.sortClass,null,obj.el,function(element) {
+            YuD.addClass(element,'phedex-sorted');
+          });
+        }
       },
 
       dynamicLoadComplete: function(node) {
@@ -664,45 +682,69 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
 }
 
 PHEDEX.TreeView.Filter = function(sandbox,obj) {
-  return {
-    applyFilter: function(args) {
-//  First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
-    obj.revealAllBranches();
-    var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
-    if ( !args ) { args = this.args; }
-    for (key in args) {
-      fValue = args[key].values;
-      negate = args[key].negate;
-      for (elId in obj._cfg.textNodeMap) {
-        tNode = obj._cfg.textNodeMap[elId];
-        if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
-        for (i in tNode.data.spec.format) {
-          className = tNode.data.spec.format[i].className;
-          if ( className != key ) { continue; }
-          kValue = tNode.data.values[i];
-          if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-          status = this.Apply[this.fields[key].type](fValue,kValue);
-          if ( args[key].negate ) { status = !status; }
-          if ( !status ) { // Keep the element if the match succeeded!
-            tNode.collapse();
-            elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
-            YuD.addClass(elAncestor,'phedex-invisible');
-            this.count++;
-            if ( tNode.parent ) {
-              if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
+  var _sbx = sandbox;
+//       obj = args.payload.obj;
+  _construct = function() {
+    return {
+      _init: function() {
+        var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact filtering
+          return function(ev,arr) {
+            var action = arr[0];
+            if ( action && o[action] && typeof(o[action]) == 'function' ) {
+              o[action](arr[1]);
             }
           }
-          break;
+        }(this);
+        _sbx.listen(obj.id,moduleHandler);
+      },
+
+      applyFilter: function(args) {
+//    First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
+      obj.revealAllBranches();
+      var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
+      if ( !args ) { args = this.args; }
+      for (key in args) {
+        fValue = args[key].values;
+        negate = args[key].negate;
+        for (elId in obj._cfg.textNodeMap) {
+          tNode = obj._cfg.textNodeMap[elId];
+          if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
+          for (i in tNode.data.spec.format) {
+            className = tNode.data.spec.format[i].className;
+            if ( className != key ) { continue; }
+            kValue = tNode.data.values[i];
+            if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
+            status = this.Apply[this.fields[key].type](fValue,kValue);
+            if ( args[key].negate ) { status = !status; }
+            if ( !status ) { // Keep the element if the match succeeded!
+              tNode.collapse();
+              elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
+              YuD.addClass(elAncestor,'phedex-invisible');
+              this.count++;
+              if ( tNode.parent ) {
+                if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
+              }
+            }
+            break;
+          }
         }
       }
-    }
-    for (elParent in elParents) {
-      ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
-      YuD.addClass(ancestor,'phedex-core-control-widget-applied');
-    }
-    return this.count;
+      for (elParent in elParents) {
+        ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
+        YuD.addClass(ancestor,'phedex-core-control-widget-applied');
+      }
+      return this.count;
+      },
+
+      dynamicLoadComplete: function(node) {
+        this.applyFilter();
+      },
+
     }
   };
+  YAHOO.lang.augmentObject(this,_construct(this),true);
+  this._init();
+  return this;
 };
 
 log('loaded...','info','treeview');
