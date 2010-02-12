@@ -150,8 +150,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
         this.tree.subscribe('expandComplete', function(obj) {
           return function(node) {
-            obj.showOverflows(node);
-            _sbx.notify(obj.id,'expanded',node);
+//             obj.postExpand(null,node);
           }
         }(this));
         this.headerTree.render();
@@ -175,6 +174,13 @@ PHEDEX.TreeView = function(sandbox,string) {
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
         _sbx.notify(this.id,'initDerived');
+      },
+
+      postExpand: function(step,node) {
+        var steps = [], i, j;
+        steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFIelds');
+          this.markOverflows();
+          for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
       addNode: function(spec,values,parent) {
@@ -272,13 +278,13 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
-      showOverflows: function(node) {
+      markOverflows: function() {
         var el, elList = YuD.getElementsByClassName('spanWrap',null,this.el);
         for (var i in elList) {
           el = this.locateNode(elList[i]);
           var h1 = elList[i].offsetHeight,
               h2 = el.offsetHeight;
-          if ( h1/h2 > 1.2 ) { // the element overflows its container...
+          if ( h1/h2 > 1.2 ) { // the element overflows its container, by a generous amount...
             YuD.addClass(el,'phedex-tnode-overflow');
           } else {
             YuD.removeClass(el,'phedex-tnode-overflow');
@@ -305,10 +311,7 @@ PHEDEX.TreeView = function(sandbox,string) {
               }
             }
             fnLoadComplete();
-            var obj = node.payload.obj;
-//             obj.hideFields(obj.dom.body); // ...but this prevents a redraw on the screen when newly-revealed elements should be hidden!
-            _sbx.notify(obj.id,'dynamicLoadComplete',node);
-            _sbx.notify(obj.id,'hideFields');
+            node.payload.obj.postExpand();
           }
 
 //      Now, find out what to get, if anything...
@@ -438,21 +441,28 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
         elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
+// find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
       var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
           elList = obj.locatePartnerFields(tgt);
      for (var i in elList ) { elList[i].style.width = tgt.style.width; }
-      obj.showOverflows(obj.tree.getRoot());
-      var node = obj.locateNode(tgt),
-          className = obj.getPhedexFieldClass(node),
+      obj.markOverflows();
+      var el = obj.locateNode(tgt),
+          className = obj.getPhedexFieldClass(el),
           f = obj._cfg.formats[className];
       f.width = tgt.style.width;
+      var hdr = obj.locateBranch(tgt);
+      for (var i in elList) {
+        var node = obj.locateBranch(elList[i]);
+        var el1 = PxU.makeNode(node.data.spec,node.data.values);
+        node.label = el1.innerHTML;
+      }
     });
   }
 
   _construct = function() {
     return {
       doResize: function() {
-//      After sorting or expanding, branches need resizing again...
+//      After expanding, branches need resizing again...
         var className, elList;
         for (className in obj._cfg.classes) {
           elList = YuD.getElementsByClassName(className,null,obj.dom.body);
@@ -461,16 +471,11 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
             elList[i].style.width = obj._cfg.formats[className].width;
           }
         }
-      },
-      sorted: function() {
-        this.doResize();
-      },
-      expanded: function( /*node*/ /*don't care about the argument...*/ ) {
-        this.doResize();
+        obj.markOverflows();
       },
 
       _init: function() {
-        var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact sorting
+        var moduleHandler = function(o) {
           return function(ev,arr) {
             var action = arr[0];
             if ( action && o[action] && typeof(o[action]) == 'function' ) {
@@ -492,39 +497,60 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       obj = args.payload.obj;
   _construct = function() {
     return {
-      execute: function(node,className,type,dir) {
+      execute: function(className,type,dir) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
 //      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
         var sortFn = PxU.Sort[type][dir],
-            index,
-            parent = node.parent,
-            children = parent.children,
-            map = [], indices=[], elList;
-        for (var i in node.data.spec.format) {
-          var f = node.data.spec.format[i];
-          if ( f.className == className ) { index = i; break; }
-        }
-        if ( !index ) {
-          log('cannot identify class-type','error','treeview');
-          return;
+            index, parent, children, f, i, j,
+            map, indices, elList,
+            nodes = {}, node;
+
+//      locate all fields of the target-type, find their parents, and sort all children of each parent. This may not be cheap
+//      operation, I have to look up all the elements of this CSS class, then get the node they are in, then the parents,
+//      make a unique list of the parents, and sort each of them. I can gain something by looking up only every other node,
+//      because that way I may miss a parent with a single child, but single-children are already sorted anyway.
+//      Also, skip the first element, because that will be the header, which can be ignored
+        elList = YuD.getElementsByClassName(className,null,obj.el);
+        j = elList.length;
+        for (i=1; i<j; i+=2) {
+          node = obj.locateBranch(elList[i]);
+          parent = node.parent;
+          nodes[parent.index] = parent;
         }
 
-        for (var i in children)
-        {
-          elList = YuD.getElementsByClassName(className,null,children[i].getEl());
-          if ( elList.length ) {
-            map.push( {node:children[i], value:children[i].data.values[index]} );
-            indices.push( i );
+        for (j in nodes) {
+          parent = nodes[j];
+          children = parent.children;
+          node = children[0];
+          if ( !nodes ) { continue; }
+          for (i in node.data.spec.format) {
+            f = node.data.spec.format[i];
+            if ( f.className == className ) { index = i; break; }
           }
-        }
-        map.sort(function(a,b){ return sortFn(a.value,b.value); });
-        for (var i in map) {
-          parent.children[indices[i]] = map[i].node;
+          if ( !index ) {
+            log('cannot identify class-type','error','treeview');
+            return;
+          }
+
+          map = [];
+          indices = [];
+          for (i in children)
+          {
+            elList = YuD.getElementsByClassName(className,null,children[i].getEl());
+            if ( elList.length ) {
+              map.push( {node:children[i], value:children[i].data.values[index]} );
+              indices.push( i );
+            }
+          }
+          map.sort(function(a,b){ return sortFn(a.value,b.value); });
+          for (i in map) {
+            parent.children[indices[i]] = map[i].node;
+          }
         }
 
         obj.tree.render();
-//      don't ask me why, but rendering the tree seems to reset the classNames of the elements. Hence this comes here, after the render!
+//      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
         YuD.getElementsByClassName('phedex-sorted',null,obj.dom.header,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
@@ -545,49 +571,19 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         var obj       = el.obj,
             target    = obj.locateNode(el.target),
             className = obj.getPhedexFieldClass(target),
-            s         = obj.meta.sort,
-            nodes     = {},
-            node, parent, elList, i, j, el;
+            s         = obj.meta.sort;
         if ( !s ) { s = obj.meta.sort = {}; }
         s.field = className;
         s.dir   = dir;
         s.type  = type;
-
-//      locate all fields of the target-type, find their parents, and sort all children of each parent. This is not a cheap
-//      operation, I have to look up all the elements of this CSS class, then get the node they are in, then the parents,
-//      make a unique list of the parents, and sort each of them. I can gain something by looking up only every other node,
-//      because that way I may miss a parent with a single child, but single-children are already sorted anyway.
-//      Also, skip the first element, because that will be the header, which can be ignored
-        elList = YuD.getElementsByClassName(className,null,obj.el);
-        j = elList.length;
-        for (i=1; i<j; i+=2) {
-          node = obj.locateBranch(elList[i]);
-          parent = node.parent;
-          nodes[parent.index] = parent;
-        }
-
-        for (var i in nodes) {
-          this.execute(nodes[i].children[0],className,type,dir);
-        }
-        _sbx.notify(obj.id,'sorted',className);
-        _sbx.notify(obj.id,'hideFields');
-        this.sortClass = className;
+        this.execute(className,type,dir);
       },
 
-      expanded: function(node) {
-        if ( this.sortClass ) {
-          YuD.getElementsByClassName(this.sortClass,null,obj.el,function(element) {
-            YuD.addClass(element,'phedex-sorted');
-          });
-        }
-      },
-
-      dynamicLoadComplete: function(node) {
-        var s = obj.meta.sort,
-            n = node.children;
-        if ( !s ) { return; } // no sort-column defined...
-        if ( !n ) { return; } // no children to sort...
-        this.execute(n[0],s.field,s.type,s.dir);
+      doSort: function() {
+        var s = obj.meta.sort;
+        if ( !s )       { return; } // no sort-column defined...
+        if ( !s.field ) { return; } // no sort-column defined...
+        this.execute(s.field,s.type,s.dir);
       },
 
       _init: function() {
@@ -606,7 +602,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           }(this);
         } catch(ex) { log(ex,'error',obj.me); };
 
-        var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact sorting
+        var moduleHandler = function(o) {
           return function(ev,arr) {
             var action = arr[0];
             if ( action && o[action] && typeof(o[action]) == 'function' ) {
@@ -657,10 +653,6 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
         el = obj.locateNode(elTarget),
         action, className, class_alt, elList, i;
     if ( ! el ) { return; }
-//     var aList = YuD.getElementsByClassName('spanWrap','span',el);
-//     for (var i in aList) {
-//       log('Found span '+aList[i].innerHTML,'debug','treeview');
-//     }
     className = 'phedex-tnode-highlight';
     class_alt  = 'phedex-tnode-highlight-associated';
     if ( e.type == 'mouseover' ) {
@@ -683,11 +675,10 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
 
 PHEDEX.TreeView.Filter = function(sandbox,obj) {
   var _sbx = sandbox;
-//       obj = args.payload.obj;
   _construct = function() {
     return {
       _init: function() {
-        var moduleHandler = function(o) { // used for 'dynamicLoadComplete', to enact filtering
+        var moduleHandler = function(o) {
           return function(ev,arr) {
             var action = arr[0];
             if ( action && o[action] && typeof(o[action]) == 'function' ) {
@@ -699,47 +690,50 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
       },
 
       applyFilter: function(args) {
-//    First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
-      obj.revealAllBranches();
-      var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
-      if ( !args ) { args = this.args; }
-      for (key in args) {
-        fValue = args[key].values;
-        negate = args[key].negate;
-        for (elId in obj._cfg.textNodeMap) {
-          tNode = obj._cfg.textNodeMap[elId];
-          if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
-          for (i in tNode.data.spec.format) {
-            className = tNode.data.spec.format[i].className;
-            if ( className != key ) { continue; }
-            kValue = tNode.data.values[i];
-            if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-            status = this.Apply[this.fields[key].type](fValue,kValue);
-            if ( args[key].negate ) { status = !status; }
-            if ( !status ) { // Keep the element if the match succeeded!
-              tNode.collapse();
-              elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
-              YuD.addClass(elAncestor,'phedex-invisible');
-              this.count++;
-              if ( tNode.parent ) {
-                if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
+        this._applyFilter(args);
+      },
+
+      _applyFilter: function(args) {
+//      First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
+        obj.revealAllBranches();
+        var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
+        if ( !args ) { args = this.args; }
+        for (key in args) {
+          fValue = args[key].values;
+          negate = args[key].negate;
+          for (elId in obj._cfg.textNodeMap) {
+            tNode = obj._cfg.textNodeMap[elId];
+            if ( tNode.data.spec.className == 'phedex-tnode-header' ) { continue; }
+            for (i in tNode.data.spec.format) {
+              className = tNode.data.spec.format[i].className;
+              if ( className != key ) { continue; }
+              kValue = tNode.data.values[i];
+              if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
+              status = this.Apply[this.fields[key].type](fValue,kValue);
+              if ( args[key].negate ) { status = !status; }
+              if ( !status ) { // Keep the element if the match succeeded!
+                tNode.collapse();
+                elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
+                YuD.addClass(elAncestor,'phedex-invisible');
+                this.count++;
+                if ( tNode.parent ) {
+                  if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
+                }
               }
+              break;
             }
-            break;
           }
         }
-      }
-      for (elParent in elParents) {
-        ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
-        YuD.addClass(ancestor,'phedex-core-control-widget-applied');
-      }
-      return this.count;
+        for (elParent in elParents) {
+          ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
+          YuD.addClass(ancestor,'phedex-core-control-widget-applied');
+        }
+        return this.count;
       },
 
-      dynamicLoadComplete: function(node) {
-        this.applyFilter();
+      doFilter: function(node) {
+        obj._applyFilter();
       },
-
     }
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
