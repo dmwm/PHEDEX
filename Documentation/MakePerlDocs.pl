@@ -77,5 +77,8 @@ sub makehtml
 
 find( { wanted=>\&makehtml, no_chdir=>1 }, @dirs);
 
+# clean up the litter
+unlink('pod2htmd.tmp', 'pod2htmi.tmp');
+
 print "\nAll finished: $fileok docs made, $errors skipped with errors, $nopod files without pod\n";
 exit;
