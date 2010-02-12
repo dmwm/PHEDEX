@@ -18,14 +18,18 @@ export PHEDEX_DB="./DBParam:${PHEDEX_INSTANCE}/Admin";
 export PHEDEX_DB_R="./DBParam:${PHEDEX_INSTANCE}/Reader";
 export PHEDEX_DB_W="./DBParam:${PHEDEX_INSTANCE}/CERN";
 
-# Update the triggers
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleCoreTriggers.sql </dev/null
-
 # Get rid of X tables
 sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleResetOld.sql </dev/null
 
+# Update the triggers
+sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleCoreTriggers.sql </dev/null
+
 # Connect to DB using SQLPlus
 sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+
+-- Some session settings
+set serveroutput on size 100000;
+set timing on;
 
 -- Add new temporary tables for updated BlockMonitor routine
 
@@ -214,6 +218,8 @@ insert /*+ append */ into t_history_dest
  src_files, src_bytes,
  node_files, node_bytes,
  cust_node_files, cust_node_bytes,
+ miss_files, miss_bytes,
+ cust_miss_files, cust_miss_bytes,
  request_files, request_bytes,
  idle_files, idle_bytes)
 select h.timebin, h.timewidth, h.node,
@@ -228,11 +234,26 @@ select h.timebin, h.timewidth, h.node,
  greatest(h.cust_dest_bytes - h.cust_node_bytes,0) cust_miss_bytes,
  h.request_files, h.request_bytes,
  h.idle_files, h.idle_bytes
-from xt_history_dest h join xt_adm_node n on n.id = h.node;
+from xt_history_dest h;
 
 commit;
 
-/* Fix priority mismatch in t_history_link_stats, a bug introduced in V2.5! */
+-- create FK index
+create index ix_history_dest_node
+  on t_history_dest (node);
+
+/*
+ * Fix priority mismatch in t_history_link_stats, a bug introduced in V2.5! 
+ */
+
+-- record the time of the priority error
+var mytime number;
+BEGIN
+   select min(timebin) into :mytime from xt_history_link_stats
+    where confirm_files is not null and confirm_weight is null;
+END;
+/
+select gmtime(:mytime) from dual;
 
 -- First fill the table
 insert /*+ append */ into t_history_link_stats
@@ -240,54 +261,125 @@ select * from xt_history_link_stats;
 
 -- Remove any rows which are *only* confirm_files
 delete from t_history_link_stats
- where confirm_files is not null
+ where timebin >= :mytime
+   and confirm_files is not null
    and pend_files is null
    and wait_files is null
    and cool_files is null
    and ready_files is null
    and xfer_files is null;
 
-/* Update the rows in the new table based on a selection from the old
- * table where confirm_weight is null.  Starting from this point the
- * priority was wrong, so apply the correct priority and update.
- */
+-- Remove all other confirm_* statistics
+update t_history_link_stats
+   set confirm_files = NULL,
+       confirm_bytes = NULL
+ where timebin >= :mytime;
 
-merge into t_history_link_stats h
-using (
-  select x.timebin, x.timewidth, x.from_node, x.to_node,
-         2 * x.priority + (1- decode(l.is_local,'y',1,0)) priority,
-	 x.confirm_files, x.confirm_bytes, x.confirm_weight
-   from xt_history_link_stats x
-   join t_adm_link l on l.from_node = x.from_node and l.to_node = x.to_node
-  where x.confirm_files is not null
-    and x.confirm_weight is null
-) x
-on (h.timebin = x.timebin and
-    h.timewidth = x.timewidth and
-    h.from_node = x.from_node and
-    h.to_node = x.to_node and
-    h.priority = x.priority)
-when matched then update
-  set h.confirm_files = x.confirm_files,
-      h.confirm_bytes = x.confirm_bytes,
-      h.confirm_weight = x.confirm_weight
-when not matched then insert
- (timebin, timewidth, from_node, to_node, priority,
-  confirm_files, confirm_bytes, confirm_weight)
- values
- (x.timebin, x.timewidth, x.from_node, x.to_node, priority,
-  x.confirm_files, x.confirm_bytes, x.confirm_weight);
+commit;
 
--- Create indexes on history tables
+-- Create link indexes
 
 create index ix_history_link_stats_from
   on t_history_link_stats (from_node);
 
 create index ix_history_link_stats_to
   on t_history_link_stats (to_node);
---
-create index ix_history_dest_node
-  on t_history_dest (node);
+
+/* Update the rows in the new table based on a selection from the old
+ * table after the time the bug was introduced */
+
+merge into t_history_link_stats h
+using (
+  select x.timebin, x.timewidth, x.from_node, x.to_node,
+         2 * x.priority + (1 - decode(l.is_local,'y',1,0)) priority,
+	 x.confirm_files, x.confirm_bytes
+   from xt_history_link_stats x
+   join t_adm_link l on l.from_node = x.from_node and l.to_node = x.to_node
+  where x.timebin >= :mytime
+    and x.confirm_files is not null
+) x
+on (h.timebin   = x.timebin and
+    h.timewidth = x.timewidth and
+    h.from_node = x.from_node and
+    h.to_node   = x.to_node and
+    h.priority  = x.priority)
+when matched then update
+  set h.confirm_files = x.confirm_files,
+      h.confirm_bytes = x.confirm_bytes
+when not matched then insert
+ (timebin, timewidth, from_node, to_node, priority,
+  confirm_files, confirm_bytes)
+ values
+ (x.timebin, x.timewidth, x.from_node, x.to_node, x.priority,
+  x.confirm_files, x.confirm_bytes);
+
+/* Change priority for local links.  The above conversion assumes that
+ * all local links had a "local priority", which can only be an even
+ * number.  Since this was not really the case, and we don't have access
+ * to the t_xfer_path.is_local that was being used for task-level
+ * priority, then we need to move the priority of the statistics.
+ */
+
+-- update all odd local link priorities after the bug
+merge into t_history_link_stats h
+using (
+  select hh.timebin, hh.timewidth, hh.from_node, hh.to_node, hh.priority - 1 priority,
+         hh.pend_files, hh.pend_bytes, hh.wait_files, hh.wait_bytes, hh.cool_files, hh.cool_bytes,
+         hh.ready_files, hh.ready_bytes, hh.xfer_files, hh.xfer_bytes, hh.confirm_files, hh.confirm_bytes
+    from t_history_link_stats hh
+    join t_adm_link l on l.from_node = hh.from_node and l.to_node = hh.to_node
+   where l.is_local = 'y'
+     and hh.timebin >= :mytime
+     and hh.priority in (1,3,5)
+) x
+on (h.timebin   = x.timebin and
+    h.timewidth = x.timewidth and
+    h.from_node = x.from_node and
+    h.to_node   = x.to_node and
+    h.priority  = x.priority)
+when matched then update
+ set h.pend_files = nvl(h.pend_files,0) + nvl(x.pend_files,0),
+     h.pend_bytes = nvl(h.pend_bytes,0) + nvl(x.pend_bytes,0),
+     h.wait_files = nvl(h.wait_files,0) + nvl(x.wait_files,0),
+     h.wait_bytes = nvl(h.wait_bytes,0) + nvl(x.wait_bytes,0),
+     h.cool_files = nvl(h.cool_files,0) + nvl(x.cool_files,0),
+     h.cool_bytes = nvl(h.cool_bytes,0) + nvl(x.cool_bytes,0),
+     h.ready_files = nvl(h.ready_files,0) + nvl(x.ready_files,0),
+     h.ready_bytes = nvl(h.ready_bytes,0) + nvl(x.ready_bytes,0),
+     h.xfer_files = nvl(h.xfer_files,0) + nvl(x.xfer_files,0),
+     h.xfer_bytes = nvl(h.xfer_bytes,0) + nvl(x.xfer_bytes,0),
+     h.confirm_files = nvl(h.confirm_files,0) + nvl(x.confirm_files,0),
+     h.confirm_bytes = nvl(h.confirm_bytes,0) + nvl(x.confirm_bytes,0)
+when not matched then insert
+ (timebin, timewidth, from_node, to_node, priority,
+  pend_files, pend_bytes, wait_files, wait_bytes, cool_files, cool_bytes,
+  ready_files, ready_bytes, xfer_files, xfer_bytes, confirm_files, confirm_bytes)
+ values
+ (x.timebin, x.timewidth, x.from_node, x.to_node, x.priority,
+  x.pend_files, x.pend_bytes, x.wait_files, x.wait_bytes, x.cool_files, x.cool_bytes,
+  x.ready_files, x.ready_bytes, x.xfer_files, x.xfer_bytes, x.confirm_files, x.confirm_bytes)
+;
+
+-- delete the odd local link priorities after the bug
+delete from t_history_link_stats
+  where (timebin, timewidth, from_node, to_node, priority) in (
+  select hh.timebin, hh.timewidth, hh.from_node, hh.to_node, hh.priority
+    from t_history_link_stats hh
+    join t_adm_link l on l.from_node = hh.from_node and l.to_node = hh.to_node
+   where l.is_local = 'y'
+     and hh.timebin >= :mytime
+     and hh.priority in (1,3,5)
+);
+
+commit;
+
+-- verify old vs. new. The numbers should match, we were only changing the priorities!
+select sum(pend_files) old_pend_files from xt_history_link_stats;
+select sum(pend_files) new_pend_files from t_history_link_stats;
+
+-- these will be slightly different, since the bug resulted in some double-counting before
+select sum(confirm_files) old_confirm_files from xt_history_link_stats;
+select sum(confirm_files) new_confirm_files from t_history_link_stats;
 
 -- Create new index on t_dps_block
 
@@ -299,3 +391,6 @@ alter table t_dps_block add constraint uk_dps_block_dataset unique (dataset, nam
  */
 
 drop index ix_dps_block_dataset;
+
+-- All done!
+exit;
