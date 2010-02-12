@@ -1273,22 +1273,22 @@ hops.
 
 =over
 
-=item L<t_dps_block_dest|PHEDEX::Schema::Block/t_dps_block_dest>
+=item L<t_dps_block_dest|Schema::OracleCoreBlock/t_dps_block_dest>
 
 Activate blocks for transfer.
 
-=item L<t_xfer_request|PHEDEX::Schema::Transfer/t_xfer_request>
+=item L<t_xfer_request|Schema::Transfer/t_xfer_request>
 
 Represents a file request, a file which should be transferred to a
 destination. Rows only exist for activated blocks.
 
-=item L<t_xfer_path|PHEDEX::Schema::Transfer/t_xfer_path>
+=item L<t_xfer_path|Schema::Transfer/t_xfer_path>
 
 Represents the transfer path.  Each row is one "hop", a
 from_node,to_node pair for a given file.  The collection of hops for a
 given fileid and destination is the whole transfer path.
 
-=item L<t_adm_link_param|PHEDEX::Schema::Topo/t_adm_link_param>
+=item L<t_adm_link_param|Schema::Topo/t_adm_link_param>
 
 Read by this agent to determine what the rate and latency over a hop
 is, which goes into the path cost calculation.

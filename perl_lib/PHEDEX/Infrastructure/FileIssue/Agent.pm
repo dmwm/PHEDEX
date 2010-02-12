@@ -228,7 +228,7 @@ FileIssue - create transfer tasks for site agents
 FileIssue creates transfer tasks based on the transfer paths created
 by the FileRouter.  Tasks are basically a signal to the destination
 download agent that they should initiate a transfer of a file from
-some source destination.Tasks are only created over "active" links
+some source destination.  Tasks are only created over "active" links
 where the source node has a FileExport agent running and the
 destination node has a FileDownload agent running.
 
@@ -236,36 +236,38 @@ destination node has a FileDownload agent running.
 
 =over
 
-=item L<t_xfer_task|PHEDEX::Schema::Transfer/t_xfer_task)>
+=item L<t_xfer_task|Schema::Transfer/t_xfer_task)>
 
 This agent creates transfer tasks.
 
-=item L<t_xfer_path|PHEDEX::Schema::Transfer/t_xfer_path)>
+=item L<t_xfer_path|Schema::Transfer/t_xfer_path)>
 
 Tasks are created where a valid hop exists.
 
-=item L<t_xfer_replica|PHEDEX::Schema::Transfer/t_xfer_replica)>
+=item L<t_xfer_replica|Schema::Transfer/t_xfer_replica)>
 
 Tasks are created only when replica at the source node of the hop.
 
-=item L<t_xfer_exclude|PHEDEX::Schema::Transfer/t_xfer_exclude)>
+=item L<t_xfer_exclude|Schema::Transfer/t_xfer_exclude)>
 
 Tasks are *not* created when a row in the exclude table exists.
 
-=item L<t_xfer_delete|PHEDEX::Schema::Transfer/t_xfer_delete)>
+=item L<t_xfer_delete|Schema::Transfer/t_xfer_delete)>
 
 Tasks are *not* created when the source replica is queued for
 deletion.
 
-=item L<t_xfer_source|PHEDEX::Schema::Transfer/t_xfer_source)>
+=item L<t_xfer_source|Schema::Transfer/t_xfer_source)>
 
 Tasks are created only when an export agent is running at the source
 end of a link.
 
-=item L<t_xfer_sink|PHEDEX::Schema::Transfer/t_xfer_sink)>
+=item L<t_xfer_sink|Schema::Transfer/t_xfer_sink)>
 
 Tasks are created only when a download agent is running on the
 destination end of a link.
+
+=back
 
 
 
@@ -281,8 +283,9 @@ by FileRouter.
 =item L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>
 
 Tasks are only created when a replica exists at the source end of a
-hop.  Replicas are created by FilePump when transfer tasks are
-finished.
+hop.  FilePump is responsible for identifying finished or expired
+tasks, and deleting them.  For tasks which complete successfully,
+FilePump creates a replica at the to_node of the task.
 
 =item L<FileExport|PHEDEX::File::Export::Agent>
 
@@ -295,6 +298,10 @@ A node must have a FileDownload agent running for it before tasks will
 be made to that node.  FileDownload is responsible for executing
 transfer tasks.
 
+=item L<FileMSSMigrate|PHEDEX::File::MSSMigrate::Agent>
+
+Another kind of FileDownload agent, but working for Buffer->MSS links.
+
 =back
 
 
@@ -303,17 +310,17 @@ transfer tasks.
 
 =over
 
-=item L<t_status_task|PHEDEX::Schema::Status/t_status_task>
+=item L<t_status_task|Schema::Status/t_status_task>
 
 Contains current per-link file and byte sums for tasks, grouped by the state
 of the task.
 
-=item L<t_history_link_stats|PHEDEX::Schema::Status/t_history_link_stats>
+=item L<t_history_link_stats|Schema::Status/t_history_link_stats>
 
 Contains a history of per-link file and byte sums for tasks in the
 pend_files and pend_bytes columns.
 
-=item L<t_history_link_events|PHEDEX::Schema::Status/t_history_link_events>
+=item L<t_history_link_events|Schema::Status/t_history_link_events>
 
 Contains a history of the times that tasks entered various states.
 
