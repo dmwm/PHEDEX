@@ -21,6 +21,12 @@ BEGIN
       execute immediate 'drop trigger ' || o.name;
    END LOOP;
 
+  -- Functions
+  FOR o IN (SELECT object_name FROM user_objects WHERE object_type = 'FUNCTION') LOOP
+      dbms_output.put_line ('Dropping function ' || o.object_name);
+      execute immediate 'drop function ' || o.object_name;
+  END LOOP;
+
    -- Synonyms
    FOR o IN (SELECT synonym_name name FROM user_synonyms) LOOP
       dbms_output.put_line ('Dropping synonym ' || o.name);
