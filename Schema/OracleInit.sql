@@ -50,7 +50,7 @@ prompt Loading helper functions
 @@OracleCoreFunctions.sql
 
 prompt
-prompt Loading vies
+prompt Loading views
 @@OracleCoreViews.sql
 
 prompt
