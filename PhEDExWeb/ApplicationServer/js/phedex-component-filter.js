@@ -50,7 +50,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         }
         case 'expand': { // set focus appropriately when the filter is revealed
           if ( !obj.firstAlignmentDone ) {
-            obj.overlay.align(obj.dom.content,'tl');
+            obj.overlay.align(this.context_el,this.align_el);
             obj.firstAlignmentDone = true;
           }
           if ( obj.focusOn ) { obj.focusOn.focus(); }
@@ -71,21 +71,25 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       me: _me,
       meta: { inner:{}, cBox:{}, el:{}, focusMap:{} },
 
-      Build: function(el) {
+      BuildOverlay: function() {
         var o = this.overlay,
             d = this.dom,
-            body = o.body, b;
-        d.filter  = document.createElement('div');
-        d.buttons = b = document.createElement('div');
+            body = o.body,
+            b, hId, el;
+        hId = this.overlay.header.id;
+        ttIds.push(hId);
+        ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
+
+        d.filter  = el = document.createElement('div');
+        d.buttons = b  = document.createElement('div');
         b.className = 'phedex-filter-buttons';
         body.appendChild(this.dom.filter);
         body.appendChild(this.dom.buttons);
 
         YAHOO.util.Dom.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         o.render(document.body);
-        YAHOO.util.Dom.addClass(el,'phedex-invisible');
+//         YAHOO.util.Dom.addClass(el,'phedex-invisible');
         o.cfg.setProperty('zindex',100);
-        this.Fill();
 
         var cBox = document.createElement('input');
         cBox.type = 'checkbox';
@@ -116,11 +120,13 @@ PHEDEX.Component.Filter = function(sandbox,args) {
  * @private
  */
       _init: function(args) {
-        var apc = payload.control, o;
+        var apc = payload.control, o, p;
         this.dom.filter = document.createElement('div');
         this.structure = { f:[], r:[] };  // mapping of field-to-group, and reverse-mapping of same
         this.map = [];
-        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[obj.dom.content,'tl','tl']});
+        this.context_el = obj.dom[apc.payload.context || 'content'];
+        this.align_el   =  apc.payload.align || 'tl';
+        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]}); // obj.dom.content,'tl','tl']});
         o.setHeader('Filter data selection ('+obj.me+')');
         o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
         o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
@@ -131,21 +137,24 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
         this.dragdrop.setHandleElId( this.overlay.header );
         if ( apc ) { // create a component-control to use to show/hide the filter
-          apc.payload.obj     = this;
-          apc.payload.target  = this.overlay.element;
-          apc.payload.text    = 'Filter';
-          apc.payload.hidden  = 'true';
-          apc.payload.handler = 'setFocus';
+          p = apc.payload;
+          p.obj     = this;
+          p.target  = this.overlay.element;
+          p.text    = p.text || 'Filter';
+          p.hidden  = 'true';
+          p.handler = 'setFocus';
           apc.name = 'filterControl';
           this.ctl[apc.name] = new PHEDEX.Component.Control( _sbx, apc );
           if ( apc.parent ) { obj.dom[apc.parent].appendChild(this.ctl[apc.name].el); }
         }
+        this.BuildOverlay();
         if ( obj.meta ) {
-          this.createFilter(obj.meta.filter);
+          this.createMeta(obj.meta.filter);
+          this.BuildFilter();
         }
       },
 
-      createFilter: function(f) {
+      createMeta: function(f) {
 //         var f = obj.meta.filter;
         for (var i in f) {
           if ( f[i].map ) {
@@ -168,7 +177,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             this.fields[j] = f[i].fields[j];
           }
         }
-        this.Build( this.dom.filter );
       },
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -273,12 +281,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         this.args={};
       },
 
-      Fill: function() {
-        var hId;
-        hId = this.overlay.header.id;
-        ttIds.push(hId);
-        ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
-
+      BuildFilter: function() {
+        this.dom.filter.innerHTML = null;
         if ( !this.ctl )  { this.ctl = {}; }
         for (var label in this.structure['f']) {
           var fieldset = document.createElement('fieldset'),
@@ -313,7 +317,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
 
-          this.dom.filter.appendChild(fieldset);
           for (var key in this.structure['f'][label]) {
             var c = this.fields[key],
                 focusOn, outer, inner, e;
@@ -376,6 +379,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             fieldset.appendChild(outer);
           }
+          this.dom.filter.appendChild(fieldset);
+        }
           var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds }), ttCount={};
           tt.contextMouseOverEvent.subscribe( // prevent tooltip from showing more than a few times, to avoid upsetting experts
             function(type, args) {
@@ -395,7 +400,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               this.cfg.setProperty('text', text);
             }
           );
-        }
         var k1 = new YAHOO.util.KeyListener(this.dom.filter,
                                             { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
                                             { fn:function(obj){ return function() {  _sbx.notify(obj.id,'Filter','Validate'); } }(this),
