@@ -71,6 +71,7 @@ sub verify
 	    or die "could not execute wget\n";
 
 	my $data = $xml->XMLin($fh);
+	my $call_time = 0;
 	if (ref($data) ne "HASH")
 	{
 		$result = "ERROR";
@@ -78,10 +79,11 @@ sub verify
 	else
 	{
 		$result = "OK";
+		$call_time = $data->{call_time};
 	}
 	my $elapsed = tv_interval ( $t0, [gettimeofday]);
 	my $res = ($result eq $expect)?"PASS ":"FAIL ";
-	printf "%03i %4s (%4s %4s) %.4f %s\n", $n, $res, $expect, $result, $elapsed, $url;
+	printf "%03i %4s (%4s %4s) call=%0.4f total=%.4f %s\n", $n, $res, $expect, $result, $call_time, $elapsed, $url;
 	$n++;
 }
 
