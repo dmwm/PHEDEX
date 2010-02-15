@@ -5,7 +5,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       _sbx = sandbox,
       payload = args.payload,
       obj = payload.obj,
-      partner = args.partner;
+      partner = args.partner,
+      ttIds = [], ttHelp = {};
 
   YAHOO.lang.augmentObject(this, new PHEDEX[obj.type].Filter(sandbox,obj));
 
@@ -48,6 +49,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           break;
         }
         case 'expand': { // set focus appropriately when the filter is revealed
+          if ( !obj.firstAlignmentDone ) {
+            obj.overlay.align(obj.dom.content,'tl');
+            obj.firstAlignmentDone = true;
+          }
           if ( obj.focusOn ) { obj.focusOn.focus(); }
           break;
         }
@@ -66,19 +71,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       me: _me,
       meta: { inner:{}, cBox:{}, el:{}, focusMap:{} },
 
-      Build: function(el,args) {
-        var o, b, d=this.dom;
-        if ( !args ) { args = {}; }
-        args.context = [obj.dom.content,'tl','tl'];
-        this.overlay = o = new YAHOO.widget.Overlay(el,args);
-        o.setHeader('Filter data selection ('+obj.me+')');
-        o.header.id = 'hd_'+PxU.Sequence();
-        o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-        o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
-        YAHOO.util.Dom.addClass(o.element,'phedex-core-overlay')
-
-        var body = o.body;
-        body.innerHTML=null;
+      Build: function(el) {
+        var o = this.overlay,
+            d = this.dom,
+            body = o.body, b;
         d.filter  = document.createElement('div');
         d.buttons = b = document.createElement('div');
         b.className = 'phedex-filter-buttons';
@@ -87,6 +83,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
         YAHOO.util.Dom.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         o.render(document.body);
+        YAHOO.util.Dom.addClass(el,'phedex-invisible');
         o.cfg.setProperty('zindex',100);
         this.Fill();
 
@@ -119,11 +116,37 @@ PHEDEX.Component.Filter = function(sandbox,args) {
  * @private
  */
       _init: function(args) {
-        var apc = payload.control,
-            el;
+        var apc = payload.control, o;
+        this.dom.filter = document.createElement('div');
         this.structure = { f:[], r:[] };  // mapping of field-to-group, and reverse-mapping of same
         this.map = [];
-        var f = obj.meta.filter;
+        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[obj.dom.content,'tl','tl']});
+        o.setHeader('Filter data selection ('+obj.me+')');
+        o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
+        o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
+        o.header.id = 'hd_'+PxU.Sequence();
+        YAHOO.util.Dom.addClass(o.element,'phedex-core-overlay')
+        o.body.innerHTML = null;
+
+        this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
+        this.dragdrop.setHandleElId( this.overlay.header );
+        if ( apc ) { // create a component-control to use to show/hide the filter
+          apc.payload.obj     = this;
+          apc.payload.target  = this.overlay.element;
+          apc.payload.text    = 'Filter';
+          apc.payload.hidden  = 'true';
+          apc.payload.handler = 'setFocus';
+          apc.name = 'filterControl';
+          this.ctl[apc.name] = new PHEDEX.Component.Control( _sbx, apc );
+          if ( apc.parent ) { obj.dom[apc.parent].appendChild(this.ctl[apc.name].el); }
+        }
+        if ( obj.meta ) {
+          this.createFilter(obj.meta.filter);
+        }
+      },
+
+      createFilter: function(f) {
+//         var f = obj.meta.filter;
         for (var i in f) {
           if ( f[i].map ) {
             this.map[i] = {to:f[i].map.to};
@@ -145,21 +168,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             this.fields[j] = f[i].fields[j];
           }
         }
-
-        if ( apc ) { // create a component-control to use to show/hide the filter
-          this.dom.filter = document.createElement('div');
-          this.Build( this.dom.filter, args.overlay );
-          this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
-          this.dragdrop.setHandleElId( this.overlay.header );
-          apc.payload.obj     = this;
-          apc.payload.target  = this.overlay.element;
-          apc.payload.text    = 'Filter';
-          apc.payload.hidden  = 'true';
-          apc.payload.handler = 'setFocus';
-          apc.name = 'filterControl';
-          this.ctl[apc.name] = new PHEDEX.Component.Control( _sbx, apc );
-          if ( apc.parent ) { obj.dom[apc.parent].appendChild(this.ctl[apc.name].el); }
-        }
+        this.Build( this.dom.filter );
       },
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -265,7 +274,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       Fill: function() {
-        var ttIds = [], ttHelp = {}, hId;
+        var hId;
         hId = this.overlay.header.id;
         ttIds.push(hId);
         ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
