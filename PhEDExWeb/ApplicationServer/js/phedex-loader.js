@@ -26,11 +26,10 @@ PHEDEX.Loader = function(opts) {
     'phedex-component-menu':        { requires:['phedex-util','menu','button'] },
     'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
 
-    //'phedex-core-filter':      { requires:['phedex-util'] },
-    //'phedex-global-filter':    { requires:[] },
-    'phedex-config': { requires:['phedex-util'] },
-    'phedex-login':  { requires:['phedex-util','button'] },
-    'phedex-navigator': { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
+    'phedex-config':       { requires:['phedex-util'] },
+    'phedex-login':        { requires:['phedex-util','button'] },
+    'phedex-navigator':    { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
+    'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
