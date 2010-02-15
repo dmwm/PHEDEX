@@ -34,9 +34,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               break;
             }
             case 'Apply': {
-              obj.applyFilter();
+              obj.applyFilter(arr[2]);
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              YAHOO.util.Dom.addClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
+              if ( arr[3] ) { YAHOO.util.Dom.addClass(   obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+              else          { YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
               break;
             }
             case 'cBox': {
@@ -400,11 +401,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             innerList = this.meta.inner,
             nItems, nSet, values, value, el, key, elClasses, type, s, a;
         this.args = {};
+        nItems = 0;
         for (var i in innerList) {
-          nItems = 0;
           nSet = 0;
           values = {};
           for (var j in innerList[i]) {
+            this.setValid(innerList[i]);
             el = innerList[i][j];
             a = {id:[], values:{}, name:el.name}; //this.args[el.name];
 
@@ -417,7 +419,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
                 if ( key == '' ) { key = 'value'; }
                 values[key] = el.value;
                 a.id[key] = el.id;
-                nItems++;
                 if ( el.value ) { nSet++; }
               }
             }
@@ -428,8 +429,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             type = this.fields[el.name].type;
             s = this.Validate[type](values);
             if ( s.result ) {
+              nItems++;
               a.values = s.parsed;
-              this.setValid(innerList[i]);
               var x = this.fields[el.name];
               if ( x.format ) { this.args[i].format = x.format; }
               if ( x.preprocess ) {
@@ -450,7 +451,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         }
         if ( isValid ) {
           _sbx.notify(this.id,'Filter','Validated',this.args);
-          _sbx.notify(this.id,'Filter','Apply',this.args);
+          _sbx.notify(this.id,'Filter','Apply',this.args,nItems);
         }
         return;
       },
@@ -485,7 +486,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       setInvalid: function(el,setFocus) {
         YAHOO.util.Dom.addClass(el,'phedex-filter-elem-invalid');
         if ( setFocus ) {
-          var focusOn = document.getElementById(this.meta.focusMap[el.id]);
+          var focusOn = el[0]; //document.getElementById(this.meta.focusMap[el.id]);
           focusOn.focus();
         }
       },
