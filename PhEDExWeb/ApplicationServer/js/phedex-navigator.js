@@ -23,10 +23,6 @@ PHEDEX.Navigator = function(sandbox) {
   this.state = {}; // plugins from decorators to access state-information easily (cheating a little)
 
     //========================= Private Methods =========================
-//     var _initGlobalFilter = function(el) {
-//         PHEDEX.Event.CreateGlobalFilter.fire(el);
-//     };
-
     /**
     * @method _initPermaLink
     * @description This creates the permalink element and defines function to set the permalink URL.
@@ -450,10 +446,6 @@ PHEDEX.Navigator = function(sandbox) {
             this.dom.navigator = this.el; // needed for the decorators
             this.cfg = args.cfg;
 
-            // Build GlobalFilter
-//             _initGlobalFilter(el);
-//             _sbx.notify('Load','phedex-globalfilter',{el:el});
-
             _sbx.listen(this.id,this.selfHandler);
             _sbx.listen('ModuleExists',      this.moduleHandler);
             _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
@@ -470,6 +462,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   var p    = args.payload,
       obj  = args.payload.obj,
       _sbx = sandbox,
+// TODO do I really need all these variables? Sort out the metadata!
       _widget_menu,
       _widget_menu_items = [],
       _widget,          // the current widget short_name
