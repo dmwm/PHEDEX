@@ -31,6 +31,47 @@ sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
 set serveroutput on size 100000;
 set timing on;
 
+-- Rename tables to be updated
+
+rename t_history_dest to xt_history_dest;
+rename t_history_link_stats to xt_history_link_stats;
+rename t_dps_block_replica to xt_dps_block_replica;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name NOT LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND (constraint_name LIKE '%_HISTORY_DEST%' OR
+             constraint_name LIKE '%_HISTORY_LINK_STATS%' OR
+             constraint_name LIKE '%_DPS_BLOCK_REPLICA%'))
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+	  || ' rename constraint ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name NOT LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND (index_name LIKE '%_HISTORY_DEST%' OR 
+             index_name LIKE '%_HISTORY_LINK_STATS%' OR
+             index_name LIKE '%_DPS_BLOCK_REPLICA%'))
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+	  || ' rename to X' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+
 -- Add new temporary tables for updated BlockMonitor routine
 
 create global temporary table t_tmp_br_active
@@ -77,7 +118,53 @@ create global temporary table t_tmp_br_flag
    time_update		integer		not null
 ) on commit delete rows;
 
--- New table for midding data statistics
+-- re-create block replica table
+
+create table t_dps_block_replica
+  (block		integer		not null,
+   node			integer		not null,
+   is_active		char (1)	not null,
+   src_files		integer		not null,
+   src_bytes		integer		not null,
+   dest_files		integer		not null,
+   dest_bytes		integer		not null,
+   node_files		integer		not null,
+   node_bytes		integer		not null,
+   xfer_files		integer		not null,
+   xfer_bytes		integer		not null,
+   is_custodial		char (1)	not null, -- applies to dest_files, node_files
+   user_group		integer			, -- applies to dest_files, node_files
+   time_create		float		not null,
+   time_update		float		not null,
+   --
+   constraint pk_dps_block_replica
+     primary key (block, node),
+   --
+   constraint fk_dps_block_replica_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
+   --
+   constraint fk_dps_block_replica_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint ck_dps_block_replica_cust
+     check (is_custodial in ('y', 'n')),
+   --
+   constraint fk_dps_block_replica_group
+     foreign key (user_group) references t_adm_group (id)
+     on delete set null,
+   --
+   constraint ck_dps_block_replica_active
+     check (is_active in ('y', 'n')));
+
+create index ix_dps_block_replica_node
+  on t_dps_block_replica (node);
+
+create index ix_dps_block_replica_group
+  on t_dps_block_replica (user_group);
+
+-- New table for missing data statistics
 
 create table t_status_missing
   (time_update		float		not null,
@@ -96,44 +183,6 @@ create table t_status_missing
    constraint ck_status_missing_cust
      check (is_custodial in ('y', 'n'))
   );
-
--- Rename some history tables and their indexes
-
-rename t_history_dest to xt_history_dest;
-rename t_history_link_stats to xt_history_link_stats;
-
-BEGIN
-   --------------------
-   -- Constraints
-   FOR o IN
-     (SELECT constraint_name name, table_name FROM user_constraints
-      WHERE constraint_name NOT LIKE 'X%'
-        AND constraint_name NOT LIKE 'SYS%'
-        AND (constraint_name LIKE '%_HISTORY_DEST%' OR
-             constraint_name LIKE '%_HISTORY_LINK_STATS%'))
-   LOOP
-      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
-      execute immediate
-          'alter table ' || o.table_name
-	  || ' rename constraint ' || o.name
-	  || ' to X' || substr (o.name, 1, 29);
-   END LOOP;
-
-   --------------------
-   -- Indices
-   FOR o IN
-     (SELECT index_name name, table_name FROM user_indexes
-      WHERE index_name NOT LIKE 'X%'
-        AND index_name NOT LIKE 'SYS%'
-        AND (index_name LIKE '%_HISTORY_DEST%' OR 
-             index_name LIKE '%_HISTORY_LINK_STATS%'))
-   LOOP
-      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
-      execute immediate
-          'alter index ' || o.name
-	  || ' rename to X' || substr (o.name, 1, 29);
-   END LOOP;
-END;
 
 -- Re-create history tables
 
@@ -204,6 +253,15 @@ create table t_history_link_stats
    constraint fk_history_link_stats_to
      foreign key (to_node) references t_adm_node (id)
   );
+
+/*
+ * Re-fill block replica table
+ */
+
+insert /*+ append */ into t_dps_block_replicas
+select * from xt_dps_block_replicas;
+
+commit;
 
 /* When filling the new dest table, estimate miss_* as the difference
  * between dest_files and node_files, disallowing negative values.  This
