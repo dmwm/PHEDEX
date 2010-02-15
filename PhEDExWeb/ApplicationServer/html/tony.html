@@ -39,6 +39,7 @@
  </div>
  <div id='phedex-login'></div>
  <div id='phedex-navigator'></div>
+ <div id='phedex-globalfilter'></div>
  <div class='phedex-separator'></div>
  <div id='phedex-logger' class='phedex-logger'>
   <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
@@ -251,6 +252,11 @@ function createCoreApp() {
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
 //   PxS.notify('CreateModule','agents',{node:'T0_CH_CERN_Export'});
+
+  PxS.notify('Load','globalfilter', {
+    el: 'phedex-global-filter',
+    });
+
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {
