@@ -8,7 +8,6 @@ use IO::File;
 use Getopt::Long;
 
 my $web_server = "cmswttest.cern.ch";
-my $url_prefix = "http://$web_server";
 my $url_path   = "/phedex/datasvc";
 my $url_data   = "/xml/prod";
 my $xml = new XML::Simple;
@@ -54,6 +53,8 @@ if ($help)
 	usage();
 }
 
+my $url_prefix = "http://$web_server";
+
 open STDERR, ">/dev/null";
 our $n = 0;
 sub verify
@@ -64,11 +65,10 @@ sub verify
 
 	my $result = "OK";
 
-	my $tee = $output_dir ? sprintf("tee $output_dir/%03s.xml|", $n++) : '';
+	my $tee = $output_dir ? sprintf("tee $output_dir/%03s.xml|", $n) : '';
 	my $t0 = [gettimeofday];
 	my $fh = IO::File->new("wget -O - '$url' 2>/dev/null 1|$tee ")
 	    or die "could not execute wget\n";
-	my $elapsed = tv_interval ( $t0, [gettimeofday]);
 
 	my $data = $xml->XMLin($fh);
 	if (ref($data) ne "HASH")
@@ -79,8 +79,10 @@ sub verify
 	{
 		$result = "OK";
 	}
+	my $elapsed = tv_interval ( $t0, [gettimeofday]);
 	my $res = ($result eq $expect)?"PASS ":"FAIL ";
-	printf "%4s (%4s %4s) %.4f %s\n", $res, $expect, $result, $elapsed, $url;
+	printf "%03i %4s (%4s %4s) %.4f %s\n", $n, $res, $expect, $result, $elapsed, $url;
+	$n++;
 }
 
 my $inf;
