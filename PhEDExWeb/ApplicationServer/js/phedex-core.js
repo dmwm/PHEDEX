@@ -60,10 +60,16 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             var ctor = PxU.getConstructor(name),
                 m = new ctor(_sbx);
-          } catch (ex) { banner('Cannot construct '+name,'error'); log(ex,'error',_me); }
+          } catch (ex) {
+            banner('Cannot construct '+name,'error');
+            log(ex,'error',_me);
+          }
           try {
             if ( m ) { m.init(arr[1]); }
-          } catch (ex) { banner('Cannot initialise '+name,'error'); log(ex,'error',_me); }
+          } catch (ex) {
+            banner('Cannot initialise '+name,'error');
+            log(ex,'error',_me);
+          }
         }
       }(this),
       Progress: function(item) { banner('Loaded item: '+item.name); }
@@ -189,7 +195,10 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             _m.ctl[_d.name] = new _ctor(_sbx,_d);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
-          } catch (ex) { banner('Error creating a '+_d.name+' for the '+_m.me+' module','error','core'); log(err(ex),'error','core'); return; }
+          } catch (ex) {
+            banner('Error creating a '+_d.name+' for the '+_m.me+' module','error','core');
+            log(err(ex),'error','core'); return;
+          }
         }
       }(m,d,ctor),10);
       i++;
