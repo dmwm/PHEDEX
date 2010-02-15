@@ -51,6 +51,14 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @type Object[]
             */
             decorators: [{
+                name: 'ContextMenu',
+                source:'component-contextmenu',
+                payload:{
+                    typeNames: ['node'],
+                    typeMap: {node:'name'},
+                }
+            },
+            {
                 name:'cMenuButton',
                 source:'component-splitbutton',
                 payload:{
