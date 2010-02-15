@@ -1,5 +1,4 @@
-PHEDEX.GlobalFilter=function(sandbox,args) {
-debugger;
+PHEDEX.GlobalFilter = function(sandbox,args) {
   var _me = 'globalfilter',
       _sbx = sandbox,
       _filter = 'this is the global-filter',
@@ -9,42 +8,61 @@ debugger;
                   payload:{
                     obj:  this,
                     control: {
-                      parent: 'control',
+                      parent: 'el',
                       payload:{
+                        text:    'Global Filter',
                         disabled: false, //true,
                         hidden:   true,
+                        context: 'input',
+                        align:   'bl',
                       },
                       el: 'content',
                     },
                   },
-                  target:  'filter',
+                  target:  'filterPanel',
                 };
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object);
-  this.type = 'GlobalFilter'; // needed to get the right 'applyFilter' function
-  YAHOO.lang.augmentObject(this, new PHEDEX.Component.Filter(sandbox,ctlArgs));
+  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
 
+  _construct = function() {
+    return {
+      me: 'Global Filter',
 
-  this.dom.el = PxU.makeChild(this.el, 'div', { className:'phedex-nav-component phedex-nav-filter' });
-  this.widgets = [];
+      _init: function(args) {
+        var d = this.dom;
+        this.el = document.getElementById('phedex-globalfilter');
+        d.el = PxU.makeChild(this.el, 'div', { className:'phedex-nav-component phedex-nav-filter' });
+        d.control = document.createElement('div');
+
+//      This is the element the global-filter will be displayed in
+//         d.filterPanel = document.createElement('div');
+//         d.filterPanel.className = 'phedex-global-filter phedex-visible phedex-widget-selector phedex-box-turquoise';
+//         document.body.appendChild(d.filterPanel);
+
+//      This are the user-interaction elements
+        this.dom.input = PxU.makeChild(this.dom.el, 'input', { className:'phedex-nav-filter-input', type: 'text' });
+        this.dom.ctl = PxU.makeChild(this.dom.el, 'div', { className:'phedex-nav-component phedex-nav-link' });
+
+        this.type = 'GlobalFilter'; // needed to get the right 'applyFilter' function
+        this.ctl.filter = new PHEDEX.Component.Filter(sandbox,ctlArgs);
+
+//         this.fillGlobalFilter = function(el) {
+//           el.innerHTML = 'this is the filter-panel div';
+//         }
+      },
+
+      init: function() {
+      }
+    };
+  };
+  YAHOO.lang.augmentObject(this, _construct(this),true);
+  this._init(args);
+
+//   this.widgets = [];
 
 // replace widget-level events with global-level events for proper two-way communication
 //   this.filter.onFilterApplied   = PHEDEX.Event.onGlobalFilterApplied;
 //   this.filter.onFilterCancelled = PHEDEX.Event.onGlobalFilterCancelled;
 //   this.filter.onFilterValidated = PHEDEX.Event.onGlobalFilterValidated;
-
-  this.fillGlobalFilter = function(el) {
-    el.innerHTML = 'this is the filter-panel div';
-  }
-// This are the user-interaction elements
-  this.dom.input = PxU.makeChild(this.dom.el, 'input',
-			      { /*id: 'phedex-nav-filter-input',*/ className:'phedex-nav-filter-input',
-				type: 'text' });
-  this.dom.ctl = PxU.makeChild(this.dom.el, 'div', { className:'phedex-nav-component phedex-nav-link' /*, innerHTML:'Filter'*/ });
-
-// This is the element the global-filter will be displayed in
-  this.dom.filterPanel = document.createElement('div');
-  this.dom.filterPanel.className = 'phedex-global-filter phedex-visible phedex-widget-selector phedex-box-turquoise';
-  document.body.appendChild(this.dom.filterPanel);
 
 //   this.onHideFilter   = new YAHOO.util.CustomEvent("onHideFilter",   this, false, YAHOO.util.CustomEvent.LIST);
 //   this.onAcceptFilter = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
@@ -54,20 +72,6 @@ debugger;
 //       obj.filter.Parse();
 //     }
 //   }(this));
-
-  this.ctl.filter = new PHEDEX.Component.Control(
-      {
-        text:'Global Filter',
-        payload:{
-          render:this.dom.ctl,
-          target:this.dom.filterPanel,
-          fillFn:this.filter.Build,
-          obj:this,
-          animate:false,
-          hover_timeout:200,
-        }
-      }
-    );
 
 //   PHEDEX.Event.onWidgetFilterCancelled.subscribe( function(obj) {
 //     return function(ev,arr) {
@@ -181,7 +185,6 @@ debugger;
 PHEDEX.GlobalFilter.Filter = function(sandbox,obj) {
   return {
     applyFilter: function(args) {
-debugger;
 //   this is much easier for tables than for branches. Just go through the data-table and build a new one,
 //   then feed that to the DataSource!
 //       var table=[], keep, fValue, kValue, status, a;
