@@ -149,6 +149,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             now = new Date() / 1000,
             minDate = now,
             maxDate = 0;
+        if ( !node ) { msg = 'No extra information available (no node selected yet!)'; }
         for ( var i in this.data) {
           var u = this.data[i]['time_update'];
           if ( u > maxDate ) { maxDate = u; }
