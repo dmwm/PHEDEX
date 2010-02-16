@@ -1914,6 +1914,10 @@ sub getMissingFiles
     };
 
     $q = execute_sql($core, $sql, %p);
+    if (exists $h{'__spool__'})
+    {
+        return $q;
+    }
 
     while ($_ = $q->fetchrow_hashref())
     {
@@ -2454,9 +2458,14 @@ sub getAgentLogs
     $p{':update_since'} = str2time($h{UPDATE_SINCE}, $h{UPDATE_SINCE});
 
     $sql .= " and ($filters) " if ($filters);
-    $sql .= " order by l.time_update ";
+    $sql .= " order by n.name, l.time_update ";
 
     $q = execute_sql($core, $sql, %p);
+    if (exists $h{'__spool__'})
+    {
+        return $q;
+    }
+
     while ($_ = $q->fetchrow_hashref())
     {
         $_->{MESSAGE} = {'$T' => delete $_->{MESSAGE}}; 
