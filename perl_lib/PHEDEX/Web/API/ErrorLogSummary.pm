@@ -63,6 +63,7 @@ errors may have occurred then indicated by this API call.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 my $map = {
     _KEY => 'FROM+TO',
@@ -102,6 +103,52 @@ sub errorlogsummary
 
     my $r = PHEDEX::Web::SQL::getErrorLogSummary($core, %h);
     return { link => &PHEDEX::Core::Util::flat2tree($map, $r)};
+}
+
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('FROM', 'TO');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # convert parameter keys to upper case
+    foreach ( qw / from to block lfn / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLogSummary($core, %h), $limit, @keys) if !$sth;
+
+    my $r = $sth->spool();
+    if ($r)
+    {
+        my $r1 = &PHEDEX::Core::Util::flat2tree($map, $r);
+        foreach my $link (@{$r1})
+        {
+            my $link_errors = 0;
+            foreach my $block (@{$link->{'block'}})
+            {
+                my $block_errors = 0;
+                foreach my $file (@{$block->{'file'}})
+                {
+                    $block_errors += $file->{'num_errors'};
+                }
+                $block->{'num_errors'} = $block_errors;
+                $link_errors += $block_errors;
+            } 
+            $link->{'num_errors'} = $link_errors;
+        }
+        return { link => $r1 };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;

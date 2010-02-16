@@ -67,6 +67,7 @@ Show messages from the agents
 use PHEDEX::Web::SQL;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
 sub invoke { return agentlogs(@_); }
@@ -112,5 +113,46 @@ sub agentlogs
     my $r = PHEDEX::Web::SQL::getAgentLogs($core, %h);
     return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
+
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('NODE');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # need at least one of the input
+    if (! keys %h)
+    {
+        die "need at least one of the input arguments: node host user pid agent update_since\n";
+    }
+
+    # convert parameter keys to upper case
+    foreach ( qw / node host user pid agent update_since / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getAgentLogs($core, %h), $limit, @keys) if !$sth;
+    my $r = $sth->spool();
+    if ($r)
+    {
+        foreach (@{$r})
+        {
+            $_->{MESSAGE} = {'$t' => delete $_->{MESSAGE}};
+        }
+        return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
+}
+
+
 
 1;

@@ -83,6 +83,7 @@ Full text of the transfer log, the detail log, and the validate log.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
 sub invoke { return errorlog(@_); }
@@ -144,5 +145,50 @@ sub errorlog
     my $r = PHEDEX::Web::SQL::getErrorLog($core, %h);
     return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
+
+# spooling
+
+my $sth;
+my $limit = 500;
+my @keys = ('FROM', 'TO');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # need at least one of the input
+    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{lfn})
+    {
+       die "need at least one of the input argument: from, to, block, lfn";
+    }
+
+    # convert parameter keys to upper case
+    foreach ( qw / from to block lfn / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLog($core, %h), $limit, @keys) if !$sth;
+
+    my $r = $sth->spool();
+    if ($r)
+    {
+        foreach (@{$r})
+        {
+            $_->{LOG_XFER} = {'$t' => delete $_->{LOG_XFER}};
+            $_->{LOG_DETAIL} = {'$t' => delete $_->{LOG_DETAIL}};
+            $_->{LOG_VALIDATE} = {'$t' => delete $_->{LOG_VALIDATE}};
+        }
+        return { link=>  &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
+}
+
+
+
 
 1;
