@@ -24,6 +24,16 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
                 };
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
 
+  this.filterHandler = function(obj) {
+    return function(ev,arr) {
+      var module = arr[0],
+          filter = arr[1];
+      obj.dom.input.value = arr[2];
+      _sbx.notify(obj.ctl.filter.id,'setApplied',arr[2]);
+    }
+  }(this);
+  _sbx.listen('Filter',this.filterHandler);
+
   _construct = function() {
     return {
       me: 'Global Filter',

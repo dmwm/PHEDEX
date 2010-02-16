@@ -39,6 +39,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
               if ( arr[3] ) { YAHOO.util.Dom.addClass(   obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
               else          { YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+              _sbx.notify('Filter',obj.me,arr[2],obj.asString(arr[2]));
               break;
             }
             case 'cBox': {
@@ -54,6 +55,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             obj.firstAlignmentDone = true;
           }
           if ( obj.focusOn ) { obj.focusOn.focus(); }
+          break;
+        }
+        case 'setApplied': {
+          obj.ctl.filterControl.setApplied(arr[1]);
           break;
         }
       }
@@ -402,7 +407,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           );
         var k1 = new YAHOO.util.KeyListener(this.dom.filter,
                                             { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
-                                            { fn:function(obj){ return function() {  _sbx.notify(obj.id,'Filter','Validate'); } }(this),
+                                            { fn:function(obj){ return function() { _sbx.notify(obj.id,'Filter','Validate'); } }(this),
                                               scope:this, correctScope:true } );
         k1.enable();
       },
@@ -490,6 +495,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
           if ( !i ) { delete this.args[name]; } // no values left, wipe the slate for this field!
         }
+        _sbx.notify('Filter',obj.me,this.args,this.asString());
       },
 
       setValid:   function(el) {
@@ -514,27 +520,27 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         if ( !args ) { args = this.args; }
         for (var key in args) {
           var mKey = key;
-          if ( typeof(args[key].value) == 'undefined' ) { continue; }
+          if ( typeof(args[key].values) == 'undefined' ) { continue; }
           var rKey = this.structure['r'][key];
           if ( this.map[rKey].func ) {
             mKey = this.map[rKey].func(key);
           } else {
             mKey = this.map[rKey].to + '.' + key;
           }
-          var fValue = args[key].value;
+          var fValue = args[key].values;
           if ( args[key].format ) { fValue = args[key].format(fValue); }
           var negate = args[key].negate;
           var seg = '';
           if ( negate ) { seg = '!'; }
-            if ( typeof(fValue) == 'object' ) {
+            if ( fValue.value != null ) {
+              seg += mKey+'='+fValue.value;
+            } else {
               var c = 0, seg1 = null, seg2 = null;
               if ( fValue.min != null ) { c++; seg1 = mKey+'>'+fValue.min; }
               if ( fValue.max != null ) { c++; seg2 = mKey+'<'+fValue.max; }
               if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
               if ( c == 1 ) { seg += ( seg1 || seg2 ); } // one or the other is set
               if ( c == 2 ) { seg += seg1 +'&'+ seg2; }  // both are set
-            } else {
-              seg += mKey+'='+fValue;
             }
             if ( str ) { str += ','; }
             str += seg;
