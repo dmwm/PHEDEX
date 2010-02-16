@@ -15,12 +15,16 @@
 ##H   -block BLOCK      Block to filter results by, accepts SQL wildcards (%)
 ##H   -unsuspend        Unsuspend the matching block destinations
 
-# Process command line arguments.
-my %args;
+use warnings;
+use strict;
+
 use Getopt::Long;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing;
+
+# Process command line arguments.
+my %args;
 &GetOptions ("db=s"            => \$args{DBCONFIG},
 	     "node=s"          => \$args{NODE},
 	     "block=s"         => \$args{BLOCK},
@@ -40,14 +44,15 @@ my $where = '';
 my %p;
 if ($args{NODE}) {
     $where .= " and n.name = :node";
-    $p{NODE} = $args{NODE};
+    $p{':node'} = $args{NODE};
 }
 if ($args{BLOCK}) {
     $where .= " and b.name like :block";
-    $p{BLOCK} = $args{BLOCK};
+    $p{':block'} = $args{BLOCK};
 }
 
 if (!$args{UNSUSPEND}) {
+    my $n = 0;
     my $q = &dbexec($dbh, qq{
        select n.name node, b.name block, b.files, b.bytes / power(1024,3) size_gb,
               bd.time_subscription, bd.time_active, bd.time_suspend_until 
@@ -60,22 +65,24 @@ if (!$args{UNSUSPEND}) {
      order by n.name, bd.time_subscription, bd.time_active
     }, %p);
 
-    printf("%20s %40s %6s %5s %6s %6s %6s\n", 
-	   qw(node block files size_gb t_subs t_actv t_susp));
     while (my $row = $q->fetchrow_hashref()) {
-	printf("%20s %40s %6i %0.3f %6s %6s %6s\n",
-	       $$row{NODE}, $$row{BLOCK}, $$row{FILES}, $$row{SIZE_GB},
-	       &age($now-$time_subscription),
-	       &age($now-$time_active),
-	       &age($now-$time_suspend_until));
+	printf("%s %s\n => files=%i size=%0.2fGB age_subs=%s age_actv=%s age_susp=%s\n",
+	       $$row{NODE}, $$row{BLOCK}, 
+	       $$row{FILES}, $$row{SIZE_GB},
+	       &age($now - $$row{TIME_SUBSCRIPTION}),
+	       &age($now - $$row{TIME_ACTIVE}),
+	       &age($now - $$row{TIME_SUSPEND_UNTIL}));
+
+	$n++;
     }
+    print "$n router-suspended blocks found\n";
 } else {
     my ($q, $n) = &dbexec($dbh, qq{
        update t_dps_block_dest
           set state = 0,
               time_suspend_until = NULL
-        where (node, block) 
-           in ( select bd.node, bd.block
+        where (destination, block) 
+           in ( select bd.destination, bd.block
                   from t_dps_block_dest bd 
                   join t_adm_node n 
                     on n.id = bd.destination 
@@ -83,7 +90,8 @@ if (!$args{UNSUSPEND}) {
                     on b.id = bd.block 
                  where bd.state = 4 $where
               )}, %p);
-    print "$n blocks unsuspended for node=$args{NODE}, block=$args{BLOCK}\n";
+    $n += 0;
+    print "$n blocks unsuspended\n";
     $dbh->commit();
 }
 
