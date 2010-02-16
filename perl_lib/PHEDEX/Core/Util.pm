@@ -226,7 +226,7 @@ sub hash2list
             {
                 # ignore {'$T' => text }
                 my @k2 = keys %{$v->{$k1}};
-                if (!((@k2 == 1) && ($k2[0] eq '$T')))
+                if (!((@k2 == 1) && (($k2[0] eq '$T') || ($k2[0] eq '$t'))))
                 {
                     $h->{$k}->{$k1} = hash2list($v->{$k1});
                 }
