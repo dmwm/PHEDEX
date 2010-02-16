@@ -18,6 +18,7 @@
 PHEDEX.Registry = function(sandbox) {
   // private data
   var _sbx = sandbox,
+      _me  = 'registry',
 
   // widget lists keyed by input type
       _widgets = {},
@@ -37,10 +38,9 @@ PHEDEX.Registry = function(sandbox) {
                       request  :1,
                      'static'  :1,
                       none     :1 };
+  this.id = _me+'_'+PxU.Sequence();
 
   return {
-    // public methods
-
 /** add a new widget to the registry
  * @method add
  * @param widget {string} the name of the module, e.g. phedex-module-agents
@@ -119,6 +119,7 @@ PHEDEX.Registry = function(sandbox) {
  */
       this.selfHandler = function(obj) {
         return function(ev,arr) {
+          log('selfHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',_me);
           var action = arr[0];
           switch (action) {
             case 'add': {
@@ -146,6 +147,7 @@ PHEDEX.Registry = function(sandbox) {
           }
         }
       }(this);
+log('listen for "Registry"','info',_me);
       _sbx.listen('Registry',this.selfHandler);
 /**
  * Handle messages announcing that new modules have been created, by announcing in turn the type of that widget.
