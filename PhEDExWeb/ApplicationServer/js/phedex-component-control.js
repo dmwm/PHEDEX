@@ -163,7 +163,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         } else if ( ap.type == 'a' ) {
           this.el.appendChild(document.createTextNode(ap.text || args.name));
         }
-        this.el.title = ap.title || _defTitle[args.text] || _defTitle[args.name] || '';
+        this.el.title = ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
         for (var i in ap) { p[i] = ap[i]; }
         if ( p.obj ) { partner = p.obj.id; }
         if ( p.target ) {
