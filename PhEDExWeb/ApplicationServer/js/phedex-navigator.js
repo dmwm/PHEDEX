@@ -285,6 +285,7 @@ PHEDEX.Navigator = function(sandbox) {
         }
         case 'decoratorReady': {
           nDec++;
+          log('decoratorReady received: '+nDec+' decorators out of '+obj.decorators.length,'info',me);
           if ( nDec == obj.decorators.length ) {
             _sbx.notify(obj.id,'decoratorsReady');
           }
@@ -832,7 +833,10 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
         }
         case 'TargetTypes': {
           o._initTargetSelectors(value);
-          _sbx.notify(obj.id,'decoratorReady',o.id);
+          if ( !o._sentDecoratorReady ) {
+            _sbx.notify(obj.id,'decoratorReady',o.id);
+            o._sentDecoratorReady = true;
+          }
           break;
         }
         case 'StateChanged': {
@@ -1000,9 +1004,9 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       }
     }
   }(this);
-  _sbx.listen(this.id,   this.partnerHandler);
-  _sbx.listen(obj.id,    this.partnerHandler);
-  _sbx.listen('Registry',this.registryHandler);
+  _sbx.listen(this.id, this.partnerHandler);
+  _sbx.listen(obj.id,  this.partnerHandler);
+  _sbx.listen(this.id, this.registryHandler);
   _sbx.notify('Registry','getInputTypes',this.id);
   _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
   return this;
