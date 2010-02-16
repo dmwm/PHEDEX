@@ -68,7 +68,8 @@ PHEDEX.Logger = function() {
           if ( cookie ) {
             for (var i in cookie) {
               if ( i.match('_[0-9]+$') ) { next; }
-              this.log2Server.group[i.toLowerCase()] = cookie[i] == 'true' ? true : false;
+              var j = i.toLowerCase();
+              this.log2Server.group[j] = cookie[j] == 'true' ? true : false;
             }
           }
         } catch (ex) {};
