@@ -732,7 +732,7 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
 
   var _makeSelector = function(el,type,dataKey,api,argKey) {
         var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-'+argKey+'sel' }),
-            input     = PxU.makeChild(sel, 'input', { type: 'text' }),
+            input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name' }),
             container = PxU.makeChild(sel, 'div');
           makeList = function(data) {
             if ( !data[dataKey] ) {
