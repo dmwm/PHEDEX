@@ -33,6 +33,8 @@ Makes and approves a transfer request, creating data subscriptions.
  custodial      'y' or 'n', whether the subscriptions are custodial.  Default is 'n' (non-custodial)
  group          group the request is for.  Default is undefined.
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
+ no_email       'y' or 'n' (default), if 'n', a email is sent to
+                requestor, datamanagers, site admins, and global admins
 
 =head2 Input
 
@@ -76,6 +78,7 @@ sub subscribe
     $args{custodial} ||= 'n';
     $args{request_only} ||= 'n';
     $args{level} ||= 'DATASET'; $args{level} = uc $args{level};
+    $args{no_mail} ||= 'n';
 
     # check values of options
     my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
@@ -115,6 +118,7 @@ sub subscribe
     $data->{FORMAT} = 'tree';
 
     my $requests;
+    my $rid2;
     eval
     {
 	my $id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $core, $core->{SECMOD} );
@@ -142,6 +146,7 @@ sub subscribe
 									  );
 
 	my $rid = &PHEDEX::RequestAllocator::Core::createRequest($core, @valid_args);
+        $rid2 = $rid;
 	$requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$rid]);
 	unless ($args{request_only} eq 'y') {
 	    foreach my $request (values %$requests) {
@@ -183,7 +188,10 @@ sub subscribe
     $commit = 0 if $args{dummy};
     $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
     # send out notification
-    PHEDEX::Core::Mail::send_request_create_email($core, $rid) if $commit;
+    if ($args{no_mail} eq 'n')
+    {
+        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
+    }
     
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
