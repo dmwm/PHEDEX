@@ -70,6 +70,7 @@ Show files which are missing from blocks at a node.
 use PHEDEX::Web::SQL;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Spooler;
 
 # mapping format for the output
 my $map = {
@@ -122,6 +123,41 @@ sub missingfiles
     my $r = PHEDEX::Web::SQL::getMissingFiles($core, %h);
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
     # return { subscription => $r };
+}
+
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('BLOCK_ID');
+
+sub spool
+{
+    my ($core, %h) = @_;
+
+    # block or lfn is required
+    if (!$h{'block'} && !$h{'lfn'})
+    {
+        die "Arguments 'block' or 'lfn' are required.";
+    }
+
+    # convert parameter keys to upper case
+    foreach ( qw / block node se subscribed custodial group lfn / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getMissingFiles($core, %h), $limit, @keys) if !$sth;
+    my $r = $sth->spool();
+    if ($r)
+    {
+        return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        return $r;
+    }
 }
 
 1;
