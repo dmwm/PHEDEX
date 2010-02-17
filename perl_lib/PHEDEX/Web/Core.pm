@@ -232,9 +232,9 @@ sub call
             $phedex->{request_timestamp} = $self->{REQUEST_TIME};
             $phedex->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
             $phedex = { phedex => $phedex };
-            $fmt->header($phedex);
-
+            # try getting data before printing header
             $obj = $spool->($self, %args);
+            $fmt->header($phedex);
             do
             {
                 $fmt->output($obj);
