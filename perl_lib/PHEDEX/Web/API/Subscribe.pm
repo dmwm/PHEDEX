@@ -8,6 +8,7 @@ use PHEDEX::Core::Util qw( arrayref_expand );
 use PHEDEX::Core::Identity;
 use PHEDEX::RequestAllocator::Core;
 use PHEDEX::Web::Util;
+use PHEDEX::Core::Mail;
 
 =pod
 
@@ -181,6 +182,8 @@ sub subscribe
     }
     $commit = 0 if $args{dummy};
     $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
+    # send out notification
+    PHEDEX::Core::Mail::send_request_create_email($core, $rid) if $commit;
     
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
