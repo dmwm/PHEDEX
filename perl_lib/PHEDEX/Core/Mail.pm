@@ -17,7 +17,7 @@ use Data::Dumper;
 #my $TESTING = 0;
 my $TESTING = 1;
 #my $TESTING_MAIL = undef;
-my $TESTING_MAIL = 'huangch@fnal.gov';
+my $TESTING_MAIL = 'hn-cms-phedex@cern.ch';
 
 sub new
 {
