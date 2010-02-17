@@ -53,8 +53,13 @@ for role in \
     echo "revoke all on $table from $role;"
 
     case $table:$role in
+      T_*:*_CERN_* )
+        # Select, update, insert, delete and flashback
+        echo; echo "grant select on $table to $reader;"
+	echo "grant select on $table to $writer;"
+	echo "grant delete, insert, select, update, flashback on $table to $role;" ;;
+
       T_DVS_BLOCK:*_WEBSITE_* | \
-      T_*:*_CERN_* | \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
       T_LOADTEST_PARAM:*_WEBSITE_* | \
