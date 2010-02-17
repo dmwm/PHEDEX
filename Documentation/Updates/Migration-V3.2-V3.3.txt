@@ -258,8 +258,8 @@ create table t_history_link_stats
  * Re-fill block replica table
  */
 
-insert /*+ append */ into t_dps_block_replicas
-select * from xt_dps_block_replicas;
+insert /*+ append */ into t_dps_block_replica
+select * from xt_dps_block_replica;
 
 commit;
 
@@ -449,6 +449,16 @@ alter table t_dps_block add constraint uk_dps_block_dataset unique (dataset, nam
  */
 
 drop index ix_dps_block_dataset;
+
+# If you're running on Test bed, you're done here, otherwise go on
+# IMPORTANT: Use the right DB instance below for Dev (_test) and Debug (_sc)!!
+
+# Create synonmys
+PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
+PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
+
+# Create privileges
+PHEDEX/Schema/OraclePrivs.sh $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
 
 -- All done!
 exit;
