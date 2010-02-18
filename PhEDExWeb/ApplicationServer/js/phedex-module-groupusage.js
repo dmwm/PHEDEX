@@ -55,7 +55,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 source:'component-contextmenu',
                 payload:{
                     typeNames: ['node'],
-                    typeMap: {node:'name'},
+                    typeMap: {node:'name'}
                 }
             },
             {
@@ -75,9 +75,23 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { columns: _dtColumnDefs, schema: _dsResponseSchema},
+                table: { columns: _dtColumnDefs, schema: _dsResponseSchema },
                 hide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files'],
                 sort:{field:'name'},
+                filter: {
+                  'GroupUsage attributes':{
+                    map: { to:'G' },
+                    fields: {
+                      'name':{type:'regex',  text:'Node', tip:'javascript regular expression' },
+                      'se'  :{type:'regex',  text:'SE',   tip:'javascript regular expression' },
+                      'id'  :{type:'int',    text:'ID',   tip:'ID'},
+                      'group[0].node_bytes': { type: 'minmax', buildPath: true, text: 'Resident Bytes', tip: 'integer range' },
+                      'group[0].node_files': { type: 'minmax', buildPath: true, text: 'Resident Files', tip: 'integer range' },
+                      'group[0].dest_bytes': { type: 'minmax', buildPath: true, text: 'Subscribed Bytes', tip: 'integer range' },
+                      'group[0].dest_files': { type: 'minmax', buildPath: true, text: 'Subscribed Files', tip: 'integer range' }
+                    }
+                  }
+                }
             },
 
             /**
@@ -93,10 +107,10 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
               _sbx.notify( 'module', 'needArguments', this.id );
             },
 
-/** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
- * @method setArgs
- * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
- */
+            /** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
+             * @method setArgs
+             * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+             */
             setArgs: function(arr) {
               if ( arr && arr.groupname ) {
                 _groupname = arr.groupname;
@@ -125,12 +139,12 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @method gotData
             * @param data {object} group information in json format used to fill the datatable directly using a defined schema.
             */
-            gotData: function(data) {
+            gotData: function(dataGroup) {
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
-                this.data = data;
-                this.dom.title.innerHTML = _groupname + ': ' + this.data.node.length + ' nodes found';
-                this.fillDataSource(data, _dsResponseSchema);
+                this.data = dataGroup.node;
+                this.dom.title.innerHTML = _groupname + ': ' + dataGroup.node.length + ' nodes found';
+                this.fillDataSource(dataGroup);
                 _sbx.notify( this.id, 'gotData' );
             }
         };
