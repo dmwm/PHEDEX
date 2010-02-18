@@ -60,7 +60,7 @@ PHEDEX.DataTable = function(sandbox,string) {
             */
             fillDataSource: function(data) {
                 if (this.dsResponseSchema) {
-                    this.fillDataSourceWithSchema(data, this.dsResponseSchema); //Fill datasource directly if schema is available
+                    this.fillDataSourceWithSchema(data); //Fill datasource directly if schema is available
                     return;
                 }
                 var table = [],
@@ -117,9 +117,9 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @param dsSchema {YAHOO.util.DataSource.responseSchema} an object describing the contents of the JSON object
             * @private
             */
-            fillDataSourceWithSchema: function(jsonData, dsSchema) {
+            fillDataSourceWithSchema: function(jsonData) {
                 this.dataSource = new YAHOO.util.DataSource(jsonData);
-                this.dataSource.responseSchema = dsSchema;
+                this.dataSource.responseSchema = this.dsResponseSchema;
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
                     failure: this.dataTable.onDataReturnInitializeTable,
