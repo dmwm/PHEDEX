@@ -423,11 +423,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         for (var i in innerList) {
           nSet = 0;
           values = {};
+          a = {id:[], values:{} };
           for (var j in innerList[i]) {
             this.setValid(innerList[i]);
             el = innerList[i][j];
-            a = {id:[], values:{}, name:el.name}; //this.args[el.name];
-
+            a.name = el.name;
 // 1. pick out the values from the element(s)
 //          find the phedex-filter-key-* classname of this element
             elClasses = el.className.split(' ');
@@ -485,13 +485,16 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             if ( !rollback ) {
               if ( c.value ) { a.values[key] = c.value[key]; }
               else { a.values[key] = null; }
-              this.meta.cBox[name].checked = false;
             } else {
-              this.meta.cBox[name].checked = a.negate;
             }
             el.value = a.values[key];
             if ( a.values[key] == null ) { delete a.values[key]; }
             if ( a.values[key] ) { i++; }
+          }
+          if ( !rollback ) {
+            this.meta.cBox[name].checked = false;
+          } else {
+            this.meta.cBox[name].checked = a.negate;
           }
           if ( !i ) { delete this.args[name]; } // no values left, wipe the slate for this field!
         }
