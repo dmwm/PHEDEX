@@ -33,6 +33,8 @@ PHEDEX.TreeView = function(sandbox,string) {
  */
       _cfg: { textNodeMap:[], classes:{}, contextArgs:[], sortFields:{}, formats:{} },
 
+      hiddenBranches: {},
+
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
  * @property type
@@ -150,7 +152,6 @@ PHEDEX.TreeView = function(sandbox,string) {
 
         this.tree.subscribe('expandComplete', function(obj) {
           return function(node) {
-//             obj.postExpand(null,node);
           }
         }(this));
         this.headerTree.render();
@@ -347,7 +348,8 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       revealAllBranches: function() {
-        this.revealAllElements('ygtvrow');
+        this.revealAllElements('ygtvtable');
+        this.hiddenBranches = {};
       },
     };
   };
@@ -564,6 +566,12 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           obj.dom.sorted.innerHTML = 'S';
           obj.dom.sorted.className = 'phedex-sorted';
         }
+
+       for (i in obj.hiddenBranches) {
+//       I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
+         var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
+         YuD.addClass(elAncestor,'phedex-invisible');
+       }
       },
 
       prepare: function(el,type,dir) {
@@ -696,7 +704,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
       _applyFilter: function(args) {
 //      First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
         obj.revealAllBranches();
-        var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, ancestor;
+        var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, elAncestor;
         if ( !args ) { args = this.args; }
         for (key in args) {
           fValue = args[key].values;
@@ -713,8 +721,9 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
               if ( args[key].negate ) { status = !status; }
               if ( !status ) { // Keep the element if the match succeeded!
                 tNode.collapse();
-                elAncestor = YuD.getAncestorByClassName(elId,'ygtvrow');
+                elAncestor = YuD.getAncestorByClassName(elId,'ygtvtable');
                 YuD.addClass(elAncestor,'phedex-invisible');
+                obj.hiddenBranches[elId] = 1;
                 this.count++;
                 if ( tNode.parent ) {
                   if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
@@ -725,7 +734,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           }
         }
         for (elParent in elParents) {
-          ancestor = YuD.getAncestorByClassName(elParent,'ygtvrow');
+          ancestor = YuD.getAncestorByClassName(elParent,'ygtvtable');
           YuD.addClass(ancestor,'phedex-core-control-widget-applied');
         }
         return this.count;
