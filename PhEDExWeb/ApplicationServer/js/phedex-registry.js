@@ -140,14 +140,13 @@ PHEDEX.Registry = function(sandbox) {
               var value;
               try { value = _inputTypes[arr[1].toLowerCase()]; } catch (ex) {};
               if ( value ) {
-                _sbx.notify('Registry','TypeOfModule',value,arr[2]);
+                _sbx.notify(arr[2],'TypeOfModule',value);
               }
               break;
             }
           }
         }
       }(this);
-log('listen for "Registry"','info',_me);
       _sbx.listen('Registry',this.selfHandler);
 /**
  * Handle messages announcing that new modules have been created, by announcing in turn the type of that widget.
