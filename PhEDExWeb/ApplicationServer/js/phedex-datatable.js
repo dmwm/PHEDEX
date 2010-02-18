@@ -45,12 +45,12 @@ PHEDEX.DataTable = function(sandbox,string) {
                       parent: 'control',
                       payload:{
                         disabled: false, //true,
-                        hidden:   true,
+                        hidden:   true
                       },
-                      el: 'content',
-                    },
+                      el: 'content'
+                    }
                   },
-                  target:  'filter',
+                  target:  'filter'
                 });
             },
             /**
@@ -58,9 +58,9 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @method fillDataSource
             * @param data {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
             */
-            fillDataSource: function(data,schema) {
-                if ( schema ) {
-                    this.fillDataSourceWithSchema(data,schema); //Fill datasource directly if schema is available
+            fillDataSource: function(data) {
+                if (this.dsResponseSchema) {
+                    this.fillDataSourceWithSchema(data, this.dsResponseSchema); //Fill datasource directly if schema is available
                     return;
                 }
                 var table = [],
@@ -248,7 +248,10 @@ YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oCo
 * @param oData {data-value} number of bytes
 */
 YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, oData) {
-    elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+    if(oData)
+    {
+        elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+    }
 };
 
 /**
@@ -334,35 +337,86 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-PHEDEX.DataTable.Filter = function(sandbox,obj) {
-  return {
-    applyFilter: function(args) {
-//   this is much easier for tables than for branches. Just go through the data-table and build a new one,
-//   then feed that to the DataSource!
-      var table=[], keep, fValue, kValue, status, a;
-      if ( ! args ) { args = this.args; }
-      for (var i in obj.data) {
-        keep=true;
-        for (var j in args) {
-          a = args[j];
-          if ( typeof(a.values) == 'undefined' ) { continue; }
-          fValue = a.values;
-          kValue = obj.data[i][j];
-          if ( a.preprocess ) { kValue = a.preprocess(kValue); }
-          status = this.Apply[this.fields[j].type](fValue,kValue);
-          if ( a.negate ) { status = !status; }
-          if ( !status ) { // Keep the element if the match succeeded!
-            this.count++;
-            keep=false;
-          }
+
+
+PHEDEX.DataTable.Filter = function(sandbox, obj) {
+    // Function to convert the filter column field into walk path to find its value
+    var _buildPath = function(needle) {
+        var path = null, keys = [], i = 0;
+        if (needle) {
+            // Strip the ["string keys"] and [1] array indexes
+            needle = needle.
+                        replace(/\[(['"])(.*?)\1\]/g,
+                        function(x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
+                        replace(/\[(\d+)\]/g,
+                        function(x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
+                        replace(/^\./, ''); // remove leading dot
+
+            // If the cleaned needle contains invalid characters, the
+            // path is invalid
+            if (!/[^\w\.\$@]/.test(needle)) {
+                path = needle.split('.');
+                for (i = path.length - 1; i >= 0; --i) {
+                    if (path[i].charAt(0) === '@') {
+                        path[i] = keys[parseInt(path[i].substr(1), 10)];
+                    }
+                }
+            }
+            else {
+            }
         }
-        if ( keep ) { table.push(obj.data[i]); }
-      }
-      obj.sortNeeded = true;
-      obj.fillDataSource(table);
-      return this.count;
-    }
-  };
+        return path;
+    };
+
+    // Function to walk a path and return the value
+    var _walkPath = function(path, origin) {
+        var v = origin, i = 0, len = path.length;
+        for (; i < len && v; ++i) {
+            v = v[path[i]];
+        }
+        return v;
+    };
+
+    return {
+        applyFilter: function(args) {
+            //   this is much easier for tables than for branches. Just go through the data-table and build a new one,
+            //   then feed that to the DataSource!
+            var table = [], keep, fValue, kValue, status, a;
+            if (!args) { args = this.args; }
+            for (var i in obj.data) {
+                keep = true;
+                for (var j in args) {
+                    a = args[j];
+                    if (typeof (a.values) == 'undefined') { continue; }
+                    fValue = a.values;
+                    kValue = obj.data[i][j];
+                    // If buildPath is true, then the column key has to be resolved to build complete path to get the value
+                    if (this.fields[j].buildPath) {
+                        var arrPath = _buildPath(j);
+                        kValue = _walkPath(arrPath, obj.data[i]);
+                    }
+                    if (a.preprocess) { kValue = a.preprocess(kValue); }
+                    status = this.Apply[this.fields[j].type](fValue, kValue);
+                    if (a.negate) { status = !status; }
+                    if (!status) { // Keep the element if the match succeeded!
+                        this.count++;
+                        keep = false;
+                    }
+                }
+                if (keep) { table.push(obj.data[i]); }
+            }
+            obj.sortNeeded = true;
+            if (obj.dsResponseSchema) {
+                var filterresult = {};
+                filterresult[obj.dsResponseSchema.resultsList] = table;
+                obj.fillDataSource(filterresult);
+            }
+            else {
+                obj.fillDataSource(table);
+            }
+            return this.count;
+        }
+    };
 };
 
 log('loaded...','info','datatable');
