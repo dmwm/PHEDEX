@@ -148,23 +148,6 @@ PHEDEX.Registry = function(sandbox) {
         }
       }(this);
       _sbx.listen('Registry',this.selfHandler);
-/**
- * Handle messages announcing that new modules have been created, by announcing in turn the type of that widget.
- * @method moduleHandler
- * @param ev {string} name of the event that was sent to this module
- * @param arr {array} array of arguments for the given event
- * @private
- */
-//       this.moduleHandler = function(obj) {
-//         return function(ev,arr) {
-//           var value;
-//           try { value = _inputTypes[arr[0].me.toLowerCase()]; } catch (ex) {};
-//           if ( value ) {
-//             _sbx.notify('Registry','newInputType',value); }
-//         }
-//       }(this);
-//       _sbx.listen('ModuleExists',this.moduleHandler);
-
     }
   };
 };
