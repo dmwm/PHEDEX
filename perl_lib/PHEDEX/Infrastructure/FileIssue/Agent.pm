@@ -72,7 +72,8 @@ sub confirm
     # Otherwise the task is not custodial
     # 
     # Also, do not create tasks where a deletion is scheduled for
-    # either the source or the destination node.
+    # either the source or the destination node, in order to allow the
+    # deletion to proceed.
     my $q = &dbexec($dbh, qq{
 	select
           xp.fileid, f.inblock block_id, f.logical_name,
@@ -117,7 +118,6 @@ sub confirm
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
             and (xd.node = ns.id or xd.node = nd.id)
-            and xd.time_complete is null
           join t_xfer_request xrq
             on xp.fileid = xrq.fileid
             and xp.destination = xrq.destination

@@ -126,12 +126,15 @@ sub idle
 	$self->Logmsg ("$nrow file deletions scheduled") if $nrow > 0;
 
         # Mark the block deletion request completed if it has file
-        # deletion requests and they are all completed.
+        # deletion requests and they are all completed, where
+        # completed means that the deletion task is finished AND the
+        # replica is gone
 	($stmt, $nrow) = &dbexec ($dbh, qq{
           merge into t_dps_block_delete bd
           using (select xd.node, xf.inblock, b.files n_files,
-                        count(*) n_exist, sum(nvl2(xd.time_complete, 1, 0)) n_complete
+                        count(*) n_exist, sum(nvl2(xd.time_complete,1,0) * nvl2(xr.fileid,0,1)) n_complete
                    from t_xfer_delete xd
+              left join t_xfer_replica xr on xr.fileid = xd.fileid and xr.node = xd.node
 	           join t_xfer_file xf on xf.id = xd.fileid
                    join t_dps_block_delete bd on xd.node = bd.node and bd.block = xf.inblock
                    join t_dps_block b on b.id = bd.block
