@@ -285,7 +285,7 @@ PHEDEX.Core = function(sandbox,loader) {
               var data = args[0],
                   context = args[1];
               try {
-                if ( !m ) { banner(who+' was nuked before data arrived!'); }
+                if ( !_m.gotData ) { banner(who+' was nuked before data arrived!'); }
                 else { _m.gotData(data,context); }
               } catch(ex) {
                 log(ex,'error',who);
