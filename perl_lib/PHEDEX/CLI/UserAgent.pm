@@ -175,4 +175,11 @@ sub path_info
   return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
 }
 
+sub get
+{
+  my ($self,$url,$args) = @_;
+  $url .= '?' . join('&', map {"$_=$args->{$_}"} keys %{$args});
+  $self->SUPER::get($url,$args);
+}
+
 1;
