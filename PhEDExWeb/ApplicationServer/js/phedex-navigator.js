@@ -342,11 +342,12 @@ PHEDEX.Navigator = function(sandbox) {
   this.coreHandler = function(obj) {
     return function(ev, arr) {
       log('coreHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
-      _sbx.notify('Registry','getTypeOfModule',arr[0]);
+      _sbx.notify('Registry','getTypeOfModule',arr[0], obj.id);
       if ( arr[1] ) { // I have arguments for this module, when it is created. Stash them globally for later use
         _sbx.notify(obj.id,'NewModule',arr[0]);
         _sbx.notify(obj.id,'NewModuleArgs',arr[1]);
       }
+      _sbx.notify(obj.id,'NeedNewModule');
       _sbx.notify('_navCreateModule',arr[0],arr[1]);
     };
   }(this);
@@ -373,6 +374,7 @@ PHEDEX.Navigator = function(sandbox) {
             }
             case 'destroy': {
               if ( o.state.module ) { delete o.state.module; }
+              if ( o.state.target ) { delete o.state.target; }
               break;
             }
           }
@@ -1007,6 +1009,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   _sbx.listen(this.id, this.partnerHandler);
   _sbx.listen(obj.id,  this.partnerHandler);
   _sbx.listen(this.id, this.registryHandler);
+  _sbx.listen(obj.id,  this.registryHandler);
   _sbx.notify('Registry','getInputTypes',this.id);
   _sbx.notify(obj.id,'statePlugin', {key:'type', state:this.getState, isValid:this.isStateValid});
   return this;
