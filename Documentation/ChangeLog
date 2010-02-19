@@ -1,7 +1,6 @@
 Changes for PhEDEx 3.3.0
 
 Dependency Changes
- - oracle: 10.2.0.3 => 11.2.0.1
  - DBI: 1.5.0 => 1.609
  - DBD::Oracle: 1.17 => 1.23
  - POE: 1.003 => 1.284
@@ -112,6 +111,10 @@ Changes for Central Agents
    this agent prints is because of some problem.
  - LoadTest generation: set default protocol to srmv2 instead of srm
    in srm.sh
+
+Operator Tools
+ - RouterSuspend: view/unsuspend the "forgotten blocks" now suspended
+   by the FileRouter
 
 Changes for Developers
  - All calls to &dbexec and &dbbindexec now return their execution time.
