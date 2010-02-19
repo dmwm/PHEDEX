@@ -3,7 +3,7 @@ Changes for PhEDEx 3.3.0
 Dependency Changes
  - DBI: 1.5.0 => 1.609
  - DBD::Oracle: 1.17 => 1.23
- - POE: 1.003 => 1.284
+ - POE: 1.003 => 1.287
  - Log::Log4perl 1.16 => 1.26
  - Log::Dispatch 2.21 => 2.26
  - Log::Dispatch::FileRotate 1.17 => 1.19
