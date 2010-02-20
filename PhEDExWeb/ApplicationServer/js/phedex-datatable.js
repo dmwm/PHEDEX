@@ -6,9 +6,36 @@
 * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
 * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
 */
-PHEDEX.DataTable = function(sandbox,string) {
-    YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
-    var _me  = 'datatable', _sbx = sandbox;
+PHEDEX.DataTable = function(sandbox, string) {
+    YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
+    var _me = 'datatable', _sbx = sandbox;
+
+    /**
+    * Processes the response data so as to create a YAHOO.util.DataSource and display it on-screen.
+    * @method _processData
+    * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+    * @param objtable {object} reference of datatable object that has column definitions and mapping information that is required for processing data
+    * @private
+    */
+    var _processData = function(moduledata, objtable) {
+        var table = [], i = moduledata.length, k = objtable.columnDefs.length, j;
+        while (i > 0) {
+            i--
+            var a = moduledata[i], y = [];
+            j = k;
+            while (j > 0) {
+                j--;
+                var c = objtable.columnDefs[j], val = a[objtable.columnMap[c.key]];
+                if (c.parser) {
+                    if (typeof c.parser == 'function') { val = c.parser(val); }
+                    else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+                }
+                y[c.key] = val;
+            }
+            table.push(y);
+        }
+        return table;
+    };
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -31,67 +58,54 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @private
             */
             initDerived: function() {
-              var t = this.meta.table;
-              if ( t ) {
-                  this.buildTable(t.columns,t.map,t.schema)
-                  _sbx.notify( this.id, 'initDerived' );
-              }
-              this.decorators.push(
+                var t = this.meta.table;
+                if (t) {
+                    this.buildTable(t.columns, t.map, t.schema)
+                    _sbx.notify(this.id, 'initDerived');
+                }
+                this.decorators.push(
                 {
-                  name:'Filter',
-                  source:'component-filter',
-                  payload:{
-                    control: {
-                      parent: 'control',
-                      payload:{
-                        disabled: false, //true,
-                        hidden:   true
-                      },
-                      el: 'content'
-                    }
-                  },
-                  target:  'filter'
+                    name: 'Filter',
+                    source: 'component-filter',
+                    payload: {
+                        control: {
+                            parent: 'control',
+                            payload: {
+                                disabled: false, //true,
+                                hidden: true
+                            },
+                            el: 'content'
+                        }
+                    },
+                    target: 'filter'
                 });
             },
+            
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
             * @method fillDataSource
-            * @param data {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @param process {boolean} boolean indicating if input data has to be processed (flattened)
             */
-            fillDataSource: function(data) {
+            fillDataSource: function(moduledata, process) {
                 if (this.dsResponseSchema) {
-                    this.fillDataSourceWithSchema(data); //Fill datasource directly if schema is available
+                    this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
                     return;
                 }
-                var table = [],
-                i = data.length,
-                k = this.columnDefs.length,
-                j;
-                while ( i > 0 ) {
-                    i--
-                    var a = data[i], y = [];
-                    j = k;
-                    while ( j > 0 ) {
-                        j--;
-                        var c = this.columnDefs[j], val = a[this.columnMap[c.key]];
-                        if ( c.parser )
-                        {
-                          if (typeof c.parser == 'function' ) { val = c.parser(val); }
-                          else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
-                        }
-                        y[c.key] = val;
-                    }
-                    table.push( y );
+                if ((typeof (process) == 'undefined') || process) {
+                    // Process the data if it is new to module and is not from filter
+                    moduledata = _processData(moduledata, this);
+                    this.data = moduledata; // Cache the processed data for further use by filter
                 }
-                this.dataSource = new YAHOO.util.DataSource(table);
+                this.dataSource = new YAHOO.util.DataSource(moduledata);
                 var oCallback = {
-                    success : this.dataTable.onDataReturnInitializeTable,
-                    failure : this.dataTable.onDataReturnInitializeTable,
-                    scope : this.dataTable
+                    success: this.dataTable.onDataReturnInitializeTable,
+                    failure: this.dataTable.onDataReturnInitializeTable,
+                    scope: this.dataTable
                 };
                 this.dataSource.sendRequest('', oCallback);
                 var w = this.dataTable.getTableEl().offsetWidth;
-                this.el.style.width = w+'px';
+                this.el.style.width = w + 'px';
             },
 
             /**
@@ -99,16 +113,15 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @method hideFields
             */
             hideFields: function() {
-                if ( this.meta.hide ) {
-                    for (var i in this.meta.hide)
-                    {
+                if (this.meta.hide) {
+                    for (var i in this.meta.hide) {
                         var column = this.dataTable.getColumn(this.meta.hide[i]);
-                        if ( column ) { this.dataTable.hideColumn(column); }
+                        if (column) { this.dataTable.hideColumn(column); }
                     }
                 }
                 var w = this.dataTable.getTableEl().offsetWidth;
-                if ( this.options.minwidth && w < this.options.minwidth ) { w = this.options.minwidth; }
-                this.el.style.width = w+'px';
+                if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
+                this.el.style.width = w + 'px';
             },
 
             /** Fill a data-source with JSON data, using a schema to describe it. Used internally by <strong>fillDataSource</strong> if a schema is provided
@@ -148,24 +161,24 @@ PHEDEX.DataTable = function(sandbox,string) {
                 old_width = table.getContainerEl().clientWidth,
                 offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
                 x = table.getTableEl().offsetWidth + offset;
-                if ( x >= old_width ) {
-                    this.module.cfg.setProperty('width',x+'px');
-                    this.el.style.width = x+'px';
+                if (x >= old_width) {
+                    this.module.cfg.setProperty('width', x + 'px');
+                    this.el.style.width = x + 'px';
                 }
             },
 
             sort: function() {
-              var s = this.meta.sort;
-              if ( ! s.dir ) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
-              if (s.field) {
-                if ( s.sorted_field == s.field &&
-                     s.sorted_dir   == s.dir   &&
-                    !this.sortNeeded ) { return; } // break the chain!
-                s.sorted_field = s.field;
-                s.sorted_dir   = s.dir;
-                this.sortNeeded = false;
-                this.dataTable.sortColumn( this.dataTable.getColumn(s.field), s.dir );
-              }
+                var s = this.meta.sort;
+                if (!s.dir) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+                if (s.field) {
+                    if (s.sorted_field == s.field &&
+                     s.sorted_dir == s.dir &&
+                    !this.sortNeeded) { return; } // break the chain!
+                    s.sorted_field = s.field;
+                    s.sorted_dir = s.dir;
+                    this.sortNeeded = false;
+                    this.dataTable.sortColumn(this.dataTable.getColumn(s.field), s.dir);
+                }
             },
 
             /**
@@ -178,53 +191,53 @@ PHEDEX.DataTable = function(sandbox,string) {
             * @param map {object} (optional) a key-value map used map column-names returned by the data-service to more friendly names for display on-screen. The key is the on-screen name (i.e. matches a <strong>key</strong> in the <strong>columns</strong> object), the value is the name of the field returned by the data-service. Order of entries in the map is irrelevant.
             * @param dsschema {YAHOO.util.DataSource.responseSchema} (optional) a responseSchema to describe how to parse the data.
             */
-            buildTable: function(columns,map,dsschema) {
+            buildTable: function(columns, map, dsschema) {
                 this.columnDefs = columns;
                 this.dsResponseSchema = dsschema; //Stores the response schema for the datasource
                 this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
                 var i = this.columnDefs.length;
-                while ( i>0 ) {
+                while (i > 0) {
                     i--;
                     var cDef = this.columnDefs[i];
-                    if ( typeof cDef != 'object' ) { cDef = {key:cDef}; this.columnDefs[i] = cDef; }
-                    if ( !cDef.resizeable ) { cDef.resizeable=true; }
-                    if ( !cDef.sortable   ) { cDef.sortable=true; }
-                    if ( !this.columnMap[cDef.key] ) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
+                    if (typeof cDef != 'object') { cDef = { key: cDef }; this.columnDefs[i] = cDef; }
+                    if (!cDef.resizeable) { cDef.resizeable = true; }
+                    if (!cDef.sortable) { cDef.sortable = true; }
+                    if (!this.columnMap[cDef.key]) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
                 }
                 this.dataSource = new YAHOO.util.DataSource();
-                this.dataTable = new YAHOO.widget.DataTable(this.dom.content, this.columnDefs, this.dataSource, { draggableColumns:true, initialLoad:false });
+                this.dataTable = new YAHOO.widget.DataTable(this.dom.content, this.columnDefs, this.dataSource, { draggableColumns: true, initialLoad: false });
                 var w = this.dataTable.getTableEl().offsetWidth;
-                this.el.style.width = w+'px';
+                this.el.style.width = w + 'px';
 
                 this.dataTable.subscribe('columnSortEvent', function(obj) {
-                  return function(ev) {
-                    var column = obj.dataTable.getColumn(ev.column);
-                    obj.meta.sort.field = column.key;
-                    obj.meta.sort.dir   = ev.dir;
-                  }
-                }(this));
+                    return function(ev) {
+                        var column = obj.dataTable.getColumn(ev.column);
+                        obj.meta.sort.field = column.key;
+                        obj.meta.sort.dir = ev.dir;
+                    }
+                } (this));
 
                 this.dataTable.subscribe('columnHideEvent', function(obj) {
-                  return function(ev) {
-                    var column = obj.dataTable.getColumn(ev.column);
-                    log('columnHideEvent: label:'+column.label+' key:'+column.key,'info',_me);
-                    _sbx.notify(obj.id, 'hideColumn', {text: column.label || column.key,value:column.key} );
-                  }
-                }(this));
+                    return function(ev) {
+                        var column = obj.dataTable.getColumn(ev.column);
+                        log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
+                        _sbx.notify(obj.id, 'hideColumn', { text: column.label || column.key, value: column.key });
+                    }
+                } (this));
 
                 this.dataTable.subscribe('renderEvent', function(obj) {
-                  return function() {
-                    obj.resizePanel();
-                    obj.sort();
-                  }
-                }(this));
+                    return function() {
+                        obj.resizePanel();
+                        obj.sort();
+                    }
+                } (this));
                 var w = this.dataTable.getTableEl().offsetWidth;
-                if ( this.options.minwidth && w < this.options.minwidth ) { w = this.options.minwidth; }
-                this.el.style.width = w+'px';
+                if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
+                this.el.style.width = w + 'px';
             }
         };
     };
-    YAHOO.lang.augmentObject(this,_construct(),true);
+    YAHOO.lang.augmentObject(this, _construct(), true);
     return this;
 }
 
@@ -337,8 +350,12 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-
-
+/** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
+* @namespace PHEDEX.DataTable
+* @class Filter
+* @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object (unused)
+* @param obj {object} reference to the parent PHEDEX.DataTable object that this filter applies to.
+*/
 PHEDEX.DataTable.Filter = function(sandbox, obj) {
     // Function to convert the filter column field into walk path to find its value
     var _buildPath = function(needle) {
@@ -378,10 +395,33 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
     };
 
     return {
+        /**
+        * Resets the filter in the module.
+        * @method resetFilter
+        * @param arg {Object} The array of column keys with user entered filter values.
+        * @private
+        */
+        resetFilter: function(args) {
+            obj.sortNeeded = true;
+            if (obj.dsResponseSchema) {
+                var filterresult = {};
+                filterresult[obj.dsResponseSchema.resultsList] = obj.data;
+                obj.fillDataSource(filterresult, false);
+            }
+            else {
+                obj.fillDataSource(obj.data, false);
+            }
+        },
+        
+        /**
+        * Filters the module based on user input.
+        * @method applyFilter
+        * @param arg {Object} The array of column keys with user entered filter values.
+        * @private
+        */
         applyFilter: function(args) {
-            //   this is much easier for tables than for branches. Just go through the data-table and build a new one,
-            //   then feed that to the DataSource!
-            var table = [], keep, fValue, kValue, status, a;
+            // Parse the cached data to filter it and form new data that feeds the datasource
+            var keep, fValue, kValue, status, a, pathcache = {}, table = [];
             if (!args) { args = this.args; }
             for (var i in obj.data) {
                 keep = true;
@@ -392,8 +432,10 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
                     kValue = obj.data[i][j];
                     // If buildPath is true, then the column key has to be resolved to build complete path to get the value
                     if (this.fields[j].buildPath) {
-                        var arrPath = _buildPath(j);
-                        kValue = _walkPath(arrPath, obj.data[i]);
+                        if (!pathcache[j]) {
+                            pathcache[j] = _buildPath(j);
+                        }
+                        kValue = _walkPath(pathcache[j], obj.data[i]);
                     }
                     if (a.preprocess) { kValue = a.preprocess(kValue); }
                     status = this.Apply[this.fields[j].type](fValue, kValue);
@@ -409,10 +451,10 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             if (obj.dsResponseSchema) {
                 var filterresult = {};
                 filterresult[obj.dsResponseSchema.resultsList] = table;
-                obj.fillDataSource(filterresult);
+                obj.fillDataSource(filterresult, false);
             }
             else {
-                obj.fillDataSource(table);
+                obj.fillDataSource(table, false);
             }
             return this.count;
         }
