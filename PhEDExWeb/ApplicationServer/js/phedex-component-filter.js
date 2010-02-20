@@ -25,7 +25,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             case 'Reset': {
               obj.ResetFilter( false );
-              obj.applyFilter();
+              obj.resetFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
               YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
               break;
