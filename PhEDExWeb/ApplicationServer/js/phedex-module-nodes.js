@@ -13,7 +13,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
           source:'component-contextmenu',
           payload:{
             typeNames: ['node'],
-            typeMap: {node:'Name'},
+            typeMap: {node:'Name'}
           }
         },
         {
@@ -22,17 +22,17 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
             onInit: 'hideFields',
-            container: 'param',
-          },
+            container: 'param'
+          }
         },
       ],
 
       meta: {
         table: {
-          columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right' },'Name','Kind','Technology','SE' ],
+          columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right' },'Name','Kind','Technology','SE' ]
         },
         hide: ['ID'],
         sort: {field:'Name'}, // dir:YAHOO.widget.DataTable.CLASS_ASC}, // this is the default
@@ -40,14 +40,14 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
           'Node attributes':{
             map:{to:'N'},
             fields:{
-              'id'         :{type:'int',   text:'Node-ID',    tip:'Node-ID in TMDB' },
-              'name'       :{type:'regex', text:'Node-name',  tip:'javascript regular expression' },
-              'se'         :{type:'regex', text:'SE-name',    tip:'javascript regular expression' },
-              'kind'       :{type:'regex', text:'Kind',       tip:'javascript regular expression' },
-              'technology' :{type:'regex', text:'Technology', tip:'javascript regular expression' }
+              'ID'         :{type:'int',   text:'Node-ID',    tip:'Node-ID in TMDB' },
+              'Name'       :{type:'regex', text:'Node-name',  tip:'javascript regular expression' },
+              'SE'         :{type:'regex', text:'SE-name',    tip:'javascript regular expression' },
+              'Kind'       :{type:'regex', text:'Kind',       tip:'javascript regular expression' },
+              'Technology' :{type:'regex', text:'Technology', tip:'javascript regular expression' }
             }
           }
-        },
+        }
       },
 
       initData: function() {
@@ -63,9 +63,9 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         this.dom.title.innerHTML = 'Parsing data';
         this.data = data.node;
         this.dom.title.innerHTML = this.me+': '+this.data.length+" found";
-        this.fillDataSource(this.data);
+        this.fillDataSource(this.data, true);
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
