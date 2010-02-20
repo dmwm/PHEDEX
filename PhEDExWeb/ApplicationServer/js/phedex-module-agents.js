@@ -10,8 +10,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.Agents = function(sandbox, string) {
   YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
 
-  var _sbx = sandbox,
-      node;
+  var _sbx = sandbox, node;
   log('Module: creating a genuine "'+string+'"','info',string);
 
    _construct = function(obj) {
@@ -24,8 +23,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           payload:{
             target: 'extra',
             handler: 'fillExtra',
-            animate:false,
-//             hover_timeout:200,
+            animate:false
+            // hover_timeut:200,
           }
         },
         {
@@ -37,15 +36,15 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             animate:false,
             map: {
               gotData:     'Disable',
-              dataExpires: 'Enable',
-            },
+              dataExpires: 'Enable'
+            }
           }
         },
         {
           name: 'ContextMenu',
           source:'component-contextmenu',
           payload:{
-            args: {'agent':'Name'},
+            args: {'agent':'Name'}
           }
         },
         {
@@ -54,11 +53,11 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
             onInit: 'hideFields',
-            container: 'param',
-          },
+            container: 'param'
+          }
         },
       ],
 
@@ -66,7 +65,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         width:500,
         height:200,
         minwidth:600,
-        minheight:50,
+        minheight:50
       },
 
       meta: {
@@ -85,16 +84,16 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           'Agent attributes':{
             map: { to:'A' },
             fields: {
-              'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
-              'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
-              'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
-              'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds ago, i.e. min is most recent)', preprocess:'toTimeAgo' },
-              'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
-              'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
-              'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
+              'Agent'       :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
+              'Label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
+              'PID'         :{type:'int',    text:'PID',             tip:'Process-ID' },
+              'Date'        :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds ago, i.e. min is most recent)', preprocess:'toTimeAgo' },
+              'Version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
+              'Host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
+              'State Dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
             }
           }
-        },
+        }
       },
 
 /** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed. If the module does not have enough parameters defined, it can notify the sandbox with <strong>needArguments</strong>, and someone out there (e.g. the global filter or the navigator history) can attempt to supply them
@@ -134,7 +133,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         this.dom.title.innerHTML = 'Parsing data';
         this.data = data.node[0].agent;
         this.dom.title.innerHTML = node+': '+this.data.length+" agents";
-        this.fillDataSource(this.data);
+        this.fillDataSource(this.data, true);
         _sbx.notify( this.id, 'gotData' );
 //      Fake notification that the data is now stale. This should use the 'Expires' or 'Cache-Control' header from the data-service, but that isn't returned in the data
         setTimeout( function(obj) {
@@ -164,7 +163,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
         }
         this.dom.extra.innerHTML = msg;
-      },
+      }
     };
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
