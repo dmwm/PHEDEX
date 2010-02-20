@@ -144,7 +144,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = dataGroup.node;
                 this.dom.title.innerHTML = _groupname + ': ' + dataGroup.node.length + ' nodes found';
-                this.fillDataSource(dataGroup);
+                this.fillDataSource(dataGroup, false);
                 _sbx.notify( this.id, 'gotData' );
             }
         };
