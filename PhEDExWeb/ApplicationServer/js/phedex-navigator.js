@@ -166,11 +166,11 @@ PHEDEX.Navigator = function(sandbox) {
       var newState = '';
       for (var key in this.state)
       {
-        var valid = false;
-        try { valid = this.state[key].isValid() } catch(ex) {  }
+        var valid = false, value, o = this.state[key];
+        try { valid = o.isValid() } catch(ex) {  }
         if ( !valid ) { return null; }
-//         if ( !this.state[key].isValid() ) { return null; }
-        var value = this.state[key].state();
+        if ( o.obj ) { value = o.state.apply(o.obj); }
+        else         { value = o.state(); }
         if ( !value ) { log('State: key='+key+' got '+value,'warn',this.me); continue; }
         if ( newState ) { newState += _hist_sym_sep; }
         newState += key + _hist_sym_equal + value;
@@ -450,7 +450,7 @@ PHEDEX.Navigator = function(sandbox) {
             this.cfg = args.cfg;
 
             _sbx.listen(this.id,this.selfHandler);
-            _sbx.listen('ModuleExists',      this.moduleHandler);
+            _sbx.listen('ModuleExists',this.moduleHandler);
             _sbx.notify('ModuleExists',this); // let the Core drive my decorators etc
             _sbx.notify(this.id,'loadDecorators',this);
             _sbx.replaceEvent('CreateModule','_navCreateModule');
