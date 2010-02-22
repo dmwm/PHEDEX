@@ -37,6 +37,29 @@ PHEDEX.DataTable = function(sandbox, string) {
         return table;
     };
 
+/** return a boolean indicating if the module is in a fit state to be bookmarked
+ * @method isStateValid
+ * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+ */
+     this.isStateValid = function() { return true; };
+
+/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
+ * @method getState
+ * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
+ */
+    this.getState = function() {
+        var dirMap = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' },
+            state = '';
+        if ( this.meta.sort ) {
+          state = 'sort{'+this.meta.sort.field+'.'+dirMap[this.meta.sort.dir]+'}';
+        }
+        if ( this.ctl.filter ) {
+          if ( state ) { state += ','; }
+          state += this.ctl.filter.asString;
+        }
+        return state;
+      };
+
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
     * @method _construct
@@ -234,8 +257,8 @@ PHEDEX.DataTable = function(sandbox, string) {
                 var w = this.dataTable.getTableEl().offsetWidth;
                 if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
                 this.el.style.width = w + 'px';
-            }
-        };
+            },
+       };
     };
     YAHOO.lang.augmentObject(this, _construct(), true);
     return this;
