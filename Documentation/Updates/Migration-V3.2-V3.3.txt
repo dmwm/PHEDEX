@@ -17,19 +17,27 @@ export PHEDEX_INSTANCE=Dev;
 export PHEDEX_DB="./DBParam:${PHEDEX_INSTANCE}/Admin";
 export PHEDEX_DB_R="./DBParam:${PHEDEX_INSTANCE}/Reader";
 export PHEDEX_DB_W="./DBParam:${PHEDEX_INSTANCE}/CERN";
+export PHEDEX_CON=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
+export PHEDEX_CON_R=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R});
+export PHEDEX_CON_W=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W});
+export PHEDEX_SCHEMA=$(echo $PHEDEX_CON | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_R=$(echo $PHEDEX_CON_R | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_W=$(echo $PHEDEX_CON_W | perl -p -e 's|/.*$||')
+env | egrep 'PHEDEX_(DB|CON|SCHEMA)';
 
 # Get rid of X tables
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleResetOld.sql </dev/null
+sqlplus -S $PHEDEX_CON @PHEDEX/Schema/OracleResetOld.sql </dev/null
 
 # Update the triggers
-sqlplus -S $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) @PHEDEX/Schema/OracleCoreTriggers.sql </dev/null
+sqlplus -S $PHEDEX_CON @PHEDEX/Schema/OracleCoreTriggers.sql </dev/null
 
 # Connect to DB using SQLPlus
-sqlplus $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB})
+sqlplus $PHEDEX_CON
 
 -- Some session settings
 set serveroutput on size 100000;
 set timing on;
+spool migration.sqllog
 
 -- Rename tables to be updated
 
@@ -454,11 +462,11 @@ drop index ix_dps_block_dataset;
 # IMPORTANT: Use the right DB instance below for Dev (_test) and Debug (_sc)!!
 
 # Create synonmys
-PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R})
-PHEDEX/Schema/OracleSyns.sh 'cms_transfermgmt' $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W})
+PHEDEX/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_R
+PHEDEX/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_W
 
 # Create privileges
-PHEDEX/Schema/OraclePrivs.sh $(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB}) 'cms_transfermgmt_reader' 'cms_transfermgmt_writer'
+PHEDEX/Schema/OraclePrivs.sh $PHEDEX_CON $PHEDEX_SCHEMA_R $PHEDEX_SCHEMA_W
 
 -- All done!
 exit;
