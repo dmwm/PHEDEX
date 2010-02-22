@@ -685,6 +685,17 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
   var _sbx = sandbox;
   _construct = function() {
     return {
+        /**
+        * Resets the filter in the module.
+        * @method resetFilter
+        * @param arg {Object} The array of column keys with user entered filter values.
+        * @private
+        */
+        resetFilter: function(args) {
+// TODO This is a big hammer. Would be better to cache the original tree and work with that...
+          this.applyFilter({});
+        },
+
       _init: function() {
         var moduleHandler = function(o) {
           return function(ev,arr) {
