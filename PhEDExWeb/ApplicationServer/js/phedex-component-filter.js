@@ -19,12 +19,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         case 'Filter': {
           switch (subAction) {
             case 'Cancel': {
-              obj.ResetFilter( true );
+              obj._resetFilter( true );
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
               break;
             }
             case 'Reset': {
-              obj.ResetFilter( false );
+              obj._resetFilter( false );
               obj.resetFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
               YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
@@ -474,7 +474,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         return;
       },
 
-      ResetFilter: function( rollback ) { // rollback to last set values? Or wipe clean?
+      _resetFilter: function( rollback ) { // rollback to last set values? Or wipe clean?
         var a, el, c, name, key, i;
         for (name in this.args) {
           a = this.args[name];
