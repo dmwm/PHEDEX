@@ -21,6 +21,7 @@ PHEDEX.Module = function(sandbox, string) {
   _construct = function() {
     return {
       me: string,
+      meta: {},
       /**
        * Initialise the object by setting its properties. This simply sets the objects attributes, according to whatever algorithm is appropriate. It does not create DOM elements or PhEDEx data-structures, they are the province of <strong>initDom</strong> and <strong>initDerived</strong> respectively. Granular initialisation like this allows external components to intercede at specific points, should they wish to do so.
        * @method init
@@ -162,17 +163,6 @@ PHEDEX.Module = function(sandbox, string) {
         _sbx.notify( this.id, 'initData' );
       },
 
-/** return a boolean indicating if the module is in a fit state to be bookmarked
- * @method isStateValid
- * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
- */
-      isStateValid: function() { return false; },
-/** return a string containing the state of the module, in whatever manner is appropriate for the module to be able to restore itself. Must be over-ridden by derived classes.
- * @method getState
- * @return state {string} a string, possibly JSON, that can be interpreted by the StateChanged notification
- */
-      getState: function() { },
-
       /**
        * Called after initDom, this finishes the internal module-structure. Now that the object is complete, it can be made live, i.e. connected to the core by installing a listener for 'module'. It also installs a self-handler, listening for its own id. This is used for interacting with its decorations
        * @method initModule
@@ -241,10 +231,10 @@ PHEDEX.Module = function(sandbox, string) {
              case 'StateChanged': {
                 break;
               }
-              case 'getStatePlugin': {
-                obj[action](value);
-                break;
-              }
+//               case 'getStatePlugin': {
+//                 obj.getStatePlugin(value);
+//                 break;
+//               }
               default: {
                 if ( obj[action] && obj.allowNotify[action]) {
                   log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
@@ -390,7 +380,13 @@ PHEDEX.Module = function(sandbox, string) {
           }
         }
       },
-
+/** return an object defining the statePlugin, with <strong>key</strong>, <strong>state</strong>, and <strong>isValid</strong>fields
+ * @method getStatePlugin
+ * @return state-plugin {object} with two keys, <strong>state</strong> (a function that will return a string representing the state) and <strong>isStateValid</strong> (function that returns a boolean telling if the state is valid for bookmarking)
+ */
+      getStatePlugin: function(who) {
+        _sbx.notify(who,'statePlugin', {key:'module', state:this['getState'], isValid:this['isStateValid'], obj:this});
+      },
     };
   };
   YAHOO.lang.augmentObject(this, _construct());
