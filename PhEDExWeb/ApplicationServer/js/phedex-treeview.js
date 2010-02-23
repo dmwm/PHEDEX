@@ -11,6 +11,45 @@ PHEDEX.TreeView = function(sandbox,string) {
   var _me  = 'treeview',
       _sbx = sandbox;
 
+/** return a boolean indicating if the module is in a fit state to be bookmarked
+ * @method isStateValid
+ * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+ */
+    this.isStateValid = function() {
+      if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
+      return false;
+    }
+
+/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
+ * @method getState
+ * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
+ */
+    this.getState = function() {
+//         var dirMap = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' },
+        var state = '',
+            m = this.meta, i, key;
+        if ( !m ) { return state; }
+        if ( m.sort ) {
+//           state = 'sort{'+m.sort.field+'.'+dirMap[m.sort.dir]+'}';
+          state = 'sort{'+m.sort.field+'.'+m.sort.type+'.'+m.sort.dir+'}';
+        }
+        if ( m.hide ) {
+          state += 'hide{';
+          i = 0;
+          for (key in m.hide) {
+            if ( i++ ) { state += '.'; }
+            state += key;
+          }
+          state += '}';
+        }
+        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter? Or cache the string in this.meta?
+          state += 'filter{';
+          state += this.ctl.Filter.asString();
+          state += '}';
+        }
+        return state;
+      };
+
   /**
    * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
    * @method _construct
@@ -251,11 +290,14 @@ PHEDEX.TreeView = function(sandbox,string) {
         while (i = this.tree.root.children[0]) { this.tree.removeNode(i); }
       },
 
-      menuSelectItem: function(arg) {
-        YuD.getElementsByClassName(arg,null,this.el,function(element) {
-          element.style.display = null;
-        });
-        delete this.meta.hide[arg];
+      menuSelectItem: function(args) {
+        for (var i in args) {
+          YuD.getElementsByClassName(args[i],null,this.el,function(element) {
+            element.style.display = null;
+          });
+          delete this.meta.hide[args[i]];
+        }
+        _sbx.notify(this.id, 'updateHistory');
       },
 
       hideFieldByClass: function(className,el) {
@@ -265,6 +307,7 @@ PHEDEX.TreeView = function(sandbox,string) {
           element.style.display = 'none';
         });
         _sbx.notify(this.id,'hideColumn',{text: this._cfg.classes[className].value, value:className});
+//                 _sbx.notify(this.id, 'updateHistory');
       },
 
       /**
@@ -572,6 +615,10 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
          YuD.addClass(elAncestor,'phedex-invisible');
        }
+
+        obj.meta.sort.type = type;
+        obj.meta.sort.dir  = dir;
+        _sbx.notify(obj.id, 'updateHistory');
       },
 
       prepare: function(el,type,dir) {
@@ -584,7 +631,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         s.field = className;
         s.dir   = dir;
         s.type  = type;
-        this.execute(className,type,dir);
+        this.execute(className,field,dir);
       },
 
       doSort: function() {
@@ -728,7 +775,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
               if ( className != key ) { continue; }
               kValue = tNode.data.values[i];
               if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-              status = this.Apply[this.fields[key].type](fValue,kValue);
+              status = this.Apply[this.meta.filter.fields[key].type](fValue,kValue);
               if ( args[key].negate ) { status = !status; }
               if ( !status ) { // Keep the element if the match succeeded!
                 tNode.collapse();
@@ -748,6 +795,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           ancestor = YuD.getAncestorByClassName(elParent,'ygtvtable');
           YuD.addClass(ancestor,'phedex-core-control-widget-applied');
         }
+        _sbx.notify(obj.id,'updateHistory');
         return this.count;
       },
 
