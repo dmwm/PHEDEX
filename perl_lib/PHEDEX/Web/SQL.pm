@@ -2706,4 +2706,51 @@ sub getRouterHistory
     return \@r;
 }
 
+sub getPendingRequests
+{
+    my ($core, %h) = @_;
+
+    my $sql = qq {
+        select
+            distinct r.id
+        from
+            t_req_request r
+            join t_req_node n on r.id = n.request
+            join t_adm_node n2 on n2.id = n.node
+            join t_adm_client c on c.id = r.created_by
+            join t_adm_identity i on i.id = c.identity
+            left join t_req_decision d on d.request = n.request and d.node = d.node
+        where
+            d.node is null };
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        USERNAME => 'i.username',
+        NODE => 'n2.name'));
+
+    $sql .= " and ($filters) " if $filters;
+
+    if (exists $h{CREATE_SINCE})
+    {
+        $sql .= " and r.time_create >= :create_since ";
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+    }
+
+    $sql .= " order by r.id ";
+
+    # my $q = execute_sql($core, $sql, %p);
+    my $r = select_single($core, $sql, %p);
+    my $type;
+    if (exists $h{TYPE})
+    {
+        $type = $h{TYPE};
+    }
+    else
+    {
+        $type = 'xfer';
+    }
+    my %param = ( TYPE => $type, REQUEST => $r );
+    return getRequestData($core, %param);
+}
+
 1;
