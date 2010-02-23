@@ -47,6 +47,13 @@ PHEDEX.TreeView = function(sandbox,string) {
           state += this.ctl.Filter.asString();
           state += '}';
         }
+        if ( typeof(this.specificState) == 'function' )
+        {
+          state += 'specific{';
+          var i, s = this.specificState();
+          for (i in s) { state += i+'='+s[i]; }
+          state +='}';
+        }
         return state;
       };
 
@@ -406,12 +413,13 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('treeview');
     if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
-    PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', function(opts,el) {
+    var fn = function(opts,el) {
       var elPhedex = obj.locateNode(el.target);
       var elClass = obj.getPhedexFieldClass(elPhedex);
       obj.meta.hide[elClass] = 1;
       obj.hideFieldByClass(elClass);
-    });
+    };
+    PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
     return {
 //    Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
@@ -623,15 +631,15 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
       prepare: function(el,type,dir) {
 //     simply unpack the interesting bits and feed it to the object
-        var obj       = el.obj,
-            target    = obj.locateNode(el.target),
-            className = obj.getPhedexFieldClass(target),
-            s         = obj.meta.sort;
+        var obj    = el.obj,
+            target = obj.locateNode(el.target),
+            field  = obj.getPhedexFieldClass(target),
+            s      = obj.meta.sort;
         if ( !s ) { s = obj.meta.sort = {}; }
-        s.field = className;
+        s.field = field;
         s.dir   = dir;
         s.type  = type;
-        this.execute(className,field,dir);
+        this.execute(field,type,dir);
       },
 
       doSort: function() {

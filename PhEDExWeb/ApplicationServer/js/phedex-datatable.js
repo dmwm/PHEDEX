@@ -72,6 +72,13 @@ PHEDEX.DataTable = function(sandbox, string) {
           state += this.ctl.Filter.asString();
           state += '}';
         }
+        if ( typeof(this.specificState) == 'function' )
+        {
+          state += 'specific{';
+          var i, s = this.specificState();
+          for (i in s) { state += i+'='+s[i]; }
+          state +='}';
+        }
         return state;
       };
 
@@ -325,13 +332,11 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('datatable');
-    var fn = function/*(o) {
-      return function*/(opts, el) {
-        log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
-        obj.meta.hide[el.col.key] = 1;
-        el.table.hideColumn(el.col);
-      }
-//     }(obj);
+    var fn = function(opts, el) {
+      log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
+      obj.meta.hide[el.col.key] = 1;
+      el.table.hideColumn(el.col);
+    }
     PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
 
     return {

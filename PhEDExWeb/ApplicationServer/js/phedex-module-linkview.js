@@ -177,6 +177,10 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         }
       },
 
+      specificState: function() {
+        return {time:_time, dir:_direction};
+      },
+
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
       changeTimebin: function(arg) {
         _time = parseInt(arg);
