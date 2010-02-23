@@ -367,8 +367,7 @@ PHEDEX.Navigator = function(sandbox) {
             }
             case 'gotData':
             case 'updateHistory':
-            case 'hideColumn':
-            case 'applyFilter': {
+            case 'hideColumn': {
               o._addToHistory();
               break;
             }
