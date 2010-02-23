@@ -548,7 +548,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
                 else          { seg +=      seg1 +'&'+ seg2; }
               }
             }
-            if ( str ) { str += ','; }
+            if ( str ) { str += ' '; }
             str += seg;
           }
         return str;
