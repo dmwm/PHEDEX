@@ -181,9 +181,9 @@ div .phedex-sorted {
 .phedex-filter-elem-invalid {
   background-color: #fdd;
 }
-.phedex-filter-elem-minmax {
+.phedex-filter-elem-minmax, .phedex-filter-elem-minmaxFloat, .phedex-filter-elem-minmaxPct {
   width: 80px;
-  padding: 0 0 0 2em;
+  text-align: right;
 }
 .phedex-global-filter {
   margin: 5px 0 0;
