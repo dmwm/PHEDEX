@@ -543,7 +543,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( fValue.max != null ) { c++; seg2 = mKey+'<'+fValue.max; }
               if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
               if ( c == 1 ) { seg += ( seg1 || seg2 ); } // one or the other is set
-              if ( c == 2 ) { seg += seg1 +'&'+ seg2; }  // both are set
+              if ( c == 2 ) {  // both are set
+                if ( negate ) { seg += '('+ seg1 +'&'+ seg2 + ')'; }
+                else          { seg +=      seg1 +'&'+ seg2; }
+              }
             }
             if ( str ) { str += ','; }
             str += seg;
