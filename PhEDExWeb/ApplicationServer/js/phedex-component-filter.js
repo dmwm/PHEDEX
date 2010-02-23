@@ -127,8 +127,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       _init: function(args) {
         var apc = payload.control, o, p;
         this.dom.filter = document.createElement('div');
-        this.structure = { f:[], r:[] };  // mapping of field-to-group, and reverse-mapping of same
-        this.map = [];
+//         this.map = [];
         this.context_el = obj.dom[apc.payload.context || 'content'];
         this.align_el   =  apc.payload.align || 'tl';
         o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]}); // obj.dom.content,'tl','tl']});
@@ -154,19 +153,19 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         }
         this.BuildOverlay();
         if ( obj.meta ) {
-          this.createMeta(obj.meta.filter);
+          this.meta.filter = this.createMeta(obj.meta.filter);
           this.BuildFilter();
         }
       },
 
       createMeta: function(f) {
-//         var f = obj.meta.filter;
+        var meta = { structure: { f:[], r:[] }, map:[], fields:[] };  // mapping of field-to-group, and reverse-mapping of same
         for (var i in f) {
           if ( f[i].map ) {
-            this.map[i] = {to:f[i].map.to};
+            meta.map[i] = {to:f[i].map.to};
             if ( f[i].map.from ) {
-              this.map[i].from = f[i].map.from;
-              this.map[i].func = function(f,t) {
+              meta.map[i].from = f[i].map.from;
+              meta.map[i].func = function(f,t) {
                 return function(str) {
                   var re = new RegExp(f,'g');
                   str = str.replace(re, t+'.');
@@ -175,13 +174,14 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               }(f[i].map.from,f[i].map.to);
             };
           }
-          this.structure['f'][i] = [];
+          meta.structure['f'][i] = [];
           for (var j in f[i].fields) {
-            this.structure['f'][i][j]=0;
-            this.structure['r'][j] = i;
-            this.fields[j] = f[i].fields[j];
+            meta.structure['f'][i][j]=0;
+            meta.structure['r'][j] = i;
+            meta.fields[j] = f[i].fields[j];
           }
         }
+        return meta;
       },
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -275,9 +275,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         toPercent: function(x) { return 100*x; },
       },
 
-      fields: [],
       isDefined: function() {
-        for (var j in this.fields) { return 1; }
+        for (var j in this.meta.filter.fields) { return 1; }
         return 0;
       },
 
@@ -289,7 +288,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       BuildFilter: function() {
         this.dom.filter.innerHTML = null;
         if ( !this.ctl )  { this.ctl = {}; }
-        for (var label in this.structure['f']) {
+        for (var label in this.meta.filter.structure['f']) {
           var fieldset = document.createElement('fieldset'),
               legend = document.createElement('legend'),
 
@@ -322,8 +321,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
 
-          for (var key in this.structure['f'][label]) {
-            var c = this.fields[key],
+          for (var key in this.meta.filter.structure['f'][label]) {
+            var c = this.meta.filter.fields[key],
                 focusOn, outer, inner, e;
             if ( !c.value ) { c.value = null; }
 
@@ -417,7 +416,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         var isValid = true,
             keyMatch = /^phedex-filter-key-/,
             innerList = this.meta.inner,
-            nItems, nSet, values, value, el, key, elClasses, type, s, a;
+            nItems, nSet, values, value, el, key, elClasses, type, s, a,
+            fields = this.meta.filter.fields;
         this.args = {};
         nItems = 0;
         for (var i in innerList) {
@@ -444,12 +444,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
 // 2. parse the values and validate them
           if ( nSet ) {
-            type = this.fields[el.name].type;
+            var x = fields[el.name];
+            type = x.type;
             s = this.Validate[type](values);
             if ( s.result ) {
               nItems++;
               a.values = s.parsed;
-              var x = this.fields[el.name];
               if ( x.format ) { this.args[i].format = x.format; }
               if ( x.preprocess ) {
                 if ( typeof(x.preprocess) == 'string' ) {
@@ -461,7 +461,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               a.negate = this.meta.cBox[a.name].checked;
               this.args[a.name] = a;
             } else {
-              YAHOO.log('Invalid entry for "'+this.fields[el.name].text+'", aborting accept','error','Core.Widget');
+              YAHOO.log('Invalid entry for "'+fields[el.name].text+'", aborting accept','error','Core.Widget');
               this.setInvalid(innerList[i],isValid);
               isValid = false;
             }
@@ -481,7 +481,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           i = 0;
           for (key in a.values) {
             el = this.meta.el[a.id[key]];
-            c = this.fields[el.name];
+            c = this.meta.filter.fields[el.name];
             if ( !rollback ) {
               if ( c.value ) { a.values[key] = c.value[key]; }
               else { a.values[key] = null; }
@@ -519,16 +519,16 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       asString: function(args) {
-        var str = '';
+        var str = '', fMeta = this.meta.filter;
         if ( !args ) { args = this.args; }
         for (var key in args) {
           var mKey = key;
           if ( typeof(args[key].values) == 'undefined' ) { continue; }
-          var rKey = this.structure['r'][key];
-          if ( this.map[rKey].func ) {
-            mKey = this.map[rKey].func(key);
+          var rKey = fMeta.structure['r'][key];
+          if ( fMeta.map[rKey].func ) {
+            mKey = fMeta.map[rKey].func(key);
           } else {
-            mKey = this.map[rKey].to + '.' + key;
+            mKey = fMeta.map[rKey].to + '.' + key;
           }
           var fValue = args[key].values;
           if ( args[key].format ) { fValue = args[key].format(fValue); }

@@ -470,24 +470,25 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
         */
         applyFilter: function(args) {
             // Parse the cached data to filter it and form new data that feeds the datasource
-            var keep, fValue, kValue, status, a, pathcache = {}, table = [];
+            var keep, fValue, kValue, status, a, pathcache = {}, table = [], field;
             if (!args) { args = this.args; }
             for (var i in obj.data) {
                 keep = true;
                 for (var j in args) {
                     a = args[j];
+                    field = this.meta.filter.fields[j];
                     if (typeof (a.values) == 'undefined') { continue; }
                     fValue = a.values;
                     kValue = obj.data[i][j];
                     // If buildPath is true, then the column key has to be resolved to build complete path to get the value
-                    if (this.fields[j].buildPath) {
+                    if (field.buildPath) {
                         if (!pathcache[j]) {
                             pathcache[j] = _buildPath(j);
                         }
                         kValue = _walkPath(pathcache[j], obj.data[i]);
                     }
                     if (a.preprocess) { kValue = a.preprocess(kValue); }
-                    status = this.Apply[this.fields[j].type](fValue, kValue);
+                    status = this.Apply[field.type](fValue, kValue);
                     if (a.negate) { status = !status; }
                     if (!status) { // Keep the element if the match succeeded!
                         this.count++;
