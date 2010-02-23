@@ -216,10 +216,10 @@ PHEDEX.DataTable = function(sandbox, string) {
                 if (!s.dir) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
                 if (s.field) {
                     if (s.sorted_field == s.field &&
-                     s.sorted_dir == s.dir &&
-                    !this.sortNeeded) { return; } // break the chain!
+                        s.sorted_dir   == s.dir &&
+                       !this.sortNeeded) { return; } // break the chain!
                     s.sorted_field = s.field;
-                    s.sorted_dir = s.dir;
+                    s.sorted_dir   = s.dir;
                     this.sortNeeded = false;
                     this.dataTable.sortColumn(this.dataTable.getColumn(s.field), s.dir);
                 }
@@ -258,6 +258,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                         var column = obj.dataTable.getColumn(ev.column);
                         obj.meta.sort.field = column.key;
                         obj.meta.sort.dir = ev.dir;
+                        _sbx.notify(obj.id,'updateHistory');
                     }
                 } (this));
 
