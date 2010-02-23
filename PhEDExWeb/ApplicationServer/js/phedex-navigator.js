@@ -16,7 +16,6 @@ PHEDEX.Navigator = function(sandbox) {
       _hist_sym_sep = "+",    //This character separates the states in the history URL
       _hist_sym_equal = "~",  //This character indicates the state value
       _initialPageState,
-      _targetPageState,
       me = 'navigator';
 
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
@@ -63,13 +62,11 @@ PHEDEX.Navigator = function(sandbox) {
         }
         if (pgstate) {
             state = _parseQueryString(pgstate); //Parse the current history state and get the key and its values
-//             if (state.widget) {
-//                 state.widget = _getWidget(state); //Get the widget given the widget name
-//             }
         }
         if (!state) { return; } //Do Nothing and return
         for (var key in obj.state)
         {
+          if ( key == 'module' ) { continue; } // TODO don't take action on changes in internal module state
           if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
@@ -77,9 +74,9 @@ PHEDEX.Navigator = function(sandbox) {
             changed++;
           }
         }
-        log('setState: '+changed+' changes w.r.t. currently known state','info',this.me);
+        log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',this.me);
+        _sbx.notify('currentState',pgstate);
         if ( !changed ) { return; }
-        _targetPageState = state;
         _sbx.notify(obj.id,'StateChanged',state);
       };
     }(this);
@@ -187,12 +184,12 @@ PHEDEX.Navigator = function(sandbox) {
         try {
             newState = this._getCurrentState();
             if ( !newState ) { return; }
+            _sbx.notify(this.id,'UpdatePermalink',newState);
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
                 log('addToHistory: '+newState,'info',this.me);
                 YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
-                _sbx.notify(this.id,'UpdatePermalink',newState);
             } else {
                 log('addToHistory: state unchanged','info',this.me);
             }
@@ -368,7 +365,10 @@ PHEDEX.Navigator = function(sandbox) {
               _sbx.notify(who,'getStatePlugin',o.id);
               break;
             }
-            case 'gotData': {
+            case 'gotData':
+            case 'updateHistory':
+            case 'hideColumn':
+            case 'applyFilter': {
               o._addToHistory();
               break;
             }
