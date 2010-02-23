@@ -87,27 +87,29 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
 // these two button-handlers could be factored out as extensions to the basic type...?
         button.on("click", function (obj) {
           return function() {
-            var m = column_menu.getItems();
+            var m = column_menu.getItems(),
+                v = [];
             for (var i = 0; i < m.length; i++) {
-              _sbx.notify(partner,'menuSelectItem',m[i].value,obj.id);
+              v.push(m[i].value);
             }
+              _sbx.notify(partner,'menuSelectItem',v,obj.id);
             column_menu.clearContent();
             obj.refreshButton();
-            _sbx.notify(partner,'resizePanel');
+//             _sbx.notify(partner,'resizePanel'); // not used yet...
           }
         }(this));
 
         button.on("appendTo", function (obj) {
           return function() {
-            var m = this.getMenu();
+            var m = this.getMenu(), h = {};
             m.subscribe("click", function onMenuClick(sType, oArgs) {
               var oMenuItem = oArgs[1];
               if (oMenuItem) {
-                _sbx.notify(partner,'menuSelectItem',oMenuItem.value);
+                _sbx.notify(partner,'menuSelectItem',[oMenuItem.value]);
                 m.removeItem(oMenuItem.index);
                 obj.refreshButton();
               }
-            _sbx.notify(partner,'resizePanel');
+//             _sbx.notify(partner,'resizePanel'); // not used yet...
             });
           }
         }(this));
