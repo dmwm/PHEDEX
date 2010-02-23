@@ -41,7 +41,10 @@ PHEDEX.DataTable = function(sandbox, string) {
  * @method isStateValid
  * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
  */
-     this.isStateValid = function() { return true; };
+    this.isStateValid = function() {
+      if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
+      return false;
+    }
 
 /** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
  * @method getState
@@ -49,13 +52,25 @@ PHEDEX.DataTable = function(sandbox, string) {
  */
     this.getState = function() {
         var dirMap = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' },
-            state = '';
-        if ( this.meta.sort ) {
-          state = 'sort{'+this.meta.sort.field+'.'+dirMap[this.meta.sort.dir]+'}';
+            state = '',
+            m = this.meta, i, key;
+        if ( !m ) { return state; }
+        if ( m.sort ) {
+          state = 'sort{'+m.sort.field+'.'+dirMap[m.sort.dir]+'}';
         }
-        if ( this.ctl.filter ) {
-          if ( state ) { state += ','; }
-          state += this.ctl.filter.asString;
+        if ( m.hide ) {
+          state += 'hide{';
+          i = 0;
+          for (key in m.hide) {
+            if ( i++ ) { state += '.'; }
+            state += key;
+          }
+          state += '}';
+        }
+        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter? Or cache the string in this.meta?
+          state += 'filter{';
+          state += this.ctl.Filter.asString();
+          state += '}';
         }
         return state;
       };
@@ -81,7 +96,9 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @private
             */
             initDerived: function() {
-                var t = this.meta.table;
+                var m = this.meta, t = m.table, h = {}, i;
+                for (i in m.hide ) { h[m.hide[i]] = 1; }
+                m.hide = h;
                 if (t) {
                     this.buildTable(t.columns, t.map, t.schema)
                     _sbx.notify(this.id, 'initDerived');
@@ -137,8 +154,8 @@ PHEDEX.DataTable = function(sandbox, string) {
             */
             hideFields: function() {
                 if (this.meta.hide) {
-                    for (var i in this.meta.hide) {
-                        var column = this.dataTable.getColumn(this.meta.hide[i]);
+                    for (var key in this.meta.hide) {
+                        var column = this.dataTable.getColumn(key);
                         if (column) { this.dataTable.hideColumn(column); }
                     }
                 }
@@ -170,8 +187,12 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @private
             * @param arg {string} The name of a column.
             */
-            menuSelectItem: function(arg) {
-                this.dataTable.showColumn(this.dataTable.getColumn(arg));
+            menuSelectItem: function(args) {
+                for (var i in args) {
+                  delete this.meta.hide[args[i]];
+                  this.dataTable.showColumn(this.dataTable.getColumn(args[i]));
+                }
+                _sbx.notify(this.id, 'updateHistory');
             },
 
             /**
@@ -303,10 +324,14 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('datatable');
-    PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',function(opts, el) {
-      log('hideField: ' + el.col.key, 'info', 'ContextMenu');
-      el.table.hideColumn(el.col);
-    });
+    var fn = function/*(o) {
+      return function*/(opts, el) {
+        log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
+        obj.meta.hide[el.col.key] = 1;
+        el.table.hideColumn(el.col);
+      }
+//     }(obj);
+    PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
 
     return {
         /**
@@ -316,18 +341,18 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
         */
         onContextMenuClick: function(p_sType, p_aArgs, obj) {
             log('ContextMenuClick for ' + obj.me, 'info', 'ContextMenu');
-            var menuitem = p_aArgs[1];
+            var menuitem = p_aArgs[1], tgt, opts={}, type;
             if (menuitem) {
                 //Extract which <tr> triggered the context menu
-                var tgt = this.contextEventTarget,
+                tgt = this.contextEventTarget,
                 elCol = obj.dataTable.getColumn(tgt),
                 elRow = obj.dataTable.getTrEl(tgt);
                 if (elRow) {
-                    var opts = {},
+                    opts = {};
                     oRecord = obj.dataTable.getRecord(elRow);
                     //Map types to column names in order to prepare our options
                     if (p.typeMap) {
-                        for (var type in p.typeMap) {
+                        for (type in p.typeMap) {
                             opts[type] = oRecord.getData(p.typeMap[type]);
                         }
                     }
