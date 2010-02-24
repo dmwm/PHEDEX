@@ -33,24 +33,6 @@ PHEDEX.Component.Menu = function(sandbox,args) {
     return {
       me: _me,
       payload: {},
-
-/* Add an item to the menu. Called from the generic module-handler that listens for the partner, hence the complicated arguments
- * @method addMenuItem
- * @param args {array} array of arguments. The first item in the array must be an object with <strong>text</strong> and <strong>value</strong> fields, which are passed to the menu <strong>addItem</strong> function.
- */
-//        addMenuItem: function(args) {
-//          column_menu.addItem({text:args[0].text, value:args[0].value});
-//          this.refreshButton();
-//        },
-
-/* refresh the button on-screen. Render it, and set the 'disabled' property depending on the number of items in the menu.
- * @method refreshButton
- */
-//       refreshButton: function() {
-//         column_menu.render(document.body);
-//         button.set('disabled', column_menu.getItems().length === 0);
-//       },
-
       _menu: [],
       _bin: args.payload.initial || -1,
 
@@ -69,6 +51,14 @@ PHEDEX.Component.Menu = function(sandbox,args) {
         if ( p.obj ) { partner = p.obj.id; }
 
         var changeBin = function(obj) {
+          return function(value) {
+debugger;
+            if ( obj._bin == value ) { return; }
+            obj._bin = value;
+          }
+        }(this),
+
+            selectBin = function(obj) {
           return function(e) {
             if ( obj._bin == this.value ) { return; }
             obj._bin = this.value;
@@ -98,7 +88,7 @@ PHEDEX.Component.Menu = function(sandbox,args) {
             value = q;
           }
           if ( p.initial == key ) { this._value=value; }
-          this._menu.push({ text: value, value:key, onclick: { fn: changeBin} });
+          this._menu.push({ text: value, value:key, onclick: { fn: selectBin} });
         }
         this._button = new YAHOO.widget.Button({
           type: 'menu',
@@ -109,51 +99,20 @@ PHEDEX.Component.Menu = function(sandbox,args) {
         });
         this._button.on('selectedMenuItemChange', onSelectedMenuItemChange);
 
-// these two button-handlers could be factored out as extensions to the basic type...?
-//         button.on("click", function (obj) {
-//           return function() {
-//             var m = column_menu.getItems();
-//             for (var i = 0; i < m.length; i++) {
-//               _sbx.notify(partner,'menuSelectItem',m[i].value,obj.id);
-//             }
-//             column_menu.clearContent();
-//             obj.refreshButton();
-//             _sbx.notify(partner,'resizePanel');
-//           }
-//         }(this));
-
-//         button.on("appendTo", function (obj) {
-//           return function() {
-//             var m = this.getMenu();
-//             m.subscribe("click", function onMenuClick(sType, oArgs) {
-//               var oMenuItem = oArgs[1];
-//               if (oMenuItem) {
-//                 _sbx.notify(partner,'menuSelectItem',oMenuItem.value);
-//                 m.removeItem(oMenuItem.index);
-//                 obj.refreshButton();
-//               }
-//             _sbx.notify(partner,'resizePanel');
-//             });
-//           }
-//         }(this));
-
-//         var selfHandler = function(obj) {
-//           return function(ev,arr) {
-//             var action = arr[0],
-//                 value = arr[1];
-//             switch (action) {
-//               default: { log('unhandled event: '+action,'warn',me); break; }
-//             }
-//           }
-//         }(this);
-//         _sbx.listen(this.id,selfHandler);
-
         var moduleHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0];
-            if ( action && obj.payload.map[action] ) {
+            if ( !action ) { return; }
+            if ( this[action] && typeof(this[action]) == 'function' ) {
+debugger;
+              if ( arr[2] != args.name ) { return; }
+              this[action](arr[3]);
+              return;
+            }
+            if ( obj.payload.map[action] ) {
               arr.shift();
               obj[obj.payload.map[action]](arr);
+              return;
             }
           }
         }(this);
