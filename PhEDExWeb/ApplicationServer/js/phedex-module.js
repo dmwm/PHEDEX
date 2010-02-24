@@ -380,6 +380,7 @@ PHEDEX.Module = function(sandbox, string) {
           }
         }
       },
+
 /** return an object defining the statePlugin, with <strong>key</strong>, <strong>state</strong>, and <strong>isValid</strong>fields
  * @method getStatePlugin
  * @return state-plugin {object} with two keys, <strong>state</strong> (a function that will return a string representing the state) and <strong>isStateValid</strong> (function that returns a boolean telling if the state is valid for bookmarking)
@@ -387,6 +388,51 @@ PHEDEX.Module = function(sandbox, string) {
       getStatePlugin: function(who) {
         _sbx.notify(who,'statePlugin', {key:'module', state:this['getState'], isValid:this['isStateValid'], obj:this});
       },
+
+/** create the necessary metadata to facilitate filter-functionality. This is just a reformatting of the filter-definition into a bunch of look-up hashes.
+ * @method createFilterMeta
+ * @return object containing the metadata
+ */
+      createFilterMeta: function() {
+        if ( this.meta._filter ) { return this.meta._filter; }
+        var meta = { structure: { f:[], r:[] }, map:[], fields:[] },  // mapping of field-to-group, and reverse-mapping of same
+            f = this.meta.filter,
+            re, str, i, j;
+        for (i in f) {
+          if ( f[i].map ) {
+            meta.map[i] = {to:f[i].map.to};
+            if ( f[i].map.from ) {
+              meta.map[i].from = f[i].map.from;
+              meta.map[i].func = function(f,t) {
+                return function(str) {
+                  re = new RegExp(f,'g');
+                  str = str.replace(re, t+'.');
+                  return str;
+                }
+              }(f[i].map.from,f[i].map.to);
+            };
+          }
+          meta.structure['f'][i] = [];
+          for (j in f[i].fields) {
+            meta.structure['f'][i][j]=0;
+            meta.structure['r'][j] = i;
+            meta.fields[j] = f[i].fields[j];
+          }
+        }
+        return meta;
+      },
+
+      friendlyName: function(key) {
+        var _filter = this.meta._filter,
+            rKey, mKey;
+        rKey = _filter.structure['r'][key];
+        if ( _filter.map[rKey].func ) {
+          mKey = _filter.map[rKey].func(key);
+        } else {
+          mKey = _filter.map[rKey].to + '.' + key;
+        }
+        return mKey;
+      }
     };
   };
   YAHOO.lang.augmentObject(this, _construct());
