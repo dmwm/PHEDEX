@@ -138,7 +138,7 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideFields:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1 },
+      allowNotify: { resizePanel:1, hideFields:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1, setState:1 },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -397,7 +397,18 @@ PHEDEX.Module = function(sandbox, string) {
         if ( this.meta._filter ) { return this.meta._filter; }
         var meta = { structure: { f:[], r:[] }, map:[], fields:[] },  // mapping of field-to-group, and reverse-mapping of same
             f = this.meta.filter,
-            re, str, i, j;
+            re, str, i, j, k, l;
+
+        for (i in f) {
+          l = {};
+          for (j in f[i].fields) {
+            k = j.replace(/ /g,'');
+            l[k] = f[i].fields[j];
+            l[k].original = j;
+          }
+          f[i].fields = l;
+        }
+
         for (i in f) {
           if ( f[i].map ) {
             meta.map[i] = {to:f[i].map.to};
@@ -425,12 +436,14 @@ PHEDEX.Module = function(sandbox, string) {
       friendlyName: function(key) {
         var _filter = this.meta._filter,
             rKey, mKey;
+        key = key.replace(/ /g,'');
         rKey = _filter.structure['r'][key];
         if ( _filter.map[rKey].func ) {
           mKey = _filter.map[rKey].func(key);
         } else {
           mKey = _filter.map[rKey].to + '.' + key;
         }
+//         mKey = mKey.replace(/ /g,'');
         return mKey;
       }
     };
