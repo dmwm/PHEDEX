@@ -153,35 +153,9 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         }
         this.BuildOverlay();
         if ( obj.meta ) {
-          this.meta.filter = this.createMeta(obj.meta.filter);
+          this.meta._filter = obj.createFilterMeta();
           this.BuildFilter();
         }
-      },
-
-      createMeta: function(f) {
-        var meta = { structure: { f:[], r:[] }, map:[], fields:[] };  // mapping of field-to-group, and reverse-mapping of same
-        for (var i in f) {
-          if ( f[i].map ) {
-            meta.map[i] = {to:f[i].map.to};
-            if ( f[i].map.from ) {
-              meta.map[i].from = f[i].map.from;
-              meta.map[i].func = function(f,t) {
-                return function(str) {
-                  var re = new RegExp(f,'g');
-                  str = str.replace(re, t+'.');
-                  return str;
-                }
-              }(f[i].map.from,f[i].map.to);
-            };
-          }
-          meta.structure['f'][i] = [];
-          for (var j in f[i].fields) {
-            meta.structure['f'][i][j]=0;
-            meta.structure['r'][j] = i;
-            meta.fields[j] = f[i].fields[j];
-          }
-        }
-        return meta;
       },
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
@@ -276,7 +250,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       isDefined: function() {
-        for (var j in this.meta.filter.fields) { return 1; }
+        for (var j in this.meta._filter.fields) { return 1; }
         return 0;
       },
 
@@ -288,15 +262,16 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       BuildFilter: function() {
         this.dom.filter.innerHTML = null;
         if ( !this.ctl )  { this.ctl = {}; }
-        for (var label in this.meta.filter.structure['f']) {
-          var fieldset = document.createElement('fieldset'),
-              legend = document.createElement('legend'),
+        var _filter = this.meta._filter, label, fieldset, legend, helpClass, helpCtl, hideClass, hideCtl;
+        for (label in _filter.structure['f']) {
+          fieldset = document.createElement('fieldset');
+          legend = document.createElement('legend');
 
-              helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence(),
-              helpCtl = document.createElement('span'),
+          helpClass = 'phedex-filter-help-class-'+PHEDEX.Util.Sequence();
+          helpCtl = document.createElement('span');
 
-              hideClass = 'phedex-filter-hide-class-'+PHEDEX.Util.Sequence(),
-              hideCtl = document.createElement('span');
+          hideClass = 'phedex-filter-hide-class-'+PHEDEX.Util.Sequence();
+          hideCtl = document.createElement('span');
 
           legend.appendChild(document.createTextNode(label));
           fieldset.appendChild(legend);
@@ -321,8 +296,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
 
-          for (var key in this.meta.filter.structure['f'][label]) {
-            var c = this.meta.filter.fields[key],
+          for (var key in _filter.structure['f'][label]) {
+            var c = _filter.fields[key],
                 focusOn, outer, inner, e;
             if ( !c.value ) { c.value = null; }
 
@@ -417,7 +392,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             keyMatch = /^phedex-filter-key-/,
             innerList = this.meta.inner,
             nItems, nSet, values, value, el, key, elClasses, type, s, a,
-            fields = this.meta.filter.fields;
+            fields = this.meta._filter.fields;
         this.args = {};
         nItems = 0;
         for (var i in innerList) {
@@ -481,7 +456,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           i = 0;
           for (key in a.values) {
             el = this.meta.el[a.id[key]];
-            c = this.meta.filter.fields[el.name];
+            c = this.meta._filter.fields[el.name];
             if ( !rollback ) {
               if ( c.value ) { a.values[key] = c.value[key]; }
               else { a.values[key] = null; }
@@ -519,26 +494,25 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       asString: function(args) {
-        var str = '', fMeta = this.meta.filter;
+        var str = '',
+            _filter = this.meta._filter,
+            key, mKey, rKey, fValue, negate, seg, c, seg1, deg2,
+            str = '';
         if ( !args ) { args = this.args; }
-        for (var key in args) {
-          var mKey = key;
+        for (key in args) {
+          mKey = key;
           if ( typeof(args[key].values) == 'undefined' ) { continue; }
-          var rKey = fMeta.structure['r'][key];
-          if ( fMeta.map[rKey].func ) {
-            mKey = fMeta.map[rKey].func(key);
-          } else {
-            mKey = fMeta.map[rKey].to + '.' + key;
-          }
-          var fValue = args[key].values;
+          mKey = obj.friendlyName(key);
+          fValue = args[key].values;
           if ( args[key].format ) { fValue = args[key].format(fValue); }
-          var negate = args[key].negate;
-          var seg = '';
+          negate = args[key].negate;
+          seg = '';
           if ( negate ) { seg = '!'; }
             if ( fValue.value != null ) {
               seg += mKey+'='+fValue.value;
             } else {
-              var c = 0, seg1 = null, seg2 = null;
+              c = 0;
+              seg1 = seg2 = null;
               if ( fValue.min != null ) { c++; seg1 = mKey+'>'+fValue.min; }
               if ( fValue.max != null ) { c++; seg2 = mKey+'<'+fValue.max; }
               if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
