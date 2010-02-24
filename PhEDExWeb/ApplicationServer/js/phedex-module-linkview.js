@@ -177,8 +177,27 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         }
       },
 
-      specificState: function() {
-        return {time:_time, dir:_direction};
+      specificState: function(state) {
+        if ( !state ) { return {time:_time, dir:_direction}; }
+        var i, k, v, kv, update=0, arr = state.split(' ');
+        for (i in arr) {
+          kv = arr[i].split('=');
+          k = kv[0];
+          v = kv[1];
+          if ( k == 'time' && v != _time      ) {
+            update++;
+            _time = v;
+//             _sbx.notify(this.id,'changeBin','TimeSelect',v);
+          }
+          if ( k == 'dir'  && v != _direction ) {
+            update++;
+            _direction = v;
+//             _sbx.notify(this.id,'changeBin','DirectionSelect',v);
+          }
+        }
+        if ( !update ) { return; }
+        log('set time='+_time+', dir='+_direction+' from state','info',this.me);
+        this.getData();
       },
 
 //   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
