@@ -77,6 +77,7 @@ PHEDEX.Navigator = function(sandbox) {
         log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',this.me);
         _sbx.notify('currentState',pgstate);
         if ( !changed ) { return; }
+        if ( state.module ) { obj.moduleState = state.module; }
         _sbx.notify(obj.id,'StateChanged',state);
       };
     }(this);
@@ -141,11 +142,22 @@ PHEDEX.Navigator = function(sandbox) {
     var _parseQueryString = function(strQuery) {
         var strTemp = "", indx = 0,
             arrResult = {},
-            arrQueries = strQuery.split(_hist_sym_sep);
+            arrQueries = strQuery.split(_hist_sym_sep),
+            subQueries, subStr, subState, i;
         for (indx = 0; indx < arrQueries.length; indx++) {
             strTemp = arrQueries[indx].split(_hist_sym_equal);
             if (strTemp[1].length > 0) {
-                arrResult[strTemp[0]] = strTemp[1];
+                subState = {};
+                subQueries = strTemp[1].split('}');
+                if (subQueries.length > 1) {
+                  for (i=0; i<subQueries.length; i++) {
+                    subStr = subQueries[i].split('{');
+                    if ( subStr.length == 2 ) { subState[subStr[0]] = subStr[1]; }
+                  }
+                  arrResult[strTemp[0]] = subState;
+                } else {
+                  arrResult[strTemp[0]] = strTemp[1];
+                }
             }
         }
         return arrResult;
@@ -355,6 +367,10 @@ PHEDEX.Navigator = function(sandbox) {
         case 'ModuleExists': {
           if ( arr[0].id == o.id ) { return; } // ignore myself
           _sbx.listen(arr[0].id, o.moduleHandler);
+          if ( o.moduleState ) {
+            _sbx.notify(arr[0].id,'setState',o.moduleState);
+            delete o.moduleState;
+          }
           break;
         }
         default: {
@@ -373,7 +389,7 @@ PHEDEX.Navigator = function(sandbox) {
             }
             case 'destroy': {
               if ( o.state.module ) { delete o.state.module; }
-              if ( o.state.target ) { delete o.state.target; }
+//               if ( o.state.target ) { delete o.state.target; }
               break;
             }
           }
@@ -683,9 +699,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         return PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-none' });
        },
       needValue: false,
-      updateGUI: function() {
-log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
-      }
+      updateGUI: function() { } // not really needed
     },
 
     'static': {
@@ -705,6 +719,7 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
         _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function() {
+            log('updateGUI for _selectors['+type+']','info',me);
             i.value = _state[_type]; // Is this correct? What if Instance has changed?
           }
         }(input);
@@ -752,6 +767,7 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
         _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function(value) {
+            log('updateGUI for _selectors['+type+'], value='+value,'info',me);
             i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
           }
         }(input);
@@ -823,9 +839,10 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
         case 'TargetType': {
           o._updateTargetSelector(value);
           if ( _moduleArgs ) {
-            var node = _moduleArgs.node; // TODO why am I hardwiring 'node' here? Should I?
+            var node = _moduleArgs.node; // TODO why am I hardwiring 'node' here? Surely I should not be!
             if ( node ) {
               _typeArgs[ _type] = {node:node};
+              _state[_type] = node;
               _selectors[_type].updateGUI(node);
             }
             _moduleArgs = null;
@@ -846,14 +863,16 @@ log('Deprecated? TargetTypeSelector._selectors.none.updateGUI','warn',me);
             o._updateTargetSelector(value.type);
           }
           if ( value.target && value.target != _state[_type] ) {
-            _typeArgs[ _type] = {node:value.target};
+            _typeArgs[ _type] = {node:value.target}; // TODO Again, hardwiring 'node' ?
+            _state[_type] = value.target;
             _selectors[_type].updateGUI(value.target);
             _sbx.notify('module','*','setArgs',{node:value.target});
           }
           break;
         }
         case 'updateTargetGUI': {
-log('Deprecated? TargetTypeSelector.partnerHandler.updateTargetGUI','warn',me);
+debugger;
+throw new Error("deprecated call to TargetTypeSelector.partnerHandler.updateTargetGUI");
           o[_type].updateTargetGUI(value);
           break;
         }
