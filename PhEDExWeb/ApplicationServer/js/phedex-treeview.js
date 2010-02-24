@@ -37,8 +37,8 @@ PHEDEX.TreeView = function(sandbox,string) {
           state += 'hide{';
           i = 0;
           for (key in m.hide) {
-            if ( i++ ) { state += '.'; }
-            state += key;
+            if ( i++ ) { state += ' '; }
+            state += this.friendlyName(key);
           }
           state += '}';
         }
@@ -201,6 +201,8 @@ PHEDEX.TreeView = function(sandbox,string) {
           }
         }(this));
         this.headerTree.render();
+
+        this.meta._filter = this.createFilterMeta();
         this.decorators.push(
           {
             name:'Filter',
@@ -217,7 +219,6 @@ PHEDEX.TreeView = function(sandbox,string) {
             },
             target:  'filter',
           });
-
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
         _sbx.notify(this.id,'initDerived');
@@ -612,10 +613,12 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         });
 
 //      add a visual indicator that the module has been sorted
-        if ( !obj.dom.sorted ) {
-          obj.dom.sorted = PxU.makeChild(obj.dom.control,'span');
-          obj.dom.sorted.innerHTML = 'S';
-          obj.dom.sorted.className = 'phedex-sorted';
+        var s = obj.dom.sorted, a;
+        if ( !s ) {
+          obj.dom.sorted = s = PxU.makeChild(obj.dom.control,'span');
+          s.innerHTML = 'S';
+          s.className = 'phedex-sorted';
+          s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
         }
 
        for (i in obj.hiddenBranches) {
@@ -783,7 +786,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
               if ( className != key ) { continue; }
               kValue = tNode.data.values[i];
               if ( args[key].preprocess ) { kValue = args[key].preprocess(kValue); }
-              status = this.Apply[this.meta.filter.fields[key].type](fValue,kValue);
+              status = this.Apply[this.meta._filter.fields[key].type](fValue,kValue);
               if ( args[key].negate ) { status = !status; }
               if ( !status ) { // Keep the element if the match succeeded!
                 tNode.collapse();

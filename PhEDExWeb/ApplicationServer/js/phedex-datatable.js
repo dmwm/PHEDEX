@@ -126,6 +126,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     },
                     target: 'filter'
                 });
+              this.meta._filter = this.createFilterMeta();
             },
             
             /**
@@ -475,13 +476,13 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
         */
         applyFilter: function(args) {
             // Parse the cached data to filter it and form new data that feeds the datasource
-            var keep, fValue, kValue, status, a, pathcache = {}, table = [], field;
+            var keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult;
             if (!args) { args = this.args; }
-            for (var i in obj.data) {
+            for (i in obj.data) {
                 keep = true;
-                for (var j in args) {
+                for (j in args) {
                     a = args[j];
-                    field = this.meta.filter.fields[j];
+                    field = this.meta._filter.fields[j];
                     if (typeof (a.values) == 'undefined') { continue; }
                     fValue = a.values;
                     kValue = obj.data[i][j];
@@ -504,7 +505,7 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             }
             obj.sortNeeded = true;
             if (obj.dsResponseSchema) {
-                var filterresult = {};
+                filterresult = {};
                 filterresult[obj.dsResponseSchema.resultsList] = table;
                 obj.fillDataSource(filterresult, false);
             }
