@@ -11,51 +11,9 @@ PHEDEX.TreeView = function(sandbox,string) {
   var _me  = 'treeview',
       _sbx = sandbox;
 
-/** return a boolean indicating if the module is in a fit state to be bookmarked
- * @method isStateValid
- * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
- */
-    this.isStateValid = function() {
-      if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
-      return false;
-    }
-
-/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
- * @method getState
- * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
- */
-    this.getState = function() {
-//         var dirMap = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' },
-        var state = '',
-            m = this.meta, i, key;
-        if ( !m ) { return state; }
-        if ( m.sort ) {
-//           state = 'sort{'+m.sort.field+'.'+dirMap[m.sort.dir]+'}';
-          state = 'sort{'+m.sort.field+'.'+m.sort.type+'.'+m.sort.dir+'}';
-        }
-        if ( m.hide ) {
-          state += 'hide{';
-          i = 0;
-          for (key in m.hide) {
-            if ( i++ ) { state += ' '; }
-            state += this.friendlyName(key);
-          }
-          state += '}';
-        }
-        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter? Or cache the string in this.meta?
-          state += 'filter{';
-          state += this.ctl.Filter.asString();
-          state += '}';
-        }
-        if ( typeof(this.specificState) == 'function' )
-        {
-          state += 'specific{';
-          var i, s = this.specificState();
-          for (i in s) { state += i+'='+s[i]; }
-          state +='}';
-        }
-        return state;
-      };
+    this.setState = function(state) {
+debugger;
+    };
 
   /**
    * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -402,6 +360,53 @@ PHEDEX.TreeView = function(sandbox,string) {
         this.revealAllElements('ygtvtable');
         this.hiddenBranches = {};
       },
+
+/** return a boolean indicating if the module is in a fit state to be bookmarked
+ * @method isStateValid
+ * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+ */
+      isStateValid: function() {
+        if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
+        return false;
+      },
+
+/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
+ * @method getState
+ * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
+ */
+      getState: function() {
+        var state = '',
+            m = this.meta, i, key, seg, s;
+        if ( !m ) { return state; }
+        if ( m.sort && m.sort.field ) {
+          state = 'sort{'+this.friendlyName(m.sort.field)+' '+m.sort.dir+' '+m.sort.type+'}';
+        }
+        if ( m.hide ) {
+          seg = '';
+          i = 0;
+          for (key in m.hide) {
+            if ( i++ ) { seg += ' '; }
+            seg += this.friendlyName(key);
+          }
+          if ( seg ) { state += 'hide{'+seg+'}'; }
+        }
+        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter, rather than calling it directly?
+          seg = this.ctl.Filter.asString();
+          if ( seg ) { state += 'filter{'+seg+'}'; }
+        }
+        if ( typeof(this.specificState) == 'function' )
+        {
+          seg = '';
+          i = 0;
+          s = this.specificState();
+          for (key in s) {
+            if ( i++ ) { seg += ' '; }
+            seg += key+'='+s[key];
+          }
+          if ( seg ) { state += 'specific{'+seg+'}'; }
+        }
+        return state;
+      }
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
