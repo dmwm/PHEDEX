@@ -21,30 +21,6 @@ PHEDEX.Navigator = function(sandbox) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
   this.state = {}; // plugins from decorators to access state-information easily (cheating a little)
 
-    //========================= Private Methods =========================
-    /**
-    * @method _initPermaLink
-    * @description This creates the permalink element and defines function to set the permalink URL.
-    * @param {Object} el Object specifying the element in the HTML page to be used for permalink.
-    */
-
-    /**
-    * @method _getWidget
-    * @description This gets the widget given the state and widget name.
-    * @param {Object} state Object specifying the state of the page to be set.
-    */
-//     var _getWidget = function(state) {
-// debugger;
-//         var indx = 0;
-//         var menu_items = _getWidgetMenuItems(state.type);
-//         for (indx = 0; indx < menu_items.length; indx++) {
-//             if (menu_items[indx].value.widget == state.widget) {
-//                 return menu_items[indx].value;
-//             }
-//         }
-//         return null;
-//     };
-
     /**
     * @method _setState
     * @description This sets the state of the navigator. If the state has changed, fire _fireNavChange event.  
@@ -81,58 +57,6 @@ PHEDEX.Navigator = function(sandbox) {
         _sbx.notify(obj.id,'StateChanged',state);
       };
     }(this);
-
-    /**
-    * @method _setWidgetState
-    * @description This sets the state of the widget after it has been constucted. The widget states are   
-    * visible columns and sorted column 
-    * @param {Object} wdgtstate Object specifying the state of the widget to be set.
-    */
-//     var _setWidgetState = function() {
-// debugger;
-//         var indx = 0;
-//         var hiddencolumns = {};
-//         if (_cur_widget_state && _cur_widget_obj.dataTable) {
-//             if (_cur_widget_state.hiddencolumns) {
-//                 var arrCols = _cur_widget_state.hiddencolumns.split("^");
-//                 for (indx = 0; indx < arrCols.length; indx++) {
-//                     if (arrCols[indx]) {
-//                         hiddencolumns[arrCols[indx]] = 1;
-//                     }
-//                 }
-//             }
-//             var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
-//             var defnColumns = dtColumnSet.getDefinitions();
-//             for (indx = 0; indx < defnColumns.length; indx++) {
-//                 if (hiddencolumns[defnColumns[indx].key]) {
-//                     if (!defnColumns[indx].hidden) {
-//                         var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
-//                         if (objColumn) {
-//                             _cur_widget_obj.dataTable.hideColumn(objColumn);
-//                         }
-//                     }
-// 
-//                 }
-//                 else if (defnColumns[indx].hidden) {
-//                     var objColumn = _cur_widget_obj.dataTable.getColumn(defnColumns[indx].key); //Get the object of column
-//                     if (objColumn) {
-//                         _cur_widget_obj.dataTable.showColumn(objColumn);
-//                         _cur_widget_obj.removeBtnMenuItem(defnColumns[indx].key);
-//                     }
-//                 }
-//             }
-//         }
-//         if (_cur_widget_state && _cur_widget_obj.dataTable && _cur_widget_state.sortcolumn) {
-//             var objColumn = _cur_widget_obj.dataTable.getColumn(_cur_widget_state.sortcolumn); //Get the object of column
-//             if (objColumn) {
-//                 _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort in ascending order
-//                 if (_cur_widget_state.sortdir.toLowerCase() == 'desc') {
-//                     _cur_widget_obj.dataTable.sortColumn(objColumn); //Sort again if descending order is the direction
-//                 }
-//             }
-//         }
-//         _cur_widget_state = null; //Reset the widget state object
-//     }
 
     /**
     * @method _parseQueryString
@@ -213,59 +137,6 @@ PHEDEX.Navigator = function(sandbox) {
         }
     };
 
-    /**
-    * @method _formPermalinkURL
-    * @description This gets the datatable state and is used to update the permalink
-    */
-//     var _formPermalinkURL = function() {
-// debugger;
-//         var baseURL = document.location.href;
-//         var hashindx = baseURL.indexOf('#');
-//         if (hashindx > -1) {
-//             baseURL = baseURL.substring(0, hashindx);
-//         }
-//         var currentState = YAHOO.util.History.getCurrentState("page"); //Get the current state
-//         currentState = currentState;
-//         if (!currentState) {
-//             currentState = _defaultPageState;
-//         }
-//         else {
-//             var state = _parseQueryString(currentState); //Parse the current history state and get the key and its values
-//             if (!state.target) {
-//                 state.target = '';
-//             }
-//             if (!state.filter) {
-//                 state.filter = '';
-//             }
-//             currentState = 'instance' + _hist_sym_equal + state.instance + _hist_sym_sep + 'type' + _hist_sym_equal + state.type + _hist_sym_sep +
-//                            'target' + _hist_sym_equal + state.target + _hist_sym_sep + 'widget' + _hist_sym_equal + state.widget + _hist_sym_sep +
-//                            'filter' + _hist_sym_equal + state.filter; //Form the query string
-//         }
-//         baseURL = '#page=' + currentState;
-// 
-//         var dtColumnSet = _cur_widget_obj.dataTable.getColumnSet();
-//         var defnColumns = dtColumnSet.getDefinitions();
-//         var indx = 0;
-//         var wdgtState = _hist_sym_sep + "hiddencolumns" + _hist_sym_equal;
-//         for (indx = 0; indx < defnColumns.length; indx++) {
-//             if (defnColumns[indx].hidden) {
-//                 wdgtState = wdgtState + defnColumns[indx].key + '^';
-//             }
-//         }
-//         if (wdgtState.charAt(wdgtState.length - 1) == '^') {
-//             wdgtState = wdgtState.substring(0, wdgtState.length - 1);
-//         }
-//         baseURL = baseURL + wdgtState;
-//         wdgtState = '';
-// 
-//         var sortcolumn = _cur_widget_obj.dataTable.get('sortedBy');
-//         if (sortcolumn) {
-//             wdgtState = _hist_sym_sep + 'sortcolumn' + _hist_sym_equal + sortcolumn.key + _hist_sym_sep + 'sortdir' + _hist_sym_equal + sortcolumn.dir.substring(7);
-//         }
-//         baseURL = baseURL + wdgtState;
-//         _updateLinkGUI(baseURL);
-//     };
-
     // parse _cur_filter and set _filter
     var _parseFilter = function() { };
 
@@ -309,41 +180,6 @@ PHEDEX.Navigator = function(sandbox) {
           obj._addToHistory();
           break;
         }
-
-//         case 'wassitallabout': {
-// debugger;
-//           log("NavChange:  type=" + args.type + " target=" + args.target +
-//               " widget=" + args.widget.widget + " filter=" + args.filter,
-//               'info', 'Navigator');
-// 
-//         // out with the old...
-//           _sbx.notify('module','*','destroy');
-// //         if (_cur_widget_obj) {
-// //             _cur_widget_obj.destroy();
-// //             _cur_widget_obj = null;
-// //         }
-// 
-//         // in with the new... (maybe)
-//           if (_validConstruction()) {
-//             log("NavChange:  construct type=" + _cur_target_type + " target=" + _cur_target +
-//                 " widget=" + _cur_widget.widget,
-//                 'info', 'Navigator');
-//             _nav_construct = true; // prevent interception of our own construct event
-//             var a = {};
-//             if ( _cur_target_type ) { a[_cur_target_type] = _cur_target; }
-//             _sbx.notify('CreateModule',_cur_widget.widget,a);
-// 
-// //             var widget = PxR.construct(_cur_widget.widget, _cur_target_type, _cur_target,
-// //                               'phedex-main', { window: false });
-// //             _nav_construct = false;
-// //             _cur_widget_obj = widget;
-// //             widget.update();
-// //             if (widget.dataTable) {
-// //                 widget.dataTable.subscribe('renderEvent', _afterRender);   //Assign the function to the event (after column gets sorted)
-// //                 widget.dataTable.subscribe('columnShowEvent', _formPermalinkURL);   //Assign the function to the event (after column gets sorted)
-// //             }
-//             }
-//           }
       };
     };
   }(this);
@@ -671,6 +507,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       obj  = args.payload.obj,
       _sbx = sandbox,
       _type, // The currently selected type
+// TODO _typeargs and _state are somewhat redundant, and need sorting out
       _typeArgs = {},   // currently selected arguments for the given types
       _state = {},      // current state for each type
       _moduleArgs = {}, // stored arguments for new module when I don't know what type it is yet
@@ -871,9 +708,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           break;
         }
         case 'updateTargetGUI': {
-debugger;
 throw new Error("deprecated call to TargetTypeSelector.partnerHandler.updateTargetGUI");
-          o[_type].updateTargetGUI(value);
+//           o[_type].updateTargetGUI(value);
           break;
         }
       }
