@@ -11,10 +11,6 @@ PHEDEX.TreeView = function(sandbox,string) {
   var _me  = 'treeview',
       _sbx = sandbox;
 
-    this.setState = function(state) {
-debugger;
-    };
-
   /**
    * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
    * @method _construct
@@ -406,7 +402,14 @@ debugger;
           if ( seg ) { state += 'specific{'+seg+'}'; }
         }
         return state;
+      },
+
+      setState: function(state) {
+        if ( state.specific ) {
+          this.specificState(state.specific);
+        }
       }
+
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
