@@ -404,12 +404,19 @@ PHEDEX.TreeView = function(sandbox,string) {
         return state;
       },
 
-      setState: function(state) {
-        if ( state.specific ) {
-          this.specificState(state.specific);
+      setState: function(s) {
+        var arr, i, x;
+        if ( s.specific ) {
+          this.specificState(s.specific);
+        }
+        if ( s.hide ) {
+          arr = s.hide.split(' ');
+          this.meta.hide = {};
+          for (i in arr) {
+            this.meta.hide[this.unFriendlyName(arr[i])] = 1;
+          }
         }
       }
-
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
