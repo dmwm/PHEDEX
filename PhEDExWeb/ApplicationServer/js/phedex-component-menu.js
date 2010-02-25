@@ -34,7 +34,7 @@ PHEDEX.Component.Menu = function(sandbox,args) {
       me: _me,
       payload: {},
       _menu: [],
-      _bin: args.payload.initial || -1,
+      _bin: -1,
 
 /**
  * Initialise the control. Called internally. Sets up the buttons' event-handlers. There are two:<br />
@@ -49,37 +49,34 @@ PHEDEX.Component.Menu = function(sandbox,args) {
         var p = args.payload;
         for (var i in p) { this.payload[i] = p[i]; }
         if ( p.obj ) { partner = p.obj.id; }
+        if ( p.initial ) {
+          if ( typeof(p.initial) == 'function' ) { this._bin = p.initial(); }
+          else { this._bin = p.initial; }
+        }
 
-        var changeBin = function(obj) {
-          return function(value) {
-debugger;
-            if ( obj._bin == value ) { return; }
-            obj._bin = value;
-          }
-        }(this),
-
-            selectBin = function(obj) {
-          return function(e) {
-            if ( obj._bin == this.value ) { return; }
-            obj._bin = this.value;
-            if ( p.map.onChange ) {
-              _sbx.notify(partner,p.map.onChange,this.value);
-            }
-          }
-        }(this),
+        var selectBin = function(obj) {
+              return function(e) {
+                if ( obj._bin == this.value ) { return; }
+                obj._bin = this.value;
+                if ( p.map.onChange ) {
+                  _sbx.notify(partner,p.map.onChange,this.value);
+                }
+             }
+            }(this),
 
             onSelectedMenuItemChange = function(obj) {
-          return function(e) {
-            var oMenuItem = e.newValue,
-                text = oMenuItem.cfg.getProperty("text");
-            log('onSelectedMenuItemChange: new value: '+text,'info',_me);
-            this.set("label", text);
-          }
-        }(this);
+              return function(e) {
+                var oMenuItem = e.newValue,
+                    text = oMenuItem.cfg.getProperty("text");
+                log('onSelectedMenuItemChange: new value: '+text,'info',_me);
+                this.set("label", text);
+              }
+            }(this),
+            i, q, key, value;
 
-        for (var i in p.menu)
+        for (i in p.menu)
         {
-          var q = p.menu[i], key, value;
+          q = p.menu[i];
           if ( typeof(q) == 'object' ) {
             key = q.key;
             value = q.text;
@@ -87,7 +84,7 @@ debugger;
             key = i;
             value = q;
           }
-          if ( p.initial == key ) { this._value=value; }
+          if ( this._bin == key ) { this._value=value; }
           this._menu.push({ text: value, value:key, onclick: { fn: selectBin} });
         }
         this._button = new YAHOO.widget.Button({
