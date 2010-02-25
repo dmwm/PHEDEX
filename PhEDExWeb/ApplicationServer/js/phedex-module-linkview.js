@@ -102,7 +102,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
               {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', contextArgs:'sort-num', format:function(x){return PxUf.bytes(x)+'/s';} },
               {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', contextArgs:'sort-num', format:PxU.format['%'] },
-              {width:120,text:'Queued',       className:'phedex-tree-queue',      otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:120,text:'Queued',       className:'phedex-tree-queued',     otherClasses:'align-right', contextArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
               {width: 90,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', contextArgs:'sort-num' },
               {width:110,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', contextArgs:'sort-num', hide:true }
             ]
