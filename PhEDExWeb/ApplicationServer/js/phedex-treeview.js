@@ -180,7 +180,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       postExpand: function(step,node) {
         var steps = [], i, j;
-        steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFIelds');
+        steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFields');
           this.markOverflows();
           for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
@@ -308,7 +308,6 @@ PHEDEX.TreeView = function(sandbox,string) {
             } else {
               try {
                 node.payload.callback(node,result);
-//                 _sbx.notify(node.payload.obj.id,'hideFields'); // this may be the kosher way of doing things...
               } catch(e) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
@@ -366,57 +365,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         return false;
       },
 
-/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
- * @method getState
- * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
- */
-      getState: function() {
-        var state = '',
-            m = this.meta, i, key, seg, s;
-        if ( !m ) { return state; }
-        if ( m.sort && m.sort.field ) {
-          state = 'sort{'+this.friendlyName(m.sort.field)+' '+m.sort.dir+' '+m.sort.type+'}';
-        }
-        if ( m.hide ) {
-          seg = '';
-          i = 0;
-          for (key in m.hide) {
-            if ( i++ ) { seg += ' '; }
-            seg += this.friendlyName(key);
-          }
-          if ( seg ) { state += 'hide{'+seg+'}'; }
-        }
-        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter, rather than calling it directly?
-          seg = this.ctl.Filter.asString();
-          if ( seg ) { state += 'filter{'+seg+'}'; }
-        }
-        if ( typeof(this.specificState) == 'function' )
-        {
-          seg = '';
-          i = 0;
-          s = this.specificState();
-          for (key in s) {
-            if ( i++ ) { seg += ' '; }
-            seg += key+'='+s[key];
-          }
-          if ( seg ) { state += 'specific{'+seg+'}'; }
-        }
-        return state;
-      },
-
-      setState: function(s) {
-        var arr, i, x;
-        if ( s.specific ) {
-          this.specificState(s.specific);
-        }
-        if ( s.hide ) {
-          arr = s.hide.split(' ');
-          this.meta.hide = {};
-          for (i in arr) {
-            this.meta.hide[this.unFriendlyName(arr[i])] = 1;
-          }
-        }
-      }
+      dirMap: function(dir) { return dir; }, // dummy to maintain code-compatibility with data-table
     };
   };
   YAHOO.lang.augmentObject(this,_construct(),true);
@@ -697,28 +646,9 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
   }
   YAHOO.lang.augmentObject(this,_construct(this),true);
   this._init(args);
+  this.doSort(); // in case there is already a sort-field defined.
   return this;
 }
-
-//   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onGlobalFilterCancelled:'+obj.me(),'info','treeview');
-//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.revealAllBranches();
-//       obj.filter.Reset();
-//     }
-//   }(that));
-//
-//   PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
-//     return function(ev,arr) {
-//       var args = arr[0];
-//       if ( ! obj.filter.args ) { obj.filter.args = []; }
-//       for (var i in args) {
-// 	   obj.filter.args[i] = args[i];
-//       }
-//       obj.applyFilter(arr[0]);
-//     }
-//   }(that));
 
 /** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
  * @namespace PHEDEX.DataTable
