@@ -395,7 +395,7 @@ PHEDEX.Module = function(sandbox, string) {
  */
       createFilterMeta: function() {
         if ( this.meta._filter ) { return this.meta._filter; }
-        var meta = { structure: { f:[], r:[] }, map:[], fields:[] },  // mapping of field-to-group, and reverse-mapping of same
+        var meta = { structure: { f:{}, r:{} }, rFriendly:{}, fields:{} },  // mapping of field-to-group, and reverse-mapping of same
             f = this.meta.filter,
             re, str, i, j, k, l;
 
@@ -407,44 +407,48 @@ PHEDEX.Module = function(sandbox, string) {
             l[k].original = j;
           }
           f[i].fields = l;
-        }
 
-        for (i in f) {
           if ( f[i].map ) {
-            meta.map[i] = {to:f[i].map.to};
-            if ( f[i].map.from ) {
-              meta.map[i].from = f[i].map.from;
-              meta.map[i].func = function(f,t) {
-                return function(str) {
-                  re = new RegExp(f,'g');
-                  str = str.replace(re, t+'.');
+            var fn = function( m ) {
+              return function(k) {
+                if ( m.from ) {
+                  re = new RegExp(m.from,'g');
+                  var str = k.replace(re, m.to+'.');
                   return str;
                 }
-              }(f[i].map.from,f[i].map.to);
-            };
+              };
+            }(f[i].map);
           }
+
           meta.structure['f'][i] = [];
           for (j in f[i].fields) {
             meta.structure['f'][i][j]=0;
             meta.structure['r'][j] = i;
+            var fName = fn(j);
             meta.fields[j] = f[i].fields[j];
+            meta.fields[j].friendlyName = fName;
+            meta.rFriendly[fName] = j;
           }
         }
         return meta;
       },
 
+/** Map an internal representation of a module-field into a more human-friendly version. This is used for treeviews primarily, to map the className for the element onto a string that is easier for people to remember
+ * @method friendlyName
+ * @param key {string} the unfriendly name of the field
+ * @return {string} the friendly name
+ */
       friendlyName: function(key) {
-        var _filter = this.meta._filter,
-            rKey, mKey;
-        key = key.replace(/ /g,'');
-        rKey = _filter.structure['r'][key];
-        if ( _filter.map[rKey].func ) {
-          mKey = _filter.map[rKey].func(key);
-        } else {
-          mKey = _filter.map[rKey].to + '.' + key;
-        }
-//         mKey = mKey.replace(/ /g,'');
-        return mKey;
+        return this.meta._filter.fields[key].friendlyName;
+      },
+
+/** Map a friendly-name back to the internal representation used in the derived module. Used primarily for treeviews.
+ * @method unFriendlyName
+ * @param key {string} the friendly name of the field
+ * @return the unfriendly name
+ */
+      unFriendlyName: function(key) {
+        return this.meta._filter.rFriendly[key];
       }
     };
   };
