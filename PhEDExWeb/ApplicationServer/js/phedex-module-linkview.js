@@ -1,4 +1,4 @@
-PHEDEX.namespace('Module.LinkView','Module.TransferQueueBlock','Module.TransferQueueFiles');
+PHEDEX.namespace('Module');
 
 PHEDEX.Module.LinkView=function(sandbox, string) {
   var _sbx = sandbox;
@@ -66,7 +66,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           source: 'component-menu',
           payload:{
             type: 'menu',
-            initial: _time,
+            initial: function() { return _time; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
             container: 'buttons',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
             map: {
@@ -79,7 +79,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           source: 'component-menu',
           payload:{
             type: 'menu',
-            initial: _directions[_direction].key,
+            initial: function() { return _directions[_direction].key; },
             container: 'buttons',
             menu: _directions,
             map: {
@@ -184,23 +184,14 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-          if ( k == 'time' && v != _time      ) {
-            update++;
-            _time = v;
-//             _sbx.notify(this.id,'changeBin','TimeSelect',v);
-          }
-          if ( k == 'dir'  && v != _direction ) {
-            update++;
-            _direction = v;
-//             _sbx.notify(this.id,'changeBin','DirectionSelect',v);
-          }
+          if ( k == 'time' && v != _time      ) { update++; _time = v; }
+          if ( k == 'dir'  && v != _direction ) { update++; _direction = v; }
         }
         if ( !update ) { return; }
         log('set time='+_time+', dir='+_direction+' from state','info',this.me);
         this.getData();
       },
 
-//   PHEDEX.Event.onFilterDefined.fire(filterDef,that);
       changeTimebin: function(arg) {
         _time = parseInt(arg);
         this.getData();
@@ -413,22 +404,32 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
-        var args={};
+        var args = {}, magic = _time+' '+_direction;
+        if ( this._magic == magic ) {
+          log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
+          //return;
+        }
+        this._magic = magic;
         args[this.direction_key()] = node;
         args.binwidth = _time*3600;
         this.data = {};
         this.truncateTree();
-        _sbx.notify( this.id, 'getData', { api: 'TransferQueueStats', args:args } );
-        _sbx.notify( this.id, 'getData', { api: 'TransferHistory',    args:args } );
-        _sbx.notify( this.id, 'getData', { api: 'ErrorLogSummary',    args:args } );
+        _sbx.notify( this.id, 'getData', { api:'TransferQueueStats', args:args, magic:magic } );
+        _sbx.notify( this.id, 'getData', { api:'TransferHistory',    args:args, magic:magic } );
+        _sbx.notify( this.id, 'getData', { api:'ErrorLogSummary',    args:args, magic:magic } );
       },
       gotData: function(data,context) {
-        log('Got new data','info',this.me);
+        log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
+        if ( this._magic != context.magic ) {
+          log('Old data has lost its magic: "'+this._magic+'" != "'+context.magic+'"','warn',this.me);
+          return;
+        }
         if ( context.api == 'TransferQueueStats' ) { this.data.queue = data.link; }
         if ( context.api == 'TransferHistory' )    { this.data.hist  = data.link; }
         if ( context.api == 'ErrorLogSummary' )    { this.data.error = data.link; }
         if ( this.data.hist && this.data.error && this.data.queue )
         {
+          this._magic = null;
           this.dom.title.innerHTML = node;
           this.fillBody();
           _sbx.notify( this.id, 'gotData' );
