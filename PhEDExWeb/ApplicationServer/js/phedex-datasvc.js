@@ -240,7 +240,8 @@ PHEDEX.Datasvc = (function() {
       YAHOO.log('POLL '+query.text,'info',_me);
 
       if (!query.context) { query.context = {}; }
-      query.context.api = query.api;
+      query.context.api   = query.api;
+      query.context.magic = query.magic || 0;
 
       if ( (!query.success_event) && query.callback) {
 	query.success_event = new YAHOO.util.CustomEvent('CallbackSuccessEvent');
