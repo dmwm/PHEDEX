@@ -228,13 +228,6 @@ PHEDEX.Module = function(sandbox, string) {
                 _sbx.notify(arr[2],action,'done');
                 break;
               }
-             case 'StateChanged': {
-                break;
-              }
-//               case 'getStatePlugin': {
-//                 obj.getStatePlugin(value);
-//                 break;
-//               }
               default: {
                 if ( obj[action] && obj.allowNotify[action]) {
                   log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
@@ -411,11 +404,13 @@ PHEDEX.Module = function(sandbox, string) {
           if ( f[i].map ) {
             var fn = function( m ) {
               return function(k) {
+                var re, str = k;
                 if ( m.from ) {
                   re = new RegExp(m.from,'g');
-                  var str = k.replace(re, m.to+'.');
-                  return str;
+                  str = str.replace(re,'');
                 }
+                str = m.to + '.' + str;
+                return str;
               };
             }(f[i].map);
           }
