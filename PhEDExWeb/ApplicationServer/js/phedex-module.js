@@ -444,7 +444,67 @@ PHEDEX.Module = function(sandbox, string) {
  */
       unFriendlyName: function(key) {
         return this.meta._filter.rFriendly[key];
+      },
+
+/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
+ * @method getState
+ * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
+ */
+      getState: function() {
+        var state = '',
+            m = this.meta, i, key, seg, s;
+        if ( !m ) { return state; }
+        if ( m.sort && m.sort.field ) {
+          state = 'sort{'+this.friendlyName(m.sort.field)+' '+this.dirMap(m.sort.dir);
+          if ( m.sort.type ) { state += ' '+m.sort.type; }
+          state += '}';
+        }
+        if ( m.hide ) {
+          seg = '';
+          i = 0;
+          for (key in m.hide) {
+            if ( i++ ) { seg += ' '; }
+            seg += this.friendlyName(key);
+          }
+          if ( seg ) { state += 'hide{'+seg+'}'; }
+        }
+        if ( this.ctl.Filter ) { // TODO this ought really to be a state-plugin for the filter, rather than calling it directly?
+          seg = this.ctl.Filter.asString();
+          if ( seg ) { state += 'filter{'+seg+'}'; }
+        }
+        if ( typeof(this.specificState) == 'function' )
+        {
+          seg = '';
+          i = 0;
+          s = this.specificState();
+          for (key in s) {
+            if ( i++ ) { seg += ' '; }
+            seg += key+'='+s[key];
+          }
+          if ( seg ) { state += 'specific{'+seg+'}'; }
+        }
+        return state;
+      },
+
+      setState: function(s) {
+        var arr, i, x, m = this.meta;
+        if ( s.specific ) {
+          this.specificState(s.specific);
+        }
+        if ( s.hide ) {
+          arr = s.hide.split(' ');
+          m.hide = {};
+          for (i in arr) {
+            m.hide[this.unFriendlyName(arr[i])] = 1;
+          }
+        }
+        if ( s.sort ) {
+          arr = s.sort.split(' ');
+          m.sort = { field:this.unFriendlyName(arr[0]), dir:this.dirMap(arr[1]) };
+          if ( arr[2] ) { m.sort.type = arr[2]; }
+        }
       }
+
     };
   };
   YAHOO.lang.augmentObject(this, _construct());
