@@ -290,6 +290,20 @@ PHEDEX.DataTable = function(sandbox, string) {
               if ( seg ) { state += 'specific{'+seg+'}'; }
             }
             return state;
+          },
+
+          setState: function(s) {
+            var arr, i, x;
+            if ( s.specific ) {
+              this.specificState(s.specific);
+            }
+            if ( s.hide ) {
+              arr = s.hide.split(' ');
+              this.meta.hide = {};
+              for (i in arr) {
+                this.meta.hide[this.unFriendlyName(arr[i])] = 1;
+              }
+            }
           }
        };
     };
