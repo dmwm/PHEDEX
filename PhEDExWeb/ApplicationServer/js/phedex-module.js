@@ -434,7 +434,10 @@ PHEDEX.Module = function(sandbox, string) {
  * @return {string} the friendly name
  */
       friendlyName: function(key) {
-        return this.meta._filter.fields[key].friendlyName;
+        key = key.replace(/ /g,'');
+        if ( this.meta._filter.fields[key] ) {
+          return this.meta._filter.fields[key].friendlyName;
+        }
       },
 
 /** Map a friendly-name back to the internal representation used in the derived module. Used primarily for treeviews.
@@ -487,21 +490,64 @@ PHEDEX.Module = function(sandbox, string) {
       },
 
       setState: function(s) {
-        var arr, i, x, m = this.meta;
+        var arr, i, x, m = this.meta, f = m._filter.fields,
+            component, negate, name, name2, fName, value, min, max,
+            op, opMap = { '=':'value', '<':'max', '>':'min' };
         if ( s.specific ) {
           this.specificState(s.specific);
         }
-        if ( s.hide ) {
+        if ( s.hide != null ) {
           arr = s.hide.split(' ');
           m.hide = {};
           for (i in arr) {
             m.hide[this.unFriendlyName(arr[i])] = 1;
           }
         }
-        if ( s.sort ) {
+        if ( s.sort != null ) {
           arr = s.sort.split(' ');
           m.sort = { field:this.unFriendlyName(arr[0]), dir:this.dirMap(arr[1]) };
           if ( arr[2] ) { m.sort.type = arr[2]; }
+        }
+        if ( s.filter != null ) {
+// TODO go through the fields destroying the default values. Is this done correctly?
+          for (fName in f) {
+            if ( f[fName].value ) { delete f[fName].value; }
+            if ( f[fName].min   ) { delete f[fName].min; }
+            if ( f[fName].max   ) { delete f[fName].max; }
+          }
+          s.filter = s.filter.replace(/(\([^( ]+) ([^) ]+\))/,"$1&$2"); // deal with spaces between parentheses before splitting on spaces
+          arr = s.filter.split(' ');
+          for (i in arr) {
+            component = arr[i];
+            if ( component.match(/^(!)?\(([^<>]+)[<>]([^&]+)&([^<>]+)[<>]([^)]+)\)$/) ) {
+              negate = RegExp.$1 ? true : false;
+              name   = RegExp.$2;
+              min    = RegExp.$3;
+              name2  = RegExp.$4;
+              max    = RegExp.$5;
+              if ( name != name2 ) {
+                throw new Error('inconsistant filter syntax, grouping of different elements ("'+name+'" and "'+name2+'")');
+              }
+              fName = this.unFriendlyName(name);
+              if ( f[fName] ) { // a bookmarked global-filter may contain fields that are not in this module!
+                f[fName].min = min;
+                f[fName].max = max;
+                f[fName].negate = negate;
+              }
+              continue;
+            }
+            if ( component.match('^(!)?([^=<>(]+)([=<>])(.*)$') ) {
+              negate = RegExp.$1 ? true : false;
+              name   = RegExp.$2;
+              op     = RegExp.$3;
+              value  = RegExp.$4;
+              fName = this.unFriendlyName(name);
+              if ( f[fName] ) { // a bookmarked global-filter may contain fields that are not in this module!
+                f[fName][opMap[op]]  = value;
+                f[fName].negate = negate;
+              }
+            }
+          }
         }
       }
 
