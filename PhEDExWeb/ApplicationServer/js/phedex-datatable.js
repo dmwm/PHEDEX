@@ -109,6 +109,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 this.dataSource.sendRequest('', oCallback);
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
+//                 _sbx.notify(this.id,'doFilter');
             },
 
             /**
@@ -425,7 +426,20 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
         return v;
     };
 
-    return {
+    _construct = function() {
+      return {
+//         _init: function() {
+//           var moduleHandler = function(o) {
+//             return function(ev,arr) {
+//               var action = arr[0];
+//               if ( action && o[action] && typeof(o[action]) == 'function' ) {
+//                 o[action](arr[1]);
+//               }
+//             }
+//           }(this);
+//           sandbox.listen(obj.id,moduleHandler);
+//         },
+
         /**
         * Resets the filter in the module.
         * @method resetFilter
@@ -433,24 +447,24 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
         * @private
         */
         resetFilter: function(args) {
-            obj.sortNeeded = true;
-            if (obj.dsResponseSchema) {
-                var filterresult = {};
-                filterresult[obj.dsResponseSchema.resultsList] = obj.data;
-                obj.fillDataSource(filterresult, false);
-            }
-            else {
-                obj.fillDataSource(obj.data, false);
-            }
+          obj.sortNeeded = true;
+          if (obj.dsResponseSchema) {
+            var filterresult = {};
+            filterresult[obj.dsResponseSchema.resultsList] = obj.data;
+            obj.fillDataSource(filterresult, false);
+          }
+          else {
+            obj.fillDataSource(obj.data, false);
+          }
         },
-        
+
         /**
         * Filters the module based on user input.
         * @method applyFilter
         * @param arg {Object} The array of column keys with user entered filter values.
-        * @private
-        */
-        applyFilter: function(args) {
+          * @private
+          */
+          applyFilter: function(args) {
             // Parse the cached data to filter it and form new data that feeds the datasource
             var keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult;
             if (!args) { args = this.args; }
@@ -489,8 +503,16 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
                 obj.fillDataSource(table, false);
             }
             return this.count;
-        }
+          },
+
+      doFilter: function() {
+        obj.applyFilter();
+      },
     };
+  };
+  YAHOO.lang.augmentObject(this,_construct(this),true);
+//   this._init();
+  return this;
 };
 
 log('loaded...','info','datatable');
