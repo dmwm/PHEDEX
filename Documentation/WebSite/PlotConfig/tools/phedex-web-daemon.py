@@ -20,7 +20,7 @@ References:
 __author__ = "Chad J. Schroeder"
 __copyright__ = "Copyright (C) 2005 Chad J. Schroeder"
 
-__revision__ = "$Id: phedex-web-daemon.py,v 1.2 2008/06/27 12:45:00 egeland Exp $"
+__revision__ = "$Id: phedex-web-daemon.py,v 1.3 2008/06/27 14:42:29 egeland Exp $"
 __version__ = "0.2"
 
 # Standard Python modules.
@@ -216,8 +216,8 @@ if __name__ == "__main__":
    open(opts.pidfile, "w").write("%s\n" % os.getpid())
 
    xc = XmlConfig( file='$GRAPHTOOL_CONFIG_ROOT/website_prod.xml' )
-   cherrypy.server.quickstart()
    cherrypy.engine.start()
+   cherrypy.engine.block()
    xc.globals['web'].kill()
 
    sys.exit(retCode)
