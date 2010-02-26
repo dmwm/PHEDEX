@@ -902,7 +902,7 @@ sub getRequestData
             ( GROUP => 'g.name' ));
     }
 
-    $sql .= " and ($filters) " if ($filters);
+    $sql .= " and ($filters) " if $filters;
 
     if (exists $h{LIMIT})
     {
@@ -2750,6 +2750,10 @@ sub getPendingRequests
         $type = 'xfer';
     }
     my %param = ( TYPE => $type, REQUEST => $r );
+    if (not @{$r})
+    {
+        return [];
+    }
     return getRequestData($core, %param);
 }
 
