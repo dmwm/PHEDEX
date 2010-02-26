@@ -27,7 +27,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               obj._resetFilter( false );
               obj.resetFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
+              YuD.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
               break;
             }
             case 'Validate': {
@@ -37,8 +37,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             case 'Apply': {
               obj.applyFilter(arr[2]);
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              if ( arr[3] ) { YAHOO.util.Dom.addClass(   obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
-              else          { YAHOO.util.Dom.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+              if ( arr[3] ) { YuD.addClass(   obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+              else          { YuD.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
               _sbx.notify('Filter',obj.me,arr[2],obj.asString(arr[2]));
               break;
             }
@@ -91,9 +91,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         body.appendChild(this.dom.filter);
         body.appendChild(this.dom.buttons);
 
-        YAHOO.util.Dom.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
+        YuD.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         o.render(document.body);
-//         YAHOO.util.Dom.addClass(el,'phedex-invisible');
         o.cfg.setProperty('zindex',100);
 
         var cBox = document.createElement('input');
@@ -135,7 +134,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
         o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
         o.header.id = 'hd_'+PxU.Sequence();
-        YAHOO.util.Dom.addClass(o.element,'phedex-core-overlay')
+        YuD.addClass(o.element,'phedex-core-overlay')
         o.body.innerHTML = null;
 
         this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
@@ -298,7 +297,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
           for (var key in _filter.structure['f'][label]) {
             var c = _filter.fields[key],
-                focusOn, outer, inner, e;
+                focusOn, outer, inner, e, value;
             if ( !c.value ) { c.value = null; }
 
             outer = document.createElement('div');
@@ -324,13 +323,14 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               this.meta.el[el.id] = el;
               this.meta.inner[inner.id].push(el);
               el.className = 'phedex-filter-elem';
-              YAHOO.util.Dom.addClass(el,'phedex-filter-key-'+fields[i]);
-              if ( e.className ) { YAHOO.util.Dom.addClass(el,'phedex-filter-elem-'+e.className); }
+              YuD.addClass(el,'phedex-filter-key-'+fields[i]);
+              if ( e.className ) { YuD.addClass(el,'phedex-filter-elem-'+e.className); }
               size = e.size || c.size;
               if ( size ) { el.setAttribute('size',size); }
               el.setAttribute('type',e.type);
               el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
-              el.setAttribute('value',c.value);
+              value = c[fields[i] || 'value'];
+              if ( value != null ) { el.setAttribute('value',value); }
               inner.appendChild(el);
               if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
               if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
@@ -341,6 +341,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
             cBox.id = 'cbox_' + PxU.Sequence();
+            if ( c.negate ) { cBox.checked = true; }
             this.meta.cBox[key] = cBox;
             ttIds.push(cBox.id);
             ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
@@ -477,11 +478,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       setValid:   function(el) {
-        YAHOO.util.Dom.removeClass(el,'phedex-filter-elem-invalid');
+        YuD.removeClass(el,'phedex-filter-elem-invalid');
         this.count++;
       },
       setInvalid: function(el,setFocus) {
-        YAHOO.util.Dom.addClass(el,'phedex-filter-elem-invalid');
+        YuD.addClass(el,'phedex-filter-elem-invalid');
         if ( setFocus ) {
           var focusOn = el[0]; //document.getElementById(this.meta.focusMap[el.id]);
           focusOn.focus();
@@ -518,8 +519,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( c == 0 ) { /* This shouldn't happen if validation worked! */ continue; }
               if ( c == 1 ) { seg += ( seg1 || seg2 ); } // one or the other is set
               if ( c == 2 ) {  // both are set
-                if ( negate ) { seg += '('+ seg1 +'&'+ seg2 + ')'; }
-                else          { seg +=      seg1 +'&'+ seg2; }
+                if ( negate ) { seg += '('+ seg1 +' '+ seg2 + ')'; }
+                else          { seg +=      seg1 +' '+ seg2; }
               }
             }
             if ( str ) { str += ' '; }
@@ -531,26 +532,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
   this._init(args);
+  if ( this.meta._filter ) { this.Parse(); } // in case a default filter was set
   return this;
 }
 
 log('loaded...','info','component-filter');
-//   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
-//     return function() {
-//       log('onGlobalFilterCancelled:'+obj.me(),'info','Core.DataTable');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
-//       obj.fillDataSource(obj.data);
-//       obj.filter.Reset();
-//     }
-//   }(this));
-//
-//   PHEDEX.Event.onGlobalFilterValidated.subscribe( function(obj) {
-//     return function(ev,arr) {
-//       var args = arr[0];
-//       if ( ! obj.filter.args ) { obj.filter.args = []; }
-//       for (var i in args) {
-//      obj.filter.args[i] = args[i];
-//       }
-//       obj.applyFilter(arr[0]);
-//     }
-//   }(this));
