@@ -18,13 +18,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       switch (action) {
         case 'Filter': {
           switch (subAction) {
-            case 'Cancel': {
-              obj._resetFilter( true );
-              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              break;
-            }
             case 'Reset': {
-              obj._resetFilter( false );
+              obj._resetFilter();
               obj.resetFilter();
               if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
               YuD.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
@@ -80,16 +75,16 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         var o = this.overlay,
             d = this.dom,
             body = o.body,
-            b, hId, el;
+            b, div, hId, el;
         hId = this.overlay.header.id;
         ttIds.push(hId);
         ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
 
         d.filter  = el = document.createElement('div');
         d.buttons = b  = document.createElement('div');
-        b.className = 'phedex-filter-buttons';
+//         b.className = 'phedex-filter-buttons float-right';
         body.appendChild(this.dom.filter);
-        body.appendChild(this.dom.buttons);
+        o.footer.appendChild(this.dom.buttons);
 
         YuD.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         o.render(document.body);
@@ -101,15 +96,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         d.cBox = cBox;
         b.appendChild(cBox);
         b.appendChild(document.createTextNode('Keep this window open'));
-        b.appendChild(document.createElement('br'));
-        var buttonApplyFilter  = new YAHOO.widget.Button({ label:'Apply Changes',  title:'Validate your input and apply the filter', container:b }),
-            buttonCancelFilter = new YAHOO.widget.Button({ label:'Cancel Changes', title:"Cancel any changes to the filter options since your last 'apply'. Any non-applied changes you have made will be ignored", container:b }),
+        var buttonApplyFilter = new YAHOO.widget.Button({ label:'Apply Filter',  title:'Validate your input and apply the filter', container:b }),
             buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:b }),
             buttonNotifier = function(obj) {
               return function(arg) { _sbx.notify(obj.id,'Filter',arg); }
             }(this);
         buttonApplyFilter.on ('click', function() { buttonNotifier('Validate');  } ); // Validate before Applying!
-        buttonCancelFilter.on('click', function() { buttonNotifier('Cancel'); } );
         buttonResetFilter.on ('click', function() { buttonNotifier('Reset');  } );
         cBox.addEventListener('click', function() { buttonNotifier('cBox') }, false );
 //      make sure the filter moves with the widget when it is dragged!
@@ -261,7 +253,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       BuildFilter: function() {
         this.dom.filter.innerHTML = null;
         if ( !this.ctl )  { this.ctl = {}; }
-        var _filter = this.meta._filter, label, fieldset, legend, helpClass, helpCtl, hideClass, hideCtl;
+        var _filter = this.meta._filter, label, fieldset, legend, helpClass, helpCtl, hideClass, hideCtl, key, tt, id, text, k1;
         for (label in _filter.structure['f']) {
           fieldset = document.createElement('fieldset');
           legend = document.createElement('legend');
@@ -295,10 +287,10 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
 
-          for (var key in _filter.structure['f'][label]) {
+          for (key in _filter.structure['f'][label]) {
             var c = _filter.fields[key],
-                focusOn, outer, inner, e, value;
-            if ( !c.value ) { c.value = null; }
+                focusOn, outer, inner, e, value, i, fields, cBox, fieldLabel, help,  el, size, def;
+//             if ( !c.value ) { c.value = null; }
 
             outer = document.createElement('div');
             inner = document.createElement('div');
@@ -312,8 +304,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               log('unknown filter-type"'+c.type+'", aborting','error',_me);
               return;
             }
-            var fields=e.fields || [''], el, size, def;
-            for (var i in fields) {
+            fields = e.fields || [''];
+            for (i in fields) {
               if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
               if ( fields[i] != '' ) {
                 inner.appendChild(document.createTextNode(fields[i]+' '));
@@ -336,8 +328,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
             }
 
-            var cBox = document.createElement('input'),
-                fieldLabel = document.createElement('div');
+            cBox = document.createElement('input');
+            fieldLabel = document.createElement('div');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
             cBox.id = 'cbox_' + PxU.Sequence();
@@ -352,7 +344,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             outer.appendChild(fieldLabel);
 
             if ( c.tip ) {
-              var help = document.createElement('div');
+              help = document.createElement('div');
               help.className = 'phedex-filter-help phedex-invisible float-right '+helpClass;
               help.appendChild(document.createTextNode(c.tip));
               outer.appendChild(help);
@@ -361,11 +353,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
           this.dom.filter.appendChild(fieldset);
         }
-          var tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds }), ttCount={};
+          tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds }), ttCount={};
           tt.contextMouseOverEvent.subscribe( // prevent tooltip from showing more than a few times, to avoid upsetting experts
             function(type, args) {
-              var id = args[0].id,
-                  text = ttHelp[args[0].id];
+              id = args[0].id;
+              text = ttHelp[args[0].id];
               if ( text ) {
                 if ( !ttCount[id] ) { ttCount[id]=0; }
                 if ( ttCount[id]++ > 2 ) { return false; }
@@ -375,15 +367,15 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           );
           tt.contextTriggerEvent.subscribe(
             function(type, args) {
-              var text = ttHelp[args[0].id];
+              text = ttHelp[args[0].id];
               this.element.style.zIndex = 1000;
               this.cfg.setProperty('text', text);
             }
           );
-        var k1 = new YAHOO.util.KeyListener(this.dom.filter,
-                                            { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
-                                            { fn:function(obj){ return function() { _sbx.notify(obj.id,'Filter','Validate'); } }(this),
-                                              scope:this, correctScope:true } );
+        k1 = new YAHOO.util.KeyListener(this.dom.filter,
+                                          { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                          { fn:function(obj){ return function() { _sbx.notify(obj.id,'Filter','Validate'); } }(this),
+                                            scope:this, correctScope:true } );
         k1.enable();
       },
 
@@ -437,7 +429,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               a.negate = this.meta.cBox[a.name].checked;
               this.args[a.name] = a;
             } else {
-              YAHOO.log('Invalid entry for "'+fields[el.name].text+'", aborting accept','error','Core.Widget');
+              log('Invalid entry for "'+x.text+'", aborting accept','error','Core.Widget');
               this.setInvalid(innerList[i],isValid);
               isValid = false;
             }
@@ -450,29 +442,16 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         return;
       },
 
-      _resetFilter: function( rollback ) { // rollback to last set values? Or wipe clean?
-        var a, el, c, name, key, i;
+      _resetFilter: function() {
+        var a, el, name, key, i;
         for (name in this.args) {
           a = this.args[name];
-          i = 0;
           for (key in a.values) {
             el = this.meta.el[a.id[key]];
-            c = this.meta._filter.fields[el.name];
-            if ( !rollback ) {
-              if ( c.value ) { a.values[key] = c.value[key]; }
-              else { a.values[key] = null; }
-            } else {
-            }
-            el.value = a.values[key];
-            if ( a.values[key] == null ) { delete a.values[key]; }
-            if ( a.values[key] ) { i++; }
+            el.value = null;
+            delete this.args[name];
           }
-          if ( !rollback ) {
-            this.meta.cBox[name].checked = false;
-          } else {
-            this.meta.cBox[name].checked = a.negate;
-          }
-          if ( !i ) { delete this.args[name]; } // no values left, wipe the slate for this field!
+          this.meta.cBox[name].checked = false;
         }
         _sbx.notify('Filter',obj.me,this.args,this.asString());
       },
@@ -484,7 +463,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       setInvalid: function(el,setFocus) {
         YuD.addClass(el,'phedex-filter-elem-invalid');
         if ( setFocus ) {
-          var focusOn = el[0]; //document.getElementById(this.meta.focusMap[el.id]);
+          var focusOn = el[0];
           focusOn.focus();
         }
       },
