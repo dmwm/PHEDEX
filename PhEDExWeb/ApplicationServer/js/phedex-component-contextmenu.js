@@ -24,8 +24,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
 
   var _me = 'component-contextmenu',
-      _sbx = sandbox,
-      _notify = function() {};
+      _sbx = sandbox;
 
   var obj = args.payload.obj;
   if ( obj ) {
@@ -85,6 +84,12 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
                 o[action] = value;
                 break;
               }
+              case 'extraContextTypes': {
+                for (var type in value) {
+                  _sbx.notify('Registry','getWidgetsByInputType',type,o.id);
+                }
+                break;
+              }
             }
           }
         }(this);
@@ -112,10 +117,10 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
             this.clearContent();
           }
         }(this);
-//         this.contextMenu.subscribe( 'beforeShow', buildMe );
         this.contextMenu.beforeShowEvent.subscribe( buildMe );
         this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
         this.contextMenu.hideEvent.subscribe( hideMe );
+        _sbx.notify(obj.id,'getExtraContextTypes',this.id);
       },
 
 /** reset the menu to empty. This is a trivial function, but it hides the internal contextmenu, which is good.

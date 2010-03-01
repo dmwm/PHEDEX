@@ -492,6 +492,16 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
         obj.markOverflows();
       },
 
+      getExtraContextTypes: function(id) {
+        var cArgs = obj._cfg.contextArgs, cUniq = {}, i, j;
+        for (i in cArgs) {
+          for(j in cArgs[i]) {
+            cUniq[cArgs[i][j]] = 1;
+          }
+        }
+        _sbx.notify(id,'extraContextTypes',cUniq);
+      },
+
       _init: function() {
         var moduleHandler = function(o) {
           return function(ev,arr) {
