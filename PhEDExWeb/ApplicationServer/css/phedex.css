@@ -165,7 +165,7 @@ div .phedex-sorted {
   padding: 0 0 0 10px;
 }
 .phedex-filter-buttons {
-  padding: 2px 0;
+  float: right;
 }
 .phedex-filter-outer {
   clear: both;
@@ -257,15 +257,11 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 
 .phedex-core-overlay {
   position:absolute;
-  background-color:#bbf;
-  border:1px dotted black;
-  padding:0;
-  margin:0;
- /*opacity: 0.92;*/
+  border:5px solid #bbf;
 }
-.phedex-core-overlay .hd { background-color:#eee; margin: 5px 5px 0; }
-.phedex-core-overlay .bd { background-color:#fff; margin: 0   5px 0; }
-.phedex-core-overlay .ft { background-color:#eee; margin: 0   5px 5px; }
+.phedex-core-overlay .hd { background-color:#eee; }
+.phedex-core-overlay .bd { background-color:#fff; }
+/* .phedex-core-overlay .ft { background-color:#eee; } */
 
 .phedex-tnode-field {
   overflow: hidden;
