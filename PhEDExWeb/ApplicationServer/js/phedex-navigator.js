@@ -849,7 +849,10 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       switch (action) {
         case 'InputTypes': {
           o.setInputTypes(value);
-          _sbx.notify(obj.id,'decoratorReady',o.id);
+          if ( !o._sentDecoratorReady ) {
+            _sbx.notify(obj.id,'decoratorReady',o.id);
+            o._sentDecoratorReady = true;
+          }
           break;
         }
         case 'TypeOfModule': {
