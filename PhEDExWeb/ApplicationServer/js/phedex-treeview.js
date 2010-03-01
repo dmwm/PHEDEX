@@ -175,6 +175,19 @@ PHEDEX.TreeView = function(sandbox,string) {
           });
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
+
+        var moduleHandler = function(o) {
+          return function(ev,arr) {
+            var action = arr[0];
+            switch ( action ) {
+              case 'gotData': {
+                o.postExpand();
+                break;
+              }
+            }
+          }
+        }(this);
+        _sbx.listen(this.id,moduleHandler);
         _sbx.notify(this.id,'initDerived');
       },
 
@@ -508,6 +521,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
             var action = arr[0];
             if ( action && o[action] && typeof(o[action]) == 'function' ) {
               o[action](arr[1]);
+              return;
             }
           }
         }(this);
@@ -722,10 +736,6 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
       },
 
       applyFilter: function(args) {
-        this._applyFilter(args);
-      },
-
-      _applyFilter: function(args) {
 //      First, reveal any filtered branches, in case the filter has changed (as opposed to being created)
         obj.revealAllBranches();
         var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, elAncestor;
@@ -766,7 +776,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
       },
 
       doFilter: function(node) {
-        obj._applyFilter();
+        obj.applyFilter();
       },
     }
   };

@@ -82,8 +82,28 @@ PHEDEX.DataTable = function(sandbox, string) {
                     target: 'filter'
                 });
               this.meta._filter = this.createFilterMeta();
+
+              var moduleHandler = function(o) {
+                return function(ev,arr) {
+                  var action = arr[0];
+                  switch ( action ) {
+                    case 'gotData': {
+                      o.postExpand();
+                      break;
+                    }
+                  }
+                }
+              }(this);
+              _sbx.listen(this.id,moduleHandler);
             },
-            
+
+            postExpand: function(step,node) {
+              var steps = [], i, j;
+              steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFields');
+//               this.markOverflows();
+              for (i in steps) { _sbx.notify(this.id,steps[i]); }
+            },
+
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
             * @method fillDataSource
@@ -428,18 +448,6 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
 
     _construct = function() {
       return {
-//         _init: function() {
-//           var moduleHandler = function(o) {
-//             return function(ev,arr) {
-//               var action = arr[0];
-//               if ( action && o[action] && typeof(o[action]) == 'function' ) {
-//                 o[action](arr[1]);
-//               }
-//             }
-//           }(this);
-//           sandbox.listen(obj.id,moduleHandler);
-//         },
-
         /**
         * Resets the filter in the module.
         * @method resetFilter
@@ -511,7 +519,6 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
     };
   };
   YAHOO.lang.augmentObject(this,_construct(this),true);
-//   this._init();
   return this;
 };
 

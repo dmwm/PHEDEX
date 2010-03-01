@@ -60,6 +60,18 @@ PHEDEX.Component.Filter = function(sandbox,args) {
     }
   }(this);
   _sbx.listen(this.id,this.selfHandler);
+  this.partnerHandler = function(obj) {
+    return function(ev,arr) {
+      var action = arr[0];
+      switch (action) {
+        case 'gotData': {
+          obj.applyFilter();
+          break;
+        }
+      }
+    }
+  }(this);
+  _sbx.listen(obj.id,this.partnerHandler);
 
 /**
  * construct a PHEDEX.Component.Filter object. Used internally only.
