@@ -74,16 +74,14 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       BuildOverlay: function() {
         var o = this.overlay,
             d = this.dom,
-            body = o.body,
-            b, div, hId, el;
+            b, hId, el;
         hId = this.overlay.header.id;
         ttIds.push(hId);
         ttHelp[hId] = 'click this grey header to drag the filter elsewhere on the screen';
 
         d.filter  = el = document.createElement('div');
         d.buttons = b  = document.createElement('div');
-//         b.className = 'phedex-filter-buttons float-right';
-        body.appendChild(this.dom.filter);
+        o.body.appendChild(this.dom.filter);
         o.footer.appendChild(this.dom.buttons);
 
         YuD.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
@@ -118,13 +116,12 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       _init: function(args) {
         var apc = payload.control, o, p;
         this.dom.filter = document.createElement('div');
-//         this.map = [];
         this.context_el = obj.dom[apc.payload.context || 'content'];
         this.align_el   =  apc.payload.align || 'tl';
-        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]}); // obj.dom.content,'tl','tl']});
+        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]});
         o.setHeader('Filter data selection ('+obj.me+')');
         o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
-        o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, just for it to exist...
+        o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, not from here, anyway...
         o.header.id = 'hd_'+PxU.Sequence();
         YuD.addClass(o.element,'phedex-core-overlay')
         o.body.innerHTML = null;
@@ -154,7 +151,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         'int':       {type:'input', size:7 },
         'float':     {type:'input', size:7 },
         percent:     {type:'input', size:5 },
-        minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is default...
+        minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
         minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' }
       },
@@ -290,7 +287,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           for (key in _filter.structure['f'][label]) {
             var c = _filter.fields[key],
                 focusOn, outer, inner, e, value, i, fields, cBox, fieldLabel, help,  el, size, def;
-//             if ( !c.value ) { c.value = null; }
 
             outer = document.createElement('div');
             inner = document.createElement('div');
