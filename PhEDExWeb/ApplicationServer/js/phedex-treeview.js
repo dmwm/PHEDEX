@@ -411,7 +411,7 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
           log('found '+classes[i]+' to key new menu entries','info',obj.me);
           if ( !isHeader && obj._cfg.contextArgs[classes[i]] ) {
             for(var j in obj._cfg.contextArgs[classes[i]]) {
-              typeNames.push(obj._cfg.contextArgs[classes[i]][j]);
+              typeNames.unshift(obj._cfg.contextArgs[classes[i]][j]);
             }
           }
         }
