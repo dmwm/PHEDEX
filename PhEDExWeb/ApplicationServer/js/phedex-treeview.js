@@ -181,7 +181,7 @@ PHEDEX.TreeView = function(sandbox,string) {
             var action = arr[0];
             switch ( action ) {
               case 'gotData': {
-                o.postExpand();
+                o.postGotData();
                 break;
               }
             }
@@ -191,7 +191,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         _sbx.notify(this.id,'initDerived');
       },
 
-      postExpand: function(step,node) {
+      postGotData: function(step,node) {
         var steps = ['doSort', 'doFilter', 'doResize', 'hideFields'], i;
         this.markOverflows();
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
@@ -328,7 +328,7 @@ PHEDEX.TreeView = function(sandbox,string) {
               }
             }
             fnLoadComplete();
-            node.payload.obj.postExpand();
+            node.payload.obj.postGotData();
           }
 
 //      Now, find out what to get, if anything...
