@@ -192,10 +192,9 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       postExpand: function(step,node) {
-        var steps = [], i, j;
-        steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFields');
-          this.markOverflows();
-          for (i in steps) { _sbx.notify(this.id,steps[i]); }
+        var steps = ['doSort', 'doFilter', 'doResize', 'hideFields'], i;
+        this.markOverflows();
+        for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
       addNode: function(spec,values,parent) {
