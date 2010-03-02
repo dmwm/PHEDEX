@@ -9,33 +9,6 @@
 PHEDEX.DataTable = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
-   /**
-    * Processes the response data so as to create a YAHOO.util.DataSource and display it on-screen.
-    * @method _processData
-    * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
-    * @param objtable {object} reference of datatable object that has column definitions and mapping information that is required for processing data
-    * @private
-    */
-    var _processData = function(moduledata, objtable) {
-        var table = [], i = moduledata.length, k = objtable.columnDefs.length, j;
-        while (i > 0) {
-            i--
-            var a = moduledata[i], y = [];
-            j = k;
-            while (j > 0) {
-                j--;
-                var c = objtable.columnDefs[j], val = a[objtable.columnMap[c.key]];
-                if (c.parser) {
-                    if (typeof c.parser == 'function') { val = c.parser(val); }
-                    else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
-                }
-                y[c.key] = val;
-            }
-            table.push(y);
-        }
-        objtable.needProcess = false; //No need to process data further
-        return table;
-    };
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -53,6 +26,36 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @final
             */
             type: 'DataTable',
+
+            /**
+            * Processes the response data so as to create a YAHOO.util.DataSource and display it on-screen.
+            * @method _processData
+            * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @param objtable {object} reference of datatable object that has column definitions and mapping information that is required for processing data
+            * @private
+            */
+            _processData: function(moduledata) {
+              var table = [], i = moduledata.length, k = this.columnDefs.length, j, a, c;
+              while (i > 0) {
+                i--
+                a = moduledata[i], y = [];
+                j = k;
+                while (j > 0) {
+                  j--;
+                  c = this.columnDefs[j], val = a[this.columnMap[c.key]];
+                  if (c.parser) {
+                    if (typeof c.parser == 'function') { val = c.parser(val); }
+                    else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+                  }
+                  y[c.key] = val;
+                }
+                table.push(y);
+              }
+              this.needProcess = false; //No need to process data further
+              return table;
+            },
+
+
             /** Initialise the data-table, using the parameters in this.meta.table, set in the module during construction
             * @method initDerived
             * @private
@@ -98,10 +101,8 @@ PHEDEX.DataTable = function(sandbox, string) {
             },
 
             postExpand: function(step,node) {
-              var steps = [], i, j;
-              steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFields');
-              //this.markOverflows();
-              for (i in steps) { _sbx.notify(this.id,steps[i]); }
+              var steps = ['doSort', 'doFilter', 'doResize', 'hideFields'], i;
+              for (i in steps) { _sbx.notify(this.id+'_dummy',steps[i]); }
             },
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
@@ -111,7 +112,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             fillDataSource: function(moduledata) {
                 if (this.needProcess) {
                     // Process the data if it is new to module and is not from filter
-                    this.data = _processData(moduledata, this);
+                    this.data = this._processData(moduledata);
                     moduledata = this.data;     // Cache the processed data for further use by filter
                 }
                 if (this.dsResponseSchema) {
@@ -343,7 +344,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
         * @private
         */
         onContextMenuClick: function(p_sType, p_aArgs, obj) {
-            log('ContextMenuClick for ' + obj.me, 'info', 'ContextMenu');
+            log('ContextMenuClick for ' + obj.me, 'info', 'datatable');
             var menuitem = p_aArgs[1], tgt, opts={}, type;
             if (menuitem) {
                 //Extract which <tr> triggered the context menu
