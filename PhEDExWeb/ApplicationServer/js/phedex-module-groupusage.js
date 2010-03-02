@@ -116,7 +116,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 _groupname = arr.groupname;
                 if ( !_groupname ) { return; }
                 this.dom.title.innerHTML = 'setting parameters...';
-                _sbx.notify(this.id,'getData');
+                _sbx.notify(this.id,'setArgs');
               }
             },
 
@@ -139,12 +139,12 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @method gotData
             * @param data {object} group information in json format used to fill the datatable directly using a defined schema.
             */
-            gotData: function(dataGroup) {
+            gotData: function(data) {
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
-                this.data = dataGroup.node;
-                this.dom.title.innerHTML = _groupname + ': ' + dataGroup.node.length + ' nodes found';
-                this.fillDataSource(dataGroup);
+                this.data = data.node;
+                this.dom.title.innerHTML = _groupname + ': ' + this.data.length + ' nodes found';
+                this.fillDataSource(this.data);
                 _sbx.notify( this.id, 'gotData' );
             }
         };
