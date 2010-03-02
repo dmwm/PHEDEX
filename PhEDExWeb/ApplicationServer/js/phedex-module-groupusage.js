@@ -1,5 +1,5 @@
 /**
-* The class is used to create group usage widget that is used to show group information for the given group name.
+* The class is used to create group usage module that is used to show group information for the given group name.
 * The group information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
 * show it to user in a YUI datatable.
 * @namespace PHEDEX.Module
@@ -144,7 +144,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = dataGroup.node;
                 this.dom.title.innerHTML = _groupname + ': ' + dataGroup.node.length + ' nodes found';
-                this.fillDataSource(dataGroup, false);
+                this.fillDataSource(dataGroup);
                 _sbx.notify( this.id, 'gotData' );
             }
         };
