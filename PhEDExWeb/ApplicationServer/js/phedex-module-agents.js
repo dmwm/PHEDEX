@@ -116,7 +116,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           node = arr.node;
           if ( !node ) { return; }
           this.dom.title.innerHTML = 'setting parameters...';
-          _sbx.notify(this.id,'getData');
+          _sbx.notify(this.id,'setArgs');
         }
       },
       getData: function() {
