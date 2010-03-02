@@ -10,6 +10,7 @@ PHEDEX.DataTable = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
 
+    this.allowNotify['doSort'] = 1;
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
     * @method _construct
@@ -91,7 +92,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                   var action = arr[0];
                   switch ( action ) {
                     case 'gotData': {
-                      o.postExpand();
+                      o.postGotData();
                       break;
                     }
                   }
@@ -100,9 +101,9 @@ PHEDEX.DataTable = function(sandbox, string) {
               _sbx.listen(this.id,moduleHandler);
             },
 
-            postExpand: function(step,node) {
-              var steps = ['doSort', 'doFilter', 'doResize', 'hideFields'], i;
-              for (i in steps) { _sbx.notify(this.id+'_dummy',steps[i]); }
+            postGotData: function(step,node) {
+              var i, steps = ['doSort', 'doFilter'];//, 'doResize', 'hideFields'];
+              for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
@@ -194,7 +195,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 }
             },
 
-            sort: function() {
+            doSort: function() {
                 var s = this.meta.sort;
                 if (!s.dir) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
                 if (s.field) {
@@ -206,6 +207,11 @@ PHEDEX.DataTable = function(sandbox, string) {
                     this.sortNeeded = false;
                     this.dataTable.sortColumn(this.dataTable.getColumn(s.field), s.dir);
                 }
+            },
+
+            decoratorsConstructed: function() {
+              if ( !this.data ) { return; }
+              this.postGotData();
             },
 
             /**
@@ -229,7 +235,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     var cDef = this.columnDefs[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; this.columnDefs[i] = cDef; }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
-                    if (!cDef.sortable) { cDef.sortable = true; }
+                    if (!cDef.sortable  ) { cDef.sortable   = true; }
                     if (!this.columnMap[cDef.key]) { this.columnMap[cDef.key] = cDef.key.toLowerCase(); }
                 }
                 this.dataSource = new YAHOO.util.DataSource();
@@ -257,7 +263,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 this.dataTable.subscribe('renderEvent', function(obj) {
                     return function() {
                         obj.resizePanel();
-                        obj.sort();
+//                         obj.sort();
                     }
                 } (this));
                 var w = this.dataTable.getTableEl().offsetWidth;
