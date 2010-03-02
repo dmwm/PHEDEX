@@ -9,8 +9,7 @@
 PHEDEX.DataTable = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
-
-    /**
+   /**
     * Processes the response data so as to create a YAHOO.util.DataSource and display it on-screen.
     * @method _processData
     * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
@@ -34,6 +33,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             }
             table.push(y);
         }
+        objtable.needProcess = false; //No need to process data further
         return table;
     };
 
@@ -100,25 +100,23 @@ PHEDEX.DataTable = function(sandbox, string) {
             postExpand: function(step,node) {
               var steps = [], i, j;
               steps.push('doSort'); steps.push('doFilter'); steps.push('doResize'); steps.push('hideFields');
-//               this.markOverflows();
+              //this.markOverflows();
               for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
-
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
             * @method fillDataSource
             * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
-            * @param process {boolean} boolean indicating if input data has to be processed (flattened)
             */
-            fillDataSource: function(moduledata, process) {
+            fillDataSource: function(moduledata) {
                 if (this.dsResponseSchema) {
                     this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
                     return;
                 }
-                if ((typeof (process) == 'undefined') || process) {
+                if (this.needProcess) {
                     // Process the data if it is new to module and is not from filter
-                    moduledata = _processData(moduledata, this);
-                    this.data = moduledata; // Cache the processed data for further use by filter
+                    this.data = _processData(moduledata, this);
+                    moduledata = this.data;     // Cache the processed data for further use by filter
                 }
                 this.dataSource = new YAHOO.util.DataSource(moduledata);
                 var oCallback = {
@@ -129,7 +127,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 this.dataSource.sendRequest('', oCallback);
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
-//                 _sbx.notify(this.id,'doFilter');
+                //_sbx.notify(this.id,'doFilter');
             },
 
             /**
@@ -221,8 +219,9 @@ PHEDEX.DataTable = function(sandbox, string) {
             */
             buildTable: function(columns, map, dsschema) {
                 this.columnDefs = columns;
-                this.dsResponseSchema = dsschema; //Stores the response schema for the datasource
-                this.columnMap = map || {}; // {table-column-name:JSON-field-name, ...};
+                this.needProcess = true;            //Process data by default
+                this.columnMap = map || {};         //{table-column-name:JSON-field-name, ...};
+                this.dsResponseSchema = dsschema;   //Stores the response schema for the datasource
                 var i = this.columnDefs.length;
                 while (i > 0) {
                     i--;
@@ -264,26 +263,26 @@ PHEDEX.DataTable = function(sandbox, string) {
                 if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
                 this.el.style.width = w + 'px';
             },
-
-/** return a boolean indicating if the module is in a fit state to be bookmarked
- * @method isStateValid
- * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
- */
+            
+            /** return a boolean indicating if the module is in a fit state to be bookmarked
+            * @method isStateValid
+            * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+            */
             isStateValid: function() {
-              if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
-              return false;
+                if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
+                return false;
             },
-
-/** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
- * @method getState
- * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
- */
+            
+            /** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
+            * @method getState
+            * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
+            */
             dirMap: function(dir) {
-              var i, map = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' };
-              if ( map[dir] ) { return map[dir]; }
-              for ( i in map ) {
-                if ( map[i] == dir ) { return i; }
-              }
+                var i, map = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' };
+                if ( map[dir] ) { return map[dir]; }
+                for ( i in map ) {
+                    if ( map[i] == dir ) { return i; }
+                }
             }
        };
     };
@@ -459,10 +458,10 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
           if (obj.dsResponseSchema) {
             var filterresult = {};
             filterresult[obj.dsResponseSchema.resultsList] = obj.data;
-            obj.fillDataSource(filterresult, false);
+            obj.fillDataSource(filterresult);
           }
           else {
-            obj.fillDataSource(obj.data, false);
+            obj.fillDataSource(obj.data);
           }
         },
 
@@ -505,10 +504,10 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             if (obj.dsResponseSchema) {
                 filterresult = {};
                 filterresult[obj.dsResponseSchema.resultsList] = table;
-                obj.fillDataSource(filterresult, false);
+                obj.fillDataSource(filterresult);
             }
             else {
-                obj.fillDataSource(table, false);
+                obj.fillDataSource(table);
             }
             return this.count;
           },
