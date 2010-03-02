@@ -124,8 +124,8 @@ PHEDEX.Core = function(sandbox,loader) {
  * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the module to instantiate. <strong>arr[1]</strong> is an (optional) object containing arguments to the module after it is created.
  */
   var _createModule = function(ev,arr) {
-    var name = arr[0];
-    var module = name.toLowerCase();
+    var name = arr[0],
+        module = name.toLowerCase();
     if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
     if ( !_loaded[module] ) {
       _loadModule(null,arr);
@@ -134,8 +134,8 @@ PHEDEX.Core = function(sandbox,loader) {
     name = PxU.initialCaps(name);
     log ('creating a module "'+name+'"','info',_me);
     try {
-      var ctor = PxU.getConstructor(module);
-      var m = new ctor(_sbx,name);
+      var ctor = PxU.getConstructor(module),
+          m = new ctor(_sbx,name);
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!",'error'); }
     m.init(_global_options);
     if ( arr[1] ) {
@@ -156,6 +156,7 @@ PHEDEX.Core = function(sandbox,loader) {
     var ii = m.decorators.length,
         i  = 0,
         nDec = 0;
+    m._nDecorators = m.decorators.length;
     while ( i < ii ) {
       var d = m.decorators[i];
       if ( m.ctl[d.name] ) {
@@ -195,6 +196,10 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             _m.ctl[_d.name] = new _ctor(_sbx,_d);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
+            if ( !--_m._nDecorators ) {
+              _sbx.notify(_m.id,'decoratorsConstructed');
+              delete _m._nDecorators; // clean up after myself
+            }
           } catch (ex) {
             banner('Error creating a '+_d.name+' for the '+_m.me+' module','error','core');
             log(err(ex),'error','core'); return;
@@ -255,7 +260,8 @@ PHEDEX.Core = function(sandbox,loader) {
         _loadDecorators(m);
         break;
       }
-      case 'initData': {
+      case 'initData':
+      case 'setArgs': {
         log('calling "'+who+'.show()"','info',_me);
         m.getData();
         break;
