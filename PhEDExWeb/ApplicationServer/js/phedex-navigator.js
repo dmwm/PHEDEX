@@ -770,9 +770,9 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
     });
 
     // build menu items in sorted order
-    var menu_items = [];
-    for (var type in types) {
-      var o = _target_types[types[type]];
+    var menu_items = [], type, o;
+    for (type in types) {
+      o = _target_types[types[type]];
       menu_items.push({ 'text': o.label, 'value': o.name });
     }
     var menu = this.button.getMenu();
@@ -836,6 +836,10 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
         }
         case 'InputTypes': {
           o.setInputTypes(value);
+          if ( !o._sentDecoratorReady ) {
+            _sbx.notify(obj.id,'decoratorReady',o.id);
+            o._sentDecoratorReady = true;
+          }
           break;
         }
       }
@@ -847,14 +851,6 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
           value = arr[1];
       log('registryHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
       switch (action) {
-        case 'InputTypes': {
-          o.setInputTypes(value);
-          if ( !o._sentDecoratorReady ) {
-            _sbx.notify(obj.id,'decoratorReady',o.id);
-            o._sentDecoratorReady = true;
-          }
-          break;
-        }
         case 'TypeOfModule': {
           if ( _target_type == value ) { return; }
           _sbx.notify(obj.id,'TargetType',value);
