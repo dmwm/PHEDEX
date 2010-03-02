@@ -2719,7 +2719,7 @@ sub getPendingRequests
             join t_adm_node n2 on n2.id = n.node
             join t_adm_client c on c.id = r.created_by
             join t_adm_identity i on i.id = c.identity
-            left join t_req_decision d on d.request = n.request and d.node = d.node
+            left join t_req_decision d on d.request = n.request and d.node = n.node
         where
             d.node is null };
     my %p;
@@ -2756,5 +2756,122 @@ sub getPendingRequests
     }
     return getRequestData($core, %param);
 }
+
+sub getRequestList
+{
+    my ($core, %h) = @_;
+
+    my $sql = qq {
+        select
+            r.id,
+            rt.name as type,
+            i.name as requested_by,
+            r.time_create,
+            n.id as node_id,
+            n.name as node_name,
+            n.se_name,
+            d.decision,
+            i2.name as decided_by,
+            d.time_decided
+        from
+            t_req_request r
+            join t_req_type rt on rt.id = r.type
+            join t_req_node rn on r.id = rn.request
+            join t_adm_node n on n.id = rn.node
+            join t_adm_client c on c.id = r.created_by
+            join t_adm_identity i on i.id = c.identity
+            left join t_req_decision d on d.request = rn.request and d.node = rn.node
+            left join t_adm_client c2 on c2.id = d.decided_by
+            left join t_adm_identity i2 on i2.id = c2.identity
+        where
+            1 = 1 
+    };
+
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        REQUESTED_BY => 'i.name',
+        TYPE => 'rt.name'));
+
+    $sql .= " and ($filters) " if $filters;
+
+    if (exists $h{CREATE_SINCE})
+    {
+        $sql .= " and r.time_create >= :create_since ";
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+    }
+
+    if (exists $h{APPROVAL})
+    {
+        my $sql2 = qq {
+            and r.id in (
+            select id from
+                (select
+                    r.id,
+                    count(*) as nodes,
+                    sum(
+                        case d.decision
+                            when 'y' then 1
+                            else 0
+                        end) as yes,
+                    sum(
+                        case d.decision
+                            when 'n' then 1
+                            else 0
+                        end) as no
+                 from
+                    t_req_request r
+                    join t_req_node rn on rn.request = r.id
+                    left join t_req_decision d on d.request = r.id and d.node = rn.node
+                 group by r.id)
+            where };
+
+        # do this only if $h{APPROVAL} is one of the followings
+        if ($h{APPROVAL} eq 'approved')
+        {
+            $sql .= $sql2 . " yes = nodes ) ";
+        }
+        elsif ($h{APPROVAL} eq 'disapproved')
+        {
+            $sql .= $sql2 . " no = nodes ) ";
+        }
+        elsif ($h{APPROVAL} eq 'pending')
+        {
+            $sql .= $sql2 . " yes + no < nodes ) ";
+        }
+        elsif ($h{APPROVAL} eq 'mixed')
+        {
+            $sql .= $sql2 . " yes + no = nodes and yes > 0 and no > 0 ) ";
+        }
+    }
+
+    if (exists $h{NODE})
+    {
+        my $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h, (
+            NODE => 'n.name'));
+        $sql .= qq {
+            and r.id in
+            (select
+                rn.request
+            from
+                t_req_node rn
+                join t_adm_node n on rn.node = n.id
+            where } . " ( $filters )) " if $filters;
+    }
+ 
+    $sql .= " order by r.id ";
+
+    my $q = execute_sql($core, $sql, %p);
+    my @r;
+
+    while ($_ = $q->fetchrow_hashref())
+    {
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 
 1;
