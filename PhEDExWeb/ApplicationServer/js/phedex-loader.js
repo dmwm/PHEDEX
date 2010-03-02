@@ -37,12 +37,13 @@ PHEDEX.Loader = function(opts) {
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
-    'phedex-treeview':  { requires:['treeview','treeview-css'] },
+    'phedex-treeview':  { requires: ['treeview', 'treeview-css'] },
     'phedex-module-nodes':      { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents':     { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview':   { requires:['phedex-module','phedex-treeview'] },
     'phedex-module-groupusage': { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-static':     { requires:['phedex-module','phedex-config'] },
+    'phedex-module-static':     { requires: ['phedex-module', 'phedex-config'] },
+    'phedex-module-blocklocation': { requires: ['phedex-module', 'slider', 'button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
