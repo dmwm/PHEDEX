@@ -109,14 +109,14 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
             */
             fillDataSource: function(moduledata) {
-                if (this.dsResponseSchema) {
-                    this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
-                    return;
-                }
                 if (this.needProcess) {
                     // Process the data if it is new to module and is not from filter
                     this.data = _processData(moduledata, this);
                     moduledata = this.data;     // Cache the processed data for further use by filter
+                }
+                if (this.dsResponseSchema) {
+                    this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
+                    return;
                 }
                 this.dataSource = new YAHOO.util.DataSource(moduledata);
                 var oCallback = {
