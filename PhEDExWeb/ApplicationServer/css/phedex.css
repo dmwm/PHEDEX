@@ -261,7 +261,7 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 }
 .phedex-core-overlay .hd { background-color:#eee; }
 .phedex-core-overlay .bd { background-color:#fff; }
-/* .phedex-core-overlay .ft { background-color:#eee; } */
+.phedex-core-overlay .ft { background-color:#eee; }
 
 .phedex-tnode-field {
   overflow: hidden;
