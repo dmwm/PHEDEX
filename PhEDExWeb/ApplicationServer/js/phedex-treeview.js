@@ -7,7 +7,7 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.TreeView = function(sandbox,string) {
-  YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
+  Yla(this,new PHEDEX.Module(sandbox,string));
   var _me  = 'treeview',
       _sbx = sandbox;
 
@@ -380,7 +380,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       dirMap: function(dir) { return dir; }, // dummy to maintain code-compatibility with data-table
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(),true);
+  Yla(this,_construct(),true);
   return this;
 }
 
@@ -528,7 +528,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       },
     };
   }
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init(args);
   return this;
 }
@@ -667,7 +667,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       },
     };
   }
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init(args);
   this.doSort(); // in case there is already a sort-field defined.
   return this;
@@ -779,7 +779,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
       },
     }
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init();
   return this;
 };

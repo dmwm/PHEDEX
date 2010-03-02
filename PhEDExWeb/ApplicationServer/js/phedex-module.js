@@ -7,7 +7,7 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.Module = function(sandbox, string) {
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
 // this Id will serve both for the HTML element id and the ModuleID for the core, should it need it
   this.id = string+'_'+PxU.Sequence();
   log('creating "'+string+'"','info','module');
@@ -112,9 +112,9 @@ PHEDEX.Module = function(sandbox, string) {
           autoDestruct: true,
         };
 //      These defaults do not override those of the module (if any)
-        YAHOO.lang.augmentObject(this.options, default_options);
+        Yla(this.options, default_options);
 //      Options from the constructor do override defaults
-        YAHOO.lang.augmentObject(this.options, opts, true);
+        Yla(this.options, opts, true);
 
         var ILive = function(obj) {
           return function() {
@@ -262,7 +262,7 @@ PHEDEX.Module = function(sandbox, string) {
           underlay: "matte"
         };
         if ( this.options.window ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.AppStyle.Window(this,module_options),true);
+          Yla(this, new PHEDEX.AppStyle.Window(this,module_options),true);
         } else {
           delete module_options['width'];
           delete module_options['height'];
@@ -271,7 +271,7 @@ PHEDEX.Module = function(sandbox, string) {
         }
         this.dom.body.style.padding = 0; // lame, but needed if our CSS is loaded before the YUI module CSS...
         if ( this.options.resizeable ) {
-          YAHOO.lang.augmentObject(this, new PHEDEX.AppStyle.Resizeable(this),true);
+          Yla(this, new PHEDEX.AppStyle.Resizeable(this),true);
         }
 
         this.module.render();
@@ -557,7 +557,7 @@ PHEDEX.Module = function(sandbox, string) {
 
     };
   };
-  YAHOO.lang.augmentObject(this, _construct());
+  Yla(this, _construct());
   return this;
 };
 
@@ -571,7 +571,7 @@ PHEDEX.Module = function(sandbox, string) {
 PHEDEX.namespace('AppStyle');
 PHEDEX.AppStyle.Window = function(obj,module_options) {
   if ( PHEDEX[obj.type].Window ) {
-    YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Window(obj),true);
+    Yla(obj,new PHEDEX[obj.type].Window(obj),true);
   }
   YAHOO.util.Dom.addClass(obj.el,'phedex-panel');
   this.module = new YAHOO.widget.Panel(obj.el, module_options);
@@ -606,7 +606,7 @@ PHEDEX.AppStyle.Window = function(obj,module_options) {
  */
 PHEDEX.AppStyle.Resizeable = function(obj) {
   if ( PHEDEX[obj.type].hasOwnProperty('Resizeable') ) {
-    YAHOO.lang.augmentObject(obj,new PHEDEX[obj.type].Resizeable(obj),true);
+    Yla(obj,new PHEDEX[obj.type].Resizeable(obj),true);
   }
   YAHOO.util.Dom.addClass(obj.el,'phedex-resizeable-panel');
 

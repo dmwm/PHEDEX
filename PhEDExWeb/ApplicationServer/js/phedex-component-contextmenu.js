@@ -21,7 +21,7 @@
  */
 PHEDEX.namespace('Component');
 PHEDEX.Component.ContextMenu=function(sandbox,args) {
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
 
   var _me = 'component-contextmenu',
       _sbx = sandbox;
@@ -29,7 +29,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   var obj = args.payload.obj;
   if ( obj ) {
     try {
-      YAHOO.lang.augmentObject(this,PHEDEX[obj.type].ContextMenu(obj,args),true);
+      Yla(this,PHEDEX[obj.type].ContextMenu(obj,args),true);
     } catch(ex) {
       log('cannot augment object of type '+obj.type+' with a ContextMenu','warn',_me);
     }
@@ -187,7 +187,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
       },
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init(args);
   return this;
 }

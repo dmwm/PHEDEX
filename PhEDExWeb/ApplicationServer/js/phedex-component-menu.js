@@ -24,7 +24,7 @@
  */
 PHEDEX.namespace('Component');
 PHEDEX.Component.Menu = function(sandbox,args) {
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
   var _me = 'component-menu',
       _sbx = sandbox,
       partner = args.partner,
@@ -117,7 +117,7 @@ debugger;
       },
     }
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init(args);
   if ( args.payload.onInit ) { _sbx.notify(partner,args.payload.onInit); }
   return this;

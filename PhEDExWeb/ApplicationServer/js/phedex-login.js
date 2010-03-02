@@ -359,7 +359,7 @@ PHEDEX.Login = function(sandbox) {
             }
         };
     }
-    YAHOO.lang.augmentObject(this, _construct(), true);
+    Yla(this, _construct(), true);
 };
 
 //This is to trim the string

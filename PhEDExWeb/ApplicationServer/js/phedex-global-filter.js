@@ -1,9 +1,9 @@
 PHEDEX.namespace('Global');
 
 PHEDEX.Global.Filter=function(parent) {
-  YAHOO.lang.augmentObject(this, PHEDEX.Base.Object(this));
+  Yla(this, PHEDEX.Base.Object(this));
   this._me = 'globalfilter';
-  YAHOO.lang.augmentObject(this,PHEDEX.Core.Filter(this));
+  Yla(this,PHEDEX.Core.Filter(this));
   this.dom.el = PxU.makeChild(parent, 'div', { /*id:'phedex-nav-filter',*/ className:'phedex-nav-component phedex-nav-filter' });
   this.widgets = [];
 

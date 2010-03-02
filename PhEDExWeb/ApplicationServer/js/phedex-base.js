@@ -4,7 +4,8 @@
  * @title Documentation for the PhEDEx website packages
  */
 var YuE = YAHOO.util.Event, // for convenience...
-    YuD = YAHOO.util.Dom;
+    YuD = YAHOO.util.Dom,
+    Yla = YAHOO.lang.augmentObject;
 
 /**
  * The PHEDEX global namespace object.

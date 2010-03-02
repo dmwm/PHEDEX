@@ -8,7 +8,7 @@
  */
 PHEDEX.namespace('Module');
 PHEDEX.Module.Dummy = function(sandbox, string) {
-  YAHOO.lang.augmentObject(this,new PHEDEX.Module(sandbox,string));
+  Yla(this,new PHEDEX.Module(sandbox,string));
   var _sbx = sandbox;
   _construct = function(obj) {
     return {
@@ -21,7 +21,7 @@ PHEDEX.Module.Dummy = function(sandbox, string) {
       },
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   return this;
 };
 

@@ -22,7 +22,7 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
                   },
                   target:  'filterPanel',
                 };
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
 
   this.filterHandler = function(obj) {
     return function(ev,arr) {
@@ -66,7 +66,7 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
       }
     };
   };
-  YAHOO.lang.augmentObject(this, _construct(this),true);
+  Yla(this, _construct(this),true);
   this._init(args);
 
 //   this.widgets = [];

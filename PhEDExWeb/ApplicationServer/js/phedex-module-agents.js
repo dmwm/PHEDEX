@@ -8,7 +8,7 @@
  */
 PHEDEX.namespace('Module');
 PHEDEX.Module.Agents = function(sandbox, string) {
-  YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
+  Yla(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox, node;
   log('Module: creating a genuine "'+string+'"','info',string);
@@ -166,21 +166,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       }
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   return this;
 };
-//   var filterDef = {
-//     'Agent attributes':{
-//       map: { to:'A' },
-//       fields: {
-// 	'name'        :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
-// 	'label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
-// 	'pid'         :{type:'int',    text:'PID',             tip:'Process-ID' },
-// 	'time_update' :{type:'minmax', text:'Date(s)',         tip:'update-times (seconds since now)', preprocess:'toTimeAgo' },
-// 	'version'     :{type:'regex',  text:'Release-version', tip:'javascript regular expression' },
-// 	'host'        :{type:'regex',  text:'Host',            tip:'javascript regular expression' },
-// 	'state_dir'   :{type:'regex',  text:'State Directory', tip:'javascript regular expression' }
-//       }
-//     }
-//   };
 log('loaded...','info','agents');

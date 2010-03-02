@@ -18,7 +18,7 @@ PHEDEX.Navigator = function(sandbox) {
       _initialPageState,
       me = 'navigator';
 
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
   this.state = {}; // plugins from decorators to access state-information easily (cheating a little)
 
     /**
@@ -309,7 +309,7 @@ PHEDEX.Navigator = function(sandbox) {
         },
       }
     };
-    YAHOO.lang.augmentObject(this, _construct(), true);
+    Yla(this, _construct(), true);
 };
 
 PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
@@ -759,7 +759,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
       type = types[i];
       var o = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY },
           opts = obj.cfg.typecfg[type] || {};
-      YAHOO.lang.augmentObject(o, opts, true);
+      Yla(o, opts, true);
       _target_types[type] = o;
     }
     _sbx.notify(obj.id,'TargetTypes',_target_types);

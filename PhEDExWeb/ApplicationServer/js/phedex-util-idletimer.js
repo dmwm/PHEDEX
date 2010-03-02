@@ -76,7 +76,7 @@ PHEDEX.Util.IdleTimer = function(){
     }
   };
 
-  YAHOO.lang.augmentObject(IdleTimer, YAHOO.util.EventProvider.prototype);
+  Yla(IdleTimer, YAHOO.util.EventProvider.prototype);
   IdleTimer.createEvent("active");
   IdleTimer.createEvent("idle");
 

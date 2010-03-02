@@ -18,7 +18,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         { key:'from', text:'Outgoing Links' }
       ];
 
-  YAHOO.lang.augmentObject(this,new PHEDEX.TreeView(sandbox,string));
+  Yla(this,new PHEDEX.TreeView(sandbox,string));
 
   var node,
       opts = {},
@@ -26,7 +26,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
       PxUf = PHEDEX.Util.format;
 
   // Merge passed options with defaults
-  YAHOO.lang.augmentObject(opts, {
+  Yla(opts, {
     width:width,
     height:300
   });
@@ -439,7 +439,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
       },
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(),true);
+  Yla(this,_construct(),true);
   return this;
 }
 

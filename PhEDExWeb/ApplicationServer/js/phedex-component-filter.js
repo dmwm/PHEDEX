@@ -1,6 +1,6 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.Filter = function(sandbox,args) {
-  YAHOO.lang.augmentObject(this, new PHEDEX.Base.Object());
+  Yla(this, new PHEDEX.Base.Object());
   var _me = 'component-filter',
       _sbx = sandbox,
       payload = args.payload,
@@ -8,7 +8,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       partner = args.partner,
       ttIds = [], ttHelp = {};
 
-  YAHOO.lang.augmentObject(this, new PHEDEX[obj.type].Filter(sandbox,obj));
+  Yla(this, new PHEDEX[obj.type].Filter(sandbox,obj));
 
   this.id = _me+'_'+PxU.Sequence();
   this.selfHandler = function(obj) {
@@ -60,11 +60,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
     }
   }(this);
   _sbx.listen(this.id,this.selfHandler);
-  this.partnerHandler = function(obj) {
+  this.partnerHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0];
       switch (action) {
-        case 'gotData': {
+        case 'doFilter': {
           obj.applyFilter();
           break;
         }
@@ -444,7 +444,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
         }
         if ( isValid ) {
-          _sbx.notify(this.id,'Filter','Validated',this.args);
+//           _sbx.notify(this.id,'Filter','Validated',this.args);
           _sbx.notify(this.id,'Filter','Apply',this.args,nItems);
         }
         return;
@@ -517,9 +517,9 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       }
     };
   };
-  YAHOO.lang.augmentObject(this,_construct(this),true);
+  Yla(this,_construct(this),true);
   this._init(args);
-  if ( this.meta._filter ) { this.Parse(); } // in case a default filter was set
+//   if ( this.meta._filter ) { this.Parse(); } // in case a default filter was set
   return this;
 }
 
