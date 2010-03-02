@@ -15,8 +15,9 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
 =head2 Options
 
   type             request type, 'xfer' (default) or 'delete'
-  username         requestor's username, could be multiple
+  requested_by     requestor's username, could be multiple
   node             name of the destination node, could be multiple
+                   (show requests in which this node is involved)
   create_since     created since this time
 
   * without any input, the default "create_since" is set to 24 hours ago
