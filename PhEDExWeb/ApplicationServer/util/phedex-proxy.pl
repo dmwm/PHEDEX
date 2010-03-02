@@ -229,6 +229,13 @@ POE::Component::Server::TCP->new
         }
         if ( -f $file )
         {
+          if ( $file =~ m%.html$% && $log )
+          {
+            open LOG, ">$log" or die "Cannot open $log to truncate it: $!\n";
+            close LOG;
+            print "Truncated logfile upon request for $file\n";
+          }
+
           if ( $< != (stat($file))[4] )
           {
             $error = "Refuse to open $file, I do not own it";
