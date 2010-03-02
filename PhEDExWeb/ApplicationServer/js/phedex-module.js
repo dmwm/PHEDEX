@@ -221,20 +221,28 @@ PHEDEX.Module = function(sandbox, string) {
             var action = arr[0],
                 value = arr[1];
             switch (action) {
-              case 'show target': { obj.adjustHeader( value); break; }
-              case 'hide target': { obj.adjustHeader(-value); break; }
-             case 'expand': {
-                obj[value]();
-                _sbx.notify(arr[2],action,'done');
-                break;
-              }
-              default: {
-                if ( obj[action] && obj.allowNotify[action]) {
-                  log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
-                  obj[action](value);
+                case 'getData': { 
+                    if ( obj[action] && obj.allowNotify[action]) {
+                        log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
+                        obj.needProcess = true;
+                        obj[action](value);
+                    }
+                    break;
                 }
-                break;
-              }
+                case 'show target': { obj.adjustHeader( value); break; }
+                case 'hide target': { obj.adjustHeader(-value); break; }
+                case 'expand': {
+                    obj[value]();
+                    _sbx.notify(arr[2],action,'done');
+                    break;
+                }
+                default: {
+                    if ( obj[action] && obj.allowNotify[action]) {
+                        log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
+                        obj[action](value);
+                    }
+                    break;
+                }
             }
           }
         }(this);
