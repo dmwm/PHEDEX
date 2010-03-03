@@ -112,12 +112,12 @@ PHEDEX.Module.Agents = function(sandbox, string) {
  * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
  */
       setArgs: function(arr) {
-        if ( arr && arr.node ) {
-          node = arr.node;
-          if ( !node ) { return; }
-          this.dom.title.innerHTML = 'setting parameters...';
-          _sbx.notify(this.id,'setArgs');
-        }
+        if ( !arr )      { return; }
+        if ( !arr.node ) { return; }
+        if ( arr.node == node ) { return; }
+        node = arr.node;
+        this.dom.title.innerHTML = 'setting parameters...';
+        _sbx.notify(this.id,'setArgs');
       },
       getData: function() {
         if ( !node ) {
