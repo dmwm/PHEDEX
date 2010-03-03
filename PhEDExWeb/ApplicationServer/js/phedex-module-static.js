@@ -10,7 +10,7 @@
 
 PHEDEX.namespace('Module');
 PHEDEX.Module.Static = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
+    Yla(this, new PHEDEX.Module(sandbox, string));
     var YDOM = YAHOO.util.Dom,
         category,
         _divspanid = '',
@@ -259,6 +259,6 @@ PHEDEX.Module.Static = function(sandbox, string) {
         },
       };
     };
-    YAHOO.lang.augmentObject(this, _construct(), true);
+    Yla(this, _construct(), true);
     return this;
 }
