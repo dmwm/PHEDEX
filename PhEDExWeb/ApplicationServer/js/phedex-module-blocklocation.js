@@ -11,27 +11,26 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.BlockLocation = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
-
-    var _sbx = sandbox;
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
-    var _totalRow = {};            //The first row JSON object that has the values
-    var _lowpercent = 0;           //The lower percentage range of the data transfer
-    var _highpercent = 100;        //The higher percentage range of the data transfer
-    var _nPgBarIndex = 0;          //The unique ID for the progress bar
-    var _nOrigLowPercent = 0;      //The original low percent to avoid re-formatting the result
-    var _nOrigHighPercent = 0;     //The original max percent to avoid re-formatting the result
-    var _strOrigBlkQuery = "";     //The original input block names of the query to avoid re-formatting the result
-    var _strOrigNodeQuery = "";    //The original input node names of the query to avoid re-formatting the result
-    var _bFormTable = false;       //The boolean indicated if table has to be formed again or not
-    var _recordAllRow = null;      //The first row (Total row) object of the datatable
-    var _regexpDot = null;         //The Regular expression object
-    var _arrBlocks = null;         //The associative array stores all the blocks
-    var _sliderRange = null;       //The object of the slider for percentage range of the data transfer
-    var _arrColumns = null;        //The map that stores current column names
-    var _arrColumnNode = null;     //The map that stores all the node (column) names
-    var _arrQueryBlkNames = null;  //The input query block names
-    var _divInput, _divResult, _divMissingBlks, _dataTable; //The input, result, info HTML elements
+    var _sbx = sandbox,
+        _totalRow = {},            //The first row JSON object that has the values
+        _nPgBarIndex = 0,          //The unique ID for the progress bar
+        _lowpercent = 0,           //The lower percentage range of the data transfer
+        _highpercent = 100,        //The higher percentage range of the data transfer
+        _nOrigLowPercent = 0,      //The original low percent to avoid re-formatting the result
+        _nOrigHighPercent = 0,     //The original max percent to avoid re-formatting the result
+        _strOrigBlkQuery = "",     //The original input block names of the query to avoid re-formatting the result
+        _strOrigNodeQuery = "",    //The original input node names of the query to avoid re-formatting the result
+        _bFormTable = false,       //The boolean indicated if table has to be formed again or not
+        _recordAllRow = null,      //The first row (Total row) object of the datatable
+        _regexpDot = null,         //The Regular expression object
+        _arrBlocks = null,         //The associative array stores all the blocks
+        _sliderRange = null,       //The object of the slider for percentage range of the data transfer
+        _arrColumns = null,        //The map that stores current column names
+        _arrColumnNode = null,     //The map that stores all the node (column) names
+        _arrQueryBlkNames = null,  //The input query block names
+        _divInput, _divResult, _divMissingBlks, _dataTable; //The input, result, info HTML elements
 
     /**
     * This function resets the "Result" elements in the web page for new search.
@@ -41,6 +40,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     var _clearResult = function() {
         _divResult.innerHTML = "";      //Reset the result element
         _divMissingBlks.innerHTML = ""; //Reset the missing blocks element
+        log('The result is cleared', 'info', this.me)
     }
 
     /**
@@ -50,8 +50,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _convertSliderVal = function(value) {
-        var temp = 100 / (200 - 20);
-        return Math.round(value * temp); //Convert the min and max values of slider into percentage range
+        return Math.round(value * (100 / (200 - 20))); //Convert the min and max values of slider into percentage range
     }
 
     /**
@@ -69,6 +68,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _divInput.txtboxBlk.value = "";  //Reset the block name text box
         _divInput.txtboxNode.value = ""; //Reset the node name text box
         _divInput.txtRange.innerHTML = _convertSliderVal(_sliderRange.minVal) + " - " + _convertSliderVal(_sliderRange.maxVal - 20) + " %";
+        log('The module is initialized', 'info', this.me)
     }
 
     /**
@@ -77,8 +77,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _updateRange = function() {
-        //Set the values of the percentage range
         _divInput.txtRange.innerHTML = _convertSliderVal(_sliderRange.minVal) + " - " + _convertSliderVal(_sliderRange.maxVal - 20) + " %";
+        log('The slider value is updated', 'info', this.me)
     }
 
     /**
@@ -109,8 +109,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _addBlockNode = function(strBlockName, nTotalSize, nTotalFiles, objNode) {
-        var arrNodes = null;
-        var objBlock = _arrBlocks[strBlockName];
+        var arrNodes = null, objBlock = _arrBlocks[strBlockName];
         if (objBlock == null) {
             objBlock = new Object(); //create new node object and assign the arguments to the properties of object
             objBlock.BlockName = strBlockName;
@@ -143,10 +142,10 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _getDataInfo = function() {
-        var strDataInput = _divInput.txtboxBlk.value;
-        strDataInput = strDataInput.trim(); //Remove the whitespaces from the ends of the string
+        var indx, blocknames, strNodeInput, strDataInput;
+        strDataInput = _divInput.txtboxBlk.value.trim(); //Remove the whitespaces from the ends of the string
         if (!strDataInput) {
-            alert("Please enter the query block name(s)."); //Alert user if input is missing
+            banner("Please enter the query block name(s).", 'warn'); //Inform user if input is missing
             _clearResult();
             return;
         }
@@ -157,14 +156,13 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _divInput.btnReset.disabled = true;   //Disable the Reset button
 
         strDataInput = strDataInput.replace(/\n/g, " ");
-        var blocknames = strDataInput.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
-        var indx = 0;
+        blocknames = strDataInput.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
         _arrQueryBlkNames = new Array();
         for (indx = 0; indx < blocknames.length; indx++) {
             blocknames[indx] = blocknames[indx].trim(); //Remove the whitespaces in the blocknames
             _insertData(_arrQueryBlkNames, blocknames[indx], "");
         }
-        var strNodeInput = _divInput.txtboxNode.value;
+        strNodeInput = _divInput.txtboxNode.value;
         if (_strOrigBlkQuery == strDataInput) //Check if current query block names and previous query block names are same or not
         {
             //No change in the input query. So, no need make data service call
@@ -197,9 +195,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         //Callback function used by YUI connection manager on completing the connection request with web API
         var funcSuccess = function(jsonBlkData) {
             try {
-                var blk = null, replica = null;
-                var indxBlock = 0, indxReplica = 0, indxNode = 0;
-                var blockbytes = 0, blockcount = 0, blockfiles = 0, replicabytes = 0, replicacount = 0;
+                log('The data service response is received and ready for processing', 'info', this.me)
+                var blk = null, replica = null, indxBlock = 0, indxReplica = 0, indxNode = 0, 
+                    blockbytes = 0, blockcount = 0, blockfiles = 0, replicabytes = 0, replicacount = 0;
                 if (_arrBlocks) {
                     _arrBlocks = null;
                 }
@@ -261,7 +259,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 }
             }
             catch (e) {
-                alert("Error in processing the received response. Please check the input.");
+                banner("Error in processing the received response. Please check the input.", 'error');
                 _clearResult();
                 _bFormTable = true;
             }
@@ -272,7 +270,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
         //If YUI connection manager fails communicating with web API, then this callback function is called
         var funcFailure = function(objError) {
-            alert("Error in communicating with Phedex and receiving the response. " + objError.message);
+            banner("Error in communicating with data service and receiving the response.", 'error');
+            log("Error in communicating with data service and receiving the response. " + objError.message, 'error');
             _clearResult(); //Clear the result elements
             _bFormTable = true;
             _divInput.btnGetInfo.disabled = false; //Enable the Get Info button
@@ -296,24 +295,31 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _buildInput = function(domInput) {
-        var TxtBoxBlk = document.createElement('textarea');
+        var TxtBoxBlk, TxtBoxNode, tableInput, tableRow, tableCell1, tableCell2, tableSlider, tableCell3, divSliderRange,
+            divSliderLower, divSliderHigher, TxtRange, btnGetInfo, btnReset, objPushBtnGet, objPushBtnReset,
+            range = 200,          // The range of slider in pixels
+            tickSize = 0,         // This is the pixels count by which the slider moves in fixed pixel increments
+            minThumbDistance = 0, // The minimum distance the thumbs can be from one another
+            initValues = [0, 200]; // Initial values for the Slider in pixels
+        
+        TxtBoxBlk = document.createElement('textarea');
         TxtBoxBlk.className = 'txtboxBlkNode';
         TxtBoxBlk.rows = 4;
         TxtBoxBlk.cols = 40;
 
-        var TxtBoxNode = document.createElement('textarea');
+        TxtBoxNode = document.createElement('textarea');
         TxtBoxNode.className = 'txtboxBlkNode';
         TxtBoxNode.rows = 4;
         TxtBoxNode.cols = 40;
 
-        var tableInput = document.createElement('table');
+        tableInput = document.createElement('table');
         tableInput.border = 0;
         tableInput.cellspacing = 3;
         tableInput.cellpadding = 3;
-        var tableRow = tableInput.insertRow(0);
+        tableRow = tableInput.insertRow(0);
 
-        var tableCell1 = tableRow.insertCell(0);
-        var tableCell2 = tableRow.insertCell(1);
+        tableCell1 = tableRow.insertCell(0);
+        tableCell2 = tableRow.insertCell(1);
         tableCell1.innerHTML = '<div>Enter data block(s) name (separated by whitespace):</div>';
         tableCell1.appendChild(TxtBoxBlk);
         tableCell2.innerHTML = '<div>Enter node(s) name (separated by whitespace):</div>';
@@ -323,7 +329,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domInput.txtboxNode = TxtBoxNode;
         domInput.appendChild(tableInput);
 
-        var tableSlider = document.createElement('table');
+        tableSlider = document.createElement('table');
         tableSlider.border = 0;
         tableSlider.cellspacing = 3;
         tableSlider.className = 'yui-skin-sam';
@@ -331,17 +337,17 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
         tableCell1 = tableRow.insertCell(0);
         tableCell2 = tableRow.insertCell(1);
-        var tableCell3 = tableRow.insertCell(2);
-
+        tableCell3 = tableRow.insertCell(2);
+        
         tableCell1.innerHTML = '<span>Select data transfer percentage range:</span>&nbsp;&nbsp;';
-        var divSliderRange = document.createElement('div');
+        divSliderRange = document.createElement('div');
         divSliderRange.className = 'yui-h-slider';
         divSliderRange.title = 'Move the slider to select the range';
 
-        var divSliderLower = document.createElement('div');
+        divSliderLower = document.createElement('div');
         divSliderLower.className = 'yui-slider-thumb';
         divSliderLower.innerHTML = '<img src="/images/left-thumb.png"/>';
-        var divSliderHigher = document.createElement('div');
+        divSliderHigher = document.createElement('div');
         divSliderHigher.className = 'yui-slider-thumb';
         divSliderHigher.innerHTML = '<img src="/images/right-thumb.png"/>';
         divSliderRange.appendChild(divSliderLower);
@@ -352,16 +358,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domInput.divSliderLower = divSliderLower;
         domInput.divSliderHigher = divSliderHigher;
 
-        var TxtRange = document.createElement('span');
+        TxtRange = document.createElement('span');
         TxtRange.innerHTML = '0 - 100';
         tableCell3.appendChild(TxtRange);
         domInput.txtRange = TxtRange;
         domInput.appendChild(tableSlider);
-
-        var range = 200;          // The range of slider in pixels
-        var tickSize = 0;         // This is the pixels count by which the slider moves in fixed pixel increments
-        var minThumbDistance = 0; // The minimum distance the thumbs can be from one another
-        var initValues = [0, 200]; // Initial values for the Slider in pixels
 
         // Create the Yahoo! DualSlider
         _sliderRange = YAHOO.widget.Slider.getHorizDualSlider(divSliderRange, divSliderLower, divSliderHigher, range, tickSize, initValues);
@@ -369,9 +370,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _sliderRange.subscribe('ready', _updateRange);  //Adding the function to ready event
         _sliderRange.subscribe('change', _updateRange); //Adding the function to change event
         domInput.appendChild(tableSlider);
-
-        var btnGetInfo = document.createElement('span');
-        var btnReset = document.createElement('span');
+        
+        btnGetInfo = document.createElement('span');
+        btnReset = document.createElement('span');
         btnGetInfo.className = 'yui-skin-sam';
         btnReset.className = 'yui-skin-sam';
         domInput.btnGetInfo = btnGetInfo;
@@ -380,8 +381,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domInput.appendChild(btnReset);
 
         // Create Yahoo! Buttons
-        var objPushBtnGet = new YAHOO.widget.Button({ label: "Get Block Data Info", id: "datalookup-btnGetInfo", container: btnGetInfo, onclick: { fn: _getDataInfo} });
-        var objPushBtnReset = new YAHOO.widget.Button({ label: "Reset", id: "datalookup-btnReset", container: btnReset, onclick: { fn: _initializeValues} });
+        objPushBtnGet = new YAHOO.widget.Button({ label: "Get Block Data Info", id: "datalookup-btnGetInfo", container: btnGetInfo, onclick: { fn: _getDataInfo} });
+        objPushBtnReset = new YAHOO.widget.Button({ label: "Reset", id: "datalookup-btnReset", container: btnReset, onclick: { fn: _initializeValues} });
+        log('The input component has been built','info',this.me)
     }
 
     /**
@@ -391,6 +393,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _buildModule = function(domModule) {
+        var strDot = ".", cntrlInput;
+        _regexpDot = new RegExp(strDot);
         domModule.content.divInput = document.createElement('div');
         domModule.content.divInput.style.backgroundColor = 'white';
         _divInput = domModule.content.divInput;
@@ -405,7 +409,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _divMissingBlks = domModule.content.divMissingBlks;
         domModule.content.appendChild(domModule.content.divMissingBlks);
 
-        var cntrlInput = new PHEDEX.Component.Control(PxS, {
+        cntrlInput = new PHEDEX.Component.Control(PxS, {
             payload: {
                 text: 'Show Input',
                 title: 'This shows the input component.',
@@ -417,10 +421,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
         domModule.title.appendChild(cntrlInput.el);
         cntrlInput.Show();
-
-        var strDot = ".";
-        _regexpDot = new RegExp(strDot);
         _initializeValues();
+        log('The module has been built completely', 'info', this.me)
     }
 
     /**
@@ -449,11 +451,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _showNode = function(strColumnName) {
-        var nTransferPercent = 0, indx = 0, nLength = 0;
-        var recsetNode = _dataTable.getRecordSet(); //Get the values of the column
+        var nTransferPercent = 0, indx, recBlock,
+        recsetNode = _dataTable.getRecordSet(), //Get the values of the column
         nLength = recsetNode.getLength();
         for (indx = 1; indx < nLength; indx++) {
-            var recBlock = recsetNode.getRecord(indx);
+            recBlock = recsetNode.getRecord(indx);
             nTransferPercent = recBlock.getData(strColumnName);
             if ((nTransferPercent >= _lowpercent) && (nTransferPercent <= _highpercent)) //Check if percentage is within query range
             {
@@ -470,11 +472,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _getQueryColumns = function(strQuery) {
-        var bShow = false, strColumnName = "";
-        var arrQueryCols = new Array(); //Create new associative array to store node column names
+        var bShow = false, strColumnName = "", bExist, regexpNodes,
+        arrQueryCols = new Array(); //Create new associative array to store node column names
         for (strColumnName in _arrColumnNode) {
-            var regexpNodes = new RegExp(strQuery);       //Form the regular expression object
-            var bExist = regexpNodes.test(strColumnName); //Check if this node matched with the given expression of input node filter
+            regexpNodes = new RegExp(strQuery);       //Form the regular expression object
+            bExist = regexpNodes.test(strColumnName); //Check if this node matched with the given expression of input node filter
             if (bExist) {
                 //Show the node column
                 _insertData(arrQueryCols, strColumnName, "");
@@ -490,26 +492,23 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _filterNodes = function() {
-        var indx = 0;
-        var strColumnName = "", strName = "";
-        var strNodeNames = _divInput.txtboxNode.value; //Get the node filter
-        strNodeNames = strNodeNames.trim(); //Remove the whitespaces from the ends of the string
+        var indx, nLoop = 0, strColumnName = "", strName = "", arrNodeNames, arrQueryNodes, 
+            arrTemp, arrNodeCols = null, arrQueryCols = null,
+            strNodeNames = _divInput.txtboxNode.value.trim(); //Remove the whitespaces from the ends of the string
         if (strNodeNames.length == 0) //If node query box is empty, then show all columns
         {
             return _arrColumnNode;
         }
 
         strNodeNames = strNodeNames.replace(/\n/g, " ");
-        var arrNodeNames = strNodeNames.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
-        var arrQueryNodes = new Array();
+        arrNodeNames = strNodeNames.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
+        arrQueryNodes = new Array();
         for (indx = 0; indx < arrNodeNames.length; indx++) {
             strName = arrNodeNames[indx].trim(); //Remove the whitespaces in the blocknames
             _insertData(arrQueryNodes, strName, "");
         }
 
-        var nLoop = 0;
-        var arrNodeCols = null, arrQueryCols = null;
-        var arrTemp = new Array();
+        arrTemp = new Array();
         for (strName in arrQueryNodes) {
             arrQueryCols = _getQueryColumns(strName); //Get the list of nodes that match with the given separate expression of the node filter 
             if (nLoop == 0) //If first loop, then just copy the result of query to the result column list
@@ -521,8 +520,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 //Find the intersection of query result and seperate expression result
                 arrTemp = new Array();
                 for (strColumnName in arrQueryCols) {
-                    var obj = arrNodeCols[strColumnName];
-                    if (obj == "") {
+                    if (arrNodeCols[strColumnName] == "") {
                         _insertData(arrTemp, strColumnName, ""); //Add if both sets have same item
                     }
                 }
@@ -568,10 +566,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _showBlock = function(objBlock, arrColumn) {
-        var strColumnName = "";
-        var jsonNode = null, objNode = null;
-        var nTransferPercent = 0, nNodeCount = 0;
-        var arrBlkNodes = objBlock.Nodes;
+        var strColumnName = "", jsonNode = null, objNode = null, nTransferPercent = 0, nNodeCount = 0, arrBlkNodes = objBlock.Nodes;
         if (arrBlkNodes) {
             nNodeCount = _arrayLength(arrBlkNodes);
             if (nNodeCount < _arrayLength(_arrColumnNode)) {
@@ -604,12 +599,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _formatResult = function(arrColumn) {
-        var data = [];
-        var bShow = false;
-        var strBlockName = "", strColumnName = "";
-        var nCurrentSize = 0, nTransferPercent = 0, nCount = 0;
-        var objArr = null, objBlock = null, objNode = null, arrBlkNodes = null;
-        var arrTotal = new Array(); //Create new associate array to store all the total row
+        var data = [], bShow = false, strBlockName = "", strColumnName = "", nCurrentSize = 0, nTransferPercent = 0, nCount = 0,
+            objArr = null, objBlock = null, objNode = null, arrBlkNodes = null, dtColumnsDef, dsCols,
+            arrTotal = new Array(); //Create new associate array to store all the total row
 
         _nPgBarIndex = 0; //Reset the ID of the progress bar    
         for (objArr in _arrBlocks) {
@@ -644,12 +636,13 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 _updateTotalRow(arrTotal, "blockbytes", objBlock.TotalSize); //Update the values of Total Row for the datatable
             }
         }
+        log('The data for the datatable has been formed by processing the data service response', 'info', this.me)
 
         //The custom progress bar format to the node column
-        var formatProgressBar = function(elCell, oRecord, oColumn, sData) {
-            var nSize = oRecord.getData("blockbytes") * sData / 100; //Calculate the current size of the block data transferred
-            var strHTML = '<div><div id = "BlkProgressBar' + ++_nPgBarIndex + '" role="progressbar" aria-valuemin="0" aria-valuemax=100" aria-valuenow="' + sData + '" ';
-            var strPerHTML = '';
+        YAHOO.widget.DataTable.Formatter.customProgressBar = function(elCell, oRecord, oColumn, sData) {
+            var strPerHTML = '', 
+                nSize = oRecord.getData("blockbytes") * sData / 100, //Calculate the current size of the block data transferred
+                strHTML = '<div><div id = "BlkProgressBar' + ++_nPgBarIndex + '" role="progressbar" aria-valuemin="0" aria-valuemax=100" aria-valuenow="' + sData + '" ';
             if ((sData >= _lowpercent) && (sData <= _highpercent)) {
                 //The percentage is within query range
                 strHTML = strHTML + 'class="progressbar ui-progressbar ui-widget ui-widget-content ui-corner-all" aria-disabled="true">';
@@ -665,13 +658,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             elCell.innerHTML = strHTML;
         };
 
-        YAHOO.widget.DataTable.Formatter.customProgressBar = formatProgressBar; //Assign column format with the custom progress bar format
-
-        var dtColumnsDef = [{ "key": "blockname", "label": "Block", "sortable": true, "resizeable": true, "width": 300 },
+        dtColumnsDef = [{ "key": "blockname", "label": "Block", "sortable": true, "resizeable": true, "width": 300 },
                             { "key": "blockfiles", "label": "Files", "sortable": true, "resizeable": true, "width": 30 },
                             { "key": "blockbytes", "label": "Size", "sortable": true, "resizeable": true, "width": 70, "formatter": "customBytes" }
                             ];
-        var dsCols = ["blockname", "blockfiles", "blockbytes"];
+        dsCols = ["blockname", "blockfiles", "blockbytes"];
         //Traverse through the node list and add node columns to the datasource
         for (strColumnName in arrColumn) {
             dtColumnsDef.push({ "key": strColumnName, "sortable": true, "formatter": "customProgressBar" });
@@ -680,7 +671,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
         //The function that is called after any of the columns is sorted
         //This is used to put the "Total" row always at top of the table
-        var AfterSorting = function(oArgs) {
+        var afterSorting = function(oArgs) {
             var nRowIndx = _dataTable.getRecordIndex(_recordAllRow);
             _dataTable.deleteRow(nRowIndx); 		    //Delete the Total row from its current position after sorting 
             _dataTable.addRow(_totalRow, 0); 		    //Add the Total row at top of the table
@@ -705,18 +696,19 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             else {
                 _dataTable = new YAHOO.widget.DataTable(_divResult, dtColumnsDef, dataSource); //Create new datatable using datasource and column definitions
             }
-            _dataTable.subscribe('columnSortEvent', AfterSorting);  //Assign the function to the event (after column gets sorted)
+            log('The datatable in module has been created with data corresponding to user input', 'info', this.me)
+            _dataTable.subscribe('columnSortEvent', afterSorting);  //Assign the function to the event (after column gets sorted)
         }
         catch (e) {
-            alert("The following error occurred: " + e.name + " - " + e.message);
-            //alert("Error in adding data to the table");
+            banner("Error in creating datatable.", 'error');
+            log("Error in creating datatable. " + e.name + " - " + e.message, 'error');
             return;
         }
 
         if (_dataTable.getRecordSet().getLength() > 0) {
-            var nAllCurrentSize = 0, nValue = 0;
-            var nAllBlockFiles = arrTotal["blockfiles"]; //Get the total block file count
-            var nAllBlockBytes = arrTotal["blockbytes"]; //Get the total block size
+            var nAllCurrentSize = 0, nValue = 0, percentcompleted,
+            nAllBlockFiles = arrTotal["blockfiles"], //Get the total block file count
+            nAllBlockBytes = arrTotal["blockbytes"]; //Get the total block size
             _totalRow = { "blockname": "(All)", "blockfiles": nAllBlockFiles, "blockbytes": nAllBlockBytes };
             for (strColumnName in arrColumn) {
                 nValue = arrTotal[strColumnName]; //Get the node total info
@@ -726,7 +718,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 else {
                     nAllCurrentSize = 0;
                 }
-                var percentcompleted = 100 * nAllCurrentSize / nAllBlockBytes; //Calculate the total data transfer percenatage for node
+                percentcompleted = 100 * nAllCurrentSize / nAllBlockBytes; //Calculate the total data transfer percenatage for node
                 if (_isDecimal(percentcompleted)) {
                     percentcompleted = percentcompleted.toFixed(2);
                 }
@@ -736,10 +728,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
             try {
                 _dataTable.addRow(_totalRow, 0);
+                log('The total row (1st row) is added to datatable', 'info', this.me)
                 _recordAllRow = _dataTable.getRecord(0);
             }
             catch (ex) {
-                alert("Error in adding total row to the table");
+                log("Error in adding total row to the table", 'error');
             }
             if (_arrayLength(arrColumn) < _arrayLength(_arrColumnNode)) //Node filter is on
             {
@@ -751,6 +744,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                         _hideColumn(strColumnName);
                     }
                 }
+                log('The node filter is applied by hiding unneccessary columns in datatable', 'info', this.me)
             }
         }
         else {
@@ -758,8 +752,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             _bFormTable = true;
         }
         if (_arrayLength(_arrQueryBlkNames) > 0) {
-            var strXmlMsg = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
-            _divMissingBlks.innerHTML = strXmlMsg;
+            _divMissingBlks.innerHTML = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
         }
         else {
             _divMissingBlks.innerHTML = ""; //Clear the user message
@@ -777,8 +770,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             if (_arrayLength(_arrQueryBlkNames) == 0) {
                 return;
             }
-            var indx = 0, wildcharindx = 0;
-            var queryblkname = "", strName = "";
+            var indx = 0, wildcharindx = 0, queryblkname = "", strName = "";
             blockname = blockname.toLowerCase();
             //Traverse the set and check if the block is there or not
             for (strName in _arrQueryBlkNames) {
@@ -798,6 +790,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             }
         }
         catch (ex) {
+            log('Error in checking if query block name exists in result', 'error', this.me)
         }
     }
 
@@ -807,8 +800,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _getMissingBlocks = function() {
-        var strName = "", indx = 1;
-        var strXmlMsg = 'The query result for the following block(s) is none because [block name is wrong]\\[block data transfer percentage ';
+        var strName = "", indx = 1,
+        strXmlMsg = 'The query result for the following block(s) is none because [block name is wrong]\\[block data transfer percentage ';
         strXmlMsg = strXmlMsg + "is out of the input range]\\[any of the node names is wrong].<br/>";
         for (strName in _arrQueryBlkNames) {
             strXmlMsg = strXmlMsg + indx + ". " + strName + "<br/>";
@@ -874,7 +867,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             * @method getData
             */
             getData: function() {
-                _sbx.notify(this.id, 'getData');
+                _sbx.notify(this.id, 'gotData');
                 return;
             },
 
