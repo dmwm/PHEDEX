@@ -10,7 +10,6 @@ PHEDEX.DataTable = function(sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
 
-    this.allowNotify['doSort'] = 1;
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
     * @method _construct
@@ -105,7 +104,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             },
 
             postGotData: function(step,node) {
-              var i, steps = [];//'doSort'];//, 'doFilter'];//, 'doResize', 'hideFields'];
+              var i, steps = ['doFilter', 'doSort', 'doResize', 'hideFields'];
               for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
             /**
@@ -516,10 +515,6 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             }
             return this.count;
           },
-
-      doFilter: function() {
-        obj.applyFilter();
-      },
     };
   };
   Yla(this,_construct(this),true);
