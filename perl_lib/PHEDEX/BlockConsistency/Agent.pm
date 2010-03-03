@@ -47,7 +47,7 @@ our %params =
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> undef,
 	  max_priority	=> 0,			# max of active requests
-	  QUEUE_LENGTH	=> 40,			# length of queue per cycle
+	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
 	);
 
 sub new
@@ -313,7 +313,12 @@ sub do_tests
   my ($request,$r,$id,$priority);
 
   ($priority,$id,$request) = $self->{QUEUE}->dequeue_next();
-  return unless $request;
+  unless ($request) {
+# I drained the queue, get more requests inmediately
+    $self->Logmsg("do_tests: Queue has been drained") if ( $self->{DEBUG} );
+    $kernel->yield('get_work');
+    return;
+  }
 # I got a request, so make sure I come back again soon for another one
   $kernel->yield('do_tests');
 
@@ -451,13 +456,14 @@ sub get_work
 
   if ( $self->{QUEUE}->get_item_count() )
   {
-#   There is work queued, so the agent is 'busy'. Check again soon
-    $kernel->delay_set('get_work',10);
+#   There is work queued, so the agent is 'busy'. Do not do anything 'do_tests' will send us back here
+    $self->Logmsg("get_work: The agent is busy") if ( $self->{DEBUG} );
+#    $kernel->delay_set('get_work',10);
     return;
   }
 # The agent is idle. Check somewhat less frequently
-  $kernel->delay_set('get_work',$self->{WAITTIME});
-
+#  $kernel->delay_set('get_work',$self->{WAITTIME});
+  $self->Logmsg("get_work: The agent is idle, look for work") if ( $self->{DEBUG} );
   $self->{pmon}->State('get_work','start');
   eval
   {
@@ -488,6 +494,9 @@ sub get_work
   if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
   else
   {
+    # The agent was idle and still idle, check less frequently
+    $self->Logmsg("get_work: Found no work, wait $self->{WAITTIME} secs and try again") if ( $self->{DEBUG} );
+    $kernel->delay_set('get_work',$self->{WAITTIME});
     # Disconnect from the database
     $self->disconnectAgent();
   }
