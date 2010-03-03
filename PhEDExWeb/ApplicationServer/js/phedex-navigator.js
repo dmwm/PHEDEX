@@ -626,7 +626,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       _state[_type] = value;
       if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
       _typeArgs[_type][key] = value;
-      _sbx.notify('module','*','setArgs',_typeArgs[_type]);
+      _sbx.notify('module','*','doSetArgs',_typeArgs[_type]);
     }
     auto_comp.itemSelectEvent.subscribe(selection_callback);
   };
@@ -700,10 +700,10 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             o._updateTargetSelector(value.type);
           }
           if ( value.target && value.target != _state[_type] ) {
-            _typeArgs[ _type] = {node:value.target}; // TODO Again, hardwiring 'node' ?
+            _typeArgs[_type] = {node:value.target}; // TODO Again, hardwiring 'node' ?
             _state[_type] = value.target;
             _selectors[_type].updateGUI(value.target);
-            _sbx.notify('module','*','setArgs',{node:value.target});
+//             _sbx.notify('module','*','doSetArgs',{node:value.target});
           }
           break;
         }
@@ -726,11 +726,11 @@ throw new Error("deprecated call to TargetTypeSelector.partnerHandler.updateTarg
       switch (action) {
         case 'needArguments': {
           if ( _typeArgs[_type] ) {
-            _sbx.notify(arr[1],'setArgs',_typeArgs[_type]);
+            _sbx.notify(arr[1],'doSetArgs',_typeArgs[_type]);
           }
-          if ( _moduleArgs ) {
-            _sbx.notify(arr[1],'setArgs',_moduleArgs);
-          }
+//           if ( _moduleArgs ) {
+//             _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
+//           }
         }
       }
     }
