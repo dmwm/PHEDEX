@@ -138,7 +138,19 @@ PHEDEX.Module = function(sandbox, string) {
 /** Array of names of methods that are allowed to be invoked by the default <strong>selfHandler</strong>, the method that listens for notifications directly to this module. Not all methods can or should be allowed to be triggered by notification, some methods send such notifications themselves to show that they have done their work (so the Core can pick up on it). If they were to allow notifications to trigger calls, you would have an infinite loop.
  * @property allowNotify {object}
  */
-      allowNotify: { resizePanel:1, hideFields:1, menuSelectItem:1, setArgs:1, getData:1, destroy:1, getStatePlugin:1, setState:1, decoratorsConstructed:1 },
+      allowNotify: {
+                     doSort:1,
+                     doFilter:1,
+                     resizePanel:1,
+                     hideFields:1,
+                     menuSelectItem:1,
+                     setArgs:1,
+                     getData:1,
+                     destroy:1,
+                     getStatePlugin:1,
+                     setState:1,
+                     decoratorsConstructed:1
+                   },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -160,7 +172,8 @@ PHEDEX.Module = function(sandbox, string) {
  * @method initData
  */
       initData: function() {
-        _sbx.notify( this.id, 'initData' );
+log('Should not be here','warn','module');
+//         _sbx.notify( this.id, 'initData' );
       },
 
       /**
@@ -197,7 +210,13 @@ PHEDEX.Module = function(sandbox, string) {
             var who = arr[0],
                 action = arr[1];
             if ( who && who != '*' && who != obj.me ) { return; }
-            if ( !obj.allowNotify[action] )           { return; }
+//          Special case for mapping 'doX*' to 'x*'
+            if ( !obj.allowNotify[action] ) {
+              if ( action.match('^do') ) {
+                action = action.substring(2,3).toLowerCase() + action.substring(3,action.length);
+                if ( !obj.allowNotify[action] ) { return; }
+              }
+            }
             if ( typeof(obj[action]) == 'null' )      { return; }
             if ( typeof(obj[action]) != 'function' ) {
 //            is this really an error? Should I always be able to respond to a message from the core?
@@ -233,6 +252,12 @@ PHEDEX.Module = function(sandbox, string) {
                     break;
                 }
                 default: {
+//                  Special case for mapping 'doX*' to 'x*'
+                    if ( !obj.allowNotify[action] ) {
+                      if ( action.match('^do') ) {
+                        action = action.substring(2,3).toLowerCase() + action.substring(3,action.length);
+                      }
+                    }
                     if ( obj[action] && obj.allowNotify[action]) {
                         log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
                         obj[action](value);
