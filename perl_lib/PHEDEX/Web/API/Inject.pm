@@ -29,28 +29,76 @@ on how many files, blocks, and datasets were injected etc.
 
 =head2 Input
 
-This API accepts POST'ed XML in the following format:
+This API accepts POST'ed XML with the key name 'data' in the following
+format:
 
-   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
-     <dataset name="/sample/dataset" is-open="y" is-transient="n">
-       <block name="/sample/dataset#1" is-open="y">
-         <file lfn="file1" size="10" checksum="cksum:1234"/>
-         <file lfn="file2" size="22" checksum="cksum:456"/>
-       </block>
-       <block name="/sample/dataset#2" is-open="y">
-         <file lfn="file3" size="1" checksum="cksum:2"/>
-       </block>
-     </dataset>
-     <dataset name="/sample/dataset2" is-open="n" is-transient="n">
-       <block name="/sample/dataset2#1" is-open="n"/>
-       <block name="/sample/dataset2#2" is-open="n"/>
-     </dataset>
-   </dbs>
+  <data version="2.0">
+    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query" dls="dbs">
+      <dataset name="/sample/dataset" is-open="y">
+        <block name="/sample/dataset#1" is-open="y">
+          <file lfn="file1" size="10" checksum="cksum:1234,adler32:5678"/>
+          <file lfn="file2" size="22" checksum="cksum:456"/>
+        </block>
+        <block name="/sample/dataset#2" is-open="y">
+          <file lfn="file3" size="1" checksum="cksum:2"/>
+        </block>
+      </dataset>
+      <dataset name="/sample/dataset2" is-open="n">
+        <block name="/sample/dataset2#1" is-open="n"/>
+        <block name="/sample/dataset2#2" is-open="n"/>
+      </dataset>
+    </dbs>
+  </data>
+
+The XML file may identify the each dataset and block many times.
+The union of all files of each block are added to the database.
+However in the end each file must belong to exactly one DBS,
+dataset and block.
+
+The C<< <data> >> element must have a C<version> attribute, which
+specifies the version of the injection XML format.  The current
+C<version> is 2.0.
+
+The C<< <dbs> >> element must have an attribute C<name>, which is the
+canonical name of the dataset bookkeeping system which owns the
+files.  Usually this should be the contact address of the DBS.
+
+The C<< <dataset> >> element must have an attribute C<name>, the name
+of the dataset in the DBS, and the attribute C<is-open> which must
+have value 'y' or 'n'.  The options are checked before processing and
+new values are applied at the end of the processing, allowing datasets
+and blocks to be closed by injecting them with these attributes set,
+possibly not including any files in the injection.
+
+A dataset must be open if any of its blocks are open.  Only open
+datasets can have blocks added to them; similarly with blocks and
+files.  Closed blocks and datasets cannot be made open with this
+utility.
+
+Each C<< <block> >> must have attribute C<name>, the canonical and
+unique name of the block as known to the C<< <dbs> >>, and C<is-open>
+boolean, either 'y' or 'n'.  If C<is-open> is 'n', the block will
+be marked closed at the end of the processing; this still allows
+one to add files to new and previously open blocks, then close
+the blocks.  If the block is already closed in the database, new
+files cannot be added to it; setting C<is-open> to 'y' won't help.
+New blocks cannot be introduced to closed datasets.  If the
+dataset is closed, all its blocks must be closed too.
+
+Each C<< <file> >> must have attributes C<name>, the logical file name
+which must be unique, C<bytes>, the size of the file in bytes, and
+C<checksum>, a comma-separatied list of checksums for the file data
+in colon-separated name-value pairs.  Currently 'cksum' (CRC) and
+'adler32' checksums are supported.  See the example below for how
+the C<checksum> attribute should be formated.
+
+All elements may contain other attributes; they will be ignored.
+Only white-space character data is allowed. Only information from
+the attributes of the above elements are added.
 
 =head2 Output
 
-Returns a hash with keys for the data, the node, the node-id, and the injection
-statistics. The statistics is also a hash, with keys for:
+Returns an C<< <injected> >> element, with the following attributes:
 
  new_datasets		number of new datasets created
  new_blocks		number of new blocks created
@@ -58,7 +106,7 @@ statistics. The statistics is also a hash, with keys for:
  closed_datasets	number of closed datasets injected
  closed_blocks		number of closed blocks injected
 
-If 'nostrict' is specified, attempting to re-insert already-inserted data will
+If 'nostrict' is specified, attempting to re-inject already-injected data will
 not give an error, but all the stats values will be zero.
 
 =cut
