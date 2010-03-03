@@ -67,7 +67,6 @@ PHEDEX.DataTable = function(sandbox, string) {
                 m.hide = h;
                 if (t) {
                     this.buildTable(t.columns, t.map, t.schema)
-                    _sbx.notify(this.id, 'initDerived');
                 }
                 this.decorators.push(
                 {
@@ -85,7 +84,10 @@ PHEDEX.DataTable = function(sandbox, string) {
                     },
                     target: 'filter'
                 });
-              this.meta._filter = this.createFilterMeta();
+              m._filter = this.createFilterMeta();
+              if ( m.sort ) {
+                if (m.sort.field && !m.sort.dir) { m.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+              }
 
               var moduleHandler = function(o) {
                 return function(ev,arr) {
@@ -99,10 +101,11 @@ PHEDEX.DataTable = function(sandbox, string) {
                 }
               }(this);
               _sbx.listen(this.id,moduleHandler);
+              _sbx.notify(this.id,'initDerived');
             },
 
             postGotData: function(step,node) {
-              var i, steps = ['doSort', 'doFilter'];//, 'doResize', 'hideFields'];
+              var i, steps = [];//'doSort'];//, 'doFilter'];//, 'doResize', 'hideFields'];
               for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
             /**
@@ -111,14 +114,14 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
             */
             fillDataSource: function(moduledata) {
+                if (this.dsResponseSchema) {
+                    this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
+                    return;
+                }
                 if (this.needProcess) {
                     // Process the data if it is new to module and is not from filter
                     this.data = this._processData(moduledata);
                     moduledata = this.data;     // Cache the processed data for further use by filter
-                }
-                if (this.dsResponseSchema) {
-                    this.fillDataSourceWithSchema(moduledata); //Fill datasource directly if schema is available
-                    return;
                 }
                 this.dataSource = new YAHOO.util.DataSource(moduledata);
                 var oCallback = {
@@ -197,7 +200,6 @@ PHEDEX.DataTable = function(sandbox, string) {
 
             doSort: function() {
                 var s = this.meta.sort;
-                if (!s.dir) { s.dir = YAHOO.widget.DataTable.CLASS_ASC; }
                 if (s.field) {
                     if (s.sorted_field == s.field &&
                         s.sorted_dir   == s.dir &&
@@ -279,11 +281,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
                 return false;
             },
-            
-            /** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
-            * @method getState
-            * @return {string} the state of the object, in any reasonable format that conforms to the navigator's parser
-            */
+
             dirMap: function(dir) {
                 var i, map = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' };
                 if ( map[dir] ) { return map[dir]; }
