@@ -5,6 +5,10 @@ agents?agent=FileDownload
 agents?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer
 agents?se=cmssrm.fnal.gov
 
+# PHEDEX::Web::API::AgentLogs - show messages from the agents
+agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter
+-agentlogs
+
 # PHEDEX::Web::API::Auth - authentication information
 auth
 
@@ -13,6 +17,12 @@ blockreplicas?node=T1_US_FNAL_MSS
 blockreplicas?node=T1_US_FNAL_MSS&block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359
 blockreplicas?node=T1_US_FNAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216
 blockreplicas?node=T1_US_FNAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216&group=DataOps
+
+# PHEDEX::Web::API::BlockTestFiles - detailed consistency-check result
+blocktestfiles?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699
+
+# PHEDEX::Web::API::BolckTests - consistency-check results
+blocktests?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699
 
 # PHEDEX::Web::API::Bounce - simple data service debugging tool
 bounce?hello=world
@@ -28,6 +38,10 @@ deleterequests
 deleterequests?limit=2
 deleterequests?request=19081
 deleterequests?node=T1_US_FNAL_MSS&limit=2
+
+# PHEDEX::Web::API::Deletions -- Show pending and recently completed deletions
+deletions
+deletions?node=T1_US_FNAL_MSS
 
 # PHEDEX::Web::API::ErrorLog
 -errorlog
@@ -85,10 +99,26 @@ nodeusagehistory
 nodeusagehistory?node=T1_US_FNAL_MSS
 nodeusagehistory?node=T1_US_FNAL_MSS&starttime=last_week&binwidth=3600
 
+# PHEDEX::Web::API::RequestList - list of request according to search criteria
+requestlist
+requestlist?approval=pending
+requestlist?approval=pending&node=T1_US_FNAL*
+requestlist?approval=disapproved&node=T1_US_FNAL*
+
+# PHEDEX::Web::API::RoutedBlocks - show Currently routed blocks, as well as failed routing attempts (invalid routes)
+routedblocks
+routedblocks?to=T1_US_FNAL*&from=T1_US_FNAL*
+routedblocks?to=T1_US_FNAL*&from=T1_US_FNAL*&valid=y
+routedblocks?to=T1_US_FNAL*&from=T1_US_FNAL*&valid=n
+
 # PHEDEX::Web::API::RouterHistory
 routerhistory
 routerhistory?to=T1_US_FNAL_Buffer
 routerhistory?to=T1_US_FNAL_Buffer&starttime=last_week&binwidth=3600
+
+# PHEDEX::Web::API::Routings - show routing information
+routings
+routings?source=T1_US_FNAL*&destination=T1_US_FNAL*
 
 # PHEDEX::Web::API::Subscriptions
 subscriptions
