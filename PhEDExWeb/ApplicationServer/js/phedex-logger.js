@@ -3,6 +3,8 @@
 PHEDEX.namespace('Logger');
 
 PHEDEX.Logger = function() {
+  var YuC = YAHOO.util.Cookie,
+      _reader;
   return {
     log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true } },
 
@@ -23,7 +25,7 @@ PHEDEX.Logger = function() {
         c.onclick = function(obj) {
           return function(ev) {
             obj.log2Server[type][this.value] = this.checked;
-            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
+            YuC.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
           }
         }(this);
         c.checked = this.log2Server[type][keys[i]];
@@ -56,7 +58,7 @@ PHEDEX.Logger = function() {
 
       if ( elCtl && elLog2Server ) {
         try {
-          var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.level');
+          var cookie = YuC.getSubs('PHEDEX.Logger.level');
           if ( cookie ) {
             for (var i in cookie) {
               this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
@@ -64,7 +66,7 @@ PHEDEX.Logger = function() {
           }
         } catch (ex) {};
         try {
-          var cookie = YAHOO.util.Cookie.getSubs('PHEDEX.Logger.group');
+          var cookie = YuC.getSubs('PHEDEX.Logger.group');
           if ( cookie ) {
             for (var i in cookie) {
               if ( i.match('_[0-9]+$') ) { next; }
@@ -76,14 +78,14 @@ PHEDEX.Logger = function() {
 
         if ( !args ) { args = {}; }
         if ( args.log2server ) { this.log2Server = args.log2server; }
-        var  ctl = PxU.makeChild(elLog2Server,'div');
-        var c = PxU.makeChild(ctl,'input');
+        var ctl = PxU.makeChild(elLog2Server,'div'),
+            c = PxU.makeChild(ctl,'input');
         c.type    = 'button';
         c.value   = 'clear cookies';
         c.onclick = function(obj) {
           return function(ev) {
-            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',{});
-            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.level',{});
+            YuC.setSubs('PHEDEX.Logger.group',{});
+            YuC.setSubs('PHEDEX.Logger.level',{});
           }
         }(this);
         this._addControls(elLog2Server,'level');
@@ -102,34 +104,36 @@ PHEDEX.Logger = function() {
       el.style.width = conf.width;
       div.style.width = 'auto';
       el.style.fontSize = div.style.fontSize = conf.fontSize;
-      PHEDEX.Logger.Reader = new YAHOO.widget.LogReader(div.id,conf);
-      PHEDEX.Logger.Reader.hideSource('global');
-      PHEDEX.Logger.Reader.hideSource('LogReader');
+      _reader = new YAHOO.widget.LogReader(div.id,conf);
+      _reader.hideSource('global');
+      _reader.hideSource('LogReader');
       if ( args.opts )
       {
         if ( args.opts.hideSource )
         {
-          for (var s in args.opts.hideSource) { PHEDEX.Logger.Reader.hideSource(args.opts.hideSource[s]); }
+          for (var s in args.opts.hideSource) { _reader.hideSource(args.opts.hideSource[s]); }
         }
-        if ( args.opts.collapse ) { PHEDEX.Logger.Reader.collapse(); }
+        if ( args.opts.collapse ) { PLR.collapse(); }
       }
       YAHOO.widget.Logger.enableBrowserConsole(); // Enable logging to firebug console, or Safari console.
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
         return function(str,level,group) {
+          var l = obj.log2Server;
           if ( typeof(str) == 'object' ) {
             try { str = err(str); } // assume it's an exception object!
             catch (ex) { str = 'unknown object passed to logger'; } // ignore the error if it wasn't an exception object...
           }
           if ( !level ) { level = 'info'; }
           if ( !group ) { group = 'app'; }
-          if ( !obj.log2Server.group[group] ) {
-            obj.log2Server.group[group] = false;
-            YAHOO.util.Cookie.setSubs('PHEDEX.Logger.group',obj.log2Server.group);
+          group = group.toLowerCase();
+          if ( !l.group[group] ) {
+            l.group[group] = false;
+            YuC.setSubs('PHEDEX.Logger.group',l.group);
           }
-          YAHOO.log(str, level, group.toLowerCase());
-          if ( obj.log2Server.level[level] && obj.log2Server.group[group] && (location.hostname == 'localhost') ) {
+          YAHOO.log(str, level, group);
+          if ( l.level[level] && l.group[group] && (location.hostname == 'localhost') ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
