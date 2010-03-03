@@ -242,7 +242,7 @@ PHEDEX.Core = function(sandbox,loader) {
   var moduleHandler = function(who,arr) {
      var action = arr[0],
          args   = arr[1];
-    log('module='+who+' action="'+action+'"','info',_me);
+    log('moduleHandler: module='+who+' action="'+action+'"','info',_me);
     var m = _modules[who];
     _clearTimeout();
     switch ( action ) {
