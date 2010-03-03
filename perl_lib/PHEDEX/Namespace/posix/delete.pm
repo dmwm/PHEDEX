@@ -27,9 +27,9 @@ sub execute
 sub Help
 {
   print <<EOH;
-delete (unlink) a set of files. Returns the number of files _not_
-deleted. This allows you to call it with an empty list and still make sense
-of the return value
+delete (unlink) a set of files. Returns the number of files _not_ deleted.
+\tThis allows you to call it with an empty list and still make sense of 
+\tthe return value
 EOH
 }
 

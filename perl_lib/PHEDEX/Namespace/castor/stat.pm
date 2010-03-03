@@ -49,7 +49,9 @@ sub parse
     else                              { $y = $y_or_hm; }
     @t = ( 0, $m, $h, $d, $M, $y );
     $x->{mtime} = timelocal(@t);
+
     $ns->{CACHE}->store('stat',"$dir/$file",$x);
+
     $result = $x;
   }
   return $result;

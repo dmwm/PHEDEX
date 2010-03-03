@@ -25,6 +25,7 @@ sub parse
 {
 # Parse the checksum output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
+
   my ($self,$ns,$r,$dir) = @_;
   my $result = {
 		 tape_name	=> undef,
@@ -46,6 +47,7 @@ sub parse
     $file = $a[10];
 
     $ns->{CACHE}->store('checksum',"$dir/$file",$x);
+
     $result = $x;
   }
   return $result;

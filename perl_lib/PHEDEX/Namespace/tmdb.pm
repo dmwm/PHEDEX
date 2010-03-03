@@ -7,6 +7,7 @@ use PHEDEX::Core::Loader;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::SQL;
 use PHEDEX::Core::Catalogue;
+use Data::Dumper;
 use Getopt::Long;
 
 sub new
@@ -30,6 +31,7 @@ sub new
 		'debug+'		=> \$params{DEBUG},
 		'dbconfig=s'		=> \$params{DBCONFIG},
 		'dbh=s'			=> \$params{DBH},
+#                'node=s'                => sub { push(@{$params{NODE}}, split(/,/, $_[1])) },
 		'node=s@'		=> \$params{NODE},
 		'incomplete_blocks'	=> \$params{INCOMPLETE_BLOCKS},
              );
@@ -38,12 +40,13 @@ sub new
   bless($self, $class);
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
-$DB::single=1;
+  $DB::single=1;
 
   connectToDatabase($self) if $self->{DBCONFIG};
 
 # Parse the node argument
   my @n = split m|[,\s*]|, "@{$params{NODE}}";
+  #my @n = @{$params{NODE}};
   foreach my $n ( @n )
   {
     $self->{DEBUG} && print "Getting buffers with names like '$n'\n";
@@ -57,6 +60,7 @@ $DB::single=1;
 
 
   $self->SUPER::_init_commands;
+  print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
   return $self;
 }
@@ -71,9 +75,11 @@ sub Help
  --help, --(no)debug, --(no)verbose
 
  and also:
- --dbconfig contact information for TMDB. Can be omitted if the application
- provides a valid DBH instead (--dbh).
- --node (repeatable) wild-card node(s) to search.
+ --dbconfig          contact information for TMDB. Can be omitted if the application
+                     provides a valid DBH instead (--dbh).
+ --dbh               to set the DBH
+ --node              (repeatable) wild-card node(s) to search.
+ --incomplete_blocks to test for incomplete blocks
 
  Commands known to this module:
 EOF

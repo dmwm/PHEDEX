@@ -4,6 +4,7 @@ use warnings;
 no strict 'refs';
 use base 'PHEDEX::Namespace::Common';
 use PHEDEX::Core::Loader;
+use Data::Dumper;
 use Getopt::Long;
 
 sub new
@@ -32,11 +33,14 @@ sub new
   my $self = \%params;
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
-  $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; 
-  $self->{VERBOSE} = $self->{AGENT}->{VERBOSE}; 
-  $self->{DEBUG} = $self->{AGENT}->{DEBUG}; 
+  if (exists($self->{AGENT})) {
+    $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; 
+    $self->{VERBOSE} = $self->{AGENT}->{VERBOSE}; 
+    $self->{DEBUG} = $self->{AGENT}->{DEBUG}; 
+  }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->SUPER::_init_commands;
+  print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
   return $self;
 }

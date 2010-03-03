@@ -4,6 +4,7 @@ use warnings;
 no strict 'refs';
 use base 'PHEDEX::Namespace::Common'; # All interface packages must do this
 use PHEDEX::Core::Loader;
+use Data::Dumper;
 use Getopt::Long;
 
 sub new
@@ -35,6 +36,7 @@ sub new
 # passed a reference to this object when they are loaded/created, so they
 # can pick out the parameters you define above.
   $self->SUPER::_init_commands;
+  print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
   return $self;
 }
