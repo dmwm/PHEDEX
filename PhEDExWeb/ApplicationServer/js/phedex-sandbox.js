@@ -37,10 +37,10 @@ PHEDEX.Sandbox = function() {
           arr = Array.apply(null,arguments);
       event = arr.shift();
       if ( _map[event] ) {
-        log('remap event: '+event+' ('+_map[event]+')','info',_me);
+        log('remap: '+event+' ('+_map[event]+')','info',_me);
         event = _map[event];
       }
-      log('notify event: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+      log('notify: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
       setTimeout(function() { var ev = _getEvent(event); if ( ev ) { ev.fire(arr); } }, 0);
     },
 
@@ -53,7 +53,7 @@ PHEDEX.Sandbox = function() {
  */
     listen: function(event,fn) {
       _getEvent(event,true).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
-      log('new listener for event: '+event,'info',_me);
+      log('listener for: '+event,'info',_me);
     },
 
 /**
