@@ -131,7 +131,6 @@ PHEDEX.DataTable = function(sandbox, string) {
                 this.dataSource.sendRequest('', oCallback);
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
-                //_sbx.notify(this.id,'doFilter');
             },
 
             /**
@@ -479,6 +478,7 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             // Parse the cached data to filter it and form new data that feeds the datasource
             var keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult;
             if (!args) { args = this.args; }
+            this.count=0;
             for (i in obj.data) {
                 keep = true;
                 for (j in args) {
@@ -513,7 +513,8 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
             else {
                 obj.fillDataSource(table);
             }
-            return this.count;
+            this.updateGUIElements(this.count);
+            return;
           },
     };
   };

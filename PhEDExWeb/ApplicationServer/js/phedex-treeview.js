@@ -739,6 +739,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
         obj.revealAllBranches();
         var elParents={}, i, status, key, fValue, negate, elId, tNode, className, kValue, elParent, elAncestor;
         if ( !args ) { args = this.args; }
+        this.count=0;
         for (key in args) {
           fValue = args[key].values;
           negate = args[key].negate;
@@ -770,12 +771,8 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           ancestor = YuD.getAncestorByClassName(elParent,'ygtvtable');
           YuD.addClass(ancestor,'phedex-core-control-widget-applied');
         }
-        _sbx.notify(obj.id,'updateHistory');
-        return this.count;
-      },
-
-      doFilter: function(node) {
-        obj.applyFilter();
+        this.updateGUIElements(this.count);
+        return;
       },
     }
   };
