@@ -26,15 +26,13 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               break;
             }
             case 'Validate': {
-              obj.Parse();
+              if ( obj.Parse() ) {
+                _sbx.notify(obj.id,'Filter','Apply',obj.args);
+              }
               break;
             }
             case 'Apply': {
               obj.applyFilter(arr[2]);
-              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              if ( arr[3] ) { YuD.addClass(   obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
-              else          { YuD.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
-              _sbx.notify('Filter',obj.me,arr[2],obj.asString(arr[2]));
               break;
             }
             case 'cBox': {
@@ -65,7 +63,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       var action = arr[0];
       switch (action) {
         case 'doFilter': {
-          obj.applyFilter();
+          o.applyFilter();
           break;
         }
       }
@@ -443,11 +441,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
           }
         }
-        if ( isValid ) {
-//           _sbx.notify(this.id,'Filter','Validated',this.args);
-          _sbx.notify(this.id,'Filter','Apply',this.args,nItems);
-        }
-        return;
+        return isValid;
       },
 
       _resetFilter: function() {
@@ -466,7 +460,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
       setValid:   function(el) {
         YuD.removeClass(el,'phedex-filter-elem-invalid');
-        this.count++;
+//         this.count++;
       },
       setInvalid: function(el,setFocus) {
         YuD.addClass(el,'phedex-filter-elem-invalid');
@@ -514,12 +508,19 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             str += seg;
           }
         return str;
+      },
+      updateGUIElements: function(n) {
+        if ( n ) { YuD.addClass(   this.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+        else     { YuD.removeClass(this.ctl.filterControl.el,'phedex-core-control-widget-applied'); }
+        if ( !this.dom.cBox.checked ) { this.ctl.filterControl.Hide(); }
+        _sbx.notify('Filter',this.me,this.args,this.asString());
+        _sbx.notify(this.id,'updateHistory');
       }
     };
   };
   Yla(this,_construct(this),true);
   this._init(args);
-//   if ( this.meta._filter ) { this.Parse(); } // in case a default filter was set
+  if ( this.meta._filter ) { this.Parse(); } // in case a default filter was set
   return this;
 }
 
