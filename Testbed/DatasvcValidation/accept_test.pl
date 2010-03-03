@@ -3,6 +3,7 @@ use warnings;
 use strict;
 
 use Time::HiRes qw(gettimeofday tv_interval);
+use POSIX;
 use XML::Simple;
 use IO::File;
 use Getopt::Long;
@@ -99,6 +100,8 @@ else
 }
 
 my $root_url = "${url_prefix}${url_path}${url_data}";
+
+print "# ",&POSIX::strftime("[%Y-%m-%d %T]", gmtime), ": acceptance test of $url_prefix\n";
 
 while(<$inf>)
 {
