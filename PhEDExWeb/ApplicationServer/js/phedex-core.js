@@ -196,13 +196,13 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             _m.ctl[_d.name] = new _ctor(_sbx,_d);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
-            if ( !--_m._nDecorators ) {
-              _sbx.notify(_m.id,'decoratorsConstructed');
-              delete _m._nDecorators; // clean up after myself
-            }
           } catch (ex) {
             banner('Error creating a '+_d.name+' for the '+_m.me+' module','error','core');
             log(err(ex),'error','core'); return;
+          }
+          if ( !--_m._nDecorators ) {
+            _sbx.notify(_m.id,'decoratorsConstructed');
+            delete _m._nDecorators; // clean up after myself
           }
         }
       }(m,d,ctor),10);
