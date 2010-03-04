@@ -1,3 +1,37 @@
+* Changes for 1.6.0
+
+ New APIs:
+  * 'agentlogs': recent messages from the agents
+  * 'blocktests': results of block consistency checks
+  * 'deletions': block deletion queue & recently completed deletions
+  * 'routedblocks': statistics for currently routed blocks
+
+ Changes for APIs:
+
+  * 'auth':
+    - enabled password-based authentication.  No API allows use of
+      this authenticatio at the moment, however.
+    - Add 'username' attribute, the hypernews username, when it is
+      available
+    - Add 'human_name' attribute, the requestor's normal name
+  * 'subscribe': now sends out email notifications (#51644)
+
+ Bugfixes for APIs:
+
+  * 'errorlog': bugfix to show multiple errors per file when they exist (#61639)
+  * 'inject': internal SQL changes to reduce chance of lock contention
+  * 'inject' & 'subscribe': HTTP POST is the only accepted mehtod
+  * 'subscriptions':
+    - default result is subscritions created within the last 24 hours
+    - bugfix: 'dataset' filter when used with other options (#58805)
+  * Internal changes to the way data is served to reduce memory use on
+    the server.  Data is now "spooled" to the client in discrete
+    chunks.  The output format is unchanged.  The following APIs are
+    spooling-enabled: agentlogs, blockreplicas, dashboardhistory,
+    errorlog, errorlogsummary, filereplicas, missingfiles,
+    nodeusagehistory, routerhistory, transferhistory,
+    transferqueuehistory
+
 * Changes for 1.5.2
 
   * Bug fix for previous bug fix, which caused all API arguments to be
