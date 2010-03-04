@@ -529,7 +529,7 @@ log('Should not be here','warn','module');
           arr = s.hide.split(' ');
           m.hide = {};
           for (i in arr) {
-            m.hide[this.unFriendlyName(arr[i])] = 1;
+            m.hide[m._filter.fields[this.unFriendlyName(arr[i])].original] = 1;
           }
         }
         if ( s.sort != null ) {
