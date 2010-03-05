@@ -25,7 +25,10 @@ YAHOO.util.Event.onDOMReady(function() {
       cfg = {
  'Production, default page': '',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.node,asc), hide(L.error-log, F.cksum), time=1 week, incoming':
+ 'ProductionLinkView, T0_CH_CERN_Export, time=6, outgoing' :
+  'instance~Production+type~node+target~T0_CH_CERN_Export+widget~linkview+module~specific{time%3D6%20dir%3D1}',
+
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.node,asc), hide(L.error-log, F.cksum), time=1 week, incoming' :
   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D0}',
 
  'Production, LinkView, T1_US_FNAL_Buffer, sort{L.node,asc}, hide{L.error-log, F.cksum}, filter{L.node=T1}, time=1 week, incoming' :
