@@ -43,7 +43,7 @@ my $now = &mytimeofday();
 my $where = '';
 my %p;
 if ($args{NODE}) {
-    $where .= " and n.name = :node";
+    $where .= " and n.name like :node";
     $p{':node'} = $args{NODE};
 }
 if ($args{BLOCK}) {
