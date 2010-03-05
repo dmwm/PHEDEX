@@ -104,7 +104,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             },
 
             postGotData: function(step,node) {
-              var i, steps = ['doFilter', 'doSort', 'doResize', 'hideFields'];
+              var i, steps = ['doFilter', 'doSort', 'hideFields'];
               for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
             /**
@@ -252,6 +252,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     }
                 } (this));
 
+// TODO This can get shoved into the context-menu someday, it's the only place that needs it
                 this.dataTable.subscribe('columnHideEvent', function(obj) {
                     return function(ev) {
                         var column = obj.dataTable.getColumn(ev.column);
@@ -260,10 +261,10 @@ PHEDEX.DataTable = function(sandbox, string) {
                     }
                 } (this));
 
+//              Only needed for resizeable windows, I think?
                 this.dataTable.subscribe('renderEvent', function(obj) {
                     return function() {
                         obj.resizePanel();
-//                         obj.sort();
                     }
                 } (this));
                 var w = this.dataTable.getTableEl().offsetWidth;
