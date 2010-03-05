@@ -192,7 +192,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       postGotData: function(step,node) {
-        var steps = ['doSort', 'doFilter', 'doResize', 'hideFields'], i;
+        var i, steps = ['doFilter', 'doSort', 'hideFields'];
         this.markOverflows();
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
@@ -281,7 +281,6 @@ PHEDEX.TreeView = function(sandbox,string) {
           element.style.display = 'none';
         });
         _sbx.notify(this.id,'hideColumn',{text: this._cfg.classes[className].value, value:className});
-//                 _sbx.notify(this.id, 'updateHistory');
       },
 
       /**
@@ -375,6 +374,11 @@ PHEDEX.TreeView = function(sandbox,string) {
       isStateValid: function() {
         if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
         return false;
+      },
+
+      decoratorsConstructed: function() {
+        if ( !this.data ) { return; }
+        this.postGotData();
       },
 
       dirMap: function(dir) { return dir; }, // dummy to maintain code-compatibility with data-table
@@ -472,18 +476,19 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
 // find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
+// TODO Can I use an HTMLNode instead of a TextNode to avoid the rebuild?
       var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
-          elList = obj.locatePartnerFields(tgt);
-     for (var i in elList ) { elList[i].style.width = tgt.style.width; }
+          elList = obj.locatePartnerFields(tgt),
+          i, el, className, f, node, el1;
+     for (i in elList) { elList[i].style.width = tgt.style.width; }
       obj.markOverflows();
-      var el = obj.locateNode(tgt),
-          className = obj.getPhedexFieldClass(el),
-          f = obj._cfg.formats[className];
+      el = obj.locateNode(tgt);
+      className = obj.getPhedexFieldClass(el);
+      f = obj._cfg.formats[className];
       f.width = tgt.style.width;
-      var hdr = obj.locateBranch(tgt);
-      for (var i in elList) {
-        var node = obj.locateBranch(elList[i]);
-        var el1 = PxU.makeNode(node.data.spec,node.data.values);
+      for (i in elList) {
+        node = obj.locateBranch(elList[i]);
+        el1 = PxU.makeNode(node.data.spec,node.data.values);
         node.label = el1.innerHTML;
       }
     });
@@ -491,19 +496,6 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
 
   _construct = function() {
     return {
-      doResize: function() {
-//      After expanding, branches need resizing again...
-        var className, elList;
-        for (className in obj._cfg.classes) {
-          elList = YuD.getElementsByClassName(className,null,obj.dom.body);
-          for (var i in elList) {
-            if ( elList[i].style.width == obj._cfg.formats[className].width ) { break; }
-            elList[i].style.width = obj._cfg.formats[className].width;
-          }
-        }
-        obj.markOverflows();
-      },
-
       getExtraContextTypes: function(id) {
         var cArgs = obj._cfg.contextArgs, cUniq = {}, i, j;
         for (i in cArgs) {
@@ -564,7 +556,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           parent = nodes[j];
           children = parent.children;
           node = children[0];
-          if ( !nodes ) { continue; }
+          if ( !node ) { continue; }
           for (i in node.data.spec.format) {
             f = node.data.spec.format[i];
             if ( f.className == className ) { index = i; break; }
@@ -669,7 +661,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
   }
   Yla(this,_construct(this),true);
   this._init(args);
-  this.doSort(); // in case there is already a sort-field defined.
   return this;
 }
 
