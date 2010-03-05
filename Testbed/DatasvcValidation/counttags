@@ -1,0 +1,42 @@
+#!/usr/bin/env perl
+
+# counttags: counts and reports tags found in an XML.
+#
+# Useful for basic checking of expectations for data service calls
+# with various options, like so:
+#
+# wget -q -O - 'http://vocms33.cern.ch/phedex/datasvc/xml/prod/deletions' | ./counttags
+
+use warnings;
+use strict;
+
+use XML::Parser;
+
+my $file = shift @ARGV;
+$file ||= '-';
+
+my %counts;
+my $xmlp = new XML::Parser;
+$xmlp->setHandlers(
+  Start => sub 
+    {
+	my $el = $_[1];
+	$counts{$el}++;
+    }
+);
+
+open(FILE, "< $file") or die "couldn't open '$file': $!\n";
+$xmlp->parse(*FILE);
+close(FILE);
+
+my $w = 0;
+foreach my $el (keys %counts) {
+    $w = length($el) if length($el) > $w;
+}
+$w += 2;
+
+foreach my $el (sort { $counts{$a} <=> $counts{$b} } keys %counts) {
+    printf "%-${w}s %i\n", "<$el>", $counts{$el};
+}
+
+exit(0);
