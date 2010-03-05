@@ -142,6 +142,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     for (var key in this.meta.hide) {
                         var column = this.dataTable.getColumn(key);
                         if (column) { this.dataTable.hideColumn(column); }
+                        _sbx.notify(this.id, 'hideColumn', { text: column.label || column.key, value: column.key });
                     }
                 }
                 var w = this.dataTable.getTableEl().offsetWidth;
@@ -257,7 +258,6 @@ PHEDEX.DataTable = function(sandbox, string) {
                     return function(ev) {
                         var column = obj.dataTable.getColumn(ev.column);
                         log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
-                        _sbx.notify(obj.id, 'hideColumn', { text: column.label || column.key, value: column.key });
                     }
                 } (this));
 
