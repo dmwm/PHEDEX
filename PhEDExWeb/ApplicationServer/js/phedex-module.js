@@ -451,7 +451,7 @@ log('Should not be here','warn','module');
             var fName = fn(j);
             meta.fields[j] = f[i].fields[j];
             meta.fields[j].friendlyName = fName;
-            meta.rFriendly[fName] = j;
+            meta.rFriendly[fName.toLowerCase()] = j;
           }
         }
         return meta;
@@ -475,7 +475,7 @@ log('Should not be here','warn','module');
  * @return the unfriendly name
  */
       unFriendlyName: function(key) {
-        return this.meta._filter.rFriendly[key];
+        return this.meta._filter.rFriendly[key.toLowerCase()];
       },
 
 /** return a string with the state of the object. The object must be capable of receiving this string and setting it's state from it
@@ -670,28 +670,5 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
     }
   }, obj, true);
 }
-
-//   PHEDEX.Event.onGlobalFilterApplied.subscribe( function(obj) {
-//     return function(ev,arr) {
-//       var isApplied = arr[0];
-//       obj.ctl.filter.setApplied(isApplied);
-//     }
-//   }(this));
-// 
-//   PHEDEX.Event.onFilterDefined.subscribe( function() {
-//     return function(ev,arr) {
-//       var args = arr[0];
-//       var widget = arr[1];
-//       widget.filter.init(args);
-//     }
-//   }());
-// 
-//   // Create a (usually hidden) progress indicator.
-//   this.control.progress = PxU.makeChild(this.dom.control, 'img', {src:'/images/progress.gif'});
-// 
-//   if (this.options.window) {
-//     this.control.close = PxU.makeChild(this.dom.control, 'img', {src:'/images/widget-close.gif'});
-//     YAHOO.util.Event.addListener(this.control.close, "click", this.destroy, null, this);
-//   }
 
 log('loaded...','info','module');
