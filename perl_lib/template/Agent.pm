@@ -117,6 +117,7 @@ sub init
 Pick up work from the database and start site specific scripts if necessary
 
 =cut
+
 sub idle
 {
   my $self = shift;
@@ -149,6 +150,7 @@ You do not need to validate the basic PHEDEX::Core::Agent object, that will
 already have happened in the constructor.
 
 =cut
+
 sub isInvalid
 {
   my $self = shift;
@@ -164,6 +166,7 @@ sub isInvalid
 There's a C<< stop >> user hook, but I'm not sure who would need it...?
 
 =cut
+
 sub stop
 {
   my $self = shift;
@@ -178,6 +181,7 @@ There's a C<< processDrop >> user hook too, but I'm not sure about that
 either...
 
 =cut
+
 sub processDrop
 {
   my $self = shift;

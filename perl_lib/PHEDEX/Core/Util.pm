@@ -1,6 +1,7 @@
 package PHEDEX::Core::Util;
 
 =pod
+
 =head1 NAME
 
 PHEDEX::Core::Util - basic utility functions that may be useful in any module

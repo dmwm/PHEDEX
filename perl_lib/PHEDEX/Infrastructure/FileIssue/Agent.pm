@@ -219,6 +219,8 @@ sub confirm
 
 1;
 
+=pod
+
 =head1 NAME
 
 FileIssue - create transfer tasks for site agents
@@ -236,33 +238,33 @@ destination node has a FileDownload agent running.
 
 =over
 
-=item L<t_xfer_task|Schema::Transfer/t_xfer_task)>
+=item L<t_xfer_task|Schema::OracleCoreTransfer/t_xfer_task)>
 
 This agent creates transfer tasks.
 
-=item L<t_xfer_path|Schema::Transfer/t_xfer_path)>
+=item L<t_xfer_path|Schema::OracleCoreTransfer/t_xfer_path)>
 
 Tasks are created where a valid hop exists.
 
-=item L<t_xfer_replica|Schema::Transfer/t_xfer_replica)>
+=item L<t_xfer_replica|Schema::OracleCoreTransfer/t_xfer_replica)>
 
 Tasks are created only when replica at the source node of the hop.
 
-=item L<t_xfer_exclude|Schema::Transfer/t_xfer_exclude)>
+=item L<t_xfer_exclude|Schema::OracleCoreTransfer/t_xfer_exclude)>
 
 Tasks are *not* created when a row in the exclude table exists.
 
-=item L<t_xfer_delete|Schema::Transfer/t_xfer_delete)>
+=item L<t_xfer_delete|Schema::OracleCoreTransfer/t_xfer_delete)>
 
 Tasks are *not* created when the source replica is queued for
 deletion.
 
-=item L<t_xfer_source|Schema::Transfer/t_xfer_source)>
+=item L<t_xfer_source|Schema::OracleCoreTransfer/t_xfer_source)>
 
 Tasks are created only when an export agent is running at the source
 end of a link.
 
-=item L<t_xfer_sink|Schema::Transfer/t_xfer_sink)>
+=item L<t_xfer_sink|Schema::OracleCoreTransfer/t_xfer_sink)>
 
 Tasks are created only when a download agent is running on the
 destination end of a link.
@@ -310,17 +312,17 @@ Another kind of FileDownload agent, but working for Buffer->MSS links.
 
 =over
 
-=item L<t_status_task|Schema::Status/t_status_task>
+=item L<t_status_task|Schema::OracleCoreStatus/t_status_task>
 
 Contains current per-link file and byte sums for tasks, grouped by the state
 of the task.
 
-=item L<t_history_link_stats|Schema::Status/t_history_link_stats>
+=item L<t_history_link_stats|Schema::OracleCoreStatus/t_history_link_stats>
 
 Contains a history of per-link file and byte sums for tasks in the
 pend_files and pend_bytes columns.
 
-=item L<t_history_link_events|Schema::Status/t_history_link_events>
+=item L<t_history_link_events|Schema::OracleCoreStatus/t_history_link_events>
 
 Contains a history of the times that tasks entered various states.
 
@@ -332,13 +334,9 @@ Contains a history of the times that tasks entered various states.
 
 =over
 
-=item * 
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
-L<PHEDEX::Core::Agent>
-
-=item * 
-
-L<PHEDEX::Core::Catalogue>
+=item L<PHEDEX::Core::Catalogue|PHEDEX::Core::Catalogue>
 
 =back
 

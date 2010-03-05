@@ -1231,6 +1231,8 @@ sub stats
 
 1;
 
+=pod
+
 =head1 NAME
 
 PHEDEX::Infrastructure::FileRouter::Agent - the file routing agent.
@@ -1277,12 +1279,12 @@ hops.
 
 Activate blocks for transfer.
 
-=item L<t_xfer_request|Schema::Transfer/t_xfer_request>
+=item L<t_xfer_request|Schema::OracleCoreTransfer/t_xfer_request>
 
 Represents a file request, a file which should be transferred to a
 destination. Rows only exist for activated blocks.
 
-=item L<t_xfer_path|Schema::Transfer/t_xfer_path>
+=item L<t_xfer_path|Schema::OracleCoreTransfer/t_xfer_path>
 
 Represents the transfer path.  Each row is one "hop", a
 from_node,to_node pair for a given file.  The collection of hops for a
@@ -1325,26 +1327,26 @@ life of the transfer path.
 
 =over
 
-=item L<t_status_path|Schema::Status::t_status_path>
+=item L<t_status_path|Schema::OracleCoreStatus::t_status_path>
 
 Per-link sums of files/sizes for routed paths.
 
-=item L<t_status_request|Schema::Status::t_status_request>
+=item L<t_status_request|Schema::OracleCoreStatus::t_status_request>
 
 Per-destination sums of files/sizes for requested files.
 
-=item L<t_status_block_path|Schema::Status::t_status_block_path>
+=item L<t_status_block_path|Schema::OracleCoreStatus::t_status_block_path>
 
 Per-path, per-block sums of files/sizes of routed paths and requested
 files.
 
-=item L<t_history_link_stats|Schema::Status::t_history_link_stats>
+=item L<t_history_link_stats|Schema::OracleCoreStatus::t_history_link_stats>
 
 confirm_files and confirm_bytes contain per-link sums of routed paths.
 param_rate and param_latency contains the main inputs to the routing
 algorithm.
 
-=item L<t_history_dest|Schema::Status::t_history_dest>
+=item L<t_history_dest|Schema::OracleCoreStatus::t_history_dest>
 
 request_files and request_bytes contain the per-destination sum of
 data activated for routing / transfer by this agent.  idle_files and
@@ -1357,7 +1359,7 @@ state.
 
 =over
 
-=item L<PHEDEX::Core::Agent>
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 =back
 

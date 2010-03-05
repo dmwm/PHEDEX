@@ -1,6 +1,7 @@
 package PHEDEX::Web::Core;
 
 =pod
+
 =head1 NAME
 
 PHEDEX::Web::Core - fetch, format, and return PhEDEx data

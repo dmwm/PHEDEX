@@ -341,6 +341,7 @@ checks until you intend to use the object. This will be useful when/if we get
 round to running more than one agent in the same process, for example.
 
 =cut
+
 sub init
 {
   my $self = shift;

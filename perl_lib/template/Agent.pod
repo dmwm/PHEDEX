@@ -1,3 +1,5 @@
+=pod
+
 =head1 NAME
 
 MyAgentName - super short description
@@ -13,9 +15,11 @@ and fall out of sync with the description.)
 
 =over
 
-=item L<table_name|PHEDEX::Schema::Section/table_name)>
+=item L<table_name|Schema::SchemaFileName/table_name)>
 
 (Description of how the agent uses the table)
+
+=back
 
 =head1 COOPERATING AGENTS
 
@@ -31,7 +35,7 @@ and fall out of sync with the description.)
 
 =over
 
-=item L<table_name|PHEDEX::Schema::Section/table_name>
+=item L<table_name|Schema::SchemaFileName/table_name>
 
 (Describe what statistics come from this agent to this table.)
 
@@ -44,7 +48,7 @@ need to re-list the cooperating agents above.)
 
 =over
 
-=item L<PHEDEX::Core::Agent>
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
 
 =back
 
