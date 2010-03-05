@@ -1,7 +1,9 @@
 package PHEDEX::Infrastructure::FilePump::Agent;
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
@@ -436,3 +438,130 @@ sub stats
 }
 
 1;
+
+=pod
+
+=head1 NAME
+
+FilePump - harvest and process finished transfer tasks
+
+=head1 DESCRIPTION
+
+FilePump harvests completed transfer tasks, processes their result,
+and keeps statistics.  Successful tasks result in a new replica;
+unsuccessful tasks have their transfer request put into a "retry"
+state which prevents new tasks from being created until a short
+cool-off period has passed.  Besides completed tasks, un-attempted
+tasks that have reached their expire time are collected by this agent
+and removed.  For each harvested task, "event" statistics are
+collected so that the precice number of transfer successes, failures,
+and expirations are known.
+
+This agent also executes some "fake" transfers that are needed to move
+files along the transfer path where real transfer agents are not
+expected to be running.  MSS->Buffer transfers fall into this
+category, as well as "staging" for Disk-only nodes which do not need
+staging.
+
+Finally, FilePump manages file replicas for completed deletion tasks,
+removing file replicas when a deletion task has completed.
+
+=head1 TABLES USED
+
+=over
+
+=item L<t_xfer_task|Schema::OracleCoreTransfer/t_xfer_task>
+
+The transfer task table.  This agent is responsible for processing
+finished tasks.
+
+=item L<t_xfer_task_done|Schema::OracleCoreTransfer/t_xfer_task_done>
+
+Marks tasks in the "done" state, which this agent should act on.
+
+=item L<t_xfer_task_harvest|Schema::OracleCoreTransfer/t_xfer_task_harvest>
+
+A scratch table for marking tasks which are being harvested now.
+
+=item L<t_xfer_task_exclude|Schema::OracleCoreTransfer/t_xfer_task_exclude>
+
+Marks tasks in the "exclude" state, which are not to be re-issued by
+L<FileIssue|PHEDEX::Infrastructure::FileIssue::Agent>.
+until allowed to by
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>.
+
+=item L<t_xfer_delete|Schema::OracleCoreTransfer/t_xfer_delete>
+
+Represents a deletion task, this agent watches for completed deletions.
+
+=item L<t_xfer_replica|Schema::OracleCoreTransfer/t_xfer_replica>
+
+This agent creates replicas when transfer tasks are successful, and
+removes then when deletion tasks are finished.
+
+=item L<t_xfer_request|Schema::OracleCoreTransfer/t_xfer_request>
+
+This agent puts requests into a "retry later" state when a task has
+failed.
+
+=back
+
+=head1 COOPERATING AGENTS
+
+=over
+
+=item L<FileIssue|PHEDEX::Infrastructure::FileIssue::Agent>
+
+FileIssue creates tasks.  Without tasks, there are no tasks to
+complete.
+
+=item L<FileDownload|PHEDEX::File::Download::Agent>
+
+FileDownload completes tasks for FilePump to process.
+
+=item L<FileMSSMigrate|PHEDEX::File::MSSMigrate::Agent>
+
+Like FileDownload, but for Buffer->MSS transitions.
+
+=item L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>
+
+Failed tasks send the transfer request back to FileRouter for path
+reconsideration.
+
+=item L<BlockDelete|PHEDEX::BlockDelete::Agent>
+
+Block delete creates file deletion tasks, for which FilePump will
+remove the file replica.
+
+=item L<FileRemove|PHEDEX::File::Remove::Agent>
+
+FileRemove completes deletion tasks for FilePump to act on.
+
+=back
+
+=head1 STATISTICS
+
+=over
+
+=item L<t_status_task|Schema::OracleCoreStatus/t_status_task>
+
+Contains current per-link file and byte sums for tasks, grouped by the state
+of the task.  Manage by this agent.
+
+=item L<t_history_link_events|Schema::OracleCoreStatus/t_history_link_events>
+
+Contains a history of the times that tasks entered various states.
+Manged by this agent.
+
+
+=back
+
+=head1 SEE ALSO
+
+=over
+
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
+
+=back
+
+=cut
