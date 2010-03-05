@@ -3,21 +3,21 @@
 
 =head1 NAME
 
-Block - tables defining the file-block concept
+Block - tables defining and using the file-block concept
 
 =head1 DESCRIPTION
 
 These tables define the concept of the file-block, which is a
 collection of files, and how they are organized into datasets, which
 are collections of blocks.  Other block-level tables which are used
-for bookkeeping are also defined here.
+for transfer workflow bookkeeping are also defined here.
 
 =head1 TABLES
 
 =head2 t_dps_dbs
 
 Defines a DBS endpoint, which is responsible for bookkeeping datasets
-and blocks.
+and blocks.  Filled by L<data injections|PHEDEX::Core::Inject>.
 
 =over
 
@@ -60,7 +60,7 @@ create sequence seq_dps_dbs;
 
 =head2 t_dps_dataset
 
-Defines a dataset, a collection of blocks.
+Defines a dataset, a collection of blocks.  Filled by L<data injections|PHEDEX::Core::Inject>.
 
 =over
 
@@ -125,7 +125,7 @@ create sequence seq_dps_dataset;
 =head2 t_dps_block
 
 Defines blocks, which are collections of files and the minimum unit of
-transfer managed by PhEDEx.
+transfer managed by PhEDEx.  Filled by L<data injections|PHEDEX::Core::Inject>.
 
 =over
 
@@ -312,7 +312,8 @@ create global temporary table t_tmp_br_flag
 A table containing statistics and various flags for blocks at (or
 destined to be at) nodes.  This table becomes the only record that
 transfers have been done once a block replica is deactivated and the
-file-level replica information is removed.
+file-level replica information is removed.  Monitored by
+L<BlockMonitor|PHEDEX::BlockMonitor::Agent>.
 
 =over
 
@@ -434,6 +435,7 @@ create index ix_dps_block_replica_group on t_dps_block_replica (user_group);
 =head2 t_dps_block_dest
 
 Represents a block which should be transferred to a destination.
+Monitored by L<BlockAllocator|PHEDEX::BlockAllocator::Agent>.
 
 =over
 
@@ -522,7 +524,8 @@ create index ix_dps_block_dest_dest on t_dps_block_dest (destination);
 
 =head2 t_dps_block_activate
 
-A table used to force the activation of a block.
+A table used to force the activation of a block.  Monitored by
+L<BlockActivate|PHEDEX::BlockActivate::Agent>.
 
 =over
 
