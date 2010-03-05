@@ -24,7 +24,6 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
             map: {
               hideColumn:'addMenuItem'
             },
-            onInit: 'hideFields',
             container: 'param'
           }
         },

@@ -64,7 +64,6 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 payload:{
                     name:'Show all fields',
                     map: { hideColumn: 'addMenuItem' },
-                    onInit: 'hideFields',
                     container: 'param'
                 }
             }],

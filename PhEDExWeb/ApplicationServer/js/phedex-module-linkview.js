@@ -57,7 +57,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             map: {
               hideColumn:'addMenuItem',
             },
-            onInit: 'hideFields',
             container: 'buttons',
           },
         },
@@ -365,7 +364,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           p.args.to   = h.to;
           p.args.binwidth = h.transfer[0].binwidth;
           p.opts.node = h[antidirection];
-          p.opts.direction = this.direction_index();
+          p.opts.direction = this.direction_index(_direction);
           p.data.errors    = e.block;
           link_errors = PxU.sumArrayField(e.block,'num_errors');
           tNode = this.addNode(
@@ -433,7 +432,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           this.dom.title.innerHTML = node;
           this.fillBody();
           _sbx.notify( this.id, 'gotData' );
-//           this.postExpand(); // ideally, but can be abridged to 'hideFields'...
         }
         else { banner('Received '+context.api+' data, waiting for more...'); }
       },
