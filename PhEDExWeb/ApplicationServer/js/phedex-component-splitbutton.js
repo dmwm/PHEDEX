@@ -139,7 +139,6 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
   };
   Yla(this,_construct(this),true);
   this._init(args);
-  if ( ap.onInit ) { _sbx.notify(partner,ap.onInit); }
   return this;
 };
 
