@@ -18,7 +18,6 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>,
 L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
 
 =cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
@@ -59,6 +58,11 @@ sub new
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   $self->{QUEUE} = POE::Queue::Array->new();
   $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
+# Don't set this below 5 minutes, since it is the time interval you will be accessing the DB 
+  if ( $self->{WAITTIME} < 300 ) { $self->{WAITTIME} = 300 + rand(15); }
+  $self->{TIME_QUEUE_FETCH} = 0;
+  $self->{LAST_QUEUE} = 0;  
+
   bless $self, $class;
 
   return $self;
@@ -315,10 +319,16 @@ sub do_tests
 
   ($priority,$id,$request) = $self->{QUEUE}->dequeue_next();
   unless ($request) {
-# I drained the queue, get more requests inmediately
-    $self->Logmsg("do_tests: Queue has been drained") if ( $self->{DEBUG} );
-    $kernel->yield('get_work');
-    return;
+ # I drained the queue, make a larger queue
+     my $dt0   = time() - $self->{TIME_QUEUE_FETCH};
+     my $scale= ($dt0>$self->{QUEUE_LENGTH}) ? $self->{WAITTIME}/$dt0 : 0;
+     if ( ($self->{WAITTIME} - $dt0) > 60 && $scale &&
+          $self->{LAST_QUEUE} == $self->{QUEUE_LENGTH} ) {
+        my $new_queue_length = int($self->{QUEUE_LENGTH} * $scale);
+        $self->{QUEUE_LENGTH} = ($new_queue_length <= 500) ? $new_queue_length : 500; 
+        $self->Logmsg("do_tests: Queue too small, increasing QUEUE_LENGTH to $self->{QUEUE_LENGTH}") if ($self->{DEBUG});
+     } 
+     return;
   }
 # I got a request, so make sure I come back again soon for another one
   $kernel->yield('do_tests');
@@ -457,14 +467,15 @@ sub get_work
 
   if ( $self->{QUEUE}->get_item_count() )
   {
-#   There is work queued, so the agent is 'busy'. Do not do anything 'do_tests' will send us back here
+#   There is work queued, so the agent is 'busy'. Check again soon
     $self->Logmsg("get_work: The agent is busy") if ( $self->{DEBUG} );
-#    $kernel->delay_set('get_work',10);
+    $kernel->delay_set('get_work',10);
     return;
   }
 # The agent is idle. Check somewhat less frequently
-#  $kernel->delay_set('get_work',$self->{WAITTIME});
-  $self->Logmsg("get_work: The agent is idle, look for work") if ( $self->{DEBUG} );
+  $self->Logmsg("get_work: The agent is idle") if ( $self->{DEBUG} );
+  $kernel->delay_set('get_work',$self->{WAITTIME});
+
   $self->{pmon}->State('get_work','start');
   eval
   {
@@ -492,12 +503,11 @@ sub get_work
 
 # If we found new tests to perform, but there were none already in the queue, kick off
 # the do_tests loop
+  $self->{LAST_QUEUE} = $self->{QUEUE}->get_item_count();
+  $self->{TIME_QUEUE_FETCH} = time();
   if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
   else
   {
-    # The agent was idle and still idle, check less frequently
-    $self->Logmsg("get_work: Found no work, wait $self->{WAITTIME} secs and try again") if ( $self->{DEBUG} );
-    $kernel->delay_set('get_work',$self->{WAITTIME});
     # Disconnect from the database
     $self->disconnectAgent();
   }
