@@ -231,6 +231,11 @@ sub doNSCheck
   $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
+  my $t0 = Time::HiRes::time();
+  my ($t1,$dt1,$dt0);
+  my $mynfiles = 0;
+  $dt1 = 0.;
+  $self->Logmsg("Start the checking  of $n_files local files at $t0") if ( $self->{DEBUG} );
   foreach my $r ( @{$request->{LFNs}} )
   {
     no strict 'refs';
@@ -240,7 +245,10 @@ sub doNSCheck
     $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
     if ( $request->{TEST} eq 'size' )
     {
+      $mynfiles++;
+      $t1 = Time::HiRes::time();
       my $size = $ns->$cmd($pfn);
+      $dt1 += Time::HiRes::time() - $t1;
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; }
       else { $r->{STATUS} = 'Error'; }
     }
@@ -259,6 +267,10 @@ sub doNSCheck
       $t = time;
     }
   }
+  my $myn_files = $request->{N_FILES};
+  $dt0 = Time::HiRes::time() - $t0;
+  $self->Logmsg("All $mynfiles ($myn_files) files checked in $dt0 sec, ($dt1 sec from ls)") if ( $self->{DEBUG} );
+  $t0 = Time::HiRes::time();
 
   eval
   {
@@ -291,6 +303,9 @@ sub doNSCheck
     $self->{DBH}->commit();
   };
 
+  $dt0 = Time::HiRes::time() - $t0;
+  $self->Logmsg("Database updated in $dt0 seconds") if ( $self->{DEBUG} );
+
   do
   {
     chomp ($@);
@@ -300,6 +315,8 @@ sub doNSCheck
   } if $@;
  
   my $status = ( $n_files == $n_ok ) ? 1 : 0;
+  $t0 = Time::HiRes::time();
+  $self->Logmsg("Finishing request $request->{ID} with status $status at $t0") if ( $self->{DEBUG} );
   return $status;
 }
 
