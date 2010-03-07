@@ -141,7 +141,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             gotData: function(data) {
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
-                this.data = data;
+                this.data = data.node;
                 this.dom.title.innerHTML = _groupname + ': ' + this.data.length + ' nodes found';
                 this.fillDataSource(this.data);
                 _sbx.notify( this.id, 'gotData' );
