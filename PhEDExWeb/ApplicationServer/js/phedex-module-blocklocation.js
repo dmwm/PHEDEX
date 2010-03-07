@@ -14,6 +14,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     var _sbx = sandbox,
+        _strBlocksName = "",       //The block names input
+        _strNodesName = "",        //The node name input
         _totalRow = {},            //The first row JSON object that has the values
         _nPgBarIndex = 0,          //The unique ID for the progress bar
         _lowpercent = 0,           //The lower percentage range of the data transfer
@@ -64,6 +66,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _nOrigHighPercent = 0;   //Reset the original high percent
         _strOrigBlkQuery = "";   //Reset the original block name query
         _strOrigNodeQuery = "";  //Reset the original node filter query
+        _strBlocksName = "";     //Reset the query block names
+        _strNodesName = "";      //Reset the query node names
         _sliderRange.setValues(0, 200);  //Reset the values of the percentage range in pixels
         _divInput.txtboxBlk.value = "";  //Reset the block name text box
         _divInput.txtboxNode.value = ""; //Reset the node name text box
@@ -133,28 +137,42 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             }
         }
     }
-
     /**
     * This function gets the block information from Phedex database using web APIs provided by Phedex given 
-    * the block names in regular expression format.
+    * the name of blocks and nodes in regular expression format.
     * The result is formatted and is shown to user in YUI datatable.
     * @method _getDataInfo
     * @private
     */
     var _getDataInfo = function() {
-        var indx, blocknames, strNodeInput, strDataInput;
-        strDataInput = _divInput.txtboxBlk.value.trim(); //Remove the whitespaces from the ends of the string
+        var nLowPercent = _convertSliderVal(_sliderRange.minVal),
+            nHighPercent = _convertSliderVal(_sliderRange.maxVal - 20),
+            strNodeInput = _divInput.txtboxNode.value,
+            strBlkInput = _divInput.txtboxBlk.value;
+        if (!strBlkInput) {
+            banner("Please enter the query block name(s).", 'warn'); //Inform user if input is missing
+            _clearResult();
+            return;
+        }
+        _sbx.notify('module', '*', 'doSetArgs', { "blocksname": strBlkInput, "nodesname": strNodeInput, lowpercent: nLowPercent, highpercent: nHighPercent });
+    }
+
+    /**
+    * This function gets the block information from Phedex database using web APIs provided by Phedex given 
+    * the block names in regular expression format.
+    * The result is formatted and is shown to user in YUI datatable.
+    * @method _getBlockInfo
+    * @private
+    */
+    var _getBlockInfo = function() {
+        var indx, blocknames, strNodeInput,
+        strDataInput = _strBlocksName.trim(),
+        strNodeInput = _strNodesName.trim();
         if (!strDataInput) {
             banner("Please enter the query block name(s).", 'warn'); //Inform user if input is missing
             _clearResult();
             return;
         }
-        _lowpercent = _convertSliderVal(_sliderRange.minVal);
-        _highpercent = _convertSliderVal(_sliderRange.maxVal - 20);
-
-        _divInput.btnGetInfo.disabled = true; //Disable the Get Info button
-        _divInput.btnReset.disabled = true;   //Disable the Reset button
-
         strDataInput = strDataInput.replace(/\n/g, " ");
         blocknames = strDataInput.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
         _arrQueryBlkNames = new Array();
@@ -162,7 +180,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             blocknames[indx] = blocknames[indx].trim(); //Remove the whitespaces in the blocknames
             _insertData(_arrQueryBlkNames, blocknames[indx], "");
         }
-        strNodeInput = _divInput.txtboxNode.value;
         if (_strOrigBlkQuery == strDataInput) //Check if current query block names and previous query block names are same or not
         {
             //No change in the input query. So, no need make data service call
@@ -179,8 +196,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 _nOrigHighPercent = _highpercent;
             }
             _strOrigNodeQuery = strNodeInput;
-            _divInput.btnGetInfo.disabled = false; //Enable the Get Info button
-            _divInput.btnReset.disabled = false;   //Enable the Reset button
             return;
         }
 
@@ -196,7 +211,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         var funcSuccess = function(jsonBlkData) {
             try {
                 log('The data service response is received and ready for processing', 'info', this.me)
-                var blk = null, replica = null, indxBlock = 0, indxReplica = 0, indxNode = 0, 
+                var blk = null, replica = null, indxBlock = 0, indxReplica = 0, indxNode = 0,
                     blockbytes = 0, blockcount = 0, blockfiles = 0, replicabytes = 0, replicacount = 0;
                 if (_arrBlocks) {
                     _arrBlocks = null;
@@ -263,8 +278,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 _clearResult();
                 _bFormTable = true;
             }
-            _divInput.btnGetInfo.disabled = false; //Enable the Get Info button
-            _divInput.btnReset.disabled = false;   //Enable the Reset button
             return;
         }
 
@@ -274,8 +287,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             log("Error in communicating with data service and receiving the response. " + objError.message, 'error');
             _clearResult(); //Clear the result elements
             _bFormTable = true;
-            _divInput.btnGetInfo.disabled = false; //Enable the Get Info button
-            _divInput.btnReset.disabled = false;   //Enable the Reset button
             return;
         }
 
@@ -301,7 +312,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             tickSize = 0,         // This is the pixels count by which the slider moves in fixed pixel increments
             minThumbDistance = 0, // The minimum distance the thumbs can be from one another
             initValues = [0, 200]; // Initial values for the Slider in pixels
-        
+
         TxtBoxBlk = document.createElement('textarea');
         TxtBoxBlk.className = 'txtboxBlkNode';
         TxtBoxBlk.rows = 4;
@@ -338,7 +349,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         tableCell1 = tableRow.insertCell(0);
         tableCell2 = tableRow.insertCell(1);
         tableCell3 = tableRow.insertCell(2);
-        
+
         tableCell1.innerHTML = '<span>Select data transfer percentage range:</span>&nbsp;&nbsp;';
         divSliderRange = document.createElement('div');
         divSliderRange.className = 'yui-h-slider';
@@ -370,7 +381,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         _sliderRange.subscribe('ready', _updateRange);  //Adding the function to ready event
         _sliderRange.subscribe('change', _updateRange); //Adding the function to change event
         domInput.appendChild(tableSlider);
-        
+
         btnGetInfo = document.createElement('span');
         btnReset = document.createElement('span');
         btnGetInfo.className = 'yui-skin-sam';
@@ -383,7 +394,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         // Create Yahoo! Buttons
         objPushBtnGet = new YAHOO.widget.Button({ label: "Get Block Data Info", id: "datalookup-btnGetInfo", container: btnGetInfo, onclick: { fn: _getDataInfo} });
         objPushBtnReset = new YAHOO.widget.Button({ label: "Reset", id: "datalookup-btnReset", container: btnReset, onclick: { fn: _initializeValues} });
-        log('The input component has been built','info',this.me)
+        log('The input component has been built', 'info', this.me)
     }
 
     /**
@@ -404,7 +415,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domModule.content.divResult = document.createElement('div');
         _divResult = domModule.content.divResult;
         domModule.content.appendChild(_divResult);
-        
+
         domModule.content.divMissingBlks = document.createElement('div');
         _divMissingBlks = domModule.content.divMissingBlks;
         domModule.content.appendChild(domModule.content.divMissingBlks);
@@ -492,9 +503,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     * @private
     */
     var _filterNodes = function() {
-        var indx, nLoop = 0, strColumnName = "", strName = "", arrNodeNames, arrQueryNodes, 
+        var indx, nLoop = 0, strColumnName = "", strName = "", arrNodeNames, arrQueryNodes,
             arrTemp, arrNodeCols = null, arrQueryCols = null,
-            strNodeNames = _divInput.txtboxNode.value.trim(); //Remove the whitespaces from the ends of the string
+            strNodeNames = _strNodesName.trim(); //Remove the whitespaces from the ends of the string
         if (strNodeNames.length == 0) //If node query box is empty, then show all columns
         {
             return _arrColumnNode;
@@ -640,7 +651,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
 
         //The custom progress bar format to the node column
         YAHOO.widget.DataTable.Formatter.customProgressBar = function(elCell, oRecord, oColumn, sData) {
-            var strPerHTML = '', 
+            var strPerHTML = '',
                 nSize = oRecord.getData("blockbytes") * sData / 100, //Calculate the current size of the block data transferred
                 strHTML = '<div><div id = "BlkProgressBar' + ++_nPgBarIndex + '" role="progressbar" aria-valuemin="0" aria-valuemax=100" aria-valuenow="' + sData + '" ';
             if ((sData >= _lowpercent) && (sData <= _highpercent)) {
@@ -744,7 +755,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                         _hideColumn(strColumnName);
                     }
                 }
-                log('The node filter is applied by hiding unneccessary columns in datatable', 'info', this.me)
+                log('The node filter is applied by hiding unnecessary columns in datatable', 'info', this.me)
             }
         }
         else {
@@ -859,25 +870,36 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             initData: function() {
                 this.dom.title.innerHTML = 'Phedex Block Location';
                 _buildModule(this.dom);
+                if (!_strBlocksName) {
+                    _sbx.notify('module', 'needArguments', this.id);
+                    return;
+                }
                 _sbx.notify(this.id, 'initData');
-                return;
+            },
+            /**
+            * Sets the category for the module whose information has to be shown on navigator.
+            * @method setArgs
+            * @param {Object} args is the object that has arguments for the module
+            */
+            setArgs: function(args) {
+                if (!args) { return; }
+                if (args.blocksname) { _strBlocksName = args.blocksname; }
+                else { _strBlocksName = ""; }
+                if (!(typeof (args.nodesname) == 'undefined')) { _strNodesName = args.nodesname; }
+                if (args.lowpercent) { _lowpercent = args.lowpercent; }
+                if (args.highpercent) { _highpercent = args.highpercent; }
+                this.dom.title.innerHTML = 'setting parameters...';
+                _sbx.notify(this.id, 'setArgs');
+                log('Block Name is set to ' + _strBlocksName, 'info', _me);
             },
             /**
             * This gets the group information from Phedex data service for the given group name through sandbox.
             * @method getData
             */
             getData: function() {
-                _sbx.notify(this.id, 'gotData');
-                return;
-            },
-
-            /**
-            * This processes the group information obtained from data service and shows in YUI datatable.
-            * @method gotData
-            * @param data {object} group information in json format used to fill the datatable directly using a defined schema.
-            */
-            gotData: function(dataGroup) {
-                _sbx.notify(this.id, 'gotData');
+                this.dom.title.innerHTML = 'Getting Block Information...';
+                _getBlockInfo();
+                this.dom.title.innerHTML = 'Phedex Block Location';
                 return;
             }
         };
@@ -885,5 +907,4 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, _construct(), true);
     return this;
 };
-
 log('loaded...','info','groupusage');
