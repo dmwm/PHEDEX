@@ -44,6 +44,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-groupusage': { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-static':     { requires: ['phedex-module', 'phedex-config'] },
     'phedex-module-blocklocation': { requires: ['phedex-module', 'slider', 'button'] },
+    'phedex-module-missingfiles': { requires: ['phedex-module', 'phedex-datatable'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
