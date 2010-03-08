@@ -24,7 +24,7 @@ Show detailed information regarding a verification
                   default is to show any
  test_since       show only tests after this time (*)
 
- (*) if no option is specified, test_since is set to 24 hours ago
+ (*) at least block or test is required.
 
 =head2 Output
 
