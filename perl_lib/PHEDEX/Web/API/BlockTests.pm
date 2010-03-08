@@ -6,25 +6,22 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::BolckTests -- consistency-check results
+PHEDEX::Web::API::BlockTests -- consistency check tests.
 
 =head1 DESCRIPTION
 
-Show consistency-check results
+Shows block-level results of consistency check tests.
 
 =head2 Options
 
- required inputs: none
- optional inputs: (as filters) node, block, test, status, test_since
-
  node             node name, could be multiple
  block            block name, could be multiple
- kind             "cksum", "size", "dbs", or "migration"
-                  default is to show any
- status           "OK", "Fail", "Queued", "Active", "Timeout", "Expired",
-                  "Suspended", "Error", "Rejected" or "Indeterminate"
-                  default is to show any
- test_since       show only tests after this time (*)
+ kind             kind of consistency check test.  One of "cksum", "size",
+                  "dbs", or "migration".  Default is to show any kind.
+ status           status of the test.  One of "OK", "Fail", "Queued", "Active",
+                  "Timeout", "Expired", "Suspended", "Error",
+                  "Rejected" or "Indeterminate".  Default is to show any.
+ test_since       show only tests reported after this time (*)
 
  (*) if no option is specified, test_since is set to 24 hours ago
 
@@ -92,7 +89,7 @@ my $map = {
     }
 };
 
-sub duration { return 60 * 60; }
+sub duration { return 5 * 60; } # 5 minutes
 sub invoke { return blocktests(@_); }
 
 sub blocktests
