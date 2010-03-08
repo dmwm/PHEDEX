@@ -458,7 +458,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               a.negate = this.meta.cBox[a.name].checked;
               this.args[a.name] = a;
             } else {
-              log('Invalid entry for "'+x.text+'", aborting accept','error','Core.Widget');
+              log('Invalid entry for "'+x.text+'", aborting accept','error',_me);
               this.setInvalid(innerList[i],isValid);
               isValid = false;
             }
