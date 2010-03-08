@@ -12,7 +12,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.MissingFiles = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
 
-    var _sbx = sandbox, _blockname = '/Cosmics/CRUZET09-v1/RAW#e315ea15-5750-49a5-9a69-907972fad673';
+    var _sbx = sandbox, _blockname; // = '/Cosmics/CRUZET09-v1/RAW#e315ea15-5750-49a5-9a69-907972fad673';
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     /**
