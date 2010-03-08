@@ -108,11 +108,11 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                             'origin_node': { type: 'regex', text: 'Origin Node', tip: 'javascript regular expression' },
                             'time_create': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation', preprocess: 'toTimeAgo' },
                             'group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
-                            'custodial': { type: 'regex', text: 'Custodial', tip: 'javascript regular expression' },
+                            'custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
                             'se': { type: 'regex', text: 'SE', tip: 'javascript regular expression' },
                             'node_id': { type: 'int', text: 'Node ID', tip: 'Node ID' },
                             'node_name': { type: 'regex', text: 'Node name', tip: 'javascript regular expression' },
-                            'subscribed': { type: 'regex', text: 'Subscribed', tip: 'javascript regular expression' }
+                            'subscribed': { type: 'yesno', text: 'Subscribed', tip: 'Show subscribed and/or non-subscribed files (default is both)' }
                         }
                     }
                 }
