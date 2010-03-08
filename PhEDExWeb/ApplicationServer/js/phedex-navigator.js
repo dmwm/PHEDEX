@@ -557,9 +557,36 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         _selectors[type].updateGUI = function(i) {
           return function() {
             log('updateGUI for _selectors['+type+']','info',me);
-            i.value = _state[_type]; // Is this correct? What if Instance has changed?
+            i.value = _state[_type]; // TODO Is this correct? What if Instance has changed?
           }
         }(input);
+        return sel;
+      }
+    },
+
+    block: {
+      init: function(el, type) {
+        var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-block' }),
+          input = PxU.makeChild(sel, 'input', { type: 'text', title:'Type a block-name here', size:30 });
+        _selectors[type].needValue = true;
+        _selectors[type].updateGUI = function(i) {
+          return function() {
+            log('updateGUI for _selectors['+type+']','info',me);
+            i.value = _state[_type]; // TODO Is this correct? What if Instance has changed?
+          }
+        }(input);
+
+        var k1 = new YAHOO.util.KeyListener(input,
+                                          { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                          { fn:function(o){
+            return function() {
+              if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
+              _typeArgs[_type].blockname = input.value;
+              _sbx.notify('module','*','doSetArgs',_typeArgs[_type]);
+            } }(this),
+                                            scope:this, correctScope:true } );
+        k1.enable();
+
         return sel;
       }
     },
@@ -753,6 +780,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   this.el.className = 'phedex-nav-component phedex-nav-type';
 
   this.setInputTypes = function(types) {
+log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
     // get registered target types and store them with optional config params
     _target_types = {};
     for (var i in types) {
