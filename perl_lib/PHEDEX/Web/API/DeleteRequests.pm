@@ -17,9 +17,9 @@ clients who approved or disapproved the request.
 =head2 Options
 
   request          request number
-  node             name of the destination node
-  limit            maximal number of records returned
-  create_since     created after this time
+  node             node name
+  create_since     return only requests created after this time
+  limit            maximum number of records returned
 
   * without any input, the default "create_since" is set to 24 hours ago
 
@@ -52,9 +52,10 @@ clients who approved or disapproved the request.
 =head3 <request> attributes
 
   id               request number
-  rm_subscription  remove subscription?
+  rm_subscription  whether the subscription was removed with this
+                   deletion
 
-=head3 <nodes> elements
+=head3 <node> elements
 
 No attributes, <nodes> exists only to contain <node> elements.
 
@@ -71,8 +72,8 @@ No attributes, <nodes> exists only to contain <node> elements.
 
 =head3 <usertext> element
 
-No attributes, the contents of this element are the actual text
-strings of data the user requested, possibly including wildcards.
+Plain text strings of data the user requested, possibly including
+wildcards.
 
 =head3 <dbs> attributes
 
@@ -96,7 +97,7 @@ strings of data the user requested, possibly including wildcards.
 =head3 <requested_by> attributes
 
   name             person's name
-  dn               person's DN
+  dn               certificate distinguished name
   username         person's username
   email            email address
   host             remote host
@@ -108,7 +109,7 @@ strings of data the user requested, possibly including wildcards.
   decision         y for approved, n for disapproved
   time_decided     timestamp the decision was made
   name             person's name
-  dn               person's DN
+  dn               certificate distinguished name
   username         person's username
   email            email address
   host             remote host
@@ -119,9 +120,8 @@ This element will not exist if no decision has been taken yet.
 
 =head3 <comment> elements
 
-No attributes, the text value gives the comments made when the request
-was created or decided on.  This element will not exist if there were
-no comments.
+Plain text comments made when the request was created or decided on.
+This element will not exist if there were no comments.
 
 =cut
 
