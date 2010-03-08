@@ -43,21 +43,21 @@ Show messages from the agents
  se          storage element
  id          node id
 
-=head3 <agent> attributes:
+=head3 <agent> attributes
 
   name              name of the agent
   user              user name who owns the agent process
   host              hostname where agent runs
   pid               process id of agent
 
-=head3 <log> attributes:
+=head3 <log> attributes
 
   time              time of log entry
   work_dir          agent work directory
   state_dir         agent state directory
   reason            reason for update
 
-=head3 <message> element:
+=head3 <message> element
 
   Contains the log message.
 
