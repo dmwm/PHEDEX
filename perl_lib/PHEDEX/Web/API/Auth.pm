@@ -6,26 +6,19 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Auth - authentication information
+PHEDEX::Web::API::Auth - show authentication state and abilities
 
 =head1 DESCRIPTION
 
-Serves the requesting user's authentication state.
+Serves the requesting user's authentication state.  May also be used
+to authenticate using username and password, see L<below|"Password authentication">.
 
 =head2 Options
 
- required inputs: none
- optional inputs: ability, require_cert, SecModLogin, SecModPwd
-
-  ability       if passed then the nodes (from TMDB) that the user is
-                allowed to operate on is are also returned.
+  ability       authorization ability.  If passed then the nodes (from TMDB)
+                that the user is allowed to use "ability" for are returned.
   require_cert  if passed then the call will die if the user is not
                 authenticated by certificate
-  SecModLogin   username for password authentication
-  SecModPwd     password for password authentication
-
-  * SecModLogin and SecModPwd must be used together and the spelling
-    must be exact as above (mixed cases)
 
 =head2 Output
 
@@ -41,12 +34,10 @@ Serves data in the following structure
   </auth>
    ...
 
-  * in password authentication, if succeeds, a cookie is returned, too.
-
 =head3 <auth> attributes
 
- state : the authentication state (cert|passwd|failed)
- dn    : the user's distinguished name
+ state   : the authentication state (cert|passwd|failed)
+ dn      : the user's distinguished name
  ability : the ability that authorized nodes were requested for (see options)
 
 =head3 <role> attributes
@@ -58,6 +49,28 @@ Serves data in the following structure
 
  name : the name of the node
  id   : the id of the node
+
+=head2 Password authentication
+
+Besides showing your current authentication status, the "auth" API can
+also create an authentication cookie based on a user's SiteDB username
+and password.  To do this, the client must HTTP POST the following
+parameters to the "auth" API.
+
+  SecModLogin   username for password authentication
+  SecModPwd     password for password authentication
+
+These parameters must be used together and the spelling must be exactly
+as above (mixed cases).  Do not use HTTP GET to send these parameters,
+sending a password via GET is insecure and the request will be
+rejected.
+
+If the username and password are correct, the API will respond with an
+HTTP cookie in the header representing an authentication session.
+Future requests to "auth" containing this cookie will show the current
+authentication state and privileges allowed to the client using this
+cookie.  Other APIs may accept this authentication cookie for their
+use.
 
 =cut
 
