@@ -160,6 +160,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         regex:       {type:'input', size:20},
         'int':       {type:'input', size:7 },
         'float':     {type:'input', size:7 },
+        yesno:       {type:'input', fields:['yes','no'], attributes:{checked:true, type:'checkbox'}, nonNegatable:true },
         percent:     {type:'input', size:5 },
         minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
@@ -176,6 +177,13 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           var i = parseFloat(arg.value);
           if ( isNaN(i) ) { return {result:false}; }
           return {result:true, parsed:{value:i}};
+        },
+        yesno: function(arg) {
+          if ( arg.yes && arg.no ) { return {result:false}; }
+          var v = { result:true, parsed:{y:false, n:false} };
+          if ( arg.yes ) { v.parsed.y = true; }
+          if ( arg.no  ) { v.parsed.n = true; }
+          return v;
         },
         percent: function(arg) {
           var i = parseFloat(arg.value);
@@ -219,6 +227,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         },
         'int':   function(arg,val) { return val == arg.value; },
         'float': function(arg,val) { return val == arg.value; },
+        yesno:   function(arg,val) { return arg[val]; },
         percent: function(arg,val) { return val == arg.value; },
         minmax:  function(arg,val) {
           if ( arg.min && val < arg.min ) { return false; }
@@ -293,7 +302,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }(hideClass,fieldset) );
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
-
           for (key in _filter.structure['f'][label]) {
             var c = _filter.fields[key],
                 focusOn, outer, inner, e, value, i, fields, cBox, fieldLabel, help,  el, size, def;
@@ -329,13 +337,17 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               el.setAttribute('name',key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
               value = c[fields[i] || 'value'];
               if ( value != null ) { el.setAttribute('value',value); }
+              if ( e.attributes ) {
+                for (j in e.attributes) {
+                  el.setAttribute(j,e.attributes[j]);
+                }
+              }
               inner.appendChild(el);
               if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
               if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
             }
 
             cBox = document.createElement('input');
-            fieldLabel = document.createElement('div');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-filter-checkbox';
             cBox.id = 'cbox_' + PxU.Sequence();
@@ -344,6 +356,11 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             ttIds.push(cBox.id);
             ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
             inner.appendChild(cBox);
+            if ( e.nonNegatable ) {
+              cBox.disabled = true;
+              ttHelp[cBox.id] = 'this checkbox is redundant, use the fields to the left to make your selection';
+            }
+            fieldLabel = document.createElement('div');
             outer.appendChild(inner);
             fieldLabel.className = 'float-left';
             fieldLabel.appendChild(document.createTextNode(c.text));
@@ -409,9 +426,15 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               if ( elClasses[k].match(keyMatch) ) {
                 key = elClasses[k].split('-')[3];
                 if ( key == '' ) { key = 'value'; }
-                values[key] = el.value;
+                if ( el.type == 'checkbox' ) {
+                  value = el.checked;
+                  if ( !value ) { nSet++; }
+                } else {
+                  value = el.value;
+                  if ( value ) { nSet++; }
+                }
+                values[key] = value;
                 a.id[key] = el.id;
-                if ( el.value ) { nSet++; }
               }
             }
           }
@@ -445,15 +468,18 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       },
 
       _resetFilter: function() {
-        var a, el, name, key, i;
+        var a, el, name, key, i, m=this.meta;
         for (name in this.args) {
           a = this.args[name];
           for (key in a.values) {
-            el = this.meta.el[a.id[key]];
-            el.value = null;
+            if ( key == 'y' ) { key = 'yes'; }
+            if ( key == 'n' ) { key = 'no'; }
+            el = m.el[a.id[key]];
+            if ( el.type == 'checkbox' ) { el.checked = true; }
+            else { el.value = null; }
             delete this.args[name];
           }
-          this.meta.cBox[name].checked = false;
+          m.cBox[name].checked = false;
         }
         _sbx.notify('Filter',obj.me,this.args,this.asString());
       },
