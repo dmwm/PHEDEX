@@ -75,6 +75,7 @@ Show detailed information regarding a verification
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 # mapping format for the output
 my $map = {
@@ -115,6 +116,7 @@ sub blocktestfiles
 {
     my ($core,%h) = @_;
 
+    die "Either 'block' or 'test' is required" if (!$h{'block'} and !$h{'test'});
 
     # convert parameter keys to upper case
     foreach ( qw / node block kind status test_since test / )
