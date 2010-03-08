@@ -8,16 +8,18 @@ PHEDEX::Core::Mail - email notification module
 
 use strict;
 use warnings;
-use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
 
-use base 'Exporter';
+use Mail::RFC822::Address 'validlist';
+
 use PHEDEX::Web::SQL;
 use Data::Dumper;
 
-#my $TESTING = 0;
-my $TESTING = 1;
-#my $TESTING_MAIL = undef;
-my $TESTING_MAIL = 'hn-cms-phedex@cern.ch';
+use base 'Exporter';
+our @EXPORT = qw (); # export nothing by default
+our @EXPORT_OK = qw( send_email send_request_create_email send_request_update_email );
+
+our $TESTING = 1;
+our $TESTING_MAIL = 'cms-phedex-admins@cern.ch';
 
 sub new
 {
@@ -369,8 +371,7 @@ send_email(subject => "PhEDEx $request_type ($instance instance)",
 	   cc => [ @cc ],
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	   message => $message)
-# or $self->alert("Sending request email to admins failed, sorry");
-or print "Sending request email to admins failed, sorry2\n";
+or die "sending request creation email failed\n";
 
 }
 
@@ -473,8 +474,7 @@ ENDEMAIL
 	    from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	    replyto => [ $admin_email ],
 	    message => $message
-	    # ) or $self->alert("Sending request email to admins failed, sorry");;
-	    ) or print "Sending request email to admins failed, sorry\n";
+	    ) or die "sending request update email failed\n"
 
     return 1;
 }
