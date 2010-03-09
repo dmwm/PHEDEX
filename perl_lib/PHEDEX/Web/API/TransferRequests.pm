@@ -21,7 +21,12 @@ requesting client, the approving clients, and the request options.
   limit            maximal number of records returned
   create_since     created after this time
 
-  * without any input, the default "create_since" is set to 24 hours ago
+  approval         approval state: approved, disapproved, pending or mixed
+                   default is all
+  requested_by *   human name of the requestor -- only work with approval option
+
+   * requested_by only works with approval option
+  ** without any input, the default "create_since" is set to 24 hours ago
 
 =head2 Output
 
@@ -155,7 +160,7 @@ sub xfer_request
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / request limit group node create_since / )
+    foreach ( qw / request limit group node create_since approval requested_by / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -167,6 +172,17 @@ sub xfer_request
     }
 
     $h{TYPE} = 'xfer';
+    if (exists $h{APPROVAL})
+    {
+        my $r1 = PHEDEX::Web::SQL::getRequestList($core, %h);
+        my %request;
+        foreach (@{$r1})
+        {
+            $request{$_->{ID}} = 1;
+        }
+        my @request = keys(%request);
+        $h{REQUEST} = \@request;
+    }
     my $r = PHEDEX::Web::SQL::getRequestData($core, %h);
     return { request => $r };
 }
