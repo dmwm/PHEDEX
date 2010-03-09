@@ -27,13 +27,11 @@ PHEDEX.TreeView = function(sandbox,string) {
  */
 /**
  * An array mapping DOM element-iDs to treeview-branches, for use in mouse-over handlers etc
- * @property textNodeMap
+ * @property _cfg.textNodeMap
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], classes:{}, sortFields:{}, formats:{} },
-
-      hiddenBranches: {},
+      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches: {} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -230,15 +228,15 @@ PHEDEX.TreeView = function(sandbox,string) {
             if ( values ) { value = values[i]; }
             else { value = f.text; }
             if ( spec.name ) { value = spec.name+': '+value; }
-            if ( this._cfg.classes[className] ) {
-              log('duplicate entry for '+className+': "'+this._cfg.classes[className].value+'" and "'+value+'"','error','treeview');
+            if ( f.ctx ) {
+              log('duplicate entry for '+className+': "'+f.ctx.value+'" and "'+value+'"','error','treeview');
             } else {
-              this._cfg.classes[className] = {value:value, group:spec.name};
+              f.ctx = {value:value, group:spec.name};
               this._cfg.sortFields[spec.name] = {};
-              if ( spec.format[i].contextArgs )
+              if ( spec.format[i].ctxArgs )
               {
-                if ( typeof(f.contextArgs) == 'string' ) {
-                  f.contextArgs = [f.contextArgs];
+                if ( typeof(f.ctxArgs) == 'string' ) {
+                  f.ctxArgs = [f.ctxArgs];
                 }
               }
             }
@@ -275,7 +273,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         YuD.getElementsByClassName(className,null,el,function(element) {
           element.style.display = 'none';
         });
-        _sbx.notify(this.id,'hideColumn',{text: this._cfg.classes[className].value, value:className});
+        _sbx.notify(this.id,'hideColumn',{text: this._cfg.formats[className].ctx.value, value:className});
       },
 
       /**
@@ -359,7 +357,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       revealAllBranches: function() {
         this.revealAllElements('ygtvtable');
-        this.hiddenBranches = {};
+        this._cfg.hiddenBranches = {};
       },
 
 /** return a boolean indicating if the module is in a fit state to be bookmarked
@@ -420,9 +418,9 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
         for (var i in classes) {
           if ( classes[i].match(treeMatch) ) {
           log('found '+classes[i]+' to key new menu entries','info',obj.me);
-          if ( !isHeader && obj._cfg.formats[classes[i]].contextArgs ) {
-            for(var j in obj._cfg.formats[classes[i]].contextArgs) {
-              typeNames.unshift(obj._cfg.formats[classes[i]].contextArgs[j]);
+          if ( !isHeader && obj._cfg.formats[classes[i]].ctxArgs ) {
+            for(var j in obj._cfg.formats[classes[i]].ctxArgs) {
+              typeNames.unshift(obj._cfg.formats[classes[i]].ctxArgs[j]);
             }
           }
         }
@@ -443,16 +441,23 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
       var target = this.contextEventTarget,
           node = obj.locateBranch(target),
           el   = obj.locateNode(target),
-          className = obj.getPhedexFieldClass(el);
+          className = obj.getPhedexFieldClass(el),
+          label = p_aArgs[0].explicitOriginalTarget.textContent,
+          task  = p_aArgs[1],
+          opts  = {},
+          i, j, f, key;
       if ( !node ) {
         this.cancel();
         return;
       }
-      var label = p_aArgs[0].explicitOriginalTarget.textContent,
-          task  = p_aArgs[1],
-          opts  = {};
       if ( node.payload ) {
-        opts = node.payload.opts;
+        for (i in node.payload.opts) { opts[i] = node.payload.opts[i]; }
+      }
+      f = node.data.spec.format;
+      for (i in f) {
+        if (key = f[i].ctxKey) {
+          opts[key] = node.data.values[i];
+        }
       }
       log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
       if (task) {
@@ -496,8 +501,8 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       getExtraContextTypes: function(id) {
         var cArgs = obj._cfg.formats, cUniq = {}, i, j;
         for (i in cArgs) {
-          for(j in cArgs[i].contextArgs) {
-            cUniq[cArgs[i].contextArgs[j]] = 1;
+          for(j in cArgs[i].ctxArgs) {
+            cUniq[cArgs[i].ctxArgs[j]] = 1;
           }
         }
         _sbx.notify(id,'extraContextTypes',cUniq);
@@ -597,7 +602,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
         }
 
-       for (i in obj.hiddenBranches) {
+       for (i in obj._cfg.hiddenBranches) {
 //       I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
          YuD.addClass(elAncestor,'phedex-invisible');
@@ -631,8 +636,10 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       _init: function() {
         try {
           var x = function(o) {
-//          strictly speaking, I should not call the context-menu directly here, in case it isn't loaded yet. However, treeview depends on it, so
-//          that should not be a problem. For now, the try-catch block will suffice...
+//          TODO strictly speaking, I should not call the context-menu directly here, in case it isn't loaded yet. However, treeview depends
+//          on it, so that should not be a problem. For now, the try-catch block will suffice to protect if the contextmenu is not loaded.
+//          Doing it 'right' would require either an instance of the context-menu to be instantiated (to provide a listener), or for a
+//          global listener, neither of which are obviously better ways of doing this...
             PHEDEX.Component.ContextMenu.Add('sort-files','Sort Files Ascending', function(opts,el) { o.prepare(el,'files',  'asc' ); });
             PHEDEX.Component.ContextMenu.Add('sort-files','Sort Files Descending',function(opts,el) { o.prepare(el,'files',  'desc'); });
             PHEDEX.Component.ContextMenu.Add('sort-bytes','Sort Bytes Ascending', function(opts,el) { o.prepare(el,'bytes',  'asc' ); });
@@ -745,7 +752,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
                 tNode.collapse();
                 elAncestor = YuD.getAncestorByClassName(elId,'ygtvtable');
                 YuD.addClass(elAncestor,'phedex-invisible');
-                obj.hiddenBranches[elId] = 1;
+                obj._cfg.hiddenBranches[elId] = 1;
                 this.count++;
                 if ( tNode.parent ) {
                   if ( tNode.parent.labelElId ) { elParents[tNode.parent.labelElId] = 1; }
