@@ -23,7 +23,7 @@ requesting client, the approving clients, and the request options.
 
   approval         approval state: approved, disapproved, pending or mixed
                    default is all
-  requested_by *   human name of the requestor -- only work with approval option
+  requested_by *   human name of the requestor
 
    * requested_by only works with approval option
   ** without any input, the default "create_since" is set to 24 hours ago
