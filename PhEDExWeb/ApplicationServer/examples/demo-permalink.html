@@ -66,6 +66,7 @@ YAHOO.util.Event.onDOMReady(function() {
       li = document.createElement('li');
       a = document.createElement('a');
       a.href = tgt+cfg[i];
+      a.target = '_blank';
       a.innerHTML = i;
       li.appendChild(a);
       ul.appendChild(li);
