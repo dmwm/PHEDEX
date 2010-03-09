@@ -94,7 +94,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             },
 
             /**
-            * This inits the Phedex.GroupUsage module and notify to sandbox about its status.
+            * This initializes the Phedex.GroupUsage module and notify to sandbox about its status.
             * @method initData
             */
             initData: function() {
@@ -148,7 +148,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             }
         };
     };
-    YAHOO.lang.augmentObject(this,_construct(),true);
+    Yla(this, _construct(), true);
     return this;
 };
 
