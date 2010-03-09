@@ -1,6 +1,6 @@
 /**
 * The class is used to create missing files module that is used to show missing files information for the given block name.
-* The group information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
+* The missing files information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
 * show it to user in a YUI datatable.
 * @namespace PHEDEX.Module
 * @class MissingFiles
@@ -12,7 +12,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.MissingFiles = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
 
-    var _sbx = sandbox, _blockname; // = '/Cosmics/CRUZET09-v1/RAW#e315ea15-5750-49a5-9a69-907972fad673';
+    var _sbx = sandbox, _blockname;
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     /**
@@ -27,49 +27,13 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                          { key: 'origin_node', label: 'Origin Node'},
                          { key: "time_create", label: 'TimeCreate', formatter: 'UnixEpochToGMT' },
                          { key: 'group', label: 'Group' },
-                         { key: 'custodial', label: 'Custodial'},
                          { key: 'se', label: 'SE' },
                          { key: 'node_id', label: 'Node ID', className: 'align-right' },
                          { key: 'node_name', label: 'Node Name' },
+                         { key: 'custodial', label: 'Custodial' },
                          { key: 'subscribed', label: 'Subscribed'}];
 
-    /**
-    * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
-    * @method _processBlkData
-    * @param jsonBlkData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
-    * @private
-    */
-    var _processBlkData = function(jsonBlkData) {
-        var indx, indxBlk, indxFile, indxMiss, jsonFile, jsonMissing, arrFile, arrData = [],
-        arrFileCols = ['id', 'name', 'bytes', 'origin_node', 'time_create'],
-        arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'];
-        for (indxBlk = 0; indxBlk < jsonBlkData.length; indxBlk++) {
-            jsonFiles = jsonBlkData[indxBlk].file;
-            for (indxFile = 0; indxFile < jsonFiles.length; indxFile++) {
-                jsonFile = jsonFiles[indxFile];
-                for (indxMiss = 0; indxMiss < jsonFile.missing.length; indxMiss++) {
-                    jsonMissing = jsonFile.missing[indxMiss];
-                    arrFile = [];
-                    for (indx = 0; indx < arrFileCols.length; indx++) {
-                        arrFile[arrFileCols[indx]] = jsonFile[arrFileCols[indx]];
-                    }
-                    for (indx = 0; indx < arrMissingCols.length; indx++) {
-                        if (jsonMissing[arrMissingCols[indx]]) {
-                            arrFile[arrMissingCols[indx]] = jsonMissing[arrMissingCols[indx]];
-                        }
-                        else {
-                            arrFile[arrMissingCols[indx]] = "";
-                        }
-                    }
-                    arrData.push(arrFile);
-                }
-            }
-        }
-        this.needProcess = false;
-        return arrData;
-    }
-
-    //Used to construct the group usage widget.
+    //Used to construct the missing files module.
     _construct = function() {
         return {
             /**
@@ -86,6 +50,13 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                         map: { hideColumn: 'addMenuItem' },
                         container: 'param'
                     }
+                },
+                {
+                    name: 'ContextMenu',
+                    source: 'component-contextmenu',
+                    payload: {
+                        args: { 'missingfile': 'Name' }
+                    }
                 }
             ],
 
@@ -96,17 +67,17 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             */
             meta: {
                 table: { columns: _dtColumnDefs },
-                hide: ['se', 'id'],
+                hide: ['se', 'id', 'node_id'],
                 sort: { field: 'name' },
                 filter: {
                     'MissingFiles attributes': {
-                        map: { to: 'M' },
+                        map: { to: 'F' },
                         fields: {
                             'id': { type: 'int', text: 'ID', tip: 'File-ID' },
                             'name': { type: 'regex', text: 'File', tip: 'javascript regular expression' },
                             'bytes': { type: 'minmax', text: 'File Bytes', tip: 'integer range' },
                             'origin_node': { type: 'regex', text: 'Origin Node', tip: 'javascript regular expression' },
-                            'time_create': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation', preprocess: 'toTimeAgo' },
+                            'time_create': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation in unix-epoch seconds' },
                             'group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
                             'custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
                             'se': { type: 'regex', text: 'SE', tip: 'javascript regular expression' },
@@ -118,6 +89,42 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                 }
             },
 
+            /**
+            * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
+            * @method _processData
+            * @param jsonBlkData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @private
+            */
+            _processData: function(jsonBlkData) {
+                var indx, indxBlk, indxFile, indxMiss, jsonFile, jsonMissing, arrFile, arrData = [],
+                arrFileCols = ['id', 'name', 'bytes', 'origin_node', 'time_create'],
+                arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'];
+                for (indxBlk = 0; indxBlk < jsonBlkData.length; indxBlk++) {
+                    jsonFiles = jsonBlkData[indxBlk].file;
+                    for (indxFile = 0; indxFile < jsonFiles.length; indxFile++) {
+                        jsonFile = jsonFiles[indxFile];
+                        for (indxMiss = 0; indxMiss < jsonFile.missing.length; indxMiss++) {
+                            jsonMissing = jsonFile.missing[indxMiss];
+                            arrFile = [];
+                            for (indx = 0; indx < arrFileCols.length; indx++) {
+                                arrFile[arrFileCols[indx]] = jsonFile[arrFileCols[indx]];
+                            }
+                            for (indx = 0; indx < arrMissingCols.length; indx++) {
+                                if (jsonMissing[arrMissingCols[indx]]) {
+                                    arrFile[arrMissingCols[indx]] = jsonMissing[arrMissingCols[indx]];
+                                }
+                                else {
+                                    arrFile[arrMissingCols[indx]] = ""; //set the value to "" if value is null in response so that filter can handle it
+                                }
+                            }
+                            arrData.push(arrFile);
+                        }
+                    }
+                }
+                this.needProcess = false;
+                return arrData;
+            },
+            
             /**
             * This inits the Phedex.MissingFiles module and notify to sandbox about its status.
             * @method initData
@@ -166,7 +173,6 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             gotData: function(data) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data';
-                this._processData = _processBlkData; //Change the function that processes the data as the processing is different
                 this.data = data.block;
                 this.dom.title.innerHTML = 'Missing file(s) for ' + _blockname;
                 this.fillDataSource(this.data);
@@ -174,8 +180,8 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             }
         };
     };
-    YAHOO.lang.augmentObject(this, _construct(), true);
+    Yla(this, _construct(), true);
     return this;
 };
 
-log('loaded...','info','groupusage');
+log('loaded...','info','missingfiles');
