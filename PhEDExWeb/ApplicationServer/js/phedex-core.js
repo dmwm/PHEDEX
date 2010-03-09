@@ -331,24 +331,4 @@ PHEDEX.Core = function(sandbox,loader) {
     }
   };
 }
-
-/**
-* This is the prototype for the string trim function. This is to trim the string 
-* i.e to remove starting and trailing whitespace.
-* @method trim
-*/
-String.prototype.trim = function() {
-    return (this.replace(/^\s+|\s+$/g, ""));
-}
-
-/**
-* This is the prototype for the string startswith function. This check if the string starts  
-* with the given argument.
-* @method startsWith
-* @param {String} str is the string that has to be checked
-*/
-String.prototype.startsWith = function(str) {
-    return (this.match("^" + str) == str);
-}
-
 log('loaded...','info','core');
