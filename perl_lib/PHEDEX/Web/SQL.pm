@@ -953,8 +953,7 @@ sub getRequestData
         left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
         left join t_req_comments rc on rc.id = rd.comments
         where rn.request = :request and
-            rn.point = :point and
-            not n.name like 'X%' };
+            rn.point = :point };
 
     # same as $node_sql except no point distinction
     my $node_sql2 = qq {
@@ -971,8 +970,7 @@ sub getRequestData
         join t_adm_node n on n.id = rn.node
         left join t_req_decision rd on rd.request = rn.request and rd.node = rn.node
         left join t_req_comments rc on rc.id = rd.comments
-        where rn.request = :request and
-            not n.name like 'X%' };
+        where rn.request = :request };
 
     my $delete_sql = qq {
 	select
@@ -2789,8 +2787,10 @@ sub getRequestList
 
     my %p;
     my $filters = '';
+    # include REQUEST for the sake of calling getRequestData
     build_multi_filters($core, \$filters, \%p, \%h, (
         REQUESTED_BY => 'i.name',
+        REQUEST => 'r.id',
         TYPE => 'rt.name'));
 
     $sql .= " and ($filters) " if $filters;
