@@ -203,7 +203,7 @@ POE::Component::Server::TCP->new
         $file =~ s%^/*%%;
         $file =~ s%\.\./%%g;
 
-	if ( $file =~ m%^log/([^/]+)/([^/]+)/([^/]+)$% )
+	if ( $file =~ m%^log/([^/]+)/([^/]+)/(.+)$% )
 	{
 	  my ($level,$group,$str) = ($1,$2,$3);
 	  $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
