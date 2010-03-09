@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], classes:{}, contextArgs:[], sortFields:{}, formats:{} },
+      _cfg: { textNodeMap:[], classes:{}, sortFields:{}, formats:{} },
 
       hiddenBranches: {},
 
@@ -237,13 +237,8 @@ PHEDEX.TreeView = function(sandbox,string) {
               this._cfg.sortFields[spec.name] = {};
               if ( spec.format[i].contextArgs )
               {
-                this._cfg.contextArgs[className]=[];
                 if ( typeof(f.contextArgs) == 'string' ) {
-                  this._cfg.contextArgs[className].push(f.contextArgs);
-                } else {
-                  for (var j in f.contextArgs) {
-                    this._cfg.contextArgs[className].push(f.contextArgs[j]);
-                  }
+                  f.contextArgs = [f.contextArgs];
                 }
               }
             }
@@ -425,9 +420,9 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
         for (var i in classes) {
           if ( classes[i].match(treeMatch) ) {
           log('found '+classes[i]+' to key new menu entries','info',obj.me);
-          if ( !isHeader && obj._cfg.contextArgs[classes[i]] ) {
-            for(var j in obj._cfg.contextArgs[classes[i]]) {
-              typeNames.unshift(obj._cfg.contextArgs[classes[i]][j]);
+          if ( !isHeader && obj._cfg.formats[classes[i]].contextArgs ) {
+            for(var j in obj._cfg.formats[classes[i]].contextArgs) {
+              typeNames.unshift(obj._cfg.formats[classes[i]].contextArgs[j]);
             }
           }
         }
@@ -446,7 +441,9 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 //    Based on http://developer.yahoo.com/yui/examples/menu/treeviewcontextmenu.html
       log('ContextMenuClick for '+obj.me,'info','treeview');
       var target = this.contextEventTarget,
-          node = obj.locateBranch(target);
+          node = obj.locateBranch(target),
+          el   = obj.locateNode(target),
+          className = obj.getPhedexFieldClass(el);
       if ( !node ) {
         this.cancel();
         return;
@@ -459,7 +456,7 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
       }
       log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
       if (task) {
-        task.value.fn(opts, {container:p_TreeView, node:node, target:target, obj:obj});
+        task.value.fn(opts, {node:node, target:target, obj:obj});
       }
     }
   };
@@ -497,10 +494,10 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
   _construct = function() {
     return {
       getExtraContextTypes: function(id) {
-        var cArgs = obj._cfg.contextArgs, cUniq = {}, i, j;
+        var cArgs = obj._cfg.formats, cUniq = {}, i, j;
         for (i in cArgs) {
-          for(j in cArgs[i]) {
-            cUniq[cArgs[i][j]] = 1;
+          for(j in cArgs[i].contextArgs) {
+            cUniq[cArgs[i].contextArgs[j]] = 1;
           }
         }
         _sbx.notify(id,'extraContextTypes',cUniq);
