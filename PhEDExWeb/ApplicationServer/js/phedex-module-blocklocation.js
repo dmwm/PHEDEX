@@ -154,7 +154,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             _clearResult();
             return;
         }
-        _sbx.notify('module', '*', 'doSetArgs', { "blocksname": strBlkInput, "nodesname": strNodeInput, lowpercent: nLowPercent, highpercent: nHighPercent });
+        _sbx.notify('module', '*', 'doSetArgs', { "blockname": strBlkInput, "nodename": strNodeInput, "lowpercent": nLowPercent, "highpercent": nHighPercent });
     }
 
     /**
@@ -860,7 +860,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         }
     }
 
-    //Used to construct the group usage widget.
+    //Used to construct the block location module.
     _construct = function() {
         return {
             /**
@@ -883,9 +883,10 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             */
             setArgs: function(args) {
                 if (!args) { return; }
-                if (args.blocksname) { _strBlocksName = args.blocksname; }
+                if (args.blockname) { _strBlocksName = args.blockname; }
                 else { _strBlocksName = ""; }
-                if (!(typeof (args.nodesname) == 'undefined')) { _strNodesName = args.nodesname; }
+                _divInput.txtboxBlk.value = _strBlocksName; //This is temporary. Just to set the name of block in the input textbox when the module is called from other modules.
+                if (!(typeof (args.nodename) == 'undefined')) { _strNodesName = args.nodename; }
                 if (args.lowpercent) { _lowpercent = args.lowpercent; }
                 if (args.highpercent) { _highpercent = args.highpercent; }
                 this.dom.title.innerHTML = 'setting parameters...';
@@ -893,7 +894,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 log('Block Name is set to ' + _strBlocksName, 'info', _me);
             },
             /**
-            * This gets the group information from Phedex data service for the given group name through sandbox.
+            * This gets the block information from Phedex data service for the given block name through sandbox.
             * @method getData
             */
             getData: function() {
@@ -904,7 +905,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             }
         };
     };
-    YAHOO.lang.augmentObject(this, _construct(), true);
+    Yla(this, _construct(), true);
     return this;
 };
-log('loaded...','info','groupusage');
+log('loaded...','info','blocklocation');
