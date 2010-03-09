@@ -161,7 +161,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
                                   log('Construct registered widget:'+
                                       ' widget='+this.widget+
                                       ' type='+this.type+
-                                      ' arg='+arg,
+                                      ' opts='+YAHOO.lang.dump(opts,1),
                                       'info', _me);
                                   _sbx.notify('CreateModule',_w.short_name,opts);
                                 };
