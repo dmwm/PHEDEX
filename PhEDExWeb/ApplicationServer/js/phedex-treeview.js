@@ -388,8 +388,8 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
     p.typeNames.push('treeview');
     if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
     var fn = function(opts,el) {
-      var elPhedex = obj.locateNode(el.target);
-      var elClass = obj.getPhedexFieldClass(elPhedex);
+      var elPhedex = obj.locateNode(el.target),
+          elClass = obj.getPhedexFieldClass(elPhedex);
       obj.meta.hide[elClass] = 1;
       obj.hideFieldByClass(elClass);
     };
@@ -607,6 +607,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
          YuD.addClass(elAncestor,'phedex-invisible');
        }
+        obj.hideFields(obj.el); // hide all the revealed fields too...
 
         obj.meta.sort.type = type;
         obj.meta.sort.dir  = dir;
