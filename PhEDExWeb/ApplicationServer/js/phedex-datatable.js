@@ -333,11 +333,13 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('datatable');
-    var fn = function(opts, el) {
-      log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
-      obj.meta.hide[el.col.key] = 1;
-      el.table.hideColumn(el.col);
-    }
+    var fn = function() {
+      return function(opts, el) {
+        log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
+        obj.meta.hide[el.col.key] = 1;
+        el.table.hideColumn(el.col);
+      }
+    }();
     PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
 
     return {
