@@ -3,9 +3,10 @@ package PHEDEX::Namespace::dcache::stat;
 use strict;
 use warnings;
 use Time::Local;
+use base 'PHEDEX::Namespace::dcache::Common';
 
 # @fields defines the actual set of attributes to be returned
-our @fields = qw / access uid gid size mtime /;
+our @fields = qw / access uid gid size mtime /; 
 sub new
 {
   my ($proto,$h) = @_;
@@ -23,12 +24,14 @@ sub new
   return $self;
 }
 
+sub execute { (shift)->SUPER::execute(@_,'stat'); }
+
 sub parse
 {
 # Parse the stat output. Assumes the %A:%u:%g:%s:%Y format was used. Returns
 # a hashref with all the fields parsed. Note that the format of the command
 # and the order of the fields in @fields are tightly coupled.
-  my ($self,$ns,$r,$file) = @_;
+  my ($self,$ns,$r,$dir) = @_;
 
   my $result;
 # return an empty hashref instead of undef if nothing is found, so it can
@@ -55,7 +58,7 @@ sub parse
     else                              { $y = $y_or_hm; }
     @t = ( 0, $m, $h, $d, $M, $y );
     $x->{mtime} = timelocal(@t);
-    $ns->{CACHE}->store('stat',"$file",$x);
+    $ns->{CACHE}->store('stat',"$dir/$file",$x);
     $result = $x;
   }
   return $result;

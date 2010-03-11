@@ -20,12 +20,15 @@ sub new
   %params = (
 		VERBOSE => 0,
 		DEBUG   => 0,
+                CACHE   => undef,
+                NOCACHE => 0,
 		PRELOAD	=> '',
             );
   %options = (
 		'help'		=> \$help,
 		'verbose!'	=> \$params{VERBOSE},
 		'debug+'	=> \$params{DEBUG},
+                'nocache'       => \$params{NOCACHE},
 		'preload=s'	=> \$params{PRELOAD},
              );
   GetOptions(%options);
@@ -53,6 +56,7 @@ sub Help
   print <<EOF;
 
  This module takes the standard options:
+ --nocache  to disable the caching mechanism
  --help, --(no)debug, --(no)verbose
 
  also:
