@@ -15,9 +15,11 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
 =head2 Options
 
   type             request type, 'xfer' (default) or 'delete'
+  approval         approval state, 'approved', 'disapproved', 'mixed', or 'pending'
   requested_by     requestor's username, could be multiple
   node             name of the destination node, could be multiple
                    (show requests in which this node is involved)
+  decision         decision at the node, 'approved', 'disapproved' or 'pending'
   create_since     created since this time
 
   * without any input, the default "create_since" is set to 24 hours ago
@@ -41,7 +43,7 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
   id               node id
   name             node name
   se               node SE name
-  decision         whether approved ( y or n or null)
+  decision         decision at the node, 'approved', 'disapproved' or 'pending'
   decided_by       the human name of the person who made
   time_decided     timestamp the decision was made
 
@@ -76,7 +78,7 @@ sub request_list
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / type approval requested_by node create_since / )
+    foreach ( qw / type approval requested_by node decision create_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -96,8 +98,8 @@ sub request_list
         my $no = 0;
         foreach (@{$request->{node}})
         {
-            $yes += 1 if ($_->{decision} eq 'y');
-            $no += 1 if ($_->{decision} eq 'n');
+            $yes += 1 if ($_->{decision} eq 'approved');
+            $no += 1 if ($_->{decision} eq 'disapproved');
             $nodes += 1;
         }
 
