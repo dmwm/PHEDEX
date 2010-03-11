@@ -2768,7 +2768,11 @@ sub getRequestList
             n.id as node_id,
             n.name as node_name,
             n.se_name,
-            d.decision,
+            case
+                when d.decision = 'y' then 'approved'
+                when d.decision = 'n' then 'disapproved'
+                when d.decision is NULL then 'pending'
+            end as decision,
             i2.name as decided_by,
             d.time_decided
         from
@@ -2845,11 +2849,57 @@ sub getRequestList
         }
     }
 
-    if (exists $h{NODE})
+    # take care of node and/or decision
+    #
+    # if $h{NODE} exists, the requests are limited to those that have
+    #    NODE in them
+    # if $h{DECISION} exists, the requests are limited to those that
+    #    have a NODE with that decision
+    # if $h{NODE} and $h{DECISION} both exist, the request are limited
+    #    to that that have NODE with DECISION
+    #
+    # in any case, the final result contains complete requests
+    #
+    if (exists $h{NODE} and exists $h{DECISION})
+    {
+        my $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h, (
+            NODE => 'n2.name'));
+
+        # make the code readable
+        if ($filters)
+        {
+            $sql .= qq {
+                and r.id in
+                (select
+                    rn2.request
+                from
+                    t_req_node rn2
+                    join t_adm_node n2 on rn2.node = n2.id
+                    left join t_req_decision d2 on d2.request = rn2.request and d2.node = rn2.node
+                where } . " ( $filters ) " ;
+            if ($h{DECISION} eq 'approved')
+            {
+                $sql .= qq { and d2.decision = 'y' ) };
+            }
+            elsif ($h{DECISION} eq 'disapproved')
+            {
+                $sql .= qq { and d2.decision = 'n' ) };
+            }
+            elsif ($h{DECISION} eq 'pending')
+            {
+                $sql .= qq { and d2.decision is NULL ) };
+            }
+        }
+    }
+    elsif (exists $h{NODE})
     {
         my $filters = '';
         build_multi_filters($core, \$filters, \%p, \%h, (
             NODE => 'n.name'));
+
+        # make the code readable
+
         $sql .= qq {
             and r.id in
             (select
@@ -2858,6 +2908,30 @@ sub getRequestList
                 t_req_node rn
                 join t_adm_node n on rn.node = n.id
             where } . " ( $filters )) " if $filters;
+    }
+    elsif (exists $h{DECISION})
+    {
+            my $sql2 = qq {
+                and r.id in
+                (select
+                    rn2.request
+                from
+                    t_req_node rn2
+                    join t_adm_node n2 on rn2.node = n2.id
+                    left join t_req_decision d2 on d2.request = rn2.request and d2.node = rn2.node
+                where };
+            if ($h{DECISION} eq 'approved')
+            {
+                $sql .= $sql2 . qq { d2.decision = 'y' ) };
+            }
+            elsif ($h{DECISION} eq 'disapproved')
+            {
+                $sql .= $sql2 . qq { d2.decision = 'n' ) };
+            }
+            elsif ($h{DECISION} eq 'pending')
+            {
+                $sql .= $sql2 . qq { d2.decision is NULL ) };
+            }
     }
  
     $sql .= " order by r.id ";
