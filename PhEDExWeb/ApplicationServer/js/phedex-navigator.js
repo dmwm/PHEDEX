@@ -17,8 +17,7 @@ PHEDEX.Navigator = function(sandbox) {
       _hist_sym_equal = "~",  //This character indicates the state value
       _initialPageState,
       me = 'navigator',
-      _newModule, _newModuleArgs, _needNewModule,
-      _stateChanged, _needWidgetSelectorUpdate, _needTypeSelectorUpdate;
+      _newModule, _newModuleArgs, _needNewModule;
 
 
   Yla(this, new PHEDEX.Base.Object());
@@ -143,7 +142,7 @@ PHEDEX.Navigator = function(sandbox) {
 
   this.needNewModule = function() {
     log('NeedNewModule: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1),'info',me);
-    if ( _needNewModule && _newModule /*&& !_needTypeSelectorUpdate && !_needWidgetSelectorUpdate*/ ) {
+    if ( _needNewModule && _newModule ) {
       _sbx.notify('module','*','destroy');
       _sbx.notify('_navCreateModule',_newModule,_newModuleArgs);
       _newModule = _newModuleArgs = null;
