@@ -22,8 +22,6 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
   decision         decision at the node, 'approved', 'disapproved' or 'pending'
   create_since     created since this time
 
-  * without any input, the default "create_since" is set to 24 hours ago
-
 =head2 Output
 
 <request id= type= state= time_create= >
@@ -81,12 +79,6 @@ sub request_list
     foreach ( qw / type approval requested_by node decision create_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    # if there is no input argument, set default "since" to 24 hours ago
-    if (scalar keys %h == 0)
-    {
-        $h{CREATE_SINCE} = time() - 3600*24;
     }
 
     my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getRequestList($core, %h));
