@@ -18,7 +18,16 @@ use base 'Exporter';
 our @EXPORT = qw (); # export nothing by default
 our @EXPORT_OK = qw( send_email send_request_create_email send_request_update_email );
 
-our $TESTING = 1;
+# testing mode :
+#
+# in testing mode, mails only go to $TESTING_MAIL
+#
+# there are two ways to turn on testing mode:
+# [1] through TESTING_MODE argument passed into send_email(), or
+# [2] class/package variable $TESTING, manipulated by testing_mode()
+#
+# a true value of either one will put send_email() in testing mode
+our $TESTING = 0;
 our $TESTING_MAIL = 'cms-phedex-admins@cern.ch';
 
 sub new
@@ -35,6 +44,12 @@ BEGIN
 {
 };
 
+sub init
+{
+    my %h = @_;
+    &testing_mode($h{TESTING}) if (exists $h{TESTING});
+    &testing_mail($h{TESTING_MAIL}) if (exists $h{TESTING_MAIL});
+}
 
 # testing_mode() -- set, reset or inquire test_mode
 #
@@ -135,7 +150,7 @@ sub send_email
     }
 
     # For debugging without bothering people
-    if ($TESTING) {
+    if ($args{TESTING_MODE}||$TESTING) {
 	$args{subject} = "TESTING:  $args{subject}";
 	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = $TESTING_MAIL;
 	if ($args{cc}) {$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};}
@@ -366,11 +381,12 @@ Yours truly,
   PhEDEx Transfer Request Web Form
 ENDEMAIL
     
-send_email(subject => "PhEDEx $request_type ($instance instance)",
+&send_email(subject => "PhEDEx $request_type ($instance instance)",
 	   to => [ @to ],
 	   cc => [ @cc ],
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
-	   message => $message)
+	   message => $message,
+           TESTING_MODE => $$self{CONFIG}{TESTING_MODE})
 or die "sending request creation email failed\n";
 
 }
@@ -473,8 +489,9 @@ ENDEMAIL
 	    cc => [ @cc ],
 	    from => "PhEDEx Web Requests <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	    replyto => [ $admin_email ],
-	    message => $message
-	    ) or die "sending request update email failed\n"
+	    message => $message,
+            TESTING_MODE => $$self{CONFIG}{TESTING_MODE},
+	    ) or die "sending request update email failed\n";
 
     return 1;
 }
