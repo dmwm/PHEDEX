@@ -395,7 +395,11 @@ sub handle_http_response {
       my $query = $http_response->request()->uri()->path_query();
       $query =~ s%^/\/+%/%;
       print scalar localtime,": Caching result for $query\n" if $verbose;
-      $cache->set($query,$http_response,86400*365*100);
+      eval
+      {
+        $cache->set($query,$http_response,86400*365*100);
+      };
+      if ( $@ ) { print scalar localtime," Couldn't cache result: $@\n"; }
     }
 }
 
