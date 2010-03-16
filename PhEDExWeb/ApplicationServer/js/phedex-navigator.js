@@ -451,7 +451,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
         }
         case 'NewModule': {
           _new_widget_name = value;
-          o._updateWidgetMenu();
+//           o._updateWidgetMenu();
           break;
         }
         case 'StateChanged': {
