@@ -264,6 +264,7 @@ PHEDEX.DataTable = function(sandbox, string) {
 //              Only needed for resizeable windows, I think?
                 this.dataTable.subscribe('renderEvent', function(obj) {
                     return function() {
+                        _sbx.notify(obj.id,'doSort');
                         obj.resizePanel();
                     }
                 } (this));
