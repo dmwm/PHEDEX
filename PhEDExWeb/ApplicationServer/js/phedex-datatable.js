@@ -258,6 +258,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     return function(ev) {
                         var column = obj.dataTable.getColumn(ev.column);
                         log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
+                        _sbx.notify(obj.id, 'hideColumn', { text: column.label || column.key, value: column.key });
                     }
                 } (this));
 
@@ -334,13 +335,11 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('datatable');
-    var fn = function() {
-      return function(opts, el) {
-        log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
-        obj.meta.hide[el.col.key] = 1;
-        el.table.hideColumn(el.col);
-      }
-    }();
+    var fn = function(opts, el) {
+      log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
+      el.obj.meta.hide[el.col.key] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
+      el.obj.dataTable.hideColumn(el.col);
+    }
     PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
 
     return {
@@ -366,7 +365,7 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
                             opts[type] = oRecord.getData(p.typeMap[type]);
                         }
                     }
-                    menuitem.value.fn(opts, { table: obj.dataTable, row: elRow, col: elCol, record: oRecord });
+                    menuitem.value.fn(opts, { obj:obj, row: elRow, col: elCol, record: oRecord });
                 }
             }
         }
