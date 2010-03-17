@@ -65,6 +65,7 @@ sub _init_commands
     my ($cmd,@opts) = split(' ',$self->{COMMANDS}{$_});
     $self->{COMMANDS}{$_} = { cmd => $cmd, opts => \@opts };
   }
+  print "*** Namespace $self->{NAMESPACE} loaded ***\n" if self->{DEBUG};
 }
 
 sub AUTOLOAD
