@@ -338,6 +338,7 @@ DONE:
           NOCERT        => undef, # $nocert,
           SERVICE       => $service,
         );
+	$ua->default_header('Host' => $host) if $host;
 	my ($method,$response,@form);
 	$method = lc $request->method();
         @form = $uri->query_form();
