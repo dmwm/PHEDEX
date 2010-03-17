@@ -406,7 +406,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         var args = {}, magic = _time+' '+_direction;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
-          //return;
+          return;
         }
         this._magic = magic;
         args[this.direction_key()] = node;
