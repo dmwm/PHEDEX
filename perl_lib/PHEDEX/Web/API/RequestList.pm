@@ -35,9 +35,9 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
 
 =head2 Output
 
-<request id= type= state= time_create= >
+ <request id= type= state= time_create= >
    <node id= se= name= decision= time_decide= />
-</request>
+ </request>
 
 =head3 <request> attributes
 
