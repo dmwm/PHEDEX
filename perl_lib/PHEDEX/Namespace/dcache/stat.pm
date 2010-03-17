@@ -3,7 +3,7 @@ package PHEDEX::Namespace::dcache::stat;
 use strict;
 use warnings;
 use Time::Local;
-use base 'PHEDEX::Namespace::dcache::Common';
+use File::Basename;
 
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / access uid gid size mtime /; 
@@ -24,7 +24,22 @@ sub new
   return $self;
 }
 
-sub execute { (shift)->SUPER::execute(@_,'stat'); }
+
+sub execute
+{
+# 'execute' will use the common 'Command' function to do the work, but on the
+# base directory, not on the file itself. This lets it cache the results for
+# an entire directory instead of having to go back to the SE for every file 
+  my ($self,$ns,$file) = @_;
+  my ($dir,$result);
+  my $call = 'stat';
+  return $ns->Command($call,$file) if $ns->{NOCACHE};
+
+  $dir = dirname $file;
+  $ns->Command($call,$dir);
+# Explicitly pull the right value from the cache
+  return $ns->{CACHE}->fetch($call,$file);
+}
 
 sub parse
 {
