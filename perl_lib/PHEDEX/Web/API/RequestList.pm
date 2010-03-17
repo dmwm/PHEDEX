@@ -14,13 +14,24 @@ Sserve as a simple request search and cache-able catalog of requests to save wit
 
 =head2 Options
 
+  request *        request id
   type             request type, 'xfer' (default) or 'delete'
   approval         approval state, 'approved', 'disapproved', 'mixed', or 'pending'
-  requested_by     requestor's username, could be multiple
-  node             name of the destination node, could be multiple
+  requested_by *   requestor's name
+  node *           name of the destination node
                    (show requests in which this node is involved)
   decision         decision at the node, 'approved', 'disapproved' or 'pending'
+  group *          user group
   create_since     created since this time
+  create_until     created until this time
+  decide_since     decided since this time
+  decide_until     decided until this time
+  dataset *        dataset is part of request, or a block from this dataset
+  block *          block is part of request, or part of a dataset in request
+  decided_by *     name of person who approved the request
+
+  * could be multiple and/or with wildcard
+ ** when both 'block' and 'dataset' are present, they form a logical disjunction (ie. or)
 
 =head2 Output
 
@@ -76,7 +87,7 @@ sub request_list
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / type approval requested_by node decision create_since / )
+    foreach ( qw / request group type approval requested_by node decision create_since create_until decide_since decide_until dataset block decided_by / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
