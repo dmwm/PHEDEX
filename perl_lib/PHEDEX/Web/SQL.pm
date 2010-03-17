@@ -2759,8 +2759,15 @@ sub getRequestList
 {
     my ($core, %h) = @_;
 
+    my $join_group;
+    if (exists $h{GROUP})
+    {
+        $join_group = qq {join t_req_xfer rx on rx.request = r.id
+            join t_adm_group g on g.id = rx.user_group};
+    }
     my $sql = qq {
         select
+          distinct
             r.id,
             rt.name as type,
             i.name as requested_by,
@@ -2777,6 +2784,7 @@ sub getRequestList
             d.time_decided
         from
             t_req_request r
+            $join_group
             join t_req_type rt on rt.id = r.type
             join t_req_node rn on r.id = rn.request
             join t_adm_node n on n.id = rn.node
@@ -2791,11 +2799,17 @@ sub getRequestList
 
     my %p;
     my $filters = '';
-    # include REQUEST for the sake of calling getRequestData
-    build_multi_filters($core, \$filters, \%p, \%h, (
+    my %filter_args = (
         REQUESTED_BY => 'i.name',
         REQUEST => 'r.id',
-        TYPE => 'rt.name'));
+        TYPE => 'rt.name',
+        DECIDED_BY => 'i2.name' );
+    if (exists $h{GROUP})
+    {
+        $filter_args{GROUP} = 'g.name';
+    }
+
+    build_multi_filters($core, \$filters, \%p, \%h, %filter_args);
 
     $sql .= " and ($filters) " if $filters;
 
@@ -2804,6 +2818,25 @@ sub getRequestList
         $sql .= " and r.time_create >= :create_since ";
         $p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
+
+    if (exists $h{CREATE_UNTIL})
+    {
+        $sql .= " and r.time_create <= :create_until ";
+        $p{':create_until'} = &str2time($h{CREATE_UNTIL});
+    }
+
+    if (exists $h{DECIDE_SINCE})
+    {
+        $sql .= " and d.time_decided >= :decide_since ";
+        $p{':decide_since'} = &str2time($h{DECIDE_SINCE});
+    }
+
+    if (exists $h{DECIDE_UNTIL})
+    {
+        $sql .= " and d.time_decided <= :decide_until ";
+        $p{':decide_until'} = &str2time($h{DECIDE_UNTIL});
+    }
+
 
     if (exists $h{APPROVAL})
     {
@@ -2933,9 +2966,92 @@ sub getRequestList
                 $sql .= $sql2 . qq { d2.decision is NULL ) };
             }
     }
- 
-    $sql .= " order by r.id ";
 
+    # take care of DATASET and BLOCK
+
+    my ($dataset_sql, $block_sql);
+
+    if (exists $h{DATASET})
+    {
+        my $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h, (
+            DATASET => 'ds.name'));
+
+        if ($filters)
+        {
+            $dataset_sql = qq {
+                (select
+                    ds.request
+                from
+                    t_req_dataset ds
+                where
+                    $filters
+                union
+                select
+                    rb.request
+                from
+                    t_req_block rb
+                    join t_dps_block b on b.id = rb.block_id
+                    join t_dps_dataset ds on ds.id = b.dataset
+                where
+                    $filters
+                )
+            };
+        }
+    }
+
+    if (exists $h{BLOCK})
+    {
+        my $filters = '';
+        build_multi_filters($core, \$filters, \%p, \%h, (
+            BLOCK => 'b.name'));
+
+        if ($filters)
+        {
+            $block_sql = qq {
+                (select
+                    b.request
+                from
+                    t_req_block b
+                where
+                    $filters
+                union
+                select
+                    rd.request
+                from
+                    t_req_block rb
+                    join t_dps_block b on b.id = rb.block_id
+                    join t_req_dataset rd on b.dataset = rd.dataset_id
+                where
+                    $filters
+                )
+            };
+        }
+    }
+
+    if ($dataset_sql and $block_sql)	# both, -or-
+    {
+        $sql .= qq {
+            and (
+                r.id in $dataset_sql or
+                r.id in $block_sql
+            )
+        };
+    }
+    elsif ($dataset_sql)
+    {
+        $sql .= qq {
+            and r.id in $dataset_sql
+        };
+    }
+    elsif ($block_sql)
+    {
+        $sql .= qq {
+            and r.id in $block_sql
+        };
+    }
+
+    $sql .= " order by r.id ";
     my $q = execute_sql($core, $sql, %p);
     my @r;
 
