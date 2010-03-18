@@ -173,6 +173,7 @@ PHEDEX.TreeView = function(sandbox,string) {
           });
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
+        this.allowNotify['markOverflows'] = 1;
 
         var moduleHandler = function(o) {
           return function(ev,arr) {
@@ -190,8 +191,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       postGotData: function(step,node) {
-        var i, steps = ['doFilter', 'doSort', 'hideFields'];
-        this.markOverflows();
+        var i, steps = ['doSort', 'doFilter', 'hideFields', 'markOverflows'];
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
