@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches: {} },
+      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, nodeCache:[] },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -88,16 +88,23 @@ PHEDEX.TreeView = function(sandbox,string) {
       locateNode: function(el) {
 //      find the nearest ancestor that has a phedex-tnode-* class applied to it, either phedex-tnode-field or phedex-tnode-header
 //      Explicitly do this as two separate loops as an optimisation. Most of the time I expect to be looking at a value-node, in the data,
-//      so search the headers only as a second step.
+//      so search the headers only as a second step. Cache the result to speed things up should we be asked again for the same lookup
+        if ( !el.id ) { el.id = 'px-gen-'+PxU.Sequence(); }
+        if ( this._cfg.nodeCache[el.id] ) {
+          return this._cfg.nodeCache[el.id];
+        }
         var el1 = el; // preserve the original el in case it's a header
         while (el1.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el1,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
+            this._cfg.nodeCache[el.id] = el1;
             return el1;
           }
           el1 = el1.parentNode;
         }
+        el1 = el;
         while (el.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
+            this._cfg.nodeCache[el1.id] = el;
             return el;
           }
           el = el.parentNode;
@@ -191,7 +198,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       postGotData: function(step,node) {
-        var i, steps = ['doSort', 'doFilter', 'hideFields', 'markOverflows'];
+        var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows']; // TODO should be enough to markOverflows here, instead of in the sort and filter steps
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
@@ -632,6 +639,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         if ( !s )       { return; } // no sort-column defined...
         if ( !s.field ) { return; } // no sort-column defined...
         this.execute(s.field,s.type,s.dir);
+        _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
       },
 
       _init: function() {
@@ -768,6 +776,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           YuD.addClass(ancestor,'phedex-core-control-widget-applied');
         }
         this.updateGUIElements(this.count);
+        _sbx.notify(obj.id,'markOverflows'); // TODO this is needed because I may reveal branches that were hidden and overflowing...
         return;
       },
     }
