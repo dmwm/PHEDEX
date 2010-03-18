@@ -316,6 +316,39 @@ create table t_dps_subscription
    constraint ck_dps_subscription_custodial
      check (is_custodial in ('y', 'n')));
 
+/* Per-request statistics for data associated with the request */
+create table t_req_size
+  (request		integer		not null,
+   datasets		integer		not null,
+   blocks		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
+   time_update		integer		not null,
+   --
+   constraint pk_req_size
+     primary key (request));
+
+/* Per-node statistics for data associated with the request */
+create table t_req_replica
+  (request		integer		not null,
+   node			integer		not null,
+   src_files		integer		not null,
+   src_bytes		integer		not null,
+   dest_files		integer		not null,
+   dest_bytes		integer		not null,
+   node_files		integer		not null,
+   node_bytes		integer		not null,
+   xfer_files		integer		not null,
+   xfer_bytes		integer		not null,
+   time_create		float		not null,
+   time_update		float		not null,
+   --
+   constraint pk_req_replica
+     primary key (request, node),
+   --
+   constraint fk_req_replica_request
+     foreign key (request, node) references t_req_node (request, node)
+     on delete cascade);
 
 ----------------------------------------------------------------------
 -- Create extra foreign keys
