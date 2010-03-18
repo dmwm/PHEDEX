@@ -290,6 +290,7 @@ DONE:
           NOCERT        => undef, # $nocert,
           SERVICE       => $service,
         );
+	$ua->default_header('Host' => $host) if $host;
 	my ($method,$response,@form);
 	$method = $request->method();
 	if ( $method eq 'POST' )
