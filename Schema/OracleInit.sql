@@ -30,9 +30,6 @@ prompt
 prompt Loading request management
 @@OracleCoreReq.sql
 
-prompt Loading transfer triggers
-@@OracleCoreTriggers.sql
-
 prompt
 prompt Loading status
 @@OracleCoreStatus.sql
@@ -46,12 +43,15 @@ prompt Loading block verification
 @@OracleCoreVerify.sql
 
 prompt
+prompt Loading views
+@@OracleCoreViews.sql
+
+prompt
 prompt Loading helper functions
 @@OracleCoreFunctions.sql
 
-prompt
-prompt Loading views
-@@OracleCoreViews.sql
+prompt Loading transfer triggers
+@@OracleCoreTriggers.sql
 
 prompt
 prompt PhEDEx schema loaded
