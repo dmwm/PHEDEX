@@ -56,7 +56,10 @@ YAHOO.util.Event.onDOMReady(function() {
    'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~agents+module~sort{A.Agent%20asc}filter{A.Agent%3DFileR}',
 
  'Production, Agents, T1_DE_KIT_Buffer, sort{A.Agent,asc} hide{A.PID, A.Host, A.StateDir} filter{A.Agent=FileR}' :
-   'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~agents+module~sort{A.Agent%20asc}hide{A.PID%20A.Host%20A.StateDir}filter{A.Agent%3DFileR}'
+   'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~agents+module~sort{A.Agent%20asc}hide{A.PID%20A.Host%20A.StateDir}filter{A.Agent%3DFileR}',
+
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort{B.name, asc} hide{L.error-log, F.cksum} filter{!B.name=/Min} time=168, outgoing':
+   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{B.name%20asc%20alpha}hide{L.error-log%20F.cksum}filter{!B.name%3D/Min}specific{time%3D168%20dir%3D1}'
      },
       i, ul, li, a;
 
