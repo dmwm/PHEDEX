@@ -219,7 +219,7 @@ a.phedex-core-control-widget {
 a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
   background-color: orange;
 }
-tr.phedex-core-control-widget-applied {
+table.phedex-core-control-widget-applied {
   background-color: orange;
 }
 a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take precedence over active/inactive values */
