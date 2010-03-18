@@ -243,17 +243,60 @@ create table t_status_missing
      on delete set null
   );
 
+/* A prediction of when a dataset will arrive at a node 
 
-/* A prediction of when a block will arrive at a node */
+   basis: the technique used to arrive at the estimate, values are
+   taken from block estimate, and the value for the dataset will be
+   the value of the worst block basis.  I.e., if even one block is
+   suspended, the basis is 's', if even one block is using nominal
+   estimate, the basis is 'n'
+*/
+create table t_status_dataset_arrive
+  (time_update		float		not null,
+   destination		integer		not null,
+   dataset		integer		not null,
+   blocks		integer		not null, -- number of blocks in the dataset during this estimate
+   files		integer		not null, -- number of files in the dataset during this estimate
+   bytes		integer		not null, -- number of bytes in the dataset during this estimate
+   avg_priority		float		not null, -- average block priority
+   basis		char(1)		not null, -- basis of estimate, see above
+   time_span		float		        , -- max historical vision used in a block estimate
+   pend_bytes		float		        , -- max queue size in bytes used in a block estimate
+   xfer_rate		float		        , -- min transfer rate used in a block estimate
+   time_arrive		float		        , -- worst time predicted that a block will arrive
+   --
+   constraint pk_status_dataset_arrive
+     primary key (destination, dataset),
+   --
+   constraint fk_status_dataset_arrive_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_dataset_arrive_ds
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete cascade
+  );
+
+/* A prediction of when a block will arrive at a node 
+   basis: the technique used to arrive at the estimate, values are:
+     s : suspended      - block is suspended, arrival time cannot be estimated
+     n : nominal values - used when no historical information is available
+     h : history values - used when no link parameter values are available
+     p : link values    - used when no router values are available
+     r : routing values - used when the block is activated for routing
+*/
 create table t_status_block_arrive
   (time_update		float		not null,
    destination		integer		not null,
    block		integer		not null,
+   files		integer		not null, -- number of files in the block during this estimate
+   bytes		integer		not null, -- number of bytes in the block during this estimate
    priority		integer		not null, -- t_dps_block_dest priority
-   estimate_basis	char(1)		not null, -- n : nominal values, h : history values, r : routing values
-   estimate_queue	float		not null, -- queue size in bytes used in estimate
-   estimate_rate	float		not null, -- rate used in estimate
-   time_arrive		float		not null, -- time predicted this block will arrive
+   basis		char(1)		not null, -- basis of estimate, see above
+   time_span		float		        , -- historical vision used in estimate
+   pend_bytes		float		        , -- queue size in bytes used in estimate
+   xfer_rate		float		        , -- transfer rate used in estimate
+   time_arrive		float		        , -- time predicted this block will arrive
    --
    constraint pk_status_block_arrive
      primary key (destination, block),
@@ -261,7 +304,8 @@ create table t_status_block_arrive
    constraint fk_status_block_arrive_dest
      foreign key (destination) references t_adm_node (id)
      on delete cascade,
-    constraint fk_status_block_arrive_block
+   --
+   constraint fk_status_block_arrive_block
      foreign key (block) references t_dps_block (id)
      on delete cascade
   );
@@ -285,10 +329,12 @@ create table t_status_block_path
    constraint fk_status_block_path_dest
      foreign key (destination) references t_adm_node (id)
      on delete cascade,
+   --
    constraint fk_status_block_path_src
      foreign key (src_node) references t_adm_node (id)
      on delete cascade,
-    constraint fk_status_block_path_block
+   --
+   constraint fk_status_block_path_block
      foreign key (block) references t_dps_block (id)
      on delete cascade
   );
@@ -374,6 +420,33 @@ create table t_status_file_size_histogram
    sz_total		integer		not null
   );
 
+create table t_log_dataset_latency
+  (time_update		float		not null,
+   destination		integer		not null,
+   dataset		integer			, -- dataset id, can be null if dataset remvoed
+   blocks		integer	        not null, -- number of blocks
+   files		integer		not null, -- number of files
+   bytes		integer		not null, -- size in bytes
+   avg_priority		float		not null, -- average priority of blocks
+   time_subscription	float		not null, -- min time a block was subscribed
+   first_block_create	float		not null, -- min time a block was created
+   last_block_create	float		not null, -- max time a block was created
+   first_block_close	float		    	, -- min time a block was closed
+   last_block_close	float			, -- max time a block was closed
+   first_request	float			, -- min time a block was first routed
+   first_replica	float			, -- min time the first file of a block was replicated
+   last_replica		float			, -- max time the last file of a block was replicated
+   latency		float			, -- current latency for this dataset
+   serial_suspend       float                   , -- sum of all block suspend times
+   serial_latency	float			, -- sum of all block latencies for this dataset
+   --
+   constraint fk_status_dataset_latency_dest
+     foreign key (destination) references t_adm_node (id),
+   --
+   constraint fk_status_block_latency_ds
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete set null);
+
 /* Log for block completion time . */
 create table t_log_block_latency
   (time_update		float		not null,
@@ -385,6 +458,7 @@ create table t_log_block_latency
    is_custodial		char (1)	not null, -- t_dps_block_dest custodial
    time_subscription	float		not null, -- time block was subscribed
    block_create		float		not null, -- time the block was created
+   block_close		float		        , -- time the block was closed
    first_request	float			, -- time block was first routed (t_xfer_request appeared)
    first_replica	float			, -- time the first file was replicated
    last_replica		float			, -- time the last file was replicated
