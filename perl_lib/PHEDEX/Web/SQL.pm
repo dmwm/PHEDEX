@@ -3019,9 +3019,8 @@ sub getRequestList
                 select
                     rd.request
                 from
-                    t_req_block rb
-                    join t_dps_block b on b.id = rb.block_id
-                    join t_req_dataset rd on b.dataset = rd.dataset_id
+                    t_req_dataset rd
+                    join t_dps_block b on b.dataset = rd.dataset_id
                 where
                     $filters
                 )
