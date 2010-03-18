@@ -158,7 +158,8 @@ a.phedex-link-current {
 }
 
 div .phedex-sorted {
- background-color: #fd6; /* light orange */
+/*  background-color: #fd6; /* light orange */ */
+ border: 1px solid #f00;
 }
 
 .phedex-filter-help {
@@ -217,7 +218,8 @@ a.phedex-core-control-widget {
   background-color: orange;
 }
 a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
-  background-color: orange;
+/*   background-color: orange; */
+  border: 1px solid red;
 }
 table.phedex-core-control-widget-applied {
   background-color: orange;
