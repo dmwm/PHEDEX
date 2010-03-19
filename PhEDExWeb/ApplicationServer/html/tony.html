@@ -41,7 +41,8 @@
  <div id='phedex-navigator'></div>
  <div id='phedex-globalfilter'></div>
  <div class='phedex-separator'></div>
- <div id='phedex-logger' class='phedex-logger'>
+ <div id='phedex-profiler' class='phedex-logger'></div>
+ <div id='phedex-logger'   class='phedex-logger'>
   <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
   <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
   <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
@@ -216,6 +217,7 @@ YAHOO.util.Event.onDOMReady(function() {
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
   PxL  = new PHEDEX.Loader();
+  PxL.load(function() {},'phedex-profiler');
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
 
   var phedex_app_version = document.getElementById('phedex-app-version');
@@ -312,6 +314,18 @@ function createCoreApp() {
         }
       );
       document.getElementById('phedex-logger-controls').appendChild(ctl.el);
+
+      ctl = new PHEDEX.Component.Control(PxS,{
+          payload: {
+            text:'Show Profiler',
+            title:'This shows the profiler component, for debugging. For experts only',
+            target:'phedex-profiler',
+            animate:true,
+            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+          }
+        }
+      );
+      document.getElementById('phedex-controls').appendChild(ctl.el);
 
     },'component-control');
     PxS.notify('Load','phedex-logger'); //, { log2server:{info:true,warn:true,error:true} } );
