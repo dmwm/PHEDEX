@@ -132,6 +132,10 @@ PHEDEX.Logger = function() {
             l.group[group] = false;
             YuC.setSubs('PHEDEX.Logger.group',l.group);
           }
+          if ( !l.level[level] ) {
+            l.level[level] = false;
+            YuC.setSubs('PHEDEX.Logger.level',l.level);
+          }
           YAHOO.log(str, level, group);
           if ( l.level[level] && l.group[group] && (location.hostname == 'localhost') ) {
             var url = '/log/'+level+'/'+group+'/'+str;
