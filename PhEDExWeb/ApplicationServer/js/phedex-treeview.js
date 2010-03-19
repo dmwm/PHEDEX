@@ -31,7 +31,14 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, nodeCache:[] },
+      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, },
+/**
+ * An object for caching DOM<->JSON mappings for faster lookup
+ * @property _cache
+ * @type array
+ * @private
+ */
+      _cache:{ node:[], partners:{} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -64,6 +71,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         var treeMatch = /^phedex-tree-/,
             treeOther,
             candList,
+            className,
             elList=[],
             elClasses;
         if(YuD.hasClass(el,'phedex-tnode-header')) { treeOther = 'phedex-tnode-field'; }
@@ -71,7 +79,14 @@ PHEDEX.TreeView = function(sandbox,string) {
         elClasses = el.className.split(' ');
         for (var i in elClasses) {
           if ( elClasses[i].match(treeMatch) ) {
-            candList = YuD.getElementsByClassName(elClasses[i], 'div', this.el);
+            className = elClasses[i];
+            if ( !this._cache.partners[className] ) {
+              this._cache.partners[className] = {};
+            }
+            if ( this._cache.partners[className][treeOther] ) {
+              return this._cache.partners[className][treeOther];
+            }
+            candList = YuD.getElementsByClassName(className, 'div', this.el);
             break;
           }
         }
@@ -82,6 +97,7 @@ PHEDEX.TreeView = function(sandbox,string) {
             elList.push(candList[i]);
           }
         }
+        this._cache.partners[className][treeOther] = elList;
         return elList;
       },
 
@@ -90,13 +106,13 @@ PHEDEX.TreeView = function(sandbox,string) {
 //      Explicitly do this as two separate loops as an optimisation. Most of the time I expect to be looking at a value-node, in the data,
 //      so search the headers only as a second step. Cache the result to speed things up should we be asked again for the same lookup
         if ( !el.id ) { el.id = 'px-gen-'+PxU.Sequence(); }
-        if ( this._cfg.nodeCache[el.id] ) {
-          return this._cfg.nodeCache[el.id];
+        if ( this._cache.node[el.id] ) {
+          return this._cache.node[el.id];
         }
         var el1 = el; // preserve the original el in case it's a header
         while (el1.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el1,'phedex-tnode-field')) { // phedex-tnode fields hold the values.
-            this._cfg.nodeCache[el.id] = el1;
+            this._cache.node[el.id] = el1;
             return el1;
           }
           el1 = el1.parentNode;
@@ -104,7 +120,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         el1 = el;
         while (el.id != this.el.id) { // walk up only as far as the widget-div
           if(YuD.hasClass(el,'phedex-tnode-header')) { // phedex-tnode headers hold the value-names.
-            this._cfg.nodeCache[el1.id] = el;
+            this._cache.node[el1.id] = el;
             return el;
           }
           el = el.parentNode;
@@ -198,6 +214,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       postGotData: function(step,node) {
+        this._cache.partners = {};
         var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows']; // TODO should be enough to markOverflows here, instead of in the sort and filter steps
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
@@ -295,16 +312,23 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
       },
 
-      markOverflows: function() {
-        var el, elList = YuD.getElementsByClassName('spanWrap',null,this.el);
-        for (var i in elList) {
-          el = this.locateNode(elList[i]);
-          var h1 = elList[i].offsetHeight,
-              h2 = el.offsetHeight;
+      markOverflows: function(list) {
+        var i, j=0, h1, h2,
+            el, elList = list || YuD.getElementsByClassName('spanWrap',null,this.el);
+        log('markOverflows: '+elList.length+' entries total','info','treeview');
+        while (i = elList.shift()) {
+          el = this.locateNode(i);
+          h1 = i.offsetHeight,
+          h2 = el.offsetHeight;
           if ( h1/h2 > 1.2 ) { // the element overflows its container, by a generous amount...
             YuD.addClass(el,'phedex-tnode-overflow');
           } else {
             YuD.removeClass(el,'phedex-tnode-overflow');
+          }
+          if ( j++ >= 25 ) {
+            log('markOverflows: defer with '+elList.length+' entries left','info','treeview');
+            _sbx.notify(this.id,'markOverflows',elList);
+            return;
           }
         }
       },
