@@ -5,7 +5,8 @@
  */
 var YuE = YAHOO.util.Event, // for convenience...
     YuD = YAHOO.util.Dom,
-    Yla = YAHOO.lang.augmentObject;
+    Yla = YAHOO.lang.augmentObject,
+    YtP = { registerObject:function() {} }; // dummy object in case profiling is not loaded
 
 /**
  * The PHEDEX global namespace object.
@@ -163,7 +164,7 @@ PHEDEX.Util = {
   bannerIdleTimer: function(Loader) {
     Loader.load(function() {
       var IdleTimer = new PHEDEX.Util.IdleTimer();
-      IdleTimer.subscribe('idle',   function() { banner('waiting for your input'); });
+      IdleTimer.subscribe('idle', function() { banner('waiting for your input'); });
       IdleTimer.subscribe('active', function() { banner(); });
       IdleTimer.start(10000);
     },'util-idletimer');
