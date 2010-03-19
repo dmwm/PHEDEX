@@ -80,10 +80,7 @@ sub separator
 sub output
 {
     my ($self, $obj) = @_;
-    if (! $obj)
-    {
-        return;
-    }
+    return if (! defined $obj);
     PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper({phedex => $obj}); # fake the indentation
     my ($start, $end);

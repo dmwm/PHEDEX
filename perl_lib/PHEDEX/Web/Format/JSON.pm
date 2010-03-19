@@ -52,13 +52,15 @@ sub header
 sub footer
 {
     my ($self, $obj, $call_time) = @_;
+    print ']' if ($self->{POS} > 0);
     if (defined $call_time)
     {
-        print { $self->{FILE} } sprintf('],"call_time":"%.5f"}}', $call_time);
+        print ',' if ($self->{POS} > 0);
+        print { $self->{FILE} } sprintf('"call_time":"%.5f"}}', $call_time);
     }
     else
     {
-        print { $self->{FILE} } "]}}";
+        print { $self->{FILE} } "}}";
     }
     $self->{POS} = 0;
 }
@@ -74,6 +76,7 @@ sub separator
 sub output
 {
     my ($self, $obj) = @_;
+    return if ( ! defined $obj );
     PHEDEX::Web::Util::lc_keys($obj);
     my $s = encode_json($obj);
     my ($start, $end);
