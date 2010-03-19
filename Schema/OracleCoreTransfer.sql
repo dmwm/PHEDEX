@@ -27,11 +27,17 @@ Stores the trivial file catalog, which translates logical file names
 (LFNs) into physical file names (PFNs) via a set of regular
 expression-based rules.
 
+See
+L<PHEDEX::Core::Catalogue|PHEDEX::Core::Catalogue> for more
+information on the TFC.  Catalogues are uploaded by
+L<FileExport|PHEDEX::File::Export::Agent> agents.
+
 =over
 
 =item t_xfer_catalogue.node
 
-Node defining the catalogue.
+Node defining the catalogue, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_catalogue.rule_index
 
@@ -119,15 +125,20 @@ Contains a list of links which are configured for outgoing transfers,
 with the protocols they support.  Used by site agents to announce to
 where they will serve transfers, and how.
 
+This table is managed by L<FileExport|PHEDEX::File::Export::Agent>
+agents.
+
 =over
 
 =item t_xfer_source.from_node
 
-Source node of a file export.
+Source node of a file export, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_source.to_node
 
-Destination node of a file export.
+Destination node of a file export, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_source.protocols
 
@@ -173,15 +184,20 @@ Contains a list of links which are configured for incoming transfers,
 with the protocols they support.  Used by site agents to announce from
 where they will accept transfers, and how.
 
+This table is managed by L<FileDownload|PHEDEX::File::Download::Agent>
+agents.
+
 =over
 
 =item t_xfer_sink.from_node
 
-Source node of a file import.
+Source node of a file import, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_sink.to_node
 
-Destination node of a file import.
+Destination node of a file import, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_sink.protocols
 
@@ -223,7 +239,8 @@ create index ix_xfer_sink_to
 
 =head2 t_xfer_replica
 
-Represents a file replica; a file at a node.
+Represents a file replica; a file at a node.  Replicas are created by
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>.
 
 =over
 
@@ -231,11 +248,12 @@ Represents a file replica; a file at a node.
 
 =item t_xfer_replica.node
 
-Node the replica is at.
+Node the replica is at, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_replica.fileid
 
-id of the file.
+The file, FK to L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
 
 =item t_xfer_replica.state
 
@@ -243,6 +261,10 @@ State of the replica:
 
   0 := not ready for export; may need staging
   1 := ready for export; staged
+
+This state is managed by either
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent> or
+L<FileStager|PHEDEX::File::Stager::Agent>.
 
 =item t_xfer_replica.time_create
 
@@ -313,6 +335,52 @@ create index ix_xfer_replica_fileid
  *   3 = Deactivated, no path from any source
  *   4 = Deactivated, no source replicas
  */
+
+/*
+=pod
+
+=head2 t_xfer_request
+
+Represents a file request; a file that should be transferred to a
+destination.  Filled and managed by
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>.
+
+=over
+
+=item t_xfer_request.fileid
+
+The file, FK to L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_request.inblock
+
+The block of the file, FK to
+L<t_dps_block.id|Schema::OracleCoreBlock/t_dps_block>.
+
+=item t_xfer_request.destination
+
+The destination node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_request.priority
+
+Request priority, see L<here|Schema::DocDefinitions/"Node-level Priority">.
+
+=item t_xfer_request.is_custodial
+
+=item t_xfer_request.state
+
+=item t_xfer_request.attempt
+
+=item t_xfer_request.time_create
+
+=item t_xfer_request.time_expire
+
+=back
+
+=cut
+
+*/
+
 create table t_xfer_request
   (fileid		integer		not null,
    inblock		integer		not null,
