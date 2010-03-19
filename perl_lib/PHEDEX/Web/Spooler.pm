@@ -68,15 +68,10 @@ sub spool
         {
             push @r, $data;
         }
-        elsif (@r)
-        {
-            $self->{EndOfData} = 1;
-            return (\@r);
-        }
         else
         {
             $self->{EndOfData} = 1;
-            return undef;
+            return (\@r);
         }
     }
 
