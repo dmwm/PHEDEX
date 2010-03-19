@@ -1,23 +1,5 @@
 package PHEDEX::BlockAllocator::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockAllocator::Agent - the Block Allocator agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockAllocator::Core', 'PHEDEX::Core::Logging';
@@ -104,3 +86,112 @@ sub IsInvalid
 }
 
 1;
+
+
+
+=pod
+
+=head1 NAME
+
+BlockAllocator - allocate blocks for transfer to a destination
+
+=head1 DESCRIPTION
+
+The BlockAllocator agent is the bridge between a data subscription,
+which is a user-created and modifiable instruction for data to
+transfer to a destination, and a block destination, which is what
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> really uses to
+initate the file-transfer process.  Put simply, it turns subscriptions
+into block destinations and keeps subscritpion / block destination
+parameters (e.g. priority, suspension, user group) in sync.
+
+It also monitors subscriptions in order to mark them as "complete" or
+"done".  "Complete" subscriptions have all of their files transferred
+to the destination.  "Done" subscriptions are "complete" I<and> only
+involve closed blocks, so that it is expected that work on the
+subscription is done forever.
+
+Finally, BlockAllocator keeps track of block latency history using the
+L<BlockLatency|PHEDEX::BlockLatency::SQL> module.
+
+=head1 TABLES USED
+
+=over
+
+=item L<t_dps_subscription|Schema::OracleCoreRequest/t_dps_subscription>
+
+BlockAllocator reads subscriptions in order to turn them into block
+destinations, and updates subscriptions which are complete or done.
+
+=item L<t_dps_block_dest|Schema::OracleCoreBlock/t_dps_block_dest>
+
+BlockAllocator creates block destinations, and removes block
+destinations if they are no longer subscribed.  It also updates them
+to keep their parameters in sync with the subscription, and to manage
+their suspension state.
+
+=item L<t_dps_subscription|Schema::OracleCoreRequest/t_log_block_latency>
+
+BlockAllocator logs various events which can be used to calculate
+varios latencies for the block.  See
+L<BlockLatency|PHEDEX::BlockLatency::SQL> module for more details.
+
+=back
+
+=head1 COOPERATING AGENTS
+
+=over
+
+=item L<Data Service: Subscribe|PHEDEX::Web::API::Subscribe>
+
+Subscribe creates subscriptions, which are turned into block
+destinations by BlockAllocator.
+
+=item L<BlockMonitor|PHEDEX::BlockMonitor::Agent>
+
+BlockMonitor keeps track of block-level replica status, which is
+needed by BlockAllocator in order to determine if a block destination
+or subscription is "complete" or "done".
+
+=item L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>
+
+Block destinations are consumed by FileRouter, which initiates the
+file transfer workflow.
+
+=item L<BlockActivate|PHEDEX::BlockActivate::Agent>
+
+When BlockAllocator creates a block destination for an inactive block,
+BlockActivate must activate it.
+
+=back
+
+=head1 STATISTICS
+
+=over
+
+=item L<t_status_block_dest|Schema::OracleCoreStatus/t_status_block_dest>
+
+node-level file/byte counts of destined blocks, by custodial flag and state.
+
+=item L<t_history_dest|Schema::OracleCoreStatus/t_history_dest>
+
+History of node-level file/byte counts of destined blocks in the
+dest_files, dest_bytes, cust_dest_files, and cust_dest_bytes columns.
+
+=back
+
+=head1 SEE ALSO
+
+=over
+
+=item L<PHEDEX::BlockAllocator::Core|PHEDEX::BlockAllocator::Core>
+
+=item L<PHEDEX::BlockAllocator::SQL|PHEDEX::BlockAllocator::SQL>
+
+=item L<PHEDEX::BlockLatency::SQL|PHEDEX::BlockLatency::SQL>
+
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
+
+=back
+
+=cut

@@ -1,12 +1,86 @@
-----------------------------------------------------------------------
--- Create sequences
+/*
+=pod
 
-create sequence seq_xfer_replica;
-create sequence seq_xfer_task;
-create sequence seq_xfer_done;
+=head1 NAME
 
-----------------------------------------------------------------------
--- Create tables
+Transfer - tables for storing the file-level transfer workflow
+
+=head1 DESCRIPTION
+
+The Transfer tables are those which are needed to define and keep
+track of the file-level transfer workflow.  This includes which files
+need to be transferred, through which path they should be transferred,
+the state of a given file transfer, and the bookkeeping of a file
+replica upon successful transfer.
+
+Most of these tables are considered "hot", that means that the rows do
+not last very long in the database and a great number of DML
+operations occur on them.  They are generally not useful for montiring
+because of this, unless the monitoring must be at a very fine-grained
+level.
+
+=head1 TABLES
+
+=head2 t_xfer_catalogue
+
+Stores the trivial file catalog, which translates logical file names
+(LFNs) into physical file names (PFNs) via a set of regular
+expression-based rules.
+
+=over
+
+=item t_xfer_catalogue.node
+
+Node defining the catalogue.
+
+=item t_xfer_catalogue.rule_index
+
+The ordered position of the rule.
+
+=item t_xfer_catalogue.rule_type
+
+The direction of the translation, 'lfn-to-pfn' or 'pfn-to-lfn'.
+
+=item t_xfer_catalogue.protcol
+
+The protocol of this rule chain, e.g. 'srm'.
+
+=item t_xfer_catalogue.path_match
+
+A regular expression which must match the input in order for the rule
+to take effect.
+
+=item t_xfer_catalogue.result_expr
+
+The result of the rule, which may include references to capture
+buffers from the path_match regular expression.
+
+=item t_xfer_catalogue.chain
+
+An (optional) protocol that this rule should be chained to after this rule.
+
+=item t_xfer_catalogue.destination_match
+
+Optional regular expression for a destination node name (in the case
+of transfer tasks) which must match for this rule to take effect.
+
+=item t_xfer_catalogue.is_custodial
+
+Whether this rule applies to custodial data or not.
+
+=item t_xfer_catalogue.space_token
+
+The space token that should be applied should this rule match.
+
+=item t_xfer_catalogue.time_update
+
+Time this rule was written to the database.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_catalogue
   (node			integer		not null,
@@ -35,6 +109,40 @@ create table t_xfer_catalogue
      check (is_custodial in ('y', 'n'))
   );
 
+
+/*
+=pod
+
+=head2 t_xfer_source
+
+Contains a list of links which are configured for outgoing transfers,
+with the protocols they support.  Used by site agents to announce to
+where they will serve transfers, and how.
+
+=over
+
+=item t_xfer_source.from_node
+
+Source node of a file export.
+
+=item t_xfer_source.to_node
+
+Destination node of a file export.
+
+=item t_xfer_source.protocols
+
+Space-separated list of protocols supported.
+
+=item t_xfer_source.time_update
+
+Time at which the export link was last confirmed.
+
+=back
+
+=cut
+
+*/
+
 create table t_xfer_source
   (from_node		integer		not null,
    to_node		integer		not null,
@@ -52,6 +160,42 @@ create table t_xfer_source
      foreign key (to_node) references t_adm_node (id)
      on delete cascade
   );
+
+create index ix_xfer_source_to
+  on t_xfer_source (to_node);
+
+/*
+=pod
+
+=head2 t_xfer_sink
+
+Contains a list of links which are configured for incoming transfers,
+with the protocols they support.  Used by site agents to announce from
+where they will accept transfers, and how.
+
+=over
+
+=item t_xfer_sink.from_node
+
+Source node of a file import.
+
+=item t_xfer_sink.to_node
+
+Destination node of a file import.
+
+=item t_xfer_sink.protocols
+
+Space-separated list of protocols supported.
+
+=item t_xfer_sink.time_update
+
+Time at which the import link was last confirmed.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_sink
   (from_node		integer		not null,
@@ -71,38 +215,51 @@ create table t_xfer_sink
      on delete cascade
   );
 
-create table t_xfer_delete
-  (fileid		integer		not null,  -- for which file
-   node			integer		not null,  -- at which node
-   time_request		float		not null,  -- time at request
-   time_complete	float,			   -- time at completed
-   --
-   constraint pk_xfer_delete
-     primary key (fileid, node),
-   --
-   constraint fk_xfer_delete_fileid
-     foreign key (fileid) references t_xfer_file (id)
-     on delete cascade,
-   --
-   constraint fk_xfer_delete_node
-     foreign key (node) references t_adm_node (id)
-     on delete cascade
-  )
-  enable row movement;
+create index ix_xfer_sink_to
+  on t_xfer_sink (to_node);
 
-/* priority in t_dps_block_dest, t_xfer_request, t_xfer_path
- *   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
- *    "high"         "normal"                   "low"
+/*
+=pod
 
- * priority in t_xfer_task, t_xfer_error: 
- * formula is (priority-level) * 2 + (for-me ? 0 : 1)
- *   0 = high, destined for my site
- *   1 = high, destined for someone else
- *   2 = normal, destined for my site
- *   3 = normal, destined for someone else
- *   4 = low, destined for my site
- *   5 = low, destined for someone else
- */
+=head2 t_xfer_replica
+
+Represents a file replica; a file at a node.
+
+=over
+
+=item t_xfer_replica.id
+
+=item t_xfer_replica.node
+
+Node the replica is at.
+
+=item t_xfer_replica.fileid
+
+id of the file.
+
+=item t_xfer_replica.state
+
+State of the replica:
+
+  0 := not ready for export; may need staging
+  1 := ready for export; staged
+
+=item t_xfer_replica.time_create
+
+Time this replica record was created.  (Note! Not neccissarily the time
+the file was transferred to this node, especially in the case of
+re-activated blocks.  See L<BlockActivate|PHEDEX::BlockActivate::Agent>.)
+
+=item t_xfer_replica.time_state
+
+Time the replica entered its current state.
+
+=back
+
+=cut
+
+*/
+
 create table t_xfer_replica
   (id			integer		not null,
    node			integer		not null,
@@ -126,6 +283,26 @@ create table t_xfer_replica
   partition by list (node)
     (partition node_dummy values (-1))
   enable row movement;
+
+create sequence seq_xfer_replica;
+
+create index ix_xfer_replica_fileid
+  on t_xfer_replica (fileid);
+
+/* priority in t_dps_block_dest, t_xfer_request, t_xfer_path
+ *   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
+ *    "high"         "normal"                   "low"
+
+ * priority in t_xfer_task, t_xfer_error: 
+ * formula is (priority-level) * 2 + (for-me ? 0 : 1)
+ *   0 = high, destined for my site
+ *   1 = high, destined for someone else
+ *   2 = normal, destined for my site
+ *   3 = normal, destined for someone else
+ *   4 = low, destined for my site
+ *   5 = low, destined for someone else
+ */
+
 
 /*
  * t_xfer_reqest.state:
@@ -168,6 +345,13 @@ create table t_xfer_request
   partition by list (destination)
     (partition dest_dummy values (-1))
   enable row movement;
+
+create index ix_xfer_request_inblock
+  on t_xfer_request (inblock);
+
+create index ix_xfer_request_fileid
+  on t_xfer_request (fileid);
+
 
 create table t_xfer_path
   (destination		integer		not null,  -- final destination
@@ -214,6 +398,19 @@ create table t_xfer_path
   )
   enable row movement;
 
+create index ix_xfer_path_fileid
+  on t_xfer_path (fileid);
+
+create index ix_xfer_path_src
+  on t_xfer_path (src_node);
+
+create index ix_xfer_path_from
+  on t_xfer_path (from_node);
+
+create index ix_xfer_path_to
+  on t_xfer_path (to_node);
+
+
 create table t_xfer_exclude
   (from_node		integer		not null, -- xfer_path from_node
    to_node              integer         not null, -- xfer_path to_node
@@ -236,6 +433,12 @@ create table t_xfer_exclude
      on delete cascade
   )
   enable row movement;
+
+create index ix_xfer_exclude_to
+  on t_xfer_exclude (to_node);
+
+create index ix_xfer_exclude_fileid
+  on t_xfer_exclude (fileid);
 
 
 /* FIXME: Consider using clustered table for t_xfer_task*, see
@@ -279,6 +482,24 @@ create table t_xfer_task
   partition by list (to_node)
     (partition to_dummy values (-1))
   enable row movement;
+
+create sequence seq_xfer_task;
+
+create index ix_xfer_task_from_node
+  on t_xfer_task (from_node);
+
+create index ix_xfer_task_from_file
+  on t_xfer_task (from_node, fileid);
+
+create index ix_xfer_task_to_node
+  on t_xfer_task (to_node);
+
+create index ix_xfer_task_from_replica
+  on t_xfer_task (from_replica);
+
+create index ix_xfer_task_fileid
+  on t_xfer_task (fileid);
+
 
 create table t_xfer_task_export
   (task			integer		not null,
@@ -324,6 +545,8 @@ create table t_xfer_task_done
      on delete cascade
   )
   enable row movement;
+
+create sequence seq_xfer_done;
 
 create table t_xfer_task_harvest
   (task			integer		not null,
@@ -375,68 +598,6 @@ create table t_xfer_error
   )
   enable row movement;
 
-----------------------------------------------------------------------
--- Create indices
-
-create index ix_xfer_source_to
-  on t_xfer_source (to_node);
-
---
-create index ix_xfer_sink_to
-  on t_xfer_sink (to_node);
-
---
-create index ix_xfer_delete_node
-  on t_xfer_delete (node);
-
---
-create index ix_xfer_replica_fileid
-  on t_xfer_replica (fileid);
-
---
-create index ix_xfer_request_inblock
-  on t_xfer_request (inblock);
-
-create index ix_xfer_request_fileid
-  on t_xfer_request (fileid);
-
---
-create index ix_xfer_path_fileid
-  on t_xfer_path (fileid);
-
-create index ix_xfer_path_src
-  on t_xfer_path (src_node);
-
-create index ix_xfer_path_from
-  on t_xfer_path (from_node);
-
-create index ix_xfer_path_to
-  on t_xfer_path (to_node);
-
---
-create index ix_xfer_exclude_to
-  on t_xfer_exclude (to_node);
-
-create index ix_xfer_exclude_fileid
-  on t_xfer_exclude (fileid);
-
---
-create index ix_xfer_task_from_node
-  on t_xfer_task (from_node);
-
-create index ix_xfer_task_from_file
-  on t_xfer_task (from_node, fileid);
-
-create index ix_xfer_task_to_node
-  on t_xfer_task (to_node);
-
-create index ix_xfer_task_from_replica
-  on t_xfer_task (from_replica);
-
-create index ix_xfer_task_fileid
-  on t_xfer_task (fileid);
-
---
 create index ix_xfer_error_from_node
   on t_xfer_error (from_node);
 
@@ -445,3 +606,29 @@ create index ix_xfer_error_to_node
 
 create index ix_xfer_error_fileid
   on t_xfer_error (fileid);
+
+
+
+create table t_xfer_delete
+  (fileid		integer		not null,  -- for which file
+   node			integer		not null,  -- at which node
+   time_request		float		not null,  -- time at request
+   time_complete	float,			   -- time at completed
+   --
+   constraint pk_xfer_delete
+     primary key (fileid, node),
+   --
+   constraint fk_xfer_delete_fileid
+     foreign key (fileid) references t_xfer_file (id)
+     on delete cascade,
+   --
+   constraint fk_xfer_delete_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade
+  )
+  enable row movement;
+
+create index ix_xfer_delete_node
+  on t_xfer_delete (node);
+
+

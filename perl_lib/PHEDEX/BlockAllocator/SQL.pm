@@ -6,15 +6,8 @@ PHEDEX::BlockAllocator::SQL - encapsulated SQL for the Block Allocator
 Checking agent. This module does not actually do anything useful yet,
 but is nonetheless here as a placeholder for future development.
 
-=head1 SYNOPSIS
-
-This package simply bundles SQL statements into function calls.
-It's not a true object package as such, and should be inherited from by
-anything that needs its methods.
-
-=head1 DESCRIPTION
-
-pending...
+(Actually, we should probably just delete this, but I'm working on
+documenation right now and not altering any code.)
 
 =head1 SEE ALSO...
 
