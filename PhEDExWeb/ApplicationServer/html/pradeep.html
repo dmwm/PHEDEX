@@ -19,7 +19,6 @@
 <body class="yui-skin-sam">
  <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
  <input id="yui-history-field" type="hidden" style='visibility:hidden'>
-<!-- <div id='tony'></div> -->
  <div class='phedex-banner'>
     <a href='' id='phedex-link-home' title='Reset application to initial state' style='text-decoration:none'>
       <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" style='border:none'/>
@@ -127,8 +126,9 @@ makeNavigator = function() {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',  order: 10 },
-        node:   { label: 'Explore by node', order: 20 },
+        none:   { label: 'Explore global',   order: 10 },
+        node:   { label: 'Explore by node',  order: 20 },
+        block:  { label: 'Explore by block', order: 30 },
         group:  { label: 'Explore by group', order: 40 },
         static: { label: 'Explore Information', order: 99 },
       }
@@ -243,12 +243,13 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
   if ( PxR ) { // TODO this needs a better home!
-    PxS.notify('Registry', 'add', 'phedex-module-agents',     'node', ' Show Agents',      {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-nodes',      'none', ' Show Nodes');
-    PxS.notify('Registry', 'add', 'phedex-module-blocklocation', 'none', ' Show Block Location');
-    PxS.notify('Registry', 'add', 'phedex-module-missingfiles', 'none', ' Show Missing Files');
-    PxS.notify('Registry', 'add', 'phedex-module-linkview',   'node',  'Show Links',       {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-groupusage', 'group', 'Show Group Usage', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agents',        'node',  'Show Agents',         {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agentcommand',  'node',  'Show Agent Logs',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-nodes',         'none',  'Show Nodes');
+    PxS.notify('Registry', 'add', 'phedex-module-blocklocation', 'block', 'Show Block Location', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-missingfiles',  'block', 'Show Missing Files',  {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-linkview',      'node',  'Show Links',          {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-groupusage',    'group', 'Show Group Usage',    {context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
@@ -263,8 +264,9 @@ function createCoreApp() {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',  order: 10 },
-        node:   { label: 'Explore by node', order: 20 },
+        none:   { label: 'Explore global',   order: 10 },
+        node:   { label: 'Explore by node',  order: 20 },
+        block:  { label: 'Explore by block', order: 30 },
         group:  { label: 'Explore by group', order: 40 },
         static: { label: 'Explore Information', order: 99 },
       }
