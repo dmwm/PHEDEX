@@ -58,7 +58,7 @@ PHEDEX.Profiler = function() {
         _table.push(_t[i]);
       }
     }
-//     log(YAHOO.lang.dump(report),'debug','profile');
+    log(YAHOO.lang.dump(report),'debug','profile');
     return _table;
   };
 
