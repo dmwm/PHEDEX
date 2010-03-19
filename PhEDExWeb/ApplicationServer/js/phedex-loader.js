@@ -31,6 +31,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-navigator':    { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
+    'phedex-profiler':  { requires:['phedex-util','profiler','datatable'] },
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
@@ -131,19 +132,19 @@ PHEDEX.Loader = function(opts) {
     * <br/><strong>Success</strong> is called with the list of loaded modules.<br>&nbsp;
     * @param {arbitrary number of strings|single array of strings} modules these are the modules to load.<br/>Either a series of additional string arguments, or an array of strings. Each string is either a PhEDEx or a YUI component name. In the case of PhEDEx components, the leading <strong>phedex-</strong> can be omitted, it is assumed if there is a matching component. This means that PhEDEx components can mask YUI components in some cases. E.g, a PhEDEx component stored in a file <strong>phedex-button.js</strong> would mask the YUI <strong>button</strong> component. This can be covered in the <strong>_dependencies</strong> map, where items that a component requires are named in full.
     */
-    load: function( args, what ) {
+    load: function( args ) {
+      var _args = Array.apply(null,arguments);
+      _args.shift();
+      if ( typeof(_args[0]) == 'object' || typeof(_args[0]) == 'array' ) { _args = _args[0]; }
       if ( _busy ) {
         setTimeout( function(obj) {
           return function() {
-            obj.load(args,what);
+            obj.load(args,_args);
           }
         }(this),100);
         return;
       }
       _busy = true;
-      var _args = Array.apply(null,arguments);
-      _args.shift();
-      if ( typeof(_args[0]) == 'object' || typeof(_args[0]) == 'array' ) { _args = _args[0]; }
       setTimeout( function() {
         if ( typeof(args) == 'function' ) { _on.Success = args; }
         else {
