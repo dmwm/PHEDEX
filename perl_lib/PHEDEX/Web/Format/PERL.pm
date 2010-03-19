@@ -95,8 +95,18 @@ sub output
     {
         $start = index($s, "=> [\n") + 5;
     }
-    $end = rindex(substr($s, 0, rindex($s, "]")), "\n");
-    print { $self->{FILE} } substr($s, $start, $end - $start);
+    # take care of empty list
+    if (substr($s, (rindex($s, "]") - 1), 1) eq "[")
+    {
+        $end = (rindex($s, "]")+1);
+        print { $self->{FILE} } substr($s, $start, $end - $start).",\n";
+        $self->{POS} = 0;
+    }
+    else
+    {
+        $end = rindex(substr($s, 0, rindex($s, "]")), "\n");
+        print { $self->{FILE} } substr($s, $start, $end - $start);
+    }
 }
 
 1;
