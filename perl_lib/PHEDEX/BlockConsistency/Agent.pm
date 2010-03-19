@@ -18,6 +18,7 @@ L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>,
 L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
 
 =cut
+
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
