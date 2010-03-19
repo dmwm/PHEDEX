@@ -55,11 +55,11 @@ sub footer
     PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper($obj);
     my $start = rindex(substr($s, 0, rindex($s, "}\n")), "\n")+1;
-    print { $self->{FILE} } "\n"." "x$self->{POS} . "]";
+    print { $self->{FILE} } "\n"." "x$self->{POS} . "]" if ($self->{POS} > 0);
     # taking care of the call_time
     if (defined $call_time)
     {
-        separator($self);
+        separator($self) if ($self->{POS} > 0);
         my $s1 = Dumper({ phedex =>{ 'CALL_TIME' => sprintf('%.5f', $call_time)}});
         my $st1 = index($s1, "=> {")+5;
         my $st2 = rindex($s1, "'");
@@ -80,6 +80,10 @@ sub separator
 sub output
 {
     my ($self, $obj) = @_;
+    if (! $obj)
+    {
+        return;
+    }
     PHEDEX::Web::Util::uc_keys($obj);
     my $s = Dumper({phedex => $obj}); # fake the indentation
     my ($start, $end);
