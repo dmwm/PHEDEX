@@ -50,6 +50,32 @@ PHEDEX.Sandbox = function() {
     },
 
 /**
+ * Delay-notify subscribed listeners about an event. Notification is asynchronous, this function will return before the notification is actually sent.
+ * @method delay
+ * @param interval {int} the number of milliseconds to delay the notification
+ * @param event {string} the name of the event (obligatory)
+ * @param arguments {arbitrary number of arbitrary arguments} arguments to be sent with the notification. Listeners receive these arguments as an array
+ */
+    delay: function() {
+      var event,
+          delay,
+          arr = Array.apply(null,arguments);
+      delay = arr.shift();
+      event = arr.shift();
+      if ( _map[event] ) {
+        log('remap: '+event+' ('+_map[event]+')','info',_me);
+        event = _map[event];
+      }
+      log('notify: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+      setTimeout(function() {
+        var ev = _getEvent(event);
+        if ( !ev ) { return; }
+        log('fire: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+        ev.fire(arr);
+      }, delay);
+    },
+
+/**
  * subscribe to an event. The callback function receives all the extra arguments that the notification sent. It is up to the callback function to know what to do with them!
  * The same event can be subscribed by multiple listeners, in which case they will all be called, sequentially. Do not rely on the order of listening to match the order of calling, it may not.
  * @method listen
