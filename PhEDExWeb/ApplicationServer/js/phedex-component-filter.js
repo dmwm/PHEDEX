@@ -486,7 +486,6 @@ PHEDEX.Component.Filter = function(sandbox,args) {
 
       setValid:   function(el) {
         YuD.removeClass(el,'phedex-filter-elem-invalid');
-//         this.count++;
       },
       setInvalid: function(el,setFocus) {
         YuD.addClass(el,'phedex-filter-elem-invalid');
