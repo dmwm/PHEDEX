@@ -720,9 +720,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           if ( _moduleArgs ) {
             if ( !_moduleArgs[value] ) { value += 'name'; }
             arg = _moduleArgs[value];
+            _typeArgs[_type] = _moduleArgs;
             if ( arg ) {
-              _typeArgs[_type] = {};
-              _typeArgs[_type].value = arg;
               _state[_type] = arg;
               _selectors[_type].updateGUI(arg);
             }
@@ -764,7 +763,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       switch (action) {
         case 'needArguments': {
           if ( _moduleArgs ) {
-            _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
+log('why is _moduleArgs still set???','error',me);
+//             _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
           }
           if ( _typeArgs[_type] ) {
             _sbx.notify(arr[1],'doSetArgs',_typeArgs[_type]);
