@@ -137,7 +137,7 @@ PHEDEX.Logger = function() {
             YuC.setSubs('PHEDEX.Logger.level',l.level);
           }
           YAHOO.log(str, level, group);
-          if ( l.level[level] && l.group[group] && (location.hostname == 'localhost') ) {
+          if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
