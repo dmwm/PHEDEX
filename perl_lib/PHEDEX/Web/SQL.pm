@@ -427,9 +427,10 @@ sub getAgents
             n.se_name as se,
             s.host_name as host,
             s.directory_path as state_dir,
-            v.release as version,
-            v.revision as cvs_version,
-            v.tag as cvs_tag,
+            case
+                when v.revision is null then v.release
+                else 'CVS'
+            end as version,
             s.process_id as pid,
             s.time_update
         from

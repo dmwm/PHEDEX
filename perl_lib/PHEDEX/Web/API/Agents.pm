@@ -26,7 +26,6 @@ agents.
 
   <node>
     <agent/>
-    ...
   </node>
   ...
 
@@ -35,15 +34,12 @@ agents.
   name             agent name
   node             node name
   host             host name
-  agent            list of the agents on this node
 
 =head3 <agent> elements
 
   label            label
   state_dir        directory path ot the states
-  version          cvs release
-  cvs_version      cvs revision
-  cvs_tag          cvs tag
+  version          rpm release or 'CVS'
   pid              process id
   time_update      time it was updated
 
@@ -54,21 +50,17 @@ use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 
 my $map = {
-    _KEY => 'ID',
-    id => 'ID',
+    _KEY => 'NAME+HOST+NODE+PID',
     node => 'NODE',
-    se => 'SE',
+    name => 'NAME',
+    host => 'HOST',
     agent => {
-        _KEY => 'HOST+PID',
-        host => 'HOST',
-        name => 'NAME',
-        pid => 'PID',
-        version => 'VERSION',
-        cvs_tag => 'CVS_TAG',
-        cvs_version => 'CVS_VERSION',
-        time_update => 'TIME_UPDATE',
+        _KEY => 'PID',
+        label => 'LABEL',
         state_dir => 'STATE_DIR',
-        label => 'LABEL'
+        version => 'VERSION',
+        pid => 'PID',
+        time_update => 'TIME_UPDATE'
     }
 };
 
