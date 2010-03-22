@@ -24,7 +24,7 @@ Serves files in the transfer queue, along with their state.
   priority         one of the following:
                      high, normal, low
   state            one of the following:
-                     transferred, transfering, exported
+                     transferred, transfering, exported, done
 
 =head2 Output
 
