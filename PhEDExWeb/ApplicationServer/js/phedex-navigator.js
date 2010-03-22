@@ -48,11 +48,11 @@ PHEDEX.Navigator = function(sandbox) {
           if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
-            log('setState: '+key+' ('+state[key]+' => '+value+')','info',this.me);
+            log('setState: '+key+' ('+state[key]+' => '+value+')','info',obj.me);
             changed++;
           }
         }
-        log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',this.me);
+        log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',obj.me);
         _sbx.notify('currentState',pgstate);
         if ( !changed ) { return; }
         if ( state.module ) { obj.moduleState = state.module; }
