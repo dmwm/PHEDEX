@@ -64,6 +64,8 @@ Serves files in the transfer queue, along with their state.
  id                file id
  checksum          checksums of the file
  bytes             file size
+ is_custodial      is it custodial? 'y' or 'n'
+ time_assign       time when it is assigned
 
 =cut
 

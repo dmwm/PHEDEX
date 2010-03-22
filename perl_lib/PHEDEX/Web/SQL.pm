@@ -1248,7 +1248,7 @@ sub getTransferQueue
 		     block_name, block_id };
     my $level_select;
     if ($filelevel) {
-	$level_select = qq{ fileid, filesize, checksum, logical_name };
+	$level_select = qq{ fileid, filesize, checksum, logical_name, is_custodial, time_assign };
     } else {
 	$level_select = qq{ count(fileid) files, sum(filesize) bytes };
     }
@@ -1267,7 +1267,9 @@ sub getTransferQueue
              when xtx.task is not null then 2
              when xte.task is not null then 1
              else 0
-         end state
+         end state,
+             xt.is_custodial,
+             xt.time_assign
         from t_xfer_task xt
              left join t_xfer_task_export xte on xte.task = xt.id
              left join t_xfer_task_inxfer xtx on xtx.task = xt.id
@@ -1356,7 +1358,9 @@ sub getTransferQueue
 	    push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
 				      ID => $row->{FILEID},
 				      BYTES => $row->{FILESIZE},
-				      CHECKSUM => $row->{CHECKSUM} };
+				      CHECKSUM => $row->{CHECKSUM},
+                                      IS_CUSTODIAL => $row->{IS_CUSTODIAL},
+                                      TIME_ASSIGN => $row->{TIME_ASSIGN} };
 	}
     }
     
