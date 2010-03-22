@@ -247,6 +247,7 @@ function createCoreApp() {
 
   if ( PxR ) { // TODO this needs a better home!
     PxS.notify('Registry', 'add', 'phedex-module-agents',        'node',  'Show Agents',         {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agentlogs',     'node',  'Show Agent Logs',     {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-nodes',         'none',  'Show Nodes');
     PxS.notify('Registry', 'add', 'phedex-module-blocklocation', 'block', 'Show Block Location', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-missingfiles',  'block', 'Show Missing Files',  {context_item:true});
