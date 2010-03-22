@@ -265,6 +265,14 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 .phedex-core-overlay .bd { background-color:#fff; }
 .phedex-core-overlay .ft { background-color:#eee; }
 
+/* This is for the multiline text box in datatable */
+.phedex-dt-txtbox {
+	height: 60px;
+	border-width:0; 
+	width: 100%; 
+	background-color:transparent;
+}
+
 .phedex-tnode-field {
   overflow: hidden;
   height: 1.4em;
