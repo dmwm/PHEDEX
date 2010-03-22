@@ -477,7 +477,7 @@ my %state_name = (
     0 => 'assigned',
     1 => 'exported',
     2 => 'transferring',
-    3 => 'transferred'
+    3 => 'done'
     );
 
 sub getTransferQueueStats
