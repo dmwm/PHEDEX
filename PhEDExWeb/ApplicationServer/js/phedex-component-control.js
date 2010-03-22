@@ -105,6 +105,9 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * @private
  */
   _mouseoverHandler = function(ev,obj) {
+    if ( this.payload.tooltip ) {
+      this.el.title = this.payload.tooltip() || ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
+    }
     var timeout = obj.payload.hover_timeout;
     if ( !timeout ) { return; }
     obj.payload.timer = setTimeout(function() { if ( obj.Show ) { obj.Show(); } },timeout);

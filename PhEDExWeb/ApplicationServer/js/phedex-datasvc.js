@@ -86,11 +86,11 @@ PHEDEX.Datasvc = (function() {
    *    - schedule query again (poll) with _get() if needed
    */
   var _got = function(response) {
-    var query = response.argument;
+    var query = response.argument,
+        data = {};
     YAHOO.log('GOT '+response.status+' ('+response.statusText+') for '+query.text,'info',_me);
-    var data = {};
     try {
-      if ( response.status != 200 ) { throw new Error("bad response"); } // should be unnecessary...
+      if ( response.status != 200 ) { throw new Error("bad response"); } // should be unnecessary, but isn't, because we don't have kosher return codes...
       data = YAHOO.lang.JSON.parse(response.responseText);
       YAHOO.log('PARSED '+query.text, 'info', _me);
 
@@ -104,6 +104,12 @@ PHEDEX.Datasvc = (function() {
       _fail(response);
       return;
     }
+    query.context.maxAge = 0;
+    try {
+      var maxage = response.getResponseHeader['Cache-Control'];
+      maxage = maxage.replace(/max-age=(\d+)/, "$1");
+      if (maxage) { query.context.maxAge = maxage; }
+    } catch(ex) { YAHOO.log('cannot calculate max-age, ignoring...','warn',_me); }
     YAHOO.log('FIRE '+query.text, 'info', _me);
     query.success_event.fire(data, query.context);
     _maybe_schedule(query, response);

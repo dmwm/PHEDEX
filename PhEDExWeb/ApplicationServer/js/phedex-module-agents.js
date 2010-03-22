@@ -24,7 +24,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             target: 'extra',
             handler: 'fillExtra',
             animate:false
-            // hover_timeut:200,
           }
         },
         {
@@ -33,7 +32,14 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           parent: 'control',
           payload:{
             handler: 'getData',
-            animate:false,
+            animate:  false,
+            disabled: true,
+              tooltip:function() {
+                        if ( !this.obj.expires ) { return; }
+                        var delta = new Date().getTime()/1000;
+                        delta = Math.round(this.obj.expires - delta);
+                        return 'Data expires in '+delta+' seconds';
+                      },
             map: {
               gotData:     'Disable',
               dataExpires: 'Enable'
@@ -127,20 +133,24 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         log('Fetching data','info',this.me);
         _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
-      gotData: function(data) {
+      gotData: function(data,context) {
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
         this.data = data.node[0].agent;
         this.dom.title.innerHTML = node + ': ' + this.data.length + " agents";
         this.fillDataSource(this.data);
         _sbx.notify( this.id, 'gotData' );
-        // Fake notification that the data is now stale. This should use the 'Expires' or 'Cache-Control' header from the data-service, but that isn't returned in the data
-        setTimeout( function(obj) {
-            return function() {
-              if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
-              _sbx.notify(obj.id,'dataExpires');
-            };
-          }(this), 300 * 1000 );
+
+        if ( context.maxAge ) {
+          setTimeout( function(obj) {
+              return function() {
+                if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
+                _sbx.notify(obj.id,'dataExpires');
+              };
+            }(this), context.maxAge * 1000 );
+          this.expires = new Date().getTime()/1000;
+          this.expires += parseInt(context.maxAge);
+        }
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',
