@@ -36,17 +36,13 @@
     </span>
     <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
-  <div id='phedex-login'></div>
-  <div id='phedex-navigator'></div>
+ <div id='phedex-login'></div>
+ <div id='phedex-navigator'></div>
+ <div id='phedex-globalfilter'></div>
  <div class='phedex-separator'></div>
-  <div id='phedex-logger' class='phedex-logger'>
-  <div id='phedex-logger-inner' class='phedex-logger-inner'></div>
- </div>
- <div id='phedex-debug' class='float-right'></div>
- <div id='phedex-test'></div>
  <div id='phedex-main'></div>
 
-<!-- The following section is to 
+<!-- The following section is to
      1. Give google something to index
      2. Notify people without javascript -->
 <noscript>
@@ -75,9 +71,10 @@ here</a>.</p>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
 <script type="text/javascript">
 function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,".")); }
-
 // When the DOM is available, start loading the essential bits and pieces
+// This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
+  log('initialising','info','app');
   banner('Loading core application...');
   PxL  = new PHEDEX.Loader();
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
@@ -97,58 +94,45 @@ function createCoreApp() {
   banner('Create sandbox and core application...');
   try {
     PxS = new PHEDEX.Sandbox();
-  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!'); return; }
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!','error'); return; }
   try {
     PxC = new PHEDEX.Core(PxS,PxL);
     PxC.create();
-  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!'); return; }
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
   try {
     PxR = new PHEDEX.Registry(PxS);
     PxR.create();
-  } catch(ex) { log(ex,'error',name); banner('Error creating Registry!'); return; }
+  } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
   if ( PxR ) { // TODO this needs a better home!
-    PxS.notify('Registry', 'add', 'phedex-module-agents',     'node', ' Show Agents',      {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-nodes',      'none', ' Show Nodes');
-    PxS.notify('Registry', 'add', 'phedex-module-linkview',   'node',  'Show Links',       {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-groupusage', 'group', 'Show Group Usage', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agents',          'node',  'Show Agents',         {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agentlogs',       'node',  'Show Agent Logs',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations','node',  'Show Queued Migrations', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-linkview',        'node',  'Show Links',          {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-nodes',           'none',  'Show Nodes');
+    PxS.notify('Registry', 'add', 'phedex-module-blocklocation',   'block', 'Show Block Location', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-missingfiles',    'block', 'Show Missing Files',  {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-groupusage',      'group', 'Show Group Usage',    {context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
+  PxS.notify('Load','globalfilter', { el: 'phedex-global-filter'});
+  PxS.notify('Load','config');  
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
         none:   { label: 'Explore global',  order: 10 },
         node:   { label: 'Explore by node', order: 20 },
+        block:  { label: 'Explore by block', order: 30 },
         group:  { label: 'Explore by group', order: 40 },
-        static: { label: 'Explore Information', order: 99 },
+        static: { label: 'Explore Information', order: 99 }
       }
     }
   });
-
-  PxS.notify('Load','phedex-login', {el: 'phedex-login'});
-
-// Create the logger element, if required...
-  if ( 0 ) {
-    PxL.load(function() {
-      var ctl = new PHEDEX.Component.Control(PxS,{
-          payload: {
-            text:'Show Logger',
-            target:'phedex-logger',
-            animate:true,
-            className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
-          }
-        }
-      );
-      document.getElementById('phedex-controls').appendChild(ctl.el);
-    },'component-control');
-    PxS.notify('Load','phedex-logger');
-  }
-
+  PxS.notify('Load','login', {el: 'phedex-login'});
   PHEDEX.Util.bannerIdleTimer(PxL);
 };
-
 </script>
 </html>
