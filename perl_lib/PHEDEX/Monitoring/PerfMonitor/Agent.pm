@@ -379,7 +379,8 @@ sub idle
                              and he.from_node = hs.from_node
                              and he.to_node = hs.to_node
                              and he.priority = hs.priority
-                       where nvl(hs.timebin,he.timebin) > :period 
+                       where (hs.timebin is not null and hs.timebin > :period)
+                          or (he.timebin is not null and he.timebin > :period)
                         ) group by from_node, to_node) n
                 on (p.from_node = n.from_node and p.to_node = n.to_node)
 		when matched then
