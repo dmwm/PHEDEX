@@ -76,12 +76,19 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       meta: {
         table: {
           columns: [
-              'Agent',
-              {key:"Date", formatter:'UnixEpochToGMT'},
-              {key:'PID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right'},
-              'Version','Label','Host','State Dir'
-            ],
-          map: {Agent:'name', Date:'time_update', 'State Dir':'state_dir' }
+//             {key:'node', label:'Node'},
+            {key:'name',                 label:'Agent'},
+            {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
+            {key:'agent[0].pid',         label:'PID',  className:'align-right'},
+            {key:'agent[0].version',     label:'Version'},
+            {key:'agent[0].label',       label:'Label'},
+            {key:'host',                 label:'Host'},
+            {key:'agent[0].state_dir',   label:'State Dir'}
+          ],
+          schema: {
+            resultsList: 'node',
+            fields: [ 'host', 'name', /*'node',*/ 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
+          },
         },
         sort:{field:'Agent'},
         hide:['PID','Host','State Dir'],
@@ -136,7 +143,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       gotData: function(data,context) {
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
-        this.data = data.node[0].agent;
+        this.data = data.node;
         this.dom.title.innerHTML = node + ': ' + this.data.length + " agents";
         this.fillDataSource(this.data);
         _sbx.notify( this.id, 'gotData' );
