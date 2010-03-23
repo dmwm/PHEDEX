@@ -7,9 +7,12 @@ use POSIX;
 use XML::Simple;
 use IO::File;
 use Getopt::Long;
+use JSON::XS;
+use Data::Dumper;
 
 my $web_server = "cmswttest.cern.ch";
 my $url_path   = "/phedex/datasvc";
+my $url_instance = "/prod";
 my $url_data   = "/xml/prod";
 my $xml = new XML::Simple;
 
@@ -60,18 +63,46 @@ open STDERR, ">/dev/null";
 our $n = 0;
 sub verify
 {
-	my ($url, $expect) = @_;
-	die "verify():  $url and $expect required\n" unless $url && $expect;
+	# my ($url, $expect) = @_;
+	my ($url_prefix, $format, $call, $expect) = @_;
+	die "verify():  url_prefix, format, call and expect are required\n" unless $url_prefix && $expect && $format && $call;
+        my $url = "${url_prefix}/${format}${url_instance}/$call";
 	print "verifying '$url', expecting $expect\n" if $debug;
 
 	my $result = "OK";
 
-	my $tee = $output_dir ? sprintf("tee $output_dir/%03s.xml|", $n) : '';
+	my $tee = $output_dir ? sprintf("tee $output_dir/%03s.${$format}|", $n) : '';
 	my $t0 = [gettimeofday];
-	my $fh = IO::File->new("wget -O - '$url' 2>/dev/null 1|$tee ")
-	    or die "could not execute wget\n";
+	my $data;
+	my $VAR1 = undef;
+	if ($format eq 'xml')
+	{
+		my $fh = IO::File->new("wget -O - '${url}' 2>/dev/null 1|${tee} ")
+			or die "could not execute wget\n";
+		$data = $xml->XMLin($fh);
+	}
+	elsif ($format eq 'perl')
+	{
+		open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} ";
+		my $sep = $/;	# save input separator
+		undef $/;	# read everything in one shot
+		eval (<FILE>);
+		$/ = $sep;	# restore input separator
+		close FILE;
+		$data = $VAR1;
+	}
+	elsif ($format eq 'json')
+	{
+		open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} ";
+		$data = decode_json(<FILE>);
+	}
+	else #ERROR
+	{
+		printf "ERROR: unknown format $format\n";
+		$n++;
+		return;
+	}
 
-	my $data = $xml->XMLin($fh);
 	my $call_time = 0;
 	if (ref($data) ne "HASH")
 	{
@@ -101,7 +132,7 @@ else
 
 my $root_url = "${url_prefix}${url_path}${url_data}";
 
-print "# ",&POSIX::strftime("[%Y-%m-%d %T]", gmtime), ": acceptance test of $url_prefix\n";
+print "# ", &POSIX::strftime("[%Y-%m-%d %T]", gmtime), ": acceptance test of $url_prefix\n";
 
 while(<$inf>)
 {
@@ -122,5 +153,8 @@ while(<$inf>)
 	        $call = substr($call, 1);
 	}
 
-	verify("$root_url/$call", $expect);
+	#verify("$root_url/$call", $expect);
+	verify("${url_prefix}${url_path}", "xml", $call, $expect);
+	verify("${url_prefix}${url_path}", "perl", $call, $expect);
+	verify("${url_prefix}${url_path}", "json", $call, $expect);
 }
