@@ -1726,7 +1726,10 @@ sub getDataSubscriptions
     build_multi_filters($core, \$filters, \%p, \%h, ( 
                                                       SE => 'n.se_name',
                                                       REQUEST => 's.request',
-                                                      GROUP => 'g.name'
+                                                      GROUP => 'g.name',
+                                                      NODE => 'n.name',
+                                                      BLOCK => 'b.name',
+                                                      DATASET => 'ds.name'
 						      ));
 
     if (exists $h{SUSPENDED})
@@ -1752,42 +1755,6 @@ sub getDataSubscriptions
             {
                $filters = qq { s.time_suspend_until is null };
             }
-        }
-    }
-
-    if (exists $h{NODE})
-    {
-        if ($filters)
-        {
-            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
-        }
-        else
-        {
-            $filters = " (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
-        }
-    }
-
-    if (exists $h{BLOCK})
-    {
-        if ($filters)
-        {
-            $filters .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{BLOCK}) . ") ";
-        }
-        else
-        {
-            $filters = " (" . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . ") ";
-        }
-    }
-
-    if (exists $h{DATASET})
-    {
-        if ($filters)
-        {
-            $filters .= " and (" . filter_and_like($core, undef, \%p, 'ds.name', $h{DATASET}) . ") ";
-        }
-        else
-        {
-            $filters = " (" . filter_and_like($core, undef, \%p, 'ds.name', $h{DATASET}) . ") ";
         }
     }
 
