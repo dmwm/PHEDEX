@@ -55,27 +55,41 @@ PHEDEX.DataTable = function(sandbox, string) {
               return table;
             },
 
+            _getKeyByKeyOrLabel: function(str) {
+              var m = this.meta, cols = m.table.columns, i;
+              for (i in cols) {
+                if ( cols[i].label == str ) {
+                  return cols[i].key;
+                }
+                if ( cols[i].key == str ) {
+                  return str;
+                }
+              }
+            },
 
             /** Initialise the data-table, using the parameters in this.meta.table, set in the module during construction
             * @method initDerived
             * @private
             */
             initDerived: function() {
-                var m = this.meta, t = m.table, h = {}, i;
-                for (i in m.hide ) { h[m.hide[i]] = 1; }
-                m.hide = h;
-                if (t) {
-                    this.buildTable(t.columns, t.map, t.schema)
-                }
-                this.decorators.push(
-                {
+              var m = this.meta, t = m.table, cols=t.columns, h = {}, i, key;
+              for (i in m.hide) {
+                h[this._getKeyByKeyOrLabel(m.hide[i])] = 1;
+              }
+              m.hide = h;
+
+              if (t) {
+                this.buildTable(t.columns, t.map, t.schema)
+              }
+              this.decorators.push(
+              {
                     name: 'Filter',
                     source: 'component-filter',
                     payload: {
                         control: {
                             parent: 'control',
                             payload: {
-                                disabled: false, //true,
+                                disabled: false,
                                 hidden: true
                             },
                             el: 'content'
@@ -84,6 +98,14 @@ PHEDEX.DataTable = function(sandbox, string) {
                     target: 'filter'
                 });
               m._filter = this.createFilterMeta();
+              for (i in m.filter) {
+                h={};
+                for (key in m.filter[i].fields) {
+                  h[ this._getKeyByKeyOrLabel(key) ] = m.filter[i].fields[key];
+                }
+                m.filter[i].fields = h;
+              }
+//               m._filter = this.createFilterMeta();
               if ( m.sort ) {
                 if (m.sort.field && !m.sort.dir) { m.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
               }
@@ -138,16 +160,17 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @method hideFields
             */
             hideFields: function() {
-                if (this.meta.hide) {
-                    for (var key in this.meta.hide) {
-                        var column = this.dataTable.getColumn(key);
-                        if (column) { this.dataTable.hideColumn(column); }
-                        _sbx.notify(this.id, 'hideColumn', { text: column.label || column.key, value: column.key });
-                    }
-                }
-                var w = this.dataTable.getTableEl().offsetWidth;
-                if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
-                this.el.style.width = w + 'px';
+              var key, col, w, i, c, h=[], m=this.meta, cols=m.table.columns;
+              if (!m.hide) { return; }
+
+              for (key in m.hide) {
+                col = this.dataTable.getColumn(this._getKeyByKeyOrLabel(key));
+                if (col) { this.dataTable.hideColumn(col); }
+                _sbx.notify(this.id, 'hideColumn', { text: col.label, value: col.label });
+              }
+              w = this.dataTable.getTableEl().offsetWidth;
+              if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
+              this.el.style.width = w + 'px';
             },
 
             /** Fill a data-source with JSON data, using a schema to describe it. Used internally by <strong>fillDataSource</strong> if a schema is provided
@@ -176,7 +199,8 @@ PHEDEX.DataTable = function(sandbox, string) {
             menuSelectItem: function(args) {
                 for (var i in args) {
                   delete this.meta.hide[args[i]];
-                  this.dataTable.showColumn(this.dataTable.getColumn(args[i]));
+                  var key = this._getKeyByKeyOrLabel(args[i]);
+                  this.dataTable.showColumn(this.dataTable.getColumn(key));
                 }
                 _sbx.notify(this.id, 'updateHistory');
             },
@@ -258,7 +282,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     return function(ev) {
                         var column = obj.dataTable.getColumn(ev.column);
                         log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
-                        _sbx.notify(obj.id, 'hideColumn', { text: column.label || column.key, value: column.key });
+                        _sbx.notify(obj.id, 'hideColumn', { text: column.label, value: column.label });
                     }
                 } (this));
 
@@ -336,8 +360,8 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
     if ( !p.typeNames ) { p.typeNames=[]; }
     p.typeNames.push('datatable');
     var fn = function(opts, el) {
-      log('hideField: ' + el.col.key, 'info', 'component-contextmenu');
-      el.obj.meta.hide[el.col.key] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
+      log('hideField: ' + el.col.label, 'info', 'component-contextmenu');
+      el.obj.meta.hide[el.col.label] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
       el.obj.dataTable.hideColumn(el.col);
     }
     PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
