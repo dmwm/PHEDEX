@@ -28,13 +28,14 @@ create table t_dps_subs_param
    constraint ck_dps_subs_param_original
      check (original in ('y', 'n')));
 
+create sequence seq_dps_subs_param;
 
 create table t_dps_subs_dataset
   (destination          integer         not null,
    dataset              integer		not null,
-   param               integer		not null,
+   param		integer		not null,
    time_create          float           not null,
-   time_update          float           not null,
+   time_fill_after      float                   , -- subscribe blocks created after this time
    time_suspend_until   float			,
    time_complete        float			,
    time_done            float			,
@@ -56,7 +57,6 @@ create table t_dps_subs_block
    block                integer		not null,
    param		integer		not null,
    time_create          float           not null,
-   time_update          float           not null,
    time_suspend_until   float			,
    time_complete        float			,
    time_done            float			,
