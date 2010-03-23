@@ -267,7 +267,6 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 
 /* This is for the multiline text box in datatable */
 .phedex-dt-txtbox {
-	height: 60px;
 	border-width:0; 
 	width: 100%; 
 	background-color:transparent;
