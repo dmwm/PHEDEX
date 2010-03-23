@@ -4,6 +4,7 @@ agents?node=T1_US_FNAL_MSS
 agents?agent=FileDownload
 agents?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer
 agents?se=cmssrm.fnal.gov
+agents?node=NoWhere
 
 # PHEDEX::Web::API::AgentLogs - show messages from the agents
 agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter
@@ -116,10 +117,6 @@ routerhistory
 routerhistory?to=T1_US_FNAL_Buffer
 routerhistory?to=T1_US_FNAL_Buffer&starttime=last_week&binwidth=3600
 
-# PHEDEX::Web::API::Routings - show routing information
-routings
-routings?source=T1_US_FNAL*&destination=T1_US_FNAL*
-
 # PHEDEX::Web::API::Subscriptions
 subscriptions
 subscriptions?node=T1_US_FNAL_MSS
@@ -160,6 +157,7 @@ transferqueuehistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS&starttime=last_wee
 # PHEDEX::Web::API::TransferQueueStats - current transfer queue
 transferqueuestats
 transferqueuestats?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS
+transferqueuestats?from=NoWhere&to=NoWhereEither
 
 # PHEDEX::Web::API::TransferRequests - transfer requests
 transferrequests
