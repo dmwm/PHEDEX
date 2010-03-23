@@ -57,6 +57,9 @@ Serves blocks in the transfer queue, along with their state.
   id               block id
   files            number of files in this block
   bytes            number of bytes in this block
+  time_assign      minimum assignment time for a file in the block
+  time_expire      minimum expiration time for a file in the block
+  time_state       minimum time a file achieved its current state
 
 =cut
 

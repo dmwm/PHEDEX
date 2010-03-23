@@ -1245,10 +1245,12 @@ sub getTransferQueue
     my $select = qq{ from_name, from_id, from_se,
 		     to_name, to_id, to_se,
 		     priority, state,
-		     block_name, block_id };
+		     block_name, block_id, is_custodial, time_assign,
+                     time_expire, xte_time_update, xtx_time_update,
+                     xtd_time_update };
     my $level_select;
     if ($filelevel) {
-	$level_select = qq{ fileid, filesize, checksum, logical_name, is_custodial, time_assign };
+	$level_select = qq{ fileid, filesize, checksum, logical_name };
     } else {
 	$level_select = qq{ count(fileid) files, sum(filesize) bytes };
     }
@@ -1269,7 +1271,11 @@ sub getTransferQueue
              else 0
          end state,
              xt.is_custodial,
-             xt.time_assign
+             xt.time_assign,
+             xt.time_expire,
+             xte.time_update xte_time_update,
+             xtx.time_update xtx_time_update,
+             xtd.time_update xtd_time_update
         from t_xfer_task xt
              left join t_xfer_task_export xte on xte.task = xt.id
              left join t_xfer_task_inxfer xtx on xtx.task = xt.id
@@ -1353,6 +1359,44 @@ sub getTransferQueue
 	    }
 	}
 
+        # time_state
+        my $time_state;
+        if ($row->{STATE} eq '0')
+        {
+            $time_state = $row->{TIME_ASSIGN};
+        }
+        elsif ($row->{STATE} eq '1')
+        {
+            $time_state = $row->{XTE_TIME_UPDATE};
+        }
+        elsif ($row->{STATE} eq '2')
+        {
+            $time_state = $row->{XTX_TIME_UPDATE};
+        }
+        elsif ($row->{STATE} eq '3')
+        {
+            $time_state = $row->{XTD_TIME_UPDATE};
+        }
+
+        # block level time stamp
+        if ((! exists $block->{TIME_ASSIGN}) or 
+            (int($row->{TIME_ASSIGN}) < int($block->{TIME_ASSIGN})))
+        {
+            $block->{TIME_ASSIGN} = $row->{TIME_ASSIGN};
+        }
+
+        if ((! exists $block->{TIME_EXPIRE}) or 
+            (int($row->{TIME_EXPIRE}) < int($block->{TIME_EXPIRE})))
+        {
+            $block->{TIME_EXPIRE} = $row->{TIME_EXPIRE};
+        }
+
+        if ((! exists $block->{TIME_STATE}) or 
+            (int($time_state) < int($block->{TIME_STATE})))
+        {
+            $block->{TIME_STATE} = $time_state;
+        }
+
 	# file
 	if ($filelevel) {
 	    push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
@@ -1360,7 +1404,9 @@ sub getTransferQueue
 				      BYTES => $row->{FILESIZE},
 				      CHECKSUM => $row->{CHECKSUM},
                                       IS_CUSTODIAL => $row->{IS_CUSTODIAL},
-                                      TIME_ASSIGN => $row->{TIME_ASSIGN} };
+                                      TIME_ASSIGN => $row->{TIME_ASSIGN},
+                                      TIME_EXPIRE => $row->{TIME_EXPIRE},
+                                      TIME_STATE => $time_state };
 	}
     }
     

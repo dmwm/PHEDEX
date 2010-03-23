@@ -57,15 +57,20 @@ Serves files in the transfer queue, along with their state.
 
   name             block name
   id               block id
+  time_assign      minimum assignment time for a file in the block
+  time_expire      minimum expiration time for a file in the block
+  time_state       minimum time a file achieved its current state
 
 =head3 <file> elements
 
- name              files logical name
- id                file id
- checksum          checksums of the file
- bytes             file size
- is_custodial      is it custodial? 'y' or 'n'
- time_assign       time when it is assigned
+  name             files logical name
+  id               file id
+  checksum         checksums of the file
+  bytes            file size
+  is_custodial     is it custodial? 'y' or 'n'
+  time_assign      time the transfer task was created
+  time_expire      time the transfer task will expire
+  time_state       time the task achieved its current state
 
 =cut
 
