@@ -15,33 +15,6 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
     var _sbx = sandbox, _groupname;
     log('Module: creating a genuine "'+string+'"','info',string);
 
-    /**
-    * Array of object literal Column definitions for group information datatable.
-    * @property _dtColumnDefs
-    * @type Object[]
-    * @private
-    */
-    var _dtColumnDefs = [{ key: 'name', label: 'Node' },
-                        { key: 'se', label: 'SE' },
-                        { key: 'id', label: 'ID', className:'align-right' },
-                        { key: 'group[0].node_bytes', label: 'Resident Bytes',   className:'align-right', "formatter": "customBytes" },
-                        { key: 'group[0].node_files', label: 'Resident Files',   className:'align-right' },
-                        { key: 'group[0].dest_bytes', label: 'Subscribed Bytes', className:'align-right', "formatter": "customBytes" },
-                        { key: 'group[0].dest_files', label: 'Subscribed Files', className:'align-right' }];
-
-    /**
-    * The responseSchema is an object literal of pointers that is used to parse data from the received response and creates 
-    * YUI datasource for YUI datatable.
-    * @property _dsResponseSchema
-    * @type Object
-    * @private
-    */
-    var _dsResponseSchema = { resultsList: 'node', fields: ['name', 'se', { key: 'id', parser: 'number' },
-                                                                          { key: 'group[0].node_bytes', parser: 'number' },
-                                                                          { key: 'group[0].node_files', parser: 'number' },
-                                                                          { key: 'group[0].dest_bytes', parser: 'number' },
-                                                                          { key: 'group[0].dest_files', parser: 'number'}]};
-
     //Used to construct the group usage widget.
     _construct = function() {
         return {
@@ -74,20 +47,39 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { columns: _dtColumnDefs, schema: _dsResponseSchema },
-                hide: ['se', 'id', 'group[0].node_files', 'group[0].dest_files'],
-                sort:{field:'name'},
+                table: {
+                  columns: [
+                            { key: 'name', label: 'Node' },
+                            { key: 'se', label: 'SE' },
+                            { key: 'id', label: 'ID', className:'align-right' },
+                            { key: 'group[0].node_bytes', label: 'Resident Bytes',   className:'align-right', formatter:"customBytes" },
+                            { key: 'group[0].node_files', label: 'Resident Files',   className:'align-right' },
+                            { key: 'group[0].dest_bytes', label: 'Subscribed Bytes', className:'align-right', formatter:"customBytes" },
+                            { key: 'group[0].dest_files', label: 'Subscribed Files', className:'align-right' }
+                           ],
+                  schema: {
+                            resultsList: 'node',
+                            fields: ['name', 'se', { key: 'id', parser: 'number' },
+                                                   { key: 'group[0].node_bytes', parser: 'number' },
+                                                   { key: 'group[0].node_files', parser: 'number' },
+                                                   { key: 'group[0].dest_bytes', parser: 'number' },
+                                                   { key: 'group[0].dest_files', parser: 'number'}]
+                          },
+                },
+
+                hide: ['SE', 'ID', 'Resident Files', 'Subscribed Files'],
+                sort:{field:'Node'},
                 filter: {
                   'GroupUsage attributes':{
                     map: { to:'G' },
                     fields: {
-                      'name':{type:'regex',  text:'Node', tip:'javascript regular expression' },
-                      'se'  :{type:'regex',  text:'SE',   tip:'javascript regular expression' },
-                      'id'  :{type:'int',    text:'ID',   tip:'ID'},
-                      'group[0].node_bytes': { type: 'minmax', buildPath: true, text: 'Resident Bytes', tip: 'integer range' },
-                      'group[0].node_files': { type: 'minmax', buildPath: true, text: 'Resident Files', tip: 'integer range' },
-                      'group[0].dest_bytes': { type: 'minmax', buildPath: true, text: 'Subscribed Bytes', tip: 'integer range' },
-                      'group[0].dest_files': { type: 'minmax', buildPath: true, text: 'Subscribed Files', tip: 'integer range' }
+                      'Node':{type:'regex',  text:'Node', tip:'javascript regular expression' },
+                      'SE'  :{type:'regex',  text:'SE',   tip:'javascript regular expression' },
+                      'ID'  :{type:'int',    text:'ID',   tip:'ID'},
+                      'Resident Bytes':   { type: 'minmax', text: 'Resident Bytes',   tip: 'integer range' },
+                      'Resident Files':   { type: 'minmax', text: 'Resident Files',   tip: 'integer range' },
+                      'Subscribed Bytes': { type: 'minmax', text: 'Subscribed Bytes', tip: 'integer range' },
+                      'Subscribed Files': { type: 'minmax', text: 'Subscribed Files', tip: 'integer range' }
                     }
                   }
                 }
