@@ -76,18 +76,17 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       meta: {
         table: {
           columns: [
-//             {key:'node', label:'Node'},
             {key:'name',                 label:'Agent'},
             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
             {key:'agent[0].pid',         label:'PID',  className:'align-right'},
-            {key:'agent[0].version',     label:'Version'},
-            {key:'agent[0].label',       label:'Label'},
-            {key:'host',                 label:'Host'},
-            {key:'agent[0].state_dir',   label:'State Dir'}
+            {key:'agent[0].version',     label:'Version' },
+            {key:'agent[0].label',       label:'Label' },
+            {key:'host',                 label:'Host' },
+            {key:'agent[0].state_dir',   label:'State Dir' }
           ],
           schema: {
             resultsList: 'node',
-            fields: [ 'host', 'name', /*'node',*/ 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
+            fields: [ 'host', 'name', 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
           },
         },
         sort:{field:'Agent'},
@@ -163,19 +162,20 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         var msg = 'If you are reading this, there is a bug somewhere...',
             now = new Date() / 1000,
             minDate = now,
-            maxDate = 0;
+            maxDate = 0,
+            i, u, minGMT, maxGMT, dMin, dMax;
         if ( !node ) { msg = 'No extra information available (no node selected yet!)'; }
-        for ( var i in this.data) {
-          var u = this.data[i].agent[0].time_update;
+        for (i in this.data) {
+          u = this.data[i].agent[0].time_update;
           if ( u > maxDate ) { maxDate = u; }
           if ( u < minDate ) { minDate = u; }
         }
         if ( maxDate > 0 )
         {
-          var minGMT = new Date(minDate*1000).toGMTString(),
-              maxGMT = new Date(maxDate*1000).toGMTString(),
-              dMin = Math.round(now - minDate),
-              dMax = Math.round(now - maxDate);
+          minGMT = new Date(minDate*1000).toGMTString();
+          maxGMT = new Date(maxDate*1000).toGMTString();
+          dMin = Math.round(now - minDate);
+          dMax = Math.round(now - maxDate);
           msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
         }
         this.dom.extra.innerHTML = msg;
