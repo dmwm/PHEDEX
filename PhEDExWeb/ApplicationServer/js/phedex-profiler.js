@@ -2,7 +2,7 @@ YtP = YAHOO.tool.Profiler;
 
 PHEDEX.Profiler = function() {
   var number = YAHOO.widget.DataTable.formatNumber,
-      _interval = 10000,
+      _interval = 30000,
       _profile,
       el = document.getElementById('phedex-profiler'),
       _column,
