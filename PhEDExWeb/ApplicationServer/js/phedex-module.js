@@ -419,7 +419,7 @@ log('Should not be here','warn','module');
         if ( this.meta._filter ) { return this.meta._filter; }
         var meta = { structure: { f:{}, r:{} }, rFriendly:{}, fields:{} },  // mapping of field-to-group, and reverse-mapping of same
             f = this.meta.filter,
-            re, str, i, j, k, l;
+            re, str, i, j, k, l, key;
 
         for (i in f) {
           l = {};
