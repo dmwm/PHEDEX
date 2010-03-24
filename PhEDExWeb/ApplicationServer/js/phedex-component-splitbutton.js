@@ -92,7 +92,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
             for (var i = 0; i < m.length; i++) {
               v.push(m[i].value);
             }
-              _sbx.notify(partner,'menuSelectItem',v,obj.id);
+            _sbx.notify(partner,'menuSelectItem',v,obj.id);
             column_menu.clearContent();
             obj.refreshButton();
 //             _sbx.notify(partner,'resizePanel'); // not used yet...
