@@ -278,7 +278,10 @@ PHEDEX.TreeView = function(sandbox,string) {
  */
       truncateTree: function() {
         var i;
-        while (i = this.tree.root.children[0]) { this.tree.removeNode(i); }
+        while (i = this.tree.root.children[0]) {
+          this.tree.removeNode(i);
+          delete this._cfg.textNodeMap[i.labelElId];
+        }
       },
 
       menuSelectItem: function(args) {
