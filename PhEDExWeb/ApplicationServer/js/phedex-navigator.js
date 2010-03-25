@@ -596,7 +596,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
                                           { fn:function(o){
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
-              _typeArgs[_type].blockname = input.value;
+              _typeArgs[_type].block = input.value;
               _sbx.notify('module','*','doSetArgs',_typeArgs[_type]);
             } }(this),
                                             scope:this, correctScope:true } );
@@ -619,7 +619,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       init: function(el,type) {
         var dataKey = 'group',
             api     = 'groups',
-            argKey  = 'groupname';
+            argKey  = 'group';
         return _makeSelector(el,type,dataKey,api,argKey);
       }
     }
@@ -718,7 +718,6 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         case 'TargetType': {
           o._updateTargetSelector(value);
           if ( _moduleArgs ) {
-            if ( !_moduleArgs[value] ) { value += 'name'; }
             arg = _moduleArgs[value];
             _typeArgs[_type] = _moduleArgs;
             if ( arg ) {
@@ -743,7 +742,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             o._updateTargetSelector(value.type);
           }
           if ( value.target && value.target != _state[_type] ) {
-            _typeArgs[_type] = {node:value.target}; // TODO Again, hardwiring 'node' ?
+            _typeArgs[_type] = {};
+            _typeArgs[_type][_type] = value.target;
             _state[_type] = value.target;
             _selectors[_type].updateGUI(value.target);
           }
@@ -763,8 +763,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       switch (action) {
         case 'needArguments': {
           if ( _moduleArgs ) {
-log('why is _moduleArgs still set???','error',me);
-//             _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
+log('why is _moduleArgs still set? '+YAHOO.lang.dump(_moduleArgs),'error',me);
+            _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
           }
           if ( _typeArgs[_type] ) {
             _sbx.notify(arr[1],'doSetArgs',_typeArgs[_type]);
