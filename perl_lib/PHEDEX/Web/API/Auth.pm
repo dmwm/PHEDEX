@@ -123,7 +123,7 @@ sub auth
 			      id => $auth->{NODES}->{$node} };
   }
 
-  return { auth => $obj };
+  return { auth => [ $obj ] };
 }
 
 1;
