@@ -12,19 +12,8 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
 
-    var _sbx = sandbox, _nodename;
+    var _sbx = sandbox, _nodename, _totalsize = 0;
     log('Module: creating a genuine "' + string + '"', 'info', string);
-
-    /**
-    * Array of object literal Column definitions for agent log information datatable.
-    * @property _dtColumnDefs
-    * @type Object[]
-    * @private
-    */
-    var _dtColumnDefs = [{ key: 'blockname', label: 'Block Name' },
-                         { key: 'fileid', label: 'File ID', className: 'align-right' },
-                         { key: 'filename', label: 'File Name' },
-                         { key: 'filebytes', label: 'File Size', className: 'align-right', "formatter": "customBytes"}];
 
     /**
     * Check if the node name is valid or not i.e should contain either _MSS or _Buffer.
@@ -68,6 +57,16 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             */
             decorators: [
                 {
+                    name: 'Extra',
+                    source:'component-control',
+                    parent: 'control',
+                    payload:{
+                        target: 'extra',
+                        handler: 'fillExtra',
+                        animate:false
+                    }
+                },
+                {
                     name: 'cMenuButton',
                     source: 'component-splitbutton',
                     payload: {
@@ -91,7 +90,12 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { columns: _dtColumnDefs },
+                table: { 
+                    columns: [{ key: 'blockname', label: 'Block Name' },
+                              { key: 'fileid', label: 'File ID', className: 'align-right' },
+                              { key: 'filename', label: 'File Name' },
+                              { key: 'filebytes', label: 'File Size', className: 'align-right', "formatter": "customBytes"}]
+                },
                 hide: ['fileid'],
                 sort: { field: 'blockname' },
                 filter: {
@@ -119,6 +123,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 arrDTBlockCols = ['blockname'],
                 arrFileCols = ['name', 'id', 'bytes'],
                 arrDTFileCols = ['filename', 'fileid', 'filebytes'];
+                _totalsize = 0;
                 for (indxQueues = 0; indxQueues < jsonData.length; indxQueues++) {
                     jsonQueues = jsonData[indxQueues].transfer_queue;
                     for (indxQueue = 0; indxQueue < jsonQueues.length; indxQueue++) {
@@ -127,6 +132,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                             jsonBlock = jsonBlocks[indxBlock];
                             for (indxFile = 0; indxFile < jsonBlock.file.length; indxFile++) {
                                 jsonFile = jsonBlock.file[indxFile];
+                                _totalsize = _totalsize + (jsonFile['bytes']/1);
                                 arrFile = [];
                                 for (indx = 0; indx < arrBlockCols.length; indx++) {
                                     arrFile[arrDTBlockCols[indx]] = jsonBlock[arrBlockCols[indx]];
@@ -199,12 +205,23 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @param data {object} missing file information in json format used to fill the datatable directly using a defined schema.
             */
             gotData: function(data) {
+                var strFromNode, strToNode;
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.link;
                 this.fillDataSource(this.data);
-                this.dom.title.innerHTML = this.data.length + ' missing file(s)';
+                strFromNode = _getFromNode(_nodename);
+                strToNode = strFromNode.replace('_Buffer', '_MSS');
+                this.dom.title.innerHTML = this.data.length + ' missing file(s) for (' + strFromNode + ', ' + strToNode + ') node pair';
                 _sbx.notify(this.id, 'gotData');
+            },
+
+            /**
+            * This updates the extra content with the total size of files that are yet to be migrated.
+            * @method fillExtra
+            */
+            fillExtra: function() {
+                this.dom.extra.innerHTML = 'The total size of files yet to be migrated is ' + PHEDEX.Util.format.bytes(_totalsize);
             }
         };
     };
