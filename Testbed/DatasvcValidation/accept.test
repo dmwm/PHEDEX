@@ -1,13 +1,29 @@
+## This file contains tests for datasvc APIs
+## Each test is in a line
+##
+## Lines beginning with "##" are internal comments, which will not show up in the output
+##
+## Lines beginning with single '#' are general comments, which are simply printed to the output
+##
+## Each non-empty line, other than comments, is a test in the following format
+## [-]<call> [<key> [<count>]]
+##
+## <call>  : api call, may include arguments
+##           if it begins with '-', a negative (ERROR) is expected
+## <key>   : key of the result. if present, the count will be calculated
+## <count> : is of this format: (>|<|=|>=|<=)<number>, a relational operator and the expected number.
+##           when present, the result count is compared to this number according to the relational operator
+
 # PHEDEX::Web::API::Agents - currently running agents
-agents
-agents?node=T1_US_FNAL_MSS
-agents?agent=FileDownload
-agents?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer
-agents?se=cmssrm.fnal.gov
-agents?node=NoWhere
+agents node
+agents?node=T1_US_FNAL_MSS node
+agents?agent=FileDownload node
+agents?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer node
+agents?se=cmssrm.fnal.gov node
+agents?node=NoWhere node =0
 
 # PHEDEX::Web::API::AgentLogs - show messages from the agents
-agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter
+agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter 
 -agentlogs
 
 # PHEDEX::Web::API::Auth - authentication information
@@ -157,7 +173,7 @@ transferqueuehistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS&starttime=last_wee
 # PHEDEX::Web::API::TransferQueueStats - current transfer queue
 transferqueuestats
 transferqueuestats?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS
-transferqueuestats?from=NoWhere&to=NoWhereEither
+transferqueuestats?from=NoWhere&to=NoWhereEither 
 
 # PHEDEX::Web::API::TransferRequests - transfer requests
 transferrequests
