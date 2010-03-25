@@ -145,7 +145,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             */
             fillDataSource: function(moduledata) {
                 if (this.meta.table.schema) {
-                    this.fillDataSourceWithSchema( moduledata ); // {this.meta.table.schema.resultsList : moduledata} ); //Fill datasource directly if schema is available
+                    this.fillDataSourceWithSchema( moduledata ); // Fill datasource directly if schema is available
                     return;
                 }
                 if (this.needProcess) {
@@ -509,15 +509,21 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
           */
           applyFilter: function(args) {
             // Parse the cached data to filter it and form new data that feeds the datasource
-            var keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult;
+            var activeArgs={}, keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult, any = false;
             if (!args) { args = this.args; }
             this.count=0;
+            for (j in args) { // quick explicit check for valid arguments, nothing to do if no filter is set
+              if (typeof(args[j].values) == 'undefined') { continue; }
+              any = true;
+              activeArgs[j] = args[j];
+            }
+            if ( !any ) { return; }
+
             for (i in obj.data) {
                 keep = true;
-                for (j in args) {
-                    a = args[j];
+                for (j in activeArgs) {
+                    a = activeArgs[j];
                     field = this.meta._filter.fields[j];
-                    if (typeof (a.values) == 'undefined') { continue; }
                     fValue = a.values;
                     var key = obj._getKeyByKeyOrLabel(field.original);
                     kValue = obj.data[i][obj._getKeyByKeyOrLabel(field.original)];
