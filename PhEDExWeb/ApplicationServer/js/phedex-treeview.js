@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, },
+      _cfg: { textNodeMap:[], headerNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, },
 /**
  * An object for caching DOM<->JSON mappings for faster lookup
  * @property _cache
@@ -237,6 +237,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         el = PxU.makeNode(spec,values);
         tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
         this._cfg.textNodeMap[tNode.labelElId] = tNode;
+        if ( isHeader ) { this._cfg.headerNodeMap[tNode.labelElId] = tNode; }
         tNode.data.values = values;
         tNode.data.spec   = spec;
         if ( spec.payload ) { tNode.payload = spec.payload; }
@@ -278,10 +279,9 @@ PHEDEX.TreeView = function(sandbox,string) {
  */
       truncateTree: function() {
         var i;
-        while (i = this.tree.root.children[0]) {
-          this.tree.removeNode(i);
-          delete this._cfg.textNodeMap[i.labelElId];
-        }
+        while (i = this.tree.root.children[0]) { this.tree.removeNode(i); }
+        this._cfg.textNodeMap = [];
+        for (i in this._cfg.headerNodeMap) { this._cfg.textNodeMap[i] = this._cfg.headerNodeMap[i]; }
       },
 
       menuSelectItem: function(args) {
