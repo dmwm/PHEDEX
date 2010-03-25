@@ -46,6 +46,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             return strNodeName.replace('_MSS', '_Buffer');
         }
     };
+    this.allowNotify['parseData'] = 1;
 
     //Used to construct the queued migrations module.
     _construct = function() {
@@ -92,20 +93,20 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             meta: {
                 table: { 
                     columns: [{ key: 'blockname', label: 'Block Name' },
-                              { key: 'fileid', label: 'File ID', className: 'align-right' },
-                              { key: 'filename', label: 'File Name' },
-                              { key: 'filebytes', label: 'File Size', className: 'align-right', "formatter": "customBytes"}]
+                              { key: 'fileid',    label: 'File ID', className: 'align-right' },
+                              { key: 'filename',  label: 'File Name' },
+                              { key: 'filebytes', label: 'File Size', className: 'align-right', formatter: "customBytes"}]
                 },
-                hide: ['fileid'],
-                sort: { field: 'blockname' },
+                hide: ['File ID'],
+                sort: { field: 'Block Name' },
                 filter: {
                     'QueuedMigrations attributes': {
                         map: { to: 'Q' },
                         fields: {
-                            'blockname': { type: 'regex', text: 'Block Name', tip: 'javascript regular expression' },
-                            'filename': { type: 'regex', text: 'File Name', tip: 'javascript regular expression' },
-                            'filebytes': { type: 'minmax', text: 'File Size', tip: 'integer range' },
-                            'fileid': { type: 'int', text: 'File ID', tip: 'ID' }
+                            'Block Name': { type: 'regex',  text: 'Block Name', tip: 'javascript regular expression' },
+                            'File Name':  { type: 'regex',  text: 'File Name',  tip: 'javascript regular expression' },
+                            'File Size':  { type: 'minmax', text: 'File Size',  tip: 'integer range (bytes)' },
+                            'File ID':    { type: 'int',    text: 'File ID',    tip: 'ID of file in TMDB' }
                         }
                     }
                 }
@@ -122,15 +123,19 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 arrBlockCols = ['name'],
                 arrDTBlockCols = ['blockname'],
                 arrFileCols = ['name', 'id', 'bytes'],
-                arrDTFileCols = ['filename', 'fileid', 'filebytes'];
+                arrDTFileCols = ['filename', 'fileid', 'filebytes'],
+                _jLen = jsonData.length, jQLen, jBLen, jBfLen;
                 _totalsize = 0;
                 for (indxQueues = 0; indxQueues < jsonData.length; indxQueues++) {
                     jsonQueues = jsonData[indxQueues].transfer_queue;
-                    for (indxQueue = 0; indxQueue < jsonQueues.length; indxQueue++) {
+                    jQLen = jsonQueues.length;
+                    for (indxQueue = 0; indxQueue < jQLen; indxQueue++) {
                         jsonBlocks = jsonQueues[indxQueue].block;
-                        for (indxBlock = 0; indxBlock < jsonBlocks.length; indxBlock++) {
+                        jBLen = jsonBlocks.length;
+                        for (indxBlock = 0; indxBlock < jBLen; indxBlock++) {
                             jsonBlock = jsonBlocks[indxBlock];
-                            for (indxFile = 0; indxFile < jsonBlock.file.length; indxFile++) {
+                            jBfLen = jsonBlock.file.length;
+                            for (indxFile = 0; indxFile < jBfLen; indxFile++) {
                                 jsonFile = jsonBlock.file[indxFile];
                                 _totalsize = _totalsize + (jsonFile['bytes']/1);
                                 arrFile = [];
@@ -209,6 +214,9 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.link;
+                _sbx.notify(this.id,'parseData'); // parsing takes a long time, so update the GUI to let them know why they're waiting...
+            },
+            parseData: function() {
                 this.fillDataSource(this.data);
                 strFromNode = _getFromNode(_nodename);
                 strToNode = strFromNode.replace('_Buffer', '_MSS');
