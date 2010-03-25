@@ -104,8 +104,10 @@ PHEDEX.DataTable = function(sandbox, string) {
 //            obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
               for (i in columns) {
                 key = this._getKeyByKeyOrLabel(columns[i].key);
-                fName = this.friendlyName(columns[i].label);
-                m._filter.fields[key] = { friendlyName:fName };
+                if ( !m._filter.fields[key] ) {
+                  fName = this.friendlyName(columns[i].label);
+                  m._filter.fields[key] = { friendlyName:fName };
+                }
               }
 
               for (i in m.filter) {
