@@ -66,15 +66,15 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             meta: {
                 table: { columns: _dtColumnDefs },
                 hide: [],
-                sort: { field: 'name' },
+                sort: { field: 'Agent Name' },
                 filter: {
                     'AgentCommand attributes': {
                         map: { to: 'A' },
                         fields: {
-                            'name': { type: 'regex', text: 'Agent Name', tip: 'javascript regular expression' },
-                            'time': { type: 'minmax', text: 'Log Time', tip: 'log time in unix-epoch seconds' },
-                            'reason': { type: 'regex', text: 'Log Reason', tip: 'javascript regular expression' },
-                            'message': { type: 'regex', text: 'Log Message', tip: 'javascript regular expression' }
+                            'Agent Name':  { type: 'regex',  text: 'Agent Name',  tip: 'javascript regular expression' },
+                            'Log Time':    { type: 'minmax', text: 'Log Time',    tip: 'log time in unix-epoch seconds' },
+                            'Log Reason':  { type: 'regex',  text: 'Log Reason',  tip: 'javascript regular expression' },
+                            'Log Message': { type: 'regex',  text: 'Log Message', tip: 'javascript regular expression' }
                         }
                     }
                 }
