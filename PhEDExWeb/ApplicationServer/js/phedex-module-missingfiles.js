@@ -67,23 +67,23 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             */
             meta: {
                 table: { columns: _dtColumnDefs },
-                hide: ['se', 'id', 'node_id'],
-                sort: { field: 'name' },
+                hide: ['SE', 'File ID', 'Node ID'],
+                sort: { field: 'File' },
                 filter: {
                     'MissingFiles attributes': {
                         map: { to: 'F' },
                         fields: {
-                            'id': { type: 'int', text: 'ID', tip: 'File-ID' },
-                            'name': { type: 'regex', text: 'File', tip: 'javascript regular expression' },
-                            'bytes': { type: 'minmax', text: 'File Bytes', tip: 'integer range' },
-                            'origin_node': { type: 'regex', text: 'Origin Node', tip: 'javascript regular expression' },
-                            'time_create': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation in unix-epoch seconds' },
-                            'group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
-                            'custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
-                            'se': { type: 'regex', text: 'SE', tip: 'javascript regular expression' },
-                            'node_id': { type: 'int', text: 'Node ID', tip: 'Node ID' },
-                            'node_name': { type: 'regex', text: 'Node name', tip: 'javascript regular expression' },
-                            'subscribed': { type: 'yesno', text: 'Subscribed', tip: 'Show subscribed and/or non-subscribed files (default is both)' }
+                            'File ID': { type: 'int', text: 'ID', tip: 'File-ID' },
+                            'File': { type: 'regex', text: 'File', tip: 'javascript regular expression' },
+                            'File Bytes': { type: 'minmax', text: 'File Bytes', tip: 'integer range' },
+                            'Origin Node': { type: 'regex', text: 'Origin Node', tip: 'javascript regular expression' },
+                            'TimeCreate': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation in unix-epoch seconds' },
+                            'Group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
+                            'Custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
+                            'SE': { type: 'regex', text: 'SE', tip: 'javascript regular expression' },
+                            'Node ID': { type: 'int', text: 'Node ID', tip: 'Node ID' },
+                            'Node Name': { type: 'regex', text: 'Node name', tip: 'javascript regular expression' },
+                            'Subscribed': { type: 'yesno', text: 'Subscribed', tip: 'Show subscribed and/or non-subscribed files (default is both)' }
                         }
                     }
                 }
@@ -143,8 +143,8 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
             */
             setArgs: function(arr) {
-                if (arr && arr.blockname) {
-                    _blockname = arr.blockname;
+                if (arr && arr.block) {
+                    _blockname = arr.block;
                     if (!_blockname) { return; }
                     this.dom.title.innerHTML = 'setting parameters...';
                     _sbx.notify(this.id, 'setArgs');
