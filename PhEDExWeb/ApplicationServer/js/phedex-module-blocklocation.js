@@ -272,6 +272,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                         _divMissingBlks.innerHTML = strXmlMsg;
                     }
                 }
+                _sbx.notify(this.id,'gotData');
             }
             catch (e) {
                 banner("Error in processing the received response. Please check the input.", 'error');
@@ -883,7 +884,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             */
             setArgs: function(args) {
                 if (!args) { return; }
-                if (args.blockname) { _strBlocksName = args.blockname; }
+                if (args.block) { _strBlocksName = args.block; }
                 else { _strBlocksName = ""; }
                 _divInput.txtboxBlk.value = _strBlocksName; //This is temporary. Just to set the name of block in the input textbox when the module is called from other modules.
                 if (!(typeof (args.nodename) == 'undefined')) { _strNodesName = args.nodename; }
