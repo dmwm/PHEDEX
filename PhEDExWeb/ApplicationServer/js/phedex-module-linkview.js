@@ -413,6 +413,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         args.binwidth = _time*3600;
         this.data = {};
         this.truncateTree();
+        this.tree.render();
         _sbx.notify( this.id, 'getData', { api:'TransferQueueStats', args:args, magic:magic } );
         _sbx.notify( this.id, 'getData', { api:'TransferHistory',    args:args, magic:magic } );
         _sbx.notify( this.id, 'getData', { api:'ErrorLogSummary',    args:args, magic:magic } );
@@ -422,6 +423,9 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         if ( this._magic != context.magic ) {
           log('Old data has lost its magic: "'+this._magic+'" != "'+context.magic+'"','warn',this.me);
           return;
+        }
+        if ( !data.link ) {
+          throw new Error('data incomplete for '+context.api);
         }
         if ( context.api == 'TransferQueueStats' ) { this.data.queue = data.link; }
         if ( context.api == 'TransferHistory' )    { this.data.hist  = data.link; }
