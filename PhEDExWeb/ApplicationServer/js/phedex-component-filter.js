@@ -11,7 +11,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
   Yla(this, new PHEDEX[obj.type].Filter(sandbox,obj));
 
   this.id = _me+'_'+PxU.Sequence();
-  this.selfHandler = function(obj) {
+  this.selfHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
           subAction = arr[1];
@@ -19,39 +19,41 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         case 'Filter': {
           switch (subAction) {
             case 'Reset': {
-              obj._resetFilter();
-              obj.resetFilter();
-              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
-              YuD.removeClass(obj.ctl.filterControl.el,'phedex-core-control-widget-applied');
+              o._resetFilter();
+              o.resetFilter();
+              if ( !o.dom.cBox.checked ) { o.ctl.filterControl.Hide(); }
+              YuD.removeClass(o.ctl.filterControl.el,'phedex-core-control-widget-applied');
+              _sbx.notify(obj.id,'doSort'); // TODO This is ugly, having to know that sorting is needed. However, it's the only way to avoid doing it twice at the moment...
               break;
             }
             case 'Validate': {
-              if ( obj.Parse() ) {
-                _sbx.notify(obj.id,'Filter','Apply',obj.args);
+              if ( o.Parse() ) {
+                _sbx.notify(o.id,'Filter','Apply',o.args);
               }
               break;
             }
             case 'Apply': {
-              obj.applyFilter(arr[2]);
+              o.applyFilter(arr[2]);
+              _sbx.notify(obj.id,'doSort'); // TODO see comment above...
               break;
             }
             case 'cBox': {
-              if ( !obj.dom.cBox.checked ) { obj.ctl.filterControl.Hide(); }
+              if ( !o.dom.cBox.checked ) { o.ctl.filterControl.Hide(); }
               break;
             }
           }
           break;
         }
         case 'expand': { // set focus appropriately when the filter is revealed
-          if ( !obj.firstAlignmentDone ) {
-            obj.overlay.align(this.context_el,this.align_el);
-            obj.firstAlignmentDone = true;
+          if ( !o.firstAlignmentDone ) {
+            o.overlay.align(this.context_el,this.align_el);
+            o.firstAlignmentDone = true;
           }
-          if ( obj.focusOn ) { obj.focusOn.focus(); }
+          if ( o.focusOn ) { o.focusOn.focus(); }
           break;
         }
         case 'setApplied': {
-          obj.ctl.filterControl.setApplied(arr[1]);
+          o.ctl.filterControl.setApplied(arr[1]);
           break;
         }
       }
