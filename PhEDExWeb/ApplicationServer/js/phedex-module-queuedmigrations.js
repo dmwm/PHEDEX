@@ -10,7 +10,7 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
+    Yla(this, new PHEDEX.DataTable(sandbox, string));
 
     var _sbx = sandbox, _nodename, _totalsize = 0;
     log('Module: creating a genuine "' + string + '"', 'info', string);

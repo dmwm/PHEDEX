@@ -10,7 +10,7 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.GroupUsage = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this,new PHEDEX.DataTable(sandbox,string));
+    Yla(this,new PHEDEX.DataTable(sandbox,string));
 
     var _sbx = sandbox, _groupname;
     log('Module: creating a genuine "'+string+'"','info',string);
@@ -103,8 +103,8 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
              * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
              */
             setArgs: function(arr) {
-              if ( arr && arr.groupname ) {
-                _groupname = arr.groupname;
+              if ( arr && arr.group ) {
+                _groupname = arr.group;
                 if ( !_groupname ) { return; }
                 this.dom.title.innerHTML = 'setting parameters...';
                 _sbx.notify(this.id,'setArgs');
