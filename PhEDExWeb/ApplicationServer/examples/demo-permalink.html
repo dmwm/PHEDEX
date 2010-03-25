@@ -65,7 +65,19 @@ YAHOO.util.Event.onDOMReady(function() {
    'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{B.name%20asc%20alpha}hide{L.error-log%20F.cksum}filter{!B.name%3D/Min}specific{time%3D168%20dir%3D1}',
 
   'Production, GroupUsage DataOps':
-    'instance~Production+type~group+target~DataOps+widget~groupusage+module~'
+    'instance~Production+type~group+target~DataOps+widget~groupusage+module~',
+
+  'Production, GroupUsage DataOps, sort{G.ResidentBytes desc}':
+    'instance~Production+type~group+target~DataOps+widget~groupusage+module~sort{G.ResidentBytes desc}hide{G.SE G.ID G.ResidentFiles G.SubscribedFiles}',
+
+  'Production QueuedMigrations, T1_US_FNAL_Buffer, sort{Q.BlockName, asc} hide{Q.FileID}':
+    'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~queuedmigrations+module~sort{Q.BlockName%20asc}hide{Q.FileID}',
+
+  'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
+    'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~',
+
+  'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8 sort{F.File desc} hide{F.SE F.FileID F.NodeID F.TimeCreate F.OriginNode F.FileBytes}':
+    'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~sort{F.File%20desc}hide{F.SE%20F.FileID%20F.NodeID%20F.TimeCreate%20F.OriginNode%20F.FileBytes}'
      },
       i, ul, li, a;
 
