@@ -37,7 +37,10 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                     name: 'ContextMenu',
                     source: 'component-contextmenu',
                     payload: {
-                        args: { 'missingfile': 'Name' }
+                        args: { 'missingfile': 'Name' },
+// TODO would like to add this, but need field-sensitive menus for data-tables first!
+//                         typeNames: ['node'],
+//                         typeMap: {node:'Origin Node'}
                     }
                 }
             ],
