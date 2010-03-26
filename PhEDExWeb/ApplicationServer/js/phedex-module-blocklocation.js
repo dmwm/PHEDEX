@@ -13,7 +13,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
-    var _sbx = sandbox,
+    var _sbx = sandbox, _myID = this.id,
         _strBlocksName = "",       //The block names input
         _strNodesName = "",        //The node name input
         _totalRow = {},            //The first row JSON object that has the values
@@ -154,7 +154,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             _clearResult();
             return;
         }
-        _sbx.notify('module', '*', 'doSetArgs', { "blockname": strBlkInput, "nodename": strNodeInput, "lowpercent": nLowPercent, "highpercent": nHighPercent });
+        _sbx.notify('module', '*', 'doSetArgs', { "block": strBlkInput, "nodename": strNodeInput, "lowpercent": nLowPercent, "highpercent": nHighPercent });
     }
 
     /**
@@ -272,7 +272,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                         _divMissingBlks.innerHTML = strXmlMsg;
                     }
                 }
-                _sbx.notify(this.id,'gotData');
+                _sbx.notify(_myID,'gotData');
             }
             catch (e) {
                 banner("Error in processing the received response. Please check the input.", 'error');
