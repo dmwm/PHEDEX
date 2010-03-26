@@ -17,8 +17,8 @@ my ($config_dir, $me) = ($0 =~ m:(.*)/([^/]+)$:);
 my $action = shift @ARGV;
 my $pkg    = shift @ARGV;
 
-die "$me: must provide package to build, one of (@known_pkg)\n" unless $pkg;
 die "$me: must provide an action, one of (@known_actions)\n" unless $action;
+die "$me: must provide package to build, one of (@known_pkg)\n" unless $pkg;
 chomp($pkg, $action);
 die "$me: unknown package $pkg, options are (@known_pkg)\n" unless grep $pkg eq $_, @known_pkg;
 die "$me: unknown action $action, options are (@known_actions)\n" unless grep($action eq $_, @known_actions);
