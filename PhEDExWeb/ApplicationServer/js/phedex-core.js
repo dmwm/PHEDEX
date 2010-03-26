@@ -298,7 +298,7 @@ PHEDEX.Core = function(sandbox,loader) {
                 else { _m.gotData(data,context); }
               } catch(ex) {
                 log(ex,'error',who);
-                banner('Error processing data for '+who,'error');
+                banner('Error processing data for '+_m.me,'error');
               }
             }(m);
           });
