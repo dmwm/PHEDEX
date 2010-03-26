@@ -21,7 +21,7 @@ our $podpath = join ':', qw(perl_lib Schema);
 our $htmldir = catdir($podroot, "Documentation/html");
 our $cssfile = "cpan_min.css";
 our $csslink = "$htmldir/$cssfile";
-our $docexts = qr/\.(pm|sql)$/;
+our $docexts = qr/\.(pm|sql|pod)$/;
 our $base_title = "PhEDEx Code Documentation";
 our @title_hide = qw(Infrastructure);
 
