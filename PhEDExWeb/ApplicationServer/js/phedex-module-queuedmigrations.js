@@ -59,12 +59,12 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             decorators: [
                 {
                     name: 'Extra',
-                    source:'component-control',
+                    source: 'component-control',
                     parent: 'control',
-                    payload:{
+                    payload: {
                         target: 'extra',
                         handler: 'fillExtra',
-                        animate:false
+                        animate: false
                     }
                 },
                 {
@@ -91,10 +91,10 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { 
+                table: {
                     columns: [{ key: 'blockname', label: 'Block Name' },
-                              { key: 'fileid',    label: 'File ID', className: 'align-right' },
-                              { key: 'filename',  label: 'File Name' },
+                              { key: 'fileid', label: 'File ID', className: 'align-right' },
+                              { key: 'filename', label: 'File Name' },
                               { key: 'filebytes', label: 'File Size', className: 'align-right', formatter: "customBytes"}]
                 },
                 hide: ['File ID'],
@@ -103,10 +103,10 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                     'QueuedMigrations attributes': {
                         map: { to: 'Q' },
                         fields: {
-                            'Block Name': { type: 'regex',  text: 'Block Name', tip: 'javascript regular expression' },
-                            'File Name':  { type: 'regex',  text: 'File Name',  tip: 'javascript regular expression' },
-                            'File Size':  { type: 'minmax', text: 'File Size',  tip: 'integer range (bytes)' },
-                            'File ID':    { type: 'int',    text: 'File ID',    tip: 'ID of file in TMDB' }
+                            'Block Name': { type: 'regex', text: 'Block Name', tip: 'javascript regular expression' },
+                            'File Name': { type: 'regex', text: 'File Name', tip: 'javascript regular expression' },
+                            'File Size': { type: 'minmax', text: 'File Size', tip: 'integer range (bytes)' },
+                            'File ID': { type: 'int', text: 'File ID', tip: 'ID of file in TMDB' }
                         }
                     }
                 }
@@ -124,7 +124,8 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 arrDTBlockCols = ['blockname'],
                 arrFileCols = ['name', 'id', 'bytes'],
                 arrDTFileCols = ['filename', 'fileid', 'filebytes'],
-                _jLen = jsonData.length, jQLen, jBLen, jBfLen;
+                nArrBLen = arrBlockCols.length, nArrFLen = arrFileCols.length,
+                _jLen = jsonData.length, jQLen, jBLen, jBfLen; 
                 _totalsize = 0;
                 for (indxQueues = 0; indxQueues < jsonData.length; indxQueues++) {
                     jsonQueues = jsonData[indxQueues].transfer_queue;
@@ -137,12 +138,12 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                             jBfLen = jsonBlock.file.length;
                             for (indxFile = 0; indxFile < jBfLen; indxFile++) {
                                 jsonFile = jsonBlock.file[indxFile];
-                                _totalsize = _totalsize + (jsonFile['bytes']/1);
+                                _totalsize = _totalsize + (jsonFile['bytes'] / 1);
                                 arrFile = [];
-                                for (indx = 0; indx < arrBlockCols.length; indx++) {
+                                for (indx = 0; indx < nArrBLen; indx++) {
                                     arrFile[arrDTBlockCols[indx]] = jsonBlock[arrBlockCols[indx]];
                                 }
-                                for (indx = 0; indx < arrFileCols.length; indx++) {
+                                for (indx = 0; indx < nArrFLen; indx++) {
                                     arrFile[arrDTFileCols[indx]] = jsonFile[arrFileCols[indx]];
                                 }
                                 arrData.push(arrFile);
@@ -170,7 +171,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
 
             /** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
             * @method setArgs
-            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>QueuedMigrations</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
             */
             setArgs: function(arr) {
                 if (!arr) { return; }
@@ -205,17 +206,22 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             },
 
             /**
-            * This processes the queued migrations information obtained from data service and shows in YUI datatable.
+            * This intitiates processing of queued migrations information obtained from data service.
             * @method gotData
-            * @param data {object} missing file information in json format used to fill the datatable directly using a defined schema.
+            * @param data {object} queued migration file information in json format.
             */
             gotData: function(data) {
                 var strFromNode, strToNode;
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.link;
-                _sbx.notify(this.id,'parseData'); // parsing takes a long time, so update the GUI to let them know why they're waiting...
+                _sbx.notify(this.id, 'parseData'); // parsing takes a long time, so update the GUI to let them know why they're waiting...
             },
+
+            /**
+            * This processes the data after getting it from data service and shows result in YUI datatable.
+            * @method parseData
+            */
             parseData: function() {
                 this.fillDataSource(this.data);
                 strFromNode = _getFromNode(_nodename);
