@@ -26,10 +26,6 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             decorators: [{
                 name: 'ContextMenu',
                 source:'component-contextmenu',
-                payload:{
-                    typeNames: ['node'],
-                    typeMap: {node:'name'}
-                }
             },
             {
                 name:'cMenuButton',
@@ -47,6 +43,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @type Object
             */
             meta: {
+                ctxArgs: { Node:'node' },
                 table: {
                   columns: [
                             { key: 'name', label: 'Node' },

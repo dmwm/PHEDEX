@@ -91,6 +91,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @type Object
             */
             meta: {
+                ctxArgs: { 'Block Name':'block' },
                 table: {
                     columns: [{ key: 'blockname', label: 'Block Name' },
                               { key: 'fileid', label: 'File ID', className: 'align-right' },

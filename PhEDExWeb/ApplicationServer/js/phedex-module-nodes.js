@@ -11,10 +11,6 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         {
           name: 'ContextMenu',
           source:'component-contextmenu',
-          payload:{
-            typeNames: ['node'],
-            typeMap: {node:'Name'}
-          }
         },
         {
           name: 'cMenuButton',
@@ -30,6 +26,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       ],
 
       meta: {
+        ctxArgs: { Name:'node' },
         table: {
           columns: [ {key:'ID',parser:YAHOO.util.DataSource.parseNumber, className:'align-right' },'Name','Kind','Technology','SE' ]
         },

@@ -38,9 +38,6 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                     source: 'component-contextmenu',
                     payload: {
                         args: { 'missingfile': 'Name' },
-// TODO would like to add this, but need field-sensitive menus for data-tables first!
-//                         typeNames: ['node'],
-//                         typeMap: {node:'Origin Node'}
                     }
                 }
             ],
@@ -51,6 +48,7 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             * @type Object
             */
             meta: {
+                ctxArgs: { 'Origin Node':'node', 'Node Name':'node' },
                 table: { columns: [{ key: 'id', label: 'File ID', className: 'align-right' },
                                    { key: 'name', label: 'File' },
                                    { key: 'bytes', label: 'File Bytes', className: 'align-right', "formatter": "customBytes" },
