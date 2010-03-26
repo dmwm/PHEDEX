@@ -375,46 +375,69 @@ YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn
 * @param args {object} reference to an object that specifies details of how the control should operate.
 */
 PHEDEX.DataTable.ContextMenu = function(obj,args) {
-    var p = args.payload;
-    if ( !p.config ) { p.config={}; }
-    if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
-    if ( !p.typeNames ) { p.typeNames=[]; }
-    p.typeNames.push('datatable');
-    var fn = function(opts, el) {
-      log('hideField: ' + el.col.label, 'info', 'component-contextmenu');
-      el.obj.meta.hide[el.col.label] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
-      el.obj.dataTable.hideColumn(el.col);
-    }
-    PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
+  var p = args.payload;
+  if ( !p.config ) { p.config={}; }
+  if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
+  if ( !p.typeNames ) { p.typeNames=[]; }
+  p.typeNames.push('datatable');
+  var fn = function(opts, el) {
+    log('hideField: ' + el.col.label, 'info', 'component-contextmenu');
+    el.obj.meta.hide[el.col.label] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
+    el.obj.dataTable.hideColumn(el.col);
+  }
+  PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
 
-    return {
-        /**
-        * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, driven by the <strong>args.payload.typeMap</strong> structure which defines the fields and their mapping. The second argument contains pointers to the datatable, the row, column, and record that were selected. This should probably not be used by clients because it represents rather deep and personal knowledge about the object.
-        * @method onContextMenuClick
-        * @private
-        */
-        onContextMenuClick: function(p_sType, p_aArgs, obj) {
-            log('ContextMenuClick for ' + obj.me, 'info', 'datatable');
-            var menuitem = p_aArgs[1], tgt, opts={}, type;
-            if (menuitem) {
-                //Extract which <tr> triggered the context menu
-                tgt = this.contextEventTarget,
-                elCol = obj.dataTable.getColumn(tgt),
-                elRow = obj.dataTable.getTrEl(tgt);
-                if (elRow) {
-                    opts = {};
-                    oRecord = obj.dataTable.getRecord(elRow);
-                    //Map types to column names in order to prepare our options
-                    if (p.typeMap) {
-                        for (type in p.typeMap) {
-                            opts[type] = oRecord.getData(p.typeMap[type]);
-                        }
-                    }
-                    menuitem.value.fn(opts, { obj:obj, row: elRow, col: elCol, record: oRecord });
-                }
-            }
+  return {
+      getExtraContextTypes: function() {
+        var cArgs = p.obj.meta.ctxArgs, cUniq = {}, i;
+        for (i in cArgs) {
+          cUniq[cArgs[i]] = 1;
         }
-    };
+        return cUniq;
+      },
+
+//  Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
+    onContextMenuBeforeShow: function(target, typeNames) {
+      var elCol, label, ctx = p.obj.meta.ctxArgs;
+      if ( !ctx ) { return typeNames; }
+      elCol = obj.dataTable.getColumn(target),
+      label = elCol.label;
+      if ( !ctx[label] ) { return typeNames; }
+      typeNames.unshift(ctx[label]);
+      return typeNames;
+    },
+
+    /**
+    * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, driven by the <strong>args.payload.typeMap</strong> structure which defines the fields and their mapping. The second argument contains pointers to the datatable, the row, column, and record that were selected. This should probably not be used by clients because it represents rather deep and personal knowledge about the object.
+    * @method onContextMenuClick
+    * @private
+    */
+    onContextMenuClick: function(p_sType, p_aArgs, obj) {
+      log('ContextMenuClick for ' + obj.me, 'info', 'datatable');
+      var menuitem = p_aArgs[1], tgt, opts={}, elCol, elRow, oRecord, ctx, key, label;
+      if (menuitem) {
+        //Extract which <tr> triggered the context menu
+        tgt   = this.contextEventTarget;
+        elCol = obj.dataTable.getColumn(tgt);
+        elRow = obj.dataTable.getTrEl(tgt);
+        if (elRow) {
+          opts = {};
+          oRecord = obj.dataTable.getRecord(elRow);
+          //Map types to column names in order to prepare our options
+          ctx = p.obj.meta.ctxArgs;
+          if ( ctx ) {
+            for (label in ctx) {
+              if ( ctx[label] != ctx[elCol.label] || label == elCol.label ) {
+                key = p.obj._getKeyByKeyOrLabel(label);
+                opts[ctx[label]] = oRecord.getData(key);
+              }
+            }
+          }
+          menuitem.value.fn(opts, { obj:obj, row: elRow, col: elCol, record: oRecord });
+        }
+      }
+    }
+  };
 }
 
 /** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
