@@ -10,7 +10,7 @@ use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
-my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only,$log);
+my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only,$log,$autotruncate);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
 my ($cert_file,$key_file,$proxy,$pk12,$nocert);
 
@@ -116,6 +116,7 @@ GetOptions( 'help'	=> \$help,
 	    'nocert'		=> \$nocert,
 	    'pk12=s'		=> \$pk12,
 	    'logfile=s'		=> \$log,
+	    'autotruncate'	=> \$autotruncate,
 	  );
 
 usage() if $help;
@@ -229,7 +230,7 @@ POE::Component::Server::TCP->new
         }
         if ( -f $file )
         {
-          if ( $file =~ m%.html$% && $log )
+          if ( $file =~ m%.html$% && $log && $autotruncate )
           {
             open LOG, ">$log" or die "Cannot open $log to truncate it: $!\n";
             close LOG;
