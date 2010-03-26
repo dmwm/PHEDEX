@@ -187,14 +187,14 @@ sub verify
     # presentation of $len/count
     if (! defined $len)
     {
-        $len = " N/A ";
+        $len = "  N/A  ";
     }
     else
     {
-        $len = sprintf("%05i", $len);
+        $len = sprintf("%07i", $len);
     }
     my $res = ($result eq $expect)?"PASS":"FAIL";
-    printf "%03i %4s (%5s %5s) call=%0.4f total=%.4f count=$len %s\n", $n, $res, $expect, $result, $call_time, $elapsed, $url;
+    printf "%03i %4s (%5s %5s) call=%8.4f total=%8.4f count=$len %s\n", $n, $res, $expect, $result, $call_time, $elapsed, $url;
     $n++;
 }
 
