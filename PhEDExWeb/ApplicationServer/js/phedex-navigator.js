@@ -663,7 +663,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           queryMatchContains: true
         },
         auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg);
-    var selection_callback = function(type, args) {
+    var selection_callback = function(_dummy, args) {
       var value = args[2][0];
       _state[_type] = value;
       if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
@@ -713,6 +713,12 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         }
         case 'NewModuleArgs': {
           _moduleArgs = value;
+          arg = _moduleArgs[_type];
+          if ( arg ) {
+            _typeArgs[_type][_type] = arg;
+            _state[_type] = arg;
+            _selectors[_type].updateGUI(arg);
+          }
           break;
         }
         case 'TargetType': {
