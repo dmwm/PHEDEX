@@ -1,5 +1,5 @@
 /**
-* The class is used to create agent logs module that is used to show agents log information for the given node and agent name.
+* The class is used to create agent logs module that is used to show agents log information for the given node name.
 * The agent logs information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
 * show it to user in a YUI datatable.
 * @namespace PHEDEX.Module
@@ -10,32 +10,21 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.AgentLogs = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
+    Yla(this, new PHEDEX.DataTable(sandbox, string));
 
     var _sbx = sandbox, _nodename;
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
-    /**
-    * Array of object literal Column definitions for agent log information datatable.
-    * @property _dtColumnDefs
-    * @type Object[]
-    * @private
-    */
-    var _dtColumnDefs = [{ key: 'name', label: 'Agent Name' },
-                         { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT' },
-                         { key: 'reason', label: 'Log Reason' },
-                         { key: 'message', label: 'Log Message', width: 450, "formatter": "customTextBox"}];
-
-     //The custom column format to the message column
-     YAHOO.widget.DataTable.Formatter.customTextBox = function(elCell, oRecord, oColumn, sData) {
+    //The custom column format for the message column
+    YAHOO.widget.DataTable.Formatter.customTextBox = function(elCell, oRecord, oColumn, sData) {
         elCell.innerHTML = '<textarea class="phedex-dt-txtbox" readonly="yes">' + sData + '</textarea>';
-     };
+    };
 
     //Used to construct the agent logs module.
     _construct = function() {
         return {
             /**
-            * Used for styling the elements of the widget.
+            * Used for styling the elements of the module.
             * @property decorators
             * @type Object[]
             */
@@ -64,17 +53,21 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { columns: _dtColumnDefs },
+                table: { columns: [{ key: 'name', label: 'Agent Name' },
+                                   { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT' },
+                                   { key: 'reason', label: 'Log Reason' },
+                                   { key: 'message', label: 'Log Message', width: 450, "formatter": "customTextBox"}]
+                },
                 hide: [],
                 sort: { field: 'Agent Name' },
                 filter: {
-                    'AgentCommand attributes': {
+                    'AgentLogs attributes': {
                         map: { to: 'A' },
                         fields: {
-                            'Agent Name':  { type: 'regex',  text: 'Agent Name',  tip: 'javascript regular expression' },
-                            'Log Time':    { type: 'minmax', text: 'Log Time',    tip: 'log time in unix-epoch seconds' },
-                            'Log Reason':  { type: 'regex',  text: 'Log Reason',  tip: 'javascript regular expression' },
-                            'Log Message': { type: 'regex',  text: 'Log Message', tip: 'javascript regular expression' }
+                            'Agent Name': { type: 'regex', text: 'Agent Name', tip: 'javascript regular expression' },
+                            'Log Time': { type: 'minmax', text: 'Log Time', tip: 'log time in unix-epoch seconds' },
+                            'Log Reason': { type: 'regex', text: 'Log Reason', tip: 'javascript regular expression' },
+                            'Log Message': { type: 'regex', text: 'Log Message', tip: 'javascript regular expression' }
                         }
                     }
                 }
@@ -89,25 +82,30 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             _processData: function(jsonData) {
                 var indx, indxNode, indxAgent, indxLog, jsonAgents, jsonAgent, jsonLog, arrFile, arrData = [],
                 arrAgentCols = ['name'],
-                arrLogCols = ['time', 'reason'];
-                for (indxNode = 0; indxNode < jsonData.length; indxNode++) {
+                arrLogCols = ['time', 'reason'],
+                nArrALen = arrAgentCols.length, nArrLLen = arrLogCols.length,
+                nDataLen = jsonData.length, nAgentsLen, nLogLen;
+                for (indxNode = 0; indxNode < nDataLen; indxNode++) {
                     jsonAgents = jsonData[indxNode].agent;
-                    for (indxAgent = 0; indxAgent < jsonAgents.length; indxAgent++) {
+                    nAgentsLen = jsonAgents.length;
+                    for (indxAgent = 0; indxAgent < nAgentsLen; indxAgent++) {
                         jsonAgent = jsonAgents[indxAgent];
-                        for (indxLog = 0; indxLog < jsonAgent.log.length; indxLog++) {
+                        nLogLen = jsonAgent.log.length;
+                        for (indxLog = 0; indxLog < nLogLen; indxLog++) {
                             jsonLog = jsonAgent.log[indxLog];
                             arrFile = [];
-                            for (indx = 0; indx < arrAgentCols.length; indx++) {
+                            for (indx = 0; indx < nArrALen; indx++) {
                                 arrFile[arrAgentCols[indx]] = jsonAgent[arrAgentCols[indx]];
                             }
-                            for (indx = 0; indx < arrLogCols.length; indx++) {
+                            for (indx = 0; indx < nArrLLen; indx++) {
                                 arrFile[arrLogCols[indx]] = jsonLog[arrLogCols[indx]];
                             }
-                            arrFile['message'] = jsonLog.message.$t; // Store the message
+                            arrFile['message'] = jsonLog.message.$t; // This is to store the message
                             arrData.push(arrFile);
                         }
                     }
                 }
+                log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
                 return arrData;
             },
@@ -127,7 +125,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
 
             /** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
             * @method setArgs
-            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>AgentLogs</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
             */
             setArgs: function(arr) {
                 if (!arr) { return; }
@@ -155,14 +153,19 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             /**
             * This processes the agent logs information obtained from data service and shows in YUI datatable.
             * @method gotData
-            * @param data {object} agent logs information in json format used to fill the datatable directly using a defined schema.
+            * @param data {object} agent logs information in json format.
             */
             gotData: function(data) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.node;
-                this.fillDataSource(this.data);
-                this.dom.title.innerHTML = this.data.length + ' agent log(s) for ' + _nodename + ' node';
+                if (data.node) {
+                    this.fillDataSource(this.data);
+                    this.dom.title.innerHTML = this.data.length + ' agent log(s) for ' + _nodename + ' node';
+                }
+                else {
+                    this.dom.title.innerHTML = 'No agent logs are found for ' + _nodename + ' node';
+                }
                 _sbx.notify(this.id, 'gotData');
             }
         };
