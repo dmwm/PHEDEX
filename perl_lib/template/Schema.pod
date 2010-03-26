@@ -1,4 +1,5 @@
 /*
+
 =pod
 
 =head1 NAME
@@ -42,8 +43,11 @@ create table t_table1 (
 );
 
 /* (Put any associated sequences or indexes below) */
+create index ix_table1_col1
+  on t_table1 (col1);
 
 /*
+
 =pod
 
 =head2 t_table2
