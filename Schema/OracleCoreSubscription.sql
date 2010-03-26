@@ -30,6 +30,12 @@ create table t_dps_subs_param
 
 create sequence seq_dps_subs_param;
 
+create index ix_dps_subs_param_request
+  on t_dps_subs_param (request);
+
+create index ix_dps_subs_param_group
+  on t_dps_subs_param (user_group);
+
 create table t_dps_subs_dataset
   (destination          integer         not null,
    dataset              integer		not null,
@@ -50,6 +56,11 @@ create table t_dps_subs_dataset
    constraint fk_dps_subs_dataset_param
      foreign key (param) references t_dps_subs_param (id));
 
+create index ix_dps_subs_dataset_ds
+  on t_dps_subs_dataset (dataset);
+
+create index ix_dps_subs_dataset_param
+  on t_dps_subs_dataset (param);
 
 create table t_dps_subs_block
   (destination          integer		not null,
@@ -70,3 +81,12 @@ create table t_dps_subs_block
    --
    constraint fk_dps_subs_block_param
      foreign key (param) references t_dps_subs_param (id));
+
+create index ix_dps_subs_block_ds
+  on t_dps_subs_block (dataset);
+
+create index ix_dps_subs_block_b
+  on t_dps_subs_block (block);
+
+create index ix_dps_subs_block_param
+  on t_dps_subs_block (param);
