@@ -61,7 +61,8 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
  */
       _init: function(args) {
         var types = args.payload.types || [],
-            obj  = args.payload.obj;
+            obj  = args.payload.obj,
+            type, types, buildMe, hideMe, config;
 
 /**
  * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly.
@@ -99,17 +100,17 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         this.typeNames = args.payload.typeNames;
         this.InputTypes = [];
         this.WidgetsByInputType = [];
-        for (var type in this.typeNames) {
+        for (type in this.typeNames) {
           _sbx.notify('Registry','getWidgetsByInputType',this.typeNames[type],this.id);
         }
-        var config = args.payload.config || {};
+        config = args.payload.config || {};
         this.contextMenu = this.Create(config);
-        var buildMe = function(o) {
+        buildMe = function(o) {
           return function(p_sType, p_aArgs) {
             o.Build(this.contextEventTarget);
           }
         }(this);
-        var hideMe = function(o) {
+        hideMe = function(o) {
           return function() {
             if ( o.onContextMenuHide ) {
               o.onContextMenuHide(this.contextEventTarget);
@@ -121,6 +122,10 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
         this.contextMenu.clickEvent.subscribe(this.onContextMenuClick, obj);
         this.contextMenu.hideEvent.subscribe( hideMe );
         _sbx.notify(obj.id,'getExtraContextTypes',this.id);
+        types = this.getExtraContextTypes();
+        for (type in types) {
+          _sbx.notify('Registry','getWidgetsByInputType',type,this.id);
+        }
       },
 
 /** reset the menu to empty. This is a trivial function, but it hides the internal contextmenu, which is good.
