@@ -172,6 +172,9 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = data.block;
+                if ( !data.block ) {
+                  throw new Error('data incomplete for '+context.api);
+                }
                 this.fillDataSource(this.data);
                 this.dom.title.innerHTML = this.data.length + ' missing file(s) for ' + _blockname;
                 _sbx.notify(this.id, 'gotData');

@@ -142,6 +142,9 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       gotData: function(data,context) {
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
+        if ( !data.node ) {
+          throw new Error('data incomplete for '+context.api);
+        }
         this.data = data.node;
         this.dom.title.innerHTML = node + ': ' + this.data.length + " agents";
         this.fillDataSource(this.data);

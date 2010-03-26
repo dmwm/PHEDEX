@@ -133,6 +133,9 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             gotData: function(data) {
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
+                if ( !data.node ) {
+                  throw new Error('data incomplete for '+context.api);
+                }
                 this.data = data.node;
                 this.dom.title.innerHTML = _groupname + ': ' + this.data.length + ' nodes found';
                 this.fillDataSource(this.data);

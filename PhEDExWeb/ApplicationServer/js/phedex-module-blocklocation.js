@@ -223,6 +223,9 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 }
                 _arrColumnNode = new Array(); //Create new associative array to store all the node names
 
+                if ( !jsonBlkData.block ) {
+                  throw new Error('data incomplete for '+context.api);
+                }
                 blockcount = jsonBlkData.block.length; //Get the block count from json response
                 //Traverse through the blocks in json response to get block information
                 for (indxBlock = 0; indxBlock < blockcount; indxBlock++) {

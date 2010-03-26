@@ -215,6 +215,9 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.link;
+                if ( !data.link ) {
+                  throw new Error('data incomplete for '+context.api);
+                }
                 _sbx.notify(this.id, 'parseData'); // parsing takes a long time, so update the GUI to let them know why they're waiting...
             },
 
