@@ -10,34 +10,16 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.MissingFiles = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this, new PHEDEX.DataTable(sandbox, string));
+    Yla(this, new PHEDEX.DataTable(sandbox, string));
 
     var _sbx = sandbox, _blockname;
     log('Module: creating a genuine "' + string + '"', 'info', string);
-
-    /**
-    * Array of object literal Column definitions for missing file information datatable.
-    * @property _dtColumnDefs
-    * @type Object[]
-    * @private
-    */
-    var _dtColumnDefs = [{ key: 'id', label: 'File ID', className: 'align-right' },
-                         { key: 'name', label: 'File' },
-                         { key: 'bytes', label: 'File Bytes', className: 'align-right', "formatter": "customBytes" },
-                         { key: 'origin_node', label: 'Origin Node'},
-                         { key: "time_create", label: 'TimeCreate', formatter: 'UnixEpochToGMT' },
-                         { key: 'group', label: 'Group' },
-                         { key: 'se', label: 'SE' },
-                         { key: 'node_id', label: 'Node ID', className: 'align-right' },
-                         { key: 'node_name', label: 'Node Name' },
-                         { key: 'custodial', label: 'Custodial' },
-                         { key: 'subscribed', label: 'Subscribed'}];
 
     //Used to construct the missing files module.
     _construct = function() {
         return {
             /**
-            * Used for styling the elements of the widget.
+            * Used for styling the elements of the module.
             * @property decorators
             * @type Object[]
             */
@@ -66,7 +48,18 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                table: { columns: _dtColumnDefs },
+                table: { columns: [{ key: 'id', label: 'File ID', className: 'align-right' },
+                                   { key: 'name', label: 'File' },
+                                   { key: 'bytes', label: 'File Bytes', className: 'align-right', "formatter": "customBytes" },
+                                   { key: 'origin_node', label: 'Origin Node' },
+                                   { key: "time_create", label: 'TimeCreate', formatter: 'UnixEpochToGMT' },
+                                   { key: 'group', label: 'Group' },
+                                   { key: 'se', label: 'SE' },
+                                   { key: 'node_id', label: 'Node ID', className: 'align-right' },
+                                   { key: 'node_name', label: 'Node Name' },
+                                   { key: 'custodial', label: 'Custodial' },
+                                   { key: 'subscribed', label: 'Subscribed'}]
+                },
                 hide: ['SE', 'File ID', 'Node ID'],
                 sort: { field: 'File' },
                 filter: {
@@ -98,18 +91,22 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             _processData: function(jsonBlkData) {
                 var indx, indxBlk, indxFile, indxMiss, jsonFile, jsonMissing, arrFile, arrData = [],
                 arrFileCols = ['id', 'name', 'bytes', 'origin_node', 'time_create'],
-                arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'];
-                for (indxBlk = 0; indxBlk < jsonBlkData.length; indxBlk++) {
+                arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'],
+                nArrFLen = arrFileCols.length, nArrMLen = arrMissingCols.length,
+                nBlkLen = jsonBlkData.length, nFileLen, nMissLen;
+                for (indxBlk = 0; indxBlk < nBlkLen; indxBlk++) {
                     jsonFiles = jsonBlkData[indxBlk].file;
-                    for (indxFile = 0; indxFile < jsonFiles.length; indxFile++) {
+                    nFileLen = jsonFiles.length;
+                    for (indxFile = 0; indxFile < nFileLen; indxFile++) {
                         jsonFile = jsonFiles[indxFile];
-                        for (indxMiss = 0; indxMiss < jsonFile.missing.length; indxMiss++) {
+                        nMissLen = jsonFile.missing.length;
+                        for (indxMiss = 0; indxMiss < nMissLen; indxMiss++) {
                             jsonMissing = jsonFile.missing[indxMiss];
                             arrFile = [];
-                            for (indx = 0; indx < arrFileCols.length; indx++) {
+                            for (indx = 0; indx < nArrFLen; indx++) {
                                 arrFile[arrFileCols[indx]] = jsonFile[arrFileCols[indx]];
                             }
-                            for (indx = 0; indx < arrMissingCols.length; indx++) {
+                            for (indx = 0; indx < nArrMLen; indx++) {
                                 if (jsonMissing[arrMissingCols[indx]]) {
                                     arrFile[arrMissingCols[indx]] = jsonMissing[arrMissingCols[indx]];
                                 }
@@ -121,10 +118,11 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                         }
                     }
                 }
+                log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
                 return arrData;
             },
-            
+
             /**
             * This inits the Phedex.MissingFiles module and notify to sandbox about its status.
             * @method initData
@@ -140,7 +138,7 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
 
             /** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
             * @method setArgs
-            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>Agents</strong> module, only <strong>arr.node</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>MissingFiles</strong> module, only <strong>arr.block</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
             */
             setArgs: function(arr) {
                 if (arr && arr.block) {
@@ -168,14 +166,14 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             /**
             * This processes the missing files information obtained from data service and shows in YUI datatable.
             * @method gotData
-            * @param data {object} missing files information in json format used to fill the datatable directly using a defined schema.
+            * @param data {object} missing files information in json format.
             */
             gotData: function(data) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = data.block;
-                this.dom.title.innerHTML = 'Missing file(s) for ' + _blockname;
                 this.fillDataSource(this.data);
+                this.dom.title.innerHTML = this.data.length + ' missing file(s) for ' + _blockname;
                 _sbx.notify(this.id, 'gotData');
             }
         };
