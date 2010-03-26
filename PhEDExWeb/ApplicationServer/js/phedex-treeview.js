@@ -416,41 +416,51 @@ PHEDEX.TreeView = function(sandbox,string) {
 }
 
 PHEDEX.TreeView.ContextMenu = function(obj,args) {
-    var p = args.payload;
-    if ( !p.config ) { p.config={}; }
-    if ( !p.typeNames ) { p.typeNames=[]; }
-    p.typeNames.push('treeview');
-    if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
-    var fn = function(opts,el) {
-      var elPhedex = obj.locateNode(el.target),
-          elClass = obj.getPhedexFieldClass(elPhedex);
-      obj.meta.hide[elClass] = 1;
-      obj.hideFieldByClass(elClass);
-    };
-    PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
+  var p = args.payload;
+  if ( !p.config ) { p.config={}; }
+  if ( !p.typeNames ) { p.typeNames=[]; }
+  p.typeNames.push('treeview');
+  if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
+  var fn = function(opts,el) {
+    var elPhedex = obj.locateNode(el.target),
+        elClass = obj.getPhedexFieldClass(elPhedex);
+    obj.meta.hide[elClass] = 1;
+    obj.hideFieldByClass(elClass);
+  };
+  PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
-    return {
-//    Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
-      onContextMenuBeforeShow: function(target, typeNames) {
-        var classes, tgt,
-            isHeader, treeMatch, label,
-            payload = {};
-        tgt = obj.locateNode(target);
-        if ( !tgt ) { return; }
-        if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
-        else if ( YuD.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
-        else    { return; }
+  return {
+    getExtraContextTypes: function() {
+      var cArgs = obj._cfg.formats, cUniq = {}, i, j;
+      for (i in cArgs) {
+        for(j in cArgs[i].ctxArgs) {
+          cUniq[cArgs[i].ctxArgs[j]] = 1;
+        }
+      }
+      return cUniq;
+    },
 
-//      Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
-        classes = tgt.className.split(" ");
+//  Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
+    onContextMenuBeforeShow: function(target, typeNames) {
+      var classes, tgt,
+          isHeader, treeMatch, label,
+          payload = {};
+      tgt = obj.locateNode(target);
+      if ( !tgt ) { return; }
+      if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
+      else if ( YuD.hasClass(tgt,'phedex-tnode-field' ) ) { isHeader = false; }
+      else    { return; }
 
-//      Highlight the <tr> element in the table that was the target of the "contextmenu" event.
-        YuD.addClass(tgt, "phedex-core-selected");
-        label = tgt.textContent;
+//    Get the array of MenuItems for the CSS class name from the "oContextMenuItems" map.
+      classes = tgt.className.split(" ");
 
-        treeMatch = /^phedex-tree-/;
-        for (var i in classes) {
-          if ( classes[i].match(treeMatch) ) {
+//    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
+      YuD.addClass(tgt, "phedex-core-selected");
+      label = tgt.textContent;
+
+      treeMatch = /^phedex-tree-/;
+      for (var i in classes) {
+        if ( classes[i].match(treeMatch) ) {
           log('found '+classes[i]+' to key new menu entries','info',obj.me);
           if ( !isHeader && obj._cfg.formats[classes[i]].ctxArgs ) {
             for(var j in obj._cfg.formats[classes[i]].ctxArgs) {
@@ -532,16 +542,6 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
 
   _construct = function() {
     return {
-      getExtraContextTypes: function(id) {
-        var cArgs = obj._cfg.formats, cUniq = {}, i, j;
-        for (i in cArgs) {
-          for(j in cArgs[i].ctxArgs) {
-            cUniq[cArgs[i].ctxArgs[j]] = 1;
-          }
-        }
-        _sbx.notify(id,'extraContextTypes',cUniq);
-      },
-
       _init: function() {
         var moduleHandler = function(o) {
           return function(ev,arr) {
