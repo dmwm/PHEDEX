@@ -142,6 +142,7 @@ sub spool
     }
     else
     {
+        $sth = undef;
         return $r;
     }
 }
