@@ -15,7 +15,7 @@ replica upon successful transfer.
 
 Most of these tables are considered "hot", that means that the rows do
 not last very long in the database and a great number of DML
-operations occur on them.  They are generally not useful for montiring
+operations occur on them.  They are generally not useful for monitoring
 because of this, unless the monitoring must be at a very fine-grained
 level.
 
@@ -47,7 +47,7 @@ The ordered position of the rule.
 
 The direction of the translation, 'lfn-to-pfn' or 'pfn-to-lfn'.
 
-=item t_xfer_catalogue.protcol
+=item t_xfer_catalogue.protocol
 
 The protocol of this rule chain, e.g. 'srm'.
 
@@ -311,32 +311,8 @@ create sequence seq_xfer_replica;
 create index ix_xfer_replica_fileid
   on t_xfer_replica (fileid);
 
-/* priority in t_dps_block_dest, t_xfer_request, t_xfer_path
- *   0 = "now", 1 = "as soon as you can", 2 = "whenever you can"
- *    "high"         "normal"                   "low"
-
- * priority in t_xfer_task, t_xfer_error: 
- * formula is (priority-level) * 2 + (for-me ? 0 : 1)
- *   0 = high, destined for my site
- *   1 = high, destined for someone else
- *   2 = normal, destined for my site
- *   3 = normal, destined for someone else
- *   4 = low, destined for my site
- *   5 = low, destined for someone else
- */
-
-
 /*
- * t_xfer_reqest.state:
- *  -1 = Deactivated, just injected
- *   0 = Active, valid transfer request
- *   1 = Deactivated, transfer failure
- *   2 = Deactivated, expiration
- *   3 = Deactivated, no path from any source
- *   4 = Deactivated, no source replicas
- */
 
-/*
 =pod
 
 =head2 t_xfer_request
@@ -363,17 +339,39 @@ L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
 
 =item t_xfer_request.priority
 
-Request priority, see L<here|Schema::DocDefinitions/"Node-level Priority">.
+Request priority, see 
+L<priority (Node-level)|Schema::Schema/"priority (Node-level)">.
 
 =item t_xfer_request.is_custodial
 
+y or n, whether this request is for custodial data.
+
 =item t_xfer_request.state
+
+State of the request, which takes the following values:
+
+  -1 = Deactivated, just injected and awaiting activation
+   0 = Active, valid transfer request
+   1 = Deactivated, transfer failure
+   2 = Deactivated, expiration
+   3 = Deactivated, no path from any source
+   4 = Deactivated, no source replicas
+
+All non-zero values are "inactive" and are not being considered for
+transfers at this time.
 
 =item t_xfer_request.attempt
 
+Counter for the number of attempts that have been made to complete
+this request.
+
 =item t_xfer_request.time_create
 
+Time the request was created.
+
 =item t_xfer_request.time_expire
+
+Time the request expires.
 
 =back
 
@@ -420,6 +418,99 @@ create index ix_xfer_request_inblock
 create index ix_xfer_request_fileid
   on t_xfer_request (fileid);
 
+/*
+
+=pod
+
+=head2 t_xfer_path
+
+A row in this table represents a single hop in the I<transfer path>.
+The collection of hops from source to destination is the full transfer
+path.  Filled and managed by
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>.
+
+=over
+
+=item t_xfer_path.destination
+
+The destination of this transfer path.  FK to 
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_path.fileid
+
+The the file for this transfer path.  FK to 
+L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_path.hop
+
+Iterator for the hops in a transfer path.  Hop 0 is attached to the
+destination, and higher-order hops are closer to the src_node.
+
+=item t_xfer_path.src_node
+
+The source node for this transfer task; the original replica of the
+file to be transferred. FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_path.from_node
+
+The source node for this hop; the replica from which the file should
+be transferred in this step.  FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_path.to_node
+
+The destination node for this hop; the recepient of a transfer in this
+step.  FK to L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_path.priority
+
+Hop priority, see 
+L<priority (Link-level)|Schema::Schema/"priority (Link-level)">.
+
+=item t_xfer_path.is_local
+
+0 or 1, whether the hop is over a local link.  (See
+L<t_adm_link.is_local|Schema::OracleCoreTopo/t_adm_link.is_local>).
+
+=item t_xfer_path.is_valid
+
+0 or 1, whether the transfer path is valid.  Only valid transfer paths
+will result in transfer tasks.  Invalid ones are written to the table
+for monitoring and debugging purposes.
+
+=item t_xfer_path.cost
+
+The cost associated with this hop, in seconds of time expected to
+transfer the file from from_node to to_node. 
+
+=item t_xfer_path.total_cost
+
+The total cost associated with this transfer path, in seconds of time
+expected to transfer the file from src_node to destination.
+
+=item t_xfer_path.penalty
+
+WARNING: MISNAMED!  The link transfer rate for this hop which was used
+when calculating the cost.
+
+=item t_xfer_path.time_request
+
+Time that the file request was made.  See L<t_xfer_request|t_xfer_request>.
+
+=item t_xfer_path.time_confirm
+
+Time that this transfer path was made.
+
+=item t_xfer_path.time_expire
+
+Time that this transfer path expires.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_path
   (destination		integer		not null,  -- final destination
@@ -478,6 +569,44 @@ create index ix_xfer_path_from
 create index ix_xfer_path_to
   on t_xfer_path (to_node);
 
+/*
+
+=pod
+
+=head2 t_xfer_exclude
+
+Contains a list of links and files over which transfer tasks should
+B<not> be made.  Used to give PhEDEx time to re-evaluate coniditions
+before re-issuing a failed transfer.  Filled by
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent> and cleared by
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>.
+
+=over
+
+=item t_xfer_exclude.from_node
+
+Source node of the exclusion, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_exclude.to_node
+
+Destination node of the exclusion, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_exclude.fileid
+
+File to be excluded, FK to
+L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_exclude.time_request
+
+Time the exclusion was requested.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_exclude
   (from_node		integer		not null, -- xfer_path from_node
@@ -508,6 +637,79 @@ create index ix_xfer_exclude_to
 create index ix_xfer_exclude_fileid
   on t_xfer_exclude (fileid);
 
+/*
+
+=pod
+
+=head2 t_xfer_task
+
+Represents a transfer task; the command for site agents to perform a
+transfer.
+
+The state of a transfer task is represented in associated
+tables L<t_xfer_task_export>, L<t_xfer_task_inxfer>,
+L<t_xfer_task_done> and t_xfer_task_harvest>.  These states are in
+separate tables because Oracles INSERT and DELETE performance is
+superior to its UPDATE performance, and transfer tasks are the most
+contentious and volitile quantity in PhEDEx.
+
+This table is managed
+by L<FileIssue|PHEDEX::Infrastructure::FileIssue::Agent> and
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>.
+
+=over
+
+=item t_xfer_task.id
+
+Unique ID for the task.
+
+=item t_xfer_task.fileid
+
+File to be transferred by this task, FK to
+L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_task.from_replica
+
+Source replica to transfer in this task, FK to
+L<t_xfer_replica.id|t_xfer_replica>.
+
+=item t_xfer_task.priority
+
+Task priority, see
+L<priority (Link-level)|Schema::Schema/"priority (Link-level)">.
+
+=item t_xfer_task.is_custodial
+
+y or n, whether this task is a transfer into custodial storage.
+
+=item t_xfer_task.rank
+
+Order in which tasks should be completed.  This orders tasks when
+L<priority|t_xfer_task.priority> is equal.
+
+=item t_xfer_task.from_node
+
+Source node of the transfer task, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_task.to_node
+
+Destination node of the transfer task, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_task.time_expire
+
+Time the task expires.
+
+=item t_xfer_task.time_assign
+
+Time the task was created.
+
+=back
+
+=cut
+
+*/
 
 /* FIXME: Consider using clustered table for t_xfer_task*, see
    Tom Kyte's Effective Oracle by Design, chapter 7. */
@@ -568,6 +770,35 @@ create index ix_xfer_task_from_replica
 create index ix_xfer_task_fileid
   on t_xfer_task (fileid);
 
+/*
+
+=pod
+
+=head2 t_xfer_task_export
+
+Represents a transfer task for which the from_node is prepared to
+serve the file.  For sites with tape storage, this usually means the
+file has been recalled from tape and is on a disk buffer.
+
+Managed by L<FileStager|PHEDEX::File::Stager::Agent> or
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>.
+
+=over
+
+=item t_xfer_task_export.task
+
+The transfer task which is exported, FK to
+L<t_xfer_task.id|t_xfer_task>.
+
+=item t_xfer_task_export.time_update
+
+The time the task was exported.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_task_export
   (task			integer		not null,
@@ -581,6 +812,53 @@ create table t_xfer_task_export
      on delete cascade
   )
   enable row movement;
+
+/*
+
+=pod
+
+=head2 t_xfer_task_inxfer
+
+Represents a task that has been acknowledged by the destination.
+
+(WARNING: MISNAMED! This does not neccissarily mean that the task is
+"in transfer", or that the transfer is currently taking place.  It
+simply means the destination node has queued the transfer and it will
+begin the transfer at the earliest opportunity)
+
+Managed by L<FileDownload|PHEDEX::File::Download::Agent>.
+
+=over
+
+=item t_xfer_task_inxfer.task
+
+The transfer task which has acknowledged, FK to
+L<t_xfer_task.id|t_xfer_task>.
+
+=item t_xfer_task_inxfer.from_pfn
+
+The physical file name (PFN) which will be used at the source of this
+transfer.
+
+=item t_xfer_task_inxfer.to_pfn
+
+The physical file name (PFN) which will be used at the destination of
+this transfer.
+
+=item t_xfer_task_inxfer.space_token
+
+The space token which will be used at the destination of this
+transfer.  (May be NULL).
+
+=item t_xfer_task_inxfer.time_update
+
+The time the task was acknowledged by the destination.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_task_inxfer
   (task			integer		not null,
@@ -597,6 +875,58 @@ create table t_xfer_task_inxfer
      on delete cascade
   )
   enable row movement;
+
+/*
+
+=pod
+
+=head2 t_xfer_task_done
+
+Represents transfer tasks which have completed, and the result of the
+transfer attempt.
+
+Managed by L<FileDownload|PHEDEX::File::Download::Agent>.
+
+=over
+
+=item t_xfer_task_done.task
+
+The transfer task that is done, FK to
+L<t_xfer_task.id|t_xfer_task>.
+
+=item t_xfer_task_done.report_code
+
+Numerical result of the task, with the following general conventions:
+
+   0  Successful transfer
+ < 0  Unsuccessful transfer for PhEDEx-related reasons which are not
+      considered a real failure.
+ > 0  Unsuccessful transfer which are considered a failure.
+
+See L<PHEDEX::Error::Constants|PHEDEX::Error::Constants> for more
+details.  The value of this column is typically determined by the
+xfer_code (below) and depends on the underlying commands used to
+execute the transfer.
+
+=item t_xfer_task_done.xfer_code
+
+Numerical result of the command used to execute the transfer.  The
+value of this column is determined by commands external to PhEDEx and
+may or may not be a reliable indicator of success or failure.
+
+=item t_xfer_task_done.time_xfer
+
+The time the transfer attempt completed.
+
+=item t_xfer_task_done.time_update
+
+The time the completed transfer attempt was reported.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_task_done
   (task			integer		not null,
@@ -616,6 +946,30 @@ create table t_xfer_task_done
 
 create sequence seq_xfer_done;
 
+/*
+
+=pod
+
+=head2 t_xfer_task_harvest
+
+Represents a transfer task which is done and is having its result
+evaluated.  This is a bookkeeping device, and tasks are in this state
+for a very short time.  Managed by
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent>.
+
+=over
+
+=item t_xfer_task_harvest.task
+
+The task which is being harvested, FK to
+L<t_xfer_task.id|t_xfer_task>.
+
+=back
+
+=cut
+
+*/
+
 create table t_xfer_task_harvest
   (task			integer		not null,
    --
@@ -627,6 +981,106 @@ create table t_xfer_task_harvest
      on delete cascade
   )
   enable row movement;
+
+/*
+
+=pod
+
+=head2 t_xfer_error
+
+Holds the details of failed transfers for a limited period of time.
+Used for monitoring and debugging purposes.  Most column values are
+coppied from L<t_xfer_task|t_xfer_task> and its state tables.  Managed
+by L<FileDownload|PHEDEX::File::Download::Agent>.
+
+=over
+
+=item t_xfer_task.to_node
+
+Destination node of the transfer task, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_task.from_node
+
+Source node of the transfer task, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_task.fileid
+
+File to be transferred by this task, FK to
+L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_task.priority
+
+Task priority, see
+L<priority (Link-level)|Schema::Schema/"priority (Link-level)">.
+
+=item t_xfer_task.is_custodial
+
+y or n, whether this task is a transfer into custodial storage.
+
+=item t_xfer_error.time_assign
+
+See L<t_xfer_task.time_assign>.
+
+=item t_xfer_error.time_expire
+
+See L<t_xfer_task.time_expire>.
+
+=item t_xfer_error.time_export
+
+See L<t_xfer_task_export.time_update>.
+
+=item t_xfer_error.time_inxfer
+
+See L<t_xfer_task_inxfer.time_update>.
+
+=item t_xfer_error.time_xfer
+
+See L<t_xfer_task_done.time_xfer>.
+
+=item t_xfer_error.time_done
+
+See L<t_xfer_task_done.time_update>.
+
+=item t_xfer_error.report_code
+
+See L<t_xfer_task_done.report_code>.
+
+=item t_xfer_error.xfer_code
+
+See L<t_xfer_task_done.xfer_code>.
+
+=item t_xfer_error.from_pfn
+
+See L<t_xfer_task_inxfer.from_pfn>.
+
+=item t_xfer_error.to_pfn
+
+See L<t_xfer_task_inxfer.to_pfn>.
+
+=item t_xfer_error.space_token
+
+See L<t_xfer_task_inxfer.space_token>.
+
+=item t_xfer_error.log_xfer
+
+Full text ouput of the transfer command during the transfer attempt.
+
+=item t_xfer_error.log_detail
+
+Summarized result of the transfer attempt, attempting to capture the
+important detail.
+
+=item t_xfer_error.log_validate
+
+Full text output of the validation command after the transfer attempt.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_error
   (to_node		integer		not null, -- node transfer is to
@@ -675,7 +1129,41 @@ create index ix_xfer_error_to_node
 create index ix_xfer_error_fileid
   on t_xfer_error (fileid);
 
+/*
 
+=pod
+
+=head2 t_xfer_delete
+
+Represents a deletion task; a file which should be deleted from a
+node.  Managed by L<BlockDelete|PHEDEX::BlockDelete::Agent> and
+L<FileRemove|PHEDEX::File::Remove::Agent>.
+
+=over
+
+=item t_xfer_delete.fileid
+
+File to be deleted, FK to
+L<t_xfer_file.id|Schema::OracleCoreFile/t_xfer_file>.
+
+=item t_xfer_delete.node
+
+Node the file should be deleted from, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node>.
+
+=item t_xfer_delete.time_request
+
+Time the deletion was requested.
+
+=item t_xfer_delete.time_complete
+
+Time the deletion was completed.
+
+=back
+
+=cut
+
+*/
 
 create table t_xfer_delete
   (fileid		integer		not null,  -- for which file
