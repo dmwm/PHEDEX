@@ -1,5 +1,5 @@
 /**
-* The class is used to create the block location module to view block information given the block name.
+* The class is used to create the block location module to view block information given the block name(s).
 * The block information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
 * show it to user in a YUI datatable.
 * @namespace PHEDEX.Module
@@ -13,7 +13,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
     YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
-    var _sbx = sandbox, _myID = this.id,
+    var _sbx = sandbox,
         _strBlocksName = "",       //The block names input
         _strNodesName = "",        //The node name input
         _totalRow = {},            //The first row JSON object that has the values
@@ -137,6 +137,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             }
         }
     }
+    
     /**
     * This function gets the block information from Phedex database using web APIs provided by Phedex given 
     * the name of blocks and nodes in regular expression format.
@@ -155,152 +156,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             return;
         }
         _sbx.notify('module', '*', 'doSetArgs', { "block": strBlkInput, "nodename": strNodeInput, "lowpercent": nLowPercent, "highpercent": nHighPercent });
-    }
-
-    /**
-    * This function gets the block information from Phedex database using web APIs provided by Phedex given 
-    * the block names in regular expression format.
-    * The result is formatted and is shown to user in YUI datatable.
-    * @method _getBlockInfo
-    * @private
-    */
-    var _getBlockInfo = function() {
-        var indx, blocknames, strNodeInput,
-        strDataInput = _strBlocksName.trim(),
-        strNodeInput = _strNodesName.trim();
-        if (!strDataInput) {
-            banner("Please enter the query block name(s).", 'warn'); //Inform user if input is missing
-            _clearResult();
-            return;
-        }
-        strDataInput = strDataInput.replace(/\n/g, " ");
-        blocknames = strDataInput.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
-        _arrQueryBlkNames = new Array();
-        for (indx = 0; indx < blocknames.length; indx++) {
-            blocknames[indx] = blocknames[indx].trim(); //Remove the whitespaces in the blocknames
-            _insertData(_arrQueryBlkNames, blocknames[indx], "");
-        }
-        if (_strOrigBlkQuery == strDataInput) //Check if current query block names and previous query block names are same or not
-        {
-            //No change in the input query. So, no need make data service call
-            if (!(_strOrigNodeQuery == strNodeInput)) {
-                _arrColumns = _filterNodes(); //Filter the nodes as entered by user
-                _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
-                _formatResult(_arrColumns); //Do UI updates - show the block info to user in YUI datatable.
-            }
-            else if (!((_nOrigHighPercent == _highpercent) && (_nOrigLowPercent == _lowpercent))) //Check if there is any change in the percentage range
-            {
-                _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
-                _formatResult(_arrColumns); //Do UI updates - show the block info to user in YUI datatable.
-                _nOrigLowPercent = _lowpercent;
-                _nOrigHighPercent = _highpercent;
-            }
-            _strOrigNodeQuery = strNodeInput;
-            return;
-        }
-
-        _divResult.innerHTML = "";
-        _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
-        //Store the value for future use to check if value has changed or not and then format the result
-        _nOrigLowPercent = _lowpercent;
-        _nOrigHighPercent = _highpercent;
-        _strOrigBlkQuery = strDataInput;
-        _strOrigNodeQuery = strNodeInput;
-
-        //Callback function used by YUI connection manager on completing the connection request with web API
-        var funcSuccess = function(jsonBlkData) {
-            try {
-                log('The data service response is received and ready for processing', 'info', this.me)
-                var blk = null, replica = null, indxBlock = 0, indxReplica = 0, indxNode = 0,
-                    blockbytes = 0, blockcount = 0, blockfiles = 0, replicabytes = 0, replicacount = 0;
-                if (_arrBlocks) {
-                    _arrBlocks = null;
-                }
-                _arrBlocks = new Array(); //Create new associative array to store all the block info
-
-                if (_arrColumnNode) {
-                    _arrColumnNode = null;
-                }
-                _arrColumnNode = new Array(); //Create new associative array to store all the node names
-
-                if ( !jsonBlkData.block ) {
-                  throw new Error('data incomplete for '+context.api);
-                }
-                blockcount = jsonBlkData.block.length; //Get the block count from json response
-                //Traverse through the blocks in json response to get block information
-                for (indxBlock = 0; indxBlock < blockcount; indxBlock++) {
-                    blk = null;
-                    blk = jsonBlkData.block[indxBlock]; //Get the block object from the json response
-                    if (blk) {
-                        blockbytes = blk.bytes / 1; //Get bytes count that has to be transferred
-                        blockfiles = blk.files / 1; //Get number of files of the block
-
-                        replicacount = blk.replica.length;  //Get the count of replicas (nodes) to whom the block is being transferred
-                        //Traverse through the replicas (nodes) for each block to get node information
-                        for (indxReplica = 0; indxReplica < replicacount; indxReplica++) {
-                            replica = null;
-                            replica = blk.replica[indxReplica]; //Get the replica (node) object from the json response
-                            if (replica) {
-                                replicabytes = replica.bytes / 1; //Get the bytes count that was transferred
-                                var percentcompleted = 100 * replicabytes / blockbytes; //Calculate the data transfer percenatage
-                                if (_isDecimal(percentcompleted)) {
-                                    percentcompleted = percentcompleted.toFixed(2); //Round off the percentage to 2 decimal digits
-                                }
-                                var objNode = _newNode(replica.node, replicabytes, percentcompleted); //Create new node object to add to hash table
-                                _addBlockNode(blk.name, blockbytes, blockfiles, objNode);  //Add the block and its new node info to the hash map
-                                _insertData(_arrColumnNode, replica.node, "");  //Add the node name to the hash map
-                            }
-                        }
-                    }
-                }
-
-                if (blockcount == 0) // Check if there is any block information to show to user
-                {
-                    //No blocks are found for the given input
-                    if (_arrayLength(_arrQueryBlkNames) > 0) {
-                        var strXmlMsg = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
-                        _divResult.innerHTML = ""; //Reset the result
-                        _divMissingBlks.innerHTML = strXmlMsg; //Show the result to user
-                    }
-                }
-                else {
-                    //Do UI updates - show the block info to user
-                    _arrColumns = _filterNodes(); //Filter the results using the node filter
-                    if (_arrayLength(_arrColumns) > 0) {
-                        _formatResult(_arrColumns);
-                    }
-                    else {
-                        _bFormTable = true;
-                        var strXmlMsg = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
-                        _divMissingBlks.innerHTML = strXmlMsg;
-                    }
-                }
-                _sbx.notify(_myID,'gotData');
-            }
-            catch (e) {
-                banner("Error in processing the received response. Please check the input.", 'error');
-                _clearResult();
-                _bFormTable = true;
-            }
-            return;
-        }
-
-        //If YUI connection manager fails communicating with web API, then this callback function is called
-        var funcFailure = function(objError) {
-            banner("Error in communicating with data service and receiving the response.", 'error');
-            log("Error in communicating with data service and receiving the response. " + objError.message, 'error');
-            _clearResult(); //Clear the result elements
-            _bFormTable = true;
-            return;
-        }
-
-        var eventSuccess = new YAHOO.util.CustomEvent("event success");
-        var eventFailure = new YAHOO.util.CustomEvent("event failure");
-
-        eventSuccess.subscribe(function(type, args) { funcSuccess(args[0]); });
-        eventFailure.subscribe(function(type, args) { funcFailure(args[0]); });
-
-        PHEDEX.Datasvc.Call({ api: 'blockreplicas', args: { block: blocknames }, success_event: eventSuccess, failure_event: eventFailure });
     }
 
     /**
@@ -864,6 +719,152 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         }
     }
 
+    //Callback function used by YUI connection manager on completing the connection request with web API
+    this.funcSuccess = function(jsonBlkData) {
+        try {
+            log('The data service response is received and ready for processing', 'info', this.me)
+            var blk = null, replica = null, indxBlock = 0, indxReplica = 0, indxNode = 0,
+                blockbytes = 0, blockcount = 0, blockfiles = 0, replicabytes = 0, replicacount = 0;
+            if (_arrBlocks) {
+                _arrBlocks = null;
+            }
+            _arrBlocks = new Array(); //Create new associative array to store all the block info
+
+            if (_arrColumnNode) {
+                _arrColumnNode = null;
+            }
+            _arrColumnNode = new Array(); //Create new associative array to store all the node names
+
+            if (!jsonBlkData.block) {
+                throw new Error('data incomplete for ' + context.api);
+            }
+            blockcount = jsonBlkData.block.length; //Get the block count from json response
+            //Traverse through the blocks in json response to get block information
+            for (indxBlock = 0; indxBlock < blockcount; indxBlock++) {
+                blk = null;
+                blk = jsonBlkData.block[indxBlock]; //Get the block object from the json response
+                if (blk) {
+                    blockbytes = blk.bytes / 1; //Get bytes count that has to be transferred
+                    blockfiles = blk.files / 1; //Get number of files of the block
+
+                    replicacount = blk.replica.length;  //Get the count of replicas (nodes) to whom the block is being transferred
+                    //Traverse through the replicas (nodes) for each block to get node information
+                    for (indxReplica = 0; indxReplica < replicacount; indxReplica++) {
+                        replica = null;
+                        replica = blk.replica[indxReplica]; //Get the replica (node) object from the json response
+                        if (replica) {
+                            replicabytes = replica.bytes / 1; //Get the bytes count that was transferred
+                            var percentcompleted = 100 * replicabytes / blockbytes; //Calculate the data transfer percenatage
+                            if (_isDecimal(percentcompleted)) {
+                                percentcompleted = percentcompleted.toFixed(2); //Round off the percentage to 2 decimal digits
+                            }
+                            var objNode = _newNode(replica.node, replicabytes, percentcompleted); //Create new node object to add to hash table
+                            _addBlockNode(blk.name, blockbytes, blockfiles, objNode);  //Add the block and its new node info to the hash map
+                            _insertData(_arrColumnNode, replica.node, "");  //Add the node name to the hash map
+                        }
+                    }
+                }
+            }
+
+            if (blockcount == 0) // Check if there is any block information to show to user
+            {
+                //No blocks are found for the given input
+                if (_arrayLength(_arrQueryBlkNames) > 0) {
+                    var strXmlMsg = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
+                    _divResult.innerHTML = ""; //Reset the result
+                    _divMissingBlks.innerHTML = strXmlMsg; //Show the result to user
+                }
+            }
+            else {
+                //Do UI updates - show the block info to user
+                _arrColumns = _filterNodes(); //Filter the results using the node filter
+                if (_arrayLength(_arrColumns) > 0) {
+                    _formatResult(_arrColumns);
+                }
+                else {
+                    _bFormTable = true;
+                    var strXmlMsg = _getMissingBlocks(); //Get the block names for which data service returned nothing and show to user
+                    _divMissingBlks.innerHTML = strXmlMsg;
+                }
+            }
+            _sbx.notify(this.id, 'gotData');
+        }
+        catch (e) {
+            banner("Error in processing the received response. Please check the input.", 'error');
+            _clearResult();
+            _bFormTable = true;
+        }
+        return;
+    }
+
+    //If YUI connection manager fails communicating with web API, then this callback function is called
+    this.funcFailure = function(objError) {
+        banner("Error in communicating with data service and receiving the response.", 'error');
+        log("Error in communicating with data service and receiving the response. " + objError.message, 'error');
+        _clearResult(); //Clear the result elements
+        _bFormTable = true;
+        return;
+    }
+
+    this.eventSuccess = new YAHOO.util.CustomEvent("event success", this);
+    this.eventFailure = new YAHOO.util.CustomEvent("event failure", this);
+
+    this.eventSuccess.subscribe(function(type, args) { this.funcSuccess(args[0]); });
+    this.eventFailure.subscribe(function(type, args) { this.funcFailure(args[0]); });
+
+    /**
+    * This function gets the block information from Phedex database using web APIs provided by Phedex given 
+    * the block names in regular expression format.
+    * The result is formatted and is shown to user in YUI datatable.
+    * @method _getBlockInfo
+    * @private
+    */
+    this._getBlockInfo = function() {
+        var indx, blocknames, strNodeInput,
+        strDataInput = _strBlocksName.trim(),
+        strNodeInput = _strNodesName.trim();
+        if (!strDataInput) {
+            banner("Please enter the query block name(s).", 'warn'); //Inform user if input is missing
+            _clearResult();
+            return;
+        }
+        strDataInput = strDataInput.replace(/\n/g, " ");
+        blocknames = strDataInput.split(/\s+/); //Split the blocks names using the delimiter whitespace (" ")
+        _arrQueryBlkNames = new Array();
+        for (indx = 0; indx < blocknames.length; indx++) {
+            blocknames[indx] = blocknames[indx].trim(); //Remove the whitespaces in the blocknames
+            _insertData(_arrQueryBlkNames, blocknames[indx], "");
+        }
+        if (_strOrigBlkQuery == strDataInput) //Check if current query block names and previous query block names are same or not
+        {
+            //No change in the input query. So, no need make data service call
+            if (!(_strOrigNodeQuery == strNodeInput)) {
+                _arrColumns = _filterNodes(); //Filter the nodes as entered by user
+                _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
+                _formatResult(_arrColumns); //Do UI updates - show the block info to user in YUI datatable.
+            }
+            else if (!((_nOrigHighPercent == _highpercent) && (_nOrigLowPercent == _lowpercent))) //Check if there is any change in the percentage range
+            {
+                _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
+                _formatResult(_arrColumns); //Do UI updates - show the block info to user in YUI datatable.
+                _nOrigLowPercent = _lowpercent;
+                _nOrigHighPercent = _highpercent;
+            }
+            _strOrigNodeQuery = strNodeInput;
+            return;
+        }
+
+        _divResult.innerHTML = "";
+        _divMissingBlks.innerHTML = "Please wait... the query is being processed..."; //Show user the status message
+        //Store the value for future use to check if value has changed or not and then format the result
+        _nOrigLowPercent = _lowpercent;
+        _nOrigHighPercent = _highpercent;
+        _strOrigBlkQuery = strDataInput;
+        _strOrigNodeQuery = strNodeInput;
+
+        PHEDEX.Datasvc.Call({ api: 'blockreplicas', args: { block: blocknames }, success_event: this.eventSuccess, failure_event: this.eventFailure });
+    }
+
     //Used to construct the block location module.
     _construct = function() {
         return {
@@ -903,7 +904,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
             */
             getData: function() {
                 this.dom.title.innerHTML = 'Getting Block Information...';
-                _getBlockInfo();
+                this._getBlockInfo();
                 this.dom.title.innerHTML = 'Phedex Block Location';
                 return;
             }
