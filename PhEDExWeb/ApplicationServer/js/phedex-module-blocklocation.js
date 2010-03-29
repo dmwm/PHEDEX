@@ -907,6 +907,11 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 this._getBlockInfo();
                 this.dom.title.innerHTML = 'Phedex Block Location';
                 return;
+            },
+
+            isStateValid: function() {
+              if (_strBlocksName) { return true; }
+              return false;
             }
         };
     };
