@@ -103,7 +103,7 @@ PHEDEX.Navigator = function(sandbox) {
       for (var key in this.state)
       {
         var valid = false, value, o = this.state[key];
-        try { valid = o.isValid() } catch(ex) {  }
+        try { valid = o.isValid() } catch(ex) { log(ex,'error',this.me); }
         if ( !valid ) { return null; }
         if ( o.obj ) { value = o.state.apply(o.obj); }
         else         { value = o.state(); }
