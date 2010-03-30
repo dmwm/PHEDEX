@@ -75,6 +75,26 @@ PHEDEX.Appserv.makeVersion = function() {
 PHEDEX.Appserv.Version = PHEDEX.Appserv.makeVersion();
 
 /**
+ * Sets the base URL of the application, using a string set by the RPM build or a default.
+ * @method makeBaseURL
+ * @namespace PHEDEX.Appserv
+ * @protected
+ * @return {string} The base URL string
+ */
+PHEDEX.Appserv.makeBaseURL = function() {
+  var baseUrl = '@APPSERV_BASEURL@'; // set when RPM is built
+  return baseUrl.match(/APPSERV_BASEURL/) ? '' : baseUrl;
+};
+
+/**
+ * The base URL of the application.
+ * @property BaseURL
+ * @type string
+ * @public
+ */
+PHEDEX.Appserv.BaseURL = PHEDEX.Appserv.makeBaseURL();
+
+/**
  * Contains utility functions.
  * @namespace PHEDEX
  * @class Util
