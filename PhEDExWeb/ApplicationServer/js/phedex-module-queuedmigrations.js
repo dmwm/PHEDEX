@@ -91,7 +91,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                ctxArgs: { 'Block Name':'block' },
+                ctxArgs: { 'Block Name': 'block' },
                 table: {
                     columns: [{ key: 'blockname', label: 'Block Name' },
                               { key: 'fileid', label: 'File ID', className: 'align-right' },
@@ -121,12 +121,12 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             */
             _processData: function(jsonData) {
                 var indx, indxQueues, indxQueue, indxBlock, indxFile, jsonQueues, jsonBlocks, jsonBlock, jsonFile, arrFile, arrData = [],
-                arrBlockCols = ['name'],
-                arrDTBlockCols = ['blockname'],
-                arrFileCols = ['name', 'id', 'bytes'],
-                arrDTFileCols = ['filename', 'fileid', 'filebytes'],
+                arrBlockCols = [{ jsonkey: 'name', dtkey: 'blockname', defval: '' }],
+                arrFileCols = [{ jsonkey: 'name', dtkey: 'filename', defval: '' },
+                               { jsonkey: 'id', dtkey: 'fileid', defval:0, parser: YAHOO.util.DataSource.parseNumber },
+                               { jsonkey: 'bytes', dtkey: 'filebytes', defval:0, parser: YAHOO.util.DataSource.parseNumber}],
                 nArrBLen = arrBlockCols.length, nArrFLen = arrFileCols.length,
-                _jLen = jsonData.length, jQLen, jBLen, jBfLen; 
+                _jLen = jsonData.length, jQLen, jBLen, jBfLen, objCol, objVal;
                 _totalsize = 0;
                 for (indxQueues = 0; indxQueues < jsonData.length; indxQueues++) {
                     jsonQueues = jsonData[indxQueues].transfer_queue;
@@ -142,10 +142,24 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                                 _totalsize = _totalsize + (jsonFile['bytes'] / 1);
                                 arrFile = [];
                                 for (indx = 0; indx < nArrBLen; indx++) {
-                                    arrFile[arrDTBlockCols[indx]] = jsonBlock[arrBlockCols[indx]];
+                                    objCol = arrBlockCols[indx];
+                                    objVal = jsonBlock[objCol.jsonkey];
+                                    if (objCol.parser) {
+                                        if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
+                                        else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
+                                    }
+                                    if (!objVal) { objVal = objCol.defval; }
+                                    arrFile[objCol.dtkey] = objVal;
                                 }
                                 for (indx = 0; indx < nArrFLen; indx++) {
-                                    arrFile[arrDTFileCols[indx]] = jsonFile[arrFileCols[indx]];
+                                    objCol = arrFileCols[indx];
+                                    objVal = jsonFile[objCol.jsonkey];
+                                    if (objCol.parser) {
+                                        if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
+                                        else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
+                                    }
+                                    if (!objVal) { objVal = objCol.defval; }
+                                    arrFile[objCol.dtkey] = objVal;
                                 }
                                 arrData.push(arrFile);
                             }
@@ -216,8 +230,8 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.link;
-                if ( !data.link ) {
-                  throw new Error('data incomplete for '+context.api);
+                if (!data.link) {
+                    throw new Error('data incomplete for ' + context.api);
                 }
                 _sbx.notify(this.id, 'parseData'); // parsing takes a long time, so update the GUI to let them know why they're waiting...
             },
