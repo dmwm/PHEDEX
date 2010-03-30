@@ -47,9 +47,6 @@ PHEDEX.DataTable = function(sandbox, string) {
                     if (typeof c.parser == 'function') { val = c.parser(val); }
                     else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
                   }
-                  if (!val) {
-                    val = '';
-                  }
                   y[c.key] = val;
                 }
                 t.push(y);
@@ -101,6 +98,15 @@ PHEDEX.DataTable = function(sandbox, string) {
                     },
                     target: 'filter'
                 });
+
+              m.parser = {};
+              for (i in columns) {
+                col = columns[i];
+                if (col.parser) {
+                  if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
+                  else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
+                }
+              }
 
               m._filter = this.createFilterMeta();
 //            Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more

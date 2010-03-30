@@ -224,6 +224,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
       Apply: {
         regex:   function(arg,val) {
           var re = new RegExp(arg.value);
+          if ( !val ) { return false; }
           if ( val.match(re) ) { return true; }
           return false;
         },
