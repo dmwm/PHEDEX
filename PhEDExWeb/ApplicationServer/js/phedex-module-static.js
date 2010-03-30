@@ -229,12 +229,12 @@ PHEDEX.Module.Static = function(sandbox, string) {
         initData: function() {
           log('module creation initiated', 'info', _me);
           var OK = true;
-          if ( !_categories[category] ) {
-            _sbx.notify('Config','getCategories');
-            OK = false;
-          }
           if ( !category ) {
             _sbx.notify( 'module', 'needArguments', this.id );
+            OK = false;
+          }
+          if ( !_categories[category] ) {
+            _sbx.notify('Config','getCategories');
             OK = false;
           }
           if ( !OK ) { return; }
@@ -254,8 +254,11 @@ PHEDEX.Module.Static = function(sandbox, string) {
          * @param {Object} args is the object that has arguments (category id) for the module
          */
         setArgs: function(args) {
-          category = args;
-          log('category is set to ' + category, 'info', _me);
+          if ( typeof(args) == 'object' && args.static ) {
+            category = args.static;
+            log('category is set to ' + category, 'info', _me);
+            _sbx.notify(this.id,'setArgs');
+          }
         },
       };
     };
