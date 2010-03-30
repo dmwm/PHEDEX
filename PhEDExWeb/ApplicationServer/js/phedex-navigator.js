@@ -391,6 +391,9 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
         if ( _widget.id == widget.id ) { log('updateWidgetGUI called for same widget','warn',me); return; }
         _widget = widget;
         o._updateWidgetGUI(widget);
+        if ( _widget.args ) {
+          _sbx.notify(obj.id,'NewModuleArgs',_widget.args);
+        }
         _sbx.notify(obj.id,'WidgetSelected',o.getState());
       }
     }(this);
@@ -427,6 +430,9 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       }
     } else {
        _widget = items[0].value; // save first value now; passing to addItems alters structure
+        if ( _widget.args ) { // set any arguments _before_ triggering the creation of the widget!
+          _sbx.notify(obj.id,'NewModuleArgs',_widget.args);
+        }
        _sbx.notify(obj.id,'WidgetSelected',this.getState()); // Trigger new module creation since I know the name of the module to create!
     }
     m = _menu.menu.getMenu();
