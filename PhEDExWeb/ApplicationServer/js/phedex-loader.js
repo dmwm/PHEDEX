@@ -65,7 +65,7 @@ PHEDEX.Loader = function(opts) {
 //     combine:      false,
 //     comboBase:   '/phedex/datasvc/combo?',
 //     root:        '/yui/build/',
-    base:        '/yui/build/',
+    base:        PHEDEX.Appserv.BaseURL + '/yui/build/',
     timeout:      15000,
     onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
     onProgress: function(item) { _callback([_me, 'Progress', item]); },
@@ -119,6 +119,9 @@ PHEDEX.Loader = function(opts) {
     x.name = i;
     if ( !x.type ) { x.type = 'js'; }
     if ( !x.fullpath ) { x.fullpath = '/'+x.type+'/'+x.name+'.'+x.type; }
+    if ( !x.fullpath.match(/yui/) ) {
+      x.fullpath = PHEDEX.Appserv.BaseURL + x.fullpath;
+    }
     if ( !x.requires ) { x.requires = []; }
     _loader.addModule(x);
   }
