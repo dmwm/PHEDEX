@@ -181,6 +181,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         TxtBoxNode.className = 'txtboxBlkNode';
         TxtBoxNode.rows = 4;
         TxtBoxNode.cols = 40;
+        TxtBoxNode.title = 'enter a whitespace-separated group of regular expressions. Separate expressions are ANDed, use "|" to OR terms in a single expression';
 
         tableInput = document.createElement('table');
         tableInput.border = 0;
