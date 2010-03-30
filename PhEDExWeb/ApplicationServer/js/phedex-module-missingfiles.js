@@ -91,10 +91,19 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             */
             _processData: function(jsonBlkData) {
                 var indx, indxBlk, indxFile, indxMiss, jsonFile, jsonMissing, arrFile, arrData = [],
-                arrFileCols = ['id', 'name', 'bytes', 'origin_node', 'time_create'],
-                arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'],
+                arrFileCols = [{ jsonkey: 'id', dtkey: 'id', defval:0},
+                               { jsonkey: 'name', dtkey: 'name', defval: ''}, 
+                               { jsonkey: 'bytes', dtkey: 'bytes', defval:0, parser: YAHOO.util.DataSource.parseNumber},
+                               { jsonkey: 'origin_node', dtkey: 'origin_node', defval:''},
+                               { jsonkey: 'time_create', dtkey: 'time_create', defval:0, parser: YAHOO.util.DataSource.parseNumber}],
+                arrMissingCols = [{ jsonkey: 'group', dtkey: 'group', defval:''},
+                                  { jsonkey: 'custodial', dtkey: 'custodial', defval:''},
+                                  { jsonkey: 'se', dtkey: 'se', defval:''},
+                                  { jsonkey: 'node_id', dtkey: 'node_id', defval:0, parser: YAHOO.util.DataSource.parseNumber},
+                                  { jsonkey: 'node_name', dtkey: 'node_name', defval:''},
+                                  { jsonkey: 'subscribed', dtkey: 'subscribed', defval:''}],
                 nArrFLen = arrFileCols.length, nArrMLen = arrMissingCols.length,
-                nBlkLen = jsonBlkData.length, nFileLen, nMissLen;
+                nBlkLen = jsonBlkData.length, nFileLen, nMissLen, objCol, objVal;
                 for (indxBlk = 0; indxBlk < nBlkLen; indxBlk++) {
                     jsonFiles = jsonBlkData[indxBlk].file;
                     nFileLen = jsonFiles.length;
@@ -105,15 +114,24 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                             jsonMissing = jsonFile.missing[indxMiss];
                             arrFile = [];
                             for (indx = 0; indx < nArrFLen; indx++) {
-                                arrFile[arrFileCols[indx]] = jsonFile[arrFileCols[indx]];
+                                objCol = arrFileCols[indx];
+                                objVal = jsonFile[objCol.jsonkey];
+                                if (objCol.parser) {
+                                    if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
+                                    else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
+                                }
+                                if (!objVal) { objVal = objCol.defval; }
+                                arrFile[objCol.dtkey] = objVal;
                             }
                             for (indx = 0; indx < nArrMLen; indx++) {
-                                if (jsonMissing[arrMissingCols[indx]]) {
-                                    arrFile[arrMissingCols[indx]] = jsonMissing[arrMissingCols[indx]];
+                                objCol = arrMissingCols[indx];
+                                objVal = jsonMissing[objCol.jsonkey];
+                                if (objCol.parser) {
+                                    if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
+                                    else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
                                 }
-                                else {
-                                    arrFile[arrMissingCols[indx]] = ""; //set the value to "" if value is null in response so that filter can handle it
-                                }
+                                if (!objVal) { objVal = objCol.defval; }
+                                arrFile[objCol.dtkey] = objVal;
                             }
                             arrData.push(arrFile);
                         }
