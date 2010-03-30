@@ -47,6 +47,9 @@ PHEDEX.DataTable = function(sandbox, string) {
                     if (typeof c.parser == 'function') { val = c.parser(val); }
                     else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
                   }
+                  if (!val) {
+                    val = '';
+                  }
                   y[c.key] = val;
                 }
                 t.push(y);
