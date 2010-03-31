@@ -118,6 +118,19 @@ sub idle
 
 	# Part I:  Get a consitent snapshot of block replica statistics
 
+	# We use the existing state of the block replica table as the
+	# basis for our updates To maintain consistency, we must
+	# ensure this table does not change during our transaction,
+	# especially the "is_active" flag.
+	#
+	# Note: This agent *must* run in a short amount of time (less
+	# than a minute) or this agressive lock will block all other
+	# agents working on this table (BlockActivate,
+	# BlockDeactivate).  If performance becomes a problem, it may
+	# be better to move Activation, Deactivation, and Monitoring
+	# into a single agent.
+	&dbexec ($dbh, qq{lock table t_dps_block_replica in exclusive mode});
+
 	# Using Oracle flashback queries allows us to work safely in
 	# the immutable past instead of in the constantly-changing
 	# present. For reads on all tables involved in obtaining block
