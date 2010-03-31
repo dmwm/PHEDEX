@@ -119,7 +119,7 @@ PHEDEX.Loader = function(opts) {
     x.name = i;
     if ( !x.type ) { x.type = 'js'; }
     if ( !x.fullpath ) { x.fullpath = '/'+x.type+'/'+x.name+'.'+x.type; }
-    if ( !x.fullpath.match(/yui/) ) {
+    if ( !x.fullpath.match('^/yui/build') ) {
       x.fullpath = PHEDEX.Appserv.BaseURL + x.fullpath;
     }
     if ( !x.requires ) { x.requires = []; }
