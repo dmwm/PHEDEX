@@ -9,6 +9,8 @@ use IO::File;
 use Getopt::Long;
 use JSON::XS;
 use Data::Dumper;
+$|++;
+
 
 my $web_server = "cmswttest.cern.ch";
 my $url_path   = "/phedex/datasvc";
@@ -25,10 +27,10 @@ my $help;
 GetOptions(
     "verbose!" => \$verbose,
     "webserver=s" => \$web_server,
-        "path=s" => \$url_path,
+    "path=s" => \$url_path,
     "debug!" => \$debug,
     "file=s" => \$test_file,
-        "output|O=s" => \$output_dir,
+    "output|O=s" => \$output_dir,
     "help" => \$help,
 );
 
@@ -70,32 +72,29 @@ sub verify
     print "verifying '$url', expecting $expect\n" if $debug;
 
     my $result = "OK";
-
-    my $tee = $output_dir ? sprintf("tee $output_dir/%03s.${$format}|", $n) : '';
+    my $tee = $output_dir ? sprintf("tee $output_dir/%03s.${format}|", $n) : '';
     my $t0 = [gettimeofday];
     my $data;
-    my $VAR1 = undef;
     if ($format eq 'xml')
     {
         my $fh = IO::File->new("wget -O - '${url}' 2>/dev/null 1|${tee} ")
-            or die "could not execute wget\n";
+            || die "could not execute wget\n";
         $data = $xml->XMLin($fh, ForceArray=>1);
     }
     elsif ($format eq 'perl')
     {
         open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
-            or die "could not execute wget\n";
-        my $sep = $/;    # save input separator
-        undef $/;    # read everything in one shot
-        eval (<FILE>);
-        $/ = $sep;    # restore input separator
-        close FILE;
-        $data = $VAR1->{PHEDEX};
+            || die "could not execute wget\n";
+	{ local $/ = undef; $data = eval (<FILE>); }
+	close FILE;
     }
     elsif ($format eq 'json')
     {
-        open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} ";
-        $data = decode_json(<FILE>)->{phedex};
+        open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
+	    || die "could not execute wget\n";
+	{ local $/ = undef; $data = join "", <FILE>; }
+	eval { $data = &decode_json($data); };
+	do { $result = "ERROR"; $n++; print "decode_json error: $@\n" } if $@;
     }
     else #ERROR
     {
@@ -103,7 +102,9 @@ sub verify
         $n++;
         return;
     }
+    print "got data from '$url', parsing...\n" if $debug;
 
+    # Parse response to count elements
     my $call_time = 0;
     my $len;
     if (ref($data) ne "HASH")
@@ -191,7 +192,7 @@ sub verify
     }
     else
     {
-        $len = sprintf("%07i", $len);
+        $len = sprintf("%-7i", $len);
     }
     my $res = ($result eq $expect)?"PASS":"FAIL";
     printf "%03i %4s (%5s %5s) call=%8.4f total=%8.4f count=$len %s\n", $n, $res, $expect, $result, $call_time, $elapsed, $url;
