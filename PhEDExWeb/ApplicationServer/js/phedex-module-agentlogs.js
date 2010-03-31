@@ -54,7 +54,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             */
             meta: {
                 table: { columns: [{ key: 'name', label: 'Agent Name' },
-                                   { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT' },
+                                   { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT', parser: 'number' },
                                    { key: 'reason', label: 'Log Reason' },
                                    { key: 'message', label: 'Log Message', width: 450, "formatter": "customTextBox"}]
                 },
@@ -81,9 +81,8 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             */
             _processData: function(jsonData) {
                 var indx, indxNode, indxAgent, indxLog, jsonAgents, jsonAgent, jsonLog, arrFile, arrData = [],
-                arrAgentCols = [{ jsonkey: 'name', dtkey: 'name', defval: ''}],
-                arrLogCols = [{ jsonkey: 'time', dtkey: 'time', defval:0, parser: YAHOO.util.DataSource.parseNumber },
-                              { jsonkey: 'reason', dtkey: 'reason', defval: ''}],
+                arrAgentCols = ['name'],
+                arrLogCols = ['time', 'reason'],
                 nArrALen = arrAgentCols.length, nArrLLen = arrLogCols.length,
                 nDataLen = jsonData.length, nAgentsLen, nLogLen, objCol, objVal;
                 for (indxNode = 0; indxNode < nDataLen; indxNode++) {
@@ -96,24 +95,15 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                             jsonLog = jsonAgent.log[indxLog];
                             arrFile = [];
                             for (indx = 0; indx < nArrALen; indx++) {
-                                objCol = arrAgentCols[indx];
-                                objVal = jsonAgent[objCol.jsonkey];
-                                if (objCol.parser) {
-                                    if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
-                                    else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
-                                }
-                                if (!objVal) { objVal = objCol.defval; }
-                                arrFile[objCol.dtkey] = objVal;
+                                arrFile[arrAgentCols[indx]] = jsonAgent[arrAgentCols[indx]];
                             }
                             for (indx = 0; indx < nArrLLen; indx++) {
-                                objCol = arrLogCols[indx];
-                                objVal = jsonLog[objCol.jsonkey];
-                                if (objCol.parser) {
-                                    if (typeof objCol.parser == 'function') { objVal = objCol.parser(objVal); }
-                                    else { objVal = YAHOO.util.DataSourceBase.Parser[objCol.parser](objVal); }
+                                if (this.meta.parser[arrLogCols[indx]]) {
+                                    arrFile[arrLogCols[indx]] = this.meta.parser[arrLogCols[indx]](jsonLog[arrLogCols[indx]]);
                                 }
-                                if (!objVal) { objVal = objCol.defval; }
-                                arrFile[objCol.dtkey] = objVal;
+                                else {
+                                    arrFile[arrLogCols[indx]] = jsonLog[arrLogCols[indx]];
+                                }
                             }
                             arrFile['message'] = jsonLog.message.$t; // This is to store the message
                             arrData.push(arrFile);
