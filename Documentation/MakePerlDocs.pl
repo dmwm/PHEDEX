@@ -40,14 +40,21 @@ my @index;
 sub makehtml
 {
   my $file = $_;
+  
+  # return if the file doesn't exist or isn't one we're interested in
   return unless ($file
 		 && -f $file
 		 && $file =~ $docexts);
 
+  # path of the file relative to $podroot
+  my $path = abs2rel($file, $podroot);
+
+  # check the pod documentation, skip the file if there's some problem
   my $status = podchecker($file);
   print "$file status=$status";
   if ($status) {
       print ", skipping\n";
+      push @index, [ undef, $path ];
       if    ($status < 0) { $nopod++;  }
       elsif ($status > 0) { $errors++; }
       return;
@@ -55,7 +62,6 @@ sub makehtml
   print "\n";
   $fileok++;
   
-  my $path = abs2rel($file, $podroot);                      # path of the file relative to $podroot
   my ($vol, $reldir, $name) = splitpath($path);             # split directory and filename
   $name =~ s/$docexts//;                                    # remove the extension from the name
   make_path( catdir($htmldir, $reldir) );                   # make a path in the doc tree
@@ -113,7 +119,11 @@ END_HTML
 foreach my $i (@index) {
 #    my $title = &make_title($file);
     my ($html, $source) = @$i;
-    print INDEX "      <li><a href='$html'/>$source</a></li>\n";
+    if ($html) {
+	print INDEX "      <li><a href='$html'/>$source</a></li>\n";
+    } else {
+	print INDEX "      <li>$source</li>\n";
+    }
 }
 print INDEX<<END_HTML;
     </ul>
