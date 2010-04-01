@@ -1,20 +1,86 @@
-----------------------------------------------------------------------
--- Create tables
+/*
 
-/* General guidelines
-   t_history_* : time ordered histogram data, should be saved forever
-   t_status_*  : transient status information, can be deleted at anytime
-   t_log_*     : time ordered non-histogram data, should be saved forever */
+=pod
 
-/* FIXME: Consider using compressed table here, see
-   Tom Kyte's Effective Oracle By Design, chapter 7.
-   See also the same chapter, "Compress Auditing or
-   Transaction History" for swapping partitions.
-   Also test if index-organised table is good. */
+=head1 NAME
 
-/* t_history_link_events.priority:
- *   same as t_xfer_task, see OracleCoreTransfer
- */
+Status - PhEDEx snapshot and historical statics, and logs
+
+=head1 DESCRIPTION
+
+Status tables come in three general types: snapshot tables, history
+tables, and log tables.
+
+Snapshot tables begin with C<t_status_> and describe some aspect of
+the system at a single point in time, which is approximately the
+present.  These tables are used to efficiently present aggregate
+statistics to the user, for example via the web site.
+
+History tables begin with C<t_history_> and contain time-ordered
+statistics which should be saved forever.  These tables are used to
+generate time-based plots of system, node, or link behavior.
+
+Snapshot and history tables contain data-anonymous statistics.  They
+describe counts of files or bytes, but not which files, blocks, or
+datasets the statistics refer to.
+
+Log table begin with C<t_log_> and contain more detailed statistics
+that are identified by some data item as well as a timestamp.  Both
+time-ordered and snapshot-type data can be derieved from these.
+
+=head1 TABLES
+
+=head2 t_history_link_events
+
+This history table stores per-link file and byte counts for various
+transfer I<events>.  The events occur at a single point in time, and
+the statistics of events are aggregated into variable-width bins
+C<timewidth> wide.
+
+=over
+
+=item t_history_link_events.timebin
+
+=item t_history_link_events.timewidth
+
+=item t_history_link_events.from_node
+
+=item t_history_link_events.to_node
+
+=item t_history_link_events.priority
+
+=item t_history_link_events.avail_files
+
+=item t_history_link_events.avail_bytes
+
+=item t_history_link_events.done_files
+
+=item t_history_link_events.done_bytes
+
+=item t_history_link_events.try_files
+
+=item t_history_link_events.try_bytes
+
+=item t_history_link_events.fail_files
+
+=item t_history_link_events.fail_bytes
+
+=item t_history_link_events.expire_files
+
+=item t_history_link_events.expire_bytes
+
+=back
+
+=cut
+
+*/
+
+/* FIXME: Consider using compressed table here, see Tom Kyte's
+   Effective Oracle By Design, chapter 7.  See also the same chapter,
+   "Compress Auditing or Transaction History" for swapping partitions.
+   Also test if index-organised table is good. Also, look into making
+   the history tables range partitioned on their timestamp. */
+
 create table t_history_link_events
   (timebin		float		not null,
    timewidth		float		not null,
