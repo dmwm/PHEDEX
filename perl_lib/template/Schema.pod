@@ -1,3 +1,8 @@
+# This template is for the perldoc documentation of schema creation
+# scripts.  The purpose of the documentation should be to adequately
+# describe the data structures, and provide links between data
+# structures.
+
 /*
 
 =pod
