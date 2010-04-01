@@ -1290,7 +1290,7 @@ Represents the transfer path.  Each row is one "hop", a
 from_node,to_node pair for a given file.  The collection of hops for a
 given fileid and destination is the whole transfer path.
 
-=item L<t_adm_link_param|Schema::Topo/t_adm_link_param>
+=item L<t_adm_link_param|Schema::OracleCoreTopo/t_adm_link_param>
 
 Read by this agent to determine what the rate and latency over a hop
 is, which goes into the path cost calculation.
