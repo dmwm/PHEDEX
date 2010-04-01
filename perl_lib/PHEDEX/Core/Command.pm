@@ -1,11 +1,5 @@
 package PHEDEX::Core::Command;
 
-=head1 NAME
-
-PHEDEX::Core::Command - a drop-in replacement for Toolkit/UtilsCommand
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter';

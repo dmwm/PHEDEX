@@ -1,35 +1,5 @@
 package PHEDEX::Transfer::Backend::Manager;
 
-=head1 NAME
-
-PHEDEX::Transfer::Backend::Manager - Transfer a number of files.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 METHODS
-
-=over
-
-=item Name
-
-=back
-
-=head1 EXAMPLES
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Transfer::Backend::Interface::Glite|PHEDEX::Transfer::Backend::Interface::Glite>
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Logging';

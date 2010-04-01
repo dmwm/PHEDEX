@@ -1,22 +1,5 @@
 package PHEDEX::CLI::FakeAgent;
 
-=head1 NAME
-
-PHEDEX::CLI::FakeAgent - the PHEDEX::CLI::FakeAgent object.
-
-=head1 SYNOPSIS
-
-This class inherits from LWP::UserAgent, and adds whatever fluff PhEDEx needs
-on top of that to manage posting requests etc.
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-=cut
-
 # TODO: set only the direct or proxy variables as required, pass proxy
 # configuration to dataservice security module
 

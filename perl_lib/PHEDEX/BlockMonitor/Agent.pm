@@ -1,23 +1,5 @@
 package PHEDEX::BlockMonitor::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockMonitor::Agent - the Block Monitor agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::SQL', 'PHEDEX::Core::Logging';

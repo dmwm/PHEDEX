@@ -1,24 +1,5 @@
 package PHEDEX::BlockConsistency::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockConsistency::Agent - the Block Consistency Checking agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>, 
-L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';

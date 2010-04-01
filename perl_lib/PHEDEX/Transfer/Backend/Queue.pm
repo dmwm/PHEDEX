@@ -1,35 +1,5 @@
 package PHEDEX::Transfer::Backend::Queue;
 
-=head1 NAME
-
-PHEDEX::Transfer::Backend::Queue - Polling or monitoring of a transfer queue.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 METHODS
-
-=over
-
-=item Name
-
-=back
-
-=head1 EXAMPLES
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Transfer::Backend::Interface::Glite|PHEDEX::Transfer::Backend::Interface::Glite>
-
-=cut
-
 use strict;
 use warnings;
 use POE::Session;

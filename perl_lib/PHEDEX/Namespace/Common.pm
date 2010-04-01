@@ -13,14 +13,6 @@ sub AUTOLOAD
 
 package PHEDEX::Namespace::Common;
 
-=head1 NAME
-
-PHEDEX::Namespace::Common - implement common namespace functions for all protocols
-
-=head1 SYNOPSIS
-
-=cut
-
 use strict;
 use warnings;
 no strict 'refs';

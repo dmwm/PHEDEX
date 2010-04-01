@@ -1,23 +1,5 @@
 package PHEDEX::BlockDeactivate::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockDeactivate::Agent - the Block Deactivation agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDeactivate::SQL', 'PHEDEX::Core::Logging';

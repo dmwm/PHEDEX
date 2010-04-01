@@ -1,15 +1,5 @@
 package PHEDEX::Web::DataService;
 
-=head1 NAME
-
-Service - Main program of the PhEDEx data service
-
-=head1 DESCRIPTION
-
-Checks configuration, parses URL path for parameters, makes API call
-
-=cut
-
 use warnings;
 use strict;
 

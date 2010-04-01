@@ -1,25 +1,5 @@
 package PHEDEX::Web::SQL;
 
-=head1 NAME
-
-PHEDEX::Web::SQL - encapsulated SQL for the web data service
-
-=head1 SYNOPSIS
-
-This package simply bundles SQL statements into function calls.
-It's not a true object package as such, and should be inherited from by
-anything that needs its methods.
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';

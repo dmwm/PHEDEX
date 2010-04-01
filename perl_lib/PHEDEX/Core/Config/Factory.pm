@@ -1,23 +1,5 @@
 package PHEDEX::Core::Config::Factory;
 
-=head1 NAME
-
-PHEDEX::Core::Config::Factory - a module for creating agents
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';

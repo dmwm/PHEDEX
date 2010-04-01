@@ -1,27 +1,5 @@
 package PHEDEX::BlockConsistency::SQL;
 
-=head1 NAME
-
-PHEDEX::BlockConsistency::SQL - encapsulated SQL for the Block Consistency
-Checking agent.
-
-=head1 SYNOPSIS
-
-This package simply bundles SQL statements into function calls.
-It's not a true object package as such, and should be inherited from by
-anything that needs its methods.
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::SQL|PHEDEX::Core::SQL>,
-L<PHEDEX::BlockConsistency::Core|PHEDEX::BlockConsistency::Core>.
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';

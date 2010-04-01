@@ -1,23 +1,5 @@
 package PHEDEX::BlockActivate::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockActivate::Agent - the Block Activation agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockActivate::SQL', 'PHEDEX::Core::Logging';

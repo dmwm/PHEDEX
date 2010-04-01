@@ -1,21 +1,5 @@
 package PHEDEX::BlockConsistency::Core;
 
-=head1 NAME
-
-PHEDEX::BlockConsistency::Core - business logic for the Block Consistency
-Checking agent.
-
-=head1 SYNOPSIS
-
-Implements the checking logic for the Block Consistency Check agent.
-
-=head1 DESCRIPTION
-
-See L<https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjConsistency> for more
-information.
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::BlockConsistency::SQL';

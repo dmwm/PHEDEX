@@ -1,25 +1,5 @@
 package PHEDEX::BlockDBSPopulate::SQL;
 
-=head1 NAME
-
-PHEDEX::BlockDBSPopulate::SQL - encapsulated SQL for the Block DBS Populate agent.
-
-=head1 SYNOPSIS
-
-This package simply bundles SQL statements into function calls.
-It's not a true object package as such, and should be inherited from by
-anything that needs its methods.
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::SQL|PHEDEX::Core::SQL> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::SQL';

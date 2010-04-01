@@ -1,23 +1,5 @@
 package PHEDEX::Testbed::Agent;
 
-=head1 NAME
-
-PHEDEX::Testbed::Agent - the PHEDEX Testbed Agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Testbed::SQL', 'PHEDEX::Core::Logging';

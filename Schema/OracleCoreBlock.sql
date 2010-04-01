@@ -199,6 +199,26 @@ create sequence seq_dps_block;
 
 create index ix_dps_block_name on t_dps_block (name);
 
+/* TODO: document! */
+/* Which directories blocks can be found */
+create table t_dps_block_dir (
+  block     integer      not null,
+  dir       integer      not null,
+  --
+  constraint pk_dps_block_dir
+    primary key (block, dir),
+  --
+  constraint fk_dps_block_dir_block
+    foreign key (block) references t_dps_block (id)
+    on delete cascade,
+  --
+  constraint fk_dps_block_dir_dir
+    foreign key (dir) references t_dps_dir (id)
+    on delete cascade
+);
+
+create index ix_dps_block_dir_dir on t_dps_block_dir (dir);
+
 /*
 =pod
 

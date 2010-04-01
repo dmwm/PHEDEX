@@ -1,15 +1,5 @@
 package PHEDEX::Web::Cache;
 
-=pod
-
-=head1 NAME
-
-PHEDEX::Web::Cache - implement caching strategies for the PHEDEX::Web modules
-
-=head1 DESCRIPTION
-
-=cut
-
 use warnings;
 use strict;
 

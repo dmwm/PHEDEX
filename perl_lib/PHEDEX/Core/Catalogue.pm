@@ -1,11 +1,5 @@
 package PHEDEX::Core::Catalogue;
 
-=head1 NAME
-
-PHEDEX::Core::Catalogue
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter';

@@ -1,14 +1,6 @@
 package PHEDEX::Core::JobManager;
 use base 'PHEDEX::Core::Logging';
 
-=pod
-
-=head1 NAME
-
-PHEDEX::Core::JobManager - a POE-based job-manager for external commands
-
-=cut
-
 use strict;
 use warnings;
 use POSIX;

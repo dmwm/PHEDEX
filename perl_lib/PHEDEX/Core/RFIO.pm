@@ -1,11 +1,5 @@
 package PHEDEX::Core::RFIO;
 
-=head1 NAME
-
-PHEDEX::Core::RFIO - a drop-in replacement for Toolkit/UtilsRFIO
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter', 'PHEDEX::Core::Logging';

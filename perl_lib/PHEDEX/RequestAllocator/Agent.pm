@@ -1,25 +1,5 @@
 package PHEDEX::RequestAllocator::Agent;
 
-=head1 NAME
-
-PHEDEX::RequestAllocator::Agent - expands requests into subscriptions
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::RequestAllocator::Core|PHEDEX::RequestAllocator::Core> 
-L<PHEDEX::RequestAllocator::SQL|PHEDEX::RequestAllocator::SQL> 
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 

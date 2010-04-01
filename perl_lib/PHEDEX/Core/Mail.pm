@@ -1,11 +1,5 @@
 package PHEDEX::Core::Mail;
 
-=head1 NAME
-
-PHEDEX::Core::Mail - email notification module
-
-=cut
-
 use strict;
 use warnings;
 

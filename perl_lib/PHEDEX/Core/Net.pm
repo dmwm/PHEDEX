@@ -1,11 +1,5 @@
 package PHEDEX::Core::Net;
 
-=head1 NAME
-
-PHEDEX::Core::Net - a drop-in replacement for Toolkit/UtilsNet
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter';

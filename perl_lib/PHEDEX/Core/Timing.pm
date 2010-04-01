@@ -1,11 +1,5 @@
 package PHEDEX::Core::Timing;
 
-=head1 NAME
-
-PHEDEX::Core::Timing - a drop-in replacement for Toolkit/UtilsTiming
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter';

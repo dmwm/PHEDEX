@@ -1,23 +1,5 @@
 package PHEDEX::BlockAllocator::Core;
 
-=head1 NAME
-
-PHEDEX::BlockAllocator::Core - the Block Allocator core.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::BlockAllocator::SQL', 'PHEDEX::BlockLatency::SQL', 'PHEDEX::Core::Logging';

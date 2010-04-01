@@ -1,11 +1,5 @@
 package PHEDEX::Core::DB;
 
-=head1 NAME
-
-PHEDEX::Core::DB
-
-=cut
-
 use strict;
 use warnings;
 use base 'Exporter', 'PHEDEX::Core::Logging';

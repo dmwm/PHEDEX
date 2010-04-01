@@ -1,14 +1,5 @@
 package PHEDEX::Web::Util;
 
-=pod
-
-=head1 NAME
-
-PHEDEX::Web::Util - utility functions for the PHEDEX::Web::API::* and
-PHEDEX::Web::Core modules
-
-=cut
-
 use warnings;
 use strict;
 

@@ -1,11 +1,5 @@
 package PHEDEX::Namespace::rfio;
 
-=head1 NAME
-
-PHEDEX::Namespace::rfio - implement namespace framework for rfio protocol
-
-=cut
-
 use strict;
 use warnings;
 no strict 'refs';

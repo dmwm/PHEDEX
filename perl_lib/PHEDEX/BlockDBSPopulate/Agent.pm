@@ -1,23 +1,5 @@
 package PHEDEX::BlockDBSPopulate::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockDBSPopulate::Agent - the Block DBS Populate agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent> 
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDBSPopulate::SQL', 'PHEDEX::Core::Logging';

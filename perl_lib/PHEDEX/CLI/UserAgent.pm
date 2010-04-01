@@ -1,22 +1,5 @@
 package PHEDEX::CLI::UserAgent;
 
-=head1 NAME
-
-PHEDEX::CLI::UserAgent - the PHEDEX::CLI::UserAgent object.
-
-=head1 SYNOPSIS
-
-This class inherits from LWP::UserAgent, and adds whatever fluff PhEDEx needs
-on top of that to manage posting requests etc.
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-=cut
-
 use strict;
 use warnings;
 use base 'LWP::UserAgent';
