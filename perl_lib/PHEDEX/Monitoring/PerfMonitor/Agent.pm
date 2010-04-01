@@ -628,3 +628,126 @@ sub compactDestData
 }
 
 1;
+
+=pod
+
+=head1 NAME
+
+PerfMonitor - maintain transfer performance statistics
+
+=head1 DESCRIPTION
+
+The PerfMonitor agent is responsible for maintaining a large number of
+transfer and transfer queue statistics, including a number system
+snapshot statistics and historical statistics.
+
+System snapshot statistics describe some aspect of the system at a
+single point in time.  These statistics aappear in C<t_status_*>
+tables and are usually maintained by the agent responsible for the
+detailed data.
+(e.g. L<FilePump|PHEDEX::Infrastructure::FilePump::Agent> maintains
+C<t_status_task>, because FilePump is responsible for tasks).
+However, for status tables that don't fit into this pattern
+PerfMonitor maintains the status snapshot.
+
+PerfMonitor maintains queue-type history statistics.  History
+statistics are those that are valid for a given timestamp, and kept
+for all of time.  PerfMonitor writes historical statistics into
+C<t_history_*> tables in a "heartbeat" fashion.  This means that it
+samples the current system statistcs at regular time intervals and
+writes them to the history table.  Because it works in this fashion it
+is important that the agent finishes its cycle in a time less than the
+desired sampling frequency.  The agent currently samples system
+statistics every 5 minutes, so it must complete its cycle in under 5
+minutes.
+
+Finally, PerfMonitor is responsible for compacting historical
+statistics.  Statistics are sampled every 5 minutes normally, but
+older statistics are compacted into time bins 1 hour wide in order to
+reduce the amount of data stored in the database, improving query
+performance.  This operation is done infrequently to reduce datbase
+load.
+
+=head1 TABLES USED
+
+=over
+
+=item L<t_status_block_dest|Schema::OracleCoreStatus/t_status_block_dest>
+
+Per-node file/byte counts of block destinations go into this table. 
+
+=item L<t_status_file|Schema::OracleCoreStatus/t_status_file>
+
+Per-node file/byte counts of file creation/generation go into this table.
+
+=item L<t_status_replica|Schema::OracleCoreStatus/t_status_replica>
+
+Per-node file/byte counts about replicas go into this table.
+
+=item L<t_status_missing|Schema::OracleCoreStatus/t_status_missing>
+
+Per-node file/byte counts about files remaining to be transferred go
+into this table.
+
+=item L<t_status_group|Schema::OracleCoreStatus/t_status_group>
+
+Per-node, per-group file/byte counts of destined and resident files go
+into this table.
+
+=item L<t_history_link_stats|Schema::OracleCoreStatus/t_history_link_stats>
+
+Per-link transfer queue type statistics are written into this table,
+based on the current C<t_status_*> values.  Quantities are written in a
+"heartbeat" fashion every 5 minutes.
+
+=item L<t_history_link_dest|Schema::OracleCoreStatus/t_history_link_dest>
+
+Per-node destined (subscribed), resident, and missing file/byte counts
+are written into this table based on the current C<t_status_*> values.
+Quantities are written in a "heartbeat" fashion every 5 minutes.
+
+=item L<t_history_link_events|Schema::OracleCoreStatus/t_history_link_events>
+
+PerfMonitor uses transfer event data to calculate transfer rates which
+feed into the C<t_adm_link_param> table.  PerfMonitor does I<not>
+write transfer event history into this table;
+L<FilePump|PHEDEX::Infrastructure::FilePump::Agent> does.
+
+=item L<t_adm_link_param|Schema::OracleCoreTopo/t_adm_link_param>
+
+PerfMonitor writes the recent per-link transfer rate and queue
+information into this table, which is used by
+L<FileRouter|PHEDEX::Core::Infrastructure::FileRouter> to make routing decisions.
+
+=back
+
+=head1 COOPERATING AGENTS
+
+PerfMonitor deals with the statistics of the entire PhEDEx system, so
+the list of cooperating agents would include nearly all of them.  Such
+a list is therefore ommitted.
+
+However, the relationship with 
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent>
+deserves special mention.  PerfMonitor is responsible for maintaining
+the L<link parameters|Schema::OracleCoreTopo/t_adm_link_param> that
+are used in file routing decisions.  It does this by observing the
+per-link transfer performance of the recent past and writing this
+summary to C<t_adm_link_param>, which is used by FileRouter.  Without
+PerfMonitor, the FileRouter would not work properly.
+
+=head1 STATISTICS
+
+All tables PerfMonitor deals with are about statistics.  
+See L<TABLES USED> above.  This agent does not keep statistics about
+keeping statistics.
+
+=head1 SEE ALSO
+
+=over
+
+=item L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>
+
+=back
+
+=cut
