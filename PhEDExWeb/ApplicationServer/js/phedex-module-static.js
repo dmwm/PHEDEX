@@ -254,14 +254,14 @@ PHEDEX.Module.Static = function(sandbox, string) {
          * @param {Object} args is the object that has arguments (category id) for the module
          */
         setArgs: function(args) {
-          if ( typeof(args) == 'object' && args.static ) {
-            category = args.static;
+          if ( typeof(args) == 'object' && args['static'] ) {
+            category = args['static'];
             log('category is set to ' + category, 'info', _me);
             _sbx.notify(this.id,'setArgs');
           }
         },
       };
-    };
+    }
     Yla(this, _construct(), true);
     return this;
 }

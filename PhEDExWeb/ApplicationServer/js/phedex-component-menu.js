@@ -101,7 +101,6 @@ PHEDEX.Component.Menu = function(sandbox,args) {
             var action = arr[0];
             if ( !action ) { return; }
             if ( this[action] && typeof(this[action]) == 'function' ) {
-debugger;
               if ( arr[2] != args.name ) { return; }
               this[action](arr[3]);
               return;
