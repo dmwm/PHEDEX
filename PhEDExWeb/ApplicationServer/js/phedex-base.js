@@ -95,6 +95,27 @@ PHEDEX.Appserv.makeBaseURL = function() {
 PHEDEX.Appserv.BaseURL = PHEDEX.Appserv.makeBaseURL();
 
 /**
+ * Returns 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
+ * @method makeProductionMode
+ * @namespace PHEDEX.Appserv
+ * @protected
+ * @return {boolean} true if the application is in production-mode
+ */
+PHEDEX.Appserv.makeProductionMode = function() {
+  return true;
+  if ( location.href.match(/phedex.html$/) ) { return true; }
+  if ( location.href.match(/localhost/) ) { return false; }
+};
+
+/**
+ * The base URL of the application.
+ * @property BaseURL
+ * @type string
+ * @public
+ */
+PHEDEX.Appserv.ProductionMode = PHEDEX.Appserv.makeProductionMode();
+
+/**
  * Contains utility functions.
  * @namespace PHEDEX
  * @class Util
@@ -237,3 +258,7 @@ PHEDEX.Base = {
 var log    = PHEDEX.Util.log,
     err    = PHEDEX.Util.err,
     banner = PHEDEX.Util.banner;
+if ( PHEDEX.Appserv.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
+  log = function() {};
+  err = function() {};
+}

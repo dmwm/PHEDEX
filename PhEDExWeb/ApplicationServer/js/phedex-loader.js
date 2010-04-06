@@ -107,6 +107,14 @@ PHEDEX.Loader = function(opts) {
     for (var i in cf) {
       _loader[i] = cf[i];
     }
+    if ( PHEDEX.Appserv.ProductionMode ) { // pick up the minified versions of everything
+      _loader.filter =
+        {
+          searchExp: '/js/(.*)\\.js',
+          replaceStr: '/js/$1-min.js'
+        };
+      _dependencies['phedex-css'] = { type: 'css', fullpath: '/css/phedex-min.css' };
+    }
   };
 
   if ( opts ) {
