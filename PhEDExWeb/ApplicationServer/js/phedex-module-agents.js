@@ -50,7 +50,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           name: 'ContextMenu',
           source:'component-contextmenu',
           payload:{
-            args: {'agent':'Name'}
           }
         },
         {
@@ -74,6 +73,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       },
 
       meta: {
+//         ctxArgs: { agent:'Name' },
         table: {
           columns: [
             {key:'name',                 label:'Agent'},

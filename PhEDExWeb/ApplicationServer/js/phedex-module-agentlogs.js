@@ -42,7 +42,6 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                     name: 'ContextMenu',
                     source: 'component-contextmenu',
                     payload: {
-                        args: { 'agent': 'Name' }
                     }
                 }
             ],
@@ -53,6 +52,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @type Object
             */
             meta: {
+//                 ctxArgs: { 'agent': 'Name' }
                 table: { columns: [{ key: 'name', label: 'Agent Name' },
                                    { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT', parser: 'number' },
                                    { key: 'reason', label: 'Log Reason' },
