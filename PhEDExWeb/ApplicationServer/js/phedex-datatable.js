@@ -146,6 +146,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             },
 
             postGotData: function(step,node) {
+              this.sortNeeded = true;
               var i, steps = ['doFilter', 'doSort', 'hideFields'];
               for (i in steps) { _sbx.notify(this.id,steps[i]); }
             },
