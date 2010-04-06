@@ -7,8 +7,8 @@ phedex_base=`pwd`
 echo "Using $phedex_base for setup..."
 phedex_js_path=$phedex_base/ApplicationServer/js
 phedex_css_path=$phedex_base/ApplicationServer/css
-phedex_min_js_path=$phedex_base/ApplicationServer/minjs
-phedex_min_css_path=$phedex_base/ApplicationServer/mincss
+phedex_min_js_path=$phedex_base/ApplicationServer/min/js
+phedex_min_css_path=$phedex_base/ApplicationServer/min/css
 
 echo "========================================================"
 # Check if the YUI compressor file exist or not
@@ -31,14 +31,28 @@ fi
 
 # Check if the min js files directory exist or not
 if [ ! -d $phedex_min_js_path ]; then
-    mkdir $phedex_min_js_path
+    mkdir -p $phedex_min_js_path
+    if [ ! -d $phedex_min_js_path ]; then
+      echo "Cannot create $phedex_min_js_path, quitting"
+      exit 1
+    fi
     echo "Phedex min js files directory is created as it was missing!"
 fi
 
 # Check if the min css files directory exist or not
 if [ ! -d $phedex_min_css_path ]; then
     mkdir $phedex_min_css_path
+    if [ ! -d $phedex_min_css_path ]; then
+      echo "Cannot create $phedex_min_css_path, quitting"
+      exit 1
+    fi
     echo "Phedex min css files directory is created as it was missing!"
+fi
+
+which java >/dev/null 2>&1
+if [ $? -gt 0 ]; then
+    echo "Cannot find a 'java' executable"
+    exit 1
 fi
 
 cd $phedex_js_path
