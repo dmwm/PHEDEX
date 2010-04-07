@@ -16,7 +16,7 @@ echo "========================================================"
 if [ ! -f $yuicompressor_path ]; then
   echo "YUI compressor jar file is missing, attempting to download it"
   wget -q $yuicompressor_url
-  unzip `basename $yuicompressor_url`
+  unzip -q `basename $yuicompressor_url`
   if [ ! -f $yuicompressor_path ]; then
     echo "YUI compressor jar file is still missing, giving up..."
     exit 1
