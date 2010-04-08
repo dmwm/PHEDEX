@@ -10,7 +10,7 @@ use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
-my (@accept,@reject,@map,$die_on_reject,$cache,$cache_only,$log,$autotruncate);
+my (@accept,@reject,@map,@uriMap,$die_on_reject,$cache,$cache_only,$log,$autotruncate,$newUrl);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
 my ($cert_file,$key_file,$proxy,$pk12,$nocert);
 
@@ -62,6 +62,9 @@ sub usage()
 			to the value in all URLs, so you can serve YUI files
 			without having them installed in the same directory you
 			are working in, for example.
+ urimap=s		like the 'map' option, but applies after other matching,
+			and can map full urls. So can be used to redirect a
+			request to a completely different server than the default.
  die_on_reject		for debugging, in case your rejection criteria are wrong
  cache			directory for filesystem-based cache of requests
  cache_only		set this to serve only from whatever cache you have,
@@ -104,6 +107,7 @@ GetOptions( 'help'	=> \$help,
 	    'accept=s'		=> \@accept,
 	    'reject=s'		=> \@reject,
 	    'map=s'		=> \@map,
+	    'urimap=s'		=> \@uriMap,
 	    'cache=s'		=> \$cache,
 	    'host=s'		=> \$host,
 	    'cache_only'	=> \$cache_only,
@@ -319,7 +323,14 @@ DONE:
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
         $request->remove_header("Keep-Alive");
-        $request->uri($redirect_to . $request->uri()->path_query());
+        $newUrl = $request->uri()->path_query();
+	foreach ( @uriMap )
+	{
+	  my ($key,$value) = split('=',$_);
+	  $newUrl =~ s%$key%$value%g;
+	}
+        if ( $newUrl !~ m%^http://% ) { $newUrl = $redirect_to . $newUrl; }
+        $request->uri($newUrl);
         display_thing( $request ) if $dump_requests;
 	my $uri = $request->uri;
 	my @n = split('/',$uri);
