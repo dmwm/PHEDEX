@@ -161,7 +161,7 @@ sub idle
 
       if ( $block->{COMMAND} eq 'migrateBlock' )
       {
-        @cmd = (@{$self->{MIGR_COMMAND}}, "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
+        @cmd = (@{$self->{MIGR_COMMAND}}, "-p", "-s", $block->{DBS_NAME}, "-t", $self->{TARGET_DBS}, "-d", $block->{DATASET_NAME}, "-b", $block->{BLOCK_NAME});
 	$n_mig++;
       }
       elsif ( $block->{COMMAND} eq 'deleteBlock' )
