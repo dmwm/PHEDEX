@@ -102,7 +102,7 @@ PHEDEX.Appserv.BaseURL = PHEDEX.Appserv.makeBaseURL();
  * @return {boolean} true if the application is in production-mode
  */
 PHEDEX.Appserv.makeProductionMode = function() {
-  return true;
+// return  true;
   if ( location.href.match(/phedex.html$/) ) { return true; }
   if ( location.href.match(/localhost/) ) { return false; }
 };
@@ -175,7 +175,7 @@ PHEDEX.Util = {
         },
         order = { def:0, info:1, warn:2, error:3 },
         current;
-    if ( !outer ) { return; }
+    if ( !outer ) { return function(){}; }
     var fade = function() {
       current--;
       if ( current < 2 ) { return; }
