@@ -21,6 +21,7 @@ agents.
   node             node name, could be multiple
   se               storage element name, could be multiple
   agent            agent name, could be multiple
+  version          PhEDEx version
 
 =head2 Output
 
@@ -72,7 +73,7 @@ sub agents
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / node se agent / )
+    foreach ( qw / node se agent version / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
