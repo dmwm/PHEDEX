@@ -98,7 +98,7 @@ PHEDEX.Appserv = {
  * @type boolean
  * @public
  */
-  combineRequests: true
+  combineRequests: false
 };
 
 /**
@@ -189,12 +189,14 @@ PHEDEX.Util = { // N.B. Although a phedex-util.js file exists, this is the right
  * @param Loader {PHEDEX.Loader} A PHEDEX.Loader instance
  */
   bannerIdleTimer: function(Loader) {
-    Loader.load(function() {
-      var IdleTimer = new PHEDEX.Util.IdleTimer();
-      IdleTimer.subscribe('idle', function() { banner('waiting for your input'); });
-      IdleTimer.subscribe('active', function() { banner(); });
-      IdleTimer.start(10000);
-    },'util-idletimer');
+    setTimeout( function() {
+      Loader.load(function() {
+        var IdleTimer = new PHEDEX.Util.IdleTimer();
+        IdleTimer.subscribe('idle', function() { banner('waiting for your input'); });
+        IdleTimer.subscribe('active', function() { banner(); });
+        IdleTimer.start(10000);
+      },'util-idletimer');
+    }, 10000)
   }
 };
 
