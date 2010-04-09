@@ -58,14 +58,12 @@ PHEDEX.Loader = function(opts) {
   _success,
   _on = {},
   _loader = new YAHOO.util.YUILoader(),
+  PA = PHEDEX.Appserv,
   _conf = {
     loadOptional: true,
     allowRollup:  true,
-// played around with combo-loading, but that didn't work properly with the proxy. Forget it for now...
-//     combine:      false,
-//     comboBase:   '/phedex/datasvc/combo?',
-//     root:        '/yui/build/',
-    base:        PHEDEX.Appserv.BaseURL + '/yui/build/',
+    combine:      PA.combineRequests,
+    base:         PA.BaseURL + '/yui/build/',
     timeout:      15000,
     onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
     onProgress: function(item) { _callback([_me, 'Progress', item]); },
@@ -107,13 +105,24 @@ PHEDEX.Loader = function(opts) {
     for (var i in cf) {
       _loader[i] = cf[i];
     }
-    if ( PHEDEX.Appserv.ProductionMode ) { // pick up the minified versions of everything
+    if ( PA.ProductionMode ) { // pick up the minified versions of everything
       _loader.filter =
         {
-          searchExp: '/js/(.*)\\.js',
+          searchExp: '/js/(phedex[a-z,-]+)\\.js',
           replaceStr: '/js/$1-min.js'
         };
       _dependencies['phedex-css'] = { type: 'css', fullpath: '/css/phedex-min.css' };
+    }
+
+    if ( _loader.combine ) {
+      _loader._filter = function(str) { // overload the builtin, private (!) _filter function
+        var f = this.filter;
+        if (f) { str = str.replace(new RegExp(f.searchExp, 'g'), f.replaceStr); }
+        str = str.replace(new RegExp('/yui/build//','g'),PA.BaseURL);
+        str = str.replace(new RegExp('&','g'),',');
+        str = str.replace(/,$/,'');
+        return str;
+      }
     }
   };
 
@@ -128,7 +137,9 @@ PHEDEX.Loader = function(opts) {
     if ( !x.type ) { x.type = 'js'; }
     if ( !x.fullpath ) { x.fullpath = '/'+x.type+'/'+x.name+'.'+x.type; }
     if ( !x.fullpath.match('^/yui/build') ) {
-      x.fullpath = PHEDEX.Appserv.BaseURL + x.fullpath;
+      x.fullpath = PA.BaseURL + x.fullpath;
+      x.path = x.fullpath;
+      x.ext=false;
     }
     if ( !x.requires ) { x.requires = []; }
     _loader.addModule(x);
