@@ -327,6 +327,7 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _initLoginComponent = function(divlogin) {
+        if ( !divlogin ) { divlogin = document.getElementById('phedex-login'); }
         var logincomp = PxU.makeChild(divlogin, 'div', { id: 'phedex-nav-login', className: 'phedex-login' });
         logincomp.username = PxU.makeChild(logincomp, 'a', { className: 'phedex-login-username' });
         logincomp.username.id = _username_id;
@@ -354,7 +355,9 @@ PHEDEX.Login = function(sandbox) {
             * @param {Object} args object specifies the 'el' element where login component should be built
             */
             init: function(args) {
-                _initLoginComponent(args.el);
+                var el;
+                if ( typeof(args) == 'object' ) { el = args.el; }
+                _initLoginComponent(el);
                 _loginUsingCert();
             }
         };
@@ -363,8 +366,8 @@ PHEDEX.Login = function(sandbox) {
 };
 
 //This is to trim the string
-String.prototype.trim = function() {
-    return (this.replace(/^\s+|\s+$/g, ""));
-}
-
+// String.prototype.trim = function() {
+//     return (this.replace(/^\s+|\s+$/g, ""));
+// }
+PHEDEX.Core.onLoaded('login');
 log('loaded...','info','login');
