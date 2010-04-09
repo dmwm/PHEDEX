@@ -51,28 +51,7 @@ PHEDEX.Core = function(sandbox,loader) {
     if ( ! code.match('^phedex-') ) { code = 'phedex-'+code; }
     log ('loading "'+code+'" (for '+name+')','info',_me);
     _ldr.load( {
-      Success: function(obj) {
-        return function() {
-          banner('Loaded "'+name+'"!');
-          log('code "'+name +'" loaded...','info',_me);
-          _loaded[name] = {};
-          _sbx.notify('Loaded',name);
-          try {
-            var ctor = PxU.getConstructor(name),
-                m = new ctor(_sbx);
-                YtP.registerObject(name,m);
-          } catch (ex) {
-            banner('Cannot construct '+name,'error');
-            log(ex,'error',_me);
-          }
-          try {
-            if ( m ) { m.init(arr[1]); }
-          } catch (ex) {
-            banner('Cannot initialise '+name,'error');
-            log(ex,'error',_me);
-          }
-        }
-      }(this),
+      Success:  function(obj)  { PHEDEX.Core.onLoaded(name, arr[1]); },
       Progress: function(item) { banner('Loaded item: '+item.name); }
     }, code);
     return;
@@ -331,7 +310,31 @@ PHEDEX.Core = function(sandbox,loader) {
       _sbx.listen('CreateModule', _createModule);
       _sbx.notify('CoreCreated');
       banner('PhEDEx App is up and running!','info');
+
+      PHEDEX.Core.onLoaded = function(name,args) {
+        if ( _loaded[name] ) { return; }
+        banner('Loaded "'+name+'"!');
+        log('code "'+name +'" loaded...','info',_me);
+        _loaded[name] = {};
+        _sbx.notify('Loaded',name);
+        try {
+          var ctor = PxU.getConstructor(name),
+              m = new ctor(_sbx);
+              YtP.registerObject(name,m);
+        } catch (ex) {
+          banner('Cannot construct '+name,'error');
+          log(ex,'error',_me);
+        }
+        try {
+          if ( m ) { m.init(args); }
+        } catch (ex) {
+          banner('Cannot initialise '+name,'error');
+          log(ex,'error',_me);
+        }
+      }
+
     }
   };
 }
+
 log('loaded...','info','core');
