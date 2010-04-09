@@ -28,7 +28,7 @@ PHEDEX.Loader = function(opts) {
 
     'phedex-config':       { requires:['phedex-util'] },
     'phedex-login':        { requires:['phedex-util','button'] },
-    'phedex-navigator':    { requires: ['phedex-registry','phedex-config','phedex-globalfilter','history','autocomplete','button'] },
+    'phedex-navigator':    { requires: ['phedex-registry','phedex-config','phedex-globalfilter','phedex-login','history','autocomplete','button'] },
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
     'phedex-profiler':  { requires:['phedex-util','profiler','datatable'] },
