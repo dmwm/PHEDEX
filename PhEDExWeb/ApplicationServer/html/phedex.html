@@ -117,8 +117,6 @@ function createCoreApp() {
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
-  PxS.notify('Load','globalfilter', { el: 'phedex-global-filter'});
-  PxS.notify('Load','config');  
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {

@@ -74,6 +74,8 @@ here</a>.</p>
 
 </body>
 
+<!-- <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script> -->
+<!-- <script type="text/javascript" src="/yui/build/yuiloader/yuiloader-debug.js"></script> -->
 <script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
@@ -257,8 +259,6 @@ function createCoreApp() {
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
-  PxS.notify('Load','globalfilter', { el: 'phedex-global-filter' });
-  PxS.notify('Load','config');
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {
