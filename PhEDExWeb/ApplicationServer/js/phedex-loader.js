@@ -28,7 +28,7 @@ PHEDEX.Loader = function(opts) {
 
     'phedex-config':       { requires:['phedex-util'] },
     'phedex-login':        { requires:['phedex-util','button'] },
-    'phedex-navigator':    { requires: ['phedex-registry','phedex-config','history','autocomplete','button'] },
+    'phedex-navigator':    { requires: ['phedex-registry','phedex-config','phedex-globalfilter','history','autocomplete','button'] },
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
     'phedex-profiler':  { requires:['phedex-util','profiler','datatable'] },
@@ -65,6 +65,12 @@ PHEDEX.Loader = function(opts) {
     combine:      PA.combineRequests,
     base:         PA.BaseURL + '/yui/build/',
     timeout:      15000,
+    skin: {
+      defaultSkin: 'sam',
+      base: 'assets/skins/',
+      path: 'skin.css',
+      rollup: 1
+    },
     onSuccess:  function(item) { _callback([_me, 'Success',  _loader.inserted]); },
     onProgress: function(item) { _callback([_me, 'Progress', item]); },
     onFailure:  function(item) { _callback([_me, 'Failure',  item]); },
@@ -123,6 +129,8 @@ PHEDEX.Loader = function(opts) {
         str = str.replace(/,$/,'');
         return str;
       }
+      _loader.comboBase = '/combo/?f=';
+      _loader.root = '/yui/build/';
     }
   };
 
