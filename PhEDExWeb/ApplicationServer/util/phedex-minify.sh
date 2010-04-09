@@ -4,12 +4,17 @@ cd `dirname $0`
 cd ../..
 phedex_base=`pwd`
 echo "Using $phedex_base for setup..."
-yuicompressor_url=http://yuilibrary.com/downloads/yuicompressor/yuicompressor-2.4.2.zip
-yuicompressor_path=$phedex_base/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar
+
 phedex_js_path=$phedex_base/ApplicationServer/js
 phedex_css_path=$phedex_base/ApplicationServer/css
 phedex_min_js_path=$phedex_base/ApplicationServer/build/js
 phedex_min_css_path=$phedex_base/ApplicationServer/build/css
+
+yuicompressor_url=http://yuilibrary.com/downloads/yuicompressor/yuicompressor-2.4.2.zip
+yuicompressor_path=$YUICOMPRESSOR_PATH
+if [ ! -f $yuicompressor_path ]; then
+  yuicompressor_path=$phedex_base/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar
+fi
 
 echo "========================================================"
 # Check if the YUI compressor file exist or not
