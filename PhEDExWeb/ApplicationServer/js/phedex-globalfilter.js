@@ -225,5 +225,6 @@ PHEDEX.GlobalFilter.Filter = function(sandbox,obj) {
   };
 };
 
+PHEDEX.Core.onLoaded('globalfilter');
 // PHEDEX.Event.CreateGlobalFilter.subscribe(function(ev,arr) { new PHEDEX.Global.Filter(arr[0]); });
 log('loaded...','info','globalfilter');

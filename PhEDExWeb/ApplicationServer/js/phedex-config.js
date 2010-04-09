@@ -108,4 +108,6 @@ PHEDEX.Config = function(sandbox) {
         }
     };
 };
+
+PHEDEX.Core.onLoaded('config');
 log('loaded...','info','config');
