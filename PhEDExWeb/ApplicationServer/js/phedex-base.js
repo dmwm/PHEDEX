@@ -14,7 +14,7 @@ var YuE = YAHOO.util.Event, // for convenience...
  * @class PHEDEX
  * @static
  */
-PHEDEX= {}
+PHEDEX = {};
 
 /**
  * Creates a namespace rooted from PHEDEX.
@@ -52,75 +52,61 @@ PHEDEX.namespace = function() {
  * @namespace PHEDEX
  * @class Appserv
  */
-PHEDEX.namespace('Appserv');
-
+// PHEDEX.namespace('Appserv');
+PHEDEX.Appserv = {
 /**
- * Sets the version of the application, using a string set by the RPM build or a default.
- * @method makeVersion
+ * The version of the application, created using a string set by the RPM build or a default.
+ * property Version
  * @namespace PHEDEX.Appserv
  * @protected
- * @return {string} The version string
- */
-PHEDEX.Appserv.makeVersion = function() {
-  var version = '@APPSERV_VERSION@'; // set when RPM is built
-  return version.match(/APPSERV_VERSION/) ? '0.0.0' : version;
-};
-
-/**
- * The version of the application.
- * @property Version
  * @type string
- * @public
  */
-PHEDEX.Appserv.Version = PHEDEX.Appserv.makeVersion();
+  Version: function() {
+    var version = '@APPSERV_VERSION@'; // set when RPM is built
+    return version.match(/APPSERV_VERSION/) ? '0.0.0' : version;
+  }(),
 
 /**
- * Sets the base URL of the application, using a string set by the RPM build or a default.
- * @method makeBaseURL
- * @namespace PHEDEX.Appserv
- * @protected
- * @return {string} The base URL string
- */
-PHEDEX.Appserv.makeBaseURL = function() {
-  var baseUrl = '@APPSERV_BASEURL@'; // set when RPM is built
-  return baseUrl.match(/APPSERV_BASEURL/) ? '' : baseUrl;
-};
-
-/**
- * The base URL of the application.
+ * The base URL of the application, created using a string set by the RPM build or a default.
  * @property BaseURL
- * @type string
- * @public
- */
-PHEDEX.Appserv.BaseURL = PHEDEX.Appserv.makeBaseURL();
-
-/**
- * Returns 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
- * @method makeProductionMode
  * @namespace PHEDEX.Appserv
  * @protected
- * @return {boolean} true if the application is in production-mode
+ * type string
  */
-PHEDEX.Appserv.makeProductionMode = function() {
+  BaseURL: function() {
+    var baseUrl = '@APPSERV_BASEURL@'; // set when RPM is built
+    return baseUrl.match(/APPSERV_BASEURL/) ? '' : baseUrl;
+  }(),
+
+/**
+ * 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
+ * @property ProductionMode
+ * @namespace PHEDEX.Appserv
+ * @protected
+ * type boolean
+ */
+  ProductionMode: function() {
 // return  true;
-  if ( location.href.match(/phedex.html$/) ) { return true; }
-  if ( location.href.match(/localhost/) ) { return false; }
-};
+    if ( location.href.match(/phedex.html$/) ) { return true; }
+    if ( location.href.match(/localhost/) ) { return false; }
+    return false;
+  }(),
 
 /**
- * The base URL of the application.
- * @property BaseURL
- * @type string
+ * Combine multiple loads into a single HTTP request for performance?
+ * @property combineRequests
+ * @type boolean
  * @public
  */
-PHEDEX.Appserv.ProductionMode = PHEDEX.Appserv.makeProductionMode();
+  combineRequests: true
+};
 
 /**
  * Contains utility functions.
  * @namespace PHEDEX
  * @class Util
  */
-PHEDEX.Util = {
+PHEDEX.Util = { // N.B. Although a phedex-util.js file exists, this is the right place to define these base functions, which are truly needed everywhere.
 /** format an exception object into a sensible error-message
  * @namespace PHEDEX.Util
  * @method err
@@ -189,10 +175,10 @@ PHEDEX.Util = {
           inner.innerHTML = str;
           current = order[level];
           inner.className = classNames[level] + ' phedex-messages-inner';
-          YAHOO.util.Dom.removeClass(outer,'phedex-invisible');
+          YuD.removeClass(outer,'phedex-invisible');
           fade();
         } else {
-          YAHOO.util.Dom.addClass(outer,'phedex-invisible');
+          YuD.addClass(outer,'phedex-invisible');
         }
       }
     };
@@ -255,10 +241,10 @@ PHEDEX.Base = {
   }
 }
 
-var log    = PHEDEX.Util.log,
-    err    = PHEDEX.Util.err,
-    banner = PHEDEX.Util.banner;
+var PU     = PHEDEX.Util,
+    log    = PU.log,
+    err    = PU.err,
+    banner = PU.banner;
 if ( PHEDEX.Appserv.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
-  log = function() {};
-  err = function() {};
+  log = err = function() {};
 }
