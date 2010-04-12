@@ -25,7 +25,7 @@ my ($cert_file,$key_file,$proxy,$pk12,$nocert);
 %expires =    ( '.gif'	=> 86400,
 		'.jpg'	=> 86400,
 		'.png'	=> 86400,
-		'yui'	=>  86400,
+		'yui'	=> 86400,
 	      );
 $dump_requests = $dump_responses = $help = $verbose = $debug = 0;
 $listen_port = 30001;
