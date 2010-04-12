@@ -66,6 +66,10 @@ if [ $? -gt 0 ]; then
     exit 1
 fi
 
+# Prepare the rollup-file for the base and loader
+cd $phedex_js_path
+cat phedex-base.js phedex-loader.js | tee phedex-base-loader.js >/dev/null
+
 cd $phedex_js_path
 for file in `dir -d *.js` ; do
 echo "Converting $file"
