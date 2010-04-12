@@ -12,7 +12,7 @@ phedex_min_css_path=$phedex_base/ApplicationServer/build/css
 
 yuicompressor_url=http://yuilibrary.com/downloads/yuicompressor/yuicompressor-2.4.2.zip
 yuicompressor_path=$YUICOMPRESSOR_PATH
-if [ ! -f $yuicompressor_path ]; then
+if [ "$yuicompressor_path" == '' ]; then
   yuicompressor_path=$phedex_base/yuicompressor-2.4.2/build/yuicompressor-2.4.2.jar
 fi
 
