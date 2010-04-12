@@ -337,4 +337,9 @@ PHEDEX.Core = function(sandbox,loader) {
   };
 }
 
+// Needed here because the loading of PHEDEX.Core will overwrite the previous definition, but the correct definition will not exist until the core is created.
+PHEDEX.Core.onLoaded = function(args) {
+  setTimeout( function() { PHEDEX.Core.onLoaded(args); },200);
+}
+
 log('loaded...','info','core');

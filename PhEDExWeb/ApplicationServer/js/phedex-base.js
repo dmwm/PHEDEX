@@ -250,3 +250,14 @@ var PU     = PHEDEX.Util,
 if ( PHEDEX.Appserv.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
   log = err = function() {};
 }
+
+// this allows modules to be loaded before the core is instantiated. Those that announce themselves to
+// the core will land here, and retry every so often until the core exists. When the core exists, this
+// function will be overridden with the real one, which goes on to handle things properly.
+if ( !PHEDEX.Core ) {
+  PHEDEX.Core = {
+    onLoaded: function(args) {
+      setTimeout( function() { PHEDEX.Core.onLoaded(args); },400);
+    }
+  };
+}
