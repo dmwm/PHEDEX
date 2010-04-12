@@ -75,6 +75,7 @@ function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   log('initialising','info','app');
+  PHEDEX.Appserv.combineRequests = false;
   banner('Loading core application...');
   PxL  = new PHEDEX.Loader();
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
