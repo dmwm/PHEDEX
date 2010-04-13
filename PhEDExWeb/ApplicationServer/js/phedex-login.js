@@ -127,39 +127,6 @@ PHEDEX.Login = function(sandbox) {
     };
 
     /**
-    * @method _parseUserDN
-    * @description This parses the user DN string and returns the key with its values.
-    * @param {String} strUserDN specifies the user DN obtained from auth data service call.
-    * @private
-    */
-    var _parseUserDN = function(strUserDN) {
-        //This is temporary function to get user name from DN. This has to be removed after auth data service call gives user name specifically
-        var strTemp = '', indx = 0, strDN = "";
-        var arrResult = {};
-        var arrDNInfo = strUserDN.split('/');
-        for (indx = 0; indx < arrDNInfo.length; indx++) {
-            if (arrDNInfo[indx].length > 0) {
-                strTemp = arrDNInfo[indx].split('=');
-                if (strTemp.length > 0) {
-                    if ((strTemp[0] == 'CN') && (strTemp[1].length > 0)) {
-                        if (strDN.length < strTemp[1].length) {
-                            strDN = strTemp[1];
-                        }
-                    }
-                }
-            }
-        }
-        var regexDN = /^(.*?)[\d]*$/g;
-        var regexpDN = new RegExp(regexDN);
-        arrDNInfo = regexpDN.exec(strDN);
-        if (arrDNInfo.length > 1) {
-            strDN = arrDNInfo[1].trim();
-        }
-        log('The user name from DN is obtained', 'info', 'login');
-        return strDN;
-    };
-
-    /**
     * @method _validateLogin
     * @description The validates if user authentication succeeded or not
     * @param {Object} data is the reponse received from from auth data service call.
@@ -171,7 +138,7 @@ PHEDEX.Login = function(sandbox) {
             return false;
         }
         else {
-            if (data.auth.state == 'failed') { //Authentication failed
+            if (data.auth[0].state == 'failed') { //Authentication failed
                 return false;
             }
         }
@@ -186,30 +153,18 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _processLogin = function(data) {
-        if (_cur_state == 'login') {
-            //This is temporary.. simulating the password based authentication
-            //This has to be removed later after auth data service call supports password based authentication
-            data = {};
-            data["auth"] = { 'state': 'passwd' };
-        }
         var bsucceed = _validateLogin(data);
         log('The user login is validated. User credentials are ' + bsucceed, 'info', 'login');
         if (bsucceed) { //Authentication succeeded
-            _authData = data.auth; //The user data is saved for further use
-            if (data.auth.state == 'cert') { //Authentication done using certificate
-                _username = 'Unknown User';
-                var strUserDN = _parseUserDN(data.auth.dn); //Get the user name from DN
-                if (strUserDN) {
-                    _username = strUserDN;
-                }
-                _logincomp.username.innerHTML = _username;
+            _authData = data.auth[0]; //The user data is saved for further use
+            _username = _authData.human_name; //Get the user name
+            _logincomp.username.innerHTML = _username;
+            if (_authData.state == 'cert') { //Authentication done using certificate 
                 _logincomp.statusmsg.innerHTML = ' logged in via certificate';
                 _cur_state = 'usepassword';
                 _updateLoginButton('Use Password');
             }
-            else if (data.auth.state == 'passwd') { //Authentication done using password
-                _username = _logincomp.inputname.value;
-                _logincomp.username.innerHTML = _username;
+            else if (_authData.state == 'passwd') { //Authentication done using password
                 _logincomp.statusmsg.innerHTML = ' logged in via password';
                 _cur_state = 'logout';
                 _updateLoginButton('Log Out');
@@ -235,6 +190,7 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _loginCallFailure = function(data) {
+        _resetLoginState(); //Set the mode to password state if authentication is failed
         banner('Unable to login. Please try again.', 'error');
         log('Unable to login because of communication failure to make data service call', 'error', 'login');
     };
@@ -268,19 +224,17 @@ PHEDEX.Login = function(sandbox) {
             }
             var _pwd = _logincomp.inputpwd.value;
             _username = _logincomp.inputname.value;
-            //NOTE:Actually the below data service call will be changed later after "auth" supports password based authentication
-            //As of now dummy call is made to bounce for password based authentication
             log('Auth data service call is made for password based authentication', 'info', 'login');
-            PHEDEX.Datasvc.Call({ api: 'bounce', success_event: _eventSuccess, failure_event: _eventFailure });
+            PHEDEX.Datasvc.Call({ type:'POST', api: 'auth', args: { SecModLogin:_username, SecModPwd:_pwd }, success_event: _eventSuccess, failure_event: _eventFailure });
         }
         else if (_cur_state == 'logout') {
             _resetLoginState();
-            log('Login components are reset as use clicked logout', 'info', 'login');
+            log('Login components are reset as user clicked logout', 'info', 'login');
         }
         else if (_cur_state == 'usepassword') {
             _resetLoginState();
             _username = '';
-            log('Login components are reset as use clicked use password', 'info', 'login');
+            log('Login components are reset as user clicked use password', 'info', 'login');
         }
     };
 
@@ -302,7 +256,7 @@ PHEDEX.Login = function(sandbox) {
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
         log('Auth data service call is made for certificate based authentication', 'info', 'login');
-        PHEDEX.Datasvc.Call({ api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
+        PHEDEX.Datasvc.Call({ type: 'POST', api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
     };
 
     /**
@@ -364,10 +318,5 @@ PHEDEX.Login = function(sandbox) {
     }
     Yla(this, _construct(), true);
 };
-
-//This is to trim the string
-// String.prototype.trim = function() {
-//     return (this.replace(/^\s+|\s+$/g, ""));
-// }
 PHEDEX.Core.onLoaded('login');
 log('loaded...','info','login');
