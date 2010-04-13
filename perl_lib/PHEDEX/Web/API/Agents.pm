@@ -65,6 +65,29 @@ my $map = {
     }
 };
 
+my $code_map = {
+    _KEY => 'NAME+HOST+NODE+PID',
+    node => 'NODE',
+    name => 'NAME',
+    host => 'HOST',
+    agent => {
+        _KEY => 'PID',
+        label => 'LABEL',
+        state_dir => 'STATE_DIR',
+        version => 'VERSION',
+        pid => 'PID',
+        time_update => 'TIME_UPDATE',
+        code => {
+            _KEY => 'FILENAME',
+            filename => 'FILENAME',
+            filesize => 'FILESIZE',
+            checksum => 'CHECKSUM',
+            revision => 'REVISION',
+            tag => 'TAG'
+        }
+    }
+};
+
 sub duration { return 60 * 60; }
 sub invoke { return agents(@_); }
 
@@ -73,12 +96,18 @@ sub agents
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / node se agent version / )
+    foreach ( qw / node se agent version detail / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getAgents($core, %h));
+    my $map2 = $map;
+    if (exists $h{DETAIL})
+    {
+        $map2 = $code_map;
+    }
+
+    my $r = PHEDEX::Core::Util::flat2tree($map2, PHEDEX::Web::SQL::getAgents($core, %h));
 
     return { node => $r };
 }
