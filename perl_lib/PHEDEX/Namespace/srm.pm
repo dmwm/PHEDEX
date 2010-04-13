@@ -1,11 +1,5 @@
 package PHEDEX::Namespace::srm;
 
-=head1 NAME
-
-PHEDEX::Namespace::srm - implement namespace framework for srm protocol
-
-=cut
-
 use strict;
 use warnings;
 no strict 'refs';

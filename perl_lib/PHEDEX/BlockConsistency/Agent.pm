@@ -1,23 +1,5 @@
 package PHEDEX::BlockConsistency::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockConsistency::Agent - the Block Consistency Checking agent.
-
-=head1 SYNOPSIS
-
-pending...
-
-=head1 DESCRIPTION
-
-pending...
-
-=head1 SEE ALSO...
-
-L<PHEDEX::Core::Agent|PHEDEX::Core::Agent>, 
-L<PHEDEX::BlockConsistency::SQL|PHEDEX::BlockConsistency::SQL>.
-
-=cut
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::Logging';
@@ -47,7 +29,8 @@ our %params =
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> undef,
 	  max_priority	=> 0,			# max of active requests
-	  QUEUE_LENGTH	=> 40,			# length of queue per cycle
+	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
+          DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
 	);
 
 sub new
@@ -57,7 +40,14 @@ sub new
   my $self  = $class->SUPER::new(%params,@_);
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   $self->{QUEUE} = POE::Queue::Array->new();
+  $self->{RESULT_QUEUE} = POE::Queue::Array->new();
   $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
+
+# Don't set this below 5 minutes, since it is the time interval you will be accessing the DB 
+  if ( $self->{WAITTIME} < 300 ) { $self->{WAITTIME} = 300 + rand(15); }
+  $self->{TIME_QUEUE_FETCH} = 0;
+  $self->{LAST_QUEUE} = 0;  
+
   bless $self, $class;
 
   return $self;
@@ -90,14 +80,23 @@ sub doDBSCheck
 
   $self->Logmsg("doDBSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
-  my $t = time;
+
+  my $t0 = Time::HiRes::time(); 
 
 # fork the dbs call and harvest the results
   my $d = dirname($0);
   if ( $d !~ m%^/% ) { $d = cwd() . '/' . $d; }
   my $dbs = $d . '/DBSgetLFNsFromBlock';
-  my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
-  my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
+  my $dbsurl;
+  if ( $self->{DBS_URL} )
+  {
+    $dbsurl = $self->{DBS_URL};
+  }
+  else
+  {
+    my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
+    $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
+  }
   my $blockname = $self->getBlocksFromIDs($request->{BLOCK})->[0];
 
   open DBS, "$dbs --url $dbsurl --block $blockname |" or do
@@ -113,52 +112,32 @@ sub doDBSCheck
     return 0;
   };
 
-  eval
+  $n_tested = $n_ok = 0;
+  $n_files = $request->{N_FILES};
+  foreach my $r ( @{$request->{LFNs}} )
   {
-    $n_tested = $n_ok = 0;
-    $n_files = $request->{N_FILES};
-    foreach my $r ( @{$request->{LFNs}} )
-    {
-      if ( delete $dbs{$r->{LOGICAL_NAME}} ) { $r->{STATUS} = 'OK'; }
-      else                                   { $r->{STATUS} = 'Error'; }
-      $self->setFileState($request->{ID},$r);
-      $n_tested++;
-      $n_ok++ if $r->{STATUS} eq 'OK';
-    }
-    $n_files = $n_tested + scalar keys %dbs;
-    $self->setRequestFilecount($request->{ID},$n_tested,$n_ok);
-    if ( scalar keys %dbs )
-    {
-      die "Hmm, how to handle this...? DBS has more than TMDB!\n";
-      $self->setRequestState($request,'Suspended');
-    }
-    if ( $n_files == 0 )
-    {
-      $self->setRequestState($request,'Indeterminate');
-    }
-    elsif ( $n_ok == $n_files )
-    {
-      $self->setRequestState($request,'OK');
-    }
-    elsif ( $n_tested == $n_files && $n_ok != $n_files )
-    {
-      $self->setRequestState($request,'Fail');
-    }
-    else
-    {
-      print "Hmm, what state should I set here? I have (n_files,n_ok,n_tested) = ($n_files,$n_ok,$n_tested) for request $request->{ID}\n";
-    }
-    $self->{DBH}->commit();
-  };
+    $n_tested++;
+    if ( delete $dbs{$r->{LOGICAL_NAME}} ) { $r->{STATUS} = 'OK';  $n_ok++}
+    else                                   { $r->{STATUS} = 'Error'; }
+    $r->{TIME_REPORTED} = time();
+  }
+  $n_files = $n_tested + scalar keys %dbs;
+  if ( scalar keys %dbs ) {  $self->Logmsg("DBS has more than TMBD, test failed!"); }
+#      die "Hmm, how to handle this...? DBS has more than TMDB!\n";
+#      $self->setRequestState($request,'Suspended'); }
 
-  do
-  {
-    chomp ($@);
-    $self->Alert ("database error: $@");
-    eval { $self->{DBH}->rollback() };
-    return 0;
-  } if $@;
- 
+  $request->{N_TESTED} = $n_tested;
+  $request->{N_OK} = $n_ok;
+  if ( $n_files == 0 )        { $request->{STATUS} = 'Indeterminate';}
+  elsif ( $n_ok == $n_files ) { $request->{STATUS} = 'OK';}
+  else                        { $request->{STATUS} = 'Fail';}
+  $request->{TIME_REPORTED} = time();
+
+  my $dt0 = Time::HiRes::time() - $t0;
+  $self->Logmsg("$n_tested files tested ($n_ok,$n_files) in $dt0 sec") if ( $self->{DEBUG} );
+
+  $self->{RESULT_QUEUE}->enqueue($request->{PRIORITY},$request);
+
   my $status = ( $n_files == $n_ok ) ? 1 : 0;
   return $status;
 }
@@ -166,7 +145,7 @@ sub doDBSCheck
 sub doNSCheck
 {
   my ($self, $request) = @_;
-  my ($n_files,$n_tested,$n_ok);
+  my $n_files = 0;
   my ($ns,$loader,$cmd,$mapping);
   my @nodes = ();
 
@@ -226,6 +205,15 @@ sub doNSCheck
   $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
+  my $t0 = Time::HiRes::time();
+  my ($t1,$dt1,$dt0);
+  $dt1 = 0.;
+  $self->Logmsg("Start the checking  of $n_files local files at $t0") if ( $self->{DEBUG} );
+  
+  my ($were_tested,$were_ok,$were_n);
+  $were_tested = $were_ok = 0;
+  $were_n = $n_files;
+
   foreach my $r ( @{$request->{LFNs}} )
   {
     no strict 'refs';
@@ -233,17 +221,20 @@ sub doNSCheck
     my $node = $self->{NODES}[0];
     my $lfn = $r->{LOGICAL_NAME};
     $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
+    $were_tested++;
     if ( $request->{TEST} eq 'size' )
     {
+      $t1 = Time::HiRes::time();
       my $size = $ns->$cmd($pfn);
-      if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; }
+      $dt1 += Time::HiRes::time() - $t1;
+      if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Error'; }
     }
     elsif ( $request->{TEST} eq 'migration' ||
 	    $request->{TEST} eq 'is_migrated' )
     {
       my $mode = $ns->$cmd($pfn);
-      if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; }
+      if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Error'; }
     }
     $r->{TIME_REPORTED} = time();
@@ -255,46 +246,19 @@ sub doNSCheck
     }
   }
 
-  eval
-  {
-    $n_tested = $n_ok = 0;
-    $n_files = $request->{N_FILES};
-    foreach my $r ( @{$request->{LFNs}} )
-    {
-      next unless $r->{STATUS};
-      $self->setFileState($request->{ID},$r);
-      $n_tested++;
-      $n_ok++ if $r->{STATUS} eq 'OK';
-    }
-    $self->setRequestFilecount($request->{ID},$n_tested,$n_ok);
-    if ( $n_files == 0 )
-    {
-      $self->setRequestState($request,'Indeterminate');
-    }
-    elsif ( $n_ok == $n_files )
-    {
-      $self->setRequestState($request,'OK');
-    }
-    elsif ( $n_tested == $n_files && $n_ok != $n_files )
-    {
-      $self->setRequestState($request,'Fail');
-    }
-    else
-    {
-      print "Hmm, what state should I set here? I have (n_files,n_ok,n_tested) = ($n_files,$n_ok,$n_tested) for request $request->{ID}\n";
-    }
-    $self->{DBH}->commit();
-  };
+  $request->{N_TESTED} = $were_tested;
+  $request->{N_OK} = $were_ok;
+  if ( $were_n == 0 )           { $request->{STATUS} = 'Indeterminate';}    
+  elsif ( $were_ok == $were_n ) { $request->{STATUS} = 'OK';}    
+  else                          { $request->{STATUS} = 'Fail';}
+  $request->{TIME_REPORTED} = time(); 
 
-  do
-  {
-    chomp ($@);
-    $self->Alert ("database error: $@");
-    eval { $self->{DBH}->rollback() };
-    return 0;
-  } if $@;
- 
-  my $status = ( $n_files == $n_ok ) ? 1 : 0;
+  $dt0 = Time::HiRes::time() - $t0;
+  $self->Logmsg("$were_tested files tested in $dt0 sec (ls = $dt1 sec)") if ( $self->{DEBUG} );
+
+  $self->{RESULT_QUEUE}->enqueue($request->{PRIORITY},$request);
+
+  my $status = ( $were_n == $were_ok ) ? 1 : 0;
   return $status;
 }
 
@@ -304,7 +268,96 @@ sub _poe_init
   $kernel->state('do_tests',$self);
   $kernel->state('get_work',$self);
   $kernel->state('requeue_later',$self);
+  $kernel->state('upload_result',$self);
   $kernel->yield('get_work');
+  $kernel->delay_set('upload_result',$self->{WAITTIME} / 2);
+}
+
+sub upload_result
+{
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
+  my ($request,$id,$priority);
+  my $rows = 0;
+  my $tfiles = 0;
+  my (%FileState,%RequestFileCount,%RequestState);
+
+# Make sure to come back again at a later time
+  $kernel->delay_set('upload_result',$self->{WAITTIME});
+
+  $self->{pmon}->State('upload_result','start');
+  my $current_queue_size = $self->{RESULT_QUEUE}->get_item_count();
+  if ( ! $current_queue_size ) { $self->Logmsg("upload_result: No results in queue") if $self->{DEBUG}; } 
+  else {
+# If we have already made some test, then update the database, but just for the current results in queue
+    $self->Logmsg("upload_result: Results in queue. Updating database ...") if $self->{DEBUG};
+    my $t0 = Time::HiRes::time();
+    my $tmp_queue = POE::Queue::Array->new();  # to save results in case of failure
+
+    my $qFS  = &dbprep($self->{DBH}, qq{insert into t_dvs_file_result fr (id,request,fileid,time_reported,status)
+	values (seq_dvs_file_result.nextval,?,?,?, (select id from t_dvs_status where name like ?))});
+    my $qRFC = &dbprep($self->{DBH}, qq{update t_status_block_verify set n_tested = ?, n_ok = ? where id = ?});
+    my $qRS  = &dbprep($self->{DBH}, qq{update t_status_block_verify sbv set time_reported = ?, 
+        status = (select id from t_dvs_status where name like ?) where id = ?});
+
+    eval {
+      while ( $current_queue_size > 0 ) {
+       ($priority,$id,$request) = $self->{RESULT_QUEUE}->dequeue_next();
+       $tmp_queue -> enqueue($priority,$request);
+       $self->Logmsg("upload_result: Preparing request $request->{ID}") if $self->{DEBUG};
+ 
+       foreach my $r ( @{$request->{LFNs}} ) {
+          next unless $r->{STATUS};
+          push(@{$FileState{1}}, $request->{ID});
+          push(@{$FileState{2}}, $r->{FILEID});
+          push(@{$FileState{3}}, $r->{TIME_REPORTED});
+          push(@{$FileState{4}}, $r->{STATUS});
+          $rows++; $tfiles++;
+       }
+       push(@{$RequestFileCount{1}}, $request->{N_TESTED});
+       push(@{$RequestFileCount{2}}, $request->{N_OK});
+       push(@{$RequestFileCount{3}}, $request->{ID});
+       $rows++;
+       push(@{$RequestState{1}}, $request->{TIME_REPORTED});
+       push(@{$RequestState{2}}, $request->{STATUS});
+       push(@{$RequestState{3}}, $request->{ID});
+       $rows++;
+       if ( $rows > 1000 ) {
+	 if ($tfiles > 0 ) { &dbbindexec($qFS,%FileState); }
+	 &dbbindexec($qRFC,%RequestFileCount);
+	 &dbbindexec($qRS, %RequestState);
+         $self->{DBH}->commit(); 
+#        Make sure, we clean up everything
+         my $nup =  scalar ($tmp_queue->remove_items(sub{1}));
+         $self->Logmsg("upload_result: $nup requests uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
+         $rows = 0; $tfiles = 0;
+         %FileState = ();
+         %RequestFileCount = ();
+         %RequestState = ();     
+       }
+       $current_queue_size--;
+      }
+      if ( $rows > 0 ) {
+	 if ($tfiles > 0) { &dbbindexec($qFS,%FileState); }
+	 &dbbindexec($qRFC,%RequestFileCount);
+	 &dbbindexec($qRS, %RequestState);
+
+         $self->{DBH}->commit();
+         my $nup =  scalar ($tmp_queue->remove_items(sub{1}));
+         $self->Logmsg("upload_result: remaining $nup request uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
+      }
+    }; 
+    if ( $self->rollbackOnError() ) {
+# put back everything as it was 
+      while ( $tmp_queue -> get_item_count() > 0) { 
+        ($priority,$id,$request) = $tmp_queue->dequeue_next();
+        $self->{RESULT_QUEUE} -> enqueue($priority,$request);
+      } 
+    }
+    my $dt0 = Time::HiRes::time() - $t0;
+    $self->Logmsg("upload_result: Database updated in $dt0 sec") if $self->{DEBUG};    
+  }
+
+  $self->{pmon}->State('upload_result','stop');
 }
 
 sub do_tests
@@ -313,7 +366,22 @@ sub do_tests
   my ($request,$r,$id,$priority);
 
   ($priority,$id,$request) = $self->{QUEUE}->dequeue_next();
-  return unless $request;
+
+  unless ($request) {
+# I drained the queue, make a larger queue: First make sure that something has been made, i.e. we at least
+# have spend few seconds, then see if there is room for improvement, i.e. at least there are few idle seconds
+# and finally check that we perform a full cycle. It so, make a bigger queue proportional to the time left
+# put a hard limit of 900 
+     my $dt0   = time() - $self->{TIME_QUEUE_FETCH};
+     my $scale= ( $dt0 > 30 ) ? $self->{WAITTIME}/$dt0 : 0;
+     if ( ($self->{WAITTIME} - $dt0) > 30 && $scale && $self->{LAST_QUEUE} == $self->{QUEUE_LENGTH} ) {
+        my $new_queue_length = int($self->{QUEUE_LENGTH} * $scale);
+        $self->{QUEUE_LENGTH} = ($new_queue_length <= 900) ? $new_queue_length : 900; 
+        $self->Logmsg("do_tests: Queue too small, increasing QUEUE_LENGTH to $self->{QUEUE_LENGTH}") if ($self->{DEBUG});
+     } 
+     return;
+  }
+
 # I got a request, so make sure I come back again soon for another one
   $kernel->yield('do_tests');
 
@@ -337,11 +405,13 @@ sub do_tests
          $request->{TEST} eq 'is_migrated' )
     {
       $self->setRequestState($request,'Active');
+      $self->{DBH}->commit();
       my $result = $self->doNSCheck ($request);
     }
     elsif ( $request->{TEST} eq 'dbs' )
     {
       $self->setRequestState($request,'Active');
+      $self->{DBH}->commit();
       my $result = $self->doDBSCheck ($request);
     }
     else
@@ -349,21 +419,17 @@ sub do_tests
       $self->setRequestState($request,'Rejected');
       $self->Logmsg("do_tests: return after Rejecting $request->{ID}");
     }
+    $self->{DBH}->commit();
   };
-  if ($@) {
-    chomp ($@);
-    $self->Alert ("Error during test: $@");
+  if ( $self->rollbackOnError() ) {
 #   put everything back the way it was...
-    $self->{DBH}->rollback();
 #   ...and requeue the request in memory. But, schedule it for later, and lower
 #   the priority. That way, if it is a hard error, it should not block things
 #   totally, and if it is a soft error, it should go away eventually.
 #   (N.B. 'lower' priority means numerically higher!)
     $request->{PRIORITY} = ++$self->{max_priority};
     $kernel->delay_set('requeue_later',60,$request);
-  } else {
-    $self->{DBH}->commit();
-  }
+  } 
 
   $self->{pmon}->State('do_tests','stop');
 }
@@ -381,7 +447,7 @@ sub requeue_later
 # to kick this into action when I re-queue. Otherwise, it waits for the next
 # time get_work finds something to do!
   $self->Logmsg('Requeue request ID=',$request->{ID},' after ',$request->{attempt},' attempts');
-  if ( ! $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
+  if ( ! $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); } 
   $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
 };
 
@@ -452,10 +518,12 @@ sub get_work
   if ( $self->{QUEUE}->get_item_count() )
   {
 #   There is work queued, so the agent is 'busy'. Check again soon
+    $self->Logmsg("get_work: The agent is busy") if ( $self->{DEBUG} );
     $kernel->delay_set('get_work',10);
     return;
   }
 # The agent is idle. Check somewhat less frequently
+  $self->Logmsg("get_work: The agent is idle") if ( $self->{DEBUG} );
   $kernel->delay_set('get_work',$self->{WAITTIME});
 
   $self->{pmon}->State('get_work','start');
@@ -476,61 +544,19 @@ sub get_work
       $self->setRequestState($request,'Queued');
     }
     $self->{DBH}->commit();
-  };
-  do {
-     chomp ($@);
-     $self->Alert ("database error: $@");
-     $self->{DBH}->rollback();
-  } if $@;
+  }; 
+  $self->rollbackOnError();
 
 # If we found new tests to perform, but there were none already in the queue, kick off
 # the do_tests loop
+  $self->{LAST_QUEUE} = $self->{QUEUE}->get_item_count();
+  $self->{TIME_QUEUE_FETCH} = time();
+
   if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
-  else
-  {
-    # Disconnect from the database
-    $self->disconnectAgent();
-  }
+  else                                    { $self->disconnectAgent(); }   # Disconnect from the database
+
   $self->{pmon}->State('get_work','stop');
-
   return;
-}
-
-sub setFileState
-{
-# Change the state of a file-test in the database
-  my ($self, $request, $result) = @_;
-  my ($sql,%p,$q);
-  return unless defined $result;
-
-  $sql = qq{
-	insert into t_dvs_file_result fr 
-	(id,request,fileid,time_reported,status)
-	values
-	(seq_dvs_file_result.nextval,:request,:fileid,:time,
-	 (select id from t_dvs_status where name like :status_name )
-	)
-       };
-  %p = ( ':fileid'      => $result->{FILEID},
-  	 ':request'     => $request,
-         ':status_name' => $result->{STATUS},
-         ':time'        => $result->{TIME_REPORTED},
-       );
-  $q = &dbexec($self->{DBH},$sql,%p);
-}
-
-sub setRequestFilecount
-{
-  my ($self,$id,$n_tested,$n_ok) = @_;
-  my ($sql,%p,$q);
-
-  $sql = qq{ update t_status_block_verify set n_tested = :n_tested,
-		n_ok = :n_ok where id = :id };
-  %p = ( ':n_tested' => $n_tested,
-	 ':n_ok'     => $n_ok,
-	 ':id'       => $id
-       );
-  $q = &dbexec($self->{DBH},$sql,%p);
 }
 
 sub setRequestState

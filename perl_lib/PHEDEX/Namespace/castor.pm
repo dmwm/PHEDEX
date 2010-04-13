@@ -1,11 +1,5 @@
 package PHEDEX::Namespace::castor;
 
-=head1 NAME
-
-PHEDEX::Namespace::castor - implement namespace framework for castor protocol
-
-=cut
-
 use strict;
 use warnings;
 no strict 'refs';

@@ -1,21 +1,5 @@
 package PHEDEX::BlockConsistency::Injector::Agent;
 
-=head1 NAME
-
-PHEDEX::BlockConsistency::Injector::Agent - the Block Consistency Checking Injection agent.
-
-=head1 SYNOPSIS
-
-This implements the Injection agent for the Block Consistency Checking project.
-See L<https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjConsistency> for
-details.
-
-=head1 DESCRIPTION
-
-See the wiki, where the documentation is maintained.
-
-=cut
-
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
@@ -100,7 +84,7 @@ sub stuckOnWan
 # Blocks stuck over a link for longer than $interval, but not if already seen
   $sql = qq { select time_request, time_update,
                      ns.name sname, nd.name dname, bp.block block,
-                     ns.id sid, nd.id did, b.name bname, l.is_local is_local
+                     ns.id sid, nd.id did, b.name bname, b.files bfiles, l.is_local is_local
                from t_status_block_path bp
                join t_adm_node ns on ns.id = bp.src_node
                join t_adm_node nd on nd.id = bp.destination
@@ -155,7 +139,7 @@ sub idle
 # Create an injection drop for the BDV agent!
       my %p = (
 		BLOCK		=> $request->{BLOCK},
-		N_FILES		=> 0,
+		N_FILES		=> $request->{BFILES},
 		PRIORITY	=> 1024*1024*1024, # Pretty high priority!
 		TEST		=> undef,
 		TIME_EXPIRE	=> time() + 3 * 86400,
@@ -165,10 +149,10 @@ sub idle
 
       if ( $request->{IS_LOCAL} eq 'y' )
       {
-#       For LAN transfers, check migration at the destination.
+#       For LAN transfers, check migration at the source Buffer node.
         $p{TEST} = 'migration';
-        $p{NODE} = $request->{DID};
-        $p{NODE_NAME} = $request->{DNAME};
+        $p{NODE} = $request->{SID};
+        $p{NODE_NAME} = $request->{SNAME};
       }
       if ( $request->{IS_LOCAL} eq 'n' )
       {
@@ -178,6 +162,7 @@ sub idle
         $p{NODE_NAME} = $request->{SNAME};
       }
       next unless exists($self->{NODES_ID}{$p{NODE_NAME}});
+      $self->Dbgmsg("Injecting $p{TEST} test for block $p{BLOCK} to $p{NODE_NAME} node");
 
       if ( defined($self->{DROPBOX}) )
       {
@@ -200,6 +185,7 @@ sub idle
 #       ...otherwise, inject the test directly:
         delete $p{NODE_NAME};
         PHEDEX::BlockConsistency::Core::InjectTest( $self, %p );
+        $counter++;
       }
     }
     $self->Logmsg("Injected $counter test-requests");

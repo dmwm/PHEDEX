@@ -1,46 +1,13 @@
-/*
-=pod
+----------------------------------------------------------------------
+-- Create sequences
 
-=head1 NAME
+create sequence seq_dps_dbs;
+create sequence seq_dps_dataset;
+create sequence seq_dps_block;
 
-Block - tables defining the file-block concept
+----------------------------------------------------------------------
+-- Create tables
 
-=head1 DESCRIPTION
-
-These tables define the concept of the file-block, which is a
-collection of files, and how they are organized into datasets, which
-are collections of blocks.  Other block-level tables which are used
-for bookkeeping are also defined here.
-
-=head1 TABLES
-
-=head2 t_dps_dbs
-
-Defines a DBS endpoint, which is responsible for bookkeeping datasets
-and blocks.
-
-=over
-
-=item t_dps_dbs.id
-
-=item t_dps_dbs.name
-
-Name of the DBS (Dataset Bookkeeping Service).  Typically the full URI
-to the service endpoint, but technically an arbitrary string.
-
-=item t_dps_dbs.dls
-
-Name of the associated DLS (Data Location Service).  Essentially
-obsolete, the convention is to set the value to "dbs" to signify that
-the DBS itself functions as the DLS.
-
-=item t_dps_dbs.time_create
-
-=back
-
-=cut
-
-*/
 create table t_dps_dbs
   (id			integer		not null,
    name			varchar (1000)	not null,
@@ -53,46 +20,7 @@ create table t_dps_dbs
    constraint uq_dps_dbs_name
      unique (name));
 
-create sequence seq_dps_dbs;
 
-/*
-=pod
-
-=head2 t_dps_dataset
-
-Defines a dataset, a collection of blocks.
-
-=over
-
-=item t_dps_dataset.id
-
-=item t_dps_dataset.dbs
-
-The DBS this dataset is associated with.
-
-=item t_dps_dataset.name
-
-Name of the dataset.  Typically in the form /PRIMARY/PROCESSED/TIER.
-
-=item t_dps_dataset.is_open
-
-Whether or not more blocks can be added to this dataset.  Datasets may
-be reopened after they are closed.
-
-=item t_dps_dataset.is_transient
-
-OBSOLETE.  Whether or not we can forget about this dataset once all
-transfers have been made.
-
-=item t_dps_dataset.time_create
-
-=item t_dps_dataset.time_update
-
-=back
-
-=cut
-
-*/
 create table t_dps_dataset
   (id			integer		not null,
    dbs			integer		not null,
@@ -117,50 +45,7 @@ create table t_dps_dataset
    constraint ck_dps_dataset_transient
      check (is_transient in ('y', 'n')));
 
-create sequence seq_dps_dataset;
 
-/*
-=pod
-
-=head2 t_dps_block
-
-Defines blocks, which are collections of files and the minimum unit of
-transfer managed by PhEDEx.
-
-=over
-
-=item t_dps_block.id
-
-=item t_dps_block.dataset
-
-The dataset this block belongs to.
-
-=item t_dps_block.name
-
-Name of the block.  Typically in the form PRIMARY/PROCESSED/TIER#GUID.
-
-=item t_dps_block.files
-
-Number of files in the block.
-
-=item t_dps_block.bytes
-
-Number of bytes in the block.
-
-=item t_dps_block.is_open
-
-Whether or not more files may be added to this block.  A closed block
-may never become open again.
-
-=item t_dps_block.time_create
-
-=item t_dps_block.time_update
-
-=back
-
-=cut
-
- */
 create table t_dps_block
   (id			integer		not null,
    dataset		integer		not null,
@@ -189,36 +74,10 @@ create table t_dps_block
    constraint ck_dps_block_bytes
      check (bytes >= 0));
 
-create sequence seq_dps_block;
-
-create index ix_dps_block_name on t_dps_block (name);
-
-/*
-=pod
-
-=head2 t_tmp_br_active
-
-Temporary table for merging into t_dps_block_replica.  Contains a list
-of blocks which are active.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_active
   (block      		integer		not null
 ) on commit delete rows;
 
-/*
-=pod
-
-=head2 t_tmp_br_src
-
-Temporary table for merging into t_dps_block_replica.  Contains
-statistics for block generation.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_src
   (block      		integer		not null,
    node			integer		not null,
@@ -227,18 +86,6 @@ create global temporary table t_tmp_br_src
    time_update		integer		not null
 ) on commit delete rows;
 
-
-/*
-=pod
-
-=head2 t_tmp_br_dest
-
-Temporary table for merging into t_dps_block_replica.  Contains
-statistics for subscribed blocks.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_dest
   (block      		integer		not null,
    node			integer		not null,
@@ -247,17 +94,6 @@ create global temporary table t_tmp_br_dest
    time_update		integer		not null
 ) on commit delete rows;
 
-/*
-=pod
-
-=head2 t_tmp_br_node
-
-Temporary table for merging into t_dps_block_replica.  Contains
-statistics for replicated blocks.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_node
   (block      		integer		not null,
    node			integer		not null,
@@ -266,17 +102,6 @@ create global temporary table t_tmp_br_node
    time_update		integer		not null
 ) on commit delete rows;
 
-/*
-=pod
-
-=head2 t_tmp_br_xfer
-
-Temporary table for merging into t_dps_block_replica.  Contains
-statistics for blocks currently being transferred.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_xfer
   (block      		integer		not null,
    node			integer		not null,
@@ -285,17 +110,6 @@ create global temporary table t_tmp_br_xfer
    time_update		integer		not null
 ) on commit delete rows;
 
-/*
-=pod
-
-=head2 t_tmp_br_flag
-
-Temporary table for merging into t_dps_block_replica.  Contains
-flags associated with a block replica.
-
-=cut
-
-*/
 create global temporary table t_tmp_br_flag
   (block      		integer		not null,
    node			integer		not null,
@@ -304,78 +118,6 @@ create global temporary table t_tmp_br_flag
    time_update		integer		not null
 ) on commit delete rows;
 
-/*
-=pod
-
-=head2 t_dps_block_replica
-
-A table containing statistics and various flags for blocks at (or
-destined to be at) nodes.  This table becomes the only record that
-transfers have been done once a block replica is deactivated and the
-file-level replica information is removed.
-
-=over
-
-=item t_dps_block_replica.block
-
-=item t_dps_block_replica.node
-
-=item t_dps_block_replica.is_active
-
-Whether or not this replica is "active" (or "expanded").  Active
-blocks have file-level information in t_xfer_* tables, while inactive
-blocks do not.  Active blocks either need transfers to some
-destination, or have only recently finished all needed transfers.
-
-=item t_dps_block_replica.src_files
-
-Number of files from this block which were generated at this node.
-
-=item t_dps_block_replica.src_bytes
-
-Number of bytes from this block which were generated at this node.
-
-=item t_dps_block_replica.dest_files
-
-Number of files from this block which are subscribed to this node.
-
-=item t_dps_block_replica.dest_bytes
-
-Number of bytes from this block which are subscribed to this node.
-
-=item t_dps_block_replica.node_files
-
-Number of files from this block at this node.
-
-=item t_dps_block_replica.node_bytes
-
-Number of bytes from this block at this node.
-
-=item t_dps_block_replica.xfer_files
-
-Number of files from this block currently being transferred to this node.
-
-=item t_dps_block_replica.xfer_bytes
-
-Number of bytes from this block currently being transferred to this node.
-
-=item t_dps_block_replica.is_custoidal
-
-Whether this is a custodial replica for this node.
-
-=item t_dps_block_replica.user_group
-
-Which user group is responsible for this replica.
-
-=item t_dps_block_replica.time_create
-
-=item t_dps_block_replica.time_update
-
-=back
-
-=cut
-
-*/
 create table t_dps_block_replica
   (block		integer		not null,
    node			integer		not null,
@@ -414,9 +156,6 @@ create table t_dps_block_replica
    constraint ck_dps_block_replica_active
      check (is_active in ('y', 'n')));
 
-create index ix_dps_block_replica_node on t_dps_block_replica (node);
-
-create index ix_dps_block_replica_group on t_dps_block_replica (user_group);
 
 /* t_dps_block_dest.state states:
      0: Assigned but not yet active (= waiting for router to activate
@@ -426,61 +165,6 @@ create index ix_dps_block_replica_group on t_dps_block_replica (user_group);
      3: Block completed and not to be considered further, but the
         entire subscription not yet completed and marked done.
      4: Suspended by the FileRouter due to bad behavior
-*/
-
-/*
-=pod
-
-=head2 t_dps_block_dest
-
-Represents a block which should be transferred to a destination.
-
-=over
-
-=item t_dps_block_dest.block
-
-=item t_dps_block_dest.dataset
-
-=item t_dps_block_dataset.priority
-
-Positive integer representing at what priority this block should be
-transferred.  Lower values are higher priority.
-
-=item t_dps_block_dest.is_custodial
-
-Whether or not the destination is to have custodial responsibility for
-this block.
-
-=item t_dps_block_dest.state
-
-  0: Assigned but not yet active (= waiting for router to activate
-     into t_xfer_request).
-  1: Active (= routed has activated into t_xfer_request).
-  2: Subscription suspended by user.
-  3: Block completed and not to be considered further, but the
-     entire subscription not yet completed and marked done.
-  4: Suspended by the FileRouter due to bad behavior
-
-=item t_dps_block_dest.time_subscription
-
-The time this block was subscribed to the destination.
-
-=item t_dps_block_dest.time_create
-
-The time this block destination was created.
-
-=item t_dps_block_dest.time_complete
-
-The time this block destination was put into the complete state.
-
-=item t_dps_block_dest.time_suspend_until
-
-The time until which this block should remain suspended.
-
-=back
-
-=cut
-
 */
 create table t_dps_block_dest
   (block		integer		not null,
@@ -513,34 +197,7 @@ create table t_dps_block_dest
    constraint ck_dps_block_dest_custodial
      check (is_custodial in ('y', 'n')));
 
-create index ix_dps_block_dest_dataset on t_dps_block_dest (dataset);
 
-create index ix_dps_block_dest_dest on t_dps_block_dest (destination);
-
-/*
-=pod
-
-=head2 t_dps_block_activate
-
-A table used to force the activation of a block.
-
-=over
-
-=item t_dps_block_activate.block
-
-=item t_dps_block_activate.time_request
-
-The time this block was requested to be activated.
-
-=item t_dps_block_activate.time_until
-
-The time until which this block should remain activated.
-
-=back
-
-=cut
-
-*/
 create table t_dps_block_activate
   (block		integer		not null,
    time_request		float		not null,
@@ -550,4 +207,28 @@ create table t_dps_block_activate
      foreign key (block) references t_dps_block (id)
      on delete cascade);
 
-create index ix_dps_block_activate_b on t_dps_block_activate (block);
+
+----------------------------------------------------------------------
+-- Create indices
+
+-- t_dps_block_dataset
+create index ix_dps_block_dataset
+  on t_dps_block (dataset);
+
+create index ix_dps_block_name
+  on t_dps_block (name);
+-- t_dps_block_replica
+create index ix_dps_block_replica_node
+  on t_dps_block_replica (node);
+
+create index ix_dps_block_replica_group
+  on t_dps_block_replica (user_group);
+-- t_dps_block_dest
+create index ix_dps_block_dest_dataset
+  on t_dps_block_dest (dataset);
+
+create index ix_dps_block_dest_dest
+  on t_dps_block_dest (destination);
+-- t_dps_block_activate
+create index ix_dps_block_activate_b
+  on t_dps_block_activate (block);

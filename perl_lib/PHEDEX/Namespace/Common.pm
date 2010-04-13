@@ -13,14 +13,6 @@ sub AUTOLOAD
 
 package PHEDEX::Namespace::Common;
 
-=head1 NAME
-
-PHEDEX::Namespace::Common - implement common namespace functions for all protocols
-
-=head1 SYNOPSIS
-
-=cut
-
 use strict;
 use warnings;
 no strict 'refs';
@@ -65,6 +57,7 @@ sub _init_commands
     my ($cmd,@opts) = split(' ',$self->{COMMANDS}{$_});
     $self->{COMMANDS}{$_} = { cmd => $cmd, opts => \@opts };
   }
+  print "*** Namespace $self->{NAMESPACE} loaded ***\n" if $self->{DEBUG};
 }
 
 sub AUTOLOAD
