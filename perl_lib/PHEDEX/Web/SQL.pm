@@ -398,6 +398,109 @@ sub SiteDataInfo
 sub getAgents
 {
     my ($core, %h) = @_;
+
+    # take care of version=CVS|!CVS
+    if (exists $h{VERSION})
+    {
+        if (ref($h{VERSION} eq "ARRAY"))
+        {
+            my @version;
+            my @revision;
+            foreach ($h{VERSION})
+            {
+                if ($_ eq 'CVS')
+                {
+                    push @revision, '!NULL';
+                }
+                elsif ($_ eq '!CVS')
+                {
+                    push @revision, 'NULL';
+                }
+                else
+                {
+                    push @version, $_;
+                }
+            }
+            if (@version)
+            {
+                $h{VERSION} = \@version;
+            }
+            if (@revision)
+            {
+                $h{REVISION} = \@revision;
+            }
+        }
+        else
+        {
+            if ($h{VERSION} eq 'CVS')
+            {
+                delete $h{VERSION};
+                $h{REVISION} = '!NULL';
+            }
+            elsif ($h{VERSION} eq '!CVS')
+            {
+                delete $h{VERSION};
+                $h{REVISION} = 'NULL';
+            }
+        }
+    }
+
+    my %p;
+    my $agent_version_filters = "";
+    build_multi_filters($core, \$agent_version_filters, \%p, \%h, (
+        VERSION => 'release',
+        REVISION => 'revision'));
+    if ($agent_version_filters)
+    {
+        $agent_version_filters = qq {
+        where
+            $agent_version_filters};
+    }
+    my $code_select = "";
+    my $code_select2 = "";
+    my $agent_version = qq {
+        (select
+            node,
+            agent,
+            release,
+            sum(
+                case
+                    when revision is null then 0
+                    else 1
+                end
+            ) from_cvs
+        from
+            t_agent_version
+        $agent_version_filters
+        group by node, agent, release ) v};
+
+    if (exists $h{DETAIL})
+    {
+        $code_select = qq {
+            v.filename,
+            v.filesize,
+            v.checksum,
+            v.revision,
+            v.tag,};
+        $agent_version = qq {
+            (select
+                node,
+                agent,
+                release,
+                revision,
+                filename,
+                filesize,
+                checksum,
+                tag,
+                case
+                    when revision is null then 0
+                    else 1
+                end from_cvs
+            from
+                t_agent_version
+            $agent_version_filters) v};
+    }
+
     my $sql = qq {
         select
             n.name as node,
@@ -408,23 +511,17 @@ sub getAgents
             s.host_name as host,
             s.directory_path as state_dir,
             case
-                when v.revision is null then v.release
+                when v.from_cvs = 0 then v.release
                 else 'CVS'
             end as version,
+            $code_select
             s.process_id as pid,
             s.time_update
         from
             t_agent_status s,
             t_agent a,
             t_adm_node n,
-           (select distinct
-                node,
-                agent,
-                release,
-                revision,
-                tag
-             from
-                t_agent_version) v
+            $agent_version
         where
             s.node = n.id and
             s.agent = a.id and
@@ -432,7 +529,6 @@ sub getAgents
             s.agent = v.agent and
             not n.name like 'X%' };
 
-    my %p;
     my $filters = '';
     build_multi_filters($core, \$filters, \%p, \%h, (
         NODE => 'n.name',
