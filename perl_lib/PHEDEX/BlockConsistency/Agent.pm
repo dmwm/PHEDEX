@@ -30,6 +30,7 @@ our %params =
 	  NAMESPACE	=> undef,
 	  max_priority	=> 0,			# max of active requests
 	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
+          DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
 	);
 
 sub new
@@ -86,8 +87,16 @@ sub doDBSCheck
   my $d = dirname($0);
   if ( $d !~ m%^/% ) { $d = cwd() . '/' . $d; }
   my $dbs = $d . '/DBSgetLFNsFromBlock';
-  my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
-  my $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
+  my $dbsurl;
+  if ( $self->{DBS_URL} )
+  {
+    $dbsurl = $self->{DBS_URL};
+  }
+  else
+  {
+    my $r = $self->getDBSFromBlockIDs($request->{BLOCK});
+    $dbsurl = $r->[0] or die "Cannot get DBS url?\n";
+  }
   my $blockname = $self->getBlocksFromIDs($request->{BLOCK})->[0];
 
   open DBS, "$dbs --url $dbsurl --block $blockname |" or do
@@ -396,11 +405,13 @@ sub do_tests
          $request->{TEST} eq 'is_migrated' )
     {
       $self->setRequestState($request,'Active');
+      $self->{DBH}->commit();
       my $result = $self->doNSCheck ($request);
     }
     elsif ( $request->{TEST} eq 'dbs' )
     {
       $self->setRequestState($request,'Active');
+      $self->{DBH}->commit();
       my $result = $self->doDBSCheck ($request);
     }
     else

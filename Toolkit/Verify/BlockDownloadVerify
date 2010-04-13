@@ -51,6 +51,7 @@ use PHEDEX::BlockConsistency::Agent;
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	     "preload=s"    => \$args{PRELOAD},
 	     "queue_length=i" => \$args{QUEUE_LENGTH},
+             "dbs_url=s"    => \$args{DBS_URL},
 	    );
 
 $args{USE_SRM} = 'y' if defined($args{USE_SRM});
