@@ -287,40 +287,60 @@ sub deleteLFNs
 				DEL_DATASETS => 0, DEL_BLOCKS => 0 };
 
     my $nodes = &getNodeID ($nodenames);
-    $$nodes{'all'} = undef if $do_invalidate; # fake node name 'all' when invalidating files
-
     my (%datasets, %blocks);
     my $wait_cache = {};  # Cache of LFNs we are going to wait and try again later
     my $wait_start = 0;
+
+    # utility function for scheduling an LFN for later deletion
+    sub tryLater 
+    {
+	my $lfn = shift;
+	print "Waiting to retry file in collapsed block with LFN: $lfn\n";
+	$wait_start = &mytimeofday() unless $wait_start;
+    }
 
     LFN: foreach my $lfninfo ( values %$lfns )
     {
 	$$stats{LFNS_PROCESSED} += 1;
 
-	# now at node level check for file existence and start purging those tables
-	NODE: foreach my $nodename ( keys %$nodes )
-	{
-	    my $exists = &checkFileExistence ($lfninfo, $$nodes{$nodename}, $nodename, $wait_cache);
-	    if ( !$exists && ! exists $$wait_cache{ $$lfninfo{LFN} })
-	    {
-		print "Skipping at node $nodename non-existent file with LFN: $$lfninfo{LFN}\n";
-		$$stats{SKIPPED}{$nodename} += 1;
-		next NODE;
-	    } elsif (exists $$wait_cache{ $$lfninfo{LFN} })
-	    {
-		print "Waiting to retry file in collapsed block with LFN:  $$lfninfo{LFN}\n";
-		$wait_start = &mytimeofday() unless $wait_start;
+	if ( $do_invalidate ) {
+	    if ( &blockIsCollapsed( $$lfninfo{BLOCK} ) ) {
+		&expandAndCacheLFN( $lfninfo, $wait_cache );
+		&tryLater( $$lfninfo{LFN} );
 		next LFN;
+	    } else {
+		# Lock and Delete
+		&lockFileTables ($tables, $$lfninfo{ID});
+		&deleteAllTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN}, $tables);
+		$$stats{DEL_DB}{'all'} += 1;
+		$$stats{DEL_DB_SUM} += 1;
 	    }
-
-	    # Lock and Delete
-	    &lockFileTables ($tables, $$lfninfo{ID});
-	    if ( $do_invalidate ) { &deleteAllTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN}, $tables) }
-	    else                  { &deleteSiteTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN},
-					 	            $$nodes{$nodename}, $nodename, $tables) }
-
-	    $$stats{DEL_DB}{$nodename} += 1;
-	    $$stats{DEL_DB_SUM} += 1;
+	} else {
+	    # now at node level check for file existence and start purging those tables
+	  NODE: foreach my $nodename ( keys %$nodes )
+	  {
+	      my ($exists, $collapsed) = &checkReplicaExistence ($lfninfo, $$nodes{$nodename});
+	      if ( !$exists )
+	      {
+		  print "Skipping at node $nodename non-existent file with LFN: $$lfninfo{LFN}\n";
+		  $$stats{SKIPPED}{$nodename} += 1;
+		  next NODE;
+	      } 
+	      elsif ( $exists && $collapsed )
+	      {
+		  &expandAndCacheLFN( $lfninfo, $wait_cache );
+		  &tryLater( $$lfninfo{$LFN} );
+		  next LFN;
+	      }
+	 
+	      # Lock and Delete
+	      &lockFileTables ($tables, $$lfninfo{ID});
+	      &deleteSiteTMDBEntries ($$lfninfo{ID}, $$lfninfo{LFN},
+				      $$nodes{$nodename}, $nodename, $tables);
+	      
+	      $$stats{DEL_DB}{$nodename} += 1;
+	      $$stats{DEL_DB_SUM} += 1;
+	  }
 	}
 
 	# Record the dataset and block
@@ -336,16 +356,15 @@ sub deleteLFNs
     }
 
     if ( $do_invalidate ) {
-	# Delete empty datasets and blocks if we are invalidating files
+	# Delete empty datasets and blocks if we were invalidating files
 	($$stats{DEL_DATASETS}, $$stats{DEL_BLOCKS}) = &deleteEmptyContainers ( [keys %datasets], [keys %blocks] );
-
-	# Expand blocks we have deleted from in order to update the statistics
-	&expandBlock($_) foreach keys %blocks;
     }
+
+    # Commit any remaining transaction
+    $dbh->commit();
 
     # If we need to wait for some block expansion, commit, wait, and then recurse
     if (keys %$wait_cache) {
-	$dbh->commit();
 	my $n_waiting = scalar keys %$wait_cache;
 	my $now = &mytimeofday();
 	my $t_wait_min = 15 - int( ($now - $wait_start)/60);
@@ -431,41 +450,57 @@ sub bulkDelete
     return $stats;
 }
 
-# Maybe there is nothing to do - check for files in TMDB
-sub checkFileExistence
+# Check that the file is actually at that node and make sure that
+# the block wasn't collapsed. Re-expand it in this case and cache
+# the LFN to attempt to delete later
+#
+# Returns two falues (exists, is_collapsed)
+sub checkReplicaExistence
 {
-    my ( $lfninfo, $node, $nodename, $cache ) = @_;
+    my ( $lfninfo, $node, $cache ) = @_;
     
-    # if want to delete from nodes only, check that the file is actually at that node
-    # and make sure, that the block wasn't collapsed. Re-expand it in
-    # this case and cache the LFN to attempt to delete later
-    if ( $nodename ne 'all' )
-    {
-	my $q = &dbexec($dbh, qq{
+    my $q = &dbexec($dbh, qq{
 	    select b.files, br.node_files from t_dps_block_replica br left join t_dps_block b
 		on br.block = b.id where node = :node and block in
 		(select inblock from t_dps_file where logical_name = :lfn)},
 		     ":node" => $node, ":lfn" => $$lfninfo{LFN});
-	my ( $block_files, $node_files ) = $q->fetchrow();
+    my ( $block_files, $node_files ) = $q->fetchrow();
 	
-	$q = &dbexec($dbh, qq{
+    $q = &dbexec($dbh, qq{
 	    select count(*) from t_xfer_replica where
 		fileid = :lfn and node = :node},
 		     ":lfn" => $$lfninfo{ID}, ":node" => $node);
-	my ( $exists_xfer_rep ) = $q->fetchrow();
+    my ( $exists_xfer_rep ) = $q->fetchrow();
 	
-	if ( !$node_files && !$exists_xfer_rep )
-	{
-	    return 0; # return false, since file is not at node
-	}
-	elsif ( !$exists_xfer_rep && ($block_files == $node_files) )
-	{
-	    $$cache{$$lfninfo{LFN}} = $lfninfo;
-	    &expandBlock ($$lfninfo{BLOCK});
-	    return 0; # return false, since we can't delete the file replica of a collapsed block
-	}
+    if ( !$node_files && !$exists_xfer_rep )
+    {
+	return (0, undef); # return false, since file is not at node
     }
-    return 1; # return true otherwise
+    elsif ( !$exists_xfer_rep && ($block_files == $node_files) )
+    {
+	return (1, 1);
+    }
+
+    return (1, 0); # return true otherwise
+}
+
+# check if a block is collapsed
+sub blockIsCollapsed
+{
+    my ( $block ) = @_;
+    my $q = &dbexec($dbh, qq{
+       select 1 from t_dps_block_replica where block = :block and is_active = 'n'
+    }, ':block' => $block);
+    my ( $block_is_collapsed ) = $q->fetchrow();
+    return $block_is_collapsed ? 1 : 0;
+}
+
+# cache an LFN and trigger its expansion
+sub expandAndCacheLFN
+{
+    my ( $lfninfo, $cache ) = @_;
+    &expandBlock ($$lfninfo{BLOCK});
+    $$cache{$$lfninfo{LFN}} = $lfninfo;
 }
 
 # We need the same node ID very often - get it here
