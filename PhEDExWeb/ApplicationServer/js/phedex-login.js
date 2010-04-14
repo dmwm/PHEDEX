@@ -169,7 +169,7 @@ PHEDEX.Login = function(sandbox) {
                 _cur_state = 'logout';
                 _updateLoginButton('Log Out');
             }
-            YAHOO.util.Dom.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
+            YuD.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
             log('Updated valid user login authentication info on UI', 'info', 'login');
             _formUserInfo(); //Form the overlay object if authentication succeeded
         }
@@ -225,7 +225,7 @@ PHEDEX.Login = function(sandbox) {
             var _pwd = _logincomp.inputpwd.value;
             _username = _logincomp.inputname.value;
             log('Auth data service call is made for password based authentication', 'info', 'login');
-            PHEDEX.Datasvc.Call({ type:'POST', api: 'auth', args: { SecModLogin:_username, SecModPwd:_pwd }, success_event: _eventSuccess, failure_event: _eventFailure });
+            PHEDEX.Datasvc.Call({ method:'post', api: 'auth', args: { SecModLogin:_username, SecModPwd:_pwd }, success_event: _eventSuccess, failure_event: _eventFailure });
         }
         else if (_cur_state == 'logout') {
             _resetLoginState();
@@ -256,7 +256,7 @@ PHEDEX.Login = function(sandbox) {
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
         log('Auth data service call is made for certificate based authentication', 'info', 'login');
-        PHEDEX.Datasvc.Call({ type: 'POST', api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
+        PHEDEX.Datasvc.Call({ method:'post', api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
     };
 
     /**
@@ -265,9 +265,10 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _resetLoginState = function() {
-        YAHOO.util.Dom.removeClass(_logincomp.logininput, 'phedex-invisible'); //Show the login elements
+        YuD.removeClass(_logincomp.logininput, 'phedex-invisible'); //Show the login elements
         _logincomp.inputpwd.value = '';
-        _logincomp.inputname.value = '';
+        _logincomp.inputpwd.focus();
+        if ( !_logincomp.inputname.value ) { _logincomp.inputname.focus(); }
         _logincomp.username.innerHTML = '';
         _logincomp.statusmsg.innerHTML = '';
         _updateLoginButton('Login');
@@ -281,7 +282,6 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _initLoginComponent = function(divlogin) {
-        if ( !divlogin ) { divlogin = document.getElementById('phedex-login'); }
         var logincomp = PxU.makeChild(divlogin, 'div', { id: 'phedex-nav-login', className: 'phedex-login' });
         logincomp.username = PxU.makeChild(logincomp, 'a', { className: 'phedex-login-username' });
         logincomp.username.id = _username_id;
@@ -300,6 +300,16 @@ PHEDEX.Login = function(sandbox) {
         log('The login component is created', 'info', 'login');
     };
 
+    var _initLoginRedirect = function(el) {
+      var logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
+          a = PxU.makeChild(logincomp,'a', {className:'phedex-link', title:'click here to log in by certificate or by password'}),
+      href = location.href;
+      href = href.replace(/^http:/,'https:');
+      href = href.replace(/:30001/,':20001');
+      a.href = href;
+      a.innerHTML = 'Login';
+    };
+
     //Used to construct the login component.
     _construct = function() {
         return {
@@ -309,10 +319,15 @@ PHEDEX.Login = function(sandbox) {
             * @param {Object} args object specifies the 'el' element where login component should be built
             */
             init: function(args) {
-                var el;
+                var el, uri = location.href;
                 if ( typeof(args) == 'object' ) { el = args.el; }
-                _initLoginComponent(el);
-                _loginUsingCert();
+                if ( !el ) { el = document.getElementById('phedex-login'); }
+                if ( uri.match(/^https:/) ) {
+                  _initLoginComponent(el);
+                  _loginUsingCert();
+                } else {
+                  _initLoginRedirect(el);
+                }
             }
         };
     }
