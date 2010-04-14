@@ -302,12 +302,15 @@ PHEDEX.Login = function(sandbox) {
 
     var _initLoginRedirect = function(el) {
       var logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
-          a = PxU.makeChild(logincomp,'a', {className:'phedex-link', title:'click here to log in by certificate or by password'}),
-      href = location.href;
-      href = href.replace(/^http:/,'https:');
-      href = href.replace(/:30001/,':20001');
-      a.href = href;
+          a = PxU.makeChild(logincomp,'a', {className:'phedex-link', title:'click here to log in by certificate or by password'});
       a.innerHTML = 'Login';
+      a.style.cursor = 'pointer';
+      YAHOO.util.Event.addListener(a, 'click', function() {
+        var href = location.href;
+            href = href.replace(/^http:/,'https:');
+            href = href.replace(/:30001/,':20001');
+            a.href = href;
+      });
     };
 
     //Used to construct the login component.
