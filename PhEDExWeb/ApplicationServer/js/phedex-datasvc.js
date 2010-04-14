@@ -65,12 +65,13 @@ PHEDEX.Datasvc = (function() {
     // identify ourselves to the web-server logfiles
     YAHOO.util.Connect.initHeader('user-agent',
                                   'PhEDEx-AppServ/'+PHEDEX.Appserv.Version+' (CMS) '+navigator.userAgent);
-    YAHOO.util.Connect.asyncRequest('GET',
+    YAHOO.util.Connect.asyncRequest(query.method,
                                     query.path,
                                     { success:_got,
                                       failure:_fail,
                                       timeout:60*1000, // 1 minute (too soon?)
-                                      argument:query }
+                                      argument:query },
+                                    query.postData
                                    );
 
     if (! query.poll_id ) { query.poll_id = _nextID(); }
@@ -146,31 +147,43 @@ PHEDEX.Datasvc = (function() {
     //_build_query method : for an arbitrary object, construct the URL query by joining the key=value pairs
     var _build_query = function(query) 
     {
+        if ( query.method ) { query.method = query.method.toUpperCase(); }
+        else { query.method = 'GET'; }
+        if ( query.method == 'POST' ) { query.post = true; }
         if (!query.api) { throw new Error("no 'api' in query object"); }
         var argstr = "", argvals = null, indx = 0;
-        if (query.args) 
+        if (query.args)
         {
-            argstr = "?";
-            for (a in query.args) 
+            for (a in query.args)
             {
                 argvals = query.args[a];
+                if ( !query.post ) { a = a.toLowerCase(); }
                 if (argvals instanceof Array)
                 {
                     for (indx = 0; indx < argvals.length; indx++)
                     {
-                        argstr += a.toLowerCase() + "=" + encodeURIComponent(argvals[indx]) + "&";
+                        argstr += a + "=" + encodeURIComponent(argvals[indx]) + "&";
                     }
                     argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
                     argstr += ";";
                 }
                 else
                 {
-                    argstr += a.toLowerCase() + "=" + encodeURIComponent(query.args[a]) + ";";
+                    if ( query.post ) {
+                      argstr += a + "=" + encodeURIComponent(query.args[a]) + "&";
+                    } else {
+                      argstr += a + "=" + encodeURIComponent(query.args[a]) + ";";
+                    }
                 }
             }
             argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
         }
-        return query.api.toLowerCase() + argstr;
+        query.text = query.api.toLowerCase();
+        if ( query.post ) {
+          query.postData = argstr;
+        } else {
+          query.text += '?' + argstr;
+        }
     }
   
   // public methods/properties below
@@ -217,7 +230,7 @@ PHEDEX.Datasvc = (function() {
      * @param query {object} object defining the API and parameters to pass to the data-service
      */
     Call: function(query) {
-      query.text = _build_query(query);
+      _build_query(query);
       YAHOO.log('CALL '+query.text,'info',_me);
       query.limit = 1;
       PHEDEX.Datasvc.Poll(query);
@@ -242,7 +255,7 @@ PHEDEX.Datasvc = (function() {
  * @type {integer}
  */
     Poll: function(query) {
-      query.text = _build_query(query);
+      _build_query(query);
       YAHOO.log('POLL '+query.text,'info',_me);
 
       if (!query.context) { query.context = {}; }
