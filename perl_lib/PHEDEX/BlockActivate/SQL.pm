@@ -145,16 +145,18 @@ sub activateBlock
        join t_dps_block b on b.id = br.block
        join t_xfer_file f on f.inblock = br.block
        where br.block = :block
-         and br.node_files = b.files)},
+         and br.is_active = 'n'
+         and br.node_files > 0 )},
        ":block" => $block, ":now" => $now);
 
-  execute_sql ($self, qq{
+  my ($stmt3, $nblock) = execute_sql ($self, qq{
       update t_dps_block_replica
       set is_active = 'y', time_update = :now
-      where block = :block},
+      where block = :block
+        and is_active = 'n' },
       ":block" => $block, ":now" => $now);
 
-  return ($nfile, $nreplica);
+  return ($nfile, $nreplica, $nblock);
 }
 
 1;
