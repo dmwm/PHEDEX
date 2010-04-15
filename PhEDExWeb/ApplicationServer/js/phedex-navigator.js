@@ -123,7 +123,7 @@ PHEDEX.Navigator = function(sandbox) {
         try {
             newState = this._getCurrentState();
             if ( !newState ) { return; }
-            _sbx.notify(this.id,'UpdatePermalink',newState);
+            _sbx.notify(this.id,'UpdatePermalink','page='+newState);
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
