@@ -1,7 +1,7 @@
 PHEDEX.namespace('Module');
 
 PHEDEX.Module.LinkView=function(sandbox, string) {
-  var _sbx = sandbox;
+  var _sbx = sandbox,
 /** time-window, in hours. Set this value in the code to set the default
  * @property _time {integer}
  * @private
