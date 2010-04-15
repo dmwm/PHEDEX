@@ -1,3 +1,33 @@
+Changes for PhEDEx 3.3.1
+
+Changes for Central Agents
+ - BlockActivate: checks consistency of activations and rolls back any
+   inconsistent one
+ - BlockDownloadVerifyInjector:
+   - Fix "Indeterminate" test status
+   - Submit migration tests to Buffer node instead of MSS
+   - For logging, correctly count tests injected when not using the
+     dropbox
+ - BlockDBSPopulate: migrate blocks in read-write mode in order to
+   migrate parentage
+ - BlockMonitor: lock block replica table for the duration of the
+   update in order to prevent block activation/deactivation in the
+   middle
+ - PerfMonitor: SQL optimization
+
+Operator Tools
+
+ - OraclePrivs.sh updated to give "flashback" privileges to CERN role
+ - FileDeleteTMDB bugfix to be compatible with new BlockActivate
+   logic: now expands collapsed blocks before doing file-level
+   invalidation
+ - RouterSuspend: supports wildcard node names
+
+Changes for Developers
+
+ - Included MakePerlDocs.pl, for building developer documentation for
+   agents and schema
+
 Changes for PhEDEx 3.3.0
 
 Dependency Changes
