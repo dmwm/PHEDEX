@@ -337,21 +337,6 @@ sub is_text {
   return 0;
 }
 
-sub handle_http_response {
-#    my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
-#    my $http_response = $_[ARG1]->[0];
-#    my $response_type = $http_response->content_type();
-#    if ( $response_type =~ /^text/i ) {
-#        display_thing( $http_response ) if $dump_responses;
-#    }
-#    else {
-#        print "Response wasn't text.\n" if $dump_responses;
-#    }
-#    $heap->{client}->put($http_response) if defined $heap->{client};
-#    $kernel->yield("shutdown");
-die("Bleargle\n");
-}
-
 sub display_thing {
     my $thing = shift;
     my $h = $thing->headers();
