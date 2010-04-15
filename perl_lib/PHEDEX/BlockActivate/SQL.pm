@@ -45,7 +45,7 @@ sub getBlockReactivationCandidates
   $sql = qq{ 
             select b.id, b.name, count(br.block) nreplica,
 			 sum(decode(br.is_active,'y',1,0)) nactive,
-                         sum(decode(br.node_files,b.files,1,0)) ncomplete
+                         sum(decode(br.node_files,0,1,0)) nempty
             from t_dps_block b
               join t_dps_block_replica br
                 on br.block = b.id
@@ -102,18 +102,18 @@ sub getLockForUpdateWithCheck
   $sql = qq{
       select count(block) nreplica,
              sum(decode(br.is_active,'y',1,0)) nactive,
-             sum(decode(br.node_files,b.files,1,0)) ncomplete
+             sum(decode(br.node_files,0,1,0)) nempty
       from t_dps_block_replica br 
       join t_dps_block b on b.id = br.block
      where br.block = :block};
-  my ($xnreplica, $xnactive, $xncomplete) = execute_sql( $self, $sql, %p )->fetchrow();
+  my ($xnreplica, $xnactive, $xnempty) = execute_sql( $self, $sql, %p )->fetchrow();
 
-  return ($xnreplica, $xnactive, $xncomplete) if wantarray;
-  foreach ( qw / NREPLICA NACTIVE NCOMPLETE / )
+  return ($xnreplica, $xnactive, $xnempty) if wantarray;
+  foreach ( qw / NREPLICA NACTIVE NEMPTY / )
   {
     $self->Warn("lockForUpdateWithCheck: Explicit check requested but \"$_\" not given") unless defined $h{$_};
   }
-  return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive && $h{NCOMPLETE} == $xncomplete );
+  return 1 if ( $h{NREPLICA} == $xnreplica && $h{NACTIVE} == $xnactive && $h{NEMPTY} == $xnempty );
 
 # I do not use $self->{DBH}->rollback() here to preserve procedural access
   execute_rollback( $self );

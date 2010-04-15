@@ -54,17 +54,15 @@ sub idle
         my $g = $self->getBlockReactivationCandidates( NOW => $now );
 	foreach my $h ( @{$g} )
         {
-            my ($id,$block,$nreplica,$nactive,$ncomplete,$nfile);
-	    $id        = $h->{ID};
-	    $block     = $h->{NAME};
-	    $nreplica  = $h->{NREPLICA};
-	    $nactive   = $h->{NACTIVE};
-	    $ncomplete = $h->{NCOMPLETE};
+	    my $id        = $h->{ID};
+	    my $block     = $h->{NAME};
+	    my $nreplica  = $h->{NREPLICA};
+	    my $nactive   = $h->{NACTIVE};
+	    my $nempty    = $h->{NEMPTY};
 
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
-		$self->Warn ("block $id ($block) wanted for activation, but is already active");
 	        next;
 	    }
 
@@ -76,7 +74,7 @@ sub idle
 			  ID        => $id,
 			  NREPLICA  => $nreplica,
 			  NACTIVE   => $nactive,
-			  NCOMPLETE => $ncomplete,
+			  NEMPTY    => $nempty,
 			) )
 	    {
 		$self->Warn ("block $id ($block) changed, skipping activation");
@@ -85,24 +83,25 @@ sub idle
 	    }
 
 	    # Proceed to activate.
-	    ($nfile,$nreplica,$nblock) = $self->activateBlock
+	    my ($files, $filereps, $nsetactive) = $self->activateBlock
 					(
 					  ID  => $id,
 					  NOW => $now
 					);
 
 	    # Check that the activation did what we hoped
-	    if ( $nblock * $nfile != $nreplica ) {
+	    my $activated = $nreplica - $nempty;
+	    if ( $activated * $files != $filereps ) {
 		$self->Alert("inconsistency while activating block $id ($block): ".
-			     "$nblock block replicas activated * $nfile files != ".
-			     "$nreplica file replicas created, rolling back");
+			     "$activated block replicas activated * $files files != ".
+			     "$filereps file replicas created, rolling back");
 		$dbh->rollback();
 		next;
 	    }
 
 	    # OK, it worked.  Now commit
-	    $self->Logmsg ("block $id ($block) reactivated with $nfile files"
-		     . " and $nreplica replicas");
+	    $self->Logmsg ("block $id ($block) reactivated with $files files ".
+			   "and $filereps replicas");
 	    $dbh->commit();
 	}
 
