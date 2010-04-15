@@ -33,7 +33,7 @@ PHEDEX.Navigator = function(sandbox) {
     _setState = function(obj) {
       return function(pgstate) {
         var state = null,
-            changed = 0,
+            changed = 0, mChange = 0,
             value;
         if (!pgstate) {
             pgstate = _initialPageState; //Set the state to its initial state
@@ -44,19 +44,26 @@ PHEDEX.Navigator = function(sandbox) {
         if (!state) { return; } //Do Nothing and return
         for (var key in obj.state)
         {
-          if ( key == 'module' ) { continue; } // TODO don't take action on changes in internal module state
           if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
             log('setState: '+key+' ('+state[key]+' => '+value+')','info',obj.me);
-            changed++;
+            if ( key == 'module' ) { mChange = 1; }
+            else { changed++; }
           }
         }
         log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',obj.me);
         _sbx.notify('currentState',pgstate);
-        if ( !changed ) { return; }
-        if ( state.module ) { obj.moduleState = state.module; }
+        if ( !changed && !mChange ) { return; }
+        if ( mChange ) { 
+          if ( state.module ) {
+            try {
+              _sbx.notify(obj.state.module.obj.id,'setState',state.module);
+            } catch(ex) { }
+          }
+        }
         _sbx.notify(obj.id,'StateChanged',state);
+        if ( !changed ) { return; }
         _sbx.notify('_navCreateModule',state.widget);
       };
     }(this);
@@ -123,10 +130,10 @@ PHEDEX.Navigator = function(sandbox) {
         try {
             newState = this._getCurrentState();
             if ( !newState ) { return; }
-            _sbx.notify(this.id,'UpdatePermalink','page='+newState);
             currentState = YAHOO.util.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
+                _sbx.notify(this.id,'UpdatePermalink','page='+newState);
                 log('addToHistory: '+newState,'info',this.me);
                 YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
             } else {
@@ -180,32 +187,27 @@ PHEDEX.Navigator = function(sandbox) {
           break;
         }
         case 'TargetSelected': {
-          log('TargetSelected: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1)+' arr='+YAHOO.lang.dump(arr,2),'info',me);
           _sbx.notify('module','*','doSetArgs',arr[2]);
           break;
         }
         case 'TargetType': {
-          log('TargetType: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1)+' arr='+YAHOO.lang.dump(arr,2),'info',me);
           _newModule = null;
           _needNewModule = true;
           obj.needNewModule();
           break;
         }
         case 'WidgetSelected': {
-          log('WidgetSelected: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1)+' arr='+YAHOO.lang.dump(arr,2),'info',me);
           _newModule = args;
           _needNewModule = true;
           obj.needNewModule();
           break;
         }
         case 'NewModule': {
-          log('NewModule: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1)+' arr='+YAHOO.lang.dump(arr,2),'info',me);
           _newModule = args;
           obj.needNewModule();
           break;
         }
         case 'NewModuleArgs': {
-          log('NewModuleArgs: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1)+' arr='+YAHOO.lang.dump(arr,2),'info',me);
           _newModuleArgs = args;
           break;
         }
