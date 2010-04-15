@@ -289,7 +289,7 @@ sub deleteLFNs
     my $nodes = &getNodeID ($nodenames);
     my (%datasets, %blocks);
     my $wait_cache = {};  # Cache of LFNs we are going to wait and try again later
-    my $wait_start = 0;
+    our $wait_start = 0;
 
     # utility function for scheduling an LFN for later deletion
     sub tryLater 
@@ -329,7 +329,7 @@ sub deleteLFNs
 	      elsif ( $exists && $collapsed )
 	      {
 		  &expandAndCacheLFN( $lfninfo, $wait_cache );
-		  &tryLater( $$lfninfo{$LFN} );
+		  &tryLater( $$lfninfo{LFN} );
 		  next LFN;
 	      }
 	 
@@ -460,25 +460,28 @@ sub checkReplicaExistence
     my ( $lfninfo, $node, $cache ) = @_;
     
     my $q = &dbexec($dbh, qq{
-	    select b.files, br.node_files from t_dps_block_replica br left join t_dps_block b
-		on br.block = b.id where node = :node and block in
-		(select inblock from t_dps_file where logical_name = :lfn)},
+	    select b.files, br.node_files, br.is_active
+              from t_dps_block_replica br 
+              left join t_dps_block b
+		on br.block = b.id
+             where node = :node 
+               and block in (select inblock from t_dps_file where logical_name = :lfn)},
 		     ":node" => $node, ":lfn" => $$lfninfo{LFN});
-    my ( $block_files, $node_files ) = $q->fetchrow();
+    my ( $block_files, $node_files, $is_active ) = $q->fetchrow();
 	
     $q = &dbexec($dbh, qq{
-	    select count(*) from t_xfer_replica where
-		fileid = :lfn and node = :node},
+	    select count(*) from t_xfer_replica 
+             where fileid = :lfn and node = :node},
 		     ":lfn" => $$lfninfo{ID}, ":node" => $node);
     my ( $exists_xfer_rep ) = $q->fetchrow();
 	
-    if ( !$node_files && !$exists_xfer_rep )
+    if ( !$exists_xfer_rep && !($block_files == $node_files  && $is_active eq 'n') )
     {
 	return (0, undef); # return false, since file is not at node
     }
-    elsif ( !$exists_xfer_rep && ($block_files == $node_files) )
+    elsif ( !$exists_xfer_rep && ($block_files == $node_files && $is_active eq 'n') )
     {
-	return (1, 1);
+	return (1, 1); # file is at node in collapsed block
     }
 
     return (1, 0); # return true otherwise
@@ -489,7 +492,10 @@ sub blockIsCollapsed
 {
     my ( $block ) = @_;
     my $q = &dbexec($dbh, qq{
-       select 1 from t_dps_block_replica where block = :block and is_active = 'n'
+       select 1 from t_dps_block_replica br 
+         join t_dps_block b on b.id = br.block
+        where b.name = :block
+          and br.is_active = 'n'
     }, ':block' => $block);
     my ( $block_is_collapsed ) = $q->fetchrow();
     return $block_is_collapsed ? 1 : 0;
