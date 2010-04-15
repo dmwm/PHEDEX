@@ -64,6 +64,7 @@ sub idle
 	    # Ignore active blocks
 	    if ($nactive)
 	    {
+		$self->Warn ("block $id ($block) wanted for activation, but is already active");
 	        next;
 	    }
 
@@ -84,12 +85,22 @@ sub idle
 	    }
 
 	    # Proceed to activate.
-	    ($nfile,$nreplica) = $self->activateBlock
+	    ($nfile,$nreplica,$nblock) = $self->activateBlock
 					(
 					  ID  => $id,
 					  NOW => $now
 					);
 
+	    # Check that the activation did what we hoped
+	    if ( $nblock * $nfile != $nreplica ) {
+		$self->Alert("inconsistency while activating block $id ($block): ".
+			     "$nblock block replicas activated * $nfile files != ".
+			     "$nreplica file replicas created, rolling back");
+		$dbh->rollback();
+		next;
+	    }
+
+	    # OK, it worked.  Now commit
 	    $self->Logmsg ("block $id ($block) reactivated with $nfile files"
 		     . " and $nreplica replicas");
 	    $dbh->commit();
