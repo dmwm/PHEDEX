@@ -45,7 +45,7 @@ sub new
 		     );
 
   $self->SUPER::_init_commands;
-  print Dumper($self) if $self->{DEBUG};
+
   $self->Help if $help;
   return $self;
 }

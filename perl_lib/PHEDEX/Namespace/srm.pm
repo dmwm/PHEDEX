@@ -44,7 +44,7 @@ sub new
 
   $self->SUPER::_init_commands;
   $self->proxy_check if $self->{DEBUG};
-  print Dumper($self) if $self->{DEBUG};
+
   $self->Help if $help;
   return $self;
 }

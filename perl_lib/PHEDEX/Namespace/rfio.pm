@@ -38,7 +38,7 @@ sub new
 
   $self->{ENV} = "RFIO_USE_CASTOR_V2=" . ($self->{RFIO_USE_CASTOR_V2} || '');
   $self->SUPER::_init_commands;
-  print Dumper($self) if $self->{DEBUG};
+
   $self->Help if $help;
   return $self;
 }
