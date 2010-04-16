@@ -22,11 +22,24 @@ agents.
   se               storage element name, could be multiple
   agent            agent name, could be multiple
   version          PhEDEx version
+  detail           show "code" information at file level *
 
 =head2 Output
 
+  * without option "detail"
+
   <node>
     <agent/>
+  </node>
+  ...
+
+  * with option "detail"
+
+  <node>
+    <agent>
+      <code/>
+      ...
+    </agent>
   </node>
   ...
 
@@ -43,6 +56,14 @@ agents.
   version          rpm release or 'CVS'
   pid              process id
   time_update      time it was updated
+
+=head3 <code> elements
+
+  filename         file name
+  filesize         file size (bytes)
+  checksum         checksum
+  rivision         CVS revision
+  tag              CVS tag
 
 =cut
 
