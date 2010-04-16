@@ -248,6 +248,11 @@ PHEDEX.TreeView = function(sandbox,string) {
             var f = spec.format[i],
                 className = f.className,
                 value;
+            if ( f.format ) {
+              if ( typeof(f.format) == 'string' ) {
+                f.format = PHEDEX.TreeView.format[f.format];
+              }
+            }
             f.width = f.width + 'px';
             this._cfg.formats[className] = f;
             if ( values ) { value = values[i]; }
@@ -799,8 +804,8 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           }
         }
         for (elParent in elParents) {
-          ancestor = YuD.getAncestorByClassName(elParent,'ygtvtable');
-          YuD.addClass(ancestor,'phedex-core-control-widget-applied');
+          elAncestor = YuD.getAncestorByClassName(elParent,'ygtvtable');
+          YuD.addClass(elAncestor,'phedex-core-control-widget-applied');
         }
         this.updateGUIElements(this.count);
         _sbx.notify(obj.id,'markOverflows'); // TODO this is needed because I may reveal branches that were hidden and overflowing...
@@ -812,5 +817,11 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
   this._init();
   return this;
 };
+
+PHEDEX.TreeView.format = {
+  UnixEpochToGMT: function(epoch) {
+    return new Date(epoch*1000).toGMTString();
+  }
+}
 
 log('loaded...','info','treeview');
