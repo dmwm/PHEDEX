@@ -74,11 +74,11 @@ sub doDBSCheck
   my ($n_files,$n_tested,$n_ok);
   my @nodes = ();
 
-  $self->Logmsg("doDBSCheck: starting") if ( $self->{DEBUG} );
+  $self->Dbgmsg("doDBSCheck: starting") if ( $self->{DEBUG} );
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  $self->Logmsg("doDBSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
+  $self->Dbgmsg("doDBSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
 
   my $t0 = Time::HiRes::time(); 
@@ -134,7 +134,7 @@ sub doDBSCheck
   $request->{TIME_REPORTED} = time();
 
   my $dt0 = Time::HiRes::time() - $t0;
-  $self->Logmsg("$n_tested files tested ($n_ok,$n_files) in $dt0 sec") if ( $self->{DEBUG} );
+  $self->Dbgmsg("$n_tested files tested ($n_ok,$n_files) in $dt0 sec") if ( $self->{DEBUG} );
 
   $self->{RESULT_QUEUE}->enqueue($request->{PRIORITY},$request);
 
@@ -149,7 +149,7 @@ sub doNSCheck
   my ($ns,$loader,$cmd,$mapping);
   my @nodes = ();
 
-  $self->Logmsg("doNSCheck: starting") if ( $self->{DEBUG} );
+  $self->Dbgmsg("doNSCheck: starting") if ( $self->{DEBUG} );
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
@@ -202,13 +202,13 @@ sub doNSCheck
   if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
   { $tfcprotocol = 'srm'; }
 
-  $self->Logmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
+  $self->Dbgmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
   my $t0 = Time::HiRes::time();
   my ($t1,$dt1,$dt0);
   $dt1 = 0.;
-  $self->Logmsg("Start the checking  of $n_files local files at $t0") if ( $self->{DEBUG} );
+  $self->Dbgmsg("Start the checking of $n_files local files at $t0") if ( $self->{DEBUG} );
   
   my ($were_tested,$were_ok,$were_n);
   $were_tested = $were_ok = 0;
@@ -241,7 +241,7 @@ sub doNSCheck
     last unless --$n_files;
     if ( time - $t > 60 )
     {
-      $self->Logmsg("$n_files files remaining") if ( $self->{DEBUG} );
+      $self->Dbgmsg("$n_files files remaining") if ( $self->{DEBUG} );
       $t = time;
     }
   }
@@ -254,7 +254,7 @@ sub doNSCheck
   $request->{TIME_REPORTED} = time(); 
 
   $dt0 = Time::HiRes::time() - $t0;
-  $self->Logmsg("$were_tested files tested in $dt0 sec (ls = $dt1 sec)") if ( $self->{DEBUG} );
+  $self->Dbgmsg("$were_tested files tested in $dt0 sec (ls = $dt1 sec)") if ( $self->{DEBUG} );
 
   $self->{RESULT_QUEUE}->enqueue($request->{PRIORITY},$request);
 
@@ -286,10 +286,10 @@ sub upload_result
 
   $self->{pmon}->State('upload_result','start');
   my $current_queue_size = $self->{RESULT_QUEUE}->get_item_count();
-  if ( ! $current_queue_size ) { $self->Logmsg("upload_result: No results in queue") if $self->{DEBUG}; } 
+  if ( ! $current_queue_size ) { $self->Dbgmsg("upload_result: No results in queue") if $self->{DEBUG}; } 
   else {
 # If we have already made some test, then update the database, but just for the current results in queue
-    $self->Logmsg("upload_result: Results in queue. Updating database ...") if $self->{DEBUG};
+    $self->Dbgmsg("upload_result: Results in queue. Updating database ...") if $self->{DEBUG};
     my $t0 = Time::HiRes::time();
     my $tmp_queue = POE::Queue::Array->new();  # to save results in case of failure
 
@@ -303,7 +303,7 @@ sub upload_result
       while ( $current_queue_size > 0 ) {
        ($priority,$id,$request) = $self->{RESULT_QUEUE}->dequeue_next();
        $tmp_queue -> enqueue($priority,$request);
-       $self->Logmsg("upload_result: Preparing request $request->{ID}") if $self->{DEBUG};
+       $self->Dbgmsg("upload_result: Preparing request $request->{ID}") if $self->{DEBUG};
  
        foreach my $r ( @{$request->{LFNs}} ) {
           next unless $r->{STATUS};
@@ -328,7 +328,7 @@ sub upload_result
          $self->{DBH}->commit(); 
 #        Make sure, we clean up everything
          my $nup =  scalar ($tmp_queue->remove_items(sub{1}));
-         $self->Logmsg("upload_result: $nup requests uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
+         $self->Dbgmsg("upload_result: $nup requests uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
          $rows = 0; $tfiles = 0;
          %FileState = ();
          %RequestFileCount = ();
@@ -343,7 +343,7 @@ sub upload_result
 
          $self->{DBH}->commit();
          my $nup =  scalar ($tmp_queue->remove_items(sub{1}));
-         $self->Logmsg("upload_result: remaining $nup request uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
+         $self->Dbgmsg("upload_result: remaining $nup request uploaded (rows = $rows, $tfiles)") if $self->{DEBUG};
       }
     }; 
     if ( $self->rollbackOnError() ) {
@@ -354,7 +354,7 @@ sub upload_result
       } 
     }
     my $dt0 = Time::HiRes::time() - $t0;
-    $self->Logmsg("upload_result: Database updated in $dt0 sec") if $self->{DEBUG};    
+    $self->Dbgmsg("upload_result: Database updated in $dt0 sec") if $self->{DEBUG};    
   }
 
   $self->{pmon}->State('upload_result','stop');
@@ -377,7 +377,7 @@ sub do_tests
      if ( ($self->{WAITTIME} - $dt0) > 30 && $scale && $self->{LAST_QUEUE} == $self->{QUEUE_LENGTH} ) {
         my $new_queue_length = int($self->{QUEUE_LENGTH} * $scale);
         $self->{QUEUE_LENGTH} = ($new_queue_length <= 900) ? $new_queue_length : 900; 
-        $self->Logmsg("do_tests: Queue too small, increasing QUEUE_LENGTH to $self->{QUEUE_LENGTH}") if ($self->{DEBUG});
+        $self->Dbgmsg("do_tests: Queue too small, increasing QUEUE_LENGTH to $self->{QUEUE_LENGTH}") if ($self->{DEBUG});
      } 
      return;
   }
@@ -396,7 +396,7 @@ sub do_tests
     if ( $request->{TIME_EXPIRE} <= time() )
     {
       $self->setRequestState($request,'Expired');
-      $self->Logmsg("do_tests: return after Expiring $request->{ID}");
+      $self->Dbgmsg("do_tests: return after Expiring $request->{ID}");
       return;
     }
 
@@ -457,7 +457,7 @@ sub requestQueue
   my ($self, $limit, $mfilter, $mfilter_args, $ofilter, $ofilter_args) = @_;
   my (@requests,$sql,%p,$q,$q1,$n,$i);
 
-  $self->Logmsg("requestQueue: starting") if ( $self->{DEBUG} );
+  $self->Dbgmsg("requestQueue: starting") if ( $self->{DEBUG} );
   my $now = &mytimeofday();
 
 # Find all the files that we are expected to work on
@@ -518,12 +518,12 @@ sub get_work
   if ( $self->{QUEUE}->get_item_count() )
   {
 #   There is work queued, so the agent is 'busy'. Check again soon
-    $self->Logmsg("get_work: The agent is busy") if ( $self->{DEBUG} );
+    $self->Dbgmsg("get_work: The agent is busy") if ( $self->{DEBUG} );
     $kernel->delay_set('get_work',10);
     return;
   }
 # The agent is idle. Check somewhat less frequently
-  $self->Logmsg("get_work: The agent is idle") if ( $self->{DEBUG} );
+  $self->Dbgmsg("get_work: The agent is idle") if ( $self->{DEBUG} );
   $kernel->delay_set('get_work',$self->{WAITTIME});
 
   $self->{pmon}->State('get_work','start');
