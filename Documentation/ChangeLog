@@ -1,5 +1,16 @@
 Changes for PhEDEx 3.3.1
 
+Changes for Site Agents
+ - BlockDownloadVerify:
+   - Add --dbs_url option, for specifying which DBS to execute dbs
+     consistency checks on
+   - Bugfix: avoid hanging transaction
+   - Optimization: bulk insert of test results
+   - More performance-related output when PHEDEX_DEBUG enabled
+   - Optimization: ynamic queue filling to optimize duty cycle
+   - Use caching for dcache and posix plugins
+   - posix plugin uses 'ls' instead of 'stat'
+	
 Changes for Central Agents
  - BlockActivate: checks consistency of activations and rolls back any
    inconsistent one
