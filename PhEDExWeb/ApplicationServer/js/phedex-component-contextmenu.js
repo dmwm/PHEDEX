@@ -10,9 +10,6 @@
 /** The partner object. This is added by the core. The control should only use this to take the <strong>obj.id</strong> of the partner, so it can set up a listener for events from that specific partner.
  * @property args.payload.obj {PHEDEX.Module, or derivative thereof}
  */
-/** Tell Tony to document this when he finds out what it does.
- * @property args.payload.typeMap {array}
- */
 /** Configuration parameters for the YAHOO.widget.ContextMenu
  * @property args.payload.config {object}
  */
