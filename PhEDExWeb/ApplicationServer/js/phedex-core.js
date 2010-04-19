@@ -136,16 +136,16 @@ PHEDEX.Core = function(sandbox,loader) {
   var _createDecorators = function(m) {
     var ii = m.decorators.length,
         i  = 0,
-        nDec = 0;
+        nDec = 0,
+        ctor, d;
     m._nDecorators = m.decorators.length;
     while ( i < ii ) {
-      var d = m.decorators[i];
+      d = m.decorators[i];
       if ( m.ctl[d.name] ) {
 //      I'm not too clear why this happens, in principle it shouldn't...?
         log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
         continue;
       }
-      var ctor = PHEDEX;
 //    I need a constructor for this decorator. Try three methods to get one:
 //    1) look in the decorator specification
 //    2) deduce it from the module-name, if there is an external module to load
