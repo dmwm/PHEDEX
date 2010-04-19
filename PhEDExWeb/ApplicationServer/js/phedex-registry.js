@@ -73,7 +73,10 @@ PHEDEX.Registry = function(sandbox) {
           }
         }
         _widgets[inputType][widget][label] = w;
-        _inputTypes[w.short_name] = inputType;
+        if ( !_inputTypes[w.short_name] ) {
+          _inputTypes[w.short_name] = {};
+        }
+        _inputTypes[w.short_name][inputType] = 1;
       },
 
 /** get a list of inputTypes that have registered widgets
