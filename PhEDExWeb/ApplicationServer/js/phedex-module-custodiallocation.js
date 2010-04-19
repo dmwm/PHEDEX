@@ -3,8 +3,6 @@ PHEDEX.namespace('Module');
 /** Node(s) at which a dataset is custodial, or datasets which are custodial at a node
  */
 PHEDEX.Module.CustodialLocation=function(sandbox, string) {
-  var _sbx = sandbox;
-
 /*
  * block          block name, can be multiple (*)
  * node           node name, can be multiple (*)
@@ -17,30 +15,14 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
  * custodial      y or n. filter for custodial responsibility. Default is to return either. Set to 'y' explicitly in the call
  * group          group name. Default is to return replicas for any group.
 */
-
-/** time-window, in hours. Set this value in the code to set the default
- * @property _time {integer}
- * @private
- */
-//       _time = 6,
-// /** direction, represented numerically. Set this value in the code to set the default
-//  * @property _direction {integer}
-//  * @private
-//  */
-//       _direction = 0,
-//       _direction_map = [],
-//       _directions = [
-//         { key:'to',   text:'Incoming Links' },
-//         { key:'from', text:'Outgoing Links' }
-//       ];
+  var _sbx = sandbox;
 
   Yla(this,new PHEDEX.TreeView(sandbox,string));
 
-  var node, block,
-      d = new Date(), now = d.getTime()/1000;
+  var node, block;
       opts = {
-        update_since: now - 3600,
-        create_since:  null,
+        update_since:     1,
+        create_since:  9999,
         complete:      null,
         dist_complete: null,
         subscribed:    null,
@@ -50,7 +32,6 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
       width = 1200,
       PxUf = PHEDEX.Util.format;
 
-  // Merge passed options with defaults
   Yla(opts, {
     width:width,
     height:300
@@ -86,35 +67,38 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           },
         },
         {
-          name: 'TimeSelect',
+          name: 'UpdateTimeSelect',
           source: 'component-menu',
           payload:{
             type: 'menu',
-            initial: function() { return opts.update_time; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
+            initial: function() { return opts.update_since; },
             container: 'buttons',
-            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
+            prefix:'Updated:',
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 9999:'Forever' },
             map: {
-              onChange:'changeTimebin',
+              onChange:'changeUpdateTimebin',
             },
+            title:'Time since last update'
           }
         },
-//         {
-//           name: 'DirectionSelect',
-//           source: 'component-menu',
-//           payload:{
-//             type: 'menu',
-//             initial: function() { return _directions[_direction].key; },
-//             container: 'buttons',
-//             menu: _directions,
-//             map: {
-//               onChange:'changeDirection',
-//             },
-//           }
-//         },
+        {
+          name: 'CreateTimeSelect',
+          source: 'component-menu',
+          payload:{
+            type: 'menu',
+            initial: function() { return opts.create_since; },
+            container: 'buttons',
+            prefix:'Created:',
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 9999:'Forever' },
+            map: {
+              onChange:'changeCreateTimebin',
+            },
+            title:'Time since creation'
+          }
+        },
       ],
 
       meta: {
-//         isDynamic: true, // enable dynamic loading of data
         tree: [
           {
             width:1200,
@@ -134,10 +118,10 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 80,text:'Files',       className:'phedex-tree-replica-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',       className:'phedex-tree-replica-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-              {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width:120,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width:120,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' },
             ]
           }
@@ -174,8 +158,18 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
       initMe: function(){ },
 
       specificState: function(state) {
-        if ( !state ) { return {/*time:_time, dir:_direction*/}; }
-        var i, k, v, kv, update=0, arr = state.split(' ');
+        var str, i, k, v, kv, update, arr;
+        if ( !state ) {
+          str = '';
+          if ( opts.node )         { str += 'node='+        opts.node+';'; }
+          if ( opts.block )        { str += 'block='+       opts.block+';'; }
+          if ( opts.create_since ) { str += 'create_since='+opts.create_since+';'; }
+          if ( opts.update_since ) { str += 'update_since='+opts.update_since+';'; }
+          if ( str ) { str = str.substr(0,str.length-1); }
+          return str;
+        }
+        update=0;
+        arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
           k = kv[0];
@@ -188,15 +182,14 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         this.getData();
       },
 
-//       changeTimebin: function(arg) {
-//         _time = parseInt(arg);
-//         this.getData();
-//       },
-//       changeDirection: function(arg) {
-//         _direction = this.direction_index(arg);
-//         this.getData();
-//       },
-
+      changeCreateTimebin: function(arg) {
+        opts.create_since = parseInt(arg);
+        this.getData();
+      },
+      changeUpdateTimebin: function(arg) {
+        opts.update_since = parseInt(arg);
+        this.getData();
+      },
       fillBody: function() {
         var root = this.tree.getRoot(),
             tLeaf, tNode, tNode1, i, j, b, replicas, r,
@@ -223,7 +216,6 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               tNode1.isLeaf = true;
             }
           } else { tNode.isLeaf = true; }
-//           if ( i > 20 ) { break; }
         }
         this.tree.render();
       },
@@ -257,7 +249,9 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        var args = { custdial:'y' }, magic = PxU.Sequence(); // TODO need better magic than tis!
+        var args = { custodial:'y' }, magic = PxU.Sequence(), // TODO need better magic than tis!
+          d = new Date(),
+          now = d.getTime()/1000;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
@@ -265,7 +259,12 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         this._magic = magic;
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
-        args.update_since = opts.update_since;
+        if ( opts.update_since && opts.update_since != 9999 ) {
+          args.update_since = now - 3600 * opts.update_since;
+        }
+        if ( opts.create_since && opts.create_since != 9999 ) {
+          args.create_since = now - 3600 * opts.create_since;
+        }
         this.data = {};
         this.truncateTree();
         this.tree.render();
