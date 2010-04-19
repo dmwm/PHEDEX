@@ -864,6 +864,7 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
  * @param arr {array} array of arguments for the given event
  * @private
  */
+var _xx;
   this.partnerHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -896,18 +897,28 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
           }
           break;
         }
+
+        case 'NewModuleArgs': {
+          _xx = value;
+          break;
+        }
       }
     }
   }(this);
   this.registryHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
-          value = arr[1];
+          value = arr[1], key;
       log('registryHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
       switch (action) {
         case 'TypeOfModule': {
-          if ( _target_type == value ) { return; }
-          _sbx.notify(obj.id,'TargetType',value);
+          for (i in value) {
+            if ( _target_type == value[i] ) { return; }
+          }
+          for (key in value) {
+            if ( _xx[key] ) { _target_type = key; }
+          }
+          _sbx.notify(obj.id,'TargetType',_target_type);
           break;
         }
       }
