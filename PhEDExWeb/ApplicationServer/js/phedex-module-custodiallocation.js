@@ -158,15 +158,14 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
       initMe: function(){ },
 
       specificState: function(state) {
-        var str, i, k, v, kv, update, arr;
+        var s, i, k, v, kv, update, arr;
         if ( !state ) {
-          str = '';
-          if ( opts.node )         { str += 'node='+        opts.node+';'; }
-          if ( opts.block )        { str += 'block='+       opts.block+';'; }
-          if ( opts.create_since ) { str += 'create_since='+opts.create_since+';'; }
-          if ( opts.update_since ) { str += 'update_since='+opts.update_since+';'; }
-          if ( str ) { str = str.substr(0,str.length-1); }
-          return str;
+          s = {};
+//           if ( node )  { s.node =  node; }
+//           if ( block ) { s.block = block; }
+          if ( opts.create_since ) { s.create_since = opts.create_since; }
+          if ( opts.update_since ) { s.update_since = opts.update_since; }
+          return s;
         }
         update=0;
         arr = state.split(' ');
