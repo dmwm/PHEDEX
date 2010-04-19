@@ -571,7 +571,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       obj = args.payload.obj;
   _construct = function() {
     return {
-      execute: function(className,type,dir) {
+      execute: function(o,className,type,dir) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
 //      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
@@ -585,10 +585,10 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //      make a unique list of the parents, and sort each of them. I can gain something by looking up only every other node,
 //      because that way I may miss a parent with a single child, but single-children are already sorted anyway.
 //      Also, skip the first element, because that will be the header, which can be ignored
-        elList = YuD.getElementsByClassName(className,null,obj.el);
+        elList = YuD.getElementsByClassName(className,null,o.el);
         j = elList.length;
         for (i=1; i<j; i+=2) {
-          node = obj.locateBranch(elList[i]);
+          node = o.locateBranch(elList[i]);
           parent = node.parent;
           nodes[parent.index] = parent;
         }
@@ -623,34 +623,34 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           }
         }
 
-        obj.tree.render();
+        o.tree.render();
 //      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
-        YuD.getElementsByClassName('phedex-sorted',null,obj.dom.header,function(element) {
+        YuD.getElementsByClassName('phedex-sorted',null,o.dom.header,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
-        YuD.getElementsByClassName(className,null,obj.el,function(element) {
+        YuD.getElementsByClassName(className,null,o.el,function(element) {
           YuD.addClass(element,'phedex-sorted');
         });
 
 //      add a visual indicator that the module has been sorted
-        var s = obj.dom.sorted, a;
+        var s = o.dom.sorted, a;
         if ( !s ) {
-          obj.dom.sorted = s = PxU.makeChild(obj.dom.control,'span');
+          o.dom.sorted = s = PxU.makeChild(o.dom.control,'span');
           s.innerHTML = 'S';
           s.className = 'phedex-sorted';
           s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
         }
 
-       for (i in obj._cfg.hiddenBranches) {
+       for (i in o._cfg.hiddenBranches) {
 //       I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
          YuD.addClass(elAncestor,'phedex-invisible');
        }
-        obj.hideFields(obj.el); // hide all the revealed fields too...
+        o.hideFields(o.el); // hide all the revealed fields too...
 
-        obj.meta.sort.type = type;
-        obj.meta.sort.dir  = dir;
-        _sbx.notify(obj.id, 'updateHistory');
+        o.meta.sort.type = type;
+        o.meta.sort.dir  = dir;
+        _sbx.notify(o.id, 'updateHistory');
       },
 
       prepare: function(el,type,dir) {
@@ -663,14 +663,14 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         s.field = field;
         s.dir   = dir;
         s.type  = type;
-        this.execute(field,type,dir);
+        this.execute(obj,field,type,dir);
       },
 
       doSort: function() {
         var s = obj.meta.sort;
         if ( !s )       { return; } // no sort-column defined...
         if ( !s.field ) { return; } // no sort-column defined...
-        this.execute(s.field,s.type,s.dir);
+        this.execute(obj,s.field,s.type,s.dir);
         _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
       },
 
