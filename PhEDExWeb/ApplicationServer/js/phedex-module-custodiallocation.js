@@ -36,8 +36,17 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
 
   Yla(this,new PHEDEX.TreeView(sandbox,string));
 
-  var node, dataset, block,
-      opts = {},
+  var node, block,
+      d = new Date(), now = d.getTime()/1000;
+      opts = {
+        update_since: now - 3600,
+        create_since:  null,
+        complete:      null,
+        dist_complete: null,
+        subscribed:    null,
+        custodial:     null,
+        group:         null,
+      },
       width = 1200,
       PxUf = PHEDEX.Util.format;
 
@@ -76,19 +85,19 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             container: 'buttons',
           },
         },
-//         {
-//           name: 'TimeSelect',
-//           source: 'component-menu',
-//           payload:{
-//             type: 'menu',
-//             initial: function() { return _time; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
-//             container: 'buttons',
-//             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
-//             map: {
-//               onChange:'changeTimebin',
-//             },
-//           }
-//         },
+        {
+          name: 'TimeSelect',
+          source: 'component-menu',
+          payload:{
+            type: 'menu',
+            initial: function() { return opts.update_time; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
+            container: 'buttons',
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
+            map: {
+              onChange:'changeTimebin',
+            },
+          }
+        },
 //         {
 //           name: 'DirectionSelect',
 //           source: 'component-menu',
@@ -112,7 +121,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             name:'Block',
             format: [
               {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
-              {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
               {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 60,text:'Open',       className:'phedex-tree-block-open',  otherClasses:'align-right', ctxArgs:'sort-alpha' }
@@ -122,7 +131,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             name:'Replica',
             format:[
               {width:160,text:'Node',        className:'phedex-tree-replica-node',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 80,text:'Files',       className:'phedex-tree-replica-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',       className:'phedex-tree-replica-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
@@ -165,7 +174,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
       initMe: function(){ },
 
       specificState: function(state) {
-        if ( !state ) { return {time:_time, dir:_direction}; }
+        if ( !state ) { return {/*time:_time, dir:_direction*/}; }
         var i, k, v, kv, update=0, arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
@@ -175,7 +184,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
 //           if ( k == 'dir'  && v != _direction ) { update++; _direction = v; }
         }
         if ( !update ) { return; }
-        log('set time='+_time+', dir='+_direction+' from state','info',this.me);
+//         log('set time='+_time+', dir='+_direction+' from state','info',this.me);
         this.getData();
       },
 
@@ -221,7 +230,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
 
       initData: function() {
         this.dom.title.innerHTML = 'Waiting for parameters to be set...';
-        if ( node ) {
+        if ( block || node ) {
           _sbx.notify( this.id, 'initData' );
           return;
         }
@@ -236,6 +245,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           node = arr.node || node;
           block = arr.block || block;
           if ( !node && !block ) { return; }
+          if ( node && block ) { node = null; }
           this.dom.title.innerHTML = 'setting parameters...';
           _sbx.notify(this.id,'setArgs');
         }
@@ -253,11 +263,9 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           return;
         }
         this._magic = magic;
+        if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
-        if ( block ) { args.block = block; }
-        var d = new Date(),
-            now = d.getTime()/1000;
-        args.update_since = now - 86400;
+        args.update_since = opts.update_since;
         this.data = {};
         this.truncateTree();
         this.tree.render();
