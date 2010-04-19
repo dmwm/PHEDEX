@@ -46,8 +46,9 @@ PHEDEX.Component.Menu = function(sandbox,args) {
  * @param args {object} the arguments passed into the contructor
  */
       _init: function(args) {
-        var p = args.payload;
-        for (var i in p) { this.payload[i] = p[i]; }
+        var p = args.payload,
+            i, button_args;
+        for (i in p) { this.payload[i] = p[i]; }
         if ( p.obj ) { partner = p.obj.id; }
         if ( p.initial ) {
           if ( typeof(p.initial) == 'function' ) { this._bin = p.initial(); }
@@ -84,16 +85,19 @@ PHEDEX.Component.Menu = function(sandbox,args) {
             key = i;
             value = q;
           }
+          if ( p.prefix ) { value = p.prefix+' '+value; }
           if ( this._bin == key ) { this._value=value; }
-          this._menu.push({ text: value, value:key, onclick: { fn: selectBin} });
+          this._menu.push({ text:value, value:key, onclick:{ fn:selectBin } });
         }
-        this._button = new YAHOO.widget.Button({
+        button_args = {
           type: 'menu',
           label: this._value,
           name: 'menu_' + PxU.Sequence(),
           menu: this._menu,
           container: p.obj.dom[p.container]
-        });
+        };
+        if ( p.title ) { button_args.title = p.title; }
+        this._button = new YAHOO.widget.Button(button_args);
         this._button.on('selectedMenuItemChange', onSelectedMenuItemChange);
 
         var moduleHandler = function(obj) {
