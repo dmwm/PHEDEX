@@ -864,7 +864,6 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
  * @param arr {array} array of arguments for the given event
  * @private
  */
-var _xx;
   this.partnerHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
@@ -899,7 +898,7 @@ var _xx;
         }
 
         case 'NewModuleArgs': {
-          _xx = value;
+          this._moduleArgs = value;
           break;
         }
       }
@@ -916,8 +915,9 @@ var _xx;
             if ( _target_type == value[i] ) { return; }
           }
           for (key in value) {
-            if ( _xx[key] ) { _target_type = key; }
+            if ( this._moduleArgs[key] ) { _target_type = key; }
           }
+          delete this._moduleArgs;
           _sbx.notify(obj.id,'TargetType',_target_type);
           break;
         }
