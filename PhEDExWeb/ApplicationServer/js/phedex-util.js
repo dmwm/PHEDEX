@@ -29,10 +29,10 @@ PHEDEX.Util.generateDivName=function(prefix) {
 
 // not used. Creates a UL from an array of strings
 PHEDEX.Util.makeUList = function(args) {
-  var list = document.createElement('ul');
-  for ( var i in args )
+  var i, li, list = document.createElement('ul');
+  for (i in args)
   {
-    var li = document.createElement('li');
+    li = document.createElement('li');
     li.innerHTML = args[i];
     list.appendChild(li);
   }
@@ -48,9 +48,9 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
   if (!parent) { throw new Error("cannot makeChild:  parent is not set"); }
   if (!kind)   { throw new Error("cannot makeChild:  kind is not set"); }
 
-  var child = document.createElement(kind);
+  var a, child = document.createElement(kind);
   if (!child)   { throw new Error("cannot makeChild:  bad child type?"); }
-  for (var a in args) {
+  for (a in args) {
     child[a] = args[a];
   }
   parent.appendChild(child);
@@ -63,51 +63,54 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
 // different Values.
 PHEDEX.Util.makeNode = function(spec,val) {
   if ( !val ) { val = {}; }
-  var wtot = spec.width || 0;
-  var list = document.createElement('ul');
-  var div = document.createElement('div');
+  var wtot = spec.width || 0,
+      list = document.createElement('ul'),
+      div = document.createElement('div'),
+      sf = spec.format,
+      f, i, n, w_el, w, d1, v, c, oc, li;
   list.className = 'inline_list';
   if ( wtot )
   {
     div.style.width = wtot+'px';
-    var n = spec.format.length;
-    for ( var i in spec.format )
+    n = sf.length;
+    for (i in sf)
     {
-      if ( typeof(spec.format[i]) == 'object' )
+      if ( typeof(sf[i]) == 'object' )
       {
-	var w_el = parseInt(spec.format[i].width);
-	if ( w_el ) { wtot -= w_el; n--; }
+        w_el = parseInt(sf[i].width);
+        if ( w_el ) { wtot -= w_el; n--; }
       }
     }
   }
-  var w = Math.round(wtot/n);
+  w = Math.round(wtot/n);
   if ( w < 0 ) { w=0; }
-  for ( var i in spec.format )
+  for (i in sf)
   {
-    var d1 = document.createElement('div');
+    f = sf[i];
+    d1 = document.createElement('div');
     if ( val.length > 0 )
     {
-      var v = val[i];
-      if ( spec.format[i].format ) { v = spec.format[i].format(val[i]); }
+      v = val[i];
+      if ( f.format ) { v = f.format(val[i]); }
       d1.innerHTML = v;
     } else {
-      d1.innerHTML = spec.format[i].text;
+      d1.innerHTML = sf[i].text;
     }
-    var w_el = parseInt(spec.format[i].width);
+    w_el = parseInt(f.width);
     if ( w_el ) {
       d1.style.width = w_el+'px';
     } else {
       if ( w ) { d1.style.width = w+'px'; }
     }
     if ( spec.className ) { d1.className = spec.className; }
-    if ( spec.format[i].className ) {
-      YAHOO.util.Dom.addClass(d1,spec.format[i].className);
+    if ( f.className ) {
+      YuD.addClass(d1,f.className);
     }
-    if ( spec.format[i].otherClasses ) {
-      var oc = spec.format[i].otherClasses.split(' ');
-      for (var c in oc) { YAHOO.util.Dom.addClass(d1,oc[c]); }
+    if ( f.otherClasses ) {
+      oc = f.otherClasses.split(' ');
+      for (c in oc) { YuD.addClass(d1,oc[c]); }
     }
-    var li = document.createElement('li');
+    li = document.createElement('li');
     li.appendChild(d1);
     list.appendChild(li);
   }
@@ -224,9 +227,9 @@ PHEDEX.Util.Sequence=function() {
 
 // Sum an array-field, with an optional parser to handle the field-format
 PHEDEX.Util.sumArrayField=function(q,f,p) {
-  var sum=0;
+  var i, sum=0;
   if ( !p ) { p = parseInt; }
-  for (var i in q) {
+  for (i in q) {
     sum+= p(q[i][f]);
   }
   return sum;
@@ -238,14 +241,15 @@ PHEDEX.Util.toggleVisible = function(thisClass,el)
   if (typeof(el) != 'object') {
     el = document.getElementById(el);
   }
-  var elList = YAHOO.util.Dom.getElementsByClassName(thisClass,null,el)
-  for (var i in elList) {
-    if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-visible') ) {
-      YAHOO.util.Dom.removeClass(elList[i],'phedex-visible');
-      YAHOO.util.Dom.addClass(elList[i],'phedex-invisible');
-    } else if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
-      YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
-      YAHOO.util.Dom.addClass(elList[i],'phedex-visible');
+  var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
+  for (i in elList) {
+    e = elList[i];
+    if ( YuD.hasClass(e,'phedex-visible') ) {
+      YuD.removeClass(e,'phedex-visible');
+      YuD.addClass(e,'phedex-invisible');
+    } else if ( YuD.hasClass(e,'phedex-invisible') ) {
+      YuD.removeClass(e,'phedex-invisible');
+      YuD.addClass(e,'phedex-visible');
     }
   }
 }
@@ -257,13 +261,13 @@ PHEDEX.Util.initialCaps = function(str) {
 PHEDEX.Util.getConstructor = function( string ) {
   var x = string.split('-'),
       ctor = PHEDEX,
-      c;
-  for (var j in x ) {
+      c, j, field, k;
+  for (j in x ) {
     if ( j == 0 && x[j] == 'phedex' ) { continue; }
-    var field = PxU.initialCaps(x[j]);
+    field = PxU.initialCaps(x[j]);
     if ( ctor[field] ) { c = ctor[field] }
     else {
-      for (var k in ctor) {
+      for (k in ctor) {
         field = k.toLowerCase();
         if ( field == x[j] ) {
           c = ctor[k];
