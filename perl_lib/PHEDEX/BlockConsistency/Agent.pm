@@ -118,7 +118,7 @@ sub doDBSCheck
   {
     $n_tested++;
     if ( delete $dbs{$r->{LOGICAL_NAME}} ) { $r->{STATUS} = 'OK';  $n_ok++}
-    else                                   { $r->{STATUS} = 'Error'; }
+    else                                   { $r->{STATUS} = 'Fail'; }
     $r->{TIME_REPORTED} = time();
   }
   $n_files = $n_tested + scalar keys %dbs;
@@ -228,14 +228,14 @@ sub doNSCheck
       my $size = $ns->$cmd($pfn);
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; $were_ok++;}
-      else { $r->{STATUS} = 'Error'; }
+      else { $r->{STATUS} = 'Fail'; }
     }
     elsif ( $request->{TEST} eq 'migration' ||
 	    $request->{TEST} eq 'is_migrated' )
     {
       my $mode = $ns->$cmd($pfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; $were_ok++;}
-      else { $r->{STATUS} = 'Error'; }
+      else { $r->{STATUS} = 'Fail'; }
     }
     $r->{TIME_REPORTED} = time();
     last unless --$n_files;
