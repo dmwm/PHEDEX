@@ -145,10 +145,10 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               'phedex-tree-replica-se'         :{type:'regex',  text:'SE name',       tip:'javascript regular expression' },
               'phedex-tree-replica-files'      :{type:'minmax', text:'Files',         tip:'number of files in the replica' },
               'phedex-tree-replica-bytes'      :{type:'minmax', text:'Bytes',         tip:'number of bytes in the replica' },
-              'phedex-tree-replica-complete'   :{type:'yesno',  text:'Complete',      tip:'is the replica complete?' },
               'phedex-tree-replica-timecreate' :{type:'regex',  text:'Creation time', tip:'Unix epoch seconds' },
               'phedex-tree-replica-timeupdate' :{type:'regex',  text:'Update time',   tip:'Unix epoch seconds' },
               'phedex-tree-replica-subscribed' :{type:'yesno',  text:'Subscribed',    tip:'is the replica subscribed?' },
+              'phedex-tree-replica-complete'   :{type:'yesno',  text:'Complete',      tip:'is the replica complete?' },
               'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
             }
           }
@@ -205,11 +205,12 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             [ b.name,b.id,b.files,b.bytes,b.is_open ]
           );
           if ( b.replica ) {
+            tNode.title = b.replica.length+' replicas';
             for (j in b.replica) {
               r = b.replica[j];
               tNode1 = this.addNode(
                 { format:this.meta.tree[1].format },
-                [ r.node,r.se,r.files,r.bytes,r.complete,r.time_create,r.time_update,r.subscribed,r.group ],
+                [ r.node,r.se,r.files,r.bytes,r.time_create,r.time_update,r.subscribed,r.complete,r.group ],
                 tNode
               );
               tNode1.isLeaf = true;
