@@ -437,18 +437,22 @@ sub do_tests
 sub requeue_later
 {
   my ($self, $kernel, $request) = @_[ OBJECT, KERNEL, ARG0 ];
-  if ( ++$request->{attempt} > 10 )
-  {
-    $self->Alert('giving up on request ID=',$request->{ID},', too many hard errors');
-    return;
-  }
-
+  eval {
+  	if ( ++$request->{attempt} > 10 )
+  	{
+	  $self->Alert('giving up on request ID=',$request->{ID},', too many hard errors');
+	  $self->setRequestState($request,'Error');
+	  $self->{DBH}->commit();
+	  return;
+  	}
 # Before re-queueing, check if any other requests are active. If not, I need
 # to kick this into action when I re-queue. Otherwise, it waits for the next
 # time get_work finds something to do!
-  $self->Logmsg('Requeue request ID=',$request->{ID},' after ',$request->{attempt},' attempts');
-  if ( ! $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); } 
-  $self->{QUEUE}->enqueue($request->{PRIORITY},$request);
+	$self->Logmsg('Requeue request ID=',$request->{ID},' after ',$request->{attempt},' attempts');
+	if ( ! $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); } 
+	$self->{QUEUE}->enqueue($request->{PRIORITY},$request);
+       };
+  $self->rollbackOnError();
 };
 
 # Get a list of pending requests
