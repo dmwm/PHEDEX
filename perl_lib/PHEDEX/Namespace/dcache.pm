@@ -36,6 +36,7 @@ sub new
   bless($self, $class);
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
+  if (exists($self->{AGENT}->{NOCACHE})) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
   $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
 
 # This is where the interface-specific modules are loaded. The modules are
