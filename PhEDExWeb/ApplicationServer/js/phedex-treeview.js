@@ -173,6 +173,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
         this.tree.subscribe('expandComplete', function(obj) {
           return function(node) {
+            if ( !obj.isDynamic ) { obj.postGotData(); }
           }
         }(this));
         this.headerTree.render();
@@ -215,7 +216,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       postGotData: function(step,node) {
         this._cache.partners = {};
-        var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows']; // TODO should be enough to markOverflows here, instead of in the sort and filter steps
+        var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows'];
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
@@ -300,7 +301,6 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       hideFieldByClass: function(className,el) {
-        if ( !el ) { el = this.el; }
         log('hideFieldByClass: '+className,'info','treeview');
         YuD.getElementsByClassName(className,null,el,function(element) {
           element.style.display = 'none';
@@ -313,6 +313,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       * @method hideFields
       */
       hideFields: function(el) {
+        if ( !el ) { el = this.el; }
         if ( this.meta.hide ) {
           for (var i in this.meta.hide) {
             this.hideFieldByClass(i,el);
@@ -426,12 +427,14 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   if ( !p.typeNames ) { p.typeNames=[]; }
   p.typeNames.push('treeview');
   if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
-  var fn = function(opts,el) {
-    var elPhedex = obj.locateNode(el.target),
-        elClass = obj.getPhedexFieldClass(elPhedex);
-    obj.meta.hide[elClass] = 1;
-    obj.hideFieldByClass(elClass);
-  };
+  var fn = function(o) {
+    return function(opts,el) {
+      var elPhedex = o.locateNode(el.target),
+          elClass = o.getPhedexFieldClass(elPhedex);
+      o.meta.hide[elClass] = 1;
+      o.hideFieldByClass(elClass,o.el);
+    }
+  }(obj);
   PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
   return {
