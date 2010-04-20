@@ -31,6 +31,7 @@ our %params =
 	  max_priority	=> 0,			# max of active requests
 	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
           DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
+          CLEAN_STARTUP => 'y',                 # Clean request leave in Active State
 	);
 
 sub new
@@ -510,6 +511,39 @@ sub requestQueue
   return @requests;
 }
 
+# Set to Error state requests leave on Active state from previous runs  
+sub FixActiveRequest
+{
+  my ($self, $mfilter, $mfilter_args, $ofilter, $ofilter_args) = @_;
+  my ($sql,%p,$q,$i);
+
+  $self->Dbgmsg("FixActiveRequest: starting") if ( $self->{DEBUG} );
+
+  $sql = qq{
+                select b.id, block, n_files, time_expire, priority,
+                name test, use_srm
+                from t_dvs_block b join t_dvs_test t on b.test = t.id
+                join t_status_block_verify v on b.id = v.id
+                where ${$mfilter}
+                and status = 4
+                ${$ofilter}
+                order by priority asc, time_expire asc
+       };
+
+  %p = (  %{$mfilter_args}, %{$ofilter_args} );
+  $q = &dbexec($self->{DBH},$sql,%p);
+ 
+  $i = 0; 
+  while ( my $h = $q->fetchrow_hashref() ) {
+                                             $self->setRequestState($h,'Error');
+                                             $i++; 
+                                           }
+
+  $self->Logmsg("Found $i requests left in Active status during previous runs of the Agent they were set to Error state");
+  return;
+}
+
+
 sub get_work
 {
 # get work from the database. This function reschedules itself for the future, to fetch
@@ -540,6 +574,11 @@ sub get_work
     my ($ofilter, %ofilter_args) = $self->otherNodeFilter ("b.node");
 
 #   Get a list of requests to process
+    if ( $self->{CLEAN_STARTUP} eq 'y' ) { 
+       $self -> FixActiveRequest(\$mfilter, \%mfilter_args, \$ofilter, \%ofilter_args);
+       $self->{CLEAN_STARTUP} = 'n';
+    }
+
     foreach my $request ($self->requestQueue($self->{QUEUE_LENGTH},
 					\$mfilter, \%mfilter_args,
 					\$ofilter, \%ofilter_args))
