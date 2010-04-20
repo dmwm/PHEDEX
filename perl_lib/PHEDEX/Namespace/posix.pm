@@ -22,7 +22,7 @@ sub new
 		VERBOSE => 0,
 		DEBUG   => 0,
                 CACHE    => undef,
-                NOCACHE  => 0,
+                NOCACHE  => 1,
             );
   %options = (
 		'help'		=> \$help,
