@@ -323,6 +323,7 @@ PHEDEX.Core = function(sandbox,loader) {
               YtP.registerObject(name,m);
         } catch (ex) {
           banner('Cannot construct '+name,'error');
+          log('Cannot construct '+name,'error',_me);
           log(ex,'error',_me);
         }
         try {
