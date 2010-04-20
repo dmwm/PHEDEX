@@ -161,8 +161,8 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         var s, i, k, v, kv, update, arr;
         if ( !state ) {
           s = {};
-//           if ( node )  { s.node =  node; }
-//           if ( block ) { s.block = block; }
+//           if ( node )  { s.node =  node; }  // covered by 'target'
+//           if ( block ) { s.block = block; } // covered by 'target'
           if ( opts.create_since ) { s.create_since = opts.create_since; }
           if ( opts.update_since ) { s.update_since = opts.update_since; }
           return s;
@@ -173,11 +173,11 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-//           if ( k == 'time' && v != _time      ) { update++; _time = v; }
-//           if ( k == 'dir'  && v != _direction ) { update++; _direction = v; }
+          if ( k == 'create_since' && v != opts.create_since ) { update++; opts.create_since = v; }
+          if ( k == 'update_since' && v != opts.update_since ) { update++; opts.update_since = v; }
         }
         if ( !update ) { return; }
-//         log('set time='+_time+', dir='+_direction+' from state','info',this.me);
+        log('set create_since='+opts.create_since+', update_since='+opts.update_since+' from state','info',this.me);
         this.getData();
       },
 
