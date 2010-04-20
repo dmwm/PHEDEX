@@ -1,86 +1,20 @@
-/*
+----------------------------------------------------------------------
+-- Create tables
 
-=pod
+/* General guidelines
+   t_history_* : time ordered histogram data, should be saved forever
+   t_status_*  : transient status information, can be deleted at anytime
+   t_log_*     : time ordered non-histogram data, should be saved forever */
 
-=head1 NAME
+/* FIXME: Consider using compressed table here, see
+   Tom Kyte's Effective Oracle By Design, chapter 7.
+   See also the same chapter, "Compress Auditing or
+   Transaction History" for swapping partitions.
+   Also test if index-organised table is good. */
 
-Status - PhEDEx snapshot and historical statics, and logs
-
-=head1 DESCRIPTION
-
-Status tables come in three general types: snapshot tables, history
-tables, and log tables.
-
-Snapshot tables begin with C<t_status_> and describe some aspect of
-the system at a single point in time, which is approximately the
-present.  These tables are used to efficiently present aggregate
-statistics to the user, for example via the web site.
-
-History tables begin with C<t_history_> and contain time-ordered
-statistics which should be saved forever.  These tables are used to
-generate time-based plots of system, node, or link behavior.
-
-Snapshot and history tables contain data-anonymous statistics.  They
-describe counts of files or bytes, but not which files, blocks, or
-datasets the statistics refer to.
-
-Log table begin with C<t_log_> and contain more detailed statistics
-that are identified by some data item as well as a timestamp.  Both
-time-ordered and snapshot-type data can be derieved from these.
-
-=head1 TABLES
-
-=head2 t_history_link_events
-
-This history table stores per-link file and byte counts for various
-transfer I<events>.  The events occur at a single point in time, and
-the statistics of events are aggregated into variable-width bins
-C<timewidth> wide.
-
-=over
-
-=item t_history_link_events.timebin
-
-=item t_history_link_events.timewidth
-
-=item t_history_link_events.from_node
-
-=item t_history_link_events.to_node
-
-=item t_history_link_events.priority
-
-=item t_history_link_events.avail_files
-
-=item t_history_link_events.avail_bytes
-
-=item t_history_link_events.done_files
-
-=item t_history_link_events.done_bytes
-
-=item t_history_link_events.try_files
-
-=item t_history_link_events.try_bytes
-
-=item t_history_link_events.fail_files
-
-=item t_history_link_events.fail_bytes
-
-=item t_history_link_events.expire_files
-
-=item t_history_link_events.expire_bytes
-
-=back
-
-=cut
-
-*/
-
-/* FIXME: Consider using compressed table here, see Tom Kyte's
-   Effective Oracle By Design, chapter 7.  See also the same chapter,
-   "Compress Auditing or Transaction History" for swapping partitions.
-   Also test if index-organised table is good. Also, look into making
-   the history tables range partitioned on their timestamp. */
-
+/* t_history_link_events.priority:
+ *   same as t_xfer_task, see OracleCoreTransfer
+ */
 create table t_history_link_events
   (timebin		float		not null,
    timewidth		float		not null,
@@ -309,60 +243,17 @@ create table t_status_missing
      on delete set null
   );
 
-/* A prediction of when a dataset will arrive at a node 
 
-   basis: the technique used to arrive at the estimate, values are
-   taken from block estimate, and the value for the dataset will be
-   the value of the worst block basis.  I.e., if even one block is
-   suspended, the basis is 's', if even one block is using nominal
-   estimate, the basis is 'n'
-*/
-create table t_status_dataset_arrive
-  (time_update		float		not null,
-   destination		integer		not null,
-   dataset		integer		not null,
-   blocks		integer		not null, -- number of blocks in the dataset during this estimate
-   files		integer		not null, -- number of files in the dataset during this estimate
-   bytes		integer		not null, -- number of bytes in the dataset during this estimate
-   avg_priority		float		not null, -- average block priority
-   basis		char(1)		not null, -- basis of estimate, see above
-   time_span		float		        , -- max historical vision used in a block estimate
-   pend_bytes		float		        , -- max queue size in bytes used in a block estimate
-   xfer_rate		float		        , -- min transfer rate used in a block estimate
-   time_arrive		float		        , -- worst time predicted that a block will arrive
-   --
-   constraint pk_status_dataset_arrive
-     primary key (destination, dataset),
-   --
-   constraint fk_status_dataset_arrive_dest
-     foreign key (destination) references t_adm_node (id)
-     on delete cascade,
-   --
-   constraint fk_status_dataset_arrive_ds
-     foreign key (dataset) references t_dps_dataset (id)
-     on delete cascade
-  );
-
-/* A prediction of when a block will arrive at a node 
-   basis: the technique used to arrive at the estimate, values are:
-     s : suspended      - block is suspended, arrival time cannot be estimated
-     n : nominal values - used when no historical information is available
-     h : history values - used when no link parameter values are available
-     p : link values    - used when no router values are available
-     r : routing values - used when the block is activated for routing
-*/
+/* A prediction of when a block will arrive at a node */
 create table t_status_block_arrive
   (time_update		float		not null,
    destination		integer		not null,
    block		integer		not null,
-   files		integer		not null, -- number of files in the block during this estimate
-   bytes		integer		not null, -- number of bytes in the block during this estimate
    priority		integer		not null, -- t_dps_block_dest priority
-   basis		char(1)		not null, -- basis of estimate, see above
-   time_span		float		        , -- historical vision used in estimate
-   pend_bytes		float		        , -- queue size in bytes used in estimate
-   xfer_rate		float		        , -- transfer rate used in estimate
-   time_arrive		float		        , -- time predicted this block will arrive
+   estimate_basis	char(1)		not null, -- n : nominal values, h : history values, r : routing values
+   estimate_queue	float		not null, -- queue size in bytes used in estimate
+   estimate_rate	float		not null, -- rate used in estimate
+   time_arrive		float		not null, -- time predicted this block will arrive
    --
    constraint pk_status_block_arrive
      primary key (destination, block),
@@ -370,8 +261,7 @@ create table t_status_block_arrive
    constraint fk_status_block_arrive_dest
      foreign key (destination) references t_adm_node (id)
      on delete cascade,
-   --
-   constraint fk_status_block_arrive_block
+    constraint fk_status_block_arrive_block
      foreign key (block) references t_dps_block (id)
      on delete cascade
   );
@@ -395,12 +285,10 @@ create table t_status_block_path
    constraint fk_status_block_path_dest
      foreign key (destination) references t_adm_node (id)
      on delete cascade,
-   --
    constraint fk_status_block_path_src
      foreign key (src_node) references t_adm_node (id)
      on delete cascade,
-   --
-   constraint fk_status_block_path_block
+    constraint fk_status_block_path_block
      foreign key (block) references t_dps_block (id)
      on delete cascade
   );
@@ -486,33 +374,6 @@ create table t_status_file_size_histogram
    sz_total		integer		not null
   );
 
-create table t_log_dataset_latency
-  (time_update		float		not null,
-   destination		integer		not null,
-   dataset		integer			, -- dataset id, can be null if dataset remvoed
-   blocks		integer	        not null, -- number of blocks
-   files		integer		not null, -- number of files
-   bytes		integer		not null, -- size in bytes
-   avg_priority		float		not null, -- average priority of blocks
-   time_subscription	float		not null, -- min time a block was subscribed
-   first_block_create	float		not null, -- min time a block was created
-   last_block_create	float		not null, -- max time a block was created
-   first_block_close	float		    	, -- min time a block was closed
-   last_block_close	float			, -- max time a block was closed
-   first_request	float			, -- min time a block was first routed
-   first_replica	float			, -- min time the first file of a block was replicated
-   last_replica		float			, -- max time the last file of a block was replicated
-   latency		float			, -- current latency for this dataset
-   serial_suspend       float                   , -- sum of all block suspend times
-   serial_latency	float			, -- sum of all block latencies for this dataset
-   --
-   constraint fk_status_dataset_latency_dest
-     foreign key (destination) references t_adm_node (id),
-   --
-   constraint fk_status_block_latency_ds
-     foreign key (dataset) references t_dps_dataset (id)
-     on delete set null);
-
 /* Log for block completion time . */
 create table t_log_block_latency
   (time_update		float		not null,
@@ -524,7 +385,6 @@ create table t_log_block_latency
    is_custodial		char (1)	not null, -- t_dps_block_dest custodial
    time_subscription	float		not null, -- time block was subscribed
    block_create		float		not null, -- time the block was created
-   block_close		float		        , -- time the block was closed
    first_request	float			, -- time block was first routed (t_xfer_request appeared)
    first_replica	float			, -- time the first file was replicated
    last_replica		float			, -- time the last file was replicated
