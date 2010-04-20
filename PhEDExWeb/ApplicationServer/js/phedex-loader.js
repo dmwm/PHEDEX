@@ -43,6 +43,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-agents':            { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview':          { requires:['phedex-module','phedex-treeview'] },
     'phedex-module-custodiallocation': { requires:['phedex-module','phedex-treeview'] },
+    'phedex-module-consistencyresults':{ requires:['phedex-module','phedex-treeview'] },
     'phedex-module-groupusage':        { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-static':            { requires:['phedex-module','phedex-config'] },
     'phedex-module-blocklocation':     { requires:['phedex-module','slider', 'button'] },
