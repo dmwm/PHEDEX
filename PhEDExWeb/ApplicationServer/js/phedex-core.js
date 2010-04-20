@@ -285,13 +285,13 @@ PHEDEX.Core = function(sandbox,loader) {
           dataFail.subscribe(function(type,args) {
             var api = args[1].api;
             log('api:'+api+' error fetching data: '+args[0].message,'error',who);
-            banner('Error fetching data for "'+api+'"','error');
+            banner('Error fetching or parsing data for "'+api+'"','error');
             _clearTimeout();
           });
           args.success_event = dataReady;
           args.failure_event = dataFail;
           PHEDEX.Datasvc.Call( args );
-        } catch(ex) { log(ex,'error',_me); banner('Error fetching data for "'+api+'"','error'); }
+        } catch(ex) { log(ex,'error',_me); banner('Error fetching or parsing data for "'+api+'"','error'); }
         break;
       }
     };
