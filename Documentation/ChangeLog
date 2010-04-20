@@ -4,12 +4,15 @@ Changes for Site Agents
  - BlockDownloadVerify:
    - Add --dbs_url option, for specifying which DBS to execute dbs
      consistency checks on
-   - Bugfix: avoid hanging transaction
+   - Bugfix: avoid hanging transactions by properly committing
+     'Active' state
    - Optimization: bulk insert of test results
+   - Optimization: dynamic queue filling to optimize duty cycle
    - More performance-related output when PHEDEX_DEBUG enabled
-   - Optimization: ynamic queue filling to optimize duty cycle
-   - Use caching for dcache and posix plugins
+   - Optional caching mechanism for dcache and posix plugins
    - posix plugin uses 'ls' instead of 'stat'
+   - implemented checksum test for posix plugin
+   - updated help messages for all plugins
 	
 Changes for Central Agents
  - BlockActivate: checks consistency of activations and rolls back any
