@@ -519,7 +519,7 @@ sub prepare
 	undef %reactiv_reqs; # no longer needed
 	foreach my $prio (sort keys %warn_overflow) {
 	    $self->Warn(sprintf("node=%i priority %i window overflowed %0.1f GB", 
-				$node, $prio, ($warn_overflow{$prio}/$GIGABYTE)));
+				$node, $prio, ($warn_overflow{$prio}/GIGABYTE)));
 	}
 
 	# Find block destinations we can activate, requiring that
@@ -586,8 +586,8 @@ sub prepare
 	my $nblocks = scalar @activated_blocks;
 	$self->Logmsg(sprintf("re-activated %i requests (%0.1f GB), ".
 			      "activated %i blocks with %i files (%0.1f GB) for node=%i",
-			      $n_reactiv, $bytes_reactiv, 
-			      $nblocks, $nreqs, $bytes_activ, $node)) 
+			      $n_reactiv, ($bytes_reactiv/GIGABYTE),
+			      $nblocks, $nreqs, ($bytes_activ/GIGABYTE), $node)) 
 	    if ($n_reactiv > 0 || $nblocks > 0);	    
     } else {
 	# Lots of through traffic - don't allocate
