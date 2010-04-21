@@ -475,9 +475,6 @@ sub prepare
 	$priority_windows{$priority} += $bytes;
     }
 
-    # TODO: Optimize: skip attempting to fill windows if they are
-    # already 95% full now
-
     # Fill priority windows up to WINDOW_SIZE each if through traffic
     # is not more than WINDOW_SIZE
     if ($not_for_me <= $WINDOW_SIZE)
@@ -505,16 +502,25 @@ sub prepare
 
 	my %reactiv_reqs;
 	my $n_reactiv = 0;
+	my $bytes_reactiv = 0;
+	my %warn_overflow;
 	while (my $r = $q->fetchrow_hashref()) {
-	    next if ($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE;
+	    if (($priority_windows{$$r{PRIORITY}} += $$r{BYTES}) > $WINDOW_SIZE) {
+		$warn_overflow{$$r{PRIORITY}} = $priority_windows{$$r{PRIORITY}} - $WINDOW_SIZE;
+	    }
 	    my $n = 1;
 	    push(@{$reactiv_reqs{$n++}}, $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER));
 	    push(@{$reactiv_reqs{$n++}}, $$r{DESTINATION});
 	    push(@{$reactiv_reqs{$n++}}, $$r{FILEID});
 	    $n_reactiv++;
+	    $bytes_reactiv += $$r{BYTES};
 	}
 	&dbbindexec($reactiv_u, %reactiv_reqs) if %reactiv_reqs;
 	undef %reactiv_reqs; # no longer needed
+	foreach my $prio (sort keys %warn_overflow) {
+	    $self->Warn(sprintf("node=%i priority %i window overflowed %0.1f GB", 
+				$node, $prio, ($warn_overflow{$prio}/$GIGABYTE)));
+	}
 
 	# Find block destinations we can activate, requiring that
 	# the block fit into the priority window.  Note that open
@@ -534,6 +540,7 @@ sub prepare
 	     where block = :block 
                and destination = :node});
 	my @activated_blocks;
+	my $bytes_activ = 0;
 	foreach my $b (@{ $blocks_to_activate })
 	{
 	    next if ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $WINDOW_SIZE;
@@ -542,6 +549,7 @@ sub prepare
 			":node" => $node,
 			":now" => $now);
 	    push(@activated_blocks, $b);
+	    $bytes_activ += $$b{BYTES};
 	}
 	undef $blocks_to_activate; # no longer needed
 
@@ -576,7 +584,10 @@ sub prepare
 	$dbh->commit();
 
 	my $nblocks = scalar @activated_blocks;
-	$self->Logmsg("re-activated $n_reactiv requests, activated $nblocks blocks with $nreqs files for node=$node") 
+	$self->Logmsg(sprintf("re-activated %i requests (%0.1f GB), ".
+			      "activated %i blocks with %i files (%0.1f GB) for node=%i",
+			      $n_reactiv, $bytes_reactiv, 
+			      $nblocks, $nreqs, $bytes_activ, $node)) 
 	    if ($n_reactiv > 0 || $nblocks > 0);	    
     } else {
 	# Lots of through traffic - don't allocate
@@ -584,7 +595,8 @@ sub prepare
 	my ($nblocks) = &dbexec($dbh, qq{
 	    select count(*) from t_dps_block_dest where destination = :node and state = 0
 	    }, ":node" => $node)->fetchrow();
-	$self->Warn("through-traffic limit reached for node=$node.  no new block destinations activated out of $nblocks")
+	$self->Warn("through-traffic limit reached for node=$node, ",
+		    "no new block destinations activated out of $nblocks")
 	    if $nblocks;
     }
 }
