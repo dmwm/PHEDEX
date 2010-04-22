@@ -3,17 +3,6 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
   var _sbx = sandbox;
 
-//  node             node name, could be multiple
-//  block            block name, could be multiple
-//  kind             kind of consistency check test.  One of "cksum", "size",
-//                   "dbs", or "migration".  Default is to show any kind.
-//  status           status of the test.  One of "OK", "Fail", "Queued", "Active",
-//                   "Timeout", "Expired", "Suspended", "Error",
-//                   "Rejected" or "Indeterminate".  Default is to show any.
-//  test_since       show only tests reported after this time (*)
-// 
-//  (*) if no option is specified, test_since is set to 24 hours ago
-
   Yla(this,new PHEDEX.TreeView(sandbox,string));
 
   var node, block;
@@ -111,17 +100,25 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
 //           }
         ],
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
-//         filter: {
-//           'Block-level attributes':{
-//             map:{from:'phedex-tree-block-', to:'B'},
-//             fields:{
-//               'phedex-tree-block-name'  :{type:'regex',  text:'Block-name',  tip:'javascript regular expression' },
-//               'phedex-tree-block-id'    :{type:'int',    text:'Block-ID',    tip:'ID of this block in TMDB' },
-//               'phedex-tree-block-files' :{type:'minmax', text:'Block-files', tip:'number of files in the block' },
-//               'phedex-tree-block-bytes' :{type:'minmax', text:'Block-bytes', tip:'number of bytes in the block' },
+        filter: {
+             'Node-level attributes':{
+                map:{from:'phedex-tree-node-', to:'N'},
+                fields:{
+                  'phedex-tree-node-name' :{type:'regex',  text:'Node-name', tip:'javascript regular expression' },
+                  'phedex-tree-node-id'   :{type:'int',    text:'Node-ID',   tip:'Node-ID in TMDB'},
+                  'phedex-tree-node-se'   :{type:'regex',  text:'SE-name',   tip:'javascript regular expression'},
+                },
+              },
+          'Block-level attributes':{
+            map:{from:'phedex-tree-block-', to:'B'},
+            fields:{
+              'phedex-tree-block-name'  :{type:'regex',  text:'Block-name',  tip:'javascript regular expression' },
+              'phedex-tree-block-id'    :{type:'int',    text:'Block-ID',    tip:'ID of this block in TMDB' },
+              'phedex-tree-block-files' :{type:'minmax', text:'Block-files', tip:'number of files in the block' },
+              'phedex-tree-block-bytes' :{type:'minmax', text:'Block-bytes', tip:'number of bytes in the block' },
 //               'phedex-tree-block-open'  :{type:'yesno',  text:'Open',        tip:'is the block still open?' }
-//             }
-//           },
+            }
+          },
 //           'Replica-level attributes':{
 //             map:{from:'phedex-tree-replica-', to:'R'},
 //             fields:{
@@ -136,7 +133,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
 //               'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
 //             }
 //           }
-//         },
+        },
       },
 
       initMe: function(){ },
@@ -237,7 +234,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
         if ( opts.since && opts.since != 9999 ) {
-          args.since = now - 3600 * opts.since;
+          args.test_since = now - 3600 * opts.since;
         }
         this.data = {};
         this.truncateTree();
