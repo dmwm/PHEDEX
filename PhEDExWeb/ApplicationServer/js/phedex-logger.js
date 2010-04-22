@@ -119,6 +119,8 @@ PHEDEX.Logger = function() {
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
+        var Yl   = YAHOO.log,
+            PL = PHEDEX.Logger;
         return function(str,level,group) {
           var l = obj.log2Server;
           if ( typeof(str) == 'object' ) {
@@ -130,16 +132,17 @@ PHEDEX.Logger = function() {
           group = group.toLowerCase();
           if ( !l.group[group] ) {
             l.group[group] = false;
-            YuC.setSubs('PHEDEX.Logger.group',l.group);
+            YuC.setSubs('PL.group',l.group);
           }
           if ( !l.level[level] ) {
             l.level[level] = false;
-            YuC.setSubs('PHEDEX.Logger.level',l.level);
+            YuC.setSubs('PL.level',l.level);
           }
-          YAHOO.log(str, level, group);
+          Yl(str, level, group);
           if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
             var url = '/log/'+level+'/'+group+'/'+str;
             YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
+            var x = 1;
           }
         };
       }(this);
