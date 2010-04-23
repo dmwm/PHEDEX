@@ -72,7 +72,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             format: [
               {width:160,text:'Node', className:'phedex-tree-node',    otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
               {width: 60,text:'ID',   className:'phedex-tree-node-id', otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'SE',   className:'phedex-tree-se',      otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width:200,text:'SE',   className:'phedex-tree-node-se', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
             ]
           },
           {
