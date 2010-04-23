@@ -1,0 +1,36 @@
+httperf is a tool for load-testing a web server.  It can generate a
+significant load from a single client, something that is not as easy
+to do as you might think!
+
+The httperf website is here:
+
+  http://www.hpl.hp.com/research/linux/httperf/
+
+The 'apache2httperf.pl' command will turn an Apache httpd log file
+into a replay file in the format expected by httperf.  The following
+example makes a replay log based on the requests of one day to the
+graph server:
+
+: ./make_httperf.pl -filter '/phedex/graphs' \
+phedex_web_access_log_20100216 > 20100216.httperf
+
+httperf can then use this replay file as the basis of a load test,
+like this:
+
+: httperf --hog --server vocms65.cern.ch --port 80 \
+--wlog=n,20100216.httperf --timeout 300 --rate 0.3 \
+--num-conns=100 2>&1 | tee httperf.vocms65
+
+This command will send 100 requests listed in 20100216.httperf to
+vocms65.cern.ch port 80 at a constant rate of 0.3 requests per
+second.  The requests will timeout and be counted as an error after
+300 seconds.
+
+See the httperf man page for a description of the test results.
+
+See "autobench":
+
+  http://www.xenoclast.org/autobench/
+
+For a perl tool which will help to find the request capacity of a web
+server using httperf.
