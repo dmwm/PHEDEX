@@ -37,37 +37,88 @@ transfer I<events>.  The events occur at a single point in time, and
 the statistics of events are aggregated into variable-width bins
 C<timewidth> wide.
 
+When comparing the columns in these tables, it is important to only
+compare columns which share the same event time, and the only ones
+that do this are the done_, fail_ and expire_ columns.  For example,
+it makes no sense to derive done_bytes / try_bytes for the same
+timebin, because the quantites do not represent events on the same
+files!
+
+Because these data come from distinct events, they can be aggregated
+over time to produce a sum over a longer time period.
+
 =over
 
 =item t_history_link_events.timebin
 
+Bin timestamp, see L<here|Schema::Schema/Timestamp Columns>.
+
 =item t_history_link_events.timewidth
+
+Width of the bin histogram bin in seconds.
 
 =item t_history_link_events.from_node
 
+Source node of the event, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
 =item t_history_link_events.to_node
+
+Destination node of the event, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
 
 =item t_history_link_events.priority
 
+Priority of the transfer, see 
+L<here|Schema::Schema/priority (Link-level)>.
+
 =item t_history_link_events.avail_files
+
+Number of files that became available for transfer (were exported) in
+this timebin.
 
 =item t_history_link_events.avail_bytes
 
+Number of files that became available for transfer (were exported) in
+this timebin.
+
 =item t_history_link_events.done_files
+
+Number of files which finished transfer successfully within this
+timebin.
 
 =item t_history_link_events.done_bytes
 
+Number of bytes which finished transfer successfully within this
+timebin.
+
 =item t_history_link_events.try_files
+
+Number of files which which began transfer within this timebin.
 
 =item t_history_link_events.try_bytes
 
+Number of bytes which which began transfer within this timebin.
+
 =item t_history_link_events.fail_files
+
+Number of files which finished transfer unsuccessfully within this
+timebin. 
 
 =item t_history_link_events.fail_bytes
 
+Number of bytes which finished transfer unsuccessfully within this
+timebin. 
+
 =item t_history_link_events.expire_files
 
+Number of files which finished transfer by expiring within this
+timebin.
+
 =item t_history_link_events.expire_bytes
+
+Number of bytes which finished transfer by expiring within this
+timebin.
 
 =back
 
@@ -109,16 +160,122 @@ create table t_history_link_events
      foreign key (to_node) references t_adm_node (id)
   );
 
+/*
 
-/* FIXME: Consider using compressed table here, see
-   Tom Kyte's Effective Oracle By Design, chapter 7.
-   See also the same chapter, "Compress Auditing or
-   Transaction History" for swapping partitions.
-   Also test if index-organised table is good. */
+=pod
 
-/* t_history_link_stats.priority:
- *   same as for t_xfer_task, see OrackeCoreTransfer
- */
+=head2 t_history_link_stats
+
+This history table contains per-link file and byte counts for various
+I<sampled> quantities in the database.  The data here are read
+periodically from the current system state in a "heartbeat" fashion.
+Most of these data represent some per-link queue.
+
+Because these data are sampled, it makes no sense to aggregate
+sums of them in order to represent behavior over a longer time
+period.  The data may be averaged over a longer time period, or a
+representative bin may be selected for the whole period.
+
+=over
+
+=item t_history_link_stats.timebin
+
+Bin timestamp, see L<here|Schema::Schema/Timestamp Columns>.
+
+=item t_history_link_stats.timewidth
+
+Width of the bin histogram bin in seconds.
+
+=item t_history_link_stats.from_node
+
+Source node of the queue, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_history_link_stats.to_node
+
+Destination node of the queue, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_history_link_stats.priority
+
+Priority of the queue, see 
+L<here|Schema::Schema/priority (Link-level)>.
+
+=item t_history_link_stats.pend_files
+
+Number of files pending transfer during this timebin.
+
+=item t_history_link_stats.pend_bytes
+
+Number of bytes pending transfer during this timebin.
+
+=item t_history_link_stats.wait_files
+
+Number of files pending transfer and waiting for the source replica to
+be exported.
+
+=item t_history_link_stats.wait_bytes
+
+Number of bytes pending transfer and waiting for the source replica to
+be exported.
+
+=item t_history_link_stats.cool_files
+
+B<WARNING: OBSOLETE!>  Number of files purposefully being delayed from
+transfer at this time.
+
+=item t_history_link_stats.cool_bytes
+
+B<WARNING: OBSOLETE!>  Number of bytes purposefully being delayed from
+transfer at this time.
+
+=item t_history_link_stats.ready_files
+
+Number of files pending transfer and exported at the source node.
+
+=item t_history_link_stats.ready_bytes
+
+Number of bytes pending transfer and exported at the source node.
+
+=item t_history_link_stats.xfer_files
+
+Number of files pending transfer and queued by the destination node.
+
+=item t_history_link_stats.xfer_bytes
+
+Number of bytes pending transfer and queued by the destination node.
+
+=item t_history_link_stats.confirm_files
+
+Number of files routed over this link.
+
+=item t_history_link_stats.confirm_bytes
+
+Number of bytes routed over this link.
+
+=item t_history_link_stats.confirm_weight
+
+B<WARNING: OBSOLETE!>  Average cost of the files routed over this
+link.
+
+=item t_history_link_stats.param_rate
+
+Transfer rate over this link used by
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> 
+during this timebin.
+
+=item t_history_link_stats.param_latency
+
+Transfer latency (time to transfer all files in queue) over this link
+used by L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> during
+this timebin.
+
+=back
+
+=cut
+
+*/
+
 create table t_history_link_stats
   (timebin		float		not null,
    timewidth		float		not null,
@@ -157,7 +314,129 @@ create table t_history_link_stats
      foreign key (to_node) references t_adm_node (id)
   );
 
-/* See comments above for t_history_link_*. */
+/*
+
+=pod
+
+=head2 t_history_dest
+
+This history table contains per-node file and byte counts for various
+I<sampled> quantities in the database.  The data here are read
+periodically from the current system state in a "heartbeat" fashion.
+
+Because these data are sampled, it makes no sense to aggregate
+sums of them in order to represent behavior over a longer time
+period.  The data may be averaged over a longer time period, or a
+representative bin may be selected for the whole period.
+
+=over
+
+=item t_history_link_stats.timebin
+
+Bin timestamp, see L<here|Schema::Schema/Timestamp Columns>.
+
+=item t_history_link_stats.timewidth
+
+Width of the bin histogram bin in seconds.
+
+=item t_history_link_stats.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_history_dest.dest_files
+
+Number of files subscribed to this node in this timebin.
+
+=item t_history_dest.dest_bytes
+
+Number of bytes subscribed to this node in this timbin.
+
+=item t_history_dest.cust_dest_files
+
+Number of custodial files subscribed to this node in this timebin.
+
+=item t_history_dest.cust_dest_bytes
+
+Number of custodial bytes subscribed to this node in this timebin.
+
+=item t_history_dest.src_files
+
+Total number of files which this node has generated until this
+timebin.
+
+=item t_history_dest.src_bytes
+
+Total number of bytes which this node has generated until this
+timebin.
+
+=item t_history_dest.node_files
+
+Number of files resident at this node during this timebin.
+
+=item t_history_dest.node_bytes
+
+Number of bytes resident at this node during this timebin.
+
+=item t_history_dest.cust_node_files
+
+Number of custodial files resident at this node during this timebin.
+
+=item t_history_dest.cust_node_bytes
+
+Number of custodial bytes resident at this node during this timebin.
+
+=item t_history_dest.miss_files
+
+Number of subscribed files to this node which are not resident at this
+node during this timebin.
+
+=item t_history_dest.miss_bytes
+
+Number of subscribed bytes to this node which are not resident at this
+node during this timebin.
+
+=item t_history_dest.cust_miss_files
+
+Number of custodial subscribed files to this node which are not
+resident at this node during this timebin.
+
+=item t_history_dest.cust_miss_bytes
+
+Number of custodial subscribed bytes to this node which are not
+resident at this node during this timebin.
+
+=item t_history_dest.request_files
+
+Number of files which have an active request for routing during this
+timebin.
+
+=item t_history_dest.request_bytes
+
+Number of bytes which have an active request for routing during this
+timebin.
+
+=item t_history_dest.idle_files
+
+Number of files which have an inactive request for routing during this
+timebin.
+
+=item t_history_dest.idle_bytes
+
+Number of bytes which have an inactive request for routing during this
+timebin.
+
+=back
+
+=cut
+
+*/
+
+/* TODO: Use another identifyer column 'is_custodial' to split
+custodial/non-custodial values instead of separate columns. Allow to
+be null for values where custodiality does not apply. request_ and
+idle_ *do* have a custodial status */
+
 create table t_history_dest
   (timebin		float		not null,
    timewidth		float		not null,
@@ -188,7 +467,51 @@ create table t_history_dest
      foreign key (node) references t_adm_node (id)
   );
 
-/* Statistics for block destinations, from t_dps_block_dest */
+/*
+
+=pod
+
+=head2 t_status_block_dest
+
+This status table contains the current per-node file and byte counts
+for "destined" (subscribed) blocks to node, broken down by their
+custodial status and state.  The data is collected from
+L<t_dps_block_dest|Schema::OracleCoreBlock/t_dps_block_dest>.
+
+=over
+
+=item t_status_block_dest.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_status_block_dest.destination
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_block_dest.is_custodial
+
+Whether the subscription was custododial.
+
+=item t_status_block_dest.state
+
+Integer state of the block destination, see
+L<t_dps_block_dest.state|Schema::OracleCoreBlock/t_dps_block_dest.state>.
+
+=item t_status_block_dest.files
+
+Number of files subscribed to the destination.
+
+=item t_status_block_dest.bytes
+
+Number of bytes subscribed to the destination.
+
+=back
+
+=cut
+
+*/
+
 create table t_status_block_dest
   (time_update		float		not null,
    destination		integer		not null,
@@ -208,7 +531,40 @@ create table t_status_block_dest
      check (is_custodial in ('y', 'n'))
   );
 
-/* Statistics for file origins. */
+/*
+
+=pod
+
+=head2 t_status_file
+
+This status table contains the per-node file and byte counts for files
+which were generated at the node.
+
+=over
+
+=item t_statust_file.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_file.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_statust_file.files
+
+Total number of files generated at the node.
+
+=item t_statust_file.bytes
+
+Total number of bytes generated at the node.
+
+=back
+
+=cut
+
+*/
+
 create table t_status_file
   (time_update		float		not null,
    node			integer		not null,
@@ -223,7 +579,49 @@ create table t_status_file
      on delete cascade
   );
 
-/* Statistics for replicas. */
+
+/*
+
+=pod
+
+=head2 t_status_replica
+
+This status table contains the file and byte counts for files resident
+at the nodes.
+
+=over
+
+=item t_statust_replica.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_replica.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_replica.is_custodial
+
+Whether the files are custodial copies of the data.
+
+=item t_status_replica.state
+
+B<WARNING: UNUSED/OBSOLETE!> Always set to 0.
+
+=item t_status_replica.files
+
+Number of files resident at the node.
+
+=item t_status_replica.bytes
+
+Number of bytes resident at the node.
+
+=back
+
+=cut
+
+*/
+
 create table t_status_replica
   (time_update		float		not null,
    node			integer		not null,
@@ -243,7 +641,44 @@ create table t_status_replica
      check (is_custodial in ('y', 'n'))
   );
 
-/* Statistics for missing data. */
+/*
+
+=pod
+
+=head2 t_status_missing
+
+This status table contains file and byte counts for the amount of data
+which is subscribed to a node but not resident there.
+
+=over
+
+=item t_statust_missing.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_missing.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_missing.is_custodial
+
+Whether the subscriptions are for custodial copies of the data.
+
+=item t_status_missing.files
+
+Number of files subscribed to the node but not resident there.
+
+=item t_status_missing.bytes
+
+Number of bytes subscribed to the node but not resident there.
+
+=back
+
+=cut
+
+*/
+
 create table t_status_missing
   (time_update		float		not null,
    node			integer		not null,
@@ -262,11 +697,57 @@ create table t_status_missing
      check (is_custodial in ('y', 'n'))
   );
 
+/*
 
-/* Statistics for transfer requests. 
- * t_status_request.state:
- *   same as t_xfer_request, see OracleCoreTransfers
- */
+=pod
+
+=head2 t_status_request
+
+This status table contains file and byte counts for requests for
+transfer -- files allocated by the
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> for routing.
+This data is aggregated from 
+L<t_xfer_request|Schema::OracleCoreTransfer/t_xfer_request>.
+
+=over
+
+=item t_statust_request.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_request.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_request.priority
+
+Priority of the queue, see 
+L<Schema::Schema/priority (Node-level)>.
+
+=item t_status_request.is_custodial
+
+Whether the requests are for custodial copies of the data.
+
+=item t_status_request.state
+
+The request state, see
+L<t_xfer_request.state|Schema::OracleCoreTransfer/t_xfer_request.state>.
+
+=item t_status_request.files
+
+Number of files requested for transfer.
+
+=item t_status_request.bytes
+
+Number of bytes requested for transfer.
+
+=back
+
+=cut
+
+*/
+
  create table t_status_request
   (time_update		float		not null,
    destination		integer		not null,
@@ -287,7 +768,54 @@ create table t_status_missing
      check (is_custodial in ('y', 'n'))
   );
 
-/* Statistics for groups */
+/*
+
+=pod
+
+=head2 t_status_group
+
+This status table contains file and byte counts for data subscribed
+and resident per group.  This data is aggregated from
+L<t_dps_block_replica|Schema::OracleCoreBlock/t_status_block_replica>.
+
+=over
+
+=item t_statust_request.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_request.node
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_group.group
+
+Group, FK to
+L<t_adm_group.id|Schema::OracleCoreAdm/t_adm_group.id>.
+
+=item t_status_group.dest_files
+
+Number of files subscribed to the node for this group.
+
+=item t_status_group.dest_bytes
+
+Number of bytes subscribed to the node for this group.
+
+=item t_status_group.node_files
+
+Number of files resident at the node for this group.
+
+=item t_status_group.node_bytes
+
+Number of bytes resident at the node for this group.
+
+=back
+
+=cut
+
+*/
+
  create table t_status_group
   (time_update		float		not null,
    node			integer		not null,
@@ -309,14 +837,82 @@ create table t_status_missing
      on delete set null
   );
 
-/* A prediction of when a dataset will arrive at a node 
+/*
 
-   basis: the technique used to arrive at the estimate, values are
-   taken from block estimate, and the value for the dataset will be
-   the value of the worst block basis.  I.e., if even one block is
-   suspended, the basis is 's', if even one block is using nominal
-   estimate, the basis is 'n'
+=pod
+
+=head2 t_status_dataset_arrive
+
+B<WARNING: FUTURE/UNUSED!>  This status table contains a prediction of
+when a subscribed dataset will arrive at a node.  The values are
+aggregated from L<t_status_block_arrive>.
+
+=over
+
+=item t_statust_dataset_arrive.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_dataset_arrive.destination
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_dataset_arrive.dataset
+
+Dataset, FK to
+L<t_dps_dataset.id|Schema::OracleCoreBlock/t_dps_dataset.id>.
+
+=item t_status_dataset_arrive.blocks
+
+Number of blocks in the dataset.
+
+=item t_status_dataset_arrive.files
+
+Number of files in the datatset.
+
+=item t_status_dataset_arrive.bytes
+
+Number of bytes in the dataset.
+
+=item t_status_dataset_arrive.avg_priority
+
+The average priority of blocks in the dataset.
+
+=item t_status_dataset_arrive.basis
+
+The technique used to arrive at the estimate. Values are taken from
+block estimate, and the value for this dataset will be the value of
+the worst (least informed) block basis.  For example, if even one
+block is suspended, the basis is 's', if even one block is using
+nominal estimate, the basis is 'n'.
+
+See L<t_status_block_arrive.basis>.
+
+=item t_status_dataset_arrive.time_span
+
+Maximum duration in seconds of the history period that was analyzed when
+making this estimate.
+
+=item t_status_dataset_arrive.pend_bytes
+
+Maximum queue size in bytes used in this estimation.
+
+=item t_status_dataset_arrive.xfer_rate
+
+Minimum transfer rate used in this estimation.
+
+=item t_status_dataset_arrive.time_arrive
+
+The time this dataset is expected to arrive.  Equivilent to the
+latest predicted arriaval time of a block in this dataset.
+
+=back
+
+=cut
+
 */
+
 create table t_status_dataset_arrive
   (time_update		float		not null,
    destination		integer		not null,
@@ -343,14 +939,76 @@ create table t_status_dataset_arrive
      on delete cascade
   );
 
-/* A prediction of when a block will arrive at a node 
-   basis: the technique used to arrive at the estimate, values are:
-     s : suspended      - block is suspended, arrival time cannot be estimated
-     n : nominal values - used when no historical information is available
-     h : history values - used when no link parameter values are available
-     p : link values    - used when no router values are available
-     r : routing values - used when the block is activated for routing
+/*
+
+=pod
+
+=head2 t_status_block_arrive
+
+B<WARNING: FUTURE/UNUSED!>  This status table contains a prediction of
+when a subscribed block will arrive at a node.
+
+=over
+
+=item t_statust_dataset_arrive.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_statust_dataset_arrive.destination
+
+Node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_block_arrive.block
+
+Block, FK to
+L<t_dps_block.id|Schema::OracleCoreBlock/t_dps_block.id>.
+
+=item t_status_block_arrive.files
+
+Number of files in the block.
+
+=item t_status_block_arrive.bytes
+
+Number of bytes in the block.
+
+=item t_status_block_arrive.priority
+
+L<Priority|Schema::Schema/priority (Node-level)> of the subscription.
+
+=item t_status_block_arrive.basis
+
+The technique used to arrive at the estimate, values are:
+
+ s : suspended      - block is suspended, arrival time cannot be estimated
+ n : nominal values - used when no historical information is available
+ h : history values - used when no link parameter values are available
+ p : link values    - used when no router values are available
+ r : routing values - used when the block is activated for routing
+
+=item t_status_block_arrive.time_span
+
+Duration in seconds of the history period that was analyzed when
+making this estimate.
+
+=item t_status_block_arrive.pend_bytes
+
+Pending transfer queue in bytes used in this estimation.
+
+=item t_status_block_arrive.xfer_rate
+
+Transfer rate used in this estimation.
+
+=item t_status_block_arrive.time_arrive
+
+Time this block is predicted to arrive.
+
+=back
+
+=cut
+
 */
+
 create table t_status_block_arrive
   (time_update		float		not null,
    destination		integer		not null,
