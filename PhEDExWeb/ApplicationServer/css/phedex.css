@@ -84,6 +84,10 @@ body {
   background-color: #9f0;
   font-weight: bold;
 }
+.phedex-login-roleinfo
+{
+  font-size:13px;
+}
 .phedex-logger {
   float: right;
   line-height: 1em;
