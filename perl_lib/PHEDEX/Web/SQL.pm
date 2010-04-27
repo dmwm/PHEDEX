@@ -1199,8 +1199,43 @@ sub getGroupUsage
     # take care of 'group'
     if (exists $h{GROUP})
     {
-        $h{USER_GROUP} = $h{GROUP};
+        if (ref ($h{GROUP}) eq "ARRAY")
+        {
+            my @user_group;
+            foreach (@{$h{GROUP}})
+            {
+                if ($_ eq "undefined")
+                {
+                    push @user_group, "NULL";
+                }
+                elsif ($_ eq "!undefined")
+                {
+                    push @user_group, "!NULL";
+                }
+                else
+                {
+                    push @user_group, $_;
+                }
+            }
+            $h{USER_GROUP} = \@user_group;
+        }
+        else
+        {
+            if ($h{GROUP} eq "undefined")
+            {
+                $h{USER_GROUP} = 'NULL';
+            }
+            elsif ($h{GROUP} eq "!undefined")
+            {
+                $h{USER_GROUP} = '!NULL';
+            }
+            else
+            {
+                $h{USER_GROUP} = $h{GROUP};
+            }
+        }
     }
+
     my %p;
     my $filters = '';
     build_multi_filters($core, \$filters, \%p, \%h, (
@@ -1209,45 +1244,10 @@ sub getGroupUsage
         USER_GROUP => 'g.name'));
 
     $sql .= " where ($filters) " if $filters;
-
     my $q = execute_sql($core, $sql, %p);
     my %node;
 
-    # while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-    while ($_ = $q->fetchrow_hashref())
-    {
-        if ($node{$_ -> {'NODE'}})
-        {
-            push @{$node{$_->{'NODE'}}->{group}},{
-                name => $_->{'USER_GROUP'},
-                id => $_->{GID},
-                node_files => $_->{'NODE_FILES'},
-                node_bytes => $_->{'NODE_BYTES'},
-                dest_files => $_->{'DEST_FILES'},
-                dest_bytes => $_->{'DEST_BYTES'}
-            };
-        }
-        else
-        {
-            $node{$_->{'NODE'}} = {
-                name => $_->{'NODE'},
-                se => $_->{'SE_NAME'},
-                id => $_->{'ID'},
-                group => [{
-                    name => $_->{'USER_GROUP'},
-                    id => $_->{GID},
-                    node_files => $_->{'NODE_FILES'},
-                    node_bytes => $_->{'NODE_BYTES'},
-                    dest_files => $_->{'DEST_FILES'},
-                    dest_bytes => $_->{'DEST_BYTES'}}]
-            };
-        }
-    }
-
-    while (my ($key, $value) = each(%node))
-    {
-        push @r, $value;
-    }     
+    while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
 
     return \@r;
 }
