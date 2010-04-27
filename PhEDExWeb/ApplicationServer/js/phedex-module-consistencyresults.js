@@ -65,6 +65,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
       ],
 
       meta: {
+        isDynamic: true, // enable dynamic loading of data
         tree: [
           {
             width:1200,
@@ -95,8 +96,19 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               {width: 80,text:'Files OK',     className:'phedex-tree-test-files-ok',     otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Files Tested', className:'phedex-tree-test-files-tested', otherClasses:'align-right', ctxArgs:'sort-num' },
             ]
+          },
+          {
+            name:'Files',
+            format:[
+              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
+              {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid', hide:true },
+              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
+              {width: 90,text:'Status',     className:'phedex-tree-file-status', otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
+            ]
           }
         ],
+
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
         filter: {
          'Node-level attributes':{
@@ -127,6 +139,16 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               'phedex-tree-test-files'        :{type:'minmax', text:'Files',        tip:'number of files' },
               'phedex-tree-test-files-ok'     :{type:'minmax', text:'Files OK',     tip:'number of files OK' },
               'phedex-tree-test-files-tested' :{type:'minmax', text:'Files tested', tip:'number of files tested' },
+            }
+          },
+          'File-level attributes':{
+            map:{from:'phedex-tree-file-', to:'F'},
+            fields:{
+              'phedex-tree-file-name'   :{type:'regex',  text:'File-name',        tip:'javascript regular expression' },
+              'phedex-tree-file-id'     :{type:'minmax', text:'File-ID',          tip:'ID-range of files in TMDB' },
+              'phedex-tree-file-bytes'  :{type:'minmax', text:'File-bytes',       tip:'number of bytes in the file' },
+              'phedex-tree-file-status' :{type:'regex',  text:'File-status',      tip:'test-status for the given file' },
+              'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
             }
           }
         },
@@ -160,11 +182,36 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         opts.since = parseInt(arg);
         this.getData();
       },
+
+// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
+// The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
+// allow the callback to know which data-items to pick up and insert in the tree, once the data is loaded.
+//
+// This callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
+// nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
+// I'm not sure if that makes sense. Probably it doesn't
+      callback_Treeview: function(node,result) {
+        var files = result.node[0].block[0].test[0].file,
+            p    = node.payload,
+            obj  = p.obj,
+            i, f, tNode;
+
+        for (i in files) {
+          f = files[i];
+          tNode = obj.addNode(
+            { format:obj.meta.tree[3].format },
+            [ f.name, f.id, f.bytes, f.status, f.checksum ],
+            node
+          );
+          tNode.isLeaf = true;
+        }
+      },
+
       fillBody: function() {
         var root  = this.tree.getRoot(),
             mtree = this.meta.tree,
             tLeaf, tNode, tNode1, tNode2, i, j, k, b, n, t,
-            nodes = this.data.node;
+            nodes = this.data.node, tTested, tOK, p;
         if ( !nodes.length ) {
           tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
           tLeaf.isLeaf = true;
@@ -185,16 +232,19 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
                 tNode
               );
               if ( b.test ) {
-                tNode1.title = b.test.length+' tests';
+                tFiles = tTested = tOK = 0;
                 for (k in b.test) {
                   t = b.test[k];
+                  p = { call:'BlockTestFiles', obj:this, args:{ test:t.id }, callback:this.callback_Treeview };
                   tNode2 = this.addNode(
-                    { format:mtree[2].format },
+                    { format:mtree[2].format, payload:p },
                     [ t.id,t.kind,t.time_reported,t.status,t.files,t.files_ok,t.files_tested ],
                     tNode1
                   );
-                  tNode2.isLeaf = true;
+                  tTested += parseInt(t.files_tested);
+                  tOK     += parseInt(t.files_ok);
                 }
+                tNode1.title = b.test.length+' tests ('+tOK+'/'+tTested+' tested/OK)';
               } else { tNode1.isLeaf = true; }
             }
           } else { tNode.isLeaf = true; }
