@@ -21,8 +21,6 @@ on how many files, blocks, and datasets were injected etc.
  node		Required node-name as injection site.
  data		XML structure representing the data to be injected. See
 		PHEDEX::Core::XML (an example follows)
-
- verbose	be verbose
  strict		throw an error if it can't insert the data exactly as
 		requested. Otherwise simply return the statistics. The
 		default is to be strict, you can turn it off with 'nostrict'.
@@ -120,7 +118,7 @@ sub inject
   my ($core,%args) = @_;
   &checkRequired(\%args, 'node');
 
-  my ($auth,$node,$nodeid,$result,$stats,$verbose,$strict);
+  my ($auth,$node,$nodeid,$result,$stats,$strict);
   $core->{SECMOD}->reqAuthnCert();
   $auth = $core->getAuth('datasvc_inject');
   $node = $args{node};
@@ -129,13 +127,11 @@ sub inject
   die("You are not authorised to inject data to node $node") unless $nodeid;
   $result = PHEDEX::Core::XML::parseData( XML => $args{data} );
 
-  $verbose = defined $args{verbose} ? $args{verbose} : 0;
   $strict  = defined $args{strict}  ? $args{strict}  : 1;
 
   eval
   {
     $stats = PHEDEX::Core::Inject::injectData ($core, $result, $nodeid,
-				    		VERBOSE => $verbose,
 				    		STRICT  => $strict);
   };
   if ( $@ )
