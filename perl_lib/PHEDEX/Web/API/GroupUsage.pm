@@ -48,6 +48,23 @@ Serves storage statistics node per group.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+
+my $map = {
+    _KEY => 'ID',
+    id => 'ID',
+    name => 'NODE_NAME',
+    se => 'SE_NAME',
+    group => {
+        _KEY => 'GID',
+        id => 'GID',
+        name => 'USER_GROUP',
+        node_files => 'NODE_FILES',
+        node_bytes => 'NODE_BYTES',
+        dest_files => 'DEST_FILES',
+        dest_bytes => 'DEST_BYTES'
+    }
+};
 
 sub duration { return 60 * 60; }
 sub invoke { return groupusage(@_); }
@@ -62,7 +79,7 @@ sub groupusage
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getGroupUsage($core, %h);
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getGroupUsage($core, %h));
     return { node => $r };
 }
 
