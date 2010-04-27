@@ -346,12 +346,13 @@ PHEDEX.TreeView = function(sandbox,string) {
       loadTreeNodeData: function(node, fnLoadComplete) {
 //    First, create a callback function that uses the payload to identify what to do with the returned data.
         var tNode,
+            p = node.payload,
             loadTreeNodeData_callback = function(result) {
             if ( result.stack ) {
               log('loadTreeNodeData: failed to get data','error',_me);
             } else {
               try {
-                node.payload.callback(node,result);
+                p.callback(node,result);
               } catch(e) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
@@ -360,34 +361,34 @@ PHEDEX.TreeView = function(sandbox,string) {
               }
             }
             fnLoadComplete();
-            node.payload.obj.postGotData();
+            p.obj.postGotData();
           }
 
 //      Now, find out what to get, if anything...
-        if ( typeof(node.payload) == 'undefined' )
+        if ( typeof(p) == 'undefined' )
         {
 //        This need not be an error, so don't log it. Some branches are built on already-known data, and do not require new
 //        data to be fetched. If dynamic loading is on for the whole tree this code will be hit for those branches.
           fnLoadComplete();
           return;
         }
-        if ( node.payload.call )
+        if ( p.call )
         {
-          if ( typeof(node.payload.call) == 'string' )
+          if ( typeof(p.call) == 'string' )
           {
 //          payload calls which are strings are assumed to be Datasvc call names, so pick them up from the Datasvc namespace,
 //          and conform to the calling specification for the data-service module
-            log('in PHEDEX.TreeView.loadTreeNodeData for '+node.payload.call,'info',_me);
+            log('in PHEDEX.TreeView.loadTreeNodeData for '+p.call,'info',_me);
             var query = [];
-            query.api = node.payload.call;
-            query.args = node.payload.args;
+            query.api = p.call;
+            query.args = p.args;
             query.callback = loadTreeNodeData_callback;
             PHEDEX.Datasvc.Call(query);
           } else {
 //          The call-name isn't a string, assume it's a function and call it directly.
 //          I'm guessing there may be a use for this, but I don't know what it is yet...
-            log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','warn',_me);
-            node.payload.call(node,loadTreeNodeData_callback);
+            log('Apparently require dynamically loaded data from a specified function. This code has not been tested yet','error',_me);
+            p.call(node,loadTreeNodeData_callback);
           }
         } else {
           log('Apparently require dynamically loaded data but do not know how to get it! (hint: payload probably malformed?)','error',_me);
