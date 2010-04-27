@@ -6,7 +6,7 @@ PHEDEX.Logger = function() {
   var YuC = YAHOO.util.Cookie,
       _reader;
   return {
-    log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true } },
+    log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true }, option:{ 'log to console':true } },
 
     _addControls: function(el,type) {
       var ctl = PxU.makeChild(el,'div');
@@ -58,6 +58,14 @@ PHEDEX.Logger = function() {
 
       if ( elCtl && elLog2Server ) {
         try {
+          var cookie = YuC.getSubs('PHEDEX.Logger.option');
+          if ( cookie ) {
+            for (var i in cookie) {
+              this.log2Server.option[i] = cookie[i] == 'true' ? true : false;
+            }
+          }
+        } catch (ex) {};
+        try {
           var cookie = YuC.getSubs('PHEDEX.Logger.level');
           if ( cookie ) {
             for (var i in cookie) {
@@ -77,17 +85,19 @@ PHEDEX.Logger = function() {
         } catch (ex) {};
 
         if ( !args ) { args = {}; }
-        if ( args.log2server ) { this.log2Server = args.log2server; }
+        if ( args.log2Server ) { this.log2Server = args.log2server; }
         var ctl = PxU.makeChild(elLog2Server,'div'),
             c = PxU.makeChild(ctl,'input');
         c.type    = 'button';
         c.value   = 'clear cookies';
         c.onclick = function(obj) {
           return function(ev) {
+            YuC.setSubs('PHEDEX.Logger.option',{});
             YuC.setSubs('PHEDEX.Logger.group',{});
             YuC.setSubs('PHEDEX.Logger.level',{});
           }
         }(this);
+        this._addControls(elLog2Server,'option');
         this._addControls(elLog2Server,'level');
         this._addControls(elLog2Server,'group');
       }
@@ -115,7 +125,7 @@ PHEDEX.Logger = function() {
         }
         if ( args.opts.collapse ) { PLR.collapse(); }
       }
-      YAHOO.widget.Logger.enableBrowserConsole(); // Enable logging to firebug console, or Safari console.
+      if ( this.log2Server.option['log to console'] ) { YAHOO.widget.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
