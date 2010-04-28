@@ -263,6 +263,16 @@ sub doNSCheck
   return $status;
 }
 
+# Try to perform some update of the DB before stop flag
+sub stop
+{
+  my $self = shift;
+  
+  $self->Logmsg("stop: Force update of database");
+  my $session = $poe_kernel->get_active_session;
+  $poe_kernel->call($session,'upload_result');
+}
+
 sub _poe_init
 {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
@@ -290,7 +300,7 @@ sub upload_result
   if ( ! $current_queue_size ) { $self->Dbgmsg("upload_result: No results in queue") if $self->{DEBUG}; } 
   else {
 # If we have already made some test, then update the database, but just for the current results in queue
-    $self->Dbgmsg("upload_result: Results in queue. Updating database ...") if $self->{DEBUG};
+    $self->Logmsg("upload_result: Results in queue. Updating database ...");
     my $t0 = Time::HiRes::time();
     my $tmp_queue = POE::Queue::Array->new();  # to save results in case of failure
 
@@ -511,7 +521,7 @@ sub requestQueue
   return @requests;
 }
 
-# Set to Error state requests leave on Active state from previous runs  
+# Set to Queued state requests leave on Active state from previous runs  
 sub FixActiveRequest
 {
   my ($self, $mfilter, $mfilter_args, $ofilter, $ofilter_args) = @_;
@@ -535,11 +545,11 @@ sub FixActiveRequest
  
   $i = 0; 
   while ( my $h = $q->fetchrow_hashref() ) {
-                                             $self->setRequestState($h,'Error');
+                                             $self->setRequestState($h,'Queued');
                                              $i++; 
                                            }
 
-  $self->Logmsg("Found $i requests left in Active status during previous runs of the Agent they were set to Error state");
+  $self->Logmsg("Found $i requests left in Active status during last Agent stop, they were set to Queued state") if ( $i );
   return;
 }
 
