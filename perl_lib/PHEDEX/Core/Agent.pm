@@ -477,6 +477,10 @@ sub doStop
 {
     my ($self) = @_;
 
+    # Run agent cleanup
+    eval { $self->stop(); };
+    $self->rollbackOnError();
+
     # Force database off
     eval { $self->{DBH}->rollback() } if $self->{DBH};
     eval { &disconnectFromDatabase($self, $self->{DBH}, 1) } if $self->{DBH};
@@ -485,11 +489,10 @@ sub doStop
     unlink($self->{PIDFILE});
 #    unlink($self->{STOPFLAG});
 
-    # Stop the rest
-    $self->stop();
     POE::Kernel->alarm_remove_all();
     $self->doExit(0);
 }
+
 sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 =head2 stop
