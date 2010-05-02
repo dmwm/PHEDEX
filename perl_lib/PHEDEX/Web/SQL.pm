@@ -110,7 +110,8 @@ sub getBlockReplicas
     build_multi_filters($self, \$filters, \%p, \%h, ( NODE  => 'n.name',
 						      SE    => 'n.se_name',
 						      BLOCK => 'b.name',
-						      GROUP => 'g.name' ));
+						      GROUP => 'g.name',
+                                                      DATASET => 'ds.name' ));
     $sql .= " and ($filters)" if $filters;
 
     if (exists $h{CREATE_SINCE}) {

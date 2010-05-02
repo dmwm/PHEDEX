@@ -20,6 +20,7 @@ Return block replicas known to PhEDEx.
 =head2 Options
 
  block          block name, can be multiple (*)
+ dataset        dataset name, can be multiple (*)
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
  update_since   unix timestamp, only return replicas whose record was
@@ -132,7 +133,7 @@ sub blockReplicas
 {
     my ($core,%h) = @_;
 
-    foreach ( qw / block node se create_since update_since complete dist_complete custodial subscribed group / )
+    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -150,7 +151,7 @@ my @keys = ('BLOCK_ID');
 sub spool
 {
     my ($core, %h) = @_;
-    foreach ( qw / block node se create_since update_since complete dist_complete custodial subscribed group / )
+    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
