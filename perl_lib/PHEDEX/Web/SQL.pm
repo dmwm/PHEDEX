@@ -970,13 +970,17 @@ sub getRequestData
     my %p;
     my $filters = '';
 
-    build_multi_filters($self, \$filters, \%p, \%h,
-    	( REQUEST => 'r.id' ));
 
     if ($h{TYPE} eq 'xfer')
     {
         build_multi_filters($self, \$filters, \%p, \%h,
-            ( GROUP => 'g.name' ));
+            ( REQUEST => 'r.id',
+              GROUP => 'g.name' ));
+    }
+    else
+    {
+        build_multi_filters($self, \$filters, \%p, \%h,
+    	    ( REQUEST => 'r.id' ));
     }
 
     $sql .= " and ($filters) " if $filters;
