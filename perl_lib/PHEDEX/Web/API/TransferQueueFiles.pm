@@ -21,6 +21,7 @@ Serves files in the transfer queue, along with their state.
   from             from node name, could be multiple
   to               to node name, could be multiple
   block            a block name, could be multiple
+  dataset          dataset name, could be multiple
   priority         one of the following:
                      high, normal, low
   state            one of the following:
@@ -83,7 +84,7 @@ sub invoke {
     my ($core, %h) = @_;
 
     # convert parameter key to upper case
-    foreach ( qw / from to state priority block / )
+    foreach ( qw / from to state priority block dataset / )
     {
 	$h{uc $_} = delete $h{$_} if $h{$_};
     }
