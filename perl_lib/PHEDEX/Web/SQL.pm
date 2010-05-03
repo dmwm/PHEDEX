@@ -1538,6 +1538,7 @@ sub getErrorLogSummary
             join t_adm_node tn on tn.id = xe.to_node
             join t_xfer_file f on f.id = xe.fileid
             join t_dps_block b on b.id = f.inblock
+            join t_dps_dataset d on b.dataset = d.id
         where
             not fn.name like 'X%' and
             not tn.name like 'X%'
@@ -1550,7 +1551,8 @@ sub getErrorLogSummary
         FROM_NODE => 'fn.name',
         TO_NODE => 'tn.name',
         BLOCK => 'b.name',
-        LFN => 'f.logical_name'
+        LFN => 'f.logical_name',
+        DATASET => 'd.name'
         ));
 
     $sql .= " and ( $filters )" if $filters;
@@ -1623,6 +1625,7 @@ sub getErrorLog
             join t_adm_node tn on tn.id = xe.to_node
             join t_xfer_file f on f.id = xe.fileid
             join t_dps_block b on b.id = f.inblock
+            join t_dps_dataset d on b.dataset = d.id
         where
             not fn.name like 'X%' and
             not tn.name like 'X%'
@@ -1635,7 +1638,8 @@ sub getErrorLog
         FROM_NODE => 'fn.name',
         TO_NODE => 'tn.name',
         BLOCK => 'b.name',
-        LFN => 'f.logical_name'
+        LFN => 'f.logical_name',
+        DATASET => 'd.name'
         ));
 
     $sql .= " and ( $filters )" if $filters;
