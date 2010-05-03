@@ -24,6 +24,7 @@ errors may have occurred then indicated by this API call.
   from             name of the source node, could be multiple
   to               name of the destination node, could be multiple
   block            block name
+  dataset          dataset name
   lfn              logical file name
 
 =head3 Output
@@ -131,13 +132,13 @@ sub errorlog
     my ($core, %h) = @_;
 
     # need at least one of the input
-    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{lfn})
+    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
     {
        die "need at least one of the input argument: from, to, block, lfn";
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / from to block lfn / )
+    foreach ( qw / from to block dataset lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -157,13 +158,13 @@ sub spool
     my ($core, %h) = @_;
 
     # need at least one of the input
-    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{lfn})
+    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
     {
        die "need at least one of the input argument: from, to, block, lfn";
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / from to block lfn / )
+    foreach ( qw / from to block dataset lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }

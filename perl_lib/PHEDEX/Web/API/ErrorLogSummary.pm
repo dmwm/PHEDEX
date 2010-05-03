@@ -22,6 +22,7 @@ errors may have occurred then indicated by this API call.
   from             name of the source node, could be multiple
   to               name of the destination node, could be multiple
   block            block name
+  dataset          dataset name
   lfn              logical file name
 
 =head3 Output
@@ -96,7 +97,7 @@ sub errorlogsummary
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to block lfn / )
+    foreach ( qw / from to block dataset lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -116,7 +117,7 @@ sub spool
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to block lfn / )
+    foreach ( qw / from to block dataset lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
