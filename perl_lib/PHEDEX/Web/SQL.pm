@@ -1363,6 +1363,7 @@ sub getTransferQueue
              left join t_xfer_task_done   xtd on xtd.task = xt.id
              join t_xfer_file f on f.id = xt.fileid
              join t_dps_block b on b.id = f.inblock
+             join t_dps_dataset d on d.id = b.dataset
              join t_adm_node fn on fn.id = xt.from_node
              join t_adm_node tn on tn.id = xt.to_node
          )
@@ -1386,6 +1387,7 @@ sub getTransferQueue
 			TO   => 'to_name',
 			PRIORITY => 'priority',
 			BLOCK    => 'block_name',
+                        DATASET => 'd.name',
 			STATE    => 'state');
 
     $sql .= qq{ where ($filters) } if $filters;
