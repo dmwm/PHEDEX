@@ -1946,6 +1946,7 @@ sub getMissingFiles
             br.is_custodial,
             g.name user_group
         from t_dps_block b
+        join t_dps_dataset d on b.dataset = d.id,
         join t_dps_file f on f.inblock = b.id
         join t_adm_node ns on ns.id = f.node
         join t_dps_block_replica br on br.block = b.id and br.is_active = 'y'
@@ -1969,7 +1970,8 @@ sub getMissingFiles
     build_multi_filters($core, \$filters, \%p, \%h, (
                                               SE => 'n.se_name',
                                               GROUP => 'g.name',
-                                              LFN => 'f.logical_name'));
+                                              LFN => 'f.logical_name',
+                                              DATASET => 'd.name'));
 
     $sql .= " and ($filters) " if ($filters);
 
@@ -2412,6 +2414,7 @@ sub getRoutedBlocks
             join t_adm_node nd on nd.id = s.destination
             join t_adm_node ns on ns.id = s.src_node
             join t_dps_block b on b.id = s.block
+            join t_dps_dataset d on b.dataset = d.id
         where
             not nd.name like 'X%' and
             not ns.name like 'X%'
@@ -2421,7 +2424,9 @@ sub getRoutedBlocks
 
     build_multi_filters($core, \$filters, \%p, \%h, (
         FROM => 'ns.name',
-        TO => 'nd.name'));
+        TO => 'nd.name',
+        BLOCK => 'b.name',
+        DATASET => 'd.name'));
 
     $sql .= qq { and ($filters) } if ($filters);
 
@@ -2435,11 +2440,6 @@ sub getRoutedBlocks
         {
             $sql .= " and s.is_valid = 0 ";
         }
-    }
-
-    if (exists $h{BLOCK})
-    {
-        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
     }
 
     $sql .= qq {
