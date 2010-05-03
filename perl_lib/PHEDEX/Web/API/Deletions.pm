@@ -19,7 +19,8 @@ Show pending and recently completed deletions
 
   node             node name, could be multiple
   se               storage element name, could be multiple
-  block            block name, allow wildcard
+  block            block name, allows wildcard, could be multiple
+  dataset          dataset name, allows wildcard, could be multiple
   id               block id, allow multiple
   request          request id, could be multiple
   request_since    since time requested
@@ -102,7 +103,7 @@ sub deletionqueue
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / node se block id request request_since complete complete_since / )
+    foreach ( qw / node se block dataset id request request_since complete complete_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
