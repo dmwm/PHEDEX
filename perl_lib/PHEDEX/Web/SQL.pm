@@ -2280,7 +2280,8 @@ sub getDeletions
         NODE => 'n.name',
         ID => 'b.id',
         REQUEST => 'del.request',
-        SE => 'n.se_name'));
+        SE => 'n.se_name',
+        DATASET => 'd.name'));
 
     $sql .= qq { and ($filters) } if ($filters);
 
