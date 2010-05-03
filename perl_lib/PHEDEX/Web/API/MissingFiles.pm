@@ -15,6 +15,7 @@ Show files which are missing from blocks at a node.
 =head2 Options
 
   block            block name (wildcards) (*)
+  dataset          dataset name, allows wildcard, could be multiple
   lfn              logical file name (*)
   node             node name (wildcards)
   se               storage element.
@@ -109,13 +110,13 @@ sub missingfiles
     my ($core, %h) = @_;
 
     # block or lfn is required
-    if (!$h{'block'} && !$h{'lfn'})
+    if (!$h{'block'} && !$h{'lfn'} && !$h{'dataset'})
     {
         die "Arguments 'block' or 'lfn' are required.";
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / block node se subscribed custodial group lfn / )
+    foreach ( qw / block dataset node se subscribed custodial group lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -136,13 +137,13 @@ sub spool
     my ($core, %h) = @_;
 
     # block or lfn is required
-    if (!$h{'block'} && !$h{'lfn'})
+    if (!$h{'block'} && !$h{'lfn'} &&!$h{dataset})
     {
         die "Arguments 'block' or 'lfn' are required.";
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / block node se subscribed custodial group lfn / )
+    foreach ( qw / block dataset node se subscribed custodial group lfn / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }

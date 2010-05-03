@@ -19,7 +19,8 @@ Currently routed blocks, as well as failed routing attempts (invalid routes)
 
   from             name of the source node, could be multiple
   to               name of the destination node, could be multiple
-  block            block name, could have wildcard
+  block            block name, allows wildcard, could be multiple
+  dataset          dataset name, allows wildcard, could be multiple
   valid            y or n, filter for valid routes. default is either
 
 =head2 Output
@@ -92,7 +93,7 @@ sub routedblocks
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / from to valid block / )
+    foreach ( qw / from to valid block dataset / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
