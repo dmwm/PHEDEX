@@ -128,7 +128,7 @@ sub fileReplicas
                            uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
-			   require_one_of => [ qw(block lfn) ],
+			   require_one_of => [ qw(block lfn dataset) ],
 			   spec => {
 			       block         => { using => 'block' },
 			       complete      => { using => 'yesno' },
@@ -160,7 +160,7 @@ sub spool
                            uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
-			   require_one_of => [ qw(block lfn) ],
+			   require_one_of => [ qw(block lfn dataset) ],
 			   spec => {
 			       block         => { using => 'block' },
 			       complete      => { using => 'yesno' },
