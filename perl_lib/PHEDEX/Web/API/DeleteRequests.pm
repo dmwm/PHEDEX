@@ -162,7 +162,14 @@ sub xfer_request
             $request{$_->{ID}} = 1;
         }
         my @request = keys(%request);
-        $h{REQUEST} = \@request;
+        if (@request)
+        {
+            $h{REQUEST} = \@request;
+        }
+        else
+        {
+            return { request => [] };
+        }
     }
     my $r = PHEDEX::Web::SQL::getRequestData($core, %h);
     return { request => $r };
