@@ -1345,7 +1345,7 @@ sub getTransferQueue
              tn.name to_name, tn.id to_id, tn.se_name to_se,
              b.name block_name, b.id block_id,
              f.id fileid, f.filesize, f.checksum, f.logical_name,
-             xt.priority,
+             xt.priority, d.name dataset,
         case when xtd.task is not null then 3
              when xtx.task is not null then 2
              when xte.task is not null then 1
@@ -1387,7 +1387,7 @@ sub getTransferQueue
 			TO   => 'to_name',
 			PRIORITY => 'priority',
 			BLOCK    => 'block_name',
-                        DATASET => 'd.name',
+                        DATASET => 'dataset',
 			STATE    => 'state');
 
     $sql .= qq{ where ($filters) } if $filters;
