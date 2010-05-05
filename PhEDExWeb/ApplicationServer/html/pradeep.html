@@ -17,11 +17,11 @@
 </head>
 
 <body class="yui-skin-sam">
- <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+ <iframe id="yui-history-iframe" src="/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
  <input id="yui-history-field" type="hidden" style='visibility:hidden'>
  <div class='phedex-banner'>
     <a href='' id='phedex-link-home' title='Reset application to initial state' style='text-decoration:none'>
-      <img src="/phedex/datasvc/app/images/phedex-logo-small.gif" alt="PhEDEx" height="20" style='border:none'/>
+      <img src="/images/phedex-logo-small.gif" alt="PhEDEx" height="20" style='border:none'/>
     </a>
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b> -
     <a target='new_twiki' title='PhEDEx website planning twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a> -
@@ -40,7 +40,7 @@
  <div id='phedex-navigator'></div>
  <div id='phedex-globalfilter'></div>
  <div class='phedex-separator'></div>
- <div id='phedex-logger' class='phedex-logger'>
+ <div id='phedex-logger'   class='phedex-logger'>
   <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
   <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
   <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
@@ -48,6 +48,7 @@
  <div id='phedex-debug' class='float-right'></div>
  <div id='phedex-test'></div>
  <div id='phedex-main'></div>
+ <div id='phedex-history'></div>
 
 <!-- The following section is to
      1. Give google something to index
@@ -71,8 +72,8 @@ documentation is found
 here</a>.</p>
 </noscript>
 
-</body>
-
+<!-- <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script> -->
+<!-- <script type="text/javascript" src="/yui/build/yuiloader/yuiloader-debug.js"></script> -->
 <script type="text/javascript" src="/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/js/phedex-base.js"></script>
 <script type="text/javascript" src="/js/phedex-loader.js"></script>
@@ -211,6 +212,7 @@ debugLinks = function() {
 // When the DOM is available, start loading the essential bits and pieces
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
+  PHEDEX.Appserv.combineRequests = false;
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
@@ -243,21 +245,26 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
   if ( PxR ) { // TODO this needs a better home!
-    PxS.notify('Registry', 'add', 'phedex-module-agents',        'node',  'Show Agents',         {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-agentcommand',  'node',  'Show Agent Logs',     {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',  'node',  'Show Pending Requests',     {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-nodes',         'none',  'Show Nodes');
-    PxS.notify('Registry', 'add', 'phedex-module-blocklocation', 'block', 'Show Block Location', {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-missingfiles',  'block', 'Show Missing Files',  {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-linkview',      'node',  'Show Links',          {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-groupusage',    'group', 'Show Group Usage',    {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',  'group',  'Show Pending Requests',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agents',            'node',  'Show Agents',             {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node', 'Show Pending Requests',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested',  'node',  'Show Pending Requests Nested',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-agentlogs',         'node',  'Show Agent Logs',         {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations',  'node',  'Show Queued Migrations',  {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-linkview',          'node',  'Show Links',              {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-nodes',             'none',  'Show Nodes');
+    PxS.notify('Registry', 'add', 'phedex-module-custodiallocation', 'node',  'Show Custodial Data',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-custodiallocation', 'block', 'Show Custodial Location', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-consistencyresults','node',  'Show Consistency Results',{context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-consistencyresults','block', 'Show Consistency Results',{context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-blocklocation',     'block', 'Show Block Location',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-missingfiles',      'block', 'Show Missing Files',      {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group', 'Show Group Usage',        {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group', 'Show Pending Requests',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested',  'group',  'Show Pending Requests Nested',     {context_item:true});
   }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   // Load and create the navigator!
-//   PxS.notify('CreateModule','agents',{node:'T0_CH_CERN_Export'});
-
   PxS.notify('Load','globalfilter', {
     el: 'phedex-global-filter',
     });
@@ -297,7 +304,7 @@ function createCoreApp() {
             text:'Show Logger',
             title:'This shows the logger component, for debugging. For experts only',
             target:'phedex-logger',
-            animate:true,
+            animate:false,
             className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
           }
         }
@@ -321,4 +328,5 @@ function createCoreApp() {
   PHEDEX.Util.bannerIdleTimer(PxL);
 };
 </script>
+</body>
 </html>
