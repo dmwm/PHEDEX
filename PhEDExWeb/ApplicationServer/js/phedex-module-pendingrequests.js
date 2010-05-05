@@ -12,7 +12,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.PendingRequests = function (sandbox, string) {
     Yla(this, new PHEDEX.DataTable(sandbox, string));
 
-    var _sbx = sandbox, _nodename = '', _groupname = '', opts = { status: null, kind: null, since: 9999 };
+    var _sbx = sandbox, _nodename = '', _groupname = '', opts = { status: null, kind: null, since: 720 };
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     //Used to construct the pending requests module.
