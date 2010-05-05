@@ -15,7 +15,9 @@ PHEDEX.Loader = function(opts) {
     */
     var _dependencies = {
     'treeview-css':   { type: 'css', fullpath: '/yui/examples/treeview/assets/css/menu/tree.css' },
-    'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
+    'phedex-css': { type: 'css', fullpath: '/css/phedex.css' },
+    'nesteddatatable-css': { type: 'css', fullpath: '/css/nesteddatatable.css' },
+    'nesteddatatable-js': { type: 'js', fullpath: '/js/yui-nesteddatatable.js' },
     'phedex-util':    { requires: ['phedex-css'] },
     'phedex-datasvc': { requires: ['phedex-util','connection','json'] },
     'phedex-util-idletimer': { },
@@ -39,6 +41,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module':    { requires:['phedex-core','container','resize'] },
     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires: ['treeview', 'treeview-css'] },
+    'phedex-nesteddatatable':  { requires: ['nesteddatatable-js', 'nesteddatatable-css'] },
     'phedex-module-nodes':             { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents':            { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview':          { requires:['phedex-module','phedex-treeview'] },
@@ -49,9 +52,10 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-blocklocation':     { requires:['phedex-module','slider', 'button'] },
     'phedex-module-missingfiles':      { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agentlogs':         { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-queuedmigrations':  { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-pendingrequests':   { requires:['phedex-module','phedex-datatable'] },
-    'phedex-module-unroutabledata':    { requires:['phedex-module','phedex-treeview'] },
+    'phedex-module-queuedmigrations': { requires: ['phedex-module', 'phedex-datatable'] },
+    'phedex-module-pendingrequests': { requires: ['phedex-module', 'phedex-datatable'] },
+    'phedex-module-pendingrequestsnested': { requires: ['phedex-module', 'phedex-nesteddatatable'] },
+    'phedex-module-unroutabledata': { requires: ['phedex-module', 'phedex-treeview'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
