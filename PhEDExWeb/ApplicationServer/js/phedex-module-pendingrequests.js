@@ -12,7 +12,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.PendingRequests = function (sandbox, string) {
     Yla(this, new PHEDEX.DataTable(sandbox, string));
 
-    var _sbx = sandbox, _nodename = '', _groupname = '';
+    var _sbx = sandbox, _nodename = '', _groupname = '', opts = { status: null, kind: null, since: 9999 };
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     //Used to construct the pending requests module.
@@ -38,6 +38,20 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     source: 'component-contextmenu',
                     payload: {
                         args: { 'pendingrequests': 'Name' }
+                    }
+                },
+                {
+                    name: 'TimeSelect',
+                    source: 'component-menu',
+                    payload: {
+                        type: 'menu',
+                        initial: function () { return opts.since; },
+                        container: 'buttons',
+                        menu: { 24: 'Last Day', 168: 'Last Week', 720: 'Last month', 4320: 'Last 6 months', 9999: 'Forever' },
+                        map: {
+                            onChange: 'changeTimebin'
+                        },
+                        title: 'Time of Creation'
                     }
                 }
             ],
@@ -140,7 +154,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
 
             /** Call this to set the parameters of this module and cause it to fetch new data from the data-service.
             * @method setArgs
-            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>PendingRequests</strong> module, only <strong>arr.block</strong> is required. <strong>arr</strong> may be null, in which case no data will be fetched.
+            * @param arr {array} object containing arguments for this module. Highly module-specific! For the <strong>PendingRequests</strong> module, <strong>arr.node</strong> or <strong>arr.group</strong> are required. <strong>arr</strong> may be null, in which case no data will be fetched.
             */
             setArgs: function (args) {
                 if (!args) { return; }
@@ -152,8 +166,42 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                 this.dom.title.innerHTML = 'setting parameters...';
                 _sbx.notify(this.id, 'setArgs');
             },
+
+            /** This allows user to bookmark the request with a particular timebin, and then to set timebin internally from value in a bookmark.
+            * @method specificState
+            * @param state {array} object containing time argument.
+            */
+            specificState: function (state) {
+                var s, i, k, v, kv, update, arr;
+                if (!state) {
+                    s = {};
+                    if (opts.since) { s.since = opts.since; }
+                    return s;
+                }
+                update = 0;
+                arr = state.split(' ');
+                for (i in arr) {
+                    kv = arr[i].split('=');
+                    k = kv[0];
+                    v = kv[1];
+                    if (k == 'since' && v != opts.since) { update++; opts.since = v; }
+                }
+                if (!update) { return; }
+                log('set since=' + opts.since + ' from state', 'info', this.me);
+                this.getData();
+            },
+
+            /** Call this to set the time creation parameter of this module and cause it to fetch new data from the data-service.
+            * @method changeTimebin
+            * @param arg {array} object containing time arguments for this module.
+            */
+            changeTimebin: function (arg) {
+                opts.since = parseInt(arg);
+                this.getData();
+            },
+
             /**
-            * This gets the pending requests information from Phedex data service for the given block name through sandbox.
+            * This gets the pending requests information from Phedex data service for the given node\group name through sandbox.
             * @method getData
             */
             getData: function () {
@@ -161,7 +209,10 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     this.initData();
                     return;
                 }
-                var dataserviceargs = {};
+                var dataserviceargs = {},
+                d = new Date(),
+                now = d.getTime() / 1000;
+                
                 log('Fetching data', 'info', this.me);
                 this.dom.title.innerHTML = this.me + ': fetching data...';
                 if (_nodename && _groupname) {
@@ -172,6 +223,9 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                 }
                 else if (_groupname) {
                     dataserviceargs = { approval: 'pending', group: _groupname };
+                }
+                if (opts.since && opts.since != 9999) {
+                    dataserviceargs.create_since = now - (3600 * opts.since);
                 }
                 _sbx.notify(this.id, 'getData', { api: 'transferrequests', args: dataserviceargs });
             },
@@ -184,7 +238,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             gotData: function (data) {
                 var msg = '';
                 log('Got new data', 'info', this.me);
-                this.dom.title.innerHTML = 'Parsing data';
+                this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.request;
                 if (!data.request) {
                     throw new Error('data incomplete for ' + context.api);
