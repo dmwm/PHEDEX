@@ -12,7 +12,14 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
         since:     1,
       },
       width = 1200,
-      PxUf = PHEDEX.Util.format;
+      PxUf = PHEDEX.Util.format,
+
+      _direction = 0,
+      _direction_map = [],
+      _directions = [
+        { key:'to',   text:'Incoming Routes' },
+        { key:'from', text:'Outgoing Routes' }
+      ];
 
   Yla(opts, {
     width:width,
@@ -48,20 +55,19 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             container: 'buttons',
           },
         },
-//         {
-//           name: 'TimeSelect',
-//           source: 'component-menu',
-//           payload:{
-//             type: 'menu',
-//             initial: function() { return opts.since; },
-//             container: 'buttons',
-//             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 Weeks', 672:'Last 4 Weeks', 9999:'Forever' },
-//             map: {
-//               onChange:'changeTimebin',
-//             },
-//             title:'Time since last update'
-//           }
-//         },
+        {
+          name: 'DirectionSelect',
+          source: 'component-menu',
+          payload:{
+            type: 'menu',
+            initial: function() { return _directions[_direction].key; },
+            container: 'buttons',
+            menu: _directions,
+            map: {
+              onChange:'changeDirection',
+            },
+          }
+        },
       ],
 
       meta: {
@@ -71,47 +77,44 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             width:1200,
             name:'Node',
             format: [
-              {width:160,text:'To Node',      className:'phedex-tree-to-node',      otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width: 60,text:'To Node ID',   className:'phedex-tree-to-node-id',   otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'To Node SE',   className:'phedex-tree-to-node-se',   otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
-              {width:160,text:'From Node',    className:'phedex-tree-from-node',    otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width: 60,text:'From Node ID', className:'phedex-tree-from-node-id', otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'From Node SE', className:'phedex-tree-from-node-se', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
-              {width: 60,text:'Valid',        className:'phedex-tree-valid',        otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width: 60,text:'Priority',     className:'phedex-tree-priority',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width:160,text:'From Node',    className:'phedex-tree-node-from',     otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width: 60,text:'From Node ID', className:'phedex-tree-node-from-id',  otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
+              {width:200,text:'From Node SE', className:'phedex-tree-node-from-se',  otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width:160,text:'To Node',      className:'phedex-tree-node-to',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width: 60,text:'To Node ID',   className:'phedex-tree-node-to-id',    otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
+              {width:200,text:'To Node SE',   className:'phedex-tree-node-to-se',    otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+//               {width: 60,text:'Valid',        className:'phedex-tree-node-valid',    otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Priority',     className:'phedex-tree-node-priority', otherClasses:'align-right', ctxArgs:'sort-alpha' },
             ]
           },
-//           {
-//             name:'Block',
-//             format: [
-//               {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
-//               {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
-//               {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
-//               {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
-//             ]
-//           },
-//           {
-//             name:'Test',
-//             format:[
-//               {width: 60,text:'ID',           className:'phedex-tree-test-id',           otherClasses:'align-left',  ctxArgs:['node','sort-alpha'] },
-//               {width: 60,text:'Kind',         className:'phedex-tree-test-kind',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
-//               {width:120,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
-//               {width: 90,text:'Status',       className:'phedex-tree-test-status',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
-//               {width: 80,text:'Files',        className:'phedex-tree-test-files',        otherClasses:'align-right', ctxArgs:'sort-num' },
-//               {width: 80,text:'Files OK',     className:'phedex-tree-test-files-ok',     otherClasses:'align-right', ctxArgs:'sort-num' },
-//               {width: 80,text:'Files Tested', className:'phedex-tree-test-files-tested', otherClasses:'align-right', ctxArgs:'sort-num' },
-//             ]
-//           },
-//           {
-//             name:'Files',
-//             format:[
-//               {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
-//               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid', hide:true },
-//               {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-//               {width: 90,text:'Status',     className:'phedex-tree-file-status', otherClasses:'align-right', ctxArgs:'sort-alpha' },
-//               {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
-//             ]
-//           }
+          {
+            name:'Block',
+            format: [
+              {width:600,text:'Block Name',   className:'phedex-tree-block-name',          otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
+              {width: 60,text:'Block ID',     className:'phedex-tree-block-id',            otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
+              {width: 60,text:'Files',        className:'phedex-tree-block-files',         otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 80,text:'Bytes',        className:'phedex-tree-block-bytes',         otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
+              {width: 90,text:'Routed Files', className:'phedex-tree-block-route-files',   otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 90,text:'Routed Bytes', className:'phedex-tree-block-route-bytes',   otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
+              {width: 90,text:'Xfer attempts',className:'phedex-tree-block-xfer-attempts', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 90,text:'Avg attempts', className:'phedex-tree-block-avg-attempts',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.toFixed(1), hide:true },
+              {width:120,text:'Request Time', className:'phedex-tree-block-timerequest',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
+            ]
+          },
+          {
+            name:'Replica',
+            format:[
+              {width:160,text:'Node',        className:'phedex-tree-replica-node',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width: 80,text:'Files',       className:'phedex-tree-replica-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 80,text:'Bytes',       className:'phedex-tree-replica-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
+              {width:120,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
+              {width:120,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
+              {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 80,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' },
+            ]
+          }
         ],
 
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
@@ -119,79 +122,77 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
          'Node-level attributes':{
             map:{from:'phedex-tree-node-', to:'N'},
             fields:{
-              'phedex-tree-to-node-name'   :{type:'regex',  text:'Node-name', tip:'javascript regular expression' },
-              'phedex-tree-to-node-id'     :{type:'int',    text:'Node-ID',   tip:'Node-ID in TMDB'},
-              'phedex-tree-to-node-se'     :{type:'regex',  text:'SE-name',   tip:'javascript regular expression'},
-              'phedex-tree-from-node-name' :{type:'regex',  text:'Node-name', tip:'javascript regular expression' },
-              'phedex-tree-from-node-id'   :{type:'int',    text:'Node-ID',   tip:'Node-ID in TMDB'},
-              'phedex-tree-from-node-se'   :{type:'regex',  text:'SE-name',   tip:'javascript regular expression'},
-              'phedex-tree-valid'          :{type:'regex',  text:'Valid',     tip:'javascript regular expression'},
-              'phedex-tree-priority'       :{type:'regex',  text:'Priority',  tip:'javascript regular expression'},
+              'phedex-tree-to-node-name'   :{type:'regex',  text:'To Node-name',   tip:'javascript regular expression' },
+              'phedex-tree-to-node-id'     :{type:'int',    text:'To Node-ID',     tip:'Node-ID in TMDB'},
+              'phedex-tree-to-node-se'     :{type:'regex',  text:'To SE-name',     tip:'javascript regular expression'},
+              'phedex-tree-from-node-name' :{type:'regex',  text:'From Node-name', tip:'javascript regular expression' },
+              'phedex-tree-from-node-id'   :{type:'int',    text:'From Node-ID',   tip:'Node-ID in TMDB'},
+              'phedex-tree-from-node-se'   :{type:'regex',  text:'From SE-name',   tip:'javascript regular expression'},
+//               'phedex-tree-valid'          :{type:'yesno',  text:'Valid',          tip:'javascript regular expression'},
+              'phedex-tree-priority'       :{type:'regex',  text:'Priority',       tip:'javascript regular expression'},
             },
           },
-//           'Block-level attributes':{
-//             map:{from:'phedex-tree-block-', to:'B'},
-//             fields:{
-//               'phedex-tree-block-name'  :{type:'regex',  text:'Block-name',  tip:'javascript regular expression' },
-//               'phedex-tree-block-id'    :{type:'int',    text:'Block-ID',    tip:'Block-ID in TMDB' },
-//               'phedex-tree-block-files' :{type:'minmax', text:'Block-files', tip:'number of files in the block' },
-//               'phedex-tree-block-bytes' :{type:'minmax', text:'Block-bytes', tip:'number of bytes in the block' },
-//             }
-//           },
-//           'Test-level attributes':{
-//             map:{from:'phedex-tree-test-', to:'T'},
-//             fields:{
-//               'phedex-tree-test-id'           :{type:'regex',  text:'ID',           tip:'Test-ID in TMDB' },
-//               'phedex-tree-test-kind'         :{type:'regex',  text:'Kind',         tip:'javascript regular expression' },
-//               'phedex-tree-test-timereport'   :{type:'minmax', text:'Report time',  tip:'Unix epoch seconds' },
-// //  status          "OK", "Fail", "Queued", "Active", "Timeout", "Expired", "Suspended", "Error", "Rejected" or "Indeterminate"
-//               'phedex-tree-test-status'       :{type:'regex',  text:'Status',       tip:'javascript regular expression' },
-//               'phedex-tree-test-files'        :{type:'minmax', text:'Files',        tip:'number of files' },
-//               'phedex-tree-test-files-ok'     :{type:'minmax', text:'Files OK',     tip:'number of files OK' },
-//               'phedex-tree-test-files-tested' :{type:'minmax', text:'Files tested', tip:'number of files tested' },
-//             }
-//           },
-//           'File-level attributes':{
-//             map:{from:'phedex-tree-file-', to:'F'},
-//             fields:{
-//               'phedex-tree-file-name'   :{type:'regex',  text:'File-name',        tip:'javascript regular expression' },
-//               'phedex-tree-file-id'     :{type:'minmax', text:'File-ID',          tip:'ID-range of files in TMDB' },
-//               'phedex-tree-file-bytes'  :{type:'minmax', text:'File-bytes',       tip:'number of bytes in the file' },
-//               'phedex-tree-file-status' :{type:'regex',  text:'File-status',      tip:'test-status for the given file' },
-//               'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
-//             }
-//           }
+          'Block-level attributes':{
+            map:{from:'phedex-tree-block-', to:'B'},
+            fields:{
+              'phedex-tree-block-name'          :{type:'regex',  text:'Block-name',    tip:'javascript regular expression' },
+              'phedex-tree-block-id'            :{type:'int',    text:'Block-ID',      tip:'Block-ID in TMDB' },
+              'phedex-tree-block-files'         :{type:'minmax', text:'Block-files',   tip:'number of files in the block' },
+              'phedex-tree-block-bytes'         :{type:'minmax', text:'Block-bytes',   tip:'number of bytes in the block' },
+              'phedex-tree-block-routed-files'  :{type:'minmax', text:'Routed-files',  tip:'number of files in the block' },
+              'phedex-tree-block-routed-bytes'  :{type:'minmax', text:'Routed-bytes',  tip:'number of bytes in the block' },
+              'phedex-tree-block-xfer-attempts' :{type:'minmax', text:'Xfer attempts', tip:'number of transfer attempts' },
+              'phedex-tree-block-avg-attempts'  :{type:'minmax', text:'Avg attempts',  tip:'average number of transfer attempts' },
+              'phedex-tree-block-timerequest'   :{type:'minmax', text:'Request time',  tip:'Unix epoch seconds' },
+            }
+          },
+          'Replica-level attributes':{
+            map:{from:'phedex-tree-replica-', to:'R'},
+            fields:{
+              'phedex-tree-replica-node'       :{type:'regex',  text:'Node-name',     tip:'javascript regular expression' },
+              'phedex-tree-replica-se'         :{type:'regex',  text:'SE name',       tip:'javascript regular expression' },
+              'phedex-tree-replica-files'      :{type:'minmax', text:'Files',         tip:'number of files in the replica' },
+              'phedex-tree-replica-bytes'      :{type:'minmax', text:'Bytes',         tip:'number of bytes in the replica' },
+              'phedex-tree-replica-timecreate' :{type:'regex',  text:'Creation time', tip:'Unix epoch seconds' },
+              'phedex-tree-replica-timeupdate' :{type:'regex',  text:'Update time',   tip:'Unix epoch seconds' },
+              'phedex-tree-replica-subscribed' :{type:'yesno',  text:'Subscribed',    tip:'is the replica subscribed?' },
+              'phedex-tree-replica-complete'   :{type:'yesno',  text:'Complete',      tip:'is the replica complete?' },
+              'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
+            }
+          }
         },
       },
 
-      initMe: function(){ },
+      initMe: function(){
+        for (var i in _directions) {
+          _direction_map[_directions[i].key] = i;
+        }
+      },
 
       specificState: function(state) {
-        var s, i, k, v, kv, update, arr;
-        if ( !state ) {
-          s = {};
-//           if ( node )  { s.node =  node; }  // covered by 'target'
-//           if ( block ) { s.block = block; } // covered by 'target'
-//           if ( opts.since ) { s.since = opts.since; }
-          return s;
-        }
-        update=0;
-        arr = state.split(' ');
+        if ( !state ) { return {dir:_direction}; }
+        var i, k, v, kv, update=0, arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-//           if ( k == 'since' && v != opts.since ) { update++; opts.since = v; }
+          if ( k == 'dir'  && v != _direction ) { update++; _direction = v; }
         }
         if ( !update ) { return; }
-//         log('set since='+opts.since+' from state','info',this.me);
+        log('set dir='+_direction+' from state','info',this.me);
         this.getData();
       },
 
-//       changeTimebin: function(arg) {
-//         opts.since = parseInt(arg);
-//         this.getData();
-//       },
+      changeDirection: function(arg) {
+        _direction = this.direction_index(arg);
+        this.getData();
+      },
+
+// A few utility functions, because the 'direction' has the semantics of a numeric value in some places, (to|from) in others, and a long string again elsewhere
+      direction_key:      function()    { return _directions[_direction].key; },
+      direction_text:     function()    { return _directions[_direction].text; },
+      anti_direction_key: function()    { return _directions[1-_direction].key; },
+      direction_index:    function(arg) { return _direction_map[arg]; },
 
 // This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
 // The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
@@ -201,19 +202,19 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
 // nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
 // I'm not sure if that makes sense. Probably it doesn't
       callback_Treeview: function(node,result) {
-        var files = result.node[0].block[0].test[0].file,
-            p    = node.payload,
-            obj  = p.obj,
-            i, f, tNode;
+        var replicas = result.block[0].replica,
+            i, r, tNode;
 
-        for (i in files) {
-          f = files[i];
-          tNode = obj.addNode(
-            { format:obj.meta.tree[3].format },
-            [ f.name, f.id, f.bytes, f.status, f.checksum ],
-            node
-          );
-          tNode.isLeaf = true;
+        if ( replicas ) {
+          for ( i in replicas ) {
+            r = replicas[i];
+            tNode = this.obj.addNode(
+              { format:this.obj.meta.tree[2].format },
+              [ r.node,r.se,r.files,r.bytes,r.time_create,r.time_update,r.subscribed,r.complete,r.group ],
+              node
+            );
+            tNode.isLeaf = true;
+          }
         }
       },
 
@@ -230,34 +231,20 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
           r = routes[i];
           tNode = this.addNode(
             { format:mtree[0].format },
-            [ r.from,r.from_id,r.from_se,r.to,r.to_id,r.to_se,r.valid,r.priority ]
+            [ r.from,r.from_id,r.from_se,r.to,r.to_id,r.to_se,/*r.valid,*/r.priority ]
           );
-//           if ( n.block ) {
-//             tNode.title = n.block.length+' blocks';
-//             for (j in n.block) {
-//               b = n.block[j];
-//               tNode1 = this.addNode(
-//                 { format:mtree[1].format },
-//                 [ b.name,b.id,b.files,b.bytes ],
-//                 tNode
-//               );
-//               if ( b.test ) {
-//                 tFiles = tTested = tOK = 0;
-//                 for (k in b.test) {
-//                   t = b.test[k];
-//                   p = { call:'BlockTestFiles', obj:this, args:{ test:t.id }, callback:this.callback_Treeview };
-//                   tNode2 = this.addNode(
-//                     { format:mtree[2].format, payload:p },
-//                     [ t.id,t.kind,t.time_reported,t.status,t.files,t.files_ok,t.files_tested ],
-//                     tNode1
-//                   );
-//                   tTested += parseInt(t.files_tested);
-//                   tOK     += parseInt(t.files_ok);
-//                 }
-//                 tNode1.title = b.test.length+' tests ('+tOK+'/'+tTested+' tested/OK)';
-//               } else { tNode1.isLeaf = true; }
-//             }
-//           } else { tNode.isLeaf = true; }
+          if ( r.block ) {
+            tNode.title = r.block.length+' blocks';
+            for (j in r.block) {
+              b = r.block[j];
+              p = { call:'BlockReplicas', obj:this, args:{ block:b.name }, callback:this.callback_Treeview };
+              tNode1 = this.addNode(
+                { format:mtree[1].format, payload:p },
+                [ b.name,b.id,b.files,b.bytes,b.route_files,b.route_bytes,b.xfer_attempts,b.avg_attempts,b.time_request ],
+                tNode
+              );
+            }
+          } else { tNode.isLeaf = true; }
         }
         this.tree.render();
       },
@@ -277,15 +264,13 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
       setArgs: function(arr) {
         if ( arr && typeof(arr) == 'object' ) {
           node = arr.node || node;
-          block = arr.block || block;
-          if ( !node && !block ) { return; }
-          if ( node && block ) { node = null; }
+          if ( !node ) { return; }
           this.dom.title.innerHTML = 'setting parameters...';
           _sbx.notify(this.id,'setArgs');
         }
       },
       getData: function() {
-        if ( !node && !block ) {
+        if ( !node ) {
           this.initData();
           return;
         }
@@ -297,8 +282,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
           return;
         }
         this._magic = magic;
-        if ( block ) { args.block = block; node = null; }
-        if ( node  ) { args.to    = node; }
+        args[this.direction_key()] = node;
         this.data = {};
         this.truncateTree();
         this.tree.render();
@@ -315,7 +299,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
         }
         this.data = data;
         this._magic = null;
-        this.dom.title.innerHTML = ( node ? 'to='+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
+        this.dom.title.innerHTML = ( node ? this.direction_key()+' '+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
         _sbx.notify( this.id, 'gotData' );
       },
