@@ -173,6 +173,11 @@ PHEDEX.Util.format={
 //    wrap the raw data in a span, to allow it to be tagged/found in the DOM. Can use this for detecting long
 //    strings that are partially hidden because the div is too short, and show a tooltip or something...
       return "<span class='spanWrap'>"+raw+"</span>";
+    },
+    toFixed: function(mantissa) {
+      return function(raw) {
+        return raw.toFixed(mantissa);
+      }
     }
 }
 
