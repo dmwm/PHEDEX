@@ -77,14 +77,14 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             width:1200,
             name:'Node',
             format: [
-              {width:160,text:'From Node',    className:'phedex-tree-node-from',     otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width: 60,text:'From Node ID', className:'phedex-tree-node-from-id',  otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'From Node SE', className:'phedex-tree-node-from-se',  otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
-              {width:160,text:'To Node',      className:'phedex-tree-node-to',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width: 60,text:'To Node ID',   className:'phedex-tree-node-to-id',    otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'To Node SE',   className:'phedex-tree-node-to-se',    otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
-//               {width: 60,text:'Valid',        className:'phedex-tree-node-valid',    otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width: 60,text:'Priority',     className:'phedex-tree-node-priority', otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width:160,text:'From Node', className:'phedex-tree-node-from',      otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width: 60,text:'From ID',   className:'phedex-tree-node-from-id',   otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
+              {width:200,text:'From SE',   className:'phedex-tree-node-from-se',   otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width:160,text:'To Node',   className:'phedex-tree-node-to',        otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width: 60,text:'To ID',     className:'phedex-tree-node-to-id',     otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
+              {width:200,text:'To SE',     className:'phedex-tree-node-to-se',     otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+//               {width: 60,text:'Valid',     className:'phedex-tree-node-valid',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Priority',  className:'phedex-tree-node-priority',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
             ]
           },
           {
