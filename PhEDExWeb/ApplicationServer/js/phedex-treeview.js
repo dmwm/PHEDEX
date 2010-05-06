@@ -509,7 +509,9 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
       f = node.data.spec.format;
       for (i in f) {
         if (key = f[i].ctxKey) {
-          opts[key] = node.data.values[i];
+          if ( f[i].className == className || !opts[key] ) {
+            opts[key] = node.data.values[i];
+          }
         }
       }
       log('ContextMenu: '+'"'+label+'" for '+obj.me+' ('+opts.selected_node+')','info','treeview');
