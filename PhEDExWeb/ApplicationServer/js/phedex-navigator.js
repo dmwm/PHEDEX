@@ -34,7 +34,7 @@ PHEDEX.Navigator = function(sandbox) {
       return function(pgstate) {
         var state = null,
             changed = 0, mChange = 0,
-            value;
+            value, args;
         if (!pgstate) {
             pgstate = _initialPageState; //Set the state to its initial state
         }
@@ -54,6 +54,7 @@ PHEDEX.Navigator = function(sandbox) {
         }
         log('setState: '+changed+' changes w.r.t. currently known state ('+pgstate+')','info',obj.me);
         _sbx.notify('currentState',pgstate);
+//         if ( state.module && !obj.state['module'] ) { mChange = 1; }
         if ( !changed && !mChange ) { return; }
         if ( mChange ) { 
           if ( state.module ) {
@@ -64,7 +65,8 @@ PHEDEX.Navigator = function(sandbox) {
         }
         _sbx.notify(obj.id,'StateChanged',state);
         if ( !changed ) { return; }
-        _sbx.notify('_navCreateModule',state.widget);
+        if ( state.module ) { args = {state:state.module}; }
+        _sbx.notify('_navCreateModule',state.widget,args);
       };
     }(this);
 

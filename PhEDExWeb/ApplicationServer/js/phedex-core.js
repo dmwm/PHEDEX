@@ -120,7 +120,11 @@ PHEDEX.Core = function(sandbox,loader) {
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!",'error'); }
     m.init(_global_options);
     if ( arr[1] ) {
-      m.setArgs(arr[1]);
+      if ( arr[1].state ) {
+        m._state = arr[1].state;
+      } else {
+        m.setArgs(arr[1]);
+      }
     }
   }
 
@@ -235,6 +239,10 @@ PHEDEX.Core = function(sandbox,loader) {
         m.initModule();
         m.initDerived();
         m.initMe();
+        if ( m._state ) {
+          m.setState(m._state);
+          delete m._state;
+        }
         m.initData();
         m.show();
 
