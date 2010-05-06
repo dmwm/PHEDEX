@@ -132,6 +132,8 @@ PHEDEX.Module = function(sandbox, string) {
             }
           }
         }
+
+        this.meta._filter = this.createFilterMeta();
         _sbx.notify(this.id,'init');
       },
 

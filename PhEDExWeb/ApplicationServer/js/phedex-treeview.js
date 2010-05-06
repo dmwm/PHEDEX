@@ -178,7 +178,6 @@ PHEDEX.TreeView = function(sandbox,string) {
         }(this));
         this.headerTree.render();
 
-        this.meta._filter = this.createFilterMeta();
         this.decorators.push(
           {
             name:'Filter',

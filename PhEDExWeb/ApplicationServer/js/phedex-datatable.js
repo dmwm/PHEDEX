@@ -108,7 +108,6 @@ PHEDEX.DataTable = function(sandbox, string) {
                 }
               }
 
-              m._filter = this.createFilterMeta();
 //            Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
 //            obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
               for (i in columns) {
