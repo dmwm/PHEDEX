@@ -53,7 +53,7 @@ use PHEDEX::Core::Util;
 my $map = {
     _KEY => 'ID',
     id => 'ID',
-    name => 'NODE_NAME',
+    name => 'NODE',
     se => 'SE_NAME',
     group => {
         _KEY => 'GID',
