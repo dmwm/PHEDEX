@@ -1,0 +1,143 @@
+/*
+ This is a migration procedure to partition the t_history_ tables in
+ order to compare performance of the SQLs on them
+*/
+
+-- rename table to X...
+rename t_history_link_events to xt_history_link_events;
+rename t_history_link_stats to xt_history_link_stats;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name NOT LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND (constraint_name LIKE '%_HISTORY_LINK_%'))
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+	  || ' rename constraint ' || o.name
+	  || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name NOT LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND (index_name LIKE '%_HISTORY_LINK_%'))
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+	  || ' rename to X' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+/
+
+-- re-create table and indexes with partitioning
+create table t_history_link_events
+  (timebin		float		not null,
+   timewidth		float		not null,
+   from_node		integer		not null,
+   to_node		integer		not null,
+   priority		integer		not null,
+   -- statistics for timebin period from t_xfer_task
+   avail_files		integer, -- became available
+   avail_bytes		integer,
+   done_files		integer, -- successfully transferred
+   done_bytes		integer,
+   try_files		integer, -- attempts
+   try_bytes		integer,
+   fail_files		integer, -- attempts that errored out
+   fail_bytes		integer,
+   expire_files		integer, -- attempts that expired
+   expire_bytes		integer,
+   --
+   constraint pk_history_link_events
+     primary key (timebin, to_node, from_node, priority),
+   --
+   constraint fk_history_link_events_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_history_link_events_to
+     foreign key (to_node) references t_adm_node (id)
+  )
+partition by range (timebin)
+(
+  partition pre values less than (1090000000) -- 2004-07-16
+)
+;
+
+
+
+create table t_history_link_stats
+  (timebin		float		not null,
+   timewidth		float		not null,
+   from_node		integer		not null,
+   to_node		integer		not null,
+   priority		integer		not null,
+   --
+   -- statistics for t_xfer_state during/at end of this timebin
+   pend_files		integer, -- all tasks
+   pend_bytes		integer,
+   wait_files		integer, -- tasks not exported
+   wait_bytes		integer,
+   cool_files		integer, -- cooling off (in error) (obsolete)
+   cool_bytes		integer,
+   ready_files		integer, -- exported, available for transfer
+   ready_bytes		integer,
+   xfer_files		integer, -- taken for transfer
+   xfer_bytes		integer,
+   --
+   -- statistics for t_xfer_path during/at end of this bin
+   confirm_files	integer, -- t_xfer_path
+   confirm_bytes	integer,
+   confirm_weight	integer,
+   -- 
+   -- statistics from t_link_param calculated at the end of this cycle
+   param_rate		float,
+   param_latency	float,
+   --
+   constraint pk_history_link_stats
+     primary key (timebin, to_node, from_node, priority),
+   --
+   constraint fk_history_link_stats_from
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_history_link_stats_to
+     foreign key (to_node) references t_adm_node (id)
+  )
+partition by range (timebin)
+(
+  partition pre values less than (1090000000) -- 2004-07-16
+)
+;
+
+-- add partitions with Schema/GenPartitions.pl | sqlplus ...
+
+-- copy over the data
+
+insert /*+ append */ into t_history_link_events
+select * from xt_history_link_events;
+
+insert /*+ append */ into t_history_link_stats
+select * from xt_history_link_stats;
+
+-- add the indexes
+
+create index ix_history_link_events_from
+  on t_history_link_events (from_node);
+
+create index ix_history_link_events_to
+  on t_history_link_events (to_node);
+
+create index ix_history_link_stats_from
+  on t_history_link_stats (from_node);
+
+create index ix_history_link_stats_to
+  on t_history_link_stats (to_node);
