@@ -22,7 +22,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
     * @private
     */
     var _isValidNode = function(strNodeName) {
-        var strRegExp = "_MSS|_Buffer";
+        var strRegExp = "_MSS|_Buffer|T0_CH_CERN_Export";
         var regExpNode = new RegExp(strRegExp);
         if (strNodeName.match(regExpNode)) {
             return true;
@@ -39,6 +39,9 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
     var _getFromNode = function(strNodeName) {
         var strRegExp = "_Buffer";
         var regExpNode = new RegExp(strRegExp);
+        if (strNodeName.match(/T0_CH_CERN_/) ) {
+          return 'T0_CH_CERN_Export';
+        }
         if (strNodeName.match(regExpNode)) {
             return strNodeName;
         }
@@ -202,6 +205,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                     this.dom.title.innerHTML = this.me + ': fetching data...';
                     strFromNode = _getFromNode(_nodename);
                     strToNode = strFromNode.replace('_Buffer', '_MSS');
+                    strToNode = strFromNode.replace('_Export', '_MSS');
                     _sbx.notify(this.id, 'getData', { api: 'transferqueuefiles', args: { from: strFromNode, to: strToNode} });
                 }
                 else {
@@ -234,6 +238,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 this.fillDataSource(this.data);
                 strFromNode = _getFromNode(_nodename);
                 strToNode = strFromNode.replace('_Buffer', '_MSS');
+                strToNode = strFromNode.replace('_Export', '_MSS');
                 this.dom.title.innerHTML = this.data.length + ' missing file(s) for (' + strFromNode + ', ' + strToNode + ') node pair';
                 _sbx.notify(this.id, 'gotData');
             },
