@@ -49,7 +49,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-consistencyresults':{ requires:['phedex-module','phedex-treeview'] },
     'phedex-module-groupusage':        { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-static':            { requires:['phedex-module','phedex-config'] },
-    'phedex-module-blocklocation':     { requires:['phedex-module','slider', 'button'] },
+    'phedex-module-blocklocation':     { requires:['phedex-module','datatable','slider', 'button'] },
     'phedex-module-missingfiles':      { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agentlogs':         { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-queuedmigrations': { requires: ['phedex-module', 'phedex-datatable'] },
