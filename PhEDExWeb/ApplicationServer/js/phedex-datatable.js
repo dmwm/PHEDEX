@@ -56,13 +56,18 @@ PHEDEX.DataTable = function(sandbox, string) {
             },
 
             _getKeyByKeyOrLabel: function(str) {
-              var m = this.meta, cols = m.table.columns, i;
+              var m = this.meta, cols = m.table.columns, i, label;
               for (i in cols) {
                 if ( cols[i].label == str ) {
                   return cols[i].key;
                 }
                 if ( cols[i].key == str ) {
                   return str;
+                }
+              }
+              for (i in cols) {
+                if ( cols[i].label.replace(/ /g,'') == str ) {
+                  return cols[i].key;
                 }
               }
             },
