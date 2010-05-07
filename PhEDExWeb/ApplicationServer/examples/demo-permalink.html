@@ -25,7 +25,7 @@ YAHOO.util.Event.onDOMReady(function() {
       cfg = {
  'Production, default page': '',
 
- 'ProductionLinkView, T0_CH_CERN_Export, time=6, outgoing' :
+ 'Production, LinkView, T0_CH_CERN_Export, time=6, outgoing' :
   'instance~Production+type~node+target~T0_CH_CERN_Export+widget~linkview+module~specific{time%3D6%20dir%3D1}',
 
  'Production, LinkView, T1_US_FNAL_Buffer,hide(L.error-log, F.cksum), time=1 week, outgoing' :
@@ -49,6 +49,9 @@ YAHOO.util.Event.onDOMReady(function() {
  'Production, LinkView, T1_US_FNAL_Buffer, sort{L.node,asc}, hide{L.error-log, F.cksum}, filter{B.errors>1}, time=1 week, incoming' :
   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}filter{B.errors%3E1}specific{time%3D168%20dir%3D0}',
 
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort{B.name, asc} hide{L.error-log, F.cksum} filter{!B.name=/Min} time=168, outgoing':
+   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{B.name%20asc%20alpha}hide{L.error-log%20F.cksum}filter{!B.name%3D/Min}specific{time%3D168%20dir%3D1}',
+
  'Production, Agents, T1_DE_KIT_Buffer, sort{A.Agent,desc}' :
    'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~agents+module~sort{A.Agent%20desc}',
 
@@ -64,29 +67,44 @@ YAHOO.util.Event.onDOMReady(function() {
  'Production, Agents, T1_DE_KIT_Buffer, sort{A.Agent,asc} hide{A.PID, A.Host, A.StateDir} filter{A.Agent=FileR}' :
    'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~agents+module~sort{A.Agent%20asc}hide{A.PID%20A.Host%20A.StateDir}filter{A.Agent%3DFileR}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort{B.name, asc} hide{L.error-log, F.cksum} filter{!B.name=/Min} time=168, outgoing':
-   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{B.name%20asc%20alpha}hide{L.error-log%20F.cksum}filter{!B.name%3D/Min}specific{time%3D168%20dir%3D1}',
+ 'Production AgentLogs T1_FR_CCIN2P3_Buffer+module~sort{A.LogTime desc}':
+   'instance~Production+type~node+target~T1_FR_CCIN2P3_Buffer+widget~agentlogs+module~sort{A.LogTime%20desc}',
 
-  'Production, GroupUsage DataOps':
-    'instance~Production+type~group+target~DataOps+widget~groupusage+module~',
+ 'Production, GroupUsage DataOps':
+   'instance~Production+type~group+target~DataOps+widget~groupusage+module~',
 
-  'Production, GroupUsage DataOps, sort{G.ResidentBytes desc}':
-    'instance~Production+type~group+target~DataOps+widget~groupusage+module~sort{G.ResidentBytes desc}hide{G.SE G.ID G.ResidentFiles G.SubscribedFiles}',
+ 'Production, GroupUsage DataOps, sort{G.ResidentBytes desc}':
+   'instance~Production+type~group+target~DataOps+widget~groupusage+module~sort{G.ResidentBytes desc}hide{G.SE G.ID G.ResidentFiles G.SubscribedFiles}',
 
-  'Production QueuedMigrations, T1_US_FNAL_Buffer, sort{Q.BlockName, asc} hide{Q.FileID}':
-    'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~queuedmigrations+module~sort{Q.BlockName%20asc}hide{Q.FileID}',
+ 'Production QueuedMigrations, T1_US_FNAL_Buffer, sort{Q.BlockName, asc} hide{Q.FileID}':
+   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~queuedmigrations+module~sort{Q.BlockName%20asc}hide{Q.FileID}',
 
-  'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
-    'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~',
+ 'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
+  'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~',
 
-  'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8 sort{F.File desc} hide{F.SE F.FileID F.NodeID F.TimeCreate F.OriginNode F.FileBytes}':
-    'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~sort{F.File%20desc}hide{F.SE%20F.FileID%20F.NodeID%20F.TimeCreate%20F.OriginNode%20F.FileBytes}',
+ 'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8 sort{F.File desc} hide{F.SE F.FileID F.NodeID F.TimeCreate F.OriginNode F.FileBytes}':
+  'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~sort{F.File%20desc}hide{F.SE%20F.FileID%20F.NodeID%20F.TimeCreate%20F.OriginNode%20F.FileBytes}',
 
-  'Production BlockLocation /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
-    'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~blocklocation',
+ 'Production BlockLocation /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
+   'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~blocklocation',
 
-   'Production ConsistencyResults T1_DE_KIT_Buffer last 4 days':
-    'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~consistencyresults+module~hide{N.id%20N.se%20B.id%20B.bytes}specific{since%3D96}'
+  'Production ConsistencyResults T1_DE_KIT_Buffer last 4 days':
+   'instance~Production+type~node+target~T1_DE_KIT_Buffer+widget~consistencyresults+module~hide{N.id%20N.se%20B.id%20B.bytes}specific{since%3D96}',
+
+ 'Production UnroutableData T2_US_UCSD sort{R.node,asc} Outgoing':
+  'instance~Production+type~node+target~T2_US_UCSD+widget~unroutabledata+module~sort{R.node%20asc%20alpha}specific{dir%3D1}',
+
+ 'Production UnroutableData T2_US_UCSD sort{R.node,asc} Incoming':
+  'instance~Production+type~node+target~T2_US_UCSD+widget~unroutabledata+module~sort{R.node%20asc%20alpha}specific{dir%3D0}',
+
+ 'Production CustodialData node=T1_UK_RAL_MSS create_since Forever, update_since Last hour':
+  'instance~Production+type~node+target~T1_UK_RAL_MSS+widget~custodiallocation+module~hide{B.id%20R.se}specific{create_since%3D9999%20update_since%3D1}',
+
+ 'Production CustodialLocation /Cosmics/Commissioning10-StreamHcalCalHOCosmics-v9/ALCARECO%230* create_since Forever, update_since Forever':
+  'instance~Production+type~block+target~/Cosmics/Commissioning10-StreamHcalCalHOCosmics-v9/ALCARECO%230*+widget~custodiallocation+module~hide{B.id%20R.se}specific{create_since%3D9999%20update_since%3D9999}',
+
+ 'Production PendingRequests T2_CN_Beijing since Last month':
+  'instance~Production+type~node+target~T2_CN_Beijing+widget~pendingrequests+module~sort{P.RequestID%20asc}hide{P.NodeID%20P.RequestID}specific{since%3D720}',
      },
       i, ul, li, a;
 
