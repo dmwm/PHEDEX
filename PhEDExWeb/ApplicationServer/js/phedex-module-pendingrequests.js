@@ -47,7 +47,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                         type: 'menu',
                         initial: function () { return opts.since; },
                         container: 'buttons',
-                        menu: { 24: 'Last Day', 168: 'Last Week', 720: 'Last month', 4320: 'Last 6 months', 9999: 'Forever' },
+                        menu: { 24: 'Last Day', 168: 'Last Week', 720: 'Last Month', 4320: 'Last 6 Months', 9999: 'Forever' },
                         map: {
                             onChange: 'changeTimebin'
                         },
@@ -209,23 +209,25 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     this.initData();
                     return;
                 }
-                var dataserviceargs = {},
-                d = new Date(),
-                now = d.getTime() / 1000;
+                var dataserviceargs = { approval:'pending'},
+                    d, now;
                 
                 log('Fetching data', 'info', this.me);
                 this.dom.title.innerHTML = this.me + ': fetching data...';
-                if (_nodename && _groupname) {
-                    dataserviceargs = { approval: 'pending', node: _nodename, group: _groupname };
+                if (_nodename) {
+                    dataserviceargs.node = _nodename;
                 }
-                else if (_nodename) {
-                    dataserviceargs = { approval: 'pending', node: _nodename };
+                if (_groupname) {
+                    dataserviceargs.group = _groupname;
                 }
-                else if (_groupname) {
-                    dataserviceargs = { approval: 'pending', group: _groupname };
-                }
-                if (opts.since && opts.since != 9999) {
+                if (opts.since) {
+                  if (opts.since != 9999) {
+                    d = new Date(),
+                    now = d.getTime() / 1000;
                     dataserviceargs.create_since = now - (3600 * opts.since);
+                  } else {
+                    dataserviceargs.create_since = 0;
+                  }
                 }
                 _sbx.notify(this.id, 'getData', { api: 'transferrequests', args: dataserviceargs });
             },

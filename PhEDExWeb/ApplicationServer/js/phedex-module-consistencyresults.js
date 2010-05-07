@@ -88,7 +88,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           {
             name:'Test',
             format:[
-              {width: 60,text:'ID',           className:'phedex-tree-test-id',           otherClasses:'align-left',  ctxArgs:['node','sort-alpha'] },
+              {width: 60,text:'ID',           className:'phedex-tree-test-id',           otherClasses:'align-left',  ctxArgs:'sort-alpha' },
               {width: 60,text:'Kind',         className:'phedex-tree-test-kind',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width:120,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width: 90,text:'Status',       className:'phedex-tree-test-status',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
@@ -104,7 +104,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid', hide:true },
               {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 90,text:'Status',     className:'phedex-tree-file-status', otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
+              {width:200,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
             ]
           }
         ],
@@ -282,8 +282,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
         var args = { }, magic = PxU.Sequence(), // TODO need better magic than tis!
-          d = new Date(),
-          now = d.getTime()/1000;
+          d, now;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
@@ -291,8 +290,14 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         this._magic = magic;
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
-        if ( opts.since && opts.since != 9999 ) {
-          args.test_since = now - 3600 * opts.since;
+        if ( opts.since ) {
+          if ( opts.since != 9999 ) {
+            d = new Date();
+            now = d.getTime()/1000;
+            args.test_since = now - 3600 * opts.since;
+          } else {
+            args.test_since = 0;
+          }
         }
         this.data = {};
         this.truncateTree();
