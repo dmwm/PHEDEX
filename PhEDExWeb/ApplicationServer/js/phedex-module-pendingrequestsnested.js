@@ -86,7 +86,10 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                             'Priority': { type: 'regex', text: 'Priority', tip: 'javascript regular expression' },
                             'Custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
                             'Static': { type: 'yesno', text: 'Static', tip: 'Show request static value (default is both)' },
-                            'Move': { type: 'yesno', text: 'Move', tip: 'Show if file had been moved or not (default is both)' }
+                            'Move': { type: 'yesno', text: 'Move', tip: 'Show if file had been moved or not (default is both)' },
+                            'Node ID': { type: 'int', text: 'Node ID', tip: 'Node ID', nested:true },
+                            'Node': { type: 'regex', text: 'Node name', tip: 'javascript regular expression', nested: true },
+                            'SE': { type: 'regex', text: 'SE', tip: 'javascript regular expression', nested: true }
                         }
                     }
                 }
