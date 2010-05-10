@@ -650,6 +650,21 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
                 return keep;
             },
 
+            /**
+            * This is to fire the cell click event on first column to show the nested tables.
+            * @method showNestedTables
+            * @private
+            */
+            showNestedTables: function () {
+                var recsetNested = obj.dataTable.getRecordSet(),
+                    nLength = recsetNested.getLength(),
+                    indx, rowNested;
+                for (indx = 0; indx < nLength; indx++) {
+                    rowNested = obj.dataTable.getRow(indx);
+                    // Now fire the event for each row in the filtered datatable to show nested tables
+                    obj.dataTable.fireEvent("cellClickEvent", { target: rowNested.cells[0], event: obj.dataTable.__yui_events.cellClickEvent });
+                }
+            },
 
             /**
             * Filters the module based on user input.
@@ -702,7 +717,7 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
                         // Copy of the object is created because there might be changes in nested data.
                         // If the row object is not cloned and when new arrNData[] is assigned, 
                         // then 'nesteddata' values get overrided in cache which shouldn't happen.
-                        var objClone = new cloneObject(obj.data[i]); 
+                        var objClone = new cloneObject(obj.data[i]);
                         table.push(objClone);
                         if (arrNData.length > 0) {
                             table[tableindx]['nesteddata'] = arrNData; // Assign the filter nested table rows
@@ -712,6 +727,8 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
                 }
                 obj.sortNeeded = true;
                 obj.fillDataSource(table);
+                obj.nestedtables = []; // Clear the previously added nested table's DOM object
+                this.showNestedTables(); // Show nested tables also after applying filter
                 this.updateGUIElements(this.count);
                 return;
             }
@@ -723,6 +740,11 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
 
 log('loaded...', 'info', 'nesteddatatable');
 
+/**
+* This creates a clone of the object where a fresh copy of an object is required.
+* @method cloneObject
+* @param obj {Object} is the object that has to be cloned.
+*/
 function cloneObject(obj) {
     var i;
     for (i in obj) {
