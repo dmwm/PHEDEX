@@ -46,6 +46,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 ctxArgs: { Node:'node' },
                 table: {
                   columns: [
+                            { key: 'group[0].name', label: 'Group' },
                             { key: 'name', label: 'Node' },
                             { key: 'se', label: 'SE' },
                             { key: 'id', label: 'ID', className:'align-right' },
@@ -56,7 +57,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                            ],
                   schema: {
                             resultsList: 'node',
-                            fields: ['name', 'se', { key: 'id', parser: 'number' },
+                            fields: ['name', 'se', 'group[0].name', { key: 'id', parser: 'number' },
                                                    { key: 'group[0].node_bytes', parser: 'number' },
                                                    { key: 'group[0].node_files', parser: 'number' },
                                                    { key: 'group[0].dest_bytes', parser: 'number' },
@@ -64,15 +65,16 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                           },
                 },
 
-                hide: ['SE', 'ID', 'Resident Files', 'Subscribed Files'],
+                hide: ['Group', 'SE', 'ID', 'Resident Files', 'Subscribed Files'],
                 sort:{field:'Node'},
                 filter: {
                   'GroupUsage attributes':{
                     map: { to:'G' },
                     fields: {
-                      'Node':{type:'regex',  text:'Node', tip:'javascript regular expression' },
-                      'SE'  :{type:'regex',  text:'SE',   tip:'javascript regular expression' },
-                      'ID'  :{type:'int',    text:'ID',   tip:'ID'},
+                      'Group':{type:'regex',  text:'Group', tip:'javascript regular expression' },
+                      'Node' :{type:'regex',  text:'Node',  tip:'javascript regular expression' },
+                      'SE'   :{type:'regex',  text:'SE',    tip:'javascript regular expression' },
+                      'ID'   :{type:'int',    text:'ID',    tip:'ID'},
                       'Resident Bytes':   { type: 'minmax', text: 'Resident Bytes',   tip: 'integer range' },
                       'Resident Files':   { type: 'minmax', text: 'Resident Files',   tip: 'integer range' },
                       'Subscribed Bytes': { type: 'minmax', text: 'Subscribed Bytes', tip: 'integer range' },
