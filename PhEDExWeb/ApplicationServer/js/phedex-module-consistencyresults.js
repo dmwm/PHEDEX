@@ -223,7 +223,8 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             [ n.node,n.id,n.se ]
           );
           if ( n.block ) {
-            tNode.title = n.block.length+' blocks';
+            if ( n.block == 1 ) { tNode.title = '1 block'; }
+            else                { tNode.title = n.block.length+' blocks'; }
             for (j in n.block) {
               b = n.block[j];
               tNode1 = this.addNode(
@@ -244,7 +245,9 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
                   tTested += parseInt(t.files_tested);
                   tOK     += parseInt(t.files_ok);
                 }
-                tNode1.title = b.test.length+' tests ('+tOK+'/'+tTested+' tested/OK)';
+                if ( b.test.kength = 1 ) { tNode1.title = '1 test'; }
+                else                     { tNode1.title = b.test.length+' tests'; }
+                tNode1.title += ' ('+tOK+'/'+tTested+' tested/OK)';
               } else { tNode1.isLeaf = true; }
             }
           } else { tNode.isLeaf = true; }

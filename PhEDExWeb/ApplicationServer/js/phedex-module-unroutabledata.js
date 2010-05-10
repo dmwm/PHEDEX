@@ -234,7 +234,8 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             [ r.from,r.from_id,r.from_se,r.to,r.to_id,r.to_se,/*r.valid,*/r.priority ]
           );
           if ( r.block ) {
-            tNode.title = r.block.length+' blocks';
+            if ( r.block.length == 1 ) { tNode.title = '1 block'; }
+            else                       { tNode.title = r.block.length+' blocks'; }
             for (j in r.block) {
               b = r.block[j];
               p = { call:'BlockReplicas', obj:this, args:{ block:b.name }, callback:this.callback_Treeview };

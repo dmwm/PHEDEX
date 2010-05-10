@@ -205,7 +205,8 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             [ b.name,b.id,b.files,b.bytes,b.is_open ]
           );
           if ( b.replica ) {
-            tNode.title = b.replica.length+' replicas';
+            if ( b.replica.length == 1 ) { tNode.title = '1 replica'; }
+            else                         { tNode.title = b.replica.length+' replicas'; }
             for (j in b.replica) {
               r = b.replica[j];
               tNode1 = this.addNode(
