@@ -76,6 +76,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
 //         ctxArgs: { agent:'Name' },
         table: {
           columns: [
+            {key:'node',                 label:'Node'},
             {key:'name',                 label:'Agent'},
             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
             {key:'agent[0].pid',         label:'PID',  className:'align-right'},
@@ -86,15 +87,16 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           ],
           schema: {
             resultsList: 'node',
-            fields: [ 'host', 'name', 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
+            fields: [ 'host', 'name', 'node', 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
           },
         },
         sort:{field:'Agent'},
-        hide:['PID','Host','State Dir'],
+        hide:['Node','PID','Host','State Dir'],
         filter: {
           'Agent attributes':{
             map: { to:'A' },
             fields: {
+              'Node'        :{type:'regex',  text:'Node-name',       tip:'javascript regular expression' },
               'Agent'       :{type:'regex',  text:'Agent-name',      tip:'javascript regular expression' },
               'Label'       :{type:'regex',  text:'Agent-label',     tip:'javascript regular expression' },
               'PID'         :{type:'int',    text:'PID',             tip:'Process-ID' },
