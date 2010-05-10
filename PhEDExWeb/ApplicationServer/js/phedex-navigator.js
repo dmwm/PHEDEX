@@ -660,6 +660,11 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
           }
         }(input);
+        _selectors[type].value = function(i) {
+          return function() {
+            return i.value;
+          }
+        }(input);
         return sel;
       };
 
@@ -668,19 +673,30 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         cfg = {
           prehighlightClassName:"yui-ac-prehighlight",
           useShadow: true,
-          forceSelection: true,
+//           forceSelection: true,
           queryMatchCase: false,
           queryMatchContains: true
         },
-        auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg);
-    var selection_callback = function(_dummy, args) {
+        auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg),
+    selection_callback = function(_dummy, args) {
       var value = args[2][0];
       _state[_type] = value;
       if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
       _typeArgs[_type][key] = value;
       _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
+    },
+    unmatchedSelection_callback = function(_t,_k) {
+      return function(_dummy, args) {
+      if ( !_t ) { _t = _k; }
+      var value = _selectors[_t].value();
+      _state[_t] = value;
+      if ( ! _typeArgs[_t] ) { _typeArgs[_t] = {}; }
+      _typeArgs[_t][_k] = value;
+      _sbx.notify(obj.id,'TargetSelected',_t,_typeArgs[_t]);
     }
+    }(_type,key);
     auto_comp.itemSelectEvent.subscribe(selection_callback);
+    auto_comp.unmatchedItemSelectEvent.subscribe(unmatchedSelection_callback);
   };
 
   this._updateTargetSelector = function(type) {
