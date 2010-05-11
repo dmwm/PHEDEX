@@ -21,7 +21,9 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   Yla(this, new PHEDEX.Base.Object());
 
   var _me = 'component-contextmenu',
-      _sbx = sandbox;
+      _sbx = sandbox,
+      YwCM = YAHOO.widget.ContextMenu,
+      YwMI = YAHOO.widget.MenuItem;
 
   var obj = args.payload.obj;
   if ( obj ) {
@@ -45,7 +47,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
       Create: function(config) {
         var i = PHEDEX.Util.Sequence();
         if ( !config.lazyload ) { config.lazyload = true; }
-        var menu = new YAHOO.widget.ContextMenu("contextmenu_"+i,config);
+        var menu = new YwCM("contextmenu_"+i,config);
         menu.cfg.setProperty('zindex',10);
         return menu;
       },
@@ -135,25 +137,25 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
  */
       Build: function(target) {
         var typeNames = [],
-            name;
-        for (var i in this.typeNames) { typeNames.push(this.typeNames[i]); } // need a deep copy to avoid overwriting this.typeNames!
+            name, nItems=0, item, widget, list, w, i, j;
+        for (i in this.typeNames) { typeNames.push(this.typeNames[i]); } // need a deep copy to avoid overwriting this.typeNames!
         if ( this.onContextMenuBeforeShow ) {
           typeNames = this.onContextMenuBeforeShow(target, typeNames);
         }
-        for (var i in typeNames)
+        for (i in typeNames)
         {
 // N.B. Do this rather than just loop over this.WidgetsByInputType keys, in order to guarantee the ordering will be the same
 // as the order of registration. Otherwise it's conceivable the menu-order would differ between runs or between browsers
           name = typeNames[i];
-          var w = this.WidgetsByInputType[name];
+          w = this.WidgetsByInputType[name];
 
 //         First check the core widget registry to see if any widgets can be made
-          for (var j in w)
+          for (j in w)
           {
-            var widget = w[j];
+            widget = w[j];
             if (widget.context_item) {
               log('Adding Widget name='+name+' label='+w[j].label, 'info', _me);
-              var item = new YAHOO.widget.MenuItem(w[j].label);
+              item = new YwMI(w[j].label);
 //            Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,
@@ -170,20 +172,27 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
                               }(widget)
                             };
                 this.contextMenu.addItem(item);
+                nItems++;
                 log('Build: '+name+' label:'+w[j].label,'info',_me);
             }
           }
 
 //        Next check our own registry
-          var list = PHEDEX.Component.ContextMenu.items[name];
-          for (var j in list)
+          list = PHEDEX.Component.ContextMenu.items[name];
+          for (j in list)
           {
-            var item = new YAHOO.widget.MenuItem(list[j].label);
+            item = new YwMI(list[j].label);
             item.value = { 'type':name,
                            'fn':list[j].callback };
             this.contextMenu.addItem(item);
+            nItems++;
             log('Build: '+name+' label:'+list[j].label,'info',_me);
           }
+        }
+        if ( !nItems ) {
+          item = new YwMI('(no context menu for this field)');
+          item.value = { type:'null', fn:function() {} };
+          this.contextMenu.addItem(item);
         }
         this.contextMenu.render();
       },
