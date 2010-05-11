@@ -53,21 +53,23 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             */
             meta: {
 //                 ctxArgs: { 'agent': 'Name' }
-                table: { columns: [{ key: 'name', label: 'Agent Name' },
+                table: { columns: [{ key: 'node', label: 'Node' },
+                                   { key: 'name', label: 'Agent Name' },
                                    { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT', parser: 'number' },
                                    { key: 'reason', label: 'Log Reason' },
                                    { key: 'message', label: 'Log Message', width: 450, "formatter": "customTextBox"}]
                 },
-                hide: [],
+                hide: [ 'Node' ],
                 sort: { field: 'Agent Name' },
                 filter: {
                     'AgentLogs attributes': {
                         map: { to: 'A' },
                         fields: {
-                            'Agent Name': { type: 'regex', text: 'Agent Name', tip: 'javascript regular expression' },
-                            'Log Time': { type: 'minmax', text: 'Log Time', tip: 'log time in unix-epoch seconds' },
-                            'Log Reason': { type: 'regex', text: 'Log Reason', tip: 'javascript regular expression' },
-                            'Log Message': { type: 'regex', text: 'Log Message', tip: 'javascript regular expression' }
+                            'Node':        { type: 'regex',  text: 'Node',        tip: 'javascript regular expression' },
+                            'Agent Name':  { type: 'regex',  text: 'Agent Name',  tip: 'javascript regular expression' },
+                            'Log Time':    { type: 'minmax', text: 'Log Time',    tip: 'log time in unix-epoch seconds' },
+                            'Log Reason':  { type: 'regex',  text: 'Log Reason',  tip: 'javascript regular expression' },
+                            'Log Message': { type: 'regex',  text: 'Log Message', tip: 'javascript regular expression' }
                         }
                     }
                 }
@@ -106,6 +108,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                                 }
                             }
                             arrFile['message'] = jsonLog.message.$t; // This is to store the message
+                            arrFile['node']    = jsonData[indxNode].name;
                             arrData.push(arrFile);
                         }
                     }
