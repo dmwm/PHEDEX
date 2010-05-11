@@ -427,14 +427,14 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   if ( !p.typeNames ) { p.typeNames=[]; }
   p.typeNames.push('treeview');
   if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
-  var fn = function(o) {
-    return function(opts,el) {
-      var elPhedex = o.locateNode(el.target),
-          elClass = o.getPhedexFieldClass(elPhedex);
-      o.meta.hide[elClass] = 1;
-      o.hideFieldByClass(elClass,o.el);
+  var fn = /*function(o) {
+    return */function(opts,el) {
+      var elPhedex = obj.locateNode(el.target),
+          elClass  = obj.getPhedexFieldClass(elPhedex);
+      obj.meta.hide[elClass] = 1;
+      obj.hideFieldByClass(elClass,obj.el);
     }
-  }(obj);
+  /*}(obj)*/;
   PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
   return {
