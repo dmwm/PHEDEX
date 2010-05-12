@@ -46,23 +46,15 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 ctxArgs: { Node:'node' },
                 table: {
                   columns: [
-                            { key: 'group[0].name', label: 'Group' },
+                            { key: 'group', label: 'Group' },
                             { key: 'name', label: 'Node' },
                             { key: 'se', label: 'SE' },
                             { key: 'id', label: 'ID', className:'align-right' },
-                            { key: 'group[0].node_bytes', label: 'Resident Bytes',   className:'align-right', formatter:"customBytes" },
-                            { key: 'group[0].node_files', label: 'Resident Files',   className:'align-right' },
-                            { key: 'group[0].dest_bytes', label: 'Subscribed Bytes', className:'align-right', formatter:"customBytes" },
-                            { key: 'group[0].dest_files', label: 'Subscribed Files', className:'align-right' }
+                            { key: 'node_bytes', label: 'Resident Bytes',   className:'align-right', formatter:"customBytes" },
+                            { key: 'node_files', label: 'Resident Files',   className:'align-right' },
+                            { key: 'dest_bytes', label: 'Subscribed Bytes', className:'align-right', formatter:"customBytes" },
+                            { key: 'dest_files', label: 'Subscribed Files', className:'align-right' }
                            ],
-                  schema: {
-                            resultsList: 'node',
-                            fields: ['name', 'se', 'group[0].name', { key: 'id', parser: 'number' },
-                                                   { key: 'group[0].node_bytes', parser: 'number' },
-                                                   { key: 'group[0].node_files', parser: 'number' },
-                                                   { key: 'group[0].dest_bytes', parser: 'number' },
-                                                   { key: 'group[0].dest_files', parser: 'number'}]
-                          },
                 },
 
                 hide: ['Group', 'SE', 'ID', 'Resident Files', 'Subscribed Files'],
@@ -84,6 +76,48 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 }
             },
 
+            /**
+            * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
+            * @method _processData
+            * @param jsonData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @private
+            */
+            _processData: function (jsonData) {
+                var indx, indxGroup, indxNode, jsonGroup, jsonNode, arrRow, arrData = [],
+                arrNodeCols = ['id', 'name', 'se'],
+                arrGroupCols = ['dest_bytes','dest_files','node_bytes','node_files','name'],
+                nArrGLen = arrGroupCols.length, nArrNLen = arrNodeCols.length,
+                nNodeLen = jsonData.length, nGroupLen;
+                for (indxNode = 0; indxNode < nNodeLen; indxNode++) {
+                    jsonNode = jsonData[indxNode];
+                    nGroupLen = jsonNode.group.length;
+                    for (indxGroup = 0; indxGroup < nGroupLen; indxGroup++) {
+                        jsonGroup = jsonNode.group[indxGroup];
+                        arrRow = [];
+                        for (indx = 0; indx < nArrNLen; indx++) {
+                            if (this.meta.parser[arrNodeCols[indx]]) {
+                                arrRow[arrNodeCols[indx]] = this.meta.parser[arrNodeCols[indx]](jsonNode[arrNodeCols[indx]]);
+                            }
+                            else {
+                                arrRow[arrNodeCols[indx]] = jsonNode[arrNodeCols[indx]];
+                            }
+                        }
+                        for (indx = 0; indx < nArrGLen; indx++) {
+                            var key = arrGroupCols[indx], mKey = key;
+                            if ( key == 'name' ) { mKey = 'group'; }
+                            if (this.meta.parser[arrGroupCols[indx]]) {
+                                arrRow[mKey] = this.meta.parser[arrGroupCols[indx]](jsonGroup[arrGroupCols[indx]]);
+                            }
+                            else {
+                                arrRow[mKey] = jsonGroup[arrGroupCols[indx]];
+                            }
+                        }
+                        arrData.push(arrRow);
+                    }
+                }
+                this.needProcess = false;
+                return arrData;
+            },
             /**
             * This initializes the Phedex.GroupUsage module and notify to sandbox about its status.
             * @method initData
