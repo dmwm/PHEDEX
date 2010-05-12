@@ -50,6 +50,7 @@ Usage: $0 [--verbose] [--debug] [--webserver <web_host>] [--path <path>] [--file
 --file <file>           file that contains test command
                         without --file, the commands are read from stdin
 --ouptut <dir>          save data service output to files in this directory
+--debug                 turn on debugging mode
 
 EOF
 }
@@ -83,9 +84,10 @@ sub verify
     }
     elsif ($format eq 'perl')
     {
+        my $VAR1;
         open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
             || die "could not execute wget\n";
-	{ local $/ = undef; $data = eval (<FILE>); }
+	{ local $/ = undef; $data = eval (<FILE>)->{'PHEDEX'} }
 	close FILE;
     }
     elsif ($format eq 'json')
@@ -93,7 +95,7 @@ sub verify
         open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
 	    || die "could not execute wget\n";
 	{ local $/ = undef; $data = join "", <FILE>; }
-	eval { $data = &decode_json($data); };
+	eval { $data = &decode_json($data)->{'phedex'}; };
 	do { $result = "ERROR"; $n++; print "decode_json error: $@\n" } if $@;
     }
     else #ERROR
@@ -107,6 +109,7 @@ sub verify
     # Parse response to count elements
     my $call_time = 0;
     my $len;
+    # got to be a hash
     if (ref($data) ne "HASH")
     {
         $result = "ERROR";
