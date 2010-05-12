@@ -12,7 +12,7 @@ appear in multiple tables.
 
 =head2 Common Columns
 
-=head3 time_* Columns
+=head3 Timestamp Columns
 
 All times in PhEDEx are stored using a UNIX epoch timestamp; the number
 of seconds which have passed since January 1, 1970 00:00:00 GMT.  Some
