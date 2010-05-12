@@ -651,18 +651,42 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
             },
 
             /**
+            * This gets the expanded rows currently in the table.
+            * @method getExpandedRows
+            * @private
+            */
+            getExpandedRows: function () {
+                var recsetNested = obj.dataTable.getRecordSet(),
+                    nLength = recsetNested.getLength(),
+                    indx, objNested, rowNested, nUniqueID, arrExpanded = {};
+                for (indx = 0; indx < nLength; indx++) {
+                    rowNested = recsetNested.getRecord(indx);
+                    objNested = rowNested.getData('__NESTED__');
+                    if (objNested && objNested.expanded) {
+                        nUniqueID = rowNested.getData('uniqueid');
+                        arrExpanded[nUniqueID] = true;
+                    }
+                }
+                return arrExpanded;
+            },
+
+            /**
             * This is to fire the cell click event on first column to show the nested tables.
             * @method showNestedTables
             * @private
             */
-            showNestedTables: function () {
+            showNestedTables: function (arrExpanded) {
                 var recsetNested = obj.dataTable.getRecordSet(),
                     nLength = recsetNested.getLength(),
-                    indx, rowNested;
+                    indx, rowNested, nUniqueID;
                 for (indx = 0; indx < nLength; indx++) {
-                    rowNested = obj.dataTable.getRow(indx);
-                    // Now fire the event for each row in the filtered datatable to show nested tables
-                    obj.dataTable.fireEvent("cellClickEvent", { target: rowNested.cells[0], event: obj.dataTable.__yui_events.cellClickEvent });
+                    rowNested = recsetNested.getRecord(indx);
+                    nUniqueID = rowNested.getData('uniqueid');
+                    if (arrExpanded[nUniqueID]) {
+                        rowNested = obj.dataTable.getRow(indx);
+                        // Now fire the event for each row in the filtered datatable to show nested tables
+                        obj.dataTable.fireEvent("cellClickEvent", { target: rowNested.cells[0], event: obj.dataTable.__yui_events.cellClickEvent });
+                    }
                 }
             },
 
@@ -674,7 +698,7 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
             */
             applyFilter: function (args) {
                 // Parse the cached data to filter it and form new data that feeds the datasource
-                var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0,
+                var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0, arrExpanded,
                 pathcache = {}, table = [], arrNData = [], i, filterresult, bAnyMain = false, bAnyNested = false;
                 if (!args) { args = this.args; }
                 this.count = 0;
@@ -726,9 +750,10 @@ PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
                     }
                 }
                 obj.sortNeeded = true;
+                arrExpanded = this.getExpandedRows(); // Get the current list of rows that are expanded
                 obj.fillDataSource(table);
                 obj.nestedtables = []; // Clear the previously added nested table's DOM object
-                this.showNestedTables(); // Show nested tables also after applying filter
+                this.showNestedTables(arrExpanded); // Show nested tables (if were expanded) also after applying filter
                 this.updateGUIElements(this.count);
                 return;
             }
