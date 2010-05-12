@@ -95,37 +95,38 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             width:1200,
             name:'Link',
             format: [
-              {width:160,text:'Node',         className:'phedex-tree-node',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width:120,text:'Done',         className:'phedex-tree-done',       otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width:120,text:'Failed',       className:'phedex-tree-failed',     otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width:120,text:'Expired',      className:'phedex-tree-expired',    otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width: 70,text:'Rate',         className:'phedex-tree-rate',       otherClasses:'align-right', ctxArgs:'sort-num', format:function(x){return PxUf.bytes(x)+'/s';} },
-              {width: 70,text:'Quality',      className:'phedex-tree-quality',    otherClasses:'align-right', ctxArgs:'sort-num', format:PxU.format['%'] },
-              {width:120,text:'Queued',       className:'phedex-tree-queued',     otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width: 90,text:'Link Errors',  className:'phedex-tree-error-total',otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width:110,text:'Logged Errors',className:'phedex-tree-error-log',  otherClasses:'align-right', ctxArgs:'sort-num', hide:true }
+              {width:160,text:'From Node',     className:'phedex-tree-from-node',   otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width:160,text:'To Node',       className:'phedex-tree-to-node',     otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width:120,text:'Done',          className:'phedex-tree-done',        otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:120,text:'Failed',        className:'phedex-tree-failed',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:120,text:'Expired',       className:'phedex-tree-expired',     otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width: 70,text:'Rate',          className:'phedex-tree-rate',        otherClasses:'align-right', ctxArgs:'sort-num', format:function(x){return PxUf.bytes(x)+'/s';} },
+              {width: 70,text:'Quality',       className:'phedex-tree-quality',     otherClasses:'align-right', ctxArgs:'sort-num', format:PxU.format['%'] },
+              {width:120,text:'Queued',        className:'phedex-tree-queued',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width: 90,text:'Link Errors',   className:'phedex-tree-error-total', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width:110,text:'Logged Errors', className:'phedex-tree-error-log',   otherClasses:'align-right', ctxArgs:'sort-num', hide:true }
             ]
           },
           {
             name:'Block',
             format: [
-              {width:600,text:'Block Name',  className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
-              {width: 80,text:'Block ID',    className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
-              {width: 80,text:'State',       className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
-              {width: 80,text:'Priority',    className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
-              {width: 80,text:'Files',       className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
-              {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes',    otherClasses:'phedex-tnode-auto-height align-right' },
-              {width: 90,text:'Block Errors',className:'phedex-tree-block-errors',   otherClasses:'align-right', ctxArgs:'sort-num' }
+              {width:600,text:'Block Name',   className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
+              {width: 80,text:'Block ID',     className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
+              {width: 80,text:'State',        className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
+              {width: 80,text:'Priority',     className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
+              {width: 80,text:'Files',        className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
+              {width: 80,text:'Bytes',        className:'phedex-tree-block-bytes',    otherClasses:'phedex-tnode-auto-height align-right' },
+              {width: 90,text:'Block Errors', className:'phedex-tree-block-errors',   otherClasses:'align-right', ctxArgs:'sort-num' }
             ]
           },
           {
             name:'File',
             format:[
-              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
-              {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid' },
-              {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-              {width: 90,text:'File Errors',className:'phedex-tree-file-errors', otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width:140,text:'Checksum',   className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
+              {width:600,text:'File Name',   className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
+              {width: 80,text:'File ID',     className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid' },
+              {width: 80,text:'Bytes',       className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
+              {width: 90,text:'File Errors', className:'phedex-tree-file-errors', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width:140,text:'Checksum',    className:'phedex-tree-file-cksum',  otherClasses:'align-right', hide:true }
             ]
           }
         ],
@@ -134,7 +135,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           'Link-level attributes':{
             map:{from:'phedex-tree-', to:'L'},
             fields:{
-              'phedex-tree-node'        :{type:'regex',       text:'Node-name',        tip:'javascript regular expression' },
+              'phedex-tree-from-node'   :{type:'regex',       text:'From Node-name',   tip:'javascript regular expression' },
+              'phedex-tree-to-node'     :{type:'regex',       text:'To Node-name',     tip:'javascript regular expression' },
               'phedex-tree-rate'        :{type:'minmaxFloat', text:'Transfer-rate',    tip:'transfer rate in bytes/sec' },
               'phedex-tree-quality'     :{type:'minmaxPct',   text:'Transfer-quality', tip:'transfer-quality in percent', preprocess:'toPercent' },
               'phedex-tree-done'        :{type:'minmax',      text:'Files-done',       tip:'number of files successfully transferred' },
@@ -148,23 +150,23 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           'Block-level attributes':{
             map:{from:'phedex-tree-block-', to:'B'},
             fields:{
-              'phedex-tree-block-name'     :{type:'regex',     text:'Block-name',       tip:'javascript regular expression' },
-              'phedex-tree-block-id'       :{type:'int',       text:'Block-ID',         tip:'ID of this block in TMDB' },
-              'phedex-tree-block-state'    :{type:'regex',     text:'Block-state',      tip:"'assigned', 'exported', 'transferring', or 'transferred'" },
-              'phedex-tree-block-priority' :{type:'regex',     text:'Block-priority',   tip:"'low', 'medium', or 'high'" },
-//            'phedex-tree-block-files'    :{type:'minmax',    text:'Block-files',      tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
-//            'phedex-tree-block-bytes'    :{type:'minmax',    text:'Block-bytes',      tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
-              'phedex-tree-block-errors'   :{type:'minmax',    text:'Block-errors',     tip:'number of errors for the block' }
+              'phedex-tree-block-name'     :{type:'regex',  text:'Block-name',     tip:'javascript regular expression' },
+              'phedex-tree-block-id'       :{type:'int',    text:'Block-ID',       tip:'ID of this block in TMDB' },
+              'phedex-tree-block-state'    :{type:'regex',  text:'Block-state',    tip:"'assigned', 'exported', 'transferring', or 'transferred'" },
+              'phedex-tree-block-priority' :{type:'regex',  text:'Block-priority', tip:"'low', 'medium', or 'high'" },
+//            'phedex-tree-block-files'    :{type:'minmax', text:'Block-files',    tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
+//            'phedex-tree-block-bytes'    :{type:'minmax', text:'Block-bytes',    tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
+              'phedex-tree-block-errors'   :{type:'minmax', text:'Block-errors',   tip:'number of errors for the block' }
             }
           },
           'File-level attributes':{
             map:{from:'phedex-tree-file-', to:'F'},
             fields:{
-              'phedex-tree-file-name'   :{type:'regex',     text:'File-name',        tip:'javascript regular expression' },
-              'phedex-tree-file-id'     :{type:'minmax',    text:'File-ID',          tip:'ID-range of files in TMDB' },
-              'phedex-tree-file-bytes'  :{type:'minmax',    text:'File-bytes',       tip:'number of bytes in the file' },
-              'phedex-tree-file-errors' :{type:'minmax',    text:'File-errors',      tip:'number of errors for the given file' },
-              'phedex-tree-file-cksum'  :{type:'regex',     text:'File-checksum(s)', tip:'javascript regular expression' }
+              'phedex-tree-file-name'   :{type:'regex',  text:'File-name',        tip:'javascript regular expression' },
+              'phedex-tree-file-id'     :{type:'minmax', text:'File-ID',          tip:'ID-range of files in TMDB' },
+              'phedex-tree-file-bytes'  :{type:'minmax', text:'File-bytes',       tip:'number of bytes in the file' },
+              'phedex-tree-file-errors' :{type:'minmax', text:'File-errors',      tip:'number of errors for the given file' },
+              'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
             }
           }
         },
@@ -369,7 +371,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           link_errors = PxU.sumArrayField(e.block,'num_errors');
           tNode = this.addNode(
             { format:this.meta.tree[0].format, payload:p },
-            [ node,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
+            [ h.from,h.to,done,fail,expire,rate,quality,queue,link_errors,e.num_errors ]
           );
           if ( !queue.files ) { tNode.isLeaf = true; } // a link with no queue can have no children worth seeing, declare it to be a leaf-node
         }
