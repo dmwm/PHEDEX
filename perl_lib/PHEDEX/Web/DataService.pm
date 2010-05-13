@@ -43,6 +43,15 @@ sub new
   return $self;
 }
 
+sub handler
+{
+    my $r = shift;
+    warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
+    my $service = PHEDEX::Web::DataService->new();
+    $service->invoke();
+    return Apache2::Const::OK;
+}
+
 sub invoke
 {
   my $self = shift;
