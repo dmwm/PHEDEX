@@ -375,10 +375,7 @@ YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oCo
 * @param oData {data-value} number of bytes
 */
 YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, oData) {
-    if(oData)
-    {
-        elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
-    }
+  elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
 };
 
 /**
