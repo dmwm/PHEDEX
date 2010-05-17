@@ -49,11 +49,11 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                             { key: 'group', label: 'Group' },
                             { key: 'name', label: 'Node' },
                             { key: 'se', label: 'SE' },
-                            { key: 'id', label: 'ID', className:'align-right' },
-                            { key: 'node_bytes', label: 'Resident Bytes',   className:'align-right', formatter:"customBytes" },
-                            { key: 'node_files', label: 'Resident Files',   className:'align-right' },
-                            { key: 'dest_bytes', label: 'Subscribed Bytes', className:'align-right', formatter:"customBytes" },
-                            { key: 'dest_files', label: 'Subscribed Files', className:'align-right' }
+                            { key: 'id', label: 'ID', className:'align-right', parser:'number' },
+                            { key: 'node_bytes', label: 'Resident Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
+                            { key: 'node_files', label: 'Resident Files',   className:'align-right', parser:'number' },
+                            { key: 'dest_bytes', label: 'Subscribed Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
+                            { key: 'dest_files', label: 'Subscribed Files', className:'align-right', parser:'number' }
                            ],
                 },
 
