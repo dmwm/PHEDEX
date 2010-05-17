@@ -126,7 +126,7 @@ PHEDEX.Util.format={
       if (f>=1073741824) return (f/1073741824).toFixed(1)+' GB';
       if (f>=1048576) return (f/1048576).toFixed(1)+' MB';
       if (f>=1024) return (f/1024).toFixed(1)+' KB';
-      return f.toFixed(1)+' B';
+      return f.toFixed(0)+' B';
     },
     '%':function(raw) {
       return (100*parseFloat(raw)).toFixed(2)+'%';
