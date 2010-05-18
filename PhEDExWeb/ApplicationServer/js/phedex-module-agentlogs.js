@@ -52,12 +52,12 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @type Object
             */
             meta: {
-//                 ctxArgs: { 'agent': 'Name' }
-                table: { columns: [{ key: 'node', label: 'Node' },
-                                   { key: 'name', label: 'Agent Name' },
-                                   { key: "time", label: 'Log Time', formatter: 'UnixEpochToGMT', parser: 'number' },
-                                   { key: 'reason', label: 'Log Reason' },
-                                   { key: 'message', label: 'Log Message', width: 450, "formatter": "customTextBox"}]
+                ctxArgs: { Node:'node' },
+                table: { columns: [{ key:'node',    label:'Node' },
+                                   { key:'name',    label:'Agent Name' },
+                                   { key:'time',    label:'Log Time', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key:'reason',  label:'Log Reason' },
+                                   { key:'message', label:'Log Message', width:450, formatter:'customTextBox'}]
                 },
                 hide: [ 'Node' ],
                 sort: { field: 'Agent Name' },
@@ -65,11 +65,11 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                     'AgentLogs attributes': {
                         map: { to: 'A' },
                         fields: {
-                            'Node':        { type: 'regex',  text: 'Node',        tip: 'javascript regular expression' },
-                            'Agent Name':  { type: 'regex',  text: 'Agent Name',  tip: 'javascript regular expression' },
-                            'Log Time':    { type: 'minmax', text: 'Log Time',    tip: 'log time in unix-epoch seconds' },
-                            'Log Reason':  { type: 'regex',  text: 'Log Reason',  tip: 'javascript regular expression' },
-                            'Log Message': { type: 'regex',  text: 'Log Message', tip: 'javascript regular expression' }
+                            'Node':        { type:'regex',  text:'Node',        tip:'javascript regular expression' },
+                            'Agent Name':  { type:'regex',  text:'Agent Name',  tip:'javascript regular expression' },
+                            'Log Time':    { type:'minmax', text:'Log Time',    tip:'log time in unix-epoch seconds' },
+                            'Log Reason':  { type:'regex',  text:'Log Reason',  tip:'javascript regular expression' },
+                            'Log Message': { type:'regex',  text:'Log Message', tip:'javascript regular expression' }
                         }
                     }
                 }
@@ -82,7 +82,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @private
             */
             _processData: function(jsonData) {
-                var indx, indxNode, indxAgent, indxLog, jsonAgents, jsonAgent, jsonLog, arrFile, arrData = [],
+                var indx, indxNode, indxAgent, indxLog, jsonAgents, jsonAgent, jsonLog, Row, Table = [],
                 arrAgentCols = ['name'],
                 arrLogCols = ['time', 'reason'],
                 nArrALen = arrAgentCols.length, nArrLLen = arrLogCols.length,
@@ -95,27 +95,22 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                         nLogLen = jsonAgent.log.length;
                         for (indxLog = 0; indxLog < nLogLen; indxLog++) {
                             jsonLog = jsonAgent.log[indxLog];
-                            arrFile = [];
+                            Row = [];
                             for (indx = 0; indx < nArrALen; indx++) {
-                                arrFile[arrAgentCols[indx]] = jsonAgent[arrAgentCols[indx]];
+                              this._extractElement(arrAgentCols[indx],jsonAgent,Row);
                             }
                             for (indx = 0; indx < nArrLLen; indx++) {
-                                if (this.meta.parser[arrLogCols[indx]]) {
-                                    arrFile[arrLogCols[indx]] = this.meta.parser[arrLogCols[indx]](jsonLog[arrLogCols[indx]]);
-                                }
-                                else {
-                                    arrFile[arrLogCols[indx]] = jsonLog[arrLogCols[indx]];
-                                }
+                              this._extractElement(arrLogCols[indx],jsonLog,Row);
                             }
-                            arrFile['message'] = jsonLog.message.$t; // This is to store the message
-                            arrFile['node']    = jsonData[indxNode].name;
-                            arrData.push(arrFile);
+                            Row['message'] = jsonLog.message.$t; // This is to store the message
+                            Row['node']    = jsonData[indxNode].name;
+                            Table.push(Row);
                         }
                     }
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
-                return arrData;
+                return Table;
             },
 
             /**

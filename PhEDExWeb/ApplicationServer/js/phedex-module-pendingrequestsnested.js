@@ -25,15 +25,6 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
             */
             decorators: [
                 {
-                    name: 'cMenuButton',
-                    source: 'component-splitbutton',
-                    payload: {
-                        name: 'Show all fields',
-                        map: { hideColumn: 'addMenuItem' },
-                        container: 'param'
-                    }
-                },
-                {
                     name: 'ContextMenu',
                     source: 'component-contextmenu',
                     payload: {
@@ -53,6 +44,15 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                         },
                         title: 'Time of Creation'
                     }
+                },
+                {
+                    name: 'cMenuButton',
+                    source: 'component-splitbutton',
+                    payload: {
+                        name: 'Show all fields',
+                        map: { hideColumn: 'addMenuItem' },
+                        container: 'param'
+                    }
                 }
             ],
 
@@ -62,17 +62,17 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
             * @type Object
             */
             meta: {
-                ctxArgs: { 'Node': 'node', 'Group': 'group' },
-                table: { columns: [{ key: 'id', label: 'Request ID', className: 'align-right', parser: 'number' },
-                                   { key: "time_create", label: 'TimeCreate', formatter: 'UnixEpochToGMT', parser: 'number' },
-                                   { key: 'group', label: 'Group' },
-                                   { key: 'priority', label: 'Priority' },
-                                   { key: 'custodial', label: 'Custodial' },
-                                   { key: 'static', label: 'Static' },
-                                   { key: 'move', label: 'Move' }],
-                    nestedColumns: [{ key: 'id', label: 'Node ID', className: 'align-right', parser: 'number' },
-                                   { key: 'name', label: 'Node' },
-                                   { key: 'se', label: 'SE'}]
+                ctxArgs: { Node:'node', Group:'group' },
+                table: { columns: [{ key:'id',          label:'Request ID', className:'align-right',    parser:'number' },
+                                   { key:'time_create', label:'TimeCreate', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key:'group',       label:'Group' },
+                                   { key:'priority',    label:'Priority' },
+                                   { key:'custodial',   label:'Custodial' },
+                                   { key:'static',      label:'Static' },
+                                   { key:'move',        label:'Move' }],
+                    nestedColumns: [{ key:'id',         label:'Node ID', className: 'align-right',parser:'number' },
+                                   { key:'name',        label:'Node' },
+                                   { key:'se',          label:'SE'}]
                 },
                 hide: ['Request ID'],
                 sort: { field: 'Request ID' },
@@ -80,16 +80,16 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                     'PendingRequestsNested attributes': {
                         map: { to: 'P' },
                         fields: {
-                            'Request ID': { type: 'int', text: 'Request ID', tip: 'Request-ID' },
-                            'TimeCreate': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation in unix-epoch seconds' },
-                            'Group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
-                            'Priority': { type: 'regex', text: 'Priority', tip: 'javascript regular expression' },
-                            'Custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
-                            'Static': { type: 'yesno', text: 'Static', tip: 'Show request static value (default is both)' },
-                            'Move': { type: 'yesno', text: 'Move', tip: 'Show if file had been moved or not (default is both)' },
-                            'Node ID': { type: 'int', text: 'Node ID', tip: 'Node ID', nested:true },
-                            'Node': { type: 'regex', text: 'Node name', tip: 'javascript regular expression', nested: true },
-                            'SE': { type: 'regex', text: 'SE', tip: 'javascript regular expression', nested: true }
+                            'Request ID': { type:'int',    text:'Request ID', tip:'Request-ID' },
+                            'TimeCreate': { type:'minmax', text:'TimeCreate', tip:'time of creation in unix-epoch seconds' },
+                            'Group':      { type:'regex',  text:'Group',      tip:'javascript regular expression' },
+                            'Priority':   { type:'regex',  text:'Priority',   tip:'javascript regular expression' },
+                            'Custodial':  { type:'yesno',  text:'Custodial',  tip:'Show custodial and/or non-custodial files (default is both)' },
+                            'Static':     { type:'yesno',  text:'Static',     tip:'Show request static value (default is both)' },
+                            'Move':       { type:'yesno',  text:'Move',       tip:'Show if file had been moved or not (default is both)' },
+                            'Node ID':    { type:'int',    text:'Node ID',    tip:'Node ID', nested:true },
+                            'Node':       { type:'regex',  text:'Node name',  tip:'javascript regular expression', nested: true },
+                            'SE':         { type:'regex',  text:'SE',         tip:'javascript regular expression', nested: true }
                         }
                     }
                 }
@@ -102,7 +102,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
             * @private
             */
             _processData: function (jsonReqData) {
-                var indx, indxReq, indxData, jsonReqs, jsonNode, arrReq, arrNestedVal, arrNested, arrData = [],
+                var indx, indxReq, indxData, jsonReqs, jsonNode, Row, arrNestedVal, arrNested, Table = [],
                 arrRequestCols = ['id', 'time_create', 'group', 'priority', 'custodial', 'static', 'move'],
                 arrNodeCols = ['se', 'id', 'name'],
                 nArrRLen = arrRequestCols.length, nArrNLen = arrNodeCols.length,
@@ -111,36 +111,26 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                     jsonReqs = jsonReqData[indxReq];
                     jsonReq = jsonReqData[indxReq].destinations.node;
                     nDataLen = jsonReq.length;
-                    arrReq = [];
+                    Row = [];
                     arrNested = new Array();
                     for (indx = 0; indx < nArrRLen; indx++) {
-                        if (this.meta.parser[arrRequestCols[indx]]) {
-                            arrReq[arrRequestCols[indx]] = this.meta.parser[arrRequestCols[indx]](jsonReqs[arrRequestCols[indx]]);
-                        }
-                        else {
-                            arrReq[arrRequestCols[indx]] = jsonReqs[arrRequestCols[indx]];
-                        }
+                        this._extractElement(arrRequestCols[indx],jsonReqs,Row);
                     }
                     for (indxData = 0; indxData < nDataLen; indxData++) {
                         jsonNode = jsonReq[indxData];
                         arrNestedVal = {};
                         for (indx = 0; indx < nArrNLen; indx++) {
-                            if (this.meta.parser[arrNodeCols[indx]]) {
-                                arrNestedVal[arrNodeCols[indx]] = this.meta.parser[arrNodeCols[indx]](jsonNode[arrNodeCols[indx]]);
-                            }
-                            else {
-                                arrNestedVal[arrNodeCols[indx]] = jsonNode[arrNodeCols[indx]];
-                            }
+                          this._extractElement(arrNodeCols[indx],jsonNode,arrNestedVal);
                         }
                         arrNested.push(arrNestedVal);
                     }
-                    arrReq['nesteddata'] = arrNested;
-                    arrReq['uniqueid'] = ++nUnique;
-                    arrData.push(arrReq);
+                    Row['nesteddata'] = arrNested;
+                    Row['uniqueid'] = ++nUnique;
+                    Table.push(Row);
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
-                return arrData;
+                return Table;
             },
 
             /**

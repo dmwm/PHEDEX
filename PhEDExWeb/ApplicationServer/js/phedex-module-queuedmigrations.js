@@ -22,32 +22,42 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
     * @private
     */
     var _isValidNode = function(strNodeName) {
-        var strRegExp = "_MSS|_Buffer|T0_CH_CERN_Export";
-        var regExpNode = new RegExp(strRegExp);
-        if (strNodeName.match(regExpNode)) {
+        if (strNodeName.match(/_MSS|_Buffer|T0_CH_CERN_Export|%/)) { //regExpNode)) {
             return true;
         }
         return false;
     };
 
     /**
-    * Get the name of from node i.e in *_Buffer format.
+    * Get the name of the 'from' node i.e in *_Buffer format.
     * @method _getFromNode
     * @param strNodeName {String} input node name.
     * @private
     */
     var _getFromNode = function(strNodeName) {
-        var strRegExp = "_Buffer";
-        var regExpNode = new RegExp(strRegExp);
         if (strNodeName.match(/T0_CH_CERN_/) ) {
           return 'T0_CH_CERN_Export';
         }
-        if (strNodeName.match(regExpNode)) {
+        if (strNodeName.match(/_Buffer/)) {
             return strNodeName;
         }
-        else {
-            return strNodeName.replace('_MSS', '_Buffer');
+        return strNodeName.replace('_MSS', '_Buffer');
+    };
+
+    /**
+    * Get the name of the 'to' node i.e in *_Buffer format.
+    * @method _getToNode
+    * @param strNodeName {String} input node name.
+    * @private
+    */
+    var _getToNode = function(strNodeName) {
+        if (strNodeName.match(/T0_CH_CERN_/) ) {
+          return 'T0_CH_CERN_MSS';
         }
+        if (strNodeName.match(/_MSS/)) {
+            return strNodeName;
+        }
+        return strNodeName.replace('_Buffer', '_MSS');
     };
     this.allowNotify['parseData'] = 1;
 
@@ -94,23 +104,25 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                ctxArgs: { 'Block Name':'block' },
+                ctxArgs: { Block:'block', Node:'node' },
                 table: {
-                    columns: [{ key: 'blockname', label: 'Block Name' },
-                              { key: 'fileid', label: 'File ID', className: 'align-right', parser:'number' },
-                              { key: 'filename', label: 'File Name' },
-                              { key: 'filebytes', label: 'File Size', className: 'align-right', formatter:'customBytes', parser:'number'}]
+                    columns: [{ key:'node',      label:'Node' },
+                              { key:'block',     label:'Block' },
+                              { key:'fileid',    label:'File ID',   className:'align-right', parser:'number' },
+                              { key:'file',      label:'File' },
+                              { key:'filebytes', label:'File Size', className:'align-right', parser:'number', formatter:'customBytes' }]
                 },
-                hide: ['File ID'],
-                sort: { field: 'Block Name' },
+                hide: ['File ID', 'Node'],
+                sort: { field: 'Block' },
                 filter: {
                     'QueuedMigrations attributes': {
                         map: { to: 'Q' },
                         fields: {
-                            'Block Name': { type: 'regex', text: 'Block Name', tip: 'javascript regular expression' },
-                            'File Name': { type: 'regex', text: 'File Name', tip: 'javascript regular expression' },
-                            'File Size': { type: 'minmax', text: 'File Size', tip: 'integer range (bytes)' },
-                            'File ID': { type: 'int', text: 'File ID', tip: 'ID of file in TMDB' }
+                            'Node':      { type:'regex',  text:'Node Name',  tip:'javascript regular expression' },
+                            'Block':     { type:'regex',  text:'Block Name', tip:'javascript regular expression' },
+                            'File':      { type:'regex',  text:'File Name',  tip:'javascript regular expression' },
+                            'File Size': { type:'minmax', text:'File Size',  tip:'integer range (bytes)' },
+                            'File ID':   { type:'int',    text:'File ID',    tip:'ID of file in TMDB' }
                         }
                     }
                 }
@@ -119,21 +131,21 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             /**
             * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
             * @method _processData
-            * @param jsonData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @param jsonData {object}
             * @private
             */
             _processData: function(jsonData) {
-                var indx, indxQueues, indxQueue, indxBlock, indxFile, jsonQueues, jsonBlocks, jsonBlock, jsonFile, arrFile, arrData = [],
-                arrBlockCols = ['name'],
-                arrDTBlockCols = ['blockname'],
-                arrFileCols = ['name', 'id', 'bytes'],
-                arrDTFileCols = ['filename', 'fileid', 'filebytes'],
+                var indx, indxQueues, indxQueue, indxBlock, indxFile, jsonQueues, jsonBlocks, jsonBlock, jsonFile, Row, Table = [],
+                arrBlockCols = [ {name:'block'} ],
+                arrFileCols = [{name:'file'}, {id:'fileid'}, {bytes:'filebytes'}],
                 nArrBLen = arrBlockCols.length, nArrFLen = arrFileCols.length,
-                _jLen = jsonData.length, jQLen, jBLen, jBfLen; 
+                _jLen = jsonData.length, jQLen, jBLen, jBfLen,
+                toNode;
                 _totalsize = 0;
                 for (indxQueues = 0; indxQueues < jsonData.length; indxQueues++) {
                     jsonQueues = jsonData[indxQueues].transfer_queue;
                     jQLen = jsonQueues.length;
+                    toNode = this._extractElement({to:'node'},jsonData[indxQueues]);
                     for (indxQueue = 0; indxQueue < jQLen; indxQueue++) {
                         jsonBlocks = jsonQueues[indxQueue].block;
                         jBLen = jsonBlocks.length;
@@ -142,26 +154,23 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                             jBfLen = jsonBlock.file.length;
                             for (indxFile = 0; indxFile < jBfLen; indxFile++) {
                                 jsonFile = jsonBlock.file[indxFile];
-                                _totalsize = _totalsize + (jsonFile['bytes'] / 1);
-                                arrFile = [];
+                                _totalsize = _totalsize + parseInt(jsonFile['bytes']);
+                                Row = [];
+                                Row['node'] = toNode;
                                 for (indx = 0; indx < nArrBLen; indx++) {
-                                    arrFile[arrDTBlockCols[indx]] = jsonBlock[arrBlockCols[indx]];
+                                    this._extractElement(arrBlockCols[indx],jsonBlock,Row);
                                 }
                                 for (indx = 0; indx < nArrFLen; indx++) {
-                                    if ( this.meta.parser[arrDTFileCols[indx]] ) {
-                                      arrFile[arrDTFileCols[indx]] = this.meta.parser[arrDTFileCols[indx]](jsonFile[arrFileCols[indx]]);
-                                    } else {
-                                      arrFile[arrDTFileCols[indx]] = jsonFile[arrFileCols[indx]];
-                                    }
+                                    this._extractElement(arrFileCols[indx],jsonFile,Row);
                                 }
-                                arrData.push(arrFile);
+                                Table.push(Row);
                             }
                         }
                     }
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
-                return arrData;
+                return Table;
             },
 
             /**
@@ -204,8 +213,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                     log('The node is valid. So, fetching data..', 'info', this.me);
                     this.dom.title.innerHTML = this.me + ': fetching data...';
                     strFromNode = _getFromNode(_nodename);
-                    strToNode = strFromNode.replace('_Buffer', '_MSS');
-                    strToNode = strFromNode.replace('_Export', '_MSS');
+                    strToNode = _getToNode(strFromNode);
                     _sbx.notify(this.id, 'getData', { api: 'transferqueuefiles', args: { from: strFromNode, to: strToNode} });
                 }
                 else {
@@ -237,8 +245,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             parseData: function() {
                 this.fillDataSource(this.data);
                 strFromNode = _getFromNode(_nodename);
-                strToNode = strFromNode.replace('_Buffer', '_MSS');
-                strToNode = strFromNode.replace('_Export', '_MSS');
+                strToNode = _getToNode(strFromNode);
                 this.dom.title.innerHTML = this.data.length + ' missing file(s) for (' + strFromNode + ', ' + strToNode + ') node pair';
                 _sbx.notify(this.id, 'gotData');
             },
