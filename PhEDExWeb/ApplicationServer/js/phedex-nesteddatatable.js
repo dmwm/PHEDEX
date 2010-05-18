@@ -28,6 +28,26 @@ PHEDEX.NestedDataTable = function (sandbox, string) {
             */
             type: 'NestedDataTable',
 
+            /**
+            * utility function used by _processData, to simplify the code a bit.
+            * @method _extractElement
+            * @private
+            */
+            _extractElement : function(field,src,dst) {
+              var fn, key=field, mKey=field;
+              if ( typeof(field) == 'object' ) {
+                for (key in field) {
+                  mKey = field[key];
+                }
+              }
+              fn = this.meta.parser[mKey];
+              if ( fn ) {
+                dst[mKey] = fn(src[key]);
+              } else {
+                dst[mKey] = src[key];
+              }
+            },
+
             // This method checks columns of both main and nested datatables to find the key
             _getKeyByKeyOrLabel: function (str) {
                 var m = this.meta, cols = m.table.columns, i;

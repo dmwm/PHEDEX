@@ -28,10 +28,29 @@ PHEDEX.DataTable = function(sandbox, string) {
             type: 'DataTable',
 
             /**
+            * utility function used by _processData, to simplify the code a bit.
+            * @method _extractElement
+            * @private
+            */
+            _extractElement : function(field,src,dst) {
+              var fn, key=field, mKey=field;
+              if ( typeof(field) == 'object' ) {
+                for (key in field) {
+                  mKey = field[key];
+                }
+              }
+              fn = this.meta.parser[mKey];
+              if ( fn ) {
+                dst[mKey] = fn(src[key]);
+              } else {
+                dst[mKey] = src[key];
+              }
+            },
+
+            /**
             * Processes the response data so as to create a YAHOO.util.DataSource and display it on-screen.
             * @method _processData
             * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>this.meta.table.columns</strong> for this table.
-            * @param objtable {object} reference of datatable object that has column definitions and mapping information that is required for processing data
             * @private
             */
             _processData: function(moduledata) {
