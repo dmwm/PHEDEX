@@ -42,10 +42,12 @@ PHEDEX.NestedDataTable = function (sandbox, string) {
               }
               fn = this.meta.parser[mKey];
               if ( fn ) {
-                dst[mKey] = fn(src[key]);
+                val = fn(src[key]);
               } else {
-                dst[mKey] = src[key];
+                val = src[key];
               }
+              if ( dst ) { dst[mKey] = val; }
+              return val;
             },
 
             // This method checks columns of both main and nested datatables to find the key

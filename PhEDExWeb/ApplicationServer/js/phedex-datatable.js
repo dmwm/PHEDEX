@@ -33,7 +33,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @private
             */
             _extractElement : function(field,src,dst) {
-              var fn, key=field, mKey=field;
+              var fn, val, key=field, mKey=field;
               if ( typeof(field) == 'object' ) {
                 for (key in field) {
                   mKey = field[key];
@@ -41,10 +41,12 @@ PHEDEX.DataTable = function(sandbox, string) {
               }
               fn = this.meta.parser[mKey];
               if ( fn ) {
-                dst[mKey] = fn(src[key]);
+                val = fn(src[key]);
               } else {
-                dst[mKey] = src[key];
+                val = src[key];
               }
+              if ( dst ) { dst[mKey] = val; }
+              return val;
             },
 
             /**
