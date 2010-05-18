@@ -591,7 +591,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     block: {
       init: function(el, type) {
         var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-block' }),
-          input = PxU.makeChild(sel, 'input', { type: 'text', title:'Type a block-name here', size:30 });
+          input = PxU.makeChild(sel, 'input', { type: 'text', title:'Type a block-name here (SQL regular expressions allowed)', size:30 });
         _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function() {
@@ -665,6 +665,18 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             return i.value;
           }
         }(input);
+
+        var k1 = new YAHOO.util.KeyListener(input,
+                                          { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                          { fn:function(o){
+            return function() {
+              if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
+              _typeArgs[_type][argKey] = input.value;
+              _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
+            } }(this),
+                                            scope:this, correctScope:true } );
+        k1.enable();
+
         return sel;
       };
 
@@ -691,6 +703,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       var value = _selectors[_t].value();
       _state[_t] = value;
       if ( ! _typeArgs[_t] ) { _typeArgs[_t] = {}; }
+      if ( _typeArgs[_t][_k] == value ) { return; }
       _typeArgs[_t][_k] = value;
       _sbx.notify(obj.id,'TargetSelected',_t,_typeArgs[_t]);
     }
