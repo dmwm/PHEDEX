@@ -48,36 +48,37 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             * @type Object
             */
             meta: {
-                ctxArgs: { 'Origin Node':'node', 'Node Name':'node' },
-                table: { columns: [{ key: 'id', label: 'File ID', className: 'align-right' },
-                                   { key: 'name', label: 'File' },
-                                   { key: 'bytes', label: 'File Bytes', className: 'align-right', "formatter": "customBytes", parser:'number' },
+                ctxArgs: { 'Origin Node':'node', 'Node Name':'node', Group:'group', Block:'block' },
+                table: { columns: [{ key: 'block',       label: 'Block' },
+                                   { key: 'id',          label: 'File ID', className:'align-right' },
+                                   { key: 'name',        label: 'File' },
+                                   { key: 'bytes',       label: 'File Bytes', className:'align-right', formatter:'customBytes', parser:'number' },
                                    { key: 'origin_node', label: 'Origin Node' },
-                                   { key: "time_create", label: 'TimeCreate', formatter: 'UnixEpochToGMT', parser:'number' },
-                                   { key: 'group', label: 'Group' },
-                                   { key: 'se', label: 'SE' },
-                                   { key: 'node_id', label: 'Node ID', className: 'align-right', parser:'number' },
-                                   { key: 'node_name', label: 'Node Name' },
-                                   { key: 'custodial', label: 'Custodial' },
-                                   { key: 'subscribed', label: 'Subscribed'}]
+                                   { key: 'time_create', label: 'TimeCreate', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key: 'group',       label: 'Group' },
+                                   { key: 'se',          label: 'SE' },
+                                   { key: 'node_id',     label: 'Node ID', className:'align-right', parser:'number' },
+                                   { key: 'node_name',   label: 'Node Name' },
+                                   { key: 'custodial',   label: 'Custodial' },
+                                   { key: 'subscribed',  label: 'Subscribed'}]
                 },
-                hide: ['SE', 'File ID', 'Node ID'],
+                hide: ['Block', 'SE', 'File ID', 'Node ID'],
                 sort: { field: 'File' },
                 filter: {
                     'MissingFiles attributes': {
                         map: { to: 'F' },
                         fields: {
-                            'File ID': { type: 'int', text: 'ID', tip: 'File-ID' },
-                            'File': { type: 'regex', text: 'File', tip: 'javascript regular expression' },
-                            'File Bytes': { type: 'minmax', text: 'File Bytes', tip: 'integer range' },
-                            'Origin Node': { type: 'regex', text: 'Origin Node', tip: 'javascript regular expression' },
-                            'TimeCreate': { type: 'minmax', text: 'TimeCreate', tip: 'time of creation in unix-epoch seconds' },
-                            'Group': { type: 'regex', text: 'Group', tip: 'javascript regular expression' },
-                            'Custodial': { type: 'yesno', text: 'Custodial', tip: 'Show custodial and/or non-custodial files (default is both)' },
-                            'SE': { type: 'regex', text: 'SE', tip: 'javascript regular expression' },
-                            'Node ID': { type: 'int', text: 'Node ID', tip: 'Node ID' },
-                            'Node Name': { type: 'regex', text: 'Node name', tip: 'javascript regular expression' },
-                            'Subscribed': { type: 'yesno', text: 'Subscribed', tip: 'Show subscribed and/or non-subscribed files (default is both)' }
+                            'File ID':     { type:'int',    text:'ID',          tip:'File-ID' },
+                            'File':        { type:'regex',  text:'File',        tip:'javascript regular expression' },
+                            'File Bytes':  { type:'minmax', text:'File Bytes',  tip:'integer range' },
+                            'Origin Node': { type:'regex',  text:'Origin Node', tip:'javascript regular expression' },
+                            'TimeCreate':  { type:'minmax', text:'TimeCreate',  tip:'time of creation in unix-epoch seconds' },
+                            'Group':       { type:'regex',  text:'Group',       tip:'javascript regular expression' },
+                            'Custodial':   { type:'yesno',  text:'Custodial',   tip:'Show custodial and/or non-custodial files (default is both)' },
+                            'SE':          { type:'regex',  text:'SE',          tip:'javascript regular expression' },
+                            'Node ID':     { type:'int',    text:'Node ID',     tip:'Node ID' },
+                            'Node Name':   { type:'regex',  text:'Node name',   tip:'javascript regular expression' },
+                            'Subscribed':  { type:'yesno',  text:'Subscribed',  tip:'Show subscribed and/or non-subscribed files (default is both)' }
                         }
                     }
                 }
@@ -86,47 +87,42 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             /**
             * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
             * @method _processData
-            * @param jsonBlkData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
+            * @param jsonBlkData {object}
             * @private
             */
             _processData: function(jsonBlkData) {
-                var indx, indxBlk, indxFile, indxMiss, jsonFile, jsonMissing, arrFile, arrData = [],
+                var indx, indxBlk, indxFile, indxMiss, jsonBlock, jsonFile, jsonMissing, Row, Table = [],
+                arrBlockCols = [ {name:'block'} ],
                 arrFileCols = ['id', 'name', 'bytes', 'origin_node', 'time_create'],
                 arrMissingCols = ['group', 'custodial', 'se', 'node_id', 'node_name', 'subscribed'],
-                nArrFLen = arrFileCols.length, nArrMLen = arrMissingCols.length,
-                nBlkLen = jsonBlkData.length, nFileLen, nMissLen, objCol, objVal;
+                nArrBLen = arrBlockCols.length, nArrFLen = arrFileCols.length, nArrMLen = arrMissingCols.length,
+                nBlkLen = jsonBlkData.length, nFileLen, nMissLen, objCol, objVal, key, mKey, fnParser;
                 for (indxBlk = 0; indxBlk < nBlkLen; indxBlk++) {
-                    jsonFiles = jsonBlkData[indxBlk].file;
+                    jsonBlock = jsonBlkData[indxBlk];
+                    jsonFiles = jsonBlock.file;
                     nFileLen = jsonFiles.length;
                     for (indxFile = 0; indxFile < nFileLen; indxFile++) {
                         jsonFile = jsonFiles[indxFile];
                         nMissLen = jsonFile.missing.length;
                         for (indxMiss = 0; indxMiss < nMissLen; indxMiss++) {
                             jsonMissing = jsonFile.missing[indxMiss];
-                            arrFile = [];
+                            Row = [];
+                            for (indx = 0; indx < nArrBLen; indx++) {
+                              this._extractElement(arrBlockCols[indx],jsonBlock,Row);
+                            }
                             for (indx = 0; indx < nArrFLen; indx++) {
-                                if ( this.meta.parser[arrFileCols[indx]] ) {
-                                  arrFile[arrFileCols[indx]] = this.meta.parser[arrFileCols[indx]](jsonFile[arrFileCols[indx]]);
-                                } 
-                                else {
-                                  arrFile[arrFileCols[indx]] = jsonFile[arrFileCols[indx]];
-                                }
+                              this._extractElement(arrFileCols[indx],jsonFile,Row);
                             }
                             for (indx = 0; indx < nArrMLen; indx++) {
-                                if ( this.meta.parser[arrMissingCols[indx]] ) {
-                                  arrFile[arrMissingCols[indx]] = this.meta.parser[arrMissingCols[indx]](jsonMissing[arrMissingCols[indx]]);
-                                } 
-                                else {
-                                  arrFile[arrMissingCols[indx]] = jsonMissing[arrMissingCols[indx]];
-                                }
+                              this._extractElement(arrMissingCols[indx],jsonMissing,Row);
                             }
-                            arrData.push(arrFile);
+                            Table.push(Row);
                         }
                     }
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
-                return arrData;
+                return Table;
             },
 
             /**
