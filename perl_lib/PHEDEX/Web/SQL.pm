@@ -1946,7 +1946,6 @@ sub getMissingFiles
             br.is_custodial,
             g.name user_group
         from t_dps_block b
-        join t_dps_dataset d on b.dataset = d.id
         join t_dps_file f on f.inblock = b.id
         join t_adm_node ns on ns.id = f.node
         join t_dps_block_replica br on br.block = b.id and br.is_active = 'y'
@@ -1971,25 +1970,10 @@ sub getMissingFiles
                                               SE => 'n.se_name',
                                               GROUP => 'g.name',
                                               LFN => 'f.logical_name',
-                                              DATASET => 'd.name'));
+                                              BLOCK => 'b.name',
+                                              NODE => 'n.name'));
 
     $sql .= " and ($filters) " if ($filters);
-
-    if (exists $h{BLOCK})
-    {
-        # translate the wildcard character
-        $h{BLOCK} =~ s/\*/%/g;
-
-        $sql .= " and (" . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . ") ";
-    }
-
-    if (exists $h{NODE})
-    {
-        # translate the wildcard character
-        $h{NODE} =~ s/\*/%/g;
-
-        $sql .= " and (" . filter_and_like($core, undef, \%p, 'n.name', $h{NODE}) . ") ";
-    }
 
     if (exists $h{SUBSCRIBED})
     {
