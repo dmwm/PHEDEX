@@ -816,28 +816,13 @@ sub getBlockIDsFromDatasetIDs
 #-------------------------------------------------------------------------------
 sub getNodeMap
 {
-    my ($self, @nodes) = @_;
-    my $now = time;
-
-#   Return cached contents iff I have specified a node-list, and the nodes
-#   listed are all in the cache, and the cache is less than a certain age.
-    my $ok = 1;
-    $ok = 0 unless @nodes;
-    foreach ( @nodes )
-    { $ok = 0 unless exists $self->{private_phedex_cache}{NodeMap}{$_}; }
-    my $cache_time = $self->{private_phedex_cache}{cache_time}{NodeMap} || 0;
-    $ok = 0 unless $now - $cache_time < 86400;
-    return $self->{private_phedex_cache}{NodeMap} if $ok;
-    $self->Logmsg('Refreshing nodemap') if $self->{DEBUG};
-
+    my ($self, %h) = @_;
     my $sql = qq{ select id, name from t_adm_node };
     my $map = {};
     my $q = execute_sql($self, $sql);
     while (my ($id, $name) = $q->fetchrow()) {
 	$map->{$id} = $name;
     }
-    $self->{private_phedex_cache}{NodeMap} = $map;
-    $self->{private_phedex_cache}{cache_time}{NodeMap} = $now;
     return $map;
 }
 
