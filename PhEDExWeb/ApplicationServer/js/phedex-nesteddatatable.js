@@ -321,34 +321,25 @@ PHEDEX.NestedDataTable = function (sandbox, string) {
                                         generateNestedRequest: this.processNestedrequest
                                     });
 
-                    this.dataTable.subscribe("nestedCreateEvent", function (oArgs, objNestedTable) {
-                        var oCallback = {
-                            success: oArgs.dt.onDataReturnInitializeTable,
-                            failure: oArgs.dt.onDataReturnInitializeTable,
-                            scope: oArgs.dt
-                        };
+                    this.dataTable.subscribe("nestedCreateEvent", function (oArgs, o) {
+                        var dt = oArgs.dt,
+                            oCallback = {
+                            success: dt.onDataReturnInitializeTable,
+                            failure: dt.onDataReturnInitializeTable,
+                            scope: dt
+                        }, ctxId;
                         this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
+                        if ( !dt ) { return; }
+                        // This is to maintain the list of created nested tables that would be used in context menu
+                        if ( o.nestedtables ) {
+                          o.nestedtables.push(dt);
+                        } else {
+                          o.nestedtables = [dt];
+                        }
                         try {
-                            // This is to get the nested datatable context menu and use it for nested table too instead of creating new context menus for each nested table
-                            var ctxmenu = objNestedTable.ctl.ContextMenu.contextMenu;
-                            var temp = ctxmenu.cfg.getProperty("trigger"); // Get the trigger property that has the list if associated elements
-                            temp.push(oArgs.dt.getTbodyEl()); // Add current nested table to context menu trigger
-                            ctxmenu.cfg.setProperty("trigger", temp); // Set the trigger property with new value
-                            // This is to maintain the list of created nested tables that would be used in context menu
-                            var nestedtables = objNestedTable.nestedtables;
-                            if (nestedtables) {
-                                nestedtables.push(oArgs.dt);
-                            }
-                            else {
-                                // This is first nested table created. So create new array first to store this and any new nested table further
-                                var temptables = [];
-                                temptables.push(oArgs.dt);
-                                objNestedTable.nestedtables = temptables;
-                            }
+                          _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
                         }
-                        catch (excm) {
-                            log('Error in getting context menu.. ' + excm.Message, 'error', _me);
-                        }
+                        catch (excm) { }
                     }, this);
                 }
                 catch (ex) {
