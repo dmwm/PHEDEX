@@ -74,7 +74,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             initial: function() { return opts.update_since; },
             container: 'buttons',
             prefix:'Updated:',
-            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 9999:'Forever' },
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
               onChange:'changeUpdateTimebin',
             },
@@ -89,7 +89,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             initial: function() { return opts.create_since; },
             container: 'buttons',
             prefix:'Created:',
-            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 9999:'Forever' },
+            menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
               onChange:'changeCreateTimebin',
             },
