@@ -150,7 +150,7 @@ sub errorlog
 # spooling
 
 my $sth;
-my $limit = 500;
+my $limit = 200;
 my @keys = ('FROM', 'TO');
 
 sub spool
@@ -158,7 +158,7 @@ sub spool
     my ($core, %h) = @_;
 
     # need at least one of the input
-    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
+    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{lfn})
     {
        die "need at least one of the input argument: from, to, block, lfn";
     }
