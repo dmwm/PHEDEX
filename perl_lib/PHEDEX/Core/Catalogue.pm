@@ -2,117 +2,20 @@ package PHEDEX::Core::Catalogue;
 
 =head1 NAME
 
-PHEDEX::Core::Catalogue
+PHEDEX::Core::Catalogue - a drop-in replacement for Toolkit/UtilsCatalogue
 
 =cut
 
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
+our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules);
 use XML::Parser;
 use PHEDEX::Core::DB;
-use PHEDEX::Core::Timing;
-use PHEDEX::Core::SQL;
 
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
 my %cache;
-
-# Calculate source and destination PFNs for a transfer task.
-sub makeTransferTask
-{
-    my ($self, $task, $cats) = @_;
-    my ($from, $to) = @$task{"FROM_NODE_ID", "TO_NODE_ID"};
-    my (@from_protos,@to_protos);
-
-#    my $task_str = join(', ', map { "$_=$task->{$_}" } sort keys %{$task});
-#   This twisted logic lets me call this function with an object or a plain
-#   DBH handle.
-    my $dbh = $self;
-    if ( grep( $_ eq 'DBH',  keys %{$self} ) ) { $dbh = $self->{DBH}; }
-
-    if ( ref($task->{FROM_PROTOS}) eq 'ARRAY' )
-         { @from_protos = @{$task->{FROM_PROTOS}}; }
-    else { @from_protos = split(/\s+/, $$task{FROM_PROTOS} || ''); }
-    if ( ref($task->{TO_PROTOS}) eq 'ARRAY' )
-         { @to_protos = @{$task->{TO_PROTOS}}; }
-    else { @to_protos = split(/\s+/, $$task{TO_PROTOS} || ''); }
-
-    my ($from_name, $to_name, $node_map);
-    $node_map = PHEDEX::Core::SQL::getNodeMap($self,$from,$to);
-    $from_name = $node_map->{$from};
-    $to_name = $node_map->{$to};
-
-    my ($from_cat, $to_cat);
-    $from_cat    = &dbStorageRules($dbh, $cats, $from);
-    $to_cat      = &dbStorageRules($dbh, $cats, $to);
-#    if ( !$from_cat || !$to_cat )
-#    {
-#      $self->Notify("makeTransferTask catalogue problem: $task_str");
-#      $self->Logmsg("makeTransferTask catalogue problem: $task_str");
-#    }
-
-    my $protocol    = undef;
-
-    # Find matching protocol.
-    foreach my $p (@to_protos)
-    {
-        next if ! grep($_ eq $p, @from_protos);
-        $protocol = $p;
-        last;
-    }
-
-#   This has been moved up to the FileIssue agent
-#    # If this is MSS->Buffer transition, pretend we have a protocol.
-#    $protocol = 'srm' if ! $protocol && $$task{FROM_KIND} eq 'MSS';
-
-    # Check that we have prerequisite information to expand the file names
-    my $error = '';
-    $error = "no catalog for from=$from_name\n" unless $from_cat;
-    $error = "no catalog for to=$to_name\n" unless $to_cat;
-    $error = "no protocol match for link ${from_name}->${to_name}\n" unless $protocol;
-    $error = "no TFC rules for matching protocol '$protocol' for from=$from_name\n" unless $$from_cat{$protocol};
-    $error = "no TFC rules for matching protocol '$protocol' for to=$to_name\n" unless $$to_cat{$protocol};
-    if ( $error )
-    {
-#      $self->Notify("makeTransferTask protocol problem: $task_str");
-#      $self->Logmsg("makeTransferTask protocol problem: $task_str");
-      $self->Notify("makeTransferTask problem: $error");
-      $self->Logmsg("makeTransferTask problem: $error");
-      die $error;
-    }
-
-    # If we made it through the above, we should be ok
-    # Expand the file name. Follow destination-match instead of remote-match
-   my ($from_token,$from_pfn,$to_token,$to_pfn);
-   ($from_token,$from_pfn) = &applyStorageRules
-				(
-				  $from_cat,
-				  $protocol,
-				  $to_name,
-				  'pre',
-				  $task->{LOGICAL_NAME},
-				  $task->{IS_CUSTODIAL}
-				);
-   ($to_token,$to_pfn) = &applyStorageRules
-				(
-				  $to_cat,
-				  $protocol,
-				  $to_name,
-			 	  'pre',
-			 	  $task->{LOGICAL_NAME},
-			 	  $task->{IS_CUSTODIAL}
-				);
-  return {
-	   FROM_PFN	=> $from_pfn,
-	   FROM_NODE	=> $from_name,
-	   FROM_TOKEN	=> $from_token,
-	   TO_PFN	=> $to_pfn,
-	   TO_NODE	=> $to_name,
-	   TO_TOKEN	=> $to_token,
-	 };
-}
 
 # Map a LFN to a PFN using a storage mapping catalogue.  The first
 # argument is either a single scalar LFN, or a reference to an array
@@ -310,31 +213,24 @@ sub applyStorageRules
 
 
 # Fetch TFC rules for the given node and cache it to the given
-# hashref.  Database is checked for newer rules and an update will be
-# done if newer rules are found
+# hashref.  Cache expiration to be handled outside this function.
 sub dbStorageRules
 {
     my ($dbh, $cats, $node) = @_;
 
-    # check if cached rules are old
-    my $changed = 0;
-    if (exists $$cats{$node}) {
-	$changed = &checkDBCatalogueChange($dbh, $node, $$cats{$node}{TIME_UPDATE});
-    }
-    
     # If we haven't yet built the catalogue, fetch from the database.
-    if (! exists $$cats{$node} || $changed)
+    if (! exists $$cats{$node})
     {
         $$cats{$node} = {};
 
         my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token, time_update
+	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token
 	    from t_xfer_catalogue
 	    where node = :node and rule_type = 'lfn-to-pfn'
 	    order by rule_index asc},
 	    ":node" => $node);
 
-        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token, $time_update) = $q->fetchrow())
+        while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token) = $q->fetchrow())
         {
 	    # Check the pattern is valid.  If not, abort.
             my $pathrx = eval { qr/$path/ };
@@ -350,7 +246,6 @@ sub dbStorageRules
 	    }
 
 	    # Add the rule to our list.
-	    $$cats{$node}{TIME_UPDATE} = $time_update;
 	    push(@{$$cats{$node}{$proto}}, {
 		    (defined $chain ? ('chain' => $chain) : ()),
 		    (defined $dest ? ('destination-match' => $destrx) : ()),
@@ -364,61 +259,5 @@ sub dbStorageRules
     return $$cats{$node};
 }
 
-# delete a catalogue from the database for $node_id
-sub deleteCatalogue
-{
-    my ($dbh, $node_id) = @_;
-    &dbexec($dbh, qq{
-	delete from t_xfer_catalogue where node = :node},
-	    ":node" => $node_id);
-}
-
-# insert an array of storage rules ($tfc) for a node ($node_id) into the database
-sub insertCatalogue
-{
-    my ($dbh, $node_id, $tfc, %h) = @_;
-    $h{TIME_UPDATE} ||= &mytimeofday(); # default time is now
-    
-    # Statement to upload rules.
-    my $stmt = &dbprep ($dbh, qq{
-	insert into t_xfer_catalogue
-	(node, rule_index, rule_type, protocol, chain,
-	 destination_match, path_match, result_expr,
-	 is_custodial, space_token, time_update)
-	values (:node, :rule_index, :rule_type, :protocol, :chain,
-	        :destination_match, :path_match, :result_expr,
-		:is_custodial, :space_token, :time_update)});
-
-    my $index = 0;
-    foreach my $rule (@$tfc)
-    {
-	&dbbindexec($stmt,
-		    ":node" => $node_id,
-		    ":rule_index" => $index++,
-		    ":rule_type" => $rule->{RULE_TYPE},
-		    ":protocol" => $rule->{PROTOCOL},
-		    ":chain" => $rule->{CHAIN},
-		    ":destination_match" => $rule->{DESTINATION_MATCH},
-		    ":path_match" => $rule->{PATH_MATCH},
-		    ":result_expr" => $rule->{RESULT_EXPR},
-		    ":is_custodial" => $rule->{IS_CUSTODIAL},
-		    ":space_token" => $rule->{SPACE_TOKEN},
-		    ":time_update" => $h{TIME_UPDATE});
-    }
-
-    return $index;
-}
-
-sub checkDBCatalogueChange
-{
-    my ($dbh, $node_id, $check_time) = @_;
-    $check_time ||= &mytimeofday();
-    my ($newrules) = &dbexec($dbh, qq{ 
-	select 1 from t_xfer_catalogue
-	 where node = :node and time_update > :check_time
-	   and rownum = 1 },
-        ':node' => $node_id, ':check_time' => $check_time)->fetchrow();
-    return $newrules ? 1 : 0;
-}
 
 1;
