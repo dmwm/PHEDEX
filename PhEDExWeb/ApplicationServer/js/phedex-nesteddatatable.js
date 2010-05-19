@@ -340,6 +340,10 @@ PHEDEX.NestedDataTable = function (sandbox, string) {
                           _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
                         }
                         catch (excm) { }
+                        try {
+                          _sbx.notify(o.ctl.MouseOver.id,'addContextElement',dt);
+                        }
+                        catch (excm) { }
                     }, this);
                 }
                 catch (ex) {
@@ -550,7 +554,8 @@ PHEDEX.NestedDataTable.ContextMenu = function (obj, args) {
 * @param args {object} reference to an object that specifies details of how the control should operate. Only <strong>args.payload.obj.dataTable</strong> is used, to subscribe to the <strong>onRowMouseOver</strong> and >strong>onRowMouseOut</strong> events.
 */
 PHEDEX.NestedDataTable.MouseOver = function(sandbox,args) {
-    var obj = args.payload.obj;
+    var obj = args.payload.obj,
+        _sbx = sandbox;
     /**
     * Reset the background-colour of the row after the mouse leaves it
     * @method onRowMouseOut
@@ -575,7 +580,32 @@ PHEDEX.NestedDataTable.MouseOver = function(sandbox,args) {
     obj.dataTable.subscribe('rowMouseoverEvent',onRowMouseOver);
     obj.dataTable.subscribe('rowMouseoutEvent', onRowMouseOut);
     // return the functions, so they can be overridden if needed without having to redo the event subscription
-    return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
+
+    _construct = function() {
+      return {
+        id: 'mouseover_' + PxU.Sequence(),
+
+        _init: function() {
+          this.selfHandler = function(o) {
+            return function(ev,arr) {
+              var action = arr[0],
+                  value = arr[1];
+              switch (action) {
+                case 'addContextElement': {
+                  value.subscribe('rowMouseoverEvent',onRowMouseOver);
+                  value.subscribe('rowMouseoutEvent', onRowMouseOut);
+                  break;
+                }
+              }
+            }
+          }(this);
+          _sbx.listen(this.id,this.selfHandler);
+        }
+      };
+    };
+    Yla(this,_construct(this),true);
+    this._init();
+    return this; // { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
 PHEDEX.NestedDataTable.Filter = function (sandbox, obj) {
