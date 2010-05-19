@@ -90,6 +90,13 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
                 }
                 break;
               }
+              case 'addContextElement': {
+                var ctxmenuCfg = o.contextMenu.cfg;
+                var temp = ctxmenuCfg.getProperty('trigger'); // Get the trigger property that has the list if associated elements
+                temp.push(value); // Add current nested table to context menu trigger
+                ctxmenuCfg.setProperty('trigger', temp); // Set the trigger property with new value            }
+                break;
+              }
             }
           }
         }(this);
