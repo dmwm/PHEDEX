@@ -64,11 +64,11 @@ PHEDEX.Registry = function(sandbox) {
           throw new Error("widget '"+widget+"' already registered for input type '"+inputType+"'");
         }
         // TODO the 'widget' key is probably redundant, test that hypothesis at some point
-        var w = { widget:widget, short_name:widget, type:inputType, label:label, id:PxU.Sequence() };
+        var k, w = { widget:widget, short_name:widget, type:inputType, label:label, id:PxU.Sequence() };
         if ( widget.match('^phedex-module-(.+)$') ) { w.short_name = RegExp.$1; }
         w.short_name = w.short_name.toLowerCase();
         if (extrakeys) {
-          for (var k in extrakeys) {
+          for (k in extrakeys) {
             w[k] = extrakeys[k];
           }
         }
@@ -84,8 +84,8 @@ PHEDEX.Registry = function(sandbox) {
  * @return {array} array of names of registered input-types
  */
       getInputTypes: function() {
-        var types = [];
-        for (var t in _widgets) {
+        var t, types = [];
+        for (t in _widgets) {
           types.push(t);
         }
         return types;
@@ -98,9 +98,9 @@ PHEDEX.Registry = function(sandbox) {
  */
       getWidgetsByInputType: function(inputType) {
         if (_widgets[inputType]) { 
-          var widgets = [];
-          for (var w in _widgets[inputType]) {
-            for (var l  in _widgets[inputType][w]) {
+          var w, l, widgets = [];
+          for (w in _widgets[inputType]) {
+            for (l  in _widgets[inputType][w]) {
               widgets.push(_widgets[inputType][w][l]);
             }
           }
@@ -124,24 +124,24 @@ PHEDEX.Registry = function(sandbox) {
         this.selfHandler = function(obj) {
           return function(ev,arr) {
             log('selfHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',_me);
-            var action = arr[0];
+            var action = arr[0], value;
             switch (action) {
               case 'add': {
                 obj[action](arr[1],arr[2],arr[3],arr[4]);
                 break;
               }
               case 'getWidgetsByInputType': {
-                var value = obj[action](arr[1]);
+                value = obj[action](arr[1]);
                 _sbx.notify(arr[2],'WidgetsByInputType',arr[1],value);
                 break;
               }
               case 'getInputTypes': {
-                var value = obj[action]();
+                value = obj[action]();
                 _sbx.notify(arr[1],'InputTypes',value);
                 break;
               }
               case 'getTypeOfModule': {
-                var value;
+                value;
                 try { value = _inputTypes[arr[1].toLowerCase()]; } catch (ex) {};
                 if ( value ) {
                   _sbx.notify(arr[2],'TypeOfModule',value);
