@@ -1,21 +1,22 @@
 /**
-* This is the base class for all PhEDEx datatable-related modules. It extends PHEDEX.Module to provide the functionality needed for modules that use a YAHOO.Widget.DataTable.
+* This is the base class for all PhEDEx nested datatable-related modules. It extends PHEDEX.Module to provide the functionality needed for modules that use a YAHOO.Widget.NestedDataTable.
 * @namespace PHEDEX
-* @class PHEDEX.Datatable
+* @class PHEDEX.DataTable
 * @constructor
 * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
 * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
 */
-PHEDEX.DataTable = function(sandbox, string) {
+PHEDEX.DataTable = function (sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
+
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
     * @method _construct
     * @private
     */
-    _construct = function() {
+    _construct = function () {
         return {
             /**
             * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -33,7 +34,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @private
             */
             _extractElement : function(field,src,dst) {
-              var fn, val, key=field, mKey=field;
+              var fn, key=field, mKey=field;
               if ( typeof(field) == 'object' ) {
                 for (key in field) {
                   mKey = field[key];
@@ -75,16 +76,23 @@ PHEDEX.DataTable = function(sandbox, string) {
               this.needProcess = false; //No need to process data further
               return t;
             },
-
-            _getKeyByKeyOrLabel: function(str) {
-              var m = this.meta, cols = m.table.columns, i, label;
+            // This method checks columns of both main and nested datatables to find the key
+            _getKeyByKeyOrLabel: function (str) {
+              var m = this.meta, cols = m.table.columns, i;
               for (i in cols) {
-                if ( cols[i].label == str ) {
+                if (cols[i].label == str) { return cols[i].key; }
+                if (cols[i].key   == str) { return str; }
+              }
+              for (i in cols) {
+                if ( cols[i].label.replace(/ /g,'') == str ) {
                   return cols[i].key;
                 }
-                if ( cols[i].key == str ) {
-                  return str;
-                }
+              }
+
+              cols = m.table.nestedColumns;
+              for (i in cols) {
+                if (cols[i].label == str) { return cols[i].key; }
+                if (cols[i].key   == str) { return str; }
               }
               for (i in cols) {
                 if ( cols[i].label.replace(/ /g,'') == str ) {
@@ -97,92 +105,95 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @method initDerived
             * @private
             */
-            initDerived: function() {
-              var m = this.meta,
+            initDerived: function () {
+                var m = this.meta,
                   t = m.table,
                   columns = t.columns,
                   col, h = {}, i, j, fName, key;
 
-              for (i in m.hide) {
-                h[this._getKeyByKeyOrLabel(m.hide[i])] = 1;
-              }
-              m.hide = h;
-              this.buildTable()
-              this.decorators.push(
+                for (i in m.hide) {
+                    h[this._getKeyByKeyOrLabel(m.hide[i])] = 1;
+                }
+                m.hide = h;
+                this.buildTable()
+                this.decorators.push(
               {
-                    name: 'Filter',
-                    source: 'component-filter',
-                    payload: {
-                        control: {
-                            parent: 'control',
-                            payload: {
-                                disabled: false,
-                                hidden: true
-                            },
-                            el: 'content'
-                        }
-                    },
-                    target: 'filter'
-                });
+                  name: 'Filter',
+                  source: 'component-filter',
+                  payload: {
+                      control: {
+                          parent: 'control',
+                          payload: {
+                              disabled: false,
+                              hidden: true
+                          },
+                          el: 'content'
+                      }
+                  },
+                  target: 'filter'
+              });
 
-              m.parser = {};
-              for (i in columns) {
-                col = columns[i];
-                if (col.parser) {
-                  if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
-                  else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
-                }
-              }
-
-//            Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
-//            obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
-              for (i in columns) {
-                key = this._getKeyByKeyOrLabel(columns[i].key);
-                if ( !m._filter.fields[key] ) {
-                  fName = this.friendlyName(columns[i].label);
-                  m._filter.fields[key] = { friendlyName:fName };
-                }
-              }
-
-              for (i in m.filter) {
-                h={};
-                for (key in m.filter[i].fields) {
-                  h[ this._getKeyByKeyOrLabel(key) ] = m.filter[i].fields[key];
-                }
-                m.filter[i].fields = h;
-              }
-              if ( m.sort ) {
-                if (m.sort.field && !m.sort.dir) { m.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
-              }
-
-              var moduleHandler = function(o) {
-                return function(ev,arr) {
-                  var action = arr[0];
-                  switch ( action ) {
-                    case 'gotData': {
-                      o.postGotData();
-                      break;
+                m.parser = {};
+                for (i in columns) {
+                    col = columns[i];
+                    if (col.parser) {
+                        if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
+                        else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
                     }
-                  }
                 }
-              }(this);
-              _sbx.listen(this.id,moduleHandler);
-              _sbx.notify(this.id,'initDerived');
+
+                m._filter = this.createFilterMeta();
+                // Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
+                // obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
+                for (i in columns) {
+                    key = this._getKeyByKeyOrLabel(columns[i].key);
+                    if (!m._filter.fields[key]) {
+                        fName = this.friendlyName(columns[i].label);
+                        m._filter.fields[key] = { friendlyName: fName };
+                    }
+                }
+
+                for (i in m.filter) {
+                    h = {};
+                    for (key in m.filter[i].fields) {
+                        h[this._getKeyByKeyOrLabel(key)] = m.filter[i].fields[key];
+                    }
+                    m.filter[i].fields = h;
+                }
+                if (m.sort) {
+                    if (m.sort.field && !m.sort.dir) { m.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+                }
+
+                var moduleHandler = function (o) {
+                    return function (ev, arr) {
+                        var action = arr[0];
+                        switch (action) {
+                            case 'gotData':
+                                {
+                                    o.postGotData();
+                                    break;
+                                }
+                        }
+                    }
+                } (this);
+                _sbx.listen(this.id, moduleHandler);
+                _sbx.notify(this.id, 'initDerived');
             },
 
-            postGotData: function(step,node) {
-              this.sortNeeded = true;
-              var i, steps = ['doFilter', 'doSort', 'hideFields'];
-              for (i in steps) { _sbx.notify(this.id,steps[i]); }
+            postGotData: function (step, node) {
+                this.sortNeeded = true;
+                var i, steps = ['doFilter', 'doSort', 'hideFields'];
+                for (i in steps) { _sbx.notify(this.id, steps[i]); }
             },
+
             /**
             * Create a YAHOO.util.DataSource from the data-structure passed as argument, and display it on-screen.
             * @method fillDataSource
             * @param moduledata {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>this.meta.table.columns</strong> for this table.
             */
-            fillDataSource: function(moduledata) {
+            fillDataSource: function (moduledata) {
                 if (this.meta.table.schema) {
-                    this.fillDataSourceWithSchema( moduledata ); // Fill datasource directly if schema is available
+                    this.fillDataSourceWithSchema(moduledata); // Fill datasource directly if schema is available
                     return;
                 }
                 if (this.needProcess) {
@@ -205,18 +216,31 @@ PHEDEX.DataTable = function(sandbox, string) {
             * hide all columns which have been declared to be hidden by default. Needed on initial rendering, on update, or after filtering. Uses <strong>this.options.hide</strong> to determine what to hide.
             * @method hideFields
             */
-            hideFields: function() {
-              var key, col, w, i, c, h=[], m=this.meta, cols=m.table.columns;
+            hideFields: function () {
+              var key, k, col, i, w, minWidth = this.options.minwidth, m = this.meta;
               if (!m.hide) { return; }
 
+              if ( ! m.table.nestedColumns.length ) {
+                m.hide['__NESTED__'] = 1;
+              }
               for (key in m.hide) {
-                var k = this._getKeyByKeyOrLabel(key);
+                k = this._getKeyByKeyOrLabel(key);
                 col = this.dataTable.getColumn(this._getKeyByKeyOrLabel(key));
-                if (col) { this.dataTable.hideColumn(col); }
-                _sbx.notify(this.id, 'hideColumn', { text: col.label, value: col.label });
+                if (col) {
+                  this.dataTable.hideColumn(col);
+                  _sbx.notify(this.id, 'hideColumn', { text: col.label, value: col.label });
+                } else {
+                  for (i in this.nestedtables) {
+                    col = this.nestedtables[i].getColumn(this._getKeyByKeyOrLabel(key));
+                    if (col) {
+                      this.nestedtables[i].hideColumn(col);
+                      _sbx.notify(this.id, 'hideColumn', { text: col.label, value: col.label });
+                    }
+                  }
+                }
               }
               w = this.dataTable.getTableEl().offsetWidth;
-              if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
+              if (minWidth && w < minWidth) { w = minWidth; }
               this.el.style.width = w + 'px';
             },
 
@@ -245,11 +269,23 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @private
             * @param arg {string} The name of a column.
             */
-            menuSelectItem: function(args) {
-              for (var i in args) {
-                delete this.meta.hide[args[i]];
-                var key = this._getKeyByKeyOrLabel(args[i]);
-                this.dataTable.showColumn(this.dataTable.getColumn(key));
+            menuSelectItem: function (args) {
+              var m=this.meta, l=m.table.nestedColumns.length, i, key,
+                  dt=this.dataTable, col, j;
+              for (i in args) {
+                delete m.hide[args[i]];
+                key = this._getKeyByKeyOrLabel(args[i]);
+                delete m.hide[key];
+                if ( l || key != '__NESTED__' ) {
+                  if ( col = dt.getColumn(key) ) {
+                    dt.showColumn(col);
+                  } else {
+                    for (j in this.nestedtables) {
+                      col = this.nestedtables[j].getColumn(key);
+                      this.nestedtables[j].showColumn(col);
+                    }
+                  }
+                }
               }
               _sbx.notify(this.id, 'updateHistory');
             },
@@ -259,7 +295,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @method resizePanel
             * @private
             */
-            resizePanel: function() {
+            resizePanel: function () {
                 var table = this.dataTable,
                 old_width = table.getContainerEl().clientWidth,
                 offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
@@ -270,25 +306,41 @@ PHEDEX.DataTable = function(sandbox, string) {
                 }
             },
 
-            doSort: function() {
+            doSort: function () {
                 var s = this.meta.sort;
                 if (s.field) {
                     if (s.sorted_field == s.field &&
-                        s.sorted_dir   == s.dir &&
+                        s.sorted_dir == s.dir &&
                        !this.sortNeeded) { return; } // break the chain!
                     s.sorted_field = s.field;
-                    s.sorted_dir   = s.dir;
+                    s.sorted_dir = s.dir;
                     this.sortNeeded = false;
                     var column = this.dataTable.getColumn(this._getKeyByKeyOrLabel(s.field));
                     this.dataTable.sortColumn(column, s.dir);
                 }
             },
 
-            decoratorsConstructed: function() {
-              if ( !this.data ) { return; }
-              this.postGotData(); // TODO This is a bit of a hammer, do I need to do this? Maybe! on filter-reset, must re-establish the sort field
-//               _sbx.notify(this.id,'doSort');
-//               _sbx.notify(this.id,'hideFields');
+            decoratorsConstructed: function () {
+                if (!this.data) { return; }
+                this.postGotData(); // TODO This is a bit of a hammer, do I need to do this? Maybe! on filter-reset, must re-establish the sort field
+                // _sbx.notify(this.id,'doSort');
+                // _sbx.notify(this.id,'hideFields');
+            },
+
+            /**
+            * Used to process the request to expand the row and show the nested datatable.
+            * @method processNestedrequest
+            * @private
+            */
+            processNestedrequest: function (record) {
+                try {
+                    var nesteddata = record.getData('nesteddata');
+                    this.nestedDataSource = new YAHOO.util.DataSource(nesteddata);
+                    return nesteddata;
+                }
+                catch (ex) {
+                    log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
+                }
             },
 
             /**
@@ -301,51 +353,104 @@ PHEDEX.DataTable = function(sandbox, string) {
             * @param map {object} (optional) a key-value map used map column-names returned by the data-service to more friendly names for display on-screen. The key is the on-screen name (i.e. matches a <strong>key</strong> in the <strong>columns</strong> object), the value is the name of the field returned by the data-service. Order of entries in the map is irrelevant.
             * @param dsschema {YAHOO.util.DataSource.responseSchema} (optional) a responseSchema to describe how to parse the data.
             */
-            buildTable: function() {
-                this.needProcess = true;            //Process data by default
+            buildTable: function () {
+                this.needProcess = true; //Process data by default
                 var t = this.meta.table,
                     i = t.columns.length,
                     cDef;
-                if ( !t.map ) { t.map = {}; }
-                while (i > 0) {
+                if (!t.map) { t.map = {}; }
+                while (i > 0) { //This is for main columns
                     i--;
                     var cDef = t.columns[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
-                    if ( !cDef.label ) { cDef.label = cDef.key; }
-                    if ( cDef.key.match('].') ) {
-                      cDef.buildPath = true;
+                    if (!cDef.label) { cDef.label = cDef.key; }
+                    if (cDef.key.match('].')) {
+                        cDef.buildPath = true;
                     }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
-                    if (!cDef.sortable  ) { cDef.sortable   = true; }
+                    if (!cDef.sortable) { cDef.sortable = true; }
+                    if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+                }
+                if ( !t.nestedColumns ) {
+                  t.nestedColumns = [];
+                }
+                i = t.nestedColumns.length;
+                while (i > 0) { //This is for inner nested columns
+                    i--;
+                    var cDef = t.nestedColumns[i];
+                    if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
+                    if (!cDef.label) { cDef.label = cDef.key; }
+                    if (cDef.key.match('].')) {
+                        cDef.buildPath = true;
+                    }
+                    if (!cDef.resizeable) { cDef.resizeable = true; }
+                    if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
                 }
                 this.dataSource = new YAHOO.util.DataSource();
-                this.dataTable = new YAHOO.widget.DataTable(this.dom.content, t.columns, this.dataSource, { draggableColumns: true, initialLoad: false });
+                this.nestedDataSource = new YAHOO.util.DataSource();
+                try {
+                    this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.content, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
+                                    {
+                                        initialLoad: false,
+                                        generateNestedRequest: this.processNestedrequest
+                                    });
+
+                    this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
+                        var dt = oArgs.dt,
+                            oCallback = {
+                            success: dt.onDataReturnInitializeTable,
+                            failure: dt.onDataReturnInitializeTable,
+                            scope: dt
+                        }, ctxId;
+                        this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
+                        if ( !dt ) { return; }
+                        // This is to maintain the list of created nested tables that would be used in context menu
+                        if ( o.nestedtables ) {
+                          o.nestedtables.push(dt);
+                        } else {
+                          o.nestedtables = [dt];
+                        }
+                        o.hideFields();
+                        try {
+                          _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
+                        }
+                        catch (excm) { }
+                        try {
+                          _sbx.notify(o.ctl.MouseOver.id,'addContextElement',dt);
+                        }
+                        catch (excm) { }
+                    }, this);
+                }
+                catch (ex) {
+                    log('Error in creating nested datatable.. ' + err(ex), 'error', _me);
+                }
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
 
-                this.dataTable.subscribe('columnSortEvent', function(obj) {
-                    return function(ev) {
+                this.dataTable.subscribe('columnSortEvent', function (obj) {
+                    return function (ev) {
                         var column = obj.dataTable.getColumn(ev.column);
                         obj.meta.sort.field = column.key;
                         obj.meta.sort.dir = ev.dir;
-                        _sbx.notify(obj.id,'updateHistory');
+                        _sbx.notify(obj.id, 'updateHistory');
                     }
-                }(this));
+                } (this));
 
-// TODO This can get shoved into the context-menu someday, it's the only place that needs it
-                this.dataTable.subscribe('columnHideEvent', function(obj) {
-                    return function(ev) {
+                // TODO This can get shoved into the context-menu someday, it's the only place that needs it
+                this.dataTable.subscribe('columnHideEvent', function (obj) {
+                    return function (ev) {
                         var column = obj.dataTable.getColumn(ev.column);
+                        if ( column.key == '__NESTED__' ) { return; }
                         log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
                         _sbx.notify(obj.id, 'hideColumn', { text: column.label, value: column.label });
                     }
                 } (this));
 
-//              Only needed for resizeable windows, I think?
-                this.dataTable.subscribe('renderEvent', function(obj) {
-                    return function() {
-//                         _sbx.notify(obj.id,'doSort');
+                // Only needed for resizeable windows, I think?
+                this.dataTable.subscribe('renderEvent', function (obj) {
+                    return function () {
+                        // _sbx.notify(obj.id,'doSort');
                         obj.resizePanel();
                     }
                 } (this));
@@ -353,24 +458,24 @@ PHEDEX.DataTable = function(sandbox, string) {
                 if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
                 this.el.style.width = w + 'px';
             },
-            
+
             /** return a boolean indicating if the module is in a fit state to be bookmarked
             * @method isStateValid
             * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
             */
-            isStateValid: function() {
-                if ( this.obj.data ) { return true; } // TODO is this good enough...? Use _needsParse...?
+            isStateValid: function () {
+                if (this.obj.data) { return true; } // TODO is this good enough...? Use _needsParse...?
                 return false;
             },
 
-            dirMap: function(dir) {
-                var i, map = { 'yui-dt-asc':'asc', 'yui-dt-desc':'desc' };
-                if ( map[dir] ) { return map[dir]; }
-                for ( i in map ) {
-                    if ( map[i] == dir ) { return i; }
+            dirMap: function (dir) {
+                var i, map = { 'yui-dt-asc': 'asc', 'yui-dt-desc': 'desc' };
+                if (map[dir]) { return map[dir]; }
+                for (i in map) {
+                    if (map[i] == dir) { return i; }
                 }
             }
-       };
+        };
     };
     Yla(this, _construct(), true);
     return this;
@@ -396,7 +501,10 @@ YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oCo
 * @param oData {data-value} number of bytes
 */
 YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, oData) {
-  elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+    if(oData)
+    {
+        elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+    }
 };
 
 /**
@@ -406,70 +514,114 @@ YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn
 * @param obj {object} reference to the parent PHEDEX.DataTable object that this context-menu applies to.
 * @param args {object} reference to an object that specifies details of how the control should operate.
 */
-PHEDEX.DataTable.ContextMenu = function(obj,args) {
-  var p = args.payload;
-  if ( !p.config ) { p.config={}; }
-  if ( !p.config.trigger ) { p.config.trigger = obj.dataTable.getTbodyEl(); }
-  if ( !p.typeNames ) { p.typeNames=[]; }
-  p.typeNames.push('datatable');
-  var fn = function(opts, el) {
-    log('hideField: ' + el.col.label, 'info', 'component-contextmenu');
-    el.obj.meta.hide[el.col.label] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
-    el.obj.dataTable.hideColumn(el.col);
-  }
-  PHEDEX.Component.ContextMenu.Add('datatable','Hide This Field',fn);
-
-  return {
-      getExtraContextTypes: function() {
-        var cArgs = p.obj.meta.ctxArgs, cUniq = {}, i;
-        for (i in cArgs) {
-          cUniq[cArgs[i]] = 1;
-        }
-        return cUniq;
-      },
-
-//  Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
-    onContextMenuBeforeShow: function(target, typeNames) {
-      var elCol, label, ctx = p.obj.meta.ctxArgs;
-      if ( !ctx ) { return typeNames; }
-      elCol = obj.dataTable.getColumn(target),
-      label = elCol.label;
-      if ( !ctx[label] ) { return typeNames; }
-      typeNames.unshift(ctx[label]);
-      return typeNames;
-    },
-
-    /**
-    * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, driven by the <strong>args.payload.typeMap</strong> structure which defines the fields and their mapping. The second argument contains pointers to the datatable, the row, column, and record that were selected. This should probably not be used by clients because it represents rather deep and personal knowledge about the object.
-    * @method onContextMenuClick
-    * @private
-    */
-    onContextMenuClick: function(p_sType, p_aArgs, obj) {
-      log('ContextMenuClick for ' + obj.me, 'info', 'datatable');
-      var menuitem = p_aArgs[1], tgt, opts={}, elCol, elRow, oRecord, ctx, key, label;
-      if (menuitem) {
-        //Extract which <tr> triggered the context menu
-        tgt   = this.contextEventTarget;
-        elCol = obj.dataTable.getColumn(tgt);
-        elRow = obj.dataTable.getTrEl(tgt);
-        if (elRow) {
-          opts = {};
-          oRecord = obj.dataTable.getRecord(elRow);
-          //Map types to column names in order to prepare our options
-          ctx = p.obj.meta.ctxArgs;
-          if ( ctx ) {
-            for (label in ctx) {
-              if ( ctx[label] != ctx[elCol.label] || label == elCol.label ) {
-                key = p.obj._getKeyByKeyOrLabel(label);
-                opts[ctx[label]] = oRecord.getData(key);
-              }
-            }
-          }
-          menuitem.value.fn(opts, { obj:obj, row: elRow, col: elCol, record: oRecord });
-        }
-      }
+PHEDEX.DataTable.ContextMenu = function (obj, args) {
+    var p = args.payload;
+    if (!p.config) { p.config = {}; }
+    if (!p.config.trigger) {
+        var temp = [];
+        temp.push(obj.dataTable.getTbodyEl());
+        p.config.trigger = temp;
     }
-  };
+    if (!p.typeNames) { p.typeNames = []; }
+    p.typeNames.push('datatable');
+    var fn = function (opts, el) {
+        log('hideField: ' + el.col.label, 'info', 'component-contextmenu');
+        el.obj.meta.hide[el.col.label] = 1; // have to pick up 'obj' this way, not from current outer scope. Don't know why!
+        el.obj.dataTable.hideColumn(el.col);
+    }
+    PHEDEX.Component.ContextMenu.Add('datatable', 'Hide This Field', fn);
+
+    // This function gets the column object from main or nested datatable and also indicates if the column is in main or nested datatable.
+    var _getDTColumn = function (target) {
+        var columndetails = { nested: false };
+        var elCol = obj.dataTable.getColumn(target), indx;
+        if (!elCol) {
+            for (indx = 0; indx < obj.nestedtables.length; indx++) {
+                elCol = obj.nestedtables[indx].getColumn(target);
+                if (elCol) {
+                    columndetails.nested = true;
+                    break; // Found the column. So, go out.
+                }
+            }
+        }
+        columndetails.elCol = elCol;
+        return columndetails;
+    }
+
+    return {
+        getExtraContextTypes: function () {
+            var cArgs = p.obj.meta.ctxArgs, cUniq = {}, i;
+            for (i in cArgs) {
+                cUniq[cArgs[i]] = 1;
+            }
+            return cUniq;
+        },
+
+        // Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
+        onContextMenuBeforeShow: function (target, typeNames) {
+            var columndetails, label, ctx = p.obj.meta.ctxArgs, indx;
+            if (!ctx) { return typeNames; }
+            columndetails = _getDTColumn(target); // Get the column object from the datatable (main or nested)
+            label = columndetails.elCol.label;
+            if (!ctx[label]) {
+                // Check if the column is in nested table. If so, don't show 'Hide this field' menu item
+                if (columndetails.nested) {
+                    return [];
+                }
+                return typeNames;
+            }
+            if (columndetails.nested) {
+                // Check if the column is in nested table. If so, don't show 'Hide this field' menu item along with other menu items
+                var temp = [];
+                temp.unshift(ctx[label]);
+                return temp;
+            }
+            typeNames.unshift(ctx[label]);
+            return typeNames;
+        },
+
+        /**
+        * click-handler for the context menu. Deduces the column, the row, and data-record that was selected, then calls the specific menu-handler associated with the item that was selected. The handler is passed two parameters: <strong>opts</strong> is a key:value map of the table-values in the selected row, driven by the <strong>args.payload.typeMap</strong> structure which defines the fields and their mapping. The second argument contains pointers to the datatable, the row, column, and record that were selected. This should probably not be used by clients because it represents rather deep and personal knowledge about the object.
+        * @method onContextMenuClick
+        * @private
+        */
+        onContextMenuClick: function (p_sType, p_aArgs, obj) {
+            log('ContextMenuClick for ' + obj.me, 'info', 'datatable');
+            var columndetails, menuitem = p_aArgs[1], tgt, opts = {}, elCol, elRow, oRecord, ctx, key, label;
+            if (menuitem) {
+                //Extract which <tr> triggered the context menu
+                tgt = this.contextEventTarget;
+                columndetails = _getDTColumn(tgt);
+                elCol = columndetails.elCol;
+                elRow = obj.dataTable.getTrEl(tgt);
+                if (elRow) {
+                    opts = {};
+                    oRecord = obj.dataTable.getRecord(elRow);
+                    if (!oRecord) {
+                        // Check if the record is in nested table (if user did right-click in nested table)
+                        var indx;
+                        for (indx = 0; indx < obj.nestedtables.length; indx++) {
+                            oRecord = obj.nestedtables[indx].getRecord(elRow);
+                            if (oRecord) {
+                                break;
+                            }
+                        }
+                    }
+                    //Map types to column names in order to prepare our options
+                    ctx = p.obj.meta.ctxArgs;
+                    if (ctx) {
+                        for (label in ctx) {
+                            if (ctx[label] != ctx[elCol.label] || label == elCol.label) {
+                                key = p.obj._getKeyByKeyOrLabel(label);
+                                opts[ctx[label]] = oRecord.getData(key);
+                            }
+                        }
+                    }
+                    menuitem.value.fn(opts, { obj: obj, row: elRow, col: elCol, record: oRecord });
+                }
+            }
+        }
+    };
 }
 
 /** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
@@ -479,7 +631,8 @@ PHEDEX.DataTable.ContextMenu = function(obj,args) {
 * @param args {object} reference to an object that specifies details of how the control should operate. Only <strong>args.payload.obj.dataTable</strong> is used, to subscribe to the <strong>onRowMouseOver</strong> and >strong>onRowMouseOut</strong> events.
 */
 PHEDEX.DataTable.MouseOver = function(sandbox,args) {
-    var obj = args.payload.obj;
+    var obj = args.payload.obj,
+        _sbx = sandbox;
     /**
     * Reset the background-colour of the row after the mouse leaves it
     * @method onRowMouseOut
@@ -504,20 +657,45 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     obj.dataTable.subscribe('rowMouseoverEvent',onRowMouseOver);
     obj.dataTable.subscribe('rowMouseoutEvent', onRowMouseOut);
     // return the functions, so they can be overridden if needed without having to redo the event subscription
-    return { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
+
+    _construct = function() {
+      return {
+        id: 'mouseover_' + PxU.Sequence(),
+
+        _init: function() {
+          this.selfHandler = function(o) {
+            return function(ev,arr) {
+              var action = arr[0],
+                  value = arr[1];
+              switch (action) {
+                case 'addContextElement': {
+                  value.subscribe('rowMouseoverEvent',onRowMouseOver);
+                  value.subscribe('rowMouseoutEvent', onRowMouseOut);
+                  break;
+                }
+              }
+            }
+          }(this);
+          _sbx.listen(this.id,this.selfHandler);
+        }
+      };
+    };
+    Yla(this,_construct(this),true);
+    this._init();
+    return this; // { onRowMouseOut:onRowMouseOut, onRowMouseOver:onRowMouseOver};
 };
 
-PHEDEX.DataTable.Filter = function(sandbox, obj) {
+PHEDEX.DataTable.Filter = function (sandbox, obj) {
     // Function to convert the filter column field into walk path to find its value
-    var _buildPath = function(needle) {
+    var _buildPath = function (needle) {
         var path = null, keys = [], i = 0;
         if (needle) {
             // Strip the ["string keys"] and [1] array indexes
             needle = needle.
                         replace(/\[(['"])(.*?)\1\]/g,
-                        function(x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
+                        function (x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
                         replace(/\[(\d+)\]/g,
-                        function(x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
+                        function (x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
                         replace(/^\./, ''); // remove leading dot
 
             // If the cleaned needle contains invalid characters, the
@@ -537,7 +715,7 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
     };
 
     // Function to walk a path and return the value
-    var _walkPath = function(path, origin) {
+    var _walkPath = function (path, origin) {
         var v = origin, i = 0, len = path.length;
         for (; i < len && v; ++i) {
             v = v[path[i]];
@@ -545,45 +723,35 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
         return v;
     };
 
-    _construct = function() {
-      return {
-        /**
-        * Resets the filter in the module.
-        * @method resetFilter
-        * @param arg {Object} The array of column keys with user entered filter values.
-        * @private
-        */
-        resetFilter: function(args) {
-          obj.sortNeeded = true;
-          obj.fillDataSource(obj.data);
-        },
+    _construct = function () {
+        return {
+            /**
+            * Resets the filter in the module.
+            * @method resetFilter
+            * @param arg {Object} The array of column keys with user entered filter values.
+            * @private
+            */
+            resetFilter: function (args) {
+                obj.sortNeeded = true;
+                obj.fillDataSource(obj.data);
+            },
 
-        /**
-        * Filters the module based on user input.
-        * @method applyFilter
-        * @param arg {Object} The array of column keys with user entered filter values.
-          * @private
-          */
-          applyFilter: function(args) {
-            // Parse the cached data to filter it and form new data that feeds the datasource
-            var activeArgs={}, keep, fValue, kValue, status, a, pathcache = {}, table = [], field, i, j, filterresult, any = false;
-            if (!args) { args = this.args; }
-            this.count=0;
-            for (j in args) { // quick explicit check for valid arguments, nothing to do if no filter is set
-              if (typeof(args[j].values) == 'undefined') { continue; }
-              any = true;
-              activeArgs[j] = args[j];
-            }
-            if ( !any ) { return; }
-
-            for (i in obj.data) {
-                keep = true;
-                for (j in activeArgs) {
-                    a = activeArgs[j];
+            /**
+            * This applies filter on a single row data and says if there is a match or not.
+            * @method filterData
+            * @param rowdata {Object} is the row data.
+            * @param args {Object} is the filter columns definitions.
+            * @param nested {Boolean} indicates if the current analyzed row is a nested row or not.
+            * @param pathcache {Object} is the array of column fields which are converted in to walkpath.
+            * @private
+            */
+            filterData: function (rowdata, args, nested, pathcache) {
+                var j, a, field, status, fValue, kValue, keep = true;
+                for (j in args) {
+                    a = args[j];
                     field = this.meta._filter.fields[j];
                     fValue = a.values;
-                    var key = obj._getKeyByKeyOrLabel(field.original);
-                    kValue = obj.data[i][obj._getKeyByKeyOrLabel(field.original)];
+                    kValue = rowdata[obj._getKeyByKeyOrLabel(field.original)];
                     // If buildPath is true, then the column key has to be resolved to build complete path to get the value
                     if (field.buildPath) {
                         if (!pathcache[j]) {
@@ -594,22 +762,141 @@ PHEDEX.DataTable.Filter = function(sandbox, obj) {
                     if (a.preprocess) { kValue = a.preprocess(kValue); }
                     status = this.Apply[field.type](fValue, kValue);
                     if (a.negate) { status = !status; }
-                    if (!status) { // Keep the element if the match succeeded!
-                        this.count++;
+                    if (!status) { // Don't add this element to filter result
                         keep = false;
+                        break;
                     }
                 }
-                if (keep) { table.push(obj.data[i]); }
+                return keep;
+            },
+
+            /**
+            * This gets the expanded rows currently in the table.
+            * @method getExpandedRows
+            * @private
+            */
+            getExpandedRows: function () {
+                var recsetNested = obj.dataTable.getRecordSet(),
+                    nLength = recsetNested.getLength(),
+                    indx, objNested, rowNested, nUniqueID, arrExpanded = {};
+                for (indx = 0; indx < nLength; indx++) {
+                    rowNested = recsetNested.getRecord(indx);
+                    objNested = rowNested.getData('__NESTED__');
+                    if (objNested && objNested.expanded) {
+                        nUniqueID = rowNested.getData('uniqueid');
+                        arrExpanded[nUniqueID] = true;
+                    }
+                }
+                return arrExpanded;
+            },
+
+            /**
+            * This is to fire the cell click event on first column to show the nested tables.
+            * @method showNestedTables
+            * @private
+            */
+            showNestedTables: function (arrExpanded) {
+                var recsetNested = obj.dataTable.getRecordSet(),
+                    nLength = recsetNested.getLength(),
+                    indx, rowNested, nUniqueID;
+                for (indx = 0; indx < nLength; indx++) {
+                    rowNested = recsetNested.getRecord(indx);
+                    nUniqueID = rowNested.getData('uniqueid');
+                    if (arrExpanded[nUniqueID]) {
+                        rowNested = obj.dataTable.getRow(indx);
+                        // Now fire the event for each row in the filtered datatable to show nested tables
+                        obj.dataTable.fireEvent("cellClickEvent", { target: rowNested.cells[0], event: obj.dataTable.__yui_events.cellClickEvent });
+                    }
+                }
+            },
+
+            /**
+            * Filters the module based on user input.
+            * @method applyFilter
+            * @param arg {Object} The array of column keys with user entered filter values.
+            * @private
+            */
+            applyFilter: function (args) {
+                // Parse the cached data to filter it and form new data that feeds the datasource
+                var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0, arrExpanded,
+                pathcache = {}, table = [], arrNData = [], i, filterresult, bAnyMain = false, bAnyNested = false;
+                if (!args) { args = this.args; }
+                this.count = 0;
+                for (j in args) { // quick explicit check for valid arguments, nothing to do if no filter is set
+                    if (typeof (args[j].values) == 'undefined') { continue; }
+                    field = this.meta._filter.fields[j];
+                    if (field.nested) {
+                        activeNestedArgs[j] = args[j];
+                        bAnyNested = true;
+                    }
+                    else {
+                        activeArgs[j] = args[j];
+                        bAnyMain = true;
+                    }
+                }
+                if (!bAnyMain && !bAnyNested) { return; }
+
+                for (i in obj.data) {
+                    keep = true; // This variable says if this row (including nested table rows) has a match or not?
+                    // Check if main row has any match
+                    if (bAnyMain) {
+                        keep = this.filterData(obj.data[i], activeArgs, false, pathcache);
+                    }
+                    // Check if nested table rows have any match only if there is a match in main row
+                    if (bAnyNested && keep) {
+                        var indx = 0, nkeep, arrNested = obj.data[i]['nesteddata'], nNestedLen = arrNested.length;
+                        arrNData = [];
+                        keep = false; // This is made false now and becomes true below when the nested table has match
+                        for (indx = 0; indx < nNestedLen; indx++) {
+                            nkeep = false;
+                            nkeep = this.filterData(arrNested[indx], activeNestedArgs, true, pathcache);
+                            if (nkeep) //Add this particular nested row to result
+                            {
+                                keep = true; //Add this nested data to result parent table
+                                arrNData.push(arrNested[indx]);
+                            }
+                        }
+                    }
+                    if (keep) {
+                        // Copy of the object is created because there might be changes in nested data.
+                        // If the row object is not cloned and when new arrNData[] is assigned, 
+                        // then 'nesteddata' values get overridden in cache which shouldn't happen.
+                        var i, objClone = {};
+//new cloneObject(obj.data[i]);
+                        for (i in obj) {
+                          objClone[i] = obj[i];
+                        }
+                        table.push(objClone);
+                        if (arrNData.length > 0) {
+                            table[tableindx]['nesteddata'] = arrNData; // Assign the filter nested table rows
+                        }
+                        tableindx++;
+                    }
+                }
+                obj.sortNeeded = true;
+                arrExpanded = this.getExpandedRows(); // Get the current list of rows that are expanded
+                obj.fillDataSource(table);
+                obj.nestedtables = []; // Clear the previously added nested table's DOM object
+                this.showNestedTables(arrExpanded); // Show nested tables (if were expanded) also after applying filter
+                this.updateGUIElements(this.count);
+                return;
             }
-            obj.sortNeeded = true;
-            obj.fillDataSource(table);
-            this.updateGUIElements(this.count);
-            return;
-          },
+        };
     };
-  };
-  Yla(this,_construct(this),true);
-  return this;
+    Yla(this, _construct(this), true);
+    return this;
 };
 
-log('loaded...','info','datatable');
+log('loaded...', 'info', 'nesteddatatable');
+
+/**
+* This creates a clone of the object where a fresh copy of an object is required.
+* @method cloneObject
+* @param obj {Object} is the object that has to be cloned.
+*/
+// function cloneObject(obj) {
+//     var i;
+//     for (i in obj) {
+//         this[i] = obj[i];
+//     }
+// }
