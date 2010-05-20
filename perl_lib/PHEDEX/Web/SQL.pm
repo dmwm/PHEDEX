@@ -797,9 +797,7 @@ sub getTransferQueueHistory
         t_adm_node n2
     where
         from_node = n1.id and
-        to_node = n2.id and
-        not n1.name like 'X%' and
-        not n2.name like 'X%' };
+        to_node = n2.id };
 
     my $where_stmt = "";
     my %param;
@@ -2273,14 +2271,10 @@ sub getDeletions
         ID => 'b.id',
         REQUEST => 'del.request',
         SE => 'n.se_name',
-        DATASET => 'd.name'));
+        DATASET => 'd.name',
+        BLOCK => 'b.name'));
 
     $sql .= qq { and ($filters) } if ($filters);
-
-    if (exists $h{BLOCK})
-    {
-        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
-    }
 
     if (exists $h{REQUEST_SINCE})
     {
@@ -2341,14 +2335,10 @@ sub getRoutingInfo
 
     build_multi_filters($core, \$filters, \%p, \%h, (
         SOURCE => 'ns.name',
-        DESTINATION => 'nd.name'));
+        DESTINATION => 'nd.name',
+        BLOCK => 'b.name'));
 
     $sql .= qq { and ($filters) } if ($filters);
-
-    if (exists $h{BLOCK})
-    {
-        $sql .= " and ( " . filter_and_like($core, undef, \%p, 'b.name', $h{BLOCK}) . " ) ";
-    }
 
     $sql .= qq {
         order by s.time_request
