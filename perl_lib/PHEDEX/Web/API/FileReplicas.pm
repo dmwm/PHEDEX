@@ -20,6 +20,7 @@ Serves the file replicas known to PhEDEx.
 =head2 Options
 
  block          block name, with '*' wildcards, can be multiple (*).  required when no lfn is specified.
+ dataset        dataset name
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
  update_since   unix timestamp, only return replicas updated since this
