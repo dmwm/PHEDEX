@@ -10,7 +10,7 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
-    Yla(this, new PHEDEX.NestedDataTable(sandbox, string));
+    Yla(this, new PHEDEX.DataTable(sandbox, string));
 
     var _sbx = sandbox, _nodename = '', _groupname = '', opts = { status: null, kind: null, since: 720 };
     log('Module: creating a genuine "' + string + '"', 'info', string);
@@ -70,11 +70,11 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                                    { key:'custodial',   label:'Custodial' },
                                    { key:'static',      label:'Static' },
                                    { key:'move',        label:'Move' }],
-                    nestedColumns: [{ key:'id',         label:'Node ID', className: 'align-right',parser:'number' },
+                    nestedColumns:[{ key:'id',          label:'Node ID', className: 'align-right',parser:'number' },
                                    { key:'name',        label:'Node' },
                                    { key:'se',          label:'SE'}]
                 },
-                hide: ['Request ID'],
+                hide: ['Request ID', 'Node ID', 'SE'],
                 sort: { field: 'Request ID' },
                 filter: {
                     'PendingRequestsNested attributes': {
