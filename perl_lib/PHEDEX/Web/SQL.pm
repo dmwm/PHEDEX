@@ -164,6 +164,7 @@ sub getFileReplicas
            br.is_custodial,
            g.name user_group
     from t_dps_block b
+    join t_dps_dataset d on b.dataset = d.id
     join t_dps_file f on f.inblock = b.id
     join t_adm_node ns on ns.id = f.node
     join t_dps_block_replica br on br.block = b.id
@@ -220,7 +221,8 @@ sub getFileReplicas
 						      SE    => 'n.se_name',
 						      BLOCK => 'b.name',
 						      GROUP => 'g.name',
-                                                      LFN => 'f.logical_name'));
+                                                      LFN => 'f.logical_name',
+                                                      DATASET => 'd.name'));
     $sql .= " and ($filters)" if $filters;
 
     if (exists $h{CREATE_SINCE}) {
