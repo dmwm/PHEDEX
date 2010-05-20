@@ -396,6 +396,12 @@ PHEDEX.DataTable = function (sandbox, string) {
                                         generateNestedRequest: this.processNestedrequest
                                     });
 
+                    this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
+                          return function(ev) {
+                            delete obj.nestedtables[ev.dt.getId()];
+                          }
+                        }(this) );
+
                     this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
                         var dt = oArgs.dt,
                             oCallback = {
@@ -406,11 +412,10 @@ PHEDEX.DataTable = function (sandbox, string) {
                         this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
                         if ( !dt ) { return; }
                         // This is to maintain the list of created nested tables that would be used in context menu
-                        if ( o.nestedtables ) {
-                          o.nestedtables.push(dt);
-                        } else {
-                          o.nestedtables = [dt];
+                        if ( !o.nestedtables ) {
+                          o.nestedtables = {};
                         }
+                        o.nestedtables[dt.getId()] = dt;
                         o.hideFields();
                         try {
                           _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
