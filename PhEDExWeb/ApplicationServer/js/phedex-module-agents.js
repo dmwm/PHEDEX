@@ -73,7 +73,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
       },
 
       meta: {
-//         ctxArgs: { agent:'Name' },
+        ctxArgs: { Node:'node' },
         table: {
           columns: [
             {key:'node',                 label:'Node'},
