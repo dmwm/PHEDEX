@@ -219,11 +219,11 @@ PHEDEX.DataTable = function (sandbox, string) {
             hideFields: function () {
 // TODO This could probably be made faster by searching the metadata first, before searching the tables?
               var key, k, col, i, w, minWidth = this.options.minwidth, m = this.meta;
-              if (!m.hide) { return; }
-
               if ( ! m.table.nestedColumns.length ) {
+                if ( !m.hide ) { m.hide = {}; }
                 m.hide['__NESTED__'] = 1;
               }
+              if (!m.hide) { return; }
               for (key in m.hide) {
                 k = this._getKeyByKeyOrLabel(key);
                 col = this.dataTable.getColumn(this._getKeyByKeyOrLabel(key));

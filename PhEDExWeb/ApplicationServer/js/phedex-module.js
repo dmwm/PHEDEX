@@ -497,6 +497,7 @@ log('Should not be here','warn','module');
           seg = '';
           i = 0;
           for (key in m.hide) {
+            if ( key == '__NESTED__' ) { continue; }
             if ( i++ ) { seg += ' '; }
             seg += this.friendlyName(key);
           }
