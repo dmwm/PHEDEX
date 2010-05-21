@@ -828,7 +828,7 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
             */
             applyFilter: function (args) {
                 // Parse the cached data to filter it and form new data that feeds the datasource
-                var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0, arrExpanded,
+                var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0, arrExpanded, row,
                 pathcache = {}, table = [], arrNData = [], i, filterresult, bAnyMain = false, bAnyNested = false;
                 if (!args) { args = this.args; }
                 this.count = 0;
@@ -847,14 +847,15 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
                 if (!bAnyMain && !bAnyNested) { return; }
 
                 for (i in obj.data) {
+                    row = obj.data[i];
                     keep = true; // This variable says if this row (including nested table rows) has a match or not?
                     // Check if main row has any match
                     if (bAnyMain) {
-                        keep = this.filterData(obj.data[i], activeArgs, false, pathcache);
+                        keep = this.filterData(row, activeArgs, false, pathcache);
                     }
                     // Check if nested table rows have any match only if there is a match in main row
                     if (bAnyNested && keep) {
-                        var indx = 0, nkeep, arrNested = obj.data[i]['nesteddata'], nNestedLen = arrNested.length;
+                        var indx = 0, nkeep, arrNested = row['nesteddata'], nNestedLen = arrNested.length;
                         arrNData = [];
                         keep = false; // This is made false now and becomes true below when the nested table has match
                         for (indx = 0; indx < nNestedLen; indx++) {
@@ -872,9 +873,8 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
                         // If the row object is not cloned and when new arrNData[] is assigned, 
                         // then 'nesteddata' values get overridden in cache which shouldn't happen.
                         var i, objClone = {};
-//new cloneObject(obj.data[i]);
-                        for (i in obj) {
-                          objClone[i] = obj[i];
+                        for (i in row) {
+                          objClone[i] = row[i];
                         }
                         table.push(objClone);
                         if (arrNData.length > 0) {
@@ -897,16 +897,4 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
     return this;
 };
 
-log('loaded...', 'info', 'nesteddatatable');
-
-/**
-* This creates a clone of the object where a fresh copy of an object is required.
-* @method cloneObject
-* @param obj {Object} is the object that has to be cloned.
-*/
-// function cloneObject(obj) {
-//     var i;
-//     for (i in obj) {
-//         this[i] = obj[i];
-//     }
-// }
+log('loaded...', 'info', 'datatable');
