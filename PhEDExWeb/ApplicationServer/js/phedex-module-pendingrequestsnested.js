@@ -70,7 +70,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                                    { key:'custodial',   label:'Custodial' },
                                    { key:'static',      label:'Static' },
                                    { key:'move',        label:'Move' }],
-                    nestedColumns:[{ key:'id',          label:'Node ID', className: 'align-right',parser:'number' },
+                    nestedColumns:[{ key:'node_id',     label:'Node ID', className: 'align-right',parser:'number' },
                                    { key:'name',        label:'Node' },
                                    { key:'se',          label:'SE'}]
                 },
@@ -104,7 +104,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
             _processData: function (jsonReqData) {
                 var indx, indxReq, indxData, jsonReqs, jsonNode, Row, arrNestedVal, arrNested, Table = [],
                 arrRequestCols = ['id', 'time_create', 'group', 'priority', 'custodial', 'static', 'move'],
-                arrNodeCols = ['se', 'id', 'name'],
+                arrNodeCols = ['se', {id:'node_id'}, 'name'],
                 nArrRLen = arrRequestCols.length, nArrNLen = arrNodeCols.length,
                 nReqLen = jsonReqData.length, nDataLen, nUnique = 0;
                 for (indxReq = 0; indxReq < nReqLen; indxReq++) {
@@ -112,7 +112,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                     jsonReq = jsonReqData[indxReq].destinations.node;
                     nDataLen = jsonReq.length;
                     Row = [];
-                    arrNested = new Array();
+                    arrNested = []; //new Array();
                     for (indx = 0; indx < nArrRLen; indx++) {
                         this._extractElement(arrRequestCols[indx],jsonReqs,Row);
                     }

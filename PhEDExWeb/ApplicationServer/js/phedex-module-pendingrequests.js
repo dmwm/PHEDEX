@@ -104,8 +104,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             _processData: function (jsonReqData) {
                 var indx, indxReq, indxData, jsonReqs, jsonNode, Row, Table = [],
                 arrRequestCols = ['id', 'time_create', 'group', 'priority', 'custodial', 'static', 'move'],
-                arrNodeCols = ['se', 'id', 'name'],
-                arrDTNodeCols = ['se', 'node_id', 'name'],
+                arrNodeCols = ['se', {id:'node_id'}, 'name'],
                 nArrRLen = arrRequestCols.length, nArrNLen = arrNodeCols.length,
                 nReqLen = jsonReqData.length, nDataLen;
                 for (indxReq = 0; indxReq < nReqLen; indxReq++) {
