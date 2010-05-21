@@ -205,20 +205,31 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                 this.dom.title.innerHTML = this.me + ': fetching data...';
                 if (_nodename) {
                     dataserviceargs.node = _nodename;
+                    magic = 'node:'+_nodename;
                 }
                 if (_groupname) {
                     dataserviceargs.group = _groupname;
+                    if ( magic ) { magic += ' '; }
+                    magic += 'group:'+_groupname;
                 }
                 if (opts.since) {
                   if (opts.since != 9999) {
                     d = new Date(),
                     now = d.getTime() / 1000;
+                    now = Math.round(now - now%60);
                     dataserviceargs.create_since = now - (3600 * opts.since);
                   } else {
                     dataserviceargs.create_since = 0;
                   }
+                  if ( magic ) { magic += ' '; }
+                  magic += dataserviceargs.create_since
                 }
-                _sbx.notify(this.id, 'getData', { api: 'transferrequests', args: dataserviceargs });
+                if ( this._magic == magic ) {
+                  log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
+                  return;
+                }
+                this._magic = magic;
+                _sbx.notify(this.id, 'getData', { api:'transferrequests', args:dataserviceargs, magic:magic });
             },
 
             /**
@@ -226,9 +237,13 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             * @method gotData
             * @param data {object} pending requests information in json format.
             */
-            gotData: function (data) {
+            gotData: function (data,context) {
                 var msg = '';
                 log('Got new data', 'info', this.me);
+                if ( this._magic != context.magic ) {
+                  log('Old data has lost its magic: "'+this._magic+'" != "'+context.magic+'"','warn',this.me);
+                  return;
+                }
                 this.dom.title.innerHTML = 'Parsing data...';
                 this.data = data.request;
                 if (!data.request) {

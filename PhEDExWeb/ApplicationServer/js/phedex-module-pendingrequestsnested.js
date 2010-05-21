@@ -221,8 +221,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                   if (opts.since != 9999) {
                     d = new Date(),
                     now = d.getTime() / 1000;
-                    now = now - now%60;
-                    now = now.toFixed(0);
+                    now = Math.round(now - now%60);
                     dataserviceargs.create_since = now - (3600 * opts.since);
                   } else {
                     dataserviceargs.create_since = 0;
