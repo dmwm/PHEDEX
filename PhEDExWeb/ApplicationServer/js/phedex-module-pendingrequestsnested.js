@@ -74,7 +74,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                                    { key:'name',        label:'Node' },
                                    { key:'se',          label:'SE'}]
                 },
-                hide: ['Request ID', 'Node ID', 'SE'],
+                hide: ['Request ID', 'Node ID'],
                 sort: { field: 'Request ID' },
                 filter: {
                     'PendingRequestsNested attributes': {
