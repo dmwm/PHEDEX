@@ -26,22 +26,15 @@ Show messages from the agents
 
 =head2 Output
 
-  <node>
-    <agent>
-      <log>
-        <message> ... </message>
-      </log>
-      ...
-    </agent>
+  <agent>
+    <log>
+      <message> ... </message>
+    </log>
     ...
-  </node>
+    <node/>
+    ....
+  </agent>
   ...
-
-=head3 <node> attributes
-
- name        PhEDEx node name
- se          storage element
- id          node id
 
 =head3 <agent> attributes
 
@@ -61,6 +54,12 @@ Show messages from the agents
 
   Contains the log message.
 
+=head3 <node> attributes
+
+ name        PhEDEx node name
+ se          storage element
+ id          node id
+
 =cut
 
 
@@ -73,6 +72,28 @@ sub duration { return 60 * 60; }
 sub invoke { return agentlogs(@_); }
 
 my $map = {
+    _KEY => 'HOST+USER+PID',
+    host => 'HOST',
+    user => 'USER',
+    pid => 'PID',
+    name => 'AGENT',
+    log => {
+        _KEY => 'TIME_UPDATE',
+        working_dir => 'WORKING_DIRECTORY',
+        state_dir => 'STATE_DIRECTORY',
+        reason => 'REASON',
+        message => 'MESSAGE',
+        time => 'TIME_UPDATE'
+    },
+    node => {
+        _KEY => 'NODE',
+        name => 'NODE',
+        id => 'NODE_ID',
+        se => 'SE'
+    }
+};
+
+my $map2 = {
     _KEY => 'NODE',
     name => 'NODE',
     id => 'NODE_ID',
@@ -111,14 +132,14 @@ sub agentlogs
     }
 
     my $r = PHEDEX::Web::SQL::getAgentLogs($core, %h);
-    return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    return { agent => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
 # spooling
 
 my $sth;
 my $limit = 1000;
-my @keys = ('NODE');
+my @keys = ('HOST','USER','PID');
 
 sub spool
 {
@@ -145,7 +166,7 @@ sub spool
         {
             $_->{MESSAGE} = {'$t' => delete $_->{MESSAGE}};
         }
-        return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+        return { agent => &PHEDEX::Core::Util::flat2tree($map, $r) };
     }
     else
     {
