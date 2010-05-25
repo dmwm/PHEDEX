@@ -1,6 +1,6 @@
 This is the repository for code used by the PhEDEx Web pages. 
 It is (currently) divided into two sections; one for the data 
-service (Perl) and one for the application server (Python/Bonsai).
+service (Perl) and one for the application server (YUI/Javascript).
 
 The data service uses the consolidated SQL from other parts of 
 the project as well as some of it's own (in perl_lib/PHEDEX/Web)
@@ -14,8 +14,7 @@ other PhEDEx module. The service will run on Apache with mod_perl.
 Sufficient caching will be set up such that queries aren't 
 needlessly rerun. Output will be xml, json and csv.
 
-The application server will be written using the WEBTOOLS Bonsai
-framework. It will process the output of the data service to 
-produce the necessary pages where needed, and produce the html 
-pages themselves (via Cheetah templates). Authentication will be 
-provided by the WEBTOOLS framework.
+The application server is written using the YUI framework. It
+processes the output of the data service to produce the necessary
+pages where needed, and produce the html pages themselves.
+Authentication will be provided by the WEBTOOLS framework.
