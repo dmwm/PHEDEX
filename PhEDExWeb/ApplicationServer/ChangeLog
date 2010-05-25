@@ -1,7 +1,8 @@
  * Changes in BETA_0_7
    * Several new modules added in this release, following the plan from the link shown below.
-   * There are two versions of the 'pending-requests' module (see https://savannah.cern.ch/bugs/index.php?63182 as well as the PhEDEx web planning), to provide some choice to *Ops.
+   * Many modules can now take wildcarded names, for nodes or groups. Simply type the string you want instead of allowing the auto-complete to do it for you.
    * Some of these modules can take either a node or a group name as input, this represents a new level of navigational complexity
+   * There are two versions of the 'pending-requests' module (see https://savannah.cern.ch/bugs/index.php?63182 as well as the PhEDEx web planning), to provide some choice to *Ops.
    * There are no major known issues in this release
    * The new modules are:
       phedex-module-consistencyresults.js
