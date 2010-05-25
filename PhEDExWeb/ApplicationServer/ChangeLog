@@ -1,3 +1,15 @@
+ * Changes in BETA_0_7
+   * Several new modules added in this release, following the plan from the link shown below.
+   * There are two versions of the 'pending-requests' module (see https://savannah.cern.ch/bugs/index.php?63182 as well as the PhEDEx web planning), to provide some choice to *Ops.
+   * Some of these modules can take either a node or a group name as input, this represents a new level of navigational complexity
+   * There are no major known issues in this release
+   * The new modules are:
+      phedex-module-consistencyresults.js
+      phedex-module-custodiallocation.js
+      phedex-module-pendingrequests.js
+      phedex-module-pendingrequestsnested.js
+      phedex-module-unroutabledata.js
+
  * Changes in BETA_0_3
 
    * This is the (first) Spring 2010 beta release. See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite#Plan_for_the_Spring_2010_Beta for more information
