@@ -81,32 +81,34 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @param jsonData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
             * @private
             */
-            _processData: function(jsonData) {
-                var indx, indxNode, indxAgent, indxLog, jsonAgents, jsonAgent, jsonLog, Row, Table = [],
-                arrAgentCols = ['name'],
-                arrLogCols = ['time', 'reason'],
-                nArrALen = arrAgentCols.length, nArrLLen = arrLogCols.length,
-                nDataLen = jsonData.length, nAgentsLen, nLogLen, objCol, objVal;
-                for (indxNode = 0; indxNode < nDataLen; indxNode++) {
-                    jsonAgents = jsonData[indxNode].agent;
-                    nAgentsLen = jsonAgents.length;
-                    for (indxAgent = 0; indxAgent < nAgentsLen; indxAgent++) {
-                        jsonAgent = jsonAgents[indxAgent];
-                        nLogLen = jsonAgent.log.length;
-                        for (indxLog = 0; indxLog < nLogLen; indxLog++) {
-                            jsonLog = jsonAgent.log[indxLog];
-                            Row = [];
-                            for (indx = 0; indx < nArrALen; indx++) {
-                              this._extractElement(arrAgentCols[indx],jsonAgent,Row);
-                            }
-                            for (indx = 0; indx < nArrLLen; indx++) {
-                              this._extractElement(arrLogCols[indx],jsonLog,Row);
-                            }
-                            Row['message'] = jsonLog.message.$t; // This is to store the message
-                            Row['node']    = jsonData[indxNode].name;
-                            Table.push(Row);
-                        }
+            _processData: function(jData) {
+                var i, str,
+                jAgents=jData, nAgents=jAgents.length, jAgent, iAgent, aAgentCols=['name'], nAgentCols=aAgentCols.length,
+                jLogs, nLogs, jLog, iLog, aLogCols=['time','reason'], nLogCols=aLogCols.length,
+                nNode,
+                Row, Table=[];
+                for (iAgent = 0; iAgent < nAgents; iAgent++) {
+                  jAgent = jAgents[iAgent];
+                  jLogs = jAgent.log;
+                  nLogs = jLogs.length;
+                  for (iLog = 0; iLog < nLogs; iLog++) {
+                    jLog = jLogs[iLog];
+                    Row = [];
+                    for (i = 0; i < nAgentCols; i++) {
+                      this._extractElement(aAgentCols[i],jAgent,Row);
                     }
+                    for (i = 0; i < nLogCols; i++) {
+                      this._extractElement(aLogCols[i],jLog,Row);
+                    }
+                    Row['message'] = jLog.message.$t; // This is to store the message
+                    str = jAgent.node[0].name;
+                    nNode = jAgent.node.length;
+                    for (i=1; i<nNode; i++) {
+                      str += ', ' + jAgent.node[i].name;
+                    }
+                    Row['node'] = str;
+                    Table.push(Row);
+                  }
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
@@ -144,13 +146,13 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @method getData
             */
             getData: function() {
-                if (!_nodename) {
-                    this.initData();
-                    return;
-                }
-                log('Fetching data', 'info', this.me);
-                this.dom.title.innerHTML = this.me + ': fetching data...';
-                _sbx.notify(this.id, 'getData', { api: 'agentlogs', args: { node: _nodename} });
+              if (!_nodename) {
+                this.initData();
+                return;
+              }
+              log('Fetching data', 'info', this.me);
+              this.dom.title.innerHTML = this.me + ': fetching data...';
+              _sbx.notify(this.id, 'getData', { api: 'agentlogs', args: { node: _nodename} });
             },
 
             /**
@@ -159,17 +161,17 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @param data {object} agent logs information in json format.
             */
             gotData: function(data) {
-                log('Got new data', 'info', this.me);
-                this.dom.title.innerHTML = 'Parsing data...';
-                this.data = data.node;
-                if (data.node) {
-                    this.fillDataSource(this.data);
-                    this.dom.title.innerHTML = this.data.length + ' agent log(s) for ' + _nodename + ' node';
-                }
-                else {
-                    this.dom.title.innerHTML = 'No agent logs are found for ' + _nodename + ' node';
-                }
-                _sbx.notify(this.id, 'gotData');
+              log('Got new data', 'info', this.me);
+              this.dom.title.innerHTML = 'Parsing data...';
+              if (data.agent) {
+                this.data = data.agent;
+                this.fillDataSource(this.data);
+                this.dom.title.innerHTML = this.data.length + ' agent log(s) for ' + _nodename + ' node';
+              }
+              else {
+                this.dom.title.innerHTML = 'No agent logs are found for "' + _nodename + '"';
+              }
+              _sbx.notify(this.id, 'gotData');
             }
         };
     };
