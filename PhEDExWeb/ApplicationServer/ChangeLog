@@ -3,13 +3,14 @@
    * Many modules can now take wildcarded names, for nodes or groups. Simply type the string you want instead of allowing the auto-complete to do it for you.
    * Some of these modules can take either a node or a group name as input, this represents a new level of navigational complexity
    * There are two versions of the 'pending-requests' module (see https://savannah.cern.ch/bugs/index.php?63182 as well as the PhEDEx web planning), to provide some choice to *Ops.
-   * There are no major known issues in this release
+   * Modules that require a 'time-since' parameter have that parameter rounded to the nearest minute (or whatever multiple thereof makes most sense).
    * The new modules are:
       phedex-module-consistencyresults.js
       phedex-module-custodiallocation.js
       phedex-module-pendingrequests.js
       phedex-module-pendingrequestsnested.js
       phedex-module-unroutabledata.js
+   * There are no major known issues in this release
 
  * Changes in BETA_0_3
 
