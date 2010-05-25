@@ -23,8 +23,9 @@ agents?se=cmssrm.fnal.gov node
 agents?node=NoWhere node =0
 
 # PHEDEX::Web::API::AgentLogs - show messages from the agents
-agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter node
-agentlogs?node=NoWhere&user=phedex&agent=FileRouter node =0
+agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter agent
+agentlogs?node=NoWhere&user=phedex&agent=FileRouter agent =0
+agentlogs?agent=BlockDownloadVerifyInjector agent
 -agentlogs
 
 # PHEDEX::Web::API::Auth - authentication information
