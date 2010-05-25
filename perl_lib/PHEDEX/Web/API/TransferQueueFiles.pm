@@ -7,7 +7,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::TransQueueFiles - files currently queued for transfer
+PHEDEX::Web::API::TransferQueueFiles - files currently queued for transfer
 
 =head1 DESCRIPTION
 
