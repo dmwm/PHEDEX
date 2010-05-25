@@ -250,9 +250,8 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        var args = { custodial:'y' }, magic = PxU.Sequence(), // TODO need better magic than tis!
-          d = new Date(),
-          now = d.getTime()/1000;
+        var args = { custodial:'y' }, magic = PxU.Sequence(), // TODO need better magic than this!
+          now;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
@@ -260,6 +259,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         this._magic = magic;
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
+        now = PxU.epochAlign();
         if ( opts.update_since && opts.update_since != 9999 ) {
           args.update_since = now - 3600 * opts.update_since;
         }

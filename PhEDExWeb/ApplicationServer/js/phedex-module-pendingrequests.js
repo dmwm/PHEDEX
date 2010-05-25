@@ -214,9 +214,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                 }
                 if (opts.since) {
                   if (opts.since != 9999) {
-                    d = new Date(),
-                    now = d.getTime() / 1000;
-                    now = Math.round(now - now%60);
+                    now = PxU.epochAlign(0,300);
                     dataserviceargs.create_since = now - (3600 * opts.since);
                   } else {
                     dataserviceargs.create_since = 0;

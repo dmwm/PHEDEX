@@ -285,6 +285,19 @@ PHEDEX.Util.getConstructor = function( string ) {
   }
   return ctor;
 }
+
+PHEDEX.Util.epochAlign = function(time,interval) {
+/*
+ * align a time to an interval. The time defaults to 'now', the interval defaults to one minute
+ */
+  if ( ! time ) {
+    time = new Date();
+    time = time.getTime() / 1000;
+  }
+  if ( !interval ) { interval = 60; }
+  time = Math.round(time-time%interval);
+  return time;
+}
 var PxU = PHEDEX.Util;
 
 /**

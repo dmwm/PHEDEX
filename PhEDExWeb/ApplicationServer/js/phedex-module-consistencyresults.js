@@ -295,8 +295,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         if ( node  ) { args.node  = node; }
         if ( opts.since ) {
           if ( opts.since != 9999 ) {
-            d = new Date();
-            now = d.getTime()/1000;
+            now = PxU.epochAlign(0,300);
             args.test_since = now - 3600 * opts.since;
           } else {
             args.test_since = 0;
