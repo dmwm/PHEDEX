@@ -210,12 +210,13 @@ if ($test_file)
 }
 else
 {
+    print "Reading test information from STDIN\n";
     $inf = scalar *STDIN;
 }
 
 my $root_url = "${url_prefix}${url_path}${url_data}";
 
-print "# ", &POSIX::strftime("[%Y-%m-%d %T]", gmtime), ": acceptance test of $url_prefix\n";
+print "# ", &POSIX::strftime("[%Y-%m-%d %T]", gmtime), ": acceptance test of $url_prefix/$url_path\n";
 
 while(<$inf>)
 {
