@@ -365,9 +365,9 @@ PHEDEX.DataTable = function (sandbox, string) {
                     var cDef = t.columns[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
                     if (!cDef.label) { cDef.label = cDef.key; }
-                    if (cDef.key.match('].')) {
-                        cDef.buildPath = true;
-                    }
+//                     if (cDef.key.match('].')) {
+//                         cDef.buildPath = true;
+//                     }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
                     if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
@@ -381,9 +381,9 @@ PHEDEX.DataTable = function (sandbox, string) {
                     var cDef = t.nestedColumns[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
                     if (!cDef.label) { cDef.label = cDef.key; }
-                    if (cDef.key.match('].')) {
-                        cDef.buildPath = true;
-                    }
+//                     if (cDef.key.match('].')) {
+//                         cDef.buildPath = true;
+//                     }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
                     if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
@@ -696,45 +696,44 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 };
 
 PHEDEX.DataTable.Filter = function (sandbox, obj) {
-    // Function to convert the filter column field into walk path to find its value
-    var _buildPath = function (needle) {
-        var path = null, keys = [], i = 0;
-        if (needle) {
-            // Strip the ["string keys"] and [1] array indexes
-            needle = needle.
-                        replace(/\[(['"])(.*?)\1\]/g,
-                        function (x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
-                        replace(/\[(\d+)\]/g,
-                        function (x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
-                        replace(/^\./, ''); // remove leading dot
-
-            // If the cleaned needle contains invalid characters, the
-            // path is invalid
-            if (!/[^\w\.\$@]/.test(needle)) {
-                path = needle.split('.');
-                for (i = path.length - 1; i >= 0; --i) {
-                    if (path[i].charAt(0) === '@') {
-                        path[i] = keys[parseInt(path[i].substr(1), 10)];
-                    }
-                }
-            }
-            else {
-            }
-        }
-        return path;
-    };
-
-    // Function to walk a path and return the value
-    var _walkPath = function (path, origin) {
-        var v = origin, i = 0, len = path.length;
-        for (; i < len && v; ++i) {
-            v = v[path[i]];
-        }
-        return v;
-    };
-
     _construct = function () {
         return {
+//           // Function to convert the filter column field into walk path to find its value
+//           _buildPath: function (needle) {
+//             var path = null, keys = [], i = 0;
+//             if (needle) {
+//             // Strip the ["string keys"] and [1] array indexes
+//               needle = needle.
+//                         replace(/\[(['"])(.*?)\1\]/g,
+//                         function (x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
+//                         replace(/\[(\d+)\]/g,
+//                         function (x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
+//                         replace(/^\./, ''); // remove leading dot
+// 
+//               // If the cleaned needle contains invalid characters, the
+//               // path is invalid
+//               if (!/[^\w\.\$@]/.test(needle)) {
+//                 path = needle.split('.');
+//                 for (i = path.length - 1; i >= 0; --i) {
+//                   if (path[i].charAt(0) === '@') {
+//                     path[i] = keys[parseInt(path[i].substr(1), 10)];
+//                   }
+//                 }
+//               } else {
+//               }
+//             }
+//             return path;
+//           },
+// 
+//           // Function to walk a path and return the value
+//           _walkPath: function (path, origin) {
+//             var v = origin, i = 0, len = path.length;
+//             for (; i < len && v; ++i) {
+//               v = v[path[i]];
+//             }
+//             return v;
+//           },
+
             /**
             * Resets the filter in the module.
             * @method resetFilter
@@ -763,12 +762,12 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
                     fValue = a.values;
                     kValue = rowdata[obj._getKeyByKeyOrLabel(field.original)];
                     // If buildPath is true, then the column key has to be resolved to build complete path to get the value
-                    if (field.buildPath) {
-                        if (!pathcache[j]) {
-                            pathcache[j] = _buildPath(j);
-                        }
-                        kValue = _walkPath(pathcache[j], obj.data[i]);
-                    }
+//                     if (field.buildPath) {
+//                         if (!pathcache[j]) {
+//                             pathcache[j] = this._buildPath(j);
+//                         }
+//                         kValue = this._walkPath(pathcache[j], obj.data[i]);
+//                     }
                     if (a.preprocess) { kValue = a.preprocess(kValue); }
                     status = this.Apply[field.type](fValue, kValue);
                     if (a.negate) { status = !status; }
