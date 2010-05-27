@@ -76,19 +76,28 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         ctxArgs: { Node:'node' },
         table: {
           columns: [
-            {key:'node',                 label:'Node'},
-            {key:'name',                 label:'Agent'},
-            {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
-            {key:'agent[0].pid',         label:'PID',  className:'align-right'},
-            {key:'agent[0].version',     label:'Version' },
-            {key:'agent[0].label',       label:'Label' },
-            {key:'host',                 label:'Host' },
-            {key:'agent[0].state_dir',   label:'State Dir' }
+            {key:'node',        label:'Node'},
+            {key:'name',        label:'Agent'},
+            {key:'time_update', label:'Date', formatter:'UnixEpochToGMT'},
+            {key:'pid',         label:'PID',  className:'align-right'},
+            {key:'version',     label:'Version' },
+            {key:'label',       label:'Label' },
+            {key:'host',        label:'Host' },
+            {key:'state_dir',   label:'State Dir' }
           ],
-          schema: {
-            resultsList: 'node',
-            fields: [ 'host', 'name', 'node', 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
-          },
+//             {key:'node',                 label:'Node'},
+//             {key:'name',                 label:'Agent'},
+//             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
+//             {key:'agent[0].pid',         label:'PID',  className:'align-right'},
+//             {key:'agent[0].version',     label:'Version' },
+//             {key:'agent[0].label',       label:'Label' },
+//             {key:'host',                 label:'Host' },
+//             {key:'agent[0].state_dir',   label:'State Dir' }
+//           ],
+//           schema: {
+//             resultsList: 'node',
+//             fields: [ 'host', 'name', 'node', 'agent[0].label', {key:'agent[0].pid', parser:'number'}, 'agent[0].state_dir', 'agent[0].time_update', 'agent[0].version' ]
+//           },
         },
         sort:{field:'Agent'},
         hide:['Node','PID','Host','State Dir'],
@@ -107,6 +116,31 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             }
           }
         }
+      },
+
+      _processData: function(jData) {
+        var i, str,
+            jAgents=jData, nAgents=jAgents.length, jAgent, iAgent, aAgentCols=['node','name','host'], nAgentCols=aAgentCols.length,
+            jProcs, nProc, jProc, iProc, aProcCols=['time_update','pid','version','label','state_dir'], nProcCols=aProcCols.length,
+            Row, Table=[];
+        for (iAgent = 0; iAgent < nAgents; iAgent++) {
+          jAgent = jAgents[iAgent];
+          jProcs = jAgent.agent;
+          for (iProc in jProcs) {
+            jProc = jProcs[iProc];
+            Row = [];
+            for (i = 0; i < nAgentCols; i++) {
+              this._extractElement(aAgentCols[i],jAgent,Row);
+            }
+            for (i = 0; i < nProcCols; i++) {
+              this._extractElement(aProcCols[i],jProc,Row);
+            }
+            Table.push(Row);
+          }
+        }
+        log("The data has been processed for data source", 'info', this.me);
+        this.needProcess = false;
+        return Table;
       },
 
 /** final preparations for receiving data. This is the last thing to happen before the module gets data, and it should notify the sandbox that it has done its stuff. Otherwise the core will not tell the module to actually ask for the data it wants. Modules may override this if they want to sanity-check their parameters first, e.g. the <strong>Agents</strong> module might want to check that the <strong>node</strong> is set before allowing the cycle to proceed. If the module does not have enough parameters defined, it can notify the sandbox with <strong>needArguments</strong>, and someone out there (e.g. the global filter or the navigator history) can attempt to supply them
