@@ -40,6 +40,13 @@
  <div id='phedex-navigator'></div>
  <div id='phedex-globalfilter'></div>
  <div class='phedex-separator'></div>
+ <div id='phedex-profiler' class='phedex-logger'></div>
+ <div id='phedex-logger'   class='phedex-logger'>
+  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
+  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
+  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-debug' class='float-right'></div>
  <div id='phedex-main'></div>
 
 <!-- The following section is to
@@ -69,13 +76,15 @@ here</a>.</p>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
 <script type="text/javascript">
 function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,".")); }
+
 // When the DOM is available, start loading the essential bits and pieces
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
-  log('initialising','info','app');
   PHEDEX.Appserv.combineRequests = false;
-  banner('Loading core application...');
+  log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
+  banner('Loading core application...');
+//   PxL.load(function() {},'phedex-profiler');
   PxL.load(createCoreApp,'core','sandbox','datasvc','registry');
 
   var phedex_app_version = document.getElementById('phedex-app-version'),
@@ -104,13 +113,13 @@ function createCoreApp() {
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
-  // Load and create the navigator!
+// Load and create the navigator!
   PxS.notify('Load','phedex-navigator', {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',  order: 10 },
-        node:   { label: 'Explore by node', order: 20 },
+        none:   { label: 'Explore global',   order: 10 },
+        node:   { label: 'Explore by node',  order: 20 },
         block:  { label: 'Explore by block', order: 30 },
         group:  { label: 'Explore by group', order: 40 },
         static: { label: 'Explore Information', order: 99 }
