@@ -33,15 +33,18 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
-  if (exists($self->{AGENT}->{NOCACHE})) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+  if ( exists($self->{AGENT}) && exists($self->{AGENT}->{NOCACHE}) && 
+       $self->{AGENT}->{NOCACHE} != $self->{NOCACHE}) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
 
 # This is where the interface-specific modules are loaded. The modules are
 # passed a reference to this object when they are loaded/created, so they
 # can pick out the parameters you define above.
 
   $self->SUPER::_init_commands;
+
   print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
   return $self;
