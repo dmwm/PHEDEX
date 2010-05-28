@@ -42,6 +42,8 @@ sub new
   $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
   $self->{QUEUE} = POE::Queue::Array->new();
   $self->{RESULT_QUEUE} = POE::Queue::Array->new();
+  $self->{AGENT_CACHE} = {};
+  $self->{AGENT_STATS} = {};
   $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
 
 # Don't set this below 5 minutes, since it is the time interval you will be accessing the DB 
