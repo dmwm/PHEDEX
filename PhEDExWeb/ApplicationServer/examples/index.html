@@ -1,78 +1,25 @@
 <!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en-us' lang='en-us'>
 <head>
-  <title>PhEDEx Web Interface Widget Library Examples</title>
-  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
-
-  <!-- YUI stylesheets-->
-  <link rel="stylesheet" type="text/css" href="/yui/build/treeview/assets/skins/sam/treeview.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/datatable/assets/skins/sam/datatable.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/container/assets/container-core.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/resize/assets/skins/sam/resize.css"> 
-  <link rel="stylesheet" type="text/css" href="/yui/build/logger/assets/skins/sam/logger.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/menu/assets/skins/sam/menu.css">
-  <link rel="stylesheet" type="text/css" href="/yui/examples/treeview/assets/css/menu/tree.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/button/assets/button-core.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/assets/skins/sam/button.css">
-  <link rel="stylesheet" type="text/css" href="/yui/build/fonts/fonts-min.css" />
-
-  <!-- YUI libs -->
-  <script type="text/javascript" src="/yui/build/yahoo-dom-event/yahoo-dom-event.js"></script>
-  <script type="text/javascript" src="/yui/build/connection/connection-min.js"></script>
-  <script type="text/javascript" src="/yui/build/json/json-min.js"></script>
-  <script type="text/javascript" src="/yui/build/treeview/treeview-min.js"></script>
-  <script type="text/javascript" src="/yui/build/logger/logger-min.js"></script>
-  <script type="text/javascript" src="/yui/build/dragdrop/dragdrop-min.js"></script>
-  <script type="text/javascript" src="/yui/build/element/element-min.js"></script>
-  <script type="text/javascript" src="/yui/build/datasource/datasource-min.js"></script>
-  <script type="text/javascript" src="/yui/build/datatable/datatable-min.js"></script>
-  <script type="text/javascript" src="/yui/build/animation/animation-min.js"></script>
-  <script type="text/javascript" src="/yui/build/container/container-min.js"></script>
-  <script type="text/javascript" src="/yui/build/resize/resize-min.js"></script>
-  <script type="text/javascript" src="/yui/build/menu/menu-min.js"></script>
-  <script type="text/javascript" src="/yui/build/button/button-min.js"></script>
-
-  <!-- PhEDEx stylesheets -->
-  <link rel="stylesheet" type="text/css" href="/css/phedex.css">
-
-  <!-- PhEDEx libs -->
-  <script type="text/javascript" src="/js/phedex-base.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-logger.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-contextmenu.js"></script>
-  <script type="text/javascript" src="/js/phedex-util.js"></script>
-  <script type="text/javascript" src="/js/phedex-page.js"></script>
-  <script type="text/javascript" src="/js/phedex-datasvc.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-control.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-widget.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-widget-registry.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-widget-datatable.js"></script>
-  <script type="text/javascript" src="/js/phedex-core-widget-treeview.js"></script>
-  <script type="text/javascript" src="/js/phedex-widget-agents.js"></script>
-  <script type="text/javascript" src="/js/phedex-widget-nodes.js"></script>
-  <script type="text/javascript" src="/js/phedex-widget-linkview.js"></script>
-  <script type="text/javascript" src="/js/phedex-widget-requestview.js"></script>
-  <script type="text/javascript" src="/js/phedex-widget-template.js"></script>
+  <title>PhEDEx Web Interface Examples Library</title>
+  <meta http-equiv='Content-Type' content='text/html; charset=iso-8859-15' />
 </head>
 
-<body class="yui-skin-sam">
- <div id='phedex-main'></div>
-<h1>PhEDEx Widget examples</h1>
-<p>See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWidgetLibrary</a> for the accompanying documentation. These examples are coded with the assumption that you have the YUI toolkit installed locally, and are running the PhEDEx proxy-server configured to use it. See <a href="https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide">https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide</a> for the documentation about that.</p>
-<p>Source code for these examples is in CVS in *PhEDExWeb/ApplicationServer/examples*</p>
+<body>
+<h1>PhEDEx Javascript examples</h1>
+<p>See <a href='https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite'>https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite</a> for the accompanying documentation.
+
+These examples are coded with the assumption that you have the YUI toolkit installed locally, and are running the PhEDEx proxy-server configured to use it. See <a href='https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide'>https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide</a> for the documentation about that.</p>
+
+<p>Source code for these examples is in CVS in <em>PhEDExWeb/ApplicationServer/examples</em></p>
 
 <ul>
-<li><a href="demo-01-core-widget-with-dom-elements.html">Core widget</a> with simple manipulation of its DOM elements.</li>
-<li><a href="demo-02-derived-widget-with-fake-update.html">Derived widget</a> with sample 'Extra' information and a delayed (but fake) 'update' call.</li>
-<li><a href="demo-03-datatable-nodes.html">Simplified DataTable widget</a> which implements the API 'Nodes' call.</li>
-<li><a href="demo-04-treeview-minimal-widget.html">Simplified TreeView widget</a> with random data.</li>
-<li><a href="demo-05-treeview-with-dynamic-data.html">TreeView</a> with dynamically loaded data.</li>
-<li><a href="demo-06-simple-contextmenu.html">ContextMenu</a> with simple example of use of registration.</li>
-<li><a href="demo-07-treeview-with-contextmenu.html">A TreeView with a ContextMenu</a> which calls out to other widgets.</li>
-<li><a href="demo-08-generic-nodehandler.html">A ContextMenu handler</a> which serves anything that can give it a node-name.</li>
-<li><a href="demo-09-use-of-control-widgets.html">Control-elements</a> and a few variations thereon.</li>
-<li><a href="demo-10-datalookup.html">Data look up widget</a> used to display block information.</li>
-<li><a href="demo-11-history.html">History demo</a> used to demo history in the widget states.</li>
-<li><a href="demo-12-groupusage.html">Group usage widget</a> used to display group information.</li>
+<!-- <li><a target='_blank' href='demo-.html'>link text</a> explanation</li> -->
+<li><a target='_blank' href='demo-loader.html'>Use the Loader</a> to load a YUI class and do something when it arrives</li>
+<li><a target='_blank' href='demo-logger.html'>Use the Logger</a> with access to the log-to-server controls</li>
+<li><a target='_blank' href='demo-profiler.html'>Use the Profiler</a> with a few sample objects churning up CPU</li>
+<li><a target='_blank' href='demo-stripped-application.html'>Load a complete but empty application</a> i.e. with the core, sandbox, logger, profiler, everything except the parts that rely on PhEDEx data itself</li>
+<li><a target='_blank' href='demo-module-nodes.html'>Load the "Nodes" module</a> with the full core/sandbox environment to create it</li>
 </ul>
 </body>
 </html>
