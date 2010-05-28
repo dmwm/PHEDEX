@@ -3,6 +3,7 @@ YtP = YAHOO.tool.Profiler;
 PHEDEX.Profiler = function() {
   var number = YAHOO.widget.DataTable.formatNumber,
       _interval = 30000,
+      _threshold = 0.01,
       _profile,
       el = document.getElementById('phedex-profiler'),
       _column,
@@ -54,7 +55,7 @@ PHEDEX.Profiler = function() {
       }
     }
     for (i in _t) {
-      if ( _t[i][2]/gTot > 0.01 ) { //[2] matches the position of [tot] above. The comparison threshold is an arbitrary cut to keep the amount of on-screen data small
+      if ( _t[i][2]/gTot > _threshold ) { //[2] matches the position of [tot] above. The comparison threshold is an arbitrary cut to keep the amount of on-screen data small
         _table.push(_t[i]);
       }
     }
@@ -85,5 +86,14 @@ PHEDEX.Profiler = function() {
   }
   setTimeout( function() {
       _dataSource.setInterval(_interval, null, _callback)
-    }, _interval);
+    }, 5000);
+
+  return {
+    interval: function(arg) {
+      _interval = arg;
+    },
+    threshold: function(arg) {
+      _threshold = arg/100;
+    }
+  };
 }();
