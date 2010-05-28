@@ -133,7 +133,13 @@ debugLinks = function() {
 
 Tony = function(PxS,PxL) {
   PxL.load(function() {
-    var ctl;
+    var ctl, el, dDebug;
+    el = document.getElementById('phedex-separator');
+    dDebug = document.createElement('div');
+    dDebug.id = 'phedex-debug';
+    dDebug.className = 'float-right';
+    YuD.insertAfter(dDebug,el);
+
     ctl = new PHEDEX.Component.Control(PxS,{
         payload: {
           text:'Debug controls',
@@ -145,6 +151,7 @@ Tony = function(PxS,PxL) {
     );
     document.getElementById('phedex-controls').appendChild(ctl.el);
     debugLinks();
+
     ctl = new PHEDEX.Component.Control(PxS,{
         payload: {
           text:'Show Logger',
@@ -179,6 +186,10 @@ Tony = function(PxS,PxL) {
       }
     );
     document.getElementById('phedex-controls').appendChild(ctl.el);
+    if ( !PHEDEX.Profiler ) {
+      ctl.Disable();
+      ctl.el.title = 'Profiler was not loaded, this control is disabled';
+    }
 
   },'component-control');
   PxS.notify('Load','phedex-logger'); //, { log2server:{info:true,warn:true,error:true} } );
