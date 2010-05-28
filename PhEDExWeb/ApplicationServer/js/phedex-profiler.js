@@ -88,6 +88,8 @@ PHEDEX.Profiler = function() {
       _dataSource.setInterval(_interval, null, _callback)
     }, 5000);
 
+  YuD.removeClass(document.getElementById('phedex-profiler'),'phedex-invisible');
+
   return {
     interval: function(arg) {
       _interval = arg;
