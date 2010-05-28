@@ -13,8 +13,8 @@ sub new
   my %params = (
 		 VERBOSE => $h->{VERBOSE} || 0,
 		 DEBUG	 => $h->{DEBUG}   || 0,
-		 cache	 => {},
-		 stats	 => {},
+		 cache	 => $h->{AGENT}->{AGENT_CACHE} || {},
+		 stats	 => $h->{AGENT}->{AGENT_STATS} || {},
               );
   my $self = \%params;
   bless($self, $class);
