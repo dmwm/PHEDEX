@@ -79,7 +79,7 @@ PHEDEX.Config = function(sandbox) {
       _addSource('aboutphedex1', 'source3', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: 'PhEDEx WebSite planning: ' });
       _addSource('aboutphedex1', 'source4', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide', displaytext: 'PhEDEx WebSite Developer guide: ' });
       _addSource('aboutphedex1', 'source5', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: 'PhEDEx WebSite planning: ' });
-      _addSource('aboutphedex1', 'source6', { type: 'extra', path: PA.BaseURL + 'examples/index.html', displaytext: 'PhEDEx WebSite coding examples: ' });
+      _addSource('aboutphedex1', 'source6', { type: 'extra', path: '/phedex/datasvc/app/examples/index.html', displaytext: 'PhEDEx WebSite coding examples: ' });
 //       _addSource('aboutphedex1', 'source99', { type: 'extra', displaytext: '<i>This is testing for displaying direct text in Phedex static component</i>' });
       _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Documentation Links', { args:{'static':'aboutphedex1'} });
 
