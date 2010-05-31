@@ -1,4 +1,0 @@
-#!/bin/sh
-for arg; do eval $(echo "$arg" | sed 's/\([^=]*\)=\(.*\)/\1="\2"/'); done
-mkdir -p <base>/<node>/SE/$owner/$dataset
-echo <base>/<node>/SE/$owner/$dataset/$lfn
