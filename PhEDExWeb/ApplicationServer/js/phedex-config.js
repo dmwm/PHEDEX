@@ -72,23 +72,30 @@ PHEDEX.Config = function(sandbox) {
 
     return {
         init: function(args) {
-          //Add and register category # 1 (local type)
-          _addCategory('aboutphedex1', 'Phedex Local');
-          _addSource('aboutphedex1', 'source1', { type: 'local', path: '/html/AboutPhedex.html', divids: ['phedex-about1', 'phedex-about2', 'phedex-about3'] });
-          _addSource('aboutphedex1', 'source2', { type: 'local', path: '/html/PhedexInfo.html', divids: ['phedex-about1', 'phedex-about3'] });
-          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Local',  { args:{'static':'aboutphedex1'} });
+          //Add and register category # 1 (out link type)
+          _addCategory('aboutphedex1', 'Phedex Documentation Links'); //displaytext
+          _addSource('aboutphedex1', 'source1', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhEDEx', displaytext: 'PhEDEx TWiki home: ' });
+          _addSource('aboutphedex1', 'source2', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation', displaytext: 'PhEDEx Documentation: ' });
+          _addSource('aboutphedex1', 'source3', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: 'PhEDEx WebSite planning: ' });
+          _addSource('aboutphedex1', 'source4', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide', displaytext: 'PhEDEx WebSite Developer guide: ' });
+//           _addSource('aboutphedex1', 'source5', { type: 'extra', displaytext: '<i>This is testing for displaying direct text in Phedex static component</i>' });
+          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Documentation Links', { args:{'static':'aboutphedex1'} });
 
-          //Add and register category # 2 (iframe type)
-          _addCategory('aboutphedex2', 'Phedex Iframe');
-          _addSource('aboutphedex2', 'source1', { type: 'iframe', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation' });
-          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Iframe', { args:{'static':'aboutphedex2'} });
+          //Add and register category # 2 (local type)
+//           _addCategory('aboutphedex2', 'Phedex Local');
+//           _addSource('aboutphedex2', 'source1', { type: 'local', path: '/html/AboutPhedex.html', divids: ['phedex-about1', 'phedex-about2', 'phedex-about3'] });
+//           _addSource('aboutphedex2', 'source2', { type: 'local', path: '/html/PhedexInfo.html', divids: ['phedex-about1', 'phedex-about3'] });
+//           _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Local',  { args:{'static':'aboutphedex2'} });
 
-          //Add and register category # 3 (out link type)
-          _addCategory('aboutphedex3', 'Phedex Extra'); //displaytext
-          _addSource('aboutphedex3', 'source1', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhEDEx', displaytext: 'Phedex main information: ' });
-          _addSource('aboutphedex3', 'source2', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation', displaytext: 'Phedex Documentation: ' });
-          _addSource('aboutphedex3', 'source3', { type: 'extra', displaytext: '<i>This is testing for displaying direct text in Phedex static component</i>' });
-          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Extra',  { args:{'static':'aboutphedex3'} });
+          //Add and register category # 3 (iframe type)
+          _addCategory('aboutphedex3', 'Phedex TWiki');
+          _addSource('aboutphedex3', 'source1', { type: 'iframe', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation' });
+          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex TWiki', { args:{'static':'aboutphedex3'} });
+
+          //Add and register category # 4 (local type)
+          _addCategory('aboutphedex4', 'Phedex Appserv coding examples');
+          _addSource('aboutphedex4', 'source1', { type: 'local', path: '/examples/index.html', divids: ['phedex-appserv-examples'] });
+          _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Appserv coding examples',  { args:{'static':'aboutphedex4'} });
         },
 
         /**
