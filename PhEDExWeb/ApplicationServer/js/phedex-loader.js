@@ -67,7 +67,6 @@ PHEDEX.Loader = function(opts) {
   _success,
   _on = {},
   _loader = new YAHOO.util.YUILoader(),
-  PA = PHEDEX.Appserv,
   _conf = {
     loadOptional: true,
     allowRollup:  true,

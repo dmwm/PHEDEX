@@ -88,8 +88,9 @@ PHEDEX.Appserv = {
   ProductionMode: function() {
 // return  true;
     if ( location.href.match(/phedex.html$/) ) { return true; }
-    if ( location.href.match(/localhost/) ) { return false; }
-    return false;
+    if ( location.href.match(/tony.html$/) )   { return false; }
+    if ( location.href.match(/localhost/) )    { return false; }
+    return true;
   }(),
 
 /**
@@ -244,6 +245,7 @@ PHEDEX.Base = {
 }
 
 var PU     = PHEDEX.Util,
+    PA     = PHEDEX.Appserv,
     log    = PU.log,
     err    = PU.err,
     banner = PU.banner;
