@@ -1,4 +1,4 @@
- * Changes in BETA_0_7
+ * Changes in BETA_0_8
    * Several new modules added in this release, following the plan from the link shown below.
    * Many modules can now take wildcarded names, for nodes or groups. Simply type the string you want instead of allowing the auto-complete to do it for you.
    * Some of these modules can take either a node or a group name as input, this represents a new level of navigational complexity
@@ -10,6 +10,7 @@
       phedex-module-pendingrequests.js
       phedex-module-pendingrequestsnested.js
       phedex-module-unroutabledata.js
+   * The website coding examples have been included under the 'Explore by Information' category.
    * There are no major known issues in this release
 
  * Changes in BETA_0_3
