@@ -57,68 +57,6 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
   return child;
 }
 
-// build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
-// nominally identical, except values in the Value object can override the Specification object.
-// This lets us create a template Specification and use it in several places (header, body) with
-// different Values.
-PHEDEX.Util.makeNode = function(spec,val) {
-  if ( !val ) { val = {}; }
-  var wtot = spec.width || 0,
-      list = document.createElement('ul'),
-      div = document.createElement('div'),
-      sf = spec.format,
-      f, i, n, w_el, w, d1, v, c, oc, li;
-  list.className = 'inline_list';
-  if ( wtot )
-  {
-    div.style.width = wtot+'px';
-    n = sf.length;
-    for (i in sf)
-    {
-      if ( typeof(sf[i]) == 'object' )
-      {
-        w_el = parseInt(sf[i].width);
-        if ( w_el ) { wtot -= w_el; n--; }
-      }
-    }
-  }
-  w = Math.round(wtot/n);
-  if ( w < 0 ) { w=0; }
-  for (i in sf)
-  {
-    f = sf[i];
-    d1 = document.createElement('div');
-    if ( val.length > 0 )
-    {
-      v = val[i];
-      if ( f.format ) { v = f.format(val[i]); }
-      d1.innerHTML = v;
-    } else {
-      d1.innerHTML = sf[i].text;
-    }
-    w_el = parseInt(f.width);
-    if ( w_el ) {
-      d1.style.width = w_el+'px';
-    } else {
-      if ( w ) { d1.style.width = w+'px'; }
-    }
-    if ( spec.className ) { d1.className = spec.className; }
-    if ( f.className ) {
-      YuD.addClass(d1,f.className);
-    }
-    if ( f.otherClasses ) {
-      oc = f.otherClasses.split(' ');
-      for (c in oc) { YuD.addClass(d1,oc[c]); }
-    }
-    li = document.createElement('li');
-    li.appendChild(d1);
-    list.appendChild(li);
-  }
-  div.appendChild(list);
-  return div;
-}
-
-// removed from PHEDEX.Core.Widget and placed here, for convenience
 PHEDEX.Util.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
@@ -240,24 +178,24 @@ PHEDEX.Util.sumArrayField=function(q,f,p) {
   return sum;
 }
 
-PHEDEX.Util.toggleVisible = function(thisClass,el)
-{
-// find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
-  if (typeof(el) != 'object') {
-    el = document.getElementById(el);
-  }
-  var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
-  for (i in elList) {
-    e = elList[i];
-    if ( YuD.hasClass(e,'phedex-visible') ) {
-      YuD.removeClass(e,'phedex-visible');
-      YuD.addClass(e,'phedex-invisible');
-    } else if ( YuD.hasClass(e,'phedex-invisible') ) {
-      YuD.removeClass(e,'phedex-invisible');
-      YuD.addClass(e,'phedex-visible');
-    }
-  }
-}
+// PHEDEX.Util.toggleVisible = function(thisClass,el)
+// {
+// // find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
+//   if (typeof(el) != 'object') {
+//     el = document.getElementById(el);
+//   }
+//   var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
+//   for (i in elList) {
+//     e = elList[i];
+//     if ( YuD.hasClass(e,'phedex-visible') ) {
+//       YuD.removeClass(e,'phedex-visible');
+//       YuD.addClass(e,'phedex-invisible');
+//     } else if ( YuD.hasClass(e,'phedex-invisible') ) {
+//       YuD.removeClass(e,'phedex-invisible');
+//       YuD.addClass(e,'phedex-visible');
+//     }
+//   }
+// }
 
 PHEDEX.Util.initialCaps = function(str) {
   return str.substring(0,1).toUpperCase() + str.substring(1,str.length);
