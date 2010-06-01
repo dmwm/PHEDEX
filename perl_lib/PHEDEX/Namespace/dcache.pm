@@ -34,9 +34,10 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
-  if (exists($self->{AGENT}->{NOCACHE})) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+  if ( exists($self->{AGENT}) && exists($self->{AGENT}->{NOCACHE}) &&
+       $self->{AGENT}->{NOCACHE} != $self->{NOCACHE}) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
 
 # This is where the interface-specific modules are loaded. The modules are
