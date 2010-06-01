@@ -32,6 +32,8 @@ our %params =
 	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
           DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
           CLEAN_STARTUP => 'y',                 # Clean request leave in Active State
+          AGENT_CACHE_MAXFILES => 10000,        # Maximum number of files allow in cache
+          AGENT_CACHE_AGE => 60 * 30,           # Maximum age of files in cache
 	);
 
 sub new
@@ -39,11 +41,15 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self  = $class->SUPER::new(%params,@_);
-  $self->{bcc} = PHEDEX::BlockConsistency::Core->new();
-  $self->{QUEUE} = POE::Queue::Array->new();
+
+  $self->{bcc}          = PHEDEX::BlockConsistency::Core->new();
+  $self->{QUEUE}        = POE::Queue::Array->new();
   $self->{RESULT_QUEUE} = POE::Queue::Array->new();
-  $self->{AGENT_CACHE} = {};
-  $self->{AGENT_STATS} = {};
+
+  $self->{AGENT_CACHE_QUEUE}     = POE::Queue::Array->new();      # Holds the ordered-queue of deletions from the cache
+  $self->{AGENT_CACHE_LOCAL}     = {size => 0, entries => {}};    # Holds list of files entered by req-id (block)
+  $self->{AGENT_CACHE_NAMESPACE} = {};                            # The actual cache managed by the Namespace
+
   $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
 
 # Don't set this below 5 minutes, since it is the time interval you will be accessing the DB 
@@ -217,14 +223,22 @@ sub doNSCheck
   $were_tested = $were_ok = 0;
   $were_n = $n_files;
 
+  my $agent_reqid = 'req_id_' . $request->{ID};  # We will use this as blockname?
+  do_delete_from_cache();                        # We clean the cache before making a test, which eventually will put something in cache
+
   foreach my $r ( @{$request->{LFNs}} )
   {
     no strict 'refs';
     my $pfn;
     my $node = $self->{NODES}[0];
     my $lfn = $r->{LOGICAL_NAME};
+ 
     $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
     $were_tested++;
+
+    push(@{$self->{AGENT_CACHE_LOCAL}->{entries}{$agent_reqid}}, $pfn);   # store the file that will go into cache
+    $self->{AGENT_CACHE_LOCAL}->{size} ++;                                # increase the local counter
+
     if ( $request->{TEST} eq 'size' )
     {
       $t1 = Time::HiRes::time();
@@ -248,6 +262,8 @@ sub doNSCheck
       $t = time;
     }
   }
+
+  $self->{AGENT_CACHE_QUEUE}->enqueue(time, $agent_reqid);                 # Put the blockname in the ordered queue
 
   $request->{N_TESTED} = $were_tested;
   $request->{N_OK} = $were_ok;
@@ -275,6 +291,14 @@ sub stop
   $poe_kernel->call($session,'upload_result');
 }
 
+# hook to call the POE method
+sub do_delete_from_cache
+{
+  my $self = shift;
+  my $session = $poe_kernel->get_active_session;
+  $poe_kernel->call($session,'delete_from_cache');
+}
+
 sub _poe_init
 {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
@@ -282,9 +306,51 @@ sub _poe_init
   $kernel->state('get_work',$self);
   $kernel->state('requeue_later',$self);
   $kernel->state('upload_result',$self);
+  $kernel->state('delete_from_cache',$self);
   $kernel->yield('get_work');
   $kernel->delay_set('upload_result',$self->{WAITTIME} / 2);
 }
+
+sub delete_from_cache
+{
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
+ 
+# If the first entry is not yet stale and the cache is small enough, do not delete the entry.
+# Otherwise, delete the entry...
+# ...then check if the cache is too large, and delete another entry straight away if so
+ my ($priority, $queue_id, $blockName) = $self->{AGENT_CACHE_QUEUE}->dequeue_next();
+
+ return unless defined $priority;                                 # This means there was nothing left in the cache
+ return unless $self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}; # In case the cache was purged by other means...?
+
+ my $age = time - $priority;
+ if ( $age < $self->{AGENT_CACHE_AGE} && $self->{AGENT_CACHE_LOCAL}->{size} <= $self->{AGENT_CACHE_MAXFILES} ) {
+  $self->Dbgmsg("delete_from_cache: Dequeued $blockName, but is not yet stale. Re-inserting in queue") if $self->{DEBUG};
+  $self->{AGENT_CACHE_QUEUE}->enqueue($priority, $blockName);
+  return;
+ }
+
+ my $nfiles_in_block = scalar @{$self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}};
+
+ $self->Dbgmsg("delete_from_cache: Flush block $blockName from the cache, remove $nfiles_in_block  files") if $self->{DEBUG};
+ $self->{AGENT_CACHE_LOCAL}->{size} -= $nfiles_in_block;
+
+ foreach my $pfn_in_cache ( @{$self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}} )
+ {
+   if (exists ($self->{AGENT_CACHE_NAMESPACE}->{$pfn_in_cache}) ) { delete $self->{AGENT_CACHE_NAMESPACE}->{$pfn_in_cache}; }
+ }
+
+ delete $self->{AGENT_CACHE_LOCAL}->{entries}{$blockName};
+
+ my $nfiles_in_cache = scalar keys %{$self->{AGENT_CACHE_NAMESPACE}};
+ $self->Dbgmsg("delete_from_cache: nfiles in cache $nfiles_in_cache  and size of local cache $self->{AGENT_CACHE_LOCAL}->{size}") if $self->{DEBUG};
+
+ if ( $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} ) {
+  $self->Dbgmsg("delete_from_cache: Local cache has too many entries $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} ") if $self->{DEBUG};
+  $kernel->yield('delete_from_cache');
+ }
+}
+
 
 sub upload_result
 {
