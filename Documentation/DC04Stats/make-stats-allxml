@@ -1,7 +1,0 @@
-for f in `cd logs && ls -rt xml* rls??03* rls0104*`; do
-  grep stats logs/$f |
-    awk '{print $6,$7,$8}' |
-    tr -d rus | tr ' ' '	' |
-    paste =(grep stats logs/$f |
-  	    cut -d: -f1-3) -
-done > stats-allxml-`date +%Y%m%d%H%M`.txt
