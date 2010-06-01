@@ -86,7 +86,7 @@ PHEDEX.Appserv = {
  * type boolean
  */
   ProductionMode: function() {
-    if ( location.href.match(/tony.html$/) ) { return false; }
+    if ( location.href.match(/tony.html/) ) { return false; }
     return true;
   }(),
 
