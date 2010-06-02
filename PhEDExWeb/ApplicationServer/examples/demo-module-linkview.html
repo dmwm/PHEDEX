@@ -78,8 +78,23 @@ function createCoreApp() {
   banner('Core application is running, ready to create PhEDEx data-modules...');
   PHEDEX.Util.bannerIdleTimer(PxL);
 
-// This is all it takes to get the core to load, create, and render the 'nodes' module from PhEDEx.
-  PxS.notify('CreateModule','nodes');
+// this is just a trick to ensure the CSS gets loaded in the right order, namely the core CSS before the treeview-specific one
+  PxL.load(function(){},'module');
+
+// This is all it takes to get the core to load, create, and render the 'linkview' module from PhEDEx...
+  PxS.notify('CreateModule','linkview',{state:{ hide:'L.error-log F.cksum L.error-total L.queued B.id B.errors F.id F.errors', specific:'time=24 dir=1' } });
+// ...except that, for now, you need this magic to pass it an argument. Listen for 'needArguments', and give it some!
+  var moduleHandler = function(ev,arr) {
+     var action = arr[0],
+         id     = arr[1];
+    switch ( action ) {
+      case 'needArguments':{
+        PxS.notify( id,'setArgs',{node:'T0_CH_CERN_Export'} );
+        break;
+      }
+    };
+  }
+  PxS.listen('module', moduleHandler);
 };
 </script>
 </body>
