@@ -38,8 +38,8 @@ sub new
   my $self = \%params;
   bless($self, $class);
   $self->{PROXY_CHECK} = 0;
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION} );
   map { $self->{$_} = $h{$_} } keys %h;
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION} );
   $self->{ENV} = '';
 
   $self->SUPER::_init_commands;

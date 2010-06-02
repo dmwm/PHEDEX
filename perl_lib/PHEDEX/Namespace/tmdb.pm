@@ -38,8 +38,8 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $DB::single=1;
 
   connectToDatabase($self) if $self->{DBCONFIG};
