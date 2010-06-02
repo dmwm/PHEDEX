@@ -37,8 +37,8 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   map { $self->{$_} = $h{$_} } keys %h;
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->{ENV} = join(' ',
 			map { "$_=" . ( $self->{$_} || '' ) }
 			( qw / STAGE_HOST STAGE_SVCCLASS RFIO_USE_CASTOR_V2 / )
