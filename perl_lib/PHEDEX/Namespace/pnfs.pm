@@ -33,10 +33,10 @@ sub new
   my $self = \%params;
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
-  if (exists($self->{AGENT})) {
-    $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; 
-    $self->{VERBOSE} = $self->{AGENT}->{VERBOSE}; 
-    $self->{DEBUG} = $self->{AGENT}->{DEBUG}; 
+  if ( exists($self->{AGENT}) ) {
+    if ( exists($self->{AGENT}->{INPUT_FILE}) ) { $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; }
+    if ( exists($self->{AGENT}->{VERBOSE}) )    { $self->{VERBOSE}    = $self->{AGENT}->{VERBOSE}; }
+    if ( exists($self->{AGENT}->{DEBUG}) )      { $self->{DEBUG}      = $self->{AGENT}->{DEBUG}; }
   }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->SUPER::_init_commands;
