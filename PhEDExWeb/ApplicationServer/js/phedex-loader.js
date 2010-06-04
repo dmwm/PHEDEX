@@ -70,8 +70,8 @@ PHEDEX.Loader = function(opts) {
   _conf = {
     loadOptional: true,
     allowRollup:  true,
-    combine:      PA.combineRequests,
-    base:         PA.BaseURL + '/yui/build/',
+    combine:      PxA.combineRequests,
+    base:         PxA.BaseURL + '/yui/build/',
     timeout:      15000,
     skin: {
       defaultSkin: 'sam',
@@ -119,7 +119,7 @@ PHEDEX.Loader = function(opts) {
     for (var i in cf) {
       _loader[i] = cf[i];
     }
-    if ( PA.ProductionMode ) { // pick up the minified versions of everything
+    if ( PxA.ProductionMode ) { // pick up the minified versions of everything
       _loader.filter =
         {
           searchExp: '/js/(phedex[a-z,-]+)\\.js',
@@ -132,7 +132,7 @@ PHEDEX.Loader = function(opts) {
       _loader._filter = function(str) { // overload the builtin, private (!) _filter function
         var f = this.filter;
         if (f) { str = str.replace(new RegExp(f.searchExp, 'g'), f.replaceStr); }
-        str = str.replace(new RegExp('/yui/build//','g'),PA.BaseURL);
+        str = str.replace(new RegExp('/yui/build//','g'),PxA.BaseURL);
         str = str.replace(new RegExp('&','g'),',');
         str = str.replace(/,$/,'');
         return str;
@@ -153,7 +153,7 @@ PHEDEX.Loader = function(opts) {
         if ( !args.type ) { args.type = 'js'; }
         if ( !args.fullpath ) { args.fullpath = '/'+args.type+'/'+args.name+'.'+args.type; }
         if ( !args.fullpath.match('^/yui/build') ) {
-          args.fullpath = PA.BaseURL + args.fullpath;
+          args.fullpath = PxA.BaseURL + args.fullpath;
           args.path = args.fullpath;
           args.ext=false;
         }
