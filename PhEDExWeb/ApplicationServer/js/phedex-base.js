@@ -241,12 +241,12 @@ PHEDEX.Base = {
   }
 }
 
-var PU     = PHEDEX.Util,
-    PA     = PHEDEX.Appserv,
-    log    = PU.log,
-    err    = PU.err,
-    banner = PU.banner;
-if ( PHEDEX.Appserv.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
+var PxU    = PHEDEX.Util,
+    PxA    = PHEDEX.Appserv,
+    log    = PxU.log,
+    err    = PxU.err,
+    banner = PxU.banner;
+if ( PxA.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
   log = err = function() {};
 }
 

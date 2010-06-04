@@ -110,7 +110,7 @@ PHEDEX.Util.format={
     spanWrap:function(raw) {
 //    wrap the raw data in a span, to allow it to be tagged/found in the DOM. Can use this for detecting long
 //    strings that are partially hidden because the div is too short, and show a tooltip or something...
-      return "<span class='spanWrap'>"+raw+"</span>";
+      return "<span class='span-wrap'>"+raw+"</span>";
     },
     toFixed: function(mantissa) {
       return function(raw) {
@@ -236,7 +236,6 @@ PHEDEX.Util.epochAlign = function(time,interval) {
   time = Math.round(time-time%interval);
   return time;
 }
-var PxU = PHEDEX.Util;
 
 /**
 * This is the prototype for the string trim function. This is to trim the string 
@@ -256,5 +255,7 @@ String.prototype.trim = function() {
 String.prototype.startsWith = function(str) {
     return (this.match("^" + str) == str);
 }
+
+var PxUf   = PxU.format;
 
 log('loaded...','info','util');
