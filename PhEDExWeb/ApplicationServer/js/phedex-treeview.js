@@ -220,8 +220,8 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       postGotData: function(step,node) {
         this._cache.partners = {};
-        var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows'];
-//         for (i in steps) { _sbx.notify(this.id,steps[i]); }
+        var i, steps = [/*'doSort', 'doFilter' ]; //, 'hideFields'];*/, 'markOverflows'];
+        for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
       // build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
@@ -387,7 +387,7 @@ PHEDEX.TreeView = function(sandbox,string) {
           el = document.getElementById(id);
           contentElMap[id] = el;
         }
-        node.label = el.innerHTML;
+        node.label = el.childNodes[0].innerHTML;
       },
 
       hideFieldByClass: function(className,el) {
@@ -549,7 +549,7 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
           isHeader, treeMatch,
           payload = {},
           i, j, ctxArgs,
-          formats=obj._cfg.formats;
+          formats=obj._cfg.formats, f;
       tgt = obj.locateNode(target);
       if ( !tgt ) { return; }
       if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
@@ -562,15 +562,17 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 //    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
       YuD.addClass(tgt, "phedex-core-selected");
 
+//    Now extract the set of context-arguments for the classes applied to this element, and return them in the typeNames array.
       if ( !isHeader ) {
         treeMatch = /^phedex-tree-/;
         for (i in classes) {
-          ctxArgs = formats[classes[i]].ctxArgs;
-          if ( ctxArgs ) {
-            if ( classes[i].match(treeMatch) ) {
-            log('found '+classes[i]+' to key new menu entries','info',obj.me);
-              for(j in ctxArgs) {
-                typeNames.unshift(ctxArgs[j]);
+          if ( f = formats[classes[i]]  ) {
+            if ( ctxArgs = f.ctxArgs ) {
+              if ( classes[i].match(treeMatch) ) {
+              log('found '+classes[i]+' to key new menu entries','info',obj.me);
+                for(j in ctxArgs) {
+                  typeNames.unshift(ctxArgs[j]);
+                }
               }
             }
           }
@@ -630,12 +632,11 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
         elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
-// find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
+//    find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
       var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
           elList = obj.locatePartnerFields(tgt),
           i, el, className, f, node, el1;
-     for (i in elList) { elList[i].style.width = tgt.style.width; }
-// TODO synchronise the Nodes from the elList DOM elements.
+      for (i in elList) { elList[i].style.width = tgt.style.width; }
 
 //    update the spec object with the new width, in case any more branches at this level are created
       el = obj.locateNode(tgt);
@@ -643,6 +644,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       f = obj._cfg.formats[className];
       f.width = tgt.style.width;
 
+//    If the resized-column is a spanWrap type, mark the overflowing columns.
       if ( YuD.hasClass(el,'span-wrap') ) {
         obj.markOverflows();
       };
@@ -675,11 +677,12 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       obj = args.payload.obj;
   _construct = function() {
     return {
-      execute: function(o,className,type,dir) {
+      execute: function(o,s /*className,type,dir*/) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
 //      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
-        var sortFn = PxU.Sort[type][dir],
+        var className=s.field, type=s.type, dir=s.dir, oldField=s.oldField,
+            sortFn = PxU.Sort[type][dir],
             index, parent, children, f, i, j,
             map, indices, elList,
             nodes = {}, node;
@@ -729,10 +732,17 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         }
 
         o.tree.render();
+
+//      Rendering rebuilds the DOM somehow, so the partner-cache is invalid for this field.
+        o._cache.partners[className] = {};
+        if ( oldField ) {
+          o._cache.partners[oldField] = {};
+        }
+
 //      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
 // TODO need to manually preserve the DOM content of each node and use it to replace the node innerHTML?
 // take node.labelElId, find the element, extract the innerHTML, set it into the Node.label before rendering!
-        YuD.getElementsByClassName('phedex-sorted',null,o.dom.header,function(element) {
+        YuD.getElementsByClassName('phedex-sorted','div',o.dom.header,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
         YuD.getElementsByClassName(className,null,o.el,function(element) {
@@ -748,12 +758,13 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
         }
 
+// TODO Why do I need this...?
        for (i in o._cfg.hiddenBranches) {
 //       I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
          YuD.addClass(elAncestor,'phedex-invisible');
        }
-        o.hideFields(o.el); // hide all the revealed fields too...
+//         o.hideFields(o.el); // hide all the revealed fields too...
 
         o.meta.sort.type = type;
         o.meta.sort.dir  = dir;
@@ -767,17 +778,18 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             field  = obj.getPhedexFieldClass(target),
             s      = obj.meta.sort;
         if ( !s ) { s = obj.meta.sort = {}; }
+        s.oldField = s.field;
         s.field = field;
         s.dir   = dir;
         s.type  = type;
-        this.execute(obj,field,type,dir);
+        this.execute(obj,s);
       },
 
       doSort: function() {
         var s = obj.meta.sort;
         if ( !s )       { return; } // no sort-column defined...
         if ( !s.field ) { return; } // no sort-column defined...
-        this.execute(obj,s.field,s.type,s.dir);
+        this.execute(obj,s);
 //         _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
       },
 
@@ -915,7 +927,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           YuD.addClass(elAncestor,'phedex-core-control-widget-applied');
         }
         this.updateGUIElements(this.count);
-        _sbx.notify(obj.id,'markOverflows'); // TODO this is needed because I may reveal branches that were hidden and overflowing...
+//         _sbx.notify(obj.id,'markOverflows'); // TODO this is needed because I may reveal branches that were hidden and overflowing...
         return;
       },
     }
