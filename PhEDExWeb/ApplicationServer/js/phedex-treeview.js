@@ -143,7 +143,8 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       locateBranch: function(el) {
 //      find the tree-branch that this DOM node is in
-        var tgt = YuD.hasClass(el, "ygtvlabel") ? el : YuD.getAncestorByClassName(el, "ygtvlabel");
+        var tgt;// = YuD.hasClass(el, "ygtvlabel") ? el : YuD.getAncestorByClassName(el, "ygtvlabel");
+        if ( !tgt ) { tgt = YuD.hasClass(el, "ygtvcontent") ? el : YuD.getAncestorByClassName(el, "ygtvcontent"); }
         if ( tgt ) {
           return this._cfg.textNodeMap[tgt.id];
         }
@@ -155,15 +156,19 @@ PHEDEX.TreeView = function(sandbox,string) {
       initDerived: function() {
         this.tree       = new YAHOO.widget.TreeView(this.dom.content);
         this.headerTree = new YAHOO.widget.TreeView(this.dom.extra);
-        var currentIconMode = 0,
-            root = this.headerTree.getRoot(),
+        var root = this.headerTree.getRoot(),
             t = this.meta.tree,
-            htNode;
+            htNode, i, moduleHandler;
+
+//      render all data, not just the visible branches
+// TODO this doesn't seem to work...?
+        this.tree.renderHidden = true;
+
 //      turn dynamic loading on for entire tree?
         if ( this.meta.isDynamic ) {
-          this.tree.setDynamicLoad(this.loadTreeNodeData, currentIconMode);
+          this.tree.setDynamicLoad(this.loadTreeNodeData, 0);
         }
-        for (var i in t)
+        for (i in t)
         {
           htNode = this.addNode( t[i], null, root );
           htNode.expand();
@@ -198,7 +203,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         this.decorators.push({ name:'Resize' });
         this.allowNotify['markOverflows'] = 1;
 
-        var moduleHandler = function(o) {
+        moduleHandler = function(o) {
           return function(ev,arr) {
             var action = arr[0];
             switch ( action ) {
@@ -216,13 +221,77 @@ PHEDEX.TreeView = function(sandbox,string) {
       postGotData: function(step,node) {
         this._cache.partners = {};
         var i, steps = ['doSort', 'doFilter', 'hideFields'];//, 'markOverflows'];
-        for (i in steps) { _sbx.notify(this.id,steps[i]); }
+//         for (i in steps) { _sbx.notify(this.id,steps[i]); }
+      },
+
+      // build a tree-node. Takes a Specification-object and a Value-object. Specification and Value are
+      // nominally identical, except values in the Value object can override the Specification object.
+      // This lets us create a template Specification and use it in several places (header, body) with
+      // different Values.
+      makeNode: function(spec,val) {
+        if ( !val ) { val = {}; }
+        var wtot = spec.width || 0,
+            list = document.createElement('ul'),
+            div = document.createElement('div'),
+            sf = spec.format,
+            f, i, n, w_el, w, d1, v, c, oc, li;
+        list.className = 'inline_list';
+        if ( wtot )
+        {
+//           div.style.width = wtot+'px';
+          n = sf.length;
+          for (i in sf)
+          {
+            if ( typeof(sf[i]) == 'object' )
+            {
+              w_el = parseInt(sf[i].width);
+              if ( w_el ) { wtot -= w_el; n--; }
+            }
+          }
+        }
+        w = Math.round(wtot/n);
+        if ( w < 0 ) { w=0; }
+        for (i in sf)
+        {
+          f = sf[i];
+          d1 = document.createElement('div');
+          if ( val.length > 0 )
+          {
+            v = val[i];
+            if ( f.format ) { v = f.format(val[i]); }
+            d1.innerHTML = v;
+          } else {
+            d1.innerHTML = sf[i].text;
+          }
+          w_el = parseInt(f.width);
+          if ( w_el ) {
+            d1.style.width = w_el+'px';
+          } else {
+            if ( w ) { d1.style.width = w+'px'; }
+          }
+          if ( spec.className ) { d1.className = spec.className; }
+          if ( f.className ) {
+            YuD.addClass(d1,f.className);
+          }
+          if ( f.otherClasses ) {
+            oc = f.otherClasses.split(' ');
+            for (c in oc) { YuD.addClass(d1,oc[c]); }
+          }
+          if ( f.hide ) {
+            YuD.addClass(d1,'phedex-invisible');
+          }
+          li = document.createElement('li');
+          li.appendChild(d1);
+          list.appendChild(li);
+        }
+        div.appendChild(list);
+        return div;
       },
 
       addNode: function(spec,values,parent) {
         if ( !parent ) { parent = this.tree.getRoot(); }
         var isHeader = false,
-            el, tNode;
+            el, tNode, i, f, className, value;
         if ( !values ) { isHeader = true; }
         if ( values && (spec.format.length != values.length) )
         {
@@ -233,21 +302,24 @@ PHEDEX.TreeView = function(sandbox,string) {
           if ( isHeader ) { spec.className = 'phedex-tnode-header'; }
           else            { spec.className = 'phedex-tnode-field'; }
         }
-        if ( !this.meta.hide ) { this.meta.hide = {}; }
-        el = PxU.makeNode(spec,values);
-        tNode = new YAHOO.widget.TextNode({label: el.innerHTML, expanded: false}, parent);
-        this._cfg.textNodeMap[tNode.labelElId] = tNode;
-        if ( isHeader ) { this._cfg.headerNodeMap[tNode.labelElId] = tNode; }
-        tNode.data.values = values;
-        tNode.data.spec   = spec;
-        if ( spec.payload ) { tNode.payload = spec.payload; }
 
 //      If I'm building the header-nodes, do some metadata management at this point.
         if ( isHeader ) {
-          for (var i in spec.format) {
-            var f = spec.format[i],
-                className = f.className,
-                value;
+          for (i in spec.format) {
+            f = spec.format[i];
+            if ( f.spanWrap ) {
+              f.format = PxUf.spanWrap;
+              if ( !f.otherClasses ) { f.otherClasses = ''; }
+              f.otherClasses += ' span-wrap';
+            }
+//           }
+//         }
+// 
+// //      If I'm building the header-nodes, do more metadata management at this point.
+//         if ( isHeader ) {
+//           for (i in spec.format) {
+//             f = spec.format[i];
+            className = f.className;
             if ( f.format ) {
               if ( typeof(f.format) == 'string' ) {
                 f.format = PHEDEX.TreeView.format[f.format];
@@ -270,12 +342,16 @@ PHEDEX.TreeView = function(sandbox,string) {
                 }
               }
             }
-
-            if ( f.hide ) {
-              this.meta.hide[className] = 1;
-            }
           }
         }
+
+        el = this.makeNode(spec,values);
+        tNode = new YAHOO.widget.TextNode({label:el.innerHTML, expanded:false}, parent);
+        this._cfg.textNodeMap[tNode.contentElId] = tNode;
+        if ( isHeader ) { this._cfg.headerNodeMap[tNode.contentElId] = tNode; }
+        tNode.data.values = values;
+        tNode.data.spec   = spec;
+        if ( spec.payload ) { tNode.payload = spec.payload; }
         return tNode;
       },
 
@@ -290,21 +366,41 @@ PHEDEX.TreeView = function(sandbox,string) {
       },
 
       menuSelectItem: function(args) {
-        for (var i in args) {
+        var i, formats=this._cfg.formats;
+        for (i in args) {
           YuD.getElementsByClassName(args[i],null,this.el,function(element) {
-            element.style.display = null;
+            YuD.removeClass(element,'phedex-invisible');
           });
-          delete this.meta.hide[args[i]];
+          formats[args[i]].hide=false;
         }
         _sbx.notify(this.id, 'updateHistory');
       },
 
+      syncNodeFromDom: function(element) {
+        var _cfg=this._cfg, contentElMap, el, id, node, _html;
+        if ( !_cfg.contentElMap ) { _cfg.contentElMap = {}; }
+        contentElMap = _cfg.contentElMap;
+        node  = this.locateBranch(element);
+        id    = node.contentElId;
+        el    = contentElMap[id];
+        if ( !el ) {
+          el = document.getElementById(id);
+          contentElMap[id] = el;
+        }
+        node.label = el.innerHTML;
+      },
+
       hideFieldByClass: function(className,el) {
         log('hideFieldByClass: '+className,'info','treeview');
-        YuD.getElementsByClassName(className,null,el,function(element) {
-          element.style.display = 'none';
-        });
-        _sbx.notify(this.id,'hideColumn',{text: this._cfg.formats[className].ctx.value, value:className});
+        var _hideElement = function(o) {
+        return function(element) {
+          YuD.addClass(element,'phedex-invisible');
+          o.syncNodeFromDom(element);
+        } }(this);
+        YuD.getElementsByClassName(className,null,el,_hideElement);
+        var fmt = this._cfg.formats[className];
+        _sbx.notify(this.id,'hideColumn',{text: fmt.ctx.value, value:className});
+        fmt.hide = true;
       },
 
       /**
@@ -313,16 +409,16 @@ PHEDEX.TreeView = function(sandbox,string) {
       */
       hideFields: function(el) {
         if ( !el ) { el = this.el; }
-        if ( this.meta.hide ) {
-          for (var i in this.meta.hide) {
-            this.hideFieldByClass(i,el);
-          }
-        }
+//         if ( this.meta.hide ) {
+//           for (var i in this.meta.hide) {
+//             this.hideFieldByClass(i,el);
+//           }
+//         }
       },
 
       markOverflows: function(list) {
         var i, j=0, h1, h2,
-            el, elList = list || YuD.getElementsByClassName('spanWrap',null,this.el);
+            el, elList = list || YuD.getElementsByClassName('span-wrap','span',this.el);
         log('markOverflows: '+elList.length+' entries total','info','treeview');
         while (i = elList.shift()) {
           el = this.locateNode(i);
@@ -431,7 +527,6 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
     return */function(opts,el) {
       var elPhedex = obj.locateNode(el.target),
           elClass  = obj.getPhedexFieldClass(elPhedex);
-      obj.meta.hide[elClass] = 1;
       obj.hideFieldByClass(elClass,obj.el);
     }
   /*}(obj)*/;
@@ -451,8 +546,10 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 //  Context-menu handlers: onContextMenuBeforeShow allows to (re-)build the menu based on the element that is clicked.
     onContextMenuBeforeShow: function(target, typeNames) {
       var classes, tgt,
-          isHeader, treeMatch, label,
-          payload = {};
+          isHeader, treeMatch,
+          payload = {},
+          i, j, ctxArgs,
+          formats=obj._cfg.formats;
       tgt = obj.locateNode(target);
       if ( !tgt ) { return; }
       if      ( YuD.hasClass(tgt,'phedex-tnode-header') ) { isHeader = true; }
@@ -464,15 +561,17 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 
 //    Highlight the <tr> element in the table that was the target of the "contextmenu" event.
       YuD.addClass(tgt, "phedex-core-selected");
-      label = tgt.textContent;
 
-      treeMatch = /^phedex-tree-/;
-      for (var i in classes) {
-        if ( classes[i].match(treeMatch) ) {
-          log('found '+classes[i]+' to key new menu entries','info',obj.me);
-          if ( !isHeader && obj._cfg.formats[classes[i]].ctxArgs ) {
-            for(var j in obj._cfg.formats[classes[i]].ctxArgs) {
-              typeNames.unshift(obj._cfg.formats[classes[i]].ctxArgs[j]);
+      if ( !isHeader ) {
+        treeMatch = /^phedex-tree-/;
+        for (i in classes) {
+          ctxArgs = formats[classes[i]].ctxArgs;
+          if ( ctxArgs ) {
+            if ( classes[i].match(treeMatch) ) {
+            log('found '+classes[i]+' to key new menu entries','info',obj.me);
+              for(j in ctxArgs) {
+                typeNames.unshift(ctxArgs[j]);
+              }
             }
           }
         }
@@ -532,21 +631,21 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
 // find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
-// TODO Can I use an HTMLNode instead of a TextNode to avoid the rebuild?
       var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
           elList = obj.locatePartnerFields(tgt),
           i, el, className, f, node, el1;
      for (i in elList) { elList[i].style.width = tgt.style.width; }
-      obj.markOverflows();
+// TODO synchronise the Nodes from the elList DOM elements.
+
+//    update the spec object with the new width, in case any more branches at this level are created
       el = obj.locateNode(tgt);
       className = obj.getPhedexFieldClass(el);
       f = obj._cfg.formats[className];
       f.width = tgt.style.width;
-      for (i in elList) {
-        node = obj.locateBranch(elList[i]);
-        el1 = PxU.makeNode(node.data.spec,node.data.values);
-        node.label = el1.innerHTML;
-      }
+
+      if ( YuD.hasClass(el,'span-wrap') ) {
+        obj.markOverflows();
+      };
     });
   }
 
@@ -623,6 +722,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             }
           }
           map.sort(function(a,b){ return sortFn(a.value,b.value); });
+          children = parent.children;
           for (i in map) {
             parent.children[indices[i]] = map[i].node;
           }
@@ -630,6 +730,8 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
         o.tree.render();
 //      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
+// TODO need to manually preserve the DOM content of each node and use it to replace the node innerHTML?
+// take node.labelElId, find the element, extract the innerHTML, set it into the Node.label before rendering!
         YuD.getElementsByClassName('phedex-sorted',null,o.dom.header,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
@@ -676,7 +778,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         if ( !s )       { return; } // no sort-column defined...
         if ( !s.field ) { return; } // no sort-column defined...
         this.execute(obj,s.field,s.type,s.dir);
-        _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
+//         _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
       },
 
       _init: function() {
