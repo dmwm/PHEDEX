@@ -109,7 +109,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'Block',
             format: [
-              {width:600,text:'Block Name',   className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },{width: 80,text:'Block ID',     className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
+              {width:600,text:'Block Name',   className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
+              {width: 80,text:'Block ID',     className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
               {width: 80,text:'State',        className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Priority',     className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Files',        className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
