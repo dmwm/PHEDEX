@@ -681,7 +681,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
 //      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
-        var className=s.field, type=s.type, dir=s.dir, oldField=s.oldField,
+        var className=s.field, type=s.type, dir=s.dir,
             sortFn = PxU.Sort[type][dir],
             index, parent, children, f, i, j,
             map, indices, elList,
@@ -733,11 +733,8 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 
         o.tree.render();
 
-//      Rendering rebuilds the DOM somehow, so the partner-cache is invalid for this field.
-        o._cache.partners[className] = {};
-        if ( oldField ) {
-          o._cache.partners[oldField] = {};
-        }
+//      Rendering rebuilds the DOM somehow, so the partner-cache is invalid.
+        o._cache.partners = {};
 
 //      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
 // TODO need to manually preserve the DOM content of each node and use it to replace the node innerHTML?
@@ -778,7 +775,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
             field  = obj.getPhedexFieldClass(target),
             s      = obj.meta.sort;
         if ( !s ) { s = obj.meta.sort = {}; }
-        s.oldField = s.field;
         s.field = field;
         s.dir   = dir;
         s.type  = type;
