@@ -22,8 +22,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 
   var node,
       opts = {},
-      width = 1200,
-      PxUf = PHEDEX.Util.format;
+      width = 1200;
 
   // Merge passed options with defaults
   Yla(opts, {
@@ -110,8 +109,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'Block',
             format: [
-              {width:600,text:'Block Name',   className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
-              {width: 80,text:'Block ID',     className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
+              {width:600,text:'Block Name',   className:'phedex-tree-block-name',     otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },{width: 80,text:'Block ID',     className:'phedex-tree-block-id',       otherClasses:'align-right', ctxArgs:['block','sort-num'],   ctxKey:'blockid' },
               {width: 80,text:'State',        className:'phedex-tree-block-state',    otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Priority',     className:'phedex-tree-block-priority', otherClasses:'phedex-tnode-auto-height' },
               {width: 80,text:'Files',        className:'phedex-tree-block-files',    otherClasses:'phedex-tnode-auto-height align-right' },
@@ -122,7 +120,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           {
             name:'File',
             format:[
-              {width:600,text:'File Name',   className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
+              {width:600,text:'File Name',   className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', spanWrap:true },
               {width: 80,text:'File ID',     className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid' },
               {width: 80,text:'Bytes',       className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 90,text:'File Errors', className:'phedex-tree-file-errors', otherClasses:'align-right', ctxArgs:'sort-num' },

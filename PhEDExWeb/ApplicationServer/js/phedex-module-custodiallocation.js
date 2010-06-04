@@ -29,8 +29,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         custodial:     null,
         group:         null,
       },
-      width = 1200,
-      PxUf = PHEDEX.Util.format;
+      width = 1200;
 
   Yla(opts, {
     width:width,
@@ -104,7 +103,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             width:1200,
             name:'Block',
             format: [
-              {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
+              {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
               {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
               {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },

@@ -11,8 +11,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         kind:   null,
         since:     1,
       },
-      width = 1200,
-      PxUf = PHEDEX.Util.format;
+      width = 1200;
 
   Yla(opts, {
     width:width,
@@ -79,7 +78,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           {
             name:'Block',
             format: [
-              {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', format:PxUf.spanWrap },
+              {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
               {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
               {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
@@ -100,7 +99,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           {
             name:'Files',
             format:[
-              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', format:PxUf.spanWrap },
+              {width:600,text:'File Name',  className:'phedex-tree-file-name',   otherClasses:'align-left',  ctxArgs:['file','sort-alpha'], ctxKey:'file', spanWrap:true },
               {width: 80,text:'File ID',    className:'phedex-tree-file-id',     otherClasses:'align-right', ctxArgs:['file','sort-num'],   ctxKey:'fileid', hide:true },
               {width: 80,text:'Bytes',      className:'phedex-tree-file-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 90,text:'Status',     className:'phedex-tree-file-status', otherClasses:'align-right', ctxArgs:'sort-alpha' },
