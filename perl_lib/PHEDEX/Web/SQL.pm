@@ -3142,5 +3142,95 @@ sub getRequestList
     return \@r;
 }
 
+# getData -- get registered data from PhEDEx
+sub getData
+{
+    my $core = shift;
+    my %h = @_;
+
+    my $sql = qq {
+        select
+            n.name node,
+            f.logical_name,
+            f.checksum,
+            f.filesize,
+            f.time_create file_time_create,
+            b.name block,
+            b.files,
+            b.bytes,
+            b.is_open block_is_open,
+            b.time_create block_time_create,
+            b.time_update block_time_update,
+            d.name dataset,
+            d.is_open dataset_is_open,
+            d.is_transient dataset_is_transient,
+            d.time_create dataset_time_create,
+            d.time_update dataset_time_update,
+            s.name dbs,
+            s.dls,
+            s.time_create dbs_time_create
+        from
+            t_dps_file f
+            join t_dps_block b on f.inblock = b.id
+            join t_dps_dataset d on b.dataset = d.id
+            join t_dps_dbs s on d.dbs = s.id
+            join t_adm_node n on n.id = f.node
+    };
+
+    my $filters = '';
+    my %p;
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        DATASET => 'd.name',
+        BLOCK => 'b.name',
+        FILE => 'f.logical_name'));
+
+    my $and = " and ";
+    if ($filters)
+    {
+        $sql .= qq { where ($filters) };
+    }
+    else
+    {
+        $and = " where ";
+    }
+
+    if (exists $h{FILE_CREATE_SINCE})
+    {
+        $sql .= $and . qq { f.time_create >= :file_create_since };
+        $p{':file_create_since'} = &str2time($h{FILE_CREATE_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    if (exists $h{BLOCK_CREATE_SINCE})
+    {
+        $sql .= $and . qq { b.time_create >= :block_create_since };
+        $p{':block_create_since'} = &str2time($h{BLOCK_CREATE_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    if (exists $h{DATASET_CREATE_SINCE})
+    {
+        $sql .= $and . qq { d.time_create >= :dataset_create_since };
+        $p{':dataset_create_since'} = &str2time($h{DATASET_CREATE_SINCE});
+    }
+
+    $sql .= qq {
+        order by s.name, d.name, b.name
+    };
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
 
 1;
