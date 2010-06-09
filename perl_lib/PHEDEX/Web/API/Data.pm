@@ -17,7 +17,7 @@ Show data which is registered (injected) to PhEDEx
   dataset                  dataset name to output data for (wildcard support)
   block                    block name to output data for (wildcard support)
   file                     file name to output data for (wildcard support)
-  file_create_since        returns files which were created since this time
+  file_create_since        returns files which were created since this time, default is 1 day ago
   block_create_since       return blocks which were created since this time
   dataset_create_since     returns datasets which were created since this time
   dbs_create_since         returns dbs which were created since this time
@@ -109,16 +109,15 @@ sub data
 {
     my ($core, %h) = @_;
 
-    # need at least one of the input
-    if (! keys %h)
-    {
-        die "need at least one of the input arguments: dataset block file file_create_since block_create_since dataset_create_since dbs_create_since\n";
-    }
-
     # convert parameter keys to upper caseq
     foreach ( qw / dataset block file file_create_since block_create_since dataset_create_since dbs_create_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+
+    if (not exists $h{FILE_CREATE_SINCE})
+    {
+        $h{FILE_CREATE_SINCE} = time() - 86400;
     }
 
     my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getData($core, %h));
