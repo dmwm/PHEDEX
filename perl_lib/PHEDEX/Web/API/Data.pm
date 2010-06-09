@@ -20,6 +20,7 @@ Show data which is registered (injected) to PhEDEx
   file_create_since        returns files which were created since this time
   block_create_since       return blocks which were created since this time
   dataset_create_since     returns datasets which were created since this time
+  dbs_create_since         returns dbs which were created since this time
 
 =head2 Output
 
@@ -111,11 +112,11 @@ sub data
     # need at least one of the input
     if (! keys %h)
     {
-        die "need at least one of the input arguments: dataset block file file_create_since block_create_since dataset_create_since\n";
+        die "need at least one of the input arguments: dataset block file file_create_since block_create_since dataset_create_since dbs_create_since\n";
     }
 
     # convert parameter keys to upper caseq
-    foreach ( qw / dataset block file file_create_since block_create_since dataset_create_since / )
+    foreach ( qw / dataset block file file_create_since block_create_since dataset_create_since dbs_create_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
