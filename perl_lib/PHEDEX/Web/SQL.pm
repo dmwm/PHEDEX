@@ -3219,6 +3219,16 @@ sub getData
     {
         $sql .= $and . qq { d.time_create >= :dataset_create_since };
         $p{':dataset_create_since'} = &str2time($h{DATASET_CREATE_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    if (exists $h{DBS_CREATE_SINCE})
+    {
+        $sql .= $and . qq { s.time_create >= :dbs_create_since };
+        $p{':dbs_create_since'} = &str2time($h{DBS_CREATE_SINCE});
     }
 
     $sql .= qq {
