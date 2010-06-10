@@ -238,7 +238,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         list.className = 'inline_list';
         if ( wtot )
         {
-//           div.style.width = wtot+'px';
+          div.style.width = wtot+'px'; // TODO does this matter...?
           n = sf.length;
           for (i in sf)
           {
@@ -376,6 +376,23 @@ PHEDEX.TreeView = function(sandbox,string) {
         _sbx.notify(this.id, 'updateHistory');
       },
 
+      dumpTree: function(parent,level) {
+        var node, inner, el;
+        el = document.getElementById('phedex-logger');
+        if ( !parent ) {
+          parent = this.tree.getRoot();
+          level = 0;
+          el.style.width = '1100px';
+          el.innerHTML += '<br/>---------------------------------<br/>Tree dump:<br/>';
+        }
+        inner = document.getElementById(parent.contentElId)
+        if ( inner ) { inner = inner.childNodes[0].innerHTML; }
+        el.innerHTML += level+': '+parent.contentElId+'<br/>label: '+escape(parent.label)+'<br/>inner: '+escape(inner)+'<br/>';
+        for (i in parent.children) {
+          this.dumpTree(parent.children[i],level+1);
+        }
+      },
+
       syncNodeFromDom: function(element) {
         var _cfg=this._cfg, contentElMap, el, id, node, _html;
         if ( !_cfg.contentElMap ) { _cfg.contentElMap = {}; }
@@ -409,6 +426,7 @@ PHEDEX.TreeView = function(sandbox,string) {
       */
       hideFields: function(el) {
         if ( !el ) { el = this.el; }
+debugger;
 //         if ( this.meta.hide ) {
 //           for (var i in this.meta.hide) {
 //             this.hideFieldByClass(i,el);
@@ -429,6 +447,7 @@ PHEDEX.TreeView = function(sandbox,string) {
           } else {
             YuD.removeClass(el,'phedex-tnode-overflow');
           }
+          this.syncNodeFromDom(el);
           if ( j++ >= 25 ) {
             log('markOverflows: defer with '+elList.length+' entries left','info','treeview');
             _sbx.notify(this.id,'markOverflows',elList);
@@ -632,11 +651,16 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
         elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
-//    find the class that is being resized, update the spec for that class, and rebuild the nodes that are affected by the change.
+//    find the class that is being resized, update the spec for that class, and update the nodes that are affected by the change.
       var tgt = obj.locateHeader(YuE.getTarget(ev).payload),
           elList = obj.locatePartnerFields(tgt),
           i, el, className, f, node, el1;
-      for (i in elList) { elList[i].style.width = tgt.style.width; }
+      for (i in elList) {
+        el = elList[i];
+        YuD.removeClass(el,'phedex-tnode-highlight-associated'); // TODO I shouldn't really have to do this here, should I?
+        el.style.width = tgt.style.width;
+        obj.syncNodeFromDom(el);
+      }
 
 //    update the spec object with the new width, in case any more branches at this level are created
       el = obj.locateNode(tgt);
@@ -644,10 +668,6 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       f = obj._cfg.formats[className];
       f.width = tgt.style.width;
 
-//    If the resized-column is a spanWrap type, mark the overflowing columns.
-      if ( YuD.hasClass(el,'span-wrap') ) {
-        obj.markOverflows();
-      };
     });
   }
 
@@ -727,7 +747,13 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           map.sort(function(a,b){ return sortFn(a.value,b.value); });
           children = parent.children;
           for (i in map) {
-            parent.children[indices[i]] = map[i].node;
+            var _n = map[i].node,
+                _c = parent.children[indices[i]],
+                _c1 = _n.contentElId,
+                _el1 = document.getElementById(_c1),
+                _i1 = _el1.childNodes[0].innerHTML;
+            _c = _n;
+            _c.label = _i1;
           }
         }
 
@@ -739,7 +765,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 //      Rendering the tree resets the classNames of the elements, because it uses the node innerHTML instead of the DOM. Hence this comes here, after the render!
 // TODO need to manually preserve the DOM content of each node and use it to replace the node innerHTML?
 // take node.labelElId, find the element, extract the innerHTML, set it into the Node.label before rendering!
-        YuD.getElementsByClassName('phedex-sorted','div',o.dom.header,function(element) {
+        YuD.getElementsByClassName('phedex-sorted','div',o.el,function(element) {
           YuD.removeClass(element,'phedex-sorted');
         });
         YuD.getElementsByClassName(className,null,o.el,function(element) {
@@ -747,13 +773,13 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         });
 
 //      add a visual indicator that the module has been sorted
-        var s = o.dom.sorted, a;
+        var s = o.dom.sorted;
         if ( !s ) {
           o.dom.sorted = s = PxU.makeChild(o.dom.control,'span');
           s.innerHTML = 'S';
-          s.className = 'phedex-sorted';
           s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
         }
+        s.className = 'phedex-sorted';
 
 // TODO Why do I need this...?
        for (i in o._cfg.hiddenBranches) {
@@ -836,7 +862,7 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
 //  get the resolved (non-text node) target:
     var elTarget = YuE.getTarget(e),
         el = obj.locateNode(elTarget),
-        action, className, class_alt, elList, i;
+        action, className, class_alt, elList, i, _x;
     if ( ! el ) { return; }
     className = 'phedex-tnode-highlight';
     class_alt  = 'phedex-tnode-highlight-associated';
@@ -848,9 +874,12 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
     elList = obj.locatePartnerFields(el);
     for (i in elList )
     {
-      action(elList[i],class_alt);
+      _x = action(elList[i],class_alt);
+//       if ( !x ) { elList[i].innerHTML='asdf'; debugger; }
     }
-    action(el,className);
+    _x = action(el,className);
+//     if ( !x ) { el.innerHTML='asdf'; debugger; }
+    var aa=1;
   }
   YuE.on(obj.dom.content, "mouseover", mouseOverHandler);
   YuE.on(obj.dom.content, "mouseout",  mouseOverHandler);

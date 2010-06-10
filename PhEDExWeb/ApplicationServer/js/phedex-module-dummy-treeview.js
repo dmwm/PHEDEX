@@ -45,11 +45,11 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
             name:'Block',
             format: [
               {width:60,text:'Field-1', className:'phedex-tree-block-field1', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
-              {width:60,text:'Field-2', className:'phedex-tree-block-field2', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
-              {width:60,text:'Field-3', className:'phedex-tree-block-field3', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
-              {width:60,text:'Field-4', className:'phedex-tree-block-field4', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
-              {width:60,text:'Field-5', className:'phedex-tree-block-field5', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
-              {width:60,text:'Field-6', className:'phedex-tree-block-field6', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
+//               {width:60,text:'Field-2', className:'phedex-tree-block-field2', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
+//               {width:60,text:'Field-3', className:'phedex-tree-block-field3', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
+//               {width:60,text:'Field-4', className:'phedex-tree-block-field4', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
+//               {width:60,text:'Field-5', className:'phedex-tree-block-field5', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
+//               {width:60,text:'Field-6', className:'phedex-tree-block-field6', otherClasses:'align-left',  ctxArgs:['block','sort-alpha'] },
             ]
           },
         ],
@@ -59,11 +59,11 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
             map:{from:'phedex-tree-block-', to:'B'},
             fields:{
               'phedex-tree-block-field1' :{type:'regex', text:'Field 1', tip:'javascript regular expression' },
-              'phedex-tree-block-field2' :{type:'regex', text:'Field 2', tip:'javascript regular expression' },
-              'phedex-tree-block-field3' :{type:'regex', text:'Field 3', tip:'javascript regular expression' },
-              'phedex-tree-block-field4' :{type:'regex', text:'Field 4', tip:'javascript regular expression' },
-              'phedex-tree-block-field5' :{type:'regex', text:'Field 5', tip:'javascript regular expression' },
-              'phedex-tree-block-field6' :{type:'regex', text:'Field 6', tip:'javascript regular expression' },
+//               'phedex-tree-block-field2' :{type:'regex', text:'Field 2', tip:'javascript regular expression' },
+//               'phedex-tree-block-field3' :{type:'regex', text:'Field 3', tip:'javascript regular expression' },
+//               'phedex-tree-block-field4' :{type:'regex', text:'Field 4', tip:'javascript regular expression' },
+//               'phedex-tree-block-field5' :{type:'regex', text:'Field 5', tip:'javascript regular expression' },
+//               'phedex-tree-block-field6' :{type:'regex', text:'Field 6', tip:'javascript regular expression' },
             }
           },
         },
@@ -83,7 +83,7 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
         var tNode, i, j, row;
         for (i=0; i<1; i++) {
           row = [];
-          for (j=0; j<6; j++) {
+          for (j=0; j<1; j++) {
             row.push('v_'+i+'_'+j);
           }
           tNode = this.addNode(
