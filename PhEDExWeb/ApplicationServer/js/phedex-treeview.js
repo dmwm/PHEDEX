@@ -862,7 +862,7 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
 //  get the resolved (non-text node) target:
     var elTarget = YuE.getTarget(e),
         el = obj.locateNode(elTarget),
-        action, className, class_alt, elList, i, _x;
+        action, className, class_alt, elList, i;
     if ( ! el ) { return; }
     className = 'phedex-tnode-highlight';
     class_alt  = 'phedex-tnode-highlight-associated';
@@ -874,12 +874,9 @@ PHEDEX.TreeView.MouseOver = function(sandbox,args) {
     elList = obj.locatePartnerFields(el);
     for (i in elList )
     {
-      _x = action(elList[i],class_alt);
-//       if ( !x ) { elList[i].innerHTML='asdf'; debugger; }
+      action(elList[i],class_alt);
     }
-    _x = action(el,className);
-//     if ( !x ) { el.innerHTML='asdf'; debugger; }
-    var aa=1;
+    action(el,className);
   }
   YuE.on(obj.dom.content, "mouseover", mouseOverHandler);
   YuE.on(obj.dom.content, "mouseout",  mouseOverHandler);
