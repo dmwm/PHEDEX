@@ -312,13 +312,6 @@ PHEDEX.TreeView = function(sandbox,string) {
               if ( !f.otherClasses ) { f.otherClasses = ''; }
               f.otherClasses += ' span-wrap';
             }
-//           }
-//         }
-// 
-// //      If I'm building the header-nodes, do more metadata management at this point.
-//         if ( isHeader ) {
-//           for (i in spec.format) {
-//             f = spec.format[i];
             className = f.className;
             if ( f.format ) {
               if ( typeof(f.format) == 'string' ) {
@@ -394,16 +387,9 @@ PHEDEX.TreeView = function(sandbox,string) {
 //       },
 
       syncNodeFromDom: function(element) {
-        var _cfg=this._cfg, contentElMap, el, id, node, _html;
-        if ( !_cfg.contentElMap ) { _cfg.contentElMap = {}; }
-        contentElMap = _cfg.contentElMap;
+        var el, node, _html;
         node  = this.locateBranch(element);
-        id    = node.contentElId;
-//         el    = contentElMap[id];
-//         if ( !el ) {
-          el = document.getElementById(id);
-//           contentElMap[id] = el;
-//         }
+        el = document.getElementById(node.contentElId);
         node.label = el.childNodes[0].innerHTML;
       },
 
@@ -669,7 +655,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
       f = obj._cfg.formats[className];
       f.width = tgt.style.width;
       if ( YuD.hasClass(el,'span-wrap') ) {
-        obj.markOverflows(); //elList);
+        obj.markOverflows();
       }
     });
   }
@@ -781,12 +767,11 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         s.className = 'phedex-sorted';
 
 // TODO Why do I need this...?
-       for (i in o._cfg.hiddenBranches) {
-//       I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
-         var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
-         YuD.addClass(elAncestor,'phedex-invisible');
-       }
-//         o.hideFields(o.el); // hide all the revealed fields too...
+        for (i in o._cfg.hiddenBranches) {
+//        I have to look up the ancestor again, because re-rendering the tree makes the DOM-reference no longer valid if I cached it.
+          var elAncestor = YuD.getAncestorByClassName(document.getElementById(i),'ygtvtable');
+          YuD.addClass(elAncestor,'phedex-invisible');
+        }
 
         o.meta.sort.type = type;
         o.meta.sort.dir  = dir;
@@ -947,7 +932,6 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
           YuD.addClass(elAncestor,'phedex-core-control-widget-applied');
         }
         this.updateGUIElements(this.count);
-//         _sbx.notify(obj.id,'markOverflows'); // TODO this is needed because I may reveal branches that were hidden and overflowing...
         return;
       },
     }
