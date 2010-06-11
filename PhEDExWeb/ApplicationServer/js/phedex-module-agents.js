@@ -205,7 +205,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             i, u, minGMT, maxGMT, dMin, dMax;
         if ( !node ) { msg = 'No extra information available (no node selected yet!)'; }
         for (i in this.data) {
-          u = this.data[i].agent[0].time_update;
+          u = this.data[i].time_update;
           if ( u > maxDate ) { maxDate = u; }
           if ( u < minDate ) { minDate = u; }
         }
