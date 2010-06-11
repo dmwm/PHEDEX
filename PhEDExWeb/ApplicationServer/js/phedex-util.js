@@ -178,24 +178,24 @@ PHEDEX.Util.sumArrayField=function(q,f,p) {
   return sum;
 }
 
-// PHEDEX.Util.toggleVisible = function(thisClass,el)
-// {
-// // find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
-//   if (typeof(el) != 'object') {
-//     el = document.getElementById(el);
-//   }
-//   var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
-//   for (i in elList) {
-//     e = elList[i];
-//     if ( YuD.hasClass(e,'phedex-visible') ) {
-//       YuD.removeClass(e,'phedex-visible');
-//       YuD.addClass(e,'phedex-invisible');
-//     } else if ( YuD.hasClass(e,'phedex-invisible') ) {
-//       YuD.removeClass(e,'phedex-invisible');
-//       YuD.addClass(e,'phedex-visible');
-//     }
-//   }
-// }
+PHEDEX.Util.toggleVisible = function(thisClass,el)
+{
+// find all elements with class=thisClass below el in the DOM. For those that have phedex-(in)visible set, toggle the value
+  if (typeof(el) != 'object') {
+    el = document.getElementById(el);
+  }
+  var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
+  for (i in elList) {
+    e = elList[i];
+    if ( YuD.hasClass(e,'phedex-visible') ) {
+      YuD.removeClass(e,'phedex-visible');
+      YuD.addClass(e,'phedex-invisible');
+    } else if ( YuD.hasClass(e,'phedex-invisible') ) {
+      YuD.removeClass(e,'phedex-invisible');
+      YuD.addClass(e,'phedex-visible');
+    }
+  }
+}
 
 PHEDEX.Util.initialCaps = function(str) {
   return str.substring(0,1).toUpperCase() + str.substring(1,str.length);
