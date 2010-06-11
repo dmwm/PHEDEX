@@ -539,6 +539,12 @@ sub getAgents
         AGENT => 'a.name'));
     $sql .= " and ($filters) " if $filters;
 
+    if (exists $h{UPDATE_SINCE})
+    {
+        $sql .= qq { and s.time_update >= :update_since };
+        $p{':update_since'} = &str2time($h{UPDATE_SINCE});
+    }
+
     $sql .= qq {
         order by n.name, a.name
     };
