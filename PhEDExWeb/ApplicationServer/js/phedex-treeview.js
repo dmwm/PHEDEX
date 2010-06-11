@@ -38,7 +38,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cache:{ node:[], partners:{} },
+      _cache:{ node:{}, partners:{} },
 
 /**
  * Used in PHEDEX.Module and elsewhere to derive the type of certain decorator-style objects, such as mouseover handlers etc. These can be different for TreeView and DataTable objects, so will be picked up as PHEDEX.[this.type].function(), or similar.
@@ -376,22 +376,22 @@ PHEDEX.TreeView = function(sandbox,string) {
         _sbx.notify(this.id, 'updateHistory');
       },
 
-      dumpTree: function(parent,level) {
-        var node, inner, el;
-        el = document.getElementById('phedex-logger');
-        if ( !parent ) {
-          parent = this.tree.getRoot();
-          level = 0;
-          el.style.width = '1100px';
-          el.innerHTML += '<br/>---------------------------------<br/>Tree dump:<br/>';
-        }
-        inner = document.getElementById(parent.contentElId)
-        if ( inner ) { inner = inner.childNodes[0].innerHTML; }
-        el.innerHTML += level+': '+parent.contentElId+'<br/>label: '+escape(parent.label)+'<br/>inner: '+escape(inner)+'<br/>';
-        for (i in parent.children) {
-          this.dumpTree(parent.children[i],level+1);
-        }
-      },
+//       dumpTree: function(parent,level) {
+//         var node, inner, el;
+//         el = document.getElementById('phedex-logger');
+//         if ( !parent ) {
+//           parent = this.tree.getRoot();
+//           level = 0;
+//           el.style.width = '1100px';
+//           el.innerHTML += '<br/>---------------------------------<br/>Tree dump:<br/>';
+//         }
+//         inner = document.getElementById(parent.contentElId)
+//         if ( inner ) { inner = inner.childNodes[0].innerHTML; }
+//         el.innerHTML += level+': '+parent.contentElId+'<br/>label: '+escape(parent.label)+'<br/>inner: '+escape(inner)+'<br/>';
+//         for (i in parent.children) {
+//           this.dumpTree(parent.children[i],level+1);
+//         }
+//       },
 
       syncNodeFromDom: function(element) {
         var _cfg=this._cfg, contentElMap, el, id, node, _html;
@@ -399,11 +399,11 @@ PHEDEX.TreeView = function(sandbox,string) {
         contentElMap = _cfg.contentElMap;
         node  = this.locateBranch(element);
         id    = node.contentElId;
-        el    = contentElMap[id];
-        if ( !el ) {
+//         el    = contentElMap[id];
+//         if ( !el ) {
           el = document.getElementById(id);
-          contentElMap[id] = el;
-        }
+//           contentElMap[id] = el;
+//         }
         node.label = el.childNodes[0].innerHTML;
       },
 
@@ -661,13 +661,16 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
         el.style.width = tgt.style.width;
         obj.syncNodeFromDom(el);
       }
+      obj._cache.node = {};
 
 //    update the spec object with the new width, in case any more branches at this level are created
       el = obj.locateNode(tgt);
       className = obj.getPhedexFieldClass(el);
       f = obj._cfg.formats[className];
       f.width = tgt.style.width;
-
+      if ( YuD.hasClass(el,'span-wrap') ) {
+        obj.markOverflows(); //elList);
+      }
     });
   }
 
@@ -748,17 +751,13 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           children = parent.children;
           for (i in map) {
             var _n = map[i].node,
-                _c = parent.children[indices[i]],
-                _c1 = _n.contentElId,
-                _el1 = document.getElementById(_c1),
-                _i1 = _el1.childNodes[0].innerHTML;
-            _c = _n;
-            _c.label = _i1;
+                _el = document.getElementById(_n.contentElId);
+            _n.label = _el.childNodes[0].innerHTML;
+            parent.children[indices[i]] = _n;
           }
         }
 
         o.tree.render();
-
 //      Rendering rebuilds the DOM somehow, so the partner-cache is invalid.
         o._cache.partners = {};
 
@@ -812,7 +811,6 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         if ( !s )       { return; } // no sort-column defined...
         if ( !s.field ) { return; } // no sort-column defined...
         this.execute(obj,s);
-//         _sbx.notify(obj.id,'markOverflows'); // TODO would not be necessary if I didn't rebuild tree!
       },
 
       _init: function() {
