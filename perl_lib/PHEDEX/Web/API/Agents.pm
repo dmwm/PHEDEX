@@ -22,6 +22,7 @@ agents.
   se               storage element name, could be multiple
   agent            agent name, could be multiple
   version          PhEDEx version
+  update_since     updated since this time
   detail           show "code" information at file level *
 
 =head2 Output
@@ -117,7 +118,7 @@ sub agents
     my ($core, %h) = @_;
 
     # convert parameter keys to upper case
-    foreach ( qw / node se agent version detail / )
+    foreach ( qw / node se agent version detail update_since / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
