@@ -39,10 +39,10 @@ PHEDEX.Loader = function(opts) {
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
-//     'phedex-datatable': { requires:['datatable'] },
     'phedex-treeview':  { requires: ['treeview', 'treeview-css'] },
-//     'phedex-nesteddatatable':  { requires: ['nesteddatatable-js', 'nesteddatatable-css'] },
     'phedex-datatable':  { requires: ['datatable', 'nesteddatatable-js', 'nesteddatatable-css'] },
+
+// These are the main data-display modules
     'phedex-module-nodes':             { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-agents':            { requires:['phedex-module','phedex-datatable'] },
     'phedex-module-linkview':          { requires:['phedex-module','phedex-treeview'] },
@@ -57,6 +57,9 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-pendingrequests': { requires: ['phedex-module', 'phedex-datatable'] },
     'phedex-module-pendingrequestsnested': { requires: ['phedex-module', 'phedex-datatable'] },
     'phedex-module-unroutabledata': { requires: ['phedex-module', 'phedex-treeview'] },
+
+// a few custom-modules for shifters
+    'phedex-shifter-agents':            { requires:['phedex-module','phedex-datatable'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
