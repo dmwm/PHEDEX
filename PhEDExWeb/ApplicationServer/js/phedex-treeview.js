@@ -191,7 +191,7 @@ PHEDEX.TreeView = function(sandbox,string) {
               control: {
                 parent: 'control',
                 payload:{
-                  disabled: false, //true,
+                  disabled: false,
                   hidden:   true,
                 },
                 el: 'content',
@@ -220,7 +220,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       postGotData: function(step,node) {
         this._cache.partners = {};
-        var i, steps = [/*'doSort', 'doFilter' ]; //, 'hideFields'];*/, 'markOverflows'];
+        var i, steps = [/*'doSort', 'doFilter', 'hideFields',*/ 'markOverflows'];
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
