@@ -114,7 +114,7 @@ PHEDEX.Module = function(sandbox, string) {
 //      These defaults do not override those of the module (if any)
         Yla(this.options, default_options);
 //      Options from the constructor do override defaults
-        Yla(this.options, opts, true);
+        if ( opts ) { Yla(this.options, opts, true); }
 
         var ILive = function(obj) {
           return function() {
