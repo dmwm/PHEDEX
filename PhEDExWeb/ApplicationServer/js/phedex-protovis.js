@@ -27,6 +27,15 @@ PHEDEX.Protovis = function (sandbox, string) {
             */
             type: 'Protovis',
 
+            /** return a boolean indicating if the module is in a fit state to be bookmarked
+            * @method isStateValid
+            * @return {boolean} <strong>false</strong>, must be over-ridden by derived types that can handle their separate cases
+            */
+            isStateValid: function () {
+                if (this.obj.data) { return true; } // TODO is this good enough...? Use _needsParse...?
+                return false;
+            },
+
             /** Initialise the data-table, using the parameters in this.meta.table, set in the module during construction
             * @method initDerived
             * @private
