@@ -1,0 +1,110 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+ <input id="yui-history-field" type="hidden" style='visibility:hidden'>
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+    <div id='phedex-controls' class='phedex-controls float-right'></div>
+ </div>
+ <div id='phedex-login'></div>
+ <div id='phedex-navigator'></div>
+ <div id='phedex-globalfilter'></div>
+ <div class='phedex-separator'></div>
+ <div id='phedex-profiler' class='phedex-logger'></div>
+ <div id='phedex-logger'   class='phedex-logger phedex-invisible'>
+  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
+  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
+  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-main'></div>
+ <div id='phedex-history'></div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxA.ProductionMode = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// When the DOM is available, start loading the essential bits and pieces
+// This is where the real application starts.
+YAHOO.util.Event.onDOMReady(function() {
+  PHEDEX.Appserv.combineRequests = false;
+  log('initialising','info','app');
+  PxL  = new PHEDEX.Loader();
+  banner('Loading core application...');
+  PxL.load(createCoreApp,'datasvc');
+
+  var phedex_app_version = document.getElementById('phedex-app-version'),
+      phedex_home = document.getElementById('phedex-link-home');
+  if ( phedex_app_version ) { phedex_app_version.innerHTML = PHEDEX.Appserv.Version; }
+  if ( phedex_home ) {
+    var uri = location.href;
+    phedex_home.href = uri.replace(/#.*$/g,'');
+  }
+});
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can call the dataservice...
+
+// define the arguments. An object with an 'api' member and an 'args' member that passes any optional arguments.
+  var args = { api:'agents', args:{node:'T1_US_FNAL_Buffer'} };
+
+// Prepare the success-callback...
+// this example simply dumps the object returned by the call, with minimal parsing to show how to get started
+  var dataReady = new YAHOO.util.CustomEvent("dataReady", null, false, YAHOO.util.CustomEvent.LIST);
+  dataReady.subscribe(function(type,args) {
+    banner('Data-service returned OK...')
+    var data = args[0],
+        context = args[1];
+    try {
+      var el = document.getElementById('phedex-main');
+      el.innerHTML = "";
+
+// data.node holds the actual response from the API, so loop over that
+      for (var i in data.node) {
+        el.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.node[i],2);
+      }
+    } catch(ex) {
+      banner('Error processing data','error');
+    }
+  });
+
+// this is a separate callback for the dataservice to call in event of failure
+  var dataFail = new YAHOO.util.CustomEvent("dataFail", null, false, YAHOO.util.CustomEvent.LIST);
+  dataFail.subscribe(function(type,args) {
+    var api = args[1].api;
+    log('api:'+api+' error fetching data: '+args[0].message,'error','demo');
+    banner('Error fetching or parsing data for "'+api+'"','error');
+  });
+
+// add the callback events to the argument-object
+  args.success_event = dataReady;
+  args.failure_event = dataFail;
+
+// ...and call the dataservice!
+  banner('Connecting to data-service...');
+  PHEDEX.Datasvc.Call( args );
+};
+</script>
+</body>
+</html>
