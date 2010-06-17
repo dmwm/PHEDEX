@@ -283,11 +283,11 @@ PHEDEX.Datasvc = (function() {
       } else if ( !query.success_event ) {
         throw new Error("no 'success_event' or 'callback' provided");
       }
-      
+
       if (!query.failure_event) {
         query.failure_event = query.success_event;
       }
-  
+
       if (query.limit == null || query.limit < 0) {
         query.limit = Number.POSITIVE_INFINITY;
       }
