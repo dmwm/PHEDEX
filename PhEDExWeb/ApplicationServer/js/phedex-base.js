@@ -71,7 +71,7 @@ PHEDEX.Appserv = {
  * @property BaseURL
  * @namespace PHEDEX.Appserv
  * @protected
- * type string
+ * @type string
  */
   BaseURL: function() {
     var baseUrl = '@APPSERV_BASEURL@'; // set when RPM is built
@@ -83,7 +83,7 @@ PHEDEX.Appserv = {
  * @property DataserviceURL
  * @namespace PHEDEX.Appserv
  * @protected
- * type string
+ * @type string
  */
   DataserviceURL: function() {
     var dataserviceUrl = '@APPSERV_DATASERVICEURL@'; // set when RPM is built
@@ -91,11 +91,23 @@ PHEDEX.Appserv = {
   }(),
 
 /**
+ * The set of instances this application can contact. they have a 'name' and an 'instance', the name is what the user
+ * sees, the 'instance' is what gets added to the URL to access that instance
+ * @property Instances
+ * @protected
+ * @type array of objects
+ */
+  Instances: [{name:'Production',instance:'prod'},
+              {name:'Dev',       instance:'test'},
+              {name:'Debug',     instance:'debug'}
+             ],
+
+/**
  * 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
  * @property ProductionMode
  * @namespace PHEDEX.Appserv
  * @protected
- * type boolean
+ * @type boolean
  */
   ProductionMode: function() {
     if ( location.href.match(/tony.html/) ) { return false; }
@@ -253,6 +265,7 @@ PHEDEX.Base = {
   }
 }
 
+// some convenient global shortcuts, to shorten coding and to speed lookups
 var PxU    = PHEDEX.Util,
     PxA    = PHEDEX.Appserv,
     log    = PxU.log,

@@ -14,11 +14,8 @@
 PHEDEX.namespace('Datasvc');
 PHEDEX.Datasvc = (function() {
   // TODO: should provide getters & setters
-  var _instance = 'prod',
-      _instances = [{name:'Production',instance:'prod'},
-                    {name:'Dev',       instance:'test'},
-                    {name:'Debug',     instance:'debug'}
-                   ],
+  var _instances = PHEDEX.Appserv.Instances,
+      _instance = _instances[0].instance,
       _me = 'datasvc',
 
   // Whether we should try again for failed queries
