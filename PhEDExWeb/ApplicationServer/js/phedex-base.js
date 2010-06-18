@@ -79,6 +79,18 @@ PHEDEX.Appserv = {
   }(),
 
 /**
+ * The dataservice URL of the application, created using a string set by the RPM build or a default.
+ * @property DataserviceURL
+ * @namespace PHEDEX.Appserv
+ * @protected
+ * type string
+ */
+  DataserviceURL: function() {
+    var dataserviceUrl = '@APPSERV_DATASERVICEURL@'; // set when RPM is built
+    return dataserviceUrl.match(/APPSERV_DATASERVICEURL/) ? '/phedex/datasvc/json/' : dataserviceUrl;
+  }(),
+
+/**
  * 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
  * @property ProductionMode
  * @namespace PHEDEX.Appserv

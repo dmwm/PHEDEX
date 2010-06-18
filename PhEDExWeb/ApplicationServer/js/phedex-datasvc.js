@@ -52,7 +52,7 @@ PHEDEX.Datasvc = (function() {
     Yl('GET '+query.text,'info',_me);
 
     !query.poll_number ? query.poll_number = 1 : query.poll_number++;
-    query.path = '/phedex/datasvc/json/'+_instance+'/'+query.text;
+    query.path = PHEDEX.Appserv.DataserviceURL+_instance+'/'+query.text;
 
     context.poll_number = query.poll_number;
     context.path = query.path;
