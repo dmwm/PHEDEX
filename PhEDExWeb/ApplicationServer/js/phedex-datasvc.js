@@ -43,13 +43,19 @@ PHEDEX.Datasvc = (function() {
       YlJp = YAHOO.lang.JSON.parse,
       UA   = function() { return 'PhEDEx-AppServ/'+PHEDEX.Appserv.Version+' (CMS) '+navigator.userAgent; }();
 
+  // method _instanceURL : make the instance URL from the component bits. Hardly worth making it a separate function,
+  // but it can then at least be overridden
+  _instanceURL = function(base,component) {
+    return base + component;
+  }
+
   // method _get : triggers an asyncRequest from a prepared query object
   _get = function(query) {
     var context = query.context;
     Yl('GET '+query.text,'info',_me);
 
     !query.poll_number ? query.poll_number = 1 : query.poll_number++;
-    query.path = PHEDEX.Appserv.DataserviceURL+_instance+'/'+query.text;
+    query.path = _instanceURL(PHEDEX.Appserv.DataserviceURL,_instance) + '/'+query.text;
 
     context.poll_number = query.poll_number;
     context.path = query.path;
