@@ -17,45 +17,48 @@
 </head>
 
 <body class="yui-skin-sam">
- <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
- <input id="yui-history-field" type="hidden" style='visibility:hidden'>
  <div class='phedex-banner'>
     <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
       <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
     </span>
-    <div id='phedex-controls' class='phedex-controls float-right'></div>
  </div>
- <div id='phedex-login'></div>
- <div id='phedex-navigator'></div>
- <div id='phedex-globalfilter'></div>
- <div class='phedex-separator'></div>
- <div id='phedex-profiler' class='phedex-logger'></div>
  <div id='phedex-logger'   class='phedex-logger'>
   <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
   <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
   <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
  </div>
- <div id='phedex-main'></div>
- <div id='phedex-history'></div>
 
 <script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
 <script type="text/javascript">
  PxA.ProductionMode = false;
+ PxA.combineRequests = false;
 </script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
 <script type="text/javascript">
 
 // When the DOM is available, start loading the essential bits and pieces
-// This is where the real application starts.
-YAHOO.util.Event.onDOMReady(function() {
-  PHEDEX.Appserv.combineRequests = false;
+YAHOO.util.Event.onDOMReady( runDemo );
+function runDemo() {
+// the 'log' function implements the interface to the logger. It has the same semantics as YAHOO.log. It can be used
+// _before_ the logger exists, so the user doesn't need to worry about it
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
-  PxL.load(createCoreApp,'phedex-logger');
-});
+  PxL.load(createCoreApp,'logger');
+}
 
+function createCoreApp() {
+// This is called once the logger is fully loaded. Now I can create the logger and start using it
+  PxLogger = new PHEDEX.Logger();
+  PxLogger.init();
+  banner('Now play around with the checkboxes and re-loading this page, while watching either the firebug console or the proxy-server output');
+
+// start logging messages...
+  logSomething();
+};
+
+// this bit of code logs something, and calls itself every 2 seconds.
 i=0;
 j=0;
 k=1;
@@ -72,14 +75,6 @@ function logSomething() {
   log(msg,level,group);
   setTimeout(logSomething,2000);
 }
-
-function createCoreApp() {
-// This is called once the core is fully loaded. Now I can create the logger and start using it
-  PxLogger = new PHEDEX.Logger();
-  PxLogger.init();
-  banner('Now play around with the checkboxes and re-loading this page, while watching either the firebug console or the proxy-server output');
-  logSomething();
-};
 </script>
 </body>
 </html>

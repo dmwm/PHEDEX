@@ -17,36 +17,22 @@
 </head>
 
 <body class="yui-skin-sam">
- <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
- <input id="yui-history-field" type="hidden" style='visibility:hidden'>
- <div class='phedex-banner'>
+<div class='phedex-banner'>
     <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
       <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
     </span>
-    <div id='phedex-controls' class='phedex-controls float-right'></div>
- </div>
- <div id='phedex-login'></div>
- <div id='phedex-navigator'></div>
- <div id='phedex-globalfilter'></div>
- <div class='phedex-separator'></div>
- <div id='phedex-profiler' class='phedex-logger'></div>
- <div id='phedex-logger'   class='phedex-logger'>
-  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
-  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
-  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
  </div>
  <div id='phedex-main'></div>
- <div id='phedex-history'></div>
 
 <script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
-<!-- <script type="text/javascript" src="/phedex/datasvc/app/js/protovis-d3.2.js"></script> -->
 <script type="text/javascript">
  PxA.ProductionMode = false;
+ PxA.combineRequests = false;
 </script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
 
-<script type="text/javascript">/*+protovis">*/
+<script type="text/javascript">
 function createProtoVisApp() {
   new pv.Panel()
       .width(150)
@@ -58,11 +44,8 @@ function createProtoVisApp() {
 </script>
 
 <script type="text/javascript">
-
 // When the DOM is available, start loading the essential bits and pieces
-// This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
-  PHEDEX.Appserv.combineRequests = false;
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
@@ -78,26 +61,19 @@ YAHOO.util.Event.onDOMReady(function() {
 });
 
 function createCoreApp() {
-// This is called once the core is fully loaded. Now I can create the core application and sandbox, and then start creating PhEDEx modules
+// This is called once the core is fully loaded. Now I can create the core application and sandbox, and then start creating modules
   banner('Create sandbox and core application...');
   try {
     PxS = new PHEDEX.Sandbox();
-  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!','error'); return; }
+  } catch(ex) { banner('Error creating sandbox!','error'); return; }
   try {
     PxC = new PHEDEX.Core(PxS,PxL);
     PxC.create();
-  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
-
+  } catch(ex) { banner('Error creating Core application!','error'); return; }
   banner('Core application is running, ready to create PhEDEx data-modules...');
-  PHEDEX.Util.bannerIdleTimer(PxL);
 
-//   PxS.notify('CreateModule','protovisdemo');
-// this is just a trick to ensure the CSS gets loaded in the right order, namely the core CSS before the treeview-specific one
-  PxL.load(function(){},'module');
-
-// This is all it takes to get the core to load, create, and render the 'protovis' module from PhEDEx...
-  PxS.notify('CreateModule','protovisdemo');
-// ...except that, for now, you need this magic to pass it an argument. Listen for 'needArguments', and give it some!
+// Provide a module-handler that will be used to listen for 'module' notifications, with a 'needArguments' action.
+// Then respond with an arguments-object that contains the node-name to be used.
   var moduleHandler = function(ev,arr) {
      var action = arr[0],
          id     = arr[1];
@@ -109,6 +85,9 @@ function createCoreApp() {
     };
   }
   PxS.listen('module', moduleHandler);
+
+// Use the sandbox to tell the core to load, create, and render the 'protovis' module...
+  PxS.notify('CreateModule','protovisdemo');
 };
 </script>
 </body>
