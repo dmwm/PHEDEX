@@ -51,6 +51,7 @@ our %COMMON_VALIDATION =
 (
  'dataset'      => qr|^(/[^/\#]+){3}$|,
  'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
+ 'block_*'      => qr!(^(/[^/\#]+){3}\#[^/\#]+$)|\*!,
  'lfn'          => qr|^/|,
  'wildcard'     => qr|\*|,
  'node'         => qr|^T\d|,
