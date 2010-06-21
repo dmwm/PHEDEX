@@ -163,14 +163,14 @@ sub spool
 					complete dist_complete subscribed custodial group lfn)],
 			   require_one_of => [ qw(block lfn dataset) ],
 			   spec => {
-			       block         => { using => 'block' },
+			       block         => { using => 'block_*', multiple => 1 },
 			       complete      => { using => 'yesno' },
 			       dist_complete => { using => 'yesno' },
 			       subscribed    => { using => 'yesno' },
 			       custodial     => { using => 'yesno' },
                                create_since  => { using => 'time'  },
-                               lfn           => { using => 'lfn'   },
-                               node          => { using => 'node'  },
+                               lfn           => { using => 'lfn', multiple => 1 },
+                               node          => { using => 'node', multiple => 1 },
 #                               se            => { using => 'any'   },
 #                               group         => { using => 'any'   },
 			   });
