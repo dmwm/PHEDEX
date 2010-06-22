@@ -120,11 +120,12 @@ function createCoreApp() {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',   order: 10 },
-        node:   { label: 'Explore by node',  order: 20 },
-        block:  { label: 'Explore by block', order: 30 },
-        group:  { label: 'Explore by group', order: 40 },
-        static: { label: 'Explore Information', order: 99 }
+        none:     { label: 'Explore global',   order: 10 },
+        node:     { label: 'Explore by node',  order: 20 },
+        block:    { label: 'Explore by block', order: 30 },
+        group:    { label: 'Explore by group', order: 40 },
+        activity: { label: 'Explore by activity', order: 50 },
+        static:   { label: 'Explore Information', order: 99 }
       }
     }
   });
@@ -148,6 +149,8 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group', 'Show Group Usage',        {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group', 'Show Pending Requests',   {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true});
+
+    PxS.notify('Registry', 'add', 'phedex-module-activity-rate',   'activity',  'Show Rates',             {context_item:false});
   }
 
   PxU.bannerIdleTimer(PxL);
