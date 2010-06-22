@@ -573,6 +573,16 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       }
     },
 
+    'activity': {
+      init: function(el) {
+        return PxU.makeChild(el, 'div');
+       },
+      needValue: false,
+      updateGUI: function() {
+        _type = 'activity';
+      }
+    },
+
     text: {
       init: function(el, type) {
         var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target' }),

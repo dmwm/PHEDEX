@@ -27,7 +27,8 @@ PHEDEX.Registry = function(sandbox) {
       _inputTypes = {},
 
   // types of information widgets can construct by
-      _validTypes = { node     :1,
+      _validTypes = {
+                      node     :1,
                       link     :1,
                       dataset  :1,
                       block    :1,
@@ -37,7 +38,9 @@ PHEDEX.Registry = function(sandbox) {
                       user     :1,
                       request  :1,
                      'static'  :1,
-                      none     :1 };
+                      none     :1,
+                      activity :1
+                    };
   this.id = _me+'_'+PxU.Sequence();
 
   var _construct = function() {
