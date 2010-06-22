@@ -34,7 +34,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @private
             */
             _extractElement : function(field,src,dst) {
-              var fn, key=field, mKey=field;
+              var fn, key=field, mKey=field, val;
               if ( typeof(field) == 'object' ) {
                 for (key in field) {
                   mKey = field[key];
