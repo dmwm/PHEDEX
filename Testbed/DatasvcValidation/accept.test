@@ -80,7 +80,7 @@ errorlogsummary?from=NoWhere&to=NoWhere link =0
 filereplicas?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&create_since=1196740000&custodial=n&node=T1_US_FNAL_MSS block =1
 filereplicas?lfn=/store/data/GlobalNov07/A/000/030/148/GlobalNov07.00030148.0892.A.storageManager.0.0000.dat&node=T1_US_FNAL_MSS block =1
 filereplicas?dataset=/GlobalNov07-A/Online/RAW&create_since=1196740000&custodial=n&node=T1_US_FNAL_MSS block >1
-
+filereplicas?block=/VVJets-madgraph/Fall08_IDEAL_V11_redigi_v1/AODSIM* block
 # PHEDEX::Web::API::Groups -- show groups known to PhEDEx
 groups group >0
 groups?group=DataOps group =1
