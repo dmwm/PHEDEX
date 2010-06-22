@@ -54,7 +54,6 @@ my %args;
 	     "invalidate"  => \$args{INVALIDATE},
 	     "bulk"        => \$args{BULK},
 	     "keepempty=s" => \$args{KEEP},
-	     "debug"       => \$args{DEBUG},
              "help|h"      => sub { &usage() });
 # Check arguments.
 if (!$args{DBCONFIG} || !$args{LIST} || ! ($args{NODES} || $args{INVALIDATE}))
@@ -469,13 +468,9 @@ sub checkReplicaExistence
                and block in (select inblock from t_dps_file where logical_name = :lfn)},
 		     ":node" => $node, ":lfn" => $$lfninfo{LFN});
     my ( $block_files, $node_files, $is_active ) = $q->fetchrow();
-    if ( $args{DEBUG} &&
-	( !defined($block_files) || !defined($node_files) )
-       )
-    {
-      print $lfninfo->{LFN},": block-files=$block_files, node-files=$node_files\n";
-    }
-	
+    print $lfninfo->{LFN},": block-files is undefined\n" unless defined $block_files;
+    print $lfninfo->{LFN},": node-files is undefined\n" unless defined $node_files;
+
     $q = &dbexec($dbh, qq{
 	    select count(*) from t_xfer_replica 
              where fileid = :lfn and node = :node},
