@@ -60,6 +60,8 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-pendingrequestsnested': { requires:['phedex-module', 'phedex-datatable'] },
     'phedex-module-unroutabledata':    { requires:['phedex-module', 'phedex-treeview'] },
 
+    'phedex-module-activity-rate':     { requires:['phedex-module', 'phedex-datatable'] },
+
 // a demo protovis module
     'phedex-module-protovisdemo':      { requires:['phedex-module', 'phedex-protovis'] },
 // a few custom-modules for shifters
