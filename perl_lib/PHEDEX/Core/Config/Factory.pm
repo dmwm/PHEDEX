@@ -326,6 +326,7 @@ sub _poe_init
       LocalPort => $self->{_NOTIFICATION_PORT},
     );
     $self->Fatal("Could not bind to port $self->{_NOTIFICATION_PORT} (are you sure the previous watchdog is dead?)") unless $socket;
+    $socket->sockopt(SO_RCVBUF, 1024*1024);
     $kernel->select_read($socket,'_udp_listen');
   }
 }
