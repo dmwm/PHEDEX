@@ -487,6 +487,7 @@ PHEDEX.DataTable = function (sandbox, string) {
     return this;
 }
 
+var YwDF = YAHOO.widget.DataTable.Formatter;
 /** A custom formatter for unix-epoch dates. Sets the elCell innerHTML to the GMT representation of oDate
 * @method YAHOO.widget.DataTable.Formatter.UnixEpochToGMT
 * @param elCell {HTML element} Cell for which the formatter must be applied
@@ -494,9 +495,11 @@ PHEDEX.DataTable = function (sandbox, string) {
 * @param oColumn {datatable column}
 * @param oData {data-value} unix epoch seconds
 */
-YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
-    var gmt = new Date(oData*1000).toGMTString();
-    elCell.innerHTML = gmt;
+YwDF.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
+  if(oData)
+  {
+    elCell.innerHTML = new Date(oData*1000).toGMTString();
+  }
 };
 
 /** A custom formatter for byte-counts. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
@@ -506,11 +509,25 @@ YAHOO.widget.DataTable.Formatter.UnixEpochToGMT =  function(elCell, oRecord, oCo
 * @param oColumn {datatable column}
 * @param oData {data-value} number of bytes
 */
-YAHOO.widget.DataTable.Formatter.customBytes = function(elCell, oRecord, oColumn, oData) {
-    if(oData)
-    {
-        elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
-    }
+YwDF.customBytes = function(elCell, oRecord, oColumn, oData) {
+  if(oData)
+  {
+    elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+  }
+};
+
+/** A custom formatter for rates. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
+* @method YAHOO.widget.DataTable.Formatter.customBytes
+* @param elCell {HTML element} Cell for which the formatter must be applied
+* @param oRecord {datatable record}
+* @param oColumn {datatable column}
+* @param oData {data-value} number of bytes
+*/
+YwDF.customRate = function(elCell, oRecord, oColumn, oData) {
+  if(oData)
+  {
+    elCell.innerHTML = PHEDEX.Util.format.bytes(oData) + '/s';
+  }
 };
 
 /**
