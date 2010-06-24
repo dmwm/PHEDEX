@@ -1,10 +1,16 @@
+Changes for PhEDEx 3.3.2
+
+Changes for Site Agents
+ - change the default receive-buffer in the watchdog agent from 1KB to 1MB.
+   this should stop the occasional message from being truncated
+
 Changes for PhEDEx 3.3.1
 
 Debendency Changes
  - Oracle: 10.2.0.3 => 11.2.0.1p1
  - Fix architecture lookup in oracle dependencies which broke
    deployment on 'athlon' systems
-	
+
 Changes for Site Agents
  - BlockDownloadVerify:
    - Add --dbs_url option, for specifying which DBS to execute dbs
