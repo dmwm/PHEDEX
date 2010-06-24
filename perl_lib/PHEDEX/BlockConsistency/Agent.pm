@@ -13,7 +13,6 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue ( qw / storageRules dbStorageRules applyStorageRules / );
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::Core;
-use PHEDEX::Namespace;
 use PHEDEX::Core::Loader;
 use POE;
 use POE::Queue::Array;
@@ -27,7 +26,7 @@ our %params =
 	  RFIO_USES_RFDIR => 0,			# Use rfdir instead of nsls?
 	  PRELOAD	=> undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',		# Name for the record...
-	  NAMESPACE	=> undef,
+	  NAMESPACE	=> 'posix',
 	  max_priority	=> 0,			# max of active requests
 	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
           DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
@@ -185,27 +184,7 @@ sub doNSCheck
   }
   else
   {
-    $ns = PHEDEX::Namespace->new
-		(
-			DBH		=> $self->{DBH},
-			STORAGEMAP	=> $self->{STORAGEMAP},
-			RFIO_USES_RFDIR	=> $self->{RFIO_USES_RFDIR},
-			PRELOAD		=> $self->{PRELOAD},
-		);
-    if ( $request->{TEST} eq 'size' )        { $cmd = 'statsize'; }
-    if ( $request->{TEST} eq 'migration' )   { $cmd = 'statmode'; }
-    if ( $request->{TEST} eq 'is_migrated' ) { $cmd = 'statmode'; }
-
-    if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
-    {
-      $ns->protocol( 'srmv2' );
-      $ns->TFCPROTOCOL( 'srmv2' );
-    }
-    else
-    {
-      my $technology = $self->{bcc}->Buffers(@{$self->{NODES}});
-      $ns->technology( $technology );
-    }
+    die "No Namespace provided\n"; 
   }
 
   if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
