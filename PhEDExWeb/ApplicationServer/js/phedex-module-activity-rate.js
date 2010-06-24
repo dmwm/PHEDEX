@@ -79,20 +79,20 @@ PHEDEX.Module.Activity.Rate = function(sandbox, string) {
 // Files, Total Size, Rate, Errors, Expired, Avg.Est.Rate, Avg.Est.Latency
             {key:'from',        label:'From Node'},
             {key:'to',          label:'To Node'},
-            {key:'done_files',  label:'Files',  className:'align-right'},
-            {key:'done_bytes',  label:'Total Size' },
-            {key:'rate',        label:'Rate' },
-            {key:'errors',      label:'Errors' },
-            {key:'expired',     label:'Expired' },
-            {key:'est_rate',    label:'Avg. Est. Rate' },
-            {key:'est_latency', label:'Avg. Est. Latency' }
+            {key:'done_files',  label:'Files',      className:'align-right' },
+            {key:'done_bytes',  label:'Total Size', className:'align-right', formatter:'customBytes' },
+            {key:'rate',        label:'Rate',       className:'align-right', formatter:'customRate' },
+            {key:'errors',      label:'Errors',          className:'align-right' },
+            {key:'expired',     label:'Expired',         className:'align-right' },
+            {key:'est_rate',    label:'Avg.Est.Rate',    className:'align-right', formatter:'customRate' },
+            {key:'est_latency', label:'Avg.Est.Latency', className:'align-right' }
           ],
         },
-        sort:{field:'Agent'},
-        hide:['Node','PID','Host','State Dir'],
+//         sort:{field:'Agent'},
+//         hide:['Node'],
         filter: {
           'Agent attributes':{
-            map: { to:'A' },
+            map: { to:'AR' },
             fields: {
               'From Node'        :{type:'regex',  text:'From Node-name',     tip:'javascript regular expression' },
               'To Node'          :{type:'regex',  text:'To Node-name',       tip:'javascript regular expression' },
