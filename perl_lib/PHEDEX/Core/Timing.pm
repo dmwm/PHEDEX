@@ -37,6 +37,7 @@ sub gmmktime
 #    last_12hours
 #    last_day
 #    last_7days
+#    last_week
 #    last_30days
 #    last_180days
 sub str2time
@@ -77,7 +78,7 @@ sub str2time
     {
         return time() - 86400;
     }
-    elsif ($str eq "last_7days")
+    elsif ($str eq "last_7days" || $str eq "last_week")
     {
         return time() - 604800;
     }
