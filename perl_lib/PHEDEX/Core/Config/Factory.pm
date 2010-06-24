@@ -7,7 +7,7 @@ use POE;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::JobManager;
 use IO::Socket::INET;
-use constant DATAGRAM_MAXLEN => 1024;
+use constant DATAGRAM_MAXLEN => 1024*1024;
 
 $PHEDEX::Core::Factory::rerun = 0;
 
@@ -326,7 +326,6 @@ sub _poe_init
       LocalPort => $self->{_NOTIFICATION_PORT},
     );
     $self->Fatal("Could not bind to port $self->{_NOTIFICATION_PORT} (are you sure the previous watchdog is dead?)") unless $socket;
-    $socket->sockopt(SO_RCVBUF, 1024*1024);
     $kernel->select_read($socket,'_udp_listen');
   }
 }
