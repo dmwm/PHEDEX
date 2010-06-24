@@ -1,3 +1,14 @@
+* Changes for 1.6.1
+
+ New API:
+  * 'data': show data which is registered (injected) to PhEDEx
+
+ Bug fix:
+  * 'filereplicas':
+    - fixed a bug that rejects input block names due to being too strict in validate_params()
+  * 'groupusage':
+    - gid of undefined group is set to -1
+
 * Changes for 1.6.0
 
  New APIs:
@@ -28,6 +39,7 @@
     - add 'dataset' option
   * 'filereplicas':
     - add 'dataset' option
+    - internally, use new 'validate_params()' to trictly validate the values of input parameters
   * 'groupusage':
     - allow group=undefined or group=!undefined
   * 'missingfiles':
