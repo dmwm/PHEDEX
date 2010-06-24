@@ -1682,7 +1682,7 @@ sub getBlockTestFiles
     my %h = @_;
     my ($sql, $q, %p, @r);
 
-    my ($detailed_items, $detailed_from);
+    my ($detailed_items, $detailed_from) = ('','');
     if ($h{'#DETAILED#'})
     {
         $detailed_items = qq {,
