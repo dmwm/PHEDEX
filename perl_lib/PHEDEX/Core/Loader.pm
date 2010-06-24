@@ -49,7 +49,7 @@ sub Load
   my ($self,$Action) = @_;
   my $module = $self->ModuleName($Action);
   die __PACKAGE__,": no module found for action \"$Action\"\n" unless $module;
-  eval("use $module");
+  eval("require $module");
   do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
   return $module;
 }
