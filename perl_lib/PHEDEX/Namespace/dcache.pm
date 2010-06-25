@@ -21,7 +21,7 @@ sub new
 		VERBOSE => 0,
 		DEBUG   => 0,
                 CACHE   => undef,
-                NOCACHE => 1,
+                NOCACHE => 0,
 		PRELOAD	=> '',
             );
   %options = (
