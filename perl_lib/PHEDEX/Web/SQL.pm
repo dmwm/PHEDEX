@@ -1192,7 +1192,7 @@ sub getGroupUsage
             nvl(g.name, 'undefined') user_group,
             n.name node,
             n.id,
-            g.id gid,
+            nvl(g.id, -1) gid,
             n.se_name,
             s.dest_files,
             s.dest_bytes,
@@ -3229,12 +3229,6 @@ sub getData
         {
             $and = " and ";
         }
-    }
-
-    if (exists $h{DBS_CREATE_SINCE})
-    {
-        $sql .= $and . qq { s.time_create >= :dbs_create_since };
-        $p{':dbs_create_since'} = &str2time($h{DBS_CREATE_SINCE});
     }
 
     $sql .= qq {
