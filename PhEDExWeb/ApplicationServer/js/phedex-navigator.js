@@ -563,7 +563,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       updateGUI: function() { } // not really needed
     },
 
-    'static': {
+    static: {
       init: function(el) {
         return PxU.makeChild(el, 'div');
        },
@@ -573,7 +573,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       }
     },
 
-    'activity': {
+    activity: {
       init: function(el) {
         return PxU.makeChild(el, 'div');
        },
@@ -617,6 +617,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
               _typeArgs[_type].block = input.value;
+              _state[_type] = input.value;
               _sbx.notify('module','*','doSetArgs',_typeArgs[_type]);
             } }(this),
                                             scope:this, correctScope:true } );
