@@ -2845,7 +2845,7 @@ sub getRequestList
 {
     my ($core, %h) = @_;
 
-    my $join_group;
+    my $join_group='';
     if (exists $h{GROUP})
     {
         $join_group = qq {join t_req_xfer rx on rx.request = r.id
