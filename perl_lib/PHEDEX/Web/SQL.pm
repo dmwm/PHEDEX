@@ -2295,10 +2295,16 @@ sub getDeletions
     }
 
     $sql .= qq {
-            order by del.time_complete desc, del.time_request desc
+            order by dataset_id desc, del.time_complete desc, del.time_request desc
     };
 
     $q = execute_sql( $core, $sql, %p);
+
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
     while ( $_ = $q->fetchrow_hashref() )
     {
         push @r, $_;
