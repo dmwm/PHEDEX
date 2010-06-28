@@ -1,8 +1,20 @@
 Changes for PhEDEx 3.3.2
 
 Changes for Site Agents
- - change the default receive-buffer in the watchdog agent from 1KB to 1MB.
-   this should stop the occasional message from being truncated
+ - Watchdog
+  - change the default receive-buffer in the watchdog agent from 1KB to 1MB.
+    this should stop the occasional message from being truncated
+ - BlockDownloadVerify
+  - Set requests to Error when test is abandoned after 10 failures
+  - Recover request left in Active state from previous failure runs
+  - Add stop hook which will upload to the DB any request in memory before
+    Agent is stopped
+  - Add global caching container for all technologies
+  - Remove old namespace methods and making new pluging technologies mandatory
+  - posix technology is the default Namespace
+  - use the global cache provided by the agent if exists, for all technologies
+    but pnfs
+  - posix and dCache caching mechanims ON by default
 
 Changes for PhEDEx 3.3.1
 
