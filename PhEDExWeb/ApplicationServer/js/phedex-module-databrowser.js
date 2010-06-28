@@ -115,7 +115,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
               {width: 60,text:'Open',         className:'phedex-tree-dataset-open',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60,text:'Transient',    className:'phedex-tree-dataset-transient',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width:160,text:'Create Time',  className:'phedex-tree-dataset-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
-              {width:160,text:'Update Time',  className:'phedex-tree-dataset-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' }
+              {width:160,text:'Update Time',  className:'phedex-tree-dataset-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT', hide:true }
             ]
           },
           {
@@ -127,14 +127,14 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
               {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width: 60,text:'Open',        className:'phedex-tree-block-open',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width:160,text:'Create Time', className:'phedex-tree-block-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
-              {width:160,text:'Update Time', className:'phedex-tree-block-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' }
+              {width:160,text:'Update Time', className:'phedex-tree-block-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT', hide:true }
             ]
           },
           {
             name:'Files',
             format:[
               {width:600,text:'File Name',   className:'phedex-tree-file-name',       otherClasses:'align-left',  ctxArgs:'sort-alpha', spanWrap:true },
-              {width:160,text:'Node',        className:'phedex-tree-file-node',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
+              {width:160,text:'Node',        className:'phedex-tree-file-node',       otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node', hide:true },
               {width: 80,text:'Bytes',       className:'phedex-tree-file-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
               {width:160,text:'Create Time', className:'phedex-tree-file-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width:140,text:'Checksum',    className:'phedex-tree-file-cksum',      otherClasses:'align-right', hide:true }
@@ -195,7 +195,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-          if ( keys[k] && v != opts[k] ) { update++; opts[k] = v; }
+          if ( this.api_keys[k] && v != opts[k] ) { update++; opts[k] = v; }
         }
         if ( !update ) { return; }
         this.getData();
@@ -310,7 +310,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         this.data = {};
         this.truncateTree();
         this.tree.render();
-        _sbx.notify( this.id, 'getData', { api:'Data', args:args, magic:magic } );
+        _sbx.notify( this.id, 'getData', { api:'data', args:args, magic:magic } );
       },
       gotData: function(data,context) {
         log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
