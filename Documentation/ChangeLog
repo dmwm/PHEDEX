@@ -16,6 +16,17 @@ Changes for Site Agents
     but pnfs
   - posix and dCache caching mechanims ON by default
 
+Changes for Central Agents
+ - FileRouter
+  - Re-activate requests even if over $WINDOW_SIZE.  This avoids queue
+  blockage if the a priority window overflows for a node (#66119).
+  Print warning when priority window has overlowed.
+ - Log total re-activated/newly-activated bytes as well as files
+
+Changes for all Agents
+ - call stop() before closing database connection, in case the agent cleanup needs it.
+ - Loader.pm: transparent change to reduce the size of the error logfile for the data-service
+
 Changes for PhEDEx 3.3.1
 
 Debendency Changes
