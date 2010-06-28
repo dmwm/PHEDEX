@@ -27,6 +27,12 @@ Changes for all Agents
  - call stop() before closing database connection, in case the agent cleanup needs it.
  - Loader.pm: transparent change to reduce the size of the error logfile for the data-service
 
+Changes for Operator Tools
+ - FileDeleteTMDB: additional debugging output
+
+Changes for Schema
+ - OracleInit.sql: reorder schema deployment
+
 Changes for PhEDEx 3.3.1
 
 Debendency Changes
