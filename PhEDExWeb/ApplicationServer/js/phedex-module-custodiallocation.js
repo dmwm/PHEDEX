@@ -144,8 +144,8 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               'phedex-tree-replica-se'         :{type:'regex',  text:'SE name',       tip:'javascript regular expression' },
               'phedex-tree-replica-files'      :{type:'minmax', text:'Files',         tip:'number of files in the replica' },
               'phedex-tree-replica-bytes'      :{type:'minmax', text:'Bytes',         tip:'number of bytes in the replica' },
-              'phedex-tree-replica-timecreate' :{type:'regex',  text:'Creation time', tip:'Unix epoch seconds' },
-              'phedex-tree-replica-timeupdate' :{type:'regex',  text:'Update time',   tip:'Unix epoch seconds' },
+              'phedex-tree-replica-timecreate' :{type:'minmax', text:'Creation time', tip:'Unix epoch seconds' },
+              'phedex-tree-replica-timeupdate' :{type:'minmax', text:'Update time',   tip:'Unix epoch seconds' },
               'phedex-tree-replica-subscribed' :{type:'yesno',  text:'Subscribed',    tip:'is the replica subscribed?' },
               'phedex-tree-replica-complete'   :{type:'yesno',  text:'Complete',      tip:'is the replica complete?' },
               'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
