@@ -554,6 +554,36 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
     }
     PHEDEX.Component.ContextMenu.Add('datatable', 'Hide This Field', fn);
 
+    var fnDump = function(opts,el) {
+//    for some obscure reason, YAHOO.lang.JSON.stringify fails on data for datatable objects. It doesn't spit the dummy, it just returns empty arrays.
+//    manually performing a deep-copy gets round this problem. Note that this manual deep copy is not perfect, it converts arrays into objects, but
+//    that is OK for now. We won't want to re-load this data into this application, so this will do.
+//    N.B. This is not a YAHOO bug, it's a feature of either Firefox or JSON itself. An array with named kets returns a length of zero, which screws
+//    the stringifier.
+      var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
+          d = el.obj.data,
+          t, fn;
+      fn = function(d1) {
+//    I can avoid having to do the deep-copy if, in _processData, the Row is made an object, instead of an array...
+//    ... except that, if _processData isn't called, and the data-service returned an array to the JSON formatter, this still goes
+//    toes-up. So do this regardless. Wasteful, but only in this unusual circumstance.
+        if ( typeof(d1) == 'object' || typeof(d1) == 'array' ) {
+          var d2;
+          if ( d1 instanceof Array ) { d2 = []; }
+          else { d2 = {}; }
+          for (var i in d1) { d2[i] = fn(d1[i]); }
+          return d2;
+        }
+        return d1;
+      };
+      try {
+        var dd = fn(d),
+        t = YAHOO.lang.JSON.stringify(dd);
+      } catch (e) { alert(e.message); }
+      w.document.writeln(t);
+    };
+    PHEDEX.Component.ContextMenu.Add('datatable', 'Show table data (JSON)', fnDump);
+
     // This function gets the column object from main or nested datatable and also indicates if the column is in main or nested datatable.
     var _getDTColumn = function (target) {
         var columnDetails = { nested: false },
