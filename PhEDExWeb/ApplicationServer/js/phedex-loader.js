@@ -34,7 +34,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-navigator':    { requires: ['phedex-registry','phedex-config','phedex-globalfilter','phedex-login','history','autocomplete','button'] },
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
-    'phedex-profiler':  { requires:['phedex-util','profiler','datatable'] },
+    'phedex-profiler':  { requires:['phedex-util','profiler','datatable','json'] },
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
@@ -83,6 +83,7 @@ PHEDEX.Loader = function(opts) {
     combine:      PxA.combineRequests,
     base:         PxA.BaseURL + '/yui/build/',
     timeout:      15000,
+filter:'DEBUG',
     skin: {
       defaultSkin: 'sam',
       base: 'assets/skins/',

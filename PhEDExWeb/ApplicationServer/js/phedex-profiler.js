@@ -18,9 +18,25 @@ PHEDEX.Profiler = function() {
        ],
       _dataSource,
       _dataTable,
-      _callback;
+      _callback,
+      ctl,_ctl,_tbl;
 
+
+  dumpProfile = function() {
+    var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
+        report = YtP.getFullReport();
+    w.document.writeln(YAHOO.lang.JSON.stringify(report));
+  };
   if ( !el ) { return; }
+  _ctl = PxU.makeChild(el,'div');
+  _ctl.style.height = '1em';
+  _ctl = PxU.makeChild(_ctl,'a');
+  _tbl = PxU.makeChild(el,'div');
+  _ctl.innerHTML = 'Show profile data as JSON';
+  _ctl.title = 'this opens a popup window with the profile information stored as a CSL. Use this to download and save this information';
+  _ctl.className = 'float-right phedex-core-control-widget phedex-core-control-widget-inactive';
+  _ctl.href='#';
+  _ctl.setAttribute('onclick','dumpProfile()');
 
   _profile = function() {
     var report = YtP.getFullReport(),
@@ -59,7 +75,7 @@ PHEDEX.Profiler = function() {
         _table.push(_t[i]);
       }
     }
-    log(YAHOO.lang.dump(report),'debug','profile');
+//     log(YAHOO.lang.dump(report),'debug','profile');
     return _table;
   };
 
@@ -68,7 +84,7 @@ PHEDEX.Profiler = function() {
   _dataSource.responseSchema = {
     fields: ['Method','Calls','Total','Average','Max','Min','Median']
   };
-  _dataTable = new YAHOO.widget.DataTable(el, _columns, _dataSource);
+  _dataTable = new YAHOO.widget.DataTable(_tbl, _columns, _dataSource);
   _column = _dataTable.getColumn('Total');
   _dataTable.sortColumn(_column,'yui-dt-desc');
   _callback = {
@@ -88,7 +104,8 @@ PHEDEX.Profiler = function() {
       _dataSource.setInterval(_interval, null, _callback)
     }, 5000);
 
-  YuD.removeClass(document.getElementById('phedex-profiler'),'phedex-invisible');
+//   YuD.removeClass(document.getElementById('phedex-profiler'),'phedex-invisible');
+  YuD.removeClass(el,'phedex-invisible');
 
   return {
     interval: function(arg) {
