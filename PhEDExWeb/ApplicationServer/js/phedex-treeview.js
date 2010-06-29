@@ -537,6 +537,12 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   /*}(obj)*/;
   PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
+    var fnDump = function(opts,el) {
+      var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes');
+      w.document.writeln(YAHOO.lang.JSON.stringify(el.obj.data));
+    }
+    PHEDEX.Component.ContextMenu.Add('treeview', 'Show tree data (JSON)', fnDump);
+
   return {
     getExtraContextTypes: function() {
       var cArgs = obj._cfg.formats, cUniq = {}, i, j;
