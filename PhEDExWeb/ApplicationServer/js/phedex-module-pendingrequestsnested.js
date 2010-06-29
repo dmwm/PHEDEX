@@ -111,7 +111,7 @@ PHEDEX.Module.PendingRequestsNested = function (sandbox, string) {
                     jsonReqs = jsonReqData[indxReq];
                     jsonReq = jsonReqData[indxReq].destinations.node;
                     nDataLen = jsonReq.length;
-                    Row = [];
+                    Row = {};
                     arrNested = []; //new Array();
                     for (indx = 0; indx < nArrRLen; indx++) {
                         this._extractElement(arrRequestCols[indx],jsonReqs,Row);

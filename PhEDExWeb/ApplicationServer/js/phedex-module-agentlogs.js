@@ -93,7 +93,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                   nLogs = jLogs.length;
                   for (iLog = 0; iLog < nLogs; iLog++) {
                     jLog = jLogs[iLog];
-                    Row = [];
+                    Row = {};
                     for (i = 0; i < nAgentCols; i++) {
                       this._extractElement(aAgentCols[i],jAgent,Row);
                     }

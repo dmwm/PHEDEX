@@ -111,7 +111,7 @@ PHEDEX.Module.Activity.Rate = function(sandbox, string) {
           jTransfers = jEntry.transfer;
           for (iTransfer in jTransfers) {
             jTransfer = jTransfers[iTransfer];
-            Row = [];
+            Row = {};
             for (i = 0; i < nDataCols; i++) {
               this._extractElement(aDataCols[i],jEntry,Row);
             }

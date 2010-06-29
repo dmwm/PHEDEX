@@ -128,7 +128,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           jProcs = jAgent.agent;
           for (iProc in jProcs) {
             jProc = jProcs[iProc];
-            Row = [];
+            Row = {};
             for (i = 0; i < nAgentCols; i++) {
               this._extractElement(aAgentCols[i],jAgent,Row);
             }

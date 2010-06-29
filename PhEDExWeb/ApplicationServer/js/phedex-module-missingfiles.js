@@ -106,7 +106,7 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                         nMissLen = jsonFile.missing.length;
                         for (indxMiss = 0; indxMiss < nMissLen; indxMiss++) {
                             jsonMissing = jsonFile.missing[indxMiss];
-                            Row = [];
+                            Row = {};
                             for (indx = 0; indx < nArrBLen; indx++) {
                               this._extractElement(arrBlockCols[indx],jsonBlock,Row);
                             }

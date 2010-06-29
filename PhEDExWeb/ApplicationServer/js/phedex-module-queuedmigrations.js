@@ -155,7 +155,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                             for (indxFile = 0; indxFile < jBfLen; indxFile++) {
                                 jsonFile = jsonBlock.file[indxFile];
                                 _totalsize = _totalsize + parseInt(jsonFile['bytes']);
-                                Row = [];
+                                Row = {};
                                 Row['node'] = toNode;
                                 for (indx = 0; indx < nArrBLen; indx++) {
                                     this._extractElement(arrBlockCols[indx],jsonBlock,Row);

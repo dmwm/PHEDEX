@@ -113,7 +113,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     nDataLen = jsonReq.length;
                     for (indxData = 0; indxData < nDataLen; indxData++) {
                         jsonNode = jsonReq[indxData];
-                        Row = [];
+                        Row = {};
                         for (indx = 0; indx < nArrRLen; indx++) {
                           this._extractElement(arrRequestCols[indx],jsonReqs,Row);
                         }

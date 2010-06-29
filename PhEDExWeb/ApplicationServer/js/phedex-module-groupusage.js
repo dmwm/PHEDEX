@@ -93,7 +93,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                     nGroupLen = jsonNode.group.length;
                     for (indxGroup = 0; indxGroup < nGroupLen; indxGroup++) {
                         jsonGroup = jsonNode.group[indxGroup];
-                        Row = [];
+                        Row = {};
                         for (indx = 0; indx < nArrNLen; indx++) {
                             this._extractElement(arrNodeCols[indx],jsonNode,Row);
                         }
