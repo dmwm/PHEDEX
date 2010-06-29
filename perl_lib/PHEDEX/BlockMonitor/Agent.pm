@@ -195,9 +195,9 @@ sub idle
 		           b.files dest_files,
 		           b.bytes dest_bytes,
 		           s.time_create time_update
-      		      from t_dps_subscription as of scn :scn s
+      		      from t_dps_subs_block as of scn :scn s
       		      join t_dps_block as of scn :scn b 
-                        on (b.dataset = s.dataset or b.id = s.block)
+                        on b.id = s.block
 	           ) act
 	 full join t_dps_block_replica as of scn :scn br
 	        on br.block = act.block and br.node = act.node
@@ -210,7 +210,7 @@ sub idle
 	# node_files/bytes: number of files from a block actually at
 	# the given node. This may ONLY change for active blocks. For
 	# inactive blocks, this becomes the only record that the
-	# blocks exist at the node, so its proper maintenence is very
+	# blocks exist at the node, so its proper maintenance is very
 	# important.
 	($t1, $t2) = ($t2, undef);
 	@rv = &dbexec ($dbh, qq{ 
@@ -279,11 +279,13 @@ sub idle
 	           nvl(act.time_update,:now)
 	    from (
 	    select b.id block, s.destination node,
-	           s.is_custodial, s.user_group,
+	           sp.is_custodial, sp.user_group,
 		   s.time_create time_update
-      		from t_dps_subscription as of scn :scn s
-      		join t_dps_block as of scn :scn b 
-                     on (b.dataset = s.dataset or b.id = s.block)
+      		from t_dps_subs_block as of scn :scn s
+		join t_dps_subs_param as of scn :scn sp
+		     on s.param=sp.id
+		join t_dps_block as of scn :scn b 
+                     on b.id = s.block
 	    ) act
 	    full join t_dps_block_replica as of scn :scn br
 	      on act.block = br.block and act.node = br.node
