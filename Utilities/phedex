@@ -23,7 +23,7 @@ $help = $verbose = $debug = $quiet = 0;
 $nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
 my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
-my @commands = map { lc $_ } values %{ $loader->Commands() };
+my @commands = map { lc $_ } keys %{ $loader->Commands() };
 
 Getopt::Long::Configure('require_order');
 GetOptions
@@ -178,7 +178,7 @@ while (@ARGV)
   print "ARGV to '$command':  ", join(' ', @ARGV), "\n" if $debug;
 
   my $commands = $loader->Commands();
-  if (! grep($command eq lc $_, values %$commands) ) {
+  if (! grep($command eq lc $_, keys %$commands) ) {
       die "command '$command' is not known, use '$me --help' for help\n";
   }
 
