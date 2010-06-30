@@ -56,6 +56,8 @@ use PHEDEX::BlockConsistency::Agent;
 
 $args{USE_SRM} = 'y' if defined($args{USE_SRM});
 foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
+die "--use_rfdir argument not know, use --namespace instead\n" if $args{RFIO_USES_RFDIR};
+die "Namespace technology (--namespace) must be specified\n" unless $args{NAMESPACE};
 my $agent = PHEDEX::BlockConsistency::Agent->new(%args, @ARGV);
 POE::Kernel->run();
 print "POE kernel has ended, now I shoot myself\n";
