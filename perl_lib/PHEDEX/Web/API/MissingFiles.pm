@@ -6,7 +6,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::MissingFiles -- show files which are missing form blocks at a node
+PHEDEX::Web::API::MissingFiles -- show files which are missing from blocks at a node
 
 =head1 DESCRIPTION
 
