@@ -54,6 +54,34 @@ sub Load
   return $module;
 }
 
+sub _commands
+{
+  my ($self,$namespace,$dir,$prefix) = @_;
+  my ($command,$mpath);
+  foreach ( <$dir/$namespace/*> )
+  {
+    if ( m%\.pm$% ) # is a Perl module
+    {
+      m%^.*/$namespace/(.*).pm$%;
+      $command = $prefix . $1;
+      ($mpath = $command) =~ s%/%::%g;
+      $self->{COMMANDS}{lc $command} = $mpath;
+      next;
+    }
+
+    if ( -d ) # is a subdirectory
+    {
+      next if ( m%/CVS$% ); # Explicitly ignore CVS...
+      m%^.*/$namespace/(.*)%;
+      $mpath = $1;
+      ($_ = $mpath) =~ s%/%::%g;
+      $self->{SUBSPACES}{ $self->{NAMESPACE} . '::' . $prefix . $_ }++;
+      $self->_commands($namespace.'/'.$mpath,$dir,$_.'/');
+      next;
+    }
+  }
+}
+
 sub Commands
 {
   my $self = shift;
@@ -61,35 +89,16 @@ sub Commands
 
   my ($command,%commands,$namespace);
   ($namespace = $self->{NAMESPACE}) =~ s%::%/%g;
-
-  $self->{SUBSPACES} = [];
+  $self->{SUBSPACES} = {};
   foreach ( @INC )
   {
-    foreach ( <$_/$namespace/*> )
-    {
-      if ( m%\.pm$% ) # is a Perl module
-      {
-        m%^.*/$namespace/(.*).pm$%;
-        $command = $1;
-        $commands{lc $command} = $command;
-        next;
-      }
-
-      if ( -d ) # is a subdirectory
-      {
-        next if ( m%/CVS$% ); # Explicitly ignore CVS...
-        m%^.*/$namespace/(.*)%;
-        ($_ = $1) =~ s%/%::%;
-        push @{$self->{SUBSPACES}}, $self->{NAMESPACE} . '::' . $_;
-        next;
-      }
-    }
+    $self->_commands($namespace,$_,'');
   }
 
   foreach ( @{$self->{REJECT}} )
   { $_ = lc $_; delete $commands{$_} if exists $commands{$_}; }
 
-  return $self->{COMMANDS} = \%commands;
+  return $self->{COMMANDS}; #= \%commands;
 }
 
 sub Subspaces
