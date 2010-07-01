@@ -33,6 +33,7 @@ our %params =
 	  FORMAT	=> undef,
 	  INSTANCE	=> undef,
 	  CALL		=> undef,
+	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
 	  ME	 	=> 'PHEDEX::CLI::FakeAgent',

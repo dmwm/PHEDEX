@@ -26,6 +26,7 @@ our %params =
 	  FORMAT	=> undef,
 	  INSTANCE	=> undef,
 	  CALL		=> undef,
+	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
 	  ME	 	=> 'PHEDEX::CLI::UserAgent',
@@ -155,6 +156,7 @@ sub target
 sub path_info
 {
   my $self = shift;
+  return $self->{TARGET} if $self->{TARGET};
   return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
 }
 
