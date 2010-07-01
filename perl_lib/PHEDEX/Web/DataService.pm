@@ -62,12 +62,11 @@ sub invoke
   my ($format, $db, $call) = ("xml", "prod", undef);
   $format = $1 if ($path =~ m!\G/([^/]+)!g);
   $db =     $1 if ($path =~ m!\G/([^/]+)!g);
-  $call =   $1 if ($path =~ m!\G/([^/]+)!g);
+  $call =   $1 if ($path =~ m!\G/(.+)$!g);
 
   # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
-      &print_doc($call ? $call : $db, # the API to document
-#		 $db ? 'doc/' : '');  # a prefix for URLs
+      &print_doc($call ? $db.'/'.$call : $db, # the API to document
                  ($path eq "/doc")? 'doc/' : ''
                  );
       return;
