@@ -612,7 +612,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         }(input);
 
         var k1 = new YAHOO.util.KeyListener(input,
-                                          { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                          { keys: YAHOO.util.KeyListener.KEY['ENTER'] },
                                           { fn:function(o){
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
@@ -678,7 +678,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
         }(input);
 
         var k1 = new YAHOO.util.KeyListener(input,
-                                          { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                                          { keys: YAHOO.util.KeyListener.KEY['ENTER'] },
                                           { fn:function(o){
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
