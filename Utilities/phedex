@@ -9,7 +9,7 @@ use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
 my ($instance,$format,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
-my ($default_service);
+my ($default_service,$target,$payload);
 
 my $me = $0;
 $me =~ s:.*/::;
@@ -37,6 +37,8 @@ GetOptions
 	 'ca_file=s'	=> \$ca_file,
 	 'ca_dir=s'	=> \$ca_dir,
 	 'url=s'	=> \$url,
+	 'target=s'	=> \$target,
+	 'payload=s'	=> \$payload,
 	 'nocert'	=> \$nocert,
 	 'testcert'	=> \$test_cert,
 	 'timeout=i'	=> \$timeout,
@@ -193,7 +195,9 @@ while (@ARGV)
   }
   $pua->CALL($cli->Call());
   print $pua->Dump() if $debug;
-  $response = $pua->$method($pua->target,$cli->Payload());
+  my $t = $pua->target;
+  my $p = $cli->Payload();
+  $response = $pua->$method($t,$p);
 
   print "Response: ",$response->content() if $debug;
   if ( $pua->response_ok($response) )
@@ -244,4 +248,10 @@ while (@ARGV)
   }
 }
 
+exit 0 unless $target;
+$pua->TARGET($target);
+$response = $pua->$method($pua->target,$payload);
+my $content = $response->content();
+chomp $content;
+print $content, "\n";
 exit 0;
