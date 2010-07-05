@@ -113,7 +113,4 @@ try:
     
   sys.exit(0)
 except Exception, ex:
-  if ex.__doc__ != 'Request to exit from the interpreter.' :
-    print "Caught Exception object: %s "  % ex
-except:
-  print "Caught Unknown exception"
+  print "Caught Exception object: %s "  % ex
