@@ -66,7 +66,8 @@ PHEDEX.Loader = function(opts) {
 // a demo protovis module
     'phedex-module-protovisdemo':      { requires:['phedex-module', 'phedex-protovis'] },
 // a few custom-modules for shifters
-    'phedex-shifter-agents':            { requires:['phedex-module','phedex-datatable'] },
+    'phedex-shifter-agents':               { requires:['phedex-module','phedex-datatable'] },
+    'phedex-module-shift-requestedqueued': { requires:['phedex-module','phedex-datatable'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-module','phedex-treeview'] }
