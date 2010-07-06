@@ -240,7 +240,12 @@ PHEDEX.Core = function(sandbox,loader) {
         m.initDerived();
         m.initMe();
         if ( m._state ) {
-          m.setState(m._state);
+          try {
+            m.setState(m._state);
+          } catch(ex) {
+            log(ex,'warn',_me);
+            banner('Error setting state for the "'+m.me+'" module','error',_me);
+          }
           delete m._state;
         }
         m.initData();
