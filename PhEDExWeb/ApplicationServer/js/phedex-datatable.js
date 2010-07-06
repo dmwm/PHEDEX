@@ -487,7 +487,7 @@ PHEDEX.DataTable = function (sandbox, string) {
     return this;
 }
 
-var YwDF = YAHOO.widget.DataTable.Formatter;
+YwDF = YAHOO.widget.DataTable.Formatter;
 /** A custom formatter for unix-epoch dates. Sets the elCell innerHTML to the GMT representation of oDate
 * @method YAHOO.widget.DataTable.Formatter.UnixEpochToGMT
 * @param elCell {HTML element} Cell for which the formatter must be applied
@@ -496,7 +496,7 @@ var YwDF = YAHOO.widget.DataTable.Formatter;
 * @param oData {data-value} unix epoch seconds
 */
 YwDF.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
-  if(oData)
+  if(oData != null)
   {
     elCell.innerHTML = new Date(oData*1000).toGMTString();
   }
@@ -510,9 +510,9 @@ YwDF.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
 * @param oData {data-value} number of bytes
 */
 YwDF.customBytes = function(elCell, oRecord, oColumn, oData) {
-  if(oData)
+  if(oData != null)
   {
-    elCell.innerHTML = PHEDEX.Util.format.bytes(oData);
+    elCell.innerHTML = PxUf.bytes(oData);
   }
 };
 
@@ -524,9 +524,26 @@ YwDF.customBytes = function(elCell, oRecord, oColumn, oData) {
 * @param oData {data-value} number of bytes
 */
 YwDF.customRate = function(elCell, oRecord, oColumn, oData) {
-  if(oData)
+  if(oData != null)
   {
-    elCell.innerHTML = PHEDEX.Util.format.bytes(oData) + '/s';
+    elCell.innerHTML = PxUf.bytes(oData) + '/s';
+  }
+};
+
+/** A custom formatter for floating-point. Sets the elCell innerHTML to a fixed-mantissa representation of oData
+* @method YAHOO.widget.DataTable.Formatter.customFixed
+* @param elCell {HTML element} Cell for which the formatter must be applied
+* @param oRecord {datatable record}
+* @param oColumn {datatable column}
+* @param oData {data-value} the number to be formatted
+*/
+YwDF.customFixed = function(mantissa) {
+  var fn = PxUf.toFixed(mantissa);
+  return function(elCell, oRecord, oColumn, oData) {
+    if(oData != null)
+    {
+      elCell.innerHTML = fn(oData);
+    }
   }
 };
 
