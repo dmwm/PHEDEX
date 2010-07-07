@@ -528,12 +528,14 @@ sub requestQueue
   $sql = qq{
 		select b.id, block, n_files, time_expire, priority,
 		name test, use_srm
-		from t_dvs_block b join t_dvs_test t on b.test = t.id
+		from t_dvs_block b
+		join t_dps_block bk on bk.id = b.block
+		join t_dvs_test t on b.test = t.id
 		join t_status_block_verify v on b.id = v.id
 		where ${$mfilter}
 		and status in (0,3)
 		${$ofilter}
-		order by priority asc, time_expire asc
+		order by priority asc, time_expire asc, bk.dataset desc
        };
   %p = (  %{$mfilter_args}, %{$ofilter_args} );
   $q = &dbexec($self->{DBH},$sql,%p);
