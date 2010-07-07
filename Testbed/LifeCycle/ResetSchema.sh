@@ -14,16 +14,21 @@ if [ -z $PHEDEX_DBPARAM ]; then
   exit 0
 fi
 
-# Minimal sanity-check on the DBPARAM:
+export PHEDEX=$PHEDEX_ROOT
+PHEDEX_SQLPLUS="sqlplus $($PHEDEX/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
+# Minimal sanity-check on the DBPARAM and contents:
 if [ `echo $PHEDEX_DBPARAM | egrep -ic 'prod|dev|debug|admin'` -gt 0 ]; then
   echo "Your DBParam appears to be unsafe?"
   echo "(It has one of 'prod|dev|debug|admin' in it, so I don't trust it)"
   exit 0
 fi
+if [ `echo $PHEDEX_SQLPLUS | egrep -ic 'devdb10'` -eq 0 ]; then
+  echo "Your DBParam appears to be unsafe?"
+  echo "('devdb10 does not appear in your connection string, so I don't trust it)"
+  exit 0
+fi
 
-export PHEDEX=$PHEDEX_ROOT
-PHEDEX_SQLPLUS="sqlplus $($PHEDEX/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
-  echo "Connection attempted as: $PHEDEX_SQLPLUS"
+echo "Connection attempted as: $PHEDEX_SQLPLUS"
 i=`echo 'select sysdate from dual;' | $PHEDEX_SQLPLUS 2>/dev/null | grep -c SYSDATE`
 if [ $i -gt 0 ]; then
   echo "Your database connection is good..."
