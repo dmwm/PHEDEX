@@ -1,9 +1,27 @@
+* Changes for 1.6.2
+
+ Changes for APIs:
+
+  * 'transferquerefiles':
+    - rewritten for more efficient query
+    - use spooling to limit memory usage
+    - total bytes and total number of files, in a block of the same priority/state category, are shown as block attributes
+  * 'transferqueueblocks':
+    - rewritten for more efficient query
+ 
+ Bug fix:
+
+  * 'transferqueuefiles':
+    - fixed a bug related to mis-calculated priority
+
 * Changes for 1.6.1
 
  New API:
+
   * 'data': show data which is registered (injected) to PhEDEx
 
  Bug fix:
+
   * 'filereplicas':
     - fixed a bug that rejects input block names due to being too strict in validate_params()
   * 'groupusage':
@@ -12,6 +30,7 @@
 * Changes for 1.6.0
 
  New APIs:
+
   * 'agentlogs': recent messages from the agents
   * 'blocktests': results of block consistency checks
   * 'blocktestfiles': detailed results of block consistency checks
