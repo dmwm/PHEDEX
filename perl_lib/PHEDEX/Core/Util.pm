@@ -180,6 +180,8 @@ sub build_hash
             {
                 if (ref($map->{$k}) eq "HASH")
                 {
+                    # take care of non-existing $output->{$key}->{$k}
+                    $output->{$key}->{$k} = {} if (! exists $output->{$key}->{$k});
                     build_hash($map->{$k}, $input, $output->{$key}->{$k});
                 }
             }
