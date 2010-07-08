@@ -1,0 +1,20 @@
+#### General configuration
+### ENVIRON common
+
+# Common part
+PHEDEX_LABEL=phedex_label_here;
+PHEDEX_SITE=phedex_site_here;
+PHEDEX_NODE=T0_Test_Buffer;
+PHEDEX_CONTEXT=Mgmt;
+X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
+
+# For the watchdog...
+PHEDEX_NOTIFICATION_PORT=1234
+export PHEDEX_NOTIFICATION_PORT
+
+# FTS specific part
+PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
+GLITE_SD_PLUGIN=bdii;
+
+### IMPORT ConfigPart.Testbed
+### IMPORT ConfigPart.Management
