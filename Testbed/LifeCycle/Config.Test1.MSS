@@ -2,25 +2,20 @@
 ### ENVIRON common
 
 # Common part
-PHEDEX_LABEL=Test1;
 PHEDEX_SITE=Test1;
 PHEDEX_NODE=TX_${PHEDEX_SITE}_Buffer;
 PHEDEX_MSS=TX_${PHEDEX_SITE}_MSS;
 PHEDEX_CONTEXT=${PHEDEX_SITE};
-X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # For the watchdog...
 PHEDEX_NOTIFICATION_PORT=1236
 export PHEDEX_NOTIFICATION_PORT
 
 # FTS specific part
-PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
-GLITE_SD_PLUGIN=bdii;
 TIER1_FTS_SERVER=https://fts-t1-import.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer;
 export TIER1_FTS_SERVER
 PHEDEX_GLITE_WRAPPER=${PHEDEX_BASE}/Testbed/FakeFTS.pl;
 export PHEDEX_GLITE_WRAPPER
-export PHEDEX_LOG_SQL=1
 
 ### IMPORT ConfigPart.Testbed
 
@@ -56,15 +51,13 @@ export PHEDEX_LOG_SQL=1
  -backend         Null
  -jobs            10
 
-### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
+### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
  -limit		  150
  -jobs		  11
-
-# -delete          /bin/true
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
   -db          ${PHEDEX_DBPARAM}
@@ -91,7 +84,6 @@ export PHEDEX_LOG_SQL=1
  -backend               FTS
  -protocols             'srm'
  -service               ${TIER1_FTS_SERVER}
- -passfile              ${PHEDEX_CONFIG}/ftspass
  -batch-files           5
  -link-pending-files    20
  -job-awol		3600

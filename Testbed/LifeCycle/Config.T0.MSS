@@ -2,20 +2,14 @@
 ### ENVIRON common
 
 # Common part
-PHEDEX_LABEL=phedex_label_is_unused;
 PHEDEX_SITE=phedex_site_is_unused;
 PHEDEX_NODE=T0_Test_Buffer;
 PHEDEX_MSS=T0_Test_MSS;
 PHEDEX_CONTEXT=T0;
-X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # For the watchdog...
 PHEDEX_NOTIFICATION_PORT=1235
 export PHEDEX_NOTIFICATION_PORT
-
-# FTS specific part
-PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
-GLITE_SD_PLUGIN=bdii;
 
 ### IMPORT ConfigPart.Testbed
 
@@ -41,7 +35,7 @@ GLITE_SD_PLUGIN=bdii;
  -storagemap  ${PHEDEX_MAP}
  -protocols   'direct'
 
-### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload
  -verbose
  -db              ${PHEDEX_DBPARAM}
  -accept	  '%Test%'
@@ -51,7 +45,7 @@ GLITE_SD_PLUGIN=bdii;
  -backend         Null
  -jobs            5
 
-### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
+### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
@@ -61,9 +55,8 @@ GLITE_SD_PLUGIN=bdii;
  -no-retry
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
-  -db          ${PHEDEX_DBPARAM}
-  -nodes       ${PHEDEX_NODE}
-  -storagemap  ${PHEDEX_MAP}
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       ${PHEDEX_NODE}
 
 ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
