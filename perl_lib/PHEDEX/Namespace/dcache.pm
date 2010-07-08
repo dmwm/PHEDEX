@@ -23,6 +23,7 @@ sub new
                 CACHE   => undef,
                 NOCACHE => 0,
 		PRELOAD	=> '',
+                INPUT_FILE => undef,
             );
   %options = (
 		'help'		=> \$help,
@@ -30,13 +31,17 @@ sub new
 		'debug+'	=> \$params{DEBUG},
                 'nocache'       => \$params{NOCACHE},
 		'preload=s'	=> \$params{PRELOAD},
+                'chimera_dump_file=s'  => \$params{INPUT_FILE},
              );
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
-  if ( exists($self->{AGENT}) && exists($self->{AGENT}->{NOCACHE}) &&
+  if ( exists($self->{AGENT})) {
+     if ( exists($self->{AGENT}->{NOCACHE}) &&
        $self->{AGENT}->{NOCACHE} != $self->{NOCACHE}) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
+     if ( exists($self->{AGENT}->{INPUT_FILE}) ) { $self->{INPUT_FILE} = $self->{AGENT}->{INPUT_FILE}; }
+  }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
 
@@ -64,6 +69,7 @@ sub Help
  also:
  --preload  value to set in LD_PRELOAD in the environment before executing
  any client commands
+ --chimera_dump_file  to be used in place of direct calls to the dcache system
 
  Commands known to this module:
 EOF
