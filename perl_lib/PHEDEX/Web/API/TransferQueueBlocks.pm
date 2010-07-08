@@ -25,7 +25,7 @@ Serves blocks in the transfer queue, along with their state.
   priority         one of the following:
                      high, normal, low
   state            one of the following:
-                     transferred, transfering, exported, done
+                     assigned, exported, transferring, done
 
 =head2 Output
 
@@ -65,6 +65,32 @@ Serves blocks in the transfer queue, along with their state.
 =cut
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Core::Util;
+
+my $map = {
+    _KEY => 'FROM_ID+TO_ID',
+    from => 'FROM_NAME',
+    from_id => 'FROM_ID',
+    from_se => 'FROM_SE',
+    to => 'TO_NAME',
+    to_id => 'TO_ID',
+    to_se => 'TO_SE',
+    transfer_queue => {
+        _KEY => 'STATE+PRIORITY',
+        state => 'STATE',
+        priority => 'PRIORITY',
+        block => {
+            _KEY => 'BLOCK_ID',
+            name => 'BLOCK_NAME',
+            id => 'BLOCK_ID',
+            files => 'FILES',
+            bytes => 'BYTES',
+            time_state => 'TIME_STATE',
+            time_assign => 'TIME_ASSIGN',
+            time_expire => 'TIME_EXPIRE'
+        }
+    }
+};
 
 sub duration { return 60 * 60; }
 sub invoke { return transferqueueblocks(@_); }
@@ -79,8 +105,8 @@ sub transferqueueblocks
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $links = PHEDEX::Web::SQL::getTransferQueue($core, %h);
-    return { link => [ values %$links ] };
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getTransferQueue($core, %h));
+    return { link => $r };
 }
 
 1;
