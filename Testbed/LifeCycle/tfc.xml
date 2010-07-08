@@ -1,0 +1,15 @@
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" destination-match=".*" is-custodial="y"
+    path-match="(.*)" result="/data/custodial/$1"
+    space-token="CMSCUSTODIAL" />
+  <lfn-to-pfn protocol="direct" destination-match=".*"
+    path-match="(.*)" result="/data/default/$1"
+    space-token="CMSDEFAULT" />
+  <lfn-to-pfn protocol="srm" destination-match=".*" chain="direct"
+    path-match="(.*)" result="file:///$1"/>
+
+  <pfn-to-lfn protocol="direct" destination-match=".*"
+    path-match="/data/*(/.*)" result="$1"/>
+  <pfn-to-lfn protocol="srm" destination-match=".*" chain="direct"
+    path-match="file:/+(/.*)" result="$1"/>
+</storage-mapping>
