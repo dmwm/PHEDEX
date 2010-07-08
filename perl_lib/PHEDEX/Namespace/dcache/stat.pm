@@ -31,12 +31,22 @@ sub execute
 # base directory, not on the file itself. This lets it cache the results for
 # an entire directory instead of having to go back to the SE for every file 
   my ($self,$ns,$file) = @_;
-  my ($dir,$result);
+  my $dir;
+  my $nfiles = 0;
   my $call = 'stat';
   return $ns->Command($call,$file) if $ns->{NOCACHE};
 
   $dir = dirname $file;
-  $ns->Command($call,$dir);
+  if ( $ns->{INPUT_FILE} ) {
+    if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$dir); 
+                                  if ( $nfiles < 1 ) {
+                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does nos have information about $dir, accessing system\n";
+                                     $ns->Command($call,$dir); 
+                                  }
+                                }
+    else { die "Input dump file $ns->{INPUT_FILE} is not accesible\n"; }
+  } else { $ns->Command($call,$dir);  }
+
 # Explicitly pull the right value from the cache
   return $ns->{CACHE}->fetch($call,$file);
 }
@@ -76,6 +86,27 @@ sub parse
     $ns->{CACHE}->store('stat',"$dir/$file",$x);
     $result = $x;
   }
+  return $result;
+}
+
+sub parse_chimera_dump
+{
+  my ($self,$ns,$dir) = @_;
+
+  my $result = 0;
+  open(DUMP, "grep $dir $ns->{INPUT_FILE} |") or die  "Could not open file ".$ns->{INPUT_FILE}. " for reading\n";
+  while (<DUMP>){
+    my ($x,$file);
+    chomp;
+    m%^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$%
+        or next;
+
+    $file = $1;
+    $x->{size} = $2;
+    $ns->{CACHE}->store('stat',"$file",$x);
+    $result++;
+  }
+  close DUMP;
   return $result;
 }
 
