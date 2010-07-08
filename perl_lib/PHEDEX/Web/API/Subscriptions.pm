@@ -33,9 +33,11 @@ Show existing subscriptions and their parameters.
 
   <dataset>
     <subscription/>
+    ...
     <block>
       <subscription/>
     </block>
+    ...
   </dataset> 
 
   Dataset-level subscriptions will have <subscription> as a child of <dataset>
