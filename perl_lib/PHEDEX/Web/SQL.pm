@@ -1327,191 +1327,192 @@ sub getTransferQueue
 	delete $h{LEVEL};
     }
 
-    my $select = qq{ from_name, from_id, from_se,
-		     to_name, to_id, to_se,
-		     priority, state,
-		     block_name, block_id, is_custodial, time_assign,
-                     time_expire, xte_time_update, xtx_time_update,
-                     xtd_time_update };
+    my $select = qq{
+            fn.name,
+            fn.id,
+            fn.se_name,
+            tn.name,
+            tn.id,
+            tn.se_name,
+            d.name,
+            case xt.priority
+                when 0 then 'high'
+                when 1 then 'high'
+                when 2 then 'normal'
+                when 3 then 'normal'
+                when 4 then 'low'
+                when 5 then 'low'
+                else 'low'
+            end,
+            case
+                when xtd.task is not null then 'done'
+                when xtx.task is not null then 'transferring'
+                when xte.task is not null then 'exported'
+                else 'assigned'
+            end,
+            greatest (
+                nvl(xt.time_assign, 0),
+                nvl(xte.time_update, 0),
+                nvl(xtx.time_update, 0),
+                nvl(xtd.time_update, 0)
+            ), 
+            b.name,
+            b.id,
+            xt.is_custodial
+    };
     my $level_select;
     if ($filelevel) {
-	$level_select = qq{ fileid, filesize, checksum, logical_name };
+	$level_select = qq{
+            xt.time_assign,
+            xt.time_expire,
+            f.id fileid,
+            f.filesize,
+            f.checksum,
+            f.logical_name,
+            xt.time_assign,
+            xt.time_expire,
+            greatest (
+                nvl(xt.time_assign, 0),
+                nvl(xte.time_update, 0),
+                nvl(xtx.time_update, 0),
+                nvl(xtd.time_update, 0)
+            ) time_state };
     } else {
-	$level_select = qq{ count(fileid) files, sum(filesize) bytes };
+	$level_select = qq{
+            count(f.id) files,
+            sum(f.filesize) bytes,
+            min (
+                greatest (
+                    nvl(xt.time_assign, 0),
+                    nvl(xte.time_update, 0),
+                    nvl(xtx.time_update, 0),
+                    nvl(xtd.time_update, 0)
+                )
+            ) time_state,
+            min (xt.time_assign) time_assign,
+            min (xt.time_expire) time_expire };
     }
 
     my ($sql, $q, %p);
     $sql = qq {
-      select $select,
-             $level_select
-       from (
-      select fn.name from_name, fn.id from_id, fn.se_name from_se, 
-             tn.name to_name, tn.id to_id, tn.se_name to_se,
-             b.name block_name, b.id block_id,
-             f.id fileid, f.filesize, f.checksum, f.logical_name,
-             xt.priority, d.name dataset,
-        case when xtd.task is not null then 3
-             when xtx.task is not null then 2
-             when xte.task is not null then 1
-             else 0
-         end state,
-             xt.is_custodial,
-             xt.time_assign,
-             xt.time_expire,
-             xte.time_update xte_time_update,
-             xtx.time_update xtx_time_update,
-             xtd.time_update xtd_time_update
-        from t_xfer_task xt
-             left join t_xfer_task_export xte on xte.task = xt.id
-             left join t_xfer_task_inxfer xtx on xtx.task = xt.id
-             left join t_xfer_task_done   xtd on xtd.task = xt.id
-             join t_xfer_file f on f.id = xt.fileid
-             join t_dps_block b on b.id = f.inblock
-             join t_dps_dataset d on d.id = b.dataset
-             join t_adm_node fn on fn.id = xt.from_node
-             join t_adm_node tn on tn.id = xt.to_node
-         )
-   };
+        select
+            fn.name from_name,
+            fn.id from_id,
+            fn.se_name from_se, 
+            tn.name to_name,
+            tn.id to_id,
+            tn.se_name to_se,
+            b.name block_name,
+            b.id block_id,
+            $level_select,
+            case xt.priority
+                when 0 then 'high'
+                when 1 then 'high'
+                when 2 then 'normal'
+                when 3 then 'normal'
+                when 4 then 'low'
+                when 5 then 'low'
+                else 'low'
+            end priority,
+            d.name dataset,
+            case
+                when xtd.task is not null then 'done'
+                when xtx.task is not null then 'transferring'
+                when xte.task is not null then 'exported'
+                else 'assigned'
+            end state,
+            xt.is_custodial
+        from
+            t_xfer_task xt
+            left join t_xfer_task_export xte on xte.task = xt.id
+            left join t_xfer_task_inxfer xtx on xtx.task = xt.id
+            left join t_xfer_task_done   xtd on xtd.task = xt.id
+            join t_xfer_file f on f.id = xt.fileid
+            join t_dps_block b on b.id = f.inblock
+            join t_dps_dataset d on d.id = b.dataset
+            join t_adm_node fn on fn.id = xt.from_node
+            join t_adm_node tn on tn.id = xt.to_node
+    };
     
     # prepare priority filter
     if (exists $h{PRIORITY}) {
-	my $priority = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
-	$h{PRIORITY} = [ $priority, $priority+1 ]; # either local or remote
+	my $priority = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 1);
+	$h{PRIORITY} = [ $priority, $priority-1 ]; # either local or remote
     }
 
     # prepare state filter
+    my $state_filter = '';
     if (exists $h{STATE}) {
 	my %state_id = reverse %state_name;
 	$h{STATE} = $state_id{$h{STATE}};
+        if (defined $h{STATE})
+        {
+            if ($h{STATE} == 3)
+            {
+                $state_filter = qq{ xtd.task is not null };
+            }
+            elsif ($h{STATE} == 2)
+            {
+                $state_filter = qq{ xtx.task is not null and xtd.task is null};
+            }
+            elsif ($h{STATE} == 1)
+            {
+                $state_filter = qq{ xte.task is not null and xtx.task is null};
+            }
+            elsif ($h{STATE} == 0)
+            {
+                $state_filter = qq{
+                    xtd.task is null and
+                    xtx.task is null and
+                    xte.task is null };
+            }
+        }
     }
     
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h,  
-			FROM => 'from_name',
-			TO   => 'to_name',
-			PRIORITY => 'priority',
-			BLOCK    => 'block_name',
-                        DATASET => 'dataset',
-			STATE    => 'state');
+			FROM => 'fn.name',
+			TO   => 'tn.name',
+			PRIORITY => 'xt.priority',
+			BLOCK    => 'b.name',
+                        DATASET => 'd.name');
 
-    $sql .= qq{ where ($filters) } if $filters;
+
+    if ($state_filter)
+    {
+        if ($filters)
+        {
+            $filters .= " and ( $state_filter ) ";
+        }
+        else
+        {
+            $filters = $state_filter;
+        }
+    }
+
+    $sql .= qq{
+        where
+            ($filters)
+    } if $filters;
 
     if (!$filelevel) {
 	$sql .= qq{ group by $select };
     }
 
-    $q = PHEDEX::Core::SQL::execute_sql( $self, $sql, %p);
-    my $r = $q->fetchall_arrayref({});
+    $sql .= qq{
+        order by fn.id, tn.id
+    };
 
-    # Transform the flat representation into a heirarchy
-    my $links = {};
-    foreach my $row ( @$r ) {
-	# link
-	my $link_key = $row->{FROM_ID}.':'.$row->{TO_ID};
-	my $link = $links->{$link_key};
-	if (! $link ) {
-	    $link = { FROM => $row->{FROM_NAME},
-		      FROM_ID => $row->{FROM_ID},
-		      FROM_SE => $row->{FROM_SE},
-		      TO => $row->{TO_NAME},
-		      TO_ID => $row->{TO_ID},
-		      TO_SE => $row->{TO_SE},
-		      Q_HASH => {} };
-	    $links->{$link_key} = $link;
-	}
+    $q = execute_sql( $self, $sql, %p);
 
-	# queue
-	my $queue_key = $row->{STATE}.':'.$row->{PRIORITY};
-	my $queue = $link->{Q_HASH}->{$queue_key};
-	if (! $queue ) {
-	    $queue = { STATE => $state_name{$row->{STATE}},
-		       PRIORITY => &PHEDEX::Core::Util::priority($row->{PRIORITY}, 1),
-		       B_HASH => {} };
-	    $link->{Q_HASH}->{$queue_key} = $queue;
-	}
-
-	# block
-	my $block_key = $row->{BLOCK_ID};
-	my $block = $queue->{B_HASH}->{$block_key};
-	if (! $block ) {
-	    $block =
-	    { NAME => $row->{BLOCK_NAME},
-	      ID => $row->{BLOCK_ID} };
-	    $queue->{B_HASH}->{$block_key} = $block;
-	    if ($filelevel) {
-		$block->{FILE} = [];
-	    } else {
-		$block->{FILES} = $row->{FILES};
-		$block->{BYTES} = $row->{BYTES};
-	    }
-	}
-
-        # time_state
-        my $time_state;
-        if ($row->{STATE} eq '0')
-        {
-            $time_state = $row->{TIME_ASSIGN};
-        }
-        elsif ($row->{STATE} eq '1')
-        {
-            $time_state = $row->{XTE_TIME_UPDATE};
-        }
-        elsif ($row->{STATE} eq '2')
-        {
-            $time_state = $row->{XTX_TIME_UPDATE};
-        }
-        elsif ($row->{STATE} eq '3')
-        {
-            $time_state = $row->{XTD_TIME_UPDATE};
-        }
-
-        # block level time stamp
-        if ((! exists $block->{TIME_ASSIGN}) or 
-            (int($row->{TIME_ASSIGN}) < int($block->{TIME_ASSIGN})))
-        {
-            $block->{TIME_ASSIGN} = $row->{TIME_ASSIGN};
-        }
-
-        if ((! exists $block->{TIME_EXPIRE}) or 
-            (int($row->{TIME_EXPIRE}) < int($block->{TIME_EXPIRE})))
-        {
-            $block->{TIME_EXPIRE} = $row->{TIME_EXPIRE};
-        }
-
-        if ((! exists $block->{TIME_STATE}) or 
-            (int($time_state) < int($block->{TIME_STATE})))
-        {
-            $block->{TIME_STATE} = $time_state;
-        }
-
-	# file
-	if ($filelevel) {
-	    push @{$block->{FILE}}, { NAME => $row->{LOGICAL_NAME},
-				      ID => $row->{FILEID},
-				      BYTES => $row->{FILESIZE},
-				      CHECKSUM => $row->{CHECKSUM},
-                                      IS_CUSTODIAL => $row->{IS_CUSTODIAL},
-                                      TIME_ASSIGN => $row->{TIME_ASSIGN},
-                                      TIME_EXPIRE => $row->{TIME_EXPIRE},
-                                      TIME_STATE => $time_state };
-	}
+    if (exists $h{'__spool__'})
+    {
+        return $q;
     }
-    
-    # Transform hashes into arrays for auto-formatting
-    foreach my $link (values %$links) {
-	foreach my $queue (values %{$link->{Q_HASH}}) {
-	    foreach my $block (values %{$queue->{B_HASH}}) {
-		$queue->{BLOCK} ||= [];
-		push @{$queue->{BLOCK}}, $block;
-	    }
-	    delete $queue->{B_HASH};
-	    $link->{TRANSFER_QUEUE} ||= [];
-	    push @{$link->{TRANSFER_QUEUE}}, $queue;
-	}
-	delete $link->{Q_HASH};
-    }
-    
-    return $links;
+
+    my @r;
+    while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+    return \@r;
 }
 
 # get which files are in the transfer error logs
@@ -1909,7 +1910,6 @@ sub getDataSubscriptions
             s.block desc,
             n.name
     };
-
     $q = execute_sql( $core, $sql, %p);
 
     while ( $_ = $q->fetchrow_hashref() )
