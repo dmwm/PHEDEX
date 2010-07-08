@@ -19,4 +19,4 @@ done
 echo "Stopping Mgmt agents"
 $Master --config $Config/Config.Mgmt.Testbed stop
 echo removing stop-files
-rm $PHEDEX_BASE/${PHEDEX_INSTANCE}_*/state/*/stop
+rm $PHEDEX_ROOT/DEVDB10_*/state/*/stop
