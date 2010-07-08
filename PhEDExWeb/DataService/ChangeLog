@@ -13,6 +13,8 @@
 
   * 'transferqueuefiles':
     - fixed a bug related to mis-calculated priority
+  * 'subscriptions':
+    - bug fix for missing data in certain situations
 
 * Changes for 1.6.1
 
