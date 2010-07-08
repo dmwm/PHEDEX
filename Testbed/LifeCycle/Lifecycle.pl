@@ -36,6 +36,14 @@ GetOptions(     "help"     => \$help,
                 "config=s" => \$args{LIFECYCLE_CONFIG},
           );
 $help && usage;
+if ( !defined $args{LIFECYCLE_CONFIG} )
+{
+  die "--config=<config-file> not given\n";
+}
+if ( ! -f $args{LIFECYCLE_CONFIG} )
+{
+  die "config-file $args{LIFECYCLE_CONFIG} not found\n";
+}
 
 my %sender_args = (
 			Config		=> $args{LIFECYCLE_CONFIG},
