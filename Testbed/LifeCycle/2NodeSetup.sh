@@ -75,16 +75,16 @@ $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer 
 $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
 # Create one TX_Test nodes
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test0_MSS -kind MSS\
+$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test1_MSS -kind MSS\
 			-technology Other -se-name srm-test0.nowhere.cern.ch
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test0_Buffer -kind Buffer \
+$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test1_Buffer -kind Buffer \
 			-technology Other -se-name srm-test0.nowhere.cern.ch
 
 # TX_Test node links
-echo TX_Test0_Buffer to T0_Buffer
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer TX_Test0_Buffer:R/2
-echo TX_Test0_Buffer to TX_Test0_MSS
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test0_Buffer TX_Test0_MSS:L/1
+echo TX_Test1_Buffer to T0_Buffer
+$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer TX_Test1_Buffer:R/2
+echo TX_Test1_Buffer to TX_Test1_MSS
+$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test1_Buffer TX_Test1_MSS:L/1
 
 (
   echo '$PhEDEx::Lifecycle{NodeIDs} ='
