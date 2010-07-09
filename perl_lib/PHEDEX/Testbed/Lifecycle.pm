@@ -610,16 +610,41 @@ sub makeBlock
   $n = scalar @{$h->{files}} if $h->{files};
   for my $n_file (($n+1)..($n+$ds->{NFiles}))
   {
-    my $lfn = $ds->{Name}. "-${blockid}-${n_file}";
-    my $filesize;
-    my $mean = $ds->{FileSizeMean} || 2.0;
-    my $sdev = $ds->{FileSizeStdDev} || 0.2;
-    $filesize = int(gaussian_rand($mean, $sdev) *  (1024**3)); #
-    my $cksum = 'cksum:'. int(rand() * (10**10));
-    push @{$h->{files}}, { lfn => $lfn, size => $filesize, cksum => $cksum };
+    my $file_ref = $self->getNextLFN($ds,$blockid,$n_file);
+    push @{$h->{files}}, $file_ref;
   };
   $ds->{_block} = $h;
   return $h;
+}
+
+sub getNextLFN
+{
+  my ($self,$ds,$blockid,$n_file) = @_;
+  my ($file,$lfn,$size,$mean,$sdev,$cksum);
+  if ( !$self->{LFNList} )
+  {
+    $lfn  = $ds->{Name}. "-${blockid}-${n_file}";
+    $mean = $ds->{FileSizeMean} || 2.0;
+    $sdev = $ds->{FileSizeStdDev} || 0.2;
+    $size = int(gaussian_rand($mean, $sdev) * (1024**3)); 
+    $cksum = 'cksum:'. int(rand() * (10**10));
+    return { lfn => $lfn, size => $size, cksum => $cksum};
+  }
+  if ( !$self->{lfns} )
+  {
+    open LFNs, "<$self->{LFNList}" or die "Cannot open $self->{LFNList}: $!\n";
+    while ( $_ = <LFNs> )
+    {
+      next if m%^#%;
+      ($lfn,$size,$cksum) = split(' ',$_);
+      $size = int(gaussian_rand($mean, $sdev) * (1024**3)) unless $size;
+      $cksum = 'cksum:'. int(rand() * (10**10)) unless $cksum;
+      push @{$self->{lfns}}, { lfn => $lfn, size => $size, cksum => $cksum};
+    }
+    close LFNs;
+  }
+  my $i = ($n_file-1) % scalar @{$self->{lfns}};
+  return $self->{lfns}[$i];
 }
 
 sub makeXML
