@@ -1,24 +1,5 @@
 # Only to be run at CERN. Don't run any of the agents listed below !
 
-### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
- -db         ${PHEDEX_DBPARAM}
- -config     ${PHEDEX_CONFIG_FILE}
- -agent_list mgmt-lifecycle
- -agent_list mgmt-reqalloc
- -agent_list mgmt-blockalloc
- -agent_list mgmt-router
- -agent_list mgmt-issue
- -agent_list mgmt-pump
- -agent_list mgmt-blockmon
- -agent_list mgmt-blockactiv
- -agent_list mgmt-blockdeact
- -agent_list mgmt-blockdelete
- -agent_list info-pm
- -agent_list info-invariant
- -agent_list info-tc
- -agent_list info-fs
- -agent_list exp-stage
-
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}

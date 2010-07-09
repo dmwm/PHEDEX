@@ -23,22 +23,22 @@ export PHEDEX_GLITE_WRAPPER
  -db         ${PHEDEX_DBPARAM}
  -config     ${PHEDEX_CONFIG_FILE}
  -agent_list exp-pfn
- -agent_list exp-pfn-mss
+# -agent_list exp-pfn-mss
  -agent_list download-fts
- -agent_list download-migrate
- -agent_list remove
+# -agent_list download-migrate
+# -agent_list remove
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
-  -storagemap  ${PHEDEX_MAP}
+ -storagemap  ${PHEDEX_MAP}
  -protocols   'srm','direct'
 
 ### AGENT LABEL=exp-pfn-mss PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_MSS}
  -accept      ${PHEDEX_NODE}
-  -storagemap  ${PHEDEX_MAP}
+ -storagemap  ${PHEDEX_MAP}
  -protocols   'direct'
 
 ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
@@ -63,8 +63,6 @@ export PHEDEX_GLITE_WRAPPER
   -db          ${PHEDEX_DBPARAM}
   -nodes       ${PHEDEX_NODE}
   -namespace   castor
-  --
-  MY_PRIVATE_PARAMETER some_value
 
 ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
  -db          ${PHEDEX_DBPARAM}

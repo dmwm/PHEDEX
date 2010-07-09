@@ -17,10 +17,10 @@ export PHEDEX_NOTIFICATION_PORT
  -db         ${PHEDEX_DBPARAM}
  -config     ${PHEDEX_CONFIG_FILE}
  -agent_list exp-pfn
- -agent_list exp-pfn-mss
+# -agent_list exp-pfn-mss
  -agent_list download
- -agent_list download-migrate
- -agent_list remove
+# -agent_list download-migrate
+# -agent_list remove
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
