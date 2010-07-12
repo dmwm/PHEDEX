@@ -175,6 +175,9 @@ sub validate_params
     # FIXME:  remove nocache from params when it is needed, before it goes to APIs
     my $nocache = delete $params->{nocache} || 0;
 
+    # deal with OPERATORS
+    my $operators = delete $params->{OPERATORS} || undef;
+
     # get a pre-defined spec, or create an empty one
     my $spec = delete $h{spec} || {};
 
@@ -339,6 +342,12 @@ sub validate_params
     if ($nocache)
     {
         $good_params{nocache} = 1;
+    }
+
+    # OPERATORS?
+    if ($operators)
+    {
+        $good_params{OPERATORS} = $operators;
     }
 
     return %good_params;
