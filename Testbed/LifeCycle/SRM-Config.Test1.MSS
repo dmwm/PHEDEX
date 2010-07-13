@@ -71,18 +71,6 @@ export PHEDEX_MAP;
  -protocols   direct
  -mssbackend  fake
 
-### AGENT LABEL=download-fts PROGRAM=Toolkit/Transfer/FileDownload
- -db                    ${PHEDEX_DBPARAM}
- -nodes                 ${PHEDEX_NODE}
- -accept                '%'
- -validate              ${PHEDEX_CONFIG}/fake-validate.pl
- -backend               FTS
- -protocols             'srm'
- -service               ${TIER1_FTS_SERVER}
- -batch-files           5
- -link-pending-files    20
- -job-awol		3600
-
 ### AGENT LABEL=download-srm PROGRAM=Toolkit/Transfer/FileDownload
  -db                    ${PHEDEX_DBPARAM}
  -nodes                 ${PHEDEX_NODE}
@@ -91,5 +79,5 @@ export PHEDEX_MAP;
  -backend               SRM
  -protocols             'srm'
  -batch-files           1
- -link-pending-files    1
- -job-awol		3600
+ -link-pending-files    2
+ -job-awol		10
