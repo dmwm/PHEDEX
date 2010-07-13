@@ -92,9 +92,8 @@ sub doDBSCheck
   my $t0 = Time::HiRes::time(); 
 
 # fork the dbs call and harvest the results
-  my $d = dirname($0);
-  if ( $d !~ m%^/% ) { $d = cwd() . '/' . $d; }
-  my $dbs = $d . '/DBSgetLFNsFromBlock';
+  my $scriptdir = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_SCRIPTS');
+  my $dbs = $scriptdir . '/Toolkit/DBS/DBSgetLFNsFromBlock';
   my $dbsurl;
   if ( $self->{DBS_URL} )
   {
@@ -466,12 +465,13 @@ sub do_tests
       $self->{DBH}->commit();
       my $result = $self->doNSCheck ($request);
     }
-    elsif ( $request->{TEST} eq 'dbs' )
-    {
-      $self->setRequestState($request,'Active');
-      $self->{DBH}->commit();
-      my $result = $self->doDBSCheck ($request);
-    }
+#   dbs test is no longer supported; 
+#   elsif ( $request->{TEST} eq 'dbs' )
+#   {
+#     $self->setRequestState($request,'Active');
+#     $self->{DBH}->commit();
+#     my $result = $self->doDBSCheck ($request);
+#   }
     else
     {
       $self->setRequestState($request,'Rejected');
