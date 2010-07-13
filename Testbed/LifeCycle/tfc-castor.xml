@@ -1,0 +1,14 @@
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" destination-match=".*"
+    path-match="(.*)" result="/data/$1" />
+
+  <lfn-to-pfn protocol="srm" 
+    path-match="/+build1/wildish/src/(.*)" result="srm://srm-cms.cern.ch:8443//srm/managerv2?SFN=/castor/cern.ch/user/w/wildish/dest/$1"/>
+
+  <pfn-to-lfn protocol="direct" destination-match=".*"
+    path-match="/dest/*(/.*)" result="$1"/>
+
+  <pfn-to-lfn protocol="srm" 
+    path-match="srm://srm-cms.cern.ch:8443//srm/managerv2\?SFN=/castor/cern.ch/user/w/wildish/dest/(.*)" result="/build1/wildish/src/$1"/>
+
+</storage-mapping>
