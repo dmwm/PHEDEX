@@ -15,6 +15,9 @@
     - fixed a bug related to mis-calculated priority
   * 'subscriptions':
     - bug fix for missing data in certain situations
+  * 'filereplicas':
+    - bug fix for mis-handling of operators
+    - this is actually a bug in PHEDEX::Web::Util::validate_params()
 
 * Changes for 1.6.1
 
