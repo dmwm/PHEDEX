@@ -163,10 +163,16 @@ sub send_email
  	 "\n",
  	 $args{message},
  	 "\n";
-    close MAIL or do {
-      warn $! ? scalar localtime() . " Error closing sendmail: $!\n"
-              : scalar localtime() . " Exit status $? from sendmail\n";
+    close MAIL and do {
+      my $now = scalar localtime;
+      warn $! ? "$now: Error closing sendmail: $!\n"
+              : "$now: Exit status $? from sendmail\n";
 
+      foreach ( qw / to from subject cc replyto / )
+      {
+        next unless $args{$_};
+        warn "$now: sendmail: $_ => $args{$_}\n";
+      }
 #     return 0;
     };
     
