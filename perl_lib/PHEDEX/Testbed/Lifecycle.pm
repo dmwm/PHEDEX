@@ -617,6 +617,7 @@ sub makeBlock
   return $h;
 }
 
+my $_file_number=0;
 sub getNextLFN
 {
   my ($self,$ds,$blockid,$n_file) = @_;
@@ -643,7 +644,7 @@ sub getNextLFN
     }
     close LFNs;
   }
-  my $i = ($n_file-1) % scalar @{$self->{lfns}};
+  my $i = ($_file_number++) % scalar @{$self->{lfns}};
   return $self->{lfns}[$i];
 }
 
