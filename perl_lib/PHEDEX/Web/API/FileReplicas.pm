@@ -157,7 +157,11 @@ my @keys = ('BLOCK_ID');
 sub spool
 {
     my ($core,%h) = @_;
-    my %p = &validate_params(\%h,
+    my %p;
+
+    if (!$sth)
+    {
+        %p = &validate_params(\%h,
                            uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
@@ -174,11 +178,11 @@ sub spool
 #                               se            => { using => 'any'   },
 #                               group         => { using => 'any'   },
 			   });
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getFileReplicas($core, %p), $limit, @keys);
+    }
 
-    $p{'__spool__'} = 1;
     my $r;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getFileReplicas($core, %p), $limit, @keys) if !$sth;
     $r = $sth->spool();
     if ($r)
     {
