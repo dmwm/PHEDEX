@@ -149,9 +149,12 @@ sub send_email
 	$args{message} .= "\n\nTO:  $args{to}\n\n"; $args{to} = $TESTING_MAIL;
 	if ($args{cc}) {$args{message} .= "\n\nCC:  $args{cc}\n\n"; delete $args{cc};}
     }
-
-    (open (MAIL, "| /usr/sbin/sendmail -t")
-     && (print MAIL
+    open (MAIL, "| /usr/sbin/sendmail -t") or do {
+      warn scalar localtime, " sendmail: $!\n";
+#     return 0;
+      return %args;
+    };
+    print MAIL
  	 "Subject: $args{subject}\n",
  	 "From: $args{from}\n",
  	 (exists $args{replyto} ? "Reply-To:  $args{replyto}\n" : ''),
@@ -159,9 +162,13 @@ sub send_email
  	 (exists $args{cc} ? "Cc: $args{cc}\n" : ''),
  	 "\n",
  	 $args{message},
- 	 "\n" )
-     && close(MAIL))
- 	or do { return 0; };
+ 	 "\n";
+    close MAIL or do {
+      warn $! ? scalar localtime() . " Error closing sendmail: $!\n"
+              : scalar localtime() . " Exit status $? from sendmail\n";
+
+#     return 0;
+    };
     
     return %args;
 }
