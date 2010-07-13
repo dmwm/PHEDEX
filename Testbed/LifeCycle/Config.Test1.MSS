@@ -17,7 +17,7 @@ export TIER1_FTS_SERVER;
 PHEDEX_GLITE_WRAPPER=${PHEDEX_BASE}/Testbed/FakeFTS.pl;
 export PHEDEX_GLITE_WRAPPER;
 
-PHEDEX_MAP=${PHEDEX_ROOT}/tfc.xml;
+PHEDEX_MAP=${PHEDEX_ROOT}/Testbed/LifeCycle/tfc.xml;
 export PHEDEX_MAP;
 ### IMPORT ConfigPart.Testbed
 
