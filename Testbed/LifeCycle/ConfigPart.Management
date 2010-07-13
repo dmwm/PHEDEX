@@ -64,7 +64,7 @@
 ### AGENT LABEL=mgmt-lifecycle PROGRAM=Testbed/LifeCycle/Lifecycle.pl
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
- -config   ${PHEDEX_CONFIG}/2NodeLifecycle.conf
+ -config   ${LIFECYCLE_CONFIG}
 
 ### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager
  -db        ${PHEDEX_DBPARAM}

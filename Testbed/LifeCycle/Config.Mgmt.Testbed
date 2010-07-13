@@ -9,13 +9,15 @@ PHEDEX_CONTEXT=Mgmt;
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # For the watchdog...
-PHEDEX_NOTIFICATION_PORT=1234
-export PHEDEX_NOTIFICATION_PORT
+PHEDEX_NOTIFICATION_PORT=1234;
+export PHEDEX_NOTIFICATION_PORT;
 
 # FTS specific part
 PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 
+LIFECYCLE_CONFIG=${PHEDEX_ROOT}/Testbed/LifeCycle/2NodeLifecycle.conf;
+export LIFECYCLE_CONFIG;
 ### IMPORT ConfigPart.Testbed
 ### IMPORT ConfigPart.Management
 

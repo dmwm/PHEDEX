@@ -8,15 +8,17 @@ PHEDEX_MSS=TX_${PHEDEX_SITE}_MSS;
 PHEDEX_CONTEXT=${PHEDEX_SITE};
 
 # For the watchdog...
-PHEDEX_NOTIFICATION_PORT=1236
-export PHEDEX_NOTIFICATION_PORT
+PHEDEX_NOTIFICATION_PORT=1236;
+export PHEDEX_NOTIFICATION_PORT;
 
 # FTS specific part
 TIER1_FTS_SERVER=https://fts-t1-import.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer;
-export TIER1_FTS_SERVER
+export TIER1_FTS_SERVER;
 PHEDEX_GLITE_WRAPPER=${PHEDEX_BASE}/Testbed/FakeFTS.pl;
-export PHEDEX_GLITE_WRAPPER
+export PHEDEX_GLITE_WRAPPER;
 
+PHEDEX_MAP=${PHEDEX_ROOT}/tfc.xml;
+export PHEDEX_MAP;
 ### IMPORT ConfigPart.Testbed
 
 ### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
