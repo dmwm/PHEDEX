@@ -125,7 +125,7 @@ PHEDEX.Module.ProtovisDemo = function(sandbox, string) {
 /* The bars. */
         var bar = vis.add(pv.Bar)
             .data(pvData['times'])
-            .top(function() y(this.index))
+            .top(function() { return y(this.index); })
             .height(y.range().band)
             .left(0)
             .width(x)
@@ -139,13 +139,13 @@ PHEDEX.Module.ProtovisDemo = function(sandbox, string) {
 /* The variable label. */
         bar.anchor("left").add(pv.Label)
             .textMargin(5)
-            .text(function() pvData['agents'][this.index]);
+            .text(function() { return pvData['agents'][this.index]; });
 
 /* X-axis ticks. */
         vis.add(pv.Rule)
             .data(x.ticks(5))
             .left(x)
-            .strokeStyle(function(d) d ? "rgba(255,255,255,.3)" : "#000")
+            .strokeStyle(function(d) { return d ? "rgba(255,255,255,.3)" : "#000";} )
           .add(pv.Rule)
             .bottom(0)
             .height(5)

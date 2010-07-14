@@ -49,11 +49,11 @@ makeNavigator = function() {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',   order: 10 },
-        node:   { label: 'Explore by node',  order: 20 },
-        block:  { label: 'Explore by block', order: 30 },
-        group:  { label: 'Explore by group', order: 40 },
-        static: { label: 'Explore Information', order: 99 },
+        none:    { label: 'Explore global',   order: 10 },
+        node:    { label: 'Explore by node',  order: 20 },
+        block:   { label: 'Explore by block', order: 30 },
+        group:   { label: 'Explore by group', order: 40 },
+       'static': { label: 'Explore Information', order: 99 },
       }
     }
   });

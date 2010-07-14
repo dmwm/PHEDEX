@@ -563,7 +563,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       updateGUI: function() { } // not really needed
     },
 
-    static: {
+    'static': {
       init: function(el) {
         return PxU.makeChild(el, 'div');
        },

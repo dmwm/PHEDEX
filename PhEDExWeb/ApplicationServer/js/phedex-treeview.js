@@ -412,7 +412,6 @@ PHEDEX.TreeView = function(sandbox,string) {
       */
       hideFields: function(el) {
         if ( !el ) { el = this.el; }
-debugger;
 //         if ( this.meta.hide ) {
 //           for (var i in this.meta.hide) {
 //             this.hideFieldByClass(i,el);
