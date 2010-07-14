@@ -117,11 +117,11 @@ function createCoreApp() {
     el: 'phedex-navigator',
     cfg: {
       typecfg: {
-        none:   { label: 'Explore global',   order: 10 },
-        node:   { label: 'Explore by node',  order: 20 },
-        block:  { label: 'Explore by block', order: 30 },
-        group:  { label: 'Explore by group', order: 40 },
-        static: { label: 'Explore Information', order: 99 }
+        none:     { label: 'Explore global',   order: 10 },
+        node:     { label: 'Explore by node',  order: 20 },
+        block:    { label: 'Explore by block', order: 30 },
+        group:    { label: 'Explore by group', order: 40 },
+        static:   { label: 'Explore Information', order: 99 }
       }
     }
   });
@@ -129,6 +129,7 @@ function createCoreApp() {
   if ( PxR ) { // TODO this needs a better home!
     PxS.notify('Registry', 'add', 'phedex-module-agents',            'node',  'Show Agents',             {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-agentlogs',         'node',  'Show Agent Logs',         {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node',  'Show Pending Requests',   {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests Nested', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations',  'node',  'Show Queued Migrations',  {context_item:true});
@@ -144,6 +145,7 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group', 'Show Group Usage',        {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group', 'Show Pending Requests',   {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued',    'none', 'Shift: Requested vs. Queued data', {context_item:false});
   }
 
   PxU.bannerIdleTimer(PxL);
