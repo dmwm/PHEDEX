@@ -22,6 +22,10 @@
     - bug fix for mis-handling of operators
     - this is actually a bug in PHEDEX::Web::Util::validate_params()
 
+ New API:
+  * 'shift/requestqueued':
+    - specialised module to implement some of the shift-monitoring requirements. This is not for public use yet
+
 * Changes for 1.6.1
 
  New API:
