@@ -633,7 +633,7 @@ sub getNextLFN
   }
   if ( !$self->{lfns} )
   {
-    open LFNs, "<$self->{LFNList}" or die "Cannot open $self->{LFNList}: $!\n";
+    open LFNs, "<$self->{LFNList}" or $self->Fatal("Cannot open $self->{LFNList}: $!");
     while ( $_ = <LFNs> )
     {
       next if m%^#%;
