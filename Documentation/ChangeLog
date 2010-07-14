@@ -1,5 +1,10 @@
 Changes for PhEDEx 3.3.2
 
+Dependency Changes
+ - Drop dependency of PHEDEX agent distributions on dbs-client, dls-client
+  - PHEDEX-micro distribution mantains the dependency
+ - Update Dependencies to latest version of COMP packages
+	
 Changes for Site Agents
  - Watchdog
   - change the default receive-buffer in the watchdog agent from 1KB to 1MB.
@@ -15,7 +20,15 @@ Changes for Site Agents
   - use the global cache provided by the agent if exists, for all technologies
     but pnfs
   - posix and dCache caching mechanims ON by default
-
+  - added Chimera dump parsing option for dCache technology
+  - Test queue is sorted by dataset ID, after test priority and test expiration time
+	- Should increase cache efficiency by ensuring that files in the same dataset
+	  are tested consecutively
+	- Tests for more recent blocks are executed first
+  - dbs consistency tests are now deprecated and will be rejected by the agent
+ - BlockDBSPopulate
+  - Agent was obsolete since the CAF DBS descoping and has been removed from the release
+	
 Changes for Central Agents
  - FileRouter
   - Re-activate requests even if over $WINDOW_SIZE.  This avoids queue
@@ -29,6 +42,12 @@ Changes for all Agents
 
 Changes for Operator Tools
  - FileDeleteTMDB: additional debugging output
+ - DBSCheck: update to use new version of DBS client scripts
+ - Toolkit/DBS:
+  - Removed from PHEDEX agent distributions. Now only packaged with PHEDEX-micro
+  - Unused DBS client scripts removed
+  - Useful scripts updated to work with python 2.6/DBS_CLIENT_2_1_0
+  - Added --size option to printout file size in DBSgetLFNsFromBlock	
 
 Changes for Schema
  - OracleInit.sql: reorder schema deployment
