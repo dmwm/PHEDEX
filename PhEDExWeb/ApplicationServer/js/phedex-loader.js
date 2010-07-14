@@ -18,7 +18,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'nesteddatatable-css': { type: 'css', fullpath: '/css/nesteddatatable.css' },
     'nesteddatatable-js':  { type: 'js', fullpath: '/js/yui-nesteddatatable.js' },
-    'protovis':       { type: 'js', fullpath: '/js/protovis-d3.2.js' },
+    'protovis':       { type: 'js', fullpath: '/protovis/protovis-d3.2.js' },
     'phedex-util':    { requires: ['phedex-css'] },
     'phedex-datasvc': { requires: ['phedex-util','connection','json'] },
     'phedex-util-idletimer': { },
