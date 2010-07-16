@@ -1,3 +1,13 @@
+ * Changes in BETA_0_9
+   * APPSERV renamed to WEBAPP, with minor consequences everywhere. No visible
+     change for the user, however.
+   * More examples added, including several low-level uses of the core
+     components (loader, logger, datasvc...)
+  * New modules:
+   * protovisdemo, a demonstration of using the protovis charting tool in the
+     PhEDEx webapp structure (alpha-release)
+   * shift-requestedqueued, a module custom-made for shifters to help them
+     monitor things rapidly. (alpha-release)
  * Changes in BETA_0_8
    * Several new modules added in this release, following the plan from the link shown below.
    * Many modules can now take wildcarded names, for nodes or groups. Simply type the string you want instead of allowing the auto-complete to do it for you.
