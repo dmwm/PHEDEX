@@ -81,8 +81,8 @@ PHEDEX.Loader = function(opts) {
   _conf = {
     loadOptional: true,
     allowRollup:  true,
-    combine:      PxA.combineRequests,
-    base:         PxA.BaseURL + '/yui/build/',
+    combine:      PxW.combineRequests,
+    base:         PxW.BaseURL + '/yui/build/',
     timeout:      15000,
 filter:'DEBUG',
     skin: {
@@ -131,7 +131,7 @@ filter:'DEBUG',
     for (var i in cf) {
       _loader[i] = cf[i];
     }
-    if ( PxA.ProductionMode ) { // pick up the minified versions of everything
+    if ( PxW.ProductionMode ) { // pick up the minified versions of everything
       _loader.filter =
         {
           searchExp: '/js/(phedex[a-z,-]+)\\.js',
@@ -144,7 +144,7 @@ filter:'DEBUG',
       _loader._filter = function(str) { // overload the builtin, private (!) _filter function
         var f = this.filter;
         if (f) { str = str.replace(new RegExp(f.searchExp, 'g'), f.replaceStr); }
-        str = str.replace(new RegExp('/yui/build//','g'),PxA.BaseURL);
+        str = str.replace(new RegExp('/yui/build//','g'),PxW.BaseURL);
         str = str.replace(new RegExp('&','g'),',');
         str = str.replace(/,$/,'');
         return str;
@@ -165,7 +165,7 @@ filter:'DEBUG',
         if ( !args.type ) { args.type = 'js'; }
         if ( !args.fullpath ) { args.fullpath = '/'+args.type+'/'+args.name+'.'+args.type; }
         if ( !args.fullpath.match('^/yui/build') ) {
-          args.fullpath = PxA.BaseURL + args.fullpath;
+          args.fullpath = PxW.BaseURL + args.fullpath;
           args.path = args.fullpath;
           args.ext=false;
         }

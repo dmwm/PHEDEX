@@ -23,7 +23,7 @@ PHEDEX = {};
  * </pre>
  * @method namespace
  * @static
- * @param namespace {string*} Namespace(s) to create, optionally with  dot-notation, e.g. 'Appserv' or 'Base.Object'.
+ * @param namespace {string*} Namespace(s) to create, optionally with  dot-notation, e.g. 'Webapp' or 'Base.Object'.
  * @return {object} The namespace created.
  */
 // For more information, see: http://yuiblog.com/blog/2007/06/12/module-pattern/
@@ -50,44 +50,44 @@ PHEDEX.namespace = function() {
 /**
  * Contains application globals.
  * @namespace PHEDEX
- * @class Appserv
+ * @class Webapp
  */
-// PHEDEX.namespace('Appserv');
-PHEDEX.Appserv = {
+// PHEDEX.namespace('Webapp');
+PHEDEX.Webapp = {
 /**
  * The version of the application, created using a string set by the RPM build or a default.
  * property Version
- * @namespace PHEDEX.Appserv
+ * @namespace PHEDEX.Webapp
  * @protected
  * @type string
  */
   Version: function() {
-    var version = '@APPSERV_VERSION@'; // set when RPM is built
-    return version.match(/APPSERV_VERSION/) ? '0.0.0' : version;
+    var version = '@WEBAPP_VERSION@'; // set when RPM is built
+    return version.match(/WEBAPP_VERSION/) ? '0.0.0' : version;
   }(),
 
 /**
  * The base URL of the application, created using a string set by the RPM build or a default.
  * @property BaseURL
- * @namespace PHEDEX.Appserv
+ * @namespace PHEDEX.Webapp
  * @protected
  * @type string
  */
   BaseURL: function() {
-    var baseUrl = '@APPSERV_BASEURL@'; // set when RPM is built
-    return baseUrl.match(/APPSERV_BASEURL/) ? '' : baseUrl;
+    var baseUrl = '@WEBAPP_BASEURL@'; // set when RPM is built
+    return baseUrl.match(/WEBAPP_BASEURL/) ? '' : baseUrl;
   }(),
 
 /**
  * The dataservice URL of the application, created using a string set by the RPM build or a default.
  * @property DataserviceURL
- * @namespace PHEDEX.Appserv
+ * @namespace PHEDEX.Webapp
  * @protected
  * @type string
  */
   DataserviceURL: function() {
-    var dataserviceUrl = '@APPSERV_DATASERVICEURL@'; // set when RPM is built
-    return dataserviceUrl.match(/APPSERV_DATASERVICEURL/) ? '/phedex/datasvc/json/' : dataserviceUrl;
+    var dataserviceUrl = '@WEBAPP_DATASERVICEURL@'; // set when RPM is built
+    return dataserviceUrl.match(/WEBAPP_DATASERVICEURL/) ? '/phedex/datasvc/json/' : dataserviceUrl;
   }(),
 
 /**
@@ -105,7 +105,7 @@ PHEDEX.Appserv = {
 /**
  * 'true' if the application is in 'production-mode', based on the URL or, eventually, possibly, a cookie.
  * @property ProductionMode
- * @namespace PHEDEX.Appserv
+ * @namespace PHEDEX.Webapp
  * @protected
  * @type boolean
  */
@@ -267,11 +267,11 @@ PHEDEX.Base = {
 
 // some convenient global shortcuts, to shorten coding and to speed lookups
 var PxU    = PHEDEX.Util,
-    PxA    = PHEDEX.Appserv,
+    PxW    = PHEDEX.Webapp,
     log    = PxU.log,
     err    = PxU.err,
     banner = PxU.banner;
-if ( PxA.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
+if ( PxW.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
   log = err = function() {};
 }
 

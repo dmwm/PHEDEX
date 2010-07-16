@@ -14,7 +14,7 @@
 PHEDEX.namespace('Datasvc');
 PHEDEX.Datasvc = (function() {
   // TODO: should provide getters & setters
-  var _instances = PHEDEX.Appserv.Instances,
+  var _instances = PHEDEX.Webapp.Instances,
       _instance = _instances[0].instance,
       _me = 'datasvc',
 
@@ -41,7 +41,7 @@ PHEDEX.Datasvc = (function() {
       YuCE = YAHOO.util.CustomEvent,
       Yl   = YAHOO.log,
       YlJp = YAHOO.lang.JSON.parse,
-      UA   = function() { return 'PhEDEx-AppServ/'+PHEDEX.Appserv.Version+' (CMS) '+navigator.userAgent; }();
+      UA   = function() { return 'PhEDEx-WebApp/'+PHEDEX.Webapp.Version+' (CMS) '+navigator.userAgent; }();
 
   // method _instanceURL : make the instance URL from the component bits. Hardly worth making it a separate function,
   // but it can then at least be overridden
@@ -55,7 +55,7 @@ PHEDEX.Datasvc = (function() {
     Yl('GET '+query.text,'info',_me);
 
     !query.poll_number ? query.poll_number = 1 : query.poll_number++;
-    query.path = _instanceURL(PHEDEX.Appserv.DataserviceURL,_instance) + '/'+query.text;
+    query.path = _instanceURL(PHEDEX.Webapp.DataserviceURL,_instance) + '/'+query.text;
 
     context.poll_number = query.poll_number;
     context.path = query.path;

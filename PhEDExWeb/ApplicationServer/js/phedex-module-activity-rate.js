@@ -156,7 +156,8 @@ PHEDEX.Module.Activity.Rate = function(sandbox, string) {
 //         }
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'transferhistory', args:{} } );
+//         _sbx.notify( this.id, 'getData', { api:'transferhistory', args:{} } );
+        _sbx.notify( this.id, 'getData', { api:'activity/rate', args:{} } );
       },
       gotData: function(data,context) {
         log('Got new data','info',this.me);

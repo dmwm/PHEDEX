@@ -95,9 +95,9 @@ PHEDEX.Config = function(sandbox) {
       _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex TWiki', { args:{'static':'aboutphedex3'} });
 
 //       //Add and register category # 4 (local type)
-//       _addCategory('aboutphedex4', 'Phedex Appserv coding examples');
-//       _addSource('aboutphedex4', 'source1', { type: 'local', path: '/examples/index.html', divids: ['phedex-appserv-examples'] });
-//       _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Appserv coding examples',  { args:{'static':'aboutphedex4'} });
+//       _addCategory('aboutphedex4', 'Phedex Webapp coding examples');
+//       _addSource('aboutphedex4', 'source1', { type: 'local', path: '/examples/index.html', divids: ['phedex-webapp-examples'] });
+//       _sbx.notify('Registry', 'add', 'phedex-module-static', 'static', 'Phedex Webapp coding examples',  { args:{'static':'aboutphedex4'} });
     },
 
     /**
