@@ -40,7 +40,7 @@ sub execute
   if ( $ns->{INPUT_FILE} ) {
     if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$dir); 
                                   if ( $nfiles < 1 ) {
-                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does nos have information about $dir, accessing system\n";
+                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does not have information about $dir, accessing system\n";
                                      $ns->Command($call,$dir); 
                                   }
                                 }
@@ -94,7 +94,13 @@ sub parse_chimera_dump
   my ($self,$ns,$dir) = @_;
 
   my $result = 0;
-  open(DUMP, "grep $dir $ns->{INPUT_FILE} |") or die  "Could not open file ".$ns->{INPUT_FILE}. " for reading\n";
+  my $file_dump = $ns -> {INPUT_FILE};
+
+  if ( $file_dump =~ m%.gz$% )
+     { open DUMP, "cat $file_dump | gzip -d - | grep $dir |" or die "Could not open: $file_dump\n"; }
+  else
+     { open(DUMP, "grep $dir $file_dump |") or die  "Could not open: $file_dump\n"; }
+
   while (<DUMP>){
     my ($x,$file);
     chomp;
