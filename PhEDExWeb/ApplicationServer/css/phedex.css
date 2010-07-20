@@ -410,8 +410,29 @@ div.phedex-nav-link {
 }
 #yui-history-iframe 
 {
-	position:absolute;
-	top:0; left:0;
-	width:1px; height:1px; 
-	visibility:hidden;
+  position:absolute;
+  top:0; left:0;
+  width:1px; height:1px;
+  visibility:hidden;
 }
+
+/* Would like to use these, with CSS_CONTEXT_CLASS on the context menu, and that works. But it doesn't work on th pulldown menus, so I have to hack it instead... */
+/*ul li.phedex-contextmenu-alpha:before {
+  content: "\003b1";
+  float: left;
+  padding: 0 6px 0;
+  background-color: orange;
+}
+ul li.phedex-contextmenu-beta:before {
+  content: "\003b2";
+  float: left;
+  padding: 0 6px 0;
+  background-color: yellow;
+}*/
+.feature-class {
+  display: inline;
+  padding: 0 3px 0;
+  margin: 0 0 0 -15px;
+}
+.feature-alpha { background-color: orange; }
+.feature-beta  { background-color: yellow; }
