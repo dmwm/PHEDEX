@@ -109,7 +109,8 @@ PHEDEX.DataTable = function (sandbox, string) {
               var m = this.meta,
                   t = m.table,
                   columns = t.columns,
-                  col, h = {}, i, j, fName, key;
+                  nColumns = t.nestedColumns,
+                  allColumns=[], mff, col, h = {}, i, j, fName, key;
 
               for (i in m.hide) {
                 h[this._getKeyByKeyOrLabel(m.hide[i])] = 1;
@@ -134,8 +135,11 @@ PHEDEX.DataTable = function (sandbox, string) {
               });
 
               m.parser = {};
-              for (i in columns) {
-                col = columns[i];
+              for (i in columns)  { allColumns.push(columns[i]); }
+              for (i in nColumns) { allColumns.push(nColumns[i]); nColumns[i].nested = true; }
+
+              for (i in allColumns) {
+                col = allColumns[i];
                 if (col.parser) {
                   if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
                   else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
@@ -145,14 +149,20 @@ PHEDEX.DataTable = function (sandbox, string) {
               m._filter = this.createFilterMeta();
               // Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
               // obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
-              for (i in columns) {
-                key = this._getKeyByKeyOrLabel(columns[i].key);
-                if (!m._filter.fields[key]) {
-                  fName = this.friendlyName(columns[i].label);
-                  m._filter.fields[key] = { friendlyName: fName };
+              mff = m._filter.fields;
+              for (i in allColumns) {
+                col = allColumns[i];
+                key = this._getKeyByKeyOrLabel(col.key);
+                if ( key == '__NESTED__' ) { continue; }
+                fName = this.friendlyName(col.label);
+                if (!mff[key]) {
+                  mff[key] = { friendlyName: fName };
+                }
+                if ( col.nested ) {
+                  j = col.label.replace(/ /g,'');
+                  if ( mff[j] ) { mff[j].nested = true; }
                 }
               }
-
               for (i in m.filter) {
                 h = {};
                 for (key in m.filter[i].fields) {
@@ -892,7 +902,7 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
             applyFilter: function (args) {
                 // Parse the cached data to filter it and form new data that feeds the datasource
                 var activeArgs = {}, activeNestedArgs = {}, keep, tableindx = 0, arrExpanded, row,
-                pathcache = {}, table = [], arrNData = [], i, filterresult, bAnyMain = false, bAnyNested = false;
+                pathcache = {}, table = [], arrNData = [], i, j, field, filterresult, bAnyMain = false, bAnyNested = false;
                 if (!args) { args = this.args; }
                 this.count = 0;
                 for (j in args) { // quick explicit check for valid arguments, nothing to do if no filter is set
