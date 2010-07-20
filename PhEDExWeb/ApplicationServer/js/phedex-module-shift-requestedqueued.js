@@ -77,7 +77,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         table: {
           columns: [
             {key:'node',              label:'Node'},
-            {key:'status',            label:'Status', className:'align-right'},
+            {key:'status',            label:'Status',         className:'align-right'},
+            {key:'reason',            label:'Reason',         className:'align-right'},
             {key:'max_pend_bytes',    label:'Max. Queued',    className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'max_request_bytes', label:'Max. Requested', className:'align-right', parser:'number', formatter:'customBytes'},
           ],
@@ -96,6 +97,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             fields: {
               'Node'           :{type:'regex',  text:'Node-name',           tip:'javascript regular expression' },
               'Status'         :{type:'regex',  text:'Status',              tip:'javascript regular expression' },
+              'Reason'         :{type:'regex',  text:'Reason',              tip:'javascript regular expression' },
               'Max. Queued'    :{type:'minmax', text:'Max. Queued Data',    tip:'integer range (bytes)' },
               'Max. Requested' :{type:'minmax', text:'Max. Requested Data', tip:'integer range (bytes)' },
               'Queued'         :{type:'minmax', text:'Queued Data',         tip:'integer range (bytes)' },
@@ -113,37 +115,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       * @private
       */
       _processData: function (jsonData) {
-//         var indx, indxO, indxN, jsonO, jsonNArr, jsonN, Row, arrNestedVal, arrNested, Table = [],
-//             arrOCols = ['node', 'status', 'max_pend_bytes', 'max_request_bytes'],
-//             arrNCols = ['timebin', 'pend_bytes', 'request_bytes', 'ratio'],
-//             nArrOLen = arrOCols.length, nArrNLen = arrNCols.length,
-//             nOLen = jsonData.length, nNLen, nUnique = 0;
-//         for (indxO = 0; indxO < nOLen; indxO++) {
-//           jsonO    = jsonData[indxO];
-//           jsonNArr = jsonData[indxO].timebins;
-//           Row = {};
-//           arrNested = []; //new Array();
-//           for (indx = 0; indx < nArrOLen; indx++) {
-//             this._extractElement(arrOCols[indx],jsonO,Row);
-//           }
-//           if ( jsonNArr ) {
-//             nNLen    = jsonNArr.length;
-//             for (indxN = 0; indxN < nNLen; indxN++) {
-//               jsonN = jsonNArr[indxN];
-//               arrNestedVal = {};
-//               for (indx = 0; indx < nArrNLen; indx++) {
-//                 this._extractElement(arrNCols[indx],jsonN,arrNestedVal);
-//               }
-//               arrNested.push(arrNestedVal);
-//             }
-//             Row['nesteddata'] = arrNested;
-//             Row['uniqueid'] = ++nUnique;
-//           }
-//           Table.push(Row);
-//         }
         log("The data has been processed for data source", 'info', this.me);
         this.needProcess = false;
-//         return Table;
         return jsonData;
       },
 
@@ -175,6 +148,17 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           throw new Error('data incomplete for '+context.api);
         }
         this.fillDataSource(this.data);
+        var nOK=0, nNotOK=0, rq = data.requestedqueued, stuck = [];
+        this.dom.extra.innerHTML = 'No stuck nodes:';
+        for (var i in rq) {
+          if ( rq[i].status == 'OK' ) { nOK++; }
+          else                        { nNotOK++; stuck.push(rq[i].node); }
+        }
+        this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
+        if ( nNotOK ) {
+          stuck.sort( function (a, b) { return (a > b) - (a < b); } );
+          this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + stuck.join(' ');
+        }
         _sbx.notify( this.id, 'gotData' );
 
         if ( context.maxAge ) {
