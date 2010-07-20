@@ -585,9 +585,9 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
 //    ... except that, if _processData isn't called, and the data-service returned an array to the JSON formatter, this still goes
 //    toes-up. So do this regardless. Wasteful, but only in this unusual circumstance.
         if ( typeof(d1) == 'object' || typeof(d1) == 'array' ) {
-          var d2;
-          if ( d1 instanceof Array ) { d2 = []; }
-          else { d2 = {}; }
+          var d2 = {};
+//          if ( d1 instanceof Array ) { d2 = []; } // ...this doesn't work
+//          else { d2 = {}; }                       // for assoc-arrays...
           for (var i in d1) { d2[i] = fn(d1[i]); }
           return d2;
         }
