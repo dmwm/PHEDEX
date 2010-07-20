@@ -162,7 +162,11 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
             widget = w[j];
             if (widget.context_item) {
               log('Adding Widget name='+name+' label='+w[j].label, 'info', _me);
-              item = new YwMI(w[j].label);
+              if ( widget.feature_class ) {
+//                 item.CSS_CLASS_NAME = 'phedex-contextmenu-'+widget.feature_class+' yuimenuitemlabel';
+                widget.label = PxU.feature[widget.feature_class] + widget.label;
+              }
+              item = new YwMI(widget.label);
 //            Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,

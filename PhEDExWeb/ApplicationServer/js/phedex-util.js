@@ -237,6 +237,11 @@ PHEDEX.Util.epochAlign = function(time,interval) {
   return time;
 }
 
+PHEDEX.Util.feature = {
+  alpha: "<div class='feature-class feature-alpha' title='this feature is in alpha-release, expect bugs!'>&alpha;</div>",
+  beta:  "<div class='feature-class feature-beta'  title='this feature is in beta-release, and may not be production quality'>&beta;</div>"
+};
+
 /**
 * This is the prototype for the string trim function. This is to trim the string 
 * i.e to remove starting and trailing whitespace.

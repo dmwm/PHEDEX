@@ -371,10 +371,14 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   this.el.className = 'phedex-nav-component phedex-nav-widget';
   var _getWidgetMenuItems = function(type) {
     var widgets = _menu.items[type],
-        menu_items = [];
-    for (var w in widgets) {
+        menu_items = [], item, w;
+    for (w in widgets) {
       w = widgets[w];
-      menu_items.push({ text: w.label, value: w });
+      item = { text:w.label, value:w };
+      if ( w.feature_class ) {
+        item.text = PxU.feature[w.feature_class] + item.text;
+      }
+      menu_items.push(item);
     }
     return menu_items;
   };
@@ -444,6 +448,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       m.clearContent();
       m.addItems(items);
       m.render();
+//  m._aItemGroups[0][1].CSS_CLASS_NAME += ' phedex-contextmenu-beta';
     } else {
       m.itemData = items;
     }
