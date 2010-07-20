@@ -80,7 +80,7 @@ function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   PxW.combineRequests = false;
-  PxW.DataserviceURL = '/phedex/dev2/datasvc/json/';
+//PxW.DataserviceURL = '/phedex/dev2/datasvc/json/';
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
@@ -134,7 +134,7 @@ function createCoreApp() {
   if ( PxR ) { // TODO this needs a better home!
     PxS.notify('Registry', 'add', 'phedex-module-agents',            'node',  'Show Agents',             {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-agentlogs',         'node',  'Show Agent Logs',         {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true, feature_class:'alpha'});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node',  'Show Pending Requests',   {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests Nested', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations',  'node',  'Show Queued Migrations',  {context_item:true});
@@ -153,7 +153,7 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true});
 
     PxS.notify('Registry', 'add', 'phedex-module-activity-rate',        'activity', 'Show Rates',                       {context_item:false});
-    PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued',    'none', 'Shift: Requested vs. Queued data', {context_item:false});
+    PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued',    'none', 'Shift: Requested vs. Queued data', {context_item:false, feature_class:'beta'});
   }
 
   PxU.bannerIdleTimer(PxL);
