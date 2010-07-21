@@ -129,9 +129,9 @@ function createCoreApp() {
   if ( PxR ) { // TODO this needs a better home!
     PxS.notify('Registry', 'add', 'phedex-module-agents',            'node',  'Show Agents',             {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-agentlogs',         'node',  'Show Agent Logs',         {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true, feature_class:'alpha'});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node',  'Show Pending Requests',   {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests Nested', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests Nested', {context_item:true, feature_class:'beta'});
     PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations',  'node',  'Show Queued Migrations',  {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-linkview',          'node',  'Show Links',              {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-nodes',             'none',  'Show Nodes');
@@ -144,8 +144,9 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-missingfiles',      'block', 'Show Missing Files',      {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group', 'Show Group Usage',        {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group', 'Show Pending Requests',   {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued',    'none', 'Shift: Requested vs. Queued data', {context_item:false});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true, feature_class:'beta'});
+
+    PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued', 'none',     'Shift: Requested vs. Queued data', {context_item:false, feature_class:'beta'});
   }
 
   PxU.bannerIdleTimer(PxL);
