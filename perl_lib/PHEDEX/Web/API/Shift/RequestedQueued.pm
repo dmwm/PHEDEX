@@ -80,7 +80,7 @@ sub _shift_requestedqueued
   my $epochHours = int(time/3600);
   my $start = ($epochHours-12) * 3600;
   my $end   =  $epochHours     * 3600;
-  my $node = 'T%_MSS';
+  my $node = 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   my $p = getShiftPending($core,%params);
@@ -132,15 +132,25 @@ sub _shift_requestedqueued
       { $ratio = $h->{REQUEST_BYTES} / $h->{PEND_BYTES}; }
       if ( $ratio < 0.1 ) { $nConsec++; }
       else                { $nConsec = 0; }
-      if ( $nConsec >= 4 ) { $s{$node}{STATUS} = 'Queue stuck!'; }
+      if ( $nConsec >= 4 )
+      {
+        $s{$node}{STATUS} = 'Problem';
+        $s{$node}{REASON} = 'Queue stuck';
+      }
       delete $h->{NODE};
       push @{$s{$node}{NESTEDDATA}},$h;
     }
 
     if ( $s{$node}{MAX_REQUEST_BYTES} < 1024*1024*1024 )
-    { $s{$node}{STATUS} = 'OK (very little data requested)'; }
+    {
+      $s{$node}{STATUS} = 'OK';
+      $s{$node}{REASON} = 'very little data requested';
+    }
     if ( !$s{$node}{MAX_REQUEST_BYTES} )
-    { $s{$node}{STATUS} = 'OK (no data requested)'; }
+    {
+      $s{$node}{STATUS} = 'OK';
+      $s{$node}{REASON} = 'no data requested';
+    }
 
     delete $s{$node}{TIMEBINS};
   }
