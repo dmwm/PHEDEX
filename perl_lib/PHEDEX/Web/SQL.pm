@@ -124,7 +124,9 @@ sub getBlockReplicas
 	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
-     # return $q in spooling mode
+    $sql .= qq{ order by b.id };
+
+    # return $q in spooling mode
     $q = execute_sql( $self, $sql, %p );
     if ($h{'__spool__'})
     {
