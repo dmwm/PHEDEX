@@ -31,21 +31,23 @@ sub execute
 # base directory, not on the file itself. This lets it cache the results for
 # an entire directory instead of having to go back to the SE for every file 
   my ($self,$ns,$file) = @_;
-  my $dir;
   my $nfiles = 0;
-  my $call = 'stat';
+  my $call   = 'stat';
+
   return $ns->Command($call,$file) if $ns->{NOCACHE};
 
-  $dir = dirname $file;
+  my $dir = dirname $file;
   if ( $ns->{INPUT_FILE} ) {
-    if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$dir); 
+    if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$file); 
                                   if ( $nfiles < 1 ) {
-                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does not have information about $dir, accessing system\n";
+                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does not have information about $file, accessing system\n";
                                      $ns->Command($call,$dir); 
                                   }
                                 }
     else { die "Input dump file $ns->{INPUT_FILE} is not accesible\n"; }
-  } else { $ns->Command($call,$dir);  }
+  } else {
+    $ns->Command($call,$dir);  
+  }
 
 # Explicitly pull the right value from the cache
   return $ns->{CACHE}->fetch($call,$file);
@@ -91,9 +93,10 @@ sub parse
 
 sub parse_chimera_dump
 {
-  my ($self,$ns,$dir) = @_;
+  my ($self,$ns,$testfile) = @_;
 
-  my $result = 0;
+  my $dir       = dirname $testfile;
+  my $result    = 0;
   my $file_dump = $ns -> {INPUT_FILE};
 
   if ( $file_dump =~ m%.gz$% )
@@ -110,9 +113,10 @@ sub parse_chimera_dump
     $file = $1;
     $x->{size} = $2;
     $ns->{CACHE}->store('stat',"$file",$x);
-    $result++;
+    if ( $file eq $testfile ) { $result++; }
   }
   close DUMP;
+
   return $result;
 }
 
