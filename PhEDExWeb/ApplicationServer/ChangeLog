@@ -1,3 +1,8 @@
+ * Changes in BETA_1_0_0
+   * fixed bug in datatable views where nested datatable contents were not
+     correctly filtered
+   * Added support for flagging features as 'alpha' or 'beta' (or anything
+     else, for that matter) in context-menus and in the navigator
  * Changes in BETA_0_9
    * APPSERV renamed to WEBAPP, with minor consequences everywhere. No visible
      change for the user, however.
