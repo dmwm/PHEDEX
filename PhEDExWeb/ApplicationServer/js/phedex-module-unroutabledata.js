@@ -223,7 +223,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             tLeaf, tNode, tNode1, tNode2, i, j, k, b, t,
             routes = this.data.route, r, tTested, tOK, p;
         if ( !routes.length ) {
-          tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
+          tLeaf = new Yw.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
         for (i in routes) {

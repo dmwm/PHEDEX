@@ -194,7 +194,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             blocks = this.data.block;
         if ( !blocks.length )
         {
-          tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
+          tLeaf = new Yw.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
         for (i in blocks) {

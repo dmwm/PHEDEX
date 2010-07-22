@@ -73,10 +73,11 @@ PHEDEX.Config = function(sandbox) {
   return {
     init: function(args) {
       //Add and register category # 1 (out link type)
+      var fn = function(text) { return "<div style='width:200px; text-align:right;'>"+text+"</div>"; }
       _addCategory('aboutphedex1', 'Phedex Documentation Links'); //displaytext
       _addSource('aboutphedex1', 'source1', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhEDEx', displaytext: 'PhEDEx TWiki home: ' });
       _addSource('aboutphedex1', 'source2', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/viewauth/CMS/PhedexDraftDocumentation', displaytext: 'PhEDEx Documentation: ' });
-      _addSource('aboutphedex1', 'source3', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: 'PhEDEx WebSite planning: ' });
+      _addSource('aboutphedex1', 'source3', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: fn('PhEDEx WebSite planning: ') });
       _addSource('aboutphedex1', 'source4', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhEDExWebsiteDeveloperGuide', displaytext: 'PhEDEx WebSite Developer guide: ' });
       _addSource('aboutphedex1', 'source5', { type: 'extra', path: 'https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite', displaytext: 'PhEDEx WebSite planning: ' });
       _addSource('aboutphedex1', 'source6', { type: 'extra', path: '/phedex/datasvc/app/examples/index.html', displaytext: 'PhEDEx WebSite coding examples: ' });

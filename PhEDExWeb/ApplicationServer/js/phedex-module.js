@@ -224,7 +224,7 @@ log('Should not be here','warn','module');
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
             }
-            log('genericHandler action for event: '+action+' '+YAHOO.lang.dump(arr[2]),'warn',obj.me);
+            log('genericHandler action for event: '+action+' '+Ylang.dump(arr[2]),'warn',obj.me);
             obj[action](arr[2]);
           }
         }(this);
@@ -261,7 +261,7 @@ log('Should not be here','warn','module');
                       }
                     }
                     if ( obj[action] && obj.allowNotify[action]) {
-                        log('selfHandler: default action for event: '+action+' '+YAHOO.lang.dump(value),'warn',obj.me);
+                        log('selfHandler: default action for event: '+action+' '+Ylang.dump(value),'warn',obj.me);
                         obj[action](value);
                     }
                     break;
@@ -274,14 +274,14 @@ log('Should not be here','warn','module');
         /** The YAHOO container module used by this PhEDEx module.  If options.window is true, then
         * it is a YAHOO Panel, otherwise it is a YAHOO Module. The PhEDEx module is augmented with an appropriate subclass, depending on the value of options.window
         * @property module
-        * @type YAHOO.widget.Module|YAHOO.widget.Panel
+        * @type Yw.Module|Yw.Panel
         * @private
         */
         var module_options = {
           close:false, // this.options.close,
           visible:true,
           draggable:this.options.draggable,
-          // effect:{effect:YAHOO.widget.ContainerEffect.FADE, duration: 0.3},
+          // effect:{effect:Yw.ContainerEffect.FADE, duration: 0.3},
           width: this.options.width+"px",
           height: this.options.height+"px",
           constraintoviewport:this.options.constraintoviewport,
@@ -294,7 +294,7 @@ log('Should not be here','warn','module');
           delete module_options['width'];
           delete module_options['height'];
           module_options.draggable = false;
-          this.module = new YAHOO.widget.Module(this.el, module_options);
+          this.module = new Yw.Module(this.el, module_options);
         }
         this.dom.body.style.padding = 0; // lame, but needed if our CSS is loaded before the YUI module CSS...
         if ( this.options.resizeable ) {
@@ -324,7 +324,7 @@ log('Should not be here','warn','module');
         var d  = this.dom,
             el = document.createElement('div');
         this.el = el;
-        YAHOO.util.Dom.addClass(el,'phedex-core-widget');
+        YuD.addClass(el,'phedex-core-widget');
 
         d.header  = PxU.makeChild(el, 'div', {className:'hd'});
         d.buttons = PxU.makeChild(d.header, 'span' );
@@ -348,7 +348,7 @@ log('Should not be here','warn','module');
        */
       show: function() {
         log(this.id+': showing module "'+this.id+'"','info','module');
-        YAHOO.util.Dom.removeClass(this.el,'phedex-invisible')
+        YuD.removeClass(this.el,'phedex-invisible')
       },
       /**
        * make the module invisible on-screen by adding the <strong>phedex-invisible</strong> class to the container element
@@ -356,7 +356,7 @@ log('Should not be here','warn','module');
        */
       hide: function() {
         log(this.id+': hiding module "'+this.id+'"','info','module');
-        YAHOO.util.Dom.addClass(this.el,'phedex-invisible')
+        YuD.addClass(this.el,'phedex-invisible')
       },
       /**
        * destroy the object. Attempts to do this thoroughly by first destroying all the DOM elements, then attempting to find and destroy all sub-objects. It does this by calling this.subobject.destroy() for all subobjects that have a destroy method. It then deletes the sub-object from the module, so the garbage collecter can get its teeth into it.
@@ -394,13 +394,13 @@ log('Should not be here','warn','module');
       },
 
       revealAllElements: function(className) {
-        var elList = YAHOO.util.Dom.getElementsByClassName(className,null,this.dom.content);
+        var elList = YuD.getElementsByClassName(className,null,this.dom.content);
         for (var i in elList) {
-          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-invisible') ) {
-            YAHOO.util.Dom.removeClass(elList[i],'phedex-invisible');
+          if ( YuD.hasClass(elList[i],'phedex-invisible') ) {
+            YuD.removeClass(elList[i],'phedex-invisible');
           }
-          if ( YAHOO.util.Dom.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
-            YAHOO.util.Dom.removeClass(elList[i],'phedex-core-control-widget-applied');
+          if ( YuD.hasClass(elList[i],'phedex-core-control-widget-applied') ) {
+            YuD.removeClass(elList[i],'phedex-core-control-widget-applied');
           }
         }
       },
@@ -601,8 +601,8 @@ PHEDEX.AppStyle.Window = function(obj,module_options) {
   if ( PHEDEX[obj.type].Window ) {
     Yla(obj,new PHEDEX[obj.type].Window(obj),true);
   }
-  YAHOO.util.Dom.addClass(obj.el,'phedex-panel');
-  this.module = new YAHOO.widget.Panel(obj.el, module_options);
+  YuD.addClass(obj.el,'phedex-panel');
+  this.module = new Yw.Panel(obj.el, module_options);
   /**
    * adjust the height of the panel header element to accomodate new stuff inside it. Used for showing 'extra' information, etc. Useful for 'window'-mode panels, where the size of the container on display is fixed. When 'extra' information is shown, the fixed-size needs to be adjusted to make room for it.
    * @method adjustHeader
@@ -619,7 +619,7 @@ PHEDEX.AppStyle.Window = function(obj,module_options) {
   var ctor = function(sandbox,args) {
     var el = document.createElement('img');
     el.src = '/images/widget-close.gif';
-    YAHOO.util.Event.addListener(el, "click", function() { this.destroy(); }, null, args.payload.obj);
+    YuE.addListener(el, "click", function() { this.destroy(); }, null, args.payload.obj);
     return { el:el };
   };
   var close = { name:'close', parent:'control', ctor:ctor};
@@ -636,14 +636,14 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
   if ( PHEDEX[obj.type].hasOwnProperty('Resizeable') ) {
     Yla(obj,new PHEDEX[obj.type].Resizeable(obj),true);
   }
-  YAHOO.util.Dom.addClass(obj.el,'phedex-resizeable-panel');
+  YuD.addClass(obj.el,'phedex-resizeable-panel');
 
   /** Handles the resizing of this widget.
   * @property resize
   * @type YAHOO.util.Resize
   * @private
   */
-  this.resize = new YAHOO.util.Resize(obj.el, {
+  this.resize = new Yu.Resize(obj.el, {
     handles: obj.options.handles,
     autoRatio: false,
     minWidth:  obj.options.minwidth,
@@ -660,10 +660,10 @@ PHEDEX.AppStyle.Resizeable = function(obj) {
 // if the constraintoviewport configuration property is enabled.
   this.resize.on('startResize', function(args) {
     if (this.module.cfg.getProperty("constraintoviewport")) {
-      var clientRegion = YAHOO.util.Dom.getClientRegion(),
-          elRegion = YAHOO.util.Dom.getRegion(this.module.element),
-          w = clientRegion.right - elRegion.left - YAHOO.widget.Overlay.VIEWPORT_OFFSET,
-          h = clientRegion.bottom - elRegion.top - YAHOO.widget.Overlay.VIEWPORT_OFFSET;
+      var clientRegion = YuD.getClientRegion(),
+          elRegion = YuD.getRegion(this.module.element),
+          w = clientRegion.right - elRegion.left - Yw.Overlay.VIEWPORT_OFFSET,
+          h = clientRegion.bottom - elRegion.top - Yw.Overlay.VIEWPORT_OFFSET;
 
       this.resize.set("maxWidth", w);
       this.resize.set("maxHeight", h);

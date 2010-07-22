@@ -193,4 +193,11 @@ Tony = function(PxS,PxL) {
 
   },'component-control');
   PxS.notify('Load','phedex-logger'); //, { log2server:{info:true,warn:true,error:true} } );
+
+  var fn = function() {
+    log(Ylang.JSON.stringify(PxS.getStats()),'info','profiler');
+    setTimeout(fn, 60000);
+  }
+  fn();
+
 };

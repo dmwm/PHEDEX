@@ -3,7 +3,7 @@
 PHEDEX.namespace('Logger');
 
 PHEDEX.Logger = function() {
-  var YuC = YAHOO.util.Cookie,
+  var YuCookie = Yu.Cookie,
       _reader;
   return {
     log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true }, option:{ 'log to console':true } },
@@ -25,7 +25,7 @@ PHEDEX.Logger = function() {
         c.onclick = function(obj) {
           return function(ev) {
             obj.log2Server[type][this.value] = this.checked;
-            YuC.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
+            YuCookie.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
           }
         }(this);
         c.checked = this.log2Server[type][keys[i]];
@@ -58,7 +58,7 @@ PHEDEX.Logger = function() {
 
       if ( elCtl && elLog2Server ) {
         try {
-          var cookie = YuC.getSubs('PHEDEX.Logger.option');
+          var cookie = YuCookie.getSubs('PHEDEX.Logger.option');
           if ( cookie ) {
             for (var i in cookie) {
               this.log2Server.option[i] = cookie[i] == 'true' ? true : false;
@@ -66,7 +66,7 @@ PHEDEX.Logger = function() {
           }
         } catch (ex) {};
         try {
-          var cookie = YuC.getSubs('PHEDEX.Logger.level');
+          var cookie = YuCookie.getSubs('PHEDEX.Logger.level');
           if ( cookie ) {
             for (var i in cookie) {
               this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
@@ -74,7 +74,7 @@ PHEDEX.Logger = function() {
           }
         } catch (ex) {};
         try {
-          var cookie = YuC.getSubs('PHEDEX.Logger.group');
+          var cookie = YuCookie.getSubs('PHEDEX.Logger.group');
           if ( cookie ) {
             for (var i in cookie) {
               if ( i.match('_[0-9]+$') ) { next; }
@@ -92,9 +92,9 @@ PHEDEX.Logger = function() {
         c.value   = 'clear cookies';
         c.onclick = function(obj) {
           return function(ev) {
-            YuC.setSubs('PHEDEX.Logger.option',{});
-            YuC.setSubs('PHEDEX.Logger.group',{});
-            YuC.setSubs('PHEDEX.Logger.level',{});
+            YuCookie.setSubs('PHEDEX.Logger.option',{});
+            YuCookie.setSubs('PHEDEX.Logger.group',{});
+            YuCookie.setSubs('PHEDEX.Logger.level',{});
           }
         }(this);
         this._addControls(elLog2Server,'option');
@@ -105,7 +105,7 @@ PHEDEX.Logger = function() {
       div = PxU.makeChild(el,'div');
       div.id = el.id +'_yui';
 
-      YAHOO.widget.Logger.reset();
+      Yw.Logger.reset();
       if (args.config) {
         for (var i in args.config) {
           conf[i]=args.config[i];
@@ -114,7 +114,7 @@ PHEDEX.Logger = function() {
       el.style.width = conf.width;
       div.style.width = 'auto';
       el.style.fontSize = div.style.fontSize = conf.fontSize;
-      _reader = new YAHOO.widget.LogReader(div.id,conf);
+      _reader = new Yw.LogReader(div.id,conf);
       _reader.hideSource('global');
       _reader.hideSource('LogReader');
       if ( args.opts )
@@ -125,12 +125,11 @@ PHEDEX.Logger = function() {
         }
         if ( args.opts.collapse ) { PLR.collapse(); }
       }
-      if ( this.log2Server.option['log to console'] ) { YAHOO.widget.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
+      if ( this.log2Server.option['log to console'] ) { Yw.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
-        var Yl   = YAHOO.log,
-            PL = PHEDEX.Logger;
+        var PL = PHEDEX.Logger;
         return function(str,level,group) {
           var l = obj.log2Server;
           if ( typeof(str) == 'object' ) {
@@ -142,17 +141,16 @@ PHEDEX.Logger = function() {
           group = group.toLowerCase();
           if ( !l.group[group] ) {
             l.group[group] = false;
-            YuC.setSubs('PL.group',l.group);
+            YuCookie.setSubs('PL.group',l.group);
           }
           if ( !l.level[level] ) {
             l.level[level] = false;
-            YuC.setSubs('PL.level',l.level);
+            YuCookie.setSubs('PL.level',l.level);
           }
-          Yl(str, level, group);
+          Ylog(str, level, group);
           if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
             var url = '/log/'+level+'/'+group+'/'+str;
-            YAHOO.util.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
-            var x = 1;
+            Yu.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
         };
       }(this);

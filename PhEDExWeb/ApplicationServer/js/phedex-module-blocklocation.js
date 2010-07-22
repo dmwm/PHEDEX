@@ -10,7 +10,7 @@
 */
 PHEDEX.namespace('Module');
 PHEDEX.Module.BlockLocation = function(sandbox, string) {
-    YAHOO.lang.augmentObject(this, new PHEDEX.Module(sandbox, string));
+    Yla(this, new PHEDEX.Module(sandbox, string));
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     var _sbx = sandbox,
@@ -236,7 +236,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domInput.appendChild(tableSlider);
 
         // Create the Yahoo! DualSlider
-        _sliderRange = YAHOO.widget.Slider.getHorizDualSlider(divSliderRange, divSliderLower, divSliderHigher, range, tickSize, initValues);
+        _sliderRange = Yw.Slider.getHorizDualSlider(divSliderRange, divSliderLower, divSliderHigher, range, tickSize, initValues);
         _sliderRange.minRange = minThumbDistance;
         _sliderRange.subscribe('ready', _updateRange);  //Adding the function to ready event
         _sliderRange.subscribe('change', _updateRange); //Adding the function to change event
@@ -252,8 +252,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         domInput.appendChild(btnReset);
 
         // Create Yahoo! Buttons
-        objPushBtnGet = new YAHOO.widget.Button({ label: "Get Block Data Info", id: "datalookup-btnGetInfo", container: btnGetInfo, onclick: { fn: _getDataInfo} });
-        objPushBtnReset = new YAHOO.widget.Button({ label: "Reset", id: "datalookup-btnReset", container: btnReset, onclick: { fn: _initializeValues} });
+        objPushBtnGet = new Yw.Button({ label: "Get Block Data Info", id: "datalookup-btnGetInfo", container: btnGetInfo, onclick: { fn: _getDataInfo} });
+        objPushBtnReset = new Yw.Button({ label: "Reset", id: "datalookup-btnReset", container: btnReset, onclick: { fn: _initializeValues} });
         log('The input component has been built', 'info', this.me)
     }
 
@@ -510,7 +510,7 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         log('The data for the datatable has been formed by processing the data service response', 'info', this.me)
 
         //The custom progress bar format to the node column
-        YAHOO.widget.DataTable.Formatter.customProgressBar = function(elCell, oRecord, oColumn, sData) {
+        Yw.DataTable.Formatter.customProgressBar = function(elCell, oRecord, oColumn, sData) {
             var strPerHTML = '',
                 nSize = oRecord.getData("blockbytes") * sData / 100, //Calculate the current size of the block data transferred
                 strHTML = '<div><div id = "BlkProgressBar' + ++_nPgBarIndex + '" role="progressbar" aria-valuemin="0" aria-valuemax=100" aria-valuenow="' + sData + '" ';
@@ -555,17 +555,17 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                 _dataTable = null;
                 dataSource = null;
             }
-            dataSource = new YAHOO.util.LocalDataSource(data); //Create new datasource
-            dataSource.responseType = YAHOO.util.DataSource.TYPE_JSARRAY;
+            dataSource = new Yu.LocalDataSource(data); //Create new datasource
+            dataSource.responseType = YuDS.TYPE_JSARRAY;
             dataSource.responseSchema = { "fields": dsCols };
 
             if (nCount > 70) //Use Paginator as there are more blocks to display
             {
-                var pagnDtResult = { paginator: new YAHOO.widget.Paginator({ rowsPerPage: 50 }) }; //Paginator configuration to display large number of blocks
-                _dataTable = new YAHOO.widget.DataTable(_divResult, dtColumnsDef, dataSource, pagnDtResult); //Create new datatable using datasource and column definitions
+                var pagnDtResult = { paginator: new Yw.Paginator({ rowsPerPage: 50 }) }; //Paginator configuration to display large number of blocks
+                _dataTable = new Yw.DataTable(_divResult, dtColumnsDef, dataSource, pagnDtResult); //Create new datatable using datasource and column definitions
             }
             else {
-                _dataTable = new YAHOO.widget.DataTable(_divResult, dtColumnsDef, dataSource); //Create new datatable using datasource and column definitions
+                _dataTable = new Yw.DataTable(_divResult, dtColumnsDef, dataSource); //Create new datatable using datasource and column definitions
             }
             log('The datatable in module has been created with data corresponding to user input', 'info', this.me)
             _dataTable.subscribe('columnSortEvent', afterSorting);  //Assign the function to the event (after column gets sorted)
@@ -807,8 +807,8 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
         return;
     }
 
-    this.eventSuccess = new YAHOO.util.CustomEvent("event success", this);
-    this.eventFailure = new YAHOO.util.CustomEvent("event failure", this);
+    this.eventSuccess = new YuCE("event success", this);
+    this.eventFailure = new YuCE("event failure", this);
 
     this.eventSuccess.subscribe(function(type, args) { this.funcSuccess(args[0]); });
     this.eventFailure.subscribe(function(type, args) { this.funcFailure(args[0]); });

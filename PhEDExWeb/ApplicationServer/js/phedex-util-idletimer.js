@@ -27,8 +27,7 @@ PHEDEX.Util.IdleTimer = function(){
   var idle    = false,        //indicates if the user is idle
       tId     = -1,           //timeout ID
       enabled = false,        //indicates if the idle timer is enabled
-      timeout = 30000,        //the amount of time (ms) before the user is considered idle
-      YUE     = YAHOO.util.Event;
+      timeout = 30000;        //the amount of time (ms) before the user is considered idle
 
   var IdleTimer = {
     handleUserEvent: function() {
@@ -62,8 +61,8 @@ PHEDEX.Util.IdleTimer = function(){
       if (typeof newTimeout == "number"){
         timeout = newTimeout;
       }
-      YUE.on(document, "mousemove", this.handleUserEvent, this, true);
-      YUE.on(document, "keydown",   this.handleUserEvent, this, true);
+      YuE.on(document, "mousemove", this.handleUserEvent, this, true);
+      YuE.on(document, "keydown",   this.handleUserEvent, this, true);
       tId = setTimeout(function(obj) {
         return function() { obj.toggleIdleState(); }
       }(this), timeout);
@@ -71,12 +70,12 @@ PHEDEX.Util.IdleTimer = function(){
     stop: function(){
       enabled = false;
       clearTimeout(tId);
-      YUE.removeListener(document, "mousemove", this.handleUserEvent);
-      YUE.removeListener(document, "keydown",   this.handleUserEvent);
+      YuE.removeListener(document, "mousemove", this.handleUserEvent);
+      YuE.removeListener(document, "keydown",   this.handleUserEvent);
     }
   };
 
-  Yla(IdleTimer, YAHOO.util.EventProvider.prototype);
+  Yla(IdleTimer, Yu.EventProvider.prototype);
   IdleTimer.createEvent("active");
   IdleTimer.createEvent("idle");
 

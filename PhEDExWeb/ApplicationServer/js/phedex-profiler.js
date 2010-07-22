@@ -1,7 +1,7 @@
 YtP = YAHOO.tool.Profiler;
 
 PHEDEX.Profiler = function() {
-  var number = YAHOO.widget.DataTable.formatNumber,
+  var number = Yw.DataTable.formatNumber,
       _interval = 30000,
       _threshold = 0.01,
       _profile,
@@ -25,7 +25,7 @@ PHEDEX.Profiler = function() {
   dumpProfile = function() {
     var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
         report = YtP.getFullReport();
-    w.document.writeln(YAHOO.lang.JSON.stringify(report));
+    w.document.writeln(Ylang.JSON.stringify(report));
   };
   if ( !el ) { return; }
   _ctl = PxU.makeChild(el,'div');
@@ -75,7 +75,7 @@ PHEDEX.Profiler = function() {
         _table.push(_t[i]);
       }
     }
-//     log(YAHOO.lang.dump(report),'debug','profile');
+//     log(Ylangd(report),'debug','profile');
     return _table;
   };
 
@@ -84,7 +84,7 @@ PHEDEX.Profiler = function() {
   _dataSource.responseSchema = {
     fields: ['Method','Calls','Total','Average','Max','Min','Median']
   };
-  _dataTable = new YAHOO.widget.DataTable(_tbl, _columns, _dataSource);
+  _dataTable = new Yw.DataTable(_tbl, _columns, _dataSource);
   _column = _dataTable.getColumn('Total');
   _dataTable.sortColumn(_column,'yui-dt-desc');
   _callback = {

@@ -77,7 +77,7 @@ PHEDEX.Loader = function(opts) {
   _busy = false,
   _success,
   _on = {},
-  _loader = new YAHOO.util.YUILoader(),
+  _loader = new Yu.YUILoader(),
   _conf = {
     loadOptional: true,
     allowRollup:  true,

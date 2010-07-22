@@ -3,10 +3,16 @@
  * @module PHEDEX
  * @title Documentation for the PhEDEx website packages
  */
-var YuE = YAHOO.util.Event, // for convenience...
-    YuD = YAHOO.util.Dom,
-    Yla = YAHOO.lang.augmentObject,
-    YtP = { registerObject:function() {} }; // dummy object in case profiling is not loaded
+var Yu     = YAHOO.util, // for convenience...
+    YuE    = Yu.Event,
+    YuCE   = Yu.CustomEvent,
+    YuD    = Yu.Dom,
+    Ylang  = YAHOO.lang,
+    Ylangd = Ylang.dump,
+    Yla    = Ylang.augmentObject,
+    Ylog   = YAHOO.log,
+    Yw     = YAHOO.widget,
+    YtP    = { registerObject:function() {} }; // dummy object in case profiling is not loaded
 
 /**
  * The PHEDEX global namespace object.

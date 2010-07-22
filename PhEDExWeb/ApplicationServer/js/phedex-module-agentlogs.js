@@ -16,7 +16,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
     log('Module: creating a genuine "' + string + '"', 'info', string);
 
     //The custom column format for the message column
-    YAHOO.widget.DataTable.Formatter.customTextBox = function(elCell, oRecord, oColumn, sData) {
+    Yw.DataTable.Formatter.customTextBox = function(elCell, oRecord, oColumn, sData) {
         elCell.innerHTML = '<textarea class="phedex-dt-txtbox" readonly="yes">' + sData + '</textarea>';
     };
 

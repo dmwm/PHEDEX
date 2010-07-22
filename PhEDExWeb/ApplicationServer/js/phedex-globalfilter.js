@@ -76,8 +76,8 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
 //   this.filter.onFilterCancelled = PHEDEX.Event.onGlobalFilterCancelled;
 //   this.filter.onFilterValidated = PHEDEX.Event.onGlobalFilterValidated;
 
-//   this.onHideFilter   = new YAHOO.util.CustomEvent("onHideFilter",   this, false, YAHOO.util.CustomEvent.LIST);
-//   this.onAcceptFilter = new YAHOO.util.CustomEvent("onAcceptFilter", this, false, YAHOO.util.CustomEvent.LIST);
+//   this.onHideFilter   = new YuCE("onHideFilter",   this, false, YuCE.LIST);
+//   this.onAcceptFilter = new YuCE("onAcceptFilter", this, false, YuCE.LIST);
 //   this.onAcceptFilter.subscribe( function(obj) {
 //     return function() {
 //       log('onAcceptFilter:'+obj.me(),'info','globalfilter');
@@ -88,7 +88,7 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
 //   PHEDEX.Event.onWidgetFilterCancelled.subscribe( function(obj) {
 //     return function(ev,arr) {
 //       log('onFilterCancelled:'+obj.me(),'info','datatable');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       var filter = arr[0];
 //       if ( typeof(filter) != 'object' ) { return; } // Got some rubbish here?
 //       for (var i in filter.fields) {
@@ -103,7 +103,7 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
 //   PHEDEX.Event.onGlobalFilterCancelled.subscribe( function(obj) {
 //     return function(ev,arr) {
 //       log('onFilterCancelled:'+obj.me(),'info','globalfilter');
-//       YAHOO.util.Dom.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
+//       YuD.removeClass(obj.ctl.filter.el,'phedex-core-control-widget-applied');
 //       obj.dom.input.value = '';
 //       obj.filter.Reset();
 //       obj.ctl.filter.Hide();

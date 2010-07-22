@@ -279,7 +279,7 @@ PHEDEX.Core = function(sandbox,loader) {
         log('fetching data for "'+who+'"','info',_me);
         try {
           banner('Connecting to data-service...');
-          var dataReady = new YAHOO.util.CustomEvent("dataReady", this, false, YAHOO.util.CustomEvent.LIST);
+          var dataReady = new YuCE("dataReady", this, false, YuCE.LIST);
           dataReady.subscribe(function(type,args) {
             return function(_m) {
               banner('Data-service returned OK...')
@@ -294,7 +294,7 @@ PHEDEX.Core = function(sandbox,loader) {
               }
             }(m);
           });
-          var dataFail = new YAHOO.util.CustomEvent("dataFail",  this, false, YAHOO.util.CustomEvent.LIST);
+          var dataFail = new YuCE("dataFail",  this, false, YuCE.LIST);
           dataFail.subscribe(function(type,args) {
             var api = args[1].api;
             log('api:'+api+' error fetching data: '+args[0].message,'error',who);

@@ -323,7 +323,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             tLeaf;
         if ( !this.data.hist.length )
         {
-          tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+          tLeaf = new Yw.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
         for (var i in this.data.hist) {

@@ -154,8 +154,8 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @method initDerived
  */
       initDerived: function() {
-        this.tree       = new YAHOO.widget.TreeView(this.dom.content);
-        this.headerTree = new YAHOO.widget.TreeView(this.dom.extra);
+        this.tree       = new Yw.TreeView(this.dom.content);
+        this.headerTree = new Yw.TreeView(this.dom.extra);
         var root = this.headerTree.getRoot(),
             t = this.meta.tree,
             htNode, i, moduleHandler;
@@ -339,7 +339,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         }
 
         el = this.makeNode(spec,values);
-        tNode = new YAHOO.widget.TextNode({label:el.innerHTML, expanded:false}, parent);
+        tNode = new Yw.TextNode({label:el.innerHTML, expanded:false}, parent);
         this._cfg.textNodeMap[tNode.contentElId] = tNode;
         if ( isHeader ) { this._cfg.headerNodeMap[tNode.contentElId] = tNode; }
         tNode.data.values = values;
@@ -455,7 +455,7 @@ PHEDEX.TreeView = function(sandbox,string) {
               } catch(e) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
-                tNode = new YAHOO.widget.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
+                tNode = new Yw.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
                 tNode.isLeaf = true;
               }
             }
@@ -538,7 +538,7 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
 
     var fnDump = function(opts,el) {
       var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes');
-      w.document.writeln(YAHOO.lang.JSON.stringify(el.obj.data));
+      w.document.writeln(Ylang.JSON.stringify(el.obj.data));
     }
     PHEDEX.Component.ContextMenu.Add('treeview', 'Show tree data (JSON)', fnDump);
 
@@ -639,7 +639,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
   for (var i in elList)
   {
     var el = elList[i],
-        elResize = new YAHOO.util.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
+        elResize = new Yu.Resize(el,{ handles:['r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
     elResize.payload = el;
     elResize.subscribe('endResize',function(ev) {
 //    find the class that is being resized, update the spec for that class, and update the nodes that are affected by the change.

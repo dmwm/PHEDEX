@@ -11,8 +11,7 @@
 PHEDEX.namespace('Module');
 PHEDEX.Module.Static = function(sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
-    var YDOM = YAHOO.util.Dom,
-        category,
+    var category,
         _divspanid = '',
         _divInfo,
         _sbx = sandbox,
@@ -29,7 +28,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
     * @private
     */
     var _checkDivSpanID = function(el) {
-        var tempAttr = YDOM.getAttribute(el, 'id');
+        var tempAttr = YuD.getAttribute(el, 'id');
         if (tempAttr && (tempAttr == _divspanid)) {
             return true;
         }
@@ -50,9 +49,9 @@ PHEDEX.Module.Static = function(sandbox, string) {
     var _getDivElementById = function(divspanid, node) {
         var divStatInfo;
         _divspanid = divspanid;
-        divStatInfo = YDOM.getElementBy(_checkDivSpanID, 'div', node);
+        divStatInfo = YuD.getElementBy(_checkDivSpanID, 'div', node);
         if (divStatInfo.length == 0) {
-            divStatInfo = YDOM.getElementBy(_checkDivSpanID, 'span', node);
+            divStatInfo = YuD.getElementBy(_checkDivSpanID, 'span', node);
             if (divStatInfo.length == 0) {
                 log('Div or span element having id ' + divspanid + ' not found', 'info', _me);
                 return null; //Not found
@@ -120,7 +119,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
             timeout: 10000, //YUI connection manager timeout in milliseconds.
             argument: source //source information is required later for processing
         };
-        YAHOO.util.Connect.asyncRequest('GET', source.path, callback, null);
+        Yu.Connect.asyncRequest('GET', source.path, callback, null);
         log('YUI Connection Manager XMLHTTP Request is made', 'info', _me);
     }
 

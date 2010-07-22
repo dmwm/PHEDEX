@@ -174,7 +174,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
             if ( typeof(p.target) != 'object' ) {  p.target = p.obj.dom[p.target]; }
           }
           if ( typeof(p.target) != 'object' ) { p.target = document.getElementById(p.target); }
-          YAHOO.util.Dom.addClass(p.target,'phedex-invisible');
+          YuD.addClass(p.target,'phedex-invisible');
         }
         this.el.className = ap.className || 'phedex-core-control-widget phedex-core-control-widget-inactive';
         if ( !args.events ) {
@@ -187,7 +187,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
           var ev = args.events[i].event,
               fn = args.events[i].handler || PHEDEX.Component.Control.clickHandler,
               el = args.events[i].element || this.el;
-          YAHOO.util.Event.addListener(el,ev,fn,this,true);
+          YuE.addListener(el,ev,fn,this,true);
         }
         if ( ap.hidden )   { this.Hide(); }
         if ( ap.disabled ) { this.Disable(); }
@@ -241,7 +241,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         var p   = this.payload,
             tgt = p.target;
         if ( !this.enabled ) { return; }
-        if ( tgt && !YAHOO.util.Dom.hasClass(tgt,'phedex-invisible') ) { return; }
+        if ( tgt && !YuD.hasClass(tgt,'phedex-invisible') ) { return; }
         if ( p.handler ) {
           if ( typeof(p.handler) == 'string' ) {
             this.notify('expand',p.handler,this.id);
@@ -250,9 +250,9 @@ PHEDEX.Component.Control = function(sandbox,args) {
             p.handler();
           }
         }
-        if ( tgt ) { YAHOO.util.Dom.removeClass(tgt,'phedex-invisible'); }
-        YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-inactive');
-        YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-active');
+        if ( tgt ) { YuD.removeClass(tgt,'phedex-invisible'); }
+        YuD.removeClass(this.el,'phedex-core-control-widget-inactive');
+        YuD.addClass   (this.el,'phedex-core-control-widget-active');
       },
 /**
  * Hide the controlled element
@@ -270,19 +270,19 @@ PHEDEX.Component.Control = function(sandbox,args) {
           reallyHide=function(ctl) {
             return function() {
               var tgt = ctl.payload.target;
-              YAHOO.util.Dom.addClass(tgt,'phedex-invisible');
-              YAHOO.util.Dom.removeClass(tgt,'phedex-hide-overflow');
+              YuD.addClass(tgt,'phedex-invisible');
+              YuD.removeClass(tgt,'phedex-hide-overflow');
               tgt.style.height=null;
               ctl.notify('hide target',eHeight);
-              YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
-              YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
+              YuD.addClass   (ctl.el,'phedex-core-control-widget-inactive');
+              YuD.removeClass(ctl.el,'phedex-core-control-widget-active');
             };
           }(this);
         } else {
           reallyHide=function(ctl) {
             return function() {
-              YAHOO.util.Dom.addClass   (ctl.el,'phedex-core-control-widget-inactive');
-              YAHOO.util.Dom.removeClass(ctl.el,'phedex-core-control-widget-active');
+              YuD.addClass   (ctl.el,'phedex-core-control-widget-inactive');
+              YuD.removeClass(ctl.el,'phedex-core-control-widget-active');
             };
           }(this);
         }
@@ -291,8 +291,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
           var attributes = { height: { to: 0 }  }; 
           if ( typeof(ani) == 'object' ) { attributes = ani.attributes; }
           var duration = ani.duration_hide || ani.duration || 0.5,
-              anim = new YAHOO.util.Anim(tgt, attributes, duration);
-          YAHOO.util.Dom.addClass(tgt,'phedex-hide-overflow');
+              anim = new Yu.Anim(tgt, attributes, duration);
+          YuD.addClass(tgt,'phedex-hide-overflow');
           anim.onComplete.subscribe(reallyHide);
           anim.animate();
         } else {
@@ -307,7 +307,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
       isHidden: function() {
         var tgt = this.payload.target;
         if ( !tgt ) { return 1; }
-        return YAHOO.util.Dom.hasClass(tgt,'phedex-invisible');
+        return YuD.hasClass(tgt,'phedex-invisible');
       },
 /**
  * apply a label to the control. Used in the constructor, can also be used to change the label of the control in response to external conditions
@@ -321,7 +321,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * @method Enable
  */
       Enable: function() {
-        YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-disabled');
+        YuD.removeClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 1;
         this.el.style.cursor = 'pointer';
       },
@@ -329,7 +329,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * disable the control. Add the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 0, and set the cursor to normal
  * @method Disable
  */      Disable: function() {
-        YAHOO.util.Dom.addClass(this.el,'phedex-core-control-widget-disabled');
+        YuD.addClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 0;
         this.el.style.cursor = '';
       },
@@ -340,8 +340,8 @@ PHEDEX.Component.Control = function(sandbox,args) {
  */
       setApplied: function(isApplied) {
         if ( typeof(isApplied) == 'undefined' ) { return; }
-        if ( isApplied ) { YAHOO.util.Dom.addClass   (this.el,'phedex-core-control-widget-applied'); }
-        else             { YAHOO.util.Dom.removeClass(this.el,'phedex-core-control-widget-applied'); }
+        if ( isApplied ) { YuD.addClass   (this.el,'phedex-core-control-widget-applied'); }
+        else             { YuD.removeClass(this.el,'phedex-core-control-widget-applied'); }
       }
     };
   };

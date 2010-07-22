@@ -126,7 +126,7 @@ PHEDEX.Registry = function(sandbox) {
  */
         this.selfHandler = function(obj) {
           return function(ev,arr) {
-            log('selfHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',_me);
+            log('selfHandler: ev='+ev+' args='+Ylangd(arr,1),'info',_me);
             var action = arr[0], value;
             switch (action) {
               case 'add': {

@@ -76,7 +76,7 @@ PHEDEX.Login = function(sandbox) {
             if (_authData.role.length > 0) {
                 if (!_user_role_info) {
                     //Create a new YUI overlay to show user role information
-                    _user_role_info = new YAHOO.widget.Overlay("_user_role_info", { context: [_username_id, "tl", "bl", ["beforeShow", "windowResize"]], visible: false, width: "300px" });
+                    _user_role_info = new Yw.Overlay("_user_role_info", { context: [_username_id, "tl", "bl", ["beforeShow", "windowResize"]], visible: false, width: "300px" });
                     log('The user role information YUI overlay is created', 'info', 'login');
                 }
                 else {
@@ -121,7 +121,7 @@ PHEDEX.Login = function(sandbox) {
                 _user_role_info.render(document.body);  //Render the YUI overlay
                 log('The user role information YUI overlay is rendered', 'info', 'login');
                 //Create a button within YUI overlay to allow user to hide YUI overlay (on clicking the button)
-                _closebtn = new YAHOO.widget.Button({ label: "Close", id: "buttonClose", container: 'phedex-login-info-close', onclick: { fn: _closeOverlay} });
+                _closebtn = new Yw.Button({ label: "Close", id: "buttonClose", container: 'phedex-login-info-close', onclick: { fn: _closeOverlay} });
                 log('The user role information YUI overlay body content close button is created', 'info', 'login');
             }
         }
@@ -197,8 +197,8 @@ PHEDEX.Login = function(sandbox) {
         log('Unable to login because of communication failure to make data service call', 'error', 'login');
     };
 
-    var _eventSuccess = new YAHOO.util.CustomEvent('login success');
-    var _eventFailure = new YAHOO.util.CustomEvent('login failure');
+    var _eventSuccess = new YuCE('login success');
+    var _eventFailure = new YuCE('login failure');
 
     _eventSuccess.subscribe(function(type, args) { _processLogin(args[0]); });
     _eventFailure.subscribe(function(type, args) { _loginCallFailure(args[0]); });
@@ -297,9 +297,9 @@ PHEDEX.Login = function(sandbox) {
         logincomp.inputpwd = PxU.makeChild(logincomp.logininput, 'input', { type: 'password' });
         logincomp.btnsubmit = PxU.makeChild(logincomp, 'span');
         var btnlogout = PxU.makeChild(logincomp, 'span');
-        YAHOO.util.Event.addListener(logincomp.username, 'click', _showOverlay, this, true);
-        logincomp.objBtn = new YAHOO.widget.Button({ label: 'Login', id: 'buttonOK', container: logincomp.btnsubmit, onclick: { fn: _onLogin} });
-        logincomp.objLogoutBtn = new YAHOO.widget.Button({ label: 'Logout', id: 'buttonLogout', container: btnlogout, onclick: { fn: _redirectPage} });
+        YuE.addListener(logincomp.username, 'click', _showOverlay, this, true);
+        logincomp.objBtn = new Yw.Button({ label: 'Login', id: 'buttonOK', container: logincomp.btnsubmit, onclick: { fn: _onLogin} });
+        logincomp.objLogoutBtn = new Yw.Button({ label: 'Logout', id: 'buttonLogout', container: btnlogout, onclick: { fn: _redirectPage} });
         _logincomp = logincomp;
         log('The login component is created', 'info', 'login');
     };
@@ -339,7 +339,7 @@ PHEDEX.Login = function(sandbox) {
                     _loginUsingCert();
                 } else {
                     var logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
-                    objBtn = new YAHOO.widget.Button({ label: 'Login', id: 'buttonLogin', container: logincomp, onclick: { fn: _redirectPage} });
+                    objBtn = new Yw.Button({ label: 'Login', id: 'buttonLogin', container: logincomp, onclick: { fn: _redirectPage} });
                 }
             }
         };

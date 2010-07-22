@@ -106,8 +106,8 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         d.cBox = cBox;
         b.appendChild(cBox);
         b.appendChild(document.createTextNode('Keep this window open'));
-        var buttonApplyFilter = new YAHOO.widget.Button({ label:'Apply Filter',  title:'Validate your input and apply the filter', container:b }),
-            buttonResetFilter = new YAHOO.widget.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:b }),
+        var buttonApplyFilter = new Yw.Button({ label:'Apply Filter',  title:'Validate your input and apply the filter', container:b }),
+            buttonResetFilter = new Yw.Button({ label:'Reset Filter', title:'Reset the filter to the initial, null state', container:b }),
             buttonNotifier = function(obj) {
               return function(arg) { _sbx.notify(obj.id,'Filter',arg); }
             }(this);
@@ -130,7 +130,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         this.dom.filter = document.createElement('div');
         this.context_el = obj.dom[apc.payload.context || 'content'];
         this.align_el   =  apc.payload.align || 'tl';
-        o = this.overlay = new YAHOO.widget.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]});
+        o = this.overlay = new Yw.Overlay(this.dom.filter,{context:[this.context_el,'tl',this.align_el]});
         o.setHeader('Filter data selection ('+obj.me+')');
         o.setBody('&nbsp;'); // the body-div seems not to be instantiated until you set a value for it!
         o.setFooter('&nbsp;'); this.overlay.setFooter(''); // likewise the footer, but I don't want anything in it, not from here, anyway...
@@ -138,7 +138,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
         YuD.addClass(o.element,'phedex-core-overlay')
         o.body.innerHTML = null;
 
-        this.dragdrop = new YAHOO.util.DD(this.overlay.element); // add a drag-drop facility, just for fun...
+        this.dragdrop = new Yu.DD(this.overlay.element); // add a drag-drop facility, just for fun...
         this.dragdrop.setHandleElId( this.overlay.header );
         if ( apc ) { // create a component-control to use to show/hide the filter
           p = apc.payload;
@@ -290,7 +290,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           helpCtl.id = 'help_' +PxU.Sequence();
           ttIds.push(helpCtl.id);
           ttHelp[helpCtl.id] = 'Click here for any additional help that may have been provided';
-          YAHOO.util.Event.addListener(helpCtl, 'click', function(aClass,anElement) {
+          YuE.addListener(helpCtl, 'click', function(aClass,anElement) {
             return function() { PxU.toggleVisible(aClass,anElement) };
           }(helpClass,fieldset) );
           legend.appendChild(document.createTextNode(' '));
@@ -300,7 +300,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           hideCtl.id = 'help_' +PxU.Sequence();
           ttIds.push(hideCtl.id);
           ttHelp[hideCtl.id] = 'Click here to collapse or expand this group of filter-elements';
-          YAHOO.util.Event.addListener(hideCtl, 'click', function(aClass,anElement) {
+          YuE.addListener(hideCtl, 'click', function(aClass,anElement) {
               return function() { PxU.toggleVisible(aClass,anElement) };
           }(hideClass,fieldset) );
           legend.appendChild(document.createTextNode(' '));
@@ -379,7 +379,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
           this.dom.filter.appendChild(fieldset);
         }
-          tt = new YAHOO.widget.Tooltip("ttB", { context:ttIds }), ttCount={};
+          tt = new Yw.Tooltip("ttB", { context:ttIds }), ttCount={};
           tt.contextMouseOverEvent.subscribe( // prevent tooltip from showing more than a few times, to avoid upsetting experts
             function(type, args) {
               id = args[0].id;
@@ -398,7 +398,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
               this.cfg.setProperty('text', text);
             }
           );
-        k1 = new YAHOO.util.KeyListener(this.dom.filter,
+        k1 = new Yu.KeyListener(this.dom.filter,
                                           { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
                                           { fn:function(obj){ return function() { _sbx.notify(obj.id,'Filter','Validate'); } }(this),
                                             scope:this, correctScope:true } );

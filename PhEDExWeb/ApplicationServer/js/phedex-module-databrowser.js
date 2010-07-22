@@ -219,7 +219,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             dbs = this.data.dbs;
         if ( !dbs.length )
         {
-          tLeaf = new YAHOO.widget.TextNode({label: 'Nothing found, try another dataset or block...', expanded: false}, root);
+          tLeaf = new Yw.TextNode({label: 'Nothing found, try another dataset or block...', expanded: false}, root);
           tLeaf.isLeaf = true;
         } else {
           datasets = dbs[0].dataset;

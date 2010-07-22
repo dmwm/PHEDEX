@@ -21,9 +21,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
   Yla(this, new PHEDEX.Base.Object());
 
   var _me = 'component-contextmenu',
-      _sbx = sandbox,
-      YwCM = YAHOO.widget.ContextMenu,
-      YwMI = YAHOO.widget.MenuItem;
+      _sbx = sandbox;
 
   var obj = args.payload.obj;
   if ( obj ) {
@@ -47,7 +45,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
       Create: function(config) {
         var i = PHEDEX.Util.Sequence();
         if ( !config.lazyload ) { config.lazyload = true; }
-        var menu = new YwCM("contextmenu_"+i,config);
+        var menu = new Yw.ContextMenu("contextmenu_"+i,config);
         menu.cfg.setProperty('zindex',10);
         return menu;
       },
@@ -74,7 +72,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
           return function(ev,arr) {
             var action = arr[0],
                 value = arr[1];
-            log('selfHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',_me);
+            log('selfHandler: ev='+ev+' args='+Ylangd(arr,1),'info',_me);
             switch (action) {
               case 'WidgetsByInputType': {
                 o[action][value] = arr[2];
@@ -166,7 +164,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
 //                 item.CSS_CLASS_NAME = 'phedex-contextmenu-'+widget.feature_class+' yuimenuitemlabel';
                 widget.label = PxU.feature[widget.feature_class] + widget.label;
               }
-              item = new YwMI(widget.label);
+              item = new Yw.MenuItem(widget.label);
 //            Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,
@@ -176,7 +174,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
                                   log('Construct registered widget:'+
                                       ' widget='+this.widget+
                                       ' type='+this.type+
-                                      ' opts='+YAHOO.lang.dump(opts,1),
+                                      ' opts='+Ylangd(opts,1),
                                       'info', _me);
                                   _sbx.notify('CreateModule',_w.short_name,opts);
                                 };
@@ -192,7 +190,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
           list = PHEDEX.Component.ContextMenu.items[name];
           for (j in list)
           {
-            item = new YwMI(list[j].label);
+            item = new Yw.MenuItem(list[j].label);
             item.value = { 'type':name,
                            'fn':list[j].callback };
             this.contextMenu.addItem(item);
@@ -201,7 +199,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
           }
         }
         if ( !nItems ) {
-          item = new YwMI('(no context menu for this field)');
+          item = new Yw.MenuItem('(no context menu for this field)');
           item.value = { type:'null', fn:function() {} };
           this.contextMenu.addItem(item);
         }

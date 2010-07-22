@@ -8,23 +8,25 @@
 PHEDEX.Sandbox = function() {
   var _events = [],
       _map = {},
-      _me = 'sandbox';
+      _me = 'sandbox',
 /**
- * get or create a YAHOO.util.CustomEvent for a given event-name
+ * get or create a Yu.CustomEvent for a given event-name
  * @method _getEvent
  * @private
  * @param event {string} name of the event to retrieve or create
  * @param create {boolean} <strong>true</strong> if the event should be created if it does not exist. Defaults to <strong>false</strong>
  */
-  var _getEvent = function(event,create) {
-    if ( _events[event] ) { return _events[event]; }
-    if ( create ) {
-      _events[event] = new YAHOO.util.CustomEvent(event, this, false, YAHOO.util.CustomEvent.LIST);
-      log('new listen-event: '+event,'info',_me);
-      return _events[event];
-    }
-    log('non-existant event: '+event,'warn',_me);
-  }
+      _getEvent = function(event,create) {
+        if ( _events[event] ) { return _events[event]; }
+        if ( create ) {
+          _events[event] = new Yu.CustomEvent(event, this, false, Yu.CustomEvent.LIST);
+          log('new listen-event: '+event,'info',_me);
+          return _events[event];
+        }
+        log('non-existant event: '+event,'warn',_me);
+      },
+     _stats = {};
+
   return {
 /**
  * Notify subscribed listeners about an event. Notification is asynchronous, this function will return before the notification is actually sent.
@@ -40,11 +42,13 @@ PHEDEX.Sandbox = function() {
         log('remap: '+event+' ('+_map[event]+')','info',_me);
         event = _map[event];
       }
-      log('notify: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+      if ( !_stats[event] ) { _stats[event] = 0; }
+      _stats[event]++;
+      log('notify: '+event+' ('+Ylangd(arr,1)+')','info',_me);
       setTimeout(function() {
         var ev = _getEvent(event);
         if ( !ev ) { return; }
-        log('fire: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+        log('fire: '+event+' ('+Ylangd(arr,1)+')','info',_me);
         ev.fire(arr);
       }, 0);
     },
@@ -66,11 +70,11 @@ PHEDEX.Sandbox = function() {
         log('remap: '+event+' ('+_map[event]+')','info',_me);
         event = _map[event];
       }
-      log('notify: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+      log('notify: '+event+' ('+Ylangd(arr,1)+')','info',_me);
       setTimeout(function() {
         var ev = _getEvent(event);
         if ( !ev ) { return; }
-        log('fire: '+event+' ('+YAHOO.lang.dump(arr,1)+')','info',_me);
+        log('fire: '+event+' ('+Ylangd(arr,1)+')','info',_me);
         ev.fire(arr);
       }, delay);
     },
@@ -125,6 +129,10 @@ PHEDEX.Sandbox = function() {
 //	  I don't know how I would do this. I would need to know the function that was subscribed, so would
 //	  need an array of subscribers/callbacks, maintained in the sandbox.
 //     }
+
+    getStats: function() {
+      return _stats;
+    }
   }
 };
 

@@ -6,6 +6,9 @@
 * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
 * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
 */
+var YwDF  = Yw.DataTable.Formatter,
+    YuDS  = Yu.DataSource,
+    YuDSB = Yu.DataSourceBase;
 PHEDEX.DataTable = function (sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
@@ -67,7 +70,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                   c = table.columns[j], val = a[table.map[c.key]];
                   if (c.parser) {
                     if (typeof c.parser == 'function') { val = c.parser(val); }
-                    else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+                    else { val = YuDSB.Parser[c.parser](val); }
                   }
                   y[c.key] = val;
                 }
@@ -142,7 +145,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 col = allColumns[i];
                 if (col.parser) {
                   if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
-                  else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
+                  else { m.parser[col.key] = YuDSB.Parser[col.parser]; }
                 }
               }
 
@@ -171,7 +174,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 m.filter[i].fields = h;
               }
               if (m.sort) {
-                if (m.sort.field && !m.sort.dir) { m.sort.dir = YAHOO.widget.DataTable.CLASS_ASC; }
+                if (m.sort.field && !m.sort.dir) { m.sort.dir = Yw.DataTable.CLASS_ASC; }
               }
 
               var moduleHandler = function (o) {
@@ -211,7 +214,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                     this.data = this._processData(moduledata);
                     moduledata = this.data;     // Cache the processed data for further use by filter
                 }
-                this.dataSource = new YAHOO.util.DataSource(moduledata);
+                this.dataSource = new YuDS(moduledata);
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
                     failure: this.dataTable.onDataReturnInitializeTable,
@@ -264,7 +267,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             fillDataSourceWithSchema: function(data) {
                 var rList = this.meta.table.schema.resultsList, _d = {};
                 if ( ! data[rList] ) { _d[rList] = data; data = _d; }
-                this.dataSource = new YAHOO.util.DataSource(data);
+                this.dataSource = new YuDS(data);
                 this.dataSource.responseSchema = this.meta.table.schema;
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
@@ -346,7 +349,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             processNestedrequest: function (record) {
                 try {
                     var nesteddata = record.getData('nesteddata');
-                    this.nestedDataSource = new YAHOO.util.DataSource(nesteddata);
+                    this.nestedDataSource = new YuDS(nesteddata);
                     return nesteddata;
                 }
                 catch (ex) {
@@ -398,10 +401,10 @@ PHEDEX.DataTable = function (sandbox, string) {
                     if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
                 }
-                this.dataSource = new YAHOO.util.DataSource();
-                this.nestedDataSource = new YAHOO.util.DataSource();
+                this.dataSource = new YuDS();
+                this.nestedDataSource = new YuDS();
                 try {
-                    this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.content, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
+                    this.dataTable = new Yw.NestedDataTable(this.dom.content, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
                                     {
                                         initialLoad: false,
                                         generateNestedRequest: this.processNestedrequest
@@ -497,7 +500,6 @@ PHEDEX.DataTable = function (sandbox, string) {
     return this;
 }
 
-YwDF = YAHOO.widget.DataTable.Formatter;
 /** A custom formatter for unix-epoch dates. Sets the elCell innerHTML to the GMT representation of oDate
 * @method YAHOO.widget.DataTable.Formatter.UnixEpochToGMT
 * @param elCell {HTML element} Cell for which the formatter must be applied
@@ -605,7 +607,7 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
       };
       try {
         var dd = fn(d),
-        t = YAHOO.lang.JSON.stringify(dd);
+        t = Ylang.JSON.stringify(dd);
       } catch (e) { alert(e.message); }
       w.document.writeln(t);
     };
@@ -725,7 +727,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     var onRowMouseOut = function(event) {
         // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
         // Leave this next line here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
-        // YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
+        // YuD.removeClass(event.target,'phedex-drow-highlight');
         event.target.style.backgroundColor = null;
     }
 
@@ -735,7 +737,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     * @private
     */
     var onRowMouseOver = function(event) {
-        //YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
+        //YuD.addClass(event.target,'phedex-drow-highlight');
         event.target.style.backgroundColor = 'yellow';
     }
     obj.dataTable.subscribe('rowMouseoverEvent',onRowMouseOver);

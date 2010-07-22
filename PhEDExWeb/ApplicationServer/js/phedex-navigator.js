@@ -47,7 +47,7 @@ PHEDEX.Navigator = function(sandbox) {
           if ( !obj.state[key].isValid() ) { changed++; continue; }
           value = obj.state[key].state();
           if ( value != state[key] ) {
-            log('setState: '+key+' ('+state[key]+' => '+value+')','info',obj.me);
+            log('setState: '+key+' ('+state[key]+' => '+Ylang.JSON.stringify(value)+')','info',obj.me);
             if ( key == 'module' ) { mChange = 1; }
             else { changed++; }
           }
@@ -98,10 +98,11 @@ PHEDEX.Navigator = function(sandbox) {
         }
         return arrResult;
     };
-    _initialPageState = YAHOO.util.History.getBookmarkedState("page") ||
-                        YAHOO.util.History.getQueryStringParameter("page") ||
+    _initialPageState = Yu.History.getBookmarkedState("page") ||
+                        Yu.History.getQueryStringParameter("page") ||
                         'instance~Production+type~none+widget~nodes';
-    YAHOO.util.History.register("page", _initialPageState, _setState);
+    log('InitialPageState: '+_initialPageState,'info',this.me);
+    Yu.History.register("page", _initialPageState, _setState);
 
     /**
     * @method _getCurrentState
@@ -132,12 +133,12 @@ PHEDEX.Navigator = function(sandbox) {
         try {
             newState = this._getCurrentState();
             if ( !newState ) { return; }
-            currentState = YAHOO.util.History.getCurrentState("page");
+            currentState = Yu.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
                 _sbx.notify(this.id,'UpdatePermalink','page='+newState);
                 log('addToHistory: '+newState,'info',this.me);
-                YAHOO.util.History.navigate("page", newState); //Add current state to history and set values
+                Yu.History.navigate("page", newState); //Add current state to history and set values
             } else {
                 log('addToHistory: state unchanged','info',this.me);
             }
@@ -150,7 +151,7 @@ PHEDEX.Navigator = function(sandbox) {
     };
 
   this.needNewModule = function() {
-    log('NeedNewModule: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1),'info',me);
+    log('NeedNewModule: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+Ylangd(_newModuleArgs,1),'info',me);
     if ( _needNewModule && _newModule ) {
       _sbx.notify('module','*','destroy');
       _sbx.notify('_navCreateModule',_newModule,_newModuleArgs);
@@ -165,7 +166,7 @@ PHEDEX.Navigator = function(sandbox) {
     return function(who, arr) {
       var action = arr[0],
           args   = arr[1];
-      log('selfHandler: ev='+who+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('selfHandler: ev='+who+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'decoratorsReady': {
           if ( _initialPageState ) {
@@ -232,7 +233,7 @@ PHEDEX.Navigator = function(sandbox) {
 
   this.coreHandler = function(obj) {
     return function(ev, arr) {
-      log('coreHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('coreHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       _sbx.notify('Registry','getTypeOfModule',arr[0], obj.id);
       if ( arr[1] ) { // I have arguments for this module, when it is created. Stash them globally for later use
         _sbx.notify(obj.id,'NewModule',arr[0]);
@@ -252,7 +253,7 @@ PHEDEX.Navigator = function(sandbox) {
             _sbx.notify(arr[0].id,'setState',o.moduleState);
             delete o.moduleState;
           }
-          log('ModuleExists: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+YAHOO.lang.dump(_newModuleArgs,1),'info',me);
+          log('ModuleExists: _needNewModule='+_needNewModule+', _newModule='+_newModule+', _newModuleArgs='+Ylangd(_newModuleArgs,1),'info',me);
           break;
         }
         default: {
@@ -321,13 +322,13 @@ PHEDEX.Navigator = function(sandbox) {
         //     'typeconfig'   : an array of objects for organizing the type menu.
         //     'widgetconfig' : an array of objects for organizing the widget menu.
         init: function(args) {
-          YAHOO.util.History.onReady( (function(obj) {
+          Yu.History.onReady( (function(obj) {
             return function() {
               setTimeout(function() { obj.create(args); },0); //Initializes the form
             };
           })(this) );
           try {
-            YAHOO.util.History.initialize("yui-history-field", "yui-history-iframe");
+            Yu.History.initialize("yui-history-field", "yui-history-iframe");
           } catch (ex) {
             log(ex,'error',obj.me)
             this.create(args);
@@ -384,7 +385,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   };
 
   this.initWidgetSelector = function() {
-    _menu.menu = new YAHOO.widget.Button({ 'type': "menu",
+    _menu.menu = new Yw.Button({ 'type': "menu",
       'label': '(widget)',
       'menu': [],
       'container': this.el
@@ -395,7 +396,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
       return function (event) {
         var widget = event.newValue.value;
         if ( event.prevValue && event.prevValue.value.label == widget.label ) { return; }
-        log('onSelectedMenuItemChange: '+widget.short_name+' '+YAHOO.lang.dump(widget,2),'info',me);
+        log('onSelectedMenuItemChange: '+widget.short_name+' '+Ylangd(widget,2),'info',me);
         if ( _widget.id == widget.id ) { log('updateWidgetGUI called for same widget','warn',me); return; }
         _widget = widget;
         o._updateWidgetGUI(widget);
@@ -459,7 +460,7 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1];
-      log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('partnerHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
           break;
@@ -508,7 +509,7 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
     return function(ev,arr) {
       var action = arr[0],
           value  = arr[1];
-      log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('partnerHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
           a.href = document.location.href;
@@ -616,8 +617,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           }
         }(input);
 
-        var k1 = new YAHOO.util.KeyListener(input,
-                                          { keys: YAHOO.util.KeyListener.KEY['ENTER'] },
+        var k1 = new Yu.KeyListener(input,
+                                          { keys: Yu.KeyListener.KEY['ENTER'] },
                                           { fn:function(o){
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
@@ -682,8 +683,8 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           }
         }(input);
 
-        var k1 = new YAHOO.util.KeyListener(input,
-                                          { keys: YAHOO.util.KeyListener.KEY['ENTER'] },
+        var k1 = new Yu.KeyListener(input,
+                                          { keys: Yu.KeyListener.KEY['ENTER'] },
                                           { fn:function(o){
             return function() {
               if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
@@ -697,7 +698,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
       };
 
   var _autocompleteSelector = function(input,container,list,key) {
-    var ds  = new YAHOO.util.LocalDataSource(list),
+    var ds  = new Yu.LocalDataSource(list),
         cfg = {
           prehighlightClassName:"yui-ac-prehighlight",
           useShadow: true,
@@ -705,7 +706,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
           queryMatchCase: false,
           queryMatchContains: true
         },
-        auto_comp = new YAHOO.widget.AutoComplete(input, container, ds, cfg),
+        auto_comp = new Yw.AutoComplete(input, container, ds, cfg),
     selection_callback = function(_dummy, args) {
       var value = args[2][0];
       _state[_type] = value;
@@ -761,7 +762,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1], arg;
-      log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('partnerHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
           break;
@@ -820,11 +821,11 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1];
-      log('moduleHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('moduleHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'needArguments': {
           if ( _moduleArgs ) {
-log('why is _moduleArgs still set? '+YAHOO.lang.dump(_moduleArgs),'error',me);
+log('why is _moduleArgs still set? '+Ylangd(_moduleArgs),'error',me);
             _sbx.notify(arr[1],'doSetArgs',_moduleArgs);
           }
           if ( _typeArgs[_type] ) {
@@ -853,7 +854,7 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   this.el.className = 'phedex-nav-component phedex-nav-type';
 
   this.setInputTypes = function(types) {
-log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
+log('typeselector.setInputTypes: types='+Ylangd(types,2),'warn',me);
     // get registered target types and store them with optional config params
     _target_types = {};
     for (var i in types) {
@@ -877,7 +878,7 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
       menu_items.push({ 'text': o.label, 'value': o.name });
     }
     var menu = this.button.getMenu();
-    if (YAHOO.util.Dom.inDocument(menu.element)) {
+    if (Yu.Dom.inDocument(menu.element)) {
       menu.clearContent();
       menu.addItems(menu_items);
       menu.render();
@@ -885,7 +886,7 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
       menu.itemData = menu_items;
     }
   }
-  this.button = new YAHOO.widget.Button({ type: "menu",
+  this.button = new Yw.Button({ type: "menu",
     label: '(type)',
     menu: [],
     container: this.el
@@ -915,7 +916,7 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1];
-      log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('partnerHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
           _sbx.notify(obj.id,'TargetTypes',_target_types);
@@ -955,7 +956,7 @@ log('typeselector.setInputTypes: types='+YAHOO.lang.dump(types,2),'warn',me);
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1], key;
-      log('registryHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('registryHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'TypeOfModule': {
           for (i in value) {
@@ -1002,7 +1003,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
     menu_items.push({ 'text': jsonInst.name, 'value': jsonInst.name });
    }
 
-  this.menu = new YAHOO.widget.Button({ type: "menu",
+  this.menu = new Yw.Button({ type: "menu",
     label: '(instance)',
     menu: menu_items,
     container: this.el
@@ -1051,7 +1052,7 @@ PHEDEX.Navigator.InstanceSelector = function(sandbox,args) {
     return function(ev,arr) {
       var action = arr[0],
           value = arr[1];
-      log('partnerHandler: ev='+ev+' args='+YAHOO.lang.dump(arr,1),'info',me);
+      log('partnerHandler: ev='+ev+' args='+Ylangd(arr,1),'info',me);
       switch (action) {
         case 'NavReset': {
           changeInstance('Production');

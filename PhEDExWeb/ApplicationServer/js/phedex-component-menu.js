@@ -97,7 +97,7 @@ PHEDEX.Component.Menu = function(sandbox,args) {
           container: p.obj.dom[p.container]
         };
         if ( p.title ) { button_args.title = p.title; }
-        this._button = new YAHOO.widget.Button(button_args);
+        this._button = new Yw.Button(button_args);
         this._button.on('selectedMenuItemChange', onSelectedMenuItemChange);
 
         var moduleHandler = function(obj) {

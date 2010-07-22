@@ -66,7 +66,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                   c = table.columns[j], val = a[table.map[c.key]];
                   if (c.parser) {
                     if (typeof c.parser == 'function') { val = c.parser(val); }
-                    else { val = YAHOO.util.DataSourceBase.Parser[c.parser](val); }
+                    else { val = YuDSB.Parser[c.parser](val); }
                   }
                   y[c.key] = val;
                 }
@@ -130,7 +130,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                 col = columns[i];
                 if (col.parser) {
                   if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
-                  else { m.parser[col.key] = YAHOO.util.DataSourceBase.Parser[col.parser]; }
+                  else { m.parser[col.key] = YuDSB.Parser[col.parser]; }
                 }
               }
 
@@ -190,7 +190,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     this.data = this._processData(moduledata);
                     moduledata = this.data;     // Cache the processed data for further use by filter
                 }
-                this.dataSource = new YAHOO.util.DataSource(moduledata);
+                this.dataSource = new YuDS(moduledata);
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
                     failure: this.dataTable.onDataReturnInitializeTable,
@@ -229,7 +229,7 @@ PHEDEX.DataTable = function(sandbox, string) {
             fillDataSourceWithSchema: function(data) {
                 var rList = this.meta.table.schema.resultsList, _d = {};
                 if ( ! data[rList] ) { _d[rList] = data; data = _d; }
-                this.dataSource = new YAHOO.util.DataSource(data);
+                this.dataSource = new YuDS(data);
                 this.dataSource.responseSchema = this.meta.table.schema;
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
@@ -319,7 +319,7 @@ PHEDEX.DataTable = function(sandbox, string) {
                     if (!cDef.sortable  ) { cDef.sortable   = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
                 }
-                this.dataSource = new YAHOO.util.DataSource();
+                this.dataSource = new YuDS();
                 this.dataTable = new YAHOO.widget.DataTable(this.dom.content, t.columns, this.dataSource, { draggableColumns: true, initialLoad: false });
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
@@ -488,7 +488,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     var onRowMouseOut = function(event) {
         // Would like to use the DOM, but this gets over-ridden by yui-dt-odd/even, so set colour explicitly.
         // Leave this next line here in case phedex-drow-highlight ever becomes a useful class (e.g. when we do our own skins)
-        // YAHOO.util.Dom.removeClass(event.target,'phedex-drow-highlight');
+        // YuD.removeClass(event.target,'phedex-drow-highlight');
         event.target.style.backgroundColor = null;
     }
 
@@ -498,7 +498,7 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
     * @private
     */
     var onRowMouseOver = function(event) {
-        //YAHOO.util.Dom.addClass(event.target,'phedex-drow-highlight');
+        //YuD.addClass(event.target,'phedex-drow-highlight');
         event.target.style.backgroundColor = 'yellow';
     }
     obj.dataTable.subscribe('rowMouseoverEvent',onRowMouseOver);
