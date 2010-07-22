@@ -112,7 +112,7 @@ function createCoreApp() {
     PxR.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
-  PxL.add( {name:'phedex-tony' } );
+  PxL.add( {name:'phedex-tony', requires:['json'] } );
   PxL.load(function() { Tony(PxS,PxL); },'phedex-tony');
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
