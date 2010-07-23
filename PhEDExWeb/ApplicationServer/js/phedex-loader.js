@@ -84,7 +84,7 @@ PHEDEX.Loader = function(opts) {
     combine:      PxW.combineRequests,
     base:         PxW.BaseURL + '/yui/build/',
     timeout:      15000,
-filter:'DEBUG',
+// filter:'DEBUG',
     skin: {
       defaultSkin: 'sam',
       base: 'assets/skins/',
