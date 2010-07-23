@@ -74,6 +74,11 @@ cd $phedex_js_path
 for file in `dir -d *.js` ; do
 echo "Converting $file"
 java -jar $yuicompressor_path $file -o $phedex_min_js_path/${file/.js/-min.js}
+status=$?
+if [ $status -ne 0 ]; then
+  echo "compress $file: status $status"
+  exit $status
+fi
 cp $file $phedex_min_js_path/$file # for the debug-version
 done
 
@@ -84,6 +89,11 @@ cd $phedex_css_path
 for file in `dir -d *.css` ; do
 echo "Converting $file"
 java -jar $yuicompressor_path $file -o $phedex_min_css_path/${file/.css/-min.css}
+status=$?
+if [ $status -ne 0 ]; then
+  echo "compress $file: status $status"
+  exit $status
+fi
 cp $file $phedex_min_css_path/$file # for the debug-version
 done
 
