@@ -21,7 +21,7 @@
 
 YAHOO.util.Event.onDOMReady(function() {
   var uri = location.href,
-      tgt = uri.replace('examples/demo-permalink.html','phedex/datasvc/app/html/tony.html#page='),
+      tgt = uri.replace('examples/demo-permalink.html','#page='),
       cfg = {
  'Production, default page': '',
 
@@ -31,23 +31,23 @@ YAHOO.util.Event.onDOMReady(function() {
  'Production, LinkView, T1_US_FNAL_Buffer,hide(L.error-log, F.cksum), time=1 week, outgoing' :
   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D1}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.node,asc), hide(L.error-log, F.cksum), time=1 week, incoming' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D0}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.from-node,asc), hide(L.error-log, F.cksum), time=1 week, incoming' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.from-node%20asc%20alpha}hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D0}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.node,asc), hide(L.error-log, F.cksum), time=1 week, outgoing' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D1}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort(L.to-node,asc), hide(L.error-log, F.cksum), time=1 week, outgoing' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.to-node%20asc%20alpha}hide{L.error-log%20F.cksum}specific{time%3D168%20dir%3D1}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort{L.node,asc}, hide{L.error-log, F.cksum}, filter{L.node=T1}, time=1 week, incoming' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}filter{L.Node%3DT1}specific{time%3D168%20dir%3D0}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort{L.from-node,asc}, hide{L.error-log, F.cksum}, filter{L.from-node=T1}, time=1 week, incoming' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.from-node%20asc%20alpha}hide{L.error-log%20F.cksum}filter{L.from-node%3DT1}specific{time%3D168%20dir%3D0}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, filter{L.node=T1}, time=1 week, incoming' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~filter{L.Node%3DT1}specific{time%3D168%20dir%3D0}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, filter{L.from-node=T1}, time=1 week, incoming' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~filter{L.from-node%3DT1}specific{time%3D168%20dir%3D0}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, filter{L.node=T1}' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~filter{L.Node%3DT1}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, filter{L.from-node=T1}' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~filter{L.from-node%3DT1}',
 
- 'Production, LinkView, T1_US_FNAL_Buffer, sort{L.node,asc}, hide{L.error-log, F.cksum}, filter{B.errors>1}, time=1 week, incoming' :
-  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.node%20asc%20alpha}hide{L.error-log%20F.cksum}filter{B.errors%3E1}specific{time%3D168%20dir%3D0}',
+ 'Production, LinkView, T1_US_FNAL_Buffer, sort{L.from-node,asc}, hide{L.error-log, F.cksum}, filter{B.errors>1}, time=1 week, incoming' :
+  'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{L.from-node%20asc%20alpha}hide{L.error-log%20F.cksum}filter{B.errors%3E1}specific{time%3D168%20dir%3D0}',
 
  'Production, LinkView, T1_US_FNAL_Buffer, sort{B.name, asc} hide{L.error-log, F.cksum} filter{!B.name=/Min} time=168, outgoing':
    'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~linkview+module~sort{B.name%20asc%20alpha}hide{L.error-log%20F.cksum}filter{!B.name%3D/Min}specific{time%3D168%20dir%3D1}',
@@ -76,8 +76,8 @@ YAHOO.util.Event.onDOMReady(function() {
  'Production, GroupUsage DataOps, sort{G.ResidentBytes desc}':
    'instance~Production+type~group+target~DataOps+widget~groupusage+module~sort{G.ResidentBytes desc}hide{G.SE G.ID G.ResidentFiles G.SubscribedFiles}',
 
- 'Production QueuedMigrations, T1_US_FNAL_Buffer, sort{Q.BlockName, asc} hide{Q.FileID}':
-   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~queuedmigrations+module~sort{Q.BlockName%20asc}hide{Q.FileID}',
+ 'Production QueuedMigrations, T1_US_FNAL_Buffer, sort{Q.Block, asc} hide{Q.FileID}':
+   'instance~Production+type~node+target~T1_US_FNAL_Buffer+widget~queuedmigrations+module~sort{Q.Block%20asc}hide{Q.FileID}',
 
  'Production MissingFiles /ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8':
   'instance~Production+type~block+target~/ZeroBias/Commissioning10-v4/RAW%231e43b94a-ccca-4152-ab33-71b0cfbeedf8+widget~missingfiles+module~',
