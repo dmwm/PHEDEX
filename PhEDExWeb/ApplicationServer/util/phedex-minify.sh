@@ -96,8 +96,7 @@ if [ $status -ne 0 ]; then
 fi
 cp $file $phedex_min_css_path/$file # for the debug-version
 done
-echo 'forced exit to test error-handling...'
-exit 12
+
 echo "Phedex min css files are in $phedex_min_css_path directory"
 echo "========================================================"
 exit 0
