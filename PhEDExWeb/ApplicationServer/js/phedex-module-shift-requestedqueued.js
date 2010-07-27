@@ -77,8 +77,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         table: {
           columns: [
             {key:'node',              label:'Node'},
-            {key:'status',            label:'Status',         className:'align-right'},
-            {key:'reason',            label:'Reason',         className:'align-right'},
+            {key:'status',            label:'Status',         className:'align-left'},
+            {key:'reason',            label:'Reason',         className:'align-left'},
             {key:'max_pend_bytes',    label:'Max. Queued',    className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'max_request_bytes', label:'Max. Requested', className:'align-right', parser:'number', formatter:'customBytes'},
           ],
