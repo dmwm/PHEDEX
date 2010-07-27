@@ -81,7 +81,7 @@ PHEDEX.Webapp = {
  */
   BaseURL: function() {
     var baseUrl = '@WEBAPP_BASEURL@'; // set when RPM is built
-    return baseUrl.match(/WEBAPP_BASEURL/) ? '' : baseUrl;
+    return baseUrl.match(/WEBAPP_BASEURL/) ? '/phedex/datasvc/app' : baseUrl;
   }(),
 
 /**
