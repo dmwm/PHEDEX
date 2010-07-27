@@ -956,6 +956,8 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
                             table[tableindx]['nesteddata'] = arrNData; // Assign the filter nested table rows
                         }
                         tableindx++;
+                    } else {
+                      this.count++;
                     }
                 }
                 obj.sortNeeded = true;
