@@ -80,7 +80,7 @@ sub _shift_requestedqueued
   my $epochHours = int(time/3600);
   my $start = ($epochHours-12) * 3600;
   my $end   =  $epochHours     * 3600;
-  my $node = 'T%';
+  my $node  = 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   my $p = getShiftPending($core,%params);
@@ -115,10 +115,13 @@ sub _shift_requestedqueued
     $s{$_->{NODE}}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
 
-  my ($h,$ratio,$nConsec);
+$DB::single=1;
+  my ($h,$ratio,$nConsecFail,$nConsecOK);
   foreach $node ( keys %s )
   {
-    $nConsec = 0;
+#   Declare a problem is there are four consecutive bins where data is
+#   requested but less than 10% of that data is queued.
+    $nConsecFail  = $nConsecOK = 0;
     foreach $bin ( sort keys %{$s{$node}{TIMEBINS}} )
     {
       $h = $s{$node}{TIMEBINS}{$bin};
@@ -128,14 +131,21 @@ sub _shift_requestedqueued
          { $s{$node}{MAX_REQUEST_BYTES} = $h->{REQUEST_BYTES}; }
 
       $ratio = 0;
+      if ( ! $h->{REQUEST_BYTES} ) { $nConsecFail = 0; }
       if ( $h->{PEND_BYTES} )
       { $ratio = $h->{REQUEST_BYTES} / $h->{PEND_BYTES}; }
-      if ( $ratio < 0.1 ) { $nConsec++; }
-      else                { $nConsec = 0; }
-      if ( $nConsec >= 4 )
+      if ( $ratio < 0.1 ) { $nConsecFail++; }
+      else                { $nConsecFail=0; }
+      if ( $ratio > 0.9 ) { $nConsecOK++; }
+      else                { $nConsecOK=0;  }
+      if ( $nConsecFail >= 4 )
       {
         $s{$node}{STATUS} = 'Problem';
         $s{$node}{REASON} = 'Queue stuck';
+      }
+      if ( $nConsecOK >= 3 && $s{$node}{STATUS} ne 'OK' )
+      {
+        $s{$node}{REASON} = 'Queue may have been stuck';
       }
       delete $h->{NODE};
       push @{$s{$node}{NESTEDDATA}},$h;
@@ -151,7 +161,6 @@ sub _shift_requestedqueued
       $s{$node}{STATUS} = 'OK';
       $s{$node}{REASON} = 'no data requested';
     }
-
     delete $s{$node}{TIMEBINS};
   }
 
