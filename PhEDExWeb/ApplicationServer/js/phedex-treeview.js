@@ -220,7 +220,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
       postGotData: function(step,node) {
         this._cache.partners = {};
-        var i, steps = [/*'doSort', 'doFilter', 'hideFields',*/ 'markOverflows'];
+        var i, steps = ['doSort', 'doFilter', 'hideFields', 'markOverflows'];
         for (i in steps) { _sbx.notify(this.id,steps[i]); }
       },
 
@@ -691,7 +691,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
       obj = args.payload.obj;
   _construct = function() {
     return {
-      execute: function(o,s /*className,type,dir*/) {
+      execute: function(o,s) {
 //      node is a tree-node that needs to be sorted, along with its siblings.
 //      className is the class to use as the sort-key. If not given, look to see if a default is already set for this group
 //      sortFn is the actual sorting function, either passed or taken from set defaults
@@ -763,13 +763,13 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
         });
 
 //      add a visual indicator that the module has been sorted
-        var s = o.dom.sorted;
-        if ( !s ) {
-          o.dom.sorted = s = PxU.makeChild(o.dom.control,'span');
-          s.innerHTML = 'S';
-          s.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display';
+        var sortIndicator = o.dom.sorted;
+        if ( !sortIndicator ) {
+          o.dom.sorted = sortIndicator = PxU.makeChild(o.dom.control,'span');
+          sortIndicator.innerHTML = 'S';
+          sortIndicator.title = 'This is a visual marker to show that the tree has been sorted, in case the sorted field is currently hidden from display. Click this button to cancel sorting (may be useful for performance reasons)';
         }
-        s.className = 'phedex-sorted';
+        sortIndicator.className = 'phedex-sorted';
 
 // TODO Why do I need this...?
         for (i in o._cfg.hiddenBranches) {
