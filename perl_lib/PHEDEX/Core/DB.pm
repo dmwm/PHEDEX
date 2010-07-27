@@ -320,7 +320,7 @@ sub dbbindexec
     }
     
     return $isarray
-	    ? $stmt->execute_array({ ArrayTupleStatus => [] })
+	    ? $stmt->execute_array({ ArrayTupleResult => [] })
 	    : $stmt->execute();
   };
   my $dt = &mytimeofday() - $t1;

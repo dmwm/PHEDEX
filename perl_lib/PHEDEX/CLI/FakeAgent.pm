@@ -12,7 +12,6 @@ use Getopt::Long;
 use Sys::Hostname;
 use Socket;
 use CGI;
-use Apache2::Const -compile => qw(FORBIDDEN OK);
 
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
@@ -33,7 +32,6 @@ our %params =
 	  FORMAT	=> undef,
 	  INSTANCE	=> undef,
 	  CALL		=> undef,
-	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
 	  ME	 	=> 'PHEDEX::CLI::FakeAgent',

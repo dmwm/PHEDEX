@@ -9,7 +9,7 @@ use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
 my ($instance,$format,$method,$test_cert,$ref,$timeout,$paranoid);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
-my ($default_service,$target,$payload);
+my ($default_service);
 
 my $me = $0;
 $me =~ s:.*/::;
@@ -23,7 +23,7 @@ $help = $verbose = $debug = $quiet = 0;
 $nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
 
 my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
-my @commands = map { lc $_ } keys %{ $loader->Commands() };
+my @commands = map { lc $_ } values %{ $loader->Commands() };
 
 Getopt::Long::Configure('require_order');
 GetOptions
@@ -37,8 +37,6 @@ GetOptions
 	 'ca_file=s'	=> \$ca_file,
 	 'ca_dir=s'	=> \$ca_dir,
 	 'url=s'	=> \$url,
-	 'target=s'	=> \$target,
-	 'payload=s'	=> \$payload,
 	 'nocert'	=> \$nocert,
 	 'testcert'	=> \$test_cert,
 	 'timeout=i'	=> \$timeout,
@@ -180,7 +178,7 @@ while (@ARGV)
   print "ARGV to '$command':  ", join(' ', @ARGV), "\n" if $debug;
 
   my $commands = $loader->Commands();
-  if (! grep($command eq lc $_, keys %$commands) ) {
+  if (! grep($command eq lc $_, values %$commands) ) {
       die "command '$command' is not known, use '$me --help' for help\n";
   }
 
@@ -195,9 +193,7 @@ while (@ARGV)
   }
   $pua->CALL($cli->Call());
   print $pua->Dump() if $debug;
-  my $t = $pua->target;
-  my $p = $cli->Payload();
-  $response = $pua->$method($t,$p);
+  $response = $pua->$method($pua->target,$cli->Payload());
 
   print "Response: ",$response->content() if $debug;
   if ( $pua->response_ok($response) )
@@ -248,10 +244,4 @@ while (@ARGV)
   }
 }
 
-exit 0 unless $target;
-$pua->TARGET($target);
-$response = $pua->$method($pua->target,$payload);
-my $content = $response->content();
-chomp $content;
-print $content, "\n";
 exit 0;

@@ -151,7 +151,7 @@ sub injectData
     die "injectData requires data!\n" unless $data;
     die "injectData requires a SOURCE_NODE\n" unless $src_node;
 
-    my $verbose = exists $h{VERBOSE} ? $h{VERBOSE} : 0;
+    my $verbose = exists $h{VERBOSE} ? $h{VERBOSE} : 1;
     my $strict  = exists $h{STRICT}  ? $h{STRICT}  : 1;
 
     my $now = &mytimeofday();
