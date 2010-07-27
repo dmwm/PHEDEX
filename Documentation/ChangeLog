@@ -2,8 +2,17 @@ Changes for PhEDEx 3.3.2
 
 Dependency Changes
  - Drop dependency of PHEDEX agent distributions on dbs-client, dls-client
-  - PHEDEX-micro distribution mantains the dependency
- - Update Dependencies to latest version of COMP packages
+  - PHEDEX-micro distribution adds the dependency on dbs-client for DBS-TMDB consistency checks
+ - Update Dependencies to latest version of COMP/CMSDIST packages
+  - external+base+REV16
+    - oracle: 11.2.0.1.0p1 -> 11.2.0.1.0p2
+      - fix for the 64bit libocci/selinux problem
+    - oracle-env: 24.0 -> 25.0
+      - Update to latest tnsnames.ora
+      - Add sqlnet.ora config file to avoid
+        creation of ~/oradiag_$USER directories with oracle 11 clients.
+    - python 2.4.2->2.6.4	
+  - cms+dbs-client+DBS_2_1_0_patch_2 
 	
 Changes for Site Agents
  - Watchdog
@@ -21,6 +30,7 @@ Changes for Site Agents
     but pnfs
   - posix and dCache caching mechanims ON by default
   - added Chimera dump parsing option for dCache technology
+  - added support for gzipped Chimera dump files
   - Test queue is sorted by dataset ID, after test priority and test expiration time
 	- Should increase cache efficiency by ensuring that files in the same dataset
 	  are tested consecutively
@@ -48,7 +58,9 @@ Changes for Operator Tools
   - Unused DBS client scripts removed
   - Useful scripts updated to work with python 2.6/DBS_CLIENT_2_1_0
   - Added --size option to printout file size in DBSgetLFNsFromBlock	
-
+ - Utilities:
+  - Various operator tools added to PHEDEX-micro distribution
+	
 Changes for Schema
  - OracleInit.sql: reorder schema deployment
 
