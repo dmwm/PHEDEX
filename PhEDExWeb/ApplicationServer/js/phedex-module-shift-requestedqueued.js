@@ -90,7 +90,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           ],
         },
         sort:{field:'Node'},
-//         hide:['From Node'],
+        hide:['Status'],
         filter: {
           'Requested-Queued attributes':{
             map: { to:'RQ' },
@@ -173,6 +173,12 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
       },
       fillExtra: function() {
+      },
+// Apply a filter by default, to show only the bad fields
+      initMe: function() {
+        var f = this.meta._filter.fields;
+        f['Status'].value = 'OK';
+        f['Status'].negate = true;
       }
     };
   };
