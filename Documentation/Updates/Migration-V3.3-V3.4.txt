@@ -7,20 +7,20 @@ alter table t_dps_block add constraint uq_dps_block_dataset unique (dataset, id)
 -- Dump request parameters in subscription parameter table
 insert into t_dps_subs_param
 (id, request, 
- priority, is_move, is_custodial, user_group, 
+ priority, is_custodial, user_group, 
  original, time_create)
 select seq_dps_subs_param.nextval, rx.request,
-       rx.priority, rx.is_move, rx.is_custodial, rx.user_group,
+       rx.priority, rx.is_custodial, rx.user_group,
        'y', r.time_create
   from t_req_xfer rx
   join t_req_request r on r.id = rx.request;
 
 -- Copy over dataset subscriptions, linking to original parameters
 insert into t_dps_subs_dataset
-(destination, dataset, param, 
+(destination, dataset, param, is_move, 
  time_create, time_fill_after, time_suspend_until,
  time_complete, time_done)
-select s.destination, s.dataset, sp.id,
+select s.destination, s.dataset, sp.id, s.is_move,
        s.time_create, NULL, s.time_suspend_until,
        s.time_complete, s.time_done
   from t_dps_subscription s
@@ -32,26 +32,25 @@ select s.destination, s.dataset, sp.id,
 -- First create parameters (for blocks with null request too)
 insert into t_dps_subs_param
 (id, request, 
- priority, is_move, is_custodial, user_group, 
+ priority, is_custodial, user_group, 
  original, time_create)
 select seq_dps_subs_param.nextval, NULL,
        uq.*
-  from (select distinct s.priority, s.is_move, s.is_custodial, s.user_group,
+  from (select distinct s.priority, s.is_custodial, s.user_group,
                'y', s.time_create
           from t_dps_subscription s
          where request is null) uq;
 
 -- Now get the datasets
 insert into t_dps_subs_dataset
-(destination, dataset, param, 
+(destination, dataset, param, is_move,
  time_create, time_fill_after, time_suspend_until,
  time_complete, time_done)
-select s.destination, s.dataset, sp.id,
+select s.destination, s.dataset, sp.id, s.is_move,
        s.time_create, NULL, s.time_suspend_until,
        s.time_complete, s.time_done
   from t_dps_subscription s
   join t_dps_subs_param sp on sp.priority = s.priority
-                          and sp.is_move = s.is_move
                           and sp.is_custodial = s.is_custodial
                           and nvl(sp.user_group,-1) = nvl(s.user_group,-1)
                           and sp.time_create = s.time_create
@@ -60,10 +59,10 @@ select s.destination, s.dataset, sp.id,
 
 -- Now get the block-only subscriptions with a request
 insert into t_dps_subs_block
-(destination, dataset, block, param,
+(destination, dataset, block, param, is_move,
  time_create, time_suspend_until,
  time_complete, time_done)
-select s.destination, b.dataset, s.block, sp.id,
+select s.destination, b.dataset, s.block, sp.id, s.is_move,
        s.time_create, s.time_suspend_until,
        s.time_complete, s.time_done
   from t_dps_subscription s
@@ -74,16 +73,15 @@ select s.destination, b.dataset, s.block, sp.id,
 
 -- And block-only subscriptions without a request
 insert into t_dps_subs_block
-(destination, dataset, block, param, 
+(destination, dataset, block, param, is_move,
  time_create, time_suspend_until,
  time_complete, time_done)
-select s.destination, b.dataset, s.block, sp.id,
+select s.destination, b.dataset, s.block, sp.id, s.is_move,
        s.time_create, s.time_suspend_until,
        s.time_complete, s.time_done
   from t_dps_subscription s
   join t_dps_block b on b.id = s.block
   join t_dps_subs_param sp on sp.priority = s.priority
-                          and sp.is_move = s.is_move
                           and sp.is_custodial = s.is_custodial
                           and nvl(sp.user_group,-1) = nvl(s.user_group,-1)
                           and sp.time_create = s.time_create
@@ -104,18 +102,17 @@ select count(*) from t_dps_subs_block;
 
 insert into t_dps_subs_param 
 (id, request,
- priority, is_move, is_custodial, user_group,
+ priority, is_custodial, user_group,
  original, time_create)  
 select seq_dps_subs_param.nextval, uq.* from (
        select distinct sub.request,                                                                                                               
-       sub.priority, sub.is_move, sub.is_custodial, sub.user_group,  
+       sub.priority, sub.is_custodial, sub.user_group,  
        'n', sub.time_create 
   from t_dps_subscription sub
   left join t_dps_subs_dataset sd on sd.dataset=sub.dataset and sd.destination=sub.destination
   left join t_dps_subs_block sb on sb.block=sub.block and sb.destination=sub.destination
   join t_dps_subs_param sp on sd.param=sp.id or sb.param=sp.id 
     where sp.priority != sub.priority
-    or sp.is_move != sub.is_move
     or sp.is_custodial != sub.is_custodial                                                                                               
     or nvl(sp.user_group,-1) != nvl(sub.user_group,-1)) uq;
 
@@ -127,14 +124,12 @@ merge into t_dps_subs_dataset d using
 	join t_dps_subs_param pm on
 	  nvl(pm.request,-1) =  nvl(sub.request,-1)
 	  and pm.priority = sub.priority
-	  and pm.is_move = sub.is_move                                                                                                         
           and pm.is_custodial = sub.is_custodial                                                                                               
           and nvl(pm.user_group,-1) = nvl(sub.user_group,-1)                                                                                   
           and pm.time_create = sub.time_create
 	join t_dps_subs_param sp on
 	 sp.id=ds.param	   
 	where sp.priority != sub.priority            
-	 or sp.is_move != sub.is_move
 	 or sp.is_custodial != sub.is_custodial
 	 or nvl(sp.user_group,-1) != nvl(sub.user_group,-1)) dnew on
 	(d.dataset=dnew.dataset and d.destination=dnew.destination)
@@ -149,14 +144,12 @@ merge into t_dps_subs_block b using
         join t_dps_subs_param pm on     
           nvl(pm.request,-1) =  nvl(sub.request,-1)  
           and pm.priority = sub.priority  
-           and pm.is_move = sub.is_move
            and pm.is_custodial = sub.is_custodial  
            and nvl(pm.user_group,-1) = nvl(sub.user_group,-1)   
            and pm.time_create = sub.time_create    
          join t_dps_subs_param sp on  
           sp.id=ds.param  
          where sp.priority != sub.priority   
-          or sp.is_move != sub.is_move    
           or sp.is_custodial != sub.is_custodial   
           or nvl(sp.user_group,-1) != nvl(sub.user_group,-1)) dnew on    
          (b.block=dnew.block and b.destination=dnew.destination)   
@@ -170,7 +163,6 @@ select count(*) from t_dps_subs_dataset sd
  join t_dps_subscription sub on sub.dataset=sd.dataset
   and sub.destination=sd.destination
  where sub.is_custodial!=sp.is_custodial
-  or sub.is_move!=sp.is_move
   or nvl(sub.user_group,-1)!=nvl(sp.user_group,-1)
   or sub.priority!=sp.priority;
 
@@ -179,7 +171,6 @@ select count(*) from t_dps_subs_block sd
  join t_dps_subscription sub on sub.block=sd.block
   and sub.destination=sd.destination
  where sub.is_custodial!=sp.is_custodial
-  or sub.is_move!=sp.is_move
   or nvl(sub.user_group,-1)!=nvl(sp.user_group,-1)
   or sub.priority!=sp.priority;
  
@@ -187,7 +178,7 @@ select count(*) from t_dps_subs_block sd
 -- note: time_complete comes from t_dps_block_dest, if available
 merge into t_dps_subs_block n using
 (
-select sd.destination, b.dataset, b.id block, sd.param,
+select sd.destination, b.dataset, b.id block, sd.param, sd.is_move,
        greatest(sd.time_create, b.time_create) time_create, sd.time_suspend_until,
        bd.time_complete, bd.time_complete time_done
   from t_dps_subs_dataset sd
@@ -197,11 +188,11 @@ left join t_dps_block_dest bd on bd.block = b.id and bd.destination = sd.destina
         and n.dataset = o.dataset
         and n.block = o.block)
 when not matched then insert
-(destination, dataset, block, param, 
+(destination, dataset, block, param, is_move,
  time_create, time_suspend_until,
  time_complete, time_done)
 values
-(o.destination, o.dataset, o.block, o.param,
+(o.destination, o.dataset, o.block, o.param, o.is_move,
  o.time_create, o.time_suspend_until,
  o.time_complete, o.time_done);
 
