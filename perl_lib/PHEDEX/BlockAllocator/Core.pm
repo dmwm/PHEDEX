@@ -406,20 +406,6 @@ sub datasetSubscriptions
     return map { [$_, $stats{$_}] } @stats_order;
   
 }
-					  
-# Deletes one subscription
-sub delete_subscription
-{
-    my ($self, $subs) = @_;
-    $self->execute_sql( qq{
-	delete from t_dps_subscription
-         where destination = :destination
-           and nvl(dataset, -1) = nvl(:dataset, -1)
-           and nvl(block, -1) = nvl(:block, -1) },
-	    ':destination' => $subs->{SUBS_DESTINATION},
-	    ':dataset' => $subs->{SUBS_DATASET},
-	    ':block' => $subs->{SUBS_BLOCK});
-}
 
 # Phase II:  Block Destination creation/deletion
 #   1.  Create block destinations where a block subscription exists
