@@ -1,5 +1,7 @@
 package PHEDEX::Web::API::Shift::RequestedQueued;
 use PHEDEX::Core::DB;
+use PHEDEX::Web::API::Shift::Requested;
+use PHEDEX::Web::API::Shift::Queued;
 
 use warnings;
 use strict;
@@ -82,9 +84,8 @@ sub _shift_requestedqueued
   my $end   =  $epochHours     * 3600;
   my $node  = 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
-
-  my $p = getShiftPending($core,%params);
-  my $q = getShiftRequested( $core,%params);
+  my $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,%params);
+  my $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested( $core,%params);
 
   my (%s,$bin,$unique);
   $unique = 0;
@@ -115,7 +116,6 @@ sub _shift_requestedqueued
     $s{$_->{NODE}}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
 
-$DB::single=1;
   my ($h,$ratio,$nConsecFail,$nConsecOK);
   foreach $node ( keys %s )
   {
@@ -166,51 +166,6 @@ $DB::single=1;
 
   my @r = values %s;
   return { requestedqueued => \@r };
-}
-
-sub getShiftPending
-{
-  my ($core,%params) = @_;
-  my $r;
-  my $sql = qq{
-    select
-      t.name node,
-      trunc(h.timebin/3600)*3600 timebin,
-      nvl(sum(h.pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes
-    from t_history_link_stats h
-      join t_adm_node t on t.id = h.to_node
-    where timebin >= :starttime
-      and timebin < :endtime
-      and t.name like :node
-    group by trunc(h.timebin/3600)*3600, t.name
-    order by 1 asc, 2 };
-  my $q = &dbexec($core->{DBH}, $sql,%params);
-  while (my $row = $q->fetchrow_hashref())
-  { $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; }
-  return $r;
-}
-
-sub getShiftRequested
-{
-  my ($core,%params) = @_;
-  my $r;
-  my $sql = qq{
-    select
-      t.name node,
-      trunc(h.timebin/3600)*3600 timebin,
-      nvl(sum(h.request_bytes) keep (dense_rank last order by timebin asc),0) request_bytes
-    from t_history_dest h
-      join t_adm_node t on t.id = h.node
-    where timebin >= :starttime
-      and timebin < :endtime
-      and t.name like :node
-    group by trunc(h.timebin/3600)*3600, t.name
-    order by 1 asc, 2 };
-
-  my $q = &dbexec($core->{DBH}, $sql,%params);
-  while (my $row = $q->fetchrow_hashref())
-  { $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; }
-  return $r;
 }
 
 1;
