@@ -51,6 +51,11 @@ sub Load
   die __PACKAGE__,": no module found for action \"$Action\"\n" unless $module;
   eval("require $module");
   do { chomp ($@); die "Failed to load module $module: $@\n" } if $@;
+  {
+    no strict 'refs';
+    die "Loaded $module, but no package found with that name!\n"
+    unless keys %{$module . '::'};
+  }
   return $module;
 }
 
