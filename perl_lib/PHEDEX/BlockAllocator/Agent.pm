@@ -55,13 +55,16 @@ sub idle
     $dbh = $self->connectAgent();
     my $now = &mytimeofday ();
 
-    my @stats1 = $self->subscriptions($now);
-    my @stats2 = $self->allocate($now);
-    my @stats3 = $self->blockDestinations($now);
+    my @stats0 = $self->addBlockSubscriptions($now);
+    my @stats1 = $self->blockSubscriptions($now);
+    my @stats2 = $self->datasetSubscriptions($now);
+    my @stats3 = $self->suspendBlockSubscriptions($now);
+    my @stats4 = $self->allocate($now);
+    my @stats5 = $self->blockDestinations($now);
     $self->mergeLogBlockLatency();
     $dbh->commit();
-    if (grep $_->[1] != 0, @stats1, @stats2, @stats3) {
-	$self->printStats('allocation stats', @stats1, @stats2, @stats3);
+    if (grep $_->[1] != 0,  @stats0, @stats1, @stats2, @stats3, @stats4, @stats5) {
+	$self->printStats('allocation stats', @stats0, @stats1, @stats2, @stats3, @stats4, @stats5);
     } else {
 	$self->Logmsg('nothing to do');
     }
