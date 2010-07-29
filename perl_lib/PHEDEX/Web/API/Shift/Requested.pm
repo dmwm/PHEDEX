@@ -19,7 +19,7 @@ sub _shift_requested
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   my $q = getShiftRequested( $core,%params);
-  return { requested => \$q };
+  return { requested => $q };
 }
 
 sub getShiftRequested

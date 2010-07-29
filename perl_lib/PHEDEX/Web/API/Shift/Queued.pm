@@ -20,7 +20,7 @@ $DB::single=1;
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   my $p = getShiftPending($core,%params);
-  return { queued => \$p };
+  return { queued => $p };
 }
 
 sub getShiftPending
