@@ -11,6 +11,8 @@
     - total bytes and total number of files, in a block of the same priority/state category, are shown as block attributes
   * 'transferqueueblocks':
     - rewritten for more efficient query
+  * 'inject':
+   - enforce 'verbose=0', to prevent debug printout causing the returned data to be invalid XML. (This note was added after the release, oops!)
  
  Bug fix:
 
