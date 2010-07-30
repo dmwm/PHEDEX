@@ -79,7 +79,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             {key:'node',        label:'Node'},
             {key:'name',        label:'Agent'},
             {key:'time_update', label:'Date', formatter:'UnixEpochToGMT'},
-            {key:'pid',         label:'PID',  className:'align-right'},
+            {key:'pid',         label:'PID',  parser:'number', className:'align-right'},
             {key:'version',     label:'Version' },
             {key:'label',       label:'Label' },
             {key:'host',        label:'Host' },
