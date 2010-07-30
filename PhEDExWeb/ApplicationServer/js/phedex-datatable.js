@@ -69,8 +69,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                   j--;
                   c = table.columns[j], val = a[table.map[c.key]];
                   if (c.parser) {
-                    if (typeof c.parser == 'function') { val = c.parser(val); }
-                    else { val = YuDSB.Parser[c.parser](val); }
+                    val = c.parser(val);
                   }
                   y[c.key] = val;
                 }
@@ -145,7 +144,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 col = allColumns[i];
                 if (col.parser) {
                   if (typeof col.parser == 'function') { m.parser[col.key] = col.parser; }
-                  else { m.parser[col.key] = YuDSB.Parser[col.parser]; }
+                  else { m.parser[col.key] = col.parser = YuDSB.Parser[col.parser]; }
                 }
               }
 
@@ -611,7 +610,7 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
       } catch (e) { alert(e.message); }
       w.document.writeln(t);
     };
-    PHEDEX.Component.ContextMenu.Add('datatable', 'Show table data (JSON)', fnDump);
+    PHEDEX.Component.ContextMenu.Add('datatable', PxU.feature['beta'] + 'Show table data (JSON)', fnDump);
 
     // This function gets the column object from main or nested datatable and also indicates if the column is in main or nested datatable.
     var _getDTColumn = function (target) {
