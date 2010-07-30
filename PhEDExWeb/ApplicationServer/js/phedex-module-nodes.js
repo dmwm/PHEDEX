@@ -28,7 +28,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       meta: {
         ctxArgs: { Name:'node' },
         table: {
-          columns: [ {key:'ID',parser:YuDS.parseNumber, className:'align-right' },'Name','Kind','Technology','SE' ]
+          columns: [ {key:'ID',parser:'number', className:'align-right' },'Name','Kind','Technology','SE' ]
         },
         hide: ['ID'],
         sort: {field:'Name'}, // dir:Yw.DataTable.CLASS_ASC}, // this is the default
