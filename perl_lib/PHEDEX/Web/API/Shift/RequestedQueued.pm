@@ -79,15 +79,21 @@ sub invoke { return _shift_requestedqueued(@_); }
 sub _shift_requestedqueued
 {
   my ($core, %h) = @_;
-  my $epochHours = int(time/3600);
-  my $start = ($epochHours-12) * 3600;
-  my $end   =  $epochHours     * 3600;
-  my $node  = 'T%';
-  my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
-  my $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,%params);
-  my $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested( $core,%params);
-
+  my ($epochHours,$start,$end,$node,%params,$p,$q,$mindata);
+  my ($h,$ratio,$nConsecFail,$nConsecOK);
   my (%s,$bin,$unique);
+
+  $epochHours = int(time/3600);
+  $start = ($epochHours-12) * 3600;
+  $end   =  $epochHours     * 3600;
+  $node  = 'T%';
+  %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
+  $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,%params);
+  $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested( $core,%params);
+
+  map { $h{uc $_} = uc delete $h{$_} } keys %h;
+  $mindata = $h{MINDATA} || 1024*1024*1024*1024;
+
   $unique = 0;
   foreach ( keys %{$q} )
   {
@@ -107,6 +113,8 @@ sub _shift_requestedqueued
 			 NODE			=> $_->{NODE},
 			 MAX_PEND_BYTES		=> 0,
 			 MAX_REQUEST_BYTES	=> 0,
+			 CUR_PEND_BYTES		=> 0,
+			 CUR_REQUEST_BYTES	=> 0,
 			 TIMEBINS		=> {},
 			 STATUS			=> 'OK',
 			 NESTEDDATA		=> [],
@@ -116,7 +124,6 @@ sub _shift_requestedqueued
     $s{$_->{NODE}}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
 
-  my ($h,$ratio,$nConsecFail,$nConsecOK);
   foreach $node ( keys %s )
   {
 #   Declare a problem is there are four consecutive bins where data is
@@ -129,6 +136,9 @@ sub _shift_requestedqueued
          { $s{$node}{MAX_PEND_BYTES} = $h->{PEND_BYTES}; }
       if ( $s{$node}{MAX_REQUEST_BYTES} < $h->{REQUEST_BYTES} )
          { $s{$node}{MAX_REQUEST_BYTES} = $h->{REQUEST_BYTES}; }
+
+      $s{$node}{CUR_PEND_BYTES}    = $h->{PEND_BYTES};
+      $s{$node}{CUR_REQUEST_BYTES} = $h->{REQUEST_BYTES};
 
       $ratio = 0;
       if ( ! $h->{REQUEST_BYTES} ) { $nConsecFail = 0; }
@@ -151,7 +161,7 @@ sub _shift_requestedqueued
       push @{$s{$node}{NESTEDDATA}},$h;
     }
 
-    if ( $s{$node}{MAX_REQUEST_BYTES} < 1024*1024*1024 )
+    if ( $s{$node}{MAX_REQUEST_BYTES} < $mindata )
     {
       $s{$node}{STATUS} = 'OK';
       $s{$node}{REASON} = 'very little data requested';
