@@ -43,7 +43,11 @@ sub getShiftPending
     order by 1 asc, 2 };
   my $q = &dbexec($core->{DBH}, $sql, %{$params});
   while (my $row = $q->fetchrow_hashref())
-  { $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; }
+  {
+    $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row;
+    $row->{TIMEBIN} += 0; # numify for the JSON encoder
+    $row->{PEND_BYTES} += 0; # numify for the JSON encoder
+  }
 
   return $r if $h->{NOAGGREGATE};
 # Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.

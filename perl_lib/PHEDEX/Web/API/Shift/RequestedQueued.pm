@@ -131,9 +131,10 @@ sub _shift_requestedqueued
 #   Declare a problem is there are four consecutive bins where data is
 #   requested but less than 10% of that data is queued.
     $nConsecFail  = $nConsecOK = 0;
-    foreach $bin ( sort keys %{$s{$node}{TIMEBINS}} )
+    foreach $bin ( sort { $a <=> $b } keys %{$s{$node}{TIMEBINS}} )
     {
       $e = $s{$node}{TIMEBINS}{$bin};
+      $e->{TIMEBIN} += 0; # numify for JSON encoder
       if ( $s{$node}{MAX_PEND_BYTES} < $e->{PEND_BYTES} )
          { $s{$node}{MAX_PEND_BYTES} = $e->{PEND_BYTES}; }
       if ( $s{$node}{MAX_REQUEST_BYTES} < $e->{REQUEST_BYTES} )

@@ -44,7 +44,11 @@ sub getShiftRequested
 
   my $q = &dbexec($core->{DBH}, $sql,% {$params});
   while (my $row = $q->fetchrow_hashref())
-  { $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; }
+  {
+    $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; 
+    $row->{TIMEBIN} += 0; # numify for the JSON encoder
+    $row->{REQUEST_BYTES} += 0; # numify for the JSON encoder
+   }
 
   return $r if $h->{NOAGGREGATE};
 # Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.
