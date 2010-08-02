@@ -1,9 +1,11 @@
 /*
  TODO:
 1) For T1_%_MSS, "Queued data" should show the sum of data queued to T1_%_Buffer and T1_%_MSS Since here we're trying to understand if the data isn't being queued at all, the interesting thing in this comparison is the total amount of queued data on the route, not just the queue to the final hop. Of course this will become a mess if we ever enable multi-hop routing!
+ -> done!
 
 2) Sorting by "Max Queued" or "Max Requested" is sorting the values based on the string representation; a sorting on the numerical value would be more useful.
  -> parsing of string to number is not happening, because _processData isn't being called - or rather, does nothing. This would be fine if the datasvc returned numerical values instead of strings, and it is supposed to, but it doesn't. Somewhere inside JSON::XS::encode_json, numerical values are not being recognised correctly, and are being returned as strings.
+ -> done!
 
 3) I'm wondering if some sort of 'red alert' flashing triangle (or KIT-style  unhappy face, which is more color-blind-friendly) would be more appreciated by the shifters instead of a simple 'Problem' text label
 
@@ -109,7 +111,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             {key:'max_pend_bytes',    label:'Max. Queued',         className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'max_request_bytes', label:'Max. Requested',      className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'cur_pend_bytes',    label:'Currently Queued',    className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number'/*, formatter:'customBytes'*/},
+            {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number', formatter:'customBytes'},
           ],
           nestedColumns:[
             {key:'timebin',       label:'Timebin',   formatter:'UnixEpochToGMT' },
@@ -143,9 +145,20 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       * @param jsonBlkData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
       * @private
       */
-      _processData: function (jsonData) {
-        log("The data has been processed for data source", 'info', this.me);
-        this.needProcess = false;
+//       _processData: function (jsonData) {
+//         log("The data has been processed for data source", 'info', this.me);
+//         this.needProcess = false;
+//         return jsonData;
+//       },
+
+      _processData: function(jsonData) {
+        var t=[], table = this.meta.table, i = jsonData.length, k = table.columns.length, j, a, c;
+        while (i > 0) {
+          i--
+          a = jsonData[i];
+          a['reason'] = PxU.icon['red-circle'] + a['reason'];
+        }
+        this.needProcess = false; //No need to process data further
         return jsonData;
       },
 
@@ -204,11 +217,11 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       fillExtra: function() {
       },
 // Apply a filter by default, to show only the bad fields
-      initMe: function() {
-        var f = this.meta._filter.fields;
-        f['Status'].value = 'OK';
-        f['Status'].negate = true;
-      }
+//       initMe: function() {
+//         var f = this.meta._filter.fields;
+//         f['Status'].value = 'OK';
+//         f['Status'].negate = true;
+//       }
     };
   };
   Yla(this,_construct(this),true);
