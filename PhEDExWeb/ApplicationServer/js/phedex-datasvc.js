@@ -200,7 +200,8 @@ PHEDEX.Datasvc = (function() {
           query.text += '?' + argstr;
         }
         if ( PxW.nocache ) {
-          query.text += '&nocache=1';
+          if ( query.text ) { query.text += '&'; }
+          query.text += 'nocache=1';
         }
     }
   
