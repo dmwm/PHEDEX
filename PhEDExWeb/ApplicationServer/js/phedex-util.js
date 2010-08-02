@@ -241,6 +241,11 @@ PHEDEX.Util.feature = {
   alpha: "<div class='feature-class feature-alpha' title='this feature is in alpha-release, expect bugs!'>&alpha;</div>",
   beta:  "<div class='feature-class feature-beta'  title='this feature is in beta-release, and may not be production quality'>&beta;</div>"
 };
+PHEDEX.Util.icon = {
+  'red-circle':    "<img class='icon-class icon-red-circle'    title='red for danger, something is wrong here!'         src='"+PxU.BaseURL+"images/16-circle-red.png' />",
+  'yellow-circle': "<img class='icon-class icon-yellow-circle' title='yellow for warning, something may be wrong here!' src='"+PxU.BaseURL+"images/16-circle-yellow.png' />",
+  'green-circle':  "<img class='icon-class icon-green-circle'  title='green is good'                                    src='"+PxU.BaseURL+"images/16-circle-green.png' />",
+};
 
 /**
 * This is the prototype for the string trim function. This is to trim the string 
