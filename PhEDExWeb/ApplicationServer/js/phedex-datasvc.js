@@ -199,6 +199,9 @@ PHEDEX.Datasvc = (function() {
         } else {
           query.text += '?' + argstr;
         }
+        if ( PxW.nocache ) {
+          query.text += '&nocache=1';
+        }
     }
   
   // public methods/properties below
