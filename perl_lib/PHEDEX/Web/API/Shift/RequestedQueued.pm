@@ -88,37 +88,18 @@ sub _shift_requestedqueued
   $end   =  $epochHours     * 3600;
   $node  = 'T%';
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
-  $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,%params);
-  $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested( $core,%params);
 
   map { $h{uc $_} = uc delete $h{$_} } keys %h;
-  $mindata = $h{MINDATA} || 1024*1024*1024*1024;
+  $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,\%params,\%h);
+  $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested($core,\%params,\%h);
 
-# Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.
-  foreach $i ( keys %{$q} )
-  {
-    if ( $i =~ m%^T1_(.*)_Buffer\+(\d+)$% )
-    {
-      $node = 'T1_' . $1 . '_MSS';
-      $bin = $2;
-      $j = $node . '+' . $bin;
-      if ( !$q->{$j} )
-      {
-        $q->{$j}{TIMEBIN} = $q->{$bin};
-        $q->{$j}{NODE}    = $node;
-        $q->{$j}{REQUEST_BYTES} = 0;
-        $q->{$_}{PEND_BYTES} = 0;
-      }
-      $q->{$j}{REQUEST_BYTES} += $q->{$i}{REQUEST_BYTES};
-      $q->{$j}{PEND_BYTES}    += $p->{$j}{PEND_BYTES} || 0;
-      delete $q->{$i};
-    }
-  }
+  $mindata = $h{MINDATA} || 1024*1024*1024*1024;
 
   $unique = 0;
   foreach ( keys %{$q} )
   {
     $q->{$_}{RATIO} = 0;
+    $q->{$_}{PEND_BYTES} = $p->{$_}{PEND_BYTES} || 0;
     if ( $q->{$_}{PEND_BYTES} )
     {
       $q->{$_}{RATIO} = $q->{$_}{REQUEST_BYTES} / $q->{$_}{PEND_BYTES};

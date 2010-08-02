@@ -11,7 +11,6 @@ sub invoke { return _shift_queued(@_); }
 
 sub _shift_queued
 {
-$DB::single=1;
   my ($core, %h) = @_;
   my $epochHours = int(time/3600);
   my $start = ($epochHours-12) * 3600;
@@ -19,29 +18,53 @@ $DB::single=1;
   my $node  = 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
-  my $p = getShiftPending($core,%params);
+  my $p = getShiftPending($core,\%params,\%h);
   return { queued => $p };
 }
 
 sub getShiftPending
 {
-  my ($core,%params) = @_;
-  my $r;
-  my $sql = qq{
+  my ($core,$params,$h) = @_;
+  my ($r,$sql,$span);
+
+  map { $h->{uc $_} = uc delete $h->{$_} } keys %$h;
+  $span = $h->{SPAN} || 3600;
+  $sql = qq{
     select
       t.name node,
-      trunc(h.timebin/3600)*3600 timebin,
+      trunc(h.timebin/$span)*$span timebin,
       nvl(sum(h.pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes
     from t_history_link_stats h
       join t_adm_node t on t.id = h.to_node
     where timebin >= :starttime
       and timebin < :endtime
       and t.name like :node
-    group by trunc(h.timebin/3600)*3600, t.name
+    group by trunc(h.timebin/$span)*$span, t.name
     order by 1 asc, 2 };
-  my $q = &dbexec($core->{DBH}, $sql,%params);
+  my $q = &dbexec($core->{DBH}, $sql, %{$params});
   while (my $row = $q->fetchrow_hashref())
   { $r->{$row->{NODE} . '+' . $row->{TIMEBIN}} = $row; }
+
+  return $r if $h->{NOAGGREGATE};
+# Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.
+  my ($i,$j,$node,$bin);
+  foreach $i ( keys %{$r} )
+  {
+    if ( $i =~ m%^T1_(.*)_Buffer\+(\d+)$% )
+    {
+      $node = 'T1_' . $1 . '_MSS';
+      $bin = $2;
+      $j = $node . '+' . $bin;
+      if ( !$r->{$j} )
+      {
+        $r->{$j}{TIMEBIN} = $r->{$bin};
+        $r->{$j}{NODE}    = $node;
+        $r->{$_}{PEND_BYTES} = 0;
+      }
+      $r->{$j}{PEND_BYTES} += $r->{$i}{PEND_BYTES};
+      delete $r->{$i};
+    }
+  }
 
   return $r;
 }
