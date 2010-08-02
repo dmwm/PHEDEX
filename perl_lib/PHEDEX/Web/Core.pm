@@ -261,7 +261,7 @@ sub call
             $obj->{request_call} = $self->{CALL};
             $obj->{request_timestamp} = $self->{REQUEST_TIME};
             $obj->{request_date} = &formatTime($self->{REQUEST_TIME}, 'stamp');
-            $obj->{call_time} = sprintf('%.5f', $t2 - $t1);
+            $obj->{call_time} = int(100_000*( $t2 - $t1))/100_000;
             $obj = { phedex => $obj };
             $t1 = &mytimeofday();
             &PHEDEX::Web::Format::output(*STDOUT, $format, $obj);
