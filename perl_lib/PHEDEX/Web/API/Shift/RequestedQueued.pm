@@ -81,7 +81,7 @@ sub _shift_requestedqueued
   my ($core, %h) = @_;
   my ($epochHours,$start,$end,$node,%params,$p,$q,$mindata);
   my ($h,$ratio,$nConsecFail,$nConsecOK);
-  my (%s,$bin,$unique);
+  my (%s,$bin,$unique,$e,$buffer,$i,$j,$k);
 
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
@@ -94,10 +94,30 @@ sub _shift_requestedqueued
   map { $h{uc $_} = uc delete $h{$_} } keys %h;
   $mindata = $h{MINDATA} || 1024*1024*1024*1024;
 
+# Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.
+  foreach $i ( keys %{$q} )
+  {
+    if ( $i =~ m%^T1_(.*)_Buffer\+(\d+)$% )
+    {
+      $node = 'T1_' . $1 . '_MSS';
+      $bin = $2;
+      $j = $node . '+' . $bin;
+      if ( !$q->{$j} )
+      {
+        $q->{$j}{TIMEBIN} = $q->{$bin};
+        $q->{$j}{NODE}    = $node;
+        $q->{$j}{REQUEST_BYTES} = 0;
+        $q->{$_}{PEND_BYTES} = 0;
+      }
+      $q->{$j}{REQUEST_BYTES} += $q->{$i}{REQUEST_BYTES};
+      $q->{$j}{PEND_BYTES}    += $p->{$j}{PEND_BYTES} || 0;
+      delete $q->{$i};
+    }
+  }
+
   $unique = 0;
   foreach ( keys %{$q} )
   {
-    $q->{$_}{PEND_BYTES} = $p->{$_}{PEND_BYTES} || 0;
     $q->{$_}{RATIO} = 0;
     if ( $q->{$_}{PEND_BYTES} )
     {
@@ -107,10 +127,11 @@ sub _shift_requestedqueued
 
   foreach ( values %{$q} )
   {
-    if ( ! $s{$_->{NODE}} )
+    $node = $_->{NODE};
+    if ( ! $s{$node} )
     {
-      $s{$_->{NODE}} = {
-			 NODE			=> $_->{NODE},
+      $s{$node} = {
+			 NODE			=> $node,
 			 MAX_PEND_BYTES		=> 0,
 			 MAX_REQUEST_BYTES	=> 0,
 			 CUR_PEND_BYTES		=> 0,
@@ -121,7 +142,7 @@ sub _shift_requestedqueued
 			 UNIQUEID		=> $unique++,
 		       };
     }
-    $s{$_->{NODE}}{TIMEBINS}{$_->{TIMEBIN}} = $_;
+    $s{$node}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
 
   foreach $node ( keys %s )
@@ -131,19 +152,19 @@ sub _shift_requestedqueued
     $nConsecFail  = $nConsecOK = 0;
     foreach $bin ( sort keys %{$s{$node}{TIMEBINS}} )
     {
-      $h = $s{$node}{TIMEBINS}{$bin};
-      if ( $s{$node}{MAX_PEND_BYTES} < $h->{PEND_BYTES} )
-         { $s{$node}{MAX_PEND_BYTES} = $h->{PEND_BYTES}; }
-      if ( $s{$node}{MAX_REQUEST_BYTES} < $h->{REQUEST_BYTES} )
-         { $s{$node}{MAX_REQUEST_BYTES} = $h->{REQUEST_BYTES}; }
+      $e = $s{$node}{TIMEBINS}{$bin};
+      if ( $s{$node}{MAX_PEND_BYTES} < $e->{PEND_BYTES} )
+         { $s{$node}{MAX_PEND_BYTES} = $e->{PEND_BYTES}; }
+      if ( $s{$node}{MAX_REQUEST_BYTES} < $e->{REQUEST_BYTES} )
+         { $s{$node}{MAX_REQUEST_BYTES} = $e->{REQUEST_BYTES}; }
 
-      $s{$node}{CUR_PEND_BYTES}    = $h->{PEND_BYTES};
-      $s{$node}{CUR_REQUEST_BYTES} = $h->{REQUEST_BYTES};
+      $s{$node}{CUR_PEND_BYTES}    = $e->{PEND_BYTES};
+      $s{$node}{CUR_REQUEST_BYTES} = $e->{REQUEST_BYTES};
 
       $ratio = 0;
-      if ( ! $h->{REQUEST_BYTES} ) { $nConsecFail = 0; }
-      if ( $h->{PEND_BYTES} )
-      { $ratio = $h->{REQUEST_BYTES} / $h->{PEND_BYTES}; }
+      if ( ! $e->{REQUEST_BYTES} ) { $nConsecFail = 0; }
+      if ( $e->{PEND_BYTES} )
+      { $ratio = $e->{REQUEST_BYTES} / $e->{PEND_BYTES}; }
       if ( $ratio < 0.1 ) { $nConsecFail++; }
       else                { $nConsecFail=0; }
       if ( $ratio > 0.9 ) { $nConsecOK++; }
@@ -157,8 +178,8 @@ sub _shift_requestedqueued
       {
         $s{$node}{REASON} = 'Queue may have been stuck';
       }
-      delete $h->{NODE};
-      push @{$s{$node}{NESTEDDATA}},$h;
+      delete $e->{NODE};
+      push @{$s{$node}{NESTEDDATA}},$e;
     }
 
     if ( $s{$node}{MAX_REQUEST_BYTES} < $mindata )
@@ -172,6 +193,7 @@ sub _shift_requestedqueued
       $s{$node}{REASON} = 'no data requested';
     }
     delete $s{$node}{TIMEBINS};
+    delete $s{$node} if ( $s{$node}{STATUS} eq 'OK' && !$h{FULL} );
   }
 
   my @r = values %s;
