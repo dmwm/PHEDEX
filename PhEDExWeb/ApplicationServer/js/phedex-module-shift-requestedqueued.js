@@ -152,11 +152,12 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
 //       },
 
       _processData: function(jsonData) {
-        var t=[], table = this.meta.table, i = jsonData.length, k = table.columns.length, j, a, c;
+        var t=[], table = this.meta.table, i = jsonData.length, k = table.columns.length, j, a, c, map;
+        map = [ 'green-circle', 'yellow-circle', 'red-circle' ]; // indexing here is tied to status-value, 0=>OK, 1=>warning, 2=>error
         while (i > 0) {
           i--
           a = jsonData[i];
-          a['reason'] = PxU.icon['red-circle'] + a['reason'];
+          a['reason'] = PxU.icon[map[a['status']]] + a['reason'];
         }
         this.needProcess = false; //No need to process data further
         return jsonData;
