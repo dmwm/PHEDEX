@@ -124,7 +124,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         table: {
           columns: [
             {key:'node',              label:'Node'},
-            {key:'status',            label:'Status',              className:'align-left'},
+            {key:'status_text',       label:'Status',              className:'align-left'},
             {key:'reason',            label:'Reason',              className:'align-left'},
             {key:'max_pend_bytes',    label:'Max. Queued',         className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'max_request_bytes', label:'Max. Requested',      className:'align-right', parser:'number', formatter:'customBytes'},
@@ -165,12 +165,6 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       * @param jsonBlkData {object} tabular data (2-d array) used to fill the datatable. The structure is expected to conform to <strong>data[i][key] = value</strong>, where <strong>i</strong> counts the rows, and <strong>key</strong> matches a name in the <strong>columnDefs</strong> for this table.
       * @private
       */
-//       _processData: function (jsonData) {
-//         log("The data has been processed for data source", 'info', this.me);
-//         this.needProcess = false;
-//         return jsonData;
-//       },
-
       _processData: function(jsonData) {
         var t=[], table = this.meta.table, i = jsonData.length, k = table.columns.length, j, a, c, map;
         map = [ 'green-circle', 'yellow-circle', 'red-circle' ]; // indexing here is tied to status-value, 0=>OK, 1=>warning, 2=>error
@@ -214,8 +208,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         var nOK=0, nNotOK=0, rq = data.requestedqueued, stuck = [];
         this.dom.extra.innerHTML = 'No stuck nodes:';
         for (var i in rq) {
-          if ( rq[i].status == 'OK' ) { nOK++; }
-          else                        { nNotOK++; stuck.push(rq[i].node); }
+          if ( !rq[i].status ) { nOK++; }
+          else                 { nNotOK++; stuck.push(rq[i].node); }
         }
         this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
         if ( nNotOK ) {
