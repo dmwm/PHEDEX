@@ -10,6 +10,7 @@ $colours = {
 		magenta	=> '#ff00ff',
 		yellow	=> '#ffff00',
 		black	=> '#000000',
+		orange	=> 'orange',
 	   };
 
 foreach $colour ( keys %{$colours} )
