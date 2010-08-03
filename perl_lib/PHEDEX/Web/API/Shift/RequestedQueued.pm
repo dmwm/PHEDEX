@@ -83,6 +83,12 @@ sub _shift_requestedqueued
   my ($h,$ratio,$nConsecFail,$nConsecOK);
   my (%s,$bin,$unique,$e,$buffer,$i,$j,$k);
 
+#  $status_map = {
+#		  0 => 'OK',
+#		  1 => 'Warning',
+#		  2 => 'Error',
+#		};
+
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
   $end   =  $epochHours     * 3600;
@@ -118,7 +124,8 @@ sub _shift_requestedqueued
 			 CUR_PEND_BYTES		=> 0,
 			 CUR_REQUEST_BYTES	=> 0,
 			 TIMEBINS		=> {},
-			 STATUS			=> 'OK',
+			 STATUS			=> 0,
+			 REASON			=> 'OK',
 			 NESTEDDATA		=> [],
 			 UNIQUEID		=> $unique++,
 		       };
@@ -153,12 +160,13 @@ sub _shift_requestedqueued
       else                { $nConsecOK=0;  }
       if ( $nConsecFail >= 4 )
       {
-        $s{$node}{STATUS} = 'Problem';
+        $s{$node}{STATUS} = 2;
         $s{$node}{REASON} = 'Queue stuck';
       }
-      if ( $nConsecOK >= 3 && $s{$node}{STATUS} ne 'OK' )
+      if ( $nConsecOK >= 3 && $s{$node}{STATUS} )
       {
-        $s{$node}{REASON} = 'Queue may have been stuck';
+        $s{$node}{STATUS} = 1;
+        $s{$node}{REASON} = 'Queue may be stuck';
       }
       delete $e->{NODE};
       push @{$s{$node}{NESTEDDATA}},$e;
@@ -166,16 +174,22 @@ sub _shift_requestedqueued
 
     if ( $s{$node}{MAX_REQUEST_BYTES} < $mindata )
     {
-      $s{$node}{STATUS} = 'OK';
-      $s{$node}{REASON} = 'very little data requested';
+      $s{$node}{STATUS} = 0;
+      $s{$node}{REASON} = 'Very little data requested';
     }
     if ( !$s{$node}{MAX_REQUEST_BYTES} )
     {
-      $s{$node}{STATUS} = 'OK';
-      $s{$node}{REASON} = 'no data requested';
+      $s{$node}{STATUS} = 0;
+      $s{$node}{REASON} = 'No data requested';
+    }
+
+#   Sanity check...
+    if ( !defined $s{$node}{REASON} )
+    {
+      die "REASON not defined for $node. Have you changed the algorithm?\n";
     }
     delete $s{$node}{TIMEBINS};
-    delete $s{$node} if ( $s{$node}{STATUS} eq 'OK' && !$h{FULL} );
+    delete $s{$node} if ( !$s{$node}{STATUS} && !$h{FULL} );
   }
 
   my @r = values %s;
