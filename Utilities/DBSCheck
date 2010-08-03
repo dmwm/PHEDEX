@@ -25,7 +25,8 @@ use PHEDEX::Core::DB;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
 
-my $DBS .= "PHEDEX/Toolkit/DBS";                                                                                                    
+my $toolhome = $0; $toolhome =~ s|/[^/]*$||; $toolhome .= "/..";
+my $DBS = "$toolhome/Toolkit/DBS";
 my %info_Files_DBS = ();
 my %info_Files_TMDB = ();
 my %info_Blocks_DBS = ();
