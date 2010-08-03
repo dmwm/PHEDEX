@@ -81,13 +81,13 @@ sub _shift_requestedqueued
   my ($core, %h) = @_;
   my ($epochHours,$start,$end,$node,%params,$p,$q,$mindata);
   my ($h,$ratio,$nConsecFail,$nConsecOK);
-  my (%s,$bin,$unique,$e,$buffer,$i,$j,$k);
+  my (%s,$bin,$unique,$e,$buffer,$i,$j,$k,$status_map);
 
-#  $status_map = {
-#		  0 => 'OK',
-#		  1 => 'Warning',
-#		  2 => 'Error',
-#		};
+  $status_map = {
+		  0 => 'OK',
+		  1 => 'Warning',
+		  2 => 'Error',
+		};
 
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
@@ -188,6 +188,7 @@ sub _shift_requestedqueued
     {
       die "REASON not defined for $node. Have you changed the algorithm?\n";
     }
+    $s{$node}{STATUS_TEXT} = $status_map->{$s{$node}{STATUS}};
     delete $s{$node}{TIMEBINS};
     delete $s{$node} if ( !$s{$node}{STATUS} && !$h{FULL} );
   }
