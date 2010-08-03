@@ -63,7 +63,7 @@ sub getShiftPending
       {
         $r->{$j}{TIMEBIN} = $r->{$bin};
         $r->{$j}{NODE}    = $node;
-        $r->{$_}{PEND_BYTES} = 0;
+        $r->{$j}{PEND_BYTES} = 0;
       }
       $r->{$j}{PEND_BYTES} += $r->{$i}{PEND_BYTES};
       delete $r->{$i};
