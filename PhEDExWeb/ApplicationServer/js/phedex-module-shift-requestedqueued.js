@@ -8,6 +8,7 @@
  -> done!
 
 3) I'm wondering if some sort of 'red alert' flashing triangle (or KIT-style  unhappy face, which is more color-blind-friendly) would be more appreciated by the shifters instead of a simple 'Problem' text label
+ -> done!
 
 4) warning-state for expert operators, where ratio is lower than the threshold (9) but still significantly greater than 1 (???)
 
@@ -76,6 +77,23 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           }
         },
         {
+          name: 'DataMode',
+          source:'component-control',
+          parent: 'control',
+          payload:{
+//             target: 'extra',
+            handler: 'handleDataMode',
+            text:    'Show Full',
+            tooltip: function() {
+              if ( this.obj.DataMode ) {
+                return 'Show only those nodes with a problem, instead of all nodes (re-fetches data)';
+              } else {
+                return 'Show all nodes, not only those nodes with a problem (re-fetches data)';
+              }
+            }
+          }
+        },
+        {
           name: 'ContextMenu',
           source:'component-contextmenu',
           payload:{
@@ -139,6 +157,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
       },
 
+      DataMode:0,
+
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
       * @method _processData
@@ -181,7 +201,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.DataMode} } );
       },
       gotData: function(data,context) {
         log('Got new data','info',this.me);
@@ -199,6 +219,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
         this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
         if ( nNotOK ) {
+// TODO This should be something more meaningful, like an explanation of the algorithm...
           stuck.sort( function (a, b) { return (a > b) - (a < b); } );
           this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + stuck.join(' ');
         }
@@ -216,6 +237,18 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
       },
       fillExtra: function() {
+      },
+      handleDataMode: function() {
+        var ctl = this.ctl['DataMode'];
+        if ( this.DataMode ) {
+          this.DataMode = 0;
+          ctl.Label('Show Full');
+        } else {
+          this.DataMode = 1;
+          ctl.Label('Show Brief');
+        }
+        ctl.Hide();
+        this.getData();
       },
 // Apply a filter by default, to show only the bad fields
 //       initMe: function() {
