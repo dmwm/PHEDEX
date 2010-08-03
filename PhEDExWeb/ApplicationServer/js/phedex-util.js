@@ -242,9 +242,9 @@ PHEDEX.Util.feature = {
   beta:  "<div class='phedex-feature-class phedex-feature-beta'  title='this feature is in beta-release, and may not be production quality'>&beta;</div>"
 };
 PHEDEX.Util.icon = {
-  'red-circle':    "<img class='phedex-icon-class phedex-icon-red-circle'    title='red for danger, something is wrong here!'         src='"+PxW.BaseURL+"/images/16-circle-red.png' />",
-  'yellow-circle': "<img class='phedex-icon-class phedex-icon-yellow-circle' title='yellow for warning, something may be wrong here!' src='"+PxW.BaseURL+"/images/16-circle-yellow.png' />",
-  'green-circle':  "<img class='phedex-icon-class phedex-icon-green-circle'  title='green is good'                                    src='"+PxW.BaseURL+"/images/16-circle-green.png' />",
+  'green-circle':  "<img alt='0 the number here drives the sort-order' class='phedex-icon-class phedex-icon-green-circle'  src='"+PxW.BaseURL+"/images/icon-circle-green.png' />",
+  'yellow-circle': "<img alt='1 the number here drives the sort-order' class='phedex-icon-class phedex-icon-yellow-circle' src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' />",
+  'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.BaseURL+"/images/icon-circle-red.png' />",
 };
 
 /**
