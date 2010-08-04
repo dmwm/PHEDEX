@@ -145,6 +145,9 @@ body {
   text-shadow:		3px 3px 3px #ffc;
 }
 
+.phedex-link-inline {
+  padding: 0 3px 0;
+}
 a.phedex-link {
   text-decoration: none;
   background-color: #9f0; /* light-green */
@@ -438,4 +441,22 @@ ul li.phedex-contextmenu-beta:before {
 .phedex-feature-beta  { background-color: yellow; }
 .phedex-icon-class {
   padding: 0 3px 0 0;
+}
+
+#panel_c.yui-panel-container.shadow .underlay {
+  left:3px;
+  right:-3px;
+  top:3px;
+  bottom:-3px;
+  position:absolute;
+  background-color:#000;
+  opacity:0.12;
+}
+#panel.yui-panel .hd {
+  background: none;
+  background-color: yellow;
+}
+#panel.yui-panel .bd {
+  background: none;
+  background-color: white;
 }
