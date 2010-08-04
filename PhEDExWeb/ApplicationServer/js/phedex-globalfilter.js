@@ -11,8 +11,8 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
                       parent: 'el',
                       payload:{
                         text:    'Global Filter',
-                        title:   'Show/hide the global-filter GUI panel, which lets you create a global filter for all the modules loaded so far this session',
-                        disabled: false, //true,
+                        title:   "Show/hide the global-filter GUI panel, which lets you create a global filter for all the modules loaded so far this session. The global-filter is currently disabled, because it doesn't work yet",
+                        disabled: true,
                         hidden:   true,
                         context: 'input',
                         align:   'bl',
@@ -52,6 +52,7 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
 //      This are the user-interaction elements
         this.dom.input = PxU.makeChild(this.dom.el, 'input', { className:'phedex-nav-filter-input', type: 'text' });
         this.dom.input.title = 'This is the global-filter input-box. Type or paste a filter definition here, or edit the one you see';
+        this.dom.input.disabled = true;
         this.dom.ctl = PxU.makeChild(this.dom.el, 'div', { className:'phedex-nav-component phedex-nav-link' });
 
         this.type = 'GlobalFilter'; // needed to get the right 'applyFilter' function
