@@ -504,7 +504,7 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
   this.id = 'Permalink_' + PxU.Sequence();
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-permalink';
-  var a = PxU.makeChild(this.el, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#', title:'Permalink to the current page-state' });
+  var a = PxU.makeChild(this.el, 'a', { id: 'phedex-nav-filter-link', innerHTML: 'Link', href: '#', title:'Permalink to the current page-state', className:'phedex-link phedex-link-inline' });
   this.partnerHandler = function(o) {
     return function(ev,arr) {
       var action = arr[0],
