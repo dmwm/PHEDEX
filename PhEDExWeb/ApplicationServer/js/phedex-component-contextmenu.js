@@ -142,7 +142,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
  */
       Build: function(target) {
         var typeNames = [],
-            name, nItems=0, item, widget, list, w, i, j;
+            name, nItems=0, item, widget, list, w, i, j, feature_prefix='';
         for (i in this.typeNames) { typeNames.push(this.typeNames[i]); } // need a deep copy to avoid overwriting this.typeNames!
         if ( this.onContextMenuBeforeShow ) {
           typeNames = this.onContextMenuBeforeShow(target, typeNames);
@@ -162,9 +162,9 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
               log('Adding Widget name='+name+' label='+w[j].label, 'info', _me);
               if ( widget.feature_class ) {
 //                 item.CSS_CLASS_NAME = 'phedex-contextmenu-'+widget.feature_class+' yuimenuitemlabel';
-                widget.label = PxU.feature[widget.feature_class] + widget.label;
+                feature_prefxi = PxU.feature[widget.feature_class];
               }
-              item = new Yw.MenuItem(widget.label);
+              item = new Yw.MenuItem(feature_prefix + widget.label);
 //            Build a constructor function (fn) in the menu value object
               item.value = { 'widget': widget.widget,
                              'type': widget.type,
