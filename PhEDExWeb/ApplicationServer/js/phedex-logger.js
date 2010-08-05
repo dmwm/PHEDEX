@@ -129,7 +129,6 @@ PHEDEX.Logger = function() {
 
 //    Attempt to harvest any temporarily bufferred log messages
       this.log = function(obj) {
-        var PL = PHEDEX.Logger;
         return function(str,level,group) {
           var l = obj.log2Server;
           if ( typeof(str) == 'object' ) {
@@ -141,11 +140,11 @@ PHEDEX.Logger = function() {
           group = group.toLowerCase();
           if ( !l.group[group] ) {
             l.group[group] = false;
-            YuCookie.setSubs('PL.group',l.group);
+            YuCookie.setSubs('PHEDEX.Logger.group',l.group);
           }
           if ( !l.level[level] ) {
             l.level[level] = false;
-            YuCookie.setSubs('PL.level',l.level);
+            YuCookie.setSubs('PHEDEX.Logger.level',l.level);
           }
           Ylog(str, level, group);
           if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
