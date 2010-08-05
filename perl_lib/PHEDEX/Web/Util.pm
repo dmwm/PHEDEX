@@ -54,7 +54,7 @@ our %COMMON_VALIDATION =
  'block_*'      => qr!(^(/[^/\#]+){3}\#[^/\#]+$)|\*!,
  'lfn'          => qr|^/|,
  'wildcard'     => qr|\*|,
- 'node'         => qr|^!?T\d|,
+ 'node'         => qr|^T\d|,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
  'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
  'boolean'      => sub { $_[0] eq 'true' || $_[0] eq 'false' ? 1 : 0 },
@@ -323,6 +323,32 @@ sub validate_params
 	$spec->{$a} = $s;
     }
 
+    # handle negation
+    my @negation;
+    foreach my $i (keys %{$params})
+    {
+        if (ref $params->{$i} eq 'ARRAY')
+        {
+            for (my $j = 0; $j < scalar @{$params->{$i}}; $j++)
+            {
+                if (substr($params->{$i}->[$j], 0, 1) eq '!')
+                {
+                    push @negation, [$i, $j];
+                    $params->{$i}->[$j] = substr($params->{$i}->[$j], 1);
+                }
+            }
+            # NOT DONE YET
+        }
+        else
+        {
+            if (substr($params->{$i}, 0, 1) eq "!")
+            {
+                push @negation, $i;
+                $params->{$i} = substr($params->{$i},1);
+            }
+        }
+    }
+
     # build the arguments for the validation function
     my %val_args = (params => $params, spec => $spec);
     # use use confess if we want a full trace
@@ -348,6 +374,19 @@ sub validate_params
     if ($operators)
     {
         $good_params{OPERATORS} = $operators;
+    }
+
+    # put negation back
+    foreach (@negation)
+    {
+        if (ref $_ eq 'ARRAY')
+        {
+            $good_params{$val_args{normalize_keys}->($_->[0])}->[$_->[1]] = '!'.$good_params{$val_args{normalize_keys}->($_->[0])}->[$_->[1]];
+        }
+        else
+        {
+            $good_params{$val_args{normalize_keys}->($_)} = '!'.$good_params{$val_args{normalize_keys}->($_)};
+        }
     }
 
     return %good_params;
