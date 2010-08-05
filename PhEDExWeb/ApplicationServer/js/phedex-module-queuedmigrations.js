@@ -246,7 +246,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 this.fillDataSource(this.data);
                 strFromNode = _getFromNode(_nodename);
                 strToNode = _getToNode(strFromNode);
-                this.dom.title.innerHTML = this.data.length + ' missing file(s) for (' + strFromNode + ', ' + strToNode + ') node pair';
+                this.dom.title.innerHTML = this.data.length + ' non-migrated file(s) from' + strFromNode + ' to ' + strToNode;
                 _sbx.notify(this.id, 'gotData');
             },
 
@@ -255,7 +255,7 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @method fillExtra
             */
             fillExtra: function() {
-                this.dom.extra.innerHTML = 'The total size of files yet to be migrated is ' + PHEDEX.Util.format.bytes(_totalsize);
+                this.dom.extra.innerHTML = 'Total size of files yet to be migrated is ' + PHEDEX.Util.format.bytes(_totalsize);
             }
         };
     };
