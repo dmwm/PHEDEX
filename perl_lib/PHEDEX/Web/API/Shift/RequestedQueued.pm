@@ -73,7 +73,7 @@ Serves information about current activity in PhEDEx.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
-sub duration { return 60 * 60; }
+sub duration { return 3600 - time%3600 + 60; } # Just after the top of the hour
 sub invoke { return _shift_requestedqueued(@_); }
 
 sub _shift_requestedqueued
@@ -189,6 +189,7 @@ sub _shift_requestedqueued
       die "REASON not defined for $node. Have you changed the algorithm?\n";
     }
     $s{$node}{STATUS_TEXT} = $status_map->{$s{$node}{STATUS}};
+    $s{$node}{STATUS} += 0; # numification :-(
     delete $s{$node}{TIMEBINS};
     delete $s{$node} if ( !$s{$node}{STATUS} && !$h{FULL} );
   }
