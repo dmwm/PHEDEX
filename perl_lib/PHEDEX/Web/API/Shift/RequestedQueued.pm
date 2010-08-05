@@ -80,7 +80,7 @@ sub _shift_requestedqueued
 {
   my ($core, %h) = @_;
   my ($epochHours,$start,$end,$node,%params,$p,$q,$mindata);
-  my ($h,$ratio,$nConsecFail,$nConsecOK);
+  my ($h,$ratio,$nConsecFail,$nConsecOK,$nConsecWarn);
   my (%s,$bin,$unique,$e,$buffer,$i,$j,$k,$status_map);
 
   $status_map = {
@@ -132,7 +132,7 @@ sub _shift_requestedqueued
     }
     $s{$node}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
-
+$DB::single=1;
   foreach $node ( keys %s )
   {
 #   Declare a problem is there are four consecutive bins where data is
@@ -150,14 +150,24 @@ sub _shift_requestedqueued
       $s{$node}{CUR_PEND_BYTES}    = $e->{PEND_BYTES};
       $s{$node}{CUR_REQUEST_BYTES} = $e->{REQUEST_BYTES};
 
-      $ratio = 0;
+      $ratio = $e->{RATIO};
       if ( ! $e->{REQUEST_BYTES} ) { $nConsecFail = 0; }
       if ( $e->{PEND_BYTES} )
       { $ratio = $e->{REQUEST_BYTES} / $e->{PEND_BYTES}; }
-      if ( $ratio < 0.1 ) { $nConsecFail++; }
-      else                { $nConsecFail=0; }
-      if ( $ratio > 0.9 ) { $nConsecOK++; }
-      else                { $nConsecOK=0;  }
+      if ( defined($ratio) )
+      {
+        if ( $ratio < 0.1 ) { $nConsecFail++; }
+        else                { $nConsecFail=0; }
+        if ( $ratio > 0.9 && $ratio < 5 ) { $nConsecOK++; }
+        else                              { $nConsecOK=0;  }
+        if ( $ratio > 5 ) { $nConsecWarn++; }
+        else              { $nConsecWarn=0;  }
+      }
+      if ( $nConsecWarn >= 4 )
+      {
+        $s{$node}{STATUS} = 1;
+        $s{$node}{REASON} = 'Queue not progressing well';
+      }
       if ( $nConsecFail >= 4 )
       {
         $s{$node}{STATUS} = 2;
