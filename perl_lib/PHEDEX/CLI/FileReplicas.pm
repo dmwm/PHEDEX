@@ -19,8 +19,8 @@ sub new
 	       COMPLETE		=> undef,
 	       DIST_COMPLETE	=> undef,
 
-	       VERBOSE	=> 0,
-	       DEBUG	=> 0,
+#	       VERBOSE	=> 0,
+#	       DEBUG	=> 0,
 	    );
   %options = (
 	       'node=s@'	=> \$params{NODE},
@@ -31,8 +31,8 @@ sub new
 	       'complete!'	=> \$params{COMPLETE},
 	       'dist_complete!'	=> \$params{DIST_COMPLETE},
 	       'help'		=> \$help,
-	       'verbose!'	=> \$params{VERBOSE},
-	       'debug'		=> \$params{DEBUG},
+#	       'verbose!'	=> \$params{VERBOSE},
+#	       'debug'		=> \$params{DEBUG},
 	     );
   GetOptions(%options);
   my $self = \%params;
@@ -81,6 +81,10 @@ sub Payload
   my $payload = {
 		  block => $self->{BLOCK},
                 };
+  foreach ( qw / NODE BLOCK SE UPDATE_SINCE CREATE_SINCE COMPLETE DIST_COMPLETE / )
+  {
+    $payload->{$_} = $self->{$_} if defined $self->{$_};
+  }
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
   return $self->{PAYLOAD} = $payload;
 }
