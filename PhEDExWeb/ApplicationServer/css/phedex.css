@@ -148,10 +148,12 @@ body {
 .phedex-link-inline {
   padding: 0 3px 0;
 }
-a.phedex-link {
-  text-decoration: none;
+.phedex-link {
   background-color: #9f0; /* light-green */
   color:black;
+}
+a.phedex-link {
+  text-decoration: none;
 }
 a:hover.phedex-link {
   text-decoration: none;
