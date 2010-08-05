@@ -372,9 +372,10 @@ PHEDEX.Navigator.WidgetSelector = function(sandbox,args) {
   this.el.className = 'phedex-nav-component phedex-nav-widget';
   var _getWidgetMenuItems = function(type) {
     var widgets = _menu.items[type],
-        menu_items = [], item, w, feature_prefix='';
+        menu_items = [], item, w, feature_prefix;
     for (w in widgets) {
       w = widgets[w];
+      feature_prefix = '';
       if ( w.feature_class ) {
         feature_prefix = PxU.feature[w.feature_class];
       }
