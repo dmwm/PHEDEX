@@ -26,6 +26,9 @@ sub bounce
   if (exists $args{'die'} && $args{'die'}) {
       die "error requested, dying\n";
   }
+  if (exists $args{'warn'} && $args{'warn'}) {
+      warn "warning requested\n";
+  }
   return { Bounce => \%args };
 }
 
