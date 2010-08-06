@@ -195,16 +195,18 @@ sub print_doc
     # command and print it, but intercept it and add extra stuff at the appropriate point.
     # I also need to check that I am setting the correct relative link for the modules.
     @lines = `perldoc -m $module |
-                pod2html --header -css /phedex/datasvc/static/phedex_pod.css`;
+                pod2html --header -css /phedex/dev2/datasvc/static/phedex_pod.css`;
 
     my ($commands,$count);
     $count = 0;
     foreach $line ( @lines ) {
+        next if $line =~ m%<hr />%;
         if ( $line =~ m%^<table% ) {
 	    $count++;
 	    if ( $count != 2 ) { print $line; next; }
 	    print qq{
 		<h1><a name='See Also'>See Also</a></h1>
+		<p>
 		Documentation for the commands known in this installation<br>
 		<br/>
 		<table>
@@ -223,9 +225,11 @@ sub print_doc
 	    }
 	    print qq{
 		</table>
+		</p>
 		<br/>
 		and <a href='.'>PHEDEX::Web::Core</a> for the core module documentation<br/>
 		<br/>
+		<div class='phedex-logo-large'></div>
 		};
         }
         print $line;
