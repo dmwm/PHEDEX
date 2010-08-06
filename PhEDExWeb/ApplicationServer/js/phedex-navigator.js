@@ -136,7 +136,7 @@ PHEDEX.Navigator = function(sandbox) {
             currentState = Yu.History.getCurrentState("page");
             if (newState !== currentState) //Check if previous and current state are different to avoid looping
             {
-                _sbx.notify(this.id,'UpdatePermalink','page='+newState);
+                _sbx.notify(this.id,'UpdatePermalink',newState);
                 log('addToHistory: '+newState,'info',this.me);
                 Yu.History.navigate("page", newState); //Add current state to history and set values
             } else {
@@ -171,14 +171,11 @@ PHEDEX.Navigator = function(sandbox) {
         case 'decoratorsReady': {
           if ( _initialPageState ) {
             _setState(_initialPageState);
+            _sbx.notify(obj.id,'UpdatePermalink',_initialPageState);
             _initialPageState = null;
           } else {
             _sbx.notify(who,'NavReset');
           }
-          break;
-        }
-        case 'statePlugin': {
-          obj.state[args.key] = args;
           break;
         }
         case 'decoratorReady': {
@@ -187,6 +184,10 @@ PHEDEX.Navigator = function(sandbox) {
           if ( nDec == obj.decorators.length ) {
             _sbx.notify(obj.id,'decoratorsReady');
           }
+          break;
+        }
+        case 'statePlugin': {
+          obj.state[args.key] = args;
           break;
         }
         case 'TargetSelected': {
@@ -518,7 +519,7 @@ PHEDEX.Navigator.Permalink = function(sandbox,args) {
         }
         case 'UpdatePermalink': {
           if (value) {
-            a.href = '#' + value; //Update the link with permalink URL
+            a.href = '#page=' + escape(value); //Update the link with permalink URL
           } else {
             a.href = document.location.href; //Update the link with current browser URL
           }
