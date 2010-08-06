@@ -30,8 +30,7 @@
        onmouseover="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
        onfocus="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
        >feedback email</a>
-<div id='phedex-bug-feature-link' style='display:inline'>&nbsp;</div>
-<!--    <a class='phedex-link phedex-link-inline' id='phedex-bug-feature-link' target='new_bugs' title='PhEDEx Savannah bug-reporting and feature requests' href="https://savannah.cern.ch/bugs/?func=additem&group=phedex">bugs/feature req.</a>-->
+   <a class='phedex-link phedex-link-inline' id='phedex-bug-feature-link' target='new_bugs' title='How to report bugs and make feature requests' href='/phedex/datasvc/app/html/phedex-bug-report.html'>report a bug</a>
     <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
       <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
     </span>
@@ -161,24 +160,24 @@ function createCoreApp() {
 
   PxU.bannerIdleTimer(PxL);
 
-  PxL.load(function() {
-    var panel, el, ctl, banner;
-    banner = document.getElementById('phedex-banner');
-    panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
-    panel.setHeader('Report a bug or request a feature');
-    panel.setBody('This is a dynamically generated Panel.<br />testing...');
-    panel.render(banner);
-    ctl = new PHEDEX.Component.Control(PxS,{
-        payload: {
-          text:'bug report/feature request',
-          title:'Report a bug or request a feature',
-          target:panel.element,
-          className: 'phedex-core-control-widget phedex-core-control-widget-inactive',
-        }
-      }
-    );
-    document.getElementById('phedex-bug-feature-link').appendChild(ctl.el);
-   },'container','component-control');
+//   PxL.load(function() {
+//     var panel, el, ctl, banner;
+//     banner = document.getElementById('phedex-banner');
+//     panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
+//     panel.setHeader('Report a bug or request a feature');
+//     panel.setBody('This is a dynamically generated Panel.<br />testing...');
+//     panel.render(banner);
+//     ctl = new PHEDEX.Component.Control(PxS,{
+//         payload: {
+//           text:'bug report/feature request',
+//           title:'Report a bug or request a feature',
+//           target:panel.element,
+//           className: 'phedex-core-control-widget phedex-core-control-widget-inactive',
+//         }
+//       }
+//     );
+//     document.getElementById('phedex-bug-feature-link').appendChild(ctl.el);
+//    },'container','component-control');
 };
 </script>
 
