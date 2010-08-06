@@ -7,7 +7,7 @@ use PHEDEX::Core::Loader;
 use Getopt::Long;
 use Data::Dumper;
 my ($url,$response,$help,$verbose,$quiet,$action,$Action,$fakeagent,$service);
-my ($instance,$format,$method,$test_cert,$ref,$timeout,$paranoid);
+my ($instance,$format,$method,$test_cert,$ref,$timeout,$paranoid,$nocache);
 my ($proxy,$debug,$cert_file,$key_file,$ca_file,$ca_dir,$nocert,$h,@env);
 my ($default_service,$target,$payload);
 
@@ -20,7 +20,7 @@ $format   = 'xml';
 $method   = 'post';
 $default_service = 'PHEDEX::Web::DataService';
 $help = $verbose = $debug = $quiet = 0;
-$nocert = $test_cert = $timeout = $paranoid = $fakeagent = 0;
+$nocert = $test_cert = $timeout = $paranoid = $fakeagent = $nocache = 0;
 
 my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::CLI' );
 my @commands = map { lc $_ } keys %{ $loader->Commands() };
@@ -31,6 +31,7 @@ GetOptions
 	 'verbose!'	=> \$verbose,
 	 'quiet!'	=> \$quiet,
 	 'debug!'	=> \$debug,
+	 'nocache'      => \$nocache,
 	 'proxy=s'	=> \$proxy,
 	 'cert_file=s'	=> \$cert_file,
 	 'key_file=s'	=> \$key_file,
@@ -197,6 +198,7 @@ while (@ARGV)
   print $pua->Dump() if $debug;
   my $t = $pua->target;
   my $p = $cli->Payload();
+  $p->{nocache} = 1 if $nocache;
   $response = $pua->$method($t,$p);
 
   print "Response: ",$response->content() if $debug;
