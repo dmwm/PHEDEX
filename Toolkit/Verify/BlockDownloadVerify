@@ -56,7 +56,9 @@ use PHEDEX::BlockConsistency::Agent;
 
 $args{USE_SRM} = 'y' if defined($args{USE_SRM});
 foreach ( keys %args ) { delete $args{$_} unless defined $args{$_}; }
-die "--use_rfdir argument not know, use --namespace instead\n" if $args{RFIO_USES_RFDIR};
+die "--storagemap argument is not known, please remove it\n" if $args{STORAGEMAP};
+die "--use_rfdir argument is not known, use --namespace instead\n" if $args{RFIO_USES_RFDIR};
+die "--use_srm argument is not known, use --namespace instead\n" if $args{USE_SRM};
 die "Namespace technology (--namespace) must be specified\n" unless $args{NAMESPACE};
 my $agent = PHEDEX::BlockConsistency::Agent->new(%args, @ARGV);
 POE::Kernel->run();
