@@ -10,7 +10,7 @@ use Cwd;
 use Data::Dumper;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
-use PHEDEX::Core::Catalogue ( qw / storageRules dbStorageRules applyStorageRules / );
+use PHEDEX::Core::Catalogue ( qw / dbStorageRules applyStorageRules / );
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::Core;
 use PHEDEX::Core::Loader;
@@ -20,10 +20,6 @@ use POE::Queue::Array;
 our %params =
 	(
 	  WAITTIME	=> 300 + rand(15),	# Agent activity cycle
-	  PROTOCOL	=> 'direct',		# File access protocol
-	  STORAGEMAP	=> undef,		# Storage path mapping rules
-	  USE_SRM	=> 'n',			# Use SRM or native technology?
-	  RFIO_USES_RFDIR => 0,			# Use rfdir instead of nsls?
 	  PRELOAD	=> undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> 'posix',
@@ -161,16 +157,9 @@ sub doNSCheck
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  if ( $self->{STORAGEMAP} )
-  {
-    $mapping = storageRules( $self->{STORAGEMAP}, 'lfn-to-pfn' );
-  }
-  else
-  {
-    my $cats;
-    my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
-    $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
-  }
+  my $cats;
+  my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
+  $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
 
   my $tfcprotocol = 'direct';
   if ( $self->{NAMESPACE} )
@@ -185,9 +174,6 @@ sub doNSCheck
   {
     die "No Namespace provided\n"; 
   }
-
-  if ( $self->{USE_SRM} eq 'y' or $request->{USE_SRM} eq 'y' )
-  { $tfcprotocol = 'srm'; }
 
   $self->Dbgmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
