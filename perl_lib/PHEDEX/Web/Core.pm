@@ -83,6 +83,7 @@ use PHEDEX::Web::Cache;
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 
+use Carp qw / longmess /;
 our (%params);
 %params = ( CALL => undef,
             VERSION => undef,
@@ -214,6 +215,21 @@ sub call
     {
       my $api = $self->{API};
       eval {
+	if ( $self->{CONFIG}{TRAP_WARNINGS} )
+	{
+	  $SIG{__WARN__} = sub
+	    {
+	      my $msg = longmess @_;
+	      my @l = split("\n",$msg);
+	      $msg = '';
+	      foreach ( @l )
+	      {
+	        $msg = $msg . $_ . "\n";
+	        last if m%PHEDEX::Web::DataService%;
+	      }
+	      warn (scalar localtime," WARN: ",$msg);
+	    };
+	}
 
         if ($api->can('spool'))
         {
