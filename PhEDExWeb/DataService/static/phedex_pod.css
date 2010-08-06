@@ -1,24 +1,50 @@
-body
-{
-	background-color: #eee;
-	font-family: Verdana, sans serif;
+body {
+  background-color: #f8f8f8;
+  font-family: Verdana, sans serif;
+}
+
+h1, h2 {
+  background: #ddf;
+  font-weight: normal;
+  margin: 10px 10px 0;
+  padding: 10px 5px 10px;
+  border-left: 1px solid white;
+  border-top: 1px solid white;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
+}
+h1 {
+  font-size:  1.7em;
+}
+h2 {
+  font-size:  1.4em;
+}
+.phedex-doc p, .phedex-doc ul {
+  font-size: 1.2em;
+}
+p, ul {
+  margin: 0 10px 0;
+  padding: 10px 5px 10px;
+}
+
+.phedex-logo-large {
+  border: none;
+  padding: 10px 15px 5px;
+  background: url(/phedex/datasvc/app/images/phedex-logo.gif) no-repeat 20px 15px;
+  width:  120px;
+  height: 125px;
+  float:left;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .block
 {
 	height: 100px;
-	padding-left: 100px;
-	background: #99f url(/phedex/datasvc/static/phedex-logo-small.gif) no-repeat 10px 10px;
-	border-left: 1px solid white;
-	border-top: 1px solid white;
-	border-right: 1px solid black;
-	border-bottom: 1px solid black;
-}
-
-h1
-{
-	background: #ddf;
-	padding-left: 10px;
+	padding-left: 135px;
+/*  background: #99f url(/phedex/datasvc/static/phedex-logo-small.gif) no-repeat 10px 10px; */
+  background: #99f;
 	border-left: 1px solid white;
 	border-top: 1px solid white;
 	border-right: 1px solid black;
@@ -48,21 +74,10 @@ hr
 td .block
 {
 	background: #eef;
-	padding: 20px 20px 20px 20px;
+	padding: 20px;
 }
 
-p
-{
-	font-size: normal;
-}
-
-code
-{
-	font-size: 1.2em;
-	font-style: fixed;
-}
-
-pre
+code, pre
 {
 	font-size: 1.2em;
 	font-style: fixed;
