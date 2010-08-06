@@ -244,6 +244,19 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         ctl.Hide();
         this.getData();
       },
+      specificState: function(state) {
+        if ( !state ) { return {full:this.DataMode}; }
+        var i, k, v, kv, update=0, arr = state.split(' ');
+        for (i in arr) {
+          kv = arr[i].split('=');
+          k = kv[0];
+          v = kv[1];
+          if ( k == 'full'  && v != this.DataMode ) { update++; this.DataMode = v; }
+        }
+        if ( !update ) { return; }
+        log('set full='+this.DataMode+' from state','info',this.me);
+        this.getData();
+      },
 // Apply a filter by default, to show only the bad fields
 //       initMe: function() {
 //         var f = this.meta._filter.fields;
