@@ -204,7 +204,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         if ( !this.data ) {
           throw new Error('data incomplete for '+context.api);
         }
-        this.fillDataSource(this.data);
+       this.needProcess = true;
+       this.fillDataSource(this.data);
         var nOK=0, nNotOK=0, rq = data.requestedqueued, stuck = [];
         this.dom.extra.innerHTML = 'No stuck nodes:';
         for (var i in rq) {
