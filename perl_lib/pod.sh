@@ -18,7 +18,7 @@ fi
 
 css=$3
 if [ -z "$css" ]; then
-  css=http://cern.ch/wildish/PHEDEX/phedex_pod.css
+  css=/phedex/datasvc/static/phedex_pod.css
   echo "Using default CSS file: $css"
   echo "Copy (and edit) that file if you want something different..."
 fi
@@ -38,7 +38,7 @@ done
 
 echo "<html>
 <head>PhEDEx module index for version $version</head>
-<body>
+<body class='phedex-doc'>
   <ul>
 " | tee $index >/dev/null
 
