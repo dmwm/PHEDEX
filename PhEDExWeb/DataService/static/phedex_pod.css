@@ -7,7 +7,7 @@ h1, h2 {
   background: #ddf;
   font-weight: normal;
   margin: 10px 10px 0;
-  padding: 10px 5px 10px;
+  padding: 10px 5px 10px 5px;
   border-left: 1px solid white;
   border-top: 1px solid white;
   border-right: 1px solid black;
@@ -26,59 +26,53 @@ p, ul {
   margin: 0 10px 0;
   padding: 10px 5px 10px;
 }
-
-.phedex-logo-large {
+.phedex-logo {
   border: none;
   padding: 10px 15px 5px;
-  background: url(/phedex/datasvc/app/images/phedex-logo.gif) no-repeat 20px 15px;
-  width:  120px;
-  height: 125px;
   float:left;
-  position: absolute;
-  top: 0;
-  left: 0;
 }
-
+a:hover {
+  background: #d0d0d0;
+}
 .block
 {
-	height: 100px;
-	padding-left: 135px;
-/*  background: #99f url(/phedex/datasvc/static/phedex-logo-small.gif) no-repeat 10px 10px; */
-  background: #99f;
-	border-left: 1px solid white;
-	border-top: 1px solid white;
-	border-right: 1px solid black;
-	border-bottom: 1px solid black;
+  height: 100px;
+  padding-left: 110px;
+  background: #99f url(/phedex/datasvc/static/phedex-logo-small.gif) no-repeat 10px 10px;
+  border-left: 1px solid white;
+  border-top: 1px solid white;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
 }
 
 dt
 {
-	background: #ddf;
-	padding-left: 10px;
-	border-left: 1px solid white;
-	border-top: 1px solid white;
-	border-right: 1px solid black;
-	border-bottom: 1px solid black;
+  background: #ddf;
+  padding-left: 10px;
+  border-left: 1px solid white;
+  border-top: 1px solid white;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
 }
 
 hr
 {
-	height: 2px;
-	width: 95%;
-	border-left: 1px solid white;
-	border-top: 1px solid white;
-	border-right: 1px solid #66f;
-	border-bottom: 1px solid #66f;
+  height: 2px;
+  width: 95%;
+  border-left: 1px solid white;
+  border-top: 1px solid white;
+  border-right: 1px solid #66f;
+  border-bottom: 1px solid #66f;
 }
 
 td .block
 {
-	background: #eef;
-	padding: 20px;
+  background: #eef;
+  padding: 20px;
 }
 
 code, pre
 {
-	font-size: 1.2em;
-	font-style: fixed;
+  font-size: 1.2em;
+  font-style: fixed;
 }
