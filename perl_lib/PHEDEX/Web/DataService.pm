@@ -229,7 +229,6 @@ sub print_doc
 		<br/>
 		and <a href='.'>PHEDEX::Web::Core</a> for the core module documentation<br/>
 		<br/>
-		<div class='phedex-logo-large'></div>
 		};
         }
         print $line;
