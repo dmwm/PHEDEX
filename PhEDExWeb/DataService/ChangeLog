@@ -1,3 +1,17 @@
+* Changes for 1.6.3pre1
+
+ Changes for the DataService:
+  * parameter-validation now correctly handles negation of arguments. This fixes
+  savannah bug #68355
+  * warnings now issue a stack-trace if 'trap-warnings' is set to 1 in the
+  configuration file, which it now is by default.
+
+ Changes for APIs
+ * Shift/RequestedQueued now returns only failing nodes by default. Structure
+ of returned data changed slightly.
+ * Bounce can now issue WARNings as well as die-ing on demand, specify warn=1
+ to trigger this.
+
 * Changes for 1.6.2
 
  Changes for the DataService:
@@ -5,7 +19,7 @@
 
  Changes for APIs:
 
-  * 'transferquerefiles':
+  * 'transferqueuefiles':
     - rewritten for more efficient query
     - use spooling to limit memory usage
     - total bytes and total number of files, in a block of the same priority/state category, are shown as block attributes
