@@ -64,12 +64,12 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             handler: 'getData',
             animate:  false,
             disabled: true,
-              tooltip:function() {
-                        if ( !this.obj.expires ) { return; }
-                        var delta = new Date().getTime()/1000;
-                        delta = Math.round(this.obj.expires - delta);
-                        return 'Data expires in '+delta+' seconds';
-                      },
+            tooltip:function() {
+                      if ( !this.obj.expires ) { return; }
+                      var delta = new Date().getTime()/1000;
+                      delta = Math.round(this.obj.expires - delta);
+                      return 'Data expires in '+delta+' seconds';
+                    },
             map: {
               gotData:     'Disable',
               dataExpires: 'Enable'
@@ -77,19 +77,17 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           }
         },
         {
-          name: 'DataMode',
+          name: 'dataMode',
           source:'component-control',
           parent: 'control',
           payload:{
-//             target: 'extra',
             handler: 'handleDataMode',
             text:    'Show Full',
             tooltip: function() {
-              if ( this.obj.DataMode ) {
-                return 'Show only those nodes with a problem, instead of all nodes (re-fetches data)';
-              } else {
-                return 'Show all nodes, not only those nodes with a problem (re-fetches data)';
-              }
+              return 'Toggle between showing all nodes or only the nodes with a problem (re-fetches data from the data-service)';
+            },
+            map: {
+              setDataModeLabel: 'Label',
             }
           }
         },
@@ -157,7 +155,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
       },
 
-      DataMode:0,
+      dataMode:0,
 
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
@@ -195,7 +193,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.DataMode} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.dataMode} } );
       },
       gotData: function(data,context) {
         log('Got new data','info',this.me);
@@ -219,6 +217,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + stuck.join(' ');
         }
         _sbx.notify( this.id, 'gotData' );
+        _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
 
         if ( context.maxAge ) {
           setTimeout( function(obj) {
@@ -231,39 +230,43 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           this.expires += parseInt(context.maxAge);
         }
       },
+      setDataModeLabel: function() {
+        if ( this.dataMode ) { return 'Show Brief'; }
+        else                 { return 'Show Full'; }
+      },
       fillExtra: function() {
       },
       handleDataMode: function() {
-        var ctl = this.ctl['DataMode'];
-        if ( this.DataMode ) {
-          this.DataMode = 0;
+        var ctl = this.ctl['dataMode'];
+        if ( this.dataMode ) {
+          this.dataMode = 0;
           ctl.Label('Show Full');
         } else {
-          this.DataMode = 1;
+          this.dataMode = 1;
           ctl.Label('Show Brief');
         }
         ctl.Hide();
         this.getData();
       },
       specificState: function(state) {
-        if ( !state ) { return {full:this.DataMode}; }
+        if ( !state ) { return {full:this.dataMode}; }
         var i, k, v, kv, update=0, arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-          if ( k == 'full'  && v != this.DataMode ) { update++; this.DataMode = v; }
+          if ( k == 'full'  && v != this.dataMode ) { update++; this.dataMode = v; }
         }
         if ( !update ) { return; }
-        log('set full='+this.DataMode+' from state','info',this.me);
+        log('set full='+this.dataMode+' from state','info',this.me);
         this.getData();
       },
-// Apply a filter by default, to show only the bad fields
-//       initMe: function() {
-//         var f = this.meta._filter.fields;
-//         f['Status'].value = 'OK';
-//         f['Status'].negate = true;
-//       }
+// pre-fetch the icons, so they are here when we need them
+      initMe: function() {
+        PxL.get(PxW.BaseURL+'/images/icon-circle-red.png',
+                PxW.BaseURL+'/images/icon-circle-yellow.png',
+                PxW.BaseURL+'/images/icon-circle-green.png');
+      }
     };
   };
   Yla(this,_construct(this),true);
