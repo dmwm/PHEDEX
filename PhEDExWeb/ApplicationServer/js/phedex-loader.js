@@ -260,6 +260,29 @@ PHEDEX.Loader = function(opts) {
           o.push(str);
         }
         return o;
+      },
+      /** Fetch the given URI(s), ignoring errors and not passing back any results to the user. Used to pre-load images and other static content.
+      * @method get
+      * @return null
+      * @param {string} URI to be fetched, may be repeated (i.e. many arguments are allowed)
+      */
+      get: function() {
+        var uri, args = Array.apply(null,arguments);
+        uri = args.shift();
+        if ( !uri ) { return; }
+          var YuC = Yu.Connect;
+          YuC.initHeader('user-agent',PxU.UserAgent());
+          YuC.asyncRequest(
+            'get',
+            uri,
+            {
+              success:null,
+              failure:null,
+              timeout:60*1000,
+            }
+          );
+        if ( args[0] ) { setTimeout(PxL.get.apply(null,args),10); }
+        return;
       }
     }
   }
