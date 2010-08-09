@@ -36,9 +36,8 @@ PHEDEX.Datasvc = (function() {
   // declare variables for private methods
       _get, _got, _fail, _maybe_schedule, _build_query,
 
-  // convenience aliases
-      YuC  = Yu.Connect,
-      UA   = function() { return 'PhEDEx-WebApp/'+PHEDEX.Webapp.Version+' (CMS) '+navigator.userAgent; }();
+  // convenience alias
+      YuC  = Yu.Connect;
 
   // method _instanceURL : make the instance URL from the component bits. Hardly worth making it a separate function,
   // but it can then at least be overridden
@@ -74,7 +73,7 @@ PHEDEX.Datasvc = (function() {
     // TODO:  transparent caching goes here
 
     // identify ourselves to the web-server logfiles
-    YuC.initHeader('user-agent',UA);
+    YuC.initHeader('user-agent',PxU.UserAgent());
     YuC.asyncRequest(query.method,
                      query.path,
                      {

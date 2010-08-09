@@ -247,6 +247,10 @@ PHEDEX.Util.icon = {
   'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.BaseURL+"/images/icon-circle-red.png' />",
 };
 
+PHEDEX.Util.UserAgent = function() {
+  return 'PhEDEx-WebApp/'+PxW.Version+' (CMS) '+navigator.userAgent;
+}
+
 /**
 * This is the prototype for the string trim function. This is to trim the string 
 * i.e to remove starting and trailing whitespace.
