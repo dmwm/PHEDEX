@@ -216,9 +216,10 @@ PHEDEX.Component.Control = function(sandbox,args) {
         if ( p.obj ) {
           var moduleHandler = function(obj) {
             return function(ev,arr) {
-              var action = arr[0];
-              if ( action && obj.payload.map[action] ) {
-                obj[obj.payload.map[action]]();
+              var action = arr.shift(), fnName;
+              fnName = obj.payload.map[action];
+              if ( action && fnName ) {
+                obj[fnName](arr.shift());
               }
             }
           }(this);
