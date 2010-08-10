@@ -267,21 +267,24 @@ PHEDEX.Loader = function(opts) {
       * @param {string} URI to be fetched, may be repeated (i.e. many arguments are allowed)
       */
       get: function() {
-        var uri, args = Array.apply(null,arguments);
-        uri = args.shift();
-        if ( !uri ) { return; }
-          var YuC = Yu.Connect;
-          YuC.initHeader('user-agent',PxU.UserAgent());
-          YuC.asyncRequest(
-            'get',
-            uri,
-            {
-              success:null,
-              failure:null,
-              timeout:60*1000,
-            }
-          );
-        if ( args[0] ) { setTimeout(PxL.get.apply(null,args),10); }
+        var args = Array.apply(null,arguments), fn;
+        fn = function(_args) {
+          return function() {
+            var _uri = _args.shift();
+            if ( !_uri ) { return; }
+            log('prefetch: '+_uri,'info',_me);
+            var YuC = Yu.Connect;
+            YuC.initHeader('user-agent',PxU.UserAgent());
+            YuC.asyncRequest(
+              'get',
+              _uri,
+              {timeout:60*1000}
+            );
+            log('prefetched: '+_uri,'info',_me);
+            if ( args[0] ) { setTimeout(fn,100); }
+          }
+        }(args);
+        fn();
         return;
       }
     }
