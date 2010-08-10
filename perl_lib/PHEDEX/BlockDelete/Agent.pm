@@ -62,8 +62,8 @@ sub idle
 	    merge into t_dps_block_delete bdel
 	    using (
 	      select distinct sb.id block, sb.dataset, br.node
-                from t_dps_subscription s
-                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
+                from t_dps_subs_block s
+                join t_dps_block sb on sb.dataset = s.dataset and sb.id = s.block
                 join t_dps_block_dest bd on bd.destination = s.destination
                                         and bd.block = sb.id
                 join t_dps_block_replica br on br.node != s.destination
@@ -71,7 +71,7 @@ sub idle
                 join t_adm_node n on n.id = br.node
                where s.is_move = 'y'
 	         and bd.state = 3
-	         and n.name not like 'T1_%'
+	         and not regexp_like(n.name,'^T[01]_')
                  and n.kind != 'Buffer'
 	         and br.dest_files = 0
            ) q
