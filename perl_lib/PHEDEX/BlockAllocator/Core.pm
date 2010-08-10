@@ -157,7 +157,7 @@ sub blockSubscriptions
 		    join t_adm_node n2 on n2.id=br2.node
 		    left join t_dps_subs_block s2 on br2.node = s2.destination and br2.block = s2.block
                     where br2.node_files!=0 and s2.block is null
-		    and not regexp_like(n2.name,'^T[0|1]')
+		    and not regexp_like(n2.name,'^T[01]_')
                     group by br2.block) unsub on unsub.block=s.block
 	 where s.is_move='y'
      }, () );

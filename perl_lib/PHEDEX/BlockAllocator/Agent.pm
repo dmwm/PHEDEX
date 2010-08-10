@@ -104,9 +104,13 @@ The BlockAllocator agent is the bridge between a data subscription,
 which is a user-created and modifiable instruction for data to
 transfer to a destination, and a block destination, which is what
 L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> really uses to
-initate the file-transfer process.  Put simply, it turns subscriptions
-into block destinations and keeps subscritpion / block destination
-parameters (e.g. priority, suspension, user group) in sync.
+initate the file-transfer process. All subscriptions are tracked 
+internally at block-level; the agent takes care of creating the appropriate
+block-level subscriptions when a dataset-level subscription is created,
+and keeps their parameters in sync.
+It also turns block-level subscriptions into block destinations and keeps
+block subscritpion / block destination parameters (e.g. priority, suspension,
+user group) in sync.
 
 It also monitors subscriptions in order to mark them as "complete" or
 "done".  "Complete" subscriptions have all of their files transferred
@@ -121,10 +125,14 @@ L<BlockLatency|PHEDEX::BlockLatency::SQL> module.
 
 =over
 
-=item L<t_dps_subscription|Schema::OracleCoreRequest/t_dps_subscription>
+=item L<t_dps_subs_dataset|Schema::OracleCoreSubscription/t_dps_subs_dataset>
+=item L<t_dps_subs_block|Schema::OracleCoreSubscription/t_dps_subs_block>                                                                                
+=item L<t_dps_subs_param|Schema::OracleCoreSubscription/t_dps_subs_param>                                                                                
 
-BlockAllocator reads subscriptions in order to turn them into block
-destinations, and updates subscriptions which are complete or done.
+BlockAllocator reads dataset- and block-level subscriptions and their parameters,
+creates new block-level subscriptions from dataset-level subscriptions,
+turns them into block destinations, and updates subscriptions which
+are complete or done.
 
 =item L<t_dps_block_dest|Schema::OracleCoreBlock/t_dps_block_dest>
 
@@ -133,7 +141,7 @@ destinations if they are no longer subscribed.  It also updates them
 to keep their parameters in sync with the subscription, and to manage
 their suspension state.
 
-=item L<t_dps_subscription|Schema::OracleCoreRequest/t_log_block_latency>
+=item L<t_log_block_latency|Schema::OracleCoreRequest/t_log_block_latency>
 
 BlockAllocator logs various events which can be used to calculate
 varios latencies for the block.  See
