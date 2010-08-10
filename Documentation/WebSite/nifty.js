@@ -1,6 +1,7 @@
 /* Cleaned up from http://webdesign.html.it/articoli/leggi/528/more-nifty-corners/ */
 function NiftyCheck()
 {
+  webapp_link();
   if (!document.getElementById || !document.createElement)
     return false;
 
@@ -218,3 +219,52 @@ function Mix(c1,c2)
   }
   return("#"+r[0].toString(16)+r[1].toString(16)+r[2].toString(16));
 }
+
+// Added by TW, to update the web-page without branching the code...
+// insert a link to the next-gen website, flashing onto the screen a few seconds after the page appears...
+
+webapp_link = function() {
+  var fn = function() {
+    var elList, el, child, uri;
+    child = document.createElement('li');
+    elList = document.getElementsByClassName('catopt');
+    el = elList[0].childNodes[1];
+    uri = location.href;
+    child.innerHTML = '<a href="'+uri+'/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
+    el.appendChild(child);
+    var fade = function(element) {
+      var col1 = col2 = 0;
+      return function() {
+        var c1 = col1.toString(16),
+            c2 = col2.toString(16),
+            str = '#ff',
+            interval = 100,
+            step = 16;
+        if ( col1 > 15 ) {
+          str = str + c1;
+        } else {
+          str = str + '0' + c1;
+        }
+        if ( col2 > 15 ) {
+          str = str + c2;
+        } else {
+          str = str + '0' + c2;
+        }
+        element.style.backgroundColor = str;
+        col1 = col1 + step;
+        if ( col1 < 255 ) {
+          setTimeout(fade,interval);
+        }
+        else
+        {
+          col1 = 255;
+          col2 += step;
+          if ( col2 < 255 ) { setTimeout(fade,interval); }
+          else              { element.style.backgroundColor = ''; }
+        }
+      }
+    }(child);
+    fade();
+  };
+  setTimeout(fn,3000);
+};
