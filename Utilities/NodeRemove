@@ -36,8 +36,12 @@ while (@ARGV)
   if ($args{FORCE})
   {
     &dbexec($dbh, qq{
-      delete from t_dps_subscription where destination =
+      delete from t_dps_subs_dataset where destination =
         (select id from t_adm_node where name = :name)},
+      ":name" => $name);
+    &dbexec($dbh, qq{  
+      delete from t_dps_subs_block where destination =  
+	(select id from t_adm_node where name = :name)},
       ":name" => $name);
     &dbexec($dbh, qq{
       delete from t_xfer_replica where node =
