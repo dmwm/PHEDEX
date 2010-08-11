@@ -228,7 +228,9 @@ webapp_link = function() {
     var elList, el, child, uri;
     child = document.createElement('li');
     elList = document.getElementsByClassName('catopt');
-    el = elList[0].childNodes[1];
+    try {
+      el = elList[0].childNodes[1];
+    } catch(ex) { /* cannot find element, abort! */ return; }
     uri = location.href;
     child.innerHTML = '<a href="'+uri+'/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
     el.appendChild(child);
