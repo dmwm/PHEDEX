@@ -1,6 +1,8 @@
 -- Deploying the schema over a 3.3 schema
 -- From SQLPLUS
 
+alter table t_req_xfer add time_start float;
+
 alter table t_dps_block add constraint uq_dps_block_dataset unique (dataset, id);
 @PHEDEX/Schema/OracleCoreSubscription
 
