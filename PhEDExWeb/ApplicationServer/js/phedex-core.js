@@ -29,9 +29,6 @@ PHEDEX.Core = function(sandbox,loader) {
     resizeable: false,
   };
 
-  var _setTimeout   = function() { _timer = setTimeout( function() { banner(); }, 10000 ); },
-      _clearTimeout = function() { if ( _timer ) { clearTimeout(_timer); _timer = null; } };
-
 /**
  * loads non-module code (Registry, Navigator etc). Used as a sandbox-listener, which defines its signature. The name of the code to be loaded can be either the full base-name of the source-code file, or it can have the leading <strong>phedex-</strong> missing, in which case it is assumed
  * The function invokes the PhEDEx loader, and on successfully loading the source code, will notify the world with event='Loaded' and the name of the code, as originally given to it. Clients can listen for the 'Loaded' and then know that it is safe to instantiate an object of the given type.<br/>
@@ -175,7 +172,6 @@ PHEDEX.Core = function(sandbox,loader) {
         throw new Error('decorator '+d.source+' is not a function');
       }
       setTimeout(function(_m,_d,_ctor) {
-        return function() {
           if ( !_d.payload )     { _d.payload = {}; }
           if ( !_d.payload.obj ) { _d.payload.obj = _m; }
           try {
@@ -190,8 +186,7 @@ PHEDEX.Core = function(sandbox,loader) {
             _sbx.notify(_m.id,'decoratorsConstructed');
             delete _m._nDecorators; // clean up after myself
           }
-        }
-      }(m,d,ctor),10);
+        },10,m,d,ctor);
       i++;
     }
   };
@@ -230,7 +225,6 @@ PHEDEX.Core = function(sandbox,loader) {
          args   = arr[1];
     log('moduleHandler: module='+who+' action="'+action+'"','info',_me);
     var m = _modules[who];
-    _clearTimeout();
     switch ( action ) {
       case 'init': {
         var el = m.initDom();
@@ -299,7 +293,6 @@ PHEDEX.Core = function(sandbox,loader) {
             var api = args[1].api;
             log('api:'+api+' error fetching data: '+args[0].message,'error',who);
             banner('Error fetching or parsing data for "'+api+'"','error');
-            _clearTimeout();
           });
           args.success_event = dataReady;
           args.failure_event = dataFail;
@@ -353,7 +346,7 @@ PHEDEX.Core = function(sandbox,loader) {
 
 // Needed here because the loading of PHEDEX.Core will overwrite the previous definition, but the correct definition will not exist until the core is created.
 PHEDEX.Core.onLoaded = function(args) {
-  setTimeout( function() { PHEDEX.Core.onLoaded(args); },200);
+  setTimeout( PHEDEX.Core.onLoaded, 200, args );
 }
 
 log('loaded...','info','core');

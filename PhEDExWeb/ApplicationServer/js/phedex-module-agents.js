@@ -188,11 +188,10 @@ PHEDEX.Module.Agents = function(sandbox, string) {
 
         if ( context.maxAge ) {
           setTimeout( function(obj) {
-              return function() {
-                if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
-                _sbx.notify(obj.id,'dataExpires');
-              };
-            }(this), context.maxAge * 1000 );
+              if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
+              _sbx.notify(obj.id,'dataExpires');
+            };
+            }, context.maxAge * 1000, this );
           this.expires = new Date().getTime()/1000;
           this.expires += parseInt(context.maxAge);
         }

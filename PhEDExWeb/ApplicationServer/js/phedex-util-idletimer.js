@@ -36,10 +36,8 @@ PHEDEX.Util.IdleTimer = function(){
             if (idle){
                 this.toggleIdleState();           
             } 
-            tId = setTimeout(function(obj) {
-              return function() { obj.toggleIdleState(); }
-            }(this), timeout);
-        }    
+            tId = setTimeout(function(obj) { obj.toggleIdleState(); }, timeout, this);
+        }
     },
     toggleIdleState: function() {
 
@@ -63,9 +61,7 @@ PHEDEX.Util.IdleTimer = function(){
       }
       YuE.on(document, "mousemove", this.handleUserEvent, this, true);
       YuE.on(document, "keydown",   this.handleUserEvent, this, true);
-      tId = setTimeout(function(obj) {
-        return function() { obj.toggleIdleState(); }
-      }(this), timeout);
+      tId = setTimeout(function(obj) { obj.toggleIdleState(); }, timeout, this);
     },
     stop: function(){
       enabled = false;

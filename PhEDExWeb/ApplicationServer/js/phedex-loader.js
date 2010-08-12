@@ -119,7 +119,7 @@ PHEDEX.Loader = function(opts) {
       case 'Failure':  { log(ev+': '+type+', '+item.msg,'error',_me); _busy = false; break; }
       case 'Timeout':  { log(ev+': '+type,'error',_me); _busy = false; break; }
     };
-    if ( _on[type] ) { setTimeout( function() { _on[type](item); },0); }
+    if ( _on[type] ) { setTimeout( _on[type], 0, item ); }
   };
 
 /**
@@ -187,10 +187,8 @@ PHEDEX.Loader = function(opts) {
         if ( typeof(_args[0]) == 'object' || typeof(_args[0]) == 'array' ) { _args = _args[0]; }
         if ( _busy ) {
           setTimeout( function(obj) {
-            return function() {
-              obj.load(args,_args);
-            }
-          }(this),100);
+            obj.load(args,_args);
+          }, 100, this );
           return;
         }
         _busy = true;

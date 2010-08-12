@@ -190,11 +190,11 @@ PHEDEX.Util = { // N.B. Although a phedex-util.js file exists, this is the right
         },
         order = { def:0, info:1, warn:2, error:3 },
         current;
-    if ( !outer ) { return function(){}; }
+    if ( !outer ) { return function(){}; } // stub in case there is no element for me to write into
     var fade = function() {
       current--;
       if ( current < 2 ) { return; }
-      setTimeout( function() { fade(); }, 2500 );
+      setTimeout( fade, 2500 );
     }
     return function(str,level,group) {
       if ( outer ) {
@@ -288,7 +288,7 @@ if ( PxW.ProductionMode ) { // stub these functions in production-mode, to reduc
 if ( !PHEDEX.Core ) {
   PHEDEX.Core = {
     onLoaded: function(args) {
-      setTimeout( function() { PHEDEX.Core.onLoaded(args); },400);
+      setTimeout( PHEDEX.Core.onLoaded,400, args );
     }
   };
 }

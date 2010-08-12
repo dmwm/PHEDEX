@@ -25,7 +25,8 @@ stressTest = function(type) {
         if ( run == 0 ) { break; }
         i++;
         d.innerHTML = 'iterations so far: '+i;
-        setTimeout(function() { PxS.notify('CreateModule',type); }, 0);
+//         setTimeout(function() { PxS.notify('CreateModule',type); }, 0);
+        setTimeout(PxS.notify, 0, 'CreateModule', type);
         break;
       }
     }
