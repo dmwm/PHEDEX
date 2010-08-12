@@ -235,6 +235,7 @@ webapp_link = function() {
       el = elList[0].childNodes[1];
     } catch(ex) { /* cannot find element, abort! */ return; }
     uri = location.href;
+    uri = uri.replace(/\/$/, '');
     child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
     el.appendChild(child);
     var fade = function(element) {
