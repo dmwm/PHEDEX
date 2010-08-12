@@ -225,8 +225,11 @@ function Mix(c1,c2)
 
 webapp_link = function() {
   var fn = function() {
-    var elList, el, child, uri;
+    var elList, el, tgt, child, uri;
+    tgt = document.getElementById('nextgen-link');
+    if ( tgt ) { return; }
     child = document.createElement('li');
+    child.id = 'nextgen-link';
     elList = document.getElementsByClassName('catopt');
     try {
       el = elList[0].childNodes[1];
