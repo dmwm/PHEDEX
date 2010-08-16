@@ -47,6 +47,8 @@ consecutive timebins are OK after the queue has been declared stuck, the
 'stuck' state is downgraded to a warning state, since the queue may have 
 recently recovered.
 
+N.B. Data for T1 sites, which have a Buffer and an MSS node, are aggregated under the name of the MSS node. 
+
 This algorithm is probably far from perfect. Suggestions on how to improve 
 it are welcomed!
 
@@ -115,19 +117,21 @@ sub _shift_requestedqueued
   $mindata = $h{MINDATA} || 1024*1024*1024*1024;
 
   $unique = 0;
-  foreach ( keys %{$q} )
+  foreach $node ( keys %{$q} )
   {
-    $q->{$_}{RATIO} = 0;
-    $q->{$_}{PEND_BYTES} = $p->{$_}{PEND_BYTES} || 0;
-    if ( $q->{$_}{PEND_BYTES} )
+    foreach $bin ( keys %{$q->{$node}} )
     {
-      $q->{$_}{RATIO} = $q->{$_}{REQUEST_BYTES} / $q->{$_}{PEND_BYTES};
+      $q->{$node}{$bin}{RATIO} = 0;
+      $q->{$node}{$bin}{PEND_BYTES} = $p->{$node}{$bin}{PEND_BYTES} || 0;
+      if ( $q->{$node}{$bin}{PEND_BYTES} )
+      {
+        $q->{$node}{$bin}{RATIO} = $q->{$node}{$bin}{REQUEST_BYTES} / $q->{$node}{$bin}{PEND_BYTES};
+      }
     }
   }
 
-  foreach ( values %{$q} )
+  foreach $node ( keys %{$q} )
   {
-    $node = $_->{NODE};
     if ( ! $s{$node} )
     {
       $s{$node} = {
@@ -143,7 +147,7 @@ sub _shift_requestedqueued
 			 UNIQUEID		=> $unique++,
 		       };
     }
-    $s{$node}{TIMEBINS}{$_->{TIMEBIN}} = $_;
+    $s{$node}{TIMEBINS} = $q->{$node};
   }
 
   foreach $node ( keys %s )
