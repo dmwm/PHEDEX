@@ -204,17 +204,16 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
        this.needProcess = true;
        this.fillDataSource(this.data);
-        var nOK=0, nNotOK=0, rq = data.requestedqueued, stuck = [];
+        var nOK=0, nNotOK=0, rq = data.requestedqueued;
         this.dom.extra.innerHTML = 'No stuck nodes:';
+        this.stuck = [];
         for (var i in rq) {
           if ( !rq[i].status ) { nOK++; }
-          else                 { nNotOK++; stuck.push(rq[i].node); }
+          else                 { nNotOK++; this.stuck.push(rq[i].node); }
         }
         this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
         if ( nNotOK ) {
 // TODO This should be something more meaningful, like an explanation of the algorithm...
-          stuck.sort( function (a, b) { return (a > b) - (a < b); } );
-          this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + stuck.join(' ');
         }
         _sbx.notify( this.id, 'gotData' );
         _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
@@ -233,6 +232,9 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         else                 { return 'Show Full'; }
       },
       fillExtra: function() {
+        this.stuck.sort( function (a, b) { return (a > b) - (a < b); } );
+        this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + this.stuck.join(' ') +
+          "<br/>For an explanation of the algorithm, see <a target='phedex_datasvc_doc' class='phedex-link' href='" + PxW.DataserviceBaseURL + "doc/shift/requested'>the dataservice documentation for this API</a>";
       },
       handleDataMode: function() {
         var ctl = this.ctl['dataMode'];
@@ -261,10 +263,19 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       },
 // pre-fetch the icons, so they are here when we need them
       initMe: function() {
+debugger;
         PxL.get(PxW.BaseURL+'/images/icon-circle-red.png',
                 PxW.BaseURL+'/images/icon-circle-yellow.png',
                 PxW.BaseURL+'/images/icon-circle-green.png');
-      }
+        var a = document.createElement('a');
+        a.target    = 'phedex_datasvc_doc';
+//         a.className = 'phedex-link';
+        a.href      = PxW.DataserviceBaseURL + 'doc/shift/requested';
+        a.innerHTML = "<img src='"+PxW.BaseURL+"/app/images/info.png' height=18 border=0 />";
+        a.title     = 'For information about the algorithm used in this module, follow this link to the dataservice documentation.';
+        this.dom.control.appendChild(a);
+debugger;
+     }
     };
   };
   Yla(this,_construct(this),true);
