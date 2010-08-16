@@ -81,7 +81,8 @@ function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   PxW.combineRequests = false;
-  PxW.DataserviceURL = '/phedex/dev2/datasvc/json/';
+  PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
+  PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
 //   PxW.nocache = true;
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
