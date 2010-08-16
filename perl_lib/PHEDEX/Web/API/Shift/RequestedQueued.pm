@@ -10,64 +10,77 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Shift::RequestedQueued - current activity in PhEDEx
+PHEDEX::Web::API::Shift::RequestedQueued - Requested vs. queued data analysis for shift personnel.
 
 =head1 DESCRIPTION
 
-Serves information about current activity in PhEDEx.
+Serves information about current activity in PhEDEx. This module is
+specifically tailored to suit the needs of people on shift who are checking
+that data is moving properly.
+
+The code implements a check that data requested for a node is indeed being
+queued for that node. The check takes several things into account.
+
+First, it gets the number of bytes pending and queued for each node for 
+each of the last 12 hours, with timebins aligned on the hour. Then it 
+checks the ratio of bytes queued to bytes requested in each timebin, and 
+attempts to deduce if the requested data is being queued properly or not.
+
+If no data is requested in any timebin, the queue is declared to be OK, 
+and no further analysis is performed.
+
+If some data is requested, but it is less than a preset minimum amount, 
+the queue is also declared to be OK. Currently, that minimum is set at 1 
+TB. Again, no further analysis is performed.
+
+Next, each bin is checked. The ratio of queued to requested data is 
+calculated. If the ratio is less than 10%, the queue is considered to be 
+stuck for that timebin. If the ratio is between 0.9 and 5, the queue is 
+considered to be OK for that timebin. If the ratio is greater than 5, the 
+timebin is considered to be in a warning state, since although data was 
+queued the amount requested was far greater than that queued.
+
+If four or more consecutive timebins are stuck, the queue is declared to 
+be stuck. If four or more consecutive timebins are in a warning state, the 
+entire queue is considered to be in a warning state. If three or more 
+consecutive timebins are OK after the queue has been declared stuck, the 
+'stuck' state is downgraded to a warning state, since the queue may have 
+recently recovered.
+
+This algorithm is probably far from perfect. Suggestions on how to improve 
+it are welcomed!
 
 =head2 Options
 
  required inputs: none
- optional inputs: (as filters) node, se, agent
+ optional inputs: (as filters) node
 
-  node             node name, could be multiple
-  se               storage element name, could be multiple
-  agent            agent name, could be multiple
-  version          PhEDEx version
-  update_since     updated since this time
-  detail           show "code" information at file level *
+  full             show information about all nodes, not just those with a problem
 
 =head2 Output
 
-  * without option "detail"
-
-  <node>
-    <agent/>
-  </node>
+  <requestedqueued>
+    <nesteddata/>
+  </requestedqueued>
   ...
 
-  * with option "detail"
+=head3 <requestedqueued> elements
 
-  <node>
-    <agent>
-      <code/>
-      ...
-    </agent>
-  </node>
-  ...
+  status             status-code (numeric). 0 => OK, 1 => possible problem, 2 => problem
+  status_text        textual representation of the status ('OK', 'Warn', 'Error')
+  reason             reason for the assigned status
+  node               node-name
+  max_request_bytes  Max. number of bytes requested for transfer in the interval under examination
+  max_pend_bytes     Max. number of bytes pending for transfer in the interval under examination
+  cur_request_bytes  Number of bytes currently requested for transfer
+  cur_pend_bytes     Number of bytes currently pending for transfer
 
-=head3 <node> elements
+=head3 <nesteddata> elements
 
-  name             agent name
-  node             node name
-  host             host name
-
-=head3 <agent> elements
-
-  label            label
-  state_dir        directory path ot the states
-  version          rpm release or 'CVS'
-  pid              process id
-  time_update      time it was updated
-
-=head3 <code> elements
-
-  filename         file name
-  filesize         file size (bytes)
-  checksum         checksum
-  rivision         CVS revision
-  tag              CVS tag
+  request_bytes    number of bytes requested for transfer in the current timebin
+  pend_bytes       number of bytes queued for transfer in the current timebin
+  ratio            ratio of requested/pending bytes
+  timebin          Unix epoch time of start of current timebin
 
 =cut
 
@@ -132,7 +145,7 @@ sub _shift_requestedqueued
     }
     $s{$node}{TIMEBINS}{$_->{TIMEBIN}} = $_;
   }
-$DB::single=1;
+
   foreach $node ( keys %s )
   {
 #   Declare a problem is there are four consecutive bins where data is
