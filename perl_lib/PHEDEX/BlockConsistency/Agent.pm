@@ -20,6 +20,7 @@ use POE::Queue::Array;
 our %params =
 	(
 	  WAITTIME	=> 300 + rand(15),	# Agent activity cycle
+          PROTOCOL      => undef,               # File access protocol
 	  PRELOAD	=> undef,		# Library to preload for dCache?
 	  ME => 'BlockDownloadVerify',		# Name for the record...
 	  NAMESPACE	=> 'posix',
@@ -174,6 +175,7 @@ sub doNSCheck
   {
     die "No Namespace provided\n"; 
   }
+  if ( $self->{PROTOCOL} ) { $tfcprotocol = $self->{PROTOCOL}; }
 
   $self->Dbgmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
