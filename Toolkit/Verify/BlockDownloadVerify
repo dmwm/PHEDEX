@@ -24,6 +24,7 @@
 ##H                plugin modules. This allows customisation for optimal
 ##H                performance at any site, without having to modify the
 ##H                core agent.
+##H -protocol      if your site use a different protocol than the one the db  
 ##H -queue_length  <integer>, the number of tasks to fetch from the database
 ##H                per cycle. This should not be set without consultation
 ##H                with the developers.
@@ -42,6 +43,7 @@ use PHEDEX::BlockConsistency::Agent;
 	     "label=s"      => \$args{LABEL},
 	     "storagemap=s" => \$args{STORAGEMAP},
 	     "namespace=s"  => \$args{NAMESPACE},
+             "protocol=s"   => \$args{PROTOCOL},
 
              "nodes=s"      => sub { push(@{$args{NODES}}, split(/,/, $_[1])) },
              "ignore=s"     => sub { push(@{$args{IGNORE_NODES}}, split(/,/, $_[1])) },
