@@ -129,17 +129,24 @@ sub idle
 	foreach my $subn ( @$subscribe ) {
 	    my ($type, $node, $id) = @$subn;
 
+	    $self->Logmsg("adding subscription parameter set from request=$xreq->{ID}");                                                  
+	    # Create new original parameter set, or retrieve old one if existing
+	    my $rparam = $self->createSubscriptionParam (
+							 REQUEST => $xreq->{ID},
+							 PRIORITY => $xreq->{PRIORITY},
+							 IS_CUSTODIAL => $xreq->{IS_CUSTODIAL},
+							 USER_GROUP => $xreq->{USER_GROUP},
+							 ORIGINAL => 1,
+							 TIME_CREATE => $now
+							 );
 	    $self->Logmsg("adding subscription ",lc $type, "=$id for node=$node from request=$xreq->{ID}");
 	    my $n_subs = $self->createSubscription( $type => $id,
 						    DESTINATION => $node, 
-						    PRIORITY => $xreq->{PRIORITY},
 						    IS_MOVE => $xreq->{IS_MOVE},
-						    IS_TRANSIENT => $xreq->{IS_TRANSIENT},
-						    IS_CUSTODIAL => $xreq->{IS_CUSTODIAL},
-						    USER_GROUP => $xreq->{USER_GROUP},
+						    TIME_START => $xreq->{TIME_START},
 						    TIME_CREATE => $now,
 						    IGNORE_DUPLICATES => 1,
-						    REQUEST => $xreq->{ID}
+						    PARAM => $rparam
 						    );
 	    $stats{lc $type} += $n_subs if $n_subs;
 	    
