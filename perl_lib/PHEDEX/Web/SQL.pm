@@ -2035,6 +2035,7 @@ sub getLinks
             tn.name to_node,
             l.is_active,
             l.is_local,
+            l.distance,
             fn.kind from_kind,
             tn.kind to_kind,
             xso.time_update source_update,
@@ -2070,12 +2071,13 @@ sub getLinks
     my %link_params;
     my (%from_nodes, %to_nodes);
     foreach my $link (@{$links}) {
-        my ($from, $to, $is_active, $is_local, $from_kind, $to_kind,
+        my ($from, $to, $is_active, $is_local, $distance, $from_kind, $to_kind,
             $xso_update, $xso_protos, $xsi_update, $xsi_protos) = @{$link};
         my $key = $from.'-->'.$to;
         $link_params{$key} = { 
                                FROM => $from,
                                TO => $to,
+                               DISTANCE => $distance,
                                TO_AGENT_UPDATE => $xsi_update,
                                FROM_AGENT_UPDATE => $xso_update,
                                FROM_KIND => $from_kind,
@@ -3250,5 +3252,99 @@ sub getData
 
     return \@r;
 }
+
+#
+sub getLoadTestStreams
+{
+    my $core = shift;
+    my %h = @_;
+
+    my $sql = qq{
+        select
+            n.id node_id,
+            n.name node_name,
+            n.se_name node_se,
+            l.is_active,
+            l.dataset_size dataset_blocks,
+            l.dataset_close,
+            l.block_size block_files,
+            l.block_close,
+            l.rate,
+            l.inject_now,
+            l.time_create,
+            l.time_update,
+            l.time_inject,
+            tn.name throttle_node,
+            fd.id from_id,
+            fd.name from_name,
+            fd.is_open from_is_open,
+            td.id to_id,
+            td.name to_name,
+            td.is_open to_is_open
+        from
+            t_loadtest_param l
+            join t_dps_dataset fd on fd.id = l.src_dataset
+            join t_dps_dataset td on td.id = l.dest_dataset
+            join t_adm_node n on n.id = l.dest_node
+            join t_adm_node tn on tn.id = l.throttle_node
+    };
+
+    my $filters = '';
+    my %p;
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        NODE => 'n.name',
+        SE => 'n.se_name',
+        FROM_DATASET => 'fd.name',
+        TO_DATASET => 'td.name'));
+
+    my $and = " and ";
+    if ($filters)
+    {
+        $sql .= qq{ where ($filters) };
+    }
+    else
+    {
+        $and = " where ";
+    }
+
+    if (exists $h{CREATE_SINCE})
+    {
+        $sql .= $and . qq{ l.time_create >= :create_since };
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        $sql .= $and . qq{ l.time_update >= :update_since };
+        $p{':update_since'} = &str2time($h{UPDATE_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    if (exists $h{INJECT_SINCE})
+    {
+        $sql .= $and . qq{ l.time_inject >= :inject_since };
+        $p{':inject_since'} = &str2time($h{INJECT_SINCE});
+        if ($and eq " where ")
+        {
+            $and = " and ";
+        }
+    }
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
 
 1;
