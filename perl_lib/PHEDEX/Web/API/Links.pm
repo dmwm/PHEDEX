@@ -34,6 +34,7 @@ Show current link status
   to                    destination node
   from_kind             type of source node
   to_kind               type of destination node
+  distance              distance between source and destination nodes
   from_agent_update     source node update time
   to_agent_update       destination node update time
   from_agent_protocols  source node protocols
