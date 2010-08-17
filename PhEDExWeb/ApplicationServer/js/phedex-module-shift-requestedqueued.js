@@ -263,19 +263,32 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       },
 // pre-fetch the icons, so they are here when we need them
       initMe: function() {
-debugger;
+        this.decorators.push(
+        {
+          name: 'Info',
+          source:'component-dom',
+          parent: 'control',
+          payload:{
+            type: 'a',
+//             handler: 'fillInfo',
+            attributes: {
+              target:     'phedex_datasvc_doc',
+              href:       PxW.DataserviceBaseURL + 'doc/shift/requestedqueued',
+              innerHTML:  '&nbsp;<em>i</em>&nbsp;',
+              className:  'phedex-link',
+              title:      'Information about the algorithm used in this module, from the dataservice documentation.'
+            },
+            style: {
+              fontWeight: 'bold',
+              color:      'white',
+              backgroundColor: '#00f'
+            }
+          }
+        });
         PxL.get(PxW.BaseURL+'/images/icon-circle-red.png',
                 PxW.BaseURL+'/images/icon-circle-yellow.png',
                 PxW.BaseURL+'/images/icon-circle-green.png');
-        var a = document.createElement('a');
-        a.target    = 'phedex_datasvc_doc';
-//         a.className = 'phedex-link';
-        a.href      = PxW.DataserviceBaseURL + 'doc/shift/requested';
-        a.innerHTML = "<img src='"+PxW.BaseURL+"/app/images/info.png' height=18 border=0 />";
-        a.title     = 'For information about the algorithm used in this module, follow this link to the dataservice documentation.';
-        this.dom.control.appendChild(a);
-debugger;
-     }
+      },
     };
   };
   Yla(this,_construct(this),true);
