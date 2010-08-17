@@ -77,10 +77,10 @@ PHEDEX.Component.Control = function(sandbox,args) {
       ap = args.payload,
 
       _defTitle = {
-        Filter: 'Show the filter-panel, which allows you to filter the data shown in this module.',
-        Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize the fields by dragging the header-element',
-        Extra:  'Show extra information about this module',
-        Refresh:'Update information in this module from the dataservice',
+        Filter: 'Show the filter-panel, which allows you to filter the data shown in this module',
+        Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize fields by dragging the header-element',
+        Extra:  'Show extra details about this data',
+        Refresh:'Refresh this module with new data from the dataservice',
       },
 
 /**
@@ -106,7 +106,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
  */
   _mouseoverHandler = function(ev,obj) {
     if ( this.payload.tooltip ) {
-      this.el.title = this.payload.tooltip() || ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
+      this.el.title = this.payload.tooltip() || this.tooltip;
     }
     var timeout = obj.payload.hover_timeout;
     if ( !timeout ) { return; }
@@ -166,7 +166,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         } else if ( ap.type == 'a' ) {
           this.el.appendChild(document.createTextNode(ap.text || args.name));
         }
-        this.el.title = ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
+        this.tooltip = this.el.title = ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
         for (var i in ap) { p[i] = ap[i]; }
         if ( p.obj ) { partner = p.obj.id; }
         if ( p.target ) {
@@ -321,10 +321,15 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * enable the control. Remove the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 1, and set the cursor to 'pointer' for this element.
  * @method Enable
  */
-      Enable: function() {
+      Enable: function(opts) {
         YuD.removeClass(this.el,'phedex-core-control-widget-disabled');
         this.enabled = 1;
         this.el.style.cursor = 'pointer';
+        if ( opts ) {
+          if ( opts.resetTT ) {
+            this.el.title = this.tooltip;
+          }
+        }
       },
 /**
  * disable the control. Add the CSS class <strong>phedex-core-control-widget-disabled</strong>, set the <strong>enabled</strong> property to 0, and set the cursor to normal
