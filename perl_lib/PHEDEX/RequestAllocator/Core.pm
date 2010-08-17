@@ -288,9 +288,13 @@ sub validateRequest
 	    if (@$ds_ids) {
 		my $sql = qq{ select distinct n.name
 			        from t_adm_node n
-                                join t_dps_subscription s on s.destination = n.id
-                                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
-                               where sb.dataset = :dataset
+                                join t_dps_subs_dataset s on s.destination = n.id
+			       where s.dataset = :dataset
+			      UNION
+			      select distinct n.name
+			        from t_adm_node n
+				join t_dps_subs_block s on s.destination = n.id
+			       where s.dataset = :dataset
 			   };
 		foreach my $ds (@$ds_ids) {
 		    my @other_subs = @{ &select_single($self, $sql, ':dataset' => $ds) };		
@@ -299,9 +303,14 @@ sub validateRequest
 	    } elsif (@$b_ids) {
 		my $sql = qq{ select distinct n.name
 			        from t_adm_node n
-                                join t_dps_subscription s on s.destination = n.id
-                                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
+                                join t_dps_subs_dataset s on s.destination = n.id
+                                join t_dps_block sb on sb.dataset = s.dataset
                                where sb.id = :block
+			      UNION
+			      select distinct n.name
+			        from t_adm_node n
+				join t_dps_subs_block s on s.destination = n.id
+			       where s.block = :block
 			   };
 		foreach my $b (@$b_ids) {
 		    my @other_subs = @{ &select_single($self, $sql, ':block' => $b) };		
@@ -309,7 +318,7 @@ sub validateRequest
 		}
 	    }
 
-	    die "cannot request move:  moves of data is subscribed to T0 or T1 are not allowed\n"
+	    die "cannot request move:  moves of data subscribed to T0 or T1 are not allowed\n"
 		if grep /^(T1|T0)/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
 	}
