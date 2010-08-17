@@ -82,7 +82,7 @@ sub stuckOnWan
   $now = &mytimeofday();
 
 # Blocks stuck over a link for longer than $interval, but not if already seen
-  $sql = qq { select time_request, time_update,
+  $sql = qq { select bp.time_request, bp.time_update,
                      ns.name sname, nd.name dname, bp.block block,
                      ns.id sid, nd.id did, b.name bname, b.files bfiles, l.is_local is_local
                from t_status_block_path bp
@@ -92,10 +92,10 @@ sub stuckOnWan
                                 and l.to_node = bp.destination
                join t_dps_block b on b.id = bp.block
                where bp.is_valid = 1
-                 and time_request <= :interval
-                 and time_request > :last_checked
+                 and bp.time_request <= :interval
+                 and bp.time_request > :last_checked
 		 ${filter}
-		order by time_request asc
+		order by bp.time_request asc
        };
   $t = time();
   $interval = $t - $self->{CHECK_INTERVAL};
