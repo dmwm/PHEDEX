@@ -180,6 +180,7 @@ create table t_req_comments
  *     is_static: 'y' for fixed data size, 'n' for growing data subscription
  *     is_distributed:  'y' for distribution among nodes, 'n' for all data to all nodes
  *     user_group:  which group this request is for
+ *     time_start: the start time for dataset transfers, NULL for all blocks in dataset
  *     data:  text of user's actual request (unresolved globs)
  */
 create table t_req_xfer
@@ -191,6 +192,7 @@ create table t_req_xfer
    is_transient		char(1)		not null,
    is_distributed	char(1)		not null,
    user_group		integer			,
+   time_start           float                   ,
    data			clob			,
    --
    constraint pk_req_xfer
@@ -263,58 +265,6 @@ create table t_dps_block_delete
    constraint fk_dps_block_delete_node
      foreign key (node) references t_adm_node (id)
      on delete cascade);
-
-create table t_dps_subscription
-  (request              integer,
-   dataset		integer,
-   block		integer,
-   destination		integer		not null,
-   priority		integer		not null,
-   is_move		char (1)	not null,
-   is_transient		char (1)	not null,
-   is_custodial		char (1)	not null,
-   user_group		integer,
-   time_create		float		not null,
-   time_complete	float,
-   time_clear		float,
-   time_done		float,
-   time_suspend_until	float,
-   --
-   constraint uq_dps_subscription
-     unique (dataset, block, destination),
-   --
-   constraint fk_dps_subscription_request
-     foreign key (request) references t_req_request (id)
- 	on delete set null,
-   --
-   constraint fk_dps_subscription_dataset
-     foreign key (dataset) references t_dps_dataset (id)
- 	on delete cascade,
-   --
-   constraint fk_dps_subscription_block
-     foreign key (block) references t_dps_block (id)
-	on delete cascade,
-   --
-   constraint fk_dps_subscription_dest
-     foreign key (destination) references t_adm_node (id)
-	on delete cascade,
-   --
-   constraint fk_dps_subscription_group
-     foreign key (user_group) references t_adm_group (id)
-     on delete set null,
-   --
-   constraint ck_dps_subscription_ref
-     check (not (block is null and dataset is null)
-            and not (block is not null and dataset is not null)),
-   --
-   constraint ck_dps_subscription_move
-     check (is_move in ('y', 'n')),
-   --
-   constraint ck_dps_subscription_transient
-     check (is_transient in ('y', 'n')),
-   --
-   constraint ck_dps_subscription_custodial
-     check (is_custodial in ('y', 'n')));
 
 /* Per-request statistics for data associated with the request */
 create table t_req_size
@@ -419,15 +369,3 @@ create index ix_dps_block_delete_ds
   on t_dps_block_delete (dataset);
 create index ix_dps_block_delete_node
   on t_dps_block_delete (node);
-
--- t_dps_block_delete
-create index ix_dps_subscription_req
-  on t_dps_subscription (request);
-create index ix_dps_subscription_dataset
-  on t_dps_subscription (dataset);
-create index ix_dps_subscription_block
-  on t_dps_subscription (block);
-create index ix_dps_subscription_dest
-  on t_dps_subscription (destination);
-create index ix_dps_subscription_group
-  on t_dps_subscription (user_group);
