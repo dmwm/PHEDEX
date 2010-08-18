@@ -68,6 +68,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
                       if ( !this.obj.expires ) { return; }
                       var delta = new Date().getTime()/1000;
                       delta = Math.round(this.obj.expires - delta);
+                      if ( delta < 0 ) { return; }
                       return 'Data expires in '+delta+' seconds';
                     },
             map: {
@@ -217,11 +218,11 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
         _sbx.notify( this.id, 'gotData' );
         _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
-
+context.maxAge = 10;
         if ( context.maxAge ) {
           setTimeout( function(obj) {
               if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
-              _sbx.notify(obj.id,'dataExpires');
+              _sbx.notify(obj.id,'dataExpires',{resetTT:true});
             }, context.maxAge * 1000, this );
           this.expires = new Date().getTime()/1000;
           this.expires += parseInt(context.maxAge);
