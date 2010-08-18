@@ -66,7 +66,7 @@ it are welcomed!
   </requestedqueued>
   ...
 
-=head3 <requestedqueued> elements
+=head3 <requestedqueued> attributes
 
   status             status-code (numeric). 0 => OK, 1 => possible problem, 2 => problem
   status_text        textual representation of the status ('OK', 'Warn', 'Error')
@@ -77,7 +77,7 @@ it are welcomed!
   cur_request_bytes  Number of bytes currently requested for transfer
   cur_pend_bytes     Number of bytes currently pending for transfer
 
-=head3 <nesteddata> elements
+=head3 <nesteddata> attributes
 
   request_bytes    number of bytes requested for transfer in the current timebin
   pend_bytes       number of bytes queued for transfer in the current timebin

@@ -32,15 +32,15 @@ T1 sites are aggregated by _Buffer and _MSS.
   </queued>
   ...
 
-=head3 <queued> elements
+=head3 <queued> attributes
 
  ...none
 
-=head3 <node> elements
+=head3 <node> attributes
 
  ...none
 
-=head3 <$timebin> elements
+=head3 <$timebin> attributes
 
   pend_types    number of bytes pending for transfer in the current timebin
   timebin       Unix epoch time of start of current timebin

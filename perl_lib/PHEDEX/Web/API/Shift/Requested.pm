@@ -32,15 +32,15 @@ T1 sites are aggregated by _Buffer and _MSS.
   </requested>
   ...
 
-=head3 <requested> elements
+=head3 <requested> attributes
 
  ...none
 
-=head3 <node> elements
+=head3 <node> attributes
 
  ...none
 
-=head3 <$timebin> elements
+=head3 <$timebin> attributes
 
   request_bytes    number of bytes requested for transfer in the current timebin
   timebin          Unix epoch time of start of current timebin
