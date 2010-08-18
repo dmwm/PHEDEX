@@ -236,6 +236,7 @@ table.phedex-core-control-widget-applied {
 a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take precedence over active/inactive values */
   background-color: #eee;
   border: 1px dotted #888;
+  color: #888;
 }
 .phedex-core-control-widget-inactive {
   background-color: #9f0; /* light-green */
