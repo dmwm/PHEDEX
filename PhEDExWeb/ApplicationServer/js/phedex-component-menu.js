@@ -102,16 +102,20 @@ PHEDEX.Component.Menu = function(sandbox,args) {
 
         var moduleHandler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0];
+            var action = arr[0], args=[], fn, fnName, map=obj.payload.map;
             if ( !action ) { return; }
-            if ( this[action] && typeof(this[action]) == 'function' ) {
+            fn = this[action];
+            if ( fn && typeof(fn) == 'function' ) {
               if ( arr[2] != args.name ) { return; }
-              this[action](arr[3]);
+              fn(arr[3]);
               return;
             }
-            if ( obj.payload.map[action] ) {
-              arr.shift();
-              obj[obj.payload.map[action]](arr);
+            if ( !map ) { return; }
+            fnName = map[action];
+            if ( fnName ) {
+              for (i in arr) { args[i] = arr[i]; }
+              args.shift();
+              obj[fnName](args);
               return;
             }
           }

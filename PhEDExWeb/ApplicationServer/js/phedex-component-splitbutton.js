@@ -116,7 +116,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
 
         var moduleHandler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0];
+            var action = arr[0], args=[], fnName, map=obj.payload.map, i;
             switch ( action ) {
               case 'gotData': {
                 var m = column_menu.getItems();
@@ -126,10 +126,12 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
                 return;
               }
             }
-            if ( action && obj.payload.map[action] ) {
-              arr.shift();
-              obj[obj.payload.map[action]](arr);
-            }
+            if ( !map || !action ) { return; }
+            fnName = map[action];
+            if ( !fnName ) { return; }
+            for (i in arr) { args[i] = arr[i]; }
+            args.shift();
+            obj[fnName](args);
           }
         }(this);
         _sbx.listen(partner,moduleHandler);

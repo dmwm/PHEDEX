@@ -216,16 +216,17 @@ PHEDEX.Component.Control = function(sandbox,args) {
         if ( p.obj ) {
           var moduleHandler = function(obj) {
             return function(ev,arr) {
-              var action = arr.shift(), fnName;
-              fnName = obj.payload.map[action];
-              if ( action && fnName ) {
-                obj[fnName](arr.shift());
-              }
+              var action = arr[0], args=[], fnName, map=obj.payload.map, i;
+              if ( !map || !action ) { return; }
+              fnName = map[action];
+              if ( !fnName ) { return; }
+              for (i in arr) { args[i] = arr[i]; }
+              args.shift();
+              obj[fnName](args);
             }
           }(this);
           _sbx.listen(p.obj.id,moduleHandler);
         }
-
       },
 /**
  * Show the controlled element, and trigger the '<strong>partner</strong>' module (that which is being decorated) to put something in it
