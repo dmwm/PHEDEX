@@ -1,3 +1,20 @@
+* Changes for 1.6.3
+
+ New APIs:
+
+  * 'loadteststreams': display LoadTest streams and their parameters
+
+ Changes for APIs:
+
+  * 'links':
+    - now 'distance' is in output
+
+ Bug fix:
+
+  * 'filereplicas':
+    - bug fix for mis-landling negation
+    - the bug is in PHEDEX::Web::Util::validate_params()
+
 * Changes for 1.6.3pre1
 
  Changes for the DataService:
