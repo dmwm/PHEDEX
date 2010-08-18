@@ -36,24 +36,51 @@ sub AUTOLOAD
   my $parent = "SUPER::" . $attr;
   $self->$parent(@_);
 }
-
 #-------------------------------------------------------------------------------
+sub insertSubscriptionParam
+{
+    my ($self,$h) = @_;                                                                                                     
+
+    my $sql = qq{
+	insert into t_dps_subs_param
+	    (id, priority, is_custodial, original, time_create)
+	  values
+	    (seq_dps_subs_param.nextval, :priority, :is_custodial, :original, :time_create)
+	    returning id into :param_id
+	};
+
+    my $param_id;
+    my %p = map { ':' . lc $_ => $h->{$_} } keys %{$h};
+    $p{':param_id'}=\$param_id;
+    
+    my ($sth, $n);
+    eval {
+	($sth, $n) = execute_sql( $self, $sql, %p );
+    };  
+    $self->Fatal($@) if $@;  
+    
+    return $param_id;
+    
+}
+
 sub insertSubscription
 {
     my ($self,$h) = @_;
 
-    my $sql = qq{ 
-	insert into t_dps_subscription
-        (dataset, block, destination, is_custodial,
-	 priority, is_move, is_transient, time_create)
-    };
+    my $sql = qq{insert into t_dps_subs_};
 
     if ($h->{DATASET}) {
-	$sql .= qq{ select ds.id, NULL, :node, :is_custodial, :priority, :is_move, :is_transient, :time_create 
-		      from t_dps_dataset ds where ds.name = :dataset };
+	$sql .= qq{dataset};
+	$sql .= qq{
+	    (destination, dataset, param, is_move, time_create, time_fill_after)
+		select :node, ds.id, :param, :is_move, :time_create, NULL 
+		   from t_dps_dataset ds where ds.name = :dataset };
     } elsif ($h->{BLOCK}) {
-	$sql .= qq{ select NULL, b.id, :node, :is_custodial, :priority, :is_move, :is_transient, :time_create 
-			from t_dps_block b where b.name = :block };
+	$sql .= qq{block};
+	$sql .= qq{
+	    (destination, dataset, block, param, is_move, time_create)
+		select :node, b.dataset, b.id, :param, :is_move, :time_create 
+		   from t_dps_block b where b.name = :block };
     } else {
 	die "DATASET or BLOCK required\n";
     }
@@ -73,15 +100,17 @@ sub deleteSubscription
 {
     my ($self,$h) = @_;
 
-    my $sql = qq{ 
-	delete from t_dps_subscription
-    };
-
+    my $sql = qq{delete from t_dps_subs_};
+    
     if ($h->{DATASET}) {
-        $self->Fatal("Have not written sql for deleting dataset subscription yet...");
-#	$sql .= qq{ select ds.id, NULL, :node, :priority, :is_move, :is_transient, :time_create 
-#		      from t_dps_dataset ds where ds.name = :dataset };
+#        FIXME: The following query will only remove the dataset subscription
+#        FIXME: It is also necessary to delete the corresponding block-level subscriptions to stop transfers 
+#        $sql .= qq{dataset};                                                                                                                                   
+#        $sql .= qq{ where destination = :node and dataset =                                                                                                    
+#			( select id from t_dps_dataset name = :dataset ) };
+	$self->Fatal("Have not written sql for deleting dataset subscription yet...");
     } elsif ($h->{BLOCK}) {
+	$sql .= qq{block};
 	$sql .= qq{ where destination = :node and block =
 		 ( select id from t_dps_block where name = :block ) };
     } else {

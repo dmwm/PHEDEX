@@ -508,16 +508,30 @@ sub subscribeBlock
 
   my $nodeid = $self->{NodeIDs}{$node};
   return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
+  
+  $self->Logmsg("Subscription parameters for $block->{block} to node $_") unless $self->{Quiet};
+  
+  my $hp;
+  $hp->{priority}        = $ds->{Priority};
+  $hp->{is_custodial}    = $ds->{IsCustodial};
+  $hp->{time_create}     = $block->{created};
+  $hp->{original}        = 'y';
+
+  my $param;
+  eval { $param = $self->insertSubscriptionParam( $hp ) }; 
+  if ($@) {                             
+      $self->Alert("subscribeBlock:  $@"); 
+      return 0; 
+  }
+  
   $self->Logmsg("Subscription for $block->{block} to node $_") unless $self->{Quiet};
 
   my $h;
   $h->{BLOCK}		= $block->{block};
   $h->{node}		= $nodeid;
-  $h->{priority}	= $ds->{Priority};
   $h->{is_move}		= $ds->{IsMove};
-  $h->{is_transient}	= $ds->{IsTransient};
-  $h->{is_custodial}	= $ds->{IsCustodial};
   $h->{time_create}	= $block->{created};
+  $h->{param}           = $param;
 
   eval { $self->insertSubscription( $h ) };
   if ($@) {
