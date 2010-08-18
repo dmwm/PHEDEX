@@ -114,7 +114,7 @@ my $map = {
             se => 'SE_NAME',
             time_create => 'REPLICA_CREATE',
             subscribed => 'SUBSCRIBED',
-            custodial => 'IS_CUSTODICAL',
+            custodial => 'IS_CUSTODIAL',
             group => 'USER_GROUP'
         }
     }
