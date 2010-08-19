@@ -218,7 +218,6 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
         _sbx.notify( this.id, 'gotData' );
         _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
-context.maxAge = 10;
         if ( context.maxAge ) {
           setTimeout( function(obj) {
               if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
