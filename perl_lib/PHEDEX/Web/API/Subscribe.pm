@@ -29,7 +29,7 @@ Makes and approves a transfer request, creating data subscriptions.
                 'dataset'
  priority       subscription priority, either 'high', 'normal', or 'low'. Default is 'low'
  move           'y' or 'n', for 'move' or 'replica' subscription.  Default is 'n' (replica)
- static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (static)
+ static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (growing)
  custodial      'y' or 'n', whether the subscriptions are custodial.  Default is 'n' (non-custodial)
  group          group the request is for.  Default is undefined.
  time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
