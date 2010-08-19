@@ -179,8 +179,8 @@ PHEDEX.Core = function(sandbox,loader) {
             YtP.registerObject(_d.name,_m.ctl[_d.name]);
             if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
           } catch (ex) {
-            banner('Error creating a '+_d.name+' for the '+_m.me+' module','error','core');
-            log(err(ex),'error','core'); return;
+            banner('Error creating a '+_d.name+' for the '+_m.me+' module','error');
+            log(err(ex),'error',_me); return;
           }
           if ( !--_m._nDecorators ) {
             _sbx.notify(_m.id,'decoratorsConstructed');
@@ -191,24 +191,33 @@ PHEDEX.Core = function(sandbox,loader) {
     }
   };
   var _loadDecorators = function(m) {
-    var _m=[],
+    var i, _m=[], _mh = {},
         _d=m.decorators;
-    for (var i in _d) {
-      if ( _d[i].source ) { _m.push(_d[i].source); }
+    for (i in _d) {
+      if ( _d[i].source ) { _mh[_d[i].source] = 1; }
     }
+    for (i in _mh) { _m.push(i); }
     if ( _m.length ) {
 //    load the decorators first, then notify when ready...
-      log('loading decorators','info','core');
+      log('loading decorators','info',_me);
       _ldr.load( {
         Success: function() {
-          log('Successfully loaded decorators','info','core');
+          log('Successfully loaded decorators','info',_me);
           _sbx.notify(m.id,'createDecorators',m);
         },
-        Progress: function(item) { banner('Loaded item: '+item.name); }
+        Progress: function(item) { banner('Loaded item: '+item.name); },
+        Failure: function() {
+          log('Failure loading decorators: ('+_m.join(', ')+')','error',_me);
+          banner('Failure loading decorators, module is not complete!','error');
+        },
+        Timeout: function() {
+          log('Timeout loading decorators ('+_m.join(', ')+')','error',_me);
+          banner('Timeout loading decorators, module is not complete!','error');
+        }
       }, _m);
     } else {
 //    nothing needs loading, I can notify the decorators directly
-      log('Already loaded decorators','info','core');
+      log('Already loaded decorators','info',_me);
       _sbx.notify(m.id,'createDecorators',m);
     }
   };
