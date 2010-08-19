@@ -32,6 +32,7 @@ Makes and approves a transfer request, creating data subscriptions.
  static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (static)
  custodial      'y' or 'n', whether the subscriptions are custodial.  Default is 'n' (non-custodial)
  group          group the request is for.  Default is undefined.
+ time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
  no_email       'y' or 'n' (default), if 'n', a email is sent to
                 requestor, datamanagers, site admins, and global admins
@@ -138,6 +139,7 @@ sub subscribe
 									  IS_STATIC => $args{static},
 									  IS_CUSTODIAL => $args{custodial},
 									  USER_GROUP => $args{group},
+									  TIME_START => $args{time_start},
 									  IS_TRANSIENT => 'n',
 									  IS_DISTRIBUTED => 'n',
 									  COMMENTS => $args{comments},
@@ -160,11 +162,22 @@ sub subscribe
 		    &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
 									$node->{NODE_ID}, 'y', $client_id, $now);
 		    
-		    # Add the subscriptions (or update the move source)
+		    # Add the subscriptions
 		    if ($node->{POINT} eq 'd') {
-			&PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
+			# Add the subscription parameter set (or retrieve it if existing)
+			my $paramid;
+			$paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($core,
+											    REQUEST => $rid,
+											    PRIORITY => $request->{PRIORITY},
+											    IS_CUSTODIAL => $request->{IS_CUSTODIAL},
+											    USER_GROUP => $request->{USER_GROUP},
+											    ORIGINAL => 1,
+											    TIME_CREATE => $now
+											    );
+			&PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($core, $paramid, $node->{NODE_ID}, $now);
+		    # Remove the subcriptions for the move source
 		    } elsif ($node->{POINT} eq 's') {
-			&PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($core, $rid, 
+			&PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, 
 											   $node->{NODE_ID}, $now);
 		    }
 		}
