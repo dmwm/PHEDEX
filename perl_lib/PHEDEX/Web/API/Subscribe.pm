@@ -34,7 +34,7 @@ Makes and approves a transfer request, creating data subscriptions.
  group          group the request is for.  Default is undefined.
  time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
- no_email       'y' or 'n' (default), if 'n', a email is sent to
+ no_mail        'y' or 'n' (default), if 'n', a email is sent to
                 requestor, datamanagers, site admins, and global admins
 
 =head2 Input
