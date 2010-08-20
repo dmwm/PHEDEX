@@ -2,7 +2,6 @@
 
 use strict;
 $|++;
-use PHEDEX::CLI::FakeAgent; # get PHEDEX::CLI::UserAgent for free...
 use PHEDEX::Core::Loader;
 use Getopt::Long;
 use Data::Dumper;
@@ -148,7 +147,7 @@ if ( $fakeagent )
   $service = $default_service unless $service;
   $module = 'PHEDEX::CLI::FakeAgent';
 }
-
+eval("use $module");
 my $pua = ($module)->new
 	(
 	  DEBUG	 	=> $debug,
