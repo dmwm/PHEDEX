@@ -21,7 +21,9 @@ sub new
 	      IS_MOVE   => 0,
 	      IS_CUSTODIAL => 0,
 	      USER_GROUP => undef,
-	      REQUEST_ONLY => 0
+	      TIME_START => undef,
+	      REQUEST_ONLY => 0,
+	      MAIL   => 1
 	    );
   %options = (
                'help'		=> \$help,
@@ -35,7 +37,9 @@ sub new
 	       "move"           => \$params{IS_MOVE},
  	       "custodial"      => \$params{IS_CUSTODIAL},
 	       "group=s"        => \$params{USER_GROUP},
+	       "time-start=i"   => \$params{TIME_START},
  	       "request-only"   => \$params{REQUEST_ONLY},
+	       "mail!"          => \$params{MAIL},
  	       "comments=s"     => \$params{COMMENTS}
 	     );
   GetOptions(%options);
@@ -83,7 +87,11 @@ and uses the dataservice to subscribe them to one or more PhEDEx nodes.
  --custodial            make the subscription custodial, default is non-custodial
  --group                make this subscription for the specified group, default is
                         undefined
+ --time-start <time>    set start time for dataset-level subs to time, default is
+                        undefined (all blocks in dataset)
  --request-only         make a request for transfer only, do not approve
+ --no-mail              do not send request email to requestor, datamanagers,
+                        site admins, and global admins; default is to send email
  --comments             comments on this request/subscription
 
  ...and of course, this module takes the standard options:
@@ -107,7 +115,9 @@ sub Payload
   $payload->{static}    = $self->{IS_STATIC} ? 'y' : 'n';
   $payload->{custodial} = $self->{IS_CUSTODIAL} ? 'y' : 'n';
   $payload->{group}     = $self->{USER_GROUP};
+  $payload->{time_start} = $self->{TIME_START};
   $payload->{request_only} = $self->{REQUEST_ONLY} ? 'y' : 'n';
+  $payload->{no_mail}   = $self->{MAIL} ? 'n' : 'y';
   $payload->{comments}  = $self->{COMMENTS};
 
   foreach ( @{$self->{DATAFILE}} )
