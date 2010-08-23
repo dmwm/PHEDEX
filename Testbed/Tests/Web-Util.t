@@ -3,7 +3,7 @@ use warnings;
 use strict;
 $|++;
 
-use Test::More;
+use Test::More ( qw / no_plan / );
 
 BEGIN 
 {
@@ -159,6 +159,23 @@ ok( dies (\&validate_params, { foo => 1.1 }, spec => $using_spec),              
 ok( dies (\&validate_params, { foo => 'hello' }, spec => $using_spec),              'bad pos_int_list: hello');
 ok( dies (\&validate_params, { foo => '1 doh! 3' }, spec => $using_spec),           'bad pos_int_list: doh!');
 
+# 'pos_float' checking
+$using_spec = { foo => { using => 'pos_float' } };
+ok( lives(\&validate_params, { foo => 1.1 }, spec => $using_spec),                  'good pos_float 1.1');
+ok( lives(\&validate_params, { foo => 1. }, spec => $using_spec),                   'good pos_float 1.');
+ok( dies(\&validate_params, { foo => '.1' }, spec => $using_spec),                  'bad pos_float .1');
+ok( dies(\&validate_params, { foo => -1.1 }, spec => $using_spec),                  'bad pos_float -1.1');
+ok( dies(\&validate_params, { foo => '1.1e3' }, spec => $using_spec),               'bad pos_float 1.1e3');
+
+# 'hostname' checking
+$using_spec = { foo => { using => 'hostname' } };
+ok( lives(\&validate_params, { foo => 'www.cern.ch' }, spec => $using_spec),        'good hostname www.cern.ch');
+ok( lives(\&validate_params, { foo => 'a.b.cern.ch' }, spec => $using_spec),        'good hostname a.b.cern.ch');
+ok(  dies(\&validate_params, { foo => '_.b.cern.ch' }, spec => $using_spec),        'bad hostname _.b.cern.ch');
+ok(  dies(\&validate_params, { foo =>    '.cern.ch' }, spec => $using_spec),        'bad hostname    .cern.ch');
+ok(  dies(\&validate_params, { foo =>     'cern.ch' }, spec => $using_spec),        'bad hostname     cern.ch');
+ok(  dies(\&validate_params, { foo =>  '3a.cern.ch' }, spec => $using_spec),        'bad hostname  3a.cern.ch');
+
 # 'allowing' checking
 my $allowing_spec = { foo => { allowing => [qw(one two three)] } };
 ok( lives(\&validate_params, { foo => 'one' }, spec => $allowing_spec),             'good allowing: one') or whydie;
@@ -194,4 +211,4 @@ ok( lives(\&validate_params, { foo => [qw(one one)] }, spec => $multiple_call), 
 ok( dies (\&validate_params, { foo => [qw(one two)] },  spec => $multiple_call), 'bad multiple: call x 2');
 
 
-done_testing();
+print "Tests complete...\n";
