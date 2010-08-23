@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -T
+#!/usr/bin/env perl
 
 # NOTE: Taint mode under mod_perl is actually enabled by PerlSwitches
 # in the apache configuration.  CGI.pm under mod_perl does NOT taint
@@ -20,7 +20,7 @@ use PHEDEX::Web::Util;
 use Net::hostent;
 require Socket;
 use POSIX qw(strftime mktime);
-use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
+use Mail::RFC822::Address 'validlist';
 
 our @EXPORT = qw(allparams validate_all urlencode dblink toclink pagelink
 		 alert warning breakAtSlash note help
@@ -3995,7 +3995,7 @@ use strict; use warnings;
 use base "Exporter";
 import Web25::Common;
 use CGI qw(:standard);
-use RFC822Addr 'validlist'; # Mail::RFC822::Address really;
+use Mail::RFC822::Address 'validlist';
 
 our @EXPORT = qw(get_request_nodes
                  create_check_type
