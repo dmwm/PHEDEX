@@ -472,7 +472,7 @@ sub auth_help_msg
 sub auth_help_popup 
 {
     my ($self, %powers) = @_;
-    print {$$self{CONTENT}} &help('Privilaged Activities Help', 'Privilaged Activities', $self->auth_help_msg(%powers), "<br/>");
+    print {$$self{CONTENT}} &help('Privileged Activities Help', 'Privileged Activities', $self->auth_help_msg(%powers), "<br/>");
 }
 
 sub auth_help_warning
