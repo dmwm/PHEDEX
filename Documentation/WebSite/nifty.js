@@ -224,7 +224,7 @@ function Mix(c1,c2)
 // insert a link to the next-gen website, flashing onto the screen a few seconds after the page appears...
 
 webapp_link = function() {
-  var fn = function() {
+  var makeLink = function() {
     var elList, el, tgt, child, uri;
     tgt = document.getElementById('nextgen-link');
     if ( tgt ) { return; }
@@ -238,6 +238,10 @@ webapp_link = function() {
     uri = uri.replace(/\/$/, '');
     child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
     el.appendChild(child);
+    return child;
+  };
+  var fn = function() {
+    var child = makeLink();
     var fade = function(element) {
       var col1 = col2 = 0;
       return function() {
@@ -272,5 +276,28 @@ webapp_link = function() {
     }(child);
     fade();
   };
-  setTimeout(fn,3000);
+  var count = 0;
+  if ( navigator.cookieEnabled ) {
+    var cookie = document.cookie;
+    if ( cookie ) {
+      first = cookie.indexOf('count=');
+      if ( cookie.match(/^count=(.)/) ) {
+        count = RegExp.$1;
+      }
+    } else {
+      count = 5;
+    }
+    if ( count ) {
+      count--;
+      var future = new Date();
+      future.setDate(future.getDate() + 10);
+      var tmp = 'count=' + encodeURI(count) + '; expires=' + future.toGMTString() + '; path=/';
+      document.cookie = tmp;
+    }
+  }
+  if ( count > 0 ) {
+    setTimeout(fn,3000);
+  } else {
+    makeLink();
+  }
 };
