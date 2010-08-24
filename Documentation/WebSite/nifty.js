@@ -236,6 +236,7 @@ webapp_link = function() {
     } catch(ex) { /* cannot find element, abort! */ return; }
     uri = location.href;
     uri = uri.replace(/\/$/, '');
+    uri = uri.replace(/\/[^/]*\/[^/]*::.*/,'');
     child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
     el.appendChild(child);
     return child;
