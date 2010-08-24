@@ -184,6 +184,14 @@ sub validateRequest
     my $type = $h{TYPE};
     my $client = $h{CLIENT_ID};
     
+    if ($type eq 'xfer' && $h{TIME_START} && $h{IS_MOVE} eq 'y') {
+	die "Time-based move requests are not allowed\n";
+    }
+    
+    if ($type eq 'delete' && $h{TIME_START}) {
+	die "Time-based deletion requests are not allowed\n";
+    }
+
     # Part I:  validate data
     my $dataformat = $data->{FORMAT};
     my $expand_datasets = $type eq 'xfer' && $h{IS_STATIC} eq 'y' ? 1 : 0;
