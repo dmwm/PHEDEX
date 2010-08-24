@@ -517,6 +517,65 @@ sub createSubscription
     return $n;
 }
 
+=pod
+
+=item updateSubscription($self, %args)
+
+Updates subscription parameters for an existing subscription for a dataset or block.
+
+Required:
+ DATASET or BLOCK : the name or ID of a dataset or block
+ DESTINATION : the destination node ID                                                              
+ PARAM or TIME_SUSPEND_UNTIL:
+    PARAM: the new parameter set ID to associate to this subscription
+    TIME_SUSPEND_UNTIL : the new suspension time for the subscription, may be null for unsuspensions
+
+=cut
+
+sub updateSubscription
+{
+    my ($self, %h) = @_;
+
+    my $type;
+    $type = 'DATASET' if defined $h{DATASET};
+    $type = 'BLOCK'   if defined $h{BLOCK};
+    if (!defined $type || (defined $h{DATASET} && defined $h{BLOCK})) {
+	$self->Alert("cannot update subscription:  DATASET or BLOCK must be defined");
+	return undef;
+    }
+
+    my $updatevar;
+    $updatevar = 'PARAM' if defined $h{PARAM}; 
+    $updatevar = 'TIME_SUSPEND_UNTIL' if exists $h{TIME_SUSPEND_UNTIL};
+    if (!defined $updatevar || (defined $h{PARAM} && exists $h{TIME_SUSPEND_UNTIL})) { 
+        $self->Alert("cannot update subscription:  PARAM or TIME_SUSPEND_UNTIL must be defined"); 
+        return undef; 
+    }
+
+    my @required = qw(DESTINATION);
+    foreach (@required) {
+	if (!exists $h{$_} || !defined $h{$_}) {
+	    $self->Alert("cannot update subscription:  $_ not defined");
+	    return undef;
+	}
+    }
+
+    my $sql = qq{update t_dps_subs_} . lc $type . qq{ set } . lc $updatevar . qq {= :} . lc $updatevar;
+    my %p = map { ':' . lc $_ => $h{$_} } @required, ($type, $updatevar);
+
+    if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
+	$sql .= qq{ where destination = :destination
+		     and } . lc $type . qq{ = (select id from t_dps_} . lc $type . qq{ where name = :} . lc $type .qq{)};
+	} else { # else we write exactly what we have
+	    $sql .= qq{ where destination = :destination and } . lc $type . qq{= :} . lc $type;       
+	}
+    
+    my ($sth, $n);
+    eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
+        
+    return $n;
+}
+
 
 =pod
 
