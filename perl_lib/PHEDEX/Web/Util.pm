@@ -67,6 +67,8 @@ our %COMMON_VALIDATION =
 			     return 0 unless /^\d+$/;
 			 }
 			 return 1; },
+ 'pos_float'	=> qr|^\d+\.?\d*$|,
+ 'hostname'	=> qr|^[a-zA-Z][a-zA-Z0-9_.]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$|,
 
 );
 
