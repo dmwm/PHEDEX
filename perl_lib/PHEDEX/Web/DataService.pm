@@ -195,7 +195,7 @@ sub print_doc
     # command and print it, but intercept it and add extra stuff at the appropriate point.
     # I also need to check that I am setting the correct relative link for the modules.
     @lines = `perldoc -m $module |
-                pod2html --header -css /phedex/dev2/datasvc/static/phedex_pod.css`;
+                pod2html --header -css /phedex/datasvc/static/phedex_pod.css`;
 
     my ($commands,$count);
     $count = 0;
