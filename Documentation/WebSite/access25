@@ -8,6 +8,7 @@
 
 our $TESTING = 0;
 our $TESTING_MAIL = undef;
+our $TESTING_MAPHTTPS = undef;
 our $DBS_LOOKUP = undef;
 
 use CMSWebTools::SecurityModule::Oracle;
@@ -2368,7 +2369,11 @@ sub myurl
   $url .= "/$db";
   $url .= "/$page" if $page;
   $url .= "?$q" if $q;
-  
+
+  if ( $TESTING_MAPHTTPS )
+  {
+    $url =~ s%https://vocms\d+.cern.ch%$TESTING_MAPHTTPS%;
+  }
   return $url;
 }
 
@@ -10273,6 +10278,7 @@ sub runme
   # Set debug mode
   $TESTING = $$config{TESTING_MODE} ? 1 : 0;
   $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
+  $TESTING_MAPHTTPS = $$config{TESTING_MAPHTTPS} || undef;
   
   # Set DBSLookup path
   $DBS_LOOKUP = $$config{DBS_LOOKUP} || undef;
