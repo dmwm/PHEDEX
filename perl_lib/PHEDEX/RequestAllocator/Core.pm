@@ -184,14 +184,6 @@ sub validateRequest
     my $type = $h{TYPE};
     my $client = $h{CLIENT_ID};
     
-    if ($type eq 'xfer' && $h{TIME_START} && $h{IS_MOVE} eq 'y') {
-	die "Time-based move requests are not allowed\n";
-    }
-    
-    if ($type eq 'delete' && $h{TIME_START}) {
-	die "Time-based deletion requests are not allowed\n";
-    }
-
     # Part I:  validate data
     my $dataformat = $data->{FORMAT};
     my $expand_datasets = $type eq 'xfer' && $h{IS_STATIC} eq 'y' ? 1 : 0;
@@ -269,11 +261,7 @@ sub validateRequest
     } else {
 	die "request has an unknown data structure\n";
     }
-    # Time-based request validation: only dataset-level items are allowed
-    if (@$b_ids && $h{TIME_START}) {
-	die "cannot request time-based transfer: not allowed for block-level or static dataset-level requests\n"; 
-    }
-    
+
     # Part II:  validate nodes
     # Request policy details here:
     #  * Moves may only be done to a T1 MSS node
@@ -300,13 +288,9 @@ sub validateRequest
 	    if (@$ds_ids) {
 		my $sql = qq{ select distinct n.name
 			        from t_adm_node n
-                                join t_dps_subs_dataset s on s.destination = n.id
-			       where s.dataset = :dataset
-			      UNION
-			      select distinct n.name
-			        from t_adm_node n
-				join t_dps_subs_block s on s.destination = n.id
-			       where s.dataset = :dataset
+                                join t_dps_subscription s on s.destination = n.id
+                                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
+                               where sb.dataset = :dataset
 			   };
 		foreach my $ds (@$ds_ids) {
 		    my @other_subs = @{ &select_single($self, $sql, ':dataset' => $ds) };		
@@ -315,14 +299,9 @@ sub validateRequest
 	    } elsif (@$b_ids) {
 		my $sql = qq{ select distinct n.name
 			        from t_adm_node n
-                                join t_dps_subs_dataset s on s.destination = n.id
-                                join t_dps_block sb on sb.dataset = s.dataset
+                                join t_dps_subscription s on s.destination = n.id
+                                join t_dps_block sb on sb.dataset = s.dataset or sb.id = s.block
                                where sb.id = :block
-			      UNION
-			      select distinct n.name
-			        from t_adm_node n
-				join t_dps_subs_block s on s.destination = n.id
-			       where s.block = :block
 			   };
 		foreach my $b (@$b_ids) {
 		    my @other_subs = @{ &select_single($self, $sql, ':block' => $b) };		
@@ -330,7 +309,7 @@ sub validateRequest
 		}
 	    }
 
-	    die "cannot request move:  moves of data subscribed to T0 or T1 are not allowed\n"
+	    die "cannot request move:  moves of data is subscribed to T0 or T1 are not allowed\n"
 		if grep /^(T1|T0)/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
 	}
@@ -401,14 +380,14 @@ sub createRequest
     if ($type eq 'xfer') {
 	my $sql = qq{ insert into t_req_xfer
 			  (request, priority, is_custodial, is_move, is_static,
-			   is_transient, is_distributed, user_group, time_start, data)
+			   is_transient, is_distributed, user_group, data)
 			  values
 			  (:request, :priority, :is_custodial, :is_move, :is_static,
-			   :is_transient, :is_distributed, :user_group, :time_start, :data) };
+			   :is_transient, :is_distributed, :user_group, :data) };
 	my %binds;
 	$binds{':request'} = $rid;
 	$binds{lc ":$_"} = $h{$_} foreach qw(PRIORITY IS_CUSTODIAL IS_MOVE IS_STATIC
-					     IS_TRANSIENT IS_DISTRIBUTED TIME_START DATA);
+					     IS_TRANSIENT IS_DISTRIBUTED DATA);
 	if (defined $h{USER_GROUP}) {
 	    my %groupmap = reverse %{ &getGroupMap($self) };
 	    my $group_id = $groupmap{ $h{USER_GROUP} };

@@ -136,7 +136,7 @@ sub getTransferRequests
                rx.priority, rx.is_move, rx.is_transient, rx.is_static, rx.is_distributed, rx.data,
 	       n.name node, n.id node_id,
                rn.point, rd.decision, rd.decided_by, rd.time_decided,
-	       rx.user_group, rx.is_custodial, rx.time_start
+	       rx.user_group, rx.is_custodial
 	  from t_req_request r
           join t_req_type rt on rt.id = r.type
           join t_req_dbs rdbs on rdbs.request = r.id
@@ -161,7 +161,7 @@ sub getTransferRequests
 	    $requests->{$id} = { map { $_ => $row->{$_} }
 				 qw(ID TYPE CREATOR_ID TIME_CREATE DBS_ID DBS
 				    PRIORITY IS_MOVE IS_TRANSIENT IS_STATIC
-				    IS_DISTRIBUTED IS_CUSTODIAL USER_GROUP TIME_START
+				    IS_DISTRIBUTED IS_CUSTODIAL USER_GROUP
 				    DATA) };
 	    $requests->{$id}->{NODES} = {};
 	}
@@ -344,85 +344,6 @@ sub addRequestData
 }
 
 =pod
-                                                                                                             
-=item createSubscriptionParam($self, %args)
-
-Creates a new subscription parameter set. Returns the id of the new parameter set.
-Required:
- REQUEST : request ID this is associated with
- USER_GROUP : the user group ID (may be NULL)
- PRIORITY : priority
- IS_CUSTODIAL : the custodiality
- ORIGINAL : if this is the original parameter set for this request.
-    If the original param set already exists, it will be returned instead of creating a new param set.
- TIME_CREATE : the parameter set creation time
-
-=cut
-
-sub createSubscriptionParam
-{
-    my ($self, %h) = @_;
- 
-    my @required = qw(REQUEST PRIORITY IS_CUSTODIAL ORIGINAL TIME_CREATE);
-    foreach (@required) {
-	if (!exists $h{$_} || !defined $h{$_}) {
-	    $self->Alert("cannot create subscription param:  $_ not defined");
-            return undef;
-	}
-    }
-                                                                                                                                                     
-#   Special case for USER_GROUP, which must exist but may be NULL
-    if (!exists $h{USER_GROUP}) {
-	$self->Alert("cannot create subscription param: USER_GROUP not defined");
-	return undef;
-    }
-    
-    foreach ( qw(IS_CUSTODIAL ORIGINAL) ) {
-        next unless  $h{$_} =~ /^[0-9]$/;
-        $h{$_} = ( $h{$_} ? 'y' : 'n' );
-    }
-
-#   If this is the original parameter set for the request, check that it doesn't exist already
-    if ($h{ORIGINAL} eq 'y') {
-	my $param = select_hash ($self->{DBH},                                     
-				   qq{select id, user_group, priority, is_custodial from t_dps_subs_param pm     
-                                      where pm.original = :original                                   
-                                      and pm.request = :request},  'ID',               
-				 ':original' => 'y', ':request'  => $h{REQUEST});
-	
-        # FIXME: This assumes that there is only one original parameter set per request. How to ensure this?
-	for my $rid ( keys %$param ) {
-	    my $rparam = $param->{$rid};
-	    foreach ( keys %$rparam ) {
-		# Need to compare USER_GROUP which may be undef
-		no warnings qw(uninitialized);                                                                                                           
-		if ($rparam->{$_} ne $h{$_}){
-		    $self->Alert("cannot create param set: original
-already exists with id " . $rid . " and different values: " . $_. " existing=" . $rparam->{$_} . " requested=" . $h{$_});
-		    return undef;
-		}
-	    }
-	    $self->Dbgmsg("Original subscription parameter set already exists with id " . $rid);
-	    return $rid;
-	}
-    }
-    
-    my $sql=qq{ insert into t_dps_subs_param (id, request, priority, is_custodial, user_group, original, time_create)                                    
-                    values (seq_dps_subs_param.nextval, :request, :priority, :is_custodial, :user_group, :original, :time_create)
-                    returning id into :param_id};
-    	    
-    my $param_id;
-    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(USER_GROUP);                                                                      
-    $p{':param_id'}=\$param_id;
-   
-    my ($sth, $n);
-    eval { ($sth, $n) = execute_sql($self, $sql, %p); };
-
-    return $param_id;
-    
-}
-
-=pod
 
 =item createSubscription($self, %args)
 
@@ -430,28 +351,32 @@ Creates a new subscription for a dataset or block.
 
 Required:
  DATASET or BLOCK : the name or ID of a dataset or block
- PARAM : parameter set ID this is associated with
+ REQUEST : request ID this is associated with
  DESTINATION : the destination node ID
+ PRIORITY : priority
  IS_MOVE : if this is a move subscription
- TIME_START: for dataset subscriptions, the starting time for the subscription (can be NULL)
-  For block subscriptions must be null
+ IS_TRANSIENT : if this is a transient subscription
  TIME_CREATE : the creation time
+
+TODO: Check that block subscriptions are not created where a dataset
+      subscription exists?  BlockAllocator takes care of this, but it may be
+      unneccessary strain on that agent.
 
 =cut
 
 sub createSubscription
 {
-    my ($self, %h) = @_;
+    my ($self, %h) = @_;;
 
     my $type;
     $type = 'DATASET' if defined $h{DATASET};
     $type = 'BLOCK'   if defined $h{BLOCK};
     if (!defined $type || (defined $h{DATASET} && defined $h{BLOCK})) {
-	$self->Alert("cannot create subscription:  DATASET or BLOCK must be defined");
+	$self->Alert("cannot create subscriptioin:  DATASET or BLOCK must be defined");
 	return undef;
     }
 
-    my @required = qw(PARAM DESTINATION IS_MOVE TIME_CREATE);
+    my @required = qw(REQUEST DESTINATION PRIORITY IS_MOVE IS_TRANSIENT TIME_CREATE IS_CUSTODIAL);
     foreach (@required) {
 	if (!exists $h{$_} || !defined $h{$_}) {
 	    $self->Alert("cannot create subscription:  $_ not defined");
@@ -459,120 +384,46 @@ sub createSubscription
 	}
     }
 
-#   Special case for TIME_START, which must exist but may be NULL
-#   for datasets; it must be NULL for blocks
-    if (!exists $h{TIME_START}) {
-	$self->Alert("cannot create subscription: TIME_START not defined");
+#   Special case for USER_GROUP, which must exist but may be NULL
+    if (!exists $h{USER_GROUP}) {
+	$self->Alert("cannot create subscription:  USER_GROUP not defined");
 	return undef;
     }
-    else {
-	if (defined $h{TIME_START} && defined $h{BLOCK}) {
-	    $self->Alert("cannot create subscription: TIME_START must not be defined for BLOCK subscription");
-	    return undef;
-	}
-    }
-        
-    
-    if ($h{IS_MOVE} =~ /^[0-9]$/) {
-	$h{IS_MOVE} = ( $h{IS_MOVE} ? 'y' : 'n' );
-    }
-    
-    my $sql = qq{insert into t_dps_subs_} . lc $type ;
-    my %p = map { ':' . lc $_ => $h{$_} } @required;
 
-    if ($type eq 'DATASET') {
-	$sql .= qq{ (destination, dataset, param,
-		     is_move, time_create, time_fill_after) 
-		    };
-	%p = (%p, (map { ':' . lc $_ => $h{$_} } qw(DATASET TIME_START)));
-	
-	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
-	    $sql .= qq{ select :destination, ds.id, :param,
-			:is_move, :time_create, :time_start                                     
-			from t_dps_dataset ds where ds.name = :dataset };
-	} else { # else we write exactly what we have
-	    $sql .= qq{ values (:destination, :dataset, :param, :is_move, :time_create, :time_start) };       
-	}
-    } elsif ($type eq 'BLOCK') {                                                                                                                         
-	$sql .= qq{ (destination, dataset, block, param,
-		     is_move, time_create)
-		    };
-
-	%p = (%p, map { ':' . lc $_ => $h{$_} } qw(BLOCK));                                                                                       
-
-	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
-	    $sql .= qq{ select :destination, b.dataset, b.id, :param, :is_move, :time_create 
-			    from t_dps_block b where b.name = :block };
-	    
-	} else { # else we only lookup dataset ID from block ID
-	    $sql .= qq{ select :destination, b.dataset, :block, :param, :is_move, :time_create
-                            from t_dps_block b where b.id = :block };
-	}
+    foreach ( qw(IS_MOVE IS_TRANSIENT IS_CUSTODIAL) ) {
+	next unless  $h{$_} =~ /^[0-9]$/;
+	$h{$_} = ( $h{$_} ? 'y' : 'n' );
     }
+
+    my $sql = qq{
+	insert into t_dps_subscription
+        (request, dataset, block, destination,
+	 priority, is_move, is_transient, time_create,
+	 is_custodial, user_group)
+    };
+
+    if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
+	if ($type eq 'DATASET') {
+            $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
+	    $sql .= qq{ select :request, ds.id, NULL, :destination, :priority, :is_move, :is_transient, :time_create } .
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " .
+			qq{ from t_dps_dataset ds where ds.name = :dataset };
+	} elsif ($type eq 'BLOCK') {
+            $h{USER_GROUP} = 'NULL' unless $h{USER_GROUP};
+	    $sql .= qq{ select :request, NULL, b.id, :destination, :priority, :is_move, :is_transient, :time_create } .
+			", '$h{IS_CUSTODIAL}', $h{USER_GROUP} " .
+			qq{ from t_dps_block b where b.name = :block };
+	}
+    } else { # else we write exactly what we have
+	$sql .= qq{ values (:request, :dataset, :block, :destination, :priority, :is_move, :is_transient, :time_create, :is_custodial, :user_group) };
+    }
+
+    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(DATASET BLOCK USER_GROUP);
 
     my ($sth, $n);
     eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
     die $@ if $@ && !($h{IGNORE_DUPLICATES} && $@ =~ /ORA-00001/);
 
-    return $n;
-}
-
-=pod
-
-=item updateSubscription($self, %args)
-
-Updates subscription parameters for an existing subscription for a dataset or block.
-
-Required:
- DATASET or BLOCK : the name or ID of a dataset or block
- DESTINATION : the destination node ID                                                              
- PARAM or TIME_SUSPEND_UNTIL:
-    PARAM: the new parameter set ID to associate to this subscription
-    TIME_SUSPEND_UNTIL : the new suspension time for the subscription, may be null for unsuspensions
-
-=cut
-
-sub updateSubscription
-{
-    my ($self, %h) = @_;
-
-    my $type;
-    $type = 'DATASET' if defined $h{DATASET};
-    $type = 'BLOCK'   if defined $h{BLOCK};
-    if (!defined $type || (defined $h{DATASET} && defined $h{BLOCK})) {
-	$self->Alert("cannot update subscription:  DATASET or BLOCK must be defined");
-	return undef;
-    }
-
-    my $updatevar;
-    $updatevar = 'PARAM' if defined $h{PARAM}; 
-    $updatevar = 'TIME_SUSPEND_UNTIL' if exists $h{TIME_SUSPEND_UNTIL};
-    if (!defined $updatevar || (defined $h{PARAM} && exists $h{TIME_SUSPEND_UNTIL})) { 
-        $self->Alert("cannot update subscription:  PARAM or TIME_SUSPEND_UNTIL must be defined"); 
-        return undef; 
-    }
-
-    my @required = qw(DESTINATION);
-    foreach (@required) {
-	if (!exists $h{$_} || !defined $h{$_}) {
-	    $self->Alert("cannot update subscription:  $_ not defined");
-	    return undef;
-	}
-    }
-
-    my $sql = qq{update t_dps_subs_} . lc $type . qq{ set } . lc $updatevar . qq {= :} . lc $updatevar;
-    my %p = map { ':' . lc $_ => $h{$_} } @required, ($type, $updatevar);
-
-    if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
-	$sql .= qq{ where destination = :destination
-		     and } . lc $type . qq{ = (select id from t_dps_} . lc $type . qq{ where name = :} . lc $type .qq{)};
-	} else { # else we write exactly what we have
-	    $sql .= qq{ where destination = :destination and } . lc $type . qq{= :} . lc $type;       
-	}
-    
-    my ($sth, $n);
-    eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
-        
     return $n;
 }
 
@@ -603,59 +454,48 @@ sub writeRequestComments
 
 =pod
 
-=item addSubscriptionForParamSet($self, $param, $node, $time)
+=item addSubscriptionForRequest($self, $request, $node, $time)
 
-Subscribe request data to $node for $param.  This DML ignores
+Subscribe request data to $node for $request.  This DML ignores
 duplicates but updates the parameters if there are duplicates.
 
 =cut
 
-sub addSubscriptionsForParamSet
+sub addSubscriptionsForRequest
 {
-    my ($self, $paramid, $node_id, $time) = @_;
+    my ($self, $rid, $node_id, $time) = @_;
 
     my ($sth, $rv) = &dbexec($$self{DBH},
-     qq[ merge into t_dps_subs_block sb                                                                                                                     
+     qq[ merge into t_dps_subscription s
          using
-         (select :destination destination, bk.dataset, bk.id block,                                                                                 
-                 :param param, rx.is_move
-	    from t_req_request r 
-            join t_req_xfer rx on rx.request = r.id  
-            join t_req_block rb on rb.request = r.id
-	    join t_dps_block bk on bk.id=rb.block_id
-            join t_dps_subs_param pm on pm.request = r.id   
-            where pm.id = :param    
-         ) rd   
-         on (rd.destination = sb.destination   
-             and (rd.block = sb.block))                                                                                               
+         (select r.id, :destination destination, rdata.dataset, rdata.block,
+                 rx.priority, rx.is_custodial, rx.is_move, rx.is_transient, rx.user_group
+	    from t_req_request r
+            join t_req_xfer rx on rx.request = r.id
+            join ( select rds.request, rds.dataset_id dataset, NULL block
+                     from t_req_dataset rds
+                    where rds.dataset_id is not null
+                    union
+                   select rb.request, NULL dataset, rb.block_id block
+                     from t_req_block rb
+                    where rb.block_id is not null
+                 ) rdata on rdata.request = r.id
+           where r.id = :request
+         ) r
+         on (r.destination = s.destination
+             and (r.dataset = s.dataset or r.block = s.block))
          when matched then
-           update set sb.param = rd.param
+           update set s.request = r.id,
+                      s.is_move = r.is_move,
+                      s.priority = r.priority,
+                      s.is_transient = r.is_transient,
+	              s.user_group = r.user_group
          when not matched then
-	   insert (destination, dataset, block, param, is_move, time_create)
-           values (rd.destination, rd.dataset, rd.block, rd.param,   
-                   rd.is_move, :time_create) ],                                                     
-                             ':param' => $paramid, ':destination' => $node_id, ':time_create' => $time);
-
-    my ($sthb, $rvb) = &dbexec($$self{DBH},   
-     qq[ merge into t_dps_subs_dataset sd                
-         using     
-         (select :destination destination, rds.dataset_id dataset,
-	         :param param, rx.time_start time_fill_after, rx.is_move 
-            from t_req_request r    
-            join t_req_xfer rx on rx.request = r.id   
-            join t_req_dataset rds on rds.request = r.id  
-	    join t_dps_subs_param pm on pm.request = r.id   
-            where pm.id = :param 
-         ) rd  
-         on (rd.destination = sd.destination  
-             and (rd.dataset = sd.dataset)) 
-         when matched then  
-           update set sd.param = rd.param , sd.time_fill_after = rd.time_fill_after
-         when not matched then    
-           insert (destination, dataset, param, time_fill_after, is_move, time_create) 
-           values (rd.destination, rd.dataset, rd.param,
-                   rd.time_fill_after, rd.is_move, :time_create) ],   
-                             ':param' => $paramid, ':destination' => $node_id, ':time_create' => $time);
+           insert (request, dataset, block, destination,
+		   priority, is_move, is_transient, is_custodial, user_group, time_create)
+           values (r.id, r.dataset, r.block, r.destination,
+		   r.priority, r.is_move, r.is_transient, r.is_custodial, r.user_group, :time_create) ],
+			     ':request' => $rid, ':destination' => $node_id, ':time_create' => $time);
 
     return 1;
 }
@@ -672,37 +512,26 @@ sub deleteSubscriptionsForRequest
 {
     my ($self, $rid, $node_id, $time) = @_;
 
-#For dataset-level deletion requests only, remove dataset-level subscriptions
-
-    my ($dsth, $drv) = &dbexec($$self{DBH},   
-    qq[ delete from t_dps_subs_dataset sd     
-         where sd.destination = :destination
-          and sd.dataset in      
-           (select rds.dataset_id  
-	      from t_req_dataset rds
-	      join t_req_request r on rds.request=r.id
-	      where r.id = :request 
-           ) ],  
-         ':request' => $rid, ':destination' => $node_id);
-
-#Remove block-level subscriptions, both for dataset-level and for block-level deletion requests
-    
     my ($sth, $rv) = &dbexec($$self{DBH},
-    qq[ delete from t_dps_subs_block sb
-         where sb.destination = :destination 
-           and sb.block in
-	    (select rb.block_id
-	       from t_req_block rb
-	       join t_req_request r on r.id=rb.request
-	       where r.id = :request
-	     union
-	     select b.id from t_dps_block b
-	       join t_req_dataset rds
-	       on rds.dataset_id=b.dataset
-	       join t_req_request r on r.id=rds.request
-	       where r.id = :request
-	    ) ],
-         ':request' => $rid, ':destination' => $node_id);
+    qq[ delete from t_dps_subscription s
+         where s.destination = :destination
+           and exists
+               (select 1
+ 	          from t_req_request r
+                  join ( select rds.request, rds.dataset_id dataset, b.id block
+                           from t_req_dataset rds
+                           left join t_dps_block b on b.dataset = rds.dataset_id
+                           where rds.dataset_id is not null
+                           union
+                           select rb.request, b.dataset, b.id block
+                             from t_req_block rb
+                             join t_dps_block b on b.id = rb.block_id
+                            where rb.block_id is not null
+                        ) rdata on rdata.request = r.id
+                  where r.id = :request
+                    and (rdata.dataset = s.dataset or rdata.block = s.block)
+               ) ],
+	  ':request' => $rid, ':destination' => $node_id);
 
     return 1;
 }
@@ -769,6 +598,76 @@ sub addDeletionsForRequest
      ':time_request' => $time);
     }
     return 1;
+}
+
+=pod
+
+=item updateMoveSubscriptionsForRequest($self, $request, $time)
+
+Update the source subscriptions of a move request.
+
+=cut
+
+sub updateMoveSubscriptionsForRequest
+{
+    my ($self, $rid, $time) = @_;
+
+    my $q_src = &dbexec($$self{DBH}, qq{
+  select distinct s.destination, s.dataset, s.block,
+         decode(rdec.decision,
+                'y', :now,
+                'n', NULL,
+                 9999999999) time_clear
+    from t_req_request r
+    join (
+          select rds.request, b.dataset, b.id block
+            from t_req_dataset rds
+            join t_dps_block b on b.dataset = rds.dataset_id
+           where rds.dataset_id is not null
+           union
+          select rb.request, b.dataset, b.id block
+            from t_req_block rb
+            join t_dps_block b on b.id = rb.block_id
+           where rb.block_id is not null
+         ) rdata 
+      on rdata.request = r.id
+    join t_req_node rn
+      on rn.request = r.id
+    join t_dps_subscription s
+      on s.destination = rn.node
+     and (s.dataset = rdata.dataset or s.block = rdata.block)
+    left join t_req_decision rdec
+      on rdec.request = rn.request and rdec.node = rn.node
+   where r.id = :request and rn.point = 's'
+}, ':request' => $rid, ':now' => $time);
+
+    my $upd_ds = &dbprep($$self{DBH}, qq{
+	update t_dps_subscription set time_clear = :time_clear
+	    where destination = :destination and dataset = :dataset });
+
+    my $upd_b = &dbprep($$self{DBH}, qq{
+	update t_dps_subscription set time_clear = :time_clear
+	    where destination = :destination and block = :block });
+
+    my $src_subscriptions = $q_src->fetchall_arrayref({});
+    my $updated = 0;
+    foreach my $s ( @$src_subscriptions ) {
+	my ($sth, $rv);
+	if (!defined $s->{BLOCK}) {
+	    ($sth, $rv) = &dbbindexec($upd_ds, 
+				      ':time_clear' => $s->{TIME_CLEAR},
+				      ':destination' => $s->{DESTINATION},
+				      ':dataset' => $s->{DATASET});
+	} else {
+	    ($sth, $rv) = &dbbindexec($upd_b,
+				      ':time_clear' => $s->{TIME_CLEAR},
+				      ':destination' => $s->{DESTINATION},
+				      ':block' => $s->{BLOCK});
+	}
+	$updated += $rv;
+    }
+
+    return $updated;
 }
 
 =pod
