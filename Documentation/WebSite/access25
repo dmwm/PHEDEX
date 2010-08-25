@@ -59,9 +59,11 @@ sub allparams
 # Validates all parameters
 sub validate_all
 {
-    my %spec = @_;
+    my ($self,%spec) = @_;
     my $params = &allparams();
-
+    # FIXME:  the 'graph' key needs special treatment. If we are switching pages, it will be set to an invalid
+    # value, and must take the default value instead. This is a bit of a hack, but there you go...
+    $params->{graph} = $self->{DEFAULT_GRAPH} if !$self->{GRAPHS}{$params->{graph}};
     # the following are allowed on any page and set by this application
     # FIXME:  avoid this if possible.  save into $self instead of push into param() ?
     my @tosave = qw(page view);
@@ -2370,7 +2372,6 @@ sub myurl
   $url .= "/$db";
   $url .= "/$page" if $page;
   $url .= "?$q" if $q;
-
   $url =~ s%http://vocms\d+.cern.ch%$TESTING_MAPHTTP%   if $TESTING_MAPHTTP;
   $url =~ s%https://vocms\d+.cern.ch%$TESTING_MAPHTTPS% if $TESTING_MAPHTTPS;
   return $url;
@@ -2698,7 +2699,7 @@ sub generate
 	my ($key, $val) = ($1, $2);
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
-        " <p>Input parameter for $key did pass validation with value $val. Please correct the input, or ",
+        " <p>Input parameter for $key did not pass validation with value $val. Please correct the input, or ",
         " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
         " <p><i>Error time=$time id=$id</i></p>\n",
         "</div></center>\n";	
@@ -2850,7 +2851,7 @@ sub new
 sub output
 {
     my ($self) = @_;
-    my %params = &validate_all
+    my %params = $self->validate_all
 	( allow => [qw(dataset se_name id_suffix)],
 	  required => [qw(dataset se_name)],
 	  spec  => {
@@ -3875,7 +3876,7 @@ sub output
     my @states = qw(any pend appr dis);
     my %states = ( any => 'any requests', pend => 'pending approval', appr => 'approved', dis => 'disapproved');
 
-    my %params = &validate_all
+    my %params = $self->validate_all
 	( allow => [qw(request type nodes state)],
 	  spec => {
 	      request => { using => 'pos_int_list' },
@@ -6017,7 +6018,7 @@ sub output
 {
   my ($self) = @_;
   my @spans = qw(h 2h d w m);
-  my %params = &validate_all
+  my %params = $self->validate_all
       (
        allow => [qw(span errors tofilter fromfilter andor)],
        spec  => 
@@ -6260,7 +6261,7 @@ sub myurl
 sub output
 {
   my ($self) = @_;
-  my %params = &validate_all
+  my %params = $self->validate_all
       (
        allow => [qw(period graph entity src_filter dest_filter no_mss upto)],
        spec  => 
@@ -6491,7 +6492,6 @@ sub new
 sub imgsrc
 {
   my ($self, $graph, %args) = @_;
-
   my $from_node = ($args{src_filter} ? $args{src_filter} : '.*');
   my $to_node = ($args{dest_filter} ? $args{dest_filter} : '.*');
 
@@ -6589,7 +6589,7 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my %params = &validate_all
+  my %params = $self->validate_all
       (
        allow => [qw(tofilter fromfilter blockfilter priority showinvalid)],
        spec  => 
@@ -6747,7 +6747,7 @@ sub myurl
 sub output
 {
     my ($self) = @_;
-    my %params = &validate_all
+    my %params = $self->validate_all
 	(
 	 allow => [qw(tofilter fromfilter andor)],
 	 spec  => 
@@ -7108,7 +7108,7 @@ sub output
 {
     my $self = shift @_;
 
-    my %params = &validate_all
+    my %params = $self->validate_all
 	(
 	 allow => [qw(reqfilter node blockfilter state)],
 	 spec  => 
@@ -7259,7 +7259,7 @@ sub myurl
 sub output
 {
   my ($self) = @_;
-  my %params = &validate_all
+  my %params = $self->validate_all
       (
        allow =>    [qw(to_node from_node state priority)],
        required => [qw(to_node from_node state priority)],
@@ -7389,7 +7389,7 @@ sub myurl
 sub output
 {
     my ($self) = @_;
-    my %params = &validate_all
+    my %params = $self->validate_all
 	(
 	 allow => [qw(page_num fileid tofilter fromfilter report_code xfer_code 
 		      from_pfn to_pfn log_detail log_validate)],
@@ -8237,7 +8237,7 @@ sub validate
   # parameters between them to maintain state.  This requires us to
   # validate them all here, or to have a very similar validation in
   # multiple pages.  We choose the former.
-  my %params = &validate_all
+  my %params = $self->validate_all
 	(
 	 allow => [qw(node dcolumn rcolumn scolumn nvalue rows dbs dexp bexp filter
 		      col subsaction reqfilter priority suspended custodial group
@@ -9640,7 +9640,7 @@ sub output
   unshift @status, 'Any';
 
 
-  my %params = &validate_all
+  my %params = $self->validate_all
       (
        allow => [qw(node block test status)],
        spec => {
@@ -10275,11 +10275,11 @@ sub runme
   #eval "use CGI::Carp qw(fatalsToBrowser)";
 
   # Set debug mode
-  $TESTING = $$config{TESTING_MODE} ? 1 : 0;
-  $TESTING_MAIL = $$config{TESTING_MAIL} || undef;
-  $TESTING_MAPHTTP  = $$config{TESTING_MAPHTTP}  || undef;
-  $TESTING_MAPHTTPS = $$config{TESTING_MAPHTTPS} || undef;
-  
+  $TESTING          = $config->{TESTING_MODE} ? 1 : 0;
+  $TESTING_MAIL     = $config->{TESTING_MAIL} || undef;
+  $TESTING_MAPHTTP  = $config->{TESTING_MAPHTTP}  || undef;
+  $TESTING_MAPHTTPS = $config->{TESTING_MAPHTTPS} || undef;
+
   # Set DBSLookup path
   $DBS_LOOKUP = $$config{DBS_LOOKUP} || undef;
 
