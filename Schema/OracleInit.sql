@@ -30,6 +30,16 @@ prompt
 prompt Loading request management
 @@OracleCoreReq.sql
 
+-- FIXME This should in in OracleCoreBlock.sql
+-- Placing here temporarily until changes in OracleCoreBlock.sql HEAD can be tested
+alter table t_dps_block
+  add constraint uq_dps_block_dataset
+   unique (dataset, id);
+
+prompt
+prompt Loading subscriptions
+@@OracleCoreSubscription.sql
+
 prompt
 prompt Loading status
 @@OracleCoreStatus.sql
