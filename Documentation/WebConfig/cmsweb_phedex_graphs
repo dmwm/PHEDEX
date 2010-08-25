@@ -19,7 +19,7 @@ export PYTHONPATH=$PYTHONPATH:$PY2_PIL_ROOT/lib/$PYLIBDIR/site-packages/PIL
 export PYTHONPATH=$PYTHONPATH:$WEBTOOLS_ROOT/lib/$PYLIBDIR/site-packages/Tools/GraphTool/src
 export PYTHONPATH=$GRAPHTOOL_PHEDEX_ROOT/src:$PYTHONPATH
 
-pidfile=@PROJECT_ROOT@/logs/phedex-graphs.pid
+pidfile=@PROJECT_ROOT@/logs/phedex_graphs.pid
 pid=`ps -p $(cat $pidfile 2>/dev/null) -o pid= 2> /dev/null`
 cmd="python $GRAPHTOOL_PHEDEX_ROOT/tools/phedex-web-daemon.py --pidfile $pidfile"
 name="PhEDEx graph service"
