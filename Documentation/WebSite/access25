@@ -2697,7 +2697,7 @@ sub generate
         " this feature.  Perhaps you meant to select another PhEDEx",
         " instance in the instance menu above?</p></div></center>\n";
     }
-    elsif ($message =~ /The (\S+) parameter \(([^)]+)\) to \S+ did not pass/) # validation problem
+    elsif ($message =~ /The (\S+) parameter \((.*)\) to \S+ did not pass/) # validation problem
     {
 	my ($key, $val) = ($1, $2);
 	print { $$self{CONTENT} }
