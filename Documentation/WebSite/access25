@@ -63,7 +63,10 @@ sub validate_all
     my $params = &allparams();
     # FIXME:  the 'graph' key needs special treatment. If we are switching pages, it will be set to an invalid
     # value, and must take the default value instead. This is a bit of a hack, but there you go...
-    $params->{graph} = $self->{DEFAULT_GRAPH} if !$self->{GRAPHS}{$params->{graph}};
+    if ( $self->{GRAPHS} )
+    {
+      $params->{graph} = $self->{DEFAULT_GRAPH} if !$self->{GRAPHS}{$params->{graph}};
+    }
     # the following are allowed on any page and set by this application
     # FIXME:  avoid this if possible.  save into $self instead of push into param() ?
     my @tosave = qw(page view);
@@ -271,7 +274,7 @@ sub format_percent
 # precision is one decimal point, but the caller can change this.
 sub format_size {
   my ($bytes, $nodash, $precision, $minscale) = @_;
-  return undef if (!defined $bytes && $nodash);
+  if ( !defined $bytes ) { return $nodash ? undef : '&#8211;'; }
 
   my $onescale = 0;
   if (defined $minscale && $minscale =~ /^=/) {
@@ -2694,7 +2697,7 @@ sub generate
         " this feature.  Perhaps you meant to select another PhEDEx",
         " instance in the instance menu above?</p></div></center>\n";
     }
-    elsif ($message =~ /The (\S+) parameter (\S+) to \S+ did not pass/) # validation problem
+    elsif ($message =~ /The (\S+) parameter \(([^)]+)\) to \S+ did not pass/) # validation problem
     {
 	my ($key, $val) = ($1, $2);
 	print { $$self{CONTENT} }
@@ -2712,6 +2715,14 @@ sub generate
         " <p>Unknown input parameter ($val). Please correct the input, or ",
         " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
         " <p><i>Error time=$time id=$id</i></p>\n",
+        "</div></center>\n";	
+    }
+    elsif ($message =~ /Invalid string (.*) given to dbs_lookup/)
+    {
+	my $val = $1;
+	print { $$self{CONTENT} }
+        "<center><div class='alert'>\n",
+        " <p>\"$val\" is not a valid dataset-name. Please correct the input and try again</p>\n",
         "</div></center>\n";	
     }
     else
@@ -3497,7 +3508,7 @@ sub printRequest
     if ($$data{COMMENTS}) {
 	print { $$self{CONTENT} }
 	"<label>Comments:</label>", "<div class='labeled comment'>",
-	$$data{COMMENTS}, "</div><br/>";
+	&escapeHTML($$data{COMMENTS}), "</div><br/>";
     }
 
     print { $$self{CONTENT} }
@@ -4149,8 +4160,6 @@ sub create_check_dbs
   return $$bad ? undef : $dbs;
 }
 
-
-
 sub create_check_data
 {
   my ($self, $bad, $data) = @_;
@@ -4164,7 +4173,7 @@ sub create_check_data
 
   foreach my $data (keys %userdata) {
       if (! $userdata{$data} ) {
-	  $self->alert("The data pattern is &ldquo;@{[&escapeHTML($data)]}&rdquo;",
+	  $self->alert("The data pattern &ldquo;@{[&escapeHTML($data)]}&rdquo;",
 		       " does not match pattern of type /PRIMARY/TIER/DATASET or /PRIMARY/DATASET#BLOCK.");
 	  $$bad = 1;
       }
@@ -8265,15 +8274,15 @@ sub validate
  	     custodial    => { allowing => [qw(any y n)], default => 'any' },
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
-#	     s_id         => { ... }, # combined ID
+	     s_id         => { using => 'subscribe_id', multiple => 1 }, # combined ID
 
 	     # params for Data::LoadTest
-	     action       => { allowing => [qw(rate inject_now start stop remove)] },
-#	     actionvalue  => { ... }, # varies according to action
-	     create_source => { using => 'dataset' },
-	     create_dest   => { using => 'dataset' },
+	     action        => { allowing => [qw(rate inject_now start stop remove)] },
+#	     actionvalue   => { ... }, # varies according to action
+	     create_source => { using => 'create_source' },
+	     create_dest   => { using => 'create_dest' },
 	     rate          => { using => 'pos_float' },
-#	     lp_id => { ...} # combined ID
+	     lp_id	   => { using => 'loadtestp_id', multiple => 1 } # combined ID
 	 }
 	 );
 
