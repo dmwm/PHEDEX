@@ -44,7 +44,7 @@ sub process_args
 }
 
 # Common validation for web applications.  A name pointing to either a
-# *compiled* regexp of a function which returns true if $_[0] is valid
+# *compiled* regexp or a function which returns true if $_[0] is valid
 # NOTE:  Do not add anything here without making a test case for it in
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
@@ -69,13 +69,18 @@ our %COMMON_VALIDATION =
 			 return 1; },
  'pos_float'	=> qr|^\d+\.?\d*$|,
  'hostname'	=> qr|^[a-zA-Z][a-zA-Z0-9_.]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$|,
-
+ 'unchecked'	=> qr|.*|,
+# FIXME add test-cases for these, as it says above...
+ 'subscribe_id'	=> qr|^DATASET:\d+:\d+$|,
+ 'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
+ 'create_dest'	=> qr/(^T\d|^-1$)/,
+ 'create_source'=> qr%^(-1|(/[^/\#]+){3})$%,
 );
 
 # Validates parameters using Param::Validate, along with a few
 # convenience defaults and capability to use common validation
 # patterns (defined in $COMMON_VALIDATION package global) the first
-# argument should be a hashref to the argumnetns to validate, the
+# argument should be a hashref to the arguments to validate, the
 # remaining arguments are a hash of options, including:
 #
 # spec: a hashref for a Params::Validate spec to use for validation.
