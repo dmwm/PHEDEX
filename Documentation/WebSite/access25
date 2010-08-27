@@ -9485,8 +9485,13 @@ sub create_injection
     my $rate = param('rate');
     my $now = time();
 
-    if (!$src_dataset || !$to_node || !$rate || ! (sprintf("%.4f", $rate) > 0)) {
+    if (!$src_dataset || !$to_node) {
 	print {$$self{CONTENT}} "<p class='alarm'>Missing parameters for injection creation</p>";
+	return;
+    }
+
+    if ( !$rate || ! (sprintf("%.4f", $rate) > 0)) {
+	print {$$self{CONTENT}} "<p class='alarm'>Rate too low. Injection rate must be >0.1KB/s</p>";
 	return;
     }
 
