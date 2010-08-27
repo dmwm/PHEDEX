@@ -70,10 +70,9 @@ our %COMMON_VALIDATION =
  'pos_float'	=> qr|^\d+\.?\d*$|,
  'hostname'	=> qr|^[a-zA-Z][a-zA-Z0-9_.]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$|,
  'unchecked'	=> qr|.*|,
-# FIXME add test-cases for these, as it says above...
  'subscribe_id'	=> qr|^DATASET:\d+:\d+$|,
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
- 'create_dest'	=> qr/(^T\d|^-1$)/,
+ 'create_dest'	=> qr/^(T\d|-1$|\d+$)/, # Name, ID, or -1. Ugh...
  'create_source'=> qr%^(-1|(/[^/\#]+){3})$%,
 );
 
@@ -338,10 +337,13 @@ sub validate_params
         {
             for (my $j = 0; $j < scalar @{$params->{$i}}; $j++)
             {
-                if (substr($params->{$i}->[$j], 0, 1) eq '!')
-                {
-                    push @negation, [$i, $j];
-                    $params->{$i}->[$j] = substr($params->{$i}->[$j], 1);
+                if ( $params->{$i}->[$j] )
+		{
+                    if (substr($params->{$i}->[$j], 0, 1) eq '!')
+                    {
+                        push @negation, [$i, $j];
+                        $params->{$i}->[$j] = substr($params->{$i}->[$j], 1);
+		    }
                 }
             }
             # NOT DONE YET
