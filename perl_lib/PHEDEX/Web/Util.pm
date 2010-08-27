@@ -73,7 +73,7 @@ our %COMMON_VALIDATION =
  'subscribe_id'	=> qr|^DATASET:\d+:\d+$|,
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
  'create_dest'	=> qr/^(T\d|-1$|\d+$)/, # Name, ID, or -1. Ugh...
- 'create_source'=> qr%^(-1|(/[^/\#]+){3})$%,
+ 'create_source'=> qr%^(-1|(/[^/\#]+){3}|\d+)$%, # name, ID, or -1. Blearg!
 );
 
 # Validates parameters using Param::Validate, along with a few
