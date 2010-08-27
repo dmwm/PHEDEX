@@ -196,6 +196,12 @@ sub _shift_requestedqueued
         $s{$node}{REASON} = 'Queue may be stuck';
       }
       delete $e->{NODE};
+      if ( $e->{PEND_BYTES} )
+      {
+        $e->{RATIO} = sprintf('%.2f',$e->{RATIO});
+      } else {
+        $e->{RATIO} = '-';
+      }
       push @{$s{$node}{NESTEDDATA}},$e;
     }
 
