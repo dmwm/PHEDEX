@@ -7151,7 +7151,6 @@ sub output
     textfield(-name=>'blockfilter', -default=>$blockfilter, -size=>15, -class=>'labeled'),
     " ", submit(-label=>'Update'),
     "</form><br clear='all'>";
-
     my @where = ('1=1');
     my %binds;
     my %all_nodes = $self->fetch_nodes(with_ids=>1);
@@ -7462,12 +7461,24 @@ sub output
     }
 
     my @from = grep /$fromfilter/, @nodes;
+
+    if (! @from ) {
+        $self->note('No nodes match the given "from-node" filter');
+        return;
+    }
+
     if (scalar @from != scalar @nodes) {
 	my ($from_list, %from_binds) = &dbinlist('from', @from);
 	push @where, "ns.name in ($from_list)";
 	$binds{$_} = $from_binds{$_} foreach (keys %from_binds);
     }
     my @to = grep /$tofilter/, @nodes;
+
+    if (! @to ) {
+        $self->note('No nodes match the given "to-node" filter');
+        return;
+    }
+
     if (scalar @to != scalar @nodes) {
 	my ($to_list, %to_binds) = &dbinlist('to', @to);
 	push @where, "nd.name in ($to_list)";
@@ -9683,11 +9694,16 @@ sub output
   "<label class='inline'>status</label",
   submit(-label=>'Update', -class=>'labeled'), "<br/>",
   "</form>";
-
   my @where;
   my %binds;
   my %all_nodes = $self->fetch_nodes(with_ids=>1);
   my @select_nodes = grep /$nodefilter/, keys %all_nodes;
+
+  if (! @select_nodes ) {
+      $self->note('No nodes match the given filter');
+      return;
+  }
+
   if (scalar @select_nodes < scalar keys %all_nodes) {
       my $list;
       ($list, %binds) = &dbinlist('node', map { $all_nodes{$_} } @select_nodes);
