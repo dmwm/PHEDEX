@@ -57,10 +57,12 @@ sub invoke { return _shift_queued(@_); }
 sub _shift_queued
 {
   my ($core, %h) = @_;
-  my $epochHours = int(time/3600);
-  my $start = ($epochHours-12) * 3600;
+
+  map { $h{uc $_} = uc delete $h{$_} } keys %h;
+  my $epochHours = int(($h{ENDTIME} || time)/3600);
+  my $start = ($epochHours-($h{NBINS}||12)) * 3600;
   my $end   =  $epochHours     * 3600;
-  my $node  = 'T%';
+  my $node  = $h{NODE} || 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   my $p = getShiftPending($core,\%params,\%h);
@@ -73,7 +75,6 @@ sub getShiftPending
   my ($r,$sql,$span,$q,$row);
   my ($i,$node,$bin);
 
-  map { $h->{uc $_} = uc delete $h->{$_} } keys %$h;
   $span = $h->{SPAN} || 3600;
   $sql = qq{
     select
@@ -97,20 +98,23 @@ sub getShiftPending
   }
 
 # Aggregate MSS+Buffer nodes, and merge the Queued and Requested data.
-  foreach $i ( keys %{$r} )
+  if ( !$h->{NOAGGREGATE} )
   {
-    if ( $i =~ m%^T1_(.*)_Buffer$% )
+    foreach $i ( keys %{$r} )
     {
-      $node = 'T1_' . $1 . '_MSS';
-      foreach $bin ( keys %{$r->{$node}} )
+      if ( $i =~ m%^T1_(.*)_Buffer$% )
       {
-        if ( !$r->{$node}{$bin} )
+        $node = 'T1_' . $1 . '_MSS';
+        foreach $bin ( keys %{$r->{$i}} )
         {
-          $r->{$node}{$bin} = $r->{$i}{$bin};
-          $r->{$node}{$bin}{PEND_BYTES} = 0;
+          if ( !$r->{$node}{$bin} )
+          {
+            $r->{$node}{$bin} = $r->{$i}{$bin};
+            $r->{$node}{$bin}{PEND_BYTES} = 0;
+          }
+          $r->{$node}{$bin}{PEND_BYTES} += $r->{$i}{$bin}{PEND_BYTES} || 0;
+          delete $r->{$i};
         }
-        $r->{$node}{$bin}{PEND_BYTES} += $r->{$i}{$bin}{PEND_BYTES} || 0;
-        delete $r->{$i};
       }
     }
   }
