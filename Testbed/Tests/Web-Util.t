@@ -185,6 +185,47 @@ ok( dies (\&validate_params, { foo => undef }, spec => $allowing_spec),         
 ok( lives (\&validate_params, { foo => undef }, 
 	   allow_undef => 1, spec => $allowing_spec),                               'good allowing: undef') or whydie;
 
+# 'subscribe_id' checking
+$using_spec = { foo => { using => 'subscribe_id' } };
+ok( lives(\&validate_params, { foo => 'DATASET:12:43' }, spec => $using_spec), 'good subscribe_id DATASET:12:43');
+ok( dies(\&validate_params, { foo => 'DATASET::' }, spec => $using_spec), 'bad subscribe_id DATASET::');
+ok( dies(\&validate_params, { foo => 'DATASET:1:' }, spec => $using_spec), 'bad subscribe_id DATASET:1:');
+ok( dies(\&validate_params, { foo => 'DATASET::1' }, spec => $using_spec), 'bad subscribe_id DATASET::1');
+ok( dies(\&validate_params, { foo => 'dodosit:23:23' }, spec => $using_spec), 'bad subscribe_id dodosit:23:23');
+ok( dies(\&validate_params, { foo => 'DATASET 23 23' }, spec => $using_spec), 'bad subscribe_id DATASET 23 23');
+
+# 'loadtestp_id' checking
+$using_spec = { foo => { using => 'loadtestp_id' } };
+ok( lives(\&validate_params, { foo => '01:12:43' }, spec => $using_spec), 'good loadtestp_id 01:12:43');
+ok( dies(\&validate_params, { foo => '1::' }, spec => $using_spec), 'bad loadtestp_id 1::');
+ok( dies(\&validate_params, { foo => ':1:' }, spec => $using_spec), 'bad loadtestp_id :1:');
+ok( dies(\&validate_params, { foo => '::1' }, spec => $using_spec), 'bad loadtestp_id ::1');
+ok( dies(\&validate_params, { foo => 'a:23:23' }, spec => $using_spec), 'bad loadtestp_id a:23:23');
+ok( dies(\&validate_params, { foo => '12 34 56' }, spec => $using_spec), 'bad loadtestp_id 12 34 56');
+
+# 'create_dest' checking
+$using_spec = { foo => { using => 'create_dest' } };
+ok( lives(\&validate_params, { foo => 'T0' }, spec => $using_spec), 'good create_dest T0');
+ok( lives(\&validate_params, { foo => 'T123_xyz' }, spec => $using_spec), 'good create_dest T123_xyz');
+ok( lives(\&validate_params, { foo => 'T2_MV_Mirihi' }, spec => $using_spec), 'good create_dest T2_MV_Mirihi');
+ok( lives(\&validate_params, { foo => -1 }, spec => $using_spec), 'good create_dest -1');
+ok( lives(\&validate_params, { foo => 234 }, spec => $using_spec), 'good create_dest 234');
+ok( dies(\&validate_params, { foo => 'T' }, spec => $using_spec), 'bad create_dest T');
+ok( dies(\&validate_params, { foo => 'TX' }, spec => $using_spec), 'bad create_dest TX');
+ok( dies(\&validate_params, { foo => '-2' }, spec => $using_spec), 'bad create_dest -2');
+ok( dies(\&validate_params, { foo => '1a' }, spec => $using_spec), 'bad create_dest 1a');
+ok( dies(\&validate_params, { foo => '' }, spec => $using_spec), 'bad create_dest ');
+
+# 'create_source' checking
+$using_spec = { foo => { using => 'create_source' } };
+ok( lives(\&validate_params, { foo => -1 }, spec => $using_spec), 'good create_source -1');
+ok( lives(\&validate_params, { foo => '/asdf/ghjk/zxcv' }, spec => $using_spec), 'good create_source -1');
+ok( dies(\&validate_params, { foo => -2 }, spec => $using_spec), 'bad create_source -2');
+ok( dies(\&validate_params, { foo => '/asdf/ghjk/' }, spec => $using_spec), 'bad create_source /asdf/ghjk/');
+ok( dies(\&validate_params, { foo => '/asdf/ghjk/er#w' }, spec => $using_spec), 'bad create_source /asdf/ghjk/er#w');
+ok( dies(\&validate_params, { foo => 343 }, spec => $using_spec), 'bad create_source 343');
+
+
 # multiple-value checking
 my $multiple_spec = { foo => { multiple => 1 } };
 ok( lives(\&validate_params, { foo => 'one' }, spec => $multiple_spec),          'good multiple: single') or whydie;
