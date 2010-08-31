@@ -187,6 +187,7 @@ ok( lives (\&validate_params, { foo => undef },
 
 # 'subscribe_id' checking
 $using_spec = { foo => { using => 'subscribe_id' } };
+ok( lives(\&validate_params, { foo => 'BLOCK:12:43' }, spec => $using_spec), 'good subscribe_id BLOCK:12:43');
 ok( lives(\&validate_params, { foo => 'DATASET:12:43' }, spec => $using_spec), 'good subscribe_id DATASET:12:43');
 ok( dies(\&validate_params, { foo => 'DATASET::' }, spec => $using_spec), 'bad subscribe_id DATASET::');
 ok( dies(\&validate_params, { foo => 'DATASET:1:' }, spec => $using_spec), 'bad subscribe_id DATASET:1:');
@@ -220,10 +221,10 @@ ok( dies(\&validate_params, { foo => '' }, spec => $using_spec), 'bad create_des
 $using_spec = { foo => { using => 'create_source' } };
 ok( lives(\&validate_params, { foo => -1 }, spec => $using_spec), 'good create_source -1');
 ok( lives(\&validate_params, { foo => '/asdf/ghjk/zxcv' }, spec => $using_spec), 'good create_source -1');
+ok( lives(\&validate_params, { foo => 343 }, spec => $using_spec), 'good create_source 343');
 ok( dies(\&validate_params, { foo => -2 }, spec => $using_spec), 'bad create_source -2');
 ok( dies(\&validate_params, { foo => '/asdf/ghjk/' }, spec => $using_spec), 'bad create_source /asdf/ghjk/');
 ok( dies(\&validate_params, { foo => '/asdf/ghjk/er#w' }, spec => $using_spec), 'bad create_source /asdf/ghjk/er#w');
-ok( dies(\&validate_params, { foo => 343 }, spec => $using_spec), 'bad create_source 343');
 
 
 # multiple-value checking
