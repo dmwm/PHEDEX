@@ -14,6 +14,7 @@ use Socket;
 use CGI;
 use Apache2::Const -compile => qw(FORBIDDEN OK);
 
+our $VERSION = 1.0;
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
 
@@ -36,7 +37,7 @@ our %params =
 	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
-	  ME	 	=> 'PHEDEX::CLI::FakeAgent',
+	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
 
 	  SERVICE	=> undef,
 #	  Hope I'm not on a node with multiple network interfaces!
@@ -58,7 +59,7 @@ sub new
   bless $self, $class;
 
   $self->init();
-  $self->agent($self->{ME} . ' ' . $self->_agent);
+  $self->CMSAgent($self->{ME});
   return $self;
 }
 

@@ -7,6 +7,7 @@ use PHEDEX::Core::Timing;
 use Data::Dumper;
 use Getopt::Long;
 
+our $VERSION = '1.0';
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
 
@@ -29,7 +30,7 @@ our %params =
 	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
-	  ME	 	=> 'PHEDEX::CLI::UserAgent',
+	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
 
 	  CLEAN_ENVIRONMENT	=> 1,
 	);
@@ -45,8 +46,14 @@ sub new
   bless $self, $class;
 
   $self->init();
-  $self->agent($self->{ME} . ' ' . $self->_agent);
+  $self->CMSAgent($self->{ME});
   return $self;
+}
+
+sub CMSAgent
+{
+  my ($self,$string) = @_;
+  $self->agent($string . ' (CMS) ' . $self->_agent);
 }
 
 sub AUTOLOAD
