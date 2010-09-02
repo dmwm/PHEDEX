@@ -43,13 +43,16 @@ sub new
   return $self;
 }
 
-sub handler
+sub get_apache_params
 {
-    my $r = shift;
-    warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
-    my $service = PHEDEX::Web::DataService->new();
-    $service->invoke();
-    return Apache2::Const::OK;
+    my ($self,$r) = @_;
+    my $h = $r->headers_in();
+#   my $s = $r->server();
+#   $self->{Host}	    = $h->{'Host'};		# e.g. localhost:7003
+    $self->{XForwardedHost} = $h->{'X-Forwarded-Host'};	# e.g. cmswttest.cern.ch
+#   $self->{Port}	    = $s->port();		# e.g. 7003
+#   $self->{URI}	    = $r->uri();		# e.g. /phedex/datasvc/perl/prod/bounce
+    $self->{CMSRequestURI}  = $h->{'CMS-Request-URI'};	# e.g. /phedex/dev2/datasvc/perl/prod/bounce
 }
 
 sub invoke
@@ -66,9 +69,7 @@ sub invoke
 
   # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
-      &print_doc($call ? $db.'/'.$call : $db, # the API to document
-                 ($path eq "/doc")? 'doc/' : ''
-                 );
+      $self->print_doc();
       return;
   }
 
@@ -181,9 +182,16 @@ sub error
 
 sub print_doc
 {
-    my ($call, $prefix) = @_;
-
+    my $self = shift;
     chdir '/tmp';
+    my $service_path = $self->{CONFIG}{SERVICE_PATH};
+    my $call = path_info();
+    $call =~ s%^/doc%%;
+    $call =~s%\?.*$%%;
+    $call =~s%^/+%%;
+    $call =~s%/+$%%;
+    $call =~s%//+%/%;
+
     print header();
     my ($module,$module_name,$loader,@lines,$line);
     $loader = PHEDEX::Core::Loader->new ( NAMESPACE => 'PHEDEX::Web::API' );
@@ -197,10 +205,15 @@ sub print_doc
     @lines = `perldoc -m $module |
                 pod2html --header -css /phedex/datasvc/static/phedex_pod.css`;
 
-    my ($commands,$count);
+    my ($commands,$count,$version);
+    $version = $self->{CONFIG}{VERSION} || '';
+    $version = '&nbsp;(v.' . $version . ')' if $version;
     $count = 0;
     foreach $line ( @lines ) {
         next if $line =~ m%<hr />%;
+	if ( $line =~ m%<span class="block">% ) {
+	  $line =~ s%</span>%$version</span>%;
+	}
         if ( $line =~ m%^<table% ) {
 	    $count++;
 	    if ( $count != 2 ) { print $line; next; }
@@ -219,7 +232,7 @@ sub print_doc
 		print qq{
 		     <tr>
   		     <td><strong>$_</strong></td>
-		     <td><a href='$prefix$_'>$module</a></td>
+		     <td><a href='$service_path/doc/$_'>$module</a></td>
 		     </tr>
 		    };
 	    }
