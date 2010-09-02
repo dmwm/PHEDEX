@@ -22,7 +22,7 @@ sub new
   {
     no strict 'refs';
     my @reject = @{$self->{NAMESPACE} . '::_loader_reject'};
-    @reject = ( qw / Template UserAgent FakeAgent / ) unless @reject;
+    @reject = ( qw / Template UserAgent FakeAgent Mail / ) unless @reject;
     $self->{REJECT} = \@reject;
   }
   bless $self, $class;
@@ -101,7 +101,7 @@ sub Commands
   }
 
   foreach ( @{$self->{REJECT}} )
-  { $_ = lc $_; delete $commands{$_} if exists $commands{$_}; }
+  { $_ = lc $_; delete $self->{COMMANDS}{$_} if exists $self->{COMMANDS}{$_}; }
 
   return $self->{COMMANDS}; #= \%commands;
 }
