@@ -8,8 +8,6 @@
 
 our $TESTING = 0;
 our $TESTING_MAIL = undef;
-our $TESTING_MAPHTTP  = undef;
-our $TESTING_MAPHTTPS = undef;
 our $DBS_LOOKUP = undef;
 
 use CMSWebTools::SecurityModule::Oracle;
@@ -2375,8 +2373,6 @@ sub myurl
   $url .= "/$db";
   $url .= "/$page" if $page;
   $url .= "?$q" if $q;
-  $url =~ s%http://vocms\d+.cern.ch%$TESTING_MAPHTTP%   if $TESTING_MAPHTTP;
-  $url =~ s%https://vocms\d+.cern.ch%$TESTING_MAPHTTPS% if $TESTING_MAPHTTPS;
   return $url;
 }
 
@@ -10300,15 +10296,23 @@ use CGI qw(:standard);
 # at, instantiate it, then ask the page to generate itself.
 sub runme
 {
-  # Read PhEDEx web server configuration
-  my $config = &read_config();
+  # Read PhEDEx web server configuration, and derive a few server-related
+  # quantities from the request-object
+  my ($r,$h,$XForwardedHost,$CMSRequestURI,$config);
+  $config = &read_config();
+  $r = shift; # The Apache::RequestRec object...
+  $h = $r->headers_in();
+  $XForwardedHost = $h->{'X-Forwarded-Host'}; # e.g. cmswttest.cern.ch
+  $CMSRequestURI  = $h->{'CMS-Request-URI'};  # e.g. /phedex/dev2/datasvc/perl/prod/bounce
+  $config->{SSL_SERVER_ROOT} ||= 'https://' . $XForwardedHost;
+  $config->{SERVER_ROOT}     ||= 'http://'  . $XForwardedHost;
+  $config->{GRAPHTOOL_URL}   ||= $config->{SERVER_ROOT} . $config->{SERVICE_PATH} . '/graphs';
+
   #eval "use CGI::Carp qw(fatalsToBrowser)";
 
   # Set debug mode
   $TESTING          = $config->{TESTING_MODE} ? 1 : 0;
   $TESTING_MAIL     = $config->{TESTING_MAIL} || undef;
-  $TESTING_MAPHTTP  = $config->{TESTING_MAPHTTP}  || undef;
-  $TESTING_MAPHTTPS = $config->{TESTING_MAPHTTPS} || undef;
 
   # Set DBSLookup path
   $DBS_LOOKUP = $$config{DBS_LOOKUP} || undef;
@@ -10520,5 +10524,5 @@ sub parse_line
   return $line;
 }
 
-&runme();
+&runme(@_);
 exit(0);
