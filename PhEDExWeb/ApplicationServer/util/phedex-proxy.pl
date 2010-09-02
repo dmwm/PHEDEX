@@ -9,7 +9,7 @@ use File::Basename qw (dirname);
 use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
-my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
+my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug,$ua);
 my (@accept,@reject,@map,@uriMap,$die_on_reject,$cache,$cache_only,$log,$autotruncate,$newUrl);
 my ($delay,$cache_ro,%expires,$expires_default,$host);
 my ($cert_file,$key_file,$proxy,$pk12,$nocert);
@@ -314,11 +314,6 @@ DONE:
 	}
 
 #	Transmit the request upstream to the server
-	my $useragent = $request->header( 'User-Agent' );
-	if ( $useragent !~ m%^PhEDEx% )
-	{
-	  $request->header( 'User-Agent', 'PhEDEx-Proxy-server' );
-	}
 	$request->header( 'Host', $host );
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
@@ -336,21 +331,25 @@ DONE:
 	my @n = split('/',$uri);
 	$format = $n[5];
 	$instance = $n[6];
-	my $ua = PHEDEX::CLI::UserAgent->new
-        (
-          DEBUG         => 0, # $debug,
-          CERT_FILE     => $cert_file,
-          KEY_FILE      => $key_file,
-          PROXY         => $proxy,
-          CA_FILE       => undef, # $ca_file,
-          CA_DIR        => undef, # $ca_dir,
-          URL           => $url,
-          FORMAT        => $n[5],
-          INSTANCE      => $n[6],
-          NOCERT        => undef, # $nocert,
-          SERVICE       => $service,
-        );
-	$ua->default_header('Host' => $host) if $host;
+	if ( !$ua )
+	{
+	  $ua = PHEDEX::CLI::UserAgent->new
+          (
+            DEBUG         => 0, # $debug,
+            CERT_FILE     => $cert_file,
+            KEY_FILE      => $key_file,
+            PROXY         => $proxy,
+            CA_FILE       => undef, # $ca_file,
+            CA_DIR        => undef, # $ca_dir,
+            URL           => $url,
+            FORMAT        => $n[5],
+            INSTANCE      => $n[6],
+            NOCERT        => undef, # $nocert,
+            SERVICE       => $service,
+          );
+	  $ua->default_header('Host' => $host) if $host;
+	  $ua->CMSAgent('PhEDEx-Proxy-server/1.0');
+	}
 	my ($method,$response,@form);
 	$method = lc $request->method();
         @form = $uri->query_form();

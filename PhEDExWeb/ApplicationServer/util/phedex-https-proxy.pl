@@ -4,7 +4,6 @@ use strict;
 $|=1;
 use Getopt::Long;
 use HTTP::Daemon::SSL;
-#use HTTP::Status;
 use HTTP::Response;
 use File::Basename qw (dirname);
 use Term::ReadKey;
@@ -160,10 +159,13 @@ $server = HTTP::Daemon::SSL->new
   ) || die;
 
 print scalar localtime,": listening on port $listen_port, redirect to $redirect_to\n";
-while (my $c = $server->accept)
+my ($c,$request,$ua);
+while ( $c = $server->accept )
 {
-  while (my $request = $c->get_request)
+  last unless $c;
+  while ( $request = $c->get_request )
   {
+	last unless $request;
 	my ($buf,$data,$n,$error,$h);
 
         my $file = $request->uri();
@@ -261,11 +263,6 @@ DONE:
         }
 
 #	Transmit the request upstream to the server
-	my $useragent = $request->header( 'User-Agent' );
-	if ( $useragent !~ m%^PhEDEx% )
-	{
-	  $request->header( 'User-Agent', 'PhEDEx-Proxy-server' );
-	}
 	$request->header( 'Host', $host );
         $request->header( "Connection",       "close" );
         $request->header( "Proxy-Connection", "close" );
@@ -273,24 +270,32 @@ DONE:
         $request->uri($redirect_to . $request->uri()->path_query());
         display_thing( $request ) if $dump_requests;
 	my $uri = $request->uri;
-	my @n = split('/',$uri);
-	$format = $n[5];
-	$instance = $n[6];
-	my $ua = PHEDEX::CLI::UserAgent->new
-        (
-          DEBUG         => 0, # $debug,
-          CERT_FILE     => $cert_file,
-          KEY_FILE      => $key_file,
-          PROXY         => $proxy,
-          CA_FILE       => undef, # $ca_file,
-          CA_DIR        => undef, # $ca_dir,
-          URL           => $url,
-          FORMAT        => $n[5],
-          INSTANCE      => $n[6],
-          NOCERT        => undef, # $nocert,
-          SERVICE       => $service,
-        );
-	$ua->default_header('Host' => $host) if $host;
+        my $x;
+        ($x = $uri) =~ s%^.*/datasvc/%%;
+	my @n = split('/',$x);
+	$format = $n[0];
+	$instance = $n[1];
+        if ( !$ua )
+	{
+$DB::single=1;
+	  my %params =
+          (
+            DEBUG         => 0, # $debug,
+            CERT_FILE     => $cert_file,
+            KEY_FILE      => $key_file,
+            PROXY         => $proxy,
+            CA_FILE       => undef, # $ca_file,
+            CA_DIR        => undef, # $ca_dir,
+            URL           => $url,
+            FORMAT        => $format,
+            INSTANCE      => $instance,
+            NOCERT        => undef, # $nocert,
+            SERVICE       => $service,
+	  );
+	  $ua = PHEDEX::CLI::UserAgent->new (%params);
+	  $ua->CMSAgent('PhEDEx-Proxy-server-https/1.0');
+	  $ua->default_header('Host' => $host) if $host;
+	}
 	my ($method,$response,@form);
 	$method = $request->method();
 	if ( $method eq 'POST' )
