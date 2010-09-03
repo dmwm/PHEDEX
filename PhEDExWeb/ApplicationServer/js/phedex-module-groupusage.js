@@ -125,6 +125,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
              */
             setArgs: function(arr) {
               if ( arr && arr.group ) {
+                if ( arr.group == _groupname ) { return; }
                 _groupname = arr.group;
                 if ( !_groupname ) { return; }
                 this.dom.title.innerHTML = 'setting parameters...';
