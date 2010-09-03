@@ -3,6 +3,7 @@ use warnings;
 use strict;
 $|=1;
 use Getopt::Long;
+use Net::SSL; # Need this before HTTP::Daemon::SSL so that it supercedes IO::Socket::SSL!
 use HTTP::Daemon::SSL;
 use HTTP::Response;
 use File::Basename qw (dirname);
