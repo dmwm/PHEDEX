@@ -73,7 +73,8 @@ PHEDEX.Login = function(sandbox) {
     */
     var _formUserInfo = function() {
         if (_authData.role) {
-            if (_authData.role.length > 0) {
+          var roleLen = _authData.role.length, indx = 0, overlayBody, role;
+            if (roleLen > 0) {
                 if (!_user_role_info) {
                     //Create a new YUI overlay to show user role information
                     _user_role_info = new Yw.Overlay("_user_role_info", { context: [_username_id, "tl", "bl", ["beforeShow", "windowResize"]], visible: false, width: "300px" });
@@ -86,34 +87,15 @@ PHEDEX.Login = function(sandbox) {
                     }
                     log('The user role information YUI overlay body content is destroyed', 'info', 'login');
                 }
-                var overlayBody = document.createElement('div');
+                overlayBody = document.createElement('div');
+                overlayBody.innerHTML = '<strong />Roles:</strong>';
                 overlayBody.className = 'phedex-login-overlay-body';
-                var title = document.createElement('div');
-                title.innerHTML = 'User Role Information';
-                overlayBody.appendChild(title);
-                //overlayBody.appendChild(document.createElement('br'));
-                var tableUserInfo = document.createElement('table'); //Create a table to show user role information
-                tableUserInfo.border = 3;
-                tableUserInfo.cellSpacing = 3;
-                tableUserInfo.cellPadding = 3;
-                var indx = 0, tableRow, tableCell1, tableCell2;
-                for (indx = 0; indx < _authData.role.length; indx++) {
+                for (indx = 0; indx < roleLen; indx++) {
                     //Create rows in the table to fill user role information
-                    tableRow = tableUserInfo.insertRow(0);
-                    tableRow.className = 'phedex-login-roleinfo';
-                    tableCell1 = tableRow.insertCell(0);
-                    tableCell2 = tableRow.insertCell(1);
-                    tableCell1.innerHTML = _authData.role[indx].name;
-                    tableCell2.innerHTML = _authData.role[indx].group;
+                  role = _authData.role[indx];
+                  overlayBody.innerHTML += '<br />' + role.name + ' of ' + role.group;
+
                 }
-                tableRow = tableUserInfo.insertRow(0);
-                tableRow.className = 'phedex-login-userrole';
-                tableCell1 = tableRow.insertCell(0);
-                tableCell2 = tableRow.insertCell(1);
-                tableCell1.innerHTML = 'Name';
-                tableCell2.innerHTML = 'Group';
-                overlayBody.appendChild(tableUserInfo);
-                //overlayBody.appendChild(document.createElement('br'));
                 var closebtn = document.createElement('div');
                 closebtn.id = 'phedex-login-info-close';
                 overlayBody.appendChild(closebtn);
@@ -197,8 +179,8 @@ PHEDEX.Login = function(sandbox) {
         log('Unable to login because of communication failure to make data service call', 'error', 'login');
     };
 
-    var _eventSuccess = new YuCE('login success');
-    var _eventFailure = new YuCE('login failure');
+    var _eventSuccess = new YuCE('login success'),
+        _eventFailure = new YuCE('login failure');
 
     _eventSuccess.subscribe(function(type, args) { _processLogin(args[0]); });
     _eventFailure.subscribe(function(type, args) { _loginCallFailure(args[0]); });
@@ -313,11 +295,11 @@ PHEDEX.Login = function(sandbox) {
         var href = location.href;
         if (href.match(/http:/)) {
             href = href.replace(/^http:/, 'https:');
-            href = href.replace(/:30001/, ':20001');
+            href = href.replace(/:30001/, ':20001'); // this is a hack for developing code outside the CERN firewall
         }
         else if (href.match(/https:/)) {
             href = href.replace(/^https:/, 'http:');
-            href = href.replace(/:20001/, ':30001');
+            href = href.replace(/:20001/, ':30001'); // this is a hack for developing code outside the CERN firewall
         }
         window.location = href;
     }
