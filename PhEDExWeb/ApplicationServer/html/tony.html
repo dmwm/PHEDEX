@@ -17,11 +17,11 @@
 </head>
 
 <body class="yui-skin-sam">
- <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+ <iframe id="yui-history-iframe" src="/phedex/dev2/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
  <input id="yui-history-field" type="hidden" style='visibility:hidden'>
  <div id='phedex-banner' class='phedex-banner'>
     <a href='' id='phedex-link-home' title='Reset application to initial state' style='text-decoration:none'>
-      <img src='/phedex/datasvc/app/images/phedex-logo-small.gif' alt='PhEDEx logo' height='20' style='border:none'/>
+      <img src='/phedex/dev2/datasvc/app/images/phedex-logo-small.gif' alt='PhEDEx logo' height='20' style='border:none'/>
     </a>
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b>
     <a class='phedex-link phedex-link-inline' target='new_twiki' title='PhEDEx website planning twiki' href="https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjWebsite">plan</a>
@@ -30,7 +30,7 @@
        onmouseover="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
        onfocus="javascript:this.href=mailMe('cern%23ch','cms-phedex-admins');"
        >feedback email</a>
-   <a class='phedex-link phedex-link-inline' id='phedex-bug-feature-link' target='new_bugs' title='How to report bugs and make feature requests' href='/phedex/datasvc/app/html/phedex-bug-report.html'>report a bug</a>
+   <a class='phedex-link phedex-link-inline' id='phedex-bug-feature-link' target='new_bugs' title='How to report bugs and make feature requests' href='/phedex/dev2/datasvc/app/html/phedex-bug-report.html'>report a bug</a>
     <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
       <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
     </span>
@@ -67,13 +67,13 @@ Firefox, available <a href='http://www.mozilla.com/firefox/'>here</a>.</a>
 <p>If it is not possible for you to use a browser with javascript, you
 can write scripts to use the data service directly.  Data service
 documentation is found
-<a href='/phedex/datasvc/doc'>
+<a href='/phedex/dev2/datasvc/doc'>
 here</a>.</p>
 </noscript>
 
-<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
-<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
-<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript" src="/phedex/dev2/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/dev2/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript" src="/phedex/dev2/datasvc/app/js/phedex-loader.js"></script>
 <script type="text/javascript">
 function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,".")); }
 
@@ -81,6 +81,8 @@ function mailMe(sDom, sUser){ return("mail"+"to:"+sUser+"@"+sDom.replace(/%23/g,
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
   PxW.combineRequests = false;
+  PxW.ProductionMode  = false;
+  PxW.BaseURL            = '/phedex/dev2/datasvc/app/';
   PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
   PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
 //   PxW.nocache = true;
