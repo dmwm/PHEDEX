@@ -278,7 +278,6 @@ DONE:
 	$instance = $n[1];
         if ( !$ua )
 	{
-$DB::single=1;
 	  my %params =
           (
             DEBUG         => 0, # $debug,
