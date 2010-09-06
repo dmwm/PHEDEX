@@ -10076,7 +10076,7 @@ sub output
     my $nosub = &dbexec($$self{DBH},
 		       qq{ select sum(br.src_files) src_files, sum(br.src_bytes) src_bytes,
 			          sum(decode(br.src_files,0,br.node_files,0)) nosub_files, 
-			          sum(decode(br.src_bytes,0,br.node_files,0)) nosub_bytes
+			          sum(decode(br.src_bytes,0,br.node_bytes,0)) nosub_bytes
 			     from t_dps_block_replica br
 			     join t_adm_node n on br.node = n.id
 			    where n.name = :node
