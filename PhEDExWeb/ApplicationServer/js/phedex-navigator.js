@@ -557,8 +557,10 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     this.dom={};
     for (var t in target_types) {
       try {
-        this.dom[t] = _selectors[t].init(targetdiv,t);
-      } catch (ex) { log(ex,'error',obj.me); banner('Error initialising Navigator, unknown type "'+t+'"!','error'); }
+        if ( _selectors[t] ) {
+          this.dom[t] = _selectors[t].init(targetdiv,t);
+        }
+      } catch (ex) { log(ex,'error',obj.me); banner('Error initialising Navigator for type "'+t+'"!','error'); }
     }
     this._updateTargetSelector();
   };
