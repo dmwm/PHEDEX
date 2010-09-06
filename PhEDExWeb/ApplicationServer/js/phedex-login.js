@@ -96,6 +96,7 @@ PHEDEX.Login = function(sandbox) {
                   overlayBody.innerHTML += '<br />' + role.name + ' of ' + role.group;
 
                 }
+                overlayBody.innerHTML += '<br />' + _logincomp.username.title;
                 var closebtn = document.createElement('div');
                 closebtn.id = 'phedex-login-info-close';
                 overlayBody.appendChild(closebtn);
@@ -143,12 +144,12 @@ PHEDEX.Login = function(sandbox) {
             _username = _authData.human_name; //Get the user name
             _logincomp.username.innerHTML = _username;
             if (_authData.state == 'cert') { //Authentication done using certificate 
-                _logincomp.statusmsg.innerHTML = ' logged in via certificate';
+                _logincomp.username.title = ' logged in via certificate';
                 _cur_state = 'usepassword';
                 _updateLoginButton('Login with Password');
             }
             else if (_authData.state == 'passwd') { //Authentication done using password
-                _logincomp.statusmsg.innerHTML = ' logged in via password';
+                _logincomp.username.title = ' logged in via password';
                 _cur_state = 'logout';
                 YuD.addClass(_logincomp.btnsubmit, 'phedex-invisible');
                 _updateLoginButton('Logout');
@@ -240,7 +241,7 @@ PHEDEX.Login = function(sandbox) {
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
         log('Auth data service call is made for certificate based authentication', 'info', 'login');
-        PHEDEX.Datasvc.Call({ method: 'post', api: 'auth', success_event: _eventSuccess, failure_event: _eventFailure });
+        PHEDEX.Datasvc.Call({ method:'post', api:'auth', success_event:_eventSuccess, failure_event:_eventFailure });
     };
 
     /**
@@ -254,7 +255,6 @@ PHEDEX.Login = function(sandbox) {
         _logincomp.inputpwd.focus();
         if (!_logincomp.inputname.value) { _logincomp.inputname.focus(); }
         _logincomp.username.innerHTML = '';
-        _logincomp.statusmsg.innerHTML = '';
         _updateLoginButton('Login');
         _cur_state = 'login';
     };
@@ -267,10 +267,10 @@ PHEDEX.Login = function(sandbox) {
     */
     var _initLoginComponent = function(divlogin) {
         var logincomp = PxU.makeChild(divlogin, 'div', { id: 'phedex-nav-login', className: 'phedex-login' });
-        logincomp.username = PxU.makeChild(logincomp, 'a', { className: 'phedex-login-username' });
+        logincomp.username = PxU.makeChild(logincomp, 'a', { className: 'phedex-login-username phedex-link' });
         logincomp.username.id = _username_id;
-        logincomp.statusmsg = PxU.makeChild(logincomp, 'span', { className: 'phedex-login-status' });
         logincomp.logininput = PxU.makeChild(logincomp, 'span', { className: 'phedex-invisible' });
+//         var btnlogout = PxU.makeChild(logincomp, 'span');
         var labelname = PxU.makeChild(logincomp.logininput, 'span');
         labelname.innerHTML = 'User Name: ';
         logincomp.inputname = PxU.makeChild(logincomp.logininput, 'input', { type: 'text' });
@@ -278,8 +278,8 @@ PHEDEX.Login = function(sandbox) {
         labelname.innerHTML = '&nbsp;Password: ';
         logincomp.inputpwd = PxU.makeChild(logincomp.logininput, 'input', { type: 'password' });
         logincomp.btnsubmit = PxU.makeChild(logincomp, 'span');
-        var btnlogout = PxU.makeChild(logincomp, 'span');
         YuE.addListener(logincomp.username, 'click', _showOverlay, this, true);
+        var btnlogout = PxU.makeChild(logincomp, 'span');
         logincomp.objBtn = new Yw.Button({ label: 'Login', id: 'buttonOK', container: logincomp.btnsubmit, onclick: { fn: _onLogin} });
         logincomp.objLogoutBtn = new Yw.Button({ label: 'Logout', id: 'buttonLogout', container: btnlogout, onclick: { fn: _redirectPage} });
         _logincomp = logincomp;

@@ -536,11 +536,11 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   /*}(obj)*/;
   PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
-    var fnDump = function(opts,el) {
-      var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes');
-      w.document.writeln(Ylang.JSON.stringify(el.obj.data));
-    }
-    PHEDEX.Component.ContextMenu.Add('treeview', PxU.feature['beta'] + 'Show tree data (JSON)', fnDump);
+  var fnDump = function(opts,el) {
+    var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes');
+    w.document.writeln(Ylang.JSON.stringify(el.obj.data));
+  }
+  PHEDEX.Component.ContextMenu.Add('treeview', PxU.feature['beta'] + 'Show tree data (JSON)', fnDump);
 
   return {
     getExtraContextTypes: function() {
