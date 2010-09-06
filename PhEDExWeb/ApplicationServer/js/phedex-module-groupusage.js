@@ -25,7 +25,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             */
             decorators: [{
                 name: 'ContextMenu',
-                source:'component-contextmenu',
+                source:'component-contextmenu'
             },
             {
                 name:'cMenuButton',
@@ -54,7 +54,7 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                             { key:'node_files', label:'Resident Files',   className:'align-right', parser:'number' },
                             { key:'dest_bytes', label:'Subscribed Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
                             { key:'dest_files', label:'Subscribed Files', className:'align-right', parser:'number' }
-                           ],
+                           ]
                 },
 
                 hide: ['Group', 'SE', 'ID', 'Resident Files', 'Subscribed Files'],

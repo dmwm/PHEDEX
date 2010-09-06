@@ -15,12 +15,12 @@ PHEDEX.GlobalFilter = function(sandbox,args) {
                         disabled: true,
                         hidden:   true,
                         context: 'input',
-                        align:   'bl',
+                        align:   'bl'
                       },
-                      el: 'content',
-                    },
+                      el: 'content'
+                    }
                   },
-                  target:  'filterPanel',
+                  target:  'filterPanel'
                 };
   Yla(this, new PHEDEX.Base.Object());
 

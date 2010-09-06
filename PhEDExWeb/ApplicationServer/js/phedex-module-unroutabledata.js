@@ -9,7 +9,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
       opts = {
         status: null,
         kind:   null,
-        since:     1,
+        since:     1
       },
       width = 1200;
 
@@ -36,12 +36,12 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
           parent: 'control',
           payload:{
             target: 'extra',
-            animate:false,
+            animate:false
           }
         },
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -49,10 +49,10 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
-            container: 'buttons',
-          },
+            container: 'buttons'
+          }
         },
         {
           name: 'DirectionSelect',
@@ -63,10 +63,10 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
             container: 'buttons',
             menu: _directions,
             map: {
-              onChange:'changeDirection',
-            },
+              onChange:'changeDirection'
+            }
           }
-        },
+        }
       ],
 
       meta: {
@@ -83,7 +83,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               {width: 60,text:'To ID',     className:'phedex-tree-node-to-id',     otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
               {width:200,text:'To SE',     className:'phedex-tree-node-to-se',     otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
 //               {width: 60,text:'Valid',     className:'phedex-tree-node-valid',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width: 60,text:'Priority',  className:'phedex-tree-node-priority',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Priority',  className:'phedex-tree-node-priority',  otherClasses:'align-right', ctxArgs:'sort-alpha' }
             ]
           },
           {
@@ -97,7 +97,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               {width: 90,text:'Routed Bytes', className:'phedex-tree-block-route-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
               {width: 90,text:'Xfer attempts',className:'phedex-tree-block-xfr-attempts', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 90,text:'Avg attempts', className:'phedex-tree-block-avg-attempts', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.toFixed(1), hide:true },
-              {width:120,text:'Request Time', className:'phedex-tree-block-timerequest',  otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
+              {width:120,text:'Request Time', className:'phedex-tree-block-timerequest',  otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' }
             ]
           },
           {
@@ -111,7 +111,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               {width:120,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
               {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' },
+              {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' }
             ]
           }
         ],
@@ -128,8 +128,8 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               'phedex-tree-node-to-id'    :{type:'int',    text:'To Node-ID',     tip:'Node-ID in TMDB'},
               'phedex-tree-node-to-se'    :{type:'regex',  text:'To SE-name',     tip:'javascript regular expression'},
 //               'phedex-tree-node-valid'    :{type:'yesno',  text:'Valid',          tip:'javascript regular expression'},
-              'phedex-tree-node-priority' :{type:'regex',  text:'Priority',       tip:'javascript regular expression'},
-            },
+              'phedex-tree-node-priority' :{type:'regex',  text:'Priority',       tip:'javascript regular expression'}
+            }
           },
           'Block-level attributes':{
             map:{from:'phedex-tree-block-', to:'B'},
@@ -142,7 +142,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               'phedex-tree-block-route-bytes'  :{type:'minmax', text:'Routed-bytes',  tip:'number of bytes in the block' },
               'phedex-tree-block-xfr-attempts' :{type:'minmax', text:'Xfer attempts', tip:'number of transfer attempts' },
               'phedex-tree-block-avg-attempts' :{type:'minmax', text:'Avg attempts',  tip:'average number of transfer attempts' },
-              'phedex-tree-block-timerequest'  :{type:'minmax', text:'Request time',  tip:'Unix epoch seconds' },
+              'phedex-tree-block-timerequest'  :{type:'minmax', text:'Request time',  tip:'Unix epoch seconds' }
             }
           },
           'Replica-level attributes':{
@@ -159,7 +159,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
             }
           }
-        },
+        }
       },
 
       initMe: function(){
@@ -302,7 +302,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
         this.dom.title.innerHTML = ( node ? this.direction_key()+' '+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   Yla(this,_construct(),true);

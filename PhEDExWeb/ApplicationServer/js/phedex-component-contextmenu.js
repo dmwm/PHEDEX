@@ -205,7 +205,7 @@ PHEDEX.Component.ContextMenu=function(sandbox,args) {
           this.contextMenu.addItem(item);
         }
         this.contextMenu.render();
-      },
+      }
     };
   };
   Yla(this,_construct(this),true);

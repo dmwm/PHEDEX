@@ -157,7 +157,7 @@ PHEDEX.Module.ProtovisDemo = function(sandbox, string) {
 
 //      This tells the core that all went well, and allows it to react properly to other things
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   Yla(this,_construct(this),true);

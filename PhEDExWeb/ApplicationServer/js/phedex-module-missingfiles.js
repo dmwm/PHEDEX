@@ -37,7 +37,7 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                     name: 'ContextMenu',
                     source: 'component-contextmenu',
                     payload: {
-                        args: { 'missingfile': 'Name' },
+                        args: { 'missingfile': 'Name' }
                     }
                 }
             ],

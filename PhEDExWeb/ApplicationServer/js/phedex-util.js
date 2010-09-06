@@ -244,7 +244,7 @@ PHEDEX.Util.feature = {
 PHEDEX.Util.icon = {
   'green-circle':  "<img alt='0 the number here drives the sort-order' class='phedex-icon-class phedex-icon-green-circle'  src='"+PxW.BaseURL+"/images/icon-circle-green.png' />",
   'yellow-circle': "<img alt='1 the number here drives the sort-order' class='phedex-icon-class phedex-icon-yellow-circle' src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' />",
-  'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.BaseURL+"/images/icon-circle-red.png' />",
+  'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.BaseURL+"/images/icon-circle-red.png' />"
 };
 
 PHEDEX.Util.UserAgent = function() {

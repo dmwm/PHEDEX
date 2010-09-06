@@ -20,7 +20,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         dataset_create_since: 9999,
         file: null,
         block: null,
-        dataset: null,
+        dataset: null
       },
       width = 1200;
 
@@ -40,12 +40,12 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           parent: 'control',
           payload:{
             target: 'extra',
-            animate:false,
+            animate:false
           }
         },
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -53,10 +53,10 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
-            container: 'buttons',
-          },
+            container: 'buttons'
+          }
         },
 //         {
 //           name: 'FileCreateTimeSelect',
@@ -83,7 +83,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             prefix:'Block Created:',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeBlockCreateTimebin',
+              onChange:'changeBlockCreateTimebin'
             },
             title:'Time since Block creation'
           }
@@ -98,11 +98,11 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             prefix:'Dataset Created:',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeDatasetCreateTimebin',
+              onChange:'changeDatasetCreateTimebin'
             },
             title:'Time since Dataset creation'
           }
-        },
+        }
       ],
 
       meta: {
@@ -174,7 +174,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
               'phedex-tree-file-checksum'   :{type:'regex',  text:'Checksum',    tip:'javascript regular expression' }
             }
           }
-        },
+        }
       },
 
       initMe: function(){ },
@@ -326,11 +326,11 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         this.dom.title.innerHTML = ( dataset ? 'dataset='+dataset : '' ) + ( dataset && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   Yla(this,_construct(),true);
   return this;
 }
 
-log('loaded...','info','custodiallocation');
+log('loaded...','info','databrowser');

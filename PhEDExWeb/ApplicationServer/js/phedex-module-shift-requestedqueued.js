@@ -61,7 +61,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
               return 'Toggle between showing all nodes or only the nodes with a problem (re-fetches data from the data-service)';
             },
             map: {
-              setDataModeLabel: 'Label',
+              setDataModeLabel: 'Label'
             }
           }
         },
@@ -81,7 +81,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             },
             container: 'param'
           }
-        },
+        }
       ],
 
       options: {
@@ -101,14 +101,14 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             {key:'max_pend_bytes',    label:'Max. Queued',         className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'max_request_bytes', label:'Max. Requested',      className:'align-right', parser:'number', formatter:'customBytes'},
             {key:'cur_pend_bytes',    label:'Currently Queued',    className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number', formatter:'customBytes'}
           ],
           nestedColumns:[
             {key:'timebin',       label:'Timebin',   formatter:'UnixEpochToGMT' },
             {key:'pend_bytes',    label:'Queued',    className:'align-right', parser:'number', formatter:'customBytes' },
             {key:'request_bytes', label:'Requested', className:'align-right', parser:'number', formatter:'customBytes' },
-            {key:'ratio',         label:'Ratio',     className:'align-right', parser:'number' },
-          ],
+            {key:'ratio',         label:'Ratio',     className:'align-right', parser:'number' }
+          ]
         },
         sort:{field:'Node'},
         hide:['Status','Max. Requested','Max. Queued'],
@@ -122,8 +122,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
               'Max. Queued'    :{type:'minmax', text:'Max. Queued Data',    tip:'integer range (bytes)' },
               'Max. Requested' :{type:'minmax', text:'Max. Requested Data', tip:'integer range (bytes)' },
               'Queued'         :{type:'minmax', text:'Queued Data',         tip:'integer range (bytes)' },
-              'Requested'      :{type:'minmax', text:'Requested Data',      tip:'integer range (bytes)' },
-              'Ratio'          :{type:'minmax', text:'Ratio of Requested to Queued data', tip:'integer range (bytes)' },
+              'Requested'      :{type:'minmax', text:'Requested Data',      tip:'integer range (bytes)' }
             }
           }
         }
@@ -186,9 +185,9 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           else                 { nNotOK++; this.stuck.push(rq[i].node); }
         }
         this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
-        if ( nNotOK ) {
+//        if ( nNotOK ) {
 // TODO This should be something more meaningful, like an explanation of the algorithm...
-        }
+//        }
         _sbx.notify( this.id, 'gotData' );
         _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
         if ( context.maxAge ) {
@@ -261,7 +260,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         PxL.get(PxW.BaseURL+'/images/icon-circle-red.png',
                 PxW.BaseURL+'/images/icon-circle-yellow.png',
                 PxW.BaseURL+'/images/icon-circle-green.png');
-      },
+      }
     };
   };
   Yla(this,_construct(this),true);

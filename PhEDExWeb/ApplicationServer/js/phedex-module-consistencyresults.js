@@ -9,7 +9,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
       opts = {
         status: null,
         kind:   null,
-        since:     1,
+        since:     1
       },
       width = 1200;
 
@@ -29,12 +29,12 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           parent: 'control',
           payload:{
             target: 'extra',
-            animate:false,
+            animate:false
           }
         },
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -42,10 +42,10 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
-            container: 'buttons',
-          },
+            container: 'buttons'
+          }
         },
         {
           name: 'TimeSelect',
@@ -56,11 +56,11 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             container: 'buttons',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 Weeks', 672:'Last 4 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeTimebin',
+              onChange:'changeTimebin'
             },
             title:'Time since last update'
           }
-        },
+        }
       ],
 
       meta: {
@@ -72,7 +72,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             format: [
               {width:160,text:'Node', className:'phedex-tree-node',    otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
               {width: 60,text:'ID',   className:'phedex-tree-node-id', otherClasses:'align-right', ctxArgs:'sort-num',   hide:true },
-              {width:200,text:'SE',   className:'phedex-tree-node-se', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
+              {width:200,text:'SE',   className:'phedex-tree-node-se', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true }
             ]
           },
           {
@@ -81,7 +81,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
               {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
               {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
+              {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true }
             ]
           },
           {
@@ -93,7 +93,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               {width: 90,text:'Status',       className:'phedex-tree-test-status',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80,text:'Files',        className:'phedex-tree-test-files',        otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Files OK',     className:'phedex-tree-test-files-ok',     otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width: 80,text:'Files Tested', className:'phedex-tree-test-files-tested', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 80,text:'Files Tested', className:'phedex-tree-test-files-tested', otherClasses:'align-right', ctxArgs:'sort-num' }
             ]
           },
           {
@@ -115,8 +115,8 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             fields:{
               'phedex-tree-node-name' :{type:'regex',  text:'Node-name', tip:'javascript regular expression' },
               'phedex-tree-node-id'   :{type:'int',    text:'Node-ID',   tip:'Node-ID in TMDB'},
-              'phedex-tree-node-se'   :{type:'regex',  text:'SE-name',   tip:'javascript regular expression'},
-            },
+              'phedex-tree-node-se'   :{type:'regex',  text:'SE-name',   tip:'javascript regular expression'}
+            }
           },
           'Block-level attributes':{
             map:{from:'phedex-tree-block-', to:'B'},
@@ -124,7 +124,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               'phedex-tree-block-name'  :{type:'regex',  text:'Block-name',  tip:'javascript regular expression' },
               'phedex-tree-block-id'    :{type:'int',    text:'Block-ID',    tip:'Block-ID in TMDB' },
               'phedex-tree-block-files' :{type:'minmax', text:'Block-files', tip:'number of files in the block' },
-              'phedex-tree-block-bytes' :{type:'minmax', text:'Block-bytes', tip:'number of bytes in the block' },
+              'phedex-tree-block-bytes' :{type:'minmax', text:'Block-bytes', tip:'number of bytes in the block' }
             }
           },
           'Test-level attributes':{
@@ -137,7 +137,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               'phedex-tree-test-status'       :{type:'regex',  text:'Status',       tip:'javascript regular expression' },
               'phedex-tree-test-files'        :{type:'minmax', text:'Files',        tip:'number of files' },
               'phedex-tree-test-files-ok'     :{type:'minmax', text:'Files OK',     tip:'number of files OK' },
-              'phedex-tree-test-files-tested' :{type:'minmax', text:'Files tested', tip:'number of files tested' },
+              'phedex-tree-test-files-tested' :{type:'minmax', text:'Files tested', tip:'number of files tested' }
             }
           },
           'File-level attributes':{
@@ -150,7 +150,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
               'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
             }
           }
-        },
+        }
       },
 
       initMe: function(){ },
@@ -319,7 +319,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         this.dom.title.innerHTML = ( node ? 'node='+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   Yla(this,_construct(),true);

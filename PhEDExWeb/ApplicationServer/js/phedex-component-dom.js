@@ -62,7 +62,7 @@ PHEDEX.Component.Dom = function(sandbox,args) {
           }
         }
         this.el = el;
-      },
+      }
     }
   };
   Yla(this,_construct(this),true);

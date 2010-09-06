@@ -256,7 +256,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           var now = d.getTime()/1000;
           return now-x;
         },
-        toPercent: function(x) { return 100*x; },
+        toPercent: function(x) { return 100*x; }
       },
 
       isDefined: function() {

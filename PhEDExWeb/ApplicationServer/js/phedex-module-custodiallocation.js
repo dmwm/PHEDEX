@@ -27,7 +27,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         dist_complete: null,
         subscribed:    null,
         custodial:     null,
-        group:         null,
+        group:         null
       },
       width = 1200;
 
@@ -47,12 +47,12 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           parent: 'control',
           payload:{
             target: 'extra',
-            animate:false,
+            animate:false
           }
         },
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -60,10 +60,10 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
-            container: 'buttons',
-          },
+            container: 'buttons'
+          }
         },
         {
           name: 'UpdateTimeSelect',
@@ -75,7 +75,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             prefix:'Updated:',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeUpdateTimebin',
+              onChange:'changeUpdateTimebin'
             },
             title:'Time since last update'
           }
@@ -90,11 +90,11 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
             prefix:'Created:',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeCreateTimebin',
+              onChange:'changeCreateTimebin'
             },
             title:'Time since creation'
           }
-        },
+        }
       ],
 
       meta: {
@@ -121,7 +121,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               {width:120,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' },
+              {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' }
             ]
           }
         ],
@@ -151,7 +151,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               'phedex-tree-replica-group'      :{type:'regex',  text:'Group name',    tip:'Group that owns this replica' }
             }
           }
-        },
+        }
       },
 
       initMe: function(){ },
@@ -284,7 +284,7 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
         this.dom.title.innerHTML = ( node ? 'node='+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
         _sbx.notify( this.id, 'gotData' );
-      },
+      }
     };
   };
   Yla(this,_construct(),true);

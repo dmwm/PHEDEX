@@ -41,12 +41,12 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           parent: 'control',
           payload:{
             target: 'extra',
-            animate:false,
+            animate:false
           }
         },
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -54,10 +54,10 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           payload:{
             name:'Show all fields',
             map: {
-              hideColumn:'addMenuItem',
+              hideColumn:'addMenuItem'
             },
-            container: 'buttons',
-          },
+            container: 'buttons'
+          }
         },
         {
           name: 'TimeSelect',
@@ -68,8 +68,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             container: 'buttons',
             menu: { 1:'Last Hour', 3:'Last 3 Hours', 6:'Last 6 Hours', 12:'Last 12 Hours', 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week' },
             map: {
-              onChange:'changeTimebin',
-            },
+              onChange:'changeTimebin'
+            }
           }
         },
         {
@@ -81,10 +81,10 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             container: 'buttons',
             menu: _directions,
             map: {
-              onChange:'changeDirection',
-            },
+              onChange:'changeDirection'
+            }
           }
-        },
+        }
       ],
 
       meta: {
@@ -168,7 +168,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
               'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
             }
           }
-        },
+        }
       },
 
       initMe: function(){
@@ -439,7 +439,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           _sbx.notify( this.id, 'gotData' );
         }
         else { banner('Received '+context.api+' data, waiting for more...'); }
-      },
+      }
     };
   };
   Yla(this,_construct(),true);

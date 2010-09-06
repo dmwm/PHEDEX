@@ -26,7 +26,7 @@ PHEDEX.Core = function(sandbox,loader) {
 // all other combinations work OK-ish
     window: false,
     constraintoviewport: true,
-    resizeable: false,
+    resizeable: false
   };
 
 /**

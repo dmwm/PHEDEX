@@ -80,7 +80,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         Filter: 'Show the filter-panel, which allows you to filter the data shown in this module',
         Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize fields by dragging the header-element',
         Extra:  'Show extra details about this data',
-        Refresh:'Refresh this module with new data from the dataservice',
+        Refresh:'Refresh this module with new data from the dataservice'
       },
 
 /**

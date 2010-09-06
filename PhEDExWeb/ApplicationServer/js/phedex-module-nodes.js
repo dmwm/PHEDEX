@@ -10,7 +10,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
       decorators: [
         {
           name: 'ContextMenu',
-          source:'component-contextmenu',
+          source:'component-contextmenu'
         },
         {
           name: 'cMenuButton',
@@ -22,7 +22,7 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
             },
             container: 'param'
           }
-        },
+        }
       ],
 
       meta: {

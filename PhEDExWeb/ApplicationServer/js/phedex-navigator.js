@@ -312,10 +312,11 @@ PHEDEX.Navigator = function(sandbox) {
           {
             name:   'Permalink',
             parent: 'navigator'
-          },
+          }
         ],
 
         //========================= Public Methods ==========================
+        //
         // init(el, opts)
         //   called when this object is created
         //   div: element the navigator should be built in
@@ -353,7 +354,7 @@ PHEDEX.Navigator = function(sandbox) {
             _sbx.notify(this.id,'loadDecorators',this);
             _sbx.replaceEvent('CreateModule','_navCreateModule');
             _sbx.listen('_navCreateModule',this.coreHandler);
-        },
+        }
       }
     };
     Yla(this, _construct(), true);

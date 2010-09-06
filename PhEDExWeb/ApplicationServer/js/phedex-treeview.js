@@ -31,7 +31,7 @@ PHEDEX.TreeView = function(sandbox,string) {
  * @type array
  * @private
  */
-      _cfg: { textNodeMap:[], headerNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{}, },
+      _cfg: { textNodeMap:[], headerNodeMap:[], sortFields:{}, formats:{}, hiddenBranches:{} },
 /**
  * An object for caching DOM<->JSON mappings for faster lookup
  * @property _cache
@@ -192,12 +192,12 @@ PHEDEX.TreeView = function(sandbox,string) {
                 parent: 'control',
                 payload:{
                   disabled: false,
-                  hidden:   true,
+                  hidden:   true
                 },
-                el: 'content',
-              },
+                el: 'content'
+              }
             },
-            target:  'filter',
+            target:  'filter'
           });
         this.decorators.push({ name:'Sort' });
         this.decorators.push({ name:'Resize' });
@@ -514,7 +514,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         this.postGotData();
       },
 
-      dirMap: function(dir) { return dir; }, // dummy to maintain code-compatibility with data-table
+      dirMap: function(dir) { return dir; } // dummy to maintain code-compatibility with data-table
     };
   };
   Yla(this,_construct(),true);
@@ -678,7 +678,7 @@ PHEDEX.TreeView.Resize = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(obj.id,moduleHandler);
-      },
+      }
     };
   }
   Yla(this,_construct(this),true);
@@ -830,7 +830,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(obj.id,moduleHandler);
-      },
+      }
     };
   }
   Yla(this,_construct(this),true);
@@ -938,7 +938,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
         }
         this.updateGUIElements(this.count);
         return;
-      },
+      }
     }
   };
   Yla(this,_construct(this),true);

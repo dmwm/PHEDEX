@@ -208,7 +208,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
                  {
                   key:'module',
                   state:function() { return obj.getState(); },
-                  isValid:function() { return obj.isStateValid(); },
+                  isValid:function() { return obj.isStateValid(); }
                  });
     };
   }(this);
@@ -258,7 +258,7 @@ PHEDEX.Module.Static = function(sandbox, string) {
             log('category is set to ' + category, 'info', _me);
             _sbx.notify(this.id,'setArgs');
           }
-        },
+        }
       };
     }
     Yla(this, _construct(), true);

@@ -41,7 +41,7 @@ PHEDEX.Protovis = function (sandbox, string) {
             * @private
             */
             initDerived: function () {
-            },
+            }
         };
     };
     Yla(this, _construct(), true);

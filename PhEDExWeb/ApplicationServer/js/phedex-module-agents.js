@@ -63,7 +63,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             },
             container: 'param'
           }
-        },
+        }
       ],
 
       options: {
@@ -85,7 +85,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             {key:'label',       label:'Label' },
             {key:'host',        label:'Host' },
             {key:'state_dir',   label:'State Dir' }
-          ],
+          ]
 //             {key:'node',                 label:'Node'},
 //             {key:'name',                 label:'Agent'},
 //             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},

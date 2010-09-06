@@ -109,7 +109,7 @@ PHEDEX.Module = function(sandbox, string) {
           * @type boolean
           * @private
           */
-          autoDestruct: true,
+          autoDestruct: true
         };
 //      These defaults do not override those of the module (if any)
         Yla(this.options, default_options);

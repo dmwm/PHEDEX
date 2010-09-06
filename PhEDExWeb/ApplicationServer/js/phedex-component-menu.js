@@ -121,7 +121,7 @@ PHEDEX.Component.Menu = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(partner,moduleHandler);
-      },
+      }
     }
   };
   Yla(this,_construct(this),true);
