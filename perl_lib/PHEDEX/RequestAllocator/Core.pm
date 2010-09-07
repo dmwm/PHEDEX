@@ -276,9 +276,11 @@ sub validateRequest
     
     # Part II:  validate nodes
     # Request policy details here:
-    #  * Moves may only be done to a T1 MSS node
-    #  * Moves can not be done when data is subscribed at a T1
     #  * Custodiality only applies to a T[01] MSS node
+    #  * Custodiality changes through a request are not allowed
+    #  * Moves may only be done to a T1 MSS node
+    #  * Moves can not be done when data is already subscribed to a T[01]
+    
     my @node_pairs;
     my %nodemap = reverse %{ &getNodeMap($self) };
     foreach my $node (@$nodes) {
@@ -290,56 +292,78 @@ sub validateRequest
 	@node_pairs = map { [ undef, $nodemap{$_} ] } @$nodes;
     } elsif ($type eq 'xfer') { # user specifies destinations
 	@node_pairs = map { [ 'd', $nodemap{$_} ] } @$nodes;
-	# already subscribed nodes for the data specify sources for move requests
+
+	if ($h{IS_CUSTODIAL} eq 'y') {
+            if (grep $_ !~ /^T[01]_.*_MSS$/, @$nodes) {
+                die "cannot request custodial transfer to non T0, T1 MSS nodes\n";
+            }
+        }
+	
+	# Check existing subscriptions for custodiality changes and as
+	# sources for move requests
+	
+	my %sources;
+	if (@$ds_ids) {
+	    my $sql = qq{ select distinct n.name, ds.name dataitem, sp.is_custodial
+			      from t_adm_node n
+			      join t_dps_subs_dataset s on s.destination = n.id
+			      join t_dps_dataset ds on ds.id=s.dataset
+			      join t_dps_subs_param sp on s.param=sp.id
+			      where s.dataset = :dataset
+			  UNION
+			  select distinct n.name, ds.name dataitem, sp.is_custodial
+			      from t_adm_node n
+			      join t_dps_subs_block s on s.destination = n.id
+			      join t_dps_block bk on bk.id=s.block
+			      join t_dps_dataset ds on ds.id=s.dataset
+			      join t_dps_subs_param sp on s.param=sp.id
+			      where s.dataset = :dataset
+			      and bk.time_create>nvl(:time_start,-1)
+			  };
+	    foreach my $ds (@$ds_ids) {  
+		my $other_subs = &execute_sql($self, $sql, ':dataset' => $ds, ':time_start' => $h{TIME_START});
+                while (my $r = $other_subs->fetchrow_hashref()) {                           
+		    if ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_CUSTODIAL} ne $h{IS_CUSTODIAL})) {
+                        die "cannot request transfer: $r->{DATAITEM} already subscribed to $r->{NAME} with different custodiality\n";
+                    }
+                    $sources{$r->{NAME}}=1;
+                }
+	    }
+	    
+	} elsif (@$b_ids) {
+	    my $sql = qq{ select distinct n.name, bk.name dataitem, sp.is_custodial
+			      from t_adm_node n
+			      join t_dps_subs_dataset s on s.destination = n.id
+			      join t_dps_block bk on bk.dataset = s.dataset
+			      join t_dps_subs_param sp on s.param = sp.id
+			      where bk.id = :block and bk.time_create > nvl(s.time_fill_after,-1)
+			   UNION
+			   select distinct n.name, bk.name dataitem, sp.is_custodial
+			      from t_adm_node n
+			      join t_dps_subs_block s on s.destination = n.id
+			      join t_dps_block bk on bk.id=s.block
+			      join t_dps_subs_param sp on s.param=sp.id
+			      where s.block = :block
+			  };
+	    foreach my $b (@$b_ids) {
+		my $other_subs = &execute_sql($self, $sql, ':block' => $b);
+		while (my $r = $other_subs->fetchrow_hashref()) {
+		    if ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_CUSTODIAL} ne $h{IS_CUSTODIAL})) {
+                        die "cannot request transfer: $r->{DATAITEM} already subscribed to $r->{NAME} with different custodiality\n";
+                    }
+                    $sources{$r->{NAME}}=1;
+		} 
+	    }
+	}
 	if ($h{IS_MOVE} eq 'y') {
-	    if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {
+	    if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {                                                    
 		die "cannot request move:  moves to non-T1 destinations are not allowed\n";
-	    }
-
-	    my %sources;
-	    if (@$ds_ids) {
-		my $sql = qq{ select distinct n.name
-			        from t_adm_node n
-                                join t_dps_subs_dataset s on s.destination = n.id
-			       where s.dataset = :dataset
-			      UNION
-			      select distinct n.name
-			        from t_adm_node n
-				join t_dps_subs_block s on s.destination = n.id
-			       where s.dataset = :dataset
-			   };
-		foreach my $ds (@$ds_ids) {
-		    my @other_subs = @{ &select_single($self, $sql, ':dataset' => $ds) };		
-		    $sources{$_} = 1 foreach @other_subs;
-		}
-	    } elsif (@$b_ids) {
-		my $sql = qq{ select distinct n.name
-			        from t_adm_node n
-                                join t_dps_subs_dataset s on s.destination = n.id
-                                join t_dps_block sb on sb.dataset = s.dataset
-                               where sb.id = :block
-			      UNION
-			      select distinct n.name
-			        from t_adm_node n
-				join t_dps_subs_block s on s.destination = n.id
-			       where s.block = :block
-			   };
-		foreach my $b (@$b_ids) {
-		    my @other_subs = @{ &select_single($self, $sql, ':block' => $b) };		
-		    $sources{$_} = 1 foreach @other_subs;
-		}
-	    }
-
+	    }  
 	    die "cannot request move:  moves of data subscribed to T0 or T1 are not allowed\n"
 		if grep /^(T1|T0)/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
 	}
-	
-	if ($h{IS_CUSTODIAL} eq 'y') {
-	    if (grep $_ !~ /^T[01]_.*_MSS$/, @$nodes) {
-		die "cannot request custodial transfer to non T0, T1 MSS nodes\n";
-	    }
-	}
+
     }
 
     return ($ds_ids, $b_ids, \@node_pairs, %h);
