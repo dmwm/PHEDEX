@@ -507,8 +507,10 @@ PHEDEX.DataTable = function (sandbox, string) {
 * @param oData {data-value} unix epoch seconds
 */
 YwDF.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
-  if(oData != null)
+  if( !oData )
   {
+    elCell.innerHTML = '-';
+  } else {
     elCell.innerHTML = new Date(oData*1000).toGMTString();
   }
 };
