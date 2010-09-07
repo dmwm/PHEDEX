@@ -51,17 +51,17 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           }
         },
         {
-          name: 'dataMode',
+          name: 'modeFull',
           source:'component-control',
           parent: 'control',
           payload:{
-            handler: 'handleDataMode',
+            handler: 'handleModeFull',
             text:    'Show Full',
             tooltip: function() {
               return 'Toggle between showing all nodes or only the nodes with a problem (re-fetches data from the data-service)';
             },
             map: {
-              setDataModeLabel: 'Label'
+              setModeFullLabel: 'Label'
             }
           }
         },
@@ -128,7 +128,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         }
       },
 
-      dataMode:0,
+      modeFull:0,
 
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
@@ -166,7 +166,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.dataMode} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.modeFull} } );
       },
       gotData: function(data,context) {
         log('Got new data','info',this.me);
@@ -184,12 +184,15 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           if ( !rq[i].status ) { nOK++; }
           else                 { nNotOK++; this.stuck.push(rq[i].node); }
         }
-        this.dom.title.innerHTML = nOK+' nodes OK, '+nNotOK+' nodes not OK';
+        this.dom.title.innerHTML = nNotOK+' nodes not OK';
+        if ( this.modeFull ) {
+          this.dom.title.innerHTML = nOK+' nodes OK, '+this.dom.title.innerHTML;
+        }
 //        if ( nNotOK ) {
 // TODO This should be something more meaningful, like an explanation of the algorithm...
 //        }
         _sbx.notify( this.id, 'gotData' );
-        _sbx.notify( this.id, 'setDataModeLabel', this.setDataModeLabel() );
+        _sbx.notify( this.id, 'setModeFullLabel', this.setModeFullLabel() );
         if ( context.maxAge ) {
           setTimeout( function(obj) {
               if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
@@ -199,8 +202,8 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           this.expires += parseInt(context.maxAge);
         }
       },
-      setDataModeLabel: function() {
-        if ( this.dataMode ) { return 'Show Brief'; }
+      setModeFullLabel: function() {
+        if ( this.modeFull ) { return 'Show Brief'; }
         else                 { return 'Show Full'; }
       },
       fillExtra: function() {
@@ -208,29 +211,29 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + this.stuck.join(' ') +
           "<br/>For an explanation of the algorithm, see <a target='phedex_datasvc_doc' class='phedex-link' href='" + PxW.DataserviceBaseURL + "doc/shift/requested'>the dataservice documentation for this API</a>";
       },
-      handleDataMode: function() {
-        var ctl = this.ctl['dataMode'];
-        if ( this.dataMode ) {
-          this.dataMode = 0;
+      handleModeFull: function() {
+        var ctl = this.ctl['modeFull'];
+        if ( this.modeFull ) {
+          this.modeFull = 0;
           ctl.Label('Show Full');
         } else {
-          this.dataMode = 1;
+          this.modeFull = 1;
           ctl.Label('Show Brief');
         }
         ctl.Hide();
         this.getData();
       },
       specificState: function(state) {
-        if ( !state ) { return {full:this.dataMode}; }
+        if ( !state ) { return {full:this.modeFull}; }
         var i, k, v, kv, update=0, arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-          if ( k == 'full'  && v != this.dataMode ) { update++; this.dataMode = v; }
+          if ( k == 'full'  && v != this.modeFull ) { update++; this.modeFull = v; }
         }
         if ( !update ) { return; }
-        log('set full='+this.dataMode+' from state','info',this.me);
+        log('set full='+this.modeFull+' from state','info',this.me);
         this.getData();
       },
 // pre-fetch the icons, so they are here when we need them
