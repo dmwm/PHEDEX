@@ -12,19 +12,17 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
  * @private
  */
       _direction = 0,
+
       _direction_map = [],
       _directions = [
         { key:'to',   text:'Incoming Links' },
         { key:'from', text:'Outgoing Links' }
-      ];
-
-  Yla(this,new PHEDEX.TreeView(sandbox,string));
-
-  var node,
+      ],
+      node,
       opts = {},
       width = 1200;
 
-  // Merge passed options with defaults
+  Yla(this,new PHEDEX.TreeView(sandbox,string));
   Yla(opts, {
     width:width,
     height:300
@@ -323,7 +321,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             tLeaf;
         if ( !this.data.hist.length )
         {
-          tLeaf = new Yw.TextNode({label: 'Nothing found, try another node...', expanded: false}, root);
+          tLeaf = new Yw.TextNode({label: 'Nothing found, try another node or widen the parameters...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
         for (var i in this.data.hist) {
