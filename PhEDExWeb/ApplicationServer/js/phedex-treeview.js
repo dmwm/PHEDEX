@@ -369,23 +369,6 @@ PHEDEX.TreeView = function(sandbox,string) {
         _sbx.notify(this.id, 'updateHistory');
       },
 
-//       dumpTree: function(parent,level) {
-//         var node, inner, el;
-//         el = document.getElementById('phedex-logger');
-//         if ( !parent ) {
-//           parent = this.tree.getRoot();
-//           level = 0;
-//           el.style.width = '1100px';
-//           el.innerHTML += '<br/>---------------------------------<br/>Tree dump:<br/>';
-//         }
-//         inner = document.getElementById(parent.contentElId)
-//         if ( inner ) { inner = inner.childNodes[0].innerHTML; }
-//         el.innerHTML += level+': '+parent.contentElId+'<br/>label: '+escape(parent.label)+'<br/>inner: '+escape(inner)+'<br/>';
-//         for (i in parent.children) {
-//           this.dumpTree(parent.children[i],level+1);
-//         }
-//       },
-
       syncNodeFromDom: function(element) {
         var el, node, _html;
         node  = this.locateBranch(element);
@@ -411,12 +394,16 @@ PHEDEX.TreeView = function(sandbox,string) {
       * @method hideFields
       */
       hideFields: function(el) {
-        if ( !el ) { el = this.el; }
-//         if ( this.meta.hide ) {
-//           for (var i in this.meta.hide) {
-//             this.hideFieldByClass(i,el);
-//           }
-//         }
+        var i, j, format, spec, tree=this.meta.tree;
+        for (i in tree) {
+          format = tree[i].format;
+          for (j in format) {
+            spec = format[j];
+            if ( spec.hide ) {
+              this.hideFieldByClass(spec.className,this.el);
+            }
+          }
+        }
       },
 
       markOverflows: function(list) {
@@ -527,13 +514,13 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
   if ( !p.typeNames ) { p.typeNames=[]; }
   p.typeNames.push('treeview');
   if ( !p.config.trigger ) { p.config.trigger = obj.dom.content };
-  var fn = /*function(o) {
-    return */function(opts,el) {
-      var elPhedex = obj.locateNode(el.target),
-          elClass  = obj.getPhedexFieldClass(elPhedex);
-      obj.hideFieldByClass(elClass,obj.el);
+  var fn = function(o) {
+    return function(opts,el) {
+      var elPhedex = o.locateNode(el.target),
+          elClass  = o.getPhedexFieldClass(elPhedex);
+      o.hideFieldByClass(elClass,o.el);
     }
-  /*}(obj)*/;
+  }(obj);
   PHEDEX.Component.ContextMenu.Add('treeview','Hide This Field', fn);
 
   var fnDump = function(opts,el) {
@@ -948,6 +935,7 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
 
 PHEDEX.TreeView.format = {
   UnixEpochToGMT: function(epoch) {
+    if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toGMTString();
   }
 }
