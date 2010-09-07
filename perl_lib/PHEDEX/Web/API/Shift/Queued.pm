@@ -113,8 +113,8 @@ sub getShiftPending
             $r->{$node}{$bin}{PEND_BYTES} = 0;
           }
           $r->{$node}{$bin}{PEND_BYTES} += $r->{$i}{$bin}{PEND_BYTES} || 0;
-          delete $r->{$i};
         }
+        delete $r->{$i};
       }
     }
   }
