@@ -612,7 +612,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
     block: {
       init: function(el, type) {
         var sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-block' }),
-          input = PxU.makeChild(sel, 'input', { type: 'text', title:'Type a block-name here (SQL regular expressions allowed)', size:30 });
+          input = PxU.makeChild(sel, 'input', { type: 'text', title:'Type a block-name here (SQL or shell-style regular expressions allowed)', size:30 });
         _selectors[type].needValue = true;
         _selectors[type].updateGUI = function(i) {
           return function() {
@@ -858,16 +858,17 @@ PHEDEX.Navigator.TypeSelector = function(sandbox,args) {
   this.el = document.createElement('div');
   this.el.className = 'phedex-nav-component phedex-nav-type';
 
-  this.setInputTypes = function(types) {
-log('typeselector.setInputTypes: types='+Ylangd(types,2),'warn',me);
+  this.setInputTypes = function() {
     // get registered target types and store them with optional config params
+    var i, o, opts, menu_items=[], menu, type, tc=obj.cfg.typecfg, types=[];
     _target_types = {};
-    for (var i in types) {
-      type = types[i];
-      var o = { 'name': type, 'label': type, 'order': Number.POSITIVE_INFINITY },
-          opts = obj.cfg.typecfg[type] || {};
+    for (type in tc) {
+      opts=tc[type];
+      if ( !opts ) { continue; }
+      o = { 'name':type, 'label':'Explore by '+PxU.initialCaps(type), 'order': Number.POSITIVE_INFINITY },
       Yla(o, opts, true);
       _target_types[type] = o;
+      types.push(type);
     }
     _sbx.notify(obj.id,'TargetTypes',_target_types);
 
@@ -877,12 +878,11 @@ log('typeselector.setInputTypes: types='+Ylangd(types,2),'warn',me);
     });
 
     // build menu items in sorted order
-    var menu_items = [], type, o;
-    for (type in types) {
-      o = _target_types[types[type]];
+    for (i in types) {
+      o = _target_types[types[i]];
       menu_items.push({ 'text': o.label, 'value': o.name });
     }
-    var menu = this.button.getMenu();
+    menu = this.button.getMenu();
     if (Yu.Dom.inDocument(menu.element)) {
       menu.clearContent();
       menu.addItems(menu_items);
