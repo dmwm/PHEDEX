@@ -208,8 +208,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       },
       fillExtra: function() {
         this.stuck.sort( function (a, b) { return (a > b) - (a < b); } );
-        this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + this.stuck.join(' ') +
-          "<br/>For an explanation of the algorithm, see <a target='phedex_datasvc_doc' class='phedex-link' href='" + PxW.DataserviceBaseURL + "doc/shift/requested'>the dataservice documentation for this API</a>";
+        this.dom.extra.innerHTML = 'List of stuck nodes:<br/>' + this.stuck.join(' ');
       },
       handleModeFull: function() {
         var ctl = this.ctl['modeFull'];
