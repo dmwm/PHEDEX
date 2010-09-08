@@ -1,19 +1,8 @@
 PHEDEX.namespace('Module');
 
 PHEDEX.Module.DataBrowser=function(sandbox, string) {
-  var _sbx = sandbox;
-
-  Yla(this,new PHEDEX.TreeView(sandbox,string));
-
-/*
-  dataset                  dataset name to output data for (wildcard support)
-  block                    block name to output data for (wildcard support)
-  file                     file name to output data for (wildcard support)
-  file_create_since        returns files which were created since this time *
-  block_create_since       return blocks which were created since this time
-  dataset_create_since     returns datasets which were created since this time
-*/
-  var dataset, block;
+  var _sbx = sandbox,
+      dataset, block;
       opts = {
         file_create_since:    9999,
         block_create_since:   24,
@@ -24,6 +13,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
       },
       width = 1200;
 
+  Yla(this,new PHEDEX.TreeView(sandbox,string));
   Yla(opts, {
     width:width,
     height:300
