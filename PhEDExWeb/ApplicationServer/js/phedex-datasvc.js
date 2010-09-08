@@ -120,10 +120,10 @@ PHEDEX.Datasvc = (function() {
       _fail(response);
       return;
     }
-    query.context.maxAge = 0;
+    query.context.maxAge = 60;
     try {
       var maxage = response.getResponseHeader['Cache-Control'];
-      maxage = maxage.replace(/max-age=(\d+)/, "$1");
+      maxage = maxage.replace(/^.*max-age=(\d+).*$/, "$1");
       if (maxage) { query.context.maxAge = maxage; }
     } catch(ex) { Ylog('cannot calculate max-age, ignoring...','warn',_me); }
     Ylog('FIRE '+query.text, 'info', _me);
