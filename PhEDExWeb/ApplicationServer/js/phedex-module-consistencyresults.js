@@ -283,7 +283,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        var args = { }, magic = PxU.Sequence(), // TODO need better magic than tis!
+        var args = { }, magic = PxU.Sequence(), // TODO need better magic than this!
           d, now;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
