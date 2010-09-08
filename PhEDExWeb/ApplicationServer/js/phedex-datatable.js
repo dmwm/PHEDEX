@@ -599,8 +599,6 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
 //    toes-up. So do this regardless. Wasteful, but only in this unusual circumstance.
         if ( typeof(d1) == 'object' || typeof(d1) == 'array' ) {
           var d2 = {};
-//          if ( d1 instanceof Array ) { d2 = []; } // ...this doesn't work
-//          else { d2 = {}; }                       // for assoc-arrays...
           for (var i in d1) { d2[i] = fn(d1[i]); }
           return d2;
         }
@@ -612,7 +610,7 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
       } catch (e) { alert(e.message); }
       w.document.writeln(t);
     };
-    PHEDEX.Component.ContextMenu.Add('datatable', PxU.feature['beta'] + 'Show table data (JSON)', fnDump);
+    PHEDEX.Component.ContextMenu.Add('datatable','Show table data (JSON)', fnDump);
 
     // This function gets the column object from main or nested datatable and also indicates if the column is in main or nested datatable.
     var _getDTColumn = function (target) {
