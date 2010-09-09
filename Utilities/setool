@@ -17,7 +17,7 @@ sub usage
 
   Usage:
 
-  setool --pfnlist PFNLIST INTERFACE {OPTIONS} [COMMAND]
+  setool --pfnlist PFNLIST --interface INTERFACE {OPTIONS} [COMMAND]
  
   PFNLIST is a file containing full PFNs as found in your storage
   element, one pfn per line.
@@ -36,8 +36,7 @@ sub usage
 
   Known interface protocols in this installation are:
 EOF
-
-  print " '",join("', '",sort keys %{$loader->Commands}),"'\n\n";
+  print " '",join("', '", grep (!/\//,sort keys %{$loader->Commands})),"'\n\n";
   exit 0;
 }
 
@@ -46,12 +45,12 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 
 GetOptions(
            "pfnlist=s"      => \$pfnlist,
+	   "interface=s"    => \$interface,	   
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
 	  );
 
-$interface = shift;
 die "SE-interface protocol (--interface) must be specified\n" unless $interface;
 $module = $loader->Load($interface);
 $ns = $module->new();
