@@ -1,7 +1,6 @@
 #!/usr/bin/env perl
 use strict;
 use warnings;
-
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
@@ -17,7 +16,7 @@ sub usage
 
   Usage:
 
-  setool --pfnlist PFNLIST --interface INTERFACE {OPTIONS} [COMMAND]
+  setool --pfnlist PFNLIST INTERFACE {OPTIONS} [COMMAND]
  
   PFNLIST is a file containing full PFNs as found in your storage
   element, one pfn per line.
@@ -45,13 +44,13 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 
 GetOptions(
            "pfnlist=s"      => \$pfnlist,
-	   "interface=s"    => \$interface,	   
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
 	  );
 
-die "SE-interface protocol (--interface) must be specified\n" unless $interface;
+$interface = shift;
+die "INTERFACE argument must be specified\n" unless $interface;
 $module = $loader->Load($interface);
 $ns = $module->new();
 if ( $pfnlist )
