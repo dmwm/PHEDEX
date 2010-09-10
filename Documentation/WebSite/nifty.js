@@ -277,18 +277,15 @@ webapp_link = function() {
     }(child);
     fade();
   };
-  var PhedexLoadCount = 0;
+  var PhedexLoadCount = 5;
   if ( navigator.cookieEnabled ) {
     var cookie = document.cookie;
     if ( cookie ) {
-      first = cookie.indexOf('PhedexLoadCount=');
-      if ( cookie.match(/^PhedexLoadCount=(\d+)/) ) {
+      if ( cookie.match(/PhedexLoadCount=([0-9]+)/) ) {
         PhedexLoadCount = RegExp.$1;
       }
-    } else {
-      PhedexLoadCount = 5;
     }
-    if ( PhedexLoadCount ) {
+    if ( PhedexLoadCount > 0 ) {
       PhedexLoadCount--;
       var future = new Date();
       future.setDate(future.getDate() + 10);
