@@ -1,3 +1,14 @@
+* Changes for 1.6.4
+
+ Bug fixes:
+  * 'shift/queued' now aggregates correctly
+  * documentation links work for sub-pages
+
+ Changes for the Dataservice:
+  * set cache-control header for static content
+  * service-path no longer a configurable, instead calculate it from the apache-request object
+  * data-service version number now included in the online documentation
+
 * Changes for 1.6.3
 
  New APIs:
