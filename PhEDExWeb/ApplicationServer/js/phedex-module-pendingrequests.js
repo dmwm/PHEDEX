@@ -1,7 +1,7 @@
 /**
 * The class is used to create pending requests module that is used to show pending requests for the given node name, group name.
 * The pending requests information is obtained from Phedex database using web APIs provided by Phedex and is formatted to 
-* show it to user in a YUI datatable.
+* show it to user in a YUI nested datatable.
 * @namespace PHEDEX.Module
 * @class PendingRequests
 * @constructor
@@ -25,6 +25,13 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             */
             decorators: [
                 {
+                    name: 'ContextMenu',
+                    source: 'component-contextmenu',
+                    payload: {
+                        args: { 'pendingrequests': 'Name' }
+                    }
+                },
+                {
                     name: 'TimeSelect',
                     source: 'component-menu',
                     payload: {
@@ -36,13 +43,6 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                             onChange: 'changeTimebin'
                         },
                         title: 'Time of Creation'
-                    }
-                },
-                {
-                    name: 'ContextMenu',
-                    source: 'component-contextmenu',
-                    payload: {
-                        args: { 'pendingrequests': 'Name' }
                     }
                 },
                 {
@@ -69,12 +69,12 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                                    { key:'priority',    label:'Priority' },
                                    { key:'custodial',   label:'Custodial' },
                                    { key:'static',      label:'Static' },
-                                   { key:'move',        label:'Move' },
-                                   { key:'node_id',     label:'Node ID', className:'align-right', parser:'number' },
+                                   { key:'move',        label:'Move' }],
+                    nestedColumns:[{ key:'node_id',     label:'Node ID', className: 'align-right',parser:'number' },
                                    { key:'name',        label:'Node' },
                                    { key:'se',          label:'SE'}]
                 },
-                hide: ['Node ID', 'Request ID'],
+                hide: ['Request ID', 'Node ID'],
                 sort: { field: 'Request ID' },
                 filter: {
                     'PendingRequests attributes': {
@@ -87,9 +87,9 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                             'Custodial':  { type:'yesno',  text:'Custodial',  tip:'Show custodial and/or non-custodial files (default is both)' },
                             'Static':     { type:'yesno',  text:'Static',     tip:'Show request static value (default is both)' },
                             'Move':       { type:'yesno',  text:'Move',       tip:'Show if file had been moved or not (default is both)' },
-                            'Node ID':    { type:'int',    text:'Node ID',    tip:'Node ID' },
-                            'Node':       { type:'regex',  text:'Node name',  tip:'javascript regular expression' },
-                            'SE':         { type:'regex',  text:'SE',         tip:'javascript regular expression' }
+                            'Node ID':    { type:'int',    text:'Node ID',    tip:'Node ID', nested:true },
+                            'Node':       { type:'regex',  text:'Node name',  tip:'javascript regular expression', nested: true },
+                            'SE':         { type:'regex',  text:'SE',         tip:'javascript regular expression', nested: true }
                         }
                     }
                 }
@@ -102,26 +102,31 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             * @private
             */
             _processData: function (jsonReqData) {
-                var indx, indxReq, indxData, jsonReqs, jsonNode, Row, Table = [],
+                var indx, indxReq, indxData, jsonReqs, jsonNode, Row, arrNestedVal, arrNested, Table = [],
                 arrRequestCols = ['id', 'time_create', 'group', 'priority', 'custodial', 'static', 'move'],
                 arrNodeCols = ['se', {id:'node_id'}, 'name'],
                 nArrRLen = arrRequestCols.length, nArrNLen = arrNodeCols.length,
-                nReqLen = jsonReqData.length, nDataLen;
+                nReqLen = jsonReqData.length, nDataLen, nUnique = 0;
                 for (indxReq = 0; indxReq < nReqLen; indxReq++) {
                     jsonReqs = jsonReqData[indxReq];
                     jsonReq = jsonReqData[indxReq].destinations.node;
                     nDataLen = jsonReq.length;
+                    Row = {};
+                    arrNested = []; //new Array();
+                    for (indx = 0; indx < nArrRLen; indx++) {
+                        this._extractElement(arrRequestCols[indx],jsonReqs,Row);
+                    }
                     for (indxData = 0; indxData < nDataLen; indxData++) {
                         jsonNode = jsonReq[indxData];
-                        Row = {};
-                        for (indx = 0; indx < nArrRLen; indx++) {
-                          this._extractElement(arrRequestCols[indx],jsonReqs,Row);
-                        }
+                        arrNestedVal = {};
                         for (indx = 0; indx < nArrNLen; indx++) {
-                          this._extractElement(arrNodeCols[indx],jsonNode,Row);
+                          this._extractElement(arrNodeCols[indx],jsonNode,arrNestedVal);
                         }
-                        Table.push(Row);
+                        arrNested.push(arrNestedVal);
                     }
+                    Row['nesteddata'] = arrNested;
+                    Row['uniqueid'] = ++nUnique;
+                    Table.push(Row);
                 }
                 log("The data has been processed for data source", 'info', this.me);
                 this.needProcess = false;
@@ -129,7 +134,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             },
 
             /**
-            * This inits the Phedex.PendingRequests module and notify to sandbox about its status.
+            * This inits the Phedex.PendingRequestsNested module and notify to sandbox about its status.
             * @method initData
             */
             initData: function () {
@@ -199,8 +204,8 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     return;
                 }
                 var dataserviceargs = { approval:'pending'},
-                    d, now;
-                
+                    d, now, magic;
+
                 log('Fetching data', 'info', this.me);
                 this.dom.title.innerHTML = this.me + ': fetching data...';
                 if (_nodename) {
