@@ -1,3 +1,11 @@
+ * Changes in BETA_1_0_1
+   * fixed numerous small bugs
+   * code now satisfies stricter coding standard (using the 'closure-compiler')
+   * showing JSON data no longer considered beta
+   * add new shift-requestedqueued module for showing details about transfer queues to sites
+   * improved cacheability and allow compression of components
+   * some cosmetic improvements, such as to the login component
+
  * Changes in BETA_1_0_0
    * fixed bug in datatable views where nested datatable contents were not
      correctly filtered
