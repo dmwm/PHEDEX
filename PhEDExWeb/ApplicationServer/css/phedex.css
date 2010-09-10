@@ -81,7 +81,7 @@ body {
 }
 .phedex-login-userrole
 {
-  background-color: #9f0;
+  background-color: #cf9;
   font-weight: bold;
 }
 .phedex-login-roleinfo
@@ -149,7 +149,7 @@ body {
   padding: 0 3px 0;
 }
 .phedex-link {
-  background-color: #9f0; /* light-green */
+  background-color: #cf9; /* very light-green */
   color:black;
 }
 a.phedex-link {
@@ -239,7 +239,7 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   color: #888;
 }
 .phedex-core-control-widget-inactive {
-  background-color: #9f0; /* light-green */
+  background-color: #cf9; /* very light-green */
 }
 .phedex-core-control-widget-active {
   background-color: yellow;
