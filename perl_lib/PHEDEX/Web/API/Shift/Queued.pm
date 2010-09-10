@@ -92,8 +92,6 @@ sub getShiftPending
   while ($row = $q->fetchrow_hashref())
   {
     $r->{$row->{NODE}}{$row->{TIMEBIN}} = $row;
-    $row->{TIMEBIN} += 0; # numify for the JSON encoder
-    $row->{PEND_BYTES} += 0; # numify for the JSON encoder
     delete $row->{NODE};
   }
 
@@ -119,6 +117,14 @@ sub getShiftPending
     }
   }
 
+  foreach $node ( keys %{$r} )
+  {
+    foreach $bin ( keys %{$r->{$node}} )
+    {
+      $r->{$node}{$bin}{TIMEBIN}    += 0; # numify for the JSON encoder
+      $r->{$node}{$bin}{PEND_BYTES} += 0; # numify for the JSON encoder
+    }
+  }
   return $r;
 }
 
