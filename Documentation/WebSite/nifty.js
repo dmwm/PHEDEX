@@ -277,26 +277,26 @@ webapp_link = function() {
     }(child);
     fade();
   };
-  var count = 0;
+  var PhedexLoadCount = 0;
   if ( navigator.cookieEnabled ) {
     var cookie = document.cookie;
     if ( cookie ) {
-      first = cookie.indexOf('count=');
-      if ( cookie.match(/^count=(.)/) ) {
-        count = RegExp.$1;
+      first = cookie.indexOf('PhedexLoadCount=');
+      if ( cookie.match(/^PhedexLoadCount=(\d+)/) ) {
+        PhedexLoadCount = RegExp.$1;
       }
     } else {
-      count = 5;
+      PhedexLoadCount = 5;
     }
-    if ( count ) {
-      count--;
+    if ( PhedexLoadCount ) {
+      PhedexLoadCount--;
       var future = new Date();
       future.setDate(future.getDate() + 10);
-      var tmp = 'count=' + encodeURI(count) + '; expires=' + future.toGMTString() + '; path=/';
+      var tmp = 'PhedexLoadCount=' + encodeURI(PhedexLoadCount) + '; expires=' + future.toGMTString() + '; path=/';
       document.cookie = tmp;
     }
   }
-  if ( count > 0 ) {
+  if ( PhedexLoadCount > 0 ) {
     setTimeout(fn,3000);
   } else {
     makeLink();
