@@ -440,7 +440,7 @@ ul li.phedex-contextmenu-beta:before {
   padding: 0 3px 0;
   margin: 0 0 0 -15px;
 }
-.phedex-feature-alpha { background-color: orange; }
+.phedex-feature-alpha { background-color: #fc7; /*pale orange*/ }
 .phedex-feature-beta  { background-color: yellow; }
 .phedex-icon-class {
   padding: 0 3px 0 0;
