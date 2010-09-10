@@ -129,7 +129,7 @@ sub invoke
       # getCacheDuration needs re-implementing.
       my $duration = $core->getCacheDuration();
       $duration = 300 if !defined $duration;
-      %cache_headers = (-Cache_Control => "max-age=$duration",
+      %cache_headers = (-Cache_Control => "public, max-age=$duration",
 		        -Date => $http_now,
 		        -Last_Modified => $http_now,
 		        -Expires => "+${duration}s");
