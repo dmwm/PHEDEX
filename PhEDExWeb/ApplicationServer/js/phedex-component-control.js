@@ -358,3 +358,28 @@ PHEDEX.Component.Control = function(sandbox,args) {
 }
 
 log('loaded...','info','component-control');
+
+// This is not useful because I need the 'Refresh' decorator before this file is loaded!
+// PHEDEX.Component.Control.Refresh = function (obj) {
+//   return {
+//           name: 'Refresh',
+//           source:'component-control',
+//           parent: 'control',
+//           payload:{
+//             handler: 'getData',
+//             animate:  false,
+//             disabled: true,
+//               tooltip:function() {
+//                         if ( !obj.expires ) { return; }
+//                         var delta = new Date().getTime()/1000;
+//                         delta = Math.round(obj.expires - delta);
+//                         if ( delta < 0 ) { return; }
+//                         return 'Data expires in '+delta+' seconds';
+//                       },
+//             map: {
+//               gotData:     'Disable',
+//               dataExpires: 'Enable'
+//             }
+//           }
+//   };
+// };
