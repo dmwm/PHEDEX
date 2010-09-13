@@ -754,6 +754,26 @@ sub blockDestinations
     return map { [$_, $stats{$_}] } @stats_order;
 }
 
+# Phase V: delete subscription parameters older than 3 days that are no longer referenced by any subscription
+sub deleteSubscriptionParams
+{
+    my ($self, $now) = @_;
+    my %stats;
+    my @stats_order = ('subs params deleted');
+    $stats{$_} = 0 foreach @stats_order; 
+    
+    my @rv = $self->execute_sql( qq{
+	delete from t_dps_subs_param
+	    where id not in (select param from t_dps_subs_dataset)
+              and id not in (select param from t_dps_subs_block)
+	      and time_create+3*86400 < :now
+	  }, ':now' => $now);
+    $stats{'subs params deleted'}=$rv[1] || 0;
+    
+    # Return statistics 
+    return map { [$_, $stats{$_}] } @stats_order;
+}
+
 # returns 1 if the contents of the second hash do not match the
 # contents of the first
 # TODO:  put in some general library?
