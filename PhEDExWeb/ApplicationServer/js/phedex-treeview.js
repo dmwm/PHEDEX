@@ -527,7 +527,7 @@ PHEDEX.TreeView.ContextMenu = function(obj,args) {
     var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes');
     w.document.writeln(Ylang.JSON.stringify(el.obj.data));
   }
-  PHEDEX.Component.ContextMenu.Add('treeview', PxU.feature['beta'] + 'Show tree data (JSON)', fnDump);
+  PHEDEX.Component.ContextMenu.Add('treeview', 'Show tree data (JSON)', fnDump);
 
   return {
     getExtraContextTypes: function() {
