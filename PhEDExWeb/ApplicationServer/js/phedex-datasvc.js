@@ -36,8 +36,8 @@ PHEDEX.Datasvc = (function() {
   // declare variables for private methods
       _get, _got, _fail, _maybe_schedule, _build_query,
 
-  // convenience alias
-      YuC  = Yu.Connect;
+  // convenience alias and others
+      YuC  = Yu.Connect, _first=0;
 
   // method _instanceURL : make the instance URL from the component bits. Hardly worth making it a separate function,
   // but it can then at least be overridden
@@ -129,6 +129,14 @@ PHEDEX.Datasvc = (function() {
     Ylog('FIRE '+query.text, 'info', _me);
     query.success_event.fire(data, query.context);
     _maybe_schedule(query, response);
+
+    // set the version number, if not already done...
+    if ( _first == 0 ) {
+      _first = 1;
+      PHEDEX.Datasvc.Version = data.request_version;
+      var el = document.getElementById('phedex-app-version');
+      if ( el ) { el.title = 'Data-service version: '+PHEDEX.Datasvc.Version; }
+    }
   }
 
   // method _fail : fires the error handler
@@ -206,7 +214,7 @@ PHEDEX.Datasvc = (function() {
   
   // public methods/properties below
   return {
-
+    Version: '0',
 /**
  * the query-object describes the data that must be fetched from the data-service and how to handle it or how to handle failure.
  * @property query
