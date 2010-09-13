@@ -1762,6 +1762,238 @@ sub getDataSubscriptions
 {
     my $core = shift;
     my %h = @_;
+
+    # backward compatible to old schema
+    eval {
+        my $q1 = execute_sql($core, "select count(*) from t_dps_subs_param");
+    };
+
+    if ($@)
+    {
+        return getDataSubscriptions2($core, %h);
+    }
+
+    my ($sql, $q, %p, @r);
+
+    my $block_filter = '';
+    build_multi_filters($core, \$block_filter, \%p, \%h, ( 
+                                                      BLOCK => 'b.name'
+						      ));
+    if ($block_filter)
+    {
+        $block_filter = qq{ where $block_filter };
+    }
+
+    my $dataset_filter = '';
+    build_multi_filters($core, \$dataset_filter, \%p, \%h, ( 
+                                                      DATASET => 'd.name'
+						      ));
+    if ($dataset_filter)
+    {
+        $dataset_filter = qq{ where $dataset_filter };
+    }
+
+    $sql = qq {
+        select
+            sp.request,
+            ds."level",
+            ds.item_id,
+            ds.item_name,
+            ds.is_open open,
+            ds.time_update,
+            ds.dataset_id,
+            ds.dataset_name,
+            n.id node_id,
+            n.name node,
+            n.se_name se,
+            ds.is_move move,
+            sp.priority,
+            sp.is_custodial custodial,
+            g.name "group",
+            NVL2(ds.time_suspend_until, 'y', 'n') suspended,
+            ds.time_suspend_until suspend_until,
+            ds.time_create,
+            ds.files,
+            ds.bytes,
+            ds.node_files,
+            ds.node_bytes
+        from
+            t_dps_subs_param sp
+            join
+            (select
+                'dataset' "level",
+                sd.param,
+                sd.dataset item_id,
+                d.name item_name,
+                d.name dataset_name,
+                d.id dataset_id,
+                sd.time_create,
+                sd.time_suspend_until,
+                sd.time_complete,
+                sd.time_done,
+                sd.is_move,
+                sd.destination,
+                d.time_update,
+                d.is_open,
+                null bytes,
+                null files,
+                reps.node_bytes,
+                reps.node_files
+            from
+                t_dps_subs_dataset sd
+                join t_dps_dataset d on d.id = sd.dataset
+                join
+                (select
+                    br.node,
+                    b.dataset,
+                    sum(br.node_bytes) node_bytes,
+                    sum(br.node_files) node_files
+                from
+                    t_dps_block_replica br
+                    join t_dps_block b on br.block = b.id
+                group by br.node, b.dataset
+                ) reps on reps.node = sd.destination and reps.dataset = d.id
+            $dataset_filter
+            union
+            select
+               'block' "level",
+                sb.param,
+                sb.block item_id,
+                b.name item_name,
+                d.name dataset_name,
+                d.id dataset_id,
+                sb.time_create,
+                sb.time_suspend_until,
+                sb.time_complete,
+                sb.time_done,
+                sb.is_move,
+                sb.destination,
+                b.time_update,
+                b.is_open,
+                b.bytes,
+                b.files,
+                br.node_bytes,
+                br.node_files
+            from
+                t_dps_subs_block sb
+                join t_dps_block b on b.id = sb.block
+                join t_dps_dataset d on d.id = b.dataset
+                left join t_dps_block_replica br on br.node = sb.destination and br.block = b.id
+            $block_filter
+            ) ds on ds.param = sp.id
+            join t_adm_node n on ds.destination = n.id
+            left join t_adm_group g on g.id = sp.user_group
+    };
+
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h, ( 
+                                                      SE => 'n.se_name',
+                                                      REQUEST => 'sp.request',
+                                                      GROUP => 'g.name',
+                                                      NODE => 'n.name'
+						      ));
+
+    if (exists $h{SUSPENDED})
+    {
+        if ($h{SUSPENDED} eq 'y')
+        {
+            if ($filters)
+            {
+                $filters .= qq { and not ds.time_suspend_until is null };
+            }
+            else
+            {
+                $filters = qq { not ds.time_suspend_until is null };
+            }
+        }
+        elsif ($h{SUSPENDED} eq 'n')
+        {
+            if ($filters)
+            {
+                $filters .= qq { and ds.time_suspend_until is null };
+            }
+            else
+            {
+               $filters = qq { ds.time_suspend_until is null };
+            }
+        }
+    }
+
+    if (exists $h{CREATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= " and ds.time_create >= :create_since ";
+        }
+        else
+        {
+            $filters = " ds.time_create >= :create_since ";
+        }
+        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+    }
+
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= " and sp.priority = :priority ";
+        }
+        else
+        {
+            $filters = " sp.priority = :priority ";
+        }
+        $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
+    }
+
+    if (exists $h{MOVE})
+    {
+        if ($filters)
+        {
+            $filters .= " and ds.is_move = :move ";
+        }
+        else
+        {
+            $filters = " ds.is_move = :move ";
+        }
+        $p{':move'} = $h{MOVE};
+    }
+
+    if (exists $h{CUSTODIAL})
+    {
+        if ($filters)
+        {
+            $filters .= " and sp.is_custodial = :custodial";
+        }
+        else
+        {
+            $filters = " sp.is_custodial = :custodial";
+        }
+        $p{':custodial'} = $h{CUSTODIAL};
+    }
+
+    $sql .= "where ($filters) " if ($filters);
+    $sql .= qq {
+        order by
+            ds.time_create desc,
+            ds.dataset_name desc,
+            ds.item_name desc,
+            n.name
+    };
+    $q = execute_sql( $core, $sql, %p);
+
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
+        push @r, $_;
+    }
+    return \@r;
+    
+}
+
+sub getDataSubscriptions2
+{
+    my $core = shift;
+    my %h = @_;
     my ($sql, $q, %p, @r);
 
     $sql = qq {
@@ -3335,6 +3567,139 @@ sub getLoadTestStreams
         if ($and eq " where ")
         {
             $and = " and ";
+        }
+    }
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
+sub getBlockReplicaCompare
+{
+    my $core = shift;
+    my %h = @_;
+
+    my $sql = qq{
+        select
+            b.name block,
+            b.id block_id,
+            b.files,
+            b.bytes,
+            b.is_open,
+            na.name node_a,
+            na.id node_id_a,
+            na.se_name node_se_a,
+            bra.node_files node_files_a,
+            bra.node_bytes node_bytes_a,
+            case when b.is_open = 'n' and
+                bra.node_files = b.files then 'y'
+                else 'n'
+            end complete_a,
+            bra.time_create time_create_a,
+            bra.time_update time_update_a,
+            case when bra.dest_files = 0
+                then 'n'
+                else 'y'
+            end subscribed_a,
+            bra.is_custodial is_custodial_a,
+            ga.name group_a,
+            nb.name node_b,
+            nb.id node_id_b,
+            nb.se_name node_se_b,
+            brb.node_files node_files_b,
+            brb.node_bytes node_bytes_b,
+            case when b.is_open = 'n' and
+                brb.node_files = b.files then 'y'
+                else 'n'
+            end complete_b,
+            brb.time_create time_create_b,
+            brb.time_update time_update_b,
+            case when brb.dest_files = 0
+                then 'n'
+                else 'y'
+            end subscribed_b,
+            brb.is_custodial is_custodial_b,
+            gb.name group_b
+        from
+            t_dps_block_replica bra
+            full outer join t_dps_block_replica brb on brb.block = bra.block and not (brb.node = bra.node)
+            join t_dps_block b on b.id = bra.block
+            join t_dps_dataset d on b.dataset = d.id
+            join t_adm_node na on bra.node = na.id
+            join t_adm_node nb on brb.node = nb.id
+            left join t_adm_group ga on bra.user_group = ga.id
+            left join t_adm_group gb on brb.user_group = gb.id
+        where
+            na.name = :nodea and
+            nb.name = :nodeb
+    };
+
+    my $filters = '';
+    my %p = (
+        ':nodea' => $h{'A'},
+        ':nodeb' => $h{'B'}
+    );
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        BLOCK => 'b.name',
+        DATASET => 'd.name'));
+
+    $sql .= " and ($filters)" if $filters;
+
+    if ($h{VALUE})
+    {
+        if (ref($h{VALUE}) eq 'ARRAY')
+        {
+            foreach (@{$h{VALUE}})
+            {
+                if ($_ eq 'files')
+                {
+                    $sql .= " and bra.node_files = brb.node_files ";
+                }
+                elsif ($_ eq 'bytes')
+                {
+                    $sql .= " and bra.node_bytes = brb.node_bytes ";
+                }
+                elsif ($_ eq 'subscribed')
+                {
+                    $sql .= " and bra.dest_files = brb.dest_files ";
+                }
+                elsif ($_ eq 'group')
+                {
+                    $sql .= " and ga.name = gb.name ";
+                }
+                elsif ($_ eq 'custodial')
+                {
+                    $sql .= " and bra.is_custodial = brb.is_custodial ";
+                }
+            }
+        }
+        else
+        {
+            if ($_ eq 'files')
+            {
+                $sql .= " and bra.node_files = brb.node_files ";
+            }
+            elsif ($_ eq 'bytes')
+            {
+                $sql .= " and bra.node_bytes = brb.node_bytes ";
+            }
+            elsif ($_ eq 'subscribed')
+            {
+                $sql .= " and bra.dest_files = brb.dest_files ";
+            }
+            elsif ($_ eq 'group')
+            {
+                $sql .= " and ga.name = gb.name ";
+            }
+            elsif ($_ eq 'custodial')
+            {
+                $sql .= " and bra.is_custodial = brb.is_custodial ";
+            }
         }
     }
 
