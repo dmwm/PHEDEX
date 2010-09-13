@@ -280,8 +280,8 @@ PHEDEX.Login = function(sandbox) {
         logincomp.btnsubmit = PxU.makeChild(logincomp, 'span');
         YuE.addListener(logincomp.username, 'click', _showOverlay, this, true);
         var btnlogout = PxU.makeChild(logincomp, 'span');
-        logincomp.objBtn = new Yw.Button({ label: 'Login', id: 'buttonOK', container: logincomp.btnsubmit, onclick: { fn: _onLogin} });
-        logincomp.objLogoutBtn = new Yw.Button({ label: 'Logout', id: 'buttonLogout', container: btnlogout, onclick: { fn: _redirectPage} });
+        logincomp.objBtn = new Yw.Button({ label:'Login', id:'buttonOK', container:logincomp.btnsubmit, onclick:{ fn: _onLogin} });
+        logincomp.objLogoutBtn = new Yw.Button({ label:'Logout', id:'buttonLogout', container:btnlogout, onclick:{ fn: _redirectPage} });
         _logincomp = logincomp;
         log('The login component is created', 'info', 'login');
     };
@@ -295,11 +295,11 @@ PHEDEX.Login = function(sandbox) {
         var href = location.href;
         if (href.match(/http:/)) {
             href = href.replace(/^http:/, 'https:');
-            href = href.replace(/:30001/, ':20001'); // this is a hack for developing code outside the CERN firewall
+            href = href.replace(/:30002/, ':30004'); // this is a hack for developing code outside the CERN firewall
         }
         else if (href.match(/https:/)) {
             href = href.replace(/^https:/, 'http:');
-            href = href.replace(/:20001/, ':30001'); // this is a hack for developing code outside the CERN firewall
+            href = href.replace(/:30004/, ':30002'); // this is a hack for developing code outside the CERN firewall
         }
         window.location = href;
     }
