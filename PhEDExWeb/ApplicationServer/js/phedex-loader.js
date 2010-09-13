@@ -28,6 +28,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-component-contextmenu': { requires:['phedex-util','phedex-registry','menu'] },
     'phedex-component-filter':      { requires:['phedex-util','phedex-component-control','container','dragdrop','button'] },
     'phedex-component-menu':        { requires:['phedex-util','menu','button'] },
+    'phedex-component-panel':       { requires:['phedex-util','phedex-component-control','container','dragdrop','button'] },
     'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
 
     'phedex-config':       { requires:['phedex-util'] },
