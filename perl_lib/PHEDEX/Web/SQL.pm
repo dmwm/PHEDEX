@@ -1793,34 +1793,36 @@ sub getDataSubscriptions
         $dataset_filter = qq{ where $dataset_filter };
     }
 
-    $sql = qq {
-        select
-            sp.request,
-            ds."level",
-            ds.item_id,
-            ds.item_name,
-            ds.is_open open,
-            ds.time_update,
-            ds.dataset_id,
-            ds.dataset_name,
-            n.id node_id,
-            n.name node,
-            n.se_name se,
-            ds.is_move move,
-            sp.priority,
-            sp.is_custodial custodial,
-            g.name "group",
-            NVL2(ds.time_suspend_until, 'y', 'n') suspended,
-            ds.time_suspend_until suspend_until,
-            ds.time_create,
-            ds.files,
-            ds.bytes,
-            ds.node_files,
-            ds.node_bytes
-        from
-            t_dps_subs_param sp
-            join
-            (select
+    my $ds_block_query = qq{
+            select
+               'block' "level",
+                sb.param,
+                sb.block item_id,
+                b.name item_name,
+                d.name dataset_name,
+                d.id dataset_id,
+                sb.time_create,
+                sb.time_suspend_until,
+                sb.time_complete,
+                sb.time_done,
+                sb.is_move,
+                sb.destination,
+                b.time_update,
+                b.is_open,
+                b.bytes,
+                b.files,
+                br.node_bytes,
+                br.node_files
+            from
+                t_dps_subs_block sb
+                join t_dps_block b on b.id = sb.block
+                join t_dps_dataset d on d.id = b.dataset
+                left join t_dps_block_replica br on br.node = sb.destination and br.block = b.id
+            $block_filter
+    };
+
+    my $ds_dataset_query = qq{
+            select
                 'dataset' "level",
                 sd.param,
                 sd.dataset item_id,
@@ -1854,32 +1856,56 @@ sub getDataSubscriptions
                 group by br.node, b.dataset
                 ) reps on reps.node = sd.destination and reps.dataset = d.id
             $dataset_filter
+    };
+
+    my $ds_query;
+    # dataset only
+    if ($dataset_filter && !$block_filter)
+    {
+        $ds_query = $ds_dataset_query;
+    }
+    elsif (!$dataset_filter && $block_filter)
+    {
+        $ds_query = $ds_block_query;
+    }
+    else
+    {
+        $ds_query = qq{
+            $ds_dataset_query
             union
-            select
-               'block' "level",
-                sb.param,
-                sb.block item_id,
-                b.name item_name,
-                d.name dataset_name,
-                d.id dataset_id,
-                sb.time_create,
-                sb.time_suspend_until,
-                sb.time_complete,
-                sb.time_done,
-                sb.is_move,
-                sb.destination,
-                b.time_update,
-                b.is_open,
-                b.bytes,
-                b.files,
-                br.node_bytes,
-                br.node_files
-            from
-                t_dps_subs_block sb
-                join t_dps_block b on b.id = sb.block
-                join t_dps_dataset d on d.id = b.dataset
-                left join t_dps_block_replica br on br.node = sb.destination and br.block = b.id
-            $block_filter
+            $ds_block_query
+        };
+    }
+
+    $sql = qq {
+        select
+            sp.request,
+            ds."level",
+            ds.item_id,
+            ds.item_name,
+            ds.is_open open,
+            ds.time_update,
+            ds.dataset_id,
+            ds.dataset_name,
+            n.id node_id,
+            n.name node,
+            n.se_name se,
+            ds.is_move move,
+            sp.priority,
+            sp.is_custodial custodial,
+            g.name "group",
+            NVL2(ds.time_suspend_until, 'y', 'n') suspended,
+            ds.time_suspend_until suspend_until,
+            ds.time_create,
+            ds.files,
+            ds.bytes,
+            ds.node_files,
+            ds.node_bytes
+        from
+            t_dps_subs_param sp
+            join
+            (
+                $ds_query
             ) ds on ds.param = sp.id
             join t_adm_node n on ds.destination = n.id
             left join t_adm_group g on g.id = sp.user_group
