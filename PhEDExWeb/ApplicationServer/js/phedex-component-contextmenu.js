@@ -229,11 +229,41 @@ PHEDEX.Component.ContextMenu.items={};
  * @param callback {function} the function that will be invoked when this menu-item is selected. Takes two arguments, <strong>opts</strong> is an object containing information about the specific data-element that was selected (i.e. in 'phedex data-space'), and <strong>el</strong> contains information about the YUI widget-element that was selected (DataTable, TreeView). See the specific PHEDEX.DataTable.ContextMenu and PHEDEX.TreeView.ContextMenu classes for details.
  */
 PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
-  var _items = PHEDEX.Component.ContextMenu.items;
+  var _items = PHEDEX.Component.ContextMenu.items, fn;
   if ( !_items[name] ) { _items[name] = {}; }
   if ( _items[name][label] ) { return; }
   _items[name][label] = { label:label, callback:callback };
   log('Add: '+name+': #items:'+_items[name].length,'info','component-contextmenu');
 };
+
+(function () {
+// Register a few extra specific items now. This is the best place for it, but it's not as pretty as I would like it to be. TODO find a better way to deal with this
+   fn = function(opts,el) {
+    var block = opts.block || (opts.dataset+'*');
+    PxS.notify('CreateModule','databrowser',{block:block}); // TODO Can I avoid knowledge of the global sandbox here?
+  }
+  PHEDEX.Component.ContextMenu.Add('block',   PxU.feature['alpha'] + 'Browse this block',   fn);
+  PHEDEX.Component.ContextMenu.Add('dataset', PxU.feature['alpha'] + 'Browse this dataset', fn);
+
+  fn = function(opts,el) {
+    var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
+        d = el.obj.data,
+        t;
+        t = Ylang.JSON.stringify(opts);
+    w.document.writeln(t);
+  };
+  PHEDEX.Component.ContextMenu.Add('dataset',PxU.feature['alpha'] + 'Submit request for this dataset', fn);
+
+  fn = function(opts,el) {
+    var panel, el, ctl, b, e;
+    b = document.getElementById('phedex-banner');
+    panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
+    panel.setHeader('Report a bug or request a feature');
+    panel.setBody('This is a dynamically generated Panel.<br />testing...');
+    panel.render(b);
+    e = el;
+  }
+  PHEDEX.Component.ContextMenu.Add('block', PxU.feature['alpha'] + 'Submit consistency-check for this block', fn);
+})();
 
 log('loaded...','info','component-contextmenu');
