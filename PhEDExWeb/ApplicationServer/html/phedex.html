@@ -20,7 +20,7 @@
  <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
  <input id="yui-history-field" type="hidden" style='visibility:hidden'>
  <div id='phedex-banner' class='phedex-banner'>
-    <a href='' id='phedex-link-home' title='Reset application to initial state' style='text-decoration:none'>
+    <a href='' id='phedex-link-home' title='Reset the application to its initial state' style='text-decoration:none'>
       <img src='/phedex/datasvc/app/images/phedex-logo-small.gif' alt='PhEDEx logo' height='20' style='border:none'/>
     </a>
     <b>PhEDEx Next-Gen Web Application - v.<span id='phedex-app-version'></span></b>
@@ -130,9 +130,7 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-agents',            'node',  'Show Agents',             {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-agentlogs',         'node',  'Show Agent Logs',         {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-protovisdemo',      'node',  'Show Agent Update times', {context_item:true, feature_class:'alpha'});
-//     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node',  'Show Pending Requests',   {context_item:true});
-//     PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests Nested', {context_item:true, feature_class:'beta'});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'node', 'Show Pending Requests', {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'node',  'Show Pending Requests',   {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-queuedmigrations',  'node',  'Show Queued Migrations',  {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-linkview',          'node',  'Show Links',              {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-nodes',             'none',  'Show Nodes');
@@ -145,7 +143,6 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-missingfiles',      'block', 'Show Missing Files',      {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group', 'Show Group Usage',        {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group', 'Show Pending Requests',   {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-pendingrequestsnested', 'group',' Show Pending Requests Nested', {context_item:true, feature_class:'beta'});
 
     PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued', 'none',     'Shift: Requested vs. Queued data', {context_item:false, feature_class:'beta'});
   }
