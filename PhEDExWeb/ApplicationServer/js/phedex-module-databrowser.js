@@ -34,6 +34,23 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           }
         },
         {
+          name: 'Subscribe',
+          text: 'Make a subscription',
+          source:'component-panel',
+//           payload:{
+//             control: {
+//               parent: 'control',
+//               payload:{
+//                 text:'Subscribe',
+//                 animate:  false,
+//                 disabled: false,
+//                 hidden:   true
+//               },
+//               el: 'content'
+//             }
+//           }
+        },
+        {
           name: 'ContextMenu',
           source:'component-contextmenu'
         },
@@ -205,7 +222,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
       },
       fillBody: function() {
         var root = this.tree.getRoot(),
-            tLeaf, tNode, tNode1, tNode2, i, j, k, datasets=[], d, blocks, b, files, f,
+            tLeaf, tNode, tNode1, tNode2, i, j, k, datasets=[], d, blocks, b, bf, files, f, totFiles,
             dbs = this.data.dbs;
         if ( !dbs.length )
         {
@@ -221,6 +238,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             [ d.name,d.is_open,d.is_transient,d.time_update,d.time_create ]
           );
           if ( d.block ) {
+            totFiles=0;
             if ( d.block.length == 1 ) { tNode.title = '1 block'; }
             else                       { tNode.title = d.block.length+' blocks'; }
             for (j in d.block) {
@@ -231,8 +249,10 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
                 tNode
               );
               if ( b.file ) {
-                if ( b.file.length == 1 ) { tNode1.title = '1 file'; }
-                else                      { tNode1.title = b.file.length+' files'; }
+                bf = b.file.length;
+                totFiles += bf;
+                if ( bf == 1 ) { tNode1.title = '1 file'; }
+                else           { tNode1.title = bf+' files'; }
                 for (k in b.file) {
                   f = b.file[k];
                   tNode2 = this.addNode(
@@ -243,6 +263,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
                 }
               } else { tNode1.isLeaf = true; }
             }
+            tNode.title += ', '+totFiles+' files';
           } else { tNode.isLeaf = true; }
         }
         this.tree.render();
