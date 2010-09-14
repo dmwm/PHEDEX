@@ -421,7 +421,7 @@ log('Should not be here','warn','module');
         if ( this.meta._filter ) { return this.meta._filter; }
         var meta = { structure: { f:{}, r:{} }, rFriendly:{}, fields:{} },  // mapping of field-to-group, and reverse-mapping of same
             f = this.meta.filter,
-            re, str, i, j, k, l, key;
+            re, str, i, j, k, l, key, fn;
 
         for (i in f) {
           l = {};
@@ -433,7 +433,7 @@ log('Should not be here','warn','module');
           f[i].fields = l;
 
           if ( f[i].map ) {
-            var fn = function( m ) {
+            fn = function( m ) {
               return function(k) {
                 var re, str = k;
                 if ( m.from ) {
@@ -444,6 +444,8 @@ log('Should not be here','warn','module');
                 return str;
               };
             }(f[i].map);
+          } else {
+            fn = function( m ) { return m; }
           }
 
           meta.structure['f'][i] = [];
