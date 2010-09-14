@@ -73,7 +73,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
         minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' },
-        input:       {type:'input', size:50 },
+        input:       {type:'input', size:70, nonNegatable:true },
         text:        {type:'text',  size:50 }
       },
       Validate: {
