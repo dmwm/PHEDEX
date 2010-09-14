@@ -7151,7 +7151,8 @@ sub output
     my %binds;
     my %all_nodes = $self->fetch_nodes(with_ids=>1);
     my @select_nodes;
-    if ( $nodefilter =~ m%^!% ) {
+    if ( $nodefilter =~ m%^!(.*)$% ) {
+      $nodefilter = $1;
       @select_nodes = grep !/$nodefilter/, keys %all_nodes;
     } else {
       @select_nodes = grep  /$nodefilter/, keys %all_nodes;
@@ -9698,7 +9699,8 @@ sub output
   my %binds;
   my %all_nodes = $self->fetch_nodes(with_ids=>1);
   my @select_nodes;
-  if ( $nodefilter =~ m%^!% ) {
+  if ( $nodefilter =~ m%^!(.*)$% ) {
+    $nodefilter = $1;
     @select_nodes = grep !/$nodefilter/, keys %all_nodes;
   } else {
     @select_nodes = grep  /$nodefilter/, keys %all_nodes;
