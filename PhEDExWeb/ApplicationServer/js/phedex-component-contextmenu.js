@@ -246,13 +246,15 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
   PHEDEX.Component.ContextMenu.Add('dataset', PxU.feature['alpha'] + 'Browse this dataset', fn);
 
   fn = function(opts,el) {
-    var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
-        d = el.obj.data,
-        t;
-        t = Ylang.JSON.stringify(opts);
-    w.document.writeln(t);
+//     var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
+//         d = el.obj.data,
+//         t;
+//         t = Ylang.JSON.stringify(opts);
+//     w.document.writeln(t);
+    PxS.notify('buildRequest','add',opts);
   };
   PHEDEX.Component.ContextMenu.Add('dataset',PxU.feature['alpha'] + 'Submit request for this dataset', fn);
+  PHEDEX.Component.ContextMenu.Add('block',  PxU.feature['alpha'] + 'Submit request for this block', fn);
 
   fn = function(opts,el) {
     var panel, el, ctl, b, e;
