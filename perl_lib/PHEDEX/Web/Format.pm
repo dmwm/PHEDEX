@@ -7,7 +7,7 @@ use strict;
 
 use JSON::XS;     # for json format output
 use Data::Dumper; # for perl format output
-
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Loader;
 
 our (%params);
@@ -38,7 +38,7 @@ sub output
     my $root = $children->[0];
 
     if ( $format eq 'xml' ) {
-	lc_keys($obj); # force keys to be lowercase
+	PHEDEX::Web::Util::lc_keys($obj); # force keys to be lowercase
     	# special exception for the 'error' object
 	# allow it to have a simple structure but be formatted as
 	# <error>text</error>
@@ -50,13 +50,13 @@ sub output
 	print { $file } "<?xml version='$version' encoding='$encoding'?>";
 	xml_element($file, $root, $obj, 1);
     } elsif ( $format eq 'json' ) {
-	lc_keys($obj); # force keys to be lowercase
+	PHEDEX::Web::Util::lc_keys($obj); # force keys to be lowercase
 	print { $file } encode_json($obj);
     } elsif ( $format eq 'perl' ) {
 	# FIXME: this shouldn't be necessary.  Ensure all APIs return
 	# uppercase key data structures by default then remove this
 	# step
-	uc_keys($obj); # force keys to be uppercase
+	PHEDEX::Web::Util::uc_keys($obj); # force keys to be uppercase
 	print { $file } Dumper($obj);
     }
 }
@@ -169,40 +169,6 @@ sub json_object
 	}
 	print $file "]";
     }
-}
-
-# lowercase all hash keys
-sub lc_keys
-{
-    my $o = shift;
-    
-    if (ref $o eq 'HASH') {
-	foreach my $k (keys %$o) {
-	    lc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
-	    $o->{lc $k} = delete $o->{$k};
-	}
-    } elsif (ref $o eq 'ARRAY') {
-	foreach my $e (@$o) { lc_keys($e); }   # recurse if array
-    }
-    return $o;
-}
-
-# uppercase all hash keys
-# FIXME: same as above... how do I get a subref of a builtin and the
-# function I'm in to reduce the duplicate?
-sub uc_keys
-{
-    my $o = shift;
-    
-    if (ref $o eq 'HASH') {
-	foreach my $k (keys %$o) {
-	    uc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
-	    $o->{uc $k} = delete $o->{$k};
-	}
-    } elsif (ref $o eq 'ARRAY') {
-	foreach my $e (@$o) { uc_keys($e); }   # recurse if array
-    }
-    return $o;
 }
 
 # xml charcter encoding map
