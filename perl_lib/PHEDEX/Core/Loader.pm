@@ -44,6 +44,22 @@ sub ModuleName
   return $self->{NAMESPACE} . '::' . $module;
 }
 
+sub ModuleHelp
+{
+  my ($self,$interface) = @_;
+  my @interfaces = grep (!/\//,sort keys %{$self->Commands});
+  if ( grep { $_ eq $interface} @interfaces ){
+      my $module = $self->Load($interface);
+      my $ns = $module->new();
+      $ns->Help() and exit(1);
+  } else {
+      print "Interface '$interface' is not supported. Known interfaces are: ";
+      map { print "'$_', " } @interfaces;
+      print "\n";
+      exit(2);
+  }
+}
+
 sub Load
 {
   my ($self,$Action) = @_;
