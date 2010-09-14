@@ -54,15 +54,11 @@ sub Help
 
  as well as these:
  --nocache            to disable the caching mechanism
- --rfio_use_castor_v2 to specify their counterparts in the environment. The default is set to 'YES'
-
- Commands known to this module:
-
-
+ --rfio_use_castor_v2 to specify their counterparts in the environment, 
+                      the default is set to 'YES'
 
  Commands known to this module:
 EOF
-
   $self->SUPER::_help();
 }
 
