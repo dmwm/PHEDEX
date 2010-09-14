@@ -363,7 +363,8 @@ sub validate_params
     # use use confess if we want a full trace
     $val_args{on_fail} = sub { Carp::confess shift } if $full_trace;
     # uppercase keys
-    $val_args{normalize_keys} = sub { return uc shift } if $uc_keys;
+    if ($uc_keys) { $val_args{normalize_keys} = sub { return uc shift } }
+    else          { $val_args{normalize_keys} = sub { return    shift } }
     # set the caller one frame up + (optional) stack_skip
     $val_args{stack_skip} = 2 + $stack_skip;
 
