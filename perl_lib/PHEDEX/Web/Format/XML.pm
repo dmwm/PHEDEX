@@ -78,7 +78,7 @@ sub header
     my $name = $children->[0];
     ($attr, $children, $text) = gather($obj->{$name});
     print { $self->{FILE} } "<$name", join('',
-            map { (" $_='", (defined $obj->{$name}->{$_}?encode_entities($obj->{$name}->{$_}) : ''),
+            map { (" $_='", (defined $obj->{$name}->{$_}?PHEDEX::Web::Format::encode_entities($obj->{$name}->{$_}) : ''),
             "'") } @$attr);
     print { $self->{FILE} } ">";
     if ($text)
@@ -123,7 +123,7 @@ sub xml_element
     unless ($is_root) {
         $no_children = scalar @$children == 0 ? 1 : 0;
         print $file "<$name", join('', map { (" $_='", 
-					      (defined $obj->{$_} ? encode_entities($obj->{$_}) : ''),
+					      (defined $obj->{$_} ? PHEDEX::Web::Format::encode_entities($obj->{$_}) : ''),
 					      "'") } @$attr);
         if ($no_children && !$text) {
             print $file "/>"; return;
@@ -156,69 +156,6 @@ sub xml_element
     }
 
     print $file "</$name>" unless $is_root;
-}
-
-# lowercase all hash keys
-sub lc_keys
-{
-    my $o = shift;
-    
-    if (ref $o eq 'HASH') {
-	foreach my $k (keys %$o) {
-	    lc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
-	    $o->{lc $k} = delete $o->{$k};
-	}
-    } elsif (ref $o eq 'ARRAY') {
-	foreach my $e (@$o) { lc_keys($e); }   # recurse if array
-    }
-    return $o;
-}
-
-# uppercase all hash keys
-# FIXME: same as above... how do I get a subref of a builtin and the
-# function I'm in to reduce the duplicate?
-sub uc_keys
-{
-    my $o = shift;
-    
-    if (ref $o eq 'HASH') {
-	foreach my $k (keys %$o) {
-	    uc_keys($o->{$k}) if ref $o->{$k}; # recurce if ref
-	    $o->{uc $k} = delete $o->{$k};
-	}
-    } elsif (ref $o eq 'ARRAY') {
-	foreach my $e (@$o) { uc_keys($e); }   # recurse if array
-    }
-    return $o;
-}
-
-# xml charcter encoding map
-my %xml_char2entity = (
-  '<' => '&lt;',
-  '>' => '&gt;',
-  '&' => '&amp;',
-  "'" => '&apos;',
-  '"' => '&quot;'
-);
-
-# compile a regexp
-our $xml_char_regexp = join ('', keys %xml_char2entity);
-$xml_char_regexp = qr/([$xml_char_regexp])/;
-
-# encode xml characters
-# special thanks to HTML::Entities in CPAN
-sub encode_entities
-{
-    return undef unless defined $_[0];
-    my $ref;
-    if (defined wantarray) {
-	my $x = $_[0];
-	$ref = \$x;     # copy
-    } else {
-	$ref = \$_[0];  # modify in-place
-    }
-    $$ref =~ s/$xml_char_regexp/$xml_char2entity{$1}/ge;
-    return $$ref;
 }
 
 sub try
