@@ -576,6 +576,46 @@ sub updateSubscription
     return $n;
 }
 
+=pod
+
+=item deleteSubscription($self, %args)
+
+Remove an existing subscription for a dataset. This operation is not allowed for a block;
+ block unsubscription is only allowed through deletion requests.
+
+Required:
+ DATASET: the name or ID of a dataset
+ DESTINATION : the destination node ID
+
+=cut
+
+sub deleteSubscription
+{
+    my ($self, %h) = @_;
+
+    my @required = qw(DATASET DESTINATION);
+    foreach (@required) {
+	if (!exists $h{$_} || !defined $h{$_}) {
+	    $self->Alert("cannot delete subscription: $_ not defined");
+	    return undef;
+	}
+    }
+
+    my $sql = qq {delete from t_dps_subs_dataset};
+    my %p = map { ':' . lc $_ => $h{$_} } @required;
+    
+    if ($h{DATASET} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
+	$sql .= qq{ where destination = :destination
+		     and dataset = (select id from t_dps_dataset where name = :dataset)};
+	} else { # else we write exactly what we have
+	    $sql .= qq{ where destination = :destination and dataset = :dataset};
+	}
+    
+    my ($sth, $n);
+    eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
+    
+    return $n;
+}
 
 =pod
 
