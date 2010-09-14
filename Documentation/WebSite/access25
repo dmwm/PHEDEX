@@ -7150,8 +7150,12 @@ sub output
     my @where = ('1=1');
     my %binds;
     my %all_nodes = $self->fetch_nodes(with_ids=>1);
-    my @select_nodes = grep /$nodefilter/, keys %all_nodes;
-
+    my @select_nodes;
+    if ( $nodefilter =~ m%^!% ) {
+      @select_nodes = grep !/$nodefilter/, keys %all_nodes;
+    } else {
+      @select_nodes = grep  /$nodefilter/, keys %all_nodes;
+    }
     if (! @select_nodes ) {
 	$self->note('No nodes match the given filter');
 	return;
@@ -9693,7 +9697,12 @@ sub output
   my @where;
   my %binds;
   my %all_nodes = $self->fetch_nodes(with_ids=>1);
-  my @select_nodes = grep /$nodefilter/, keys %all_nodes;
+  my @select_nodes;
+  if ( $nodefilter =~ m%^!% ) {
+    @select_nodes = grep !/$nodefilter/, keys %all_nodes;
+  } else {
+    @select_nodes = grep  /$nodefilter/, keys %all_nodes;
+  }
 
   if (! @select_nodes ) {
       $self->note('No nodes match the given filter');
