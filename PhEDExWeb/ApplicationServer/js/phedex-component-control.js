@@ -77,10 +77,11 @@ PHEDEX.Component.Control = function(sandbox,args) {
       ap = args.payload,
 
       _defTitle = {
-        Filter: 'Show the filter-panel, which allows you to filter the data shown in this module',
-        Headers:'Show the header-tree, which shows you what the data-fields are, and allows you to resize fields by dragging the header-element',
-        Extra:  'Show extra details about this data',
-        Refresh:'Refresh this module with new data from the dataservice'
+        Filter:   'Show the filter-panel, which allows you to filter the data shown in this module',
+        Headers:  'Show the header-tree, which shows you what the data-fields are, and allows you to resize fields by dragging the header-element',
+        Extra:    'Show extra details about this data',
+        Refresh:  'Refresh this module with new data from the dataservice',
+        Subscribe:'Show the subscription panel. This control is only enabled if you have selected datasets or modules to make a request for'
       },
 
 /**
