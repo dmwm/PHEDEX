@@ -171,6 +171,7 @@ div .phedex-sorted {
  border: 1px solid #f00;
 }
 
+/* --- BEGIN TO BECOME REDUNDANT */
 .phedex-filter-help {
   padding: 0 0 0 10px;
 }
@@ -192,6 +193,31 @@ div .phedex-sorted {
   background-color: #fdd;
 }
 .phedex-filter-elem-minmax, .phedex-filter-elem-minmaxFloat, .phedex-filter-elem-minmaxPct {
+  width: 80px;
+  text-align: right;
+}
+/* --- END TO BECOME REDUNDANT */
+.phedex-panel-help {
+  padding: 0 0 0 10px;
+}
+.phedex-panel-buttons {
+  float: right;
+}
+.phedex-panel-outer {
+  clear: both;
+  border-bottom:  1px dotted #888;
+}
+.phedex-panel-inner {
+  float: left;
+  width: 250px;
+  margin:  0 0.5em 0 0;
+  text-align: right;
+  height: 2.0em;
+}
+.phedex-panel-elem-invalid {
+  background-color: #fdd;
+}
+.phedex-panel-elem-minmax, .phedex-panel-elem-minmaxFloat, .phedex-panel-elem-minmaxPct {
   width: 80px;
   text-align: right;
 }
