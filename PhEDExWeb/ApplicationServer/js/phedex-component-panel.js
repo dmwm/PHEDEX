@@ -65,17 +65,17 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       meta: { inner:{}, cBox:{}, el:{}, focusMap:{} },
 
       typeMap: { // map a 'logical element' (such as 'floating-point range') to one or more DOM selection elements
-        regex:       {type:'input', size:20},
-        'int':       {type:'input', size:7 },
-        'float':     {type:'input', size:7 },
-        yesno:       {type:'input', fields:['yes','no'], attributes:{checked:true, type:'checkbox'}, nonNegatable:true },
-        percent:     {type:'input', size:5 },
-        minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
-        minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
-        minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' },
+        regex:       {type:'input', size:20, negatable:true },
+        'int':       {type:'input', size:7,  negatable:true },
+        'float':     {type:'input', size:7,  negatable:true },
+        yesno:       {type:'input', fields:['yes','no'], attributes:{checked:true, type:'checkbox'}, negatable:false },
+        percent:     {type:'input', size:5,  negatable:true },
+        minmax:      {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
+        minmaxFloat: {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmaxFloat' },
+        minmaxPct:   {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmaxPct' },
 //         radio:       {type:'input', /*fields:['yes','no'],*/ attributes:{type:'radio'}, nonNegatable:true },
-        checkbox:    {type:'input', attributes:{type:'checkbox'}, nonNegatable:true },
-        text:        {type:'textNode',  attributes:{width:'100px'}, nonNegatable:true }
+//         checkbox:    {type:'input',    attributes:{type:'checkbox'}, negatable:false },
+        text:        {type:'textNode', attributes:{width:'100px'}, negatable:false }
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
@@ -338,7 +338,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
           for (key in _panel.structure['f'][label]) {
-            _panel.fieldsets[key] = { fieldset:fieldset, hideClass:hideClass };
+            _panel.fieldsets[key] = { fieldset:fieldset, hideClass:hideClass, helpClass:helpClass };
             var c = _panel.fields[key];
             c.key = key;
             if ( !c.dynamic ) {
@@ -374,13 +374,14 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       },
 
       AddFieldsetElement: function(c,val) {
-        var outer, inner, e, value, i, fields, dcwrap, cBox, fieldLabel, help,  el, size, def, _panel=this.meta._panel, _fsk=_panel.fieldsets[c.key], fieldset, helpClass;
+        var outer, inner, e, value, i, j, fields, dcwrap, cBox, fieldLabel, help,  el, size, def, _panel=this.meta._panel, _fsk=_panel.fieldsets[c.key], fieldset, helpClass;
         fieldset  = _fsk.fieldset;
         hideClass = _fsk.hideClass;
+        helpClass = _fsk.helpClass;
         outer = document.createElement('div');
         inner = document.createElement('div');
         outer.className = 'phedex-panel-outer phedex-visible '+hideClass;
-        inner.className = 'phedex-panel-inner';
+        if ( !c.dynamic ) { inner.className = 'phedex-panel-inner'; }
         inner.id = 'phedex_panel_inner_'+PxU.Sequence();
         this.meta.el[inner.id] = inner;
         this.meta.inner[inner.id] = [];
@@ -413,12 +414,12 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           }
           if ( e.attributes ) {
             for (j in e.attributes) {
-              el.setAttribute(j,e.attributes[j]);
+                el[j] = e.attributes[j];
             }
           }
           if ( c.attributes ) {
             for (j in c.attributes) {
-              el.setAttribute(j,c.attributes[j]);
+                el[j] = c.attributes[j];
             }
           }
           inner.appendChild(el);
@@ -432,7 +433,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         dcwrap = document.createElement('div');
         dcwrap.className = 'phedex-panel-cbox-wrap';
         if (  e.negateLeft ) { YuD.addClass(dcwrap,'float-left'); }
-        if ( !e.nonNegatable ) {
+        if ( e.Negatable ) {
           cBox = document.createElement('input');
           cBox.type = 'checkbox';
           cBox.className = 'phedex-filter-checkbox';

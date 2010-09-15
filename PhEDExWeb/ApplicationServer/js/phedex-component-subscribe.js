@@ -24,7 +24,12 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       },
       Parameters:{
         fields:{
-          custodial:{type:'yesno', fields:['Make custodial request?'], attributes:{checked:false} }
+// priority, user-group
+          is_move:  {type:'yesno', fields:[' '], text:'Make a "move" request?', tip:'Check this box to move the data, instead of simply copying it', attributes:{checked:false} },
+          custodial:{type:'yesno', fields:[' '], text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
+          priority: {type:'radio', fields:['low','medium','high'], default:'low' },
+          userGroup:{type:'regex', text:'User-group', tip:'javascript regular expression', nonNegatable:true },
+          timeStart:{type:'regex', text:'Start-time for subscription', tip:'This is valid for datasets only. Unix epoch-time', nonNegatable:true }
         }
       }
     }
@@ -112,4 +117,4 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   return this;
 }
 
-log('loaded...','info','component-panel');
+log('loaded...','info','component-subscribe');
