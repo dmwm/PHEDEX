@@ -278,6 +278,7 @@ sub validateRequest
     # Request policy details here:
     #  * Custodiality only applies to a T[01] MSS node
     #  * Custodiality changes through a request are not allowed
+    #  * Changing a move flag to 'n' through a request is not allowed
     #  * Moves may only be done to a T1 MSS node
     #  * Moves can not be done when data is already subscribed to a T[01]
     
@@ -299,19 +300,19 @@ sub validateRequest
             }
         }
 	
-	# Check existing subscriptions for custodiality changes and as
-	# sources for move requests
+	# Check existing subscriptions to destination node for custodiality/move flag changes
+	# Check existing subscriptions to other nodes as sources for move requests
 	
 	my %sources;
 	if (@$ds_ids) {
-	    my $sql = qq{ select distinct n.name, ds.name dataitem, sp.is_custodial
+	    my $sql = qq{ select distinct n.name, ds.name dataitem, s.is_move, sp.is_custodial
 			      from t_adm_node n
 			      join t_dps_subs_dataset s on s.destination = n.id
 			      join t_dps_dataset ds on ds.id=s.dataset
 			      join t_dps_subs_param sp on s.param=sp.id
 			      where s.dataset = :dataset
 			  UNION
-			  select distinct n.name, ds.name dataitem, sp.is_custodial
+			  select distinct n.name, bk.name dataitem, s.is_move, sp.is_custodial
 			      from t_adm_node n
 			      join t_dps_subs_block s on s.destination = n.id
 			      join t_dps_block bk on bk.id=s.block
@@ -326,19 +327,23 @@ sub validateRequest
 		    if ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_CUSTODIAL} ne $h{IS_CUSTODIAL})) {
                         die "cannot request transfer: $r->{DATAITEM} already subscribed to $r->{NAME} with different custodiality\n";
                     }
+		    elsif ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_MOVE} eq 'y') && ($h{IS_MOVE} eq 'n')) {
+			die "cannot request replica transfer: $r->{DATAITEM} already subscribed to $r->{NAME} as move\n";
+		    }
                     $sources{$r->{NAME}}=1;
                 }
 	    }
 	    
 	} elsif (@$b_ids) {
-	    my $sql = qq{ select distinct n.name, bk.name dataitem, sp.is_custodial
+	    my $sql = qq{ select distinct n.name, ds.name dataitem, s.is_move, sp.is_custodial
 			      from t_adm_node n
 			      join t_dps_subs_dataset s on s.destination = n.id
 			      join t_dps_block bk on bk.dataset = s.dataset
+			      join t_dps_dataset ds on ds.id = s.dataset
 			      join t_dps_subs_param sp on s.param = sp.id
 			      where bk.id = :block and bk.time_create > nvl(s.time_fill_after,-1)
 			   UNION
-			   select distinct n.name, bk.name dataitem, sp.is_custodial
+			   select distinct n.name, bk.name dataitem, s.is_move, sp.is_custodial
 			      from t_adm_node n
 			      join t_dps_subs_block s on s.destination = n.id
 			      join t_dps_block bk on bk.id=s.block
@@ -351,6 +356,9 @@ sub validateRequest
 		    if ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_CUSTODIAL} ne $h{IS_CUSTODIAL})) {
                         die "cannot request transfer: $r->{DATAITEM} already subscribed to $r->{NAME} with different custodiality\n";
                     }
+		    elsif ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_MOVE} eq 'y') && ($h{IS_MOVE} eq 'n')) {
+			die "cannot request replica transfer: $r->{DATAITEM} already subscribed to $r->{NAME} as move\n";
+		    }
                     $sources{$r->{NAME}}=1;
 		} 
 	    }
