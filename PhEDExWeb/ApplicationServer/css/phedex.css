@@ -463,3 +463,8 @@ ul li.phedex-contextmenu-beta:before {
   background: none;
   background-color: white;
 }
+
+.phedex-panel-cbox-wrap {
+  width: 20px;
+  display: inline-block;
+}
