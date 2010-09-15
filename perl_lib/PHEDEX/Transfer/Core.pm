@@ -193,7 +193,7 @@ sub start_batch
 
     # Set the job size to MAX_ACTIVE files if it is more limiting
     if ($self->{MAX_ACTIVE} && $self->{MAX_ACTIVE} < $batch_size) {
-	$batch_size = $self->{FTS_MAX_ACTIVE};
+	$batch_size = $self->{MAX_ACTIVE};
     }
 
     my @batch = $self->batch_tasks($tasklist, $batch_size);
