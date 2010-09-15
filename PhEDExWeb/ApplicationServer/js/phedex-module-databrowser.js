@@ -38,29 +38,14 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           text: 'Make a subscription',
           source:'component-subscribe',
           payload:{
-            panel: {
-              'Datasets':{
-                map:{from:'phedex-panel-dataset-', to:'P-D'},
-                fields:{
-                  'dataset' :{type:'input', tip:'Dataset name, with or without wildcards', dynamic:true },
-                }
-              },
-              'Blocks':{
-                map:{from:'phedex-panel-block-', to:'P-B'},
-                fields:{
-                  'block' :{type:'input', tip:'Block name, with or without wildcards', dynamic:true },
-                }
-              }
-            },
-            control: {
-              parent: 'control',
+            control:{
+              parent:'control',
               payload:{
                 text:'Subscribe',
                 animate:  false,
                 disabled: true,
-//                 hidden:   true
               },
-              el: 'content'
+              el:'content'
             }
           }
         },
