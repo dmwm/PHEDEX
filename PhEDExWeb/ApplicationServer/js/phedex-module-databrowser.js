@@ -43,7 +43,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
               payload:{
                 text:'Subscribe',
                 animate:  false,
-                disabled: true,
+                disabled: false, //true,
               },
               el:'content'
             }
@@ -304,6 +304,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           return;
         }
         this._magic = magic;
+        if ( dataset ) { args.dataset = dataset; node = block = null; }
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
         now = PxU.epochAlign();
