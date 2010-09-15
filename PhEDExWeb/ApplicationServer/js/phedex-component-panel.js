@@ -73,8 +73,9 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         minmax:      {type:'input', size:7, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
         minmaxFloat: {type:'input', size:7, fields:['min','max'], className:'minmaxFloat' },
         minmaxPct:   {type:'input', size:7, fields:['min','max'], className:'minmaxPct' },
-        input:       {type:'input', size:70, nonNegatable:true },
-        text:        {type:'text',  size:50 }
+//         radio:       {type:'input', /*fields:['yes','no'],*/ attributes:{type:'radio'}, nonNegatable:true },
+        checkbox:    {type:'input', attributes:{type:'checkbox'}, nonNegatable:true },
+        text:        {type:'textNode',  attributes:{width:'100px'}, nonNegatable:true }
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
@@ -323,13 +324,17 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(helpCtl);
 
-          hideCtl.appendChild(document.createTextNode('[x]'));
+          hideCtl.appendChild(document.createTextNode('[-]'));
           hideCtl.id = 'help_' +PxU.Sequence();
           ttIds.push(hideCtl.id);
           ttHelp[hideCtl.id] = 'Click here to collapse or expand this group of panel-elements';
-          YuE.addListener(hideCtl, 'click', function(aClass,anElement) {
-              return function() { PxU.toggleVisible(aClass,anElement) };
-          }(hideClass,fieldset) );
+          YuE.addListener(hideCtl, 'click', function(aClass,anElement,aControl) {
+              return function() {
+                if ( hideCtl.innerHTML == '[-]' ) { aControl.innerHTML = '[+]'; }
+                else                              { aControl.innerHTML = '[-]'; }
+                PxU.toggleVisible(aClass,anElement)
+              };
+          }(hideClass,fieldset,hideCtl) );
           legend.appendChild(document.createTextNode(' '));
           legend.appendChild(hideCtl);
           for (key in _panel.structure['f'][label]) {
@@ -369,7 +374,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       },
 
       AddFieldsetElement: function(c,val) {
-        var outer, inner, e, value, i, fields, cBox, fieldLabel, help,  el, size, def, _panel = this.meta._panel, _fsk=_panel.fieldsets[c.key], fieldset, helpClass;
+        var outer, inner, e, value, i, fields, dcwrap, cBox, fieldLabel, help,  el, size, def, _panel=this.meta._panel, _fsk=_panel.fieldsets[c.key], fieldset, helpClass;
         fieldset  = _fsk.fieldset;
         hideClass = _fsk.hideClass;
         outer = document.createElement('div');
@@ -385,12 +390,9 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           return;
         }
 
-        fields = e.fields || [''];
+        fields = c.fields || e.fields || [''];
         for (i in fields) {
           if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
-          if ( fields[i] != '' ) {
-            inner.appendChild(document.createTextNode(fields[i]+' '));
-          }
           el = document.createElement(e.type);
           el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
           this.meta.el[el.id] = el;
@@ -399,34 +401,49 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           YuD.addClass(el,'phedex-filter-key-'+fields[i]);
           if ( e.className ) { YuD.addClass(el,'phedex-filter-elem-'+e.className); }
           size = e.size || c.size;
-          if ( size ) { el.setAttribute('size',size); }
-          el.setAttribute('type',e.type);
-          el.setAttribute('name',c.key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
           value = val || c[fields[i] || 'value'];
-          if ( value != null ) { el.setAttribute('value',value); }
+          if ( value != null ) {
+            if ( c.type == 'text' ) { el.innerHTML = value; }
+            else {
+              el.setAttribute('value',value);
+              if ( size ) { el.setAttribute('size',size); }
+              el.setAttribute('type',e.type);
+              el.setAttribute('name',c.key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
+            }
+          }
           if ( e.attributes ) {
             for (j in e.attributes) {
               el.setAttribute(j,e.attributes[j]);
             }
           }
+          if ( c.attributes ) {
+            for (j in c.attributes) {
+              el.setAttribute(j,c.attributes[j]);
+            }
+          }
           inner.appendChild(el);
           if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
           if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
+          if ( fields[i] != '' ) {
+            inner.appendChild(document.createTextNode(fields[i]+' '));
+          }
         }
 
-        cBox = document.createElement('input');
-        cBox.type = 'checkbox';
-        cBox.className = 'phedex-filter-checkbox';
-        cBox.id = 'cbox_' + PxU.Sequence();
-        if ( c.negate ) { cBox.checked = true; }
-        this.meta.cBox[c.key] = cBox;
-        ttIds.push(cBox.id);
-        ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
-        inner.appendChild(cBox);
-        if ( e.nonNegatable ) {
-          cBox.disabled = true;
-          ttHelp[cBox.id] = 'this checkbox is redundant, use the fields to the left to make your selection';
+        dcwrap = document.createElement('div');
+        dcwrap.className = 'phedex-panel-cbox-wrap';
+        if (  e.negateLeft ) { YuD.addClass(dcwrap,'float-left'); }
+        if ( !e.nonNegatable ) {
+          cBox = document.createElement('input');
+          cBox.type = 'checkbox';
+          cBox.className = 'phedex-filter-checkbox';
+          cBox.id = 'cbox_' + PxU.Sequence();
+          if ( c.negate ) { cBox.checked = true; }
+          this.meta.cBox[c.key] = cBox;
+          ttIds.push(cBox.id);
+          ttHelp[cBox.id] = '(un)check this box to invert your selection for this element';
+          dcwrap.appendChild(cBox);
         }
+        inner.appendChild(dcwrap);
         outer.appendChild(inner);
         fieldLabel = document.createElement('div');
         fieldLabel.className = 'float-left';
