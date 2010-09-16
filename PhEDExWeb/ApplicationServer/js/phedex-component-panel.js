@@ -1,10 +1,10 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.Panel = function(sandbox,args) {
   Yla(this, new PHEDEX.Base.Object());
-  var _me = 'component-panel',
+  var _me  = 'component-panel',
       _sbx = sandbox,
       payload = args.payload,
-      obj = payload.obj,
+      obj     = payload.obj,
       partner = args.partner,
       ttIds = [], ttHelp = {};
 
@@ -22,6 +22,9 @@ PHEDEX.Component.Panel = function(sandbox,args) {
               break;
             }
             case 'Validate': {
+              if ( o.Parse() ) {
+                _sbx.notify(o.id,'Panel','Apply',o.args);
+              }
               break;
             }
             case 'Apply': {
@@ -73,9 +76,9 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         minmax:      {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmax' }, // 'minmax' == 'minmaxInt', the 'Int' is implied...
         minmaxFloat: {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmaxFloat' },
         minmaxPct:   {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmaxPct' },
-//         radio:       {type:'input', /*fields:['yes','no'],*/ attributes:{type:'radio'}, nonNegatable:true },
-//         checkbox:    {type:'input',    attributes:{type:'checkbox'}, negatable:false },
-        text:        {type:'textNode', attributes:{width:'100px'}, negatable:false }
+        radio:       {type:'input', attributes:{type:'radio'}, nonNegatable:true },
+        checkbox:    {type:'input', fields:[' '],   attributes:{type:'checkbox'}, negatable:false },
+        text:        {type:'textNode', attributes:{width:'100px'},   negatable:false }
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
@@ -127,7 +130,14 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           if ( v.parsed.max && ( v.parsed.max < 0 || v.parsed.max > 100 ) ) { return v; }
           v.result = true;
           return v;
+        },
+        checkbox: function(arg) {
+          return { result:true, parsed:{value:arg.value} };
+        },
+        radio: function(arg) {
+          return { result:true, parsed:{value:arg.value} };
         }
+
       },
 
       Apply: {
@@ -156,6 +166,96 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           if ( arg.max && val > arg.max ) { return false; }
           return true;
         }
+      },
+
+      ResetState: function() {
+        this.count=0;
+        this.args={};
+      },
+      setValid:   function(el) {
+        YuD.removeClass(el,'phedex-filter-elem-invalid');
+      },
+      setInvalid: function(el,setFocus) {
+        YuD.addClass(el,'phedex-filter-elem-invalid');
+        if ( setFocus ) {
+          var focusOn = el[0];
+          focusOn.focus();
+        }
+      },
+
+      Parse: function() {
+        this.ResetState();
+        var isValid = true,
+            keyMatch = /^phedex-panel-key-/,
+            innerList = this.meta.inner,
+            nItems, nSet, values, value, el, key, elClasses, type, s, a, nBox,
+            fields = this.meta._panel.fields;
+        this.args = {};
+        nItems = 0;
+        for (var i in innerList) {
+          nSet = 0;
+          values = {};
+          a = {id:[], values:{} };
+          for (var j in innerList[i]) {
+            this.setValid(innerList[i]);
+            el = innerList[i][j];
+            a.name = el.name;
+// 1. pick out the values from the element(s)
+//          find the phedex-panel-key-* classname of this element
+            elClasses = el.className.split(' ');
+            for (var k in elClasses) {
+              if ( elClasses[k].match(keyMatch) ) {
+                key = elClasses[k].split('-')[3];
+                if ( key == '' ) { key = 'value'; }
+                if ( el.type == 'checkbox' ) {
+                  value = el.checked;
+                  values[key] = value;
+                  if ( value ) { nSet++; }
+                }
+                else if ( el.type == 'radio' ) {
+                  if ( el.checked ) {
+                    value = el.value;
+                    values = {value:value};
+                    nSet++;
+                  }
+                }
+                else {
+                  value = el.value;
+                  values[key] = value;
+                  if ( value ) { nSet++; }
+                }
+                a.id[key] = el.id;
+              }
+            }
+          }
+
+// 2. parse the values and validate them
+          if ( nSet ) {
+            var x = fields[el.name];
+            type = x.type;
+            s = this.Validate[type](values);
+            if ( s.result ) {
+              nItems++;
+              a.values = s.parsed;
+              if ( x.format ) { this.args[i].format = x.format; }
+              if ( x.preprocess ) {
+                if ( typeof(x.preprocess) == 'string' ) {
+                  a.preprocess = this.Preprocess[x.preprocess];
+                } else {
+                  a.preprocess = x.preprocess;
+                }
+              }
+              if ( nBox=this.meta.cBox[a.name] ) { a.negate = nBox.checked; }
+              else { a.negate = false; }
+              this.args[a.name] = a;
+            } else {
+              log('Invalid entry for "'+x.text+'", aborting accept','error',_me);
+              this.setInvalid(innerList[i],isValid);
+              isValid = false;
+            }
+          }
+        }
+        return isValid;
       },
 
       Preprocess: {
@@ -191,13 +291,13 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         d.cBox = cBox;
         b.appendChild(cBox);
         b.appendChild(document.createTextNode('Keep this window open'));
-        var buttonApplyPanel = new Yw.Button({ label:'Apply',  title:'Validate your input and apply the panel', container:b }),
-            buttonResetPanel = new Yw.Button({ label:'Reset', title:'Reset the panel to the initial, null state', container:b }),
+        var buttonApply = new Yw.Button({ label:'Apply', title:'Validate your input and apply the panel',    container:b }),
+            buttonReset = new Yw.Button({ label:'Reset', title:'Reset the panel to the initial, null state', container:b }),
             buttonNotifier = function(obj) {
               return function(arg) { _sbx.notify(obj.id,'Panel',arg); }
             }(this);
-        buttonApplyPanel.on ('click', function() { buttonNotifier('Validate');  } ); // Validate before Applying!
-        buttonResetPanel.on ('click', function() { buttonNotifier('Reset');  } );
+        buttonApply.on ('click', function() { buttonNotifier('Validate');  } ); // Validate first, then Apply!
+        buttonReset.on ('click', function() { buttonNotifier('Reset');  } );
         cBox.addEventListener('click', function() { buttonNotifier('cBox') }, false );
 //      make sure the panel moves with the widget when it is dragged!
         if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
@@ -218,7 +318,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           p.text    = p.text || 'Panel';
           p.hidden  = 'true';
           p.handler = 'setFocus';
-          apc.name = 'panelControl';
+          apc.name = 'panel';
           this.context_el = obj.dom[p.context];
           this.align_el   =  p.align;
         }
@@ -395,23 +495,31 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         for (i in fields) {
           if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
           el = document.createElement(e.type);
-          el.id = 'phedex_filter_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
+          el.id = 'phedex_panel_elem_'+PHEDEX.Util.Sequence(); // needed for focusMap
           this.meta.el[el.id] = el;
           this.meta.inner[inner.id].push(el);
-          el.className = 'phedex-filter-elem';
-          YuD.addClass(el,'phedex-filter-key-'+fields[i]);
-          if ( e.className ) { YuD.addClass(el,'phedex-filter-elem-'+e.className); }
+          el.className = 'phedex-panel-elem';
+          YuD.addClass(el,'phedex-panel-key-'+fields[i]);
+          if ( e.className ) { YuD.addClass(el,'phedex-panel-elem-'+e.className); }
           size = e.size || c.size;
-          value = val || c[fields[i] || 'value'];
-          if ( value != null ) {
-            if ( c.type == 'text' ) { el.innerHTML = value; }
-            else {
-              el.setAttribute('value',value);
-              if ( size ) { el.setAttribute('size',size); }
-              el.setAttribute('type',e.type);
-              el.setAttribute('name',c.key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
+
+//        set default values. Depends on type of input field...
+          if ( c.type == 'radio' ) {
+            if ( fields[i] == c.default ) { el.checked = true; }
+            el.value = i;
+          } else {
+            value = val || c[fields[i] || 'value'];
+            if ( value != null ) {
+              if ( c.type == 'text' ) { el.innerHTML = value; }
+              else {
+                el.setAttribute('value',value);
+                if ( size ) { el.setAttribute('size',size); }
+              }
             }
           }
+
+          el.setAttribute('type',e.type);
+          el.setAttribute('name',c.key); // is this valid? Multiple-elements per key will get the same name (minmax, for example)
           if ( e.attributes ) {
             for (j in e.attributes) {
                 el[j] = e.attributes[j];
@@ -436,7 +544,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         if ( e.Negatable ) {
           cBox = document.createElement('input');
           cBox.type = 'checkbox';
-          cBox.className = 'phedex-filter-checkbox';
+          cBox.className = 'phedex-panel-checkbox';
           cBox.id = 'cbox_' + PxU.Sequence();
           if ( c.negate ) { cBox.checked = true; }
           this.meta.cBox[c.key] = cBox;
