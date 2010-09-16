@@ -297,8 +297,13 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        var args = {}, magic = PxU.Sequence(), // TODO need better magic than this!
+        var args = {}, magic,
           now;
+        if ( dataset ) { magic  = dataset+'_'; } else { magic  = 'X_'; }
+        if ( block )   { magic += block+'_'; }   else { magic += 'X_'; }
+        for (i in this.api_keys) {
+          if ( opts[i] ) { magic += opts[i]+'_' } else { magic += 'X_'; }
+        }
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
