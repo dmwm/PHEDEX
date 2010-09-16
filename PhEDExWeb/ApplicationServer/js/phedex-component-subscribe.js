@@ -25,7 +25,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           is_move:  {type:'checkbox', text:'Make a "move" request?', tip:'Check this box to move the data, instead of simply copying it', attributes:{checked:false} },
           custodial:{type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
           priority: {type:'radio', fields:['low','medium','high'], text:'Priority', default:'low' },
-          userGroup:{type:'regex', text:'User-group', tip:'javascript regular expression', nonNegatable:true },
+          userGroup:{type:'regex', text:'User-group', tip:'enter a valid user-group name', nonNegatable:true },
           timeStart:{type:'regex', text:'Start-time for subscription', tip:'This is valid for datasets only. Unix epoch-time', nonNegatable:true }
         }
       }
