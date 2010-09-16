@@ -11,85 +11,38 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
     payload.panel =
     {
       Datasets:{
-//         map:{from:'phedex-panel-dataset-', to:'P-D'},
         fields:{
           dataset:{type:'text', tip:'Dataset name, with or without wildcards', dynamic:true },
         }
       },
       Blocks:{
-//         map:{from:'phedex-panel-block-', to:'P-B'},
         fields:{
           block:{type:'text', tip:'Block name, with or without wildcards', dynamic:true },
         }
       },
       Parameters:{
         fields:{
-// priority, user-group
-          is_move:  {type:'yesno', fields:[' '], text:'Make a "move" request?', tip:'Check this box to move the data, instead of simply copying it', attributes:{checked:false} },
-          custodial:{type:'yesno', fields:[' '], text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
-          priority: {type:'radio', fields:['low','medium','high'], default:'low' },
+          is_move:  {type:'checkbox', text:'Make a "move" request?', tip:'Check this box to move the data, instead of simply copying it', attributes:{checked:false} },
+          custodial:{type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
+          priority: {type:'radio', fields:['low','medium','high'], text:'Priority', default:'low' },
           userGroup:{type:'regex', text:'User-group', tip:'javascript regular expression', nonNegatable:true },
           timeStart:{type:'regex', text:'Start-time for subscription', tip:'This is valid for datasets only. Unix epoch-time', nonNegatable:true }
         }
       }
     }
   }
+//   this.id = _me+'_'+PxU.Sequence(); // don't set my own ID, inherit the one I get from the panel!
   Yla(this, new PHEDEX.Component.Panel(sandbox,args));
-
-  this.id = _me+'_'+PxU.Sequence();
-//   this.selfHandler = function(o) {
-//     return function(ev,arr) {
-//       var action = arr[0],
-//           subAction = arr[1];
-//       switch (action) {
-//         case 'Panel': {
-//           switch (subAction) {
-//             case 'Reset': {
-//               break;
-//             }
-//             case 'Validate': {
-//               break;
-//             }
-//             case 'Apply': {
-//               break;
-//             }
-//           }
-//           break;
-//         }
-//         case 'expand': { // set focus appropriately when the panel is revealed
-//           if ( !o.firstAlignmentDone ) {
-//             o.overlay.align(this.context_el,this.align_el);
-//             o.firstAlignmentDone = true;
-//           }
-//           if ( o.focusOn ) { o.focusOn.focus(); }
-//           break;
-//         }
-//       }
-//     }
-//   }(this);
-//   _sbx.listen(this.id,this.selfHandler);
-
-//   this.partnerHandler = function(o) {
-//     return function(ev,arr) {
-//       var action = arr[0];
-//       switch (action) {
-// //         case 'doPanel': {
-// //           break;
-// //         }
-//       }
-//     }
-//   }(this);
-//   _sbx.listen(obj.id,this.partnerHandler);
 
   this.cartHandler = function(o) {
     return function(ev,arr) {
-      var action = arr[0], overlay=o.overlay, ctl=o.ctl['panelControl'];
+      var action = arr[0], field=arr[1], overlay=o.overlay, ctl=o.ctl['panelControl'];
       switch (action) {
         case 'add': {
           var _x=o, c, i, _panel=o.meta._panel;
-          for (i in arr[1]) {
+          for (i in field) {
             c = _panel.fields[i];
-            o.AddFieldsetElement(c,arr[1][i]);
+            o.AddFieldsetElement(c,field[i]);
           }
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(overlay.element,'phedex-invisible'); }
@@ -101,7 +54,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   _sbx.listen('buildRequest',this.cartHandler);
 
 /**
- * construct a PHEDEX.Component.Panel object. Used internally only.
+ * construct a PHEDEX.Component.Subscribe object. Used internally only.
  * @method _contruct
  * @private
  */
@@ -109,6 +62,36 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
     return {
       me: _me,
       _init: function(args) {
+        this.selfHandler = function(o) {
+          return function(ev,arr) {
+            var action    = arr[0],
+                subAction = arr[1],
+                value     = arr[2];
+            switch (action) {
+              case 'Panel': {
+                switch (subAction) {
+                  case 'Reset': {
+                    break;
+                  }
+                  case 'Apply': {
+var x = value;
+                    break;
+                  }
+                }
+                break;
+              }
+              case 'expand': { // set focus appropriately when the panel is revealed
+                if ( !o.firstAlignmentDone ) {
+                  o.overlay.align(this.context_el,this.align_el);
+                  o.firstAlignmentDone = true;
+                }
+                if ( o.focusOn ) { o.focusOn.focus(); }
+                break;
+              }
+            }
+          }
+        }(this);
+        _sbx.listen(this.id,this.selfHandler);
       },
     };
   };
