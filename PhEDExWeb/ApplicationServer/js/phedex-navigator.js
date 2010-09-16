@@ -659,7 +659,7 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
 
   var _makeSelector = function(el,type,dataKey,api,argKey) {
         var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-'+argKey+'sel' }),
-            input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name' }),
+            input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
             container = PxU.makeChild(sel, 'div');
           makeList = function(data) {
             if ( !data[dataKey] ) {
