@@ -144,6 +144,7 @@ sub subscribe
 									  IS_DISTRIBUTED => 'n',
 									  COMMENTS => $args{comments},
 									  CLIENT_ID => $client_id,
+									  INSTANCE => $core->{INSTANCE},
 									  NOW => $now
 									  );
 
