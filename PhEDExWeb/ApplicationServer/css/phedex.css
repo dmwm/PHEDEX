@@ -99,8 +99,8 @@ body {
   border: 1px solid black;
 }
 .phedex-banner {
-  border-bottom: 2px solid black;
-  margin-bottom: 2px;
+  border-bottom: 1px solid #ccc;
+  margin-bottom: 1px;
 }
 .phedex-messages-outer {
 }
