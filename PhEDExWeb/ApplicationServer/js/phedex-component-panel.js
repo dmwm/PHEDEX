@@ -63,6 +63,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
  * @private
  */
   _construct = function() {
+    var _default_validate_function = function(arg) { return { result:true, parsed:{value:arg.value} } };
     return {
       me: _me,
       meta: { inner:{}, cBox:{}, el:{}, focusMap:{} },
@@ -78,7 +79,8 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         minmaxPct:   {type:'input', size:7,  negatable:true, fields:['min','max'], className:'minmaxPct' },
         radio:       {type:'input', attributes:{type:'radio'}, nonNegatable:true },
         checkbox:    {type:'input', fields:[' '],   attributes:{type:'checkbox'}, negatable:false },
-        text:        {type:'textNode', attributes:{width:'100px'},   negatable:false }
+        textarea:    {type:'textarea', className:'textarea', negatable:false },
+        text:        {type:'textNode', attributes:{width:'100px'}, negatable:false }
       },
       Validate: {
         regex: function(arg) { return {result:true, parsed:{value:arg.value}}; }, // ...no sensible way to validate a regex except to compile it, assume true...
@@ -131,13 +133,10 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           v.result = true;
           return v;
         },
-        checkbox: function(arg) {
-          return { result:true, parsed:{value:arg.value} };
-        },
-        radio: function(arg) {
-          return { result:true, parsed:{value:arg.value} };
-        }
-
+        checkbox: _default_validate_function,
+        radio:    _default_validate_function,
+        textarea: _default_validate_function,
+        text:     _default_validate_function
       },
 
       Apply: {
@@ -188,7 +187,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         var isValid = true,
             keyMatch = /^phedex-panel-key-/,
             innerList = this.meta.inner,
-            nItems, nSet, values, value, el, key, elClasses, type, s, a, nBox,
+            nItems, nSet, values, value, el, key, elClasses, type, s, a, nBox, elName,
             fields = this.meta._panel.fields;
         this.args = {};
         nItems = 0;
@@ -199,7 +198,8 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           for (var j in innerList[i]) {
             this.setValid(innerList[i]);
             el = innerList[i][j];
-            a.name = el.name;
+            elName  = el.getAttribute('name');
+            a.name = elName;
 // 1. pick out the values from the element(s)
 //          find the phedex-panel-key-* classname of this element
             elClasses = el.className.split(' ');
@@ -215,9 +215,14 @@ PHEDEX.Component.Panel = function(sandbox,args) {
                 else if ( el.type == 'radio' ) {
                   if ( el.checked ) {
                     value = el.value;
+                    if ( fields[elName].byName ) { value = key; }
                     values = {value:value};
                     nSet++;
                   }
+                }
+                else if ( el.nodeName == 'TEXTNODE' ) {
+                  values = {value:el.textContent};
+                  nSet++;
                 }
                 else {
                   value = el.value;
@@ -231,7 +236,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
 
 // 2. parse the values and validate them
           if ( nSet ) {
-            var x = fields[el.name];
+            var x = fields[a.name];
             type = x.type;
             s = this.Validate[type](values);
             if ( s.result ) {
@@ -482,6 +487,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         inner = document.createElement('div');
         outer.className = 'phedex-panel-outer phedex-visible '+hideClass;
         if ( !c.dynamic ) { inner.className = 'phedex-panel-inner'; }
+        if ( c.className ) { YuD.addClass(inner,c.className); }
         inner.id = 'phedex_panel_inner_'+PxU.Sequence();
         this.meta.el[inner.id] = inner;
         this.meta.inner[inner.id] = [];
