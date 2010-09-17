@@ -312,7 +312,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         if ( dataset ) { args.dataset = dataset; node = block = null; }
         if ( block ) { args.block = block; node = null; }
         if ( node  ) { args.node  = node; }
-        now = PxU.epochAlign();
+        now = PxU.epochAlign(0,900);
 
         for (i in this.api_keys) {
           if ( opts[i] ) {
