@@ -163,7 +163,7 @@ sub validateRequest
     my ($self, $data, $nodes, %h) = @_;
 
     # check parameters
-    foreach my $req (qw(CLIENT_ID TYPE)) {
+    foreach my $req (qw(CLIENT_ID TYPE INSTANCE)) {
 	die "required parameter $req is not defined\n"
 	    unless exists $h{$req} && defined $h{$req};
     }
@@ -276,6 +276,7 @@ sub validateRequest
     
     # Part II:  validate nodes
     # Request policy details here:
+    #  * Transfers to Buffer nodes are not allowed in prod instance
     #  * Custodiality only applies to a T[01] MSS node
     #  * Custodiality changes through a request are not allowed
     #  * Changing a move flag to 'n' through a request is not allowed
@@ -293,6 +294,10 @@ sub validateRequest
 	@node_pairs = map { [ undef, $nodemap{$_} ] } @$nodes;
     } elsif ($type eq 'xfer') { # user specifies destinations
 	@node_pairs = map { [ 'd', $nodemap{$_} ] } @$nodes;
+
+	if ( $h{INSTANCE} eq 'prod' && (grep /^T[01]_.*_(Buffer|Export)$/, @$nodes)) {
+	    die "cannot request transfer to T0 or T1 Buffer node in $h{INSTANCE} instance\n";
+	}
 
 	if ($h{IS_CUSTODIAL} eq 'y') {
             if (grep $_ !~ /^T[01]_.*_MSS$/, @$nodes) {
