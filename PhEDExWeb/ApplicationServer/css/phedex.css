@@ -199,9 +199,13 @@ div .phedex-sorted {
 /* --- END TO BECOME REDUNDANT */
 .phedex-panel-help {
   padding: 0 0 0 10px;
+  width: 400px;
 }
 .phedex-panel-buttons {
   float: right;
+}
+.phedex-panel-status {
+  clear: both;
 }
 .phedex-panel-outer {
   clear: both;
