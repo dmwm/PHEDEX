@@ -55,7 +55,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       var action = arr[0], field=arr[1], overlay=o.overlay, ctl=o.ctl['panel'];
       switch (action) {
         case 'add': {
-          var _x=o, c, cart=o.cart, type, item, _panel=o.meta._panel;
+          var c, cart=o.cart, type, item, _panel=o.meta._panel;
           for (type in field) {
             item = field[type];
             if ( cart[type][item] ) { return; }
@@ -64,6 +64,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           }
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(overlay.element,'phedex-invisible'); }
+          o.ctl.Apply.set('disabled',false);
           break;
         }
       }
@@ -104,6 +105,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                   }
                   case 'Apply': {
                     var args={}, i, val, cart=o.cart, iCart, item, dbs, level, xml, vName, vValue;
+                    o.ctl.Apply.set('disabled',true);
                     for ( i in value ) {
                       val = value[i];
                       vName = val.name;
@@ -158,6 +160,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         fieldset.appendChild(el);
         this.dom.result = el;
         this.dom.resultFieldset = fieldset;
+
+        this.ctl.Apply.set('disabled',true);
       },
       gotData: function(data,context) {
         log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
