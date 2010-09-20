@@ -37,7 +37,7 @@ PHEDEX.Datasvc = (function() {
       _get, _got, _fail, _maybe_schedule, _build_query,
 
   // convenience alias and others
-      YuC  = Yu.Connect, _first=0;
+      YuC = Yu.Connect, _first=0;
 
   // method _instanceURL : make the instance URL from the component bits. Hardly worth making it a separate function,
   // but it can then at least be overridden
