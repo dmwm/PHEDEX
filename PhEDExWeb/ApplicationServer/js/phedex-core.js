@@ -133,6 +133,13 @@ PHEDEX.Core = function(sandbox,loader) {
     if ( !_loaded[who] ) { _loaded[who]={}; }
     _sbx.listen(id,moduleHandler);
   };
+  var _componentExists = function(ev,arr) {
+    var obj = arr[0],
+        who = obj.me,
+        id  = obj.id;
+    _modules[id] = obj;
+    _sbx.listen(id,componentHandler);
+  };
 
   var _createDecorators = function(m) {
     var ii = m.decorators.length,
@@ -143,7 +150,7 @@ PHEDEX.Core = function(sandbox,loader) {
     while ( i < ii ) {
       d = m.decorators[i];
       if ( m.ctl[d.name] ) {
-//      I'm not too clear why this happens, in principle it shouldn't...?
+//      Does this ever happen? in principle it shouldn't...
         log('Already loaded "'+d.name+'" for "'+m.me,'warn',_me);
         continue;
       }
@@ -312,17 +319,66 @@ PHEDEX.Core = function(sandbox,loader) {
     };
   };
 
+/**
+ * drives an instantiated component (of a module) through its lifecycle. Used as a sandbox-listener, which defines its signature. This allows components to use core functionalities (like getting data) without having to do it themselves
+* @method componentHandler
+ * @private
+ * @param who {string} id of module to handle, passed from the sandbox
+ * @param arr {array} array of arguments passed from the sandbox. <strong>arr[0]</strong> is the name of the action the module has notified, other array elements are specific to the action.
+ */
+  var componentHandler = function(who,arr) {
+     var action = arr[0],
+         args   = arr[1];
+    log('componentHandler: module='+who+' action="'+action+'"','info',_me);
+    var m = _modules[who];
+    switch ( action ) {
+      case 'getData': {
+        if ( !args ) { break; }
+        log('fetching data for "'+who+'"','info',_me);
+        try {
+          banner('Connecting to data-service...');
+          var dataReady = new YuCE("dataReady", this, false, YuCE.LIST);
+          dataReady.subscribe(function(type,args) {
+            return function(_m) {
+              banner('Data-service returned OK...')
+              var data = args[0],
+                  context = args[1];
+              try {
+                if ( !_m.gotData ) { banner(who+' was nuked before data arrived!'); }
+                else { _m.gotData(data,context); }
+              } catch(ex) {
+                log(ex,'error',who);
+                banner('Error processing data for '+_m.me,'error');
+              }
+            }(m);
+          });
+          var dataFail = new YuCE("dataFail",  this, false, YuCE.LIST);
+          dataFail.subscribe(function(type,args) {
+            var api = args[1].api;
+            log('api:'+api+' error fetching data: '+args[0].message,'error',who);
+            banner('Error fetching or parsing data for "'+api+'"','error');
+          });
+          args.success_event = dataReady;
+          args.failure_event = dataFail;
+          PHEDEX.Datasvc.Call( args );
+        } catch(ex) { log(ex,'error',_me); banner('Error fetching or parsing data for "'+api+'"','error'); }
+        break;
+      }
+    };
+  };
+
   return {
 /**
  create the core module. Or rather, invoke the sandbox to listen for events that will start the ball rolling. Until <strong>create</strong> is called, the core will sit there, doing nothing at all.
  * method create
  */
     create: function() {
-      _sbx.listen('ModuleExists', _moduleExists);
-      _sbx.listen('Load',         _load);
-      _sbx.listen('LoadModule',   _loadModule);
-      _sbx.listen('ModuleLoaded', _createModule);
-      _sbx.listen('CreateModule', _createModule);
+      _sbx.listen('ComponentExists', _componentExists);
+      _sbx.listen('ModuleExists',    _moduleExists);
+      _sbx.listen('Load',            _load);
+      _sbx.listen('LoadModule',      _loadModule);
+      _sbx.listen('ModuleLoaded',    _createModule);
+      _sbx.listen('CreateModule',    _createModule);
       _sbx.notify('CoreCreated');
       banner('PhEDEx App is up and running!','info');
 
