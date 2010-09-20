@@ -18,6 +18,12 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       switch (action) {
         case 'Panel': {
           switch (subAction) {
+            case 'Dismiss': {
+              var c = o.ctl[o.panel_control];
+              if ( c ) { c.Hide(); }
+              else { YuD.addClass(this.dom.panel,'phedex-invisible'); }
+              break;
+            }
             case 'Reset': {
               break;
             }
@@ -35,7 +41,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         }
         case 'expand': { // set focus appropriately when the panel is revealed
           if ( !o.firstAlignmentDone ) {
-            o.overlay.align(this.context_el,this.align_el);
+            o.overlay.align(this.dom.context_el,this.dom.align_el);
             o.firstAlignmentDone = true;
           }
           if ( o.focusOn ) { o.focusOn.focus(); }
@@ -276,13 +282,18 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       BuildOverlay: function() {
         var o = this.overlay,
             d = this.dom,
-            b, hId, el;
+            b, hId, el, cBox, i,
+            buttonMap = {
+              Accept: { title:'Validate your input and apply the panel', action:'Validate'},
+              Reset:  { title:'Reset the panel to the initial, null state' },
+              Dismiss:{ title:'Dismiss the panel, with no action taken' }
+            }, name, buttons, b, bm, pbm, buttonNotifier, title, action;
         hId = this.overlay.header.id;
         ttIds.push(hId);
         ttHelp[hId] = 'click this grey header to drag the panel elsewhere on the screen';
 
-        d.panel  = el = document.createElement('div');
-        d.buttons = b  = document.createElement('div');
+        d.panel = el = document.createElement('div');
+        d.buttons = buttons  = document.createElement('div');
         o.body.appendChild(this.dom.panel);
         o.footer.appendChild(this.dom.buttons);
 
@@ -290,20 +301,26 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         o.render(document.body);
         o.cfg.setProperty('zindex',100);
 
-        var cBox = document.createElement('input');
+        cBox = document.createElement('input');
         cBox.type = 'checkbox';
         cBox.checked = false;
         d.cBox = cBox;
-        b.appendChild(cBox);
-        b.appendChild(document.createTextNode('Keep this window open'));
-        var buttonApply = new Yw.Button({ label:'Apply', title:'Validate your input and apply the panel',    container:b }),
-            buttonReset = new Yw.Button({ label:'Reset', title:'Reset the panel to the initial, null state', container:b }),
-            buttonNotifier = function(obj) {
-              return function(arg) { _sbx.notify(obj.id,'Panel',arg); }
-            }(this);
-        buttonApply.on ('click', function() { buttonNotifier('Validate');  } ); // Validate first, then Apply!
-        buttonReset.on ('click', function() { buttonNotifier('Reset');  } );
-        cBox.addEventListener('click', function() { buttonNotifier('cBox') }, false );
+        buttons.appendChild(cBox);
+        buttons.appendChild(document.createTextNode('Keep this window open'));
+
+        for (i in payload.buttons) {
+          name = payload.buttons[i];
+          if ( payload.buttonMap ) { pbm = payload.buttonMap[name] || {} } else { pbm = {}; }
+          if ( buttonMap[name] )   { bm = buttonMap[name] } else { bm = {}; }
+          title  = pbm.title  || bm.title  || '';
+          action = pbm.action || bm.action || name;
+          this.ctl[name] = b = new Yw.Button({ label:name, title:title, container:buttons });
+          b.on ('click', function(id,_action) {
+            return function() { _sbx.notify(id,'Panel',_action); }
+          }(this.id,action) );
+        }
+        cBox.addEventListener('click', function() { _sbx.notify(id,'Panel','cBox') }, false );
+
 //      make sure the panel moves with the widget when it is dragged!
         if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
           obj.module.dragEvent.subscribe(function(type,args) { o.align('tl','tl'); }, this, true);
@@ -323,14 +340,14 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           p.text    = p.text || 'Panel';
           p.hidden  = 'true';
           p.handler = 'setFocus';
-          apc.name = 'panel';
-          this.context_el = obj.dom[p.context];
-          this.align_el   =  p.align;
+          this.panel_control = apc.name  = 'panel';
+          this.dom.context_el = obj.dom[p.context];
+          this.dom.align_el =  p.align;
         }
         this.dom.panel = document.createElement('div');
-        if ( !this.context_el ) { this.context_el = obj.dom['content']; }
-        if ( !this.align_el   ) {this.align_el    =  'tl'; }
-        o = this.overlay = new Yw.Overlay(this.dom.panel,{context:[this.context_el,'tl',this.align_el]});
+        if ( !this.dom.context_el ) { this.dom.context_el = obj.dom['content']; }
+        if ( !this.dom.align_el   ) { this.dom.align_el    =  'tl'; }
+        o = this.overlay = new Yw.Overlay(this.dom.panel,{context:[this.dom.context_el,'tl',this.dom.align_el]});
         if ( p ) {
           p.target = o.element;
           o.setHeader(p.text);
@@ -355,6 +372,12 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         this.BuildOverlay();
         this.meta._panel = this.createPanelMeta();
         this.BuildPanel();
+
+//         if ( args.payload.resize ) {
+//           var elResize = new Yu.Resize(o.element,{ handles:['b','br','r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
+//           elResize.subscribe('endResize',function(ev) {
+//           });
+//         }
       },
 
       createPanelMeta: function() {
@@ -572,6 +595,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           outer.appendChild(help);
         }
         fieldset.appendChild(outer);
+        return outer;
       }
     };
   };

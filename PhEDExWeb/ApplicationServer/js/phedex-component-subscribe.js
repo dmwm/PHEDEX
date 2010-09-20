@@ -12,18 +12,18 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
     {
       Datasets:{
         fields:{
-          dataset:{type:'text', tip:'Dataset name, with or without wildcards', dynamic:true },
+          dataset:{type:'text', dynamic:true },
         }
       },
       Blocks:{
         fields:{
-          block:{type:'text', tip:'Block name, with or without wildcards', dynamic:true },
+          block:{type:'text', dynamic:true },
         }
       },
       Parameters:{
         fields:{
 // need to extract the list of DBS's from somewhere...
-          dbs:          {type:'text', text:'Choose your DBS', value:'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query' },
+          dbs:          {type:'text', text:'Choose your DBS (eventually!)', value:'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query' },
 
 // node can be multiple
           node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false },
@@ -39,11 +39,14 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'This is valid for datasets only. Unix epoch-time', negatable:false },
           request_only: {type:'checkbox', text:'Request only, do not subscribe', tip:'Make the request without making a subscription',   attributes:{checked:true} },
           no_mail:      {type:'checkbox', text:'Suppress email notification?',   tip:'Check this box to not send an email',              attributes:{checked:true} },
-          comments:     {type:'textarea', text:'Enter your comments here', className:'phedex-inner-textarea' }
+          comments:     {type:'textarea', text:'Enter your comments here', className:'phedex-inner-textarea' },
         }
-      }
+      },
     }
   }
+  payload.buttons = [ 'Dismiss', 'Apply', 'Reset' ];
+  payload.buttonMap = { Apply:{title:'Subscribe this data'} };
+
 //   this.id = _me+'_'+PxU.Sequence(); // don't set my own ID, inherit the one I get from the panel!
   Yla(this, new PHEDEX.Component.Panel(sandbox,args));
 
@@ -56,9 +59,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           for (type in field) {
             item = field[type];
             if ( cart[type][item] ) { return; }
-            cart[type][item] = 1;
             c = _panel.fields[type];
-            o.AddFieldsetElement(c,item);
+            cart[type][item] = o.AddFieldsetElement(c,item);
           }
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(overlay.element,'phedex-invisible'); }
@@ -83,31 +85,46 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           return function(ev,arr) {
             var action    = arr[0],
                 subAction = arr[1],
-                value     = arr[2];
+                value     = arr[2],
+                cart = o.cart, _panel = o.meta._panel, _fieldsets = _panel.fieldsets;
             switch (action) {
               case 'Panel': {
                 switch (subAction) {
                   case 'Reset': {
+                    var type, item, _cart, _fieldset;
+                    for (type in cart ) {
+                      _cart = cart[type];
+                      _fieldset = _fieldsets[type].fieldset;
+                      for (item in _cart) {
+                        _fieldset.removeChild(_cart[item]);
+                      }
+                      cart[type] = {};
+                    }
                     break;
                   }
                   case 'Apply': {
-                    var args={}, call={api:'bounce'}, i, val, cart=o.cart, iCart, item, level;
+                    var args={}, i, val, cart=o.cart, iCart, item, dbs, level, xml, vName, vValue;
                     for ( i in value ) {
                       val = value[i];
-                      args[val.name] = val.values.value;
+                      vName = val.name;
+                      vValue = val.values.value;
+                      if ( vName == 'dataset' || vName == 'block' ) { level = vName; }
+                      else if ( vName == 'dbs' ) { dbs         = vValue; }
+                      else                       { args[vName] = vValue; }
                     }
                     args.move         = (args.move   == '1') ? 'y': 'n';
                     args.static       = (args.static == '1') ? 'y': 'n';
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
 
-                    for ( level in cart ) {
-                      iCart=cart[level];
-//                       args.data='<dbs name="'+value[dbs].values.value+'>';
-                      for ( item in iCart ) {
-                      args.level = level;
-                      }
+                    xml = '<dbs name="'+dbs+'">';
+                    iCart=cart[level];
+                    for ( item in iCart ) {
+                      xml += '<'+level+' name="'+item+'" />';
                     }
+                    xml += '</dbs>';
+                    args.data = xml;
+                    _sbx.notify( o.id, 'getData', { api:'bounce', args:args, method:'post' } );
                     break;
                   }
                 }
@@ -125,7 +142,30 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           }
         }(this);
         _sbx.listen(this.id,this.selfHandler);
+        _sbx.notify('ComponentExists',this); // borrow the Core machinery for getting data!
+
+        var fieldset = document.createElement('fieldset'),
+            legend = document.createElement('legend'),
+            el = document.createElement('div');
+        fieldset.id = 'fieldset_'+PxU.Sequence();
+        fieldset.className = 'phedex-invisible';
+        legend.appendChild(document.createTextNode('Results'));
+        fieldset.appendChild(legend);
+//         legend.appendChild(document.createTextNode(' '));
+        this.dom.panel.appendChild(fieldset);
+
+        el.className = 'phedex-panel-status';
+        fieldset.appendChild(el);
+        this.dom.result = el;
+        this.dom.resultFieldset = fieldset;
       },
+      gotData: function(data,context) {
+        log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
+        banner('Subscription succeeded!');
+        var el = this.dom.result;
+        el.innerHTML = 'Subscription succeeded';
+        YuD.removeClass(this.dom.resultFieldset,'phedex-invisible');
+      }
     };
   };
   Yla(this,_construct(this),true);
@@ -144,20 +184,4 @@ log('loaded...','info','component-subscribe');
 //       <block name="/sample/dataset2#1" />
 //       <block name="/sample/dataset2#2" />
 //     </dataset>
-//   </dbs> 
-
-//    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
-//      <dataset name="/sample/dataset" is-open="y" is-transient="n">
-//        <block name="/sample/dataset#1" is-open="y">
-//          <file lfn="file1" size="10" checksum="cksum:1234"/>
-//          <file lfn="file2" size="22" checksum="cksum:456"/>
-//        </block>
-//        <block name="/sample/dataset#2" is-open="y">
-//          <file lfn="file3" size="1" checksum="cksum:2"/>
-//        </block>
-//      </dataset>
-//      <dataset name="/sample/dataset2" is-open="n" is-transient="n">
-//        <block name="/sample/dataset2#1" is-open="n"/>
-//        <block name="/sample/dataset2#2" is-open="n"/>
-//      </dataset>
-//    </dbs>
+//   </dbs>
