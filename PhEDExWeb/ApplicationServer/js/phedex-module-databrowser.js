@@ -38,6 +38,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
           text: 'Make a subscription',
           source:'component-subscribe',
           payload:{
+//             resize: true,
             control:{
               parent:'control',
               payload:{
