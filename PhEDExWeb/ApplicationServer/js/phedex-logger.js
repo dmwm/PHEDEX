@@ -49,43 +49,52 @@ PHEDEX.Logger = function() {
             verboseOutput: false
           };
 
-      if ( !el ) { return; }
-      elInner = document.getElementById('phedex-logger-inner')
-      elInner.innerHTML = '';
-      elInner.style.display = 'none';
-      elCtl        = document.getElementById('phedex-logger-controls');
-      elLog2Server = document.getElementById('phedex-logger-log2server');
+      Yw.Logger.reset();
+      if ( !args ) { args = {}; }
+      if (args.config) {
+        for (var i in args.config) {
+          conf[i]=args.config[i];
+        }
+      }
+
+      try {
+        var cookie = YuCookie.getSubs('PHEDEX.Logger.option');
+        if ( cookie ) {
+          for (var i in cookie) {
+            this.log2Server.option[i] = cookie[i] == 'true' ? true : false;
+          }
+        }
+      } catch (ex) {};
+      try {
+        var cookie = YuCookie.getSubs('PHEDEX.Logger.level');
+        if ( cookie ) {
+          for (var i in cookie) {
+            this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
+          }
+        }
+      } catch (ex) {};
+      try {
+        var cookie = YuCookie.getSubs('PHEDEX.Logger.group');
+        if ( cookie ) {
+          for (var i in cookie) {
+            if ( i.match('_[0-9]+$') ) { next; }
+            var j = i.toLowerCase();
+            this.log2Server.group[j] = cookie[j] == 'true' ? true : false;
+          }
+        }
+      } catch (ex) {};
+
+      if ( args.log2Server ) { this.log2Server = args.log2server; }
+
+      if ( el ) {
+        elInner = document.getElementById('phedex-logger-inner')
+        elInner.innerHTML = '';
+        elInner.style.display = 'none';
+        elCtl        = document.getElementById('phedex-logger-controls');
+        elLog2Server = document.getElementById('phedex-logger-log2server');
+      }
 
       if ( elCtl && elLog2Server ) {
-        try {
-          var cookie = YuCookie.getSubs('PHEDEX.Logger.option');
-          if ( cookie ) {
-            for (var i in cookie) {
-              this.log2Server.option[i] = cookie[i] == 'true' ? true : false;
-            }
-          }
-        } catch (ex) {};
-        try {
-          var cookie = YuCookie.getSubs('PHEDEX.Logger.level');
-          if ( cookie ) {
-            for (var i in cookie) {
-              this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
-            }
-          }
-        } catch (ex) {};
-        try {
-          var cookie = YuCookie.getSubs('PHEDEX.Logger.group');
-          if ( cookie ) {
-            for (var i in cookie) {
-              if ( i.match('_[0-9]+$') ) { next; }
-              var j = i.toLowerCase();
-              this.log2Server.group[j] = cookie[j] == 'true' ? true : false;
-            }
-          }
-        } catch (ex) {};
-
-        if ( !args ) { args = {}; }
-        if ( args.log2Server ) { this.log2Server = args.log2server; }
         var ctl = PxU.makeChild(elLog2Server,'div'),
             c = PxU.makeChild(ctl,'input');
         c.type    = 'button';
@@ -100,23 +109,17 @@ PHEDEX.Logger = function() {
         this._addControls(elLog2Server,'option');
         this._addControls(elLog2Server,'level');
         this._addControls(elLog2Server,'group');
-      }
 
-      div = PxU.makeChild(el,'div');
-      div.id = el.id +'_yui';
+        div = PxU.makeChild(el,'div');
+        div.id = el.id +'_yui';
+        div.style.width = 'auto';
 
-      Yw.Logger.reset();
-      if (args.config) {
-        for (var i in args.config) {
-          conf[i]=args.config[i];
-        }
+        el.style.width = conf.width;
+        el.style.fontSize = div.style.fontSize = conf.fontSize;
+        _reader = new Yw.LogReader(div.id,conf);
+        _reader.hideSource('global');
+        _reader.hideSource('LogReader');
       }
-      el.style.width = conf.width;
-      div.style.width = 'auto';
-      el.style.fontSize = div.style.fontSize = conf.fontSize;
-      _reader = new Yw.LogReader(div.id,conf);
-      _reader.hideSource('global');
-      _reader.hideSource('LogReader');
       if ( args.opts )
       {
         if ( args.opts.hideSource )
