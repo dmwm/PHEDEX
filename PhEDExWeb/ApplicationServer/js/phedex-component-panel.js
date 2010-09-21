@@ -293,20 +293,24 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         ttHelp[hId] = 'click this grey header to drag the panel elsewhere on the screen';
 
         d.panel = el = document.createElement('div');
-        d.buttons = buttons  = document.createElement('div');
         o.body.appendChild(this.dom.panel);
-        o.footer.appendChild(this.dom.buttons);
+        d.buttons = buttons  = document.createElement('div');
+        buttons.className = 'align-right';
+        o.footer.appendChild(buttons);
 
         YuD.removeClass(el,'phedex-invisible'); // div must be visible before overlay is show()n, or it renders in the wrong place!
         o.render(document.body);
         o.cfg.setProperty('zindex',100);
 
-        cBox = document.createElement('input');
-        cBox.type = 'checkbox';
-        cBox.checked = false;
-        d.cBox = cBox;
-        buttons.appendChild(cBox);
-        buttons.appendChild(document.createTextNode('Keep this window open'));
+        if ( payload.KeepOpenBox ) {
+          cBox = document.createElement('input');
+          cBox.type = 'checkbox';
+          cBox.checked = false;
+          d.cBox = cBox;
+          buttons.appendChild(cBox);
+          buttons.appendChild(document.createTextNode('Keep this window open'));
+          cBox.addEventListener('click', function() { _sbx.notify(id,'Panel','cBox') }, false );
+        }
 
         for (i in payload.buttons) {
           name = payload.buttons[i];
@@ -319,7 +323,6 @@ PHEDEX.Component.Panel = function(sandbox,args) {
             return function() { _sbx.notify(id,'Panel',_action); }
           }(this.id,action) );
         }
-        cBox.addEventListener('click', function() { _sbx.notify(id,'Panel','cBox') }, false );
 
 //      make sure the panel moves with the widget when it is dragged!
         if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
