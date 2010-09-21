@@ -20,7 +20,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       },
       buttons: [ 'Dismiss', 'Apply', 'Reset' ],
       buttonMap: {
-                     Apply:{title:'Subscribe this data'}
+                     Apply:{title:'Subscribe this data', action:'Validate'}
                    },
       panel: {
         Datasets:{
@@ -142,7 +142,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     }
                     xml += '</dbs>';
                     args.data = xml;
-                    _sbx.notify( o.id, 'getData', { api:'bounce', args:args, method:'post' } );
+                    _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
                     break;
                   }
                 }
