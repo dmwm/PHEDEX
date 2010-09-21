@@ -148,6 +148,7 @@ PHEDEX.Module = function(sandbox, string) {
                      menuSelectItem:1,
                      setArgs:1,
                      getData:1,
+                     datasvcFailure:1,
                      destroy:1,
                      getStatePlugin:1,
                      setState:1,
@@ -245,6 +246,10 @@ log('Should not be here','warn','module');
                 case 'getData': { 
                     obj.needProcess = true;
                     break;
+                }
+                case 'datasvcFailure': {
+                  obj.dom.title.innerHTML = 'Error fetching data';
+                  break;
                 }
                 case 'show target': { obj.adjustHeader( value); break; }
                 case 'hide target': { obj.adjustHeader(-value); break; }
