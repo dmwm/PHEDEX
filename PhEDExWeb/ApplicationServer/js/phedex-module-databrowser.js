@@ -35,20 +35,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         },
         {
           name: 'Subscribe',
-          text: 'Make a subscription',
           source:'component-subscribe',
-          payload:{
-//             resize: true,
-            control:{
-              parent:'control',
-              payload:{
-                text:'Subscribe',
-                animate:  false,
-                disabled: false, //true,
-              },
-              el:'content'
-            }
-          }
         },
         {
           name: 'ContextMenu',
