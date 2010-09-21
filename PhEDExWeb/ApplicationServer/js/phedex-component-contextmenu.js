@@ -242,16 +242,12 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
     var block = opts.block || (opts.dataset+'*');
     PxS.notify('CreateModule','databrowser',{block:block}); // TODO Can I avoid knowledge of the global sandbox here?
   }
-  PHEDEX.Component.ContextMenu.Add('block',   PxU.feature['alpha'] + 'Browse this block',   fn);
-  PHEDEX.Component.ContextMenu.Add('dataset', PxU.feature['alpha'] + 'Browse this dataset', fn);
+  PHEDEX.Component.ContextMenu.Add('block',   PxU.feature['beta'] + 'Browse this block',   fn);
+  PHEDEX.Component.ContextMenu.Add('dataset', PxU.feature['beta'] + 'Browse this dataset', fn);
 
   fn = function(opts,el) {
-//     var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
-//         d = el.obj.data,
-//         t;
-//         t = Ylang.JSON.stringify(opts);
-//     w.document.writeln(t);
-    PxS.notify('buildRequest','add',opts);
+//     PxS.notify('Load','phedex-component-subscribe',opts);
+   PxS.notify('buildRequest','add',opts);
   };
   PHEDEX.Component.ContextMenu.Add('dataset',PxU.feature['alpha'] + 'Submit request for this dataset', fn);
   PHEDEX.Component.ContextMenu.Add('block',  PxU.feature['alpha'] + 'Submit request for this block', fn);
