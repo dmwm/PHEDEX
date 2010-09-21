@@ -2,50 +2,66 @@ PHEDEX.namespace('Component');
 PHEDEX.Component.Subscribe = function(sandbox,args) {
   var _me = 'component-subscribe',
       _sbx = sandbox,
-      payload = args.payload,
-      obj = payload.obj,
-      partner = args.partner,
+      payload, opts, obj,
       ttIds = [], ttHelp = {};
 
-  if ( !payload.panel ) {
-    payload.panel =
-    {
-      Datasets:{
-        fields:{
-          dataset:{type:'text', dynamic:true },
-        }
+  if ( !args ) { args={}; }
+  opts = {
+    text: 'Make a subscription',
+    payload:{
+      control:{
+        parent:'control',
+        payload:{
+          text:'Subscribe',
+          animate:  false,
+          disabled: false, //true,
+        },
+        el:'content'
       },
-      Blocks:{
-        fields:{
-          block:{type:'text', dynamic:true },
-        }
-      },
-      Parameters:{
-        fields:{
+      buttons: [ 'Dismiss', 'Apply', 'Reset' ],
+      buttonMap: {
+                     Apply:{title:'Subscribe this data'}
+                   },
+      panel: {
+        Datasets:{
+          fields:{
+            dataset:{type:'text', dynamic:true },
+          }
+        },
+        Blocks:{
+          fields:{
+            block:{type:'text', dynamic:true },
+          }
+        },
+        Parameters:{
+          fields:{
 // need to extract the list of DBS's from somewhere...
-          dbs:          {type:'text', text:'Choose your DBS (eventually!)', value:'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query' },
+            dbs:          {type:'text', text:'Choose your DBS (eventually!)', value:'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query' },
 
 // node can be multiple
-          node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false },
-          move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
-                         tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
-          static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
-                         tip:'A static subscription is a snapshot of the data as it is now. A growing subscription will add new blocks as they become available', default:'growing' },
-          priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', default:'low' },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false },
+            move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
+                           tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
+            static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
+                           tip:'A static subscription is a snapshot of the data as it is now. A growing subscription will add new blocks as they become available', default:'growing' },
+            priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', default:'low' },
 
-          custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
-          group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false },
+            custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
+            group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false },
 
-          time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'This is valid for datasets only. Unix epoch-time', negatable:false },
-          request_only: {type:'checkbox', text:'Request only, do not subscribe', tip:'Make the request without making a subscription',   attributes:{checked:true} },
-          no_mail:      {type:'checkbox', text:'Suppress email notification?',   tip:'Check this box to not send an email',              attributes:{checked:true} },
-          comments:     {type:'textarea', text:'Enter your comments here', className:'phedex-inner-textarea' },
+            time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'This is valid for datasets only. Unix epoch-time', negatable:false },
+            request_only: {type:'checkbox', text:'Request only, do not subscribe', tip:'Make the request without making a subscription',   attributes:{checked:true} },
+            no_mail:      {type:'checkbox', text:'Suppress email notification?',   tip:'Check this box to not send an email',              attributes:{checked:true} },
+            comments:     {type:'textarea', text:'Enter your comments here', className:'phedex-inner-textarea' },
+          }
         }
-      },
+      }
     }
   }
-  payload.buttons = [ 'Dismiss', 'Apply', 'Reset' ];
-  payload.buttonMap = { Apply:{title:'Subscribe this data'} };
+  Yla(args, opts);
+  Yla(args.payload, opts.payload);
+  payload = args.payload;
+  obj = payload.obj;
 
 //   this.id = _me+'_'+PxU.Sequence(); // don't set my own ID, inherit the one I get from the panel!
   Yla(this, new PHEDEX.Component.Panel(sandbox,args));
