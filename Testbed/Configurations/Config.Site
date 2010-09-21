@@ -9,7 +9,7 @@ PHEDEX_CONTEXT=${PHEDEX_NODE};
 X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
-PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/3.0.0/etc/profile.d/grid_env.sh;
+PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/current/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 
 ### IMPORT ConfigPart.Common
