@@ -130,7 +130,7 @@ PHEDEX.Logger = function() {
       }
       if ( this.log2Server.option['log to console'] ) { Yw.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
 
-//    Attempt to harvest any temporarily bufferred log messages
+//    Attempt to harvest any temporarily buffered log messages
       this.log = function(obj) {
         return function(str,level,group) {
           var l = obj.log2Server;
@@ -151,7 +151,7 @@ PHEDEX.Logger = function() {
           }
           Ylog(str, level, group);
           if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
-            var url = '/log/'+level+'/'+group+'/'+str;
+            var url = '/phedex/datasvc/log/'+level+'/'+group+'/'+str;
             Yu.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
           }
         };
