@@ -247,7 +247,17 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
 
   fn = function(opts,el) {
 //     PxS.notify('Load','phedex-component-subscribe',opts);
-   PxS.notify('buildRequest','add',opts);
+    var d = el.node.data, item, obj=el.obj, pd, format, values, i;
+    if ( !opts.dataset ) {
+      pd = el.node.parent.data;
+      format = pd.spec.format;
+      values = pd.values;
+      for (i in format) {
+        if ( format[i].ctxKey == 'dataset' ) { opts.dataset    = values[i]; }
+        if ( format[i].ctxKey == 'is_open' ) { opts.ds_id_open = values[i]; }
+      }
+    }
+    PxS.notify('buildRequest','add',opts);
   };
   PHEDEX.Component.ContextMenu.Add('dataset',PxU.feature['alpha'] + 'Submit request for this dataset', fn);
   PHEDEX.Component.ContextMenu.Add('block',  PxU.feature['alpha'] + 'Submit request for this block', fn);
