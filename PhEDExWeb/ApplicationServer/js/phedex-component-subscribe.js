@@ -68,18 +68,28 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
   this.cartHandler = function(o) {
     return function(ev,arr) {
-      var action = arr[0], field=arr[1], overlay=o.overlay, ctl=o.ctl['panel'];
+      var action=arr[0], args=arr[1], ctl=o.ctl['panel'];
       switch (action) {
         case 'add': {
-          var c, cart=o.cart, type, item, _panel=o.meta._panel;
-          for (type in field) {
-            item = field[type];
-            if ( cart[type][item] ) { return; }
-            c = _panel.fields[type];
-            cart[type][item] = o.AddFieldsetElement(c,item);
+          var c, cart=o.cart, cd=cart.data, type, item, blocks, _a=o;
+          type = 'dataset';
+          item = args.dataset;
+          if ( !cart[item] ) {
+            cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
           }
+          blocks = cd[item].blocks;
+          if ( args.block ) {
+            type = 'block';
+            item = args.block;
+            if ( blocks[item] ) {
+              return;
+            }
+          }
+          blocks[item] = { block:item, is_open:args.is_open };
+          c = o.meta._panel.fields[type];
+          cart.elements.push({type:type, el:o.AddFieldsetElement(c,item)});
           if ( ctl ) { ctl.Enable(); }
-          else       { YuD.removeClass(overlay.element,'phedex-invisible'); }
+          else       { YuD.removeClass(o.overlay.element,'phedex-invisible'); }
           o.ctl.Apply.set('disabled',false);
           break;
         }
@@ -96,7 +106,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   _construct = function() {
     return {
       me: _me,
-      cart:{ dataset:{}, block:{} },
+      cart:{ data:{}, elements:[] },
       _init: function(args) {
         this.selfHandler = function(o) {
           return function(ev,arr) {
@@ -108,15 +118,13 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
               case 'Panel': {
                 switch (subAction) {
                   case 'Reset': {
-                    var type, item, _cart, _fieldset;
-                    for (type in cart ) {
-                      _cart = cart[type];
-                      _fieldset = _fieldsets[type].fieldset;
-                      for (item in _cart) {
-                        _fieldset.removeChild(_cart[item]);
-                      }
-                      cart[type] = {};
+                    var item, _cart, _fieldset;
+                    while (item = cart.elements.shift()) {
+                      _fieldset = _fieldsets[item.type].fieldset;
+                      _fieldset.removeChild(item.el);
                     }
+                    cart = { data:{}, elements:[] };
+                    o.ctl.Apply.set('disabled',true);
                     break;
                   }
                   case 'Apply': {
@@ -135,12 +143,12 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
 
-                    xml = '<dbs name="'+dbs+'">';
+                    xml = '<data version="2.0"><dbs name="'+dbs+'">';
                     iCart=cart[level];
                     for ( item in iCart ) {
                       xml += '<'+level+' name="'+item+'" />';
                     }
-                    xml += '</dbs>';
+                    xml += '</dbs></data>';
                     args.data = xml;
                     _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
                     break;
@@ -194,14 +202,3 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 }
 
 log('loaded...','info','component-subscribe');
-
-//   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
-//     <dataset name="/sample/dataset">
-//       <block name="/sample/dataset#1" />
-//       <block name="/sample/dataset#2" />
-//     </dataset>
-//     <dataset name="/sample/dataset2">
-//       <block name="/sample/dataset2#1" />
-//       <block name="/sample/dataset2#2" />
-//     </dataset>
-//   </dbs>
