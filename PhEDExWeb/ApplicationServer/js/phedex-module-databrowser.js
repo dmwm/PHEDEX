@@ -102,24 +102,23 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
       meta: {
         tree: [
           {
-            width:1200,
+            width:opts.width,
             name:'Dataset',
             format: [
               {width:600,text:'Dataset Name', className:'phedex-tree-dataset-name',       otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'dataset', spanWrap:true },
-              {width: 60,text:'Open',         className:'phedex-tree-dataset-open',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Open',         className:'phedex-tree-dataset-open',       otherClasses:'align-right', ctxArgs:'sort-alpha', ctxKey:'is_open' },
               {width: 60,text:'Transient',    className:'phedex-tree-dataset-transient',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width:160,text:'Create Time',  className:'phedex-tree-dataset-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width:160,text:'Update Time',  className:'phedex-tree-dataset-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT', hide:true }
             ]
           },
           {
-            width:1200,
             name:'Block',
             format: [
               {width:600,text:'Block Name',  className:'phedex-tree-block-name',       otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
               {width: 60,text:'Files',       className:'phedex-tree-block-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',       className:'phedex-tree-block-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-              {width: 60,text:'Open',        className:'phedex-tree-block-open',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Open',        className:'phedex-tree-block-open',       otherClasses:'align-right', ctxArgs:'sort-alpha', ctxKey:'is_open' },
               {width:160,text:'Create Time', className:'phedex-tree-block-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width:160,text:'Update Time', className:'phedex-tree-block-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT', hide:true }
             ]
