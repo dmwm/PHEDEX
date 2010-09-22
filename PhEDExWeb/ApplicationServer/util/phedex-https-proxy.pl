@@ -120,7 +120,7 @@ if ( !( $cert_file || $key_file || $proxy || $pk12 || $nocert ||
         $ENV{HTTPS_PROXY} || $ENV{HTTPS_CERT_FILE} || $ENV{HTTPS_KEY_FILE} ) )
 {
   $cert_file = $ENV{HOME} . '/.globus/usercert.pem';
-  $key_file  = $ENV{HOME} . '/.globus/userkey.pem.nok';
+  $key_file  = $ENV{HOME} . '/.globus/userkey.pem';
 }
 if ( $pk12 )
 {
@@ -173,9 +173,9 @@ while ( $c = $server->accept )
         $file =~ s%^/*%%;
         $file =~ s%\.\./%%g;
 
-	if ( $file =~ m%^log/([^/]+)/([^/]+)/([^/]+)$% )
+	if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/([^/]+)$% )
 	{
-	  my ($level,$group,$str) = ($1,$2,$3);
+	  my ($level,$group,$str) = ($2,$3,$4);
 	  $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
 	  print scalar localtime, ": LOG $group/$level $str\n";
           my $response = HTTP::Response->new(200);
