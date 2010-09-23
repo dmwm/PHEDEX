@@ -102,20 +102,23 @@ sub idle
 	# transferring files/blocks:
 	#   - no block destination
 	#   - no file request
-	#   - no transfer task (incoming or outgoing)
+	#   - no transfer task (incoming or outgoing), on target and locally linked Buffer node
 	($stmt, $nrow) = &dbexec($dbh, qq{
 	   insert into t_xfer_delete (fileid, node, time_request)
 	   (select f.id, bd.node, bd.time_request
 	    from t_dps_block_delete bd
 	      join t_xfer_file f
 	        on f.inblock = bd.block
+	      left join t_adm_link ln on ln.from_node=bd.node and ln.is_local='y'
+	      left join t_adm_node ndbuf on ndbuf.id=ln.to_node and ndbuf.kind='Buffer'
               left join t_dps_block_dest dest
                 on dest.block = bd.block and dest.destination = bd.node
               left join t_xfer_request xq
                 on xq.fileid = f.id and xq.destination = bd.node
 	      left join t_xfer_task xt
                 on xt.fileid = f.id
-               and (xt.from_node = bd.node or xt.to_node = bd.node)
+               and (xt.from_node = bd.node or xt.to_node = bd.node
+		    or xt.from_node=ndbuf.id or xt.to_node = ndbuf.id)
 	      left join t_xfer_delete xd
 	        on xd.fileid = f.id and xd.node = bd.node
 	    where xd.fileid is null
@@ -174,9 +177,8 @@ sub idle
 	}
 
 	# Clean up
-	# Delete requests for file and block deletion after 3 days
+	# Delete requests for block deletion after 3 days
 	my $old = $now - 3*24*3600;
-	&dbexec($dbh,qq{delete from t_xfer_delete where time_complete < :old}, ':old' => $old);
 	&dbexec($dbh,qq{delete from t_dps_block_delete where time_complete < :old}, ':old' => $old);
 	# Delete requests for block deletion from empty blocks
 	&dbexec($dbh,qq{delete from t_dps_block_delete bd
