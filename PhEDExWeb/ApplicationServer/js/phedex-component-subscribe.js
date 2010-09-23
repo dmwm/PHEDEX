@@ -36,10 +36,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         Parameters:{
           fields:{
 // need to extract the list of DBS's from somewhere...
-            dbs:          {type:'text', text:'Choose your DBS (eventually!)', value:'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query' },
+            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:'test' /*http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query'*/ },
 
 // node can be multiple
-            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'TX_Test1_Buffer' },
             move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
                            tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
             static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
@@ -124,12 +124,13 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                       _fieldset.removeChild(item.el);
                     }
                     cart = { data:{}, elements:[] };
-                    o.ctl.Apply.set('disabled',true);
+//                     o.ctl.Apply.set('disabled',true);
                     break;
                   }
                   case 'Apply': {
-                    var args={}, i, val, cart=o.cart, iCart, item, dbs, level, xml, vName, vValue;
-                    o.ctl.Apply.set('disabled',true);
+                    var args={}, i, val, cart=o.cart, iCart, item, dbs, dataset, ds, block, xml, vName, vValue;
+//                     o.ctl.Apply.set('disabled',true);
+                    o.dom.result.innerHTML = '';
                     for ( i in value ) {
                       val = value[i];
                       vName = val.name;
@@ -144,12 +145,18 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     args.request_only =  args.request_only   ? 'y' : 'n';
 
                     xml = '<data version="2.0"><dbs name="'+dbs+'">';
-                    iCart=cart[level];
-                    for ( item in iCart ) {
-                      xml += '<'+level+' name="'+item+'" />';
+                    iCart=cart.data;
+                    for ( dataset in iCart ) {
+                      ds=iCart[dataset];
+                      xml += '<dataset name="'+dataset+'" is-open="'+ds.is_open+'">';
+                      for ( block in ds.blocks ) {
+                        xml += '<block name="'+block+'" is-open="'+ds.blocks[block].is_open+'" />';
+                      }
+                      xml += '</dataset>';
                     }
                     xml += '</dbs></data>';
                     args.data = xml;
+                    o.dom.result.innerHTML = 'Submitting request, please wait...';
                     _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
                     break;
                   }
@@ -188,11 +195,12 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.ctl.Apply.set('disabled',true);
       },
       gotData: function(data,context) {
+        var rid = data.request_created[0].id;
         log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
         banner('Subscription succeeded!');
-        var el = this.dom.result;
-        el.innerHTML = 'Subscription succeeded';
+        this.dom.result.innerHTML = 'Subscription succeeded:<br/>request-ID = '+rid+'<br/>';
         YuD.removeClass(this.dom.resultFieldset,'phedex-invisible');
+//         this.ctl.Apply.set('disabled',true);
       }
     };
   };
