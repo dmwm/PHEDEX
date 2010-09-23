@@ -254,7 +254,7 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
       values = pd.values;
       for (i in format) {
         if ( format[i].ctxKey == 'dataset' ) { opts.dataset    = values[i]; }
-        if ( format[i].ctxKey == 'is_open' ) { opts.ds_id_open = values[i]; }
+        if ( format[i].ctxKey == 'is_open' ) { opts.ds_is_open = values[i]; }
       }
     }
     PxS.notify('buildRequest','add',opts);
