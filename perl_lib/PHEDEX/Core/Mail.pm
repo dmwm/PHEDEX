@@ -394,7 +394,7 @@ ENDEMAIL
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
 	   message => $message,
            TESTING_MODE => $$self{CONFIG}{TESTING_MODE})
-or die "sending request creation email failed\n";
+or warn "sending request creation email failed\n";
 
 }
 
@@ -498,7 +498,7 @@ ENDEMAIL
 	    replyto => [ $admin_email ],
 	    message => $message,
             TESTING_MODE => $$self{CONFIG}{TESTING_MODE},
-	    ) or die "sending request update email failed\n";
+	    ) or warn "sending request update email failed\n";
 
     return 1;
 }
