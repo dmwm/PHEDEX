@@ -111,7 +111,7 @@ sub invoke
 				    REMOTE_HOST => remote_host(), # TODO:  does this work in reverse proxy?
                                     REQUEST_METHOD => request_method(),
 				    USER_AGENT => user_agent(),
-				    DEBUG => $TESTING,
+				    DEBUG => 0, # DEBUG printout screws the returned data structure
 				    CONFIG_FILE => $self->{CONFIG_FILE},
 				    CONFIG => $self->{CONFIG},
 				    CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
