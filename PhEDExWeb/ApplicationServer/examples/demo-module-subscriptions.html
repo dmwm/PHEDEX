@@ -30,9 +30,9 @@
 <script type="text/javascript">
  PxW.ProductionMode  = false;
  PxW.combineRequests = false;
- PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
- PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
- PxW.Instances.push({name:'Tony - private', instance:'tony'});
+//  PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
+//  PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
+//  PxW.Instances.push({name:'Tony - private', instance:'tony'});
 </script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
 <script type="text/javascript">
@@ -48,7 +48,7 @@ function runDemo() {
 
 function createCoreApp() {
 // This is called once the core is fully loaded. Now I can create the core application and sandbox, and then start creating PhEDEx modules
-  PHEDEX.Datasvc.Instance('tony');
+//   PHEDEX.Datasvc.Instance('tony');
   banner('Create sandbox and core application...');
   try {
     PxS = new PHEDEX.Sandbox();
@@ -66,25 +66,24 @@ function createCoreApp() {
 // without this, the module does not display correctly. In the full application, this is not needed.
   PxL.load(function(){},'module');
 
-// For now, you need this magic to pass an argument to the LinkView module. We create a listener function that listens for
-// ('module','needArguments'), and then explicitly sends an arguments-object with the name of a node.
-  var moduleHandler = function(ev,arr) {
-     var action = arr[0],
-         id     = arr[1];
-    switch ( action ) {
-      case 'needArguments':{ // respond only to ('module','needArguments')
-        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/inject_5'} );
-//         PxS.notify( id, 'setArgs', {block:'/MinBias_TuneD6T_7TeV-pythia6/Fall10-START38_V9-v1/GEN-SIM-RAW#4*'} );
-        break;
-      }
-    };
-  }
-// tell the sandbox we are listening for 'module' events
-  PxS.listen('module', moduleHandler);
+//// For now, you need this magic to pass an argument to the LinkView module. We create a listener function that listens for
+//// ('module','needArguments'), and then explicitly sends an arguments-object with the name of a node.
+//  var moduleHandler = function(ev,arr) {
+//     var action = arr[0],
+//         id     = arr[1];
+//    switch ( action ) {
+//      case 'needArguments':{ // respond only to ('module','needArguments')
+//        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/inject_5'} );
+//        break;
+//      }
+//    };
+//  }
+//// tell the sandbox we are listening for 'module' events
+//  PxS.listen('module', moduleHandler);
 
 // Now tell the core to load, create, and render the 'linkview' module.
 // note the third argument, an object that specifies internal state
-  PxS.notify('CreateModule','databrowser',{state:{ specific:'dataset_create_since=9999 block_create_since=672' } });
+  PxS.notify('CreateModule','subscriptions',{state:{ specific:'create_since=48' } });
 };
 </script>
 </body>
