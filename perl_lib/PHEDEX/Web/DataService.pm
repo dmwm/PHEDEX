@@ -192,7 +192,13 @@ sub print_doc
     $call =~s%/+$%%;
     $call =~s%//+%/%;
 
-    print header();
+    my $duration = 86400*100;
+    my $http_now = &formatTime(&mytimeofday(), 'http');
+    my %cache_headers =(-Cache_Control => "public, max-age=$duration",
+		        -Date => $http_now,
+		        -Last_Modified => $http_now,
+		        -Expires => "+${duration}s");
+    print header(-type => 'text/html',%cache_headers);
     my ($module,$module_name,$loader,@lines,$line);
     $loader = PHEDEX::Core::Loader->new ( NAMESPACE => 'PHEDEX::Web::API' );
     $module_name = $loader->ModuleName($call);
