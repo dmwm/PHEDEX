@@ -250,6 +250,17 @@ sub getFileReplicas
     return \@r;
 }
 
+sub getDBS {
+   my ($self, %h) = @_;
+   my ($sql,$q,@r);
+
+   $sql = qq{ select name, id from t_dps_dbs };
+
+    $q = execute_sql( $self, $sql );
+    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+   return \@r;
+}
+
 sub getTFC {
    my ($self, %h) = @_;
    my ($sql,$q,%p,@r);
