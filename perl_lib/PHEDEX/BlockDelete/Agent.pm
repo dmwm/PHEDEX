@@ -128,13 +128,16 @@ sub idle
         # Mark the block deletion request completed if it has file
         # deletion requests and they are all completed, where
         # completed means that the deletion task is finished AND the
-        # replica is gone
+        # replica is gone from the target node and the locally linked Buffer node
 	($stmt, $nrow) = &dbexec ($dbh, qq{
           merge into t_dps_block_delete bd
           using (select xd.node, xf.inblock, b.files n_files,
-                        count(*) n_exist, sum(nvl2(xd.time_complete,1,0) * nvl2(xr.fileid,0,1)) n_complete
+                        count(*) n_exist, sum(nvl2(xd.time_complete,1,0) * nvl2(xr.fileid,0,1) * nvl2(xrb.fileid,0,1)) n_complete
                    from t_xfer_delete xd
               left join t_xfer_replica xr on xr.fileid = xd.fileid and xr.node = xd.node
+	      left join t_adm_link ln on ln.from_node=xd.node and ln.is_local='y'
+	      left join t_adm_node ndbuf on ndbuf.id=ln.to_node and ndbuf.kind='Buffer'
+	      left join t_xfer_replica xrb on xrb.fileid = xd.fileid and xrb.node = ndbuf.id
 	           join t_xfer_file xf on xf.id = xd.fileid
                    join t_dps_block_delete bd on xd.node = bd.node and bd.block = xf.inblock
                    join t_dps_block b on b.id = bd.block
