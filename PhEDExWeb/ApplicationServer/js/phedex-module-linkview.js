@@ -318,26 +318,28 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
       fillBody: function() {
         var root = this.tree.getRoot(),
             antidirection=this.anti_direction_key(),
-            tLeaf;
-        if ( !this.data.hist.length )
+            tLeaf, i, j
+            data = this.data,
+            link_errors, tNode, p, d, e, h, node;
+        if ( !data.hist.length )
         {
           tLeaf = new Yw.TextNode({label: 'Nothing found, try another node or widen the parameters...', expanded: false}, root);
           tLeaf.isLeaf = true;
         }
-        for (var i in this.data.hist) {
-          var h = this.data.hist[i],
-              node = h[antidirection],
-              d = {},
-              e = {num_errors:0};
-          for (var j in this.data.queue) {
-            if (this.data.queue[j][antidirection]==node) {
-              d = this.data.queue[j];
+        for (i in data.hist) {
+          h = data.hist[i];
+          node = h[antidirection];
+          d = {};
+          e = {num_errors:0};
+          for (j in this.data.queue) {
+            if (data.queue[j][antidirection]==node) {
+              d = data.queue[j];
               break;
             }
           }
-          for (var j in this.data.error) {
-            if (this.data.error[j][antidirection]==node) {
-              e = this.data.error[j];
+          for (j in data.error) {
+            if (data.error[j][antidirection]==node) {
+              e = data.error[j];
               break;
             }
           }
@@ -356,9 +358,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
 //        I did see a better way to do this in the YUI docs, but will find that later...
 //        populate the payload with everything that might be useful, so I don't need widget-specific knowledge in the parent
 //        payload.args is for the data-service call, payload.opts is for the callback to drive the next stage of processing
-          var link_errors,
-              tNode,
-              p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
+          p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
           p.args.from = h.from;
           p.args.to   = h.to;
           p.args.binwidth = h.transfer[0].binwidth;
