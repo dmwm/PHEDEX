@@ -297,7 +297,12 @@ PHEDEX.Core = function(sandbox,loader) {
                   context = args[1];
               try {
                 if ( !_m.gotData ) { banner(who+' was nuked before data arrived!'); }
-                else { _m.gotData(data,context); }
+                else {
+                  _m.gotData(data,context);
+                  if ( context.maxAge ) {
+                    _m.data_expires = new Date().getTime()/1000 + parseInt(context.maxAge);
+                  }
+                }
               } catch(ex) {
                 log(ex,'error',who);
                 banner('Error processing data for '+_m.me,'error');
