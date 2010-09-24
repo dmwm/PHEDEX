@@ -2,11 +2,16 @@ PHEDEX.namespace('Module');
 
 PHEDEX.Module.Subscriptions=function(sandbox, string) {
   var _sbx = sandbox,
-/** time-window, in hours. Set this value in the code to set the default
- * @property _time {integer}
+/** creation-time-window, in hours, counting backwards from 'now'. Set to '9999' for infinity.
+ * @property create_since {integer}
  * @private
  */
-      _time = 24,
+      create_since = 24,
+/** update-time-window, in hours, counting backwards from 'now'. Set to '9999' for infinity.
+ * @property update_since {integer}
+ * @private
+ */
+      update_since = 24,
       opts = {},
       width = 1200;
 
@@ -22,20 +27,20 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
     return {
       decorators: [
         {
-          name: 'Headers',
+          name:'Headers',
           source:'component-control',
-          parent: 'control',
+          parent:'control',
           payload:{
             target: 'extra',
             animate:false
           }
         },
         {
-          name: 'ContextMenu',
+          name:'ContextMenu',
           source:'component-contextmenu'
         },
         {
-          name: 'cMenuButton',
+          name:'cMenuButton',
           source:'component-splitbutton',
           payload:{
             name:'Show all fields',
@@ -46,18 +51,40 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
           }
         },
         {
-          name: 'TimeSelect',
+          name: 'CreateTimeSelect',
           source: 'component-menu',
           payload:{
-            type: 'menu',
-            initial: function() { return _time; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
-            container: 'buttons',
+            type:'menu',
+            prefix:'Created:',
+            initial: function() { return create_since; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
+            container:'buttons',
             menu: { 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
             map: {
-              onChange:'changeTimebin'
+              onChange:'changeCreateTimebin'
             }
           }
         },
+        {
+          name:'UpdateTimeSelect',
+          source:'component-menu',
+          payload:{
+            type:'menu',
+            prefix:'Updated:',
+            initial: function() { return update_since; }, // Use a function rather than a set value in case the value is updated by permalink-state before the decorator is built!
+            container:'buttons',
+            menu: { 24:'Last Day', 48:'Last 2 Days', 96:'Last 4 Days', 168:'Last Week', 336:'Last 2 weeks', 672:'Last 4 Weeks', 1342:'Last 8 Weeks', 9999:'Forever' },
+            map: {
+              onChange:'changeUpdateTimebin'
+            }
+          }
+        },
+        {
+          name:'Refresh',
+          source:'component-refresh',
+          payload: {
+            align:30
+          }
+        }
       ],
 
       meta: {
@@ -67,27 +94,39 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
             width:1200,
             name:'Dataset',
             format: [
-              {width:400,text:'Dataset', className:'phedex-tree-dataset-name',  otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'dataset', spanWrap:true },
-              {width:60, text:'Id',      className:'phedex-tree-dataset-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
-              {width:60, text:'Open',    className:'phedex-tree-dataset-open',  otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width:60, text:'Files',   className:'phedex-tree-dataset-files', otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width:60, text:'Bytes',   className:'phedex-tree-dataset-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes }
+              {width:400, text:'Dataset', className:'phedex-tree-dataset-name',  otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'dataset', spanWrap:true },
+              {width: 60, text:'Id',      className:'phedex-tree-dataset-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
+              {width: 50, text:'Open',    className:'phedex-tree-dataset-open',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60, text:'Files',   className:'phedex-tree-dataset-files', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 60, text:'Bytes',   className:'phedex-tree-dataset-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes }
             ]
           },
           {
-            name:'File',
+            width:1200,
+            name:'Block',
+            format: [
+              {width:400, text:'Block',   className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'block', spanWrap:true },
+              {width: 60, text:'Id',      className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
+              {width: 50, text:'Open',    className:'phedex-tree-block-open',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60, text:'Files',   className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 60, text:'Bytes',   className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes }
+            ]
+          },
+          {
+            name:'Subscription',
             format:[
 //    'LEVEL' => 'dataset'
-              {width:100, text:'RequestID',     className:'phedex-tree-subs-rid',           otherClasses:'align-right', ctxArgs:'rid', ctxKey:'rid' },
-              {width:160, text:'Node',          className:'phedex-tree-subs-node',          otherClasses:'align-right', ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width:100, text:'Group',         className:'phedex-tree-subs-group',         otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' },
-              {width:60,  text:'Custodial',     className:'phedex-tree-subs-custodial',     otherClasses:'align-right' },
-              {width:60,  text:'Move',          className:'phedex-tree-subs-move',          otherClasses:'align-right' },
-              {width:60,  text:'Priority',      className:'phedex-tree-subs-priority',      otherClasses:'align-right', ctxArgs:['sort-alpha'] },
-              {width:100, text:'Suspended',     className:'phedex-tree-subs-suspended',     otherClasses:'align-right' },
-              {width:160, text:'Suspend until', className:'phedex-tree-subs-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
-              {width:160, text:'Creation-time', className:'phedex-tree-subs-creation-time', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
-              {width:160, text:'Update-time',   className:'phedex-tree-subs-update-time',   otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' }
+              {width: 60, text:'Level',         className:'phedex-tree-subscription-level',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 80, text:'RequestID',     className:'phedex-tree-subscription-rid',           otherClasses:'align-right', ctxArgs:['rid','sort-num'], ctxKey:'rid' },
+              {width:120, text:'Node',          className:'phedex-tree-subscription-node',          otherClasses:'align-left',  ctxArgs:['node', 'sort-alpha'], ctxKey:'node' },
+              {width: 80, text:'Group',         className:'phedex-tree-subscription-group',         otherClasses:'align-left',  ctxArgs:['group','sort-alpha'], ctxKey:'group' },
+              {width: 60, text:'Custodial',     className:'phedex-tree-subscription-custodial',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 40, text:'Move',          className:'phedex-tree-subscription-move',          otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60, text:'Priority',      className:'phedex-tree-subscription-priority',      otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 80, text:'Suspended',     className:'phedex-tree-subscription-suspended',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width:180, text:'Suspend until', className:'phedex-tree-subscription-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
+              {width:180, text:'Creation-time', className:'phedex-tree-subscription-creation-time', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
+              {width:180, text:'Update-time',   className:'phedex-tree-subscription-update-time',   otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' }
             ]
           }
         ],
@@ -99,9 +138,9 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
               'phedex-tree-from-node'   :{type:'regex',       text:'From Node-name',   tip:'javascript regular expression' },
             }
           },
-          'Block-level attributes':{
-            map:{from:'phedex-tree-block-', to:'B'},
-            fields:{
+//           'Block-level attributes':{
+//             map:{from:'phedex-tree-block-', to:'B'},
+//             fields:{
 //               'phedex-tree-block-name'     :{type:'regex',  text:'Block-name',     tip:'javascript regular expression' },
 //               'phedex-tree-block-id'       :{type:'int',    text:'Block-ID',       tip:'ID of this block in TMDB' },
 //               'phedex-tree-block-state'    :{type:'regex',  text:'Block-state',    tip:"'assigned', 'exported', 'transferring', or 'transferred'" },
@@ -109,45 +148,55 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
 //            'phedex-tree-block-files'    :{type:'minmax', text:'Block-files',    tip:'number of files in the block' }, // These are multi-value fields, so cannot filter on them.
 //            'phedex-tree-block-bytes'    :{type:'minmax', text:'Block-bytes',    tip:'number of bytes in the block' }, // This is because of the way multiple file-states are represented
 //               'phedex-tree-block-errors'   :{type:'minmax', text:'Block-errors',   tip:'number of errors for the block' }
-            }
-          },
-          'File-level attributes':{
-            map:{from:'phedex-tree-file-', to:'F'},
-            fields:{
+//             }
+//           },
+//           'File-level attributes':{
+//             map:{from:'phedex-tree-file-', to:'F'},
+//             fields:{
 //               'phedex-tree-file-name'   :{type:'regex',  text:'File-name',        tip:'javascript regular expression' },
 //               'phedex-tree-file-id'     :{type:'minmax', text:'File-ID',          tip:'ID-range of files in TMDB' },
 //               'phedex-tree-file-bytes'  :{type:'minmax', text:'File-bytes',       tip:'number of bytes in the file' },
 //               'phedex-tree-file-errors' :{type:'minmax', text:'File-errors',      tip:'number of errors for the given file' },
 //               'phedex-tree-file-cksum'  :{type:'regex',  text:'File-checksum(s)', tip:'javascript regular expression' }
-            }
-          }
+//             }
+//           }
         }
       },
 
       specificState: function(state) {
-        if ( !state ) { return {time:_time}; }
+        if ( !state ) { return {create_since:create-since}; }
         var i, k, v, kv, update=0, arr = state.split(' ');
         for (i in arr) {
           kv = arr[i].split('=');
           k = kv[0];
           v = kv[1];
-          if ( k == 'time' && v != _time ) { update++; _time = v; }
+          if ( k == 'create_since' && v != create_since ) {
+            update++; create_since = v;
+            log('set '+k+'='+v+' from state','info',this.me);
+          }
+          if ( k == 'update_since' && v != update_since ) {
+            update++; update_since = v;
+            log('set '+k+'='+v+' from state','info',this.me);
+          }
         }
         if ( !update ) { return; }
-        log('set time='+_time+' from state','info',this.me);
         this.getData();
       },
 
-      changeTimebin: function(arg) {
-        _time = parseInt(arg);
+      changeCreateTimebin: function(arg) {
+        create_since = parseInt(arg);
+        this.getData();
+      },
+      changeUpdateTimebin: function(arg) {
+        update_since = parseInt(arg);
         this.getData();
       },
 
       fillBody: function() {
         var root = this.tree.getRoot(),
-            tNode, tNode1, tLeaf,
+            tNode, tNode1, tNode2, tNode3, tLeaf,
             data = this.data,
-            i, j, subscriptions, s, dataset, d, block, b, id, is_open, files, bytes;
+            i, j, k, subscriptions, s, dataset, d, blocks, b, id, is_open, files, bytes;
         if ( !data.length )
         {
           tLeaf = new Yw.TextNode({label: 'Nothing found, try widening the parameters...', expanded: false}, root);
@@ -160,16 +209,45 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
             [ d.name,d.id,d.is_open,d.files,d.bytes ]
           );
           subscriptions = d.subscription;
-          if ( subscriptions.length ) {
-            tNode.title = subscriptions.length+' subscriptions';
+          if ( subscriptions && subscriptions.length ) {
+            tNode.title = subscriptions.length+' dataset-level subscriptions';
             for (j in subscriptions) {
               s = subscriptions[j];
               tNode1 = this.addNode(
-                { format:this.meta.tree[1].format },
-                [ s.request,s.node,s.group,s.custodial,s.move,s.priority,s.suspended,s.suspend_until,s.time_create,s.time_update ],
+                { format:this.meta.tree[2].format },
+                [ s.level,s.request,s.node,s.group,s.custodial,s.move,s.priority,s.suspended,s.suspend_until,s.time_create,s.time_update ],
                 tNode
               );
               tNode1.isLeaf = true;
+            }
+          } else {
+            tNode.isLeaf = true;
+          }
+          blocks = d.block;
+          if ( blocks && blocks.length ) {
+            tNode.isLeaf = false;
+            if ( tNode.title ) { tNode.title += ', '; }
+            if ( tNode.title ) { tNode.title += blocks.length+' blocks subscribed'; }
+            for (j in blocks) {
+              b = blocks[j];
+              tNode2 = this.addNode(
+                { format:this.meta.tree[1].format },
+                [ b.name,b.id,b.is_open,b.files,b.bytes ],
+                tNode
+              );
+              subscriptions = b.subscription;
+              if ( subscriptions && subscriptions.length ) {
+                tNode.title = subscriptions.length+' subscriptions';
+                for (k in subscriptions) {
+                  s = subscriptions[k];
+                  tNode3 = this.addNode(
+                    { format:this.meta.tree[2].format },
+                    [ s.level,s.request,s.node,s.group,s.custodial,s.move,s.priority,s.suspended,s.suspend_until,s.time_create,s.time_update ],
+                    tNode2
+                  );
+                  tNode3.isLeaf = true;
+                }
+              }
             }
           } else {
             tNode.isLeaf = true;
@@ -196,13 +274,13 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
       getData: function() {
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
-        var args={}, magic=_time, now=new Date().getTime()/1000;
+        var args={}, magic=create_since, now=new Date().getTime()/1000;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
         }
         this._magic = magic;
-        args.create_since = PxU.epochAlign(now-_time*3600,3600);;
+        args.create_since = PxU.epochAlign(now-create_since*3600,3600);;
         this.data = {};
         this.truncateTree();
         this.tree.render();
