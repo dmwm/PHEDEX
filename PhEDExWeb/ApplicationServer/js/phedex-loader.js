@@ -30,6 +30,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-component-menu':        { requires:['phedex-util','menu','button'] },
     'phedex-component-panel':       { requires:['phedex-util','phedex-component-control','container','dragdrop','button'] },
     'phedex-component-subscribe':   { requires:['phedex-component-panel'] },
+    'phedex-component-refresh':     { requires:['phedex-component-control'] },
     'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
 
     'phedex-config':       { requires:['phedex-util'] },
@@ -62,7 +63,7 @@ PHEDEX.Loader = function(opts) {
 //     'phedex-module-pendingrequestsnested': { requires:['phedex-datatable'] },
     'phedex-module-queuedmigrations':  { requires:['phedex-datatable'] },
     'phedex-module-static':            { requires:['phedex-config'] },
-    'phedex-module-subscriptions':     { requires:['phedex-treeview'] },
+    'phedex-module-subscriptions':     { requires:['phedex-treeview','phedex-component-refresh'] },
     'phedex-module-unroutabledata':    { requires:['phedex-treeview'] },
 
     'phedex-module-activity-rate':     { requires:['phedex-datatable'] },
