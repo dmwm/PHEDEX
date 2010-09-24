@@ -21,7 +21,7 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
           payload: {
             text:'Refresh',
             hidden:false,
-            disabled:true,
+//             disabled:true,
             obj:this
           }
         }
@@ -35,22 +35,23 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
       id: _me+'_'+PxU.Sequence(),
       payload: {},
 
-      setRefreshTimeout: function() {
-        var delta = new Date().getTime(),
+      refreshInterval: function() {
+        var delta = new Date().getTime()/1000,
             expires = obj.data_expires,
             align=payload.align;
         if ( !expires ) {
-          expires=new Date().getTime()/1000;
-          if ( align ) {
-            expires = PxU.epochAlign(expires+align,align);
-          }
-          this.expires = expires;
+          if ( align ) { return align; }
+          else         { return 0; }
         }
+        return expires-delta;
+      },
+      setRefreshTimeout: function() {
+        var expires = this.refreshInterval();
         if ( expires ) {
           setTimeout( function(obj) {
               if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
               obj.Enable();
-            }, (expires*1000-delta), this.ctl.Refresh );
+            }, expires*1000, this.ctl.Refresh );
         }
       },
 /**
@@ -61,15 +62,15 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
  */
       _init: function(args) {
         apc.payload.tooltip = function() {
-                var o=this.obj, delta;
-                if ( !o.expires ) { return; }
-                delta = new Date().getTime()/1000;
-                delta = Math.round(o.expires - delta);
-                if ( delta < 0 ) { return; }
-                return 'Data expires in '+delta+' seconds';
+                var expires = this.obj.refreshInterval();
+                if ( !expires ) { return; }
+                if ( expires < 0 ) { return; }
+                return 'Data expires in '+Math.round(expires)+' seconds';
             };
         apc.payload.handler = 'doRefresh';
         var ctl = this.ctl.Refresh = new PHEDEX.Component.Control( _sbx, apc );
+        if ( this.refreshInterval() ) { ctl.Disable(); }
+        
         obj.dom.control.appendChild(ctl.el);
         this.setRefreshTimeout();
         this.selfHandler = function(o) {

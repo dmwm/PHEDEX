@@ -27,25 +27,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           }
         },
         {
-          name: 'Refresh',
-          source:'component-control',
-          parent: 'control',
-          payload:{
-            handler: 'getData',
-            animate:  false,
-            disabled: true,
-              tooltip:function() {
-                        if ( !this.obj.expires ) { return; }
-                        var delta = new Date().getTime()/1000;
-                        delta = Math.round(this.obj.expires - delta);
-                        if ( delta < 0 ) { return; }
-                        return 'Data expires in '+delta+' seconds';
-                      },
-            map: {
-              gotData:     'Disable',
-              dataExpires: 'Enable'
-            }
-          }
+          name:'Refresh',
+          source:'component-refresh',
         },
         {
           name: 'ContextMenu',
@@ -139,7 +122,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             Table.push(Row);
           }
         }
-        log("The data has been processed for data source", 'info', this.me);
         this.needProcess = false;
         return Table;
       },
@@ -183,18 +165,9 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           throw new Error('data incomplete for '+context.api);
         }
         this.data = data.node;
-        this.dom.title.innerHTML = node + ': ' + this.data.length + " agents";
+        this.dom.title.innerHTML = node + ': ' + this.data.length + ' agents';
         this.fillDataSource(this.data);
         _sbx.notify( this.id, 'gotData' );
-
-        if ( context.maxAge ) {
-          setTimeout( function(obj) {
-              if ( !obj.id ) { return; } // I may bave been destroyed before this timer fires
-              _sbx.notify(obj.id,'dataExpires');
-            }, context.maxAge * 1000, this );
-          this.expires = new Date().getTime()/1000;
-          this.expires += parseInt(context.maxAge);
-        }
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',
@@ -214,7 +187,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           maxGMT = new Date(maxDate*1000).toGMTString();
           dMin = Math.round(now - minDate);
           dMax = Math.round(now - maxDate);
-          msg = " Update-times: "+dMin+" - "+dMax+" seconds ago";
+          msg = ' Update-times: '+dMin+' - '+dMax+' seconds ago';
         }
         this.dom.extra.innerHTML = msg;
       }
