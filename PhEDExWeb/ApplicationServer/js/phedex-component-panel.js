@@ -39,7 +39,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           }
           break;
         }
-        case 'expand': { // set focus appropriately when the panel is revealed
+        case 'activate': { // set focus appropriately when the panel is revealed
           if ( !o.firstAlignmentDone ) {
             o.overlay.align(this.dom.context_el,this.dom.align_el);
             o.firstAlignmentDone = true;

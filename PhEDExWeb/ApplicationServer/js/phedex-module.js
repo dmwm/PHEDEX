@@ -253,7 +253,7 @@ log('Should not be here','warn','module');
                 }
                 case 'show target': { obj.adjustHeader( value); break; }
                 case 'hide target': { obj.adjustHeader(-value); break; }
-                case 'expand': {
+                case 'activate': {
                     obj[value]();
                     _sbx.notify(arr[2],action,'done');
                     break;

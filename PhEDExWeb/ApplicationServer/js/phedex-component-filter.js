@@ -44,7 +44,7 @@ PHEDEX.Component.Filter = function(sandbox,args) {
           }
           break;
         }
-        case 'expand': { // set focus appropriately when the filter is revealed
+        case 'activate': { // set focus appropriately when the filter is revealed
           if ( !o.firstAlignmentDone ) {
             o.overlay.align(this.context_el,this.align_el);
             o.firstAlignmentDone = true;
