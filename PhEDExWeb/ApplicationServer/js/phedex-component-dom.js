@@ -1,7 +1,7 @@
 /**
  * This class creates a DOM element, for example, a link to further information about the module.
  * @namespace PHEDEX.Component
- * @class Menu
+ * @class Dom
  * @constructor
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object
  * @param args {object} reference to an object that specifies details of how the control should operate.
@@ -25,7 +25,7 @@
 PHEDEX.namespace('Component');
 PHEDEX.Component.Dom = function(sandbox,args) {
   Yla(this, new PHEDEX.Base.Object());
-  var _me = 'component-menu',
+  var _me = 'component-dom',
       _sbx = sandbox,
       partner = args.partner,
       ap = args.payload,
@@ -70,4 +70,4 @@ PHEDEX.Component.Dom = function(sandbox,args) {
   return this;
 };
 
-log('loaded...','info','component-menu');
+log('loaded...','info','component-dom');
