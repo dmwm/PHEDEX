@@ -120,11 +120,13 @@ PHEDEX.Datasvc = (function() {
       _fail(response);
       return;
     }
-    query.context.maxAge = 60;
+
     try {
-      var maxage = response.getResponseHeader['Cache-Control'];
-      maxage = maxage.replace(/^.*max-age=(\d+).*$/, "$1");
-      if (maxage) { query.context.maxAge = maxage; }
+      var maxAge = response.getResponseHeader['Cache-Control'];
+      if ( maxAge.match(/max-age/) ) {
+        maxAge = maxAge.replace(/^.*max-age=(\d+).*$/, "$1");
+        if (maxAge) { query.context.maxAge = maxAge; }
+      }
     } catch(ex) { Ylog('cannot calculate max-age, ignoring...','warn',_me); }
     Ylog('FIRE '+query.text, 'info', _me);
     query.success_event.fire(data, query.context);
