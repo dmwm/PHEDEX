@@ -20,8 +20,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       },
       buttons: [ 'Dismiss', 'Apply', 'Reset' ],
       buttonMap: {
-                     Apply:{title:'Subscribe this data', action:'Validate'}
-                   },
+                   Apply:{title:'Subscribe this data', action:'Validate'}
+                 },
       panel: {
         Datasets:{
           fields:{
