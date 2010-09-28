@@ -183,6 +183,7 @@ PHEDEX.TreeView = function(sandbox,string) {
         }(this));
         this.headerTree.render();
 
+        this.decorators.push( { name:'Refresh', source:'component-refresh' });
         this.decorators.push(
           {
             name:'Filter',

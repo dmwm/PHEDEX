@@ -44,14 +44,14 @@ PHEDEX.Loader = function(opts) {
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
-    'phedex-treeview':  { requires: ['phedex-module','treeview', 'treeview-css'] },
-    'phedex-datatable': { requires: ['phedex-module','datatable', 'nesteddatatable-js', 'nesteddatatable-css'] },
+    'phedex-treeview':  { requires: ['phedex-module','treeview','phedex-component-refresh','treeview-css'] },
+    'phedex-datatable': { requires: ['phedex-module','datatable','phedex-component-refresh','nesteddatatable-js','nesteddatatable-css'] },
     'phedex-protovis':  { requires: ['phedex-module','protovis'] },
 
 // These are the main data-display modules
     'phedex-module-agentlogs':         { requires:['phedex-datatable'] },
     'phedex-module-agents':            { requires:['phedex-datatable'] },
-    'phedex-module-blocklocation':     { requires:['datatable','slider', 'button'] },
+    'phedex-module-blocklocation':     { requires:['datatable','slider','button'] },
     'phedex-module-custodiallocation': { requires:['phedex-treeview'] },
     'phedex-module-consistencyresults':{ requires:['phedex-treeview'] },
     'phedex-module-databrowser':       { requires:['phedex-treeview'] },
@@ -60,17 +60,15 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-missingfiles':      { requires:['phedex-datatable'] },
     'phedex-module-nodes':             { requires:['phedex-datatable'] },
     'phedex-module-pendingrequests':   { requires:['phedex-datatable'] },
-//     'phedex-module-pendingrequestsnested': { requires:['phedex-datatable'] },
     'phedex-module-queuedmigrations':  { requires:['phedex-datatable'] },
     'phedex-module-static':            { requires:['phedex-config'] },
-    'phedex-module-subscriptions':     { requires:['phedex-treeview','phedex-component-refresh'] },
+    'phedex-module-subscriptions':     { requires:['phedex-treeview'] },
     'phedex-module-unroutabledata':    { requires:['phedex-treeview'] },
 
     'phedex-module-activity-rate':     { requires:['phedex-datatable'] },
 // a demo protovis module
     'phedex-module-protovisdemo':      { requires:['phedex-protovis'] },
 // a few custom-modules for shifters
-    'phedex-shifter-agents':               { requires:['phedex-datatable'] },
     'phedex-module-shift-requestedqueued': { requires:['phedex-datatable'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },

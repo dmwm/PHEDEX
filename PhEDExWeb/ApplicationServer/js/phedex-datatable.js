@@ -119,6 +119,7 @@ PHEDEX.DataTable = function (sandbox, string) {
               }
               m.hide = h;
               this.buildTable()
+              this.decorators.push( { name:'Refresh', source:'component-refresh' });
               this.decorators.push(
               {
                 name: 'Filter',
