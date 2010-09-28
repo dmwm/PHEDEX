@@ -271,7 +271,7 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
     panel.render(b);
     e = el;
   }
-  PHEDEX.Component.ContextMenu.Add('block', PxU.feature['alpha'] + 'Submit consistency-check for this block', fn);
+# PHEDEX.Component.ContextMenu.Add('block', PxU.feature['alpha'] + 'Submit consistency-check for this block', fn);
 })();
 
 log('loaded...','info','component-contextmenu');
