@@ -37,12 +37,8 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
 
       refreshInterval: function() {
         var delta = new Date().getTime()/1000,
-            expires = obj.data_expires,
-            align=payload.align;
-        if ( !expires ) {
-          if ( align ) { return align; }
-          else         { return 0; }
-        }
+            expires = obj.data_expires;
+        if ( !expires ) { return 30; }
         return expires-delta;
       },
       setRefreshTimeout: function() {
