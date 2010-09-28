@@ -86,7 +86,6 @@ YAHOO.util.Event.onDOMReady(function() {
   PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
   PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
   PxW.Instances.push({name:'Tony - private', instance:'tony'});
-//   PxW.nocache = true;
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
@@ -146,9 +145,9 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-linkview',          'node',    'Show Links',              {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-nodes',             'none',    'Show Nodes');
     PxS.notify('Registry', 'add', 'phedex-module-custodiallocation', 'node',    'Show Custodial Data',     {context_item:true});
+    PxS.notify('Registry', 'add', 'phedex-module-custodiallocation', 'block',   'Show Custodial Location', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-databrowser',       'dataset', 'Show Data',               {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-databrowser',       'block',   'Show Data',               {context_item:true});
-    PxS.notify('Registry', 'add', 'phedex-module-custodiallocation', 'block',   'Show Custodial Location', {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-consistencyresults','node',    'Show Consistency Results',{context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-unroutabledata',    'node',    'Show Unroutable Data',    {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-consistencyresults','block',   'Show Consistency Results',{context_item:true});
@@ -158,31 +157,11 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group',   'Show Pending Requests',   {context_item:true});
 
 //     PxS.notify('Registry', 'add', 'phedex-module-submit',             'block', 'Submit request for this block', {context_item:true});
-
 //     PxS.notify('Registry', 'add', 'phedex-module-activity-rate',         'activity', 'Show Rates',                       {context_item:false, feature_class:'alpha'});
     PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued', 'none',     'Shift: Requested vs. Queued data', {context_item:false, feature_class:'beta'});
   }
 
   PxU.bannerIdleTimer(PxL);
-
-//   PxL.load(function() {
-//     var panel, el, ctl, banner;
-//     banner = document.getElementById('phedex-banner');
-//     panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
-//     panel.setHeader('Report a bug or request a feature');
-//     panel.setBody('This is a dynamically generated Panel.<br />testing...');
-//     panel.render(banner);
-//     ctl = new PHEDEX.Component.Control(PxS,{
-//         payload: {
-//           text:'bug report/feature request',
-//           title:'Report a bug or request a feature',
-//           target:panel.element,
-//           className: 'phedex-core-control-widget phedex-core-control-widget-inactive',
-//         }
-//       }
-//     );
-//     document.getElementById('phedex-bug-feature-link').appendChild(ctl.el);
-//    },'container','component-control');
 };
 </script>
 
