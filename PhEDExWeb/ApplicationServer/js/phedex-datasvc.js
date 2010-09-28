@@ -122,10 +122,11 @@ PHEDEX.Datasvc = (function() {
     }
 
     try {
-      var maxAge = response.getResponseHeader['Cache-Control'];
+      var age    = response.getResponseHeader['Age'] || 0,
+          maxAge = response.getResponseHeader['Cache-Control'];
       if ( maxAge.match(/max-age/) ) {
         maxAge = maxAge.replace(/^.*max-age=(\d+).*$/, "$1");
-        if (maxAge) { query.context.maxAge = maxAge; }
+        if (maxAge) { query.context.maxAge = maxAge - age; }
       }
     } catch(ex) { Ylog('cannot calculate max-age, ignoring...','warn',_me); }
     Ylog('FIRE '+query.text, 'info', _me);
