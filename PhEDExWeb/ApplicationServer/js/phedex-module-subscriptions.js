@@ -78,13 +78,6 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
             }
           }
         },
-        {
-          name:'Refresh',
-          source:'component-refresh',
-          payload: {
-            align:30
-          }
-        }
       ],
 
       meta: {
@@ -274,13 +267,14 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
       getData: function() {
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
-        var args={}, magic=create_since, now=new Date().getTime()/1000;
+        var args={}, magic=create_since+'_'+update_since, now=new Date().getTime()/1000, i;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
         }
         this._magic = magic;
-        args.create_since = PxU.epochAlign(now-create_since*3600,3600);;
+        args.create_since = (create_since==9999) ? 0 : PxU.epochAlign(now - create_since*3600,3600);
+        args.update_since = (update_since==9999) ? 0 : PxU.epochAlign(now - update_since*3600,3600);
         this.data = {};
         this.truncateTree();
         this.tree.render();
