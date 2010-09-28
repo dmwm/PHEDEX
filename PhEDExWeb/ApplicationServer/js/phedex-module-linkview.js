@@ -318,7 +318,7 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
       fillBody: function() {
         var root = this.tree.getRoot(),
             antidirection=this.anti_direction_key(),
-            tLeaf, i, j
+            tLeaf, i, j,
             data = this.data,
             link_errors, tNode, p, d, e, h, node;
         if ( !data.hist.length )
