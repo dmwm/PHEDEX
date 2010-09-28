@@ -27,10 +27,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           }
         },
         {
-          name:'Refresh',
-          source:'component-refresh',
-        },
-        {
           name: 'ContextMenu',
           source:'component-contextmenu',
           payload:{
