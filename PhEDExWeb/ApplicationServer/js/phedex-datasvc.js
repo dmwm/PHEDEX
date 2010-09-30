@@ -328,14 +328,19 @@ PHEDEX.Datasvc = (function() {
     // Instance: return the current instance. Set the current instance if a name is given.
     // Fire the InstanceChanged event if indeed the instance has been changed
     Instance: function(instance) {
+      var i, current, changed=false;
       if ( instance && instance != _instance )
       {
         _instance = instance;
-        PHEDEX.Datasvc.InstanceChanged.fire();
+        changed=true;
       }
-      for (var i in _instances) {
-        if ( _instances[i].instance == _instance ) { return _instances[i]; }
+      for (i in _instances) {
+        if ( _instances[i].instance == _instance ) { current = _instances[i]; }
       }
+      if ( changed ) {
+        PHEDEX.Datasvc.InstanceChanged.fire(current);
+      }
+      return current;
     },
 
     // InstanceByName: return the instance whose name matches the input string.
