@@ -411,6 +411,11 @@ PHEDEX.Core = function(sandbox,loader) {
         }
       }
 
+      var ev = PHEDEX.Datasvc;
+      if ( ev ) {
+        ev = ev.InstanceChanged;
+        ev.subscribe( function(ev,args) { _sbx.notify(ev,args[0]); } );
+      }
     }
   };
 }
