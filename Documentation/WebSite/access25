@@ -3395,7 +3395,7 @@ sub writeRequest
     my %params;
     foreach (qw(user_email comments dbs data nodes type type_params)) {
 	unless (defined $$self{SESSION}->param($_)) {
-	    $self->alert('Insuficcient parameters from session: '.$_);
+	    $self->alert('Insufficient parameters from session: '.$_);
 	    return;
 	}
 	$params{$_} = $$self{SESSION}->param($_);
