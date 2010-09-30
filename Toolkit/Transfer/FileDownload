@@ -95,8 +95,7 @@
 ##H Options to FTS backend:
 ##H      [-service CONTACT | -mapfile FILE]
 ##H      [-job-awol SECS]
-##H      [-myproxy MYPROXY]
-##H      [-passfile PASSFILE]
+##H      [-checksum]
 ##H      [-j_interval N]
 ##H      [-priority PHEDEX_PRIO=FTS_PRIO]
 ##H      [-glite-options OPTIONS]
@@ -104,8 +103,7 @@
 ##H -service     FTS server to use
 ##H -mapfile     A map of SRM endpoint:FTS endpoint, if not specified BDII service 
 ##H              discovery used instead
-##H -myproxy     myproxy server specification
-##H -passfile    FTS password file
+##H -checksum    enable checksum verification in FTS against checksum in TMDB
 ##H -j_interval  interval for polling the FTS queue for job status. Not normally
 ##H              needed
 ##H -priority    priority mapping from PhEDEx to FTS states. Not for normal use

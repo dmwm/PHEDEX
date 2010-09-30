@@ -39,6 +39,8 @@ our %ro_params =
 	(
 	  SOURCE	=> undef,	# Source URL
 	  DESTINATION	=> undef,	# Destination URL
+	  CHECKSUM_TYPE => undef,       # Checksum type in TMDB
+ 	  CHECKSUM_VAL  => undef,       # Checksum value in TMDB
 	  TASKID        => undef,       # PhEDEx Task ID
  	  FROM_NODE     => undef,       # PhEDEx source node
  	  TO_NODE       => undef,       # PhEDEx destination node
@@ -333,6 +335,32 @@ sub Source
   my $self = shift;
   $self->{SOURCE} = shift if @_;
   return $self->{SOURCE};
+}
+
+=head2 ChecksumType
+
+Set/get the file checksum type
+
+=cut
+
+sub ChecksumType
+{
+  my $self = shift;
+  $self->{CHECKSUM_TYPE} = shift if @_;
+  return $self->{CHECKSUM_TYPE};
+}
+
+=head2 ChecksumValue
+
+Set/get the file checksum value
+
+=cut
+
+sub ChecksumValue
+{
+  my $self = shift;
+  $self->{CHECKSUM_VAL} = shift if @_;
+  return $self->{CHECKSUM_VAL};
 }
 
 =head2 Destination

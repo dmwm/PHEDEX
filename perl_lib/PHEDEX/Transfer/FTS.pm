@@ -36,13 +36,13 @@ sub new
     $params->{FTS_J_INTERVAL}      ||= 5;          # Interval for polling individual jobs
     $params->{FTS_GLITE_OPTIONS}   ||= {};	   # Specific options for glite commands
     $params->{FTS_JOB_AWOL}        ||= 3600;       # Timeout for successful monitoring of a job.  0 for infinite.
+    $params->{FTS_CHECKSUM_TYPE}   ||= 'adler32';  # Type of checksum to use for checksum verification in FTS
 
     # Set argument parsing at this level.
     $options->{'service=s'}            = \$params->{FTS_SERVICE};
-    $options->{'myproxy=s'}            = \$params->{FTS_MYPROXY};
-    $options->{'passfile=s'}           = \$params->{FTS_PASSFILE};
     $options->{'priority=s'}           = \$params->{FTS_PRIORITY};
     $options->{'mapfile=s'}            = \$params->{FTS_MAPFILE};
+    $options->{'checksum'}             = \$params->{FTS_CHECKSUM};
     $options->{'q_interval=i'}         = \$params->{FTS_Q_INTERVAL};
     $options->{'j_interval=i'}         = \$params->{FTS_J_INTERVAL};
     $options->{'poll_queue=i'}         = \$params->{FTS_POLL_QUEUE};
@@ -100,31 +100,6 @@ sub init
 	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
 	 ME      => 'GLite',
 	 );
-
-    $glite->MYPROXY($self->{FTS_MYPROXY}) if $self->{FTS_MYPROXY};
-
-    if ($self->{FTS_PASSFILE}) {
-	my $passfile = $self->{FTS_PASSFILE};
-	my $ok = 1;
-	if (! -f $passfile) {
-	    $self->Alert("FTS passfile '$passfile' does not exist");
-	    $ok = 0;
-	} elsif (! -r $passfile) {
-	    $self->Alert("FTS passfile '$passfile' is not readable");
-	    $ok = 0;
-	} elsif ( (stat($passfile))[2] != 0100600 &&
-                  (stat($passfile))[2] != 0100400 ) {
-	    $self->Warn("FTS passfile '$passfile' has vulnerable file access permissions, ",
-			"please restrict with 'chmod 600 $passfile'");
-	}
-
-	if ($ok) {
-	    open PASSFILE, "< $passfile" or die $!;
-	    my $pass = <PASSFILE>; chomp $pass;
-	    close PASSFILE;
-	    $glite->PASSWORD($pass);
-	}
-    }
 
     $self->{Q_INTERFACE} = $glite;
 
@@ -385,6 +360,14 @@ sub start_transfer_job
 		    WORKDIR=>$dir,
 		    START=>&mytimeofday(),
 		    );
+	if ($self->{FTS_CHECKSUM}) {
+	    my %checksums=split(/,|:/,$task->{CHECKSUM});
+	    my $checksum_val=$checksums{$self->{FTS_CHECKSUM_TYPE}};
+	    if (defined $checksum_val) {
+		$args{CHECKSUM_TYPE}=$self->{FTS_CHECKSUM_TYPE};
+		$args{CHECKSUM_VAL}=$checksum_val;
+	    }
+	}
 	my $f = PHEDEX::Transfer::Backend::File->new(%args);
 	$files{$task->{TO_PFN}} = $f;
     }

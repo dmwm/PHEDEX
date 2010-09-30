@@ -26,8 +26,6 @@ use POE;
 our %params =
 	(
 	  SERVICE	=> undef,	# Transfer service URL
-	  MYPROXY	=> undef,
-	  PASSWORD      => undef,
 	  SPACETOKEN	=> undef,       
 	  CHANNEL	=> undef,	# Channel name to match
 	  USERDN	=> undef,	# Restrict to specific user DN
@@ -204,8 +202,6 @@ sub Command
      my $spacetoken = $arg->{SPACETOKEN} || $self->SPACETOKEN;
      $cmd .= "glite-transfer-submit". 
       ' -s ' . $arg->Service .
-      ((defined $self->MYPROXY)    ? ' -m ' . $self->MYPROXY    : "") .
-      ((defined $self->PASSWORD)   ? ' -p ' . $self->PASSWORD   : "") .
       ((defined $spacetoken)       ? ' -t ' . $spacetoken : "") .
       ' -f ' . $arg->Copyjob;
       $cmd .= $opts;

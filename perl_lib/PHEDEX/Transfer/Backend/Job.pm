@@ -276,12 +276,13 @@ sub Dump
 =head2 Prepare
 
 Write a copyjob file for the job, in the way that FTS expects (i.e. one 
-line with "$source-pfn $destination-pfn" per file-transfer within the 
-job). If the C<< Copyjob >> method has been called to specify a copyjob 
-location (or it was set in the constructor) then that location will be 
-used, overwriting any existing file. Otherwise, a new, unique filename 
-will be generated, in the directory specified by C<< Tempdir >>, and the 
-C<< COPYJOB >> attribute will be set accordingly.
+line with "$source-pfn $destination-pfn [$checksum-type:$checksum-value]" 
+per file-transfer within the job). If the C<< Copyjob >> method has been
+called to specify a copyjob location (or it was set in the constructor)
+then that location will be used, overwriting any existing file.
+Otherwise, a new, unique filename will be generated, in the directory
+specified by C<< Tempdir >>, and the C<< COPYJOB >> attribute will be
+set accordingly.
 
 =cut
 
@@ -306,7 +307,9 @@ sub Prepare
 # print "Using temporary file $filename\n";
   $self->{COPYJOB} = $file;
   foreach ( values %{$self->{FILES}} )
-  { print $fh $_->SOURCE,' ',$_->DESTINATION,"\n"; }
+  { my $checksum_str=(defined $_->CHECKSUM_TYPE && defined $_->CHECKSUM_VAL)?
+	' '.$_->CHECKSUM_TYPE.':'.$_->CHECKSUM_VAL:'';
+    print $fh $_->SOURCE,' ',$_->DESTINATION,$checksum_str,"\n"; }
 
   close $fh;
   return $file;
