@@ -218,6 +218,10 @@ div .phedex-sorted {
   text-align: right;
   height: 2.0em;
 }
+.yui-skin-sam input.phedex-panel-elem {
+  position: relative;
+  width: auto;
+}
 .phedex-panel-elem-invalid {
   background-color: #fdd;
 }
@@ -228,6 +232,9 @@ div .phedex-sorted {
 .phedex-panel-elem-textarea {
   width:  100%;
   height: 100%;
+}
+.phedex-panel-ac-container {
+  width:200px;
 }
 .phedex-inner-textarea {
   height: 4em;
