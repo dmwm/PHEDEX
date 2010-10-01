@@ -51,7 +51,7 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
         }
       },
 /**
- * Initialise the control. Called internally. Simply creates the link object.
+ * Initialise the control. Called internally.
  * @method _init
  * @private
  * @param args {object} the arguments passed into the contructor
