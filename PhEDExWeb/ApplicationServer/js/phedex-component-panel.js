@@ -336,7 +336,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
  * @private
  */
       _init: function(args) {
-        var apc=payload.control, o, p;
+        var apc=payload.control, o, p, container, spec;
         if ( apc ) { p = apc.payload; }
         if ( p ) { // create a component-control to use to show/hide the panel
           p.obj     = this;
@@ -375,7 +375,16 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         this.BuildOverlay();
         this.meta._panel = this.createPanelMeta();
         this.BuildPanel();
-
+        if ( this.acSpecs.length ) {
+          this.dom.container = container = PxU.makeChild(document.body,'div');
+          container.className = 'phedex-panel-ac-container';
+          for (i in this.acSpecs) {
+            spec = this.acSpecs[i];
+            spec.payload.container = container;
+            this.ac[spec.name] = new PHEDEX.Component.AutoComplete(_sbx,spec);
+          }
+        }
+        this.acSpecs = [];
 //         if ( args.payload.resize ) {
 //           var elResize = new Yu.Resize(o.element,{ handles:['b','br','r'] }); // , draggable:true }); // draggable is cute if I can make it work properly!
 //           elResize.subscribe('endResize',function(ev) {
@@ -429,8 +438,10 @@ PHEDEX.Component.Panel = function(sandbox,args) {
 
       BuildPanel: function() {
         this.dom.panel.innerHTML = null;
+        this.acSpecs=[];
         if ( !this.ctl )  { this.ctl = {}; }
-        var _panel = this.meta._panel, label, fieldset, legend, helpClass, helpCtl, hideClass, hideCtl, key, tt, id, text, k1;
+        if ( !this.ac )   { this.ac  = {}; }
+        var _panel = this.meta._panel, label, fieldset, legend, helpClass, helpCtl, hideClass, hideCtl, key, tt, id, text, k1, acSpec, i;
         for (label in _panel.structure['f']) {
           fieldset = document.createElement('fieldset');
           fieldset.id = 'fieldset_'+PxU.Sequence();
@@ -505,7 +516,12 @@ PHEDEX.Component.Panel = function(sandbox,args) {
       },
 
       AddFieldsetElement: function(c,val) {
-        var outer, inner, e, value, i, j, fields, dcwrap, cBox, fieldLabel, help,  el, size, def, _panel=this.meta._panel, _fsk=_panel.fieldsets[c.key], fieldset, helpClass;
+        var outer, inner, e, value, i, j,
+            fields, dcwrap, cBox, fieldLabel, help,
+            el, size, def, acSpec,
+            _panel=this.meta._panel,
+            _fsk=_panel.fieldsets[c.key],
+            fieldset, helpClass;
         fieldset  = _fsk.fieldset;
         hideClass = _fsk.hideClass;
         helpClass = _fsk.helpClass;
@@ -570,10 +586,9 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           }
 
           if ( c.autoComplete ) {
-            var ac, acSpec=c.autoComplete;
+            acSpec = c.autoComplete;
             acSpec.payload.el = el;
-            ac = new PHEDEX.Component.AutoComplete(_sbx,acSpec);
-            var x=1;
+            this.acSpecs.push(acSpec);
           }
         }
 
