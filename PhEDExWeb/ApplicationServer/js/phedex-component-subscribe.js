@@ -5,6 +5,19 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       payload, opts, obj,
       ttIds = [], ttHelp = {};
 
+  var groupComplete =
+        {
+          name:'autocomp-groups',
+          source:'component-autocomplete',
+          payload:{
+            el:      '',
+            dataKey: 'group',
+            api:     'groups',
+            argKey:  'group',
+            handler: 'buildGroupsSelector'
+          }
+        };
+
   if ( !args ) { args={}; }
   opts = {
     text: 'Make a subscription',
@@ -47,7 +60,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', default:'low' },
 
             custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
-            group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false },
+            group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false, autoComplete:groupComplete },
 
             time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'This is valid for datasets only. Unix epoch-time', negatable:false },
             request_only: {type:'checkbox', text:'Request only, do not subscribe', tip:'Make the request without making a subscription',   attributes:{checked:true} },
