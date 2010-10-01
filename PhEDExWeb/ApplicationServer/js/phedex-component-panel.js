@@ -568,6 +568,13 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           if ( fields[i] != '' ) {
             inner.appendChild(document.createTextNode(fields[i]+' '));
           }
+
+          if ( c.autoComplete ) {
+            var ac, acSpec=c.autoComplete;
+            acSpec.payload.el = el;
+            ac = new PHEDEX.Component.AutoComplete(_sbx,acSpec);
+            var x=1;
+          }
         }
 
         dcwrap = document.createElement('div');
