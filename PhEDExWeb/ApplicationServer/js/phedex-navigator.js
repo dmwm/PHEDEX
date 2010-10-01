@@ -658,9 +658,20 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
   };
 
   var _makeSelector = function(el,type,dataKey,api,argKey) {
-        var sel       = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component phedex-nav-target-'+argKey+'sel' }),
-            input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
-            container = PxU.makeChild(sel, 'div');
+        var sel, input, container, id='phedex-nav-target-'+argKey+'sel';
+            sel = document.getElementById(id);
+            if ( sel ) {
+              input     = document.getElementById(id+'-input');
+              container = document.getElementById(id+'-container');
+              container.innerHTML = input.innerHTML = '';
+            } else {
+              sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component '+id }),
+              input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
+              container = PxU.makeChild(sel, 'div');
+              sel.id = id;
+              input.id = id+'-input';
+              container.id = id+'-container';
+            };
           makeList = function(data) {
             if ( !data[dataKey] ) {
               banner('Error making '+api+' call, autocomplete will not work','error');
@@ -701,6 +712,22 @@ PHEDEX.Navigator.TargetTypeSelector = function(sandbox,args) {
 
         return sel;
       };
+
+  this._updateTargetSelectors = function(obj) {
+    return function() {
+      var i, t, types = ['node','group'];
+      for (i in types) {
+        t = types[i];
+        try {
+          if ( _selectors[t] ) {
+            obj.dom[t] = _selectors[t].init(targetdiv,t);
+          }
+        } catch (ex) { log(ex,'error',obj.me); banner('Error initialising Navigator for type "'+t+'"!','error'); }
+    }
+      obj._updateTargetSelector();
+    }
+  }(this);
+  _sbx.listen('InstanceChanged', this._updateTargetSelectors );
 
   var _autocompleteSelector = function(input,container,list,key) {
     var ds  = new Yu.LocalDataSource(list),
