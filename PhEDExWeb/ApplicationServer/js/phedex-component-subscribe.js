@@ -205,7 +205,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.result = el;
         this.dom.resultFieldset = fieldset;
 
-        this.ctl.Apply.set('disabled',true);
+//         this.ctl.Apply.set('disabled',true);
       },
       gotData: function(data,context) {
         var rid = data.request_created[0].id;
