@@ -31,24 +31,18 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
             type,
             dataKey = payload.dataKey,
             api     = payload.api,
-            argKey  = payload.argKey,
-            el      = payload.el;
+            argKey  = payload.argKey;
         this.makeSelector = function(o) {
           return function() {
-            var sel, input, container, id=o.id;
-            sel = o.dom.sel;
-            if ( sel ) {
-              input     = o.dom.input;
-              container = o.dom.container;
-              container.innerHTML = input.innerHTML = '';
-            } else {
-              sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component' }),
-              input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
-              container = PxU.makeChild(sel, 'div');
-              sel.id       = id;
-              input.id     = id+'-input';
-              container.id = id+'-container';
-            };
+            var d         = o.dom,
+                sel       = el || d.sel,
+                input     = sel/*d.input*/,
+                container = d.container, id=o.id;
+//               sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component' }),
+//             input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
+            if ( !container ) { container = d.container = PxU.makeChild(payload.container, 'div'); }
+            container.innerHTML = input.innerHTML = '';
+
             makeList = function(data) {
               if ( !data[dataKey] ) {
                 banner('Error making '+api+' call, autocomplete will not work','error');
@@ -95,7 +89,6 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
         }(this);
 
         this.buildAutocomplete = function(input,container,list,key) {
-debugger;
           var ds  = new Yu.LocalDataSource(list),
               cfg = {
                 prehighlightClassName:"yui-ac-prehighlight",
@@ -106,30 +99,24 @@ debugger;
               },
               auto_comp = new Yw.AutoComplete(input, container, ds, cfg),
           selection_callback = function(_dummy, args) {
-
-debugger;
             var value = args[2][0];
 //             _state[_type] = value;
 //             if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
 //             _typeArgs[_type][key] = value;
 //             _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
-debugger;
+// debugger;
           },
-          unmatchedSelection_callback = function(_t,_k) {
-debugger;
+          unmatchedSelection_callback = function(_k) {
             return function(_dummy, args) {
-debugger;
-              if ( !_t ) { _t = _k; }
+// debugger;
 //               var value = _selectors[_t].value();
 //               _state[_t] = value;
 //               if ( ! _typeArgs[_t] ) { _typeArgs[_t] = {}; }
 //               if ( _typeArgs[_t][_k] == value ) { return; }
 //               _typeArgs[_t][_k] = value;
 //               _sbx.notify(obj.id,'TargetSelected',_t,_typeArgs[_t]);
-debugger;
             }
-          }(/*_type*/ null,key);
-debugger;
+          }(key);
           auto_comp.itemSelectEvent.subscribe(selection_callback);
           auto_comp.unmatchedItemSelectEvent.subscribe(unmatchedSelection_callback);
           this.auto_comp = auto_comp;
