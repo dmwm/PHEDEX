@@ -13,8 +13,9 @@ use PHEDEX::CLI::UserAgent;
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
 my ($server,@accept,@reject,@map,$die_on_reject,$log);
 my ($delay,%expires,$expires_default,$host);
-my ($cert_file,$key_file,$proxy,$pk12,$nocert);
+my ($cert_file,$key_file,$proxy,$pk12,$nocert,$cache,$cache_ro,$cache_only);
 
+$cache_only = $cache_ro = 0;
 @accept = qw %	^html/[^./]+.html$
 		^examples/[^./]+.html$
 		^js/[^./]+.js$
@@ -83,6 +84,12 @@ sub usage()
 			(you will be prompted for an 'export password', remember it,
 			you will need to enter it for this script to work!)
  logfile=s		file for logging messages from the application, for post-mortem debugging
+ cache			directory for filesystem-based cache of requests
+ cache_only		set this to serve only from whatever cache you have,
+			for fully offline behaviour
+ cache_ro		set the cache to be read-only, so you don't populate
+			it any further.
+
 
 EOF
 }
@@ -106,6 +113,9 @@ GetOptions( 'help'	=> \$help,
 	    'nocert'		=> \$nocert,
 	    'pk12=s'		=> \$pk12,
 	    'logfile=s'		=> \$log,
+	    'cache=s'		=> \$cache,
+	    'cache_only'	=> \$cache_only,
+	    'cache_ro'		=> \$cache_ro,
 	  );
 
 usage() if $help;
@@ -114,6 +124,15 @@ $host = $redirect_to unless $host;
 $host =~ s%^https*://%%;
 $host =~ s%/$%%;
 map { m%^[^=]+=(.*)$%; push @accept, $1; } @map;
+
+if ( $cache )
+{
+  eval "use Cache::FileCache";
+  die $@ if $@;
+  $cache = new Cache::FileCache( { cache_root => $cache } );
+  $cache or die "Could not create cache, have you created the $cache directory?\n";
+}
+die "--cache_only without --cache doesn't make much sense...\n" if $cache_only && !$cache;
 
 my ($url,$format,$instance,$service);
 if ( !( $cert_file || $key_file || $proxy || $pk12 || $nocert ||
@@ -172,6 +191,16 @@ while ( $c = $server->accept )
         my $file = $request->uri();
         $file =~ s%^/*%%;
         $file =~ s%\.\./%%g;
+        if ( $debug ) # && ($file =~ m%^https*://%) )
+        {
+          print scalar localtime,": Look for ",$file," in cache\n";
+        }
+        if ( $cache && ($data = $cache->get($file)) )
+        {
+          print scalar localtime,": Serve ",$file," from cache...\n" if $verbose;
+          $c->send_response($data);
+	  next;
+        }
 
 	if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/([^/]+)$% )
 	{
@@ -230,6 +259,7 @@ while ( $c = $server->accept )
               goto DONE;
             }
           }
+
           open DATA, "<$file" or do {
                                       $error = "failed to open $file: $!";
                                       goto DONE;
@@ -261,6 +291,13 @@ DONE:
 	  $h->{'Max-age'} = $expires;
           send_response( $c, $data, $error, $h );
 	  next;
+        }
+
+        if ( $cache_only )
+        {
+#         If I get here then the request was not served from cache and is not a local file
+          send_response($c, undef, 'Not found in cache');
+          return;
         }
 
 #	Transmit the request upstream to the server
@@ -312,6 +349,19 @@ DONE:
 	}
 	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
         $c->send_response($response);
+
+  if ( $response->code != 200 ) { return; }
+  if ( $cache && !$cache_ro )
+  {
+    my $query = $response->request()->uri()->path_query();
+    $query =~ s%^/+%%;
+    print scalar localtime,": Caching result for $query\n" if $verbose;
+    eval
+    {
+      $cache->set($query,$response,86400*365*100);
+    };
+    if ( $@ ) { print scalar localtime," Couldn't cache result: $@\n"; }
+  }
   }
   $c->close;
   undef($c);
