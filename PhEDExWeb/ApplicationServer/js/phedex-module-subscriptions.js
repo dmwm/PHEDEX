@@ -77,7 +77,7 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
               onChange:'changeUpdateTimebin'
             }
           }
-        },
+        }
       ],
 
       meta: {
