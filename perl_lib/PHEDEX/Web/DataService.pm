@@ -186,6 +186,7 @@ sub print_doc
     chdir '/tmp';
     my $service_path = $self->{CONFIG}{SERVICE_PATH};
     my $call = path_info();
+    $call =~ s%^/doc/$%%;
     $call =~ s%^/doc%%;
     $call =~s%\?.*$%%;
     $call =~s%^/+%%;
