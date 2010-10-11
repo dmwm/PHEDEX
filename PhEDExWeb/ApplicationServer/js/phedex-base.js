@@ -309,3 +309,4 @@ if ( !PHEDEX.Core ) {
     }
   };
 }
+YAHOO.register('phedex-base', PHEDEX.Base, {version:'1.0', build:'1'});
