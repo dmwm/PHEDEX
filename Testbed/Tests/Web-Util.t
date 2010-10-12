@@ -144,7 +144,8 @@ ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),     
 $using_spec = { foo => { using => 'regex' } };
 ok( lives(\&validate_params, { foo => 'abc' }, spec => $using_spec),                'good regex: abc') or whydie;
 ok( lives(\&validate_params, { foo => 'a[b](c)' }, spec => $using_spec),            'good regex: a(b)[c]') or whydie;
-ok( dies (\&validate_params, { foo => '[' }, spec => $using_spec),                  'bad regex: [');
+ok( dies (\&validate_params, { foo => '[' }, spec => $using_spec),                  'bad  regex: [');
+ok( lives(\&validate_params, { foo => 'Could not submit' }, spec => $using_spec),   'good regex: Could not submit') or whydie;
 $using_spec = { foo => { using => 'pos_int' } };
 ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good pos_int: 1') or whydie;
 ok( dies (\&validate_params, { foo => -2 }, spec => $using_spec),                   'bad pos_int: -2');
@@ -166,6 +167,7 @@ ok( lives(\&validate_params, { foo => 1. }, spec => $using_spec),               
 ok( dies(\&validate_params, { foo => '.1' }, spec => $using_spec),                  'bad pos_float .1');
 ok( dies(\&validate_params, { foo => -1.1 }, spec => $using_spec),                  'bad pos_float -1.1');
 ok( dies(\&validate_params, { foo => '1.1e3' }, spec => $using_spec),               'bad pos_float 1.1e3');
+ok( dies(\&validate_params, { foo => '2MB/s' }, spec => $using_spec),               'bad pos_float 2MB/s');
 
 # 'hostname' checking
 $using_spec = { foo => { using => 'hostname' } };
