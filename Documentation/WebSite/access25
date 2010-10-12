@@ -74,6 +74,13 @@ sub validate_all
     }
     %save = &validate_params(\%save, allow => \@tosave);
 
+    # the 'action' and 'actionvalue' fields need to be used to build a real
+    # entry in the params, so it can be correctly validated. But only for
+    # 'rate' and 'inject_now'!
+    if ( $params->{action} eq 'rate' || $params->{action} eq 'inject_now' ) {
+      $params->{$params->{action}} = $params->{actionvalue};
+    }
+
     return &validate_params
 	($params, %spec,
 	 delete_empty => 1,   # HTML forms send empty strings for empty text fields
@@ -8294,6 +8301,7 @@ sub validate
 	     create_source => { using => 'create_source' },
 	     create_dest   => { using => 'create_dest' },
 	     rate          => { using => 'pos_float' },
+	     inject_now    => { using => 'pos_int' },
 	     lp_id	   => { using => 'loadtestp_id', multiple => 1 } # combined ID
 	 }
 	 );
@@ -9149,7 +9157,7 @@ sub output_page
 		    'stop'       => 'stop injections',
 		    'remove'     => 'remove injection');
   my @opts_order = qw(rate inject_now start stop remove);
-	    
+
   my $admin_ok = 0;
   if ($$self{SECMOD}->isCertAuthenticated() &&
       ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
