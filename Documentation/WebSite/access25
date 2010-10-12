@@ -77,7 +77,9 @@ sub validate_all
     # the 'action' and 'actionvalue' fields need to be used to build a real
     # entry in the params, so it can be correctly validated. But only for
     # 'rate' and 'inject_now'!
-    if ( $params->{action} eq 'rate' || $params->{action} eq 'inject_now' ) {
+    if ( $params->{action} &&
+        ($params->{action} eq 'rate' || $params->{action} eq 'inject_now')
+       ) {
       $params->{$params->{action}} = $params->{actionvalue};
     }
 
@@ -7388,7 +7390,8 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(tofilter fromfilter andor);
+  my @save = qw(tofilter fromfilter andor
+		report_code xfer_code from_pfn to_pfn log_detail log_validate);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
