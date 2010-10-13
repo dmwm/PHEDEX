@@ -3709,6 +3709,7 @@ sub getBlockReplicaCompare
         ) brb
         on bra.block = brb.block
 	join t_dps_block b on (b.id = bra.block or b.id = brb.block)
+        join t_dps_dataset d on b.dataset = d.id
     };
 
     my $filters = '';
