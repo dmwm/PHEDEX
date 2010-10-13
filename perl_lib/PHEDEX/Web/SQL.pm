@@ -3621,15 +3621,17 @@ sub getBlockReplicaCompare
     my %h = @_;
 
     my $sql = qq{
+
+
         select
             b.name block,
             b.id block_id,
             b.files,
             b.bytes,
             b.is_open,
-            na.name node_a,
-            na.id node_id_a,
-            na.se_name node_se_a,
+            bra.node node_a,
+            bra.node_id node_id_a,
+            bra.se node_se_a,
             bra.node_files node_files_a,
             bra.node_bytes node_bytes_a,
             case when b.is_open = 'n' and
@@ -3638,15 +3640,12 @@ sub getBlockReplicaCompare
             end complete_a,
             bra.time_create time_create_a,
             bra.time_update time_update_a,
-            case when bra.dest_files = 0
-                then 'n'
-                else 'y'
-            end subscribed_a,
+            bra.subscribed subscribed_a,
             bra.is_custodial is_custodial_a,
-            ga.name group_a,
-            nb.name node_b,
-            nb.id node_id_b,
-            nb.se_name node_se_b,
+            bra.group_name group_a,
+            brb.node node_b,
+            brb.node_id node_id_b,
+            brb.se node_se_b,
             brb.node_files node_files_b,
             brb.node_bytes node_bytes_b,
             case when b.is_open = 'n' and
@@ -3655,24 +3654,61 @@ sub getBlockReplicaCompare
             end complete_b,
             brb.time_create time_create_b,
             brb.time_update time_update_b,
-            case when brb.dest_files = 0
+            brb.subscribed subscribed_b,
+            brb.is_custodial is_custodial_b,
+            brb.group_name group_b
+        from
+        (
+        select
+            r.block,
+            r.is_active,
+            r.node_files,
+            r.node_bytes,
+            r.time_create,
+            r.time_update,
+            case when r.dest_files = 0
                 then 'n'
                 else 'y'
-            end subscribed_b,
-            brb.is_custodial is_custodial_b,
-            gb.name group_b
+            end subscribed,
+            r.is_custodial,
+            g.name group_name,
+            n.name node, 
+            n.id node_id,
+            n.se_name se
         from
-            t_dps_block_replica bra
-            full outer join t_dps_block_replica brb on brb.block = bra.block and not (brb.node = bra.node)
-            join t_dps_block b on b.id = bra.block
-            join t_dps_dataset d on b.dataset = d.id
-            join t_adm_node na on bra.node = na.id
-            join t_adm_node nb on brb.node = nb.id
-            left join t_adm_group ga on bra.user_group = ga.id
-            left join t_adm_group gb on brb.user_group = gb.id
+            t_dps_block_replica r
+            join t_adm_node n on n.id = r.node
+            left join t_adm_group g on g.id = r.user_group
         where
-            na.name = :nodea and
-            nb.name = :nodeb
+            n.name = :nodea
+        ) bra
+	full outer join
+        (
+        select
+            r.block,
+            r.is_active,
+            r.node_files,
+            r.node_bytes,
+            r.time_create,
+            r.time_update,
+            case when r.dest_files = 0
+                then 'n'
+                else 'y'
+            end subscribed,
+            r.is_custodial,
+            g.name group_name,
+            n.name node, 
+            n.id node_id,
+            n.se_name se
+        from
+            t_dps_block_replica r
+            join t_adm_node n on n.id = r.node
+            left join t_adm_group g on g.id = r.user_group
+        where
+            n.name = :nodeb
+        ) brb
+        on bra.block = brb.block
+	join t_dps_block b on (b.id = bra.block or b.id = brb.block)
     };
 
     my $filters = '';
@@ -3685,57 +3721,72 @@ sub getBlockReplicaCompare
         BLOCK => 'b.name',
         DATASET => 'd.name'));
 
-    $sql .= " and ($filters)" if $filters;
+    $sql .= " where ($filters)" if $filters;
 
     if ($h{VALUE})
     {
-        if (ref($h{VALUE}) eq 'ARRAY')
+        if (ref($h{VALUE}) ne 'ARRAY')
         {
-            foreach (@{$h{VALUE}})
+            $h{VALUE} = [ $h{VALUE} ];
+        }
+
+        foreach (@{$h{VALUE}})
+        {
+            if ($h{SHOW} eq 'match')
             {
                 if ($_ eq 'files')
                 {
-                    $sql .= " and bra.node_files = brb.node_files ";
+                    $sql .= qq{ and bra.node_files = brb.node_files };
                 }
                 elsif ($_ eq 'bytes')
                 {
-                    $sql .= " and bra.node_bytes = brb.node_bytes ";
+                    $sql .= qq{ and bra.node_bytes = brb.node_bytes };
                 }
                 elsif ($_ eq 'subscribed')
                 {
-                    $sql .= " and bra.dest_files = brb.dest_files ";
+                    $sql .= qq{ and bra.subscribed = brb.subscribed };
                 }
                 elsif ($_ eq 'group')
                 {
-                    $sql .= " and ga.name = gb.name ";
+                    $sql .= qq{ and bra.group = grb.group };
                 }
                 elsif ($_ eq 'custodial')
                 {
-                    $sql .= " and bra.is_custodial = brb.is_custodial ";
+                    $sql .= qq{ and bra.is_custodial eq brb.is_custodial };
                 }
             }
-        }
-        else
-        {
-            if ($_ eq 'files')
+            elsif (($h{SHOW} eq 'diff') or not $h{SHOW})
             {
-                $sql .= " and bra.node_files = brb.node_files ";
-            }
-            elsif ($_ eq 'bytes')
-            {
-                $sql .= " and bra.node_bytes = brb.node_bytes ";
-            }
-            elsif ($_ eq 'subscribed')
-            {
-                $sql .= " and bra.dest_files = brb.dest_files ";
-            }
-            elsif ($_ eq 'group')
-            {
-                $sql .= " and ga.name = gb.name ";
-            }
-            elsif ($_ eq 'custodial')
-            {
-                $sql .= " and bra.is_custodial = brb.is_custodial ";
+                if ($_ eq 'files')
+                {
+                    $sql .= qq{ and (bra.node_files != brb.node_files
+                                     or bra.node_files is null
+                                     or brb.node_files is null) };
+                }
+                elsif ($_ eq 'bytes')
+                {
+                    $sql .= qq{ and (bra.node_bytes != brb.node_bytes
+                                     or bra.node_bytes is null
+                                     or brb.node_bytes is null) };
+                }
+                elsif ($_ eq 'subscribed')
+                {
+                    $sql .= qq{ and (bra.subscribed != brb.subscribed
+                                     or bra.subscribed is null
+                                     or brb.subscribed is null) };
+                }
+                elsif ($_ eq 'group')
+                {
+                    $sql .= qq{ and (bra.group != brb.group
+                                     or bra.group is null
+                                     or brb.group is null) };
+                }
+                elsif ($_ eq 'custodial')
+                {
+                    $sql .= qq{ and (bra.is_custodial != brb.is_custodial
+                                     or bra.is_custodial is null
+                                     or brb.is_custodial is null) };
+                }
             }
         }
     }
