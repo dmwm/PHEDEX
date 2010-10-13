@@ -174,6 +174,12 @@ sub build_hash
         # if there is an element with the key
         my $key = join ('+', (map {$input->{$_}} split('\+', $map->{_KEY})));
 
+        # skip generating output if there is no key value
+        if ($key eq '')
+        {
+            return;
+        }
+
         if (exists $output->{$key})
         {
             foreach $k (keys %{$map})
