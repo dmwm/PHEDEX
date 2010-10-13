@@ -119,3 +119,15 @@ create index ix_agent_version_time_update
 
 create index ix_agent_log_time_update
   on t_agent_log (time_update);
+
+create index ix_agent_log_host_name
+  on t_agent_log (host_name);
+
+create index ix_agent_log_process_id
+  on t_agent_log (process_id);
+
+create index ix_agent_status_host_name
+  on t_agent_status (host_name);
+
+create index ix_agent_status_process_id
+  on t_agent_status (process_id);
