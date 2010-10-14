@@ -184,15 +184,16 @@ PHEDEX.Util.toggleVisible = function(thisClass,el)
   if (typeof(el) != 'object') {
     el = document.getElementById(el);
   }
-  var i, e, elList = YuD.getElementsByClassName(thisClass,null,el)
+  var i, e, elList = YuD.getElementsByClassName(thisClass,null,el),
+  visible = 'phedex-visible', invisible='phedex-invisible';
   for (i in elList) {
     e = elList[i];
-    if ( YuD.hasClass(e,'phedex-visible') ) {
-      YuD.removeClass(e,'phedex-visible');
-      YuD.addClass(e,'phedex-invisible');
-    } else if ( YuD.hasClass(e,'phedex-invisible') ) {
-      YuD.removeClass(e,'phedex-invisible');
-      YuD.addClass(e,'phedex-visible');
+    if ( YuD.hasClass(e,visible) ) {
+      YuD.removeClass(e,visible);
+      YuD.addClass(e,invisible);
+    } else if ( YuD.hasClass(e,invisible) ) {
+      YuD.removeClass(e,invisible);
+      YuD.addClass(e,visible);
     }
   }
 }
