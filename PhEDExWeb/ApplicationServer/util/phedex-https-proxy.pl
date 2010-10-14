@@ -185,183 +185,185 @@ while ( $c = $server->accept )
   last unless $c;
   while ( $request = $c->get_request )
   {
-	last unless $request;
-	my ($buf,$data,$n,$error,$h);
+    last unless $request;
+    my ($buf,$data,$n,$error,$h);
 
-        my $file = $request->uri();
-        $file =~ s%^/*%%;
-        $file =~ s%\.\./%%g;
-        if ( $debug ) # && ($file =~ m%^https*://%) )
-        {
-          print scalar localtime,": Look for ",$file," in cache\n";
-        }
-        if ( $cache && ($data = $cache->get($file)) )
-        {
-          print scalar localtime,": Serve ",$file," from cache...\n" if $verbose;
-          $c->send_response($data);
-	  next;
-        }
-
-	if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/([^/]+)$% )
-	{
-	  my ($level,$group,$str) = ($2,$3,$4);
-	  $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
-	  print scalar localtime, ": LOG $group/$level $str\n";
-          my $response = HTTP::Response->new(200);
-	  $response->header( 'Content-type', 'text/html' );
-	  $response->header( 'Content-length', 0 );
-          $c->send_response($response);
-	  next;
-	}
-
-	foreach ( @map )
-	{
-	  my ($key,$value) = split('=',$_);
-	  $file =~ s%$key%$value%g;
-	}
-        if ( $verbose )
-        {
-          print scalar localtime,': ', $request->method(),' ', $request->uri()->as_string();
-          print ' (exists locally)' if -f $file;
-          print "\n";
-        }
-        if ( -f $file )
-        {
-          if ( $< != (stat($file))[4] )
-          {
-            $error = "Refuse to open $file, I do not own it";
-            print scalar localtime,": $file not owned by me: rejecting\n" if $debug > 1;
-            goto DONE;
-          }
-
-          if ( @reject )
-          {
-            foreach ( @reject )
-            {
-              next unless $file =~ m%$_%;
-              $error = "Rejecting $file, (matches $_)";
-              print scalar localtime,": $file matches $_ : rejecting\n" if $debug > 1;
-              goto DONE;
-            }
-          }
-          if ( @accept )
-          {
-            my $accept = 0;
-            foreach ( @accept )
-            {
-              next unless $file =~ m%$_%;
-              print scalar localtime,": $file matches $_ : accepting\n" if $debug > 1;
-              $accept++; last;
-            }
-            if ( !$accept )
-            {
-              $error = "Rejecting $file, (does not match any of \"" . join(", ",@accept) . "\")";
-              goto DONE;
-            }
-          }
-
-          open DATA, "<$file" or do {
-                                      $error = "failed to open $file: $!";
-                                      goto DONE;
-                                    };
-	  $h->{'Content-type'} = 'text/html';
-	  $file  =~ m%\.([^\.]+)$%;
-	  my $ext = $1;
-	  my $type = {	'css'	=> 'text/css',
-			'js'    => 'text/javascript',
-			'gif'	=> 'image/gif',
-			'png'	=> 'image/png',
-			'jpeg'	=> 'image/jpg',
-			'jpg'	=> 'image/jpg',
-			'ico'	=> 'image/ico',
-		     }->{$ext};
-	  $h->{'Content-type'} = $type if $type;
-	  binmode DATA if ! is_text($file);
-	  while ( read(DATA,$buf,4096) ) { $data .= $buf; } 
-          close DATA;
-DONE:
-	  die "No data for $file, maybe it was rejected...?\n" if $die_on_reject && !$data;
-
-	  my $expires = $expires_default;
-          foreach ( keys %expires )
-          {
-            next unless $file =~ m%$_%;
-            $expires = $expires{$_} if $expires{$_} > $expires;
-          }
-	  $h->{'Max-age'} = $expires;
-          send_response( $c, $data, $error, $h );
-	  next;
-        }
-
-        if ( $cache_only )
-        {
-#         If I get here then the request was not served from cache and is not a local file
-          send_response($c, undef, 'Not found in cache');
-          return;
-        }
-
-#	Transmit the request upstream to the server
-	$request->header( 'Host', $host );
-        $request->header( "Connection",       "close" );
-        $request->header( "Proxy-Connection", "close" );
-        $request->remove_header("Keep-Alive");
-        $request->uri($redirect_to . $request->uri()->path_query());
-        display_thing( $request ) if $dump_requests;
-	my $uri = $request->uri;
-        my $x;
-        ($x = $uri) =~ s%^.*/datasvc/%%;
-	my @n = split('/',$x);
-	$format = $n[0];
-	$instance = $n[1];
-        if ( !$ua )
-	{
-	  my %params =
-          (
-            DEBUG         => 0, # $debug,
-            CERT_FILE     => $cert_file,
-            KEY_FILE      => $key_file,
-            PROXY         => $proxy,
-            CA_FILE       => undef, # $ca_file,
-            CA_DIR        => undef, # $ca_dir,
-            URL           => $url,
-            FORMAT        => $format,
-            INSTANCE      => $instance,
-            NOCERT        => undef, # $nocert,
-            SERVICE       => $service,
-	  );
-	  $ua = PHEDEX::CLI::UserAgent->new (%params);
-	  $ua->CMSAgent('PhEDEx-Proxy-server-https/1.0');
-	  $ua->default_header('Host' => $host) if $host;
-	}
-	my ($method,$response,@form);
-	$method = $request->method();
-	if ( $method eq 'POST' )
-	{
-	  $_ = $request->content();
-	  s%=% %g;
-	  s%&% %g;
-	  @form = split(' ',$_);
-          $response = $ua->post($uri,\@form);
-	}
-	else
-	{
-	  $response = $ua->get($uri);
-	}
-	if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
-        $c->send_response($response);
-
-  if ( $response->code != 200 ) { return; }
-  if ( $cache && !$cache_ro )
-  {
-    my $query = $response->request()->uri()->path_query();
-    $query =~ s%^/+%%;
-    print scalar localtime,": Caching result for $query\n" if $verbose;
-    eval
+    my $file = $request->uri();
+    $file =~ s%^/*%%;
+    $file =~ s%\.\./%%g;
+    if ( $debug ) # && ($file =~ m%^https*://%) )
     {
-      $cache->set($query,$response,86400*365*100);
-    };
-    if ( $@ ) { print scalar localtime," Couldn't cache result: $@\n"; }
-  }
+      print scalar localtime,": Look for ",$file," in cache\n";
+    }
+    if ( $cache && ($data = $cache->get($file)) )
+    {
+      print scalar localtime,": Serve ",$file," from cache...\n" if $verbose;
+      $c->send_response($data);
+      next;
+    }
+
+    if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/([^/]+)$% )
+    {
+      my ($level,$group,$str) = ($2,$3,$4);
+      $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+      print scalar localtime, ": LOG $group/$level $str\n";
+      my $response = HTTP::Response->new(200);
+      $response->header( 'Content-type', 'text/html' );
+      $response->header( 'Content-length', 0 );
+      $c->send_response($response);
+      next;
+    }
+
+    foreach ( @map )
+    {
+      my ($key,$value) = split('=',$_);
+      $file =~ s%$key%$value%g;
+    }
+    if ( $verbose )
+    {
+      print scalar localtime,': ', $request->method(),' ', $request->uri()->as_string();
+      print ' (exists locally)' if -f $file;
+      print "\n";
+    }
+    if ( -f $file )
+    {
+      if ( $< != (stat($file))[4] )
+      {
+        $error = "Refuse to open $file, I do not own it";
+        print scalar localtime,": $file not owned by me: rejecting\n" if $debug > 1;
+        goto DONE;
+      }
+
+      if ( @reject )
+      {
+        foreach ( @reject )
+        {
+          next unless $file =~ m%$_%;
+          $error = "Rejecting $file, (matches $_)";
+          print scalar localtime,": $file matches $_ : rejecting\n" if $debug > 1;
+          goto DONE;
+        }
+      }
+      if ( @accept )
+      {
+        my $accept = 0;
+        foreach ( @accept )
+        {
+          next unless $file =~ m%$_%;
+          print scalar localtime,": $file matches $_ : accepting\n" if $debug > 1;
+          $accept++; last;
+        }
+        if ( !$accept )
+        {
+          $error = "Rejecting $file, (does not match any of \"" . join(", ",@accept) . "\")";
+          goto DONE;
+        }
+      }
+
+      open DATA, "<$file" or do {
+          $error = "failed to open $file: $!";
+          goto DONE;
+        };
+      $h->{'Content-type'} = 'text/html';
+      $file  =~ m%\.([^\.]+)$%;
+      my $ext = $1;
+      my $type = {  'css'	=> 'text/css',
+                    'js'	=> 'text/javascript',
+                    'gif'	=> 'image/gif',
+                    'png'	=> 'image/png',
+                    'jpeg'	=> 'image/jpg',
+                    'jpg'	=> 'image/jpg',
+                    'ico'	=> 'image/ico',
+                 }->{$ext};
+      $h->{'Content-type'} = $type if $type;
+      binmode DATA if ! is_text($file);
+      while ( read(DATA,$buf,4096) ) { $data .= $buf; } 
+      close DATA;
+DONE:
+      die "No data for $file, maybe it was rejected...?\n" if $die_on_reject && !$data;
+
+      my $expires = $expires_default;
+      foreach ( keys %expires )
+      {
+        next unless $file =~ m%$_%;
+        $expires = $expires{$_} if $expires{$_} > $expires;
+      }
+      $h->{'Max-age'} = $expires;
+      send_response( $c, $data, $error, $h );
+      next;
+    }
+
+    if ( $cache_only )
+    {
+#     If I get here then the request was not served from cache and is not a local file
+      send_response($c, undef, 'Not found in cache');
+      return;
+    }
+
+#   Transmit the request upstream to the server
+    $request->header( 'Host', $host );
+    $request->header( "Connection",       "close" );
+    $request->header( "Proxy-Connection", "close" );
+    $request->remove_header("Keep-Alive");
+    $request->uri($redirect_to . $request->uri()->path_query());
+    display_thing( $request ) if $dump_requests;
+    my $uri = $request->uri;
+    my $x;
+    ($x = $uri) =~ s%^.*/datasvc/%%;
+    my @n = split('/',$x);
+    $format = $n[0];
+    $instance = $n[1];
+    if ( !$ua )
+    {
+      my %params =
+        (
+          DEBUG         => 0, # $debug,
+          CERT_FILE     => $cert_file,
+          KEY_FILE      => $key_file,
+          PROXY         => $proxy,
+          CA_FILE       => undef, # $ca_file,
+          CA_DIR        => undef, # $ca_dir,
+          URL           => $url,
+          FORMAT        => $format,
+          INSTANCE      => $instance,
+          NOCERT        => undef, # $nocert,
+          SERVICE       => $service,
+        );
+      $ua = PHEDEX::CLI::UserAgent->new (%params);
+      $ua->CMSAgent('PhEDEx-Proxy-server-https/1.0');
+      $ua->default_header('Host' => $host) if $host;
+    }
+    my ($method,$response,@form);
+    $method = $request->method();
+    if ( $method eq 'POST' )
+    {
+      $_ = $request->content();
+      s%=% %g;
+      s%&% %g;
+      @form = split(' ',$_);
+      $response = $ua->post($uri,\@form);
+    }
+    else
+    {
+      $response = $ua->get($uri);
+    }
+    if ( $verbose ) { print scalar localtime,': ',$response->code,' ',$response->request->uri->path,"\n"; }
+    $c->send_response($response);
+
+    if ( $response->code == 200 )
+    {
+      if ( $cache && !$cache_ro )
+      {
+        my $query = $response->request()->uri()->path_query();
+        $query =~ s%^/+%%;
+        print scalar localtime,": Caching result for $query\n" if $verbose;
+        eval
+        {
+          $cache->set($query,$response,86400*365*100);
+        };
+        if ( $@ ) { print scalar localtime," Couldn't cache result: $@\n"; }
+      }
+    }
   }
   $c->close;
   undef($c);
