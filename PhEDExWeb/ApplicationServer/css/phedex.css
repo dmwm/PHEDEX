@@ -24,7 +24,6 @@ body {
 .align-left,  .yui-skin-sam .yui-dt .align-left  { text-align: left; }
 .align-right, .yui-skin-sam .yui-dt .align-right { text-align: right; }
 .align-justify { text-align: justify; }
-.phedex-invisible { display: none; }
 .phedex-hide-overflow { overflow: hidden; }
 .inline_list {
   display: table;
@@ -172,18 +171,31 @@ div .phedex-sorted {
 }
 
 /* --- BEGIN TO BECOME REDUNDANT */
+.phedex-filter-banner-nohelp {
+  width: 500px;
+}
+div.phedex-filter-banner-help { /* need the specificity! */
+  width: 770px;
+}
 .phedex-filter-help {
   padding: 0 0 0 10px;
+  display: inline-block;
+  width: 300px;
+}
+.phedex-filter-label {
+  width: 200px;
+  display: inline-block;
 }
 .phedex-filter-buttons {
   float: right;
 }
 .phedex-filter-outer {
   clear: both;
-  border-bottom:  1px dotted #888;
+  border-top:  1px dotted #888;
 }
 .phedex-filter-inner {
-  float: left;
+/*   float: left; */
+  display: inline-block;
   width: 250px;
   margin:  0 0.5em 0 0;
   text-align: right;
@@ -512,3 +524,4 @@ ul li.phedex-contextmenu-beta:before {
   width: 20px;
   display: inline-block;
 }
+.phedex-invisible { display: none; }
