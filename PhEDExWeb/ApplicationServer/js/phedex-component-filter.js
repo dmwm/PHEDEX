@@ -365,18 +365,27 @@ PHEDEX.Component.Filter = function(sandbox,args) {
             }
             fieldLabel = document.createElement('div');
             outer.appendChild(inner);
-            fieldLabel.className = 'float-left';
+            fieldLabel.className = 'phedex-filter-label';
             fieldLabel.appendChild(document.createTextNode(c.text));
             outer.appendChild(fieldLabel);
 
             if ( c.tip ) {
               help = document.createElement('div');
-              help.className = 'phedex-filter-help phedex-invisible float-right '+helpClass;
+              help.className = 'phedex-filter-help phedex-invisible xfloat-right '+helpClass;
               help.appendChild(document.createTextNode(c.tip));
               outer.appendChild(help);
             }
             fieldset.appendChild(outer);
           }
+          var dd;
+          dd = document.createElement('div');
+          dd.innerHTML='';
+          dd.className='phedex-filter-banner-nohelp';
+          fieldset.appendChild(dd);
+          dd = document.createElement('div');
+          dd.innerHTML='';
+          dd.className='phedex-filter-banner-help phedex-filter-help phedex-invisible '+helpClass;
+          fieldset.appendChild(dd);
           this.dom.filter.appendChild(fieldset);
         }
           tt = new Yw.Tooltip("ttB", { context:ttIds }), ttCount={};
