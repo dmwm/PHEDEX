@@ -206,12 +206,24 @@ sub idle
       $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
       $pidfile = $env->getExpandedString($Agent->PIDFILE());
       undef $pid;
-      if ( open PID, "<$pidfile" )
-      {
-        $pid = <PID>;
-        close PID;
-        chomp $pid;
+#     We try to catch a missing $pidfile
+      if ( -f $pidfile ) {
+        if ( open PID, "<$pidfile" ) { 
+          $pid = <PID>;
+          close PID;
+          chomp $pid;
+        }
+#     then look for the correct pid in AGENT_PID hash, once found, kill agent before something else 
+      } else {
+        $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
+        foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
+           if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
+             $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
+             POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
+           }
+        }
       }
+     
       if ( $pid && (kill 0 => $pid) )
       {
         if ( !$self->{AGENT_PID}{$pid} ) { $self->{AGENT_PID}{$pid} = $Agent->LABEL; }
