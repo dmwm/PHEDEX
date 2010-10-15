@@ -360,9 +360,8 @@ PHEDEX.Core = function(sandbox,loader) {
           });
           var dataFail = new YuCE("dataFail",  this, false, YuCE.LIST);
           dataFail.subscribe(function(type,args) {
-            var api = args[1].api;
-            log('api:'+api+' error fetching data: '+args[0].message,'error',who);
-            banner('Error fetching or parsing data for "'+api+'"','error');
+            banner('Error fetching or parsing data for "'+args[1].api+'"','error');
+            _sbx.notify(who,'datasvcFailure',args);
           });
           args.success_event = dataReady;
           args.failure_event = dataFail;
