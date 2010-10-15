@@ -487,6 +487,15 @@ PHEDEX.Component.Panel = function(sandbox,args) {
               this.AddFieldsetElement(c);
             }
           }
+          var dd;
+          dd = document.createElement('div');
+          dd.innerHTML='';
+          dd.className='phedex-panel-banner-nohelp';
+          fieldset.appendChild(dd);
+          dd = document.createElement('div');
+          dd.innerHTML='';
+          dd.className='phedex-panel-banner-help phedex-panel-help phedex-invisible '+helpClass;
+          fieldset.appendChild(dd);
           this.dom.panel.appendChild(fieldset);
         }
         tt = new Yw.Tooltip("ttB", { context:ttIds }), ttCount={};
@@ -609,16 +618,16 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         inner.appendChild(dcwrap);
         outer.appendChild(inner);
         fieldLabel = document.createElement('div');
-        fieldLabel.className = 'float-left';
+        fieldLabel.className = 'phedex-panel-label';
         if ( c.text ) { fieldLabel.appendChild(document.createTextNode(c.text)); }
-        outer.appendChild(fieldLabel);
 
         if ( c.tip ) {
           help = document.createElement('div');
-          help.className = 'phedex-panel-help phedex-invisible float-right '+helpClass;
+          help.className = 'phedex-panel-help phedex-invisible '+helpClass;
           help.appendChild(document.createTextNode(c.tip));
           outer.appendChild(help);
         }
+        outer.appendChild(fieldLabel);
         fieldset.appendChild(outer);
         return outer;
       }
