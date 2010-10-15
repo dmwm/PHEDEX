@@ -152,10 +152,11 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                       else if ( vName == 'dbs' ) { dbs         = vValue; }
                       else                       { args[vName] = vValue; }
                     }
-                    args.move         = (args.move   == '1') ? 'y': 'n';
-                    args.static       = (args.static == '1') ? 'y': 'n';
+                    args.move         = (args.move   == '1') ? 'y' : 'n';
+                    args.static       = (args.static == '1') ? 'y' : 'n';
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
+                    args.custodial    =  args.custodial      ? 'y' : 'n';
 
                     xml = '<data version="2.0"><dbs name="'+dbs+'">';
                     iCart=cart.data;
@@ -182,6 +183,16 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                   o.firstAlignmentDone = true;
                 }
                 if ( o.focusOn ) { o.focusOn.focus(); }
+                break;
+              }
+              case 'datasvcFailure': {
+                var api = arr[1][1].api,
+                    msg = arr[1][0].message;
+                    str = "Error when making call '"+api+"':";
+                msg = msg.replace(str,'').trim();
+                banner('Error subscribing data','error');
+                o.dom.result.innerHTML = 'Error subscribing data:<br />'+msg;
+                YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
                 break;
               }
             }
@@ -214,6 +225,11 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.result.innerHTML = 'Subscription succeeded:<br/>request-ID = '+rid+'<br/>';
         YuD.removeClass(this.dom.resultFieldset,'phedex-invisible');
 //         this.ctl.Apply.set('disabled',true);
+      },
+      getDataFail: function(api,message) {
+        var str = "Error when making call '"+api+"':";
+        var x = message.replace(str,'').trim();
+        banner(message.replace(str,'').trim(),'error');
       }
     };
   };
