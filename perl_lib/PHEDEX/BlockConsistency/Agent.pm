@@ -445,9 +445,9 @@ sub do_tests
       return;
     }
 
-    if ( $request->{TEST} eq 'size' ||
-         $request->{TEST} eq 'migration' ||
-         $request->{TEST} eq 'is_migrated' )
+    if (   $request->{TEST} eq 'size'        ||
+         ( $request->{TEST} eq 'migration'   && $self->{NAMESPACE} eq 'castor' ) ||
+         ( $request->{TEST} eq 'is_migrated' && $self->{NAMESPACE} eq 'castor' ) )
     {
       $self->setRequestState($request,'Active');
       $self->{DBH}->commit();
