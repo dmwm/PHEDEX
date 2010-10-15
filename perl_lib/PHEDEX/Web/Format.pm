@@ -68,6 +68,7 @@ sub error
     $message ||= "no message";
     chomp $message;
     
+    $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
     &PHEDEX::Web::Format::output($file, $format, { error => $message });
 }
 
