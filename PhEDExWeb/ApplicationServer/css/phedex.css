@@ -209,9 +209,20 @@ div.phedex-filter-banner-help { /* need the specificity! */
   text-align: right;
 }
 /* --- END TO BECOME REDUNDANT */
+.phedex-panel-banner-nohelp {
+  width: 500px;
+}
+div.phedex-panel-banner-help { /* need the specificity! */
+  width: 770px;
+}
 .phedex-panel-help {
   padding: 0 0 0 10px;
+  display: inline-block;
   width: 400px;
+}
+.phedex-panel-label {
+  width: 200px;
+  display: inline-block;
 }
 .phedex-panel-buttons {
   float: right;
@@ -224,7 +235,8 @@ div.phedex-filter-banner-help { /* need the specificity! */
   border-bottom:  1px dotted #888;
 }
 .phedex-panel-inner {
-  float: left;
+/*   float: left; */
+  display: inline-block;
   width: 250px;
   margin:  0 0.5em 0 0;
   text-align: right;
