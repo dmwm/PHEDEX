@@ -10,7 +10,7 @@
 PHEDEX.namespace('Login');
 PHEDEX.Login = function(sandbox) {
     var PxD = PHEDEX.Datasvc;
-    var _sbx = sandbox;
+        _sbx = sandbox,
 
     /*
     * _cur_state indicates the current state (login, logout, certlogin, usepassword)
@@ -19,14 +19,14 @@ PHEDEX.Login = function(sandbox) {
     * certlogin   - use certificate based authentication.
     * usepassword - authenticated using certificate based authentication and can login using password based auth
     */
-    var _cur_state = '';    //Current state of browser authentication
-    var _logincomp = {};    //Login component main HTML element
-    var _username = '';     //Login user name
-    var _authData = null;   //Response received from auth data service call
-    var _closebtn = null;   //The close button in YUI overlay
-    var _bVisible = false;  //Stores the current status of overlay if it is visible or not
-    var _user_role_info = null; //The YUI overlay object that has user role information
-    var _username_id = 'phedex-login-usrname'; //Used for positioning overlay while display
+        _cur_state = '',    //Current state of browser authentication
+        _logincomp = {},    //Login component main HTML element
+        _username = '',     //Login user name
+        _authData = null,   //Response received from auth data service call
+        _closebtn = null,   //The close button in YUI overlay
+        _bVisible = false,  //Stores the current status of overlay if it is visible or not
+        _user_role_info = null, //The YUI overlay object that has user role information
+        _username_id = 'phedex-login-usrname'; //Used for positioning overlay while display
 
     /**
     * @method _showOverlay
@@ -306,25 +306,50 @@ PHEDEX.Login = function(sandbox) {
 
     //Used to construct the login component.
     _construct = function() {
-        return {
-            /**
-            * @method init
-            * @description This creates the login component
-            * @param {Object} args object specifies the 'el' element where login component should be built
-            */
-            init: function(args) {
-                var el, uri = location.href;
-                if (typeof (args) == 'object') { el = args.el; }
-                if (!el) { el = document.getElementById('phedex-login'); }
-                if (uri.match(/^https:/)) {
-                    _initLoginComponent(el);
-                    _loginUsingCert();
-                } else {
-                    var logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
-                    objBtn = new Yw.Button({ label: 'Login', id: 'buttonLogin', container: logincomp, onclick: { fn: _redirectPage} });
+      return {
+        me: 'login',
+        id: 'login_'+PxU.Sequence(),
+
+        /**
+        * @method init
+        * @description This creates the login component
+        * @param {Object} args object specifies the 'el' element where login component should be built
+        */
+        init: function(args) {
+          var el, uri=location.href, logincomp;
+          if (typeof (args) == 'object') { el = args.el; }
+          if (!el) { el = document.getElementById('phedex-login'); }
+          if (uri.match(/^https:/)) {
+            _initLoginComponent(el);
+            _loginUsingCert();
+          } else {
+            logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
+            objBtn = new Yw.Button({ label: 'Login', id: 'buttonLogin', container: logincomp, onclick: { fn: _redirectPage} });
+          }
+          this.selfHandler = function(obj) {
+            return function(ev,arr) {
+              var action = arr[0];
+              switch (action) {
+                case 'getAuth': {
+//                   _sbx.notify(arr[1],'authData',_authData);
+                  _sbx.notify('authData',_authData);
+                  break;
                 }
+              }
             }
-        };
+          }(this);
+          _sbx.listen(this.me,this.selfHandler);
+          _sbx.listen('InstanceChanged',this.reAuth);
+        },
+        reAuth: function() {
+          if ( !_authData ) { return; }
+          _authData = null;
+          _loginUsingCert();
+          _sbx.notify('authData',_authData);
+//           if ( _cur_state == 'certlogin' ) { _loginUsingCert(); }
+//           else { banner('changed instance while logged in with password!','error'); }
+        }
+      };
     }
     Yla(this, _construct(), true);
 };
