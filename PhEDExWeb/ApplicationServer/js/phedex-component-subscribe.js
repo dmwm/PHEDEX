@@ -123,12 +123,12 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       _init: function(args) {
         this.selfHandler = function(o) {
           return function(ev,arr) {
-            var action    = arr[0],
-                subAction = arr[1],
-                value     = arr[2],
+            var action    = arr[0], subAction, value,
                 cart = o.cart, _panel = o.meta._panel, _fieldsets = _panel.fieldsets;
             switch (action) {
               case 'Panel': {
+                subAction = arr[1];
+                value     = arr[2];
                 switch (subAction) {
                   case 'Reset': {
                     var item, _cart, _fieldset;
@@ -195,11 +195,24 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
                 break;
               }
+//               case 'authData': {
+//                 value = arr[1];
+//                 break;
+//               }
             }
           }
         }(this);
         _sbx.listen(this.id,this.selfHandler);
         _sbx.notify('ComponentExists',this); // borrow the Core machinery for getting data!
+
+        this.reAuth = function(o) {
+          return function(ev,arr) {
+            var authData = arr[0];
+debugger;
+          }
+        }(this);
+        _sbx.listen('authData',this.reAuth);
+        _sbx.notify('login','getAuth',this.id);
 
         var fieldset = document.createElement('fieldset'),
             legend = document.createElement('legend'),
@@ -217,6 +230,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.resultFieldset = fieldset;
 
 //         this.ctl.Apply.set('disabled',true);
+        _sbx.notify('login','getAuth',this.id);
       },
       gotData: function(data,context) {
         var rid = data.request_created[0].id;
