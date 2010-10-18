@@ -3792,8 +3792,16 @@ sub getBlockReplicaCompare
         }
     }
 
+    # order by block
+    $sql .= qq{ order by b.name };
     my @r;
     my $q = execute_sql($core, $sql, %p);
+
+    # spooling
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
 
     while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
