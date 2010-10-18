@@ -130,4 +130,35 @@ sub blockReplicaCompare
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
+# spooling
+
+my $sth;
+my $limit = 1000;
+my @keys = ('BLOCK');
+
+sub spool
+{
+    my ($core,%h) = @_;
+
+    &checkRequired(\%h, qw / a b / );
+
+    foreach ( qw / a b show value dataset block / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+    $h{'__spool__'} = 1;
+
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h), $limit, @keys) if !$sth;
+    my $r = $sth->spool();
+    if ($r)
+    {
+        return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    }
+    else
+    {
+        $sth = undef;
+        return $r;
+    }
+}
+
 1;
