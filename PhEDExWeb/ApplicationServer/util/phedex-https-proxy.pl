@@ -191,18 +191,7 @@ while ( $c = $server->accept )
     my $file = $request->uri();
     $file =~ s%^/*%%;
     $file =~ s%\.\./%%g;
-    if ( $debug ) # && ($file =~ m%^https*://%) )
-    {
-      print scalar localtime,": Look for ",$file," in cache\n";
-    }
-    if ( $cache && ($data = $cache->get($file)) )
-    {
-      print scalar localtime,": Serve ",$file," from cache...\n" if $verbose;
-      $c->send_response($data);
-      next;
-    }
-
-    if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/([^/]+)$% )
+    if ( $file =~ m%^phedex(/dev.)?/datasvc/log/([^/]+)/([^/]+)/(.+)$% )
     {
       my ($level,$group,$str) = ($2,$3,$4);
       $str =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
@@ -211,6 +200,16 @@ while ( $c = $server->accept )
       $response->header( 'Content-type', 'text/html' );
       $response->header( 'Content-length', 0 );
       $c->send_response($response);
+      next;
+    }
+    if ( $debug ) # && ($file =~ m%^https*://%) )
+    {
+      print scalar localtime,": Look for ",$file," in cache\n";
+    }
+    if ( $cache && ($data = $cache->get($file)) )
+    {
+      print scalar localtime,": Serve ",$file," from cache...\n" if $verbose;
+      $c->send_response($data);
       next;
     }
 
