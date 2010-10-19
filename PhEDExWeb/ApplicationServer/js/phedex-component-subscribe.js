@@ -232,7 +232,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 //         this.ctl.Apply.set('disabled',true);
       },
       buildNodeSelector: function(nodeList) {
-        var nodes=[], i, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
+        var nodes=[], nNames=[], i, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
             _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nCols, nodePanel, container, el, cBox, label;
         for (i in nodeList) {
           name = nodeList[i].name;
@@ -241,6 +241,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           if ( name.match(/_Buffer$/) ) { nBuffer++; _buffer[name]=1; node.isBuffer = true; }
           if ( name.match(/_MSS$/) )    { nMSS++;    _mss[name]=1;    node.isMSS = true; }
           nodes[name] = node;
+          nNames.push(name);
         }
 
 //      Now the logic to build the selector. If only one node is allowed, select it and lock it in
@@ -271,7 +272,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         }
 
 //      now build the panel to show the nodes
-        nodes = nodes.sort();
+//         nodes = nodes.sort();
         nCols = Math.round(Math.sqrt(nNodes)) + 1;
         i = 0;
         nodePanel = this.dom.nodePanel;
@@ -279,7 +280,9 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         nodePanel = document.createElement('div');
         nodePanel.className = 'phedex-panel-node-select phedex-invisible';
         container = document.createElement('div');
-        for (name in nodes) {
+        nNames.sort();
+        for (i in nNames) {
+          name = nNames[i];
           if ( i > 0 && i%nCols == 0 ) {
             nodePanel.appendChild(container);
             container = document.createElement('div');
@@ -292,26 +295,24 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           cBox.className = 'phedex-panel-checkbox';
           cBox.id = 'cbox_' + PxU.Sequence();
           cBox.checked = nodes[name].checked;
-          if ( !this.nodeFocus ) { this.nodeFocus = cBox; }
           el.appendChild(cBox);
           label = document.createElement('div');
           label.className = 'phedex-inline';
           label.innerHTML = name;
           el.appendChild(label);
           container.appendChild(el);
+          if ( !this.nodeFocus ) { this.nodeFocus = el; }
         }
         if ( i%nCols ) { nodePanel.appendChild(container); }
-        nodePanel.style.width = nCols * colWidth;
         this.nodePanel = nodePanel;
-        /*document.body*/nodeInner.appendChild(nodePanel);
+        nodeInner.appendChild(nodePanel);
         nodeCtl.onfocus = function(o) {
           return function() {
             var colWidth;
-//             colWidth = o.nodeFocus.parent.style.effectiveWidth;
             YuD.removeClass(o.nodePanel,'phedex-invisible');
-            if ( !colWidth ) {
-              colWidth = el.style.width;
-            }
+            colWidth = o.nodeFocus.offsetWidth;
+            nodePanel.style.width = nCols * colWidth;
+            o.nodeFocus.focus();
           }
         }(this);
         nodeCtl.onblur = function(o) {
