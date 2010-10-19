@@ -195,10 +195,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
                 break;
               }
-//               case 'authData': {
-//                 value = arr[1];
-//                 break;
-//               }
+              case 'authData': {
+                o.buildNodeSelector(arr[1].node);
+                break;
+              }
             }
           }
         }(this);
@@ -208,7 +208,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.reAuth = function(o) {
           return function(ev,arr) {
             var authData = arr[0];
-debugger;
+            o.buildNodeSelector(authData.node);
           }
         }(this);
         _sbx.listen('authData',this.reAuth);
@@ -230,7 +230,98 @@ debugger;
         this.dom.resultFieldset = fieldset;
 
 //         this.ctl.Apply.set('disabled',true);
-        _sbx.notify('login','getAuth',this.id);
+      },
+      buildNodeSelector: function(nodeList) {
+        var nodes=[], i, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
+            _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nCols, nodePanel, container, el, cBox, label;
+        for (i in nodeList) {
+          name = nodeList[i].name;
+          node = {name:name, isBuffer:false, isMSS:false, checked:false};
+          if ( nNodes == 1 ) { node.checked = true; }
+          if ( name.match(/_Buffer$/) ) { nBuffer++; _buffer[name]=1; node.isBuffer = true; }
+          if ( name.match(/_MSS$/) )    { nMSS++;    _mss[name]=1;    node.isMSS = true; }
+          nodes[name] = node;
+        }
+
+//      Now the logic to build the selector. If only one node is allowed, select it and lock it in
+        nodeInner = this.meta._panel.fields['node'].inner;
+        nodeCtl = nodeInner.childNodes[0];
+        if ( nNodes == 1 ) {
+          nodeCtl.value = nodeList[0].name;
+          nodeCtl.disabled = true;
+          return;
+        }
+
+//      Now, if there is one Buffer node and no MSS nodes, select that by default
+        if ( nBuffer == 1 && nMSS == 0 ) { _defaultBuffer = true; }
+//      if there's only one MSS node, select that by default
+        if ( nMSS == 1 ) { _defaultMSS = true; }
+//      if any node-types are selected by default, set that default in the nodes array
+        if ( nNodes > 1 && ( _defaultBuffer || _defaultMSS ) ) {
+          if ( _defaultBuffer ) {
+            for (name in _buffer) {
+              nodes[name].checked = true;
+            }
+          }
+          if ( _defaultMSS ) {
+            for (name in _mss) {
+              nodes[name].checked = true;
+            }
+          }
+        }
+
+//      now build the panel to show the nodes
+        nodes = nodes.sort();
+        nCols = Math.round(Math.sqrt(nNodes)) + 1;
+        i = 0;
+        nodePanel = this.dom.nodePanel;
+        if ( nodePanel ) { nodePanel.destroy(); this.nodeFocus = null; }
+        nodePanel = document.createElement('div');
+        nodePanel.className = 'phedex-panel-node-select phedex-invisible';
+        container = document.createElement('div');
+        for (name in nodes) {
+          if ( i > 0 && i%nCols == 0 ) {
+            nodePanel.appendChild(container);
+            container = document.createElement('div');
+          }
+          i++;
+          el = document.createElement('div');
+          el.className = 'phedex-panel-select';
+          cBox = document.createElement('input');
+          cBox.type = 'checkbox';
+          cBox.className = 'phedex-panel-checkbox';
+          cBox.id = 'cbox_' + PxU.Sequence();
+          cBox.checked = nodes[name].checked;
+          if ( !this.nodeFocus ) { this.nodeFocus = cBox; }
+          el.appendChild(cBox);
+          label = document.createElement('div');
+          label.className = 'phedex-inline';
+          label.innerHTML = name;
+          el.appendChild(label);
+          container.appendChild(el);
+        }
+        if ( i%nCols ) { nodePanel.appendChild(container); }
+        nodePanel.style.width = nCols * colWidth;
+        this.nodePanel = nodePanel;
+        /*document.body*/nodeInner.appendChild(nodePanel);
+        nodeCtl.onfocus = function(o) {
+          return function() {
+            var colWidth;
+//             colWidth = o.nodeFocus.parent.style.effectiveWidth;
+            YuD.removeClass(o.nodePanel,'phedex-invisible');
+            if ( !colWidth ) {
+              colWidth = el.style.width;
+            }
+          }
+        }(this);
+        nodeCtl.onblur = function(o) {
+          return function() {
+            YuD.addClass(o.nodePanel,'phedex-invisible');
+          }
+        }(this);
+      },
+      showNodeSelectPanel: function() {
+        debugger;
       },
       gotData: function(data,context) {
         var rid = data.request_created[0].id;
