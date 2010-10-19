@@ -81,7 +81,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
         Headers:  'Show the header-tree, which shows you what the data-fields are, and allows you to resize fields by dragging the header-element',
         Extra:    'Show extra details about this data',
         Refresh:  'Refresh this module with new data from the dataservice',
-        Subscribe:'Show the subscription panel. This control is only enabled if you have selected datasets or modules to make a request for'
+        Subscribe:'Show the subscription panel. This control is only enabled if you have selected datasets or blocks to make a transfer request for'
       },
 
 /**
