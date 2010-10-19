@@ -549,6 +549,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         }
 
         fields = c.fields || e.fields || [''];
+        _panel.fields[c.key].inner = inner;
         for (i in fields) {
           if ( i > 0 ) { inner.appendChild(document.createTextNode('  ')); }
           el = document.createElement(e.type);
