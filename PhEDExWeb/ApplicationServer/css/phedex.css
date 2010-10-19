@@ -345,10 +345,12 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 }
 .phedex-panel-node-select {
   position: relative;
+  top: -20px;
   border: 5px solid #bbf;
   background: white;
   z-index: 100;
   text-align: left;
+  padding: 5px;
 }
 .phedex-core-overlay .hd { background-color:#eee; }
 .phedex-core-overlay .bd { background-color:#fff; }
