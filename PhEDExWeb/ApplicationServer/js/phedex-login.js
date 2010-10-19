@@ -331,8 +331,8 @@ PHEDEX.Login = function(sandbox) {
               var action = arr[0];
               switch (action) {
                 case 'getAuth': {
-//                   _sbx.notify(arr[1],'authData',_authData);
-                  _sbx.notify('authData',_authData);
+                  _sbx.notify(arr[1],'authData',_authData);
+//                   _sbx.notify('authData',_authData);
                   break;
                 }
               }
