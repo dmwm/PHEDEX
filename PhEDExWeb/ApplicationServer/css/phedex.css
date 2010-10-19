@@ -260,6 +260,10 @@ div.phedex-panel-banner-help { /* need the specificity! */
 .phedex-panel-ac-container {
   width:200px;
 }
+.phedex-panel-select {
+  display: inline-block;
+  width: 140px;
+}
 .phedex-inner-textarea {
   height: 4em;
 }
@@ -336,8 +340,15 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 }
 
 .phedex-core-overlay {
-  position:absolute;
-  border:5px solid #bbf;
+  position: absolute;
+  border: 5px solid #bbf;
+}
+.phedex-panel-node-select {
+  position: relative;
+  border: 5px solid #bbf;
+  background: white;
+  z-index: 100;
+  text-align: left;
 }
 .phedex-core-overlay .hd { background-color:#eee; }
 .phedex-core-overlay .bd { background-color:#fff; }
@@ -345,9 +356,9 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 
 /* This is for the multiline text box in datatable */
 .phedex-dt-txtbox {
-	border-width:0; 
-	width: 100%; 
-	background-color:transparent;
+  border-width:0;
+  width: 100%;
+  background-color:transparent;
 }
 
 .phedex-tnode-field {
@@ -490,7 +501,7 @@ div.phedex-nav-link {
   visibility:hidden;
 }
 
-/* Would like to use these, with CSS_CONTEXT_CLASS on the context menu, and that works. But it doesn't work on th pulldown menus, so I have to hack it instead... */
+/* Would like to use these, with CSS_CONTEXT_CLASS on the context menu, and that works. But it doesn't work on the pulldown menus, so I have to hack it instead... */
 /*ul li.phedex-contextmenu-alpha:before {
   content: "\003b1";
   float: left;
@@ -537,3 +548,4 @@ ul li.phedex-contextmenu-beta:before {
   display: inline-block;
 }
 .phedex-invisible { display: none; }
+.phedex-inline { display: inline; }
