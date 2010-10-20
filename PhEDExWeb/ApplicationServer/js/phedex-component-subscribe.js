@@ -52,7 +52,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:'test' /*http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query'*/ },
 
 // node can be multiple
-            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'TX_Test1_Buffer' },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'' },
             move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
                            tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
             static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
@@ -199,6 +199,25 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 o.buildNodeSelector(arr[1].node);
                 break;
               }
+              case 'node_Apply': {
+                var metaNode=o.metaNode, cBoxes=metaNode.cBox, node, cBox;
+                YuD.addClass(metaNode.Panel,'phedex-invisible');
+                metaNode.selected=[];
+                for (node in cBoxes) {
+                  cBox = cBoxes[node];
+                  if ( cBox.checked ) { metaNode.selected.push(node); }
+                }
+                metaNode.Ctl.value = metaNode.Ctl.title = metaNode.selected.join(' ');
+                break;
+              }
+              case 'node_Reset': {
+                var metaNode=o.metaNode, cBoxes=metaNode.cBox, node, cBox;
+                for (node in cBoxes) {
+                  cBox = cBoxes[node];
+                  cBox.checked=false;
+                }
+                break;
+              }
             }
           }
         }(this);
@@ -232,8 +251,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 //         this.ctl.Apply.set('disabled',true);
       },
       buildNodeSelector: function(nodeList) {
-        var nodes=[], nNames=[], i, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
-            _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nCols, nodePanel, container, el, cBox, label;
+        var nodes=[], nNames=[], i, p, q, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
+            _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nRows, nCols, nodePanel, container, el, cBox, label, metaNode;
+
+        this.metaNode = metaNode = { Focus:null, cBox:{}, selected:[] };
         for (i in nodeList) {
           name = nodeList[i].name;
           node = {name:name, isBuffer:false, isMSS:false, checked:false};
@@ -246,7 +267,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
 //      Now the logic to build the selector. If only one node is allowed, select it and lock it in
         nodeInner = this.meta._panel.fields['node'].inner;
-        nodeCtl = nodeInner.childNodes[0];
+        nodeCtl = metaNode.Ctl = nodeInner.childNodes[0];
         if ( nNodes == 1 ) {
           nodeCtl.value = nodeList[0].name;
           nodeCtl.disabled = true;
@@ -262,62 +283,73 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           if ( _defaultBuffer ) {
             for (name in _buffer) {
               nodes[name].checked = true;
+              metaNode.selected.push(name);
             }
           }
           if ( _defaultMSS ) {
             for (name in _mss) {
               nodes[name].checked = true;
+              metaNode.selected.push(name);
             }
           }
         }
+        nodeCtl.value = nodeCtl.title = metaNode.selected.sort().join(' ');
 
 //      now build the panel to show the nodes
-//         nodes = nodes.sort();
-        nCols = Math.round(Math.sqrt(nNodes)) + 1;
-        i = 0;
+        nRows = Math.round(Math.sqrt(nNodes));
+        nCols = Math.round(nNodes/nRows+1);
         nodePanel = this.dom.nodePanel;
-        if ( nodePanel ) { nodePanel.destroy(); this.nodeFocus = null; }
+        if ( nodePanel ) { nodePanel.destroy(); }
         nodePanel = document.createElement('div');
         nodePanel.className = 'phedex-panel-node-select phedex-invisible';
         container = document.createElement('div');
         nNames.sort();
-        for (i in nNames) {
-          name = nNames[i];
-          if ( i > 0 && i%nCols == 0 ) {
-            nodePanel.appendChild(container);
-            container = document.createElement('div');
+
+        for (p=0; p<nRows; p++) {
+          for (q=0; q<nCols; q++) {
+            i = p+q*nRows;
+            if ( i >= nNodes ) { continue; }
+            name = nNames[i];
+            el = document.createElement('div');
+            el.className = 'phedex-panel-select';
+            cBox = document.createElement('input');
+            cBox.type = 'checkbox';
+            cBox.className = 'phedex-panel-checkbox';
+            cBox.id = 'cbox_' + PxU.Sequence();
+            cBox.checked = nodes[name].checked;
+            metaNode.cBox[name] = cBox;
+            el.appendChild(cBox);
+            label = document.createElement('div');
+            label.className = 'phedex-inline';
+            label.innerHTML = name;
+            el.appendChild(label);
+            container.appendChild(el);
+            if ( !metaNode.Focus ) { metaNode.Focus = el; }
           }
-          i++;
-          el = document.createElement('div');
-          el.className = 'phedex-panel-select';
-          cBox = document.createElement('input');
-          cBox.type = 'checkbox';
-          cBox.className = 'phedex-panel-checkbox';
-          cBox.id = 'cbox_' + PxU.Sequence();
-          cBox.checked = nodes[name].checked;
-          el.appendChild(cBox);
-          label = document.createElement('div');
-          label.className = 'phedex-inline';
-          label.innerHTML = name;
-          el.appendChild(label);
-          container.appendChild(el);
-          if ( !this.nodeFocus ) { this.nodeFocus = el; }
+          nodePanel.appendChild(container);
+          container = document.createElement('div');
         }
         if ( i%nCols ) { nodePanel.appendChild(container); }
-        this.nodePanel = nodePanel;
+        var b, bName, _buttons=document.createElement('div'), labels={Apply:'Select the checked nodes', Reset:'un-select all nodes'};
+        _buttons.className = 'align-right';
+        nodePanel.appendChild(_buttons);
+        for (name in labels) {
+          bName = 'node_' + name;
+          this.ctl[bName] = b = new Yw.Button({ label:name, title:labels[name], container:_buttons });
+          b.on ('click', function(id,_action) {
+            return function() { _sbx.notify(id,_action); }
+          }(this.id,bName) );
+        }
+
+        this.metaNode.Panel = nodePanel;
         nodeInner.appendChild(nodePanel);
         nodeCtl.onfocus = function(o) {
           return function() {
-            var colWidth;
-            YuD.removeClass(o.nodePanel,'phedex-invisible');
-            colWidth = o.nodeFocus.offsetWidth;
-            nodePanel.style.width = nCols * colWidth;
-            o.nodeFocus.focus();
-          }
-        }(this);
-        nodeCtl.onblur = function(o) {
-          return function() {
-            YuD.addClass(o.nodePanel,'phedex-invisible');
+            var colWidth, metaNode=o.metaNode, Panel=metaNode.Panel, Focus=metaNode.Focus;
+            YuD.removeClass(Panel,'phedex-invisible');
+            colWidth = Focus.offsetWidth;
+            Panel.style.width = nCols * colWidth;
+            Focus.focus();
           }
         }(this);
       },
