@@ -22,11 +22,12 @@ Compare block replicas at two nodes and output either the differences or the mat
 
  Required:     a, b
 
- a		the name of "node A" in the comparison (required)
- b		the name of "node B" in the comparison (required)
- show          Which results of the comparison to output, either 'diff' or
-               'match'.  Default is 'diff'.
- value		the value to compare on.  Can be one of:
+ a             the name of "node A" in the comparison (required)
+ b             the name of "node B" in the comparison (required)
+ show          which results of the comparison to output, one of 'match', 'diff' or 'neither'. any other value is an error.
+               default is 'diff'.
+               when using 'neither', meaning the replicas are not at either site, dataset or block is required.
+ value         the value to compare on.  Can be one of:
                'files', 'bytes', 'subscribed', 'group', 'custodial'.  
                Default is 'bytes'.  Multiple values can be provided, requiring
                each of them to match.
@@ -125,7 +126,35 @@ sub blockReplicaCompare
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    my $r = PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h);
+    # default values
+    if (!$h{SHOW})
+    {
+        $h{SHOW} = 'diff';
+    }
+    elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
+    {
+        die "argument show is not one of 'match', 'diff' or 'neither'";
+    }
+
+    if (!$h{VALUE})
+    {
+        $h{VALUE} = 'bytes';
+    }
+
+    my $r;
+
+    if ($h{SHOW} eq 'neither')
+    {
+        if (!$h{DATASET} && !$h{BLOCK})
+        {
+           die "'dataset' or 'bock' is required for show='neither'";
+        }
+        $r = PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h);
+    }
+    else
+    {
+        $r = PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h);
+    }
 
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
@@ -146,9 +175,37 @@ sub spool
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
+
+    # default values
+    if (!$h{SHOW})
+    {
+        $h{SHOW} = 'diff';
+    }
+    elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
+    {
+        die "argument show is not one of 'match', 'diff' or 'neither'";
+    }
+
+    if (!$h{VALUE})
+    {
+        $h{VALUE} = 'bytes';
+    }
+
     $h{'__spool__'} = 1;
 
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h), $limit, @keys) if !$sth;
+    if ($h{SHOW} eq 'neither')
+    {
+        if (!$h{DATASET} && !$h{BLOCK})
+        {
+           die "'dataset' or 'bock' is required for show='neither'";
+        }
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h), $limit, @keys) if !$sth;
+    }
+    else
+    {
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h), $limit, @keys) if !$sth;
+    }
+
     my $r = $sth->spool();
     if ($r)
     {
