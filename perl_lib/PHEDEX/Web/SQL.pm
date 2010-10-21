@@ -3621,8 +3621,6 @@ sub getBlockReplicaCompare
     my %h = @_;
 
     my $sql = qq{
-
-
         select
             b.name block,
             b.id block_id,
@@ -3791,6 +3789,57 @@ sub getBlockReplicaCompare
             }
         }
     }
+
+    # order by block
+    $sql .= qq{ order by b.name };
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+
+    # spooling
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
+    while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
+}
+
+sub getBlockReplicaCompare_Neither
+{
+    my $core = shift;
+    my %h = @_;
+
+    my $sql = qq{
+        select
+            b.name block,
+            b.id block_id,
+            b.files,
+            b.bytes,
+            b.is_open
+        from
+            t_dps_block_replica r
+            join t_adm_node n on r.node = n.id
+            join t_dps_block b on r.block = b.id
+            join t_dps_dataset d on b.dataset = d.id
+        where
+            n.name != :nodea and
+            n.name != :nodeb
+    };
+
+    my $filters = '';
+
+    my %p = (
+        ':nodea' => $h{'A'},
+        ':nodeb' => $h{'B'}
+    );
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        BLOCK => 'b.name',
+        DATASET => 'd.name'));
+
+    $sql .= " and ($filters)" if $filters;
 
     # order by block
     $sql .= qq{ order by b.name };
