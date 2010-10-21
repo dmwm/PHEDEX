@@ -32,7 +32,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-component-panel':       { requires:['phedex-util','phedex-component-control','phedex-component-autocomplete','container','dragdrop','button'] },
     'phedex-component-refresh':     { requires:['phedex-component-control'] },
     'phedex-component-splitbutton': { requires:['phedex-util','menu','button'] },
-    'phedex-component-subscribe':   { requires:['phedex-component-panel'] },
+    'phedex-component-subscribe':   { requires:['phedex-component-panel','calendar'] },
 
     'phedex-config':       { requires:['phedex-util'] },
     'phedex-login':        { requires:['phedex-util','button'] },
