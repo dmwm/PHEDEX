@@ -200,18 +200,18 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 break;
               }
               case 'node_Apply': {
-                var metaNode=o.metaNode, cBoxes=metaNode.cBox, node, cBox;
-                YuD.addClass(metaNode.Panel,'phedex-invisible');
+                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
+                YuD.addClass(metaNode.panel,'phedex-invisible');
                 metaNode.selected=[];
                 for (node in cBoxes) {
                   cBox = cBoxes[node];
                   if ( cBox.checked ) { metaNode.selected.push(node); }
                 }
-                metaNode.Ctl.value = metaNode.Ctl.title = metaNode.selected.join(' ');
+                metaNode.Ctl.value = metaNode.Ctl.title = metaNode.selected.sort().join(' ');
                 break;
               }
               case 'node_Reset': {
-                var metaNode=o.metaNode, cBoxes=metaNode.cBox, node, cBox;
+                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
                 for (node in cBoxes) {
                   cBox = cBoxes[node];
                   cBox.checked=false;
@@ -240,7 +240,6 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         fieldset.className = 'phedex-invisible';
         legend.appendChild(document.createTextNode('Results'));
         fieldset.appendChild(legend);
-//         legend.appendChild(document.createTextNode(' '));
         this.dom.panel.appendChild(fieldset);
 
         el.className = 'phedex-panel-status';
@@ -251,10 +250,9 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 //         this.ctl.Apply.set('disabled',true);
       },
       buildNodeSelector: function(nodeList) {
-        var nodes=[], nNames=[], i, p, q, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[],
+        var nodes=[], nNames=[], i, p, q, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[], tmp=[], selected=[],
             _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nRows, nCols, nodePanel, container, el, cBox, label, metaNode;
 
-        this.metaNode = metaNode = { Focus:null, cBox:{}, selected:[] };
         for (i in nodeList) {
           name = nodeList[i].name;
           node = {name:name, isBuffer:false, isMSS:false, checked:false};
@@ -267,7 +265,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
 //      Now the logic to build the selector. If only one node is allowed, select it and lock it in
         nodeInner = this.meta._panel.fields['node'].inner;
-        nodeCtl = metaNode.Ctl = nodeInner.childNodes[0];
+        nodeCtl = nodeInner.childNodes[0];
         if ( nNodes == 1 ) {
           nodeCtl.value = nodeList[0].name;
           nodeCtl.disabled = true;
@@ -283,78 +281,112 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           if ( _defaultBuffer ) {
             for (name in _buffer) {
               nodes[name].checked = true;
-              metaNode.selected.push(name);
+              selected.push(name);
             }
           }
           if ( _defaultMSS ) {
             for (name in _mss) {
               nodes[name].checked = true;
-              metaNode.selected.push(name);
+              selected.push(name);
             }
           }
         }
-        nodeCtl.value = nodeCtl.title = metaNode.selected.sort().join(' ');
+        nodeCtl.value = nodeCtl.title = selected.sort().join(' ');
+
+//      sort the names into the right order
+        nNames.sort();
+        nRows = Math.round(Math.sqrt(nNodes));
+        nCols = Math.round(nNodes/nRows);
+        if ( nRows*nCols < nNodes ) { nRows++; }
+        for (p=0; p<nRows; p++) {
+          tmp[p] = [];
+          for (q=0; q<nCols; q++) {
+            i = p+q*nRows;
+            if ( i >= nNodes ) { continue; }
+            tmp[p][q] = nodes[nNames[i]];
+          }
+        }
+        nodes = tmp;
 
 //      now build the panel to show the nodes
-        nRows = Math.round(Math.sqrt(nNodes));
-        nCols = Math.round(nNodes/nRows+1);
         nodePanel = this.dom.nodePanel;
         if ( nodePanel ) { nodePanel.destroy(); }
         nodePanel = document.createElement('div');
         nodePanel.className = 'phedex-panel-node-select phedex-invisible';
         container = document.createElement('div');
-        nNames.sort();
 
+        var meta = this.buildCBoxPanel('nodePanel','node',nodes);
+        nodeInner.appendChild(meta.panel);
+        meta.Ctl = nodeCtl;
+        meta.selected = selected;
+        this.meta['node'] = meta;
+
+        nodeCtl.onfocus = function(o) {
+          return function() {
+            var colWidth, metaNode=o.meta['node'], panel=metaNode.panel;
+            YuD.removeClass(panel,'phedex-invisible');
+            if ( metaNode.marker ) {
+              colWidth = metaNode.marker.offsetWidth;
+              panel.style.width = nCols * colWidth;
+              delete metaNode.marker;
+            }
+            metaNode.focus.focus();
+          }
+        }(this);
+      },
+      buildCBoxPanel: function(elName, id, items, buttons) {
+        var panel = this.dom[elName],
+            container, nRows, nCols, p, q, item, name, el, cBox, cBoxes=[], label, focus, marker;
+        if ( panel ) { panel.destroy(); }
+        panel = document.createElement('div');
+        panel.className = 'phedex-panel-'+id+'-select phedex-invisible';
+        container = document.createElement('div');
+
+        nRows = items.length;
+        nCols = items[0].length;
         for (p=0; p<nRows; p++) {
           for (q=0; q<nCols; q++) {
-            i = p+q*nRows;
-            if ( i >= nNodes ) { continue; }
-            name = nNames[i];
+            item = items[p][q];
+            if ( !item ) {
+              panel.appendChild(container);
+              container = document.createElement('div');
+              continue;
+            }
+            name = item.name;
             el = document.createElement('div');
             el.className = 'phedex-panel-select';
             cBox = document.createElement('input');
             cBox.type = 'checkbox';
             cBox.className = 'phedex-panel-checkbox';
             cBox.id = 'cbox_' + PxU.Sequence();
-            cBox.checked = nodes[name].checked;
-            metaNode.cBox[name] = cBox;
+            cBox.checked = item.checked;
+            cBoxes[name] = cBox;
             el.appendChild(cBox);
             label = document.createElement('div');
             label.className = 'phedex-inline';
             label.innerHTML = name;
             el.appendChild(label);
             container.appendChild(el);
-            if ( !metaNode.Focus ) { metaNode.Focus = el; }
+            if ( !focus )  { focus = cBox; }
+            if ( !marker ) { marker = el; }
           }
-          nodePanel.appendChild(container);
-          container = document.createElement('div');
+          if ( container.childNodes.length > 0 ) {
+            panel.appendChild(container);
+            container = document.createElement('div');
+          }
         }
-        if ( i%nCols ) { nodePanel.appendChild(container); }
-        var b, bName, _buttons=document.createElement('div'), labels={Apply:'Select the checked nodes', Reset:'un-select all nodes'};
+        var b, bName, _buttons=document.createElement('div');
+        if ( !buttons ) { buttons = {Apply:'Select the checked '+id+'s', Reset:'un-select all '+id+'s'}; }
         _buttons.className = 'align-right';
-        nodePanel.appendChild(_buttons);
-        for (name in labels) {
-          bName = 'node_' + name;
-          this.ctl[bName] = b = new Yw.Button({ label:name, title:labels[name], container:_buttons });
+        panel.appendChild(_buttons);
+        for (name in buttons) {
+          bName = id+'_' + name;
+          this.ctl[bName] = b = new Yw.Button({ label:name, title:buttons[name], container:_buttons });
           b.on ('click', function(id,_action) {
             return function() { _sbx.notify(id,_action); }
           }(this.id,bName) );
         }
-
-        this.metaNode.Panel = nodePanel;
-        nodeInner.appendChild(nodePanel);
-        nodeCtl.onfocus = function(o) {
-          return function() {
-            var colWidth, metaNode=o.metaNode, Panel=metaNode.Panel, Focus=metaNode.Focus;
-            YuD.removeClass(Panel,'phedex-invisible');
-            colWidth = Focus.offsetWidth;
-            Panel.style.width = nCols * colWidth;
-            Focus.focus();
-          }
-        }(this);
-      },
-      showNodeSelectPanel: function() {
-        debugger;
+        return { panel:panel, cBoxes:cBoxes, focus:focus, marker:marker };
       },
       gotData: function(data,context) {
         var rid = data.request_created[0].id;
