@@ -62,7 +62,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
             group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false, autoComplete:groupComplete },
 
-            time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'This is valid for datasets only. Unix epoch-time', negatable:false },
+            time_start:   {type:'regex',    text:'Start-time for subscription',    tip:'Valid for datasets only. Format is "YYYY-MM-DD hh:mm:ss", where the hh:mm:ss may be omitted. Only dates in the past are allowed, you may not subscribe data from the future.', negatable:false },
             request_only: {type:'checkbox', text:'Request only, do not subscribe', tip:'Make the request without making a subscription',   attributes:{checked:true} },
             no_mail:      {type:'checkbox', text:'Suppress email notification?',   tip:'Check this box to not send an email',              attributes:{checked:true} },
             comments:     {type:'textarea', text:'Enter your comments here', className:'phedex-inner-textarea' },
@@ -218,6 +218,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 }
                 break;
               }
+//               case 'start_time_Select': {
+// debugger;
+//                 break;
+//               }
             }
           }
         }(this);
@@ -247,8 +251,119 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.result = el;
         this.dom.resultFieldset = fieldset;
 
+        var startInner = this.meta._panel.fields['time_start'].inner;
+        var startCtl = startInner.childNodes[0];
+        this.buildCalendarSelector(startInner,startCtl);
+
 //         this.ctl.Apply.set('disabled',true);
       },
+      buildCalendarSelector: function(el,ctl) {
+        var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, today=new Date();
+        elCal.className = 'phedex-panel-calendar-select phedex-invisible';
+        el.appendChild(elCal);
+
+        thisYear   = today.getFullYear();
+        thisMonth  = today.getMonth()+1;
+        thisDay    = today.getDate();
+        thisHour   = today.getHours();
+        thisMinute = today.getMinutes();
+
+        var mySelectHandler = function(o) {
+          return function(type,args,obj) {
+            var selected = args[0][0];
+            ctl.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+            YuD.addClass(elCal,'phedex-invisible');
+          }
+        }(this);
+
+        cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), elCal, {close:true, maxdate:thisMonth+'/'+thisDay+'/'+thisYear } );
+        cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
+        cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
+        cal.cfg.setProperty('MDY_DAY_POSITION', 3);
+        cal.selectEvent.subscribe( mySelectHandler, cal, true);
+        cal.render();
+
+        ctl.onfocus = function(o) {
+          return function() {
+            YuD.removeClass(elCal,'phedex-invisible');
+            var elLeft = ctl.offsetLeft;
+            elCal.style.left = elLeft - 12; // empirical. Distance between phedex-inner and phedex-outer. TODO find better way to set this
+          }
+        }(this);
+
+        var updateCal = function() {
+          var str=ctl.value, arr=[], year, day, month, hour, minute, second;
+          str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/);
+          year  = RegExp.$1;
+          month = RegExp.$2;
+          day   = RegExp.$3;
+          str   = RegExp.$4;
+          str.match(/^(\d\d?)(\D?(\d\d?))?(\D?(\d\d?))?$/);
+          hour   = RegExp.$1 || 0;
+          minute = RegExp.$3 || 0;
+          second = RegExp.$5 || 0;
+alert('hand-setting date does not always work properly to update the calendar. Setting 2-digits for months less than 10 etc, forcing calendar to sync with typed values...');
+// make sure the date is not in the future. The logic required is as listed here, but a faster form of it is used.
+//           if ( ( year >= thisYear && month >= thisMonth && day >= thisDay && hour >= thisHour && minute > thisMinute ) ||
+//                ( year >= thisYear && month >= thisMonth && day >= thisDay && hour >  thisHour ) ||
+//                ( year >= thisYear && month >= thisMonth && day >  thisDay ) ||
+//                ( year >= thisYear && month >  thisMonth ) ||
+//                  year >  thisYear ) {
+          if ( year  > thisYear  || ( year  == thisYear  && (
+                 month > thisMonth || ( month == thisMonth && (
+                   day   > thisDay   || ( day   == thisDay   && (
+                     hour  > thisHour  || ( hour  == thisHour  && (
+                       minute > thisMinute || ( minute == thisMinute && second > thisSecond )
+                     ) )
+                   ) )
+                 ) )
+                ) )
+              )
+          {
+            banner('You may not select a date in the future','error');
+            year   = thisYear;
+            month  =  thisMonth;
+            day    = thisDay;
+            hour   = thisHour;
+            minute = thisMinute;
+            second = 0; // don't fuss with individual seconds, reset to the minute
+          } else {
+            YuD.addClass(elCal,'phedex-invisible'); // a valid date was typed in, so accept it and move on
+          }
+
+          ctl.value = year+'-'+month+'-'+day+' '+hour+':'+minute+':'+second;
+          cal.cfg.setProperty('pagedate', month+'/'+year);
+          cal.render();
+//           if (day != '') {
+//             cal.select(year+'/'+month+'/'+day);
+// //             cal.select(month+'/'+day+'/'+year);
+//             var selectedDates = cal.getSelectedDates();
+//             if (selectedDates.length > 0) {
+//               var firstDate = selectedDates[0];
+//               cal.cfg.setProperty('pagedate', (firstDate.getMonth()+1) + "/" + firstDate.getFullYear());
+//               cal.render();
+//             } else {
+//               banner('You may not select a date in the future','error');
+//             }
+//           }
+        }
+        var k1 = new Yu.KeyListener(
+          ctl,
+          { keys: Yu.KeyListener.KEY['ENTER'] },
+          { fn:function(){
+//           { fn:function(o){
+//             return function() {
+              updateCal();
+              return false;
+//             }
+//           }(this), scope:this, correctScope:true }
+          }, scope:this, correctScope:true }
+        );
+        k1.enable();
+
+        return cal;
+      },
+
       buildNodeSelector: function(nodeList) {
         var nodes=[], nNames=[], i, p, q, nBuffer=0, nMSS=0, node, name, nNodes=nodeList.length, _buffer=[], _mss=[], tmp=[], selected=[],
             _defaultBuffer=false, _defaultMSS=false, nodeInner, nodeCtl, nRows, nCols, nodePanel, container, el, cBox, label, metaNode;
