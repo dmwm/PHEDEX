@@ -517,11 +517,13 @@ PHEDEX.Component.Panel = function(sandbox,args) {
             this.cfg.setProperty('text', text);
           }
         );
-        k1 = new Yu.KeyListener(this.dom.panel,
+        if ( payload.onEnter ) {
+          k1 = new Yu.KeyListener(this.dom.panel,
                                { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
-                               { fn:function(obj){ return function() { _sbx.notify(obj.id,'Panel','Validate'); } }(this),
+                               { fn:function(obj){ return function() { _sbx.notify(obj.id,'Panel',payload.onEnter); } }(this),
                                scope:this, correctScope:true } );
-        k1.enable();
+          k1.enable();
+        }
       },
 
       AddFieldsetElement: function(c,val) {
