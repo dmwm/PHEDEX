@@ -352,6 +352,19 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   text-align: left;
   padding: 5px;
 }
+div.phedex-panel-calendar-select {
+  position: relative;
+  top: 0px;
+  left: 0px;
+}
+.phedex-panel-calendar-select {
+  position: relative;
+  top: 0px;
+  background: white;
+  z-index: 1;
+  text-align: left;
+  padding: 5px;
+}
 .phedex-core-overlay .hd { background-color:#eee; }
 .phedex-core-overlay .bd { background-color:#fff; }
 .phedex-core-overlay .ft { background-color:#eee; }
