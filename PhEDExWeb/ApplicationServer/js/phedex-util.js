@@ -238,6 +238,11 @@ PHEDEX.Util.epochAlign = function(time,interval) {
   return time;
 }
 
+PHEDEX.Util.now = function() {
+  var today = new Date();
+  return {year:today.getFullYear(), month:today.getMonth()+1, day:today.getDate(), hour:today.getHours(), minute:today.getMinutes(), second:today.getSeconds()};
+};
+
 PHEDEX.Util.feature = {
   alpha: "<div class='phedex-feature-class phedex-feature-alpha' title='this feature is in alpha-release, expect bugs!'>&alpha;</div>",
   beta:  "<div class='phedex-feature-class phedex-feature-beta'  title='this feature is in beta-release, and may not be production quality'>&beta;</div>"
