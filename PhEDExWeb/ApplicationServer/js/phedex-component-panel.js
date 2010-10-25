@@ -41,7 +41,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         }
         case 'activate': { // set focus appropriately when the panel is revealed
           if ( !o.firstAlignmentDone ) {
-            o.overlay.align(this.dom.context_el,this.dom.align_el);
+            o.overlay.align(o.dom.context_el,o.dom.align_el);
             o.firstAlignmentDone = true;
           }
           if ( o.focusOn ) { o.focusOn.focus(); }
@@ -187,7 +187,6 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           focusOn.focus();
         }
       },
-
       Parse: function() {
         this.ResetState();
         var isValid = true,
@@ -563,6 +562,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           if ( e.className ) { YuD.addClass(el,'phedex-panel-elem-'+e.className); }
           size = e.size || c.size;
 
+          if ( c.focus ) { this.focusOn = this.defaultFocus = el; }
 //        set default values. Depends on type of input field...
           if ( c.type == 'radio' ) {
             if ( fields[i] == c.default ) { el.checked = true; }
@@ -592,7 +592,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           }
           inner.appendChild(el);
           if ( !this.meta.focusMap[inner.id] ) { this.meta.focusMap[inner.id] = el.id; }
-          if ( !this.focusOn ) { this.focusOn = this.focusDefault = el; }
+          if ( !this.focusOn ) { this.focusOn = el; }
           if ( fields[i] != '' ) {
             inner.appendChild(document.createTextNode(fields[i]+' '));
           }
