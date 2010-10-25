@@ -31,7 +31,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         },
         el:'content'
       },
-      buttons: [ 'Dismiss', 'Apply', 'Reset' ],
+      buttons: [ 'Apply', 'Reset', 'Dismiss' ],
       buttonMap: {
                    Apply:{title:'Subscribe this data', action:'Validate'}
                  },
@@ -49,7 +49,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         Parameters:{
           fields:{
 // need to extract the list of DBS's from somewhere...
-            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:'test' /*http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query'*/ },
+            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:'test' /*http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query'*/, focus:true },
 
 // node can be multiple
             node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'' },
@@ -119,8 +119,9 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   _construct = function() {
     return {
       me: _me,
-      cart:{ data:{}, elements:[] },
+      cart: {},
       _init: function(args) {
+        this.resetCart();
         this.selfHandler = function(o) {
           return function(ev,arr) {
             var action    = arr[0], subAction, value,
@@ -136,7 +137,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                       _fieldset = _fieldsets[item.type].fieldset;
                       _fieldset.removeChild(item.el);
                     }
-                    cart = { data:{}, elements:[] };
+                    this.resetCart();
 //                     o.ctl.Apply.set('disabled',true);
                     break;
                   }
@@ -150,13 +151,14 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                       vValue = val.values.value;
                       if ( vName == 'dataset' || vName == 'block' ) { level = vName; }
                       else if ( vName == 'dbs' ) { dbs         = vValue; }
-                      else                       { args[vName] = vValue; }
+                      else if ( vName != 'node' ) { args[vName] = vValue; }
                     }
                     args.move         = (args.move   == '1') ? 'y' : 'n';
                     args.static       = (args.static == '1') ? 'y' : 'n';
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
                     args.custodial    =  args.custodial      ? 'y' : 'n';
+                    args.node         = o.meta.node.selected;
 
                     xml = '<data version="2.0"><dbs name="'+dbs+'">';
                     iCart=cart.data;
@@ -210,6 +212,19 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 metaNode.Ctl.value = metaNode.Ctl.title = metaNode.selected.sort().join(' ');
                 break;
               }
+              case 'node_Dismiss': {
+                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
+                YuD.addClass(metaNode.panel,'phedex-invisible');
+                for (node in cBoxes) {
+                  cBox = cBoxes[node];
+                  cBox.checked = false;
+                }
+                for (node in metaNode.selected) {
+                  cBox = cBoxes[metaNode.selected[node]];
+                  cBox.checked = true;
+                }
+                break;
+              }
               case 'node_Reset': {
                 var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
                 for (node in cBoxes) {
@@ -218,10 +233,6 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 }
                 break;
               }
-//               case 'start_time_Select': {
-// debugger;
-//                 break;
-//               }
             }
           }
         }(this);
@@ -251,23 +262,21 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.result = el;
         this.dom.resultFieldset = fieldset;
 
-        var startInner = this.meta._panel.fields['time_start'].inner;
-        var startCtl = startInner.childNodes[0];
+        var startInner = this.meta._panel.fields['time_start'].inner,
+            startCtl = startInner.childNodes[0];
         this.buildCalendarSelector(startInner,startCtl);
 
 //         this.ctl.Apply.set('disabled',true);
       },
+      resetCart: function() {
+        this.cart = { data:{}, elements:[] }
+      },
       buildCalendarSelector: function(el,ctl) {
-        var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, today=new Date();
+        var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, thisSecond, now;
         elCal.className = 'phedex-panel-calendar-select phedex-invisible';
         el.appendChild(elCal);
 
-        thisYear   = today.getFullYear();
-        thisMonth  = today.getMonth()+1;
-        thisDay    = today.getDate();
-        thisHour   = today.getHours();
-        thisMinute = today.getMinutes();
-
+        now = PxU.now();
         var mySelectHandler = function(o) {
           return function(type,args,obj) {
             var selected = args[0][0];
@@ -276,7 +285,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           }
         }(this);
 
-        cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), elCal, {close:true, maxdate:thisMonth+'/'+thisDay+'/'+thisYear } );
+        cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), elCal, {close:true, maxdate:now.month+'/'+now.day+'/'+now.year } );
         cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
         cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
         cal.cfg.setProperty('MDY_DAY_POSITION', 3);
@@ -285,6 +294,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
         ctl.onfocus = function(o) {
           return function() {
+            elCal.style.display = null; // the 'close' button manipulates the display property explicitly. Need to reset it here...
             YuD.removeClass(elCal,'phedex-invisible');
             var elLeft = ctl.offsetLeft;
             elCal.style.left = elLeft - 12; // empirical. Distance between phedex-inner and phedex-outer. TODO find better way to set this
@@ -292,71 +302,68 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         }(this);
 
         var updateCal = function() {
-          var str=ctl.value, arr=[], year, day, month, hour, minute, second;
+          var str=ctl.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
+          if ( str == '' ) { YuD.addClass(elCal,'phedex-invisible'); return; }
           str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/);
-          year  = RegExp.$1;
-          month = RegExp.$2;
-          day   = RegExp.$3;
+          year  = parseInt(RegExp.$1);
+          month = parseInt(RegExp.$2);
+          day   = parseInt(RegExp.$3);
           str   = RegExp.$4;
-          str.match(/^(\d\d?)(\D?(\d\d?))?(\D?(\d\d?))?$/);
-          hour   = RegExp.$1 || 0;
-          minute = RegExp.$3 || 0;
-          second = RegExp.$5 || 0;
-alert('hand-setting date does not always work properly to update the calendar. Setting 2-digits for months less than 10 etc, forcing calendar to sync with typed values...');
-// make sure the date is not in the future. The logic required is as listed here, but a faster form of it is used.
-//           if ( ( year >= thisYear && month >= thisMonth && day >= thisDay && hour >= thisHour && minute > thisMinute ) ||
-//                ( year >= thisYear && month >= thisMonth && day >= thisDay && hour >  thisHour ) ||
-//                ( year >= thisYear && month >= thisMonth && day >  thisDay ) ||
-//                ( year >= thisYear && month >  thisMonth ) ||
-//                  year >  thisYear ) {
-          if ( year  > thisYear  || ( year  == thisYear  && (
-                 month > thisMonth || ( month == thisMonth && (
-                   day   > thisDay   || ( day   == thisDay   && (
-                     hour  > thisHour  || ( hour  == thisHour  && (
-                       minute > thisMinute || ( minute == thisMinute && second > thisSecond )
+          hour = minute = second = 0;
+          if ( str != '' ) {
+            str.match(/^(\d\d?)(\D?(\d\d?))?(\D?(\d\d?))?$/);
+            hour   = parseInt(RegExp.$1);
+            minute = parseInt(RegExp.$3 || 0);
+            second = parseInt(RegExp.$5 || 0);
+          }
+//        Make sure the date is not in the future.
+          if ( year  > now.year  || ( year  == now.year  && (
+                 month > now.month || ( month == now.month && (
+                   day   > now.day   || ( day   == now.day   && (
+                     hour  > now.hour  || ( hour  == now.hour  && (
+                       minute > now.minute || ( minute == now.minute && second > now.second )
                      ) )
                    ) )
                  ) )
                 ) )
               )
           {
-            banner('You may not select a date in the future','error');
-            year   = thisYear;
-            month  =  thisMonth;
-            day    = thisDay;
-            hour   = thisHour;
-            minute = thisMinute;
+            banner('You may not set a start-date in the future','error');
+            year   = now.year;
+            month  = now.month;
+            day    = now.day;
+            hour   = now.hour;
+            minute = now.minute;
             second = 0; // don't fuss with individual seconds, reset to the minute
+
+            var attributes = {
+              backgroundColor: { to:'#fff' },
+              duration: 2
+            };
+            ctl.style.backgroundColor = '#f66';
+            var anim = new YAHOO.util.ColorAnim(ctl, attributes);
+            anim.animate();
+
           } else {
             YuD.addClass(elCal,'phedex-invisible'); // a valid date was typed in, so accept it and move on
           }
 
+          if ( month  < 10 ) { month  = '0' + month; }
+          if ( day    < 10 ) { day    = '0' + day; }
+          if ( hour   < 10 ) { hour   = '0' + hour; }
+          if ( minute < 10 ) { minute = '0' + minute; }
+          if ( second < 10 ) { second = '0' + second; }
+          cal.select(year+'/'+month+'/'+day);
           ctl.value = year+'-'+month+'-'+day+' '+hour+':'+minute+':'+second;
           cal.cfg.setProperty('pagedate', month+'/'+year);
           cal.render();
-//           if (day != '') {
-//             cal.select(year+'/'+month+'/'+day);
-// //             cal.select(month+'/'+day+'/'+year);
-//             var selectedDates = cal.getSelectedDates();
-//             if (selectedDates.length > 0) {
-//               var firstDate = selectedDates[0];
-//               cal.cfg.setProperty('pagedate', (firstDate.getMonth()+1) + "/" + firstDate.getFullYear());
-//               cal.render();
-//             } else {
-//               banner('You may not select a date in the future','error');
-//             }
-//           }
         }
         var k1 = new Yu.KeyListener(
           ctl,
           { keys: Yu.KeyListener.KEY['ENTER'] },
           { fn:function(){
-//           { fn:function(o){
-//             return function() {
               updateCal();
               return false;
-//             }
-//           }(this), scope:this, correctScope:true }
           }, scope:this, correctScope:true }
         );
         k1.enable();
@@ -491,7 +498,7 @@ alert('hand-setting date does not always work properly to update the calendar. S
           }
         }
         var b, bName, _buttons=document.createElement('div');
-        if ( !buttons ) { buttons = {Apply:'Select the checked '+id+'s', Reset:'un-select all '+id+'s'}; }
+        if ( !buttons ) { buttons = {Apply:'Select the checked '+id+'s', Reset:'un-select all '+id+'s', Dismiss:'dismiss the panel, with no changes'}; }
         _buttons.className = 'align-right';
         panel.appendChild(_buttons);
         for (name in buttons) {
