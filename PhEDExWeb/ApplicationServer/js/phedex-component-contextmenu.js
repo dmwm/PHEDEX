@@ -248,7 +248,10 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
   fn = function(opts,el) {
 //     PxS.notify('Load','phedex-component-subscribe',opts);
     var d = el.node.data, item, obj=el.obj, pd, format, values, i;
-    if ( !opts.dataset ) {
+    if ( opts.dataset ) {
+      opts.ds_is_open = opts.is_open;
+      delete opts.is_open;
+    } else {
       pd = el.node.parent.data;
       format = pd.spec.format;
       values = pd.values;
@@ -260,17 +263,17 @@ PHEDEX.Component.ContextMenu.Add = function(name,label,callback) {
     PxS.notify('buildRequest','add',opts);
   };
   PHEDEX.Component.ContextMenu.Add('dataset',PxU.feature['alpha'] + 'Submit request for this dataset', fn);
-  PHEDEX.Component.ContextMenu.Add('block',  PxU.feature['alpha'] + 'Submit request for this block', fn);
+  PHEDEX.Component.ContextMenu.Add('block',  PxU.feature['alpha'] + 'Submit request for this block',   fn);
 
-  fn = function(opts,el) {
-    var panel, el, ctl, b, e;
-    b = document.getElementById('phedex-banner');
-    panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
-    panel.setHeader('Report a bug or request a feature');
-    panel.setBody('This is a dynamically generated Panel.<br />testing...');
-    panel.render(b);
-    e = el;
-  }
+//   fn = function(opts,el) {
+//     var panel, el, ctl, b, e;
+//     b = document.getElementById('phedex-banner');
+//     panel = new YAHOO.widget.Panel('panel', { context:['phedex-bug-feature-link','tl','bl',[],[5,5] ], width:'320px', visible:true, draggable:false, close:false } );
+//     panel.setHeader('Report a bug or request a feature');
+//     panel.setBody('This is a dynamically generated Panel.<br />testing...');
+//     panel.render(b);
+//     e = el;
+//   }
 // PHEDEX.Component.ContextMenu.Add('block', PxU.feature['alpha'] + 'Submit consistency-check for this block', fn);
 })();
 
