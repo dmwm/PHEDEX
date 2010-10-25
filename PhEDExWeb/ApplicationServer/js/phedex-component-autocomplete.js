@@ -50,8 +50,8 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
                 return;
               }
               data = data[dataKey];
-              var list = ['me','us','them','you'], i;
-              for (i in data) {
+              var list=[], i;
+              for (i in data.sort()) {
                 list.push(data[i].name);
               }
               if ( list.length == 0 ) { return; }
