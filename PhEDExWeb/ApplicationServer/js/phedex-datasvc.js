@@ -172,11 +172,12 @@ PHEDEX.Datasvc = (function() {
 
     //_build_query method : for an arbitrary object, construct the URL query by joining the key=value pairs
     _build_query = function(query) {
+        var argstr='', argvals=null, indx=0, a, separator=';';
         if ( query.method ) { query.method = query.method.toUpperCase(); }
         else { query.method = 'GET'; }
-        if ( query.method == 'POST' ) { query.post = true; }
+        if ( query.method == 'POST' ) { query.post = true; separator = '&'; }
         if (!query.api) { throw new Error("no 'api' in query object"); }
-        var argstr = "", argvals = null, indx = 0;
+
         if (query.args)
         {
             for (a in query.args)
@@ -185,23 +186,17 @@ PHEDEX.Datasvc = (function() {
                 if ( !query.post ) { a = a.toLowerCase(); }
                 if (argvals instanceof Array)
                 {
-                    for (indx = 0; indx < argvals.length; indx++)
+                    for (indx in argvals)
                     {
-                        argstr += a + "=" + encodeURIComponent(argvals[indx]) + "&";
+                        argstr += a + "=" + encodeURIComponent(argvals[indx]) + separator;
                     }
-                    argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
-                    argstr += ";";
                 }
                 else
                 {
-                    if ( query.post ) {
-                      argstr += a + "=" + encodeURIComponent(query.args[a]) + "&";
-                    } else {
-                      argstr += a + "=" + encodeURIComponent(query.args[a]) + ";";
-                    }
+                    argstr += a + "=" + encodeURIComponent(query.args[a]) + separator;
                 }
             }
-            argstr = argstr.substr(0, argstr.length-1); // chop off trailing ;
+            argstr = argstr.substr(0, argstr.length-1); // chop off trailing separator
         }
         query.text = query.api.toLowerCase();
         if ( query.post ) {
@@ -284,7 +279,7 @@ PHEDEX.Datasvc = (function() {
  * @type {integer}
  */
     Poll: function(query) {
-      _build_query(query);
+      _build_query(query); // TODO this is wasteful, calling _build_query a second time...
       Ylog('POLL '+query.text,'info',_me);
 
       if (!query.context) { query.context = {}; }
