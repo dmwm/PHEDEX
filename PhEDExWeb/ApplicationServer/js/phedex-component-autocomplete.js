@@ -38,8 +38,6 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
                 sel       = el || d.sel,
                 input     = sel/*d.input*/,
                 container = d.container, id=o.id;
-//               sel = PxU.makeChild(el, 'div', { 'className': 'phedex-nav-component' }),
-//             input     = PxU.makeChild(sel, 'input', { type: 'text', title: 'enter a valid "'+dataKey+'" name (wildcards allowed)' }),
             if ( !container ) { container = d.container = PxU.makeChild(payload.container, 'div'); }
             container.innerHTML = input.innerHTML = '';
 
@@ -55,34 +53,30 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
                 list.push(data[i].name);
               }
               if ( list.length == 0 ) { return; }
+              if ( list.length == 1 ) {
+//                 _sbx.notify(obj.id,payload.handler,list[0]); // TODO not enough! the parent object isn't listening yet, it hasn't been constructed!
+                payload.el.value = payload.el.title = list[0];
+                payload.el.disabled = true;
+                return;
+              }
               o.buildAutocomplete(input,container,list.sort(),argKey);
             };
             PHEDEX.Datasvc.Call({ api:api, callback:makeList });
-//             _selectors[type].needValue = true;
-//             _selectors[type].updateGUI = function(i) {
-//               return function(value) {
-//                 log('updateGUI for _selectors['+type+'], value='+value,'info',me);
-//                 i.value = value;// || _state[_type]; // Is this correct? What if Instance has changed? What if the target is coming from history?
-//               }
-//             }(input);
-//             _selectors[type].value = function(i) {
-//               return function() {
-//                 return i.value;
-//               }
-//             }(input);
-
-            var k1 = new Yu.KeyListener(
-              input,
-              { keys: Yu.KeyListener.KEY['ENTER'] },
-              { fn:function(o){
-                return function() {
-                  if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
-                  _typeArgs[_type][argKey] = input.value;
-                  _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
-                }
-              }(o), scope:o, correctScope:true }
-            );
-            k1.enable();
+// var _x = {}; _x[dataKey]=[];
+// makeList(_x);
+//             var k1 = new Yu.KeyListener(
+//               input,
+//               { keys: Yu.KeyListener.KEY['ENTER'] },
+//               { fn:function(o){
+//                 return function(_a,_b,_c,_d) {
+// // debugger;
+// //                   if ( !_typeArgs[_type] ) { _typeArgs[_type] = {}; }
+// //                   _typeArgs[_type][argKey] = input.value;
+// //                   _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
+//                 }
+//               }(o), scope:o, correctScope:true }
+//             );
+//             k1.enable();
 
             return sel;
           };
@@ -93,30 +87,19 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
               cfg = {
                 prehighlightClassName:"yui-ac-prehighlight",
                 useShadow: true,
-//                forceSelection: true,
+                forceSelection: payload.forceSelection,
                 queryMatchCase: false,
                 queryMatchContains: true
               },
               auto_comp = new Yw.AutoComplete(input, container, ds, cfg),
           selection_callback = function(_dummy, args) {
-            var value = args[2][0];
-//             _state[_type] = value;
-//             if ( ! _typeArgs[_type] ) { _typeArgs[_type] = {}; }
-//             _typeArgs[_type][key] = value;
-//             _sbx.notify(obj.id,'TargetSelected',_type,_typeArgs[_type]);
-// debugger;
+            if ( !payload.handler ) { return; }
+            _sbx.notify(obj.id,payload.handler,args[2][0]);
           },
-          unmatchedSelection_callback = function(_k) {
-            return function(_dummy, args) {
-// debugger;
-//               var value = _selectors[_t].value();
-//               _state[_t] = value;
-//               if ( ! _typeArgs[_t] ) { _typeArgs[_t] = {}; }
-//               if ( _typeArgs[_t][_k] == value ) { return; }
-//               _typeArgs[_t][_k] = value;
-//               _sbx.notify(obj.id,'TargetSelected',_t,_typeArgs[_t]);
-            }
-          }(key);
+          unmatchedSelection_callback = function(_evt,_autoComplete) {
+            if ( !payload.handler ) { return; }
+            _sbx.notify(obj.id,payload.handler,payload.el.value);
+          }
           auto_comp.itemSelectEvent.subscribe(selection_callback);
           auto_comp.unmatchedItemSelectEvent.subscribe(unmatchedSelection_callback);
           this.auto_comp = auto_comp;
