@@ -159,6 +159,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     args.request_only =  args.request_only   ? 'y' : 'n';
                     args.custodial    =  args.custodial      ? 'y' : 'n';
                     args.node         = o.meta.node.selected;
+                    if ( o.meta.time_start ) { args.time_start = o.meta.time_start; }
 
                     xml = '<data version="2.0"><dbs name="'+dbs+'">';
                     iCart=cart.data;
@@ -281,6 +282,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           return function(type,args,obj) {
             var selected = args[0][0];
             ctl.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+            o.meta.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
             YuD.addClass(elCal,'phedex-invisible');
           }
         }(this);
@@ -301,7 +303,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           }
         }(this);
 
-        var updateCal = function() {
+        this.updateCal = function() {
           var str=ctl.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
           if ( str == '' ) { YuD.addClass(elCal,'phedex-invisible'); return; }
           str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/);
@@ -353,6 +355,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           if ( hour   < 10 ) { hour   = '0' + hour; }
           if ( minute < 10 ) { minute = '0' + minute; }
           if ( second < 10 ) { second = '0' + second; }
+          this.meta.time_start = new Date(year,month,day,hour,minute,second).getTime()/1000;
           cal.select(year+'/'+month+'/'+day);
           ctl.value = year+'-'+month+'-'+day+' '+hour+':'+minute+':'+second;
           cal.cfg.setProperty('pagedate', month+'/'+year);
@@ -362,7 +365,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           ctl,
           { keys: Yu.KeyListener.KEY['ENTER'] },
           { fn:function(){
-              updateCal();
+              this.updateCal();
               return false;
           }, scope:this, correctScope:true }
         );
