@@ -3,9 +3,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   var _me = 'component-subscribe',
       _sbx = sandbox,
       payload, opts, obj,
-      ttIds = [], ttHelp = {};
-
-  var groupComplete =
+      ttIds = [], ttHelp = {},
+      groupComplete =
         {
           name:'autocomp-groups',
           source:'component-autocomplete',
@@ -14,9 +13,22 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             dataKey: 'group',
             api:     'groups',
             argKey:  'group',
-            handler: 'buildGroupsSelector'
+            handler: 'groupSelected'
           }
-        };
+        },
+      dbsComplete =
+        {
+          name:'autocomp-dbs',
+          source:'component-autocomplete',
+          payload:{
+            el:      '',
+            dataKey: 'dbs',
+            api:     'dbs',
+            argKey:  'dbs',
+            handler: 'dbsSelected'
+          }
+        },
+      defaultDBS = 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query';
 
   if ( !args ) { args={}; }
   opts = {
@@ -49,10 +61,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         Parameters:{
           fields:{
 // need to extract the list of DBS's from somewhere...
-            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:'test' /*http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query'*/, focus:true },
+            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete },
 
 // node can be multiple
-            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'' },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'', focus:true },
             move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
                            tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
             static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
@@ -232,6 +244,10 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                   cBox = cBoxes[node];
                   cBox.checked=false;
                 }
+                break;
+              }
+              case 'dbsSelected': {
+                o.meta._panel.fields.dbs.inner.title = arr[1];
                 break;
               }
             }
