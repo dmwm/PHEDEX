@@ -86,6 +86,7 @@ PHEDEX.Loader = function(opts) {
     allowRollup:  true,
     combine:      PxW.combineRequests,
     base:         PxW.BaseURL + '/yui/build/',
+    insertBefore: 'phedex-body-style',
     timeout:      15000,
 // filter:'DEBUG',
     skin: {
