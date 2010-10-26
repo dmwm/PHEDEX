@@ -380,6 +380,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           for (i in this.acSpecs) {
             spec = this.acSpecs[i];
             spec.payload.container = container;
+            spec.payload.obj       = this;
             this.ac[spec.name] = new PHEDEX.Component.AutoComplete(_sbx,spec);
           }
         }
@@ -540,6 +541,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         outer.className = 'phedex-panel-outer phedex-visible '+hideClass;
         if ( !c.dynamic ) { inner.className = 'phedex-panel-inner'; }
         if ( c.className ) { YuD.addClass(inner,c.className); }
+        if ( c.title ) { inner.title = c.title; }
         inner.id = 'phedex_panel_inner_'+PxU.Sequence();
         this.meta.el[inner.id] = inner;
         this.meta.inner[inner.id] = [];
