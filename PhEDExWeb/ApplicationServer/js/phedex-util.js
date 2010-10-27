@@ -278,4 +278,32 @@ String.prototype.startsWith = function(str) {
 
 var PxUf   = PxU.format;
 
+window.onerror = function(msg, url, line) {
+  if ( PxW.ProductionMode ) {
+    return false;
+  } else {
+debugger;
+    log('onerror: '+msg+' url:'+url+' line:'+line,'error','app');
+    return true;
+  }
+}
+
+PHEDEX.Util.protectMe = function(instance) {
+  if ( !PxW.ProductionMode ) {
+    for (var name in instance) {
+      method = instance[name];
+      if ( typeof method == 'function' ) {
+        instance[name] = function(name, method) {
+          return function() {
+            try { return method.apply(this,arguments); }
+            catch(ex) {
+              log(name+'(): '+ex.message,'error',instance.me);
+            }
+          }
+        }(name,method);
+      }
+    }
+  }
+}
+
 log('loaded...','info','util');
