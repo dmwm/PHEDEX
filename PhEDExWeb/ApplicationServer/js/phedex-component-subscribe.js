@@ -50,7 +50,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       panel: {
         Datasets:{
           fields:{
-            dataset:{type:'text', dynamic:true },
+            dataset0: {type:'regex', text:'Enter a dataset name', tip:'enter a valid dataset name', negatable:false, value:'', focus:true },
+            dataset:  {type:'text', dynamic:true },
           }
         },
         Blocks:{
@@ -64,7 +65,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete },
 
 // node can be multiple
-            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'', focus:true },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:''/*, focus:true*/ },
             move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
                            tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
             static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
@@ -93,26 +94,27 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
   this.cartHandler = function(o) {
     return function(ev,arr) {
-      var action=arr[0], args=arr[1], ctl=o.ctl['panel'];
+      var action=arr[0], args=arr[1], ctl=o.ctl.panel;
       switch (action) {
         case 'add': {
-          var c, cart=o.cart, cd=cart.data, type, item, blocks, _a=o;
+// Am I sure this is doing the right thing with blocks for dataset subscriptions? Do I need them at all? If so, do I need to pass the is_open for the block as well as the dataset?'
+debugger;
+          var c, cart=o.cart, cd=cart.data, type, item, blocks;
           type = 'dataset';
           item = args.dataset;
-          if ( !cart[item] ) {
-            cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
-          }
-          blocks = cd[item].blocks;
           if ( args.block ) {
+            if ( !cd[item] ) { cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} }; }
+            blocks = cd[item].blocks;
             type = 'block';
             item = args.block;
-            if ( blocks[item] ) {
-              return;
-            }
+            if ( blocks[item] ) { return; }
+            blocks[item] = { block:item, is_open:args.is_open };
+          } else {
+            if ( cd[item] ) { return; }
+            cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
           }
-          blocks[item] = { block:item, is_open:args.is_open };
           c = o.meta._panel.fields[type];
-          cart.elements.push({type:type, el:o.AddFieldsetElement(c,item)});
+          cart.elements.push({type:type, el:o.AddFieldsetElement(c,item,item)});
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(o.overlay.element,'phedex-invisible'); }
           o.ctl.Apply.set('disabled',false);
@@ -149,20 +151,36 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                       _fieldset = _fieldsets[item.type].fieldset;
                       _fieldset.removeChild(item.el);
                     }
-                    this.resetCart();
+                    o.resetCart();
+                    o.dom.result.innerHTML = '';
+                    YuD.addClass(o.dom.resultFieldset,'phedex-invisible');
 //                     o.ctl.Apply.set('disabled',true);
                     break;
                   }
                   case 'Apply': {
-                    var args={}, i, val, cart=o.cart, iCart, item, dbs, dataset, ds, block, xml, vName, vValue;
+                    var args={}, i, val, cart=o.cart, iCart, item, dbs, dataset, ds, block, xml, vName, vValue,
+                        m=o.meta, _p=m._panel, _f=_p.fields, nodes=m.node.selected, result=o.dom.result;
 //                     o.ctl.Apply.set('disabled',true);
-                    o.dom.result.innerHTML = '';
+                    YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
+                    if ( !nodes.length ) {
+                      result.innerHTML = 'No destination nodes set';
+                      banner('No destination nodes set','error');
+                      _f.node.inner.childNodes[0].focus();
+                      return;
+                    }
+                    if ( !cart.elements.length ) {
+                      result.innerHTML = 'No datasets or blocks selected!';
+                      banner('No datasets or blocks selected','error');
+                      _f.dataset0.inner.childNodes[0].focus();
+                      return;
+                    }
+                    result.innerHTML = '';
                     for ( i in value ) {
                       val = value[i];
                       vName = val.name;
                       vValue = val.values.value;
                       if ( vName == 'dataset' || vName == 'block' ) { level = vName; }
-                      else if ( vName == 'dbs' ) { dbs         = vValue; }
+                      else if ( vName == 'dbs'  ) { dbs         = vValue; }
                       else if ( vName != 'node' ) { args[vName] = vValue; }
                     }
                     args.move         = (args.move   == '1') ? 'y' : 'n';
@@ -170,8 +188,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
                     args.custodial    =  args.custodial      ? 'y' : 'n';
-                    args.node         = o.meta.node.selected;
-                    if ( o.meta.time_start ) { args.time_start = o.meta.time_start; }
+                    args.node         =  nodes;
+                    if ( m.time_start ) { args.time_start = m.time_start; }
 
                     xml = '<data version="2.0"><dbs name="'+dbs+'">';
                     iCart=cart.data;
@@ -185,7 +203,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                     }
                     xml += '</dbs></data>';
                     args.data = xml;
-                    o.dom.result.innerHTML = 'Submitting request, please wait...';
+                    result.innerHTML = 'Submitting request, please wait...';
                     _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
                     break;
                   }
@@ -215,7 +233,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 break;
               }
               case 'node_Apply': {
-                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
+                var metaNode=o.meta.node, cBoxes=metaNode.cBoxes, node, cBox;
                 YuD.addClass(metaNode.panel,'phedex-invisible');
                 metaNode.selected=[];
                 for (node in cBoxes) {
@@ -226,7 +244,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 break;
               }
               case 'node_Dismiss': {
-                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
+                var metaNode=o.meta.node, cBoxes=metaNode.cBoxes, node, cBox;
                 YuD.addClass(metaNode.panel,'phedex-invisible');
                 for (node in cBoxes) {
                   cBox = cBoxes[node];
@@ -239,7 +257,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 break;
               }
               case 'node_Reset': {
-                var metaNode=o.meta['node'], cBoxes=metaNode.cBoxes, node, cBox;
+                var metaNode=o.meta.node, cBoxes=metaNode.cBoxes, node, cBox;
                 for (node in cBoxes) {
                   cBox = cBoxes[node];
                   cBox.checked=false;
@@ -279,11 +297,27 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         this.dom.result = el;
         this.dom.resultFieldset = fieldset;
 
-        var startInner = this.meta._panel.fields['time_start'].inner,
+        var startInner = this.meta._panel.fields.time_start.inner,
             startCtl = startInner.childNodes[0];
         this.buildCalendarSelector(startInner,startCtl);
 
 //         this.ctl.Apply.set('disabled',true);
+
+        var _fields = this.meta._panel.fields,
+            datasetCtl = _fields.dataset0.inner.childNodes[0]
+            c = _fields.dataset;
+            k1 = new Yu.KeyListener(
+              datasetCtl,
+              { keys: Yu.KeyListener.KEY['ENTER'] },
+              { fn:function(){
+                  var value = datasetCtl.value, cd=this.cart.data;
+                  if ( cd[value] ) { return; }
+                  cd[value] = { dataset:value, /*is_open:args.ds_is_open,*/ blocks:{} };
+                  this.AddFieldsetElement(c,value,value);
+                  return false;
+              }, scope:this, correctScope:true }
+            );
+        k1.enable();
       },
       resetCart: function() {
         this.cart = { data:{}, elements:[] }
@@ -405,7 +439,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         }
 
 //      Now the logic to build the selector. If only one node is allowed, select it and lock it in
-        nodeInner = this.meta._panel.fields['node'].inner;
+        nodeInner = this.meta._panel.fields.node.inner;
         nodeCtl = nodeInner.childNodes[0];
         if ( nNodes == 1 ) {
           nodeCtl.value = nodeList[0].name;
@@ -460,11 +494,11 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         nodeInner.appendChild(meta.panel);
         meta.Ctl = nodeCtl;
         meta.selected = selected;
-        this.meta['node'] = meta;
+        this.meta.node = meta;
 
         nodeCtl.onfocus = function(o) {
           return function() {
-            var colWidth, metaNode=o.meta['node'], panel=metaNode.panel;
+            var colWidth, metaNode=o.meta.node, panel=metaNode.panel;
             YuD.removeClass(panel,'phedex-invisible');
             if ( metaNode.marker ) {
               colWidth = metaNode.marker.offsetWidth;
@@ -545,6 +579,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
     };
   };
   Yla(this,_construct(this),true);
+  PxU.protectMe(this);
   this._init(args);
   return this;
 }
