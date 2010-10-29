@@ -97,18 +97,19 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       var action=arr[0], args=arr[1], ctl=o.ctl.panel;
       switch (action) {
         case 'add': {
-// Am I sure this is doing the right thing with blocks for dataset subscriptions? Do I need them at all? If so, do I need to pass the is_open for the block as well as the dataset?'
-debugger;
+// TODO is_open when blocks are typed in...?
           var c, cart=o.cart, cd=cart.data, type, item, blocks;
           type = 'dataset';
           item = args.dataset;
           if ( args.block ) {
+if ( typeof args.ds_is_open == 'undefined'  ) { debugger; }
             if ( !cd[item] ) { cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} }; }
             blocks = cd[item].blocks;
             type = 'block';
             item = args.block;
             if ( blocks[item] ) { return; }
             blocks[item] = { block:item, is_open:args.is_open };
+if ( typeof args.is_open == 'undefined' ) { debugger; }
           } else {
             if ( cd[item] ) { return; }
             cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
@@ -159,10 +160,11 @@ debugger;
                   }
                   case 'Apply': {
                     var args={}, i, val, cart=o.cart, iCart, item, dbs, dataset, ds, block, xml, vName, vValue,
-                        m=o.meta, _p=m._panel, _f=_p.fields, nodes=m.node.selected, result=o.dom.result;
+                        m=o.meta, _p=m._panel, _f=_p.fields, nodes, result=o.dom.result;
 //                     o.ctl.Apply.set('disabled',true);
                     YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
-                    if ( !nodes.length ) {
+                    if ( m.node ) { nodes = m.node.selected; }
+                    if ( ! (nodes && nodes.length) ) {
                       result.innerHTML = 'No destination nodes set';
                       banner('No destination nodes set','error');
                       _f.node.inner.childNodes[0].focus();
