@@ -72,7 +72,7 @@ sub addBlockSubscriptions
 	     group by sdi.dataset,sdi.destination
 	     ) sdt on (sd.dataset = sdt.dataset and sd.destination=sdt.destination)
 	     when matched then update
-	      set sd.time_fill_after=sdt.time_fill_after
+	      set sd.time_fill_after=greatest(sdt.time_fill_after,sd.time_fill_after)
 	});
 
     $stats{'dataset sub watermarks moved'} = $rvwm[1] || 0;
