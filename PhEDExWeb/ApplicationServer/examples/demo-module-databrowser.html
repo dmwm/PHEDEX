@@ -4,7 +4,7 @@
   <title>PhEDEx Web Application</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 <!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
-  <style type='text/css'>
+  <style type='text/css' id='phedex-body-style'>
     body {
       margin:           0;
       margin-left:      1em;
@@ -62,10 +62,6 @@ function createCoreApp() {
   banner('Core application is running, ready to create PhEDEx data-modules...');
   PHEDEX.Util.bannerIdleTimer(PxL);
 
-// this is just a trick to ensure the CSS gets loaded in the right order, namely the core CSS before the treeview-specific one
-// without this, the module does not display correctly. In the full application, this is not needed.
-  PxL.load(function(){},'module');
-
 // For now, you need this magic to pass an argument to the LinkView module. We create a listener function that listens for
 // ('module','needArguments'), and then explicitly sends an arguments-object with the name of a node.
   var moduleHandler = function(ev,arr) {
@@ -73,7 +69,7 @@ function createCoreApp() {
          id     = arr[1];
     switch ( action ) {
       case 'needArguments':{ // respond only to ('module','needArguments')
-        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/inject_5'} );
+        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/raw_1'} );
 //         PxS.notify( id, 'setArgs', {block:'/MinBias_TuneD6T_7TeV-pythia6/Fall10-START38_V9-v1/GEN-SIM-RAW#4*'} );
         break;
       }
@@ -84,7 +80,7 @@ function createCoreApp() {
 
 // Now tell the core to load, create, and render the 'linkview' module.
 // note the third argument, an object that specifies internal state
-  PxS.notify('CreateModule','databrowser',{state:{ specific:'dataset_create_since=9999 block_create_since=672' } });
+  PxS.notify('CreateModule','databrowser',{state:{ specific:'dataset_create_since=9999 block_create_since=24' } });
 };
 </script>
 </body>

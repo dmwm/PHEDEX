@@ -4,7 +4,7 @@
   <title>PhEDEx Web Application</title>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
 <!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
-  <style type='text/css'>
+  <style type='text/css' id='phedex-body-style'>
     body {
       margin:           0;
       margin-left:      1em;
@@ -56,10 +56,6 @@ function createCoreApp() {
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
   PHEDEX.Util.bannerIdleTimer(PxL);
-
-// this is just a trick to ensure the CSS gets loaded in the right order, namely the core CSS before the treeview-specific one
-// without this, the module does not display correctly. In the full application, this is not needed.
-  PxL.load(function(){},'module');
 
 // For now, you need this magic to pass an argument to the LinkView module. We create a listener function that listens for
 // ('module','needArguments'), and then explicitly sends an arguments-object with the name of a node.
