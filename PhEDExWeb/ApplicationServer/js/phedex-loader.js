@@ -81,12 +81,12 @@ PHEDEX.Loader = function(opts) {
   _success,
   _on = {},
   _loader = new Yu.YUILoader(),
+  _insertBefore = 'phedex-body-style',
   _conf = {
     loadOptional: true,
     allowRollup:  true,
     combine:      PxW.combineRequests,
     base:         PxW.BaseURL + '/yui/build/',
-    insertBefore: 'phedex-body-style',
     timeout:      15000,
 // filter:'DEBUG',
     skin: {
@@ -100,6 +100,7 @@ PHEDEX.Loader = function(opts) {
     onFailure:  function(item) { _callback([_me, 'Failure',  item]); },
     onTimeout:  function(item) { _callback([_me, 'Timeout',  item]); }
   };
+  if ( document.getElementById(_insertBefore) ) { _conf.insertBefore = _insertBefore; }
 
 /**
  * handles events from the loader, specifically <strong>Progress</strong>, <strong>Success</strong>, <strong>Failure</strong>, and <strong>Timeout</strong>. Calls the user-defined function, if any, to handle that particular event. Logs all events, using the default group/severity.
