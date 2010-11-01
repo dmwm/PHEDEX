@@ -231,6 +231,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                 break;
               }
               case 'authData': {
+                o.gotAuth = true;
                 o.buildNodeSelector(arr[1].node);
                 break;
               }
@@ -270,6 +271,10 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                 o.meta._panel.fields.dbs.inner.title = arr[1];
                 break;
               }
+              case 'authTimeout': {
+                _sbx.notify(o.id,'getData',{api:'nodes'} );
+                break;
+              }
             }
           }
         }(this);
@@ -284,6 +289,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         }(this);
         _sbx.listen('authData',this.reAuth);
         _sbx.notify('login','getAuth',this.id);
+        _sbx.delay(4000,this.id,'authTimeout');
 
         var fieldset = document.createElement('fieldset'),
             legend = document.createElement('legend'),
@@ -566,12 +572,24 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         return { panel:panel, cBoxes:cBoxes, focus:focus, marker:marker };
       },
       gotData: function(data,context) {
-        var rid = data.request_created[0].id;
-        log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
-        banner('Subscription succeeded!');
-        this.dom.result.innerHTML = 'Subscription succeeded:<br/>request-ID = '+rid+'<br/>';
-        YuD.removeClass(this.dom.resultFieldset,'phedex-invisible');
-//         this.ctl.Apply.set('disabled',true);
+        var rid, api=context.api;
+        switch (api) {
+          case 'subscribe': {
+            rid = data.request_created[0].id;
+            log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
+            banner('Subscription succeeded!');
+            this.dom.result.innerHTML = 'Subscription succeeded:<br/>request-ID = '+rid+'<br/>';
+            YuD.removeClass(this.dom.resultFieldset,'phedex-invisible');
+//             this.ctl.Apply.set('disabled',true);
+            break;
+          }
+          case 'nodes': {
+            if ( !this.gotAuth ) {
+              this.buildNodeSelector(data.node);
+            }
+            break;
+          }
+        }
       },
       getDataFail: function(api,message) {
         var str = "Error when making call '"+api+"':";
