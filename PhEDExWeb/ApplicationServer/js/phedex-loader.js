@@ -23,7 +23,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-datasvc': { requires: ['phedex-util','connection','json'] },
     'phedex-util-idletimer': { },
 
-    'phedex-component-autocomplete':{ requires:['phedex-util','autocomplete'] },
+    'phedex-component-autocomplete':{ requires:['phedex-datasvc','phedex-util','autocomplete'] },
     'phedex-component-contextmenu': { requires:['phedex-util','phedex-registry','menu'] },
     'phedex-component-control':     { requires:['phedex-util','animation'] },
     'phedex-component-dom':         { requires:['phedex-util'] },
