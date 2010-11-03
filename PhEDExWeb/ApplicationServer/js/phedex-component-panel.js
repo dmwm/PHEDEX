@@ -51,17 +51,17 @@ PHEDEX.Component.Panel = function(sandbox,args) {
     }
   }(this);
   _sbx.listen(this.id,this.selfHandler);
-  this.partnerHandler = function(o) {
-    return function(ev,arr) {
-      var action = arr[0];
-      switch (action) {
-//         case 'doPanel': {
-//           break;
-//         }
-      }
-    }
-  }(this);
-  _sbx.listen(obj.id,this.partnerHandler);
+//   this.partnerHandler = function(o) {
+//     return function(ev,arr) {
+//       var action = arr[0];
+//       switch (action) {
+// //         case 'doPanel': {
+// //           break;
+// //         }
+//       }
+//     }
+//   }(this);
+//   _sbx.listen(obj.id,this.partnerHandler);
 
 /**
  * construct a PHEDEX.Component.Panel object. Used internally only.
@@ -324,7 +324,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         }
 
 //      make sure the panel moves with the widget when it is dragged!
-        if (obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
+        if (obj.options && obj.options.window) { // TODO this shouldn't be looking so close into the OBJ...?
           obj.module.dragEvent.subscribe(function(type,args) { o.align('tl','tl'); }, this, true);
         }
       },
@@ -343,10 +343,10 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           p.hidden  = 'true';
           p.handler = 'setFocus';
           this.panel_control = apc.name  = 'panel';
-          this.dom.context_el = obj.dom[p.context];
           this.dom.align_el =  p.align;
         }
         this.dom.panel = document.createElement('div');
+        if ( p.context ) { this.dom.context_el = obj.dom[p.context]; }
         if ( !this.dom.context_el ) { this.dom.context_el = obj.dom['content']; }
         if ( !this.dom.align_el   ) { this.dom.align_el    =  'tl'; }
         o = this.overlay = new Yw.Overlay(this.dom.panel,{context:[this.dom.context_el,'tl',this.dom.align_el]});
