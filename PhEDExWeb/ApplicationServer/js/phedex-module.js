@@ -605,8 +605,10 @@ log('Should not be here','warn','module');
  */
 PHEDEX.namespace('AppStyle');
 PHEDEX.AppStyle.Window = function(obj,module_options) {
-  if ( PHEDEX[obj.type].Window ) {
-    Yla(obj,new PHEDEX[obj.type].Window(obj),true);
+  var pType = PHEDEX[obj.type];
+  if ( !pType ) { return; }
+  if (pType.Window ) {
+    Yla(obj,new pType.Window(obj),true);
   }
   YuD.addClass(obj.el,'phedex-panel');
   this.module = new Yw.Panel(obj.el, module_options);
@@ -640,8 +642,10 @@ PHEDEX.AppStyle.Window = function(obj,module_options) {
  * @param obj {object} the PHEDEX.Module whose on-screen representation should be resizeable
  */
 PHEDEX.AppStyle.Resizeable = function(obj) {
-  if ( PHEDEX[obj.type].hasOwnProperty('Resizeable') ) {
-    Yla(obj,new PHEDEX[obj.type].Resizeable(obj),true);
+  var pType = PHEDEX[obj.type];
+  if ( !pType ) { return; }
+  if ( pType.hasOwnProperty('Resizeable') ) {
+    Yla(obj,new pType.Resizeable(obj),true);
   }
   YuD.addClass(obj.el,'phedex-resizeable-panel');
 
