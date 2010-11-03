@@ -137,34 +137,35 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _processLogin = function(data) {
-        var bsucceed = _validateLogin(data);
-        log('The user login is validated. User credentials are ' + bsucceed, 'info', 'login');
-        if (bsucceed) { //Authentication succeeded
-            _authData = data.auth[0]; //The user data is saved for further use
-            _username = _authData.human_name; //Get the user name
-            _logincomp.username.innerHTML = _username;
-            if (_authData.state == 'cert') { //Authentication done using certificate 
-                _logincomp.username.title = ' logged in via certificate';
-                _cur_state = 'usepassword';
-                _updateLoginButton('Login with Password');
-            }
-            else if (_authData.state == 'passwd') { //Authentication done using password
-                _logincomp.username.title = ' logged in via password';
-                _cur_state = 'logout';
-                YuD.addClass(_logincomp.btnsubmit, 'phedex-invisible');
-                _updateLoginButton('Logout');
-            }
-            YuD.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
-            log('Updated valid user login authentication info on UI', 'info', 'login');
-            _formUserInfo(); //Form the overlay object if authentication succeeded
+      var bsucceed = _validateLogin(data);
+      log('The user login is validated. User credentials are ' + bsucceed, 'info', 'login');
+      if (bsucceed) { //Authentication succeeded
+        _authData = data.auth[0]; //The user data is saved for further use
+        _username = _authData.human_name; //Get the user name
+        _logincomp.username.innerHTML = _username;
+        if (_authData.state == 'cert') { //Authentication done using certificate
+          _logincomp.username.title = ' logged in via certificate';
+          _cur_state = 'usepassword';
+          _updateLoginButton('Login with Password');
         }
-        else { //Authentication failed
-            if (_cur_state != 'certlogin') {
-                //Alert user if authentication failed in password mode
-                banner('Login failed. Please check login user credential details.', 'error');
-            }
-            _resetLoginState(); //Set the mode to password state if authentication is failed
+        else if (_authData.state == 'passwd') { //Authentication done using password
+          _logincomp.username.title = ' logged in via password';
+          _cur_state = 'logout';
+          YuD.addClass(_logincomp.btnsubmit, 'phedex-invisible');
+          _updateLoginButton('Logout');
         }
+        YuD.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
+        log('Updated valid user login authentication info on UI', 'info', 'login');
+        _formUserInfo(); //Form the overlay object if authentication succeeded
+        _sbx.notify('authData',_authData);
+      }
+      else { //Authentication failed
+        if (_cur_state != 'certlogin') {
+          //Alert user if authentication failed in password mode
+          banner('Login failed. Please check login user credential details.', 'error');
+        }
+        _resetLoginState(); //Set the mode to password state if authentication is failed
+      }
     };
 
     /**
@@ -332,7 +333,6 @@ PHEDEX.Login = function(sandbox) {
               switch (action) {
                 case 'getAuth': {
                   _sbx.notify(arr[1],'authData',_authData);
-//                   _sbx.notify('authData',_authData);
                   break;
                 }
               }
@@ -345,9 +345,6 @@ PHEDEX.Login = function(sandbox) {
           if ( !_authData ) { return; }
           _authData = null;
           _loginUsingCert();
-          _sbx.notify('authData',_authData);
-//           if ( _cur_state == 'certlogin' ) { _loginUsingCert(); }
-//           else { banner('changed instance while logged in with password!','error'); }
         }
       };
     }
