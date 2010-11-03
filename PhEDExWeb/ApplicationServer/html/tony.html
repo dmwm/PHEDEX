@@ -85,7 +85,6 @@ YAHOO.util.Event.onDOMReady(function() {
   PxW.BaseURL            = '/phedex/datasvc/app';
   PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
   PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
-  PxW.Instances.push({name:'Tony - private', instance:'tony'});
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
@@ -160,6 +159,9 @@ function createCoreApp() {
 //     PxS.notify('Registry', 'add', 'phedex-module-activity-rate',         'activity', 'Show Rates',                       {context_item:false, feature_class:'alpha'});
     PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued', 'none',     'Shift: Requested vs. Queued data', {context_item:false, feature_class:'beta'});
   }
+
+// Load the component-subscribe control
+  PxS.notify('Load','component-subscribe');
 
   PxU.bannerIdleTimer(PxL);
 };
