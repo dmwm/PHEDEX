@@ -50,7 +50,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       panel: {
         Datasets:{
           fields:{
-            dataset0: {type:'regex', text:'Enter a dataset name', tip:'enter a valid dataset name', negatable:false, value:'', focus:true },
+            dataset0: {type:'regex', text:'Enter a dataset name and hit Return', tip:'enter a valid dataset name', negatable:false, value:'', focus:true },
             dataset:  {type:'text', dynamic:true },
           }
         },
@@ -62,7 +62,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         Parameters:{
           fields:{
 // need to extract the list of DBS's from somewhere...
-            dbs:          {type:'regex', text:'Name your DBS', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete },
+            dbs:          {type:'regex', text:'Enter a DBS name and hit Return', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete },
 
 // node can be multiple
             node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:''/*, focus:true*/ },
@@ -88,6 +88,12 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   Yla(args.payload, opts.payload);
   payload = args.payload;
   obj = payload.obj;
+  if ( !obj ) {
+    obj = new PHEDEX.Base.Object();
+    obj.dom['content'] = document.getElementById('phedex-main');
+    obj.dom['control'] = document.getElementById('phedex-controls');
+    payload.obj = obj;
+  }
 
 //   this.id = _me+'_'+PxU.Sequence(); // don't set my own ID, inherit the one I get from the panel!
   Yla(this, new PHEDEX.Component.Panel(sandbox,args));
@@ -135,6 +141,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
     return {
       me: _me,
       cart: {},
+       init: function() {}, // stub to keep the core happy TODO do I need a phedex-component.js for this, like I have a phedex-module?
       _init: function(args) {
         this.resetCart();
         this.selfHandler = function(o) {
@@ -170,7 +177,9 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                       _f.node.inner.childNodes[0].focus();
                       return;
                     }
-                    if ( !cart.elements.length ) {
+                    i=0;
+                    for (item in cart.data) { i++; }
+                    if ( !i ) {
                       result.innerHTML = 'No datasets or blocks selected!';
                       banner('No datasets or blocks selected','error');
                       _f.dataset0.inner.childNodes[0].focus();
@@ -289,7 +298,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         }(this);
         _sbx.listen('authData',this.reAuth);
         _sbx.notify('login','getAuth',this.id);
-        _sbx.delay(4000,this.id,'authTimeout');
+        _sbx.delay(3000,this.id,'authTimeout');
 
         var fieldset = document.createElement('fieldset'),
             legend = document.createElement('legend'),
@@ -480,7 +489,8 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         nNames.sort();
         nRows = Math.round(Math.sqrt(nNodes));
         nCols = Math.round(nNodes/nRows);
-        if ( nRows*nCols < nNodes ) { nRows++; }
+        if ( nCols > 8 ) { nCols = 6; }
+        while ( nRows*nCols < nNodes ) { nRows++; }
         for (p=0; p<nRows; p++) {
           tmp[p] = [];
           for (q=0; q<nCols; q++) {
