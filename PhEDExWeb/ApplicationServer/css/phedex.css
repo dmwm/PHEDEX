@@ -221,7 +221,7 @@ div.phedex-panel-banner-help { /* need the specificity! */
   width: 400px;
 }
 .phedex-panel-label {
-  width: 230px;
+  width: 250px;
   display: inline-block;
 }
 .phedex-panel-buttons {
@@ -262,7 +262,7 @@ div.phedex-panel-banner-help { /* need the specificity! */
 }
 .phedex-panel-select {
   display: inline-block;
-  width: 140px;
+  width: 180px;
 }
 .phedex-inner-textarea {
   height: 4em;
