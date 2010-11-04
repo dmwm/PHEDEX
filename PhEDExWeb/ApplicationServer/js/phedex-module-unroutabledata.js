@@ -97,7 +97,7 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               {width: 90,text:'Routed Bytes', className:'phedex-tree-block-route-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true },
               {width: 90,text:'Xfer attempts',className:'phedex-tree-block-xfr-attempts', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 90,text:'Avg attempts', className:'phedex-tree-block-avg-attempts', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.toFixed(1), hide:true },
-              {width:120,text:'Request Time', className:'phedex-tree-block-timerequest',  otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' }
+              {width:180,text:'Request Time', className:'phedex-tree-block-timerequest',  otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' }
             ]
           },
           {
@@ -107,8 +107,8 @@ PHEDEX.Module.UnroutableData=function(sandbox, string) {
               {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 80,text:'Files',       className:'phedex-tree-replica-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',       className:'phedex-tree-replica-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-              {width:120,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
-              {width:120,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
+              {width:180,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
+              {width:180,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true, format:'UnixEpochToGMT' },
               {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' }
