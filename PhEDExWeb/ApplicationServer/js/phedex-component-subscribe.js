@@ -56,6 +56,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         },
         Blocks:{
           fields:{
+            block0: {type:'regex', text:'Enter a block name and hit Return', tip:'enter a valid block name', negatable:false, value:'', focus:false },
             block:{type:'text', dynamic:true },
           }
         },
@@ -121,7 +122,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
             cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
           }
           c = o.meta._panel.fields[type];
-          cart.elements.push({type:type, el:o.AddFieldsetElement(c,item,item)});
+          cart.elements[item] = {type:type, el:o.AddFieldsetElement(c,item,item)};
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(o.overlay.element,'phedex-invisible'); }
           o.ctl.Apply.set('disabled',false);
@@ -147,15 +148,16 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         this.selfHandler = function(o) {
           return function(ev,arr) {
             var action    = arr[0], subAction, value,
-                cart = o.cart, _panel = o.meta._panel, _fieldsets = _panel.fieldsets;
+                cart=o.cart, elements=cart.elements, _panel=o.meta._panel, _fieldsets=_panel.fieldsets;
             switch (action) {
               case 'Panel': {
                 subAction = arr[1];
                 value     = arr[2];
                 switch (subAction) {
                   case 'Reset': {
-                    var item, _cart, _fieldset;
-                    while (item = cart.elements.shift()) {
+                    var i, item, _cart, _fieldset;
+                    for (i in elements) {
+                      item = elements[i];
                       _fieldset = _fieldsets[item.type].fieldset;
                       _fieldset.removeChild(item.el);
                     }
@@ -167,7 +169,8 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                   }
                   case 'Apply': {
                     var args={}, i, val, cart=o.cart, iCart, item, dbs, dataset, ds, block, xml, vName, vValue,
-                        m=o.meta, _p=m._panel, _f=_p.fields, nodes, result=o.dom.result;
+                        m=o.meta, _p=m._panel, _f=_p.fields, nodes, result=o.dom.result, dataset0, block0,
+                        needInfo=false, _getInfo={dataset:{}, block:{}};
 //                     o.ctl.Apply.set('disabled',true);
                     YuD.removeClass(o.dom.resultFieldset,'phedex-invisible');
                     if ( m.node ) { nodes = m.node.selected; }
@@ -181,8 +184,17 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     for (item in cart.data) { i++; }
                     if ( !i ) {
                       result.innerHTML = 'No datasets or blocks selected!';
+                      dataset0 = _f.dataset0.inner.childNodes[0];
+                      block0   = _f.block0.inner.childNodes[0];
+                      dataset0.focus();
+                      if ( dataset0.value ) {
+                        result.innerHTML += '<br/>(did you forget to press "Enter" in the dataset field?)';
+                      }
+                      if ( block0.value ) {
+                        result.innerHTML += '<br/>(did you forget to press "Enter" in the block field?)';
+                        block0.focus();
+                      }
                       banner('No datasets or blocks selected','error');
-                      _f.dataset0.inner.childNodes[0].focus();
                       return;
                     }
                     result.innerHTML = '';
@@ -206,11 +218,18 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     iCart=cart.data;
                     for ( dataset in iCart ) {
                       ds=iCart[dataset];
+                      if ( !ds.hasOwnProperty('is_open') ) {
+                        needInfo = true;
+                        _getInfo.dataset[dataset] = 1;
+                      }
                       xml += '<dataset name="'+dataset+'" is-open="'+ds.is_open+'">';
                       for ( block in ds.blocks ) {
                         xml += '<block name="'+block+'" is-open="'+ds.blocks[block].is_open+'" />';
                       }
                       xml += '</dataset>';
+                    }
+                    if ( needInfo ) {
+                      return;
                     }
                     xml += '</dbs></data>';
                     args.data = xml;
@@ -327,17 +346,19 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
               datasetCtl,
               { keys: Yu.KeyListener.KEY['ENTER'] },
               { fn:function(){
-                  var value = datasetCtl.value, cd=this.cart.data;
+                  var value = datasetCtl.value, cart=this.cart, cd=cart.data;
                   if ( cd[value] ) { return; }
                   cd[value] = { dataset:value, /*is_open:args.ds_is_open,*/ blocks:{} };
-                  this.AddFieldsetElement(c,value,value);
+                  cart.elements[value] = {type:'dataset', el:this.AddFieldsetElement(c,value,value)};
+                  _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, no_file_info:true} } );
+alert('show a spinning icon here to show I am looking for info...');
                   return false;
               }, scope:this, correctScope:true }
             );
         k1.enable();
       },
       resetCart: function() {
-        this.cart = { data:{}, elements:[] }
+        this.cart = { data:{}, elements:{} }
       },
       buildCalendarSelector: function(el,ctl) {
         var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, thisSecond, now;
@@ -596,6 +617,25 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
           case 'nodes': {
             if ( !this.gotAuth ) {
               this.buildNodeSelector(data.node);
+            }
+            break;
+          }
+          case 'data': {
+debugger;
+            try {
+              var datasets=data.dbs, ds, blocks, block, i, cart, cData;
+              if ( datasets.length == 0 ) { alert('show data is bad, remove from cart'); return; }
+              datasets = [0].dataset;
+              cart  = this.cart;
+              cData = cart.data;
+              for (i in datasets) {
+                ds = datasets[i];
+                cData[ds.name].is_open = ds.is_open;
+alert('disable the spinning icon!');
+              }
+            } catch(ex) {
+              var _x = ex;
+debugger;
             }
             break;
           }
