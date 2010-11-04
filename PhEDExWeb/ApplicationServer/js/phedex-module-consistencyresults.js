@@ -78,10 +78,11 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
           {
             name:'Block',
             format: [
-              {width:600,text:'Block Name', className:'phedex-tree-block-name',  otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
-              {width: 60,text:'Block ID',   className:'phedex-tree-block-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
-              {width: 60,text:'Files',      className:'phedex-tree-block-files', otherClasses:'align-right', ctxArgs:'sort-num' },
-              {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes', otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true }
+              {width:600,text:'Block Name', className:'phedex-tree-block-name',   otherClasses:'align-left',  ctxArgs:['block','sort-alpha'], ctxKey:'block', spanWrap:true },
+              {width: 60,text:'Block ID',   className:'phedex-tree-block-id',     otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
+              {width: 90,text:'Status',     className:'phedex-tree-block-status', otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 60,text:'Files',      className:'phedex-tree-block-files',  otherClasses:'align-right', ctxArgs:'sort-num' },
+              {width: 80,text:'Bytes',      className:'phedex-tree-block-bytes',  otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes, hide:true }
             ]
           },
           {
@@ -89,7 +90,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             format:[
               {width: 60,text:'ID',           className:'phedex-tree-test-id',           otherClasses:'align-left',  ctxArgs:'sort-alpha' },
               {width: 60,text:'Kind',         className:'phedex-tree-test-kind',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width:120,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
+              {width:180,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
               {width: 90,text:'Status',       className:'phedex-tree-test-status',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80,text:'Files',        className:'phedex-tree-test-files',        otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Files OK',     className:'phedex-tree-test-files-ok',     otherClasses:'align-right', ctxArgs:'sort-num' },
@@ -209,7 +210,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
       fillBody: function() {
         var root  = this.tree.getRoot(),
             mtree = this.meta.tree,
-            tLeaf, tNode, tNode1, tNode2, i, j, k, b, n, t,
+            tLeaf, tNode, tNode1, tNode2, i, j, k, b, n, t, status,
             nodes = this.data.node, tTested, tOK, p;
         if ( !nodes.length ) {
           tLeaf = new Yw.TextNode({label: 'Nothing found, try another block or node...', expanded: false}, root);
@@ -226,9 +227,16 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             else                { tNode.title = n.block.length+' blocks'; }
             for (j in n.block) {
               b = n.block[j];
+              status = 'OK';
+              if ( b.test ) {
+                for (k in b.test) {
+                  t = b.test[k];
+                  if ( t.files_tested != t.files_ok ) { status = 'Not OK'; }
+                }
+              }
               tNode1 = this.addNode(
                 { format:mtree[1].format },
-                [ b.name,b.id,b.files,b.bytes ],
+                [ b.name,b.id,status,b.files,b.bytes ],
                 tNode
               );
               if ( b.test ) {
