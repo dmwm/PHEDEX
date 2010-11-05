@@ -346,12 +346,17 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
               datasetCtl,
               { keys: Yu.KeyListener.KEY['ENTER'] },
               { fn:function(){
-                  var value = datasetCtl.value, cart=this.cart, cd=cart.data;
+                  var value = datasetCtl.value, cart=this.cart, cd=cart.data, el, icon;
                   if ( cd[value] ) { return; }
                   cd[value] = { dataset:value, blocks:{} };
-                  cart.elements[value] = {type:'dataset', el:this.AddFieldsetElement(c,value,value)};
+                  el = this.AddFieldsetElement(c,value,value);
+                  cart.elements[value] = {type:'dataset', el:el };
                   _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, no_file_info:true} } );
-alert('show a spinning icon here to show I am looking for info...');
+                  icon = document.createElement('img');
+                  icon.src = PxW.BaseURL+'/images/progress.gif';
+                  icon.style.cssFloat = 'left';
+                  el.childNodes[0].appendChild(icon);
+                  cart.elements[value].icon = icon;
                   return false;
               }, scope:this, correctScope:true }
             );
@@ -631,17 +636,22 @@ alert('show a spinning icon here to show I am looking for info...');
             break;
           }
           case 'data': {
-debugger;
             try {
-              var datasets=data.dbs, ds, blocks, block, i, cart, cData;
-              if ( datasets.length == 0 ) { alert('show data is bad, remove from cart'); return; }
-              datasets = [0].dataset;
+              var datasets=data.dbs, ds, blocks, block, i, cart=this.cart, cData=cart.data, icon;
+              if ( datasets.length == 0 ) {
+                ds = context.args.dataset;
+                icon = cart.elements[ds].icon;
+                icon.src = PxW.BaseURL + '/images/close-red-16x16.gif';
+                return;
+              }
+              datasets = datasets[0].dataset;
               cart  = this.cart;
               cData = cart.data;
               for (i in datasets) {
                 ds = datasets[i];
                 cData[ds.name].is_open = ds.is_open;
-alert('disable the spinning icon!');
+                icon = cart.elements[ds.name].icon;
+                icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
               }
             } catch(ex) {
               var _x = ex;
