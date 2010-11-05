@@ -282,9 +282,10 @@ PHEDEX.Datasvc = (function() {
       _build_query(query); // TODO this is wasteful, calling _build_query a second time...
       Ylog('POLL '+query.text,'info',_me);
 
-      if (!query.context) { query.context = {}; }
+      if (!query.context) { query.context = { args:{} }; }
       query.context.api   = query.api;
       query.context.magic = query.magic || 0;
+      for (var i in query.args) { query.context.args[i] = query.args[i]; }
 
       if ( (!query.success_event) && query.callback) {
         query.success_event = new YuCE('CallbackSuccessEvent');
