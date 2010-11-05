@@ -334,7 +334,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         this.dom.resultFieldset = fieldset;
 
         var startInner = this.meta._panel.fields.time_start.inner,
-            startCtl = startInner.childNodes[0];
+            startCtl = startInner.childNodes[1];
         this.buildCalendarSelector(startInner,startCtl);
 
 //         this.ctl.Apply.set('disabled',true);
@@ -348,7 +348,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
               { fn:function(){
                   var value = datasetCtl.value, cart=this.cart, cd=cart.data;
                   if ( cd[value] ) { return; }
-                  cd[value] = { dataset:value, /*is_open:args.ds_is_open,*/ blocks:{} };
+                  cd[value] = { dataset:value, blocks:{} };
                   cart.elements[value] = {type:'dataset', el:this.AddFieldsetElement(c,value,value)};
                   _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, no_file_info:true} } );
 alert('show a spinning icon here to show I am looking for info...');
@@ -369,27 +369,37 @@ alert('show a spinning icon here to show I am looking for info...');
         var mySelectHandler = function(o) {
           return function(type,args,obj) {
             var selected = args[0][0];
-            ctl.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+            el.childNodes[0].value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
             o.meta.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
             YuD.addClass(elCal,'phedex-invisible');
           }
         }(this);
 
-        cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), elCal, {close:true, maxdate:now.month+'/'+now.day+'/'+now.year } );
+        ctl.type='button';
+        ctl.id = 'calendar_'+PxU.Sequence();
+        ctl.title = 'Show calendar for date-selection';
+        var img = document.createElement('img');
+        img.src = PxW.BaseURL+'/images/calendar_icon.gif';
+        img.width = img.height = 18;
+        img.alt = 'Calendar';
+        img.style.verticalAlign = 'text-bottom';
+        ctl.appendChild(img);
+
+        cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), elCal, {maxdate:now.month+'/'+now.day+'/'+now.year } );
         cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
         cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
         cal.cfg.setProperty('MDY_DAY_POSITION', 3);
         cal.selectEvent.subscribe( mySelectHandler, cal, true);
         cal.render();
 
-        ctl.onfocus = function(o) {
-          return function() {
-            elCal.style.display = null; // the 'close' button manipulates the display property explicitly. Need to reset it here...
-            YuD.removeClass(elCal,'phedex-invisible');
-            var elLeft = ctl.offsetLeft;
-            elCal.style.left = elLeft - 12; // empirical. Distance between phedex-inner and phedex-outer. TODO find better way to set this
-          }
-        }(this);
+        YuE.addListener(ctl,'click',function() {
+            if ( YuD.hasClass(elCal,'phedex-invisible') ) {
+              YuD.removeClass(elCal,'phedex-invisible');
+              elCal.style.left = ctl.offsetLeft - elCal.clientWidth;
+            } else {
+              YuD.addClass(elCal,'phedex-invisible');
+            }
+          }, this, true);
 
         this.updateCal = function() {
           var str=ctl.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
