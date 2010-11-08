@@ -519,7 +519,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
             }
           }
         }
-        nodeCtl.value = nodeCtl.title = selected.sort().join(' ');
+        nodeCtl.value = nodeCtl.title = selected.sort().join(' ') || '';
 
 //      sort the names into the right order
         nNames.sort();
