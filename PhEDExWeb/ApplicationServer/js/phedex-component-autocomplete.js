@@ -36,7 +36,7 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
           return function() {
             var d         = o.dom,
                 sel       = el || d.sel,
-                input     = sel/*d.input*/,
+                input     = sel,
                 container = d.container, id=o.id;
             if ( !container ) { container = d.container = PxU.makeChild(payload.container, 'div'); }
             container.innerHTML = input.innerHTML = '';
@@ -62,8 +62,6 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
               o.buildAutocomplete(input,container,list.sort(),argKey);
             };
             PHEDEX.Datasvc.Call({ api:api, callback:makeList });
-// var _x = {}; _x[dataKey]=[];
-// makeList(_x);
 //             var k1 = new Yu.KeyListener(
 //               input,
 //               { keys: Yu.KeyListener.KEY['ENTER'] },
@@ -81,8 +79,9 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
             return sel;
           };
         }(this);
-
+        _sbx.listen('InstanceChanged',this.makeSelector);
         this.buildAutocomplete = function(input,container,list,key) {
+          if ( this.auto_comp ) { this.auto_comp.destroy(); }
           var ds  = new Yu.LocalDataSource(list),
               cfg = {
                 prehighlightClassName:"yui-ac-prehighlight",
@@ -99,6 +98,11 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
           unmatchedSelection_callback = function(_evt,_autoComplete) {
             if ( !payload.handler ) { return; }
             _sbx.notify(obj.id,payload.handler,payload.el.value);
+          }
+          auto_comp.formatResult = function( oResultData, sQuery, sResultMatch ) {
+            if ( !oResultData ) { return; }
+            var str = '<div class="result" title="'+oResultData+'">'+oResultData+'</div>';
+            return str;
           }
           auto_comp.itemSelectEvent.subscribe(selection_callback);
           auto_comp.unmatchedItemSelectEvent.subscribe(unmatchedSelection_callback);
