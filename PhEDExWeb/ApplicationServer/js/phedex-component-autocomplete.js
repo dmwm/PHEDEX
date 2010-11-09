@@ -44,7 +44,7 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
             makeList = function(data) {
               if ( !data[dataKey] ) {
                 banner('Error making '+api+' call, autocomplete will not work','error');
-                log('error making '+api+' call: '+err(data),'error',me);
+                log('error making '+api+' call: '+err(data),'error',o.id);
                 return;
               }
               data = data[dataKey];
@@ -52,7 +52,12 @@ PHEDEX.Component.AutoComplete = function(sandbox,args) {
               for (i in data.sort()) {
                 list.push(data[i].name);
               }
-              if ( list.length == 0 ) { return; }
+              if ( list.length == 0 ) {
+                payload.el.value = '';
+                payload.el.title = 'No values were found for this field';
+                payload.el.disabled = true;
+                return;
+              }
               if ( list.length == 1 ) {
 //                 _sbx.notify(obj.id,payload.handler,list[0]); // TODO not enough! the parent object isn't listening yet, it hasn't been constructed!
                 payload.el.value = payload.el.title = list[0];
