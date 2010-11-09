@@ -33,10 +33,10 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             animate:false
           }
         },
-        {
-          name: 'Subscribe',
-          source:'component-subscribe',
-        },
+//         {
+//           name: 'Subscribe',
+//           source:'component-subscribe',
+//         },
         {
           name: 'ContextMenu',
           source:'component-contextmenu'
