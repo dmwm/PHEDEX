@@ -37,7 +37,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       control:{
         parent:'control',
         payload:{
-          text:'Subscribe',
+          text:  'Subscribe data',
+          title: 'Make a request to transfer data',
           animate:  false,
           disabled: false, //true,
         },
@@ -92,7 +93,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
   if ( !obj ) {
     obj = new PHEDEX.Base.Object();
     obj.dom['content'] = document.getElementById('phedex-main');
-    obj.dom['control'] = document.getElementById('phedex-controls');
+    obj.dom['control'] = document.getElementById('phedex-navbar');
     payload.obj = obj;
   }
 
