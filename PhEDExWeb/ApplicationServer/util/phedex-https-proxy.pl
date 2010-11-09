@@ -202,7 +202,7 @@ while ( $c = $server->accept )
       $c->send_response($response);
       next;
     }
-    if ( $debug ) # && ($file =~ m%^https*://%) )
+    if ( $cache && $debug ) # && ($file =~ m%^https*://%) )
     {
       print scalar localtime,": Look for ",$file," in cache\n";
     }
