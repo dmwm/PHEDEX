@@ -121,7 +121,7 @@ select seq_dps_subs_param.nextval, uq.* from (
 -- Link to the new subscription parameters those dataset-level subscriptions where the current parameters        
 -- have been updated since the original request
 merge into t_dps_subs_dataset d using
-(select sub.dataset, sub.destination, pm.id paramfrom t_dps_subscription sub
+(select sub.dataset, sub.destination, pm.id param from t_dps_subscription sub
 	join t_dps_subs_dataset ds on ds.dataset=sub.dataset and ds.destination=sub.destination
 	join t_dps_subs_param pm on
 	  nvl(pm.request,-1) =  nvl(sub.request,-1)
