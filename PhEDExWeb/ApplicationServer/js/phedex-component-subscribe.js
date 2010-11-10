@@ -106,7 +106,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
       switch (action) {
         case 'add': {
 // TODO is_open when blocks are typed in...?
-          var c, cart=o.cart, cd=cart.data, type, item, blocks;
+          var c, cart=o.cart, cd=cart.data, type, item, blocks, el, icon;
           type = 'dataset';
           item = args.dataset;
           if ( args.block ) {
@@ -123,7 +123,15 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
             cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
           }
           c = o.meta._panel.fields[type];
-          cart.elements[item] = {type:type, el:o.AddFieldsetElement(c,item,item)};
+          el = o.AddFieldsetElement(c,item,item);
+          cart.elements[item] = {type:type, el:el};
+          icon = document.createElement('img');
+          icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
+          icon.width = icon.height = 18;
+          icon.style.verticalAlign = 'text-bottom';
+          icon.style.cssFloat = 'left';
+          el.childNodes[0].appendChild(icon);
+          cart.elements[item] = {type:type, el:el, icon:icon};
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(o.overlay.element,'phedex-invisible'); }
           o.ctl.Apply.set('disabled',false);
@@ -387,7 +395,6 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         var img = document.createElement('img');
         img.src = PxW.BaseURL+'/images/calendar_icon.gif';
         img.width = img.height = 18;
-        img.alt = 'Calendar';
         img.style.verticalAlign = 'text-bottom';
         ctl.appendChild(img);
 
