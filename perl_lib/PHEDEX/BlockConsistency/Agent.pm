@@ -405,6 +405,21 @@ sub upload_result
   $self->{pmon}->State('upload_result','stop');
 }
 
+sub is_test_possible
+{
+  my ($self, $cmd) = @_;
+  my ($ns,$loader);
+
+  if ( $self->{NAMESPACE} )
+  {
+    $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
+    $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
+    if ( $cmd eq 'migration' ) { $cmd = 'is_migrated'; }
+    if ( exists($ns->{MAP}{$cmd}) ) { return 1; }
+  }
+  return 0;
+}
+
 sub do_tests
 {
   my ($self, $kernel) = @_[ OBJECT, KERNEL ];
@@ -445,21 +460,12 @@ sub do_tests
       return;
     }
 
-    if (   $request->{TEST} eq 'size'        ||
-         ( $request->{TEST} eq 'migration'   && $self->{NAMESPACE} eq 'castor' ) ||
-         ( $request->{TEST} eq 'is_migrated' && $self->{NAMESPACE} eq 'castor' ) )
+    if ( $self->is_test_possible($request->{TEST}) )
     {
       $self->setRequestState($request,'Active');
       $self->{DBH}->commit();
       my $result = $self->doNSCheck ($request);
     }
-#   dbs test is no longer supported; 
-#   elsif ( $request->{TEST} eq 'dbs' )
-#   {
-#     $self->setRequestState($request,'Active');
-#     $self->{DBH}->commit();
-#     my $result = $self->doDBSCheck ($request);
-#   }
     else
     {
       $self->setRequestState($request,'Rejected');
