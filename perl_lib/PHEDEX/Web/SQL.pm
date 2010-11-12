@@ -3433,13 +3433,27 @@ sub getData
     my $core = shift;
     my %h = @_;
 
-    my $sql = qq {
-        select
+    my $file_select;
+    my $file_join;
+
+    if ($h{LEVEL} eq 'file')
+    {
+        $file_select = qq{
             n.name node,
             f.logical_name,
             f.checksum,
             f.filesize,
-            f.time_create file_time_create,
+            f.time_create file_time_create, };
+
+        $file_join = qq{
+            join t_dps_file f on f.inblock = b.id
+            join t_adm_node n on n.id = f.node };
+
+    }
+
+    my $sql = qq {
+        select
+            $file_select
             b.name block,
             b.files,
             b.bytes,
@@ -3455,11 +3469,10 @@ sub getData
             s.dls,
             s.time_create dbs_time_create
         from
-            t_dps_file f
-            join t_dps_block b on f.inblock = b.id
+            t_dps_block b
+            $file_join
             join t_dps_dataset d on b.dataset = d.id
             join t_dps_dbs s on d.dbs = s.id
-            join t_adm_node n on n.id = f.node
     };
 
     my $filters = '';
@@ -3467,8 +3480,13 @@ sub getData
 
     build_multi_filters($core, \$filters, \%p, \%h, (
         DATASET => 'd.name',
-        BLOCK => 'b.name',
+        BLOCK => 'b.name'));
+
+    if ($h{LEVEL} eq 'file')
+    {
+        build_multi_filters($core, \$filters, \%p, \%h, (
         FILE => 'f.logical_name'));
+    }
 
     my $and = " and ";
     if ($filters)
@@ -3480,7 +3498,7 @@ sub getData
         $and = " where ";
     }
 
-    if (exists $h{FILE_CREATE_SINCE})
+    if ($h{LEVEL} eq 'file' && exists $h{FILE_CREATE_SINCE})
     {
         $sql .= $and . qq { f.time_create >= :file_create_since };
         $p{':file_create_since'} = &str2time($h{FILE_CREATE_SINCE});
