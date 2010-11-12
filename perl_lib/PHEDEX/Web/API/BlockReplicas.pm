@@ -26,7 +26,8 @@ Return block replicas known to PhEDEx.
  update_since   unix timestamp, only return replicas whose record was
                 updated since this time
  create_since   unix timestamp, only return replicas whose record was
-                created since this time
+                created since this time. When no "dataset", "block"
+                or "node" are given, create_since is default to 24 hours ago
  complete       y or n, whether or not to require complete or incomplete
                 blocks. Open blocks cannot be complete.  Default is to
                 return either.
@@ -42,7 +43,7 @@ Return block replicas known to PhEDEx.
  group          group name.  default is to return replicas for any group.
 
  (*) See the rules of multi-value filters in the Core module
-
+ 
 =head2 Output
 
   <block>
@@ -137,6 +138,12 @@ sub blockReplicas
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
+
+    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
+    {
+        $h{CREATE_SINCE} = "-1d";
+    }
+
     my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
 
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
@@ -155,6 +162,12 @@ sub spool
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
+
+    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
+    {
+        $h{CREATE_SINCE} = "-1d";
+    }
+
     $h{'__spool__'} = 1;
 
     my $r;
