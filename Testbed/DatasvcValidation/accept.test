@@ -39,6 +39,14 @@ blockreplicas?node=T1_US_FNAL_MSS&complete=y&custodial=y&create_since=1241392456
 blockreplicas?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699 block
 blockreplicas?node=T1_US_FNAL_MSS&dataset=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO block
 
+# PHEDEX::Web::API::BlockReplicaCompare - Compare block replicas at two nodes and output either the differences or the matches
+-blockreplicacompare
+-blockreplicacompare?a=T1_US_FNAL_MSS
+-blockreplicacompare?b=T1_US_FNAL_MSS
+-blockreplicacompare?a=T1_US_FNAL_MSS&b=T1_US_FNAL_Buffer&show=neither
+blockreplicacompare?a=T1_US_FNAL_MSS&b=T1_US_FNAL_Buffer&value=bytes block
+blockreplicacompare?a=T1_US_FNAL_Buffer&b=T2_US_Florida&show=neither&dataset=/QCDpt800/Summer08_IDEAL_V9_reco-v5/GEN-SIM-RECO block
+
 # PHEDEX::Web::API::BlockTestFiles - detailed consistency-check result
 blocktestfiles?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699 node
 
@@ -57,7 +65,8 @@ dashboardhistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS&strattime=2009-04-01&e
 # PHEDEX::Web::API::Data - show data which is registered (injected) to PhEDEx
 data?block=/BprimeToCWCW_WInc_M-250_7TeV-madgraph/Spring10-START3X_V26-v1/GEN-SIM-RECO%238a807595-ff35-48a5-ad03-ed976b29117f dbs =1
 data?file=/store/mc/Spring10/BprimeToCWCW_WInc_M-250_7TeV-madgraph/GEN-SIM-RECO/START3X_V26-v1/0019/CEF51529-A878-DF11-8B2C-00188B7AC4CF.root dbs =1
-data?file_create_since=-6h
+data?file_create_since=-1h
+data?level=block
 
 # PHEDEX::Web::API::DeleteRequests - deletion requests
 deleterequests request
