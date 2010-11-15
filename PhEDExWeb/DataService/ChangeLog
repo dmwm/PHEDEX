@@ -1,3 +1,20 @@
+* Changes for 1.6.5
+
+ New APIs:
+
+  * 'blockreplicacompare': compare block replicas at two nodes and output either the differences or the matches
+
+ Changes for APIs:
+
+  * 'data':
+    - new argument "level", which could be either "file" (default) or "block"
+    - when level = "block", no file level details will be shown
+  * 'blockreplicas':
+    - when none of "block", "dataset" or "node" is set, create_since is default to be 24 hours ago
+  * 'filereplicas':
+    - internal change that does not affect its functionality nor output
+    - use subquery instead of full joint for block name match to improve query efficiency
+
 * Changes for 1.6.4
 
  Bug fixes:
