@@ -143,6 +143,28 @@ sub getFileReplicas
     my ($self, %h) = @_;
     my ($sql,$q,%p,@r);
     
+    my $bn_filter = '';
+    build_multi_filters($self, \$bn_filter, \%p, \%h, (
+        BLOCK => 'b1.name'));
+
+    my $bn_sub_query = '';
+    if ($bn_filter)
+    {
+        $bn_sub_query = qq{
+        (
+            select
+                *
+            from
+                t_dps_block b1
+            where
+                $bn_filter
+        ) };
+    }
+    else
+    {
+        $bn_sub_query = "t_dps_block";
+    }
+
     $sql = qq{
     select b.id block_id,
            b.name block_name,
@@ -165,7 +187,7 @@ sub getFileReplicas
            end subscribed,
            br.is_custodial,
            g.name user_group
-    from t_dps_block b
+    from $bn_sub_query b
     join t_dps_dataset d on b.dataset = d.id
     join t_dps_file f on f.inblock = b.id
     join t_adm_node ns on ns.id = f.node
@@ -221,7 +243,6 @@ sub getFileReplicas
     my $filters = '';
     build_multi_filters($self, \$filters, \%p, \%h, ( NODE  => 'n.name',
 						      SE    => 'n.se_name',
-						      BLOCK => 'b.name',
 						      GROUP => 'g.name',
                                                       LFN => 'f.logical_name',
                                                       DATASET => 'd.name'));
