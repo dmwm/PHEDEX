@@ -626,13 +626,13 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         fieldLabel.className = 'phedex-panel-label';
         if ( c.text ) { fieldLabel.appendChild(document.createTextNode(c.text)); }
 
+        outer.appendChild(fieldLabel);
         if ( c.tip ) {
           help = document.createElement('div');
           help.className = 'phedex-panel-help phedex-invisible '+helpClass;
           help.appendChild(document.createTextNode(c.tip));
           outer.appendChild(help);
         }
-        outer.appendChild(fieldLabel);
         fieldset.appendChild(outer);
         return outer;
       }
