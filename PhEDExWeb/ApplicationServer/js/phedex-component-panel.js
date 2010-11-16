@@ -51,17 +51,6 @@ PHEDEX.Component.Panel = function(sandbox,args) {
     }
   }(this);
   _sbx.listen(this.id,this.selfHandler);
-//   this.partnerHandler = function(o) {
-//     return function(ev,arr) {
-//       var action = arr[0];
-//       switch (action) {
-// //         case 'doPanel': {
-// //           break;
-// //         }
-//       }
-//     }
-//   }(this);
-//   _sbx.listen(obj.id,this.partnerHandler);
 
 /**
  * construct a PHEDEX.Component.Panel object. Used internally only.
@@ -541,7 +530,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
         outer.className = 'phedex-panel-outer phedex-visible '+hideClass;
         if ( !c.dynamic ) { inner.className = 'phedex-panel-inner'; }
         if ( c.className ) { YuD.addClass(inner,c.className); }
-        inner.title = title || c.title;
+        inner.title = title || c.title || '';
         inner.id = 'phedex_panel_inner_'+PxU.Sequence();
         this.meta.el[inner.id] = inner;
         this.meta.inner[inner.id] = [];
@@ -562,7 +551,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           el.className = 'phedex-panel-elem';
           YuD.addClass(el,'phedex-panel-key-'+fields[i]);
           if ( e.className ) { YuD.addClass(el,'phedex-panel-elem-'+e.className); }
-          size = e.size || c.size;
+          size = c.size || e.size;
 
           if ( c.focus ) { this.focusOn = this.defaultFocus = el; }
 //        set default values. Depends on type of input field...
