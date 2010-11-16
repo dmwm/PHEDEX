@@ -28,7 +28,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             handler: 'dbsSelected'
           }
         },
-      defaultDBS = 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query';
+      defaultDBS = 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query',
+      _fieldSize = 60;
 
   if ( !args ) { args={}; }
   opts = {
@@ -49,29 +50,27 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                    Apply:{title:'Subscribe this data', action:'Validate'}
                  },
       panel: {
-        Datasets:{
+        'Datasets/Blocks':{
           fields:{
-            dataset0: {type:'regex', text:'Enter a dataset name and hit Return', tip:'enter a valid dataset name', negatable:false, value:'', focus:true },
+//             expand:       {type:'checkbox', text:'Expand wildcards before submitting request?',
+//                            tip:'Expand wildcards now to find all matching blocks/datasets, or submit the request with wildcards for future re-evaluation', attributes:{checked:true} },
+            level:        {type:'radio', fields:['dataset','block'], text:'Subscription level',
+                           tip:'A block-level subscription allows you to subscribe individual blocks', default:'dataset' },
+            dataset0: {type:'regex', text:'Enter a dataset name and hit Return', tip:'enter a valid dataset name', negatable:false, value:'', focus:true, size:_fieldSize },
             dataset:  {type:'text', dynamic:true },
-          }
-        },
-        Blocks:{
-          fields:{
-            block0: {type:'regex', text:'Enter a block name and hit Return', tip:'enter a valid block name', negatable:false, value:'', focus:false },
-            block:{type:'text', dynamic:true },
           }
         },
         Parameters:{
           fields:{
 // need to extract the list of DBS's from somewhere...
-            dbs:          {type:'regex', text:'Enter a DBS name and hit Return', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete },
+            dbs:          {type:'regex', text:'Enter a DBS name and hit Return', negatable:false, value:defaultDBS, title:defaultDBS, autoComplete:dbsComplete, size:_fieldSize },
 
 // node can be multiple
-            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:''/*, focus:true*/ },
-            move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
-                           tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
+            node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'', size:_fieldSize },
             static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
                            tip:'A static subscription is a snapshot of the data as it is now. A growing subscription will add new blocks as they become available', default:'growing' },
+            move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
+                           tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
             priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', default:'low' },
 
             custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
@@ -99,6 +98,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
 //   this.id = _me+'_'+PxU.Sequence(); // don't set my own ID, inherit the one I get from the panel!
   Yla(this, new PHEDEX.Component.Panel(sandbox,args));
+  YuD.addClass(this.dom.panel,'phedex-panel-wide')
+  this.dataLookup = false;
 
   this.cartHandler = function(o) {
     return function(ev,arr) {
@@ -125,13 +126,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
           c = o.meta._panel.fields[type];
           el = o.AddFieldsetElement(c,item,item);
           cart.elements[item] = {type:type, el:el};
-          icon = document.createElement('img');
-          icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
-          icon.width = icon.height = 18;
-          icon.style.verticalAlign = 'text-bottom';
-          icon.style.cssFloat = 'left';
-          el.childNodes[0].appendChild(icon);
-          cart.elements[item] = {type:type, el:el, icon:icon};
+          cart.elements[item] = {type:type, el:el};
           if ( ctl ) { ctl.Enable(); }
           else       { YuD.removeClass(o.overlay.element,'phedex-invisible'); }
           o.ctl.Apply.set('disabled',false);
@@ -173,7 +168,8 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     o.resetCart();
                     o.dom.result.innerHTML = '';
                     YuD.addClass(o.dom.resultFieldset,'phedex-invisible');
-//                     o.ctl.Apply.set('disabled',true);
+                    YuD.addClass(o.dom.datasetIcon,   'phedex-invisible');
+                    o.ctl.Apply.set('disabled',true);
                     break;
                   }
                   case 'Apply': {
@@ -194,14 +190,9 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     if ( !i ) {
                       result.innerHTML = 'No datasets or blocks selected!';
                       dataset0 = _f.dataset0.inner.childNodes[0];
-                      block0   = _f.block0.inner.childNodes[0];
                       dataset0.focus();
                       if ( dataset0.value ) {
                         result.innerHTML += '<br/>(did you forget to press "Enter" in the dataset field?)';
-                      }
-                      if ( block0.value ) {
-                        result.innerHTML += '<br/>(did you forget to press "Enter" in the block field?)';
-                        block0.focus();
                       }
                       banner('No datasets or blocks selected','error');
                       return;
@@ -211,10 +202,11 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                       val = value[i];
                       vName = val.name;
                       vValue = val.values.value;
-                      if ( vName == 'dataset' || vName == 'block' ) { level = vName; }
-                      else if ( vName == 'dbs'  ) { dbs         = vValue; }
+//                       if ( vName == 'dataset' || vName == 'block' ) { level = vName; }
+                      if      ( vName == 'dbs'  ) { dbs         = vValue; }
                       else if ( vName != 'node' ) { args[vName] = vValue; }
                     }
+                    args.level        = (args.level  == '1') ? 'block' : 'dataset';
                     args.move         = (args.move   == '1') ? 'y' : 'n';
                     args.static       = (args.static == '1') ? 'y' : 'n';
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
@@ -227,18 +219,11 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     iCart=cart.data;
                     for ( dataset in iCart ) {
                       ds=iCart[dataset];
-                      if ( !ds.hasOwnProperty('is_open') ) {
-                        needInfo = true;
-                        _getInfo.dataset[dataset] = 1;
-                      }
                       xml += '<dataset name="'+dataset+'" is-open="'+ds.is_open+'">';
                       for ( block in ds.blocks ) {
                         xml += '<block name="'+block+'" is-open="'+ds.blocks[block].is_open+'" />';
                       }
                       xml += '</dataset>';
-                    }
-                    if ( needInfo ) {
-                      return;
                     }
                     xml += '</dbs></data>';
                     args.data = xml;
@@ -349,26 +334,35 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
 //         this.ctl.Apply.set('disabled',true);
 
         var _fields = this.meta._panel.fields,
-            datasetCtl = _fields.dataset0.inner.childNodes[0]
-            c = _fields.dataset;
+            datasetInner = _fields.dataset0.inner,
+            datasetCtl = datasetInner.childNodes[0],
+            _fDataset = _fields.dataset,
+            icon,
             k1 = new Yu.KeyListener(
               datasetCtl,
               { keys: Yu.KeyListener.KEY['ENTER'] },
               { fn:function(){
-                  var value = datasetCtl.value, cart=this.cart, cd=cart.data, el, icon;
+                  var value = datasetCtl.value, cart=this.cart, cd=cart.data, icon;
                   if ( cd[value] ) { return; }
-                  cd[value] = { dataset:value, blocks:{} };
-                  el = this.AddFieldsetElement(c,value,value);
-                  cart.elements[value] = {type:'dataset', el:el };
-                  _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, no_file_info:true} } );
-                  icon = document.createElement('img');
-                  icon.src = PxW.BaseURL+'/images/progress.gif';
-                  icon.style.cssFloat = 'left';
-                  el.childNodes[0].appendChild(icon);
-                  cart.elements[value].icon = icon;
+                  if ( this.datasetLookup ) {
+                    icon = this.dom.datasetIcon;
+                    YuD.removeClass(icon,'phedex-invisible');
+                    icon.src = PxW.BaseURL+'/images/progress.gif';
+                    _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, level:'block'} } );
+                  } else {
+                    if ( cd[value] ) { return; }
+                    cd[value] = { dataset:value, blocks:{}, is_open:'n' };
+                    el = this.AddFieldsetElement(_fDataset,value,value);
+                    cart.elements[value] = {type:'dataset', el:el };
+                  }
                   return false;
               }, scope:this, correctScope:true }
             );
+        icon = document.createElement('img');
+        icon.style.cssFloat = 'left';
+        icon.className = 'phedex-invisible';
+        datasetInner.appendChild(icon);
+        this.dom.datasetIcon = icon;
         k1.enable();
       },
       resetCart: function() {
@@ -644,23 +638,35 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
             break;
           }
           case 'data': {
+            var datasets=data.dbs, ds, dsName, blocks, block, i, j, n, item, cart=this.cart, cData=cart.data, icon,
+                _fields = this.meta._panel.fields,
+                datasetInner = _fields.dataset0.inner,
+                datasetCtl = datasetInner.childNodes[0],
+                _fDataset = _fields.dataset;
+            icon = this.dom.datasetIcon;
             try {
-              var datasets=data.dbs, ds, blocks, block, i, cart=this.cart, cData=cart.data, icon;
               if ( datasets.length == 0 ) {
-                ds = context.args.dataset;
-                icon = cart.elements[ds].icon;
+                item = context.args.dataset || context.args.block;
+                YuD.removeClass(icon,'phedex-invisible');
                 icon.src = PxW.BaseURL + '/images/close-red-16x16.gif';
                 return;
               }
               datasets = datasets[0].dataset;
-              cart  = this.cart;
-              cData = cart.data;
               for (i in datasets) {
                 ds = datasets[i];
-                cData[ds.name].is_open = ds.is_open;
-                icon = cart.elements[ds.name].icon;
-                icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
+                dsName = ds.name;
+                if ( cData[dsName] ) { continue; }
+                cData[dsName] = { dataset:dsName, blocks:{}, is_open:ds.is_open };
+                n = ds.block.length;
+                for (j in ds.block ) {
+                  block = ds.block[j];
+                  cData[dsName].blocks[block.name] = block;
+                }
+                el = this.AddFieldsetElement(_fDataset,dsName+' ('+n+' blocks)',dsName);
+                cart.elements[dsName] = {type:'dataset', el:el };
               }
+              YuD.removeClass(icon,'phedex-invisible');
+              icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
             } catch(ex) {
               var _x = ex;
 debugger;
