@@ -234,6 +234,12 @@ div.phedex-panel-banner-help { /* need the specificity! */
   clear: both;
   border-bottom:  1px dotted #888;
 }
+.phedex-panel-wide .phedex-panel-label {
+  width: 550px;
+}
+.phedex-panel-wide .phedex-panel-inner {
+  width: 550px;
+}
 .phedex-panel-inner {
 /*   float: left; */
   display: inline-block;
