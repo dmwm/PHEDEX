@@ -87,7 +87,7 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
             width:1200,
             name:'Dataset',
             format: [
-              {width:400, text:'Dataset', className:'phedex-tree-dataset-name',  otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'dataset', spanWrap:true },
+              {width:418, text:'Dataset', className:'phedex-tree-dataset-name',  otherClasses:'align-left',  ctxArgs:['dataset','sort-alpha'], ctxKey:'dataset', spanWrap:true },
               {width: 60, text:'Id',      className:'phedex-tree-dataset-id',    otherClasses:'align-right', ctxArgs:'sort-num', hide:true },
               {width: 50, text:'Open',    className:'phedex-tree-dataset-open',  otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60, text:'Files',   className:'phedex-tree-dataset-files', otherClasses:'align-right', ctxArgs:'sort-num' },
@@ -117,7 +117,7 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
               {width: 40, text:'Move',          className:'phedex-tree-subscription-move',          otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60, text:'Priority',      className:'phedex-tree-subscription-priority',      otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80, text:'Suspended',     className:'phedex-tree-subscription-suspended',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width:180, text:'Suspend until', className:'phedex-tree-subscription-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
+              {width:180, text:'Suspend until', className:'phedex-tree-subscription-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT', hide:true },
               {width:180, text:'Creation-time', className:'phedex-tree-subscription-creation-time', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
               {width:180, text:'Update-time',   className:'phedex-tree-subscription-update-time',   otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' }
             ]
@@ -125,12 +125,12 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
         ],
 // Filter-structure mimics the branch-structure. Use the same classnames as keys.
         filter: {
-          'Link-level attributes':{
-            map:{from:'phedex-tree-', to:'L'},
-            fields:{
-              'phedex-tree-from-node'   :{type:'regex',       text:'From Node-name',   tip:'javascript regular expression' },
-            }
-          },
+//           'Link-level attributes':{
+//             map:{from:'phedex-tree-', to:'L'},
+//             fields:{
+//               'phedex-tree-from-node'   :{type:'regex',       text:'From Node-name',   tip:'javascript regular expression' },
+//             }
+//           },
 //           'Block-level attributes':{
 //             map:{from:'phedex-tree-block-', to:'B'},
 //             fields:{
@@ -206,6 +206,7 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
             tNode.title = subscriptions.length+' dataset-level subscriptions';
             for (j in subscriptions) {
               s = subscriptions[j];
+              if ( !s.group ) { s.group = '-'; }
               tNode1 = this.addNode(
                 { format:this.meta.tree[2].format },
                 [ s.level,s.request,s.node,s.group,s.custodial,s.move,s.priority,s.suspended,s.suspend_until,s.time_create,s.time_update ],
@@ -233,6 +234,7 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
                 tNode.title = subscriptions.length+' subscriptions';
                 for (k in subscriptions) {
                   s = subscriptions[k];
+                  if ( !s.group ) { s.group = '-'; }
                   tNode3 = this.addNode(
                     { format:this.meta.tree[2].format },
                     [ s.level,s.request,s.node,s.group,s.custodial,s.move,s.priority,s.suspended,s.suspend_until,s.time_create,s.time_update ],
