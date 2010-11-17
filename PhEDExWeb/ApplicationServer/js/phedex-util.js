@@ -60,11 +60,12 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
 PHEDEX.Util.format={
     bytes:function(raw) {
       var f = parseFloat(raw);
-      if (f>=1099511627776) return (f/1099511627776).toFixed(1)+' TB';
-      if (f>=1073741824) return (f/1073741824).toFixed(1)+' GB';
-      if (f>=1048576) return (f/1048576).toFixed(1)+' MB';
-      if (f>=1024) return (f/1024).toFixed(1)+' KB';
-      return f.toFixed(0)+' B';
+      if (f>=1099511627776) { return (f/1099511627776).toFixed(1)+' TB'; }
+      if (f>=1073741824) { return (f/1073741824).toFixed(1)+' GB'; }
+      if (f>=1048576) { return (f/1048576).toFixed(1)+' MB'; }
+      if (f>=1024) { return (f/1024).toFixed(1)+' KB'; }
+      if (f>=0) { return f.toFixed(0)+' B'; }
+      return '-';
     },
     '%':function(raw) {
       return (100*parseFloat(raw)).toFixed(2)+'%';
