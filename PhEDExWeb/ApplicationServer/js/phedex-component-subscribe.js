@@ -169,7 +169,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     o.dom.result.innerHTML = '';
                     YuD.addClass(o.dom.resultFieldset,'phedex-invisible');
                     YuD.addClass(o.dom.datasetIcon,   'phedex-invisible');
-                    o.ctl.Apply.set('disabled',true);
+//                     o.ctl.Apply.set('disabled',true);
                     break;
                   }
                   case 'Apply': {
@@ -369,7 +369,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         this.cart = { data:{}, elements:{} }
       },
       buildCalendarSelector: function(el,ctl) {
-        var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, thisSecond, now;
+        var elCal = document.createElement('div'), cal, thisYear, thisMonth, thisDay, thisHour, thisMinute, thisSecond, now, elInput = el.childNodes[0];
         elCal.className = 'phedex-panel-calendar-select phedex-invisible';
         el.appendChild(elCal);
 
@@ -377,7 +377,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
         var mySelectHandler = function(o) {
           return function(type,args,obj) {
             var selected = args[0][0];
-            el.childNodes[0].value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+            elInput.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
             o.meta.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
             YuD.addClass(elCal,'phedex-invisible');
           }
@@ -409,9 +409,25 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
           }, this, true);
 
         this.updateCal = function() {
-          var str=ctl.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
-          if ( str == '' ) { YuD.addClass(elCal,'phedex-invisible'); return; }
-          str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/);
+          var str=elInput.value, arr=[], year, day, month, hour, minute, second, now=PxU.now(), _e=el, _eI=elInput,
+              anim, attributes = {
+                backgroundColor: { to:'#fff' },
+                duration: 2
+              };
+          anim = new YAHOO.util.ColorAnim(elInput, attributes);
+          if ( str == '' || !str ) {
+            delete this.meta.time_start;
+            YuD.addClass(elCal,'phedex-invisible');
+            return;
+          }
+          if ( !str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/) ) {
+            banner('Illegal date format. Must be YYYY-MM-DD HH:MM:SS (HH:MM:SS optional)','error');
+            delete this.meta.time_start;
+            YuD.addClass(elCal,'phedex-invisible');
+            elInput.style.backgroundColor = '#f66';
+            anim.animate();
+            return;
+          }
           year  = parseInt(RegExp.$1);
           month = parseInt(RegExp.$2);
           day   = parseInt(RegExp.$3);
@@ -442,15 +458,8 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
             hour   = now.hour;
             minute = now.minute;
             second = 0; // don't fuss with individual seconds, reset to the minute
-
-            var attributes = {
-              backgroundColor: { to:'#fff' },
-              duration: 2
-            };
-            ctl.style.backgroundColor = '#f66';
-            var anim = new YAHOO.util.ColorAnim(ctl, attributes);
+            elInput.style.backgroundColor = '#f66';
             anim.animate();
-
           } else {
             YuD.addClass(elCal,'phedex-invisible'); // a valid date was typed in, so accept it and move on
           }
@@ -467,7 +476,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
           cal.render();
         }
         var k1 = new Yu.KeyListener(
-          ctl,
+          elInput,
           { keys: Yu.KeyListener.KEY['ENTER'] },
           { fn:function(){
               this.updateCal();
