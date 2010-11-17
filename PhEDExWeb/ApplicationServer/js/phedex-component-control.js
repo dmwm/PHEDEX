@@ -158,16 +158,17 @@ PHEDEX.Component.Control = function(sandbox,args) {
  * @private
  */
       _init: function(args) {
-        var p = this.payload;
+        var p = this.payload, name;
         if ( !ap.type ) { ap.type = 'a'; }
         this.id = this.me+'_'+PxU.Sequence();
         this.el = document.createElement(ap.type);
+        this.name = name = ap.text || args.name;
         if ( ap.type == 'img' ) {
           this.el.src = args.src;
         } else if ( ap.type == 'a' ) {
-          this.el.appendChild(document.createTextNode(ap.text || args.name));
+          this.el.appendChild(document.createTextNode(name));
         }
-        this.tooltip = this.el.title = ap.title || _defTitle[ap.text] || _defTitle[args.name] || '';
+        this.tooltip = this.el.title = ap.title || _defTitle[name] || '';
         for (var i in ap) { p[i] = ap[i]; }
         if ( p.obj ) { partner = p.obj.id; }
         if ( p.target ) {
@@ -206,6 +207,14 @@ PHEDEX.Component.Control = function(sandbox,args) {
                 } else {
                   if ( value == 'done' ) { obj.Hide(); }
                 }
+                break;
+              }
+              case 'Show': {
+                obj.Show();
+                break;
+              }
+              case 'Hide': {
+                obj.Hide();
                 break;
               }
               default: { log('unhandled event: '+action,'warn',_me); break; }
@@ -355,6 +364,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
   };
   Yla(this,_construct(this),true);
   this._init(args);
+  _sbx.notify(this.me,this.id,this.name);
   return this;
 }
 
