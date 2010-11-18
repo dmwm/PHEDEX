@@ -380,7 +380,7 @@ log('Should not be here','warn','module');
           }
         }
         for (var i in this) {
-          if ( typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
+          if ( this[i] && typeof(this[i]) == 'object' && typeof(this[i].destroy) == 'function' ) {
             try { this[i].destroy(); } catch(ex) {} // blindly destroy everything we can!
           }
           delete this[i];
