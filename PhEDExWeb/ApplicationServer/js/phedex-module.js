@@ -628,6 +628,9 @@ PHEDEX.AppStyle.Window = function(obj,module_options) {
   var ctor = function(sandbox,args) {
     var el = document.createElement('img');
     el.src = '/images/widget-close.gif';
+    el.style.cssFloat = 'right';
+    el.style.padding = '2px 0 0';
+    el.title = 'click here to close this module';
     YuE.addListener(el, "click", function() { this.destroy(); }, null, args.payload.obj);
     return { el:el };
   };
