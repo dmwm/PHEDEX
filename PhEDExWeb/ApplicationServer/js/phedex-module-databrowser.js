@@ -222,9 +222,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             i, f, tNode;
         if ( bf == 0 ) { node.isLeaf = true; return; }
         if ( bf == 1 ) { node.title = '1 file'; }
-        else           {
-debugger;
- node.title = bf+' files'; }
+        else           { node.title = bf+' files'; }
         for (i in files) {
           f = files[i];
           tNode = obj.addNode(
