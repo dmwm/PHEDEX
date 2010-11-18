@@ -440,7 +440,7 @@ PHEDEX.TreeView = function(sandbox,string) {
             } else {
               try {
                 p.callback(node,result);
-              } catch(e) {
+              } catch(ex) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
                 tNode = new Yw.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
