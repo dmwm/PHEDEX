@@ -100,6 +100,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
       ],
 
       meta: {
+        isDynamic: true, // enable dynamic loading of data
         tree: [
           {
             width:opts.width,
@@ -206,10 +207,38 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         opts.file_create_since = parseInt(arg);
         this.getData();
       },
+
+// This is for dynamic data-loading into a treeview. The callback is called with a treeview-node as the argument.
+// The node has a 'payload' hash which we create when we build the tree, it contains the necessary information to
+// allow the callback to know which data-items to pick up and insert in the tree, once the data is loaded.
+//
+// This callback has to know how to construct payloads for child-nodes, which is not necessarily what we want. It would be
+// nice if payloads for child-nodes could be constructed from knowledge of the data, rather than knowledge of the tree, but
+// I'm not sure if that makes sense. Probably it doesn't
+      callback_Treeview: function(node,result) {
+        var b = result.dbs[0].dataset[0].block[0], files = b.file, bf = files.length,
+            p    = node.payload,
+            obj  = p.obj,
+            i, f, tNode;
+        if ( bf == 0 ) { node.isLeaf = true; return; }
+        if ( bf == 1 ) { node.title = '1 file'; }
+        else           {
+debugger;
+ node.title = bf+' files'; }
+        for (i in files) {
+          f = files[i];
+          tNode = obj.addNode(
+            { format:obj.meta.tree[2].format },
+            [ f.lfn,f.node,f.size,f.time_create,f.checksum ],
+            node
+          );
+        }
+      },
+
       fillBody: function() {
         var root = this.tree.getRoot(),
-            tLeaf, tNode, tNode1, tNode2, i, j, k, datasets=[], d, blocks, b, bf, files, f, totFiles,
-            dbs = this.data.dbs;
+            tLeaf, tNode, tNode1, tNode2, i, j, k, datasets=[], d, blocks, b, bf, files, f,
+            dbs = this.data.dbs, p;
         if ( !dbs.length )
         {
           tLeaf = new Yw.TextNode({label: 'Nothing found, try another dataset or block...', expanded: false}, root);
@@ -224,32 +253,17 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
             [ d.name,d.is_open,d.is_transient,d.time_update,d.time_create ]
           );
           if ( d.block ) {
-            totFiles=0;
             if ( d.block.length == 1 ) { tNode.title = '1 block'; }
             else                       { tNode.title = d.block.length+' blocks'; }
             for (j in d.block) {
               b = d.block[j];
+              p = { call:'data', obj:this, args:{ block:b.name }, callback:this.callback_Treeview };
               tNode1 = this.addNode(
-                { format:this.meta.tree[1].format },
+                { format:this.meta.tree[1].format, payload:p },
                 [ b.name,b.files,b.bytes,b.is_open,b.time_create,b.time_update ],
                 tNode
               );
-              if ( b.file ) {
-                bf = b.file.length;
-                totFiles += bf;
-                if ( bf == 1 ) { tNode1.title = '1 file'; }
-                else           { tNode1.title = bf+' files'; }
-                for (k in b.file) {
-                  f = b.file[k];
-                  tNode2 = this.addNode(
-                    { format:this.meta.tree[2].format },
-                    [ f.lfn,f.node,f.size,f.time_create,f.checksum ],
-                    tNode1
-                  );
-                }
-              } else { tNode1.isLeaf = true; }
             }
-            tNode.title += ', '+totFiles+' files';
           } else { tNode.isLeaf = true; }
         }
         this.tree.render();
@@ -284,7 +298,7 @@ PHEDEX.Module.DataBrowser=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = 'fetching data...';
-        var args = {}, magic,
+        var args = { level:'block' }, magic,
           now;
         if ( dataset ) { magic  = dataset+'_'; } else { magic  = 'X_'; }
         if ( block )   { magic += block+'_'; }   else { magic += 'X_'; }
