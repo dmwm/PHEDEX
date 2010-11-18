@@ -28,6 +28,7 @@ PHEDEX.Core = function(sandbox,loader) {
     constraintoviewport: true,
     resizeable: false
   };
+  if ( PxW.GlobalOptions ) { Yla(_global_options,PxW.GlobalOptions,true); }
 
 /**
  * loads non-module code (Registry, Navigator etc). Used as a sandbox-listener, which defines its signature. The name of the code to be loaded can be either the full base-name of the source-code file, or it can have the leading <strong>phedex-</strong> missing, in which case it is assumed
