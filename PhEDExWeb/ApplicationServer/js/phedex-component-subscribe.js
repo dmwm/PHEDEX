@@ -211,6 +211,7 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                     args.static       = (args.static == '1') ? 'y' : 'n';
                     args.no_mail      =  args.no_mail        ? 'y' : 'n';
                     args.request_only =  args.request_only   ? 'y' : 'n';
+//                     args.request_only =  'y';
                     args.custodial    =  args.custodial      ? 'y' : 'n';
                     args.node         =  nodes;
                     if ( m.time_start ) { args.time_start = m.time_start; }
