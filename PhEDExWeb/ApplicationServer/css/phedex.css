@@ -166,7 +166,6 @@ a.phedex-link-current {
 }
 
 div .phedex-sorted {
-/*  background-color: #fd6; /* light orange */
  border: 1px solid #f00;
 }
 
@@ -194,7 +193,6 @@ div.phedex-filter-banner-help { /* need the specificity! */
   border-top:  1px dotted #888;
 }
 .phedex-filter-inner {
-/*   float: left; */
   display: inline-block;
   width: 250px;
   margin:  0 0.5em 0 0;
@@ -234,14 +232,10 @@ div.phedex-panel-banner-help { /* need the specificity! */
   clear: both;
   border-bottom:  1px dotted #888;
 }
-.phedex-panel-wide .phedex-panel-label {
-  width: 550px;
-}
 .phedex-panel-wide .phedex-panel-inner {
   width: 550px;
 }
 .phedex-panel-inner {
-/*   float: left; */
   display: inline-block;
   width: 250px;
   margin:  0 0.5em 0 0;
@@ -301,11 +295,9 @@ a.phedex-core-control-widget {
   padding: 0 0.3em;
 }
 .phedex-core-control-widget .phedex-core-control-widget-applied {
-/*  background-color: #fd6; /* light orange */
   background-color: orange;
 }
 a.phedex-core-control-widget-applied { /* extra specificity ('a') to take precedence over active/inactive values */
-/*   background-color: orange; */
   border: 1px solid red;
 }
 table.phedex-core-control-widget-applied {
@@ -324,10 +316,9 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
 }
 
 .phedex-core-extra {
-/*  border: 1px solid #ddd;*/
   background-color: white;
   overflow-x: hidden;
-  cursor: default; /* would be 'move' otherwise, since the extra div in in the header */
+  cursor: default; /* would be 'move' otherwise, since the extra div is in the header */
   font-weight: normal;
 }
 .phedex-core-selected {
@@ -435,7 +426,6 @@ div .phedex-tnode-highlight-associated {
 }
 
 div.phedex-nav-target {
-/*   width:        13em; */
 }
 
 div.phedex-nav-target input.yui-ac-input {
@@ -477,7 +467,6 @@ div.phedex-nav-link {
   overflow:auto;
   position: relative; /* Apparently fixes a problem in IE7 */
   background-color: #fdfdfd;
-/*   padding: 2px; */
   margin: 0 5px 0 0;
 }
 
