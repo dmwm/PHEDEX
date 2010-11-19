@@ -251,7 +251,7 @@ PHEDEX.Component.Control = function(sandbox,args) {
  */
       Show: function() {
         var p   = this.payload,
-            tgt = p.target;
+            tgt = p.target, eHeight;
         if ( !this.enabled ) { return; }
         if ( tgt && !YuD.hasClass(tgt,'phedex-invisible') ) { return; }
         if ( p.handler ) {
@@ -262,9 +262,12 @@ PHEDEX.Component.Control = function(sandbox,args) {
             p.handler();
           }
         }
+
         if ( tgt ) { YuD.removeClass(tgt,'phedex-invisible'); }
         YuD.removeClass(this.el,'phedex-core-control-widget-inactive');
         YuD.addClass   (this.el,'phedex-core-control-widget-active');
+        eHeight = tgt.offsetHeight;
+        this.notify('show target',eHeight);
       },
 /**
  * Hide the controlled element
