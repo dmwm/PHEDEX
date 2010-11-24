@@ -33,6 +33,8 @@ our %params =
 
 	  STATISTICS_INTERVAL	=> 3600*12,	# My own reporting frequency
 	  STATISTICS_DETAIL	=>    0,	# reporting level: 0, 1, or 2
+          SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
+          PHEDEX_ADMIN          => 'local-admin at phedex-site',  # 
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -325,11 +327,13 @@ sub _poe_init
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   $kernel->state('killAgent', $self);
   $kernel->state('_make_stats', $self);
+  $kernel->state('_do_summary', $self);
   $kernel->state('_udp_listen', $self);
   $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
   $self->{stats}{START} = time;
   $self->{stats}{maybeStop}=0;
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
+  $kernel->delay_set('_do_summary',$self->{SUMMARY_INTERVAL});
 
   if ( $self->{_NOTIFICATION_PORT} )
   {
@@ -509,4 +513,36 @@ sub _make_stats
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
+sub _do_summary {
+  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+
+  my $summary = "STATISTICS SUMMARY\n";
+  foreach my $agent ( sort keys %{$self->{AGENTS}} )
+  {
+#   skip me
+    next if $self->{AGENTS}{$agent}{self}{stats};
+    $summary .= "\t $agent: \n";
+    foreach my $key ( keys %{$self->{AGENTS}{$agent}{resources}} )
+    {
+       $summary .= "\t \t $key = $self->{AGENTS}{$agent}{resources}{$key} \n";
+    } 
+  }
+  $self->Logmsg($summary);
+  $self->mail_report($summary);
+  $kernel->delay_set('_do_summary',$self->{SUMMARY_INTERVAL});
+}
+
+sub mail_report {
+  my ($self,$report) = @_;
+  my $subject  = "PhEDEx watchdog report";
+  my $mailprog = 'mail';
+  my $phedex_admin = $self->{PHEDEX_ADMIN};
+
+  open (MAIL,"|$mailprog $phedex_admin -s '$subject'") || die "Can't open $mailprog $!\n";
+  print MAIL $report;
+  close(MAIL);
+  
+}
+
 1;
+
