@@ -6,6 +6,7 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use POE;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::JobManager;
+use PHEDEX::Core::Loader;
 use IO::Socket::INET;
 use constant DATAGRAM_MAXLEN => 1024*1024;
 
@@ -33,8 +34,9 @@ our %params =
 
 	  STATISTICS_INTERVAL	=> 3600*12,	# My own reporting frequency
 	  STATISTICS_DETAIL	=>    0,	# reporting level: 0, 1, or 2
+
           SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
-          PHEDEX_ADMIN          => 'local-admin at phedex-site',  # 
+          PLUGIN                => 'logfile',   # plugin used for reporting 
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -59,6 +61,16 @@ sub new
 
   bless $self, $class;
   $self->createLimits();
+
+  $self->{PHEDEX_SITE} = $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_SITE') ||
+        $ENV{PHEDEX_SITE};
+  die "'PHEDEX_SITE' not set correctly in your configuration file, giving up...\n" unless $self->{PHEDEX_SITE};
+
+  $self->{PLUGIN} = 'Log' if (lc($self->{PLUGIN}) eq 'logfile' );
+  my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify' );
+  $self->{wdp} = $loader->Load( lc($self->{PLUGIN}) )->new( DEBUG => $self->{DEBUG},
+                                                            PHEDEX_SITE => $self->{PHEDEX_SITE} );
+
   return $self;
 }
 
@@ -98,6 +110,7 @@ sub reloadConfig
   $self->createLimits();
   $self->createAgents();
 }
+
 
 sub createLimits
 {
@@ -527,21 +540,8 @@ sub _do_summary {
        $summary .= "\t \t $key = $self->{AGENTS}{$agent}{resources}{$key} \n";
     } 
   }
-  $self->Logmsg($summary);
-  $self->mail_report($summary);
+  $self->{wdp}->report($summary); 
   $kernel->delay_set('_do_summary',$self->{SUMMARY_INTERVAL});
-}
-
-sub mail_report {
-  my ($self,$report) = @_;
-  my $subject  = "PhEDEx watchdog report";
-  my $mailprog = 'mail';
-  my $phedex_admin = $self->{PHEDEX_ADMIN};
-
-  open (MAIL,"|$mailprog $phedex_admin -s '$subject'") || die "Can't open $mailprog $!\n";
-  print MAIL $report;
-  close(MAIL);
-  
 }
 
 1;
