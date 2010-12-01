@@ -129,7 +129,7 @@ sub blockSubscriptions
               s.time_complete, s.time_done,
               b.files exist_files, br.node_files, br.dest_files,
               b.bytes exist_bytes, br.node_bytes, br.dest_bytes,
-              NULL
+              NULL nunsub
         from t_dps_subs_block s
         join t_adm_node n on n.id = s.destination
         join t_dps_block b on b.id = s.block
@@ -212,7 +212,7 @@ sub blockSubscriptions
 	      $stats{'block move subs done'}++;
 	  }
 	  elsif ( $subs->{NUNSUB} > 0 ) {
-	      $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas",
+	      $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas ",
 			    "to be deleted before marking move of $subs->{SUBS_BLOCK_NAME} done");
 	      $stats{'block moves pending deletion'}++;
 	  }
