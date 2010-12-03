@@ -50,6 +50,8 @@ Show existing subscriptions and their parameters.
   se               storage element name
   level            the subscription level, 'dataset' or 'block'
   request          request ID
+  node_files       number of files at this node
+  node_bytes       number of bytes at this node
   priority         priority (high, normal, low)
   move             is move? y or n
   custodial        is custodial? y or n
@@ -85,14 +87,16 @@ my $map = {
     _KEY => 'DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
-    files => 'NODE_FILES',
-    bytes => 'NODE_BYTES',
     is_open => 'OPEN',
+    files => 'DS_FILES',
+    bytes => 'DS_BYTES',
     subscription => {
         _KEY => 'NODE_ID',
         level => 'LEVEL',
         node => 'NODE',
         node_id => 'NODE_ID',
+        node_files => 'NODE_FILES',
+        node_bytes => 'NODE_BYTES',
         request => 'REQUEST',
         priority => 'PRIORITY',
         move => 'MOVE',
@@ -109,9 +113,9 @@ my $map2 = {
     _KEY => 'DATASET_ID',
     id => 'DATASET_ID',
     name => 'DATASET_NAME',
-    files => 'NODE_FILES',
-    bytes => 'NODE_BYTES',
     is_open => 'OPEN',
+    files => 'DS_FILES',
+    bytes => 'DS_BYTES',
     block => {
         _KEY => 'ITEM_ID',
         id => 'ITEM_ID',
@@ -124,6 +128,8 @@ my $map2 = {
             level => 'LEVEL',
             node => 'NODE',
             node_id => 'NODE_ID',
+            node_files => 'NODE_FILES',
+            node_bytes => 'NODE_BYTES',
             request => 'REQUEST',
             priority => 'PRIORITY',
             move => 'MOVE',
