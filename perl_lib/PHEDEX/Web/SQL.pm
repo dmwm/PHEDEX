@@ -1843,6 +1843,8 @@ sub getDataSubscriptions
                 b.is_open,
                 b.bytes,
                 b.files,
+                ds_stat.files ds_files,
+                ds_stat.bytes ds_bytes,
                 br.node_bytes,
                 br.node_files
             from
@@ -1850,6 +1852,16 @@ sub getDataSubscriptions
                 join t_dps_block b on b.id = sb.block
                 join t_dps_dataset d on d.id = b.dataset
                 left join t_dps_block_replica br on br.node = sb.destination and br.block = b.id
+                join
+                (select
+                    d.id id,
+                    sum(b.files) files,
+                    sum(b.bytes) bytes
+                from
+                    t_dps_dataset d join
+                    t_dps_block b on b.dataset = d.id
+                group by d.id
+                ) ds_stat on ds_stat.id = d.id
             $block_filter
     };
 
@@ -1871,6 +1883,8 @@ sub getDataSubscriptions
                 d.is_open,
                 null bytes,
                 null files,
+                ds_stat.files ds_files,
+                ds_stat.bytes ds_bytes,
                 reps.node_bytes,
                 reps.node_files
             from
@@ -1887,6 +1901,16 @@ sub getDataSubscriptions
                     join t_dps_block b on br.block = b.id
                 group by br.node, b.dataset
                 ) reps on reps.node = sd.destination and reps.dataset = d.id
+                join
+                (select
+                    d.id id,
+                    sum(b.files) files,
+                    sum(b.bytes) bytes
+                from
+                    t_dps_dataset d join
+                    t_dps_block b on b.dataset = d.id
+                group by d.id
+                ) ds_stat on ds_stat.id = d.id
             $dataset_filter
     };
 
@@ -1931,6 +1955,8 @@ sub getDataSubscriptions
             ds.time_create,
             ds.files,
             ds.bytes,
+            ds.ds_files,
+            ds.ds_bytes,
             ds.node_files,
             ds.node_bytes
         from
@@ -2079,7 +2105,9 @@ sub getDataSubscriptions2
             b.files files,
             b.bytes bytes,
             reps.node_files,
-            reps.node_bytes
+            reps.node_bytes,
+            ds_stat.files ds_files,
+            ds_stat.bytes ds_bytes
         from
             t_dps_subscription s
             join t_adm_node n on n.id = s.destination
@@ -2104,6 +2132,17 @@ sub getDataSubscriptions2
             ) reps
             on reps.destination = s.destination
             and (reps.dataset = s.dataset or reps.block = s.block)
+            join
+            (select
+                d.id id,
+                sum(b.files) files,
+                sum(b.bytes) bytes
+            from
+                t_dps_dataset d join
+                t_dps_block b on b.dataset = d.id
+            group by
+                d.id
+            ) ds_stat on ds_stat.id = ds.id
     };
 
     my $filters = '';
