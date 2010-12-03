@@ -105,10 +105,9 @@ sub blockSubscriptions
     my ($self, $now) = @_;
 
     my %stats;
-    my @stats_order = ('block subs completed', 'block move subs done', 'block copy subs done',
-		       'block move request aborted', 'block subs marked incomplete',
-		       'block moves pending deletion', 'block moves pending confirmation',
-		       'block subs updated');
+    my @stats_order = ('block subs completed', 'block replica subs done',
+		       'block move subs done', 'block moves pending deletion', 'block moves pending confirmation',
+		       'block subs marked incomplete', 'block subs updated');
 
     $stats{$_} = 0 foreach @stats_order;
     
@@ -198,41 +197,39 @@ sub blockSubscriptions
 	   $subs->{IS_MOVE} eq 'n' ) {
 	  $subs_update->{TIME_DONE} = $now;
 	  $self->Logmsg("replication subscription is done for $subs_identifier");
-	  $stats{'block copy subs done'}++;
+	  $stats{'block replica subs done'}++;
       }
       # - Block-level move subs is "done" when "done" as replication AND no unsubscribed block replicas exist
+      #    AND subs is at least 1 week old
+      # Change "done" block move subscriptions into a replica subscription
+
       if ( !$subs->{TIME_DONE} && 
 	   ( $subs->{TIME_COMPLETE} || $subs_update->{TIME_COMPLETE} ) &&
 	   $subs->{SUBS_BLOCK_OPEN} eq 'n' &&
 	   $subs->{IS_MOVE} eq 'y' ) {
 	  
-	  if ( $subs->{NUNSUB} == 0 ) {
-	      $subs_update->{TIME_DONE} = $now;
-	      $self->Logmsg("move subscription is done for $subs_identifier");
-	      $stats{'block move subs done'}++;
-	  }
-	  elsif ( $subs->{NUNSUB} > 0 ) {
-	      $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas ",
-			    "to be deleted before marking move of $subs->{SUBS_BLOCK_NAME} done");
-	      $stats{'block moves pending deletion'}++;
-	  }
-	      
-      }
-	         
-      # Change "done" block move subscriptions into a replica subscription
-      # Block-level: Change is_move=n when "done" as above and subs is at least 1 week old
-      
-      if ( ($subs->{TIME_DONE} || $subs_update->{TIME_DONE}) &&
-	   $subs->{IS_MOVE} eq 'y' ) {
 	  if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
-	      $subs_update->{IS_MOVE} = 'n';
-	      $self->Logmsg("move request flag removed for $subs_identifier");
-	      $stats{'block move request aborted'}++;
+  
+	      if ( $subs->{NUNSUB} == 0 ) {
+		  $subs_update->{TIME_DONE} = $now;
+		  $subs_update->{IS_MOVE} = 'n';
+		  $self->Logmsg("move subscription is done for $subs_identifier, ",
+				"move request flag removed for $subs_identifier");
+		  $stats{'block move subs done'}++;
+	      }
+	      elsif ( $subs->{NUNSUB} > 0 ) {
+		  $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas ",
+				"to be deleted before marking move of $subs->{SUBS_BLOCK_NAME} done");
+		  $stats{'block moves pending deletion'}++;
+	      }
+	      
 	  }
+	  
 	  else {
 	      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
 	      $stats{'block moves pending confirmation'}++;
-	  }
+	  } 
+	      
       }
 
       # Mark complete/done block subscriptions as incomplete if they are not complete anymore
@@ -283,9 +280,9 @@ sub datasetSubscriptions
     my ($self, $now) = @_;
 
     my %stats;
-    my @stats_order = ('dataset subs completed', 'dataset subs done',
-		       'dataset move request aborted', 'dataset subs marked incomplete',
-		       'dataset moves pending deletion', 'dataset moves pending confirmation',
+    my @stats_order = ('dataset subs completed', 'dataset replica subs done',
+		       'dataset move subs done', 'dataset moves pending confirmation',
+		       'dataset subs marked incomplete',
 		       'dataset subs updated');
 
     $stats{$_} = 0 foreach @stats_order;
@@ -343,32 +340,36 @@ sub datasetSubscriptions
 	  $stats{'dataset subs completed'}++;
       }
       
-      # Update newly done dataset subscriptions
-      # Dataset-level subs is "done" if all block-level subscriptions are "done" and the dataset is closed
+      # Update newly done dataset replica subscriptions
+      # Dataset-level subs is "done" if it is complete and all block-level subscriptions are "done" and the dataset is closed
       if ( !$subs->{TIME_DONE} && 
+	   $subs->{NINCOMPLETE} == 0 &&
 	   $subs->{NNOTDONE} == 0 &&
 	   $subs->{SUBS_DATASET_OPEN} eq 'n' ) {
-	  $subs_update->{TIME_DONE} = $now;
-	  $self->Logmsg("subscription is done for $subs_identifier");
-	  $stats{'dataset subs done'}++;
-      }
-	   
-      # Change "done" block move subscriptions into a replica subscription
-      # Dataset-level: Change is_move=n when "done" as above and subs is at least 1 week old
-      if ( ($subs->{TIME_DONE} || $subs_update->{TIME_DONE}) &&
-	   $subs->{IS_MOVE} eq 'y' ) {
-	  if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
-	      $subs_update->{IS_MOVE} = 'n';
-	      $self->Logmsg("move request flag removed for $subs_identifier");
-	      $stats{'dataset move request aborted'}++;
-	  }
-	  else {
-	      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
-	      $stats{'dataset moves pending confirmation'}++;
-	  }
-      }
 
-	   
+	  if ( $subs->{IS_MOVE} eq 'n' ) {
+	      $subs_update->{TIME_DONE} = $now;
+	      $self->Logmsg("subscription is done for $subs_identifier");
+	      $stats{'dataset replica subs done'}++;
+	  }
+	  # Update newly done dataset move subscriptions
+	  # Dataset-level move subs is "done" if it is done as above AND it is at least 1 week old
+	  # Change "done" dataset move subscriptions into a replica subscription
+	  elsif ( $subs->{IS_MOVE} eq 'y' ) {
+	      if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
+		  $subs_update->{TIME_DONE} = $now;
+		  $subs_update->{IS_MOVE} = 'n';
+		  $self->Logmsg("subscription is done for $subs_identifier, ",
+				"move request flag removed for $subs_identifier");
+		  $stats{'dataset move subs done'}++;
+	      }
+	      else {
+		  $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
+		  $stats{'dataset moves pending confirmation'}++;
+	      }
+	  }
+      }
+      
       # Mark complete/done block subscriptions as incomplete if they are not complete anymore
       if (($subs->{TIME_COMPLETE} && $subs->{NINCOMPLETE}!=0) ||
 	  ($subs->{TIME_DONE} && ($subs->{NINCOMPLETE}!=0 || $subs->{NNOTDONE}!=0))) {
