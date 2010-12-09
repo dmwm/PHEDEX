@@ -82,20 +82,17 @@ sub addBlockSubscriptions
 }
 
 # Phase I: Subscription-level state changes
-#   2. Mark fully transferred replica subscriptions as complete/done
-#     2a. Block-level subs is "complete" if node_files != 0 && node_files == dest_files
-#     2b. Block-level subs is "done" if it is "complete" and the block is closed
-#     2c. Dataset-level subs is "complete" if all block-level subscriptions are "complete"
-#     2d. Dataset-level subs is "done" if all block-level subscriptions are "done" and the dataset is closed
-#   3. Mark move subscriptions done when all the deletes are finished
-#     3a. Block-level rules for "complete" same as for replication (above)
-#     3b. Block-level move subs is "done" when "done" as replication AND no unsubscribed block replicas exist
-#     3c. Dataset-level rules for "complete" same as replication (above)
-#     3d. Dataset-level move sub is "done" when all block-level moves are "done" and dataset is closed.
-#   4. Change "done" move subscriptions into a replica subscription
-#     4a. Block-level: Change is_move=n when "done" as above and subs is at least 1 week old
-#     4b. Dataset-level: Change is_move=n when "done" as above and subs is at least 1 week old
-#   5. Mark complete/done subscriptions as incomplete if they are not complete anymore
+#   2. Mark fully transferred subscriptions as complete/done
+#     2a. Block-level subs is "complete" if node_files != 0 && node_files == dest_files && node_files >= exist_files
+#     2b. Block-level replica subs is "done" if it is "complete" and the block is closed
+#     2c. Block-level move subs is "done" if it is "complete" and the block is closed
+#          and subs is at least 1 week old and no unsubscribed block replicas exist
+#     2d. Dataset-level subs is "complete" if all block-level subscriptions are "complete"
+#     2e. Dataset-level replica subs is "done" if all block-level subscriptions are "done" and the dataset is closed
+#     2f. Dataset-level move subs is "done" if all block-level subscriptions are "done" and the dataset is closed
+#          and it is at least 1 week old
+#   3. Change "done" move subscriptions into a replica subscription
+#   4. Mark complete/done subscriptions as incomplete if they are not complete anymore
 
 sub blockSubscriptions
 {
@@ -179,64 +176,58 @@ sub blockSubscriptions
       };
       
       # Update newly complete block subscriptions
-      # Block-level subs is "complete" if node_files != 0 && node_files == dest_files
-      if ( ! $subs->{TIME_COMPLETE} &&
-	  $subs->{NODE_FILES} !=0 &&
-	  $subs->{NODE_FILES} == $subs->{DEST_FILES} &&
-	  $subs->{NODE_BYTES} == $subs->{DEST_BYTES}) {
-	  $subs_update->{TIME_COMPLETE} = $now;
-	  $self->Logmsg("subscription complete for $subs_identifier");
-	  $stats{'block subs completed'}++;
-      }
-      
-      # Update newly done block subscriptions
-      # - Block-level replication subs is "done" if it is "complete" and the block is closed
-      if ( !$subs->{TIME_DONE} && 
-	   ( $subs->{TIME_COMPLETE} || $subs_update->{TIME_COMPLETE} ) &&
-	   $subs->{SUBS_BLOCK_OPEN} eq 'n' &&
-	   $subs->{IS_MOVE} eq 'n' ) {
-	  $subs_update->{TIME_DONE} = $now;
-	  $self->Logmsg("replication subscription is done for $subs_identifier");
-	  $stats{'block replica subs done'}++;
-      }
-      # - Block-level move subs is "done" when "done" as replication AND no unsubscribed block replicas exist
-      #    AND subs is at least 1 week old
-      # Change "done" block move subscriptions into a replica subscription
-
-      if ( !$subs->{TIME_DONE} && 
-	   ( $subs->{TIME_COMPLETE} || $subs_update->{TIME_COMPLETE} ) &&
-	   $subs->{SUBS_BLOCK_OPEN} eq 'n' &&
-	   $subs->{IS_MOVE} eq 'y' ) {
-	  
-	  if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
-  
-	      if ( $subs->{NUNSUB} == 0 ) {
-		  $subs_update->{TIME_DONE} = $now;
-		  $subs_update->{IS_MOVE} = 'n';
-		  $self->Logmsg("move subscription is done for $subs_identifier, ",
-				"move request flag removed for $subs_identifier");
-		  $stats{'block move subs done'}++;
-	      }
-	      elsif ( $subs->{NUNSUB} > 0 ) {
-		  $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas ",
-				"to be deleted before marking move of $subs->{SUBS_BLOCK_NAME} done");
-		  $stats{'block moves pending deletion'}++;
-	      }
-	      
+      # Block-level subs is "complete" if node_files != 0 and node_files == dest_files
+      #  and node_files >= exist_files
+      if ( $subs->{NODE_FILES} !=0 &&
+	   $subs->{NODE_FILES} == $subs->{DEST_FILES} &&
+	   $subs->{NODE_BYTES} == $subs->{DEST_BYTES} &&
+	   $subs->{NODE_FILES} >= $subs->{EXIST_FILES} &&
+           $subs->{NODE_BYTES} >= $subs->{EXIST_BYTES} ) {
+	  if ( ! $subs->{TIME_COMPLETE} ) { 
+	      $subs_update->{TIME_COMPLETE} = $now;
+	      $self->Logmsg("subscription complete for $subs_identifier");
+	      $stats{'block subs completed'}++;
 	  }
-	  
-	  else {
-	      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
-	      $stats{'block moves pending confirmation'}++;
-	  } 
-	      
+	  # Update newly done block subscriptions
+	  # - Block-level replica subs is "done" if it is "complete" and the block is closed
+	  if ( ! $subs->{TIME_DONE} && $subs->{SUBS_BLOCK_OPEN} eq 'n' ) {
+	      if ( $subs->{IS_MOVE} eq 'n' ) {
+		  $subs_update->{TIME_DONE} = $now;
+		  $self->Logmsg("subscription is done for $subs_identifier");
+		  $stats{'block replica subs done'}++;
+	      }
+	      # - Block-level move subs is "done" if it is "complete" and the block is closed
+	      #    and no unsubscribed block replicas exist and subs is at least 1 week old
+	      # Change "done" block move subscriptions into a replica subscription
+	      elsif ( $subs->{IS_MOVE} eq 'y' ) {
+		  if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
+		      
+		      if ( $subs->{NUNSUB} == 0 ) {
+			  $subs_update->{IS_MOVE} = 'n';
+			  $subs_update->{TIME_DONE} = $now;
+			  $self->Logmsg("subscription is done for $subs_identifier, ",
+					"move request flag removed for $subs_identifier");
+			  $stats{'block move subs done'}++;
+		      }
+		      elsif ( $subs->{NUNSUB} > 0 ) {
+			  $self->Logmsg("waiting for $subs->{NUNSUB} unsubscribed block replicas ",
+					"to be deleted before marking move of $subs->{SUBS_BLOCK_NAME} done");
+			  $stats{'block moves pending deletion'}++;
+		      }
+		  }
+		  else {
+		      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
+		      $stats{'block moves pending confirmation'}++;
+		  }
+	      }
+	  }
       }
 
       # Mark complete/done block subscriptions as incomplete if they are not complete anymore
       
       if ( ($subs->{TIME_DONE} || $subs->{TIME_COMPLETE}) &&
-	   $subs->{NODE_FILES} < $subs->{EXIST_FILES} &&
-	   $subs->{NODE_BYTES} < $subs->{EXIST_BYTES} ) {
+	   ($subs->{NODE_FILES} < $subs->{EXIST_FILES} ||
+	   $subs->{NODE_BYTES} < $subs->{EXIST_BYTES})) {
 	  $subs_update->{TIME_COMPLETE} = undef;
 	  $subs_update->{TIME_DONE} = undef;
 	  $self->Logmsg("subscription is no longer done, updating for $subs_identifier");
@@ -333,39 +324,36 @@ sub datasetSubscriptions
       # Update newly complete dataset subscriptions
       # Dataset-level subs is "complete" if all block-level subscriptions are "complete"
 
-      if ( !$subs->{TIME_COMPLETE} &&
-	   $subs->{NINCOMPLETE} == 0 ) {
-	  $subs_update->{TIME_COMPLETE} = $now;
-	  $self->Logmsg("subscription complete for $subs_identifier");
-	  $stats{'dataset subs completed'}++;
-      }
-      
-      # Update newly done dataset replica subscriptions
-      # Dataset-level subs is "done" if it is complete and all block-level subscriptions are "done" and the dataset is closed
-      if ( !$subs->{TIME_DONE} && 
-	   $subs->{NINCOMPLETE} == 0 &&
-	   $subs->{NNOTDONE} == 0 &&
-	   $subs->{SUBS_DATASET_OPEN} eq 'n' ) {
-
-	  if ( $subs->{IS_MOVE} eq 'n' ) {
-	      $subs_update->{TIME_DONE} = $now;
-	      $self->Logmsg("subscription is done for $subs_identifier");
-	      $stats{'dataset replica subs done'}++;
+      if ( $subs->{NINCOMPLETE} == 0 ) {
+	  if ( ! $subs->{TIME_COMPLETE} ) {
+	      $subs_update->{TIME_COMPLETE} = $now;
+	      $self->Logmsg("subscription complete for $subs_identifier");
+	      $stats{'dataset subs completed'}++;
 	  }
-	  # Update newly done dataset move subscriptions
-	  # Dataset-level move subs is "done" if it is done as above AND it is at least 1 week old
-	  # Change "done" dataset move subscriptions into a replica subscription
-	  elsif ( $subs->{IS_MOVE} eq 'y' ) {
-	      if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
+	  # Update newly done dataset subscriptions
+	  # Dataset-level replica subs is "done" if it is complete and all block-level subscriptions are "done" and the dataset is closed
+	  if ( !$subs->{TIME_DONE} &&
+	       $subs->{NNOTDONE} == 0 &&
+	       $subs->{SUBS_DATASET_OPEN} eq 'n' ) {
+	      if ( $subs->{IS_MOVE} eq 'n' ) {
 		  $subs_update->{TIME_DONE} = $now;
-		  $subs_update->{IS_MOVE} = 'n';
-		  $self->Logmsg("subscription is done for $subs_identifier, ",
-				"move request flag removed for $subs_identifier");
-		  $stats{'dataset move subs done'}++;
+		  $self->Logmsg("subscription is done for $subs_identifier");
+		  $stats{'dataset replica subs done'}++;
 	      }
-	      else {
-		  $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
-		  $stats{'dataset moves pending confirmation'}++;
+	      # Dataset-level move subs is "done" if it is done as above and if it is at least 1 week old
+	      # Change "done" dataset move subscriptions into a replica subscription
+	      elsif ( $subs->{IS_MOVE} eq 'y' ) {
+		  if ( $now - $subs->{TIME_CREATE} >= 7*24*3600 ) {
+		      $subs_update->{TIME_DONE} = $now;
+		      $subs_update->{IS_MOVE} = 'n';
+		      $self->Logmsg("subscription is done for $subs_identifier, ",
+				    "move request flag removed for $subs_identifier");
+		      $stats{'dataset move subs done'}++;
+		  }
+		  else {
+		      $self->Logmsg("waiting 1 week for move confirmations of $subs_identifier");
+		      $stats{'dataset moves pending confirmation'}++;
+		  }
 	      }
 	  }
       }
@@ -634,17 +622,19 @@ sub blockDestinations
 	      s.time_done subs_done, s.time_suspend_until subs_suspend,
 	      bd.priority bd_priority, bd.state bd_state,
               bd.time_subscription bd_subscrption, bd.time_create bd_create, bd.time_active bd_active,
-	      bd.time_complete bd_complete, bd.time_suspend_until bd_suspend
+	      bd.time_complete bd_complete, bd.time_suspend_until bd_suspend,
+	      nvl(br.node_files,0) node_files, nvl(br.src_files,0) src_files, b.files exist_files
  	    from t_dps_block_dest bd
 	    join t_adm_node n on n.id = bd.destination
 	    join t_dps_block b on b.id = bd.block
 	    join t_dps_subs_block s on s.destination = bd.destination
 	                             and s.block = bd.block
 	    join t_dps_subs_param sp on sp.id = s.param
+	    left join t_dps_block_replica br on br.node = bd.destination and br.block = bd.block
            where 
-             -- block is complete, update state
+             -- block is complete and closed, update state
              (b.is_open = 'n'
-              and s.time_complete is not null
+	      and br.node_files >= b.files
               and bd.state != 3)
              -- block is incomplete, update state
              or (s.time_complete is null and bd.state = 3)
@@ -677,7 +667,7 @@ sub blockDestinations
 
       # Mark done the block destinations which are of closed blocks and have all files fully replicated.
       if ($block->{IS_OPEN} eq 'n' &&
-	  $block->{SUBS_COMPLETE} &&
+	  $block->{NODE_FILES} >= $block->{EXIST_FILES} &&
 	  $block->{BD_STATE} != 3) {
 	  $self->Logmsg("block destination done for $bd_identifier");
 	  $bd_update->{BD_STATE} = 3;
