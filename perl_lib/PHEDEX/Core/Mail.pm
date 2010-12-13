@@ -302,7 +302,7 @@ sub send_request_create_email
     my $files = $$data{'DATA'}{'FILES'};
     my $bytes = &format_size($$data{'DATA'}{'BYTES'});
     
-    my $comments = $$data{'DATA'}{'USERTEXT'}{'$T'} || '';
+    my $comments = $$data{'REQUESTED_BY'}{'COMMENTS'}{'$T'} || '';
 	
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
