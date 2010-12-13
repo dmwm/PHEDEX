@@ -192,6 +192,7 @@
   * links - existing transfer links and their state
   * missingfiles - which files are missing from a block
   * subscriptions - existing subscriptions and their parameters
+  * time value now accepts ISO8601 interval format: P[nY][nM][nD][T[nH][nM][nS]] 
 
  Changes for APIs:
 
