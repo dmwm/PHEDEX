@@ -306,7 +306,17 @@ sub getTFC {
    $p{':node'} = $h{node};
 
     $q = execute_sql( $self, $sql, %p );
-    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+    # while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+    # remove empty fields
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        my ($k, $v);
+        while (($k, $v) = each (%{$_}))
+        {
+            delete $_->{$k} if (! defined $v);
+        }        
+        push @r, $_;
+    }
    
    return \@r;
 }
