@@ -68,7 +68,8 @@ PHEDEX.Loader = function(opts) {
 
     'phedex-module-activity-rate':     { requires:['phedex-datatable'] },
 // a demo protovis module
-    'phedex-module-protovisdemo':      { requires:['phedex-protovis'] },
+    'phedex-module-protovisdemo':       { requires:['phedex-protovis'] },
+    'phedex-module-protovisqualitymap': { requires:['phedex-protovis'] },
 // a few custom-modules for shifters
     'phedex-module-shift-requestedqueued': { requires:['phedex-datatable'] },
 
