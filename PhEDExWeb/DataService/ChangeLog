@@ -1,4 +1,4 @@
-* Changes for 1.6.5
+* Changes for 1.6.4
 
  New APIs:
 
@@ -14,8 +14,6 @@
   * 'filereplicas':
     - internal change that does not affect its functionality nor output
     - use subquery instead of full joint for block name match to improve query efficiency
-
-* Changes for 1.6.4
 
  Bug fixes:
   * 'shift/queued' now aggregates correctly
