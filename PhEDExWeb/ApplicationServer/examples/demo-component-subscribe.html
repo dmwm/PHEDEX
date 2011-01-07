@@ -143,9 +143,24 @@ function createCoreApp() {
 // Note that the loader will queue the multiple load requests (for phedex-controls and phedex-logger) and act on them in order.
   PxS.notify('Load','logger');
 
+// Install a listener for the component-control 'exists' event
+  PxS.listen('component-control',function(ev,arr) {
+    var id   = arr[0],
+        name = arr[1];
+    if ( name != 'Subscribe data' ) { return; }
+    PxS.notify(id,'Show');
+  });
+
+// Install a listener for the component-subscribe 'exists' event
+  PxS.listen('ComponentExists',function(ev,arr) {
+    var obj = arr[0],
+        who = obj.me,
+        id  = obj.id;
+    if ( who != 'component-subscribe' ) { return; }
+  });
+
 // Load the component-subscribe control
   PxS.notify('Load','component-subscribe');
-
 };
 </script>
 </body>
