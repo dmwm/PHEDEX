@@ -402,7 +402,7 @@ already exists with id " . $rid . " and different values: " . $_. " existing=" .
 		    return undef;
 		}
 	    }
-	    $self->Dbgmsg("Original subscription parameter set already exists with id " . $rid);
+	    $self->Dbgmsg("Original subscription parameter set already exists with id " . $rid) if $self->{DEBUG};
 	    return $rid;
 	}
     }
