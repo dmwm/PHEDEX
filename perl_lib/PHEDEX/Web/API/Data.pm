@@ -109,7 +109,7 @@ my $map = {
     }
 };
 
-sub duration { return 60 * 60; }
+sub duration { return  5 * 60; }
 sub invoke { return data(@_); }
 
 sub data
