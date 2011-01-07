@@ -556,7 +556,7 @@ PHEDEX.Component.Panel = function(sandbox,args) {
           if ( c.focus ) { this.focusOn = this.defaultFocus = el; }
 //        set default values. Depends on type of input field...
           if ( c.type == 'radio' ) {
-            if ( fields[i] == c.default ) { el.checked = true; }
+            if ( fields[i] == c.Default ) { el.checked = true; }
             el.value = i;
           } else {
             value = val || c[fields[i] || 'value'];

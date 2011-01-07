@@ -283,7 +283,6 @@ window.onerror = function(msg, url, line) {
   if ( PxW.ProductionMode ) {
     return false;
   } else {
-debugger;
     log('onerror: '+msg+' url:'+url+' line:'+line,'error','app');
     return true;
   }

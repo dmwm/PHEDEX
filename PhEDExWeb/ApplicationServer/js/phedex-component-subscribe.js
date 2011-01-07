@@ -55,7 +55,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 //             expand:       {type:'checkbox', text:'Expand wildcards before submitting request?',
 //                            tip:'Expand wildcards now to find all matching blocks/datasets, or submit the request with wildcards for future re-evaluation', attributes:{checked:true} },
             level:        {type:'radio', fields:['dataset','block'], text:'Subscription level',
-                           tip:'A block-level subscription allows you to subscribe individual blocks', default:'dataset' },
+                           tip:'A block-level subscription allows you to subscribe individual blocks', _default:'dataset' },
             dataset0: {type:'regex', text:'Enter a dataset name and hit Return', tip:'enter a valid dataset name', negatable:false, value:'', focus:true, size:_fieldSize },
             dataset:  {type:'text', dynamic:true },
           }
@@ -67,11 +67,11 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
 
 // node can be multiple
             node:         {type:'regex', text:'Destination node', tip:'enter a valid node name', negatable:false, value:'', size:_fieldSize },
-            static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
-                           tip:'A static subscription is a snapshot of the data as it is now. A growing subscription will add new blocks as they become available', default:'growing' },
+            _static:       {type:'radio', fields:['growing','static'], text:'Subscription type',
+                           tip:'A static subscription is a snapshot of the data as it is now. A growing subscription will add new blocks as they become available', _default:'growing' },
             move:         {type:'radio', fields:['replica','move'], text:'Transfer type',
-                           tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', default:'replica' },
-            priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', default:'low' },
+                           tip:'Replicate (copy) or move the data. A "move" will delete the data from the source after it has been transferred', _default:'replica' },
+            priority:     {type:'radio', fields:['low','normal','high'],  byName:true, text:'Priority', _default:'low' },
 
             custodial:    {type:'checkbox', text:'Make custodial request?', tip:'Check this box to make the request custodial', attributes:{checked:false} },
             group:        {type:'regex',    text:'User-group', tip:'The group which is requesting the data. May be left undefined, used only for accounting purposes', negatable:false, autoComplete:groupComplete },
@@ -111,14 +111,14 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
           type = 'dataset';
           item = args.dataset;
           if ( args.block ) {
-if ( typeof args.ds_is_open == 'undefined'  ) { debugger; }
+// if ( typeof args.ds_is_open == 'undefined'  ) { debugger; }
             if ( !cd[item] ) { cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} }; }
             blocks = cd[item].blocks;
             type = 'block';
             item = args.block;
             if ( blocks[item] ) { return; }
             blocks[item] = { block:item, is_open:args.is_open };
-if ( typeof args.is_open == 'undefined' ) { debugger; }
+// if ( typeof args.is_open == 'undefined' ) { debugger; }
           } else {
             if ( cd[item] ) { return; }
             cd[item] = { dataset:item, is_open:args.ds_is_open, blocks:{} };
@@ -206,13 +206,13 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
                       if      ( vName == 'dbs'  ) { dbs         = vValue; }
                       else if ( vName != 'node' ) { args[vName] = vValue; }
                     }
-                    args.level        = (args.level  == '1') ? 'block' : 'dataset';
-                    args.move         = (args.move   == '1') ? 'y' : 'n';
-                    args.static       = (args.static == '1') ? 'y' : 'n';
-                    args.no_mail      =  args.no_mail        ? 'y' : 'n';
-                    args.request_only =  args.request_only   ? 'y' : 'n';
+                    args.level        = (args.level   == '1') ? 'block' : 'dataset';
+                    args.move         = (args.move    == '1') ? 'y' : 'n';
+                    args._static      = (args._static == '1') ? 'y' : 'n';
+                    args.no_mail      =  args.no_mail         ? 'y' : 'n';
+                    args.request_only =  args.request_only    ? 'y' : 'n';
 //                     args.request_only =  'y';
-                    args.custodial    =  args.custodial      ? 'y' : 'n';
+                    args.custodial    =  args.custodial       ? 'y' : 'n';
                     args.node         =  nodes;
                     if ( m.time_start ) { args.time_start = m.time_start; }
 
@@ -679,7 +679,6 @@ if ( typeof args.is_open == 'undefined' ) { debugger; }
               icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
             } catch(ex) {
               var _x = ex;
-debugger;
             }
             break;
           }

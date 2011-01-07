@@ -127,11 +127,11 @@ PHEDEX.Module.ProtovisQualityMap = function(sandbox, string) {
         this.dom.title.innerHTML = i + ' nodes (excluding MSS)';
 
         var cols = map2.shift();
-        map2 = map2.map(function(d) pv.dict(cols, function() d[this.index]));
+        map2 = map2.map(function(d) { pv.dict(cols, function() { d[this.index] }) });
         cols.shift();
 
 /* The color scale ranges from 0 to 100. */
-        var fill = pv.dict(cols, function(f) pv.Scale.linear()
+        var fill = pv.dict(cols, function(f){pv.Scale.linear()}
                 .domain(     0,  0.01,  10.0,       80.0,    100.0)
                 .range('white', 'red', 'orange', 'yellow', 'green'));
 
@@ -146,13 +146,13 @@ PHEDEX.Module.ProtovisQualityMap = function(sandbox, string) {
 
         vis.add(pv.Panel)
             .data(cols)
-            .left(function() this.index * w)
+            .left(function(){this.index * w})
             .width(w)
           .add(pv.Panel)
             .data(map2)
-            .top(function() this.index * h)
+            .top(function(){this.index * h})
             .height(h)
-            .fillStyle(function(d, f) fill[f](d[f]))
+            .fillStyle(function(d, f){fill[f](d[f])})
             .strokeStyle('white')
             .lineWidth(1)
             .antialias(false)
@@ -173,16 +173,16 @@ PHEDEX.Module.ProtovisQualityMap = function(sandbox, string) {
 
         vis.add(pv.Label)
             .data(cols)
-            .left(function() this.index * w + w / 2)
+            .left(function(){this.index * w + w / 2})
             .textAngle(-Math.PI / 2)
             .textBaseline('middle');
 
         vis.add(pv.Label)
             .data(map2)
-            .top(function() this.index * h + h / 2)
+            .top(function(){this.index * h + h / 2})
             .textAlign("right")
             .textBaseline('middle')
-            .text(function(d) d.node);
+            .text(function(d){d.node});
 
         vis.render();
 

@@ -73,7 +73,6 @@ PHEDEX.Component.Refresh = function(sandbox,args) {
           return function(ev,arr) {
             switch (arr[0]) {
               case 'gotData': {
-                debugger;
                 break;
               }
               case 'activate': {
