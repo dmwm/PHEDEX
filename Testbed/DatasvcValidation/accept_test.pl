@@ -60,7 +60,7 @@ if ($help)
     usage();
 }
 
-my $url_prefix = "http://$web_server";
+my $url_prefix = "https://$web_server";
 
 open STDERR, ">/dev/null";
 our $n = 0;
@@ -78,21 +78,21 @@ sub verify
     my $data;
     if ($format eq 'xml')
     {
-        my $fh = IO::File->new("wget -O - '${url}' 2>/dev/null 1|${tee} ")
+        my $fh = IO::File->new("wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} ")
             || die "could not execute wget\n";
         $data = $xml->XMLin($fh, ForceArray=>1);
     }
     elsif ($format eq 'perl')
     {
         my $VAR1;
-        open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
+        open FILE, "wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} "
             || die "could not execute wget\n";
 	{ local $/ = undef; $data = eval (<FILE>)->{'PHEDEX'} }
 	close FILE;
     }
     elsif ($format eq 'json')
     {
-        open FILE, "wget -O - '${url}' 2>/dev/null 1|${tee} "
+        open FILE, "wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} "
 	    || die "could not execute wget\n";
 	{ local $/ = undef; $data = join "", <FILE>; }
 	eval { $data = &decode_json($data)->{'phedex'}; };
