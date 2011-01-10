@@ -64,7 +64,6 @@ function createCoreApp() {
   var page = location.href;
   if ( page.match(/([^/]*)$/) ) { page = RegExp.$1; }
   if ( page.match(/^(.*)\?/) ) { page = RegExp.$1; }
-  if ( page != 'Activity::Rate' ) { return; }
 
   var el = document.getElementById(page);
 
@@ -75,9 +74,9 @@ function createCoreApp() {
       page = 'phedex-nextgen-'+page;
       var nextgenOverride = function(item,e) {
         return function() {
-          debugger;
           var cTor = PxU.getConstructor(item);
           var obj = new cTor(PxS,item);
+          obj.init();
           PxS.notify(obj.id,'useElement',e);
         };
       }(page,el);
