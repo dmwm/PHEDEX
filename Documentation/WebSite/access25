@@ -2095,13 +2095,32 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
   <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+  <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
   @REFRESH@
+
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
+hen css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+
   <link rel="stylesheet" href="@ROOTURL@style25.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/next-gen.js"></script>
   <script type="text/javascript"><!--
     function hideshow(item, show) {
       var obj = document.getElementById(item);
@@ -2237,13 +2256,33 @@ our $TEMPLATE_BARE = <<'END_OF_TEMPLATE';
 <head>
   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
   <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+  <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
   @REFRESH@
+
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
+hen css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+
   <link rel="stylesheet" href="@ROOTURL@style.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/next-gen.js"></script>
+<script type="text/javascript">
   <script type="text/javascript"><!--
     function hideshow(link,item,hide) {
       var obj = document.getElementById(item);
@@ -6110,7 +6149,9 @@ sub output
     "&nbsp;<input type='checkbox' name='errors' $errors>\n",
     "<label for='errors'>Include links with nothing but errors</label> ",
     "<input type='submit' value='Update'></p>\n",
-    "<p><table class='striped'><tbody>\n",
+    "<p>\n",
+    "<div id='Activity::Rate'>\n",
+    "<table class='striped' id='Activity::Rate'><thead>\n",
 
     "<tr class='selected'>\n",
     " <th colspan='10'>",
@@ -6148,7 +6189,9 @@ sub output
 	      -title=>("Regular expression to match against node or link names. "
 		       ."Only those matching the expression will be shown.")),
     "</th>\n",
-    "</tr>\n";
+    "</tr>\n",
+    "</thead>\n",
+    "<tbody>\n";
 
   foreach my $kind (qw(N T))
   {
@@ -6203,7 +6246,7 @@ sub output
       }
     }
   }
-  print { $$self{CONTENT} } "</tbody></table></p></form>\n";
+  print { $$self{CONTENT} } "</tbody></table></div></p></form>\n";
 }
 
 1;
