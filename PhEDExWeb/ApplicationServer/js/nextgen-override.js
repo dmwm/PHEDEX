@@ -7,7 +7,7 @@ YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
 //   PxL.load(function() {},'phedex-profiler');
 //   PxW.nocache = true;
-  PxL.load(createCoreApp,'core','sandbox','datasvc','registry','phedex-datatable');
+  PxL.load(createCoreApp,'core','sandbox');
 
   var phedex_app_version = document.getElementById('phedex-app-version'),
       phedex_home = document.getElementById('phedex-link-home');
@@ -29,10 +29,10 @@ function createCoreApp() {
     PxC = new PHEDEX.Core(PxS,PxL);
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
-  try {
-    PxR = new PHEDEX.Registry(PxS);
-    PxR.create();
-  } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
+//  try {
+//    PxR = new PHEDEX.Registry(PxS);
+//    PxR.create();
+//  } catch(ex) { log(ex,'error',name); banner('Error creating Registry!','error'); return; }
 
   banner('Core application is running, ready to create PhEDEx data-modules...');
 
@@ -67,12 +67,22 @@ function createCoreApp() {
   if ( page != 'Activity::Rate' ) { return; }
 
   var el = document.getElementById(page);
+
   try {
     if ( el ) {
       page = page.replace(/::/g,'-');
       page = page.toLowerCase();
       page = 'phedex-nextgen-'+page;
-      PxS.notify('Load',page);
+      var nextgenOverride = function(item,e) {
+        return function() {
+          debugger;
+          var cTor = PxU.getConstructor(item);
+          var obj = new cTor(PxS,item);
+          PxS.notify(obj.id,'useElement',e);
+        };
+      }(page,el);
+      PxL.load(nextgenOverride,page,'datasvc');
+    }
   } catch(ex) {
     var a = ex;
   }
