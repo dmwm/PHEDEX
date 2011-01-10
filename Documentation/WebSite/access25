@@ -2120,7 +2120,7 @@ hen css files get loaded later.-->
   <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
   <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
   <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/next-gen.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
   <script type="text/javascript"><!--
     function hideshow(item, show) {
       var obj = document.getElementById(item);
@@ -2281,7 +2281,7 @@ hen css files get loaded later.-->
   <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
   <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
   <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/next-gen.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
 <script type="text/javascript">
   <script type="text/javascript"><!--
     function hideshow(link,item,hide) {
