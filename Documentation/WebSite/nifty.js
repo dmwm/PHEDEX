@@ -224,78 +224,19 @@ function Mix(c1,c2)
 // insert a link to the next-gen website, flashing onto the screen a few seconds after the page appears...
 
 webapp_link = function() {
-  var makeLink = function() {
-    var elList, el, tgt, child, uri;
-    tgt = document.getElementById('nextgen-link');
-    if ( tgt ) { return; }
-    child = document.createElement('li');
-    child.id = 'nextgen-link';
-    elList = document.getElementsByClassName('catopt');
-    try {
-      el = elList[0].childNodes[1];
-    } catch(ex) { /* cannot find element, abort! */ return; }
-    uri = location.href;
-    uri = uri.replace(/\/$/, '');
-    uri = uri.replace(/\/[^/]*\/[^/]*::.*/,'');
-    child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
-    el.appendChild(child);
-    return child;
-  };
-  var fn = function() {
-    var child = makeLink();
-    var fade = function(element) {
-      var col1 = col2 = 0;
-      return function() {
-        var c1 = col1.toString(16),
-            c2 = col2.toString(16),
-            str = '#ff',
-            interval = 100,
-            step = 16;
-        if ( col1 > 15 ) {
-          str = str + c1;
-        } else {
-          str = str + '0' + c1;
-        }
-        if ( col2 > 15 ) {
-          str = str + c2;
-        } else {
-          str = str + '0' + c2;
-        }
-        element.style.backgroundColor = str;
-        col1 = col1 + step;
-        if ( col1 < 255 ) {
-          setTimeout(fade,interval);
-        }
-        else
-        {
-          col1 = 255;
-          col2 += step;
-          if ( col2 < 255 ) { setTimeout(fade,interval); }
-          else              { element.style.backgroundColor = ''; }
-        }
-      }
-    }(child);
-    fade();
-  };
-  var PhedexLoadCount = 5;
-  if ( navigator.cookieEnabled ) {
-    var cookie = document.cookie;
-    if ( cookie ) {
-      if ( cookie.match(/PhedexLoadCount=([0-9]+)/) ) {
-        PhedexLoadCount = RegExp.$1;
-      }
-    }
-    if ( PhedexLoadCount > 0 ) {
-      PhedexLoadCount--;
-      var future = new Date();
-      future.setDate(future.getDate() + 10);
-      var tmp = 'PhedexLoadCount=' + encodeURI(PhedexLoadCount) + '; expires=' + future.toGMTString() + '; path=/';
-      document.cookie = tmp;
-    }
-  }
-  if ( PhedexLoadCount > 0 ) {
-    setTimeout(fn,3000);
-  } else {
-    makeLink();
-  }
+  var elList, el, tgt, child, uri;
+  tgt = document.getElementById('nextgen-link');
+  if ( tgt ) { return; }
+  child = document.createElement('li');
+  child.id = 'nextgen-link';
+  elList = document.getElementsByClassName('catopt');
+  try {
+    el = elList[0].childNodes[1];
+  } catch(ex) { /* cannot find element, abort! */ return; }
+  uri = location.href;
+  uri = uri.replace(/\/$/, '');
+  uri = uri.replace(/\/[^/]*\/[^/]*::.*/,'');
+  child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
+  el.appendChild(child);
+  return child;
 };
