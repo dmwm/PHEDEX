@@ -217,6 +217,10 @@ sub print_doc
     $version = '&nbsp;(v.' . $version . ')' if $version;
     $count = 0;
     foreach $line ( @lines ) {
+        if ( $line =~ m%^</head>% ) {
+          my $meta_tag = '<meta name="PhEDEx-tag" content="PhEDEx-datasvc ' . $self->{CONFIG}{VERSION} . '" />';
+          print $meta_tag,"\n";
+        }
         next if $line =~ m%<hr />%;
 	if ( $line =~ m%<span class="block">% ) {
 	  $line =~ s%</span>%$version</span>%;

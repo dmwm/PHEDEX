@@ -2619,6 +2619,7 @@ sub generate
        "$$self{LOGIN_MESSAGE}\n" .
        " </div>"),
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
+    'VERSION' => "$$self{CONFIG}{VERSION}",
   };
 
   # Hide these things on the password page
@@ -4341,12 +4342,16 @@ sub output
   my $type = param('type');
   my $node_label = '';
   my $confirm_page = $self->myurl(page=>'Request::Confirm');
+  my $div_top = "<div id='Request::Create' class='prod_schema_is_" .
+     ($self->{CONFIG}{PROD_SCHEMA_IS_3X} ? '3x' : '4x' ) . "'>";
 
   if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
       print { $$self{CONTENT} }
+      $div_top,
       "<h1>Choose a request type</h1>",
       "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
-      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>";
+      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
+      "</div>";
       return;
   } else {
       my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
@@ -6151,7 +6156,7 @@ sub output
     "<input type='submit' value='Update'></p>\n",
     "<p>\n",
     "<div id='Activity::Rate'>\n",
-    "<table class='striped' id='Activity::Rate'>",
+    "<table class='striped'>",
 #    "<thead>\n",
 
     "<tr class='selected'>\n",
