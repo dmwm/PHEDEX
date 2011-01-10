@@ -73,6 +73,10 @@ PHEDEX.Loader = function(opts) {
 // a few custom-modules for shifters
     'phedex-module-shift-requestedqueued': { requires:['phedex-datatable'] },
 
+// old website override modules
+//  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
+    'phedex-nextgen-request-create': { requires:['phedex-module'] },
+
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
   },
