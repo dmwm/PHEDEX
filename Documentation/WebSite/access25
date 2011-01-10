@@ -6151,7 +6151,8 @@ sub output
     "<input type='submit' value='Update'></p>\n",
     "<p>\n",
     "<div id='Activity::Rate'>\n",
-    "<table class='striped' id='Activity::Rate'><thead>\n",
+    "<table class='striped' id='Activity::Rate'>",
+#    "<thead>\n",
 
     "<tr class='selected'>\n",
     " <th colspan='10'>",
@@ -6190,7 +6191,7 @@ sub output
 		       ."Only those matching the expression will be shown.")),
     "</th>\n",
     "</tr>\n",
-    "</thead>\n",
+#   "</thead>\n",
     "<tbody>\n";
 
   foreach my $kind (qw(N T))
