@@ -224,3 +224,6 @@ update t_dps_subs_dataset sd
      (select max(b.time_create) 
        from t_dps_block b
       where sd.dataset = b.dataset);
+
+-- Backup obsolete t_dps_subscription table
+rename t_dps_subscription to xt_dps_subscription;
