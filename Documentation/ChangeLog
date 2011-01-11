@@ -1,3 +1,75 @@
+Changes for PhEDEx 4.0.0
+
+Changes for Schema
+ - See details in https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjSubscriptions
+ - All subscriptions are now tracked internally at block-level
+  - t_dps_subscription table replaced with t_dps_subs_dataset, t_dps_subs_block, t_dps_subs_param
+ - Support for time_start in dataset-level transfer requests
+  - If time_start is set, only blocks created after time_start will be subscribed to destination
+ - Add t_req_size, t_req_replica tables to store status of a request (not yet used)
+ - Add dataset_name column to v_dbs_block_replica view provided for DBS data location
+ - Update OracleInit.sql deployment script to new schema
+ - Documentation updates
+
+Changes for Central Agents
+ - Updates to BlockAllocator, BlockMonitor, BlockDelete, RequestAllocator agents for new schema
+  - BlockAllocator changes:
+   - Support for time-based dataset subscriptions
+   - Always track all subscriptions at block level
+   - Create/update/delete block destinations from block-level subscriptions
+   - Propagate dataset subscription parameters to linked block subscriptions
+   - Evaluate dataset subscription state from state of linked block subscriptions
+   - Propagate dataset subscription suspensions to linked block subscriptions
+   - Fix for move flag never removed if block is inactive
+   - Track move flag at block level; remove after one week and mark sub done if no unsubscribed replicas exist
+ - Additional BlockDelete fixes:
+  - Fix for Savannah #71759: wait until Buffer replica removal before marking deletion as completed at T1
+  - Fix for Savannah #65239: prevent creation of file deletion tasks when Buffer replica has active transfers
+  - Remove cleanup of old file deletion tasks (already performed after block deletion completion)
+ - Additional updates to RequestAllocator package (used by website/dataservice):
+  - added/updated/replaced several methods to support new schema in website/dataservice
+  - added deleteSubscription to support dataset unsubscription (can be used to remove dataset-level sub without removing block-level subs)
+  - disallow time-based move/delete requests
+  - Disallow requests that would result in a custodiality change of the subscription
+  - Disallow changing the move flag in a subscription
+  - Disallow transfer requests to Buffer nodes in Prod
+ - BlockDownloadVerifyInjector: add table aliases to sql (needed with Oracle 10.2.0.5)
+
+Changes for Site Agents
+ - FileDownload
+  - FTS backend: removed obsolete -myproxy and -passfile options
+  - FTSbackend: added support for FTS checksumming, enabled with option -checksum
+   - if available, adler32 checksum stored in TMDB is passed to FTS to be verified against adler32 checksum calculated by destination SRM after transfer
+  - All backends: fix for agent crash when max-active < batch-files in config options
+ - BlockDownloadVerify agent
+  - Disallow the use of deprecated parameters: --storagemap,--use_srm,--use_rfdir
+  - Adding option -protocol to the BDV agent
+  - Reworked usage help to show namespace specific usage help, when --namespace and --help options are called together
+  - Reject test inmediately instead of retrying, when those are not allowed for given namespace.
+  - Cleanup of rfio namespace documentation
+ - Watchdog agent
+  - Fix for Savannah #73896: watchdog will check if pid file is missing to avoid starting duplicate agents
+  - Adding summary report
+   - Every cycle a statistics summary of all running agents is sent to the admin.
+    - It needs the email address of the admin, which currently is set in the config file. The cycle is by default every 24h
+
+Changes for Operator Tools
+ - PHEDEX/Utilities/DBSCheck - fix for path of Toolkit/DBS scripts
+ - PHEDEX/Utilities/NodeRemove - update for new schema
+ - PHEDEX/Utilities/phedex
+  - add a --target argument, to bypass the usual format/instance/api structure and provide arbitrary datasvc url
+  - allow a global "nocache" argument
+  - change user-agent string to conform to CMS conventions
+  - filereplicas command: support the full-set of command-line arguments
+  - subscribe command:
+   - add support for time-start in new schema
+   - add --no-mail option to suppress request email
+
+Core library changes:
+ - DB.pm: Fix for execute_array always returning 0 instead of number of statements executed
+ - Inject.pm: set verbosity off by default
+ - Loader.pm: evaluate namespaces recursively, to allow the loader to work with structured module hierarchies	
+ 	 	
 Changes for PhEDEx 3.3.2
 
 Dependency Changes
