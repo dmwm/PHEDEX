@@ -67,22 +67,29 @@ function createCoreApp() {
 
   var el = document.getElementById(page);
 
-  try {
-    if ( el ) {
-      page = page.replace(/::/g,'-');
-      page = page.toLowerCase();
-      page = 'phedex-nextgen-'+page;
-      var nextgenOverride = function(item,e) {
-        return function() {
-          var cTor = PxU.getConstructor(item);
+  if ( el ) {
+    page = page.replace(/::/g,'-');
+    page = page.toLowerCase();
+    page = 'phedex-nextgen-'+page;
+    var ngoSuccess = function(item,e) {
+      return function() {
+        var cTor = PxU.getConstructor(item);
+        try {
           var obj = new cTor(PxS,item);
           obj.init();
           PxS.notify(obj.id,'useElement',e);
-        };
-      }(page,el);
-      PxL.load(nextgenOverride,page,'datasvc');
-    }
-  } catch(ex) {
-    var a = ex;
+        } catch(ex) {
+          var a = ex;
+        }
+      };
+    }(page,el);
+    var ngoFailure = function(item) { }
+    var callbacks = {
+                      Success:  ngoSuccess,
+                      Failure:  ngoFailure,
+                      Timeout:  function(item) { banner('Timeout loading javascript modules'); }
+                      Progress: function(item) { banner('Loaded item: '+item.name); }
+                    };
+    PxL.load(callbacks,page,'datasvc');
   }
 };
