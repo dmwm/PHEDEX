@@ -119,10 +119,11 @@ PHEDEX.Loader = function(opts) {
     switch (type) {
       case 'Progress': { log(ev+': '+type+', '+item.name);
         try { // ...to register the PhEDEx-module with YAHOO. Not too sure what use this is, but Satyam says to do it, so we do it (http://yuiblog.com/blog/2008/06/24/buildingwidgets/#register)
-        var cTor = PxU.getConstructor(item.name);
-        if ( cTor ) { YAHOO.register(item.name, cTor, {version:'1.0', build:'1'}); }
-        } catch(ex) { }
- break; }
+          var cTor = PxU.getConstructor(item.name);
+          if ( cTor ) { YAHOO.register(item.name, cTor, {version:'1.0', build:'1'}); }
+          } catch(ex) { }
+        break;
+      }
       case 'Success':  {
         banner('loading complete');
         var l='';
