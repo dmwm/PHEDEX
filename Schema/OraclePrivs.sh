@@ -63,7 +63,7 @@ for role in \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
       T_LOADTEST_PARAM:*_WEBSITE_* | \
-      T_DPS_SUBSCRIPTION:*_WEBSITE_* | \
+      T_DPS_SUBS_*:*_WEBSITE_* | \
       T_DPS_BLOCK_DELETE:*_WEBSITE_* | \
       T_AGENT*:* )
         # Select, update, insert and delete
