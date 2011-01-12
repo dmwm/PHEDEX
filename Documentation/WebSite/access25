@@ -2117,10 +2117,6 @@ hen css files get loaded later.-->
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
   <script type="text/javascript"><!--
     function hideshow(item, show) {
       var obj = document.getElementById(item);
@@ -2245,6 +2241,10 @@ function select_all(form_id, name, value) {
 @OPTIONS@
 </div>
 
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
 </body>
 </html>
 END_OF_TEMPLATE
@@ -2278,10 +2278,6 @@ hen css files get loaded later.-->
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
 <script type="text/javascript">
   <script type="text/javascript"><!--
     function hideshow(link,item,hide) {
@@ -2314,6 +2310,10 @@ hen css files get loaded later.-->
 <div id="content" style='border: none'>
 @CONTENT@
 </div>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
+  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
 </body>
 </html>
 END_OF_TEMPLATE
@@ -4348,14 +4348,17 @@ sub output
   if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
       print { $$self{CONTENT} }
       $div_top,
+#      "<div style='width:100%' id='phedex-banner-messages-outer'>",
+#      "<div style='margin:auto; width:100%; text-align:center' id='phedex-banner-messages-inner' class='phedex-messages-inner'></div>",
+#      "</div>",
       "<h1>Choose a request type</h1>",
       "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
       "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
-      "</div>";
+      "</div>"; # Request::Create
       return;
   } else {
       my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
-      print { $$self{CONTENT} } "<h1>$headings{$type}</h1><br/>";
+      print { $$self{CONTENT} } $div_top, "<h1>$headings{$type}</h1><br/>";
       if ($type eq 'xfer') { 
 	  $node_label = 'Destinations'; 
       }
@@ -4479,7 +4482,8 @@ sub output
 				      -default=>'', -style=>'width:450px;height:150px;',
 				      -class=>'labeled'), "<br/>\n",
     "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
-  "</form>";
+  "</form>",
+  "</div>"; # Request::Create
 }
 
 1;
