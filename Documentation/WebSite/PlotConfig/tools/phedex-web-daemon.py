@@ -20,7 +20,7 @@ References:
 __author__ = "Chad J. Schroeder"
 __copyright__ = "Copyright (C) 2005 Chad J. Schroeder"
 
-__revision__ = "$Id: phedex-web-daemon.py,v 1.3 2008/06/27 14:42:29 egeland Exp $"
+__revision__ = "$Id: phedex-web-daemon.py,v 1.4 2010/02/26 15:17:06 egeland Exp $"
 __version__ = "0.2"
 
 # Standard Python modules.
@@ -183,6 +183,7 @@ def createDaemon():
 if __name__ == "__main__":
    from graphtool.base.xml_config import XmlConfig
    from optparse import OptionParser
+   from logging.handlers import TimedRotatingFileHandler as TimedRotater
    import cherrypy
 
    parser = OptionParser()
@@ -214,8 +215,18 @@ if __name__ == "__main__":
 
 #   open("createDaemon.log", "w").write(procParams + "\n")
    open(opts.pidfile, "w").write("%s\n" % os.getpid())
-
    xc = XmlConfig( file='$GRAPHTOOL_CONFIG_ROOT/website_prod.xml' )
+
+   f1 = cherrypy.log.access_file
+   cherrypy.log.access_file = ""
+   h1 = TimedRotater(f1, 'midnight')
+   cherrypy.log.access_log.addHandler(h1)
+
+   f2 = cherrypy.log.error_file
+   cherrypy.log.error_file = ""
+   h2 = TimedRotater(f2, 'midnight')
+   cherrypy.log.error_log.addHandler(h2)
+
    cherrypy.engine.start()
    cherrypy.engine.block()
    xc.globals['web'].kill()
