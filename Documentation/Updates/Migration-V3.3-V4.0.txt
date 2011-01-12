@@ -227,3 +227,15 @@ update t_dps_subs_dataset sd
 
 -- Backup obsolete t_dps_subscription table
 rename t_dps_subscription to xt_dps_subscription;
+
+-- If you're running on Testbed, you're done here, otherwise remember to run
+-- the following scripts in a shell
+-- PHEDEX_SCHEMA,PHEDEX_SCHEMA_R,PHEDEX_SCHEMA_W : the Admin, Reader, Writer user name (DB instance name)
+-- PHEDEX_CON,PHEDEX_CON_R,PHEDEX_CON_W) : the Admin, Reader, Writer connection ID as returned by PHEDEX/Utilities/OracleConnectId
+
+-- Create synonmys
+-- PHEDEX/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_R
+-- PHEDEX/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_W
+
+-- Create privileges
+-- PHEDEX/Schema/OraclePrivs.sh $PHEDEX_CON $PHEDEX_SCHEMA_R $PHEDEX_SCHEMA_W
