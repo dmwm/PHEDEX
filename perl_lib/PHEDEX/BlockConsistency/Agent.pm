@@ -168,6 +168,7 @@ sub doNSCheck
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
+    if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
     $tfcprotocol = $ns->Protocol();
   }
