@@ -168,7 +168,7 @@ sub doNSCheck
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
-    if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum'; }
+    if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum_value'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
     $tfcprotocol = $ns->Protocol();
   }
@@ -206,6 +206,7 @@ sub doNSCheck
     push(@{$self->{AGENT_CACHE_LOCAL}->{entries}{$agent_reqid}}, $pfn);   # store the file that will go into cache
     $self->{AGENT_CACHE_LOCAL}->{size} ++;                                # increase the local counter
 
+
     if ( $request->{TEST} eq 'size' )
     {
       $t1 = Time::HiRes::time();
@@ -220,6 +221,24 @@ sub doNSCheck
       my $mode = $ns->$cmd($pfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; }
+    }
+    elsif ( $request->{TEST} eq 'cksum' ) 
+    {
+      my ($chksum_value,$type1,$value1,$type2,$value2);
+      my ($chksum1,$chksum2) = split(',',$r->{CHECKSUM});
+      if ( defined ($chksum1) ) { ($type1,$value1) = split(':',$chksum1); }
+      if ( defined ($chksum2) ) { ($type2,$value2) = split(':',$chksum2); }
+      if    ( defined($type1) &&  $type1 eq 'adler32' ) { $chksum_value = hex $value1; }
+      elsif ( defined($type2) &&  $type2 eq 'adler32' ) { $chksum_value = hex $value2; }
+      else { $chksum_value = 0; } 
+
+      $t1 = Time::HiRes::time();
+      my $adler = hex($ns->$cmd($pfn));
+      $dt1 += Time::HiRes::time() - $t1;
+      if ( defined($adler) &&  $adler eq $chksum_value ) { $r->{STATUS} = 'OK'; $were_ok++;}
+      else { $r->{STATUS} = 'Fail'; 
+             $self->Dbgmsg("$pfn : $chksum_value  <>  $adler") if ( $self->{DEBUG} );
+           }
     }
     $r->{TIME_REPORTED} = time();
     last unless --$n_files;
@@ -240,7 +259,7 @@ sub doNSCheck
   $request->{TIME_REPORTED} = time(); 
 
   $dt0 = Time::HiRes::time() - $t0;
-  $self->Dbgmsg("$were_tested files tested in $dt0 sec (ls = $dt1 sec)") if ( $self->{DEBUG} );
+  $self->Dbgmsg("$were_tested files tested in $dt0 sec (ls/cksum = $dt1 sec)") if ( $self->{DEBUG} );
 
   $self->{RESULT_QUEUE}->enqueue($request->{PRIORITY},$request);
 
@@ -416,6 +435,7 @@ sub is_test_possible
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
     if ( $cmd eq 'migration' ) { $cmd = 'is_migrated'; }
+    if ( $cmd eq 'cksum' ) { $cmd = 'checksum_value'; }
     if ( exists($ns->{MAP}{$cmd}) ) { return 1; }
   }
   return 0;
