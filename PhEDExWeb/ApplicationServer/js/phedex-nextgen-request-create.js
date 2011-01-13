@@ -144,21 +144,32 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       form.appendChild(el);
       el = document.getElementById('dbs_menu');
 
-    var onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
-      var sText = p_oItem.cfg.getProperty("text");
-      YAHOO.log("[MenuItem Properties] text: " + sText + ", value: " + p_oItem.value);
-        dbsMenuButton.set("label", sText);
-    },
-        dbsMenuItems = [
-          { text: "One", value: 1, onclick: { fn: onMenuItemClick } },
-          { text: "Two", value: 2, onclick: { fn: onMenuItemClick } },
-          { text: "Three", value: 3, onclick: { fn: onMenuItemClick } }
-        ],
-        dbsMenuButton = new YAHOO.widget.Button({  type: "menu",
-                            label: "Choose a DBS",
-                            name: "mymenubutton",
-                            menu: dbsMenuItems,
-                            container: 'dbs_menu' });
+      var makeDBSMenu = function(obj) {
+        return function(data,context) {
+        var onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
+          var sText = p_oItem.cfg.getProperty('text');
+          YAHOO.log('[MenuItem Properties] text: ' + sText + ', value: ' + p_oItem.value);
+            dbsMenuButton.set('label', sText);
+        },
+            dbsMenuItems = [], dbsList, dbs, i;
+        dbsList = data.dbs;
+        for (i in dbsList ) {
+          dbs = dbsList[i];
+          dbsMenuItems.push( { text: dbs.name, value:dbs.id, onclick: { fn: onMenuItemClick } } );
+        }
+//               { text: 'One',   value: 1, onclick: { fn: onMenuItemClick } },
+//               { text: 'Two',   value: 2, onclick: { fn: onMenuItemClick } },
+//               { text: 'Three', value: 3, onclick: { fn: onMenuItemClick } }
+//             ];
+        var dbsMenuButton = new YAHOO.widget.Button({  type: 'menu',
+                                label: 'Choose a DBS',
+                                name: 'dbsMenuButton',
+                                menu: dbsMenuItems,
+                                container: 'dbs_menu' });
+        }
+      }(this);
+
+      PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
     }
   }
 }
