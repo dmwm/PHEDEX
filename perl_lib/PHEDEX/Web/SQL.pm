@@ -1952,7 +1952,7 @@ sub getDataSubscriptions
             ds.item_id,
             ds.item_name,
             ds.is_open open,
-            ds.time_update,
+            sp.time_create time_update,
             ds.dataset_id,
             ds.dataset_name,
             n.id node_id,
