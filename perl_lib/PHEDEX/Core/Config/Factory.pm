@@ -220,6 +220,7 @@ sub idle
       $Agent = $Config->select_agents( $agent );
       $env = $Config->{ENVIRONMENTS}{$Agent->ENVIRON};
       $pidfile = $env->getExpandedString($Agent->PIDFILE());
+      $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
       undef $pid;
 #     We try to catch a missing $pidfile
       if ( -f $pidfile ) {
@@ -230,12 +231,14 @@ sub idle
         }
 #     then look for the correct pid in AGENT_PID hash, once found, kill agent before something else 
       } else {
-        $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
-        foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
-           if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
-             $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
-             POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
-           }
+        unless ( -f $stopfile ) {
+          $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
+          foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
+            if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
+              $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
+              POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
+            }
+          }
         }
       }
      
@@ -258,7 +261,6 @@ sub idle
       }
 
 #     Now check for a stopfile, which means the agent _should_ be down
-      $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
       if ( -f $stopfile )
       {
         $last_reported = $self->{AGENTS}{$agent}{last_reported} || 0;
