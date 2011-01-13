@@ -75,7 +75,7 @@ PHEDEX.Loader = function(opts) {
 
 // old website override modules
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
-    'phedex-nextgen-request-create': { requires:['phedex-module'] },
+    'phedex-nextgen-request-create': { requires:['phedex-module','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
