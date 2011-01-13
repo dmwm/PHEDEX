@@ -8,6 +8,7 @@ use POSIX;
 use Data::Dumper;
 use PHEDEX::Core::Identity;
 use PHEDEX::Core::Timing;
+use PHEDEX::RequestAllocator::SQL;
 
 our @EXPORT = qw( );
 our (%params);
@@ -1805,6 +1806,10 @@ sub getDataSubscriptions
     my $core = shift;
     my %h = @_;
 
+    # remove empty parameters
+    delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
+    delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
+
     # backward compatible to old schema
     eval {
         my $q1 = execute_sql($core, "select count(*) from t_dps_subs_param");
@@ -1819,7 +1824,8 @@ sub getDataSubscriptions
 
     my $block_filter = '';
     build_multi_filters($core, \$block_filter, \%p, \%h, ( 
-                                                      BLOCK => 'b.name'
+                                                      BLOCK => 'b.name',
+                                                      DATASET => 'd.name'
 						      ));
     if ($block_filter)
     {
@@ -1925,12 +1931,8 @@ sub getDataSubscriptions
     };
 
     my $ds_query;
-    # dataset only
-    if ($dataset_filter && !$block_filter)
-    {
-        $ds_query = $ds_dataset_query;
-    }
-    elsif (!$dataset_filter && $block_filter)
+
+    if (!$dataset_filter)
     {
         $ds_query = $ds_block_query;
     }
@@ -2089,6 +2091,9 @@ sub getDataSubscriptions2
     my $core = shift;
     my %h = @_;
     my ($sql, $q, %p, @r);
+
+    delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
+    delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
     $sql = qq {
         select
@@ -3943,6 +3948,179 @@ sub getBlockReplicaCompare_Neither
     while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
     return \@r;
+}
+
+# update subscription
+sub updateSubscription
+{
+    my $core = shift;
+    my %h = @_;
+
+    # only one block or dataset is allowed
+    die "either block or dataset, not both" if defined($h{BLOCK}) && defined($h{DATASET});
+    my $type;
+    $type = 'block' if $h{BLOCK};
+    $type = 'dataset' if $h{DATASET};
+    die "block or dataset is required" if not defined $type;
+
+    # at least one of GROUP, PRIORITY, or SUSPEND_UNTIL is required
+    die "at least one of 'GROUP', 'PRIORITY', or 'SUSPEND_UNTIL' is required" if not ($h{GROUP}||$h{PRIORITY}||$h{SUSPEND_UNTIL});
+
+    # check user group
+    my $gid;
+    if ($h{GROUP})
+    {
+        my $gsql = qq{
+            select
+                id
+            from
+                t_adm_group
+            where
+                name = :user_group
+        };
+
+        my $q1 = execute_sql($core, $gsql, (':user_group' => $h{GROUP}));
+        $_ = $q1->fetchrow_hashref();
+        $gid = $_->{ID};
+        die "group $h{GROUP} does not exist" if not $gid;
+    }
+
+    # check priority
+    my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
+    my $priority;
+    if (exists $h{PRIORITY})
+    {
+        $priority = $priomap{$h{PRIORITY}};
+        die "unknown priority, allowed values are 'high', 'normal' or 'low'" if ! defined ($priority);
+    }
+
+    # get current subscription
+    my $sql = qq{
+        select
+            p.id,
+            p.request,
+            p.priority,
+            p.is_custodial,
+            p.user_group,
+            p.time_create,
+            s.destination,
+            s.dataset
+        from
+            t_dps_subs_$type s
+            join t_dps_subs_param p on s.param = p.id
+            join t_adm_node n on s.destination = n.id
+            join t_dps_$type d on s.$type = d.id
+        where
+            n.name = :node and
+            d.name = :object
+    };
+
+    my %p = (
+        ':node' => $h{NODE},
+        ':object' => $h{BLOCK}||$h{DATASET}
+    );
+
+    my $q = execute_sql($core, $sql, %p);
+    my $rparam = $q->fetchrow_hashref();
+    die "subscription for $h{NODE} / $type = $h{BLOCK}$h{DATASET} does not exist" if not $rparam;
+
+    # $dbchanged for early exit -- if commit or rollback is needed
+    my $dbchanged = 0;
+
+    # handle time_suspend_until
+    if ($h{SUSPEND_UNTIL})
+    {
+        if (not PHEDEX::RequestAllocator::SQL::updateSubscription($core,
+                DESTINATION => $rparam->{DESTINATION},
+                DATASET => $h{DATASET},
+                BLOCK => $h{BLOCK},
+                TIME_SUSPEND_UNTIL => PHEDEX::Core::Timing::str2time($h{SUSPEND_UNTIL})))
+        {
+            $core->{DBH}->rollback();
+            die "update failed";
+        }
+        $dbchanged = 1;
+    }
+
+    # do nothing if there is no change in group or priority
+    if (((not defined($gid)) ||
+                 (defined($rparam->{USER_GROUP}) && ($rparam->{USER_GROUP} == $gid)))
+        &&
+        ((not defined($priority)) || ($rparam->{PRIORITY} == $priority)))
+    {
+        if ($dbchanged)
+        {
+            $core->{DBH}->commit();
+        }
+        return getDataSubscriptions($core,
+                    NODE => $h{NODE},
+                    BLOCK => $h{BLOCK},
+                    DATASET => $h{DATASET});
+    }
+
+    # update parameters
+    $rparam->{USER_GROUP} = $gid if defined($gid);
+    $rparam->{PRIORITY} = $priority if defined($priority);
+    $rparam->{TIME_CREATE} = &mytimeofday();
+    $rparam->{ORIGINAL} = 'n';
+        
+    # create new param
+    my $newparam = PHEDEX::RequestAllocator::SQL::createSubscriptionParam($core, %{$rparam});
+    if (not $newparam) # clean up
+    {
+        $core->{DBH}->rollback();
+        die "update failed";
+    }
+
+    $dbchanged = 1;
+
+    if (not PHEDEX::RequestAllocator::SQL::updateSubscription($core,
+                                    DATASET => $h{DATASET},
+                                    BLOCK => $h{BLOCK},
+                                    DESTINATION => $rparam->{DESTINATION},
+                                    PARAM => $newparam))
+    {
+        $core->{DBH}->rollback();
+        die "update failed";
+    }
+
+    if ($type eq 'dataset') # propogate the change to all blocks
+        {
+        my $usql = qq{
+            select
+                sb.block
+            from
+                t_dps_subs_block sb
+            where
+                sb.param = :param_id and
+                sb.destination = :destination and
+                sb.dataset = :dataset
+        };
+    
+        my $r = select_single($core, $usql,
+                                ':param_id' => $rparam->{ID},
+                                ':destination' => $rparam->{DESTINATION},
+                                ':dataset' => $rparam->{DATASET});
+        foreach (@{$r})
+        {
+            if (not PHEDEX::RequestAllocator::SQL::updateSubscription($core,
+                                    DESTINATION => $rparam->{DESTINATION},
+                                    BLOCK => $_,
+                                    PARAM => $newparam))
+            {
+                $core->{DBH}->rollback();
+                die "update failed";
+            }
+        }
+    }
+            
+    # commit the result
+    $core->{DBH}->commit();
+
+    return getDataSubscriptions($core,
+                    NODE => $h{NODE},
+                    BLOCK => $h{BLOCK},
+                    DATASET => $h{DATASET});
 }
 
 
