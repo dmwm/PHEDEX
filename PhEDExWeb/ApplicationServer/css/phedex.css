@@ -559,3 +559,59 @@ ul li.phedex-contextmenu-beta:before {
 }
 .phedex-invisible { display: none; }
 .phedex-inline { display: inline; }
+
+.phedex-nextgen-container {
+  border: 1px solid silver;
+}
+
+.phedex-nextgen-hd {
+  font-size: 20px;
+  padding: 10px;
+}
+
+.phedex-nextgen-bd {
+  border: 1px solid silver;
+  font-size: 14px;
+  padding: 5px;
+}
+
+.phedex-nextgen-ft {
+}
+
+.phedex-nextgen-main-block {
+}
+
+.phedex-nextgen-form-element {
+  width: 650px;
+  padding: 5px 0;
+/*   border: 1px solid blue; */
+}
+
+.phedex-nextgen-label {
+  width: 180px;
+  display: inline-block;
+  vertical-align:top;
+  text-align: right;
+/*   border: 1px solid yellow; */
+}
+
+.phedex-nextgen-control {
+  width: 450px;
+  display: inline-block;
+  margin: 0 0 0 5px;
+/*   border: 1px solid red; */
+}
+
+.phedex-nextgen-textarea {
+  width: 450px;
+  height: 150px;
+  color: silver;
+}
+
+.phedex-nextgen-hr {
+  width: 95%;
+  color: silver;
+  background-color: silver;
+  height: 1px;
+  border: none;
+}
