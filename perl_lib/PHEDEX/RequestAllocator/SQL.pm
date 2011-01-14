@@ -350,7 +350,7 @@ sub addRequestData
 Creates a new subscription parameter set. Returns the id of the new parameter set.
 Required:
  REQUEST : request ID this is associated with
- USER_GROUP : the user group ID (may be NULL)
+ USER_GROUP : the user group ID
  PRIORITY : priority
  IS_CUSTODIAL : the custodiality
  ORIGINAL : if this is the original parameter set for this request.
@@ -363,18 +363,12 @@ sub createSubscriptionParam
 {
     my ($self, %h) = @_;
  
-    my @required = qw(REQUEST PRIORITY IS_CUSTODIAL ORIGINAL TIME_CREATE);
+    my @required = qw(REQUEST USER_GROUP PRIORITY IS_CUSTODIAL ORIGINAL TIME_CREATE);
     foreach (@required) {
 	if (!exists $h{$_} || !defined $h{$_}) {
 	    $self->Alert("cannot create subscription param:  $_ not defined");
             return undef;
 	}
-    }
-                                                                                                                                                     
-#   Special case for USER_GROUP, which must exist but may be NULL
-    if (!exists $h{USER_GROUP}) {
-	$self->Alert("cannot create subscription param: USER_GROUP not defined");
-	return undef;
     }
     
     foreach ( qw(IS_CUSTODIAL ORIGINAL) ) {
@@ -394,8 +388,6 @@ sub createSubscriptionParam
 	for my $rid ( keys %$param ) {
 	    my $rparam = $param->{$rid};
 	    foreach ( keys %$rparam ) {
-		# Need to compare USER_GROUP which may be undef
-		no warnings qw(uninitialized);                                                                                                           
 		if ($rparam->{$_} ne $h{$_}){
 		    $self->Alert("cannot create param set: original
 already exists with id " . $rid . " and different values: " . $_. " existing=" . $rparam->{$_} . " requested=" . $h{$_});
@@ -412,7 +404,7 @@ already exists with id " . $rid . " and different values: " . $_. " existing=" .
                     returning id into :param_id};
     	    
     my $param_id;
-    my %p = map { ':' . lc $_ => $h{$_} } @required, qw(USER_GROUP);                                                                      
+    my %p = map { ':' . lc $_ => $h{$_} } @required;                                                                      
     $p{':param_id'}=\$param_id;
    
     my ($sth, $n);

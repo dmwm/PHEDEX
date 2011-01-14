@@ -157,6 +157,25 @@ sub distributeData
     return $dist;
 }
 
+=pod
+
+=item validateGroup($self, $groupname)
+
+Looks for group with name $groupname in group table.
+Returns group ID if group exists and is valid.
+Returns undef if group doesn't exist or is deprecated.
+
+=cut
+
+sub validateGroup
+{
+    my ($self, $groupname) = @_;
+    return unless $groupname;
+    return if $groupname =~ '^deprecated-.*';
+    my %groupmap = reverse %{ &getGroupMap($self) };
+    my $group_id = $groupmap{ $groupname };
+    return $group_id;
+}
 
 sub validateRequest
 {
@@ -170,7 +189,7 @@ sub validateRequest
 
     my @typereq;
     if ( $h{TYPE} eq 'xfer' ) { 
-	@typereq = qw( PRIORITY IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
+	@typereq = qw( PRIORITY USER_GROUP IS_MOVE IS_STATIC IS_TRANSIENT IS_DISTRIBUTED IS_CUSTODIAL); 
     } elsif ( $h{TYPE} eq 'delete' ) {
 	@typereq = qw( RM_SUBSCRIPTIONS );
     } else {
@@ -190,6 +209,12 @@ sub validateRequest
     
     if ($type eq 'delete' && $h{TIME_START}) {
 	die "Time-based deletion requests are not allowed\n";
+    }
+
+    # Part 0: validate groups
+    if ($type eq 'xfer') {
+	die "cannot create request: USER_GROUP $h{USER_GROUP} not found\n"
+	    unless &validateGroup( $self, $h{USER_GROUP} );
     }
 
     # Part I:  validate data
@@ -446,12 +471,12 @@ sub createRequest
 	$binds{':request'} = $rid;
 	$binds{lc ":$_"} = $h{$_} foreach qw(PRIORITY IS_CUSTODIAL IS_MOVE IS_STATIC
 					     IS_TRANSIENT IS_DISTRIBUTED TIME_START DATA);
-	if (defined $h{USER_GROUP}) {
-	    my %groupmap = reverse %{ &getGroupMap($self) };
-	    my $group_id = $groupmap{ $h{USER_GROUP} };
+	
+	my $group_id = &validateGroup($self,$h{USER_GROUP});
+	if ($group_id) {
 	    $binds{':user_group'} = $group_id;
 	} else { 
-	    $binds{':user_group'} = undef; 
+	    die "cannot create request: USER_GROUP $h{USER_GROUP} not found\n";
 	}
 	&execute_sql($self, $sql, %binds);
     } elsif ($type eq 'delete') {
