@@ -179,25 +179,38 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }(this);
       PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
 
-// Destination
-try {
+// Destination TODO this doesn't work properly yet!
       el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Destination</div>" +
-                        "<div id='destination' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
-                        "</div>" +
-                      "</div>";
+      el.className = 'phedex-nextgen-form-element';
+      el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" + "</div>";
       form.appendChild(el);
+      d.destinationContainer = el;
       var makeNodePanel = function(obj) {
         return function(data,context) {
-          var nodes = data.node;
-// debugger;
+          var nodes=[], node, i, j, k, el=document.createElement('div'), cont=d.destinationContainer;
+          for ( i in data.node ) {
+            node = data.node[i].name;
+            if ( node.match(/^T(0|1|2|3)_/) ) { nodes.push(node ); }
+          }
+          nodes = nodes.sort();
+
+          el.innerHTML = "<div class='phedex-nextgen-label'>Destination</div><div class='phedex-nextgen-control phedex-nextgen-nodepanel'>";
+          k = '1';
+          for ( i in nodes ) {
+            node = nodes[i];
+            node.match(/^T(0|1|2|3)_/);
+            j = RegExp.$1;
+            if ( j > k ) {
+              el.innerHTML += "<hr class='phedex-nextgen-hr'>";
+              k = j;
+            }
+            el.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input type='checkbox' name='"+node+"' />"+node+"</div>";
+          }
+          el.innerHTML += "</div>";
+          cont.appendChild(el);
         }
       }(this);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
-} catch(ex) {
-debugger;
-}
 
 // Custodiality
       el = document.createElement('div');
