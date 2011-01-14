@@ -615,3 +615,22 @@ ul li.phedex-contextmenu-beta:before {
   height: 1px;
   border: none;
 }
+
+#dbsMenuButton button {
+  /*
+      Suppress the focus outline since Safari will outline even the
+      text that is clipped by the application of the "overflow" property
+      in the follow style rule.
+  */
+  outline: none;
+}
+
+#dbsMenuButton button em {
+  font-style: normal;
+  display: block;
+  text-align: left;
+  white-space: nowrap;
+  width: 45em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
