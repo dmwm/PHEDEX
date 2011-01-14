@@ -191,7 +191,7 @@ create table t_req_xfer
    is_static		char(1)		not null,
    is_transient		char(1)		not null,
    is_distributed	char(1)		not null,
-   user_group		integer			,
+   user_group		integer		not null,
    time_start           float                   ,
    data			clob			,
    --
@@ -203,8 +203,7 @@ create table t_req_xfer
      on delete cascade,
    --
    constraint fk_req_xfer_group
-     foreign key (user_group) references t_adm_group (id)
-     on delete set null,
+     foreign key (user_group) references t_adm_group (id),
    --
    constraint ck_req_xfer_custodial
      check (is_custodial in ('y', 'n')),

@@ -3,7 +3,7 @@ create table t_dps_subs_param
    request	        integer               ,
    priority    	 	integer       not null,
    is_custodial	 	char (1)      not null,
-   user_group	 	integer               ,
+   user_group	 	integer       not null,
    original    	 	char (1)      not null,
    time_create		float	      not null,
    --
@@ -15,8 +15,7 @@ create table t_dps_subs_param
      on delete set null,
    --
    constraint fk_dps_subs_param_group
-     foreign key (user_group) references t_adm_group (id)
-     on delete set null,
+     foreign key (user_group) references t_adm_group (id),
    --
    constraint ck_dps_subs_param_custodial
      check (is_custodial in ('y', 'n')),
