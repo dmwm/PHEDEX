@@ -45,13 +45,15 @@ Changes for Site Agents
   - Disallow the use of deprecated parameters: --storagemap,--use_srm,--use_rfdir
   - Adding option -protocol to the BDV agent
   - Reworked usage help to show namespace specific usage help, when --namespace and --help options are called together
-  - Reject test inmediately instead of retrying, when those are not allowed for given namespace.
+  - Reject test inmediately instead of retrying, when those are not allowed for given namespace, it fix Savanah #65919.
   - Cleanup of rfio namespace documentation
+  - Allow cksum test, namespace plugins already code (using adler32) for castor and posix technologies
  - Watchdog agent
   - Fix for Savannah #73896: watchdog will check if pid file is missing to avoid starting duplicate agents
   - Adding summary report
    - Every cycle a statistics summary of all running agents is sent to the admin.
-    - It needs the email address of the admin, which currently is set in the config file. The cycle is by default every 24h
+   - It needs the email address of the admin, which it is got from sitedb. The cycle is by default every 24h
+   - Report can be sent by any given method: mail, logfile, rss, etc.; those are plugings which can be coded as needed
 
 Changes for Operator Tools
  - PHEDEX/Utilities/DBSCheck - fix for path of Toolkit/DBS scripts
