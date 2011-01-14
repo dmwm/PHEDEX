@@ -85,8 +85,7 @@ and uses the dataservice to subscribe them to one or more PhEDEx nodes.
  --static               make the subscription static, default is a growing
                         subscription
  --custodial            make the subscription custodial, default is non-custodial
- --group                make this subscription for the specified group, default is
-                        undefined
+ --group                make this subscription for the specified group
  --time-start <time>    set start time for dataset-level subs to time, default is
                         undefined (all blocks in dataset)
  --request-only         make a request for transfer only, do not approve
@@ -107,6 +106,7 @@ sub Payload
 
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
+  die __PACKAGE__," no group given\n" unless $self->{USER_GROUP};                                                                                                                                    
 
   $payload->{node}      = $self->{NODE};
   $payload->{priority}  = $self->{PRIORITY};
