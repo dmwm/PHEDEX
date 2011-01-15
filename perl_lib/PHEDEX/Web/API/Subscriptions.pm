@@ -27,7 +27,11 @@ Show existing subscriptions and their parameters.
   move             y (move) or n (replica)
   suspended        y or n, default is either
 
-  * when no arguments are specified, default create_since is set to 1 day ago
+  collapse         y or n. default n. If y, do not show block level
+                   subscriptions of a dataset if it was subscribed at
+                   dataset level.
+
+  * when no arguments are specified, except "collapse", default create_since is set to 1 day ago
 
 =head2 Output
 
@@ -150,18 +154,23 @@ sub subscriptions
 {
     my ($core, %h) = @_;
 
+    # remove collapse if it is not 'y'
+    if ((exists $h{collapse}) && ($h{collapse} ne 'y'))
+    {
+        delete $h{collapse};
+    }
+
     # convert parameter keys to upper case
-    foreach ( qw / dataset block node se create_since request custodial group move priority suspended / )
+    foreach ( qw / dataset block node se create_since request custodial group move priority suspended collapse / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     # if there is no input argument, set default "since" to 24 hours ago
-    if (scalar keys %h == 0)
+    if ((scalar keys %h == 0) || (scalar keys %h == 1) && exists $h{COLLAPSE})
     {
         $h{CREATE_SINCE} = time() - 3600*24;
     }
-
 
     my $r = PHEDEX::Web::SQL::getDataSubscriptions($core, %h);
     # separate DATASET and BLOCK
