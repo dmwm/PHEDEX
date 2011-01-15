@@ -1823,10 +1823,20 @@ sub getDataSubscriptions
     my ($sql, $q, %p, @r);
 
     my $block_filter = '';
-    build_multi_filters($core, \$block_filter, \%p, \%h, ( 
+    if ($h{COLLAPSE} eq "y")
+    {
+        build_multi_filters($core, \$block_filter, \%p, \%h, ( 
+                                                      BLOCK => 'b.name'
+						      ));
+    }
+    else
+    {
+        build_multi_filters($core, \$block_filter, \%p, \%h, ( 
                                                       BLOCK => 'b.name',
                                                       DATASET => 'd.name'
 						      ));
+    }
+
     if ($block_filter)
     {
         $block_filter = qq{ where $block_filter };
@@ -1881,6 +1891,28 @@ sub getDataSubscriptions
             $block_filter
     };
 
+    my $collapse_filter;
+    if ($h{COLLAPSE} eq 'y')
+    {
+        $collapse_filter = qq{
+            sb.dataset not in (
+            select
+                dataset
+            from
+                t_dps_subs_dataset
+            where
+                destination = sb.destination) };
+
+        if (!$block_filter)
+        {
+            $collapse_filter = qq{ where $collapse_filter };
+        }
+        else
+        {
+            $collapse_filter = qq{ and $collapse_filter };
+        }
+    }
+
     my $ds_dataset_query = qq{
             select
                 'dataset' "level",
@@ -1932,9 +1964,13 @@ sub getDataSubscriptions
 
     my $ds_query;
 
-    if (!$dataset_filter)
+    if ($block_filter && !$dataset_filter)
     {
         $ds_query = $ds_block_query;
+    }
+    elsif ($dataset_filter && !$block_filter)
+    {
+        $ds_query = $ds_dataset_query;
     }
     else
     {
@@ -1942,8 +1978,22 @@ sub getDataSubscriptions
             $ds_dataset_query
             union
             $ds_block_query
+                $collapse_filter
         };
     }
+    
+#    if (!$dataset_filter)
+#    {
+#        $ds_query = $ds_block_query;
+#    }
+#    else
+#    {
+#        $ds_query = qq{
+#            $ds_dataset_query
+#            union
+#            $ds_block_query
+#        };
+#    }
 
     $sql = qq {
         select
