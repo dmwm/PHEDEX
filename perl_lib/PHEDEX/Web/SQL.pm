@@ -4016,10 +4016,12 @@ sub updateSubscription
     # at least one of GROUP, PRIORITY, or SUSPEND_UNTIL is required
     die "at least one of 'GROUP', 'PRIORITY', or 'SUSPEND_UNTIL' is required" if not ($h{GROUP}||$h{PRIORITY}||$h{SUSPEND_UNTIL});
 
-    # check user group
+    # check user group -- got to be a valid user group
     my $gid;
     if ($h{GROUP})
     {
+        # deprecated-undefined is a forbidden group
+        die "group $h{GROUP} is forbidden" if ($h{GROUP} eq "deprecated-undefined");
         my $gsql = qq{
             select
                 id
