@@ -72,7 +72,8 @@ sub invoke { return subscribe(@_); }
 sub subscribe
 {
     my ($core, %args) = @_;
-    &checkRequired(\%args, qw(data node));
+    &checkRequired(\%args, qw(data node group));
+    die "group $args{group} is forbidden" if ($args{group} eq "deprecated-undefined");
     # default values for options
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
