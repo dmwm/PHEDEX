@@ -3,6 +3,7 @@
  New APIs:
 
   * 'blockreplicacompare': compare block replicas at two nodes and output either the differences or the matches
+  * 'updatesubscription': change user_group, priority and/or time_suspend of a subscription
 
  Changes for APIs:
 
@@ -14,10 +15,16 @@
   * 'filereplicas':
     - internal change that does not affect its functionality nor output
     - use subquery instead of full joint for block name match to improve query efficiency
+  * 'subscriptions':
+    - works with PHEDEX 4.0 schema
+    - has new "collapse" option to control the output in expanded (collapse = 'n') or collapsed (collapse = 'y') views
+  * 'tcf':
+    - All empty fields have been removed from output.
 
  Bug fixes:
   * 'shift/queued' now aggregates correctly
   * documentation links work for sub-pages
+  * notification email from subscribe contains wrong comment
 
  Changes for the Dataservice:
   * set cache-control header for static content
