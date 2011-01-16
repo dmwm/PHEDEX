@@ -43,6 +43,7 @@ function createCoreApp() {
     page = page.toLowerCase();
     page = 'phedex-nextgen-'+page;
 
+    if ( el.className == 'prod_schema_is_3x' && page == 'phedex-nextgen-request-create' && location.href.match(/\/prod\/Request::Create/) ) { return; }
     uri = location.search;
     if ( uri.match(/^\?(.*)$/) ) {
       substrs = RegExp.$1.split('&')
