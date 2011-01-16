@@ -25,9 +25,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         d.main_block = document.createElement('div');
 
         d.container.id = 'doc2';
-        d.container.className = /*'yui-t3*/ 'phedex-nextgen-container';
-//         d.container.style.margin = '0';
-//         d.container.style.padding = '0 0 0 0'; //110px';
+        d.container.className = 'phedex-nextgen-container';
         d.hd.id = 'hd'; d.hd.className = 'phedex-nextgen-hd';
         d.bd.id = 'bd'; d.bd.className = 'phedex-nextgen-bd';
         d.ft.id = 'ft'; d.ft.className = 'phedex-nextgen-ft';
@@ -44,7 +42,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       },
       init: function(args) {
         var type = args.type;
-type='xfer';
         if ( type == 'xfer' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,args));
         } else if ( type == 'delete' ) {
