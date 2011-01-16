@@ -73,7 +73,6 @@ type='xfer';
           this.initSub();
         } catch(ex) {
           var _ex = ex;
-debugger;
         }
       }
     }
