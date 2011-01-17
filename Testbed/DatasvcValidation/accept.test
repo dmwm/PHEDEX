@@ -159,6 +159,7 @@ routerhistory?to=T1_US_FNAL_Buffer&starttime=last_week&binwidth=3600 link
 
 # PHEDEX::Web::API::Subscriptions
 subscriptions?create_since=-1d dataset
+subscriptions?create_since=-1d&collapse=y dataset
 subscriptions?node=T1_US_FNAL_MSS&create_since=-1d dataset
 subscriptions?node=T1_US_FNAL_MSS&move=y dataset
 subscriptions?node=T1_US_FNAL_MSS&custodial=n dataset >0
