@@ -79,6 +79,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 };
 
 PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
+  var Dom = YAHOO.util.Dom;
   return {
     initSub: function() {
       var d = this.dom,
@@ -101,7 +102,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.subscription_level = document.getElementById('subscription_level');
+      d.subscription_level = Dom.get('subscription_level');
 
 // Dataset/block name(s)
       data_items_txt = "enter one or more block/data-set names, separated by white-space or commas.\n\nNo wild-cards!"
@@ -114,7 +115,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                       "</div>";
       form.appendChild(el);
 
-      d.data_items = document.getElementById('data_items');
+      d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function() {
         if ( this.value == data_items_txt ) {
           this.value = '';
