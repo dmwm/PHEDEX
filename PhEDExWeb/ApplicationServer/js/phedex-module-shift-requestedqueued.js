@@ -30,27 +30,6 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
           }
         },
         {
-          name: 'Refresh',
-          source:'component-control',
-          parent: 'control',
-          payload:{
-            handler: 'getData',
-            animate:  false,
-            disabled: true,
-            tooltip:function() {
-                      if ( !this.obj.expires ) { return; }
-                      var delta = new Date().getTime()/1000;
-                      delta = Math.round(this.obj.expires - delta);
-                      if ( delta < 0 ) { return; }
-                      return 'Data expires in '+delta+' seconds';
-                    },
-            map: {
-              gotData:     'Disable',
-              dataExpires: 'Enable'
-            }
-          }
-        },
-        {
           name: 'modeFull',
           source:'component-control',
           parent: 'control',
