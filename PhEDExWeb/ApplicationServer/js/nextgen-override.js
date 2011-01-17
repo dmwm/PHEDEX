@@ -55,7 +55,7 @@ function createCoreApp() {
       }
     }
     if ( el.className == 'prod_schema_is_3x' && page == 'phedex-nextgen-request-create' &&
-         ( location.href.match(/\/prod\/Request::Create/) || !params.type )
+         ( location.href.match(/\/prod\/Request::Create/) || !params.type || params.type != 'xfer' )
        ) { return; }
     ngoSuccess = function(item,e) {
       return function() {
