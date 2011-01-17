@@ -2114,6 +2114,7 @@ hen css files get loaded later.-->
   <link rel="stylesheet" href="@ROOTURL@style25.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
   <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
+  <link rel="stylesheet" href="@ROOTURL@datasvc/app/yui/build/grids/grids-min.css" type="text/css"/>
   <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
   <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
   <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
@@ -2249,74 +2250,76 @@ function select_all(form_id, name, value) {
 </html>
 END_OF_TEMPLATE
 
-our $TEMPLATE_BARE = <<'END_OF_TEMPLATE';
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
-  <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
-  <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
-  @REFRESH@
-
-<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
-hen css files get loaded later.-->
-  <style type='text/css' id='phedex-body-style'>
-    body {
-      margin:           0;
-      margin-left:      1em;
-      padding:          0;
-      font-size:        80%;
-      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
-      line-height:      1.6em;
-    }
-  </style>
-
-  <link rel="stylesheet" href="@ROOTURL@style.css" type="text/css" />
-  <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
-  <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
-  <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
-  <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
-  <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
-<script type="text/javascript">
-  <script type="text/javascript"><!--
-    function hideshow(link,item,hide) {
-      var obj = document.getElementById(item);
-      if (obj.style.display == '')
-      {
-        obj.style.display = 'none';
-	if (hide) link.style.display = '';
-      }
-      else
-      {
-        obj.style.display = '';
-	if (hide) link.style.display = 'none';
-      }
-      return false;
-    }
-   --></script>
-
-  <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
-</head>
-
-<body onload='
-  stripe("#fff", "#edf3fe");
-  if (! NiftyCheck()) return;
-  Rounded("div.toc", "top", "transparent", "#e4f1db");
-  // Rounded("div.menuopt li", "top", "transparent", "#e4f1db");
-' style='background: none; margin: .5em'>
-
-<!-- main content -->
-<div id="content" style='border: none'>
-@CONTENT@
-</div>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
-  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
-</body>
-</html>
-END_OF_TEMPLATE
+# TEMPLATE_BARE is not used, and will be removed at some point soon.
+#our $TEMPLATE_BARE = <<'END_OF_TEMPLATE';
+#<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+#    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+#<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+#<head>
+#  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+#  <meta name="keywords" content="PhEDEx, file transfer, transfer request" />
+#  <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
+#  @REFRESH@
+#
+#<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
+#hen css files get loaded later.-->
+#  <style type='text/css' id='phedex-body-style'>
+#    body {
+#      margin:           0;
+#      margin-left:      1em;
+#      padding:          0;
+#      font-size:        80%;
+#      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+#      line-height:      1.6em;
+#    }
+#  </style>
+#
+#  <link rel="stylesheet" href="@ROOTURL@style.css" type="text/css" />
+#  <link rel="stylesheet" href="@ROOTURL@nifty-screen.css" type="text/css" />
+#  <link rel="stylesheet" href="@ROOTURL@nifty-print.css" type="text/css" media="print"/>
+#  <link rel="stylesheet" href="@ROOTURL@yui/build/grids/grids-min.css" type="text/css" media="print"/>
+#  <link rel="shortcut icon" href="@ROOTURL@favicon.ico" />
+#  <script type="text/javascript" src="@ROOTURL@stripe.js"></script>
+#  <script type="text/javascript" src="@ROOTURL@nifty.js"></script>
+#<script type="text/javascript">
+#  <script type="text/javascript"><!--
+#    function hideshow(link,item,hide) {
+#      var obj = document.getElementById(item);
+#      if (obj.style.display == '')
+#      {
+#        obj.style.display = 'none';
+#	if (hide) link.style.display = '';
+#      }
+#      else
+#      {
+#        obj.style.display = '';
+#	if (hide) link.style.display = 'none';
+#      }
+#      return false;
+#    }
+#   --></script>
+#
+#  <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
+#</head>
+#
+#<body onload='
+#  stripe("#fff", "#edf3fe");
+#  if (! NiftyCheck()) return;
+#  Rounded("div.toc", "top", "transparent", "#e4f1db");
+#  // Rounded("div.menuopt li", "top", "transparent", "#e4f1db");
+#' style='background: none; margin: .5em'>
+#
+#<!-- main content -->
+#<div id="content" style='border: none'>
+#@CONTENT@
+#</div>
+#  <script type="text/javascript" src="@ROOTURL@datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+#  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-base.js"></script>
+#  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/phedex-loader.js"></script>
+#  <script type="text/javascript" src="@ROOTURL@datasvc/app/js/nextgen-override.js"></script>
+#</body>
+#</html>
+#END_OF_TEMPLATE
 
 sub new
 {
@@ -2789,11 +2792,12 @@ sub generate
   $$replacements{OPTIONS} = join("\n", $options);
 
   # Instantiate the desired template and spit it out
-  my $template = param('layout');
-  $template = 'default'
-    if (! $template || ! grep($template eq $_, qw(default bare)));
-
-  my $result = ($template eq 'bare' ? $TEMPLATE_BARE : $TEMPLATE_DEFAULT);
+#  my $template = param('layout');
+#  $template = 'default'
+#    if (! $template || ! grep($template eq $_, qw(default bare)));
+#
+#  my $result = ($template eq 'bare' ? $TEMPLATE_BARE : $TEMPLATE_DEFAULT);
+  my $result = $TEMPLATE_DEFAULT;
   while (my ($key, $value) = each %$replacements)
   {
     $result =~ s/\@$key\@/$value/g;
