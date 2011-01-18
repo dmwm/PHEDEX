@@ -576,6 +576,9 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 .phedex-nextgen-ft {
+  border: 1px solid silver;
+  font-size: 14px;
+  padding: 5px;
 }
 
 .phedex-nextgen-main-block {
@@ -665,4 +668,17 @@ div.phedex-nextgen-nodepanel-elem {
   display: inline-block;
   width: 160px;
   font-size: 11px;
+}
+.phedex-nextgen-buttons {
+  display: inline-block;
+  padding: 0 5px;
+}
+.phedex-nextgen-buttons-left {
+  float: left;
+}
+.phedex-nextgen-buttons-centre {
+  margin: auto;
+}
+.phedex-nextgen-buttons-right {
+  float: right;
 }
