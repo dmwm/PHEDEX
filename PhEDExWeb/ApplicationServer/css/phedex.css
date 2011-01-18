@@ -660,9 +660,9 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 div.phedex-nextgen-nodepanel {
-  height: 250px;
+  height: 150px;
   overflow: auto;
-  border: 2px solid blue;
+  border: 1px solid silver;
 }
 div.phedex-nextgen-nodepanel-elem {
   display: inline-block;
