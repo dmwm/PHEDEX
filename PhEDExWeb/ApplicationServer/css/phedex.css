@@ -584,7 +584,14 @@ ul li.phedex-contextmenu-beta:before {
 .phedex-nextgen-form-element {
   width: 850px;
   padding: 5px 0;
-/*   border: 1px solid blue; */
+  display: inline-block;
+}
+.phedex-nextgen-form-left, .phedex-nextgen-form-right {
+  display: inline-block;
+}
+
+.phedex-nextgen-form-left .phedex-nextgen-form-element, .phedex-nextgen-form-right .phedex-nextgen-form-element {
+  width: 425px;
 }
 
 .phedex-nextgen-label {
@@ -592,19 +599,33 @@ ul li.phedex-contextmenu-beta:before {
   display: inline-block;
   vertical-align:top;
   text-align: right;
-/*   border: 1px solid yellow; */
+}
+.phedex-nextgen-form-left .phedex-nextgen-label {
+}
+.phedex-nextgen-form-right .phedex-nextgen-label {
+  width: 90px;
 }
 
 .phedex-nextgen-control {
   width: 660px;
   display: inline-block;
   margin: 0 0 0 5px;
-/*   border: 1px solid red; */
+}
+.phedex-nextgen-form-left .phedex-nextgen-control {
+  width: 240px;
+}
+.phedex-nextgen-form-right .phedex-nextgen-control {
+  width: 330px;
 }
 
 .phedex-nextgen-textarea {
-  width: 460px;
+  width: 660px;
   height: 150px;
+  color: silver;
+}
+
+.phedex-nextgen-form-right .phedex-nextgen-text {
+  width: 170px;
   color: silver;
 }
 
