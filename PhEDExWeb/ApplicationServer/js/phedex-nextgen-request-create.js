@@ -284,7 +284,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
 // Start time
-      var start_time_text = 'YY/MM/DD [hh:mm:ss]';
+      var start_time_text = 'YYYY/MM/DD [hh:mm:ss]';
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form-right');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
