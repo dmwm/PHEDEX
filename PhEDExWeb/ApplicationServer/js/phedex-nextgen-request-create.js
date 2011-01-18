@@ -1,9 +1,10 @@
 PHEDEX.namespace('Nextgen.Request');
 PHEDEX.Nextgen.Request.Create = function(sandbox) {
-  var string = 'nextgen-request-create';
-  Yla(this,new PHEDEX.Module(sandbox,string));
+  var string = 'nextgen-request-create',
+      _sbx = sandbox,
+      Dom = YAHOO.util.Dom;
+  Yla(this,new PHEDEX.Module(_sbx,string));
 
-  var _sbx = sandbox;
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
   _construct = function(obj) {
@@ -17,20 +18,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       useElement: function(el) {
         var d = this.dom;
         d.target = el;
-        d.container = document.createElement('div');
-        d.hd = document.createElement('div');
-        d.bd = document.createElement('div');
-        d.ft = document.createElement('div');
-        d.main = document.createElement('div');
-        d.main_block = document.createElement('div');
-
-        d.container.id = 'doc2';
-        d.container.className = 'phedex-nextgen-container';
-        d.hd.id = 'hd'; d.hd.className = 'phedex-nextgen-hd';
-        d.bd.id = 'bd'; d.bd.className = 'phedex-nextgen-bd';
-        d.ft.id = 'ft'; d.ft.className = 'phedex-nextgen-ft';
-        d.main.className = 'yui-main';
-        d.main_block.className = 'yui-b phedex-nextgen-main-block';
+        d.container  = document.createElement('div'); d.container.className  = 'phedex-nextgen-container'; d.container.id = 'doc2';
+        d.hd         = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd';        d.hd.id = 'hd';
+        d.bd         = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd';        d.bd.id = 'bd';
+        d.ft         = document.createElement('div'); d.ft.className         = 'phedex-nextgen-ft';        d.ft.id = 'ft';
+        d.main       = document.createElement('div'); d.main.className       = 'yui-main';
+        d.main_block = document.createElement('div'); d.main_block.className = 'yui-b phedex-nextgen-main-block';
 
         d.bd.appendChild(d.main);
         d.main.appendChild(d.main_block);
@@ -41,7 +34,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         el.appendChild(d.container);
       },
       init: function(args) {
-        var type = args.type;
+        var type = args.type, el;
         if ( type == 'xfer' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,args));
         } else if ( type == 'delete' ) {
@@ -66,11 +59,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           }
         }(this);
         _sbx.listen(this.id, selfHandler);
-        try {
-          this.initSub();
-        } catch(ex) {
-          var _ex = ex;
-        }
+        this.initSub();
+        this.dom.ft.innerHTML = 'Buttons go here...';
       }
     }
   };
@@ -119,18 +109,18 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.data_items.onfocus = function() {
         if ( this.value == data_items_txt ) {
           this.value = '';
-          this.style.color = 'black';
+          Dom.setStyle(this,'color','black');
         }
       }
       d.data_items.onblur=function() {
         if ( this.value == '' ) {
           this.value = data_items_txt;
-          this.style.color = null;
+          Dom.setStyle(this,'color',null);
         }
       }
 
       el = document.createElement('hr');
-      el.className = 'phedex-nextgen-hr';
+      Dom.addClass(el,'phedex-nextgen-hr');
       form.appendChild(el);
 
 // DBS
@@ -141,7 +131,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      el = document.getElementById('dbs_menu');
+      el = Dom.get('dbs_menu');
 
       var makeDBSMenu = function(obj) {
         return function(data,context) {
@@ -176,35 +166,38 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }(this);
       PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
 
-// Destination TODO this doesn't work properly yet!
+// Destination
       el = document.createElement('div');
-      el.className = 'phedex-nextgen-form-element';
+      Dom.addClass(el,'phedex-nextgen-form-element');
       el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" + "</div>";
       form.appendChild(el);
       d.destinationContainer = el;
       var makeNodePanel = function(obj) {
         return function(data,context) {
-          var nodes=[], node, i, j, k, el=document.createElement('div'), cont=d.destinationContainer;
+          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=pDiv=document.createElement('div'), cont=d.destinationContainer;
+          Dom.addClass(el,'phedex-nextgen-label');
+          el.innerHTML = 'Destination';
+
           for ( i in data.node ) {
             node = data.node[i].name;
             if ( node.match(/^T(0|1|2|3)_/) ) { nodes.push(node ); }
           }
           nodes = nodes.sort();
 
-          el.innerHTML = "<div class='phedex-nextgen-label'>Destination</div><div class='phedex-nextgen-control phedex-nextgen-nodepanel'>";
+          Dom.addClass(pDiv,'phedex-nextgen-control phedex-nextgen-nodepanel');
           k = '1';
           for ( i in nodes ) {
             node = nodes[i];
             node.match(/^T(0|1|2|3)_/);
             j = RegExp.$1;
             if ( j > k ) {
-              el.innerHTML += "<hr class='phedex-nextgen-hr'>";
+              pDiv.innerHTML += "<hr class='phedex-nextgen-hr'>";
               k = j;
             }
-            el.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input type='checkbox' name='"+node+"' />"+node+"</div>";
+            pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input type='checkbox' name='"+node+"' />"+node+"</div>";
           }
-          el.innerHTML += "</div>";
           cont.appendChild(el);
+          cont.appendChild(pDiv);
         }
       }(this);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
@@ -218,7 +211,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.isCustodial = document.getElementById('isCustodial');
+      d.isCustodial = Dom.get('isCustodial');
 
 // Subscription type
       el = document.createElement('div');
@@ -230,7 +223,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.subscription_type = document.getElementById('subscription_type');
+      d.subscription_type = Dom.get('subscription_type');
 
 // Transfer type
       el = document.createElement('div');
@@ -242,7 +235,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.transfer_type = document.getElementById('transfer_type');
+      d.transfer_type = Dom.get('transfer_type');
 
 // Priority
       el = document.createElement('div');
@@ -255,17 +248,18 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.priority = document.getElementById('priority');
+      d.priority = Dom.get('priority');
 
 // User group
       el = document.createElement('div');
+      Dom.addClass(el,'phedex-nextgen-form-left');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>User Group</div>" +
                         "<div id='group_menu' class='phedex-nextgen-control'>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      el = document.getElementById('group_menu');
+      el = Dom.get('group_menu');
 
       var makeGroupMenu = function(obj) {
         return function(data,context) {
@@ -290,6 +284,28 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
 // Start time
+      var start_time_text = 'YY/MM/DD [hh:mm:ss]';
+      el = document.createElement('div');
+      Dom.addClass(el,'phedex-nextgen-form-right');
+      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                        "<div class='phedex-nextgen-label'>Start Time</div>" +
+                        "<div class='phedex-nextgen-control'>" +
+                          "<div><input type='text' id='start_time' name='start_time' class='phedex-nextgen-text' value='" + start_time_text + "' /></div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+      d.comments = Dom.get('start_time');
+      d.comments.onfocus = function() {
+        if ( this.value == start_time_text ) {
+          this.value = '';
+          Dom.setStyle(this,'color','black');
+        }
+      }
+      d.comments.onblur=function() {
+        if ( this.value == '' ) {
+          this.value = start_time_text;
+          Dom.setStyle(this,'color',null)        }
+      }
 
 // Comments
       var comments_txt = "enter any additional comments here"
@@ -302,18 +318,17 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                       "</div>";
       form.appendChild(el);
 
-      d.comments = document.getElementById('comments');
+      d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
         if ( this.value == comments_txt ) {
           this.value = '';
-          this.style.color = 'black';
+          Dom.setStyle(this,'color','black');
         }
       }
       d.comments.onblur=function() {
         if ( this.value == '' ) {
           this.value = comments_txt;
-          this.style.color = null;
-        }
+          Dom.setStyle(this,'color',null)        }
       }
 
 // action buttons
