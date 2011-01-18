@@ -60,7 +60,43 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }(this);
         _sbx.listen(this.id, selfHandler);
         this.initSub();
-        this.dom.ft.innerHTML = 'Buttons go here...';
+        var ft=this.dom.ft, Reset, Validate, Cancel, Accept;
+            el = document.createElement('div');
+        Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-left');
+        el.id='buttons-left';
+        ft.appendChild(el);
+
+        el = document.createElement('div');
+        Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-centre');
+        el.id='buttons-centre';
+        ft.appendChild(el);
+
+        el = document.createElement('div');
+        Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-right');
+        el.id='buttons-right';
+        ft.appendChild(el);
+
+        Reset = new YAHOO.widget.Button({
+                                type: 'submit',
+                                label: 'Reset',
+                                id: 'buttonReset',
+                                name: 'buttonReset',
+                                value: 'buttonReset',
+                                container: 'buttons-left' });
+        Cancel = new YAHOO.widget.Button({
+                                type: 'submit',
+                                label: 'Cancel',
+                                id: 'buttonCancel',
+                                name: 'buttonCancel',
+                                value: 'buttonCancel',
+                                container: 'buttons-right' });
+        Accept = new YAHOO.widget.Button({
+                                type: 'submit',
+                                label: 'Accept',
+                                id: 'buttonAccept',
+                                name: 'buttonAccept',
+                                value: 'buttonAccept',
+                                container: 'buttons-right' });
       }
     }
   };
