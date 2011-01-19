@@ -5,7 +5,7 @@ use strict;
 
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Util qw( arrayref_expand);
-use PHEDEX::Web::Format;
+#use PHEDEX::Web::Format;
 use PHEDEX::Core::Timing;
 
 use HTML::Entities; # for encoding XML
