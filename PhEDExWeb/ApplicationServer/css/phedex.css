@@ -627,9 +627,12 @@ ul li.phedex-contextmenu-beta:before {
   color: silver;
 }
 
+.phedex-nextgen-text {
+  width: 660px;
+  color: silver;
+}
 .phedex-nextgen-form-right .phedex-nextgen-text {
   width: 170px;
-  color: silver;
 }
 
 .phedex-nextgen-hr {
