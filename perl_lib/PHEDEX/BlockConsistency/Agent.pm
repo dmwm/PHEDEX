@@ -541,26 +541,26 @@ sub requestQueue
   $n = 0;
 
   $sql = qq{
-		select b.id, block, n_files, time_expire, priority,
-		name test, use_srm
+		select b.id, b.block, b.n_files, b.time_expire, b.priority,
+		t.name test, b.use_srm
 		from t_dvs_block b
 		join t_dps_block bk on bk.id = b.block
 		join t_dvs_test t on b.test = t.id
 		join t_status_block_verify v on b.id = v.id
 		where ${$mfilter}
-		and status in (0,3)
+		and v.status in (0,3)
 		${$ofilter}
-		order by priority asc, time_expire asc, bk.dataset desc
+		order by b.priority asc, b.time_expire asc, bk.dataset desc
        };
   %p = (  %{$mfilter_args}, %{$ofilter_args} );
   $q = &dbexec($self->{DBH},$sql,%p);
 
-  $sql = qq{ select logical_name, checksum, filesize, vf.fileid,
-		nvl(time_reported,0) time_reported, nvl(status,0) status
+  $sql = qq{ select pf.logical_name, pf.checksum, pf.filesize, vf.fileid,
+		nvl(vfr.time_reported,0) time_reported, nvl(vfr.status,0) status
 		from t_dps_file pf join t_dvs_file vf on vf.fileid = pf.id
 		left join t_dvs_file_result vfr on vfr.fileid = vf.fileid
 		where vf.request = :request
-		order by fileid asc, time_reported desc
+		order by vf.fileid asc, nvl(vfr.time_reported,0) desc
 	   };
   while ( my $h = $q->fetchrow_hashref() )
   {
@@ -594,14 +594,14 @@ sub FixActiveRequest
   $self->Dbgmsg("FixActiveRequest: starting") if ( $self->{DEBUG} );
 
   $sql = qq{
-                select b.id, block, n_files, time_expire, priority,
-                name test, use_srm
+                select b.id, b.block, b.n_files, b.time_expire, b.priority,
+                t.name test, b.use_srm
                 from t_dvs_block b join t_dvs_test t on b.test = t.id
                 join t_status_block_verify v on b.id = v.id
                 where ${$mfilter}
-                and status = 4
+                and v.status = 4
                 ${$ofilter}
-                order by priority asc, time_expire asc
+                order by b.priority asc, b.time_expire asc
        };
 
   %p = (  %{$mfilter_args}, %{$ofilter_args} );
