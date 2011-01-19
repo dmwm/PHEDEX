@@ -97,6 +97,15 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: 'buttonAccept',
                                 value: 'buttonAccept',
                                 container: 'buttons-right' });
+        var onExampleSubmit = function(id,action) {
+//           var bSubmit = window.confirm('Are you sure you want to submit this form?');
+//           if(!bSubmit) {
+//             YAHOO.util.Event.preventDefault(p_oEvent);
+//           }
+        }
+        Accept.on('click', onExampleSubmit);
+        Cancel.on('click', onExampleSubmit);
+        Reset.on('click', onExampleSubmit);
       }
     }
   };
@@ -115,6 +124,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       hd.innerHTML = 'Subscribe data';
 
       form = document.createElement('form');
+      form.id   = 'subscribe_data';
       form.name = 'subscribe_data';
       mb.appendChild(form);
 
@@ -155,11 +165,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         }
       }
 
-      el = document.createElement('hr');
-      Dom.addClass(el,'phedex-nextgen-hr');
-      form.appendChild(el);
-
-// DBS
+// DBS TODO make it a text-element with a 'change' option next to it
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>DBS</div>" +
@@ -278,9 +284,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Priority</div>" +
                         "<div id='priority' class='phedex-nextgen-control'>" +
-                          "<div><input type='radio' name='priority' value='0' checked>low</input></div>" +
-                          "<div><input type='radio' name='priority' value='1'>medium</input></div>" +
                           "<div><input type='radio' name='priority' value='2'>high</input></div>" +
+                          "<div><input type='radio' name='priority' value='1'>medium</input></div>" +
+                          "<div><input type='radio' name='priority' value='0' checked>low</input></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
@@ -288,7 +294,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // User group
       el = document.createElement('div');
-      Dom.addClass(el,'phedex-nextgen-form-left');
+      Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>User Group</div>" +
                         "<div id='group_menu' class='phedex-nextgen-control'>" +
@@ -307,7 +313,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           groupList = data.group;
           for (i in groupList ) {
             group = groupList[i];
-            groupMenuItems.push( { text:group.name, value:group.id, onclick:{ fn:onMenuItemClick } } );
+            if ( !group.name.match(/^deprecated-/) ) {
+              groupMenuItems.push( { text:group.name, value:group.id, onclick:{ fn:onMenuItemClick } } );
+            }
           }
           var groupMenuButton = new YAHOO.widget.Button({ type: 'menu',
                                   label: '<em>Choose a group</em>',
@@ -322,7 +330,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Start time
       var start_time_text = 'YYYY/MM/DD [hh:mm:ss]';
       el = document.createElement('div');
-      Dom.addClass(el,'phedex-nextgen-form-right');
+      Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Start Time</div>" +
                         "<div class='phedex-nextgen-control'>" +
@@ -330,8 +338,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      d.comments = Dom.get('start_time');
-      d.comments.onfocus = function() {
+      d.start_time = Dom.get('start_time');
+      Dom.setStyle(d.start_time,'width','170px')
+      d.start_time.onfocus = function() {
         if ( this.value == start_time_text ) {
           this.value = '';
           Dom.setStyle(this,'color','black');
@@ -340,7 +349,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.comments.onblur=function() {
         if ( this.value == '' ) {
           this.value = start_time_text;
-          Dom.setStyle(this,'color',null)        }
+          Dom.setStyle(this,'color',null)
+        }
       }
 
 // Comments
