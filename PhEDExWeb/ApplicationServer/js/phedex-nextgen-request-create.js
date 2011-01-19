@@ -346,7 +346,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.setStyle(this,'color','black');
         }
       }
-      d.comments.onblur=function() {
+      d.start_time.onblur=function() {
         if ( this.value == '' ) {
           this.value = start_time_text;
           Dom.setStyle(this,'color',null)
