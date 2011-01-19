@@ -48,10 +48,7 @@ sub get_apache_params
     my ($self,$r) = @_;
     my $h = $r->headers_in();
 #   my $s = $r->server();
-#   $self->{Host}	    = $h->{'Host'};		# e.g. localhost:7003
     $self->{XForwardedHost} = $h->{'X-Forwarded-Host'};	# e.g. cmswttest.cern.ch
-#   $self->{Port}	    = $s->port();		# e.g. 7003
-#   $self->{URI}	    = $r->uri();		# e.g. /phedex/datasvc/perl/prod/bounce
     $self->{CMSRequestURI}  = $h->{'CMS-Request-URI'};	# e.g. /phedex/dev2/datasvc/perl/prod/bounce
 }
 
