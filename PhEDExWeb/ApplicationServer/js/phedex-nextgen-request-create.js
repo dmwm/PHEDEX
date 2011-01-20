@@ -83,13 +83,13 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: 'buttonReset',
                                 value: 'buttonReset',
                                 container: 'buttons-left' });
-        Cancel = new YAHOO.widget.Button({
-                                type: 'submit',
-                                label: 'Cancel',
-                                id: 'buttonCancel',
-                                name: 'buttonCancel',
-                                value: 'buttonCancel',
-                                container: 'buttons-right' });
+//         Cancel = new YAHOO.widget.Button({
+//                                 type: 'submit',
+//                                 label: 'Cancel',
+//                                 id: 'buttonCancel',
+//                                 name: 'buttonCancel',
+//                                 value: 'buttonCancel',
+//                                 container: 'buttons-right' });
         Accept = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: 'Accept',
@@ -104,7 +104,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 //           }
         }
         Accept.on('click', onExampleSubmit);
-        Cancel.on('click', onExampleSubmit);
+//         Cancel.on('click', onExampleSubmit);
         Reset.on('click', onExampleSubmit);
       }
     }
@@ -132,7 +132,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Subscription level
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Subscription level</div>" +
+                        "<div class='phedex-nextgen-label'>Subscription Level</div>" +
                         "<div id='subscription_level' class='phedex-nextgen-control'>" +
                           "<div><input type='radio' name='subscription_level' value='0' checked>dataset</input></div>" +
                           "<div><input type='radio' name='subscription_level' value='1'>block</input></div>" +
@@ -166,26 +166,34 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         }
       }
 
-// DBS TODO make it a text-element with a 'change' option next to it
-      this.instanceDefault = {
+// DBS
+      this.dbs = {};
+      var dbs = this.dbs;
+      dbs.instanceDefault = {
             prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
             dev:'',
             debug:''
           };
-      this.defaultDbs = this.instanceDefault['prod']; // TODO pick up the instance correctly!
+      dbs.default = dbs.instanceDefault ['prod']; // TODO pick up the instance correctly!
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>DBS</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div id='dbs_selected'>" + "<span id='dbs_selected_value'>" + this.defaultDbs + "</span>&nbsp;<a id='change_dbs' href='#'>change</a>" + "</div>" +
+                          "<div id='dbs_selected'>" + "<span id='dbs_value'>" + dbs.default + "</span>" +
+                            "<span>&nbsp;</span>" + "<a id='change_dbs' class='phedex-nextgen-form-link' href='#'>change</a>" +
+                          "</div>" +
                         "<div id='dbs_menu''></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      dbs.menu     = Dom.get('dbs_menu');
+      dbs.value    = Dom.get('dbs_value');
+      dbs.selected = Dom.get('dbs_selected');
+      Dom.setStyle(dbs.value,'color','grey');
 
       var makeDBSMenu = function(obj) {
         return function(data,context) {
-          var dbsMenuButton, onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbs, i;
+          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i;
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
@@ -193,26 +201,26 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           };
           dbsList = data.dbs;
           for (i in dbsList ) {
-            dbs = dbsList[i];
-            if ( dbs.name == obj.defaultDbs ) {
-              dbs.name = '<strong>'+dbs.name+'</strong>';
+            dbsEntry = dbsList[i];
+            if ( dbsEntry.name == dbs.default ) {
+              dbsEntry.name = '<strong>'+dbsEntry.name+'</strong>';
+            }
+            dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
           }
-            dbsMenuItems.push( { text:dbs.name, value:dbs.id, onclick:{ fn:onMenuItemClick } } );
-          }
-          Dom.get('dbs_menu').innerHTML = '';
-          dbsMenuButton = new YAHOO.widget.Button({  type: 'menu',
-                                  label: '<em>'+obj.defaultDbs+'</em>',
+          dbs.menu.innerHTML = '';
+          dbs.MenuButton = new YAHOO.widget.Button({  type: 'menu',
+                                  label: '<em>'+dbs.default+'</em>',
                                   id:   'dbsMenuButton',
                                   name: 'dbsMenuButton',
                                   menu:  dbsMenuItems,
                                   container: 'dbs_menu' });
-          dbsMenuButton.on('selectedMenuItemChange',function(event) {
+          dbs.MenuButton.on('selectedMenuItemChange',function(event) {
             var menuItem = event.newValue,
                 value    = menuItem.cfg.getProperty('text');
                 if ( value.match(/<strong>(.*)</) ) { value = RegExp.$1; }
-            Dom.get('dbs_selected_value').innerHTML = value;
-            Dom.removeClass(Dom.get('dbs_selected'),'phedex-invisible');
-            Dom.setStyle(Dom.get('dbsMenuButton'),'display','none');
+            dbs.value.innerHTML = value;
+            Dom.removeClass(dbs.selected,'phedex-invisible');
+            Dom.setStyle(dbs.MenuButton,'display','none');
           });
           obj.gotDBSMenu = true;
         }
@@ -222,11 +230,11 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         return function() {
           if ( !obj.gotDBSMenu ) {
             PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
-            Dom.get('dbs_menu').innerHTML = 'loading menu...';
-            Dom.addClass(Dom.get('dbs_selected'),'phedex-invisible');
+            dbs.menu.innerHTML = '<em>loading menu, please wait...</em>';
+            Dom.addClass(dbs.selected,'phedex-invisible');
           } else {
-            Dom.setStyle(Dom.get('dbsMenuButton'),'display',null);
-            Dom.addClass(Dom.get('dbs_selected'),'phedex-invisible');
+            Dom.setStyle(dbs.MenuButton,'display',null);
+            Dom.addClass(dbs.selected,'phedex-invisible');
           }
         };
       }(this);
@@ -271,9 +279,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Custodiality
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>&nbsp;</div>" +
+                        "<div class='phedex-nextgen-label'>Site Custodial</div>" +
                         "<div id='isCustodial' class='phedex-nextgen-control'>" +
-                          "<div><input type='checkbox' name='isCustodial' /> Custodial request</div>" +
+                          "<div><input type='radio' name='site_custodial' value='0'>yes</input></div>" +
+                          "<div><input type='radio' name='site_custodial' value='1' checked>no</input></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
@@ -282,7 +291,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Subscription type
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Subscription type</div>" +
+                        "<div class='phedex-nextgen-label'>Subscription Type</div>" +
                         "<div id='subscription_type' class='phedex-nextgen-control'>" +
                           "<div><input type='radio' name='subscription_type' value='0' checked>growing</input></div>" +
                           "<div><input type='radio' name='subscription_type' value='1'>static</input></div>" +
@@ -294,7 +303,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Transfer type
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Transfer type</div>" +
+                        "<div class='phedex-nextgen-label'>Transfer Type</div>" +
                         "<div id='transfer_type' class='phedex-nextgen-control'>" +
                           "<div><input type='radio' name='transfer_type' value='0' checked>replica</input></div>" +
                           "<div><input type='radio' name='transfer_type' value='1'>move</input></div>" +
@@ -383,25 +392,62 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Email</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div><input type='text' id='email' name='email' class='phedex-nextgen-text' value='me@my.place' /></div>" +
+                          "<div id='email_selector'>" +
+                            "<span id='email_value'></span>" +
+                            "<span>&nbsp;</span>" +
+                            "<a id='change_email' class='phedex-nextgen-form-link' href='#'>change</a>" +
+                          "</div>" +
+                          "<div><input type='text' id='email_input' name='email' class='phedex-nextgen-text phedex-invisible' value='' /></div>" +
                         "</div>" +
                       "</div>";
+
       form.appendChild(el);
-      d.email = Dom.get('email');
-      Dom.setStyle(d.email,'width','170px')
-      Dom.setStyle(d.email,'color','black');
-//       d.email.onfocus = function() {
-//         if ( this.value == email_text ) {
-//           this.value = '';
-//           Dom.setStyle(this,'color','black');
-//         }
-//       }
-//       d.email.onblur=function() {
-//         if ( this.value == '' ) {
-//           this.value = email_text;
-//           Dom.setStyle(this,'color',null)
-//         }
-//       }
+      d.email = {};
+      var email = d.email, onEmailInput, kl;
+      email.selector = Dom.get('email_selector');
+      email.input    = Dom.get('email_input');
+      email.value    = Dom.get('email_value');
+      Dom.setStyle(email.input,'width','170px')
+      Dom.setStyle(email.input,'color','black');
+      Dom.setStyle(email.value,'color','grey');
+
+      onChangeEmailClick = function(obj) {
+        return function() {
+          Dom.addClass(   email.selector,'phedex-invisible');
+          Dom.removeClass(email.input,   'phedex-invisible');
+          email.input.focus();
+        };
+      }(this);
+      Event.on(Dom.get('change_email'),'click',onChangeEmailClick);
+
+      onEmailInput = function(obj) {
+        return function() {
+          Dom.removeClass(email.selector,'phedex-invisible');
+          Dom.addClass(   email.input,   'phedex-invisible');
+          email.value.innerHTML = email.input.value;
+        }
+      }(this);
+      email.input.onblur = onEmailInput;
+
+      kl = new YAHOO.util.KeyListener(email.input,
+                               { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                               { fn:function(obj){ return function() { onEmailInput(); } }(this),
+                               scope:this, correctScope:true } );
+     kl.enable();
+
+      var gotAuthData = function(obj) {
+        return function(data,context) {
+          var address = '';
+          try { address = data.auth[0].email; }
+          catch(ex) {
+// AUTH failed, don't know what address to put in!
+            email.value.innerHTML = '(unknown)';
+          }
+          if ( !email ) { return; }
+          email.value.innerHTML = email.input.value = address;
+        };
+      }(this);
+      PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:gotAuthData })
 
 // Comments
       var comments_txt = "enter any additional comments here"
@@ -426,8 +472,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           this.value = comments_txt;
           Dom.setStyle(this,'color',null)        }
       }
-
-// action buttons
     }
   }
 }
