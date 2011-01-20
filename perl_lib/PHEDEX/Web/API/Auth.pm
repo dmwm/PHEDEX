@@ -109,6 +109,7 @@ sub auth
 	  };
 
   $obj->{'username'} = $core->{SECMOD}->getUsername() if $core->{SECMOD}->getUsername();
+  $obj->{'email'} = $core->{SECMOD}->getEmail();
 
   foreach my $role (keys %{$auth->{ROLES}}) {
       foreach my $group (@{$auth->{ROLES}->{$role}}) {
