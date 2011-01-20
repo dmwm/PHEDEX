@@ -598,10 +598,11 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 .phedex-nextgen-label {
-  width: 180px;
+  width: 170px;
   display: inline-block;
   vertical-align:top;
   text-align: right;
+  padding: 0 5px 0 0;
 }
 .phedex-nextgen-form-left .phedex-nextgen-label {
 }
