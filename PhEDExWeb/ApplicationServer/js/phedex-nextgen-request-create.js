@@ -114,7 +114,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 };
 
 PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
-  var Dom = YAHOO.util.Dom;
+  var Dom   = YAHOO.util.Dom,
+      Event = YAHOO.util.Event;
   return {
     initSub: function() {
       var d = this.dom,
@@ -141,7 +142,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.subscription_level = Dom.get('subscription_level');
 
 // Dataset/block name(s)
-      data_items_txt = "enter one or more block/data-set names, separated by white-space or commas.\n\nNo wild-cards!"
+      data_items_txt = "enter one or more block/data-set names, separated by white-space or commas."; //\n\nNo wild-cards!"
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Data Items</div>" +
@@ -166,47 +167,70 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }
 
 // DBS TODO make it a text-element with a 'change' option next to it
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>DBS</div>" +
-                        "<div id='dbs_menu' class='phedex-nextgen-control'>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      el = Dom.get('dbs_menu');
-
-      var makeDBSMenu = function(obj) {
-        return function(data,context) {
-          var onMenuItemClick, dbsMenuItems=[], dbsList, dbs, i, defaultDbs, instanceDefault;
-
-          instanceDefault = {
+      this.instanceDefault = {
             prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
             dev:'',
             debug:''
           };
-          defaultDbs = instanceDefault['prod']; // TODO pick up the instance correctly!
+      this.defaultDbs = this.instanceDefault['prod']; // TODO pick up the instance correctly!
+      el = document.createElement('div');
+      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                        "<div class='phedex-nextgen-label'>DBS</div>" +
+                        "<div class='phedex-nextgen-control'>" +
+                          "<div id='dbs_selected'>" + "<span id='dbs_selected_value'>" + this.defaultDbs + "</span>&nbsp;<a id='change_dbs' href='#'>change</a>" + "</div>" +
+                        "<div id='dbs_menu''></div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+
+      var makeDBSMenu = function(obj) {
+        return function(data,context) {
+          var dbsMenuButton, onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbs, i;
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
-              if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
-              dbsMenuButton.set('label', '<em>'+sText+'</em>');
+            if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
+            dbsMenuButton.set('label', '<em>'+sText+'</em>');
           };
           dbsList = data.dbs;
           for (i in dbsList ) {
             dbs = dbsList[i];
-            if ( dbs.name == defaultDbs ) {
+            if ( dbs.name == obj.defaultDbs ) {
               dbs.name = '<strong>'+dbs.name+'</strong>';
-            }
+          }
             dbsMenuItems.push( { text:dbs.name, value:dbs.id, onclick:{ fn:onMenuItemClick } } );
           }
-          var dbsMenuButton = new YAHOO.widget.Button({  type: 'menu',
-                                  label: '<em>'+defaultDbs+'</em>',
+          Dom.get('dbs_menu').innerHTML = '';
+          dbsMenuButton = new YAHOO.widget.Button({  type: 'menu',
+                                  label: '<em>'+obj.defaultDbs+'</em>',
                                   id:   'dbsMenuButton',
                                   name: 'dbsMenuButton',
                                   menu:  dbsMenuItems,
                                   container: 'dbs_menu' });
+          dbsMenuButton.on('selectedMenuItemChange',function(event) {
+            var menuItem = event.newValue,
+                value    = menuItem.cfg.getProperty('text');
+                if ( value.match(/<strong>(.*)</) ) { value = RegExp.$1; }
+            Dom.get('dbs_selected_value').innerHTML = value;
+            Dom.removeClass(Dom.get('dbs_selected'),'phedex-invisible');
+            Dom.setStyle(Dom.get('dbsMenuButton'),'display','none');
+          });
+          obj.gotDBSMenu = true;
         }
       }(this);
-      PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
+
+      onChangeDBSClick = function(obj) {
+        return function() {
+          if ( !obj.gotDBSMenu ) {
+            PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
+            Dom.get('dbs_menu').innerHTML = 'loading menu...';
+            Dom.addClass(Dom.get('dbs_selected'),'phedex-invisible');
+          } else {
+            Dom.setStyle(Dom.get('dbsMenuButton'),'display',null);
+            Dom.addClass(Dom.get('dbs_selected'),'phedex-invisible');
+          }
+        };
+      }(this);
+      Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
 // Destination
       el = document.createElement('div');
@@ -352,6 +376,32 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.setStyle(this,'color',null)
         }
       }
+
+// Email
+      el = document.createElement('div');
+      Dom.addClass(el,'phedex-nextgen-form');
+      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                        "<div class='phedex-nextgen-label'>Email</div>" +
+                        "<div class='phedex-nextgen-control'>" +
+                          "<div><input type='text' id='email' name='email' class='phedex-nextgen-text' value='me@my.place' /></div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+      d.email = Dom.get('email');
+      Dom.setStyle(d.email,'width','170px')
+      Dom.setStyle(d.email,'color','black');
+//       d.email.onfocus = function() {
+//         if ( this.value == email_text ) {
+//           this.value = '';
+//           Dom.setStyle(this,'color','black');
+//         }
+//       }
+//       d.email.onblur=function() {
+//         if ( this.value == '' ) {
+//           this.value = email_text;
+//           Dom.setStyle(this,'color',null)
+//         }
+//       }
 
 // Comments
       var comments_txt = "enter any additional comments here"
