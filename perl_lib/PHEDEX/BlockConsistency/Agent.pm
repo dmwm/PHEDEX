@@ -233,7 +233,7 @@ sub doNSCheck
       else { $chksum_value = 0; } 
 
       $t1 = Time::HiRes::time();
-      my $adler = hex($ns->$cmd($pfn));
+      my $adler = hex($ns->$cmd($pfn,$lfn,$mapping,$node));
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($adler) &&  $adler eq $chksum_value ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; 
