@@ -50,12 +50,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               obj[action](value);
             }
-//            switch ( action ) {
-//              case 'useElement':{
-//                obj.useElement(value);
-//                break;
-//              }
-//            };
           }
         }(this);
         _sbx.listen(this.id, selfHandler);
@@ -76,36 +70,66 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         el.id='buttons-right';
         ft.appendChild(el);
 
+        var label='Reset', id='button'+label;
         Reset = new YAHOO.widget.Button({
                                 type: 'submit',
-                                label: 'Reset',
-                                id: 'buttonReset',
-                                name: 'buttonReset',
-                                value: 'buttonReset',
+                                label: label,
+                                id: id,
+                                name: id,
+                                value: id,
                                 container: 'buttons-left' });
-//         Cancel = new YAHOO.widget.Button({
-//                                 type: 'submit',
-//                                 label: 'Cancel',
-//                                 id: 'buttonCancel',
-//                                 name: 'buttonCancel',
-//                                 value: 'buttonCancel',
-//                                 container: 'buttons-right' });
+        label='Accept', id='button'+label;
         Accept = new YAHOO.widget.Button({
                                 type: 'submit',
-                                label: 'Accept',
-                                id: 'buttonAccept',
-                                name: 'buttonAccept',
-                                value: 'buttonAccept',
+                                label: label,
+                                id: id,
+                                name: id,
+                                value: id,
                                 container: 'buttons-right' });
-        var onExampleSubmit = function(id,action) {
-//           var bSubmit = window.confirm('Are you sure you want to submit this form?');
-//           if(!bSubmit) {
-//             YAHOO.util.Event.preventDefault(p_oEvent);
-//           }
-        }
-        Accept.on('click', onExampleSubmit);
-//         Cancel.on('click', onExampleSubmit);
-        Reset.on('click', onExampleSubmit);
+        var onAcceptSubmit = function(obj) {
+          return function(id,action) {
+debugger;
+          }
+        }(this);
+        Accept.on('click', onAcceptSubmit);
+        var onResetSubmit = function(obj) {
+          return function(id,action) {
+            var dbs=obj.dbs,
+                dom=obj.dom,
+                data_items=dom.data_items,
+                menu, menu_items;
+
+try {
+// Data Items
+            data_items.value = '';
+            data_items.onblur();
+
+debugger;
+// DBS
+            dbs.value.innerHTML = dbs.default;
+            menu       = dbs.MenuButton.getMenu();
+            menu_items = menu.getItems();
+            menu.activeItem = menu_items[dbs.defaultId];
+//            menu.select(dbs.defaultId);
+
+// Destination
+// Site Custodial
+// Subscription Type
+// Transfer Type
+// Priority
+// User Group
+// Start Time
+// Email
+// Comments
+            dom.comments.value = '';
+            dom.comments.onblur();
+} catch(ex) {
+var a = ex;
+debugger;
+}
+          }
+        }(this);
+        Reset.on('click', onResetSubmit);
       }
     }
   };
@@ -142,26 +166,28 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.subscription_level = Dom.get('subscription_level');
 
 // Dataset/block name(s)
-      data_items_txt = "enter one or more block/data-set names, separated by white-space or commas."; //\n\nNo wild-cards!"
+      this.data_items = {};
+      var data_items = this.data_items;
+      data_items.txt = "enter one or more block/data-set names, separated by white-space or commas."; //\n\nNo wild-cards!"
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Data Items</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items_txt + "</textarea></div>" +
+                          "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.txt + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function() {
-        if ( this.value == data_items_txt ) {
+        if ( this.value == data_items.txt ) {
           this.value = '';
           Dom.setStyle(this,'color','black');
         }
       }
       d.data_items.onblur=function() {
         if ( this.value == '' ) {
-          this.value = data_items_txt;
+          this.value = data_items.txt;
           Dom.setStyle(this,'color',null);
         }
       }
@@ -204,6 +230,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             dbsEntry = dbsList[i];
             if ( dbsEntry.name == dbs.default ) {
               dbsEntry.name = '<strong>'+dbsEntry.name+'</strong>';
+              dbs.defaultId = i;
             }
             dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
           }
@@ -342,6 +369,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             groupMenuButton.set('label', sText);
+            obj.group = sText;
           };
           groupList = data.group;
           for (i in groupList ) {
@@ -379,12 +407,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.setStyle(this,'color','black');
         }
       }
-      d.start_time.onblur=function() {
-        if ( this.value == '' ) {
-          this.value = start_time_text;
-          Dom.setStyle(this,'color',null)
+      d.start_time.onblur=function(obj) {
+        return function() {
+          if ( this.value == '' ) {
+            obj.start_time = this.value = start_time_text;
+            Dom.setStyle(this,'color',null)
+          }
         }
-      }
+      }(this);
 
 // Email
       el = document.createElement('div');
@@ -450,26 +480,28 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:gotAuthData })
 
 // Comments
-      var comments_txt = "enter any additional comments here"
+      this.comments = {};
+      var comments = this.comments;
+      comments.txt = 'enter any additional comments here';
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Comments</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments_txt + "</textarea></div>" +
+                          "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments.txt + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
-        if ( this.value == comments_txt ) {
+        if ( this.value == comments.txt ) {
           this.value = '';
           Dom.setStyle(this,'color','black');
         }
       }
       d.comments.onblur=function() {
         if ( this.value == '' ) {
-          this.value = comments_txt;
+          this.value = comments.txt;
           Dom.setStyle(this,'color',null)        }
       }
     }
