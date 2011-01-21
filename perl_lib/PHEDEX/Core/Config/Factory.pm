@@ -69,7 +69,10 @@ sub new
   $self->{PLUGIN} = 'Log' if (lc($self->{PLUGIN}) eq 'logfile' );
   $self->{PLUGIN} = 'Email' if (lc($self->{PLUGIN}) eq 'mail' );
 
-  my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify' );
+  my @plugin_reject = ( qw / Template / );
+
+  my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify',
+                                          REJECT => \@plugin_reject );
   $self->{wdp} = $loader->Load( lc($self->{PLUGIN}) )->new( DEBUG => $self->{DEBUG},
                                                             PHEDEX_SITE => $self->{PHEDEX_SITE} );
 
