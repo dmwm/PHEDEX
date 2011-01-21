@@ -53,7 +53,7 @@ Changes for Site Agents
   - Adding summary report
    - Every cycle a statistics summary of all running agents is sent to the admin.
    - It needs the email address of the admin, which it is got from sitedb. The cycle is by default every 24h
-   - Report can be sent by any given method: mail, logfile, rss, etc.; those are plugings which can be coded as needed
+   - Report can be sent by any given method: email, logfile, rss, etc.; those are plugings which can be coded as needed
 
 Changes for Operator Tools
  - PHEDEX/Utilities/DBSCheck - fix for path of Toolkit/DBS scripts
