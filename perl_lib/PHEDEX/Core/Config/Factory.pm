@@ -67,6 +67,8 @@ sub new
   die "'PHEDEX_SITE' not set correctly in your configuration file, giving up...\n" unless $self->{PHEDEX_SITE};
 
   $self->{PLUGIN} = 'Log' if (lc($self->{PLUGIN}) eq 'logfile' );
+  $self->{PLUGIN} = 'Email' if (lc($self->{PLUGIN}) eq 'mail' );
+
   my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify' );
   $self->{wdp} = $loader->Load( lc($self->{PLUGIN}) )->new( DEBUG => $self->{DEBUG},
                                                             PHEDEX_SITE => $self->{PHEDEX_SITE} );
