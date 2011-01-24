@@ -70,6 +70,7 @@ requesting client, the approving clients, and the request options.
   custodial        is custodial?
   static           is static?
   move             is move?
+  start_time       only transfer blocks created after this time
 
 =head3 <destinations> elements
 
