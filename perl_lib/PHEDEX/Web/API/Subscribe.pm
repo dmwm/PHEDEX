@@ -37,6 +37,8 @@ Makes and approves a transfer request, creating data subscriptions.
  request_only   'y' or 'n', if 'y' then create the request but do not approve.  Default is 'n'.
  no_mail        'y' or 'n' (default), if 'n', a email is sent to
                 requestor, datamanagers, site admins, and global admins
+ comments	other information to attach to this request, for whatever
+		reason.
 
 =head2 Input
 
