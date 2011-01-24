@@ -98,7 +98,8 @@ debugger;
                 dom = obj.dom,
                 user_group = obj.user_group,
                 email      = obj.email,
-                data_items=dom.data_items,
+                start_time = obj.start_time,
+                data_items = dom.data_items,
                 menu, menu_items,
                 elList, _default, el, i,
                 form = document.forms[0];
@@ -119,6 +120,11 @@ try {
             }
 
 // Destination
+            elList = obj.destination.elList;
+            for (i in elList) {
+              elList[i].checked = false;
+            }
+            obj.destination.selected = {};
 
 // Site Custodial
             elList = obj.site_custodial.elList;
@@ -161,7 +167,7 @@ try {
             user_group.value = null;
 
 // Start Time
-            dom.start_time.innerHTML = '';
+            dom.start_time.value = '';
             dom.start_time.onblur();
 // Email
             email.value.innerHTML = email.input.value = email._default;
@@ -318,15 +324,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
 // Destination
-      this.destination = { nodes:[] };
+      this.destination = { nodes:[], selected:[] };
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form-element');
       el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" + "</div>";
       form.appendChild(el);
-      d.destinationContainer = el;
+      d.destination = el;
       var makeNodePanel = function(obj) {
         return function(data,context) {
-          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=pDiv=document.createElement('div'), cont=d.destinationContainer;
+          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=pDiv=document.createElement('div'), destination=d.destination;
           Dom.addClass(el,'phedex-nextgen-label');
           el.innerHTML = 'Destination';
 
@@ -349,8 +355,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
             obj.destination.nodes[node] = 0;
           }
-          cont.appendChild(el);
-          cont.appendChild(pDiv);
+          destination.appendChild(el);
+          destination.appendChild(pDiv);
+          obj.destination.elList = Dom.getElementsByClassName('phedex-checkbox','input',destination);
         }
       }(this);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
