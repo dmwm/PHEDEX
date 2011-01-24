@@ -686,3 +686,7 @@ div.phedex-nextgen-nodepanel-elem {
 .phedex-nextgen-buttons-right {
   float: right;
 }
+.phedex-nextgen-form-link {
+  font-size: 12px;
+  color: #32a804;
+}
