@@ -984,6 +984,7 @@ sub getRequestData
             rx.is_custodial custodial,
             rx.is_move move,
             rx.is_static static,
+            rx.time_start,
             g.name "group",
             rx.data usertext};
     }
