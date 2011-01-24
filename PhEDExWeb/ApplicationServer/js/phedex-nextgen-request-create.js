@@ -88,10 +88,154 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 container: 'buttons-right' });
         var onAcceptSubmit = function(obj) {
           return function(id,action) {
+            var dbs = obj.dbs,
+                dom = obj.dom,
+                user_group = obj.user_group,
+                email      = obj.email,
+                start_time = obj.start_time,
+                data_items = dom.data_items,
+                menu, menu_items,
+                data={}, args={}, tmp, value, type, block, dataset, xml,
+                elList, el, i;
+
+try {
+// Subscription level
+// TODO decide if we keep this or not?
+
+// Data Items TODO xml
+// Several layers of checks:
+// 1. If the string is empty, or matches the inline help, abort
+            if ( !data_items.value || data_items.value == obj.data_items.text ) {
+              alert('No data-items specified!');
+              return;
+            }
+// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+            tmp = data_items.value.split(/ |\n|,/);
+            data = {blocks:{}, datasets:{} };
+            for (i in tmp) {
+              block = tmp[i];
+              if ( block != '' ) {
+                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                  dataset = RegExp.$1;
+                  if ( dataset == block ) { data.datasets[dataset] = 1; }
+                  else                    { data.blocks[block] = 1; }
+                } else {
+                  alert('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+                  return;
+                }
+              }
+            }
+// 3. Blocks which are contained within explicit datasets are suppressed
+            for (block in data.blocks) {
+              block.match(/^([^#]*)#/);
+              dataset = RegExp.$1;
+              if ( data.datasets[dataset] ) {
+                delete data.blocks[block];
+              }
+            }
+// 4. Blocks are grouped into their corresponding datasets
+            for (block in data.blocks) {
+              block.match(/([^#]*)#/);
+              dataset = RegExp.$1;
+              if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+              data.datasets[dataset][block] = 1;
+            }
+// 5. the block-list is now redundant, clean it up!
+            delete data.blocks;
+
+// DBS - done directly in the xml
+
+// Destination
+            elList = obj.destination.elList;
+            args.node = [];
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) { args.node.push(obj.destination.nodes[i]); }
+            }
+
+// Site Custodial
+            elList = obj.site_custodial.elList;
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) { args.custodial = ( el.value == 'yes' ? 'y' : 'n' ); }
+            }
+
+// Subscription Type
+            elList = obj.subscription_type.elList;
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) { args['static'] = ( el.value == 'static' ? 'y' : 'n' ); }
+            }
+
+// Transfer Type
+            elList = obj.transfer_type.elList;
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) { args.move = ( el.value == 'move' ? 'y' : 'n' ); }
+            }
+
+// Priority
+            elList = obj.priority.elList;
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) {
+                if ( el.value == 0 ) { args.priority = 'low' }
+                if ( el.value == 1 ) { args.priority = 'medium' }
+                if ( el.value == 2 ) { args.priority = 'high' }
+              }
+            }
+
+// User Group
+            if ( ! user_group.value ) {
+              alert('No user-group specified');
+              return;
+            }
+            args.group = user_group.value;
+
+// Start Time TODO format this?
+            if ( start_time.value && ( start_time.value != start_time.text ) ) {
+              args.start_time = start_time.value
+            }
+
+// Email TODO check field?
+//             args.email = email.value.innerHTML;
+
+// Comments
+            args.comments = dom.comments.value;
+            if ( args.comments == obj.comments.text ) { args.comments = ''; }
+
+// Defaults while testing
+// TODO remove these when going live!
+            args.no_mail = 'y';
+            args.request_only = 'y';
+
+// Hardwired, for best practise!
+            args.level = 'block';
+
+// Now build the XML!
 debugger;
+            xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
+            for ( dataset in data.datasets ) {
+              xml += '<dataset name="'+dataset+'" is-open="dummy">';
+              for ( block in data.datasets[dataset] ) {
+                xml += '<block name="'+block+'" is-open="dummy" />';
+              }
+              xml += '</dataset>';
+            }
+            xml += '</dbs></data>';
+            args.data = xml;
+//             result.innerHTML = 'Submitting request, please wait...';
+//             _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
+debugger;
+
+} catch(ex) {
+var a = ex;
+debugger;
+}
           }
         }(this);
         Accept.on('click', onAcceptSubmit);
+
         var onResetSubmit = function(obj) {
           return function(id,action) {
             var dbs = obj.dbs,
@@ -101,9 +245,8 @@ debugger;
                 start_time = obj.start_time,
                 data_items = dom.data_items,
                 menu, menu_items,
-                elList, _default, el, i,
-                form = document.forms[0];
-try {
+                elList, _default, el, i;
+
 // Subscription level
 // TODO decide if we keep this or not?
 
@@ -167,18 +310,16 @@ try {
             user_group.value = null;
 
 // Start Time
+// TODO will need to reset the calendar YUI module too, when I have one...
             dom.start_time.value = '';
             dom.start_time.onblur();
+
 // Email
             email.value.innerHTML = email.input.value = email._default;
 
 // Comments
             dom.comments.value = '';
             dom.comments.onblur();
-} catch(ex) {
-var a = ex;
-debugger;
-}
           }
         }(this);
         Reset.on('click', onResetSubmit);
@@ -353,7 +494,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               k = j;
             }
             pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
-            obj.destination.nodes[node] = 0;
+            obj.destination.nodes.push(node);
           }
           destination.appendChild(el);
           destination.appendChild(pDiv);
@@ -468,10 +609,44 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Start Time</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div><input type='text' id='start_time' name='start_time' class='phedex-nextgen-text' value='" + start_time.text + "' /></div>" +
+                          "<div><input type='text' id='start_time' name='start_time' class='phedex-nextgen-text' value='" + start_time.text + "' />" +
+                          "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align: text-bottom;' />" +
+                          "<span id='phedex-nextgen-calendar-el' class='phedex-invisible'></span>" +
+                          "</div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      d.calendar_icon = Dom.get('phedex-nextgen-calendar-icon');
+      d.calendar_el   = Dom.get('phedex-nextgen-calendar-el');
+
+      var mySelectHandler = function(o) {
+        return function(type,args,obj) {
+          var selected = args[0][0];
+          o.dom.start_time.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+          o.start_time.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
+          YuD.addClass(elCal,'phedex-invisible');
+        }
+      }(this);
+     var cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), d.calendar_el); //, {maxdate:now.month+'/'+now.day+'/'+now.year } );
+         cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
+         cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
+         cal.cfg.setProperty('MDY_DAY_POSITION', 3);
+         cal.selectEvent.subscribe( mySelectHandler, cal, true);
+         cal.render();
+
+        YuE.addListener(d.calendar_icon,'click',function() {
+            if ( YuD.hasClass(d.calendar_el,'phedex-invisible') ) {
+              YuD.removeClass(d.calendar_el,'phedex-invisible');
+debugger;
+              var coords = Dom.getXY(d.start_time);
+              Dom.setX(d.calendar_el,coords[0]);
+              Dom.setY(d.calendar_el,coords[0]+40);
+//               elCal.style.left = ctl.offsetLeft - elCal.clientWidth;
+            } else {
+              YuD.addClass(d.calendar_el,'phedex-invisible');
+            }
+          }, this, true);
+
       d.start_time = Dom.get('start_time');
       Dom.setStyle(d.start_time,'width','170px')
       d.start_time.onfocus = function() {
@@ -493,13 +668,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Email
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
+// TODO take away phedex-invisible if we really need this, or suppress this field entirely if we don't
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Email</div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div id='email_selector'>" +
                             "<span id='email_value'></span>" +
                             "<span>&nbsp;</span>" +
-                            "<a id='change_email' class='phedex-nextgen-form-link' href='#'>change</a>" +
+                            "<a id='change_email' class='phedex-nextgen-form-link phedex-invisible' href='#'>change</a>" +
                           "</div>" +
                           "<div><input type='text' id='email_input' name='email' class='phedex-nextgen-text phedex-invisible' value='' /></div>" +
                         "</div>" +
