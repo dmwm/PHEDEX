@@ -230,12 +230,13 @@ PHEDEX.Util = { // N.B. Although a phedex-util.js file exists, this is the right
  * @method bannerIdleTimer
  * @param Loader {PHEDEX.Loader} A PHEDEX.Loader instance
  */
-  bannerIdleTimer: function(Loader) {
+  bannerIdleTimer: function(Loader,opts) {
     setTimeout( function() {
       Loader.load(function() {
         var IdleTimer = new PHEDEX.Util.IdleTimer();
-        IdleTimer.subscribe('idle', function() { banner('waiting for your input'); });
-        IdleTimer.subscribe('active', function() { banner(); });
+        if ( !opts ) { opts = {}; }
+        IdleTimer.subscribe('idle', function() { banner(opts.idle || 'waiting for your input'); });
+        IdleTimer.subscribe('active', function() { banner( opts.active); });
         IdleTimer.start(10000);
       },'util-idletimer');
     }, 10000)
