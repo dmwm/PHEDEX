@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use Mail::RFC822::Address 'validlist';
-
+use POSIX qw(strftime);
 use PHEDEX::Web::SQL;
 use Data::Dumper;
 
@@ -301,7 +301,8 @@ sub send_request_create_email
 
     my $files = $$data{'DATA'}{'FILES'};
     my $bytes = &format_size($$data{'DATA'}{'BYTES'});
-    
+    my $start_time = 'n/a';
+    $start_time = strftime("%Y-%m-%d %H:%M:%S", gmtime($$data{'TIME_START'}))." (".$$data{'TIME_START'}.")" if $$data{'TIME_START'};
     my $comments = $$data{'REQUESTED_BY'}{'COMMENTS'}{'$T'} || '';
 	
     my $message =<<ENDEMAIL;
@@ -372,6 +373,8 @@ ENDEMAIL
     $message .=<<ENDEMAIL;
    Size:
      $files files, $bytes
+   Start time:
+     $start_time
    Comments:
      "$comments"
 
@@ -519,7 +522,7 @@ sub getRequestTitle
 # getRequestTypeSummary -- ported from access25
 sub getRequestTypeSummary
 {
-    my ($self, $data) = @_;
+    my $data = shift;
     if ($$data{TYPE} eq 'xfer') {
 	my $kind = $$data{MOVE} eq 'y' ? 'Move' : 'Replication';
 	my $priority = $$data{PRIORITY};
@@ -534,7 +537,7 @@ sub getRequestTypeSummary
 
 sub get_special_request_message
 {
-    my ($self, $data) = @_;
+    my $data = shift;
 
     my $msg = '';
     if ($$data{TYPE} eq 'xfer') {
