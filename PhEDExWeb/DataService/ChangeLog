@@ -20,6 +20,8 @@
     - has new "collapse" option to control the output in expanded (collapse = 'n') or collapsed (collapse = 'y') views
   * 'tcf':
     - All empty fields have been removed from output.
+  * 'transferrequests':
+    - Output of request has a new attribute: time_start
 
  Bug fixes:
   * 'shift/queued' now aggregates correctly
