@@ -86,10 +86,14 @@ sub invoke
 
   my $http_now = &formatTime(&mytimeofday(), 'http');
 
-  # Get the query string variables
-  my %args = Vars();
-
-  # Reformat multiple value variables into name => [ values ]
+  # Get the query string variables. Protect against bad client-code with undefined argument-values
+  my @args = Vars();
+  if ( scalar(@args)%2 ) {
+    &error($format,"Malformed arguments (odd number of elements for hash)");
+    return;
+  }
+  my %args = @args;
+# Reformat multiple value variables into name => [ values ]
   foreach my $key (keys %args) {
       my @vals = split("\0", $args{$key});
       $args{$key} = \@vals if ($#vals > 0);
