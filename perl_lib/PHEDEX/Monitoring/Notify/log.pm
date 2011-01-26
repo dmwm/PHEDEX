@@ -19,7 +19,7 @@ sub new
 
 }
 
-sub report {
+sub send_it {
   my ($self,$message) = @_;
   PHEDEX::Core::Logging::Logmsg($self,$message);
 }

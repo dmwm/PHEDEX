@@ -24,7 +24,7 @@ sub new
 
 }
 
-sub report {
+sub send_it {
   my ($self,$message) = @_;
   my $sendmail = $self->{cmd};
   my $to       = $self->{To};
