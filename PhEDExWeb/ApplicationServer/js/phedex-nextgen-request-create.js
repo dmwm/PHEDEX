@@ -88,16 +88,22 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 container: 'buttons-right' });
         var subscribeCallback = function(obj) {
               return function(data) {
-debugger;
-                var dom = obj.dom;
+                var dom = obj.dom, str, msg, rid;
                 dom.results_label.innerHTML = '';
                 dom.results_text.innerHTML = '';
-                if ( data.message ) {
-                  Dom.removeClass(dom.results,'phedex-box-yellow');
+                Dom.removeClass(dom.results,'phedex-box-yellow');
+                if ( data.message ) { // indicative of failure~
+                  str = "Error when making call 'subscribe':";
+                  msg = data.message.replace(str,'').trim();
                   onAcceptFail('The call failed for some reason. Please ask an expert to consult the logfiles');
+//                   onAcceptFail(msg);
                 }
-                obj.Accept.set('disabled',false);
-debugger;
+                if ( rid = data.request_created[0].id ) {
+                  obj.onResetSubmit();
+                  dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfuly!';
+                  Dom.addClass(dom.results,'phedex-box-green');
+                  Dom.removeClass(dom.results,'phedex-invisible');
+                }
               }
             }(this),
             onAcceptFail = function(obj) {
@@ -130,12 +136,14 @@ debugger;
             dom.results_label.innerHTML = '';
             dom.results_text.innerHTML  = '';
             obj.formFail = false;
-//             this.set('disabled',true);
+            this.set('disabled',true);
 
 // Subscription level is hardwired for now.
 
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
+            obj.dom.data_items.value = '/lifecycle/custodial/inject_0'; // HACK
+
             if ( !data_items.value || data_items.value == obj.data_items.text ) {
               onAcceptFail('No Data-Items specified');
             }
@@ -177,6 +185,7 @@ debugger;
 // DBS - done directly in the xml
 
 // Destination
+            obj.destination.elList[0].checked = true; // HACK
             elList = obj.destination.elList;
             args.node = [];
             for (i in elList) {
@@ -214,12 +223,13 @@ debugger;
               el = elList[i];
               if ( el.checked ) {
                 if ( el.value == 0 ) { args.priority = 'low' }
-                if ( el.value == 1 ) { args.priority = 'medium' }
+                if ( el.value == 1 ) { args.priority = 'normal' }
                 if ( el.value == 2 ) { args.priority = 'high' }
               }
             }
 
 // User Group
+            obj.user_group.value = 'managers'; // HACK
             if ( ! user_group.value ) {
               onAcceptFail('No User-Group specified');
             }
@@ -234,13 +244,13 @@ debugger;
 //             args.email = email.value.innerHTML;
 
 // Comments
-            args.comments = dom.comments.value;
-            if ( args.comments == obj.comments.text ) { args.comments = ''; }
+            if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
 
-// Defaults while testing
-// TODO remove these when going live!
-            args.no_mail = 'y';
+// Never subscribe automatically from this form
             args.request_only = 'y';
+
+// Default while testing TODO remove this when going live!
+            args.no_mail = 'y';
 
 // Hardwired, for best practise!
             args.level = 'block';
@@ -268,13 +278,12 @@ debugger;
             dom.results_text.innerHTML  = 'Submitting request (please wait)' +
             "<br/>" +
             "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
-debugger;
             PHEDEX.Datasvc.Call({ api:'subscribe', method:'post', args:args, callback:subscribeCallback });
           }
         }(this);
         this.Accept.on('click', onAcceptSubmit);
 
-        var onResetSubmit = function(obj) {
+        this.onResetSubmit = function(obj) {
           return function(id,action) {
             var dbs = obj.dbs,
                 dom = obj.dom,
@@ -363,7 +372,7 @@ debugger;
             dom.results.className = 'phedex-invisible';
           }
         }(this);
-        Reset.on('click', onResetSubmit);
+        Reset.on('click', this.onResetSubmit);
       }
     }
   };
@@ -604,14 +613,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       transfer_type.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.transfer_type);
 
 // Priority
-      this.priority = { values:['high','medium','low'], _default:0 }; // !TODO note the default is actually 'low'!
+      this.priority = { values:['high','normal','low'], _default:0 }; // !TODO note the default is actually 'low'!
       var priority = this.priority;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Priority</div>" +
                         "<div id='priority' class='phedex-nextgen-control'>" +
                           "<div><input class='phedex-radio' type='radio' name='priority' value='2'>high</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='priority' value='1'>medium</input></div>" +
+                          "<div><input class='phedex-radio' type='radio' name='priority' value='1'>normal</input></div>" +
                           "<div><input class='phedex-radio' type='radio' name='priority' value='0' checked>low</input></div>" +
                         "</div>" +
                       "</div>";
