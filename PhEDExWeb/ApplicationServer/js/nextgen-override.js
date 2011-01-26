@@ -60,13 +60,12 @@ function createCoreApp() {
     ngoSuccess = function(item,e) {
       return function() {
         var cTor = PxU.getConstructor(item);
+        if ( !cTor ) { return; }
         try {
           var obj = new cTor(PxS,item);
           obj.useElement(e);
           obj.init(params);
-        } catch(ex) {
-          var a = ex;
-        }
+        } catch(ex) { }
       };
     }(page,el);
     var callbacks = {
