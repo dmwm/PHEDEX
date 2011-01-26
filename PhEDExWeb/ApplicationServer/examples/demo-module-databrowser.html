@@ -30,9 +30,11 @@
 <script type="text/javascript">
  PxW.ProductionMode  = false;
  PxW.combineRequests = false;
- PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
- PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
+// PxW.DataserviceBaseURL = '/phedex/dev2/datasvc/';
+// PxW.DataserviceURL     = '/phedex/dev2/datasvc/json/';
+// PxW.BaseURL = '/phedex/dev2/datasvc/app/';
  PxW.Instances.push({name:'Tony - private', instance:'tony'});
+// PxW.GlobalOptions = { window:true, resizeable:true };
 </script>
 <script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
 <script type="text/javascript">
@@ -69,7 +71,7 @@ function createCoreApp() {
          id     = arr[1];
     switch ( action ) {
       case 'needArguments':{ // respond only to ('module','needArguments')
-        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/raw_1'} );
+        PxS.notify( id, 'setArgs', {dataset:'/lifecycle/custodial/*'} );
 //         PxS.notify( id, 'setArgs', {block:'/MinBias_TuneD6T_7TeV-pythia6/Fall10-START38_V9-v1/GEN-SIM-RAW#4*'} );
         break;
       }
