@@ -5,7 +5,7 @@ YAHOO.util.Event.onDOMReady(function() {
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
-  PxL.load(createCoreApp,'core','sandbox');
+  PxL.load(createCoreApp,'core','sandbox','datasvc');
 
   var phedex_app_version = document.getElementById('phedex-app-version'),
       phedex_home = document.getElementById('phedex-link-home');
@@ -37,6 +37,9 @@ function createCoreApp() {
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
   el = document.getElementById(page);
 
+  var db = DBID;
+  PxW.Instances.push( {name:'Tony', instance:'Tony'} );
+  PHEDEX.Datasvc.Instance( db );
   if ( el ) {
     banner('loading, please wait...');
     page = page.replace(/::/g,'-');
@@ -54,9 +57,6 @@ function createCoreApp() {
         }
       }
     }
-    if ( el.className == 'prod_schema_is_3x' && page == 'phedex-nextgen-request-create' &&
-         ( location.href.match(/\/prod\/Request::Create/) || !params.type || params.type != 'xfer' )
-       ) { return; }
     ngoSuccess = function(item,e) {
       return function() {
         var cTor = PxU.getConstructor(item);
@@ -75,7 +75,8 @@ function createCoreApp() {
                       Timeout:  function(item) { banner('Timeout loading javascript modules'); },
                       Progress: function(item) { banner('Loaded item: '+item.name); }
                     };
-    PxL.load(callbacks,page,'datasvc');
+    PxL.load(callbacks,page);
+//     PxL.load(callbacks,page,'datasvc');
     document.body.className = 'yui-skin-sam';
   }
 };
