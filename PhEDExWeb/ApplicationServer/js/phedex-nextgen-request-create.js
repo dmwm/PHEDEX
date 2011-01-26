@@ -144,7 +144,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
-            obj.dom.data_items.value = '/lifecycle/custodial/inject_0'; // HACK
 
             if ( !data_items.value || data_items.value == obj.data_items.text ) {
               onAcceptFail('No Data-Items specified');
@@ -187,7 +186,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 // DBS - done directly in the xml
 
 // Destination
-            obj.destination.elList[0].checked = true; // HACK
             elList = obj.destination.elList;
             args.node = [];
             for (i in elList) {
@@ -231,7 +229,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
 
 // User Group
-            obj.user_group.value = 'managers'; // HACK
             if ( ! user_group.value ) {
               onAcceptFail('No User-Group specified');
             }
@@ -428,12 +425,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
         return function() {
+          if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           if ( this.value == data_items.text ) {
             this.value = '';
             Dom.setStyle(this,'color','black');
-            if ( obj.formFail ) {
-              obj.Accept.set('disabled',false);
-            }
           }
         }
       }(this);
@@ -654,9 +649,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
-            if ( obj.formFail ) {
-              obj.Accept.set('disabled',false);
-            }
+            if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           };
           groupList = data.group;
           for (i in groupList ) {
