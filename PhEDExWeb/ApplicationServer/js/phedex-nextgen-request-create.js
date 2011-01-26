@@ -15,6 +15,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         minwidth:600,
         minheight:50
       },
+      waitToEnableAccept:2,
       useElement: function(el) {
         var d = this.dom;
         d.target = el;
@@ -86,8 +87,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-right' });
+        this.Accept.set('disabled',true);
         var subscribeCallback = function(obj) {
-              return function(data) {
+              return function(data,context) {
                 var dom = obj.dom, str, msg, rid;
                 dom.results_label.innerHTML = '';
                 dom.results_text.innerHTML = '';
@@ -526,22 +528,25 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.destination = { nodes:[], selected:[] };
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form-element');
-      el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" + "</div>";
+      el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
+                       "<div class='phedex-nextgen-label'>Destination</div>" +
+                       "<div id='destination-panel' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
+                         "<em>loading destination list...</em>" +
+                       "</div>" +
+                     "</div>";
       form.appendChild(el);
-      d.destination = el;
+      d.destination = Dom.get('destination-container');
       var makeNodePanel = function(obj) {
         return function(data,context) {
-          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=document.createElement('div'), destination=d.destination;
-          Dom.addClass(el,'phedex-nextgen-label');
-          el.innerHTML = 'Destination';
+          var nodes=[], node, i, j, k, pDiv, destination=d.destination;
 
           for ( i in data.node ) {
             node = data.node[i].name;
             if ( node.match(/^T(0|1|2|3)_/) ) { nodes.push(node ); }
           }
           nodes = nodes.sort();
-
-          Dom.addClass(pDiv,'phedex-nextgen-control phedex-nextgen-nodepanel');
+          pDiv = Dom.get('destination-panel');
+          pDiv.innerHTML = '';
           k = '1';
           for ( i in nodes ) {
             node = nodes[i];
@@ -554,7 +559,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
             obj.destination.nodes.push(node);
           }
-          destination.appendChild(el);
           destination.appendChild(pDiv);
           obj.destination.elList = Dom.getElementsByClassName('phedex-checkbox','input',destination);
           var onDestinationClick =function(event, matchedEl, container) {
@@ -563,9 +567,11 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                 }
               };
           YAHOO.util.Event.delegate(destination, 'click', onDestinationClick, 'input');
+
+          if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
         }
       }(this);
-      PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
+      setTimeout( function() { PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel }); }, 5000);
 
 // Site Custodial
       this.site_custodial = { values:['yes','no'], _default:1 };
@@ -635,7 +641,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>User Group</div>" +
-                        "<div id='user_group_menu' class='phedex-nextgen-control'>" +
+                        "<div id='user_group_menu' class='phedex-nextgen-control'>" + "<em>loading list of groups...</em>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
@@ -643,6 +649,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       var makeGroupMenu = function(obj) {
         return function(data,context) {
           var onMenuItemClick, groupMenuItems=[], groupList, group, i;
+          Dom.get('user_group_menu').innerHTML = '';
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
@@ -664,7 +671,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                                     name: 'groupMenuButton',
                                     menu:  groupMenuItems,
                                     container: 'user_group_menu' });
-        }
+
+          if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
+       }
       }(this);
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
