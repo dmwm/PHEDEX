@@ -204,6 +204,10 @@ div#opts {
 
 }
 
+div.optscontent {
+  text-align: left;
+}
+
 div.optscontent,
 div#optsnav div.raised {
   background-color:	#f2f2ff;
@@ -222,6 +226,7 @@ div#optsnav {
   margin:  0;
   padding: 0;
   border:  none;
+  text-align: left;
 }
 
 div.optscontent {
