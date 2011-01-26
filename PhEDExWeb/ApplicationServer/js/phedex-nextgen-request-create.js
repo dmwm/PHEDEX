@@ -54,7 +54,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }(this);
         _sbx.listen(this.id, selfHandler);
         this.initSub();
-        var ft=this.dom.ft, Reset, Validate, Cancel, Accept;
+        var ft=this.dom.ft, Reset, //, Validate, Cancel;
             el = document.createElement('div');
         Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-left');
         el.id='buttons-left';
@@ -79,49 +79,80 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 value: id,
                                 container: 'buttons-left' });
         label='Accept', id='button'+label;
-        Accept = new YAHOO.widget.Button({
+        this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
                                 id: id,
                                 name: id,
                                 value: id,
                                 container: 'buttons-right' });
-        var onAcceptSubmit = function(obj) {
+        var subscribeCallback = function(obj) {
+              return function(data) {
+debugger;
+                var dom = obj.dom;
+                dom.results_label.innerHTML = '';
+                dom.results_text.innerHTML = '';
+                if ( data.message ) {
+                  Dom.removeClass(dom.results,'phedex-box-yellow');
+                  onAcceptFail('The call failed for some reason. Please ask an expert to consult the logfiles');
+                }
+                obj.Accept.set('disabled',false);
+debugger;
+              }
+            }(this),
+            onAcceptFail = function(obj) {
+              return function(text) {
+                var dom = obj.dom;
+                Dom.removeClass(dom.results,'phedex-invisible');
+                Dom.addClass(dom.results,'phedex-box-red');
+                dom.results_label.innerHTML = 'Error:';
+                if ( dom.results_text.innerHTML ) {
+                  dom.results_text.innerHTML += '<br />';
+                }
+                dom.results_text.innerHTML += text;
+                obj.formFail = true;
+              }
+            }(this),
+            onAcceptSubmit = function(obj) {
           return function(id,action) {
             var dbs = obj.dbs,
                 dom = obj.dom,
                 user_group = obj.user_group,
                 email      = obj.email,
-                start_time = obj.start_time,
+                time_start = obj.time_start,
                 data_items = dom.data_items,
                 menu, menu_items,
                 data={}, args={}, tmp, value, type, block, dataset, xml,
                 elList, el, i;
 
-try {
-// Subscription level
-// TODO decide if we keep this or not?
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+            Dom.removeClass(obj.dom.results,'phedex-box-red');
+            dom.results_label.innerHTML = '';
+            dom.results_text.innerHTML  = '';
+            obj.formFail = false;
+//             this.set('disabled',true);
 
-// Data Items TODO xml
-// Several layers of checks:
+// Subscription level is hardwired for now.
+
+// Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
             if ( !data_items.value || data_items.value == obj.data_items.text ) {
-              alert('No data-items specified!');
-              return;
+              onAcceptFail('No Data-Items specified');
             }
 // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-            tmp = data_items.value.split(/ |\n|,/);
-            data = {blocks:{}, datasets:{} };
-            for (i in tmp) {
-              block = tmp[i];
-              if ( block != '' ) {
-                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                  dataset = RegExp.$1;
-                  if ( dataset == block ) { data.datasets[dataset] = 1; }
-                  else                    { data.blocks[block] = 1; }
-                } else {
-                  alert('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-                  return;
+            if ( data_items.value != obj.data_items.text ) {
+              tmp = data_items.value.split(/ |\n|,/);
+              data = {blocks:{}, datasets:{} };
+              for (i in tmp) {
+                block = tmp[i];
+                if ( block != '' ) {
+                  if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                    dataset = RegExp.$1;
+                    if ( dataset == block ) { data.datasets[dataset] = 1; }
+                    else                    { data.blocks[block] = 1; }
+                  } else {
+                    onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+                  }
                 }
               }
             }
@@ -151,6 +182,9 @@ try {
             for (i in elList) {
               el = elList[i];
               if ( el.checked ) { args.node.push(obj.destination.nodes[i]); }
+            }
+            if ( args.node.length == 0 ) {
+              onAcceptFail('No Destination nodes specified');
             }
 
 // Site Custodial
@@ -187,14 +221,13 @@ try {
 
 // User Group
             if ( ! user_group.value ) {
-              alert('No user-group specified');
-              return;
+              onAcceptFail('No User-Group specified');
             }
             args.group = user_group.value;
 
 // Start Time TODO format this?
-            if ( start_time.value && ( start_time.value != start_time.text ) ) {
-              args.start_time = start_time.value
+            if ( time_start.value && ( time_start.value != time_start.text ) ) {
+              args.time_start = time_start.value
             }
 
 // Email TODO check field?
@@ -212,8 +245,13 @@ try {
 // Hardwired, for best practise!
             args.level = 'block';
 
+// If there were errors, I can give up now!
+            if ( obj.formFail ) {
+              this.set('disabled',true);
+              return;
+            }
+
 // Now build the XML!
-debugger;
             xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
             for ( dataset in data.datasets ) {
               xml += '<dataset name="'+dataset+'" is-open="dummy">';
@@ -224,17 +262,17 @@ debugger;
             }
             xml += '</dbs></data>';
             args.data = xml;
-//             result.innerHTML = 'Submitting request, please wait...';
-//             _sbx.notify( o.id, 'getData', { api:'subscribe', args:args, method:'post' } );
+            Dom.removeClass(dom.results,'phedex-invisible');
+            Dom.addClass(dom.results,'phedex-box-yellow');
+            dom.results_label.innerHTML = 'Status:';
+            dom.results_text.innerHTML  = 'Submitting request (please wait)' +
+            "<br/>" +
+            "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
 debugger;
-
-} catch(ex) {
-var a = ex;
-debugger;
-}
+            PHEDEX.Datasvc.Call({ api:'subscribe', method:'post', args:args, callback:subscribeCallback });
           }
         }(this);
-        Accept.on('click', onAcceptSubmit);
+        this.Accept.on('click', onAcceptSubmit);
 
         var onResetSubmit = function(obj) {
           return function(id,action) {
@@ -242,7 +280,7 @@ debugger;
                 dom = obj.dom,
                 user_group = obj.user_group,
                 email      = obj.email,
-                start_time = obj.start_time,
+                time_start = obj.time_start,
                 data_items = dom.data_items,
                 menu, menu_items,
                 elList, _default, el, i;
@@ -311,8 +349,8 @@ debugger;
 
 // Start Time
 // TODO will need to reset the calendar YUI module too, when I have one...
-            dom.start_time.value = '';
-            dom.start_time.onblur();
+            dom.time_start.value = '';
+            dom.time_start.onblur();
 
 // Email
             email.value.innerHTML = email.input.value = email._default;
@@ -320,6 +358,9 @@ debugger;
 // Comments
             dom.comments.value = '';
             dom.comments.onblur();
+
+            obj.Accept.set('disabled',false);
+            dom.results.className = 'phedex-invisible';
           }
         }(this);
         Reset.on('click', onResetSubmit);
@@ -374,12 +415,17 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       form.appendChild(el);
 
       d.data_items = Dom.get('data_items');
-      d.data_items.onfocus = function() {
-        if ( this.value == data_items.text ) {
-          this.value = '';
-          Dom.setStyle(this,'color','black');
+      d.data_items.onfocus = function(obj) {
+        return function() {
+          if ( this.value == data_items.text ) {
+            this.value = '';
+            Dom.setStyle(this,'color','black');
+            if ( obj.formFail ) {
+              obj.Accept.set('disabled',false);
+            }
+          }
         }
-      }
+      }(this);
       d.data_items.onblur=function() {
         if ( this.value == '' ) {
           this.value = data_items.text;
@@ -391,12 +437,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.dbs = {
         instanceDefault:{
           prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          dev:'',
-          debug:''
+          dev:'(unknown)',
+          Tony:'test',
+          debug:'(unknown)'
         }
       };
-      var dbs = this.dbs;
-      dbs._default = dbs.instanceDefault ['prod']; // TODO pick up the instance correctly!
+
+      var dbs = this.dbs,
+          instance = PHEDEX.Datasvc.Instance();
+      dbs._default = dbs.instanceDefault[instance.name]; // TODO pick up the instance correctly!
 
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
@@ -473,7 +522,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       d.destination = el;
       var makeNodePanel = function(obj) {
         return function(data,context) {
-          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=pDiv=document.createElement('div'), destination=d.destination;
+          var nodes=[], node, i, j, k, el=document.createElement('div'), pDiv=document.createElement('div'), destination=d.destination;
           Dom.addClass(el,'phedex-nextgen-label');
           el.innerHTML = 'Destination';
 
@@ -499,6 +548,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           destination.appendChild(el);
           destination.appendChild(pDiv);
           obj.destination.elList = Dom.getElementsByClassName('phedex-checkbox','input',destination);
+          var onDestinationClick =function(event, matchedEl, container) {
+                if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+                  obj.Accept.set('disabled',false);
+                }
+              };
+          YAHOO.util.Event.delegate(destination, 'click', onDestinationClick, 'input');
         }
       }(this);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
@@ -515,7 +570,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-      d.site_custodial = Dom.get('isCustodial');
+//       d.site_custodial = Dom.get('site_custodial');
       site_custodial.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.site_custodial);
 
 // Subscription type
@@ -583,6 +638,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
+            if ( obj.formFail ) {
+              obj.Accept.set('disabled',false);
+            }
           };
           groupList = data.group;
           for (i in groupList ) {
@@ -602,19 +660,19 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
 // Start time
-      this.start_time = { text:'YYYY/MM/DD [hh:mm:ss]' };
-      var start_time = this.start_time;
+      this.time_start = { text:'YYYY/MM/DD [hh:mm:ss]' };
+      var time_start = this.time_start;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Start Time</div>" +
                         "<div class='phedex-nextgen-control'>" +
-                          "<div><input type='text' id='start_time' name='start_time' class='phedex-nextgen-text' value='" + start_time.text + "' />" +
-                          "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align: text-bottom;' />" +
-                          "<span id='phedex-nextgen-calendar-el' class='phedex-invisible'></span>" +
+                          "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
+                          "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
                           "</div>" +
                         "</div>" +
-                      "</div>";
+                      "</div>" +
+                      "<div id='phedex-nextgen-calendar-el' class='phedex-invisible'></div>";
       form.appendChild(el);
       d.calendar_icon = Dom.get('phedex-nextgen-calendar-icon');
       d.calendar_el   = Dom.get('phedex-nextgen-calendar-el');
@@ -622,44 +680,43 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       var mySelectHandler = function(o) {
         return function(type,args,obj) {
           var selected = args[0][0];
-          o.dom.start_time.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
-          o.start_time.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
+          o.dom.time_start.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+          o.time_start.time_start = new Date(selected[0],selected[1],selected[2],0,0,0).getTime()/1000;
+          Dom.setStyle(o.dom.time_start,'color','black');
           YuD.addClass(elCal,'phedex-invisible');
         }
       }(this);
-     var cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), d.calendar_el); //, {maxdate:now.month+'/'+now.day+'/'+now.year } );
-         cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
-         cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
-         cal.cfg.setProperty('MDY_DAY_POSITION', 3);
-         cal.selectEvent.subscribe( mySelectHandler, cal, true);
-         cal.render();
+      var cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), d.calendar_el); //, {maxdate:now.month+'/'+now.day+'/'+now.year } );
+          cal.cfg.setProperty('MDY_YEAR_POSITION', 1);
+          cal.cfg.setProperty('MDY_MONTH_POSITION', 2);
+          cal.cfg.setProperty('MDY_DAY_POSITION', 3);
+          cal.selectEvent.subscribe( mySelectHandler, cal, true);
+          cal.render();
 
-        YuE.addListener(d.calendar_icon,'click',function() {
-            if ( YuD.hasClass(d.calendar_el,'phedex-invisible') ) {
-              YuD.removeClass(d.calendar_el,'phedex-invisible');
-debugger;
-              var coords = Dom.getXY(d.start_time);
-              Dom.setX(d.calendar_el,coords[0]);
-              Dom.setY(d.calendar_el,coords[0]+40);
-//               elCal.style.left = ctl.offsetLeft - elCal.clientWidth;
-            } else {
-              YuD.addClass(d.calendar_el,'phedex-invisible');
-            }
-          }, this, true);
+      YuE.addListener(d.calendar_icon,'click',function() {
+        if ( YuD.hasClass(d.calendar_el,'phedex-invisible') ) {
+          var elRegion = Dom.getRegion(d.time_start);
+          YuD.removeClass(d.calendar_el,'phedex-invisible');
+          Dom.setX(d.calendar_el,elRegion.left);
+          Dom.setY(d.calendar_el,elRegion.bottom);
+        } else {
+          YuD.addClass(d.calendar_el,'phedex-invisible');
+        }
+      }, this, true);
 
-      d.start_time = Dom.get('start_time');
-      Dom.setStyle(d.start_time,'width','170px')
-      d.start_time.onfocus = function() {
-        if ( this.value == start_time.text ) {
+      d.time_start = Dom.get('time_start');
+      Dom.setStyle(d.time_start,'width','170px')
+      d.time_start.onfocus = function() {
+        if ( this.value == time_start.text ) {
           this.value = '';
           Dom.setStyle(this,'color','black');
         }
       }
-      d.start_time.onblur=function(obj) {
+      d.time_start.onblur=function(obj) {
         return function() {
-          start_time.value = this.value;
+          time_start.value = this.value;
           if ( this.value == '' ) {
-            this.value = start_time.text;
+            this.value = time_start.text;
             Dom.setStyle(this,'color',null)
           }
         }
@@ -751,8 +808,24 @@ debugger;
       d.comments.onblur=function() {
         if ( this.value == '' ) {
           this.value = comments.text;
-          Dom.setStyle(this,'color',null)        }
+          Dom.setStyle(this,'color',null);
+        }
       }
+
+// Results
+      el = document.createElement('div');
+      el.innerHTML = "<div id='phedex-nextgen-results' class='phedex-invisible'>" +
+                       "<div class='phedex-nextgen-form-element'>" +
+                          "<div id='phedex-nextgen-results-label' class='phedex-nextgen-label'>Results</div>" +
+                          "<div class='phedex-nextgen-control'>" +
+                            "<div id='phedex-nextgen-results-text'></div>" +
+                          "</div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+      d.results = Dom.get('phedex-nextgen-results');
+      d.results_label = Dom.get('phedex-nextgen-results-label');
+      d.results_text  = Dom.get('phedex-nextgen-results-text');
     }
   }
 }
