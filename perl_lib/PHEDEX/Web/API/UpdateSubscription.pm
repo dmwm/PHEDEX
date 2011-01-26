@@ -141,6 +141,7 @@ my $map2 = {
 
 sub duration { return 0; } # no cache for update
 sub need_auth { return 1; }
+sub methods_allowed { return 'POST'; }
 sub invoke { return update_subscription(@_); }
 
 sub update_subscription
