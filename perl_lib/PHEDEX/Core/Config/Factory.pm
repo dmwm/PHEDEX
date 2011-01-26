@@ -36,7 +36,8 @@ our %params =
 	  STATISTICS_DETAIL	=>    0,	# reporting level: 0, 1, or 2
 
           SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
-          PLUGIN                => 'logfile',   # plugin used for reporting 
+          NOTIFY_PLUGIN         => 'logfile',   # plugin used for reporting 
+          REPORT_PLUGIN         => 'summary'    # plugin used to generate report
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -66,15 +67,21 @@ sub new
         $ENV{PHEDEX_SITE};
   die "'PHEDEX_SITE' not set correctly in your configuration file, giving up...\n" unless $self->{PHEDEX_SITE};
 
-  $self->{PLUGIN} = 'Log' if (lc($self->{PLUGIN}) eq 'logfile' );
-  $self->{PLUGIN} = 'Email' if (lc($self->{PLUGIN}) eq 'mail' );
+  $self->{NOTIFY_PLUGIN} = 'Log' if (lc($self->{NOTIFY_PLUGIN}) eq 'logfile' );
+  $self->{NOTIFY_PLUGIN} = 'Email' if (lc($self->{NOTIFY_PLUGIN}) eq 'mail' );
 
-  my @plugin_reject = ( qw / Template / );
+  my @notify_reject = ( qw / Template / );
+  my @report_reject = ( qw / Template / );
 
-  my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify',
-                                          REJECT => \@plugin_reject );
-  $self->{wdp} = $loader->Load( lc($self->{PLUGIN}) )->new( DEBUG => $self->{DEBUG},
-                                                            PHEDEX_SITE => $self->{PHEDEX_SITE} );
+  my $notify_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Notify',
+                                                 REJECT => \@notify_reject );
+  $self->{notify_plug} = $notify_loader->Load( lc($self->{NOTIFY_PLUGIN}) )->new( DEBUG => $self->{DEBUG},
+                                                                                  PHEDEX_SITE => $self->{PHEDEX_SITE} );
+
+  my $report_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Reports',
+                                                 REJECT => \@report_reject );
+  $self->{report_plug} = $report_loader->Load( lc($self->{REPORT_PLUGIN}) )->new( DEBUG => $self->{DEBUG} );
+
 
   return $self;
 }
@@ -536,18 +543,9 @@ sub _make_stats
 sub _do_summary {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
-  my $summary = "STATISTICS SUMMARY\n";
-  foreach my $agent ( sort keys %{$self->{AGENTS}} )
-  {
-#   skip me
-    next if $self->{AGENTS}{$agent}{self}{stats};
-    $summary .= "\t $agent: \n";
-    foreach my $key ( keys %{$self->{AGENTS}{$agent}{resources}} )
-    {
-       $summary .= "\t \t $key = $self->{AGENTS}{$agent}{resources}{$key} \n";
-    } 
-  }
-  $self->{wdp}->report($summary); 
+  my $some_text = $self->{report_plug}->generate_it( AGENTS => $self->{AGENTS} );
+  $self->{notify_plug}->send_it($some_text);
+ 
   $kernel->delay_set('_do_summary',$self->{SUMMARY_INTERVAL});
 }
 
