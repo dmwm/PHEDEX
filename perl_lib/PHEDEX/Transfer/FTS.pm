@@ -13,6 +13,7 @@ use PHEDEX::Transfer::Backend::Monitor;
 use PHEDEX::Transfer::Backend::Interface::GliteAsync;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
+use PHEDEX::Core::Formats;
 use PHEDEX::Monalisa;
 use POE;
 
@@ -361,11 +362,17 @@ sub start_transfer_job
 		    START=>&mytimeofday(),
 		    );
 	if ($self->{FTS_CHECKSUM}) {
-	    my %checksums=split(/,|:/,$task->{CHECKSUM});
-	    my $checksum_val=$checksums{$self->{FTS_CHECKSUM_TYPE}};
-	    if (defined $checksum_val) {
-		$args{CHECKSUM_TYPE}=$self->{FTS_CHECKSUM_TYPE};
-		$args{CHECKSUM_VAL}=$checksum_val;
+	    my $checksum_map;
+	    eval {$checksum_map=PHEDEX::Core::Formats::parseChecksums($task->{CHECKSUM});};
+	    if ($@) { 
+		$self->Alert("File $from_pfn: ",$@);
+	    }
+	    else {
+		my $checksum_val=$checksum_map->{$self->{FTS_CHECKSUM_TYPE}};
+		if (defined $checksum_val) {
+		    $args{CHECKSUM_TYPE}=$self->{FTS_CHECKSUM_TYPE};
+		    $args{CHECKSUM_VAL}=$checksum_val;
+		}
 	    }
 	}
 	my $f = PHEDEX::Transfer::Backend::File->new(%args);
