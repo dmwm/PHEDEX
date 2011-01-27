@@ -21,3 +21,11 @@ begin
 return(result);
 end now;
 /
+
+-- returns the schema version
+create or replace function schema_version return varchar is
+  result varchar(20);
+begin
+  return('4.0.0');
+end schema_version;
+/
