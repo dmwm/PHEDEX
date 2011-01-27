@@ -79,7 +79,7 @@ sub subscribe
     if ( $version[0] < 4 ) { return subscribe_33($core,%args); }
 
     &checkRequired(\%args, qw(data node group));
-    die "group $args{group} is forbidden" if ($args{group} eq "deprecated-undefined");
+    die "group $args{group} is forbidden" if ($args{group} =~ m/^deprecated-/);
     # default values for options
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
