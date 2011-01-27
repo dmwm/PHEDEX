@@ -113,9 +113,11 @@ sub duration  { return 0; }
 sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return inject(@_); }
+use URI::Escape;
 sub inject
 {
   my ($core,%args) = @_;
+  $args{data} = uri_unescape($args{data});
   &checkRequired(\%args, 'node');
 
   my ($auth,$node,$nodeid,$result,$stats,$strict);
