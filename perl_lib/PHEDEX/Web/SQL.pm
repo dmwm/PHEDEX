@@ -4022,7 +4022,7 @@ sub updateSubscription
     if ($h{GROUP})
     {
         # deprecated-undefined is a forbidden group
-        die "group $h{GROUP} is forbidden" if ($h{GROUP} eq "deprecated-undefined");
+        die "group $h{GROUP} is forbidden" if ($h{GROUP} =~ m/^deprecated-/);
         my $gsql = qq{
             select
                 id
