@@ -898,6 +898,16 @@ sub getGroupMap
     return $map;
 }
 
-
+#-------------------------------------------------------------------------------
+sub getSchemaVersion
+{
+    my ($self, %h) = @_;
+    my $sql = qq{ select schema_version() from dual };
+    my $q = execute_sql($self, $sql);
+    my $version = $q->fetchrow();
+    if ( !wantarray ) { return $version; }
+    $version =~ m%^(\d+)\.(\d+)\.(.*)%;
+    return ($1,$2,$3);
+}
 
 1;
