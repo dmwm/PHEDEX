@@ -2227,7 +2227,8 @@ function select_all(form_id, name, value) {
 <!-- main content -->
 <div id="content">
 @THIS_IS_A_TEST@
-@CONTENT@
+@SCHEMA_VERSION@
+@CONTENT@ 
 </div>
 </div> <!-- /page -->
 
@@ -2520,6 +2521,7 @@ sub generate
       $$self{VIEW_MESSAGE} = "<p><label>View:</label><a href='$otherurl'>my</a> | <strong>global</strong></p>";
   }
 
+
   # Select page we are visiting
   my %pagemap;
   my @pages = grep(${$$_}{LIST}, $self->index());
@@ -2623,6 +2625,7 @@ sub generate
        " </div>"),
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
     'VERSION' => "$$self{CONFIG}{VERSION}",
+    'SCHEMA_VERSION' => '',
   };
 
   # Hide these things on the password page
@@ -2721,6 +2724,19 @@ sub generate
 	return;
       }
     }
+
+    # Detect the schema version and pass it into the page
+    my ($major,$minor,$revision);
+    ($major,$minor,$revision) = PHEDEX::Core::SQL::getSchemaVersion($self);
+    $self->{SCHEMA} = { MAJOR=>$major, MINOR=>$minor, REVISION=>$revision };
+    $replacements->{SCHEMA_VERSION} =
+"<script type='text/javascript'>
+ PhedexPage = {
+   SchemaVersion: { major:$major, minor:$minor, revision:$revision },
+   DBInstance: '$self->{DBID}'
+  };
+</script>";
+
     $self->output();
      if ($$self{DBH})
      {
@@ -4347,15 +4363,9 @@ sub output
   my $node_label = '';
   my $confirm_page = $self->myurl(page=>'Request::Confirm');
 
-  if ( !$self->{CONFIG}{PROD_SCHEMA_IS_3X} && $type eq 'xfer' ) {
-    print { $self->{CONTENT} }
-#      "<div style='width:100%' id='phedex-banner-messages-outer'>",
-#      "<div style='margin:auto; width:100%; text-align:center' id='phedex-banner-messages-inner' class='phedex-messages-inner'></div>",
-#      "</div>",
-    print { $self->{CONTENT} } "<script type='text/javascript''>DBID='",
-	$self->{DBID}, "';</script>";
-    print { $self->{CONTENT} } 
-	"<div id='Request::Create' class='prod_schema_is_3x'></div>";
+
+  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type eq 'xfer' ) {
+    print { $$self{CONTENT} } "<div id='Request::Create'></div>";
     return;
   }
 
