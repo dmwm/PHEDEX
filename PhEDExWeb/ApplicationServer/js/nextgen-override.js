@@ -5,7 +5,7 @@ YAHOO.util.Event.onDOMReady(function() {
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
-  PxL.load(createCoreApp,'core','sandbox','datasvc');
+  PxL.load(createCoreApp,'core','sandbox');
 
   var phedex_app_version = document.getElementById('phedex-app-version'),
       phedex_home = document.getElementById('phedex-link-home');
@@ -37,9 +37,6 @@ function createCoreApp() {
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
   el = document.getElementById(page);
 
-  var db = DBID;
-  PxW.Instances.push( {name:'Tony', instance:'Tony'} );
-  PHEDEX.Datasvc.Instance( db );
   if ( el ) {
     banner('loading, please wait...');
     page = page.replace(/::/g,'-');
@@ -59,7 +56,13 @@ function createCoreApp() {
     }
     ngoSuccess = function(item,e) {
       return function() {
-        var cTor = PxU.getConstructor(item);
+        var db, cTor;
+//      Make sure I'm talking to the correct DB instance
+        db=PhedexPage.DBInstance;
+        PxW.Instances.push( {name:'Tony', instance:'Tony'} );
+        PHEDEX.Datasvc.Instance( db );
+//      (try to) Create and run the page
+        cTor = PxU.getConstructor(item);
         if ( !cTor ) { return; }
         try {
           var obj = new cTor(PxS,item);
@@ -74,8 +77,7 @@ function createCoreApp() {
                       Timeout:  function(item) { banner('Timeout loading javascript modules'); },
                       Progress: function(item) { banner('Loaded item: '+item.name); }
                     };
-    PxL.load(callbacks,page);
-//     PxL.load(callbacks,page,'datasvc');
+    PxL.load(callbacks,page,'datasvc');
     document.body.className = 'yui-skin-sam';
   }
 };
