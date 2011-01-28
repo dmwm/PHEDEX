@@ -2736,7 +2736,14 @@ sub generate
 "<script type='text/javascript'>
  PhedexPage = {
    SchemaVersion: { major:$major, minor:$minor, revision:$revision },
-   DBInstance: '$self->{DBID}'
+   DBInstance: '$self->{DBID}',
+   Instances: [\n";
+    my $insts = $self->{CONFIG}{INSTANCES};
+    foreach( keys %{$insts} ) {
+      $replacements->{SCHEMA_VERSION} .=
+	 "{name:'" . $insts->{$_}{TITLE} . "', instance:'$_'},\n";
+    }
+    $replacements->{SCHEMA_VERSION} .= "   ]
   };
 </script>";
 
