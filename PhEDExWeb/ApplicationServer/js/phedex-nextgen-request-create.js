@@ -443,9 +443,11 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.dbs = {
         instanceDefault:{
           prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          dev:'(unknown)',
-          Tony:'test',
-          debug:'(unknown)'
+          dev:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+          debug:'LoadTest07',
+          Testbed:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+          Testbed2:'test',
+          Tony:'test'
         }
       };
 
