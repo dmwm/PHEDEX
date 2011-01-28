@@ -2727,7 +2727,10 @@ sub generate
 
     # Detect the schema version and pass it into the page
     my ($major,$minor,$revision);
-    ($major,$minor,$revision) = PHEDEX::Core::SQL::getSchemaVersion($self);
+    eval {
+      ($major,$minor,$revision) = PHEDEX::Core::SQL::getSchemaVersion($self);
+    };
+    if ( $@ ) { $major = $minor = $revision = 0; }
     $self->{SCHEMA} = { MAJOR=>$major, MINOR=>$minor, REVISION=>$revision };
     $replacements->{SCHEMA_VERSION} =
 "<script type='text/javascript'>
