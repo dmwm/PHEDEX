@@ -6,7 +6,7 @@ use PHEDEX::Core::XML;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Util qw( arrayref_expand );
 use PHEDEX::Core::Identity;
-use PHEDEX::RequestAllocator::Core;
+#use PHEDEX::RequestAllocator::Core;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Mail;
 use URI::Escape;
@@ -74,6 +74,8 @@ sub invoke { return subscribe(@_); }
 sub subscribe
 {
     my ($core, %args) = @_;
+eval ("use PHEDEX::RequestAllocator::Core");
+die $@ if $@;
 
     my @version = PHEDEX::Core::SQL::getSchemaVersion($core);
     if ( $version[0] < 4 ) { return subscribe_33($core,%args); }
@@ -225,6 +227,8 @@ sub subscribe
 sub subscribe_33
 {
     my ($core, %args) = @_;
+eval ("require PHEDEX::RequestAllocator::wrapper");
+die $@ if $@;
     &checkRequired(\%args, qw(data node));
     # default values for options
     $args{priority} ||= 'low';
@@ -284,7 +288,7 @@ sub subscribe_33
 							       $identity->{ID},
 							       "Remote host" => $core->{REMOTE_HOST},
 							       "User agent"  => $core->{USER_AGENT} );
-   
+
 	my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest($core, $data, $nodes,
 									  TYPE => 'xfer',
 									  LEVEL => $args{level},
@@ -343,10 +347,10 @@ sub subscribe_33
     $commit = 0 if $args{dummy};
     $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
     # send out notification
-    if ($args{no_mail} eq 'n')
-    {
-        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
-    }
+#    if ($args{no_mail} eq 'n')
+#    {
+#        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
+#    }
     
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
