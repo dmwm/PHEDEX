@@ -14,7 +14,8 @@ use Carp;
 use Clone;
 
 our @ISA = qw(Exporter);
-our @EXPORT = qw ( process_args validate_params checkRequired error auth_nodes );
+#our @EXPORT = qw ( process_args validate_params checkRequired error auth_nodes );
+our @EXPORT = qw ( process_args validate_params checkRequired auth_nodes );
 
 # process arguments used for common features
 sub process_args
