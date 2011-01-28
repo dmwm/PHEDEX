@@ -59,7 +59,7 @@ function createCoreApp() {
         var db, cTor;
 //      Make sure I'm talking to the correct DB instance
         db=PhedexPage.DBInstance;
-        PxW.Instances.push( {name:'Tony', instance:'Tony'} );
+        if ( PhedexPage.Instances ) { PxW.Instances = PhedexPage.Instances; }
         PHEDEX.Datasvc.Instance( db );
 //      (try to) Create and run the page
         cTor = PxU.getConstructor(item);
