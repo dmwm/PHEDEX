@@ -59,7 +59,7 @@ If successful returns a 'request_created' element with one attribute,
 
 sub duration { return 0; }
 sub need_auth { return 1; }
-#sub methods_allowed { return 'POST'; }
+sub methods_allowed { return 'POST'; }
 sub invoke { return to_delete(@_); }
 
 sub to_delete
