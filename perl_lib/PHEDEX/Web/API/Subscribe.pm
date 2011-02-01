@@ -347,10 +347,12 @@ die $@ if $@;
     $commit = 0 if $args{dummy};
     $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
     # send out notification
-#    if ($args{no_mail} eq 'n')
-#    {
-#        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
-#    }
+    if ($args{no_mail} eq 'n')
+    {
+      eval { # try to send mail, but don't die if it fails!
+        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
+      };
+    }
     
     # for output, we return a list of the generated request IDs
     my @req_ids = map { { id => $_ } } keys %$requests;
