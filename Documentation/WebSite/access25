@@ -2475,7 +2475,8 @@ sub generate
 	  ("<div class='userstate'>",
 	   "<a href='#'",
 	   " onclick='return hideshow(\"userstate\")'>$name_display</a>",
-	   " | <a href='$signout_url'>Sign out</a><br/>",
+#	   " | <a href='$signout_url'>Sign out</a><br/>",
+	   " <br/>",
 	   "  <div id='userstate' style='display:none'>",
 	   "   <a class='closelink' href='#' onclick='return hideshow(\"userstate\")'>[close]</a>",
 	   ($rolelist ? "<b>Roles:</b><br/>$rolelist" : "No roles"),
@@ -2484,7 +2485,8 @@ sub generate
     } else {
 	$name_display = "<a href='$signup_url'>Unknown certificate</a>";
 	$$self{LOGIN_MESSAGE} =
-	    "<p>$name_display | <a href='$signout_url'>Sign out</a></p>";
+	    "<p>$name_display</p>";
+#	    "<p>$name_display | <a href='$signout_url'>Sign out</a></p>";
     }
   }
   else
@@ -2778,6 +2780,7 @@ sub generate
         "<center><div class='alert'>\n",
         " <p>Input parameter for $key did not pass validation with value $val. Please correct the input, or ",
         " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
+	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
         " <p><i>Error time=$time id=$id</i></p>\n",
         "</div></center>\n";	
     }
@@ -2788,6 +2791,7 @@ sub generate
         "<center><div class='alert'>\n",
         " <p>Unknown input parameter ($val). Please correct the input, or ",
         " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
+	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
         " <p><i>Error time=$time id=$id</i></p>\n",
         "</div></center>\n";	
     }
@@ -2797,6 +2801,7 @@ sub generate
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
         " <p>\"$val\" is not a valid dataset-name. Please correct the input and try again</p>\n",
+	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
         "</div></center>\n";	
     }
     else
@@ -3963,12 +3968,13 @@ sub output
     my %states = ( any => 'any requests', pend => 'pending approval', appr => 'approved', dis => 'disapproved');
 
     my %params = $self->validate_all
-	( allow => [qw(request type nodes state)],
+	( allow => [qw(page_num request type nodes state)],
 	  spec => {
-	      request => { using => 'pos_int_list' },
-	      type    => { allowing => \@types },
-	      nodes   => { using => 'regex' },
-	      state   => { allowing => \@states },
+	      page_num => { using => 'pos_int' },
+	      request  => { using => 'pos_int_list' },
+	      type     => { allowing => \@types },
+	      nodes    => { using => 'regex' },
+	      state    => { allowing => \@states },
 	  }
 	 );
 
@@ -4374,7 +4380,7 @@ sub output
   my $confirm_page = $self->myurl(page=>'Request::Confirm');
 
 
-  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type eq 'xfer' ) {
+  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type ) { 
     print { $$self{CONTENT} } "<div id='Request::Create'></div>";
     return;
   }
