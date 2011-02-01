@@ -295,9 +295,9 @@ var PxU    = PHEDEX.Util,
 if ( PxW.ProductionMode ) { // stub these functions in production-mode, to reduce overheads
   log = err = function() {};
 } else {
-  PxW.Instances.push( {name:'Testbed',      instance:'tbedi'} );
-  PxW.Instances.push( {name:'Testbed2',     instance:'tbedii'} );
-  PxW.Instances.push( {name:'Tony-private', instance:'tony'} );
+  PxW.Instances.push( {name:'Testbed',  instance:'tbedi'} );
+  PxW.Instances.push( {name:'Testbed2', instance:'tbedii'} );
+  PxW.Instances.push( {name:'Tony',     instance:'tony'} );
 }
 
 // this allows modules to be loaded before the core is instantiated. Those that announce themselves to
