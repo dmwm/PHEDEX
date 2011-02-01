@@ -93,6 +93,7 @@ sub addBlockSubscriptions
 #          and it is at least 1 week old
 #   3. Change "done" move subscriptions into a replica subscription
 #   4. Mark complete/done subscriptions as incomplete if they are not complete anymore
+#   5. Clear expired suspension times (note: subscriptions of inactive blocks will remain suspended until reactivation)
 
 sub blockSubscriptions
 {
@@ -104,7 +105,7 @@ sub blockSubscriptions
     my %stats;
     my @stats_order = ('block subs completed', 'block replica subs done',
 		       'block move subs done', 'block moves pending deletion', 'block moves pending confirmation',
-		       'block subs marked incomplete', 'block subs updated');
+		       'block subs marked incomplete', 'block subs suspensions cleared', 'block subs updated');
 
     $stats{$_} = 0 foreach @stats_order;
     
@@ -171,6 +172,7 @@ sub blockSubscriptions
 
       my $subs_update = { 
 	  IS_MOVE => $subs->{IS_MOVE},
+	  TIME_SUSPEND_UNTIL => $subs->{TIME_SUSPEND_UNTIL},
 	  TIME_COMPLETE => $subs->{TIME_COMPLETE},
 	  TIME_DONE => $subs->{TIME_DONE}
       };
@@ -234,10 +236,18 @@ sub blockSubscriptions
 	  $stats{'block subs marked incomplete'}++;
       }
 
+      # Clear expired suspension times
+      if ( defined $subs->{TIME_SUSPEND_UNTIL} && $subs->{TIME_SUSPEND_UNTIL} < $now ) {
+	  $subs_update->{TIME_SUSPEND_UNTIL} = undef;
+	  $self->Logmsg("subscription is no longer suspended, updating for $subs_identifier");
+	  $stats{'block subs suspensions cleared'}++;
+      }
+
       # Add to bulk update arrays if there are changes
       if (&hash_ne($subs_update, $subs)) {
 	  $self->Logmsg("Adding changes to bulk update array for $subs_identifier");
 	  my $n = 1;
+	  push(@{$uargs{$n++}}, $subs_update->{TIME_SUSPEND_UNTIL});
 	  push(@{$uargs{$n++}}, $subs_update->{TIME_COMPLETE});
 	  push(@{$uargs{$n++}}, $subs_update->{TIME_DONE});
 	  push(@{$uargs{$n++}}, $subs_update->{IS_MOVE});
@@ -250,7 +260,8 @@ sub blockSubscriptions
     # Bulk update
     my @rv = $self->execute_sql( qq{
 	update t_dps_subs_block
-	   set time_complete = ?,
+	   set time_suspend_until = ?,
+	       time_complete = ?,
 	       time_done = ?,
                is_move = ?
          where destination = ?
@@ -273,7 +284,7 @@ sub datasetSubscriptions
     my %stats;
     my @stats_order = ('dataset subs completed', 'dataset replica subs done',
 		       'dataset move subs done', 'dataset moves pending confirmation',
-		       'dataset subs marked incomplete',
+		       'dataset subs marked incomplete', 'dataset subs suspensions cleared',
 		       'dataset subs updated');
 
     $stats{$_} = 0 foreach @stats_order;
@@ -317,6 +328,7 @@ sub datasetSubscriptions
 
       my $subs_update = { 
 	  IS_MOVE => $subs->{IS_MOVE},
+	  TIME_SUSPEND_UNTIL => $subs->{TIME_SUSPEND_UNTIL},
 	  TIME_COMPLETE => $subs->{TIME_COMPLETE},
 	  TIME_DONE => $subs->{TIME_DONE}
       };
@@ -365,11 +377,19 @@ sub datasetSubscriptions
 	  $subs_update->{TIME_DONE} = undef;
 	  $self->Logmsg("subscription is no longer done, updating for $subs_identifier");
 	  $stats{'dataset subs marked incomplete'}++;
-      }    
+      }
+
+      # Clear expired suspension times
+      if ( defined $subs->{TIME_SUSPEND_UNTIL} && $subs->{TIME_SUSPEND_UNTIL} < $now ) {
+	  $subs_update->{TIME_SUSPEND_UNTIL} = undef;
+	  $self->Logmsg("subscription is no longer suspended, updating for $subs_identifier");
+	  $stats{'dataset subs suspensions cleared'}++;
+      }
 
       # Add to bulk update arrays if there are changes
       if (&hash_ne($subs_update, $subs)) {
 	  my $n = 1;
+	  push(@{$uargs{$n++}}, $subs_update->{TIME_SUSPEND_UNTIL});
 	  push(@{$uargs{$n++}}, $subs_update->{TIME_COMPLETE});
 	  push(@{$uargs{$n++}}, $subs_update->{TIME_DONE});
 	  push(@{$uargs{$n++}}, $subs_update->{IS_MOVE});
@@ -382,7 +402,8 @@ sub datasetSubscriptions
     # Bulk update
     my @rv = $self->execute_sql( qq{
 	update t_dps_subs_dataset
-	   set time_complete = ?,
+	   set time_suspend_until = ?,
+	       time_complete = ?,
 	       time_done = ?,
                is_move = ?
          where destination = ?
@@ -396,7 +417,7 @@ sub datasetSubscriptions
   
 }
 
-# Phase II:  Block Destination creation/deletion
+# Phase III:  Block Destination creation/deletion
 #   1.  Create block destinations where a block subscription exists
 #   2.  Remove block destinations where:
 #         a.  the block subscription doesn't exist
@@ -520,7 +541,7 @@ sub deallocateBlockDestinations
 }
 
 
-# Phase III: Propagate dataset-level subs suspension to block-level subs
+# Phase II: Propagate dataset-level subs suspension to block-level subs
 sub suspendBlockSubscriptions
 {
     my ($self, $now) = @_;
@@ -555,7 +576,7 @@ sub suspendBlockSubscriptions
     while (my $datasetsuspensions = $q_dataset_suspensions->fetchrow_hashref()) {
      my $bsub_identifier = "$datasetsuspensions->{SUBS_BLOCK_NAME} in $datasetsuspensions->{SUBS_DATASET_NAME} at $datasetsuspensions->{DESTINATION_NAME}";
       
-      # Update parameters for block destination
+      # Update parameters for block subscriptions
       my $bsub_update = { 
 	  BLOCK_SUSPEND => $datasetsuspensions->{DATASET_SUSPEND},
 	  BLOCK => $datasetsuspensions->{SUBS_BLOCK_ID},
