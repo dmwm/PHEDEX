@@ -5368,7 +5368,7 @@ sub disapprove
     my ($self, $data, $node_obj, $time) = @_;
 
     if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
-	$self->updateMoveSource($$data{ID}, $time);
+	$self->updateMoveSource($$data{ID}, $node_obj, $time);
     }
 
     return 1;
@@ -5380,10 +5380,10 @@ sub approve
 
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
-	    $self->subscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
+	    $self->subscribe($$data{ID}, $node_obj, $time);
 	}
 	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
-	    $self->updateMoveSource($$data{ID}, $time);
+	    $self->updateMoveSource($$data{ID}, $node_obj, $time);
 	}
     } elsif ($$data{TYPE} eq 'delete') {
 	if ($$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y') {
@@ -5391,24 +5391,66 @@ sub approve
 	} 
 	$self->delete($$data{ID}, $$node_obj{NODE_ID}, $time);
     }
-    
+
     return 1;
 }
 
 sub subscribe
 {
-    my ($self, $rid, $node_id, $time) = @_;
+    my ($self, $rid, $node_obj, $time) = @_;
 
-    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_id, $time);
+    if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
+      eval
+      {
+        my $id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $self, $self->{SECMOD} );
+        my $identity = &PHEDEX::Core::Identity::fetchAndSyncIdentity( $self,
+                                                                      AUTH_METHOD => 'CERTIFICATE',
+                                                                      %$id_params );
+        my $client_id = &PHEDEX::Core::Identity::logClientInfo($self,
+                                                               $identity->{ID},
+                                                               "Remote host" => $self->{REMOTE_HOST},
+                                                               "User agent"  => $self->{USER_AGENT} );
+
+        my $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
+        foreach my $request (values %$requests) {
+          $rid = $request->{ID};
+          &PHEDEX::RequestAllocator::Core::setRequestDecision($self, $rid, $node_obj->{NODE_ID}, 'y', $client_id, $time);
+          # Add the subscriptions
+          if ($node_obj->{POINT} eq 'd') {
+          # Add the subscription parameter set (or retrieve it if existing)
+            my $paramid;
+            $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($self,
+                                                                                REQUEST => $rid,
+                                                                                PRIORITY => $request->{PRIORITY},
+                                                                                IS_CUSTODIAL => $request->{IS_CUSTODIAL},
+                                                                                USER_GROUP => $request->{USER_GROUP},
+                                                                                ORIGINAL => 1,
+                                                                                TIME_CREATE => $time
+                                                                                );
+            &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($self, $paramid, $node_obj->{NODE_ID}, $time);
+         } elsif ($node_obj->{POINT} eq 's') {
+            # Remove the subcriptions for the move source
+            &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+          }
+        }
+      };
+      die "Subscription failed, please ask experts to investigate: $@" if $@;
+    } else {
+      &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+    }
 
     return 1;
 }
 
 sub updateMoveSource
 {
-    my ($self, $rid, $node_id, $time) = @_;
+    my ($self, $rid, $node_obj, $time) = @_;
     
-    &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_id, $time);
+    if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
+      die "Do not know how to do this yet\n";
+    } else {
+      &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+    }
 
     return 1;
 }
@@ -5421,7 +5463,6 @@ sub unsubscribe
 
     return 1;
 }
-
 
 sub delete
 {
