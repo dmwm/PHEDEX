@@ -11,7 +11,7 @@ use Term::ReadKey;
 use PHEDEX::CLI::UserAgent;
 
 my ($dump_requests,$dump_responses,$listen_port,$redirect_to,$help,$verbose,$debug);
-my ($server,@accept,@reject,@map,$die_on_reject,$log);
+my ($server,@accept,@reject,@map,@rewrite,$die_on_reject,$log);
 my ($delay,%expires,$expires_default,$host);
 my ($cert_file,$key_file,$proxy,$pk12,$nocert,$cache,$cache_ro,$cache_only);
 
@@ -64,6 +64,8 @@ sub usage()
 			to the value in all URLs, so you can serve YUI files
 			without having them installed in the same directory you
 			are working in, for example.
+ rewrite=s		like the 'map' option, but works on the URI transmitted
+			upstream. Essentially a URI-rewrite rule.
  die_on_reject		for debugging, in case your rejection criteria are wrong
  expires=i		set the default expiry time for the response header
  cert_file=s		location of your certificate, defaults to usercert.pem in
@@ -105,6 +107,7 @@ GetOptions( 'help'	=> \$help,
 	    'accept=s'		=> \@accept,
 	    'reject=s'		=> \@reject,
 	    'map=s'		=> \@map,
+	    'rewrite=s'		=> \@rewrite,
 	    'host=s'		=> \$host,
 	    'expires=i'		=> \$expires_default,
 	    'cert_file=s'	=> \$cert_file,
@@ -304,7 +307,17 @@ DONE:
     $request->header( "Connection",       "close" );
     $request->header( "Proxy-Connection", "close" );
     $request->remove_header("Keep-Alive");
-    $request->uri($redirect_to . $request->uri()->path_query());
+    my $target_uri = $request->uri()->path_query();
+#   my $original_uri = $target_uri;
+    foreach ( @rewrite )
+    {
+      my ($key,$value) = split('=',$_);
+      if ( $target_uri !~ m%$value% ) {
+        $target_uri =~ s%$key%$value%g;
+      }
+    }
+#   print "Target URI: $target_uri\n" if $original_uri ne $target_uri;
+    $request->uri($redirect_to . $target_uri);
     display_thing( $request ) if $dump_requests;
     my $uri = $request->uri;
     my $x;
