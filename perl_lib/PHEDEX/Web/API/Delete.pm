@@ -133,6 +133,8 @@ sub to_delete
         die $@;
     }
 
+    $core->{DBH}->commit(); # Could be over committed, but who cares?
+
     return { request_created  => [ { id => $rid } ] };
 }
 
