@@ -60,7 +60,7 @@ function createCoreApp() {
 //      Make sure I'm talking to the correct DB instance
         db=PhedexPage.DBInstance;
         if ( PhedexPage.Instances ) { PxW.Instances = PhedexPage.Instances; }
-        PHEDEX.Datasvc.Instance( db );
+        if ( db ) { PHEDEX.Datasvc.Instance( db ); }
 //      (try to) Create and run the page
         cTor = PxU.getConstructor(item);
         if ( !cTor ) { return; }
@@ -77,6 +77,24 @@ function createCoreApp() {
                       Timeout:  function(item) { banner('Timeout loading javascript modules'); },
                       Progress: function(item) { banner('Loaded item: '+item.name); }
                     };
+// use this stuff for by-hand debugging
+// debugger;
+// PHEDEX.Datasvc.Instance('Tony');
+// var node = 'T1_Test1_Buffer',
+//     xml = '<data version="2">' +
+// '        <dbs dls="dbs" name="test">' +
+// '                <dataset is-open="dummy" name="/lifecycle/custodial/raw_1"/>' +
+// '        </dbs>' +
+// '</data>';
+// var injectCallback = function(obj) {
+//   return function(data,context) {
+// debugger;
+//   }
+// }(this);
+// PHEDEX.Datasvc.Call({ api:'inject', method:'post', args:{node:node, data:xml}, callback:injectCallback });
+// throw new Error("Get me outta here!");
+
+//     PxL.load(callbacks,page);
     PxL.load(callbacks,page,'datasvc');
     document.body.className = 'yui-skin-sam';
   }
