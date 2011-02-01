@@ -68,7 +68,7 @@ sub to_delete
     &checkRequired(\%h, qw(data node));
     # defaults
     $h{rm_subscriptions} ||= 'y';
-    $h{level} ||= 'DATASET';
+    $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
     foreach (qw(rm_subscriptions)) {
 	die "'$_' must be 'y' or 'n'" unless $h{$_} =~ /^[yn]$/;
     }
@@ -133,7 +133,7 @@ sub to_delete
         die $@;
     }
 
-    return { request_created  => [$rid] };
+    return { request_created  => [ { id => $rid } ] };
 }
 
 1;
