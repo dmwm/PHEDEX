@@ -1,7 +1,8 @@
-* Changes for 1.6.4
+* Changes for 1.6.5 (1.6.4 was never released)
 
  New APIs:
 
+  * 'delete': delete data!
   * 'blockreplicacompare': compare block replicas at two nodes and output either the differences or the matches
   * 'updatesubscription': change user_group, priority and/or time_suspend of a subscription
 

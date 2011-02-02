@@ -1,4 +1,4 @@
- * Changes in BETA_1_0_1
+ * Changes in BETA_1_0_2 (BETA_1_0_1 was never released)
    * fixed numerous small bugs
    * code now satisfies stricter coding standard (using the 'closure-compiler')
    * showing JSON data no longer considered beta
