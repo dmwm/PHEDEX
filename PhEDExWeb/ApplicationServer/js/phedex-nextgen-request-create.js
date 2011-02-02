@@ -189,7 +189,7 @@ var _a = ex;
               user_group.value = null;
             }
 
-// Start Time
+// Time Start
 // TODO will need to reset the calendar YUI module too, when I have one...
             if ( time_start ) {
               time_start.value = '';
@@ -512,7 +512,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }(this);
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
-// Start time
+// Time Start
       this.time_start = { text:'YYYY-MM-DD [hh:mm:ss]' };
       var time_start = this.time_start;
       el = document.createElement('div');
@@ -567,9 +567,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }
       d.time_start.onblur=function(obj) {
         return function() {
-          time_start.value = this.value;
           if ( this.value == '' ) {
             this.value = time_start.text;
+            delete time_start.time_start;
             Dom.setStyle(this,'color',null)
           }
         }
@@ -599,7 +599,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         if ( hour   < 10 ) { hour   = '0' + hour; }
         if ( minute < 10 ) { minute = '0' + minute; }
         if ( second < 10 ) { second = '0' + second; }
-        time_start.time_start = new Date(year,month,day,hour,minute,second).getTime()/1000;
+        time_start.time_start = Date.UTC(year,month,day,hour,minute,second)/1000;
       }
 
 // Email
@@ -723,7 +723,13 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }
           if ( rid = data.request_created[0].id ) {
             obj.onResetSubmit();
-            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfuly!';
+            var uri = location.href;
+            uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
+            uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
+            uri = uri.replace(/\/[^/]*$/g,'/');
+
+            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
+              "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
             Dom.addClass(dom.results,'phedex-box-green');
             Dom.removeClass(dom.results,'phedex-invisible');
           }
@@ -827,12 +833,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }
 
 // Subscription Type
-          tmp = obj.subscription_type;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
-          }
 
 // Transfer Type
           tmp = obj.transfer_type;
@@ -856,7 +856,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }
           args.group = user_group.value;
 
-// Start Time TODO format this!
+// Time Start
           obj.getTimeStart();
           if ( time_start.time_start ) {
             args.time_start = time_start.time_start;
@@ -1096,7 +1096,6 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-//       d.site_custodial = Dom.get('site_custodial');
       remove_subscription.elList = Dom.getElementsByClassName('phedex-radio','input',d.remove_subscription);
 
 
@@ -1315,10 +1314,11 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           }
 
 // Remove Subscriptions
-          elList = obj.remove_subscription.elList;
+          tmp = obj.remove_subscription;
+          elList = tmp.elList;
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.rm_subscription = ( el.value == 'yes' ? 'y' : 'n' ); }
+            if ( el.checked ) { args.rm_subscription = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
           }
 
 // Email TODO check field?
