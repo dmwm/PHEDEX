@@ -1318,7 +1318,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           elList = tmp.elList;
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.rm_subscription = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
+            if ( el.checked ) { args.rm_subscriptions = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
           }
 
 // Email TODO check field?
