@@ -5428,14 +5428,14 @@ sub subscribe
                                                                                 TIME_CREATE => $time
                                                                                 );
             &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($self, $paramid, $node_obj->{NODE_ID}, $time);
-         } elsif ($node_obj->{POINT} eq 's') {
+          } elsif ($node_obj->{POINT} eq 's') {
             # Remove the subcriptions for the move source
             &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
           }
         }
       };
       die "Subscription failed, please ask experts to investigate: $@" if $@;
-    } else {
+    } else { # Not a 4.0+ schema...
       &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
     }
 
