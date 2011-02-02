@@ -47,7 +47,6 @@ try {
         }
 } catch(ex) {
 var _a = ex;
-debugger;
 }
         var selfHandler = function(obj) {
           return function(ev,arr) {
