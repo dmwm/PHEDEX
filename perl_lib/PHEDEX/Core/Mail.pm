@@ -181,6 +181,14 @@ sub send_email
 
 sub send_request_create_email
 {
+    eval
+    {
+        _send_request_create_email(@_);
+    };
+}
+
+sub _send_request_create_email
+{
     my ($self, $rid) = @_;
     # calling PHEDEX::Web::SQL::getRequestData()
     my $data = PHEDEX::Web::SQL::getRequestData($self, ('REQUEST' => $rid))->[0];
