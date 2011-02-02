@@ -1822,7 +1822,7 @@ sub getDataSubscriptions
     }
 
     my ($sql, $q, %p, @r);
-
+    $p{':now'} = time();
     my $block_filter = '';
     if ($h{COLLAPSE} eq "y")
     {
@@ -2013,7 +2013,10 @@ sub getDataSubscriptions
             sp.priority,
             sp.is_custodial custodial,
             g.name "group",
-            NVL2(ds.time_suspend_until, 'y', 'n') suspended,
+            case
+                when ds.time_suspend_until > :now then 'y'
+                else 'n'
+            end suspended,
             ds.time_suspend_until suspend_until,
             ds.time_create,
             ds.files,
@@ -2046,22 +2049,22 @@ sub getDataSubscriptions
         {
             if ($filters)
             {
-                $filters .= qq { and not ds.time_suspend_until is null };
+                $filters .= qq { and ds.time_suspend_until > :now };
             }
             else
             {
-                $filters = qq { not ds.time_suspend_until is null };
+                $filters = qq { ds.time_suspend_until > :now };
             }
         }
         elsif ($h{SUSPENDED} eq 'n')
         {
             if ($filters)
             {
-                $filters .= qq { and ds.time_suspend_until is null };
+                $filters .= qq { and not ds.time_suspend_until > :now };
             }
             else
             {
-               $filters = qq { ds.time_suspend_until is null };
+               $filters = qq { not ds.time_suspend_until > :now };
             }
         }
     }
@@ -2146,6 +2149,8 @@ sub getDataSubscriptions2
     delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
     delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
+    $p{':now'} = time();
+
     $sql = qq {
         select
             s.request,
@@ -2165,7 +2170,10 @@ sub getDataSubscriptions2
             s.is_move move,
             s.is_custodial custodial,
             g.name "group",
-            NVL2(s.time_suspend_until, 'y', 'n') suspended,
+            case
+                when s.time_suspend_until > :now then 'y'
+                else 'n'
+            end suspended,
             s.time_suspend_until suspend_until,
             s.time_create,
             b.files files,
@@ -2227,22 +2235,22 @@ sub getDataSubscriptions2
         {
             if ($filters)
             {
-                $filters .= qq { and not s.time_suspend_until is null };
+                $filters .= qq { and s.time_suspend_until > :now };
             }
             else
             {
-                $filters = qq { not s.time_suspend_until is null };
+                $filters = qq { s.time_suspend_until > :now };
             }
         }
         elsif ($h{SUSPENDED} eq 'n')
         {
             if ($filters)
             {
-                $filters .= qq { and s.time_suspend_until is null };
+                $filters .= qq { and not s.time_suspend_until > :now };
             }
             else
             {
-               $filters = qq { s.time_suspend_until is null };
+               $filters = qq { not s.time_suspend_until > :now };
             }
         }
     }
