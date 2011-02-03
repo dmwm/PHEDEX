@@ -122,6 +122,7 @@ die $@ if $@;
     # ok, now try to make the request and subscribe it
     my $now = &mytimeofday();
     my $data = uri_unescape($args{data});
+    $args{comments} = uri_unescape($args{comments});
     $data = PHEDEX::Core::XML::parseData( XML => $data);
     # only one DBS allowed for the moment...  (FIXME??)
     die "multiple DBSes in data XML.  Only data from one DBS may be subscribed at a time\n"
