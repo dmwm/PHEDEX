@@ -1219,7 +1219,13 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           }
           if ( rid = data.request_created[0].id ) {
             obj.onResetSubmit();
-            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfuly!';
+            var uri = location.href;
+            uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
+            uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
+            uri = uri.replace(/\/[^/]*$/g,'/');
+
+            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
+              "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
             Dom.addClass(dom.results,'phedex-box-green');
             Dom.removeClass(dom.results,'phedex-invisible');
           }
