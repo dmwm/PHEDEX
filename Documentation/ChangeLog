@@ -6,8 +6,12 @@ Changes for Schema
   - t_dps_subscription table replaced with t_dps_subs_dataset, t_dps_subs_block, t_dps_subs_param
  - Support for time_start in dataset-level transfer requests
   - If time_start is set, only blocks created after time_start will be subscribed to destination
+ - Add NOT NULL constraint to user-grop in transfer requests and subscriptions
+  - Existing subscriptions with undefined group will be assigned to deprecated-undefined group
+  - Cannot assign new subs to deprecated-* groups
  - Add t_req_size, t_req_replica tables to store status of a request (not yet used)
  - Add dataset_name column to v_dbs_block_replica view provided for DBS data location
+ - Add a schema_version function to return the version of the schema	
  - Update OracleInit.sql deployment script to new schema
  - Documentation updates
 
@@ -22,6 +26,7 @@ Changes for Central Agents
    - Propagate dataset subscription suspensions to linked block subscriptions
    - Fix for move flag never removed if block is inactive
    - Track move flag at block level; remove after one week and mark sub done if no unsubscribed replicas exist
+   - Support for subscriptions with finite suspension time; suspension is automatically cleared when time is passed
  - Additional BlockDelete fixes:
   - Fix for Savannah #71759: wait until Buffer replica removal before marking deletion as completed at T1
   - Fix for Savannah #65239: prevent creation of file deletion tasks when Buffer replica has active transfers
@@ -47,7 +52,8 @@ Changes for Site Agents
   - Reworked usage help to show namespace specific usage help, when --namespace and --help options are called together
   - Reject test inmediately instead of retrying, when those are not allowed for given namespace, it fix Savanah #65919.
   - Cleanup of rfio namespace documentation
-  - Allow cksum test, namespace plugins already code (using adler32) for castor and posix technologies
+  - Allow cksum test, namespace plugins already code (using adler32) for castor, posix and dcache technologies
+  - Add table aliases to sql (needed with Oracle 10.2.0.5)
  - Watchdog agent
   - Fix for Savannah #73896: watchdog will check if pid file is missing to avoid starting duplicate agents
   - Adding summary report
