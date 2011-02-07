@@ -1817,12 +1817,8 @@ sub getDataSubscriptions
     delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
     # backward compatible to old schema
-    eval {
-        my $q1 = execute_sql($core, "select count(*) from t_dps_subs_param");
-    };
-
-    if ($@)
-    {
+    my @version = PHEDEX::Core::SQL::getSchemaVersion($core);
+    if ( $version[0] >= 4 ) {
         return getDataSubscriptions2($core, %h);
     }
 
