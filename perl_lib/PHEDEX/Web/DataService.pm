@@ -130,7 +130,7 @@ sub invoke
       # getCacheDuration needs re-implementing.
       my $duration = $core->getCacheDuration();
       $duration = 300 if !defined $duration;
-      %cache_headers = (-Cache_Control => "public, max-age=$duration",
+      %cache_headers = (-Cache_Control => "public, must-revalidate, max-age=$duration",
 		        -Date => $http_now,
 		        -Last_Modified => $http_now,
 		        -Expires => "+${duration}s");
@@ -194,9 +194,9 @@ sub print_doc
     $call =~s%/+$%%;
     $call =~s%//+%/%;
 
-    my $duration = 86400*100;
+    my $duration = 3600;
     my $http_now = &formatTime(&mytimeofday(), 'http');
-    my %cache_headers =(-Cache_Control => "public, max-age=$duration",
+    my %cache_headers =(-Cache_Control => "public, must-revalidate, max-age=$duration",
 		        -Date => $http_now,
 		        -Last_Modified => $http_now,
 		        -Expires => "+${duration}s");
