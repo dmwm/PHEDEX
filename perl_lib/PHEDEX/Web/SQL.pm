@@ -979,12 +979,17 @@ sub getRequestData
 
     if ($h{TYPE} eq 'xfer')
     {
+	my @version = PHEDEX::Core::SQL::getSchemaVersion($self);
+	my $major = $version[0];
         $sql .= qq {
             rx.priority priority,
             rx.is_custodial custodial,
             rx.is_move move,
-            rx.is_static static,
-            rx.time_start,
+            rx.is_static static, };
+	if ( $major >= 4 ) {
+          $sql .= qq { rx.time_start, };
+	}
+	$sql .= qq {
             g.name "group",
             rx.data usertext};
     }
