@@ -423,6 +423,15 @@ update t_dps_subs_dataset sd
        from t_dps_block b
       where sd.dataset = b.dataset);
 
+-- Increase the schema_version
+create or replace function schema_version return varchar is
+  result varchar(20);
+begin
+  return('4.0.0');
+end schema_version;
+
+select schema_version from dual;
+
 quit;
 
 -- If you're running on Testbed, you're done here, otherwise remember to run
