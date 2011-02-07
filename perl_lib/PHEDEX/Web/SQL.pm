@@ -1818,7 +1818,7 @@ sub getDataSubscriptions
 
     # backward compatible to old schema
     my @version = PHEDEX::Core::SQL::getSchemaVersion($core);
-    if ( $version[0] >= 4 ) {
+    if ( $version[0] < 4 ) {
         return getDataSubscriptions2($core, %h);
     }
 
