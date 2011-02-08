@@ -1874,7 +1874,8 @@ sub getDataSubscriptions
                 ds_stat.files ds_files,
                 ds_stat.bytes ds_bytes,
                 br.node_bytes,
-                br.node_files
+                br.node_files,
+                (br.node_bytes * 100 / b.bytes) percent_bytes
             from
                 t_dps_subs_block sb
                 join t_dps_block b on b.id = sb.block
@@ -1936,7 +1937,8 @@ sub getDataSubscriptions
                 ds_stat.files ds_files,
                 ds_stat.bytes ds_bytes,
                 reps.node_bytes,
-                reps.node_files
+                reps.node_files,
+                (reps.node_bytes * 100 / ds_stat.bytes) percent_bytes
             from
                 t_dps_subs_dataset sd
                 join t_dps_dataset d on d.id = sd.dataset
@@ -2025,7 +2027,8 @@ sub getDataSubscriptions
             ds.ds_files,
             ds.ds_bytes,
             ds.node_files,
-            ds.node_bytes
+            ds.node_bytes,
+            ds.percent_bytes
         from
             t_dps_subs_param sp
             join
@@ -2182,7 +2185,8 @@ sub getDataSubscriptions2
             reps.node_files,
             reps.node_bytes,
             ds_stat.files ds_files,
-            ds_stat.bytes ds_bytes
+            ds_stat.bytes ds_bytes,
+            NVL2(s.block, reps.node_bytes * 100 / b.bytes, reps.node_bytes * 100 / ds_stat.bytes) percent_bytes
         from
             t_dps_subscription s
             join t_adm_node n on n.id = s.destination
