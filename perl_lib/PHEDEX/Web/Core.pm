@@ -291,7 +291,10 @@ sub call
         warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
       };
       if ($@) {
-          &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $@");
+	  my $message = $@;
+	  if ($message =~ /ORA-00942/) # table or view doesn't exist
+	  { $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug'; }
+          &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $message");
 	  return;
       }
     }
