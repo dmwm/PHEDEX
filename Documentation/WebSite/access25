@@ -5465,6 +5465,11 @@ sub unsubscribe
 {
     my ($self, $rid, $node_id, $time) = @_;
 
+    if ( $self->{SCHEMA}{MAJOR} < 4 ) {
+      # TW HACK load the old code here!
+      eval ("require PHEDEX::RequestAllocator::wrapper");
+      die $@ if $@;
+    }
     &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_id, $time);
 
     return 1;
