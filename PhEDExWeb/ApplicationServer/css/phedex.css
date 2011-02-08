@@ -690,3 +690,9 @@ div.phedex-nextgen-nodepanel-elem {
   font-size: 12px;
   color: #32a804;
 }
+.phedex-nextgen-floating-help {
+  border: 1px solid #8ff;
+  background-color: #eff;
+  width: 350px;
+  text-align: left;
+}
