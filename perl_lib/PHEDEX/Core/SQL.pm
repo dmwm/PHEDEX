@@ -850,6 +850,7 @@ sub getGroups
     my $filters = '';
     build_multi_filters($core, \$filters, \%p, \%h, GROUP => 'g.name');
     $sql .= " where ($filters)" if  $filters;
+    $sql .= " order by name";
 
     $q = execute_sql( $core, $sql, %p );
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
