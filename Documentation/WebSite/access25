@@ -3567,8 +3567,6 @@ sub getRequestTypeSummary
     }
 }
 
-
-
 sub printRequest
 {
     my ($self, $rid, @auth_nodes) = @_;
@@ -5224,7 +5222,7 @@ use base "Web25::Request::Page";
 our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administer Request",
 	       LINK_TITLE => "Administer Requests",
 	       SECURE => 1 };
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 import Web25::Common;
 
 sub new
@@ -5287,7 +5285,8 @@ sub output
 
     # Check parameters
     my $rid = param('admin_request');
-    my $comments = param('comments');
+
+    my $comments = unescape(param('comments'));
     my $now = time ();
 
     unless ($rid && %node_actions) {
@@ -5380,7 +5379,22 @@ sub disapprove
 sub approve
 {
     my ($self, $data, $node_obj, $time) = @_;
-
+# TW This is where I need to work it out:
+# 1) For Replica Transfer Request Approval:
+#
+# PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest
+# should be replaced by
+#
+# my $paramid = PHEDEX::RequestAllocator::Core::createSubscriptionParam(args..)
+# PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($paramid, etc.)
+#
+# 2) For Move Transfer Request Approval:
+# 2a) at destination: same as above
+# 2b) at source:
+# PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest
+# should be replaced by
+# PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest
+#
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
 	    $self->subscribe($$data{ID}, $node_obj, $time);
@@ -5401,27 +5415,18 @@ sub approve
 sub subscribe
 {
     my ($self, $rid, $node_obj, $time) = @_;
+    my ($request,$requests,$paramid);
+#    my ($client_id,$id_params,$identity,$request,$requests,$paramid);
 
     if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
       eval
       {
-        my $id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $self, $self->{SECMOD} );
-        my $identity = &PHEDEX::Core::Identity::fetchAndSyncIdentity( $self,
-                                                                      AUTH_METHOD => 'CERTIFICATE',
-                                                                      %$id_params );
-        my $client_id = &PHEDEX::Core::Identity::logClientInfo($self,
-                                                               $identity->{ID},
-                                                               "Remote host" => $self->{REMOTE_HOST},
-                                                               "User agent"  => $self->{USER_AGENT} );
-
-        my $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
-        foreach my $request (values %$requests) {
+        $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
+        foreach $request (values %$requests) {
           $rid = $request->{ID};
-          &PHEDEX::RequestAllocator::Core::setRequestDecision($self, $rid, $node_obj->{NODE_ID}, 'y', $client_id, $time);
           # Add the subscriptions
-          if ($node_obj->{POINT} eq 'd') {
+          if ($node_obj->{POINT} eq 'Destination Node') {
           # Add the subscription parameter set (or retrieve it if existing)
-            my $paramid;
             $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($self,
                                                                                 REQUEST => $rid,
                                                                                 PRIORITY => $request->{PRIORITY},
@@ -5431,13 +5436,16 @@ sub subscribe
                                                                                 TIME_CREATE => $time
                                                                                 );
             &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($self, $paramid, $node_obj->{NODE_ID}, $time);
-          } elsif ($node_obj->{POINT} eq 's') {
+          } elsif ($node_obj->{POINT} eq 'Source Node') {
             # Remove the subcriptions for the move source
             &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
           }
         }
       };
-      die "Subscription failed, please ask experts to investigate: $@" if $@;
+      if ( $@ ) {
+        $self->{DBH}->rollback();
+        return 0;
+      }
     } else { # Not a 4.0+ schema...
       # TW HACK load the old code here
       eval ("require PHEDEX::RequestAllocator::wrapper");
@@ -5453,7 +5461,7 @@ sub updateMoveSource
     my ($self, $rid, $node_obj, $time) = @_;
     
     if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
-      die "Do not know how to do this yet\n";
+      &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
     } else {
       &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
     }
@@ -6436,6 +6444,7 @@ sub output
 	   dest_filter => { using => 'regex' },
 	   no_mss      => { using => 'boolean', default => 'true' },
 	   upto        => { using => 'time' },
+	   timestamp   => { using => 'pos_int' },
        }
        );
 
