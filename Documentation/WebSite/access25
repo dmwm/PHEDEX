@@ -5421,7 +5421,6 @@ sub subscribe
         $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
         foreach $request (values %$requests) {
           $rid = $request->{ID};
-$self->alert("POINT=".$node_obj->{POINT});
           # Add the subscriptions
           if ($node_obj->{POINT} eq 'Destination Node') {
           # Add the subscription parameter set (or retrieve it if existing)
