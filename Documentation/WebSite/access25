@@ -3518,6 +3518,9 @@ sub writeRequest
     my $dbs_id = $dbses{$params{dbs}};
 
     # create the request
+    # TW HACK load the old code here!
+    eval ("require PHEDEX::RequestAllocator::wrapper");
+    die $@ if $@;
     my $req_id = &PHEDEX::RequestAllocator::Core::createRequest($self, \@ds_ids, \@b_ids,
 								$params{nodes},
 								TYPE => $params{type},
@@ -5444,6 +5447,9 @@ sub subscribe
         return 0;
       }
     } else { # Not a 4.0+ schema...
+      # TW HACK load the old code here
+      eval ("require PHEDEX::RequestAllocator::wrapper");
+      die $@ if $@;
       &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
     }
 
@@ -6433,6 +6439,7 @@ sub output
 	   dest_filter => { using => 'regex' },
 	   no_mss      => { using => 'boolean', default => 'true' },
 	   upto        => { using => 'time' },
+	   timestamp   => { using => 'pos_int' },
        }
        );
 
