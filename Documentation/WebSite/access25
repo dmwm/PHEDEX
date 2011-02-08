@@ -5421,9 +5421,9 @@ sub subscribe
         $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
         foreach $request (values %$requests) {
           $rid = $request->{ID};
-
+$self->alert("POINT=".$node_obj->{POINT});
           # Add the subscriptions
-          if ($node_obj->{POINT} eq 'd') {
+          if ($node_obj->{POINT} eq 'Destination Node') {
           # Add the subscription parameter set (or retrieve it if existing)
             $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($self,
                                                                                 REQUEST => $rid,
@@ -5434,7 +5434,7 @@ sub subscribe
                                                                                 TIME_CREATE => $time
                                                                                 );
             &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($self, $paramid, $node_obj->{NODE_ID}, $time);
-          } elsif ($node_obj->{POINT} eq 's') {
+          } elsif ($node_obj->{POINT} eq 'Source Node') {
             # Remove the subcriptions for the move source
             &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
           }
