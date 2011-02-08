@@ -33,6 +33,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         d.container.appendChild(d.ft);
         el.innerHTML = '';
         el.appendChild(d.container);
+
+        d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
+        document.body.appendChild(d.floating_help);
       },
       init: function(args) {
         var type = args.type, el;
@@ -518,7 +521,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Start Time</div>" +
+                        "<div class='phedex-nextgen-label'>Start Time <a class='phedex-nextgen-help' id='time_start_help' href='#'>?</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
                           "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
@@ -527,6 +530,27 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                       "</div>" +
                       "<div id='phedex-nextgen-calendar-el' class='phedex-invisible'></div>";
       form.appendChild(el);
+      this.Help = function(obj) {
+        return function(arg) {
+          var item      = obj[arg],
+              help_text = item.help_text,
+              elSrc     = item.help_align,
+              elContent = obj.dom.floating_help,
+              elRegion  = Dom.getRegion(elSrc);
+          if ( Dom.hasClass(elContent,'phedex-invisible') ) {
+            Dom.removeClass(elContent,'phedex-invisible');
+            Dom.setX(elContent,elRegion.left);
+            Dom.setY(elContent,elRegion.bottom);
+            elContent.innerHTML = help_text;
+          } else {
+            Dom.addClass(elContent,'phedex-invisible');
+          }
+        }
+      }(this);
+      time_start.help_el = Dom.get('time_start_help');
+      time_start.help_align = el;
+      time_start.help_text = '<p>Use this to subscribe only data injected after a certain time. This is optional.</p><p>If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify.</p><p>The timezone is UT .</p>';
+      time_start.help_el.setAttribute('onclick', "PxS.notify('"+this.id+"','Help','time_start');");
       d.calendar_icon = Dom.get('phedex-nextgen-calendar-icon');
       d.calendar_el   = Dom.get('phedex-nextgen-calendar-el');
 
