@@ -1822,7 +1822,23 @@ sub getDataSubscriptions
         return getDataSubscriptions2($core, %h);
     }
 
-    my ($sql, $q, %p, @r);
+    my ($sql,$q,$p,@r);
+    ($sql,$p) = getDataSubscriptionsQuery($core, %h);
+    $q = execute_sql($core, $sql, %{$p});
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
+        push @r, $_;
+    }
+    return \@r;
+}
+
+sub getDataSubscriptionsQuery
+{
+    my $core = shift;
+    my %h = @_;
+
+    my ($sql, $q, %p);
     $p{':now'} = time();
     my $block_filter = '';
     if ($h{COLLAPSE} eq "y")
@@ -2133,15 +2149,7 @@ sub getDataSubscriptions
             ds.item_name desc,
             n.name
     };
-    $q = execute_sql( $core, $sql, %p);
-
-    while ( $_ = $q->fetchrow_hashref() )
-    {
-        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
-        push @r, $_;
-    }
-    return \@r;
-    
+    return ($sql,\%p);
 }
 
 sub getDataSubscriptions2
