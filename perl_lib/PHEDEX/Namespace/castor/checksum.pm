@@ -19,7 +19,10 @@ sub new
   return $self;
 }
 
-sub execute { (shift)->SUPER::execute(@_,'checksum'); }
+sub execute { my $self = shift;
+	      my $ns = shift;
+	      my $pfn = shift;
+	      $self->SUPER::execute($ns,$pfn,'checksum'); }
 
 sub parse
 {
