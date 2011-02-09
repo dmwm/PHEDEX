@@ -2069,22 +2069,22 @@ sub getDataSubscriptionsQuery
         {
             if ($filters)
             {
-                $filters .= qq { and nvl(ds.time_suspend_until, 0) > :now };
+                $filters .= qq { and nvl(ds.time_suspend_until, -1) > :now };
             }
             else
             {
-                $filters = qq { nvl(ds.time_suspend_until, 0) > :now };
+                $filters = qq { nvl(ds.time_suspend_until, -1) > :now };
             }
         }
         elsif ($h{SUSPENDED} eq 'n')
         {
             if ($filters)
             {
-                $filters .= qq { and nvl(ds.time_suspend_until, 0) <= :now };
+                $filters .= qq { and nvl(ds.time_suspend_until, -1) <= :now };
             }
             else
             {
-               $filters = qq { nvl(ds.time_suspend_until, 0) <= :now };
+               $filters = qq { nvl(ds.time_suspend_until, -1) <= :now };
             }
         }
     }
@@ -2248,22 +2248,22 @@ sub getDataSubscriptions2
         {
             if ($filters)
             {
-                $filters .= qq { and nvl(s.time_suspend_until, 0) > :now };
+                $filters .= qq { and nvl(s.time_suspend_until, -1) > :now };
             }
             else
             {
-                $filters = qq { nvl(s.time_suspend_until, 0) > :now };
+                $filters = qq { nvl(s.time_suspend_until, -1) > :now };
             }
         }
         elsif ($h{SUSPENDED} eq 'n')
         {
             if ($filters)
             {
-                $filters .= qq { and nvl(s.time_suspend_until, 0) <= :now };
+                $filters .= qq { and nvl(s.time_suspend_until, -1) <= :now };
             }
             else
             {
-               $filters = qq { nvl(s.time_suspend_until, 0) <= :now };
+               $filters = qq { nvl(s.time_suspend_until, -1) <= :now };
             }
         }
     }
