@@ -697,3 +697,6 @@ div.phedex-nextgen-nodepanel-elem {
   text-align: left;
   padding: 0 3px;
 }
+.phedex-nextgen-help {
+ text-decoration: none;
+}
