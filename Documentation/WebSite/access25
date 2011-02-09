@@ -8911,7 +8911,6 @@ sub output_page
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
 
   my $q =$self->data_subscriptions();
-  
   my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
 		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
 		IS_MOVE TIME_SUSPEND_UNTIL ITEM_OPEN
@@ -8938,8 +8937,8 @@ sub output_page
     TIME_DONE => 'Time Done',
     TIME_CLEAR => 'Time Move Auth.'
     };
-  
-  # Special data fromats
+
+  # Special data formats
   my $now = time();
   my $reqpage = $self->myurl(page => "Request::View");
   my $df = 
@@ -8987,7 +8986,7 @@ sub output_page
        'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
        'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
        );
-  
+
   # Filters
   my @reqfilter   = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
   my $itemfilter  = param('filter') || '.*';
@@ -9021,7 +9020,6 @@ sub output_page
 
 			"</div>"
 			);
-
 
   my $filter = 
   { 
@@ -9074,7 +9072,6 @@ sub output_page
   }
   $dbtable->set_querycols( @querycols );
 
-
   if (@admin_auth) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
@@ -9104,8 +9101,6 @@ sub output_page
       "<input type='submit' value='Update'/>\n",
       "</p>\n"
       ;
-      
-
   }
 
   my $nrows = $dbtable->output($q);
@@ -9140,7 +9135,6 @@ sub output_page
   $optspane->add_tab('Filters', $filterform);
 
   print { $$self{OPTIONS} } $optspane->output();
-
 }
 
 sub output_options_form { }
@@ -9227,8 +9221,10 @@ sub data_subscriptions
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
   my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
+  my ($sql,$p,$q);
 
-  my $q = &dbexec($$self{DBH}, qq{
+  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+    $sql = qq{
        select s.request,
               NVL2(s.block, 'BLOCK', 'DATASET') item_level,
 	      NVL2(s.block, s.block, s.dataset) item_id,
@@ -9260,16 +9256,33 @@ sub data_subscriptions
 	    ) reps
 	    on reps.destination = s.destination
 	   and (reps.dataset = s.dataset or reps.block = s.block)
-     where n.id in ($node_list)
-     order by s.time_create desc, s.dataset desc, s.block desc, n.name
-  }, %node_binds);
+       where n.id in ($node_list)
+       order by s.time_create desc, s.dataset desc, s.block desc, n.name
+    };
+    $q = &dbexec($$self{DBH}, $sql, %node_binds);
+  } else {
+#   TW This is so ugly, I may just have to go and learn Java instead, as pennance.
+#   We load the dataservice SQL module, call the function to get the query, then edit the query
+#   to match what the website is expecting. Why? Because I can't figure out how to get the website
+#   to use the query directly. Hiddeous, isn't it...
+    eval ("require PHEDEX::Web::SQL");
+    die $@ if $@;
+    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self);
+    $sql =~ s/level/item_level/g;
+    $sql =~ s/ open,/ item_open,/g;
+    $sql =~ s/name node/name node_name/g;
+    $sql =~ s/ move,/ ,/g;
+    $sql =~ s/ custodial,/ ,/g;
+    $sql =~ s/ "group",/ user_group,/g;
+    $sql =~ s/'block'/'BLOCK'/g;
+    $sql =~ s/'dataset'/'DATASET'/g;
+    $q = &dbexec($$self{DBH}, $sql, %{$p});
+  }
 
   return $q;
 }
 
-
 1;
-
 
 
 ######################################################################
