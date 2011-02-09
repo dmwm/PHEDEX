@@ -37,6 +37,23 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
         document.body.appendChild(d.floating_help);
       },
+      Help:function(arg) {
+        var item      = this[arg],
+            help_text = item.help_text,
+            elSrc     = item.help_align,
+            elContent = this.dom.floating_help,
+            elRegion  = Dom.getRegion(elSrc);
+        if ( this.help_item != arg ) {
+          Dom.removeClass(elContent,'phedex-invisible');
+          Dom.setX(elContent,elRegion.left);
+          Dom.setY(elContent,elRegion.bottom);
+          elContent.innerHTML = help_text;
+          this.help_item = arg;
+        } else {
+          Dom.addClass(elContent,'phedex-invisible');
+          delete this.help_item;
+        }
+      },
       init: function(args) {
         var type = args.type, el;
 try {
@@ -254,16 +271,21 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 //       form.appendChild(el);
 
 // Dataset/block name(s)
-      this.data_items = { text:'enter one or more block/data-set names, separated by white-space or commas.' };
+      this.data_items = {
+        text:'enter one or more block/data-set names, separated by white-space or commas.',
+        help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use * as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>The wildcard '*' may be used, but the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>"
+      };
       var data_items = this.data_items;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Data Items</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-data-items'>Data Items <a class='phedex-nextgen-help' id='phedex-help-data-items' href='#'>?</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      data_items.help_align = Dom.get('phedex-label-data-items');
+      Dom.get('phedex-help-data-items').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','data_items');");
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -414,56 +436,77 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       setTimeout( function() { PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel }); }, 5000);
 
 // Site Custodial
-      this.site_custodial = { values:['yes','no'], _default:1 };
+      this.site_custodial = {
+        values:['yes','no'],
+        _default:1,
+        help_text:'<p>Whether or not the target node(s) have a custodial responsibility for the data in this request.</p><p>Only T1s and the T0 maintain custodial copies, T2s and T3s never have custodial responsibility</p>'
+      };
       var site_custodial = this.site_custodial;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Site Custodial</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-site-custodial'>Site Custodial <a class='phedex-nextgen-help' id='phedex-help-site-custodial' href='#'>?</a></div>" +
                         "<div id='site_custodial' class='phedex-nextgen-control'>" +
                           "<div><input class='phedex-radio' type='radio' name='site_custodial' value='0'>yes</input></div>" +
                           "<div><input class='phedex-radio' type='radio' name='site_custodial' value='1' checked>no</input></div>" +
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-//       d.site_custodial = Dom.get('site_custodial');
+      site_custodial.help_align = Dom.get('phedex-label-site-custodial');
+      Dom.get('phedex-help-site-custodial').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','site_custodial');");
       site_custodial.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.site_custodial);
 
 // Subscription type
-      this.subscription_type = { values:['growing','static'], _default:0 };
+      this.subscription_type = {
+        values:['growing','static'],
+        _default:0,
+        help_text:'<p>A <strong>growing</strong> subscription downloads blocks/files added to open datasets/blocks as they become available, until the dataset/block is closed.</p><p>Also, wildcard patterns will be re-evaluated to match new datasets/blocks which become available.</p><p>A <strong>static</strong> subscription will expand datasets into block subscriptions, and no open blocks will be subscribed.</p><p>Wildcard patterns will not be re-evaluated. A static subscription is a snapshot of data available now</p>'
+      };
       var subscription_type = this.subscription_type;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Subscription Type</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-subscription-type'>Subscription Type <a class='phedex-nextgen-help' id='phedex-help-subscription-type' href='#'>?</a></div>" +
                         "<div id='subscription_type' class='phedex-nextgen-control'>" +
                           "<div><input class='phedex-radio' type='radio' name='subscription_type' value='0' checked>growing</input></div>" +
                           "<div><input class='phedex-radio' type='radio' name='subscription_type' value='1'>static</input></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      subscription_type.help_align = Dom.get('phedex-label-subscription-type');
+      Dom.get('phedex-help-subscription-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','subscription_type');");
       d.subscription_type = Dom.get('subscription_type');
       subscription_type.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.subscription_type);
 
 // Transfer type
-      this.transfer_type = { values:['replica','move'], _default:0 };
+      this.transfer_type = {
+        values:['replica','move'],
+        _default:0,
+        help_text:'<p>A <strong>replica</strong> replicates data from the source to the destination, while a <strong>move</strong> replicates the data then deletes the data at the source.</p><p>Note that moves are only used for moving data from T2s to T1s</p>'
+      };
       var transfer_type = this.transfer_type;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Transfer Type</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-transfer-type'>Transfer Type <a class='phedex-nextgen-help' id='phedex-help-transfer-type' href='#'>?</a></div>" +
                         "<div id='transfer_type' class='phedex-nextgen-control'>" +
                           "<div><input class='phedex-radio' type='radio' name='transfer_type' value='0' checked>replica</input></div>" +
                           "<div><input class='phedex-radio' type='radio' name='transfer_type' value='1'>move</input></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      transfer_type.help_align = Dom.get('phedex-label-transfer-type');
+      Dom.get('phedex-help-transfer-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','transfer_type');");
       d.transfer_type = Dom.get('transfer_type');
       transfer_type.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.transfer_type);
 
 // Priority
-      this.priority = { values:['high','normal','low'], _default:2 }; // !TODO note the default is actually 'low'!
+      this.priority = {
+        values:['high','normal','low'],
+        _default:2,
+        help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>'
+      }; // !TODO note the default is actually 'low'!
       var priority = this.priority;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Priority</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-priority'>Priority <a class='phedex-nextgen-help' id='phedex-help-priority' href='#'>?</a></div>" +
                         "<div id='priority' class='phedex-nextgen-control'>" +
                           "<div><input class='phedex-radio' type='radio' name='priority' value='0'>high</input></div>" +
                           "<div><input class='phedex-radio' type='radio' name='priority' value='1'>normal</input></div>" +
@@ -471,20 +514,27 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      priority.help_align = Dom.get('phedex-label-priority');
+      Dom.get('phedex-help-priority').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','priority');");
       d.priority = Dom.get('priority');
       priority.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.priority);
 
 // User group
-      this.user_group = { _default:'<em>Choose a group</em>' };
+      this.user_group = {
+        _default:'<em>Choose a group</em>',
+        help_text:'<p>The group which is requesting this data. Used for accounting purposes.</p><p>This could be left undefined in the past, but is now mandatory.</p>'
+      };
       var user_group = this.user_group;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>User Group</div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-user-group'>User Group <a class='phedex-nextgen-help' id='phedex-help-user-group' href='#'>?</a></div>" +
                         "<div id='user_group_menu' class='phedex-nextgen-control'>" + "<em>loading list of groups...</em>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      user_group.help_align = Dom.get('phedex-label-user-group');
+      Dom.get('phedex-help-user-group').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','user_group');");
 
       var makeGroupMenu = function(obj) {
         return function(data,context) {
@@ -516,12 +566,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
 // Time Start
-      this.time_start = { text:'YYYY-MM-DD [hh:mm:ss]' };
+      this.time_start = {
+        text:'YYYY-MM-DD [hh:mm:ss]',
+        help_text:'<p>Use this to subscribe only data injected after a certain time.</p><p>This field is optional. If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
+      };
       var time_start = this.time_start;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Start Time <a class='phedex-nextgen-help' id='time_start_help' href='#'>?</a></div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-time-start'>Start Time <a class='phedex-nextgen-help' id='phedex-help-time-start' href='#'>?</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
                           "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
@@ -530,27 +583,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                       "</div>" +
                       "<div id='phedex-nextgen-calendar-el' class='phedex-invisible'></div>";
       form.appendChild(el);
-      this.Help = function(obj) {
-        return function(arg) {
-          var item      = obj[arg],
-              help_text = item.help_text,
-              elSrc     = item.help_align,
-              elContent = obj.dom.floating_help,
-              elRegion  = Dom.getRegion(elSrc);
-          if ( Dom.hasClass(elContent,'phedex-invisible') ) {
-            Dom.removeClass(elContent,'phedex-invisible');
-            Dom.setX(elContent,elRegion.left);
-            Dom.setY(elContent,elRegion.bottom);
-            elContent.innerHTML = help_text;
-          } else {
-            Dom.addClass(elContent,'phedex-invisible');
-          }
-        }
-      }(this);
-      time_start.help_el = Dom.get('time_start_help');
-      time_start.help_align = el;
-      time_start.help_text = '<p>Use this to subscribe only data injected after a certain time. This is optional.</p><p>If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify.</p><p>The timezone is UT .</p>';
-      time_start.help_el.setAttribute('onclick', "PxS.notify('"+this.id+"','Help','time_start');");
+      time_start.help_align = Dom.get('phedex-label-time-start');
+      Dom.get('phedex-help-time-start').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','time_start');");
       d.calendar_icon = Dom.get('phedex-nextgen-calendar-icon');
       d.calendar_el   = Dom.get('phedex-nextgen-calendar-el');
 
@@ -602,7 +636,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.getTimeStart = function() {
         var time_start=this.time_start, el=this.dom.time_start, str=el.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
         if ( str == time_start.text ) { return; } // no date specified!
-        if ( !str.match(/^(\d\d\d\d)\D?(\d\d?)\D?(\d\d?)\D?(.*)$/) ) {
+        if ( !str.match(/^(\d\d\d\d)\D+(\d\d?)\D+(\d\d?)\D+(.*)$/) ) {
           this.onAcceptFail('Illegal date format. Must be YYYY-MM-DD HH:MM:SS (HH:MM:SS optional)');
           return;
         }
@@ -612,7 +646,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         str   = RegExp.$4;
         hour = minute = second = 0;
         if ( str != '' ) {
-          str.match(/^(\d\d?)(\D?(\d\d?))?(\D?(\d\d?))?$/);
+          str.match(/^(\d\d?)(\D+(\d\d?))?(\D+(\d\d?))?$/);
           hour   = parseInt(RegExp.$1);
           minute = parseInt(RegExp.$3 || 0);
           second = parseInt(RegExp.$5 || 0);
