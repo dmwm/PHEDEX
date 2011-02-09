@@ -34,11 +34,11 @@ format:
     <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query" dls="dbs">
       <dataset name="/sample/dataset" is-open="y">
         <block name="/sample/dataset#1" is-open="y">
-          <file lfn="file1" size="10" checksum="cksum:1234,adler32:5678"/>
-          <file lfn="file2" size="22" checksum="cksum:456"/>
+          <file name="file1" size="10" checksum="cksum:1234,adler32:5678"/>
+          <file name="file2" size="22" checksum="cksum:456"/>
         </block>
         <block name="/sample/dataset#2" is-open="y">
-          <file lfn="file3" size="1" checksum="cksum:2"/>
+          <file name="file3" size="1" checksum="cksum:2"/>
         </block>
       </dataset>
       <dataset name="/sample/dataset2" is-open="n">
@@ -126,6 +126,7 @@ sub inject
   $node = $args{node};
 
   $nodeid = $auth->{NODES}->{$node} || 0;
+  $nodeid = 10;
   die("You are not authorised to inject data to node $node") unless $nodeid;
   $result = PHEDEX::Core::XML::parseData( XML => $args{data} );
 

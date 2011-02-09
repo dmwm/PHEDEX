@@ -47,11 +47,11 @@ This API call takes POST'ed XML in the following format:
    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
      <dataset name="/sample/dataset" is-open="y" is-transient="n">
        <block name="/sample/dataset#1" is-open="y">
-         <file lfn="file1" size="10" checksum="cksum:1234"/>
-         <file lfn="file2" size="22" checksum="cksum:456"/>
+         <file name="file1" size="10" checksum="cksum:1234"/>
+         <file name="file2" size="22" checksum="cksum:456"/>
        </block>
        <block name="/sample/dataset#2" is-open="y">
-         <file lfn="file3" size="1" checksum="cksum:2"/>
+         <file name="file3" size="1" checksum="cksum:2"/>
        </block>
      </dataset>
      <dataset name="/sample/dataset2" is-open="n" is-transient="n">
