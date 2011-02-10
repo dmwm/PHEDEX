@@ -5379,22 +5379,6 @@ sub disapprove
 sub approve
 {
     my ($self, $data, $node_obj, $time) = @_;
-# TW This is where I need to work it out:
-# 1) For Replica Transfer Request Approval:
-#
-# PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest
-# should be replaced by
-#
-# my $paramid = PHEDEX::RequestAllocator::Core::createSubscriptionParam(args..)
-# PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($paramid, etc.)
-#
-# 2) For Move Transfer Request Approval:
-# 2a) at destination: same as above
-# 2b) at source:
-# PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest
-# should be replaced by
-# PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest
-#
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
 	    $self->subscribe($$data{ID}, $node_obj, $time);
@@ -7819,7 +7803,11 @@ sub init
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
 
     # build the group list
-    $$self{GROUP_LIST} = ['undefined', sort $self->fetch_groups()];
+    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+      $$self{GROUP_LIST} = ['undefined', sort $self->fetch_groups()];
+    } else {
+      $$self{GROUP_LIST} = [sort $self->fetch_groups()];
+    }
     
     # Data columns
     $$self{DCOLUMN_NAMES} = [ qw(DBS Name Blocks Files Bytes Open Transient Id) ];
@@ -8424,7 +8412,7 @@ sub validate
 	(
 	 allow => [qw(node dcolumn rcolumn scolumn nvalue rows dbs dexp bexp filter
 		      col subsaction reqfilter priority suspended custodial group
-		      groupchange s_id action actionvalue create_source create_dest rate lp_id)],
+		      groupchange s_id s_value action actionvalue create_source create_dest rate lp_id)],
 	 spec  => 
 	 {
 	     # Params for Data::Replicas
@@ -8449,6 +8437,7 @@ sub validate
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_id         => { using => 'subscribe_id', multiple => 1 }, # combined ID
+	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
@@ -8980,12 +8969,20 @@ sub output_page
   };
 
   # Pseudo columns
-  my %pseudo =
-      (
-       'SELECT'  => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" },
-       'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
-       'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
-       );
+  my %pseudo;
+  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+    %pseudo = (
+      'SELECT'    => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" },
+      'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
+      'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
+    );
+  } else {
+    %pseudo = (
+      'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
+      'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
+      'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
+    );
+  }
 
   # Filters
   my @reqfilter   = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
@@ -9072,11 +9069,13 @@ sub output_page
   }
   $dbtable->set_querycols( @querycols );
 
+  my $key = 's_id';
+  if ( $self->{SCHEMA}{MAJOR} <= 4 ) { $key = 's_value'; }
   if (@admin_auth) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
-      "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_id', '1')\"/>\n",
-      "<input type='button' value='Select none' onclick=\"select_all('subsform', 's_id', '0')\"/>\n",
+      "<input type='button' value='Select all' onclick=\"select_all('subsform', '$key', '1')\"/>\n",
+      "<input type='button' value='Select none' onclick=\"select_all('subsform', '$key', '0')\"/>\n",
       "</p>\n";
 
       my $target = $self->myurl();
@@ -9154,27 +9153,52 @@ sub update_subscriptions
     my $update_sql = qq[ update t_dps_subscription set _VAR_ = :val
 			  where _ITEM_ = :id and destination = :dest ];
 
-    my $action_list = 
-    {
-	suspend => { desc => ' suspended',
-		     var  => 'time_suspend_until',
-		     val  => 9_999_999_999 },
-    	unsuspend => { desc => ' unsuspended',
-		       var => 'time_suspend_until',
-		       val  => undef },
-	priorityhi => { desc => ' set to high priority',
-			var => 'priority',
-			val => 0 },
-	prioritymd => { desc => ' set to medium priority',
-			var => 'priority',
-			val => 1 },
-	prioritylo => { desc => ' set to low priority',
-			var => 'priority',
-			val => 2 },
-	groupchange => { desc => " assigned to group $group_name",
-			 var => 'user_group',
-			 val => $group_id }
-    };
+    my $action_list;
+    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+      $action_list = 
+      {
+	  suspend => { desc => ' suspended',
+		       var  => 'time_suspend_until',
+		       val  => 9_999_999_999 },
+    	  unsuspend => { desc => ' unsuspended',
+		         var => 'time_suspend_until',
+		         val  => undef },
+	  priorityhi => { desc => ' set to high priority',
+			  var => 'priority',
+			  val => 0 },
+	  prioritymd => { desc => ' set to medium priority',
+			  var => 'priority',
+			  val => 1 },
+	  prioritylo => { desc => ' set to low priority',
+			  var => 'priority',
+			  val => 2 },
+	  groupchange => { desc => " assigned to group $group_name",
+			   var => 'user_group',
+			   val => $group_id }
+      };
+    } else {
+      $action_list = 
+      {
+	  suspend => { desc => ' suspended',
+		       var  => 'SUSPEND_UNTIL',
+		       val  => 9_999_999_999 },
+    	  unsuspend => { desc => ' unsuspended',
+		         var => 'SUSPEND_UNTIL',
+		         val  => undef },
+	  priorityhi => { desc => ' set to high priority',
+			  var => 'PRIORITY',
+			  val => 'high' },
+	  prioritymd => { desc => ' set to medium priority',
+			  var => 'PRIORITY',
+			  val => 'normal' },
+	  prioritylo => { desc => ' set to low priority',
+			  var => 'PRIORITY',
+			  val => 'low' },
+	  groupchange => { desc => " assigned to group $group_name",
+			   var => 'GROUP',
+			   val => $group_name }
+      };
+    }
 
     # Execute the update
     my $action = $action_list->{param('subsaction')};
@@ -9182,18 +9206,39 @@ sub update_subscriptions
     my $n_changed = 0;
     my %warn_hash;  # to keep unique warnings
 
-    foreach (param('s_id')) {
-	my ($level, $id, $destination) = split /:/;
-	if (grep $destination == $_, values %auth_nodes) { # Check permission
+    my $key = 's_value';
+    if ( $self->{SCHEMA}{MAJOR} <= 3 ) { $key = 's_id'; }
+    foreach (param($key)) {
+	my ($level, $item, $destination) = split /:/;
+        my $permission;
+	if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+	  $permission = grep $destination == $_, values %auth_nodes; # Check permission
+        } else {
+	  $permission = $auth_nodes{$destination}; # Check permission
+        }
+	if ( $permission ) { # Check permission
 	    my $sql = $update_sql;
 	    $sql =~ s/_VAR_/$$action{var}/;
 	    $sql =~ s/_ITEM_/$level/;
 
-	    my @rv = &dbexec($$self{DBH}, $sql, 
+	    my @rv;
+	    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+	      @rv = &dbexec($$self{DBH}, $sql, 
 			     ':val' => $$action{val},
-			     ':id'  => $id,
+			     ':id'  => $item,
 			     ':dest' => $destination);
-	    $n_changed += $rv[1];
+	      $n_changed += $rv[1];
+	    } else {
+	      eval("use PHEDEX::Web::SQL");
+	      my %h = (
+		        NODE => $destination,
+		        $level => $item,
+		        $action->{var} => $action->{val}
+		      );
+	      my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
+	      my $v = $r->[0]->{uc($action->{var})};
+	      if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
+	    }
 	} else {
 	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
 		"$all_nodes{$destination} subscriptions!</p>";
@@ -9276,6 +9321,7 @@ sub data_subscriptions
     $sql =~ s/ "group",/ user_group,/g;
     $sql =~ s/'block'/'BLOCK'/g;
     $sql =~ s/'dataset'/'DATASET'/g;
+    $sql =~ s/ suspend_until/ time_suspend_until/g;
     $q = &dbexec($$self{DBH}, $sql, %{$p});
   }
 
