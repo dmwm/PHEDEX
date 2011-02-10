@@ -7804,9 +7804,9 @@ sub init
 
     # build the group list
     if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-      $$self{GROUP_LIST} = ['undefined', sort $self->fetch_groups()];
+      $$self{GROUP_LIST} = ['undefined', sort grep(!/^deprecated-/, $self->fetch_groups()) ];
     } else {
-      $$self{GROUP_LIST} = [sort $self->fetch_groups()];
+      $$self{GROUP_LIST} = [sort grep(!/^deprecated-/, $self->fetch_groups()) ];
     }
     
     # Data columns
@@ -8979,8 +8979,8 @@ sub output_page
   } else {
     %pseudo = (
       'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
-      'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
-      'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
+      'PCT_FILES' => sub { $_[1]->{PERCENT_FILES}/100; }, # This is cheating a bit
+      'PCT_BYTES' => sub { $_[1]->{PERCENT_BYTES}/100; }  # ...so is this...
     );
   }
 
@@ -9313,15 +9313,15 @@ sub data_subscriptions
     eval ("require PHEDEX::Web::SQL");
     die $@ if $@;
     ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self);
-    $sql =~ s/level/item_level/g;
-    $sql =~ s/ open,/ item_open,/g;
-    $sql =~ s/name node/name node_name/g;
-    $sql =~ s/ move,/ ,/g;
-    $sql =~ s/ custodial,/ ,/g;
-    $sql =~ s/ "group",/ user_group,/g;
-    $sql =~ s/'block'/'BLOCK'/g;
-    $sql =~ s/'dataset'/'DATASET'/g;
-    $sql =~ s/ suspend_until/ time_suspend_until/g;
+    $sql =~ s%level%item_level%g;
+    $sql =~ s% open,% item_open,%g;
+    $sql =~ s%name node%name node_name%g;
+    $sql =~ s% move,% ,%g;
+    $sql =~ s% custodial,% ,%g;
+    $sql =~ s% "group",% user_group,%g;
+    $sql =~ s%'block'%'BLOCK'%g;
+    $sql =~ s%'dataset'%'DATASET'%g;
+    $sql =~ s% suspend_until% time_suspend_until%g;
     $q = &dbexec($$self{DBH}, $sql, %{$p});
   }
 
