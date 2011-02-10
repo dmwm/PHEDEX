@@ -4036,7 +4036,7 @@ sub updateSubscription
     die "block or dataset is required" if not defined $type;
 
     # at least one of GROUP, PRIORITY, or SUSPEND_UNTIL is required
-    die "at least one of 'GROUP', 'PRIORITY', or 'SUSPEND_UNTIL' is required" if not ($h{GROUP}||$h{PRIORITY}||$h{SUSPEND_UNTIL});
+    die "at least one of 'GROUP', 'PRIORITY', or 'SUSPEND_UNTIL' is required" if not ($h{GROUP}||$h{PRIORITY}||exists($h{SUSPEND_UNTIL}));
 
     # check user group -- got to be a valid user group
     my $gid;
@@ -4102,7 +4102,7 @@ sub updateSubscription
     my $dbchanged = 0;
 
     # handle time_suspend_until
-    if ($h{SUSPEND_UNTIL})
+    if (exists($h{SUSPEND_UNTIL}))
     {
         if (not PHEDEX::RequestAllocator::SQL::updateSubscription($core,
                 DESTINATION => $rparam->{DESTINATION},
