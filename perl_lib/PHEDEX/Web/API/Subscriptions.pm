@@ -63,6 +63,7 @@ Show existing subscriptions and their parameters.
   time_create      when the subscription was created
   suspended        is suspended? y or n
   suspend_until    time suspension expires 
+  percent_files    percentage of files at destination
   percent_bytes    percentage of bytes at destination
 
 =head3 <dataset> attributes:
@@ -111,6 +112,7 @@ my $map = {
         time_update => 'TIME_UPDATE',
         suspended => 'SUSPENDED',
         suspend_until => 'SUSPEND_UNTIL',
+        percent_files => 'PERCENT_FILES'
         percent_bytes => 'PERCENT_BYTES'
     }
 };
@@ -145,6 +147,7 @@ my $map2 = {
             time_update => 'TIME_UPDATE',
             suspended => 'SUSPENDED',
             suspend_until => 'SUSPEND_UNTIL',
+            percent_files => 'PERCENT_FILES'
             percent_bytes => 'PERCENT_BYTES'
         }
     }

@@ -1891,7 +1891,8 @@ sub getDataSubscriptionsQuery
                 ds_stat.bytes ds_bytes,
                 br.node_bytes,
                 br.node_files,
-                (br.node_bytes * 100 / b.bytes) percent_bytes
+                (br.node_bytes * 100 / b.bytes) percent_bytes,
+                (br.node_files * 100 / b.files) percent_files
             from
                 t_dps_subs_block sb
                 join t_dps_block b on b.id = sb.block
@@ -1954,7 +1955,8 @@ sub getDataSubscriptionsQuery
                 ds_stat.bytes ds_bytes,
                 reps.node_bytes,
                 reps.node_files,
-                (reps.node_bytes * 100 / ds_stat.bytes) percent_bytes
+                (reps.node_bytes * 100 / ds_stat.bytes) percent_bytes,
+                (reps.node_files * 100 / ds_stat.files) percent_files
             from
                 t_dps_subs_dataset sd
                 join t_dps_dataset d on d.id = sd.dataset
@@ -2044,7 +2046,8 @@ sub getDataSubscriptionsQuery
             ds.ds_bytes,
             ds.node_files,
             ds.node_bytes,
-            ds.percent_bytes
+            ds.percent_bytes,
+            ds.percent_files
         from
             t_dps_subs_param sp
             join
