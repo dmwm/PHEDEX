@@ -1,3 +1,14 @@
+* Changes in 1_1_0
+
+ Now following the convention that this ChangeLog tracks only the first two
+ digits of the version number, allowing the last one to cycle freely with
+ bugfixes and trivial changes that need not be documented.
+
+ * remove BETA declaration. The site is still not complete, but the
+   functionality is robust enough to come out of beta
+ * add phedex-nextgen-* modules to take on the gradual replacement of the
+   existing old website
+
  * Changes in BETA_1_0_2 (BETA_1_0_1 was never released)
    * fixed numerous small bugs
    * code now satisfies stricter coding standard (using the 'closure-compiler')
