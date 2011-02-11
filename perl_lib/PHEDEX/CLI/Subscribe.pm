@@ -106,7 +106,7 @@ sub Payload
 
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
-  die __PACKAGE__," no group given\n" unless $self->{USER_GROUP};                                                                                                                                    
+  die __PACKAGE__," no group given\n" unless $self->{USER_GROUP};
 
   $payload->{node}      = $self->{NODE};
   $payload->{priority}  = $self->{PRIORITY};
