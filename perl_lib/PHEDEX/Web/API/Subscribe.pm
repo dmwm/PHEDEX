@@ -216,8 +216,13 @@ die $@ if $@;
     # send out notification
     if ($args{no_mail} eq 'n')
     {
-      PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
-      PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
+      eval {
+        PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
+        PHEDEX::Core::Mail::send_request_create_email($core, $rid2) if $commit;
+      };
+      if ( $@ ) {
+# Log that we coulnd't send email?
+      }
     }
     
     # for output, we return a list of the generated request IDs
