@@ -38,6 +38,7 @@
   * 'shift/queued' now aggregates correctly
   * documentation links work for sub-pages
   * notification email from subscribe contains wrong comment
+  * PHEDEX::Core::Timing::str2time() now accepts YYYYMMDDZhhmm[ss] format
 
  Changes for the Dataservice:
   * set cache-control header for static content
