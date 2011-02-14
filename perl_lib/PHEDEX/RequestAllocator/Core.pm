@@ -364,7 +364,9 @@ sub validateRequest
                 }
 	    }
 	    
-	} elsif (@$b_ids) {
+	} 
+	
+	if (@$b_ids) {
 	    my $sql = qq{ select distinct n.name, ds.name dataitem, s.is_move, sp.is_custodial
 			      from t_adm_node n
 			      join t_dps_subs_dataset s on s.destination = n.id
