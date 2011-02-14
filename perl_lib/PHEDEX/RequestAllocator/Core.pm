@@ -294,10 +294,6 @@ sub validateRequest
     } else {
 	die "request has an unknown data structure\n";
     }
-    # Time-based request validation: only dataset-level items are allowed
-    if (@$b_ids && $h{TIME_START}) {
-	die "cannot request time-based transfer: not allowed for block-level or static dataset-level requests\n"; 
-    }
     
     # Part II:  validate nodes
     # Request policy details here:
@@ -381,9 +377,10 @@ sub validateRequest
 			      join t_dps_block bk on bk.id=s.block
 			      join t_dps_subs_param sp on s.param=sp.id
 			      where s.block = :block
+			      and bk.time_create>nvl(:time_start,-1)
 			  };
 	    foreach my $b (@$b_ids) {
-		my $other_subs = &execute_sql($self, $sql, ':block' => $b);
+		my $other_subs = &execute_sql($self, $sql, ':block' => $b, ':time_start' => $h{TIME_START});
 		while (my $r = $other_subs->fetchrow_hashref()) {
 		    if ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_CUSTODIAL} ne $h{IS_CUSTODIAL})) {
                         die "cannot request transfer: $r->{DATAITEM} already subscribed to $r->{NAME} with different custodiality\n";

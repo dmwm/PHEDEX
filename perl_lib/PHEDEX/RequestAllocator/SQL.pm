@@ -425,8 +425,8 @@ Required:
  PARAM : parameter set ID this is associated with
  DESTINATION : the destination node ID
  IS_MOVE : if this is a move subscription
- TIME_START: for dataset subscriptions, the starting time for the subscription (can be NULL)
-  For block subscriptions must be null
+ TIME_START: the starting time for the subscription (can be NULL)
+  Only blocks injected after TIME_START will be subscribed
  TIME_CREATE : the creation time
 
 =cut
@@ -452,16 +452,9 @@ sub createSubscription
     }
 
 #   Special case for TIME_START, which must exist but may be NULL
-#   for datasets; it must be NULL for blocks
     if (!exists $h{TIME_START}) {
 	$self->Alert("cannot create subscription: TIME_START not defined");
 	return undef;
-    }
-    else {
-	if (defined $h{TIME_START} && defined $h{BLOCK}) {
-	    $self->Alert("cannot create subscription: TIME_START must not be defined for BLOCK subscription");
-	    return undef;
-	}
     }
         
     
@@ -494,11 +487,11 @@ sub createSubscription
 
 	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
 	    $sql .= qq{ select :destination, b.dataset, b.id, :param, :is_move, :time_create 
-			    from t_dps_block b where b.name = :block };
+			    from t_dps_block b where b.name = :block and b.time_create > nvl(:time_start,-1)};
 	    
 	} else { # else we only lookup dataset ID from block ID
 	    $sql .= qq{ select :destination, b.dataset, :block, :param, :is_move, :time_create
-                            from t_dps_block b where b.id = :block };
+                            from t_dps_block b where b.id = :block and b.time_create > nvl(:time_start,-1)};
 	}
     }
 
@@ -656,7 +649,7 @@ sub addSubscriptionsForParamSet
             join t_req_block rb on rb.request = r.id
 	    join t_dps_block bk on bk.id=rb.block_id
             join t_dps_subs_param pm on pm.request = r.id   
-            where pm.id = :param    
+            where pm.id = :param and bk.time_create > nvl(rx.time_start,-1)   
          ) rd   
          on (rd.destination = sb.destination   
              and (rd.block = sb.block))                                                                                               
