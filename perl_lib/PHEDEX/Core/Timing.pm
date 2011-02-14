@@ -96,6 +96,14 @@ sub str2time
     my $t = interval ($str);
     return time() - $t if defined $t;
 
+    # YYYYMMDDZHHMM
+    @t = $str =~ m!(\d{4})(\d{2})(\d{2})Z(\d{2})(\d{2})(\d{2})?!;
+    if (exists $t[0])
+    {
+        $t[5] = 0 if not defined $t[5];
+        return &gmmktime($t[5], $t[4], $t[3], $t[2], $t[1]-1, $t[0] - 1900);
+    }
+
     # YYYY-MM-DD[_hh:mm:ss]
     @t = $str =~ m!(\d{4})-(\d{2})-(\d{2})([\s_](\d{2}):(\d{2}):(\d{2}))?!;
     # if it failed to parse the time string, just return undef
