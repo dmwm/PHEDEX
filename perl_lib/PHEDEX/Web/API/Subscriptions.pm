@@ -112,7 +112,7 @@ my $map = {
         time_update => 'TIME_UPDATE',
         suspended => 'SUSPENDED',
         suspend_until => 'SUSPEND_UNTIL',
-        percent_files => 'PERCENT_FILES'
+        percent_files => 'PERCENT_FILES',
         percent_bytes => 'PERCENT_BYTES'
     }
 };
@@ -147,7 +147,7 @@ my $map2 = {
             time_update => 'TIME_UPDATE',
             suspended => 'SUSPENDED',
             suspend_until => 'SUSPEND_UNTIL',
-            percent_files => 'PERCENT_FILES'
+            percent_files => 'PERCENT_FILES',
             percent_bytes => 'PERCENT_BYTES'
         }
     }
