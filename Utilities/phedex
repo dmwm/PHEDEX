@@ -13,7 +13,7 @@ my ($default_service,$target,$payload);
 my $me = $0;
 $me =~ s:.*/::;
 
-$url = 'http://cmsweb.cern.ch/phedex/datasvc';
+$url = 'https://cmsweb.cern.ch/phedex/datasvc';
 $instance = 'tbedi';
 $format   = 'xml';
 $method   = 'post';
