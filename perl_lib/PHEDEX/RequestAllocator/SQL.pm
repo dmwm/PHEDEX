@@ -483,7 +483,7 @@ sub createSubscription
 		     is_move, time_create)
 		    };
 
-	%p = (%p, map { ':' . lc $_ => $h{$_} } qw(BLOCK));                                                                                       
+	%p = (%p, map { ':' . lc $_ => $h{$_} } qw(BLOCK TIME_START));                                                                                       
 
 	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
 	    $sql .= qq{ select :destination, b.dataset, b.id, :param, :is_move, :time_create 
