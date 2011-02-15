@@ -99,6 +99,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-left' });
+        label='Preview', id='button'+label;
+        this.Preview = new YAHOO.widget.Button({
+                                type: 'submit',
+                                label: label,
+                                id: id,
+                                name: id,
+                                value: id,
+                                container: 'buttons-right' });
+//         this.Preview.set('disabled',true);
+        this.Preview.on('click', this.onPreviewSubmit);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
@@ -441,7 +451,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.subscription_type = {
         values:['growing','static'],
         _default:0,
-        help_text:'<p>A <strong>growing</strong> subscription downloads blocks/files added to open datasets/blocks as they become available, until the dataset/block is closed.</p><p>Also, wildcard patterns will be re-evaluated to match new datasets/blocks which become available.</p><p>A <strong>static</strong> subscription will expand datasets into block subscriptions, and no open blocks will be subscribed.</p><p>Wildcard patterns will not be re-evaluated. A static subscription is a snapshot of data available now</p>'
+        help_text:'<p>A <strong>growing</strong> subscription downloads blocks/files added to open datasets/blocks as they become available, until the dataset/block is closed.</p><p>Also, wildcard patterns will be re-evaluated to match new datasets/blocks which become available.</p><p>A <strong>static</strong> subscription will expand datasets into block subscriptions.</p><p>Wildcard patterns will not be re-evaluated. A static subscription is a snapshot of blocks available now</p>'
       };
       var subscription_type = this.subscription_type;
       el = document.createElement('div');
@@ -462,7 +472,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.transfer_type = {
         values:['replica','move'],
         _default:0,
-        help_text:'<p>A <strong>replica</strong> replicates data from the source to the destination, creating a new copy of the data.</p><p>A <strong>move</strong> replicates the data then deletes the data at the source.</p><p>Note that moves are only used for moving data from T2s to T1s</p>'
+        help_text:'<p>A <strong>replica</strong> replicates data from the source to the destination, creating a new copy of the data.</p><p>A <strong>move</strong> replicates the data then deletes the data at the source. The deletion will be automatic if the source data is unsubscribed; if it is subscribed, the source site will be asked to approve or disapprove the deletion.</p><p>Note that moves are only used for moving data from T2s to T1s</p>'
       };
       var transfer_type = this.transfer_type;
       el = document.createElement('div');
@@ -550,7 +560,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Time Start
       this.time_start = {
         text:'YYYY-MM-DD [hh:mm:ss]',
-        help_text:'<p>Use this to subscribe only data injected after a certain time.</p><p>This field is optional. If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
+        help_text:'<p>Specify a <strong>start time</strong> to subscribe only data injected after a certain time.</p><p>This field is optional. If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p><p>The start time will only apply to dataset subscriptions, not to block subscriptions.</p>'
       };
       var time_start = this.time_start;
       el = document.createElement('div');
@@ -632,13 +642,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           minute = parseInt(RegExp.$3 || 0);
           second = parseInt(RegExp.$5 || 0);
         }
-
-        if ( month  < 10 ) { month  = '0' + month; }
-        if ( day    < 10 ) { day    = '0' + day; }
-        if ( hour   < 10 ) { hour   = '0' + hour; }
-        if ( minute < 10 ) { minute = '0' + minute; }
-        if ( second < 10 ) { second = '0' + second; }
-        time_start.time_start = Date.UTC(year,month,day,hour,minute,second)/1000;
+        time_start.time_start = new Date(year,month-1,day,hour,minute,second).getTime()/1000; // Month counts from zero in Javascript Data object
       }
 
 // Email
@@ -730,6 +734,21 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.setStyle(this,'color',null);
         }
       }
+
+// Preview
+      el = document.createElement('div');
+      el.innerHTML = "<div id='phedex-nextgen-preview' class='phedex-invisible'>" +
+                       "<div class='phedex-nextgen-form-element'>" +
+                          "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'>Preview</div>" +
+                          "<div class='phedex-nextgen-control'>" +
+                            "<div id='phedex-nextgen-preview-text'></div>" +
+                          "</div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+      d.preview = Dom.get('phedex-nextgen-preview');
+      d.preview_label = Dom.get('phedex-nextgen-preview-label');
+      d.preview_text  = Dom.get('phedex-nextgen-preview-text');
 
 // Results
       el = document.createElement('div');
@@ -945,6 +964,108 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           PHEDEX.Datasvc.Call({ api:'subscribe', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
         }
       }(this);
+
+      this.onPreviewSubmit = function(obj) {
+        return function(id,action) {
+debugger;
+          var dbs = obj.dbs,
+              dom = obj.dom,
+              time_start = obj.time_start,
+              data_items = dom.data_items,
+              menu, menu_items,
+              data={}, args={}, tmp, value, type, block, dataset, xml,
+              elList, el, i;
+
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+          Dom.removeClass(obj.dom.results,'phedex-box-red');
+          dom.results_label.innerHTML = '';
+          dom.results_text.innerHTML  = '';
+          obj.formFail = false;
+
+// Subscription level is hardwired for now.
+
+// Data Items: Several layers of checks:
+// 1. If the string is empty, or matches the inline help, abort
+
+          if ( !data_items.value || data_items.value == obj.data_items.text ) {
+            obj.onAcceptFail('No Data-Items specified');
+          }
+// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+          if ( data_items.value != obj.data_items.text ) {
+            tmp = data_items.value.split(/ |\n|,/);
+            data = {blocks:{}, datasets:{} };
+            for (i in tmp) {
+              block = tmp[i];
+              if ( block != '' ) {
+                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                  dataset = RegExp.$1;
+                  if ( dataset == block ) { data.datasets[dataset] = 1; }
+                  else                    { data.blocks[block] = 1; }
+                } else {
+                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+                }
+              }
+            }
+          }
+// 3. Blocks which are contained within explicit datasets are suppressed
+          for (block in data.blocks) {
+            block.match(/^([^#]*)#/);
+            dataset = RegExp.$1;
+            if ( data.datasets[dataset] ) {
+              delete data.blocks[block];
+            }
+          }
+// 4. Blocks are grouped into their corresponding datasets
+          for (block in data.blocks) {
+            block.match(/([^#]*)#/);
+            dataset = RegExp.$1;
+            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+            data.datasets[dataset][block] = 1;
+          }
+// 5. the block-list is now redundant, clean it up!
+          delete data.blocks;
+
+// Subscription Type
+          tmp = obj.subscription_type;
+          elList = tmp.elList;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
+          }
+
+// Time Start
+          obj.getTimeStart();
+          if ( time_start.time_start ) {
+            args.time_start = time_start.time_start;
+          }
+
+// If there were errors, I can give up now!
+          if ( obj.formFail ) { return; }
+
+// Now build the XML!
+//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
+//           for ( dataset in data.datasets ) {
+//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
+//             for ( block in data.datasets[dataset] ) {
+//               xml += '<block name="'+block+'" is-open="dummy" />';
+//             }
+//             xml += '</dataset>';
+//           }
+//           xml += '</dbs></data>';
+//           args.data = xml;
+          Dom.removeClass(dom.preview,'phedex-invisible');
+          dom.preview.innerHTML = 'yaggafrakaristeroferous';
+          Dom.removeClass(dom.results,'phedex-invisible');
+          Dom.addClass(dom.results,'phedex-box-yellow');
+          dom.results_label.innerHTML = 'Status:';
+          dom.results_text.innerHTML  = 'Calculating request (please wait)' +
+          '<br/>' +
+          "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
+debugger;
+//           PHEDEX.Datasvc.Call({ api:'data', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
+        }
+      }(this);
+
     }
   }
 }
@@ -999,8 +1120,8 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       this.dbs = {
         instanceDefault:{
           prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          test:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          debug:'LoadTest07',
+          test:'LoadTest',
+          debug:'LoadTest',
           tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           tbedii:'test',
           tony:'test'
