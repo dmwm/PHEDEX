@@ -1960,7 +1960,7 @@ sub getDataSubscriptionsQuery
             from
                 t_dps_subs_dataset sd
                 join t_dps_dataset d on d.id = sd.dataset
-                join
+                left join
                 (select
                     br.node,
                     b.dataset,
