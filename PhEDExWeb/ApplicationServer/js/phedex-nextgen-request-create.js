@@ -584,6 +584,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         return function(type,args,obj) {
           var selected = args[0][0];
           o.dom.time_start.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
+          if ( o.formFail ) { o.Accept.set('disabled',false); o.formFail=false; }
           Dom.setStyle(o.dom.time_start,'color','black');
           YuD.addClass(elCal,'phedex-invisible');
         }
@@ -608,12 +609,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
       d.time_start = Dom.get('time_start');
       Dom.setStyle(d.time_start,'width','170px')
-      d.time_start.onfocus = function() {
-        if ( this.value == time_start.text ) {
-          this.value = '';
-          Dom.setStyle(this,'color','black');
+      d.time_start.onfocus=function(obj) {
+        return function() {
+          if ( this.value == time_start.text ) {
+            this.value = '';
+            Dom.setStyle(this,'color','black');
+          }
+          if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
         }
-      }
+      }(this);
       d.time_start.onblur=function(obj) {
         return function() {
           if ( this.value == '' ) {
@@ -627,14 +631,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.getTimeStart = function() {
         var time_start=this.time_start, el=this.dom.time_start, str=el.value, arr=[], year, day, month, hour, minute, second, now=PxU.now();
         if ( str == time_start.text ) { return; } // no date specified!
-        if ( !str.match(/^(\d\d\d\d)\D+(\d\d?)\D+(\d\d?)\D+(.*)$/) ) {
+        if ( !str.match(/^(\d\d\d\d)\D+(\d\d?)\D+(\d\d?)(\D+)?(.*)$/) ) {
           this.onAcceptFail('Illegal date format. Must be YYYY-MM-DD HH:MM:SS (HH:MM:SS optional)');
           return;
         }
         year  = parseInt(RegExp.$1);
         month = parseInt(RegExp.$2);
         day   = parseInt(RegExp.$3);
-        str   = RegExp.$4;
+        str   = RegExp.$5;
         hour = minute = second = 0;
         if ( str != '' ) {
           str.match(/^(\d\d?)(\D+(\d\d?))?(\D+(\d\d?))?$/);
@@ -642,7 +646,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           minute = parseInt(RegExp.$3 || 0);
           second = parseInt(RegExp.$5 || 0);
         }
-        time_start.time_start = new Date(year,month-1,day,hour,minute,second).getTime()/1000; // Month counts from zero in Javascript Data object
+        time_start.time_start = Date.UTC(year,month-1,day,hour,minute,second)/1000; // Month counts from zero in Javascript Data object
       }
 
 // Email
