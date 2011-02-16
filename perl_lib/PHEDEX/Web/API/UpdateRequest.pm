@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::Approve;
+package PHEDEX::Web::API::UpdateRequest;
 use warnings;
 use strict;
 
@@ -15,16 +15,16 @@ use URI::Escape;
 
 =head1 NAME
 
-PHEDEX::Web::API::Approve - approve, dissaprove, or append a comment to an already-existing transfer request
+PHEDEX::Web::API::UpdateRequest - approve or dissaprove an already-existing transfer request
 
 =head1 DESCRIPTION
 
-Approve, dissaprove, or append a comment to an already-existing transfer request
+Approve or dissaprove an already-existing transfer request
 
 =head2 Options
 
- action		'approve', 'disapprove', or 'none'. No default.
- rid		Request-ID to act on
+ decision	'approve' or 'disapprove'. No default.
+ request	Request-ID to act on
  node		destination node names, can be multiple
  comments	other information to attach to this request, for whatever reason.
 
@@ -45,14 +45,14 @@ sub approve
 {
   my ($core, %args) = @_;
 
-  &checkRequired(\%args, qw(rid node action));
+  &checkRequired(\%args, qw(request node decision));
 
   # check values of options
-  die "unknown action, allowed values are 'approve', 'disapprove' or 'none'" 
-    unless $args{action} =~ m%^(approve|disapprove|none)$%;
-  $args{uc($args{action})} = 1;
+  die "unknown decision, allowed values are 'approve' or 'disapprove'" 
+    unless $args{decision} =~ m%^(approve|disapprove)$%;
+  $args{uc($args{decision})} = 1;
 
-  die "Request-ID not numeric" unless $args{rid} =~ m%^\d+$%;
+  die "Request-ID not numeric" unless $args{request} =~ m%^\d+$%;
 
   # check authentication
   $core->{SECMOD}->reqAuthnCert();
@@ -67,6 +67,22 @@ sub approve
     my $nodeid = $auth->{NODES}->{$node} || 0;
     die("You are not authorised to approve data to node $node") unless $nodeid;
   }
+
+# TW
+# - if the request is successfully approved:
+# 1) for transfer request approval to a destination, create the subscriptions (see Subscribe API) using
+# PHEDEX::RequestAllocator::SQL::createSubscriptionParam
+# PHEDEX::RequestAllocator::SQL::addSubscriptionForParamSet
+# 
+# 2) for move request approval from a source, delete the source subscription immediately (see Subscribe API) using:
+# PHEDEX::RequestAllocator::SQL::deleteSubscriptionsForRequest
+# 
+# 3) for deletion request approval:
+# - delete the subscriptions (same as move request) using:
+# PHEDEX::RequestAllocator::SQL::deleteSubscriptionsForRequest
+# - add the block deletions using:
+# PHEDEX::RequestAllocator::SQL::addDeletionsForRequest
+use Data::Dumper;
 
   # ok, now try to act on the request
   my ($requests,$id_params,$identity,$client_id);
@@ -83,49 +99,81 @@ sub approve
   };
   die "Error evaluating client identity" if $@;
 
+  my $now = time();
   eval {
-    my $rid = $args{rid};
-    my $now = time();
-    $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$rid]);
-    foreach my $request (values %$requests) {
-      $rid = $request->{ID};
-      if ( $args{APPROVE} ) {
-        foreach my $node (values %{$request->{NODES}}) {
-	  # Check if this node is required
-	  next unless grep(/^$node->{NODE}$/,@{$nodes});
+    $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$args{request}]);
+  };
+  die("Couldn't retrieve request $args{request}") if $@;
 
-          # Check if user is authorized for this node
-	  if (! $auth->{NODES}->{ $node->{NODE} }) {
-	    die "You are not authorised to approve data to node $node->{NODE}\n";
-	  }
- 
-	  # Set the decision
-          eval {
-	  &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
-							      $node->{NODE_ID}, 'y', $client_id, $now);
-          };
-          if ( $@ ) {
-            if ( $@ =~ m%ORA-00001: unique constraint% ) { die "Request has already been decided"; }
-            die $@;
+  my ($selected_requests,$request,$rid);
+# Verify authorisation first...
+  foreach $request (values %$requests) {
+    $selected_requests = {};
+    foreach my $node_id (keys %{$request->{NODES}}) {
+      my $node  = $request->{NODES}{$node_id};
+      next unless grep(/^$node->{NODE}$/,@{$nodes}); # Check if this node is required
+      # Check if user is authorized for this node
+      if (! $auth->{NODES}->{ $node->{NODE} }) {
+	die "You are not authorised to approve data to node $node->{NODE}\n";
+      }
+      $selected_requests->{$node_id} = $node;
+    }
+    $request->{NODES} = $selected_requests;
+  }
+
+# Set the request decision
+  foreach $request (values %$requests) {
+    $rid = $request->{ID};
+    foreach my $node (values %{$request->{NODES}}) {
+      eval {
+        &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, $node->{NODE_ID}, 'y', $client_id, $now);
+      };
+      if ( $@ ) {
+        if ( $@ =~ m%ORA-00001: unique constraint% ) { die "Request $rid has already been decided at node $node->{NODE}"; }
+        die $@;
+      }
+    }
+  }
+
+  eval {
+#   Now act on different request types
+    foreach $request (values %$requests) {
+      $rid = $request->{ID};
+      foreach my $node (values %{$request->{NODES}}) {
+        if ( $args{APPROVE} ) {
+          if ( $request->{TYPE} eq 'xfer' ) {
+            if ( $request->{IS_MOVE} eq 'n' ) { # replica request
+	      # Add the subscriptions
+	      if ($node->{POINT} eq 'd') {
+	        # Add the subscription parameter set (or retrieve it if existing)
+	        my $paramid;
+	        $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($core,
+									            REQUEST => $rid,
+									            PRIORITY => $request->{PRIORITY},
+									            IS_CUSTODIAL => $request->{IS_CUSTODIAL},
+									            USER_GROUP => $request->{USER_GROUP},
+									            ORIGINAL => 1,
+									            TIME_CREATE => $now
+									           );
+	        &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($core, $paramid, $node->{NODE_ID}, $now);
+#	      } elsif ($node->{POINT} eq 's') {
+#	        # Remove the subcriptions for the move source
+#	        &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
+	      }
+            } elsif ( $request->{IS_MOVE} eq 'y' ) { # move request
+die("Move request not handled yet");
+            } else {
+              die("Request $rid: IS_MOVE is neither 'y' nor 'n' ($request->{IS_MOVE})");
+            }
+          } elsif ( $request->{TYPE} eq 'delete' ) {
+die("Delete request not handled yet");
+          } else {
+            die("Request $rid: TYPE is neither 'xfer' nor 'delete' ($request->{TYPE})");
           }
-	  # Add the subscriptions
-	  if ($node->{POINT} eq 'd') {
-	    # Add the subscription parameter set (or retrieve it if existing)
-	    my $paramid;
-	    $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($core,
-									        REQUEST => $rid,
-									        PRIORITY => $request->{PRIORITY},
-									        IS_CUSTODIAL => $request->{IS_CUSTODIAL},
-									        USER_GROUP => $request->{USER_GROUP},
-									        ORIGINAL => 1,
-									        TIME_CREATE => $now
-									       );
-	    &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($core, $paramid, $node->{NODE_ID}, $now);
-	  } elsif ($node->{POINT} eq 's') {
-	    # Remove the subcriptions for the move source
-	    &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, 
-									   $node->{NODE_ID}, $now);
-	  }
+        } elsif ( $args{DISAPPROVE} ) {
+die("Disapproval not handled yet");
+        } else {
+          die("Neither approve nor disapprove, tell the PhEDEx developers they have a bug!");
         }
       }
     }
