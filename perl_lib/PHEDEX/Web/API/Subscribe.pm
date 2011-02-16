@@ -23,7 +23,7 @@ Makes and approves a transfer request, creating data subscriptions.
 
 =head2 Options
 
- node		destination node names, can be multible
+ node		destination node names, can be multiple
  data		XML structure representing the data to be subscribed. See
 		PHEDEX::Core::XML
  level          subscription level, either 'dataset' or 'block'.  Default is
