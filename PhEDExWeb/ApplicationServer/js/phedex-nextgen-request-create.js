@@ -971,7 +971,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
       this.onPreviewSubmit = function(obj) {
         return function(id,action) {
-debugger;
           var dbs = obj.dbs,
               dom = obj.dom,
               time_start = obj.time_start,
@@ -1058,14 +1057,13 @@ debugger;
 //           xml += '</dbs></data>';
 //           args.data = xml;
           Dom.removeClass(dom.preview,'phedex-invisible');
-          dom.preview.innerHTML = 'yaggafrakaristeroferous';
+          dom.preview.innerHTML = '';
           Dom.removeClass(dom.results,'phedex-invisible');
           Dom.addClass(dom.results,'phedex-box-yellow');
           dom.results_label.innerHTML = 'Status:';
           dom.results_text.innerHTML  = 'Calculating request (please wait)' +
           '<br/>' +
           "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
-debugger;
 //           PHEDEX.Datasvc.Call({ api:'data', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
         }
       }(this);
@@ -1356,6 +1354,21 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         }
       }
 
+// Preview
+      el = document.createElement('div');
+      el.innerHTML = "<div id='phedex-nextgen-preview' class='phedex-invisible'>" +
+                       "<div class='phedex-nextgen-form-element'>" +
+                          "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'>Preview</div>" +
+                          "<div class='phedex-nextgen-control'>" +
+                            "<div id='phedex-nextgen-preview-text'></div>" +
+                          "</div>" +
+                        "</div>" +
+                      "</div>";
+      form.appendChild(el);
+      d.preview = Dom.get('phedex-nextgen-preview');
+      d.preview_label = Dom.get('phedex-nextgen-preview-label');
+      d.preview_text  = Dom.get('phedex-nextgen-preview-text');
+
 // Results
       el = document.createElement('div');
       el.innerHTML = "<div id='phedex-nextgen-results' class='phedex-invisible'>" +
@@ -1533,6 +1546,79 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         }
       }(this);
 
+      this.onPreviewSubmit = function(obj) {
+        return function(id,action) {
+          var dbs = obj.dbs,
+              dom = obj.dom,
+              time_start = obj.time_start,
+              data_items = dom.data_items,
+              menu, menu_items,
+              data={}, args={}, tmp, value, type, block, dataset, xml,
+              elList, el, i;
+
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+          Dom.removeClass(obj.dom.results,'phedex-box-red');
+          dom.results_label.innerHTML = '';
+          dom.results_text.innerHTML  = '';
+          obj.formFail = false;
+
+// Subscription level is hardwired for now.
+
+// Data Items: Several layers of checks:
+// 1. If the string is empty, or matches the inline help, abort
+
+          if ( !data_items.value || data_items.value == obj.data_items.text ) {
+            obj.onAcceptFail('No Data-Items specified');
+          }
+// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+          if ( data_items.value != obj.data_items.text ) {
+            tmp = data_items.value.split(/ |\n|,/);
+            data = {blocks:{}, datasets:{} };
+            for (i in tmp) {
+              block = tmp[i];
+              if ( block != '' ) {
+                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                  dataset = RegExp.$1;
+                  if ( dataset == block ) { data.datasets[dataset] = 1; }
+                  else                    { data.blocks[block] = 1; }
+                } else {
+                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+                }
+              }
+            }
+          }
+// 3. Blocks which are contained within explicit datasets are suppressed
+          for (block in data.blocks) {
+            block.match(/^([^#]*)#/);
+            dataset = RegExp.$1;
+            if ( data.datasets[dataset] ) {
+              delete data.blocks[block];
+            }
+          }
+// 4. Blocks are grouped into their corresponding datasets
+          for (block in data.blocks) {
+            block.match(/([^#]*)#/);
+            dataset = RegExp.$1;
+            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+            data.datasets[dataset][block] = 1;
+          }
+// 5. the block-list is now redundant, clean it up!
+          delete data.blocks;
+
+// If there were errors, I can give up now!
+          if ( obj.formFail ) { return; }
+
+          Dom.removeClass(dom.preview,'phedex-invisible');
+          dom.preview.innerHTML = '';
+          Dom.removeClass(dom.results,'phedex-invisible');
+          Dom.addClass(dom.results,'phedex-box-yellow');
+          dom.results_label.innerHTML = 'Status:';
+          dom.results_text.innerHTML  = 'Calculating request (please wait)' +
+          '<br/>' +
+          "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
+//           PHEDEX.Datasvc.Call({ api:'data', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
+        }
+      }(this);
 
     }
   }
