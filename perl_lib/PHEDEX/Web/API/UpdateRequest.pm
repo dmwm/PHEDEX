@@ -63,7 +63,7 @@ sub approve
 
   # check authorization
   my $nodes = [ arrayref_expand($args{node}) ];
-  foreach my $node (@$nodes) {
+  foreach my $node (@{$nodes}) {
     my $nodeid = $auth->{NODES}->{$node} || 0;
     die("You are not authorised to approve data to node $node") unless $nodeid;
   }
@@ -92,14 +92,13 @@ sub approve
       if ( $args{APPROVE} ) {
         foreach my $node (values %{$request->{NODES}}) {
 	  # Check if this node is required
-	  next unless grep($node->{NODE},@{$nodes});
+	  next unless grep(/^$node->{NODE}$/,@{$nodes});
 
           # Check if user is authorized for this node
 	  if (! $auth->{NODES}->{ $node->{NODE} }) {
 	    die "You are not authorised to approve data to node $node->{NODE}\n";
 	  }
  
-die Data::Dumper->Dump([$node_id]);
 	  # Set the decision
           eval {
 	  &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
