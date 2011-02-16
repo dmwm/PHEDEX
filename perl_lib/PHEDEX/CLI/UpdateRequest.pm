@@ -1,4 +1,4 @@
-package PHEDEX::CLI::Approve;
+package PHEDEX::CLI::UpdateRequest;
 use Getopt::Long;
 use Data::Dumper;
 use strict;
@@ -14,16 +14,16 @@ sub new
 	      VERBOSE	=> 0,
 	      DEBUG	=> 0,
 	      NODE	=> undef,
-	      ACTION	=> undef,
-	      RID	=> undef,
+	      DECISION	=> undef,
+	      REQUEST	=> undef,
 	    );
   %options = (
                'help'		=> \$help,
 	       'verbose!'	=> \$params{VERBOSE},
 	       'debug'		=> \$params{DEBUG},
 	       'node=s@'	=> \$params{NODE},
- 	       'action=s'	=> \$params{ACTION},
-	       'rid=i'		=> \$params{RID},
+ 	       'decision=s'	=> \$params{DECISION},
+	       'request=i'	=> \$params{REQUEST},
  	       'comments=s'	=> \$params{COMMENTS}
 	     );
   GetOptions(%options);
@@ -55,10 +55,9 @@ sub Help
  This command approves/disapproves a request, or simply adds a comment to it.
 
  Options:
- --action		'approve'    => Approve the request
+ --decision		'approve'    => Approve the request
 			'disapprove' => Disapprove the request
-			'nothing'    => no action (just add a comment)
- --rid			Request-ID to act on
+ --request			Request-ID to act on
  --node			Node to approve this request for. May be repeated
  --comments             comments on this request/subscription
 
@@ -73,8 +72,8 @@ sub Payload
   my $self = shift;
   my $payload;
 
-  $payload->{action}   = $self->{ACTION};
-  $payload->{rid}      = $self->{RID};
+  $payload->{decision}   = $self->{DECISION};
+  $payload->{request}  = $self->{REQUEST};
   $payload->{node}     = $self->{NODE};
   $payload->{comments} = $self->{COMMENTS};
 
@@ -83,7 +82,7 @@ sub Payload
   return $self->{PAYLOAD} = $payload;
 }
 
-sub Call { return 'approve'; }
+sub Call { return 'updaterequest'; }
 
 sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
