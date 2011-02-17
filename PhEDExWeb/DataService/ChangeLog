@@ -7,6 +7,8 @@
  Bug fixes
   * updateSubscription: SUSPEND_UNTIL is allowed to be NULL, so check for its
     existence, not its value
+  * inject: handle duplicated files properly
+    - as long as there is one duplicated file, the whole injection fails.
 
 * Changes for 1.6.6 (1.6.4 and 1.6.5 were never released)
 
