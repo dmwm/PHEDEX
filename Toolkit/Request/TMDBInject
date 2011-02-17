@@ -197,7 +197,19 @@ my $src_node = shift @nodes;
 print "Using $src_node->{NAME} as origin node\n";
 
 # Inject data to source node
-my $stats = &PHEDEX::Core::Inject::injectData ($self, $data, $src_node->{ID}, %opts);
+my $stats;
+eval {
+    $stats = &PHEDEX::Core::Inject::injectData ($self, $data, $src_node->{ID}, %opts);
+};
+
+if ($@)
+{
+    &PHEDEX::Core::Inject::execute_rollback($self);
+    # filter out code information
+    my @t = $@ =~ m!(.+) at (.+)!;
+    print " <ERROR> ", $t[0], "\n";
+    exit 1;
+}
 
 if ($stats && ref $stats eq 'HASH') {
     print "Injection Stats:\n";
