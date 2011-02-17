@@ -258,6 +258,29 @@ sub injectData
     return \%stats;
 }
 
+# check if the file name is already in TMDB
+# if so, return the block name
+sub check_file
+{
+    my ($self, $file) = @_;
+    if (not $file) { return undef; }
+
+    my $sql = qq {
+        select
+            b.name as block
+        from
+            t_dps_file f join
+            t_dps_block b on b.id = f.inblock
+        where
+            f.logical_name = :lfn
+        };
+
+    my $q = execute_sql($self, $sql, ':lfn' => $file)->fetchrow_hashref();
+
+    if (not $q) { return undef; }
+    return $q->{BLOCK};
+}
+
 =pod
 
 =item createDBS(%h)
@@ -487,7 +510,33 @@ sub bulkCreateFiles
 	push(@{$binds{$n++}}, $h{TIME_CREATE} || $now);
     }
 
-    &execute_sql($self, $file_sql, %binds);
+    # Since execute_array() only raises warnings, we need to treat
+    # warnings as errors. The most common warning/error is the violation
+    # of 'unique' constraint on file names. In addition to raising the
+    # error, we need to identify the first violation and notify the caller
+
+    eval {
+        # trap the warnings
+        local $SIG{__WARN__} = sub {
+            die @_;
+        };
+
+        &execute_sql($self, $file_sql, %binds);
+    };
+
+    if ($@)
+    {
+        # check duplicated files
+        # this is slow, but it provides most accurate error message
+
+        foreach my $f (@{$files})
+        {
+            my $b = &check_file($self, $f->{LOGICAL_NAME});
+            die "$f->{LOGICAL_NAME} is already in block $b" if $b;
+        }
+        # die any way
+        die @_;
+    }
 
     # Bulk inject the xfer_files and xfer_replicas
     # LFNs are param 3
