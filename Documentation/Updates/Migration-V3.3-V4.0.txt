@@ -375,12 +375,18 @@ select count(*) from t_dps_subs_block sd
   or sub.priority!=sp.priority;
  
 -- Now, create block-level subscriptions for all blocks in a dataset-level subscription
--- note: time_complete comes from t_dps_block_dest, if available
+-- note: time_complete and time_done come from t_dps_block_dest, if available
+-- note: for moves, time_done is NULL - it will be set by BlockAllocator on the first cycle
+-- after checking for source deletions
 merge into t_dps_subs_block n using
 (
 select sd.destination, b.dataset, b.id block, sd.param, sd.is_move,
        greatest(sd.time_create, b.time_create) time_create, sd.time_suspend_until,
-       bd.time_complete, bd.time_complete time_done
+       bd.time_complete,
+       case
+        when sd.is_move='n' then bd.time_complete
+        else NULL
+       end time_done
   from t_dps_subs_dataset sd
   join t_dps_block b on b.dataset = sd.dataset
 left join t_dps_block_dest bd on bd.block = b.id and bd.destination = sd.destination
