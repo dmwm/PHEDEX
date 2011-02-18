@@ -581,8 +581,8 @@ sub webroot
     # if $root is passed in from argument, return it
 
     return $root if ($root);
-    return $ENV{'SERVICE_PATH'} if ($ENV{'SERVICE_PATH'});
-    return $$self{CONFIG}{SERVICE_PATH} if ($$self{CONFIG}{SERVICE_PATH});
+    #return $ENV{'SERVICE_PATH'} if ($ENV{'SERVICE_PATH'});
+    #return $$self{CONFIG}{SERVICE_PATH} if ($$self{CONFIG}{SERVICE_PATH});
     # default
     return "cmsweb.cern.ch/phedex";
 }
