@@ -109,7 +109,7 @@ sub reloadConfig
   {
     my $val = $config->{OPTIONS}{$_};
     next unless defined($val);
-    if ( ref($val) == 'ARRAY' )
+    if ( ref($val) eq 'ARRAY' )
     {
       $self->Logmsg("reloadConfig: set $_=",join(',',@{$val}));
     }
