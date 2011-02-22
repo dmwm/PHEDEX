@@ -67,7 +67,12 @@ sub parse
 	else {
 	    die "Cannot determine path for $file in $dir\n";
 	}
-	my $tapestats = $self->SUPER::execute($ns,$fullname,'tapechecksum');
+	# Try to extract tapechecksum from cache
+	my $tapestats = $ns->{CACHE}->fetch('tapechecksum',$fullname);
+	# Execute command if tapechecksum is not in cache
+	if ( not defined $tapestats ) {
+	    $tapestats = $self->SUPER::execute($ns,$fullname,'tapechecksum');
+	}
 	$x->{checksum_type} = $tapestats->{'tape_checksum_type'};
 	$x->{checksum_value} = $tapestats->{'tape_checksum_value'};
 	
