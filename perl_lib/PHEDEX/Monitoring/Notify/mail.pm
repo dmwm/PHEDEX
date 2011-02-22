@@ -2,7 +2,6 @@ package PHEDEX::Monitoring::Notify::mail;
 use strict;
 use warnings;
 no strict 'refs';
-use Data::Dumper;
 
 sub new
 {
@@ -19,7 +18,6 @@ sub new
   map { $self->{$_} = $h{$_} } keys %h;
   $self -> set_email_address();
 
-  print Dumper($self) if $self->{DEBUG};
   return $self;
 
 }
