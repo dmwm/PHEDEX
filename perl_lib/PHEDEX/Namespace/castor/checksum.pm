@@ -38,6 +38,10 @@ sub parse
     my (@a,$x,$file);
     chomp;
     @a = split(' ',$_);
+    
+    # Skip directories
+    next if $a[0] =~ m/^d/;
+    
     # Check if nsls -l output has checksum field
     if (scalar(@a) == 11) {
 
