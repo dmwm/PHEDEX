@@ -7518,8 +7518,7 @@ sub new
 sub myurl
 {
   my ($self, %args) = @_;
-  my @save = qw(tofilter fromfilter andor
-		report_code xfer_code from_pfn to_pfn log_detail log_validate);
+  my @save = qw(tofilter fromfilter andor);
 
   # Return bare link if we are switching pages
   return $self->SUPER::myurl(%args)
@@ -7527,6 +7526,9 @@ sub myurl
 			  $args{"page"} ne "Activity::TransferDetails" &&
 			  $args{"page"} ne "Activity::ErrorInfo"));
 
+  if ( $args{page} eq 'Activity::ErrorInfo' ) {
+    @save = qw(tofilter fromfilter andor report_code xfer_code from_pfn to_pfn log_detail log_validate);
+  }
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
 }
