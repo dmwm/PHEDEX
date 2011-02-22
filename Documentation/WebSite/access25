@@ -2764,7 +2764,7 @@ sub generate
     warn "$time: error: id=$id $message\n";
 
     my $feedbackurl = $$self{CONFIG}{BUG_SUBMIT_URL};
-
+    my ($key,$val);
     if ($message =~ /ORA-00942/) # table or view doesn't exist
     {
       print { $$self{CONTENT} }
@@ -2775,7 +2775,7 @@ sub generate
     }
     elsif ($message =~ /The (\S+) parameter \((.*)\) to \S+ did not pass/) # validation problem
     {
-	my ($key, $val) = ($1, $2);
+	($key, $val) = ($1, $2);
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
         " <p>Input parameter for $key did not pass validation with value $val. Please correct the input, or ",
@@ -2786,7 +2786,7 @@ sub generate
     }
     elsif ($message =~ /but was not listed in the validation options: (\w+)/)
     {
-	my $val = $1;
+	$val = $1;
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
         " <p>Unknown input parameter ($val). Please correct the input, or ",
@@ -2797,7 +2797,7 @@ sub generate
     }
     elsif ($message =~ /Invalid string (.*) given to dbs_lookup/)
     {
-	my $val = $1;
+	$val = $1;
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
         " <p>\"$val\" is not a valid dataset-name. Please correct the input and try again</p>\n",
@@ -9259,6 +9259,7 @@ sub data_subscriptions
   $self->fetch_nodes();
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
   @node_ids = grep /\d+/, @node_ids;
+
   my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
   my ($sql,$p,$q);
 
@@ -9306,10 +9307,19 @@ sub data_subscriptions
 #   to use the query directly. Hiddeous, isn't it...
     eval ("require PHEDEX::Web::SQL");
     die $@ if $@;
-    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self,( COLLAPSE => 'y' ));
+    my %h = ( COLLAPSE => 'y' );
+    my @node_names = map { $_->{NAME} } @{$$self{NODE_SHOWN}};
+    if ( @node_names ) {
+      $h{NODE} = \@node_names;
+    }
+    if ( $self->{PARAMS}{reqfilter} ) {
+      $h{REQUEST} = $self->{PARAMS}{reqfilter};
+    }
+    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self, %h );
     $sql =~ s%level%item_level%g;
     $sql =~ s% open,% item_open,%g;
     $sql =~ s%name node%name node_name%g;
+    $sql =~ s%desc,\s+n.name%desc, node_name%g;
     $sql =~ s% move,% ,%g;
     $sql =~ s% custodial,% ,%g;
     $sql =~ s% "group",% user_group,%g;
