@@ -3,15 +3,16 @@ package PHEDEX::Namespace::castor::checksum;
 use strict;
 use warnings;
 use base 'PHEDEX::Namespace::castor::Common';
+use File::Basename;
 
-our @fields = qw / tape_name checksum_type checksum_value is_migrated /;
+our @fields = qw / checksum_type checksum_value /;
 sub new
 {
   my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
   my $self = {
 	       cmd	=> 'nsls',
-	       opts	=> ['-T','--checksum']
+	       opts	=> ['-l','--checksum']
 	     };
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';
@@ -19,9 +20,7 @@ sub new
   return $self;
 }
 
-sub execute { my $self = shift;
-	      my $ns = shift;
-	      my $pfn = shift;
+sub execute { my ($self,$ns,$pfn) = @_[0..2];
 	      $self->SUPER::execute($ns,$pfn,'checksum'); }
 
 sub parse
@@ -31,29 +30,55 @@ sub parse
 
   my ($self,$ns,$r,$dir) = @_;
   my $result = {
-		 tape_name	=> undef,
-		 checksum_type	=> undef,
-		 checksum_value	=> undef,
-		 is_migrated	=> 0,
-	       };
+                 checksum_type     => undef,
+		 checksum_value    => undef,
+	       };      
   foreach ( @{$r->{STDOUT}} )
   {
     my (@a,$x,$file);
     chomp;
     @a = split(' ',$_);
-    scalar(@a) == 11 or next;
-    $x->{tape_name} = $a[3];
-    $x->{checksum_type}  = $a[8];
-    $x->{checksum_value} = $a[9];
-    if  ( $x->{tape_name} =~ m%^-$% ) { $x->{is_migrated} = 0; }
-    else			      { $x->{is_migrated} = 1; }
-    $file = $a[10];
+    # Check if nsls -l output has checksum field
+    if (scalar(@a) == 11) {
 
-    $ns->{CACHE}->store('checksum',"$dir/$file",$x);
+	$x->{checksum_type}  = $a[8];
+	if ($x->{checksum_type} eq 'AD') {
+	    $x->{checksum_type} = 'adler32';
+	}
+	$x->{checksum_value} = $a[9];
+	$file = $a[10];
 
-    $result = $x;
+	$ns->{CACHE}->store('checksum',"$dir/$file",$x);
+	
+	$result = $x;
+    }
+    # Invoke tapechecksum instead
+    elsif (scalar(@a) == 9) {
+	
+	$file = $a[8];
+	# filename in nsls output already contains full path if argument is a single file 
+	my $fullname;
+	if ( $file eq basename $file ) {
+	    $fullname = "$dir/$file";
+	}
+	elsif ( $file eq $dir ) {
+	    $fullname = $dir;
+	}
+	else {
+	    die "Cannot determine path for $file in $dir\n";
+	}
+	my $tapestats = $self->SUPER::execute($ns,$fullname,'tapechecksum');
+	$x->{checksum_type} = $tapestats->{'tape_checksum_type'};
+	$x->{checksum_value} = $tapestats->{'tape_checksum_value'};
+	
+	$ns->{CACHE}->store('checksum',$fullname,$x);
+	
+	$result = $x;
+    }
   }
+  
   return $result;
+  
 }
 
 sub Help
