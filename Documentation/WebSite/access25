@@ -5328,12 +5328,16 @@ sub output
 	if ($action eq 'null') {
 	    push @results, "No action taken for $node";
 	} elsif ($action eq 'disapprove') {
-	    $ok &&= $self->disapprove($data, $node_obj, $now);
-	    $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
+	    $ok &&= $self->disapprove($data, $node_obj, $now, $rid);
+            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+	      $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
+            }
 	    push @results, "Disapproved request \#$rid for $node";
 	} elsif ($action eq 'approve') {
-	    $ok &&= $self->approve($data, $node_obj, $now);
-	    $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
+	    $ok &&= $self->approve($data, $node_obj, $now, $rid);
+            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+	      $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
+            }
 	    push @results, "Approved request \#$rid for $node";
 	} elsif ($action eq 'stopeval') {
 	    $ok &&= $self->markRequestUndone($rid, $node_id);
@@ -5367,18 +5371,30 @@ sub output
 
 sub disapprove
 {
-    my ($self, $data, $node_obj, $time) = @_;
+  my ($self, $data, $node_obj, $time, $rid) = @_;
 
+  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
     if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
 	$self->updateMoveSource($$data{ID}, $node_obj, $time);
     }
+  } else { # SCHEMA version 4 or higher
+      eval("require PHEDEX::Web::API::UpdateRequest;");
+      die $@ if $@;
+      my %h = (
+		request  => $rid,
+		node     => $node_obj->{NODE_ID},
+		decision => 'disapprove'
+	      );
+      PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  }
 
-    return 1;
+  return 1;
 }
 
 sub approve
 {
-    my ($self, $data, $node_obj, $time) = @_;
+  my ($self, $data, $node_obj, $time, $rid) = @_; # TW RID added for 4.0 schema
+  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
 	    $self->subscribe($$data{ID}, $node_obj, $time);
@@ -5392,50 +5408,26 @@ sub approve
 	} 
 	$self->delete($$data{ID}, $$node_obj{NODE_ID}, $time);
     }
-
-    return 1;
+  } else { # SCHEMA version 4 or higher
+      eval("require PHEDEX::Web::API::UpdateRequest;");
+      die $@ if $@;
+      my %h = (
+		request  => $rid,
+		node     => $node_obj->{NODE_ID},
+		decision => 'approve'
+	      );
+      PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  }
+  return 1;
 }
 
 sub subscribe
 {
     my ($self, $rid, $node_obj, $time) = @_;
-    my ($request,$requests,$paramid);
-#    my ($client_id,$id_params,$identity,$request,$requests,$paramid);
-
-    if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
-      eval
-      {
-        $requests = &PHEDEX::RequestAllocator::Core::getTransferRequests($self, REQUESTS => [$rid]);
-        foreach $request (values %$requests) {
-          $rid = $request->{ID};
-          # Add the subscriptions
-          if ($node_obj->{POINT} eq 'Destination Node') {
-          # Add the subscription parameter set (or retrieve it if existing)
-            $paramid = &PHEDEX::RequestAllocator::Core::createSubscriptionParam($self,
-                                                                                REQUEST => $rid,
-                                                                                PRIORITY => $request->{PRIORITY},
-                                                                                IS_CUSTODIAL => $request->{IS_CUSTODIAL},
-                                                                                USER_GROUP => $request->{USER_GROUP},
-                                                                                ORIGINAL => 1,
-                                                                                TIME_CREATE => $time
-                                                                                );
-            &PHEDEX::RequestAllocator::Core::addSubscriptionsForParamSet($self, $paramid, $node_obj->{NODE_ID}, $time);
-          } elsif ($node_obj->{POINT} eq 'Source Node') {
-            # Remove the subcriptions for the move source
-            &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
-          }
-        }
-      };
-      if ( $@ ) {
-        $self->{DBH}->rollback();
-        return 0;
-      }
-    } else { # Not a 4.0+ schema...
-      # TW HACK load the old code here
-      eval ("require PHEDEX::RequestAllocator::wrapper");
-      die $@ if $@;
-      &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
-    }
+# TW HACK load the old code here
+    eval ("require PHEDEX::RequestAllocator::wrapper");
+    die $@ if $@;
+    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
 
     return 1;
 }
@@ -5443,7 +5435,7 @@ sub subscribe
 sub updateMoveSource
 {
     my ($self, $rid, $node_obj, $time) = @_;
-    
+ 
     if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
       &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
     } else {
@@ -8979,8 +8971,8 @@ sub output_page
   } else {
     %pseudo = (
       'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
-      'PCT_FILES' => sub { $_[1]->{PERCENT_FILES}/100; }, # This is cheating a bit
-      'PCT_BYTES' => sub { $_[1]->{PERCENT_BYTES}/100; }  # ...so is this...
+      'PCT_FILES' => sub { my $x = $_[1]->{PERCENT_FILES}; defined($x) ? $x/100 : undef; }, # This is cheating a bit
+      'PCT_BYTES' => sub { my $x = $_[1]->{PERCENT_BYTES}; defined($x) ? $x/100 : undef; }, # ...so is this...
     );
   }
 
@@ -9312,7 +9304,7 @@ sub data_subscriptions
 #   to use the query directly. Hiddeous, isn't it...
     eval ("require PHEDEX::Web::SQL");
     die $@ if $@;
-    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self);
+    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self,( COLLAPSE => 'y' ));
     $sql =~ s%level%item_level%g;
     $sql =~ s% open,% item_open,%g;
     $sql =~ s%name node%name node_name%g;
