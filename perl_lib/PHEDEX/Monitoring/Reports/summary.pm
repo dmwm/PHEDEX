@@ -2,7 +2,6 @@ package PHEDEX::Monitoring::Reports::summary;
 use strict;
 use warnings;
 no strict 'refs';
-use Data::Dumper;
 
 sub new
 {
@@ -14,7 +13,6 @@ sub new
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
 
-  print Dumper($self) if $self->{DEBUG};
   return $self;
 
 }
