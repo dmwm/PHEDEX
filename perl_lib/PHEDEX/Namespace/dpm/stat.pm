@@ -11,7 +11,7 @@ sub new
   my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
   my $self = {
-	       cmd	=> 'dpls',
+	       cmd	=> 'dpns-ls',
 	       opts	=> ['-l']
 	     };
   bless($self, $class);
@@ -20,7 +20,12 @@ sub new
   return $self;
 }
 
-sub execute { (shift)->SUPER::execute(@_,'stat'); }
+sub execute { 
+    my ($self,$ns,$file) = @_;
+    my @dummy=split('=',$file);
+    $file=$dummy[1] if(defined($dummy[1]));
+    $self->SUPER::execute($ns,$file,'stat'); 
+}
 
 sub parse
 {
@@ -29,7 +34,6 @@ sub parse
   my ($self,$ns,$r,$dir) = @_;
   my $result;
   
-die "Until someone verifies that this code works, I die here. Wanna fix the code...?\n";
   foreach ( @{$r->{STDOUT}} )
   {
     my ($x,$file,@t,%h,$M,$d,$y_or_hm,$y,$h,$m);
