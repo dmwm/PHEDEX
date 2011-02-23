@@ -57,7 +57,7 @@ sub Help
  Options:
  --decision		'approve'    => Approve the request
 			'disapprove' => Disapprove the request
- --request			Request-ID to act on
+ --request		Request-ID to act on
  --node			Node to approve this request for. May be repeated
  --comments             comments on this request/subscription
 
