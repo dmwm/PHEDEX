@@ -64,23 +64,23 @@ $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer 
                          -technology Castor -se-name srm.cern.ch
 $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
-# Create four TX_Test nodes
+# Create four T1_Test nodes
 for ((i=1;i<=4;i+=1)); do
-  $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test${i}_Buffer \
+  $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Buffer \
 	-kind Buffer -technology Other -se-name srm.test${i}.ch
-  $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test${i}_MSS \
+  $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_MSS \
 	-kind MSS -technology Other -se-name srm.test${i}.ch
 done
 
-# TX_Test node links
+# T1_Test node links
 for ((i=1;i<=4;i+=1)); do
-  echo TX_Test${i}_Buffer to T0_Buffer
-  $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer TX_Test${i}_Buffer:R/2
-  echo TX_Test${i}_Buffer to TX_Test${i}_MSS
-  $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test${i}_Buffer TX_Test${i}_MSS:L/1
+  echo T1_Test${i}_Buffer to T0_Buffer
+  $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/2
+  echo T1_Test${i}_Buffer to T1_Test${i}_MSS
+  $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${i}_MSS:L/1
   for ((j=$i+1;j<=4;j+=1)); do
-    echo TX_Test${i}_Buffer to TX_Test${j}_Buffer
-    $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test${i}_Buffer TX_Test${j}_Buffer:R/2
+    echo T1_Test${i}_Buffer to T1_Test${j}_Buffer
+    $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/2
   done
 done
 

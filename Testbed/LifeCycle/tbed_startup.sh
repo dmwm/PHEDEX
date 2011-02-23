@@ -8,7 +8,7 @@ not_first=0
 for cfg in $Config/Config.Test*.MSS
 do
   i=`echo $cfg | awk -F/ '{ print $NF }' | tr -d '[a-z,A-Z,._]'`
-  node="TX_Test${i}_Buffer"
+  node="T1_Test${i}_Buffer"
   echo "Starting node $node"
   if [ $first ]; then
     echo 'pause before starting next node...'; sleep 15

@@ -74,17 +74,17 @@ $PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer 
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
 $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
-# Create one TX_Test nodes
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test1_MSS -kind MSS\
+# Create one T1_Test nodes
+$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
 			-technology Other -se-name srm-test0.nowhere.cern.ch
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name TX_Test1_Buffer -kind Buffer \
+$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
 			-technology Other -se-name srm-test0.nowhere.cern.ch
 
-# TX_Test node links
-echo TX_Test1_Buffer to T0_Buffer
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer TX_Test1_Buffer:R/2
-echo TX_Test1_Buffer to TX_Test1_MSS
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test1_Buffer TX_Test1_MSS:L/1
+# T1_Test node links
+echo T1_Test1_Buffer to T0_Buffer
+$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
+echo T1_Test1_Buffer to T1_Test1_MSS
+$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
 
 (
   echo '$PhEDEx::Lifecycle{NodeIDs} ='
@@ -96,6 +96,6 @@ $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM TX_Test1_Buffer TX_Test1_MSS:L/1
   echo '};'
   echo ' '
   echo '1;'
-) | tee $LIFECYCLE/2NodeLifecycleNodes.pl
+) | tee $LIFECYCLE/LifecycleNodes.pl
 
 echo 2-node setup completed

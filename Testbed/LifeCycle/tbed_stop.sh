@@ -11,7 +11,7 @@ $Master -config $Config/Config.T0.MSS stop
 for cfg in $Config/Config.Test*.MSS
 do
   i=`echo $cfg | awk -F/ '{ print $NF }' | tr -d '[a-z,A-Z,._]'`
-  node="TX_Test${i}_Buffer"
+  node="T1_Test${i}_Buffer"
   echo "Stopping node $node"
   $Master -config $Config/Config.Test$i.MSS stop
 done
