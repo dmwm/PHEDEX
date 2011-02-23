@@ -114,8 +114,9 @@ sub approve
 
   my ($sql, %p, $type);
   $type = PHEDEX::Core::DB::dbexec($core->{DBH}, qq{ select type from t_req_request where id = :id }, ':id' => $args{request} )->fetchrow();
-  if    ( $type == 1 ) { $type = 'xfer'; }
-  elsif ( $type == 2 ) { $type = 'delete'; }
+  if    ( $type == 1  ) { $type = 'xfer'; }
+  elsif ( $type == 2  ) { $type = 'delete'; }
+  elsif ( $type == '' ) { die("Unknown request: $args{request}"); }
   else { die("Unknown request type: '$type'\n"); }
 
   my $now = time();
@@ -128,13 +129,14 @@ sub approve
   };
   die("Couldn't retrieve request $args{request}") if $@;
 
-  my ($selected_requests,$request,$rid);
+  my ($selected_requests,$request,$rid,%node_count,$extra_nodes);
 # Verify authorisation first...
   foreach $request (values %$requests) {
     $selected_requests = {};
     foreach my $node_id (keys %{$request->{NODES}}) {
       my $node  = $request->{NODES}{$node_id};
       next unless grep(/^$node->{NODE}$/,@{$nodes}); # Check if this node is required
+       $node_count{$node->{NODE}}++;
       # Check if user is authorized for this node
       if (! $auth->{NODES}->{ $node->{NODE} }) {
 	die "You are not authorised to approve data to node $node->{NODE}\n";
@@ -145,6 +147,16 @@ sub approve
     foreach ( keys %{$selected_requests} ) { $request->{NODES}{$_} = $selected_requests->{$_}; }
   }
 
+  $extra_nodes = '';
+  foreach ( sort @{$nodes} ) {
+    if ( !$node_count{$_} ) {
+      if ( $extra_nodes ) { $extra_nodes .= ', '; }
+      $extra_nodes .= $_;
+    }
+  }
+  if ( $extra_nodes ) {
+    die("Request ID=$args{request} does not include node(s) $extra_nodes");
+  }
 # Set the request decision
   foreach $request (values %$requests) {
     $rid = $request->{ID};
