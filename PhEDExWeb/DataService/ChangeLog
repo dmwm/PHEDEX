@@ -1,4 +1,4 @@
-* Changes for 1.7.x
+* Changes for 2.0.x
 
  Now following the convention that this ChangeLog tracks only the first two
  digits of the version number, allowing the last one to cycle freely with
@@ -9,6 +9,9 @@
     existence, not its value
   * inject: handle duplicated files properly
     - as long as there is one duplicated file, the whole injection fails.
+
+ New APIs:
+ * 'updaterequests': approve or disapprove a request
 
 * Changes for 1.6.6 (1.6.4 and 1.6.5 were never released)
 
