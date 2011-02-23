@@ -97,3 +97,13 @@ done
 ) | tee $LIFECYCLE/LifecycleNodes.pl
 
 echo 4-node setup completed
+
+i=1
+echo -n "Inserting groups: "
+for group in physicists managers operators administrators experts other
+do
+  echo -n "$group "
+  echo "insert into t_adm_group (id,name) values ($i,'$group');" | $PHEDEX_SQLPLUS >/dev/null
+  i=`expr $i + 1`
+done
+echo "groups inserted"
