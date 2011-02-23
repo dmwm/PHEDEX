@@ -13,7 +13,7 @@ sub new
   my %params = (
 		 VERBOSE => $h->{VERBOSE} || 0,
 		 DEBUG	 => $h->{DEBUG}   || 0,
-		 cache	 => {},
+		 cache   => $h->{AGENT}->{AGENT_CACHE_NAMESPACE} || {},
 		 stats	 => {},
               );
   my $self = \%params;
