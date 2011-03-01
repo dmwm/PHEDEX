@@ -10,6 +10,7 @@ use Cwd;
 use Data::Dumper;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
+use PHEDEX::Core::Formats;
 use PHEDEX::Core::Catalogue ( qw / dbStorageRules applyStorageRules / );
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::Core;
@@ -224,14 +225,28 @@ sub doNSCheck
     }
     elsif ( $request->{TEST} eq 'cksum' ) 
     {
-      my ($chksum_value,$type1,$value1,$type2,$value2);
-      my ($chksum1,$chksum2) = split(',',$r->{CHECKSUM});
-      if ( defined ($chksum1) ) { ($type1,$value1) = split(':',$chksum1); }
-      if ( defined ($chksum2) ) { ($type2,$value2) = split(':',$chksum2); }
-      if    ( defined($type1) &&  $type1 eq 'adler32' ) { $chksum_value = hex $value1; }
-      elsif ( defined($type2) &&  $type2 eq 'adler32' ) { $chksum_value = hex $value2; }
-      else { $chksum_value = 0; } 
-
+      my $chksum_value;
+      my $checksum_map;
+      eval {$checksum_map=PHEDEX::Core::Formats::parseChecksums($r->{CHECKSUM});};
+      if ($@) 
+      { 
+	  $self->Alert("File $pfn: ",$@);
+      }
+      else
+      {
+	  $chksum_value=$checksum_map->{adler32};
+      }
+      
+      if (defined $chksum_value)
+      { 
+	  $chksum_value=hex($chksum_value); 
+      }
+      else
+      { 
+	  $r->{STATUS} = 'Indeterminate'; 
+	  $self->Dbgmsg("$pfn : no adler32 checksum in TMDB") if ( $self->{DEBUG} );
+	  next; 
+      }
       $t1 = Time::HiRes::time();
       my $adler = hex($ns->$cmd($pfn,$lfn,$mapping,$node));
       $dt1 += Time::HiRes::time() - $t1;
