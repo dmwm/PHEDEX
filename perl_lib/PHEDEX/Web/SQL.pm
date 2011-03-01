@@ -1755,15 +1755,15 @@ sub getBlockTestFiles
         select
             v.id,
             b.name block,
-            block blockid,
+            v.block blockid,
             b.files,
             b.bytes,
-            n_files,
-            n_tested,
-            n_ok,
+            v.n_files,
+            v.n_tested,
+            v.n_ok,
             s.name status,
             t.name kind,
-            time_reported,
+            v.time_reported,
             n.name node,
             n.id nodeid,
             n.se_name se
@@ -1791,16 +1791,16 @@ sub getBlockTestFiles
     {
         if ($filters)
         {
-            $sql .= " and time_reported >= :test_since ";
+            $sql .= " and v.time_reported >= :test_since ";
         }
         else
         {
-            $sql .= " where time_reported >= :test_since ";
+            $sql .= " where v.time_reported >= :test_since ";
         }
         $p{':test_since'} = &str2time($h{TEST_SINCE});
     }
 
-    $sql .= " order by time_reported ";
+    $sql .= " order by v.time_reported ";
     $q = execute_sql( $core, $sql, %p);
 
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
