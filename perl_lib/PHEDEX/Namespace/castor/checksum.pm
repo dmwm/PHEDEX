@@ -21,6 +21,8 @@ sub new
 }
 
 sub execute { my ($self,$ns,$pfn) = @_[0..2];
+	      my $result = $ns->{CACHE}->fetch('checksum',$pfn);
+	      return $result if defined $result;
 	      $self->SUPER::execute($ns,$pfn,'checksum'); }
 
 sub parse
