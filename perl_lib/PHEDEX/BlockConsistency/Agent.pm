@@ -187,8 +187,8 @@ sub doNSCheck
   $dt1 = 0.;
   $self->Dbgmsg("Start the checking of $n_files local files at $t0") if ( $self->{DEBUG} );
   
-  my ($were_tested,$were_ok,$were_n);
-  $were_tested = $were_ok = 0;
+  my ($were_tested,$were_ok,$were_fail,$were_n);
+  $were_tested = $were_ok = $were_fail = 0;
   $were_n = $n_files;
 
   my $agent_reqid = 'req_id_' . $request->{ID};  # We will use this as blockname?
@@ -214,14 +214,14 @@ sub doNSCheck
       my $size = $ns->$cmd($pfn);
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; $were_ok++;}
-      else { $r->{STATUS} = 'Fail'; }
+      else { $r->{STATUS} = 'Fail'; $were_fail++;}
     }
     elsif ( $request->{TEST} eq 'migration' ||
 	    $request->{TEST} eq 'is_migrated' )
     {
       my $mode = $ns->$cmd($pfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; $were_ok++;}
-      else { $r->{STATUS} = 'Fail'; }
+      else { $r->{STATUS} = 'Fail'; $were_fail++;}
     }
     elsif ( $request->{TEST} eq 'cksum' ) 
     {
@@ -251,7 +251,7 @@ sub doNSCheck
       my $adler = hex($ns->$cmd($pfn,$lfn,$mapping,$node));
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($adler) &&  $adler eq $chksum_value ) { $r->{STATUS} = 'OK'; $were_ok++;}
-      else { $r->{STATUS} = 'Fail'; 
+      else { $r->{STATUS} = 'Fail'; $were_fail++;
              $self->Dbgmsg("$pfn : $chksum_value  <>  $adler") if ( $self->{DEBUG} );
            }
     }
@@ -268,9 +268,9 @@ sub doNSCheck
 
   $request->{N_TESTED} = $were_tested;
   $request->{N_OK} = $were_ok;
-  if ( $were_n == 0 )           { $request->{STATUS} = 'Indeterminate';}    
-  elsif ( $were_ok == $were_n ) { $request->{STATUS} = 'OK';}    
-  else                          { $request->{STATUS} = 'Fail';}
+  if ( $were_n > 0 && $were_ok == $were_n ) { $request->{STATUS} = 'OK';}
+  elsif ( $were_n > 0 && $were_fail > 0 ) { $request->{STATUS} = 'Fail';}
+  else { $request->{STATUS} = 'Indeterminate';}
   $request->{TIME_REPORTED} = time(); 
 
   $dt0 = Time::HiRes::time() - $t0;
