@@ -1,0 +1,19 @@
+### ENVIRON common
+
+PHEDEX_INSTANCE=Validation;
+
+[ -z "$PHEDEX_SITE" ] && { echo '$PHEDEX_SITE not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_INSTANCE" ] && { echo '$PHEDEX_INSTANCE not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_VERSION" ] && { echo '$PHEDEX_VERSION not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_LABEL" ] && { echo '$PHEDEX_LABEL not set' 1>&2; exit 1; };
+
+PHEDEX_CONFIG=${PHEDEX_ROOT}/Testbed/LargeScaleTests;
+export PHEDEX_CONFIG;
+PHEDEX_SCRIPTS=${PHEDEX_ROOT};
+
+PHEDEX_MAP=${PHEDEX_CONFIG}/storage.xml;
+PHEDEX_MSS=`echo ${PHEDEX_NODE}_MSS |sed 's|_Buffer||'`;
+
+### ENVIRON debug
+export PHEDEX_LOG_SQL=1;
+export PHEDEX_LOG_DB_CONNECTIONS=1;

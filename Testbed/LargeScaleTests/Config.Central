@@ -1,0 +1,42 @@
+#### General configuration
+### ENVIRON common
+
+# Common part
+
+# Set this outside config
+PHEDEX_LABEL=Central;
+PHEDEX_SITE=Central;
+PHEDEX_NODE=T0_001_Buffer;
+PHEDEX_VERSION=4_0_0_preX;
+PHEDEX_STATE=${TESTBED_ROOT}/${PHEDEX_LABEL}/state;
+PHEDEX_LOGS=${TESTBED_ROOT}/${PHEDEX_LABEL}/logs;
+
+# For the watchdog...
+PHEDEX_NOTIFICATION_PORT=1234;
+export PHEDEX_NOTIFICATION_PORT;
+
+# To show cycle times
+export PHEDEX_VERBOSE=1;
+export PHEDEX_DEBUG=1;
+
+### IMPORT ConfigPart.Common
+### IMPORT ConfigPart.Management
+
+### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
+ -db         ${PHEDEX_DBPARAM}
+ -config     ${PHEDEX_CONFIG}/Config.Central
+ -agent_list mgmt-lifecycle
+ -agent_list mgmt-reqalloc
+ -agent_list mgmt-blockalloc
+ -agent_list mgmt-router
+ -agent_list mgmt-issue
+ -agent_list mgmt-pump
+ -agent_list mgmt-blockmon
+ -agent_list mgmt-blockactiv
+ -agent_list mgmt-blockdeact
+ -agent_list mgmt-blockdelete
+ -agent_list info-pm
+ -agent_list info-invariant
+ -agent_list info-tc
+ -agent_list info-fs
+ -agent_list exp-stage
