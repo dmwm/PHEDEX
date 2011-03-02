@@ -1,6 +1,6 @@
 #!/bin/sh
 
-STRING=public/COMP/PHEDEX_CVS
+STRING=`echo $0 | sed -e 's%/Testbed/LargeScaleTests.*$%%'`
 if [ "$1" == 'kill' ]; then
   echo "Kill them all!"
 # Get nasty with anything else already on the node:
