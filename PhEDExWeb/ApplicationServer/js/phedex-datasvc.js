@@ -204,7 +204,7 @@ PHEDEX.Datasvc = (function() {
         } else {
           query.text += '?' + argstr;
         }
-        if ( PxW.nocache ) {
+        if ( PHEDEX.Webapp.nocache ) {
           if ( query.args ) { query.text += '&'; }
           query.text += 'nocache=1';
         }
@@ -316,8 +316,12 @@ PHEDEX.Datasvc = (function() {
       delete _poll_timers[poll_id];
     },
 
-    // Instances: return the array of instances
-    Instances: function() {
+    // Instances: set or return the array of instances
+    Instances: function(instances) {
+      if ( instances ) {
+        _instances = instances;
+        PHEDEX.Webapp.Instances = instances;
+      }
       return _instances;
     },
 
