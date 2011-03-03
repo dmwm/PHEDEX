@@ -81,7 +81,7 @@ sub new
   my $report_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Monitoring::Reports',
                                                  REJECT => \@report_reject );
   $self->{report_plug} = $report_loader->Load( lc($self->{REPORT_PLUGIN}) )->new( DEBUG => $self->{DEBUG} );
-
+  $self->{TimesIdle} = 1;
 
   return $self;
 }
@@ -234,26 +234,28 @@ sub idle
       $pidfile = $env->getExpandedString($Agent->PIDFILE());
       $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
       undef $pid;
-#     We try to catch a missing $pidfile
-      if ( -f $pidfile ) {
-        if ( open PID, "<$pidfile" ) { 
-          $pid = <PID>;
-          close PID;
-          chomp $pid;
-        }
-#     then look for the correct pid in AGENT_PID hash, once found, kill agent before something else 
-      } else {
-        unless ( -f $stopfile ) {
-          $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
-          foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
+      if ( $self->{TimesIdle} > 1 ) {
+#       We try to catch a missing $pidfile
+        if ( -f $pidfile ) {
+          if ( open PID, "<$pidfile" ) { 
+            $pid = <PID>;
+            close PID;
+            chomp $pid;
+          }
+#       then look for the correct pid in AGENT_PID hash, once found, kill agent before something else 
+        } else {
+          unless ( -f $stopfile ) {
+            $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
+            foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
             if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
               $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
               POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
             }
+            }
           }
         }
       }
-     
+
       if ( $pid && (kill 0 => $pid) )
       {
         if ( !$self->{AGENT_PID}{$pid} ) { $self->{AGENT_PID}{$pid} = $Agent->LABEL; }
@@ -314,6 +316,7 @@ sub idle
 #     $self->Dbgmsg("Agent=$agent, in this process, ignore for now...") if $self->{DEBUG};
     }
   }
+  $self->{TimesIdle}++;
 }
 
 sub startAgent
