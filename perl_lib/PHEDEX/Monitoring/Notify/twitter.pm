@@ -34,14 +34,13 @@ sub send_it {
   my ($access_token,$access_token_secret) = ('146000628-dohdHWSwDmF16VjiAlmKezDFjl6Wfme1RA6RcKA3',
                                              '0VDJXW2wDjkqgD6sKj6SaAFfm8ytACXwvM7fTCkqGU');
 
-                                          
 # access is passed to the api 
   $nt->access_token($access_token);
   $nt->access_token_secret($access_token_secret);
   
-# messega is tweeted
+# message is tweeted
   my $tweet = "#$self->{PHEDEX_SITE} $message";
-  $nt->update({ status => $tweet });
+  eval { $nt->update({ status => $tweet }); }; PHEDEX::Core::Logging::Logmsg($self,$@) if $@;
 
 }
 
