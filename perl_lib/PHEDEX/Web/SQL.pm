@@ -99,6 +99,20 @@ sub getBlockReplicas
 	}
     }
     
+    if (exists $h{DIST_COMPLETE}) {
+	if ($h{DIST_COMPLETE} eq 'n') {
+	    $sql .= qq{ and (b.is_open = 'y' or
+			     not exists (select 1 from t_dps_block_replica br2
+                                          where br2.block = b.id 
+                                            and br2.node_files = b.files)) };
+	} elsif ($h{DIST_COMPLETE} eq 'y') {
+	    $sql .= qq{ and b.is_open = 'n' 
+			and exists (select 1 from t_dps_block_replica br2
+                                     where br2.block = b.id 
+                                       and br2.node_files = b.files) };
+	}
+    }
+
     if (exists $h{CUSTODIAL}) {
 	if ($h{CUSTODIAL} eq 'n') {
 	    $sql .= qq{ and br.is_custodial = 'n' };
