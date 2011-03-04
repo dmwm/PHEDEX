@@ -99,16 +99,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-left' });
-//         label='Preview', id='button'+label;
-//         this.Preview = new YAHOO.widget.Button({
-//                                 type: 'submit',
-//                                 label: label,
-//                                 id: id,
-//                                 name: id,
-//                                 value: id,
-//                                 container: 'buttons-right' });
+        label='Preview', id='button'+label;
+        this.Preview = new YAHOO.widget.Button({
+                                type: 'submit',
+                                label: label,
+                                id: id,
+                                name: id,
+                                value: id,
+                                container: 'buttons-right' });
 //         this.Preview.set('disabled',true);
-//         this.Preview.on('click', this.onPreviewSubmit);
+        this.Preview.on('click', this.onPreviewSubmit);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
@@ -237,6 +237,43 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           }
         }(this);
         Reset.on('click', this.onResetSubmit);
+      },
+      previewCallback: function(data,context) {
+        var rid, api=context.api;
+debugger;
+        switch (api) {
+          case 'data': {
+            var datasets=data.dbs, ds, dsName, blocks, block, i, j, n;
+//             icon = this.dom.datasetIcon;
+            try {
+              if ( datasets.length == 0 ) {
+                item = context.args.dataset || context.args.block;
+//                 YuD.removeClass(icon,'phedex-invisible');
+//                 icon.src = PxW.BaseURL + '/images/close-red-16x16.gif';
+                return;
+              }
+              datasets = datasets[0].dataset;
+              for (i in datasets) {
+                ds = datasets[i];
+                dsName = ds.name;
+//                 if ( cData[dsName] ) { continue; }
+//                 cData[dsName] = { dataset:dsName, blocks:{}, is_open:ds.is_open };
+                n = ds.block.length;
+                for (j in ds.block ) {
+                  block = ds.block[j];
+//                   cData[dsName].blocks[block.name] = block;
+                }
+//                 el = this.AddFieldsetElement(_fDataset,dsName+' ('+n+' blocks)',dsName);
+//                 cart.elements[dsName] = {type:'dataset', el:el };
+              }
+//               YuD.removeClass(icon,'phedex-invisible');
+//               icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
+            } catch(ex) {
+              var _x = ex;
+            }
+            break;
+          }
+        }
       }
     }
   };
@@ -301,7 +338,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         instanceDefault:{
           prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           test:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          debug:'LoadTest07',
+          debug:'LoadTest',
           tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           tbedii:'test',
           tony:'test'
@@ -396,7 +433,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
           for ( i in data.node ) {
             node = data.node[i].name;
-            if ( node.match(/^T(0|1|2|3)_/) || instance != 'prod' ) { nodes.push(node ); }
+            if ( instance != 'prod' ) { nodes.push(node ); }
+            else {
+              if ( node.match(/^T(0|1|2|3)_/) && !node.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node ); }
+            }
           }
           nodes = nodes.sort();
           pDiv = Dom.get('destination-panel');
@@ -1029,33 +1069,35 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           delete data.blocks;
 
 // Subscription Type
-          tmp = obj.subscription_type;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
-          }
+//           tmp = obj.subscription_type;
+//           elList = tmp.elList;
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
+//           }
 
 // Time Start
           obj.getTimeStart();
           if ( time_start.time_start ) {
-            args.time_start = time_start.time_start;
+            args.block_create_since = time_start.time_start;
           }
 
 // If there were errors, I can give up now!
           if ( obj.formFail ) { return; }
 
-// Now build the XML!
-//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
-//           for ( dataset in data.datasets ) {
-//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
-//             for ( block in data.datasets[dataset] ) {
-//               xml += '<block name="'+block+'" is-open="dummy" />';
-//             }
-//             xml += '</dataset>';
+// Now build the args!
+          if ( data.datasets ) {
+            args.dataset = [];
+            for ( dataset in data.datasets ) {
+              args.dataset.push(dataset);
+            }
+          }
+//           if ( data.blocks   ) { args.block   = data.blocks; }
+//         for ( dataset in data.datasets ) {
+//           for ( block in data.datasets[dataset] ) {
+//             xml += '<block name="'+block+'" is-open="dummy" />';
 //           }
-//           xml += '</dbs></data>';
-//           args.data = xml;
+//         }
           Dom.removeClass(dom.preview,'phedex-invisible');
           dom.preview.innerHTML = '';
           Dom.removeClass(dom.results,'phedex-invisible');
@@ -1064,10 +1106,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.results_text.innerHTML  = 'Calculating request (please wait)' +
           '<br/>' +
           "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
-//           PHEDEX.Datasvc.Call({ api:'data', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
+debugger;
+          args.level = 'block';
+          _sbx.notify( obj.id, 'getData', { api:'data', args:args } );
+          PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context) { obj.previewCallback(data,context); } });
         }
       }(this);
-
     }
   }
 }
@@ -1218,7 +1262,10 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
           for ( i in data.node ) {
             node = data.node[i].name;
-            if ( node.match(/^T(0|1|2|3)_/) || instance != 'prod' ) { nodes.push(node ); }
+            if ( instance != 'prod' ) { nodes.push(node ); }
+            else {
+              if ( node.match(/^T(0|1|2|3)_/) && !node.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node ); }
+            }
           }
           nodes = nodes.sort();
           pDiv = Dom.get('destination-panel');
