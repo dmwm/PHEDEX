@@ -591,7 +591,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                                     name: 'groupMenuButton',
                                     menu:  groupMenuItems,
                                     container: 'user_group_menu' });
-
+          user_group.MenuButton.getMenu().cfg.setProperty('scrollincrement',5);
           if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
        }
       }(this);
