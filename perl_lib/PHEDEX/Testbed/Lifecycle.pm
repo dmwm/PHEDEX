@@ -3,6 +3,7 @@ package PHEDEX::Testbed::Lifecycle;
 use strict;
 use warnings;
 use base 'PHEDEX::Testbed::Agent', 'PHEDEX::Core::Logging';
+use PHEDEX::Core::JobManager;
 use Time::HiRes;
 use POE;
 
@@ -10,6 +11,11 @@ use Carp;
 
 our @EXPORT = qw( );
 
+$SIG{__WARN__} = sub
+{
+  warn (scalar localtime," WARN: ",@_);
+  print Carp::longmess;
+};
 our %params =
 	(
 	  ME			=> 'Lifecycle',
@@ -26,6 +32,7 @@ our %params =
 	  CycleSpeedup		=> 1,
 	  InjectionsPerBlock	=> 1,
 	  GarbageCycle		=> 7200,
+	  NJobs			=> 1,
 	);
 
 sub new
@@ -33,6 +40,8 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self  = $class->SUPER::new(%params,@_);
+  $self->{JOBMANAGER} = new PHEDEX::Core::JobManager (NJOBS => $self->{NJobs}, VERBOSE => 0, DEBUG => 0);
+
   bless $self, $class;
   return $self;
 }
@@ -141,6 +150,10 @@ sub FileChanged
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
   $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
+  if ( $self->{JOBMANAGER}{NJOBS} != $self->{NJobs} ) {
+    $self->{JOBMANAGER}{NJOBS} = $self->{NJobs};
+  }
+
   eval {
     $self->connectAgent() if !$self->{Dummy};
   };
@@ -214,7 +227,7 @@ sub ReadConfig
     {
       if ( ! defined( $ds->{$_} ) )
       {
-        $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
+#       $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
         $ds->{$_} = $self->{DataflowDefaults}{$ds->{Dataflow}}{$_};
       }
     }
@@ -224,7 +237,7 @@ sub ReadConfig
     {
       if ( ! defined( $ds->{$_} ) )
       {
-        $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
+#       $self->Logmsg("Setting default for $ds->{Name}($_)") if $self->{Verbose};
         $ds->{$_} = $self->{DatasetDefaults}{$_};
       }
     }
@@ -259,11 +272,12 @@ sub inject
   $kernel->yield( 'nextEvent', $payload );
 }
 
+our $sequence = 0;
 sub doInject
 {
   my ($self,$ds,$block,$xmlfile) = @_;
 
-  $xmlfile = 'injection.xml' unless $xmlfile;
+  $xmlfile = $self->{DROPDIR} . 'injection-' . $sequence++ . '.xml' unless $xmlfile;
   my $n = scalar @{$block->{files}};
   $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
   return if $self->{Dummy};
@@ -282,14 +296,14 @@ sub doInject
   $self->Fatal('Cannot determine PHEDEX_DBPARAM') unless $dbparam;
   
   my $cmd = $scripts . '/Toolkit/Request/TMDBInject -db ' . $dbparam;
-# $cmd .= ' -verbose' if $self->{Verbose};
   $cmd .= ' -nodes ' . $ds->{InjectionSite};
   $cmd .= ' -filedata ' . $xmlfile;
 
-  open INJECT, "$cmd 2>&1 |" or $self->Fatal("$cmd: $!");
-  while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
-  close INJECT or $self->Fatal("close: $cmd: $!");
-# $self->Fatal("unlink: $xmlfile: $!") unless unlink $xmlfile;
+#  open INJECT, "$cmd 2>&1 |" or $self->Fatal("$cmd: $!");
+#  while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
+#  close INJECT or $self->Fatal("close: $cmd: $!");
+  my @cmd = split(' ',$cmd);
+  $self->{JOBMANAGER}->addJob( sub { unlink "$xmlfile"; }, {TIMEOUT=>999}, @cmd);
 }
 
 sub t1subscribe
