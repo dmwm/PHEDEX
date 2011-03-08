@@ -23,4 +23,4 @@ export PHEDEX_DBPARAM=$HOME/private/DBParam.11gr2:$PHEDEX_INSTANCE
 export LOCAL_ROOT=Testbed/LargeScaleTests
 
 # Set this if you need to use a special TNSNAMES.ORA, such as for testing on special hardware
-export TNS_ADMIN=$HOME/private
+export TNS_ADMIN=$PHEDEX_ROOT/$LOCAL_ROOT
