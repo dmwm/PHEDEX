@@ -643,7 +643,7 @@ sub addSubscriptionsForParamSet
      qq[ merge into t_dps_subs_block sb                                                                                                                     
          using
          (select :destination destination, bk.dataset, bk.id block,                                                                                 
-                 :param param, rx.is_move
+                 :param param, rx.is_move, pm.is_custodial
 	    from t_req_request r 
             join t_req_xfer rx on rx.request = r.id  
             join t_req_block rb on rb.request = r.id
@@ -655,6 +655,7 @@ sub addSubscriptionsForParamSet
              and (rd.block = sb.block))                                                                                               
          when matched then
            update set sb.param = rd.param
+	    where rd.is_custodial=(select is_custodial from t_dps_subs_param where id=sb.param)
          when not matched then
 	   insert (destination, dataset, block, param, is_move, time_create)
            values (rd.destination, rd.dataset, rd.block, rd.param,   
@@ -665,7 +666,7 @@ sub addSubscriptionsForParamSet
      qq[ merge into t_dps_subs_dataset sd                
          using     
          (select :destination destination, rds.dataset_id dataset,
-	         :param param, rx.time_start time_fill_after, rx.is_move 
+	         :param param, rx.time_start time_fill_after, rx.is_move, pm.is_custodial 
             from t_req_request r    
             join t_req_xfer rx on rx.request = r.id   
             join t_req_dataset rds on rds.request = r.id  
@@ -676,6 +677,7 @@ sub addSubscriptionsForParamSet
              and (rd.dataset = sd.dataset)) 
          when matched then  
            update set sd.param = rd.param , sd.time_fill_after = rd.time_fill_after
+	    where rd.is_custodial=(select is_custodial from t_dps_subs_param where id=sd.param)
          when not matched then    
            insert (destination, dataset, param, time_fill_after, is_move, time_create) 
            values (rd.destination, rd.dataset, rd.param,
