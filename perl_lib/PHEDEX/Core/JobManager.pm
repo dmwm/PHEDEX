@@ -9,6 +9,7 @@ use POE::Queue::Array;
 use POE::Component::Child;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
+use Data::Dumper;
 
 # Contains job hashes which are returned back to the caller who
 # submitted the job.  They are identified by a POE::Wheel ID, which is
@@ -123,7 +124,16 @@ sub job_queued
   if ( !$job ) { return; }
 
   # Start the job and record the PID
-  my $wheelid = $self->{_child}->run(@{$job->{CMD}});
+  my $wheelid;
+  eval {
+    $wheelid = $self->{_child}->run(@{$job->{CMD}});
+  };
+  if ( !$wheelid || $@ ) {
+    $self->Log('Component::Child::Run: WheelID is not defined') unless $wheelid;
+    $self->Log('Component::Child::Run: $@') if $@;
+    $self->Log( Data::Dumper->Dump([$job]));
+    return;
+  }
   $job->{PID} = $self->{_child}->wheel($wheelid)->PID;
   
   # Other variables we add to the job
@@ -164,13 +174,16 @@ sub job_queued
   if (exists $job->{LOGFILE})
   {
     $job->{_logprefix} = 1;
-    open($job->{_logfh}, '>>', $job->{LOGFILE})
-	or die "Couldn't open log file $job->{LOGFILE}: $!";
-    my $logfh = \*{$job->{_logfh}};
-    my $oldfh = select($logfh); local $| = 1; select($oldfh);
-    print $logfh
+    if ( open($job->{_logfh}, '>>', $job->{LOGFILE}) ) {
+      my $logfh = \*{$job->{_logfh}};
+      my $oldfh = select($logfh); local $| = 1; select($oldfh);
+      print $logfh
 	(strftime ("%Y-%m-%d %H:%M:%S", gmtime),
          " $job->{_cmdname}($job->{PID}): Executing: @{$job->{CMD}}\n");
+    } else {
+      warn "Couldn't open log file $job->{LOGFILE}: $!";
+      open($job->{_logfh}, '>&', \*STDOUT);
+    }
   } 
   else
   {
