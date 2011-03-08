@@ -98,7 +98,7 @@ sub approve
   }
 
   # ok, now try to act on the request
-  my ($requests,$id_params,$identity,$client_id);
+  my ($requests,$id_params,$identity,$client_id,);
   eval
   {
     $id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $core, $core->{SECMOD} );
@@ -118,6 +118,7 @@ sub approve
   elsif ( $type == 2  ) { $type = 'delete'; }
   elsif ( $type == '' ) { die("Unknown request: $args{request}"); }
   else { die("Unknown request type: '$type'\n"); }
+
 
   my $now = time();
   eval {
@@ -174,6 +175,8 @@ sub approve
     }
   }
 
+  my ($ds_ids,$b_ids,$data,$groupMap);
+  $groupMap = PHEDEX::Core::SQL::getGroupMap($core);
   eval {
 #   Now act on different request types
     foreach $request (values %$requests) {
@@ -181,6 +184,45 @@ sub approve
       foreach my $node (values %{$request->{NODES}}) {
         if ( $args{APPROVE} ) {
           if ( $request->{TYPE} eq 'xfer' ) {
+
+            ($ds_ids,$b_ids) = PHEDEX::RequestAllocator::Core::getExistingRequestData( $core, $rid,
+				  EXPAND_DATASETS => ($request->{IS_STATIC} eq 'y' ? 1 : 0)
+				);
+            $data = {
+		FORMAT		=> 'existingrequestdata',
+		DBS		=> $request->{DBS},
+		DBS_ID		=> $request->{DBS_ID},
+		DATA		=> $request->{DATA},
+		DATASET_IDS	=> $ds_ids,
+		BLOCK_IDS	=> $b_ids,
+	    };
+            # Re-validate the subscriptions, because of https://savannah.cern.ch/bugs/?79121
+            my @validate_args = (
+				DATA => $data,
+			 	TYPE => 'xfer',
+				LEVEL => $request->{level},
+				PRIORITY => $request->{PRIORITY},
+				IS_MOVE => $request->{IS_MOVE},
+				IS_STATIC => $request->{IS_STATIC},
+				IS_CUSTODIAL => $request->{IS_CUSTODIAL},
+				USER_GROUP => $groupMap->{$request->{USER_GROUP}},
+				TIME_START => $request->{TIME_START},
+				IS_TRANSIENT => 'n',
+				IS_DISTRIBUTED => 'n',
+				COMMENTS => 'no comment...',
+				CLIENT_ID => $client_id,
+				INSTANCE => $core->{INSTANCE},
+				NOW => $now
+				);
+
+            eval {
+              my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest(
+				$core, $data, [$node->{NODE}],
+			 	@validate_args
+				);
+            };
+            die $@ if $@;
+
 	    # Add the subscriptions
 	    if ($node->{POINT} eq 'd') {
 	      # Add the subscription parameter set (or retrieve it if existing)
