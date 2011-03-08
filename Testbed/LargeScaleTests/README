@@ -34,7 +34,7 @@
 
 7) Start the site agents
  - submit these to LSF in batches of 5 per job. Use the cmsphedex queue
- - ./submit 59 # (59 is the total number of agents, 1xT0+8xT1+50xT2)
+ - ./submit.sh 59 # (59 is the total number of agents, 1xT0+8xT1+50xT2)
 
 8) Check the status by watching the 'logs' directory for *.tail files
 
