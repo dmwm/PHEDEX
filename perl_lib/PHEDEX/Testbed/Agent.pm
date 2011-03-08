@@ -6,9 +6,6 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::Testbed::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use POE;
 use Data::Dumper;
-#use T0::Logger::Sender;
-#use T0::Util;
-#use T0::FileWatcher;
 
 our %params =
 	(
@@ -58,7 +55,6 @@ sub init
 {
   my $self = shift;
 
-  print $self->Hdr,"entering init\n";
 # base initialisation
   $self->SUPER::init(@_);
 
@@ -68,54 +64,13 @@ sub init
 	  ARRAYS => [ @array_params ],
 	  HASHES => [ @hash_params ],
 	);
-  print $self->Hdr,"exiting init\n";
 }
 
-sub idle
-{
-  my $self = shift;
-  $self->Notify("entering idle\n");
-  print $self->Hdr,"entering idle\n" if $self->{VERBOSE};
-#  $self->SUPER::idle(@_);
-  print $self->Hdr,"exiting idle\n" if $self->{VERBOSE};
-}
-
-sub isInvalid
-{
-  my $self = shift;
-  my $errors = 0;
-  print $self->Hdr,"entering isInvalid\n" if $self->{VERBOSE};
-  print $self->Hdr,"exiting isInvalid\n" if $self->{VERBOSE};
-
-  return $errors;
-}
-
-sub stop
-{
-  my $self = shift;
-  print $self->Hdr,"entering stop\n" if $self->{VERBOSE};
-#  $self->SUPER::stop(@_);
-  print $self->Hdr,"exiting stop\n" if $self->{VERBOSE};
-}
-
-sub processDrop
-{
-  my $self = shift;
-  print $self->Hdr,"entering processDrop\n" if $self->{VERBOSE};
-#  $self->SUPER::processDrop(@_);
-  print $self->Hdr,"exiting processDrop\n" if $self->{VERBOSE};
-}
-
-sub process
-{
-  my $self = shift;
-  print $self->Hdr,"entering process\n" if $self->{VERBOSE};
-
-# I do _not_ want to do this, I am not a dropbox agent!
-# $self->SUPER::process(@_);
-
-  print $self->Hdr,"exiting process\n" if $self->{VERBOSE};
-}
+sub idle { }
+sub isInvalid { return 0; }
+sub stop { }
+sub processDrop { }
+sub process { }
 
 sub OnConnect
 {
