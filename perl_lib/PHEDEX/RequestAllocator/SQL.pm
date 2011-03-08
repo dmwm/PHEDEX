@@ -428,6 +428,11 @@ Required:
  TIME_START: the starting time for the subscription (can be NULL)
   Only blocks injected after TIME_START will be subscribed
  TIME_CREATE : the creation time
+Optional only one of:
+ IGNORE_DUPLICATES : if true, ORA-00001 errors from trying to create a duplicate subscription will
+  not result in an exception
+ SKIP_DUPLICATES : if true, the function will not try to insert the subscription if it already exists,
+  or if it will be created by the BlockAllocator agent on the next cycle
 
 =cut
 
@@ -456,7 +461,11 @@ sub createSubscription
 	$self->Alert("cannot create subscription: TIME_START not defined");
 	return undef;
     }
-        
+
+    if ($h{IGNORE_DUPLICATES} && $h{SKIP_DUPLICATES}) {
+	$self->Alert("cannot create subscription: only one of IGNORE_DUPLICATES and SKIP_DUPLICATES allowed");
+	return undef;
+    }
     
     if ($h{IS_MOVE} =~ /^[0-9]$/) {
 	$h{IS_MOVE} = ( $h{IS_MOVE} ? 'y' : 'n' );
@@ -474,9 +483,28 @@ sub createSubscription
 	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
 	    $sql .= qq{ select :destination, ds.id, :param,
 			:is_move, :time_create, :time_start                                     
-			from t_dps_dataset ds where ds.name = :dataset };
+			from t_dps_dataset ds
+		    };
+	    if ($h{SKIP_DUPLICATES}) {
+		$sql .= qq{ left join t_dps_subs_dataset dsold
+				on dsold.destination=:destination
+				and dsold.dataset=ds.id
+			    };
+	    }
+	    $sql .= qq{ where ds.name = :dataset };
+	    if ($h{SKIP_DUPLICATES}) {
+		$sql .= qq{ and dsold.dataset is null }
+	    }
 	} else { # else we write exactly what we have
-	    $sql .= qq{ values (:destination, :dataset, :param, :is_move, :time_create, :time_start) };       
+	    $sql .= qq{ select :destination, :dataset, :param, :is_move, :time_create, :time_start from dual
+			};
+	    if ($h{SKIP_DUPLICATES}) {
+		$sql .= qq{ left join t_dps_subs_dataset dsold
+                                on dsold.destination=:destination
+                                and dsold.dataset=:dataset
+			    where dsold.dataset is null
+			};
+	    }
 	}
     } elsif ($type eq 'BLOCK') {                                                                                                                         
 	$sql .= qq{ (destination, dataset, block, param,
@@ -486,15 +514,45 @@ sub createSubscription
 	%p = (%p, map { ':' . lc $_ => $h{$_} } qw(BLOCK TIME_START));                                                                                       
 
 	if ($h{$type} !~ /^[0-9]+$/) { # if not an ID, then lookup IDs from the name
-	    $sql .= qq{ select :destination, b.dataset, b.id, :param, :is_move, :time_create 
-			    from t_dps_block b where b.name = :block and b.time_create > nvl(:time_start,-1)};
+	    $sql .= qq{ select distinct :destination, b.dataset, b.id, :param, :is_move, :time_create 
+			    from t_dps_block b
+			};
+	    if ($h{SKIP_DUPLICATES}) { 
+		$sql .= qq{ left join t_dps_subs_dataset dsold
+				on dsold.destination=:destination
+				and dsold.dataset=b.dataset
+				and b.time_create>nvl(dsold.time_fill_after,-1)
+			    left join t_dps_subs_block bsold 
+			        on bsold.destination=:destination
+				and bsold.block=b.id
+			    };
+	    }
+	    $sql .= qq{ where b.name = :block and b.time_create > nvl(:time_start,-1) };
+	    if ($h{SKIP_DUPLICATES}) {
+		$sql .= qq{ and dsold.dataset is null and bsold.block is null };
+	    }
 	    
 	} else { # else we only lookup dataset ID from block ID
-	    $sql .= qq{ select :destination, b.dataset, :block, :param, :is_move, :time_create
-                            from t_dps_block b where b.id = :block and b.time_create > nvl(:time_start,-1)};
+	    $sql .= qq{ select distinct :destination, b.dataset, :block, :param, :is_move, :time_create
+                            from t_dps_block b
+			};
+	    if ($h{SKIP_DUPLICATES}) {
+                $sql .= qq{ left join t_dps_subs_dataset dsold
+				on dsold.destination=:destination
+				and dsold.dataset=b.dataset
+				and b.time_create>nvl(dsold.time_fill_after,-1)
+			    left join t_dps_subs_block bsold
+			        on bsold.destination=:destination
+				and bsold.block=:block
+			    }; 
+		}
+	    $sql .= qq { where b.id = :block and b.time_create > nvl(:time_start,-1) };
+	    if ($h{SKIP_DUPLICATES}) {
+		$sql .= qq{ and dsold.dataset is null and bsold.block is null };
+	    }
 	}
     }
-
+    
     my ($sth, $n);
     eval { ($sth, $n) = execute_sql( $self, $sql, %p ); };
     die $@ if $@ && !($h{IGNORE_DUPLICATES} && $@ =~ /ORA-00001/);

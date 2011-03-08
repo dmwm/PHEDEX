@@ -145,7 +145,7 @@ sub idle
 						    IS_MOVE => $xreq->{IS_MOVE},
 						    TIME_START => $xreq->{TIME_START},
 						    TIME_CREATE => $now,
-						    IGNORE_DUPLICATES => 1,
+						    SKIP_DUPLICATES => 1,
 						    PARAM => $rparam
 						    );
 	    $stats{lc $type} += $n_subs if $n_subs;
