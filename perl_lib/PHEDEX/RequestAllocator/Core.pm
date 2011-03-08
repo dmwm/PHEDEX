@@ -291,8 +291,14 @@ sub validateRequest
 
 	# make a data clob for storage
 	$h{DATA} = $data->{DATA};
+    } elsif ($dataformat eq 'existingrequestdata') { # from getExistingRequestData
+	$ds_ids = $data->{DATASET_IDS};
+	$b_ids  = $data->{BLOCK_IDS};
+	$h{DBS_NAME} = $data->{DBS};
+	$h{DBS_ID}   = $data->{DBS_ID};
+	$h{DATA}     = $data->{DATA};
     } else {
-	die "request has an unknown data structure\n";
+      die "request has an unknown data structure\n";
     }
     
     # Part II:  validate nodes
