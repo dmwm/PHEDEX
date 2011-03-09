@@ -307,7 +307,8 @@ sub getExistingRequestData
                                               from t_req_dataset rds
                                               join t_dps_block b on b.dataset = rds.dataset_id
                                              where rds.dataset_id is not null
-					       and rds.request = :id } );
+					       and rds.request = :id },
+					':id' => $request );
 	push @$blocks, @{$ds_blocks};
     }
 
