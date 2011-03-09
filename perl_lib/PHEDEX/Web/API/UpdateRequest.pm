@@ -10,6 +10,7 @@ use PHEDEX::RequestAllocator::Core;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Mail;
 use URI::Escape;
+use Data::Dumper;
 
 =pod
 
@@ -211,7 +212,7 @@ sub approve
 				IS_DISTRIBUTED => 'n',
 				COMMENTS => 'no comment...',
 				CLIENT_ID => $client_id,
-				INSTANCE => $core->{INSTANCE},
+				INSTANCE => $core->{DBID},
 				NOW => $now
 				);
 
