@@ -2804,6 +2804,15 @@ sub generate
 	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
         "</div></center>\n";	
     }
+    elsif ($message =~ /^cannot request/ || $message =~ /^cannot create request/) # from PHEDEX::RequestAllocator::Core::validateRequest
+    {
+	$val = $1;
+	print { $$self{CONTENT} }
+        "<center><div class='alert'>\n",
+        " <p>$message</p>\n",
+	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
+        "</div></center>\n";	
+    }
     else
     {
       print { $$self{CONTENT} }
