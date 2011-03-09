@@ -5324,8 +5324,11 @@ sub output
     }
 
     my $client_id = $self->logClientInfo();
-    my $comments_id = &PHEDEX::RequestAllocator::SQL::writeRequestComments($self, $rid, $client_id, $comments, $now)
+    my $comments_id;
+    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+      $comments_id = &PHEDEX::RequestAllocator::SQL::writeRequestComments($self, $rid, $client_id, $comments, $now)
 	if $comments;
+    }
 
     my $ok = 1;
     my @results;
@@ -5337,13 +5340,13 @@ sub output
 	if ($action eq 'null') {
 	    push @results, "No action taken for $node";
 	} elsif ($action eq 'disapprove') {
-	    $ok &&= $self->disapprove($data, $node_obj, $now, $rid);
+	    $ok &&= $self->disapprove($data, $node_obj, $now, $rid, $comments);
             if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
 	      $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
             }
 	    push @results, "Disapproved request \#$rid for $node";
 	} elsif ($action eq 'approve') {
-	    $ok &&= $self->approve($data, $node_obj, $now, $rid);
+	    $ok &&= $self->approve($data, $node_obj, $now, $rid, $comments);
             if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
 	      $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
             }
@@ -5380,7 +5383,7 @@ sub output
 
 sub disapprove
 {
-  my ($self, $data, $node_obj, $time, $rid) = @_;
+  my ($self, $data, $node_obj, $time, $rid, $comments) = @_;
 
   if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
     if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
@@ -5394,6 +5397,7 @@ sub disapprove
 		node     => $node_obj->{NODE_ID},
 		decision => 'disapprove'
 	      );
+      if ( $comments ) { $h{comments} = $comments; }
       PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   }
 
@@ -5402,7 +5406,7 @@ sub disapprove
 
 sub approve
 {
-  my ($self, $data, $node_obj, $time, $rid) = @_; # TW RID added for 4.0 schema
+  my ($self, $data, $node_obj, $time, $rid, $comments) = @_; # TW RID added for 4.0 schema
   if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
     if ($$data{TYPE} eq 'xfer') {
 	if ($$node_obj{POINT} eq 'Destination Node') {
@@ -5425,6 +5429,7 @@ sub approve
 		node     => $node_obj->{NODE_ID},
 		decision => 'approve'
 	      );
+      if ( $comments ) { $h{comments} = $comments; }
       PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   }
   return 1;
