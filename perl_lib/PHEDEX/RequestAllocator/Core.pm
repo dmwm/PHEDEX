@@ -204,11 +204,11 @@ sub validateRequest
     my $client = $h{CLIENT_ID};
     
     if ($type eq 'xfer' && $h{TIME_START} && $h{IS_MOVE} eq 'y') {
-	die "Time-based move requests are not allowed\n";
+	die "cannot create request: Time-based move requests are not allowed\n";
     }
     
     if ($type eq 'delete' && $h{TIME_START}) {
-	die "Time-based deletion requests are not allowed\n";
+	die "cannot create request: Time-based deletion requests are not allowed\n";
     }
 
     # Part 0: validate groups
