@@ -308,7 +308,7 @@ sub validateRequest
     #  * Custodiality changes through a request are not allowed
     #  * Changing a move flag to 'n' through a request is not allowed
     #  * Moves may only be done to a T1 MSS node
-    #  * Moves can not be done when data is already subscribed to a T[01]
+    #  * Moves can be done when data is already subscribed to T[01] nodes. They will not trigger deletions at T[01] nodes
     
     my @node_pairs;
     my %nodemap = reverse %{ &getNodeMap($self) };
@@ -394,14 +394,18 @@ sub validateRequest
 		    elsif ((grep (/^$r->{NAME}$/, @$nodes)) && ($r->{IS_MOVE} eq 'y') && ($h{IS_MOVE} eq 'n')) {
 			die "cannot request replica transfer: $r->{DATAITEM} already subscribed to $r->{NAME} as move\n";
 		    }
-                    $sources{$r->{NAME}}=1;
+		    $sources{$r->{NAME}}=1;
 		} 
 	    }
 	}
 	if ($h{IS_MOVE} eq 'y') {
 	    if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {                                                    
 		die "cannot request move:  moves to non-T1 destinations are not allowed\n";
-	    }  
+	    }
+	    # Exclude T0/T1 nodes from list of source nodes that will receive deletion request for move
+	    delete @sources{grep /^(T1|T0)/, keys %sources};
+	    # Should not be possible given the previous step, but reject move request if it still contains
+	    # T0/T1 nodes as source points
 	    die "cannot request move:  moves of data subscribed to T0 or T1 are not allowed\n"
 		if grep /^(T1|T0)/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
