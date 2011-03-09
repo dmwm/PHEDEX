@@ -160,14 +160,18 @@ sub approve
     die("Request ID=$args{request} does not include node(s) $extra_nodes");
   }
 # Set the request decision
+    my $comments_id;
   foreach $request (values %$requests) {
     $rid = $request->{ID};
     my $decision = 'maybe';
     if ( $args{APPROVE}    ) { $decision = 'y' }
     if ( $args{DISAPPROVE} ) { $decision = 'n' }
+    if ( $args{comments} ) {
+      $comments_id = PHEDEX::RequestAllocator::Core::writeRequestComments($core, $rid, $client_id, $args{comments}, $now);
+    }
     foreach my $node (values %{$request->{NODES}}) {
       eval {
-        &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, $node->{NODE_ID}, $decision, $client_id, $now);
+        &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, $node->{NODE_ID}, $decision, $client_id, $now, $comments_id);
       };
       if ( $@ ) {
         if ( $@ =~ m%ORA-00001: unique constraint% ) { die "Request $rid has already been decided at node $node->{NODE}"; }
@@ -198,6 +202,7 @@ sub approve
 		BLOCK_IDS	=> $b_ids,
 	    };
             # Re-validate the subscriptions, because of https://savannah.cern.ch/bugs/?79121
+	    my $instance = $core->{DBID} || $core ->{INSTANCE};
             my @validate_args = (
 				DATA => $data,
 			 	TYPE => 'xfer',
@@ -212,7 +217,7 @@ sub approve
 				IS_DISTRIBUTED => 'n',
 				COMMENTS => 'no comment...',
 				CLIENT_ID => $client_id,
-				INSTANCE => $core->{DBID},
+				INSTANCE => $instance,
 				NOW => $now
 				);
 
