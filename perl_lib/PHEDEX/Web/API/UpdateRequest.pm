@@ -198,7 +198,6 @@ sub approve
             my @validate_args = (
 				  DATA => $data,
 			 	  TYPE => $request->{TYPE},
-#				  LEVEL => $request->{level},
 				  PRIORITY => $request->{PRIORITY},
 				  IS_MOVE => $request->{IS_MOVE},
 				  IS_STATIC => $request->{IS_STATIC},
