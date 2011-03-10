@@ -240,7 +240,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       },
       previewCallback: function(data,context) {
         var rid, api=context.api;
-debugger;
         switch (api) {
           case 'data': {
             var datasets=data.dbs, ds, dsName, blocks, block, i, j, n;
@@ -1106,7 +1105,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.results_text.innerHTML  = 'Calculating request (please wait)' +
           '<br/>' +
           "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
-debugger;
           args.level = 'block';
           _sbx.notify( obj.id, 'getData', { api:'data', args:args } );
           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context) { obj.previewCallback(data,context); } });
