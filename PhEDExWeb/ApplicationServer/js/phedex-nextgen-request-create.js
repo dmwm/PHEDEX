@@ -99,16 +99,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-left' });
-        label='Preview', id='button'+label;
-        this.Preview = new YAHOO.widget.Button({
-                                type: 'submit',
-                                label: label,
-                                id: id,
-                                name: id,
-                                value: id,
-                                container: 'buttons-right' });
+//         label='Preview', id='button'+label;
+//         this.Preview = new YAHOO.widget.Button({
+//                                 type: 'submit',
+//                                 label: label,
+//                                 id: id,
+//                                 name: id,
+//                                 value: id,
+//                                 container: 'buttons-right' });
 //         this.Preview.set('disabled',true);
-        this.Preview.on('click', this.onPreviewSubmit);
+//         this.Preview.on('click', this.onPreviewSubmit);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
