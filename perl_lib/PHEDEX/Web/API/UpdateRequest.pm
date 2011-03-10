@@ -186,6 +186,43 @@ sub approve
 #   Now act on different request types
     foreach $request (values %$requests) {
       $rid = $request->{ID};
+      if ( $args{APPROVE} ) {
+        if ( $request->{TYPE} eq 'xfer' ) {
+          my @dest_nodes;
+          foreach my $node (values %{$request->{NODES}}) {
+            if ( $node->{POINT} eq 'd' ) { push @dest_nodes, $node->{NODE}; }
+          }
+          if ( scalar @dest_nodes ) {
+            # Re-validate the subscriptions, because of https://savannah.cern.ch/bugs/?79121
+	    my $instance = $core->{DBID} || $core ->{INSTANCE};
+            my @validate_args = (
+				  DATA => $data,
+			 	  TYPE => $request->{TYPE},
+#				  LEVEL => $request->{level},
+				  PRIORITY => $request->{PRIORITY},
+				  IS_MOVE => $request->{IS_MOVE},
+				  IS_STATIC => $request->{IS_STATIC},
+				  IS_CUSTODIAL => $request->{IS_CUSTODIAL},
+				  USER_GROUP => $groupMap->{$request->{USER_GROUP}},
+				  TIME_START => $request->{TIME_START},
+				  IS_TRANSIENT => 'n',
+				  IS_DISTRIBUTED => 'n',
+				  COMMENTS => 'no comment...',
+				  CLIENT_ID => $client_id,
+				  INSTANCE => $instance,
+				  NOW => $now
+				)     ;
+
+            eval {
+              my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest(
+				$core, $data,  \@dest_nodes, #[$node->{NODE}],
+			 	@validate_args
+				);
+            };
+            die $@ if $@;
+          }
+        }
+      }
       foreach my $node (values %{$request->{NODES}}) {
         if ( $args{APPROVE} ) {
           if ( $request->{TYPE} eq 'xfer' ) {
@@ -201,33 +238,6 @@ sub approve
 		DATASET_IDS	=> $ds_ids,
 		BLOCK_IDS	=> $b_ids,
 	    };
-            # Re-validate the subscriptions, because of https://savannah.cern.ch/bugs/?79121
-	    my $instance = $core->{DBID} || $core ->{INSTANCE};
-            my @validate_args = (
-				DATA => $data,
-			 	TYPE => 'xfer',
-				LEVEL => $request->{level},
-				PRIORITY => $request->{PRIORITY},
-				IS_MOVE => $request->{IS_MOVE},
-				IS_STATIC => $request->{IS_STATIC},
-				IS_CUSTODIAL => $request->{IS_CUSTODIAL},
-				USER_GROUP => $groupMap->{$request->{USER_GROUP}},
-				TIME_START => $request->{TIME_START},
-				IS_TRANSIENT => 'n',
-				IS_DISTRIBUTED => 'n',
-				COMMENTS => 'no comment...',
-				CLIENT_ID => $client_id,
-				INSTANCE => $instance,
-				NOW => $now
-				);
-
-            eval {
-              my @valid_args = &PHEDEX::RequestAllocator::Core::validateRequest(
-				$core, $data, [$node->{NODE}],
-			 	@validate_args
-				);
-            };
-            die $@ if $@;
 
 	    # Add the subscriptions
 	    if ($node->{POINT} eq 'd') {
