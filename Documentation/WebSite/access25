@@ -2778,7 +2778,7 @@ sub generate
 	($key, $val) = ($1, $2);
 	print { $$self{CONTENT} }
         "<center><div class='alert'>\n",
-        " <p>Input parameter for $key did not pass validation with value $val. Please correct the input, or ",
+        " <p>Input parameter for $key did not pass validation. Please correct the input, or ",
         " <a href='$feedbackurl'>submit a bug report</a>.</p>\n",
 	" <p>(use the 'back' button of your browser to return to the form)</p>\n",
         " <p><i>Error time=$time id=$id</i></p>\n",
@@ -3060,7 +3060,7 @@ sub output
 package Web25::Security::Password;
 use strict; use warnings;
 use base "Web25::Page";
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 import Web25::Common;
 our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Password Sign-In" };
 
@@ -3077,13 +3077,15 @@ sub output
 {
     my ($self) = @_;
     # prepare URL of the caller
-    my $caller_url = param('caller_url');
-    if ($caller_url) {
-	$caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
-    } else {
-	$caller_url = $$self{CONFIG}{SSL_SERVER_ROOT};
-    }
-    
+# TW Suppress the caller_url completely to prevent XSS attacks
+#    my $caller_url = param('caller_url');
+#    if ($caller_url) {
+#	$caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
+#    } else {
+#	$caller_url = $$self{CONFIG}{SSL_SERVER_ROOT};
+#    }
+    my $caller_url = $$self{CONFIG}{SSL_SERVER_ROOT} . $$self{CONFIG}{SERVICE_PATH};
+
     # prepare URL to destroy the cookie and browse unauthenticated
     my $signout_url = $caller_url;
     $signout_url .= ($signout_url =~ /\?.+$/ ? '' : '?').($signout_url =~ /\?[^=]+=.+$/ ? '&' : '')."SecModLogout=1";
@@ -3987,7 +3989,6 @@ sub output
 	      state    => { allowing => \@states },
 	  }
 	 );
-
 
     my $request = $params{request};
     my $type    = $params{type};
@@ -7514,7 +7515,7 @@ package Web25::Activity::ErrorInfo;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 use POSIX qw(strftime);
 
 our $INDEX = { LIST => 1, ORDER => 8, TITLE => "Recent Errors" };
@@ -7527,7 +7528,6 @@ sub new
   bless $self, $class;
   return $self;
 }
-
 
 sub myurl
 {
@@ -7547,8 +7547,6 @@ sub myurl
   return $self->SUPER::myurl($self->urlparams(@save), %args);
 }
 
-
-
 sub output
 {
     my ($self) = @_;
@@ -7562,15 +7560,42 @@ sub output
 	     fileid       => { using => 'pos_int'},
 	     tofilter     => { using => 'regex', default => '.*' },
 	     fromfilter   => { using => 'regex', default => '.*' },
-	     report_code  => { using => 'regex', default => '.*' },
-	     xfer_code    => { using => 'regex', default => '.*' },
+	     report_code  => { using => 'pos_int' },
+	     xfer_code    => { using => 'pos_int' },
 	     from_pfn     => { using => 'regex', default => '.*' },
 	     to_pfn       => { using => 'regex', default => '.*' },
 	     log_detail   => { using => 'regex', default => '.*' },
 	     log_validate => { using => 'regex', default => '.*' },
 	 }
 	 );
-
+# TW Explicit checking of argumetns
+    foreach ( qw( from_filter to_filter ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} !~ m%^(T(0|1|2)_[_,A-Z,a-z,0-9]*)?$% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
+    foreach ( qw( from_pfn to_pfn ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} =~ m%(^[a-zA-Z0-9:.\-_/=\?]*$)?$% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
+    foreach ( qw( log_detail log_validate ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} =~ m%(\\|;)% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
     my $fileid     = $params{fileid};
     my $tofilter   = $params{tofilter};
     my $fromfilter = $params{fromfilter};
@@ -10245,7 +10270,13 @@ sub output
     my ($self) = @_;
     
     my %nodes = $self->fetch_nodes(with_ids => 1);
-    my $node = param('node') || 'T0_CH_CERN_MSS';
+    my %params = $self->validate_all
+	( allow => [qw(node)],
+	  spec => {
+	      node    => { using => 'node' },
+	  }
+	 );
+    my $node = $params{'node'} || 'T0_CH_CERN_MSS';
     my $viewurl = '#';
 
     print { $$self{CONTENT} }
@@ -10350,10 +10381,6 @@ sub output
     $table->head();
     $table->row( $nosub );
     $table->finish();
-    
-    
-
-
 }
 
 1;
