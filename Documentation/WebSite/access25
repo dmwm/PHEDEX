@@ -10553,7 +10553,7 @@ sub runme
   $config = &read_config();
   $r = shift; # The Apache::RequestRec object...
   $h = $r->headers_in();
-  $XForwardedHost = $h->{'X-Forwarded-Host'}; # e.g. cmswttest.cern.ch
+  $XForwardedHost = $h->{'X-Forwarded-Host'} || 'no.such.domain'; # e.g. cmswttest.cern.ch
   $CMSRequestURI  = $h->{'CMS-Request-URI'};  # e.g. /phedex/dev2/datasvc/perl/prod/bounce
   $config->{SSL_SERVER_ROOT} ||= 'https://' . $XForwardedHost;
   $config->{SERVER_ROOT}     ||= 'http://'  . $XForwardedHost;
