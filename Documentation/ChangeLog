@@ -4,7 +4,7 @@ Changes for Schema
  - See details in https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjSubscriptions
  - All subscriptions are now tracked internally at block-level
   - t_dps_subscription table replaced with t_dps_subs_dataset, t_dps_subs_block, t_dps_subs_param
- - Support for time_start in dataset-level transfer requests
+ - Support for time_start in transfer requests
   - If time_start is set, only blocks created after time_start will be subscribed to destination
  - Add NOT NULL constraint to user-grop in transfer requests and subscriptions
   - Existing subscriptions with undefined group will be assigned to deprecated-undefined group
@@ -13,12 +13,13 @@ Changes for Schema
  - Add dataset_name column to v_dbs_block_replica view provided for DBS data location
  - Add a schema_version function to return the version of the schema	
  - Update OracleInit.sql deployment script to new schema
+ - Update to latest tnsnames.ora
  - Documentation updates
 
 Changes for Central Agents
  - Updates to BlockAllocator, BlockMonitor, BlockDelete, RequestAllocator agents for new schema
   - BlockAllocator changes:
-   - Support for time-based dataset subscriptions
+   - Support for time-based subscriptions
    - Always track all subscriptions at block level
    - Create/update/delete block destinations from block-level subscriptions
    - Propagate dataset subscription parameters to linked block subscriptions
@@ -31,13 +32,18 @@ Changes for Central Agents
   - Fix for Savannah #71759: wait until Buffer replica removal before marking deletion as completed at T1
   - Fix for Savannah #65239: prevent creation of file deletion tasks when Buffer replica has active transfers
   - Remove cleanup of old file deletion tasks (already performed after block deletion completion)
+ - Additional RequestAllocator agent fixes:
+  - check for duplicate subscriptions when inserting, instead of trying to insert them and catch unique constraint errors
+  - also skip block subs that would be anyway created by BlockAllocator
  - Additional updates to RequestAllocator package (used by website/dataservice):
   - added/updated/replaced several methods to support new schema in website/dataservice
   - added deleteSubscription to support dataset unsubscription (can be used to remove dataset-level sub without removing block-level subs)
   - disallow time-based move/delete requests
-  - Disallow requests that would result in a custodiality change of the subscription
+  - Disallow requests/subscriptions that would result in a custodiality change of the subscription
   - Disallow changing the move flag in a subscription
-  - Disallow transfer requests to Buffer nodes in Prod
+  - Disallow transfer/deletion requests to Buffer nodes in Prod
+  - allow data defined by the output of getExistingRequestData in validateRequest
+  - Allow moves to T1s when data is already subscribed to T[01], excluding T[01] from source node deletion lists
  - BlockDownloadVerifyInjector: add table aliases to sql (needed with Oracle 10.2.0.5)
 
 Changes for Site Agents
@@ -52,19 +58,27 @@ Changes for Site Agents
   - Reworked usage help to show namespace specific usage help, when --namespace and --help options are called together
   - Reject test inmediately instead of retrying, when those are not allowed for given namespace, it fix Savanah #65919.
   - Cleanup of rfio namespace documentation
-  - Allow cksum test, namespace plugins already code (using adler32) for castor, posix and dcache technologies
+  - Allow cksum test, namespace plugins already coded (using adler32) for castor, posix, dpm and dcache technologies
+    - Added support for checksum from disk server in castor plugin, with fallback to old tape checksum method if not present
+  - Other updates to dpm namespace plugins, now fully functional
   - Add table aliases to sql (needed with Oracle 10.2.0.5)
+  - Set file/block test status to "Indeterminate" for checksum tests if no adler32 in TMDB
  - Watchdog agent
   - Fix for Savannah #73896: watchdog will check if pid file is missing to avoid starting duplicate agents
+  - Will not send alerts about missing agents on first cycle, to give time to agents to register themselves
   - Adding summary report
    - Every cycle a statistics summary of all running agents is sent to the admin.
    - It needs the email address of the admin, which it is got from sitedb. The cycle is by default every 24h
    - Report can be sent by any given method: email, logfile, rss, etc.; those are plugings which can be coded as needed
+    - Currently supported plugins: logfile, mail
+    - Also provided additional UNSUPPORTED twitter plugin, requires manual installation of external Net::Twitter::Lite client
+ - Migrate and Stager agents: removed obsolete Custom agents; now only generic FileStager and FileMSSMigrate are supported
 
 Changes for Operator Tools
  - PHEDEX/Utilities/DBSCheck - fix for path of Toolkit/DBS scripts
  - PHEDEX/Utilities/NodeRemove - update for new schema
  - PHEDEX/Utilities/phedex
+  - change target datasvc URL to https
   - add a --target argument, to bypass the usual format/instance/api structure and provide arbitrary datasvc url
   - allow a global "nocache" argument
   - change user-agent string to conform to CMS conventions
@@ -72,12 +86,18 @@ Changes for Operator Tools
   - subscribe command:
    - add support for time-start in new schema
    - add --no-mail option to suppress request email
+   - change '--request-only' to '--(no-)auto-approve'
+  - add 'updaterequest' command
+ - PHEDEX/Toolkit/Request/TMDBInject - handle duplicate file injection errors
 
 Core library changes:
  - DB.pm: Fix for execute_array always returning 0 instead of number of statements executed
  - Inject.pm: set verbosity off by default
+ - Inject.pm: fail on duplicate file injection instead of ignoring silently, returning first duplicate file
  - Loader.pm: evaluate namespaces recursively, to allow the loader to work with structured module hierarchies	
- 	 	
+ - SQL.pm: order groups by name in getGroups
+ - Timing.pm: add support for YYYYMMDDZhhmm[ss] format in dates	
+
 Changes for PhEDEx 3.3.2
 
 Dependency Changes
