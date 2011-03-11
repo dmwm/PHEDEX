@@ -97,6 +97,9 @@ create table t_dps_dataset
   (id			integer		not null,
    dbs			integer		not null,
    name			varchar (1000)	not null,
+   blocks		integer		not null,
+   files		integer		not null,
+   bytes		integer		not null,
    is_open		char (1)	not null,
    is_transient		char (1)	not null,
    time_create		float		not null,
@@ -195,6 +198,26 @@ create table t_dps_block
 create sequence seq_dps_block;
 
 create index ix_dps_block_name on t_dps_block (name);
+
+/* TODO: document! */
+/* Which directories blocks can be found */
+create table t_dps_block_dir (
+  block     integer      not null,
+  dir       integer      not null,
+  --
+  constraint pk_dps_block_dir
+    primary key (block, dir),
+  --
+  constraint fk_dps_block_dir_block
+    foreign key (block) references t_dps_block (id)
+    on delete cascade,
+  --
+  constraint fk_dps_block_dir_dir
+    foreign key (dir) references t_dps_dir (id)
+    on delete cascade
+);
+
+create index ix_dps_block_dir_dir on t_dps_block_dir (dir);
 
 /*
 =pod
@@ -421,6 +444,88 @@ create table t_dps_block_replica
 create index ix_dps_block_replica_node on t_dps_block_replica (node);
 
 create index ix_dps_block_replica_group on t_dps_block_replica (user_group);
+
+/*
+=pod
+
+=head2 t_dps_dataset_replica
+
+A table containing statistics for datasets at (or destined to be at)
+nodes. Monitored by L<BlockMonitor|PHEDEX::BlockMonitor::Agent>.
+
+=over
+
+=item t_dps_dataset_replica.dataset
+
+=item t_dps_dataset_replica.node
+
+=item t_dps_dataset_replica.src_files
+
+Number of files from this dataset which were generated at this node.
+
+=item t_dps_dataset_replica.src_bytes
+
+Number of bytes from this dataset which were generated at this node.
+
+=item t_dps_dataset_replica.dest_files
+
+Number of files from this dataset which are subscribed to this node.
+
+=item t_dps_dataset_replica.dest_bytes
+
+Number of bytes from this dataset which are subscribed to this node.
+
+=item t_dps_dataset_replica.node_files
+
+Number of files from this dataset at this node.
+
+=item t_dps_dataset_replica.node_bytes
+
+Number of bytes from this dataset at this node.
+
+=item t_dps_dataset_replica.xfer_files
+
+Number of files from this dataset currently being transferred to this node.
+
+=item t_dps_dataset_replica.xfer_bytes
+
+Number of bytes from this dataset currently being transferred to this node.
+
+=item t_dps_dataset_replica.time_create
+
+=item t_dps_dataset_replica.time_update
+
+=back
+
+=cut
+
+*/
+create table t_dps_dataset_replica
+  (dataset		integer		not null,
+   node			integer		not null,
+   src_files		integer		not null,
+   src_bytes		integer		not null,
+   dest_files		integer		not null,
+   dest_bytes		integer		not null,
+   node_files		integer		not null,
+   node_bytes		integer		not null,
+   xfer_files		integer		not null,
+   xfer_bytes		integer		not null,
+   time_create		float		not null,
+   time_update		float		not null,
+   --
+   constraint pk_dps_dataset_replica
+     primary key (dataset, node),
+   --
+   constraint fk_dps_dataset_replica_dataset
+     foreign key (dataset) references t_dps_dataset (id)
+     on delete cascade,
+   --
+   constraint fk_dps_dataset_replica_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
+
+create index ix_dps_dataset_replica_node on t_dps_dataset_replica (node);
 
 /* t_dps_block_dest.state states:
      0: Assigned but not yet active (= waiting for router to activate
