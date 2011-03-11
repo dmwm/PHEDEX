@@ -192,6 +192,17 @@ sub approve
           foreach my $node (values %{$request->{NODES}}) {
             if ( $node->{POINT} eq 'd' ) { push @dest_nodes, $node->{NODE}; }
           }
+          ($ds_ids,$b_ids) = PHEDEX::RequestAllocator::Core::getExistingRequestData( $core, $rid,
+				EXPAND_DATASETS => ($request->{IS_STATIC} eq 'y' ? 1 : 0)
+			);
+          $data = {
+		FORMAT		=> 'existingrequestdata',
+		DBS		=> $request->{DBS},
+		DBS_ID		=> $request->{DBS_ID},
+		DATA		=> $request->{DATA},
+		DATASET_IDS	=> $ds_ids,
+		BLOCK_IDS	=> $b_ids,
+	  };
           if ( scalar @dest_nodes ) {
             # Re-validate the subscriptions, because of https://savannah.cern.ch/bugs/?79121
 	    my $instance = $core->{DBID} || $core ->{INSTANCE};
@@ -225,19 +236,6 @@ sub approve
       foreach my $node (values %{$request->{NODES}}) {
         if ( $args{APPROVE} ) {
           if ( $request->{TYPE} eq 'xfer' ) {
-
-            ($ds_ids,$b_ids) = PHEDEX::RequestAllocator::Core::getExistingRequestData( $core, $rid,
-				  EXPAND_DATASETS => ($request->{IS_STATIC} eq 'y' ? 1 : 0)
-				);
-            $data = {
-		FORMAT		=> 'existingrequestdata',
-		DBS		=> $request->{DBS},
-		DBS_ID		=> $request->{DBS_ID},
-		DATA		=> $request->{DATA},
-		DATASET_IDS	=> $ds_ids,
-		BLOCK_IDS	=> $b_ids,
-	    };
-
 	    # Add the subscriptions
 	    if ($node->{POINT} eq 'd') {
 	      # Add the subscription parameter set (or retrieve it if existing)
