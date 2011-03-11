@@ -107,19 +107,13 @@ die $@ if $@;
 
     # check authentication
     $core->{SECMOD}->reqAuthnCert();
-    my $auth = $core->getAuth('datasvc_subscribe');
+    my $auth = $core->getAuth();
     if (! $auth->{STATE} eq 'cert' ) {
 	die("Certificate authentication failed\n");
     }
 
-    # check authorization
-    my $nodes = [ arrayref_expand($args{node}) ];  
-    foreach my $node (@$nodes) {
-	my $nodeid = $auth->{NODES}->{$node} || 0;
-	die("You are not authorised to subscribe data to node $node") unless $nodeid;
-    }
-
     # ok, now try to make the request and subscribe it
+    my $nodes = [ arrayref_expand($args{node}) ];  
     my $now = &mytimeofday();
     my $data = uri_unescape($args{data});
     $args{comments} = uri_unescape($args{comments});
