@@ -14,10 +14,13 @@
  -protocols   'direct'
 
 #### SRM based agents
-### AGENT LABEL=mss-stage PROGRAM=Custom/SRM/FileSRMStager DEFAULT=off
+### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
+ -protocol    'srmv2'
+ -stage       ${PHEDEX_SCRIPTS}/Custom/Template/gfal_prestage.py
+ -status      ${PHEDEX_SCRIPTS}/Custom/Template/gfal_prestage-status.py
 
 ### AGENT LABEL=mss-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
@@ -25,10 +28,13 @@
  -mssbackend  'srm'
 
 #### Castor based agents
-### AGENT LABEL=mss-stage PROGRAM=Custom/Castor/FileCastorStager DEFAULT=off
+### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
  -storagemap  ${PHEDEX_MAP}
+ -protocol    'direct'
+ -stage       ${PHEDEX_SCRIPTS}/Custom/Template/castor_prestage.pm
+ -status      ${PHEDEX_SCRIPTS}/Custom/Template/castor_prestage-status.pm
 
 ### AGENT LABEL=mss-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
@@ -36,8 +42,20 @@
  -mssbackend  'castor'
 
 #### dCache based agents
-#### Currently we don't have a native dCache stager,
-#### hence a fake stager is used for now.
+### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileStager DEFAULT=off
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       ${PHEDEX_NODE}
+ -storagemap  ${PHEDEX_MAP}
+ -protocol    'direct'
+ -stage       ${PHEDEX_SCRIPTS}/Custom/Template/dcache_prestage.py
+ -status      ${PHEDEX_SCRIPTS}/Custom/Template/dcache_prestage-status.py
+
+### AGENT LABEL=mss-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate DEFAULT=off
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       ${PHEDEX_MSS}
+ -mssbackend  'dcache'
+
+#### Fake backend agents
 ### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileFakeStager DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE}
@@ -45,7 +63,19 @@
 ### AGENT LABEL=mss-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate DEFAULT=off
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_MSS}
- -mssbackend  'dcache'
+ -mssbackend  'fake'
+
+#### Custom staging code
+#### Create a script in your SITECONF to trigger staging requests, taking pfns as input
+#### Create a script in your SITECONF to check status of your staging requests, taking pfns
+#### as input and giving in output the list of staged files
+### AGENT LABEL=mss-stage PROGRAM=Toolkit/Transfer/FileStager DEFAULT=off
+ -db          ${PHEDEX_DBPARAM}
+ -nodes       ${PHEDEX_NODE}
+ -storagemap  ${PHEDEX_MAP}
+ -protocol    'direct'
+ -stage       ${SITECONF}/custom_prestage.pm
+ -status      ${SITECONF}/custom_prestage-status.pm
 
 #### Custom migration code
 #### Create a perl module in your SITECONF (e.g. CustomMSSCheck.pm)
