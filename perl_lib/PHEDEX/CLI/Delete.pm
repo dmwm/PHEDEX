@@ -11,19 +11,12 @@ sub new
 
   my ($help,%params,%options);
   %params = (
-	      VERBOSE	=> 0,
-	      DEBUG	=> 0,
-	      DATAFILE	=> undef,
-	      NODE	=> undef,
+	      VERBOSE	 => 0,
+	      DEBUG	 => 0,
+	      DATAFILE	 => undef,
+	      NODE	 => undef,
 	      BLOCKLEVEL => 0,
-	      PRIORITY  => 'low',
-	      IS_STATIC => 0,
-	      IS_MOVE   => 0,
-	      IS_CUSTODIAL => 0,
-	      USER_GROUP => undef,
-	      TIME_START => undef,
-	      AUTO_APPROVE => 0,
-	      MAIL   => 1
+	      MAIL	 => 1
 	    );
   %options = (
                'help'		=> \$help,
@@ -32,13 +25,6 @@ sub new
 	       "datafile=s@"	=> \$params{DATAFILE},
 	       "node=s@"	=> \$params{NODE},
  	       "block-level"    => \$params{BLOCKLEVEL},
-	       "priority=s"     => \$params{PRIORITY},
-	       "static"         => \$params{IS_STATIC},
-	       "move"           => \$params{IS_MOVE},
- 	       "custodial"      => \$params{IS_CUSTODIAL},
-	       "group=s"        => \$params{USER_GROUP},
-	       "time-start=i"   => \$params{TIME_START},
- 	       "auto-approve!"  => \$params{AUTO_APPROVE},
 	       "mail!"          => \$params{MAIL},
  	       "comments=s"     => \$params{COMMENTS}
 	     );
@@ -80,8 +66,6 @@ and uses the dataservice to delete the data from one or more PhEDEx nodes.
 			be repeated to delete from multiple nodes.
  --block-level          delete data at the block level.  The default is
                         to delete at the dataset level.
- --auto-approve         Automatically approve the request Do not use this
-			without very good reason!
  --no-mail              do not send request email to requestor, datamanagers,
                         site admins, and global admins; default is to send email
  --comments             comments on this request/subscription
@@ -103,7 +87,6 @@ sub Payload
 
   $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
   $payload->{node}      = $self->{NODE};
-  $payload->{request_only} = $self->{AUTO_APPROVE} ? 'n' : 'y';
   $payload->{no_mail}   = $self->{MAIL} ? 'n' : 'y';
   $payload->{comments}  = $self->{COMMENTS};
 
