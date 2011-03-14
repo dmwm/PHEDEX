@@ -29,6 +29,7 @@ Makes deletion requests
  level            subscription level, either 'dataset' or 'block'.  Default is 'dataset'
  rm_subscriptions 'y' or 'n', remove subscriptions, default is 'y'.
  no_mail          'y' or 'n' (default), if 'n', a email is sent to requestor, datamanagers, site admins, and global admins
+ comments         other information to attach to this request, for whatever reason.
 
 =head2 Input
 
@@ -62,6 +63,7 @@ sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return to_delete(@_); }
 
+use Data::Dumper;
 sub to_delete
 {
     my ($core, %h) = @_;
@@ -78,20 +80,15 @@ sub to_delete
 
     # check authentication
     $core->{SECMOD}->reqAuthnCert();
-    my $auth = $core->getAuth('datasvc_inject');
+    my $auth = $core->getAuth();
+    delete $auth->{ROLES}->{Admin};
     if (! $auth->{STATE} eq 'cert' ) {
 	die("Certificate authentication failed\n");
     }
 
-    # check authorization
-    my $nodes = [ arrayref_expand($h{node}) ];  
-    foreach my $node (@$nodes) {
-	my $nodeid = $auth->{NODES}->{$node} || 0;
-	die("You are not authorised to delete data from node $node") unless $nodeid;
-    }
-
     my $now = &mytimeofday();
     my $data = uri_unescape($h{data}); 
+    $h{comments} = uri_unescape($h{comments});
     $data = PHEDEX::Core::XML::parseData( XML => $data);
 
     # only one DBS allowed for the moment...  (FIXME??)
@@ -119,6 +116,7 @@ sub to_delete
                                                                           TYPE => 'delete',
 									  LEVEL => $h{level},
                                                                           RM_SUBSCRIPTIONS => $h{rm_subscriptions},
+									  COMMENTS => $h{comments},
 									  CLIENT_ID => $client_id,
 									  INSTANCE => $core->{INSTANCE},
 									  NOW => $now
