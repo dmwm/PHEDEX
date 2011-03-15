@@ -10,7 +10,6 @@ use PHEDEX::RequestAllocator::Core;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::Mail;
 use URI::Escape;
-use Data::Dumper;
 
 =pod
 
@@ -63,11 +62,12 @@ sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return to_delete(@_); }
 
-use Data::Dumper;
 sub to_delete
 {
     my ($core, %h) = @_;
     &checkRequired(\%h, qw(data node));
+    my $nodes = [ arrayref_expand($h{node}) ];
+
     # defaults
     $h{rm_subscriptions} ||= 'y';
     $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
