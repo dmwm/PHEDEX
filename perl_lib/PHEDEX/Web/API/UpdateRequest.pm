@@ -160,7 +160,7 @@ sub approve
     die("Request ID=$args{request} does not include node(s) $extra_nodes");
   }
 # Set the request decision
-    my $comments_id;
+  my $comments_id;
   foreach $request (values %$requests) {
     $rid = $request->{ID};
     my $decision = 'maybe';
