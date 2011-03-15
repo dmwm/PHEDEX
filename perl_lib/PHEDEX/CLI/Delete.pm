@@ -83,7 +83,6 @@ sub Payload
 
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
-  die __PACKAGE__," no group given\n" unless $self->{USER_GROUP};
 
   $payload->{level}     = $self->{BLOCKLEVEL} ? 'block' : 'dataset';
   $payload->{node}      = $self->{NODE};
