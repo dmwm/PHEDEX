@@ -15,14 +15,16 @@
 
 3) Source your environment, and check it!
  - run '. ./env.sh', then
- - run sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)
+ - run
+	sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)
  - you should find yourself connected to your database
 
 4) Initialise your schema
- - run ResetSchema.sh, which you will find in this directory
+ - run ./ResetSchema.sh, which you will find in this directory
 
 5) Set up your nodes, links, and groups
- - run ./SetupNodes -db $PHEDEX_DBPARAM 1:T0 8:T1 50:T2
+ - run
+	./SetupNodes -db $PHEDEX_DBPARAM 1:T0 8:T1 50:T2
    this creates one T0, 8 T1s, and 50 T2s, with the corresponding links.
  - note that the T1s are maximally linked, all to each other. The T2s are 
    each linked to all the T1s, but not to each other.
