@@ -9171,6 +9171,7 @@ sub output_page
 
 sub output_options_form { }
 
+use Data::Dumper;
 sub update_subscriptions
 {
     my ($self) = @_;
@@ -9221,7 +9222,7 @@ sub update_subscriptions
 	  priorityhi => { desc => ' set to high priority',
 			  var => 'PRIORITY',
 			  val => 'high' },
-	  prioritymd => { desc => ' set to medium priority',
+	  prioritymd => { desc => ' set to normal priority',
 			  var => 'PRIORITY',
 			  val => 'normal' },
 	  prioritylo => { desc => ' set to low priority',
@@ -9250,13 +9251,12 @@ sub update_subscriptions
 	  $permission = $auth_nodes{$destination}; # Check permission
         }
 	if ( $permission ) { # Check permission
-	    my $sql = $update_sql;
-	    $sql =~ s/_VAR_/$$action{var}/;
-	    $sql =~ s/_ITEM_/$level/;
+	    $update_sql =~ s/_VAR_/$$action{var}/;
+	    $update_sql =~ s/_ITEM_/$level/;
 
 	    my @rv;
 	    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-	      @rv = &dbexec($$self{DBH}, $sql, 
+	      @rv = &dbexec($$self{DBH}, $update_sql, 
 			     ':val' => $$action{val},
 			     ':id'  => $item,
 			     ':dest' => $destination);
@@ -9271,6 +9271,7 @@ sub update_subscriptions
 	      my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
 	      my $v = $r->[0]->{uc($action->{var})};
 	      if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
+              if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
 	    }
 	} else {
 	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
