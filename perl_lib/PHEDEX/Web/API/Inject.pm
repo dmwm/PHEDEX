@@ -126,7 +126,6 @@ sub inject
   $node = $args{node};
 
   $nodeid = $auth->{NODES}->{$node} || 0;
-  $nodeid = 10;
   die("You are not authorised to inject data to node $node") unless $nodeid;
   $result = PHEDEX::Core::XML::parseData( XML => $args{data} );
 
