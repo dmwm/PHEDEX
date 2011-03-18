@@ -3943,7 +3943,7 @@ use base "Web25::Request::Page";
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "View/Manage Requests",
 	       LINK_TITLE => "Browse requests",
 	       SECURE => 0 };
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 import Web25::Common;
 
 sub new
@@ -3989,6 +3989,16 @@ sub output
 	      state    => { allowing => \@states },
 	  }
 	 );
+# TW Explicit checking of arguments
+  foreach ( qw( nodes ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
 
     my $request = $params{request};
     my $type    = $params{type};
@@ -6131,7 +6141,7 @@ package Web25::Activity::Rate;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 
 our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Rate",
 	       LINK_TITLE => "Show recent transfer rates in tabular form" };
@@ -6181,6 +6191,16 @@ sub output
 	   andor      => { using => 'andor', default => 'or' },
        }
        );
+# TW Explicit checking of arguments
+  foreach ( qw( fromfilter tofilter ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
 
   my $now = time();
   my %spans = (h => [ 'Last hour', $now, 3600 ],
@@ -6355,7 +6375,7 @@ package Web25::Activity::PlotPage;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 use File::Temp ':mktemp';
 
 sub new
@@ -6438,6 +6458,16 @@ sub output
 	   timestamp   => { using => 'pos_int' },
        }
        );
+# TW Explicit checking of arguments
+  foreach ( qw( dest_filter src_filter ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
 
   my $page = $params{page};
   my $period = $params{period};
@@ -6729,7 +6759,7 @@ package Web25::Activity::Routing;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 
 our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Routing",
 	       LINK_TITLE => "Show current routing information" };
@@ -6759,6 +6789,25 @@ sub output
 	   showinvalid => { using => 'onoff' }
        }
        );
+# TW Explicit checking of arguments
+  foreach ( qw( blockfilter ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
+  foreach ( qw( fromfilter tofilter ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
 
   my $tofilter    = $params{tofilter};
   my $fromfilter  = $params{fromfilter};
@@ -6871,7 +6920,7 @@ package Web25::Activity::TransferDetails;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 
 our $INDEX = { LIST => 1, ORDER => 6, TITLE => "Transfer Details",
 	       LINK_TITLE => "Browse transfer state details" };
@@ -6914,6 +6963,16 @@ sub output
 	     andor       => { using => 'andor', default => 'or' },
 	 }
 	 );
+# TW Explicit checking of arguments
+    foreach ( qw( fromfilter tofilter ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} !~ m%^[_,A-Z,a-z,0-9, *]*$% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
 
     my $tofilter   = $params{tofilter};
     my $fromfilter = $params{fromfilter};
@@ -7246,7 +7305,7 @@ package Web25::Activity::Deletions;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 
 our $INDEX = { LIST => 1, ORDER => 7, TITLE => "Deletions",
 	       LINK_TITLE => "View Deletion Queue",
@@ -7277,7 +7336,26 @@ sub output
 			      default   => 'any' },
 	 }
 	 );
-    
+# TW Explicit checking of arguments
+  foreach ( qw( node ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
+  foreach ( qw( blockfilter ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
+
     my @reqfilter   = split(/\s*[, ]+/, $params{reqfilter});
     my $nodefilter  = $params{node};
     my $blockfilter = $params{blockfilter};
@@ -7568,12 +7646,12 @@ sub output
 	     log_validate => { using => 'regex', default => '.*' },
 	 }
 	 );
-# TW Explicit checking of argumetns
+# TW Explicit checking of arguments
     foreach ( qw( from_filter to_filter ) ) {
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} !~ m%^(T(0|1|2)_[_,A-Z,a-z,0-9]*)?$% ) {
+             $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -7582,7 +7660,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} =~ m%(^[a-zA-Z0-9:.\-_/=\?]*$)?$% ) {
+             $params{$_} =~ m%(^[a-zA-Z0-9:.\-_/=\?*]*$)?$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -7802,7 +7880,7 @@ package Web25::Data::ExplorePage;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 use Sort::Key::Natural;
 use Sort::Key::Maker sort_dbs =>
   sub { $$_{LABEL}, ($$_{BASE} || ''), $$_{ID} }, qw(nat nat int);
@@ -8482,6 +8560,17 @@ sub validate
 	     lp_id	   => { using => 'loadtestp_id', multiple => 1 } # combined ID
 	 }
 	 );
+# TW Explicit checking of arguments
+    foreach ( qw( filter ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} =~ m%(\\|;)% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
+    my $fileid     = $params{fileid};
 
   return $$self{PARAMS} = \%params;
 }
@@ -9884,7 +9973,7 @@ package Web25::Data::Verify;
 use strict; use warnings;
 use base "Web25::Page";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 use List::Util qw(max);
 
 our $INDEX = { LIST => 1, ORDER => 5, TITLE => "Verification",
@@ -9942,6 +10031,25 @@ sub output
 	   status => { allowing => \@status, default => 'Any' },
        }
        );
+# TW Explicit checking of arguments
+  foreach ( qw( node ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
+  foreach ( qw( block ) ) {
+    if ( $params{$_} ) {
+      $params{$_} = unescape($params{$_});
+      if ( $params{$_} ne '.*' &&
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+        die("The $_ parameter (foo) to bar did not pass");
+      }
+    }
+  }
 			    
   my $nodefilter   = $params{node};
   my $blockfilter  = $params{block};
