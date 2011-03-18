@@ -16,8 +16,8 @@ PHEDEX.Loader = function(opts) {
     var _dependencies = {
     'treeview-css':   { type: 'css', fullpath: '/yui/examples/treeview/assets/css/menu/tree.css' },
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
-    'nesteddatatable-css': { type: 'css', fullpath: '/css/nesteddatatable.css' },
-    'nesteddatatable-js':  { type: 'js', fullpath: '/js/yui-nesteddatatable.js' },
+    'nesteddatatable-css': { type:'css', fullpath:'/css/nesteddatatable.css' },
+    'nesteddatatable-js':  { type:'js',  fullpath:'/js/yui-nesteddatatable.js', requires:['datatable'] },
     'protovis':       { type: 'js', fullpath: '/protovis/protovis-d3.2.js' },
     'phedex-util':    { requires: ['phedex-css'] },
     'phedex-datasvc': { requires: ['phedex-util','connection','json'] },
@@ -75,7 +75,7 @@ PHEDEX.Loader = function(opts) {
 
 // old website override modules
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
-    'phedex-nextgen-request-create': { requires:['phedex-module','button','calendar'] },
+    'phedex-nextgen-request-create': { requires:['phedex-module','nesteddatatable-js','nesteddatatable-css','button','calendar'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
