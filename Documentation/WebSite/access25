@@ -7638,8 +7638,8 @@ sub output
 	     fileid       => { using => 'pos_int'},
 	     tofilter     => { using => 'regex', default => '.*' },
 	     fromfilter   => { using => 'regex', default => '.*' },
-	     report_code  => { using => 'pos_int' },
-	     xfer_code    => { using => 'pos_int' },
+	     report_code  => { using => 'regex', default => '.*' },
+	     xfer_code    => { using => 'regex', default => '.*' },
 	     from_pfn     => { using => 'regex', default => '.*' },
 	     to_pfn       => { using => 'regex', default => '.*' },
 	     log_detail   => { using => 'regex', default => '.*' },
@@ -7647,6 +7647,15 @@ sub output
 	 }
 	 );
 # TW Explicit checking of arguments
+    foreach ( qw( report_code xfer_code ) ) {
+      if ( $params{$_} ) {
+        $params{$_} = unescape($params{$_});
+        if ( $params{$_} ne '.*' &&
+             $params{$_} !~ m%^(-)?[0-9,.*]*$% ) {
+          die("The $_ parameter (foo) to bar did not pass");
+        }
+      }
+    }
     foreach ( qw( from_filter to_filter ) ) {
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
