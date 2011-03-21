@@ -5,7 +5,7 @@ YAHOO.util.Event.onDOMReady(function() {
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
-  PxL.load(createCoreApp,'core','sandbox');
+  PxL.load(createCoreApp,'core','sandbox','datasvc');
 
   var phedex_app_version = document.getElementById('phedex-app-version'),
       phedex_home = document.getElementById('phedex-link-home');
@@ -31,13 +31,13 @@ function createCoreApp() {
   banner('Core application is running, ready to create PhEDEx data-modules...');
 //   PxU.bannerIdleTimer(PxL,{active:'&nbsp;'});
 
-  var page=location.href, el, uri, params={}, substrs, i, ngoSuccess;
+  var page=location.href,/* el,*/ uri, params={}, substrs, i, ngoSuccess;
   if ( page.match(/^(.*)\?/)  )        { page = RegExp.$1; }
   if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
-  el = document.getElementById(page);
+  params.el = document.getElementById(page);
 
-  if ( el ) {
+  if ( params.el ) {
     banner('loading, please wait...');
     page = page.replace(/::/g,'-');
     page = page.toLowerCase();
@@ -54,49 +54,38 @@ function createCoreApp() {
         }
       }
     }
+
+//  Make sure I'm talking to the correct DB instance
+    var db=PhedexPage.DBInstance;
+    if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
+    if ( db ) { PHEDEX.Datasvc.Instance( db ); }
+
     ngoSuccess = function(item,e) {
       return function() {
-        var db, cTor;
-//      Make sure I'm talking to the correct DB instance
-        db=PhedexPage.DBInstance;
-//      if ( PhedexPage.Instances ) { PxW.Instances = PhedexPage.Instances; }
-        if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
-        if ( db ) { PHEDEX.Datasvc.Instance( db ); }
 //      (try to) Create and run the page
-        cTor = PxU.getConstructor(item);
+        var cTor = PxU.getConstructor(item);
         if ( !cTor ) { return; }
         try {
           var obj = new cTor(PxS,item);
-          obj.useElement(e);
+//           obj.useElement(e);
           obj.init(params);
         } catch(ex) { }
       };
-    }(page,el);
+    }(page);
     var callbacks = {
                       Success:  ngoSuccess,
                       Failure:  function(item) { },
                       Timeout:  function(item) { banner('Timeout loading javascript modules'); },
                       Progress: function(item) { banner('Loaded item: '+item.name); }
                     };
-// use this stuff for by-hand debugging
-// debugger;
-// PHEDEX.Datasvc.Instance('Tony');
-// var node = 'T1_Test1_Buffer',
-//     xml = '<data version="2">' +
-// '        <dbs dls="dbs" name="test">' +
-// '                <dataset is-open="dummy" name="/lifecycle/custodial/raw_1"/>' +
-// '        </dbs>' +
-// '</data>';
-// var injectCallback = function(obj) {
-//   return function(data,context) {
-// debugger;
-//   }
-// }(this);
-// PHEDEX.Datasvc.Call({ api:'inject', method:'post', args:{node:node, data:xml}, callback:injectCallback });
-// throw new Error("Get me outta here!");
-
-//     PxL.load(callbacks,page);
     PxL.load(callbacks,page,'datasvc');
+
+//  Make sure I'm talking to the correct DB instance
+//     var db=PhedexPage.DBInstance;
+//     if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
+//     if ( db ) { PHEDEX.Datasvc.Instance( db ); }
+//     params.el = el;
+//     PxS.notify('Load',page,params);
     document.body.className = 'yui-skin-sam';
   }
 };
