@@ -17,8 +17,17 @@ YAHOO.util.Event.onDOMReady(function() {
 });
 
 function createCoreApp() {
-// This is called once the core is fully loaded. Now I can create the core
-// application and sandbox, and then start creating PhEDEx modules
+// This is called once the core is fully loaded.
+
+  var page=location.href,/* el,*/ uri, params={}, substrs, i, ngoSuccess;
+  if ( page.match(/^(.*)\?/)  )        { page = RegExp.$1; }
+  if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
+  if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
+  params.el = document.getElementById(page);
+  if ( !params.el ) { return; }
+  banner('loading, please wait...');
+
+// Now I can create the core application and sandbox, and then start creating PhEDEx modules
   banner('Create sandbox and core application...');
   try {
     PxS = new PHEDEX.Sandbox();
@@ -27,65 +36,46 @@ function createCoreApp() {
     PxC = new PHEDEX.Core(PxS,PxL);
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
-
   banner('Core application is running, ready to create PhEDEx data-modules...');
-//   PxU.bannerIdleTimer(PxL,{active:'&nbsp;'});
 
-  var page=location.href,/* el,*/ uri, params={}, substrs, i, ngoSuccess;
-  if ( page.match(/^(.*)\?/)  )        { page = RegExp.$1; }
-  if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
-  if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
-  params.el = document.getElementById(page);
-
-  if ( params.el ) {
-    banner('loading, please wait...');
-    page = page.replace(/::/g,'-');
-    page = page.toLowerCase();
-    page = 'phedex-nextgen-'+page;
-
-    uri = location.search;
-    if ( uri.match(/^\?(.*)$/) ) {
-      substrs = RegExp.$1.split('&')
-      for (i in substrs ) {
-        if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
-          params[RegExp.$1] = RegExp.$2;
-        } else {
-          params[substrs[i]] = true;
-        }
+  uri = location.search;
+  if ( uri.match(/^\?(.*)$/) ) {
+    substrs = RegExp.$1.split('&')
+    for (i in substrs ) {
+      if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
+        params[RegExp.$1] = RegExp.$2;
+      } else {
+        params[substrs[i]] = true;
       }
     }
-
-//  Make sure I'm talking to the correct DB instance
-    var db=PhedexPage.DBInstance;
-    if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
-    if ( db ) { PHEDEX.Datasvc.Instance( db ); }
-
-    ngoSuccess = function(item,e) {
-      return function() {
-//      (try to) Create and run the page
-        var cTor = PxU.getConstructor(item);
-        if ( !cTor ) { return; }
-        try {
-          var obj = new cTor(PxS,item);
-//           obj.useElement(e);
-          obj.init(params);
-        } catch(ex) { }
-      };
-    }(page);
-    var callbacks = {
-                      Success:  ngoSuccess,
-                      Failure:  function(item) { },
-                      Timeout:  function(item) { banner('Timeout loading javascript modules'); },
-                      Progress: function(item) { banner('Loaded item: '+item.name); }
-                    };
-    PxL.load(callbacks,page,'datasvc');
-
-//  Make sure I'm talking to the correct DB instance
-//     var db=PhedexPage.DBInstance;
-//     if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
-//     if ( db ) { PHEDEX.Datasvc.Instance( db ); }
-//     params.el = el;
-//     PxS.notify('Load',page,params);
-    document.body.className = 'yui-skin-sam';
   }
+
+//Make sure I'm talking to the correct DB instance
+  var db=PhedexPage.DBInstance;
+  if ( PhedexPage.Instances ) { PHEDEX.Datasvc.Instances(PhedexPage.Instances); }
+  if ( db ) { PHEDEX.Datasvc.Instance( db ); }
+
+  page = page.replace(/::/g,'-');
+  page = page.toLowerCase();
+  page = 'phedex-nextgen-'+page;
+  ngoSuccess = function(item,e) {
+    return function() {
+//    (try to) Create and run the page
+      var cTor = PxU.getConstructor(item);
+      if ( !cTor ) { return; }
+      try {
+        var obj = new cTor(PxS,item);
+//         obj.useElement(e);
+        obj.init(params);
+      } catch(ex) { }
+    };
+  }(page);
+  var callbacks = {
+                    Success:  ngoSuccess,
+                    Failure:  function(item) { },
+                    Timeout:  function(item) { banner('Timeout loading javascript modules'); },
+                    Progress: function(item) { banner('Loaded item: '+item.name); }
+                  };
+  PxL.load(callbacks,page,'datasvc');
+  document.body.className = 'yui-skin-sam';
 };
