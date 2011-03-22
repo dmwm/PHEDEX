@@ -65,7 +65,7 @@ function createCoreApp() {
       if ( !cTor ) { return; }
       try {
         var obj = new cTor(PxS,item);
-//         obj.useElement(e);
+        obj.useElement(params.el);
         obj.init(params);
       } catch(ex) { }
     };
