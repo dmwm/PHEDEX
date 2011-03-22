@@ -14,7 +14,7 @@ PHEDEX.Core = function(sandbox,loader) {
       _timer, // used to clear the banner window after a while.
       _parent = document.getElementById('phedex-main'),
       _global_options = {}; // global application options, such as resizeability etc
-  if ( !parent ) { throw new Error('cannot find parent element for core'); }
+//   if ( !_parent ) { throw new Error('cannot find parent element for core'); }
 
 /**
  * Options defining the behaviour of the modules, i.e. resizeability, draggability etc.
@@ -245,7 +245,7 @@ PHEDEX.Core = function(sandbox,loader) {
     switch ( action ) {
       case 'init': {
         var el = m.initDom();
-        if ( el ) { _parent.appendChild(el); }
+        if ( el && _parent ) { _parent.appendChild(el); }
         else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
         m.initModule();
         m.initDerived();
