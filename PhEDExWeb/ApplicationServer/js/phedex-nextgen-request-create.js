@@ -15,21 +15,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         minwidth:600,
         minheight:50
       },
-      /**
-       * Properties used for configuring the module.
-       * @property meta
-       * @type Object
-       */
-// data->dbs->0->dataset->0->{name,time_create,is_open,block->0->{name,files,bytes,is_open,time_create}}
-      meta: {
-        table: { columns: [{ key:'dataset',     label:'Dataset', className:'align-left' },
-                           { key:'time_create', label:'Creation time', formatter:'UnixEpochToGMT', parser:'number' },
-                           { key:'is_open',     label:'Open' }],
-            nestedColumns:[{ key:'block',       label:'Block', className:'align-left' },
-                           { key:'time_create', label:'Creation time', formatter:'UnixEpochToGMT', parser:'number' },
-                           { key:'is_open',     label:'Open' }]
-                },
-      },
       waitToEnableAccept:2,
       useElement: function(el) {
         var d = this.dom;
@@ -114,16 +99,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-left' });
-        label='Preview', id='button'+label;
-        this.Preview = new YAHOO.widget.Button({
-                                type: 'submit',
-                                label: label,
-                                id: id,
-                                name: id,
-                                value: id,
-                                container: 'buttons-right' });
+//         label='Preview', id='button'+label;
+//         this.Preview = new YAHOO.widget.Button({
+//                                 type: 'submit',
+//                                 label: label,
+//                                 id: id,
+//                                 name: id,
+//                                 value: id,
+//                                 container: 'buttons-right' });
 //         this.Preview.set('disabled',true);
-        this.Preview.on('click', this.onPreviewSubmit);
+//         this.Preview.on('click', this.onPreviewSubmit);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
@@ -253,119 +238,38 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }(this);
         Reset.on('click', this.onResetSubmit);
       },
-      processNestedrequest: function (record) {
-        try {
-          var nesteddata = record.getData('nesteddata');
-          this.nestedDataSource = new YuDS(nesteddata);
-          return nesteddata;
-        }
-        catch (ex) {
-          log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
-        }
-      },
       previewCallback: function(data,context) {
-        var rid, api=context.api, Table=[], Row, Nested, unique=0, ds, block, nFiles, nBytes;
+        var rid, api=context.api;
         switch (api) {
           case 'data': {
-            var dom=this.dom, datasets=data.dbs, ds, dsName, blocks, block, i, j, n;
-            Dom.removeClass(dom.results,'phedex-box-yellow');
+            var datasets=data.dbs, ds, dsName, blocks, block, i, j, n;
+//             icon = this.dom.datasetIcon;
             try {
               if ( datasets.length == 0 ) {
-                dom.results_text.innerHTML = 'No data found matching your selection';
-                Dom.addClass(dom.results,'phedex-box-red');
+                item = context.args.dataset || context.args.block;
+//                 YuD.removeClass(icon,'phedex-invisible');
+//                 icon.src = PxW.BaseURL + '/images/close-red-16x16.gif';
                 return;
               }
               datasets = datasets[0].dataset;
               for (i in datasets) {
-                Nested = [];
                 ds = datasets[i];
-                Row = { dataset:ds.name, time_create:ds.time_create, open:ds.is_open };
-                Row.uniqueid = unique++;
-                nFiles = nBytes = 0;
+                dsName = ds.name;
+//                 if ( cData[dsName] ) { continue; }
+//                 cData[dsName] = { dataset:dsName, blocks:{}, is_open:ds.is_open };
+                n = ds.block.length;
                 for (j in ds.block ) {
                   block = ds.block[j];
-                  nFiles += parseInt(block.files);
-                  nBytes += parseInt(block.bytes);
-                  Nested.push({ block:block.name, time_create:block.time_create, open:block.is_open, files:block.files, bytes:block.bytes });
+//                   cData[dsName].blocks[block.name] = block;
                 }
-                if ( Nested.length > 0 ) {
-                  Row.nestedData = Nested;
-                  Row.files = nFiles;
-                  Row.bytes = nBytes;
-                }
-                Table.push(Row);
+//                 el = this.AddFieldsetElement(_fDataset,dsName+' ('+n+' blocks)',dsName);
+//                 cart.elements[dsName] = {type:'dataset', el:el };
               }
+//               YuD.removeClass(icon,'phedex-invisible');
+//               icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
             } catch(ex) {
               var _x = ex;
-debugger;
             }
-            var t = this.meta.table,
-                i = t.columns.length,
-                cDef;
-            if (!t.map) { t.map = {}; }
-            while (i > 0) { //This is for main columns
-              i--;
-              var cDef = t.columns[i];
-              if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
-              if (!cDef.label) { cDef.label = cDef.key; }
-              if (!cDef.resizeable) { cDef.resizeable = true; }
-              if (!cDef.sortable) { cDef.sortable = true; }
-              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-            }
-            if ( !t.nestedColumns ) {
-              t.nestedColumns = [];
-            }
-            i = t.nestedColumns.length;
-            while (i > 0) { //This is for inner nested columns
-              i--;
-              var cDef = t.nestedColumns[i];
-              if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
-              if (!cDef.label) { cDef.label = cDef.key; }
-              if (!cDef.resizeable) { cDef.resizeable = true; }
-              if (!cDef.sortable) { cDef.sortable = true; }
-              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-            }
-            this.nestedDataSource = new YAHOO.util.DataSource();
-            this.dataSource = new YAHOO.util.DataSource(Table);
-try {
-            this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.results_text, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
-                              {
-                                  initialLoad: false,
-                                  generateNestedRequest: this.processNestedrequest
-                              });
-            var oCallback = {
-              success: this.dataTable.onDataReturnInitializeTable,
-              failure: this.dataTable.onDataReturnInitializeTable,
-              scope: this.dataTable
-            };
-            this.dataSource.sendRequest('', oCallback);
-
-            this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
-              return function(ev) {
-                delete obj.nestedtables[ev.dt.getId()];
-              }
-            }(this));
-
-            this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
-debugger;
-              var dt = oArgs.dt,
-                  oCallback = {
-                  success: dt.onDataReturnInitializeTable,
-                  failure: dt.onDataReturnInitializeTable,
-                  scope: dt
-              }, ctxId;
-              this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-              if ( !dt ) { return; }
-              // This is to maintain the list of created nested tables that would be used in context menu
-              if ( !o.nestedtables ) {
-                o.nestedtables = {};
-              }
-              o.nestedtables[dt.getId()] = dt;
-            }, this);
-} catch(ex) {
-  var _x=ex;
-  debugger;
-}
             break;
           }
         }
@@ -1120,6 +1024,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.results_text.innerHTML  = '';
           obj.formFail = false;
 
+// Subscription level is hardwired for now.
+
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
 
@@ -1161,6 +1067,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // 5. the block-list is now redundant, clean it up!
           delete data.blocks;
 
+// Subscription Type
+//           tmp = obj.subscription_type;
+//           elList = tmp.elList;
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
+//           }
+
 // Time Start
           obj.getTimeStart();
           if ( time_start.time_start ) {
@@ -1177,6 +1091,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               args.dataset.push(dataset);
             }
           }
+//           if ( data.blocks   ) { args.block   = data.blocks; }
+//         for ( dataset in data.datasets ) {
+//           for ( block in data.datasets[dataset] ) {
+//             xml += '<block name="'+block+'" is-open="dummy" />';
+//           }
+//         }
           Dom.removeClass(dom.preview,'phedex-invisible');
           dom.preview.innerHTML = '';
           Dom.removeClass(dom.results,'phedex-invisible');
@@ -1184,7 +1104,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.results_label.innerHTML = 'Status:';
           dom.results_text.innerHTML  = 'Calculating request (please wait)' +
           '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
           args.level = 'block';
           _sbx.notify( obj.id, 'getData', { api:'data', args:args } );
           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context) { obj.previewCallback(data,context); } });
