@@ -258,8 +258,10 @@ sub approve
 	      }
             }
           } elsif ( $request->{TYPE} eq 'delete' ) {
-	    &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
-	    &PHEDEX::RequestAllocator::Core::addDeletionsForRequest($core, $rid, $node->{NODE_ID}, $now);
+              if ( $request->{RM_SUBSCRIPTIONS} eq 'y' ) {
+	        &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($core, $rid, $node->{NODE_ID}, $now);
+	      }
+              &PHEDEX::RequestAllocator::Core::addDeletionsForRequest($core, $rid, $node->{NODE_ID}, $now);
           } else {
             # This is impossible because of the checks above, but anyway...
             die("Request $rid: TYPE is neither 'xfer' nor 'delete' ($request->{TYPE})");
