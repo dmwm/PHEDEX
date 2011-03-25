@@ -118,14 +118,16 @@ sub mergeLogBlockLatency
 	          nvl2(bd.time_suspend_until, :now, NULL) this_suspend
 	     from t_dps_block_dest bd
 	     join t_dps_block b on b.id = bd.block
-        left join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
-	    where br.is_active = 'y'
+	     join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
+	     where br.is_active = 'y'
 	   ) d
 	on (d.destination = l.destination
             and d.block = l.block
             and d.time_subscription = l.time_subscription)
 	when matched then
-          update set l.priority = d.priority,
+          update set l.files = d.files,
+	             l.bytes = d.bytes,
+	             l.priority = d.priority,
 		     l.suspend_time = nvl(l.suspend_time,0) + nvl(:now - l.last_suspend,0),
                      l.last_suspend = d.this_suspend,
 	             l.time_update = :now
