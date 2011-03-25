@@ -70,18 +70,21 @@ sub transfer
 
     # Auto-export for sites running exports without stage-in.
     # Export staged files for sites with stage-in.
+    # Auto-export migrations to MSS for sites with stage-in.
     &dbexec($dbh, qq{
 	merge into t_xfer_task_export xte using
 	  (select xt.id
 	   from t_xfer_task xt
 	     join t_adm_node ns
 	       on ns.id = xt.from_node
+	     join t_adm_node nd
+	       on nd.id = xt.to_node
 	     join t_xfer_source xs
 	       on xs.from_node = xt.from_node
 	       and xs.to_node = xt.to_node
 	     join t_xfer_replica xr
 	       on xr.id = xt.from_replica
-	   where ((ns.kind = 'Buffer' and xr.state = 1)
+	   where ((ns.kind = 'Buffer' and (xr.state = 1 or nd.kind='MSS'))
 		  or ns.kind = 'Disk')
 	     and xs.time_update >= :now - 5400) xt
 	on (xte.task = xt.id)
