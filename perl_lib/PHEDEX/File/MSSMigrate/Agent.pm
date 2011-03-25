@@ -59,14 +59,7 @@ sub idle
             where $mynode},
             ":protos" => "@{$$self{PROTOCOLS}}", ":now" => $start, %myargs);
 
-	# Auto-export from buffer to me and put them into transfer.
-	&dbexec($dbh, qq{
-	    insert into t_xfer_task_export (task, time_update)
-	    select xt.id, :now from t_xfer_task xt
-	    where $mynode
-	      and not exists
-	        (select 1 from t_xfer_task_export xte where xte.task = xt.id)},
-	    ":now" => $start, %myargs);
+	# Put tasks from buffer to me into transfer.
 
 	my $q1 = &dbexec($dbh, qq{
 	    select xt.id, xt.from_node, xt.to_node, logical_name, is_custodial
