@@ -165,7 +165,7 @@ sub send_email
  	 "\n";
     close MAIL and do {
       my $now = scalar localtime;
-      warn $! ? "$now: Error closing sendmail: $!\n"
+      warn $? ? "$now: Error closing sendmail: $!\n"
               : "$now: Exit status $? from sendmail\n";
 
       foreach ( qw / to from subject cc replyto / )
@@ -312,6 +312,8 @@ sub _send_request_create_email
     my $start_time = 'n/a';
     $start_time = strftime("%Y-%m-%d %H:%M:%S", gmtime($$data{'TIME_START'}))." (".$$data{'TIME_START'}.")" if $$data{'TIME_START'};
     my $comments = $$data{'REQUESTED_BY'}{'COMMENTS'}{'$T'} || '';
+    my $host = $$data{'REQUESTED_BY'}{'HOST'} || 'n/a';
+    my $agent = $$data{'REQUESTED_BY'}{'AGENT'} || 'n/a';
 	
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
@@ -322,8 +324,8 @@ You may wish to take note of the following new request:
    Name: $name
    E-mail: $email
    Authentication: $auth
-   Host: $$data{'REQUESTED_BY'}{'HOST'}
-   Agent: $$data{'REQUESTED_BY'}{'AGENT'}
+   Host: $host
+   Agent: $agent
 
 * Data Managers:
 $data_manager
