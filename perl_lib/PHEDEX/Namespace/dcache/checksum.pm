@@ -26,13 +26,11 @@ sub new
 
 sub execute
 {
-# 'execute' will use the common 'Command' function to do the work, but for lcg-ls 
-# we need to replace dcache pfn with corresponding srmurl.  
-  my ($self,$ns,$file,$lfn,$mapping,$node) = @_;
-  my $srmpfn;
-  $srmpfn = &applyStorageRules($mapping,'srmv2',$node,'pre',$lfn,'n');
-  return $ns->Command('checksum',$srmpfn) if defined $srmpfn; # this should work in the agent
-  return $ns->Command('checksum',$file); # this should work for setool with pfnlist of srm urls. 
+# 'execute' will use the common 'Command' function to do the work, here we 
+# replace lfn with corresponding srmurl.  
+  my ($self,$ns,$file,$tfc) = @_;
+  my $pfn = $tfc->lfn2pfn($file,'srmv2');
+  return $ns->Command('checksum',$pfn);
 }
 
 sub parse
