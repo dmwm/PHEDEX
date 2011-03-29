@@ -3,12 +3,13 @@ use strict;
 use warnings;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
+use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
-use PHEDEX::Namespace;
+#use PHEDEX::Namespace;
 
-my ($loader,$module,$interface,$ns);
+my ($loader,$module,$interface,$ns,$mapping);
 my ($verbose,$debug,$terse);
-my (@pfn,$pfnlist,$result,$command);
+my (@lfn,$lfnlist,$catalogue,$result,$command);
 
 sub usage
 {
@@ -16,13 +17,14 @@ sub usage
 
   Usage:
 
-  setool --pfnlist PFNLIST INTERFACE {OPTIONS} [COMMAND]
+  setool --lfnlist LFNLIST --catalogue CATALOGUE INTERFACE {OPTIONS} [COMMAND]
  
-  PFNLIST is a file containing full PFNs as found in your storage
-  element, one pfn per line.
-  If PFNLIST is given as '-', the script will read from stdin.
+  LFNLIST is a file containing full LFNs as found in your storage
+  element, one lfn per line.
+  If LFNLIST is given as '-', the script will read from stdin.
   Gzipped (*.gz) or bzipped (*.bz2) files can be read directly,
   allowing for compact filelists.
+  CATALOGUE is xml file providing storage trivial file catalogue (storage.xml)
 
   INTERFACE is the protocol for accessing the SE.
 
@@ -43,7 +45,8 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
 
 GetOptions(
-           "pfnlist=s"      => \$pfnlist,
+           "lfnlist|l=s"    => \$lfnlist,
+           "catalogue|c=s"  => \$catalogue,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
@@ -53,29 +56,31 @@ $interface = shift;
 die "INTERFACE argument must be specified\n" unless $interface;
 $module = $loader->Load($interface);
 $ns = $module->new();
-if ( $pfnlist )
+if ( $lfnlist )
 {
-  if ( $pfnlist =~ m%.gz$% )
-  { open PFN, "cat $pfnlist | gzip -d - |" or die "open: $pfnlist: $!\n"; }
-  elsif ( $pfnlist =~ m%.bz2$% )
-  { open PFN, "cat $pfnlist | bzip2 -d - |" or die "open: $pfnlist: $!\n"; }
-  elsif ( $pfnlist =~ m%^-$% )
-  { *PFN = *STDIN; }
+  die "CATALOGUE argument must be specified\n" unless $catalogue;
+  $mapping = PHEDEX::Core::Catalogue->new($catalogue);
+  if ( $lfnlist =~ m%.gz$% )
+  { open LFN, "cat $lfnlist | gzip -d - |" or die "open: $lfnlist: $!\n"; }
+  elsif ( $lfnlist =~ m%.bz2$% )
+  { open LFN, "cat $lfnlist | bzip2 -d - |" or die "open: $lfnlist: $!\n"; }
+  elsif ( $lfnlist =~ m%^-$% )
+  { *LFN = *STDIN; }
   else
-  { open PFN, "<$pfnlist" or die "open: $pfnlist: $!\n"; }
-  while ( <PFN> )
+  { open LFN, "<$lfnlist" or die "open: $lfnlist: $!\n"; }
+  while ( <LFN> )
   {
     chomp;
     $debug && print "Read: $_\n";;
-    push @pfn, $_;
+    push @lfn, $_;
   }
 }
 
 while ( $command = shift @ARGV )
 {
-  foreach my $f ( @pfn )
+  foreach my $f ( @lfn )
   {
-    $result = $ns->$command($f);
+    $result = $ns->$command($f, $mapping);
     print "$f $command = ",str_hash($result),"\n";
   }
 }
