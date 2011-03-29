@@ -401,6 +401,7 @@ Yours truly,
   PhEDEx Transfer Request Web Form
 ENDEMAIL
     
+$$self{CONFIG}{FEEDBACK_MAIL} ||= 'cms-phedex-admins@cern.ch';
 &send_email(subject => "PhEDEx $request_type ($instance instance)",
 	   to => [ @to ],
 	   cc => [ @cc ],
