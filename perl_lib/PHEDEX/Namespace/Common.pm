@@ -17,12 +17,15 @@ use strict;
 use warnings;
 no strict 'refs';
 use PHEDEX::Core::Loader;
+use PHEDEX::Core::Catalogue;
 use Data::Dumper;
 use Getopt::Long;
+
 
 sub _init
 {
   my ($self,%h) = @_;
+  print "NR in NS::Common::_init \n Protocol:". $self->Protocol($self)."\n";
   push @{$h{REJECT}}, qw / Common /;
   $self->{LOADER} = PHEDEX::Core::Loader->new( NAMESPACE => $h{NAMESPACE},
 					       REJECT	 => $h{REJECT} );
@@ -104,6 +107,12 @@ sub AUTOLOAD
 
 # Otherwise, give up and spit the dummy
   die "\"$attr\" not known to ",__PACKAGE__,"\n";
+}
+
+sub Protocol
+{
+  my $self = shift;
+  return 'direct';
 }
 
 sub Command
