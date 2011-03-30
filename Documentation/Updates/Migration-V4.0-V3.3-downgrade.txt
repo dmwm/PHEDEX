@@ -1,0 +1,141 @@
+# Migration downgrade procedure from V4.0 to V3.3 applied to Debug instance **
+
+# This migration should be able to be performed while site agents are still active
+# Web services and central agents should be shut down for the instance, however.
+
+# cd to a directory where the PHEDEX directory exists and there is an
+# RPM installation
+
+cd /data/DebugNodes
+
+# Source environment
+source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
+
+# Checkout the Schema revision for 4.0
+
+cvs co -d PHEDEX_CVS/Schema -r PHEDEX_4_0_0 COMP/PHEDEX/Schema
+
+# Set authentication for DB access
+export PHEDEX_INSTANCE=Debug;
+export PHEDEX_DB="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Admin";
+export PHEDEX_DB_R="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Reader";
+export PHEDEX_DB_W="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/CERN";
+export PHEDEX_CON=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
+export PHEDEX_CON_R=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R});
+export PHEDEX_CON_W=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W});
+export PHEDEX_SCHEMA=$(echo $PHEDEX_CON | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_R=$(echo $PHEDEX_CON_R | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_W=$(echo $PHEDEX_CON_W | perl -p -e 's|/.*$||')
+env | egrep 'PHEDEX_(DB|CON|SCHEMA)';
+
+
+# Connect to DB using SQLPlus
+sqlplus $PHEDEX_CON
+
+-- Deploying the 3.3 schema over a 4.0 schema (if backup tables still available)
+-- From SQLPLUS
+
+set serveroutput on size 100000;
+set timing on;
+spool migration.sqllog
+
+-- Not necessary to downgrade t_xfer_replica table: 4.0 table is compatible
+-- with 3.3 agents
+
+rename t_dps_subs_dataset to xt_dps_subs_dataset;
+rename t_dps_subs_block to xt_dps_subs_block;
+rename t_dps_subs_param to xt_dps_subs_param;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name NOT LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND (constraint_name LIKE '%_DPS_SUBS_DATASET%'
+	    OR constraint_name LIKE '%_DPS_SUBS_BLOCK%'
+	    OR constraint_name LIKE '%_DPS_SUBS_PARAM%'))
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+          || ' rename constraint ' || o.name
+          || ' to X' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name NOT LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND (index_name LIKE '%_DPS_SUBS_DATASET%'
+	    OR index_name LIKE '%_DPS_SUBS_BLOCK%'
+	    OR index LIKE '%_DPS_SUBS_PARAM%'))
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+          || ' rename to X' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+/
+
+rename xt_dps_subscription to t_dps_subscription;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND constraint_name LIKE '%_DPS_SUBSCRIPTION%')
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+          || ' rename constraint ' || o.name
+          || ' to ' || substr (o.name, 2, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND index_name LIKE '%_DPS_SUBSCRIPTION%')
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+          || ' rename to ' || substr (o.name, 2, 29);
+   END LOOP;
+END;
+/
+
+-- Increase the schema_version
+create or replace function schema_version return varchar is
+  result varchar(20);
+begin
+  return('3.3.0');
+end schema_version;
+
+select schema_version from dual;
+
+quit;
+
+-- If you're running on Testbed, you're done here, otherwise remember to run
+-- the following scripts in a shell
+-- PHEDEX_SCHEMA,PHEDEX_SCHEMA_R,PHEDEX_SCHEMA_W : the Admin, Reader, Writer user name (DB instance name)
+-- PHEDEX_CON,PHEDEX_CON_R,PHEDEX_CON_W) : the Admin, Reader, Writer connection ID as returned by PHEDEX/Utilities/OracleConnectId
+
+-- Create synonmys
+PHEDEX_CVS/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_R
+PHEDEX_CVS/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_W
+
+-- Create privileges
+PHEDEX_CVS/Schema/OraclePrivs.sh $PHEDEX_CON $PHEDEX_SCHEMA_R $PHEDEX_SCHEMA_W
+
