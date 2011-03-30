@@ -24,8 +24,8 @@ Makes deletion requests
 =head2 Options
 
  node             destination node name, can be multible
- data             XML structure representing the data to be subscribed. See PHEDEX::Core::XML
- level            subscription level, either 'dataset' or 'block'.  Default is 'dataset'
+ data             XML structure representing the data to be deleted. See PHEDEX::Core::XML
+ level            deletion level, either 'dataset' or 'block'.  Default is 'dataset'
  rm_subscriptions 'y' or 'n', remove subscriptions, default is 'y'.
  no_mail          'y' or 'n' (default), if 'n', a email is sent to requestor, datamanagers, site admins, and global admins
  comments         other information to attach to this request, for whatever reason.
@@ -92,7 +92,7 @@ sub to_delete
     $data = PHEDEX::Core::XML::parseData( XML => $data);
 
     # only one DBS allowed for the moment...  (FIXME??)
-    die "multiple DBSes in data XML.  Only data from one DBS may be subscribed at a time\n"
+    die "multiple DBSes in data XML.  Only data from one DBS may be deleted at a time\n"
 	if scalar values %{$data->{DBS}} > 1;
 
     ($data) = values %{$data->{DBS}};
