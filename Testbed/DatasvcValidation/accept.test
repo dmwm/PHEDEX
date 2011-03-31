@@ -65,7 +65,7 @@ dashboardhistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS&strattime=2009-04-01&e
 # PHEDEX::Web::API::Data - show data which is registered (injected) to PhEDEx
 data?block=/BprimeToCWCW_WInc_M-250_7TeV-madgraph/Spring10-START3X_V26-v1/GEN-SIM-RECO%238a807595-ff35-48a5-ad03-ed976b29117f dbs =1
 data?file=/store/mc/Spring10/BprimeToCWCW_WInc_M-250_7TeV-madgraph/GEN-SIM-RECO/START3X_V26-v1/0019/CEF51529-A878-DF11-8B2C-00188B7AC4CF.root dbs =1
-data?file_create_since=-1h
+data?create_since=-1h
 data?level=block
 
 # PHEDEX::Web::API::DeleteRequests - deletion requests
