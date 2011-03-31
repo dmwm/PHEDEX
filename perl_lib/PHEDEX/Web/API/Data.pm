@@ -19,15 +19,11 @@ Show data which is registered (injected) to PhEDEx
   file                     file name to output data for (wildcard support)
   level                    display level, 'file' or 'block'. when level=block
                            no file details would be shown. Default is 'file'.
-  file_create_since        returns files which were created since this time *
-  block_create_since       return blocks which were created since this time
-  dataset_create_since     returns datasets which were created since this time
+  create_since *           when level = 'block', return data of which blocks were created since this time;
+                           when level = 'file', return data of which files were created since this time
 
- * when no parameters are given, default file_create_since or
-   block_create_since is set to one day ago depending on the level
-
- ** WARNING, even with just 24 hours ago, level=file may return huge
-   among of results. Please be more specific.
+  * when no parameters are given, default create_since is set to one day ago
+ ** WARNING, even with just 24 hours ago, level=file may return huge among of results. Please be more specific.
 
 =head2 Output
 
@@ -116,25 +112,10 @@ sub data
 {
     my ($core, %h) = @_;
 
-    if (!$h{dataset}&&!$h{block}&&!$h{file})
+    # knock out dataset_create_since, block_cerate_since and file_create_since
+    foreach ( qw / dataset_create_since block_create_since file_create_since  DATASET_CREATE_SINCE BLOCK_CREATE_SINCE FILE_CREATE_SINCE / )
     {
-	if (($h{level} eq 'block') && !$h{block_create_since})
-	{
-	    $h{block_create_since} = time() - 86400;
-	}
-	elsif (!$h{file_create_since})
-	{
-            $h{file_create_since} = time() - 86400;
-        }
-    }
-
-    # check for time format
-    foreach ( qw / file_create_since block_create_since dataset_create_since / )
-    {
-        if ($h{$_} && (not defined PHEDEX::Core::Timing::str2time($h{$_})))
-        {
-            die "Bad value for '$_'\n";
-        }
+        delete $h{$_} if $h{$_};
     }
 
     # check for level
@@ -143,15 +124,47 @@ sub data
         die "level has to be either 'file' or 'block'\n";
     }
 
-    # convert parameter keys to upper caseq
-    foreach ( qw / dataset block file level file_create_since block_create_since dataset_create_since / )
+    # default level = block
+    $h{level} = 'file' if ! $h{level};
+
+    # check time format
+    if (exists $h{create_since})
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        $h{create_since} = PHEDEX::Core::Timing::str2time($h{create_since});
+        if (not defined $h{create_since})
+        {
+            die "Bad value for 'create_since'\n";
+        }
     }
 
-    if (not exists $h{LEVEL})
+    # set create_since
+    if (exists $h{create_since})
     {
-        $h{LEVEL} = 'file';
+        if ($h{level} eq 'block')
+        {
+            $h{block_create_since} = delete $h{create_since};
+        }
+        else
+        {
+            $h{file_create_since} = delete $h{create_since};
+        }
+    }
+    elsif ((!$h{file}||($h{file} =~ m/\*/))&&(!$h{dataset}||($h{dataset} =~ m/\*/))&&(!$h{block}||($h{block} =~ m/\*/)))
+    {
+	if ($h{level} eq 'block')
+	{
+	    $h{block_create_since} = time() - 86400;
+	}
+	else
+	{
+            $h{file_create_since} = time() - 86400;
+        }
+    }
+
+    # convert parameter keys to upper case
+    foreach ( qw / dataset block file level file_create_since block_create_since / )
+    {
+      $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getData($core, %h));
