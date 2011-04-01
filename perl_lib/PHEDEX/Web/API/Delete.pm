@@ -71,6 +71,7 @@ sub to_delete
     # defaults
     $h{rm_subscriptions} ||= 'y';
     $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
+    $h{no_mail} ||= 'n';
     foreach (qw(rm_subscriptions)) {
 	die "'$_' must be 'y' or 'n'" unless $h{$_} =~ /^[yn]$/;
     }
@@ -132,6 +133,12 @@ sub to_delete
     }
 
     $core->{DBH}->commit(); # Could be over committed, but who cares?
+    # send out notification
+    if ($h{no_mail} eq 'n')
+    {
+      PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
+      PHEDEX::Core::Mail::send_request_create_email($core, $rid);
+    }
 
     return { request_created  => [ { id => $rid } ] };
 }
