@@ -43,7 +43,7 @@ Return block replicas known to PhEDEx.
  group          group name.  default is to return replicas for any group.
 
  (*) See the rules of multi-value filters in the Core module
- 
+
 =head2 Output
 
   <block>
