@@ -107,7 +107,12 @@ die $@ if $@;
 
     # check authentication
     $core->{SECMOD}->reqAuthnCert();
-    my $auth = $core->getAuth();
+    my $auth;
+    if ( $args{request_only} == 'n' ) {
+      $auth = $core->getAuth('datasvc_subscribe');
+    } else {
+      $auth = $core->getAuth();
+    }
     if (! $auth->{STATE} eq 'cert' ) {
 	die("Certificate authentication failed\n");
     }
