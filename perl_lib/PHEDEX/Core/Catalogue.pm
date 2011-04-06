@@ -3,7 +3,7 @@ package PHEDEX::Core::Catalogue;
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(lfn2pfn pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
+our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
 use XML::Parser;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing;
@@ -12,36 +12,6 @@ use PHEDEX::Core::SQL;
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
 my %cache;
-
-
-# Wrapper-class to provide uniform access to the catalog storagemap 
-# both from the database, and from the xml file. 
-# Provides member function for converting lfn to pfn, using same signature 
-# as lfnLookup.
-sub new {
-    my $proto = shift;
-    my $class = ref $proto || $proto;
-    my $map =shift;
-    my ($self,%params);  
-    %params = ();
-    $self = \%params;
-    if (ref($map)) {$self->{'DBH'}=$map}else{$self->{'XML'}=$map};
-    $self->{'CATS'}={};
-    bless $self, $class;
-    return $self;
-}
-sub lfn2pfn {
-    my ( $self, $input, $protocol, $dest, $custodial) = @_; # Do we need custodiality here? 
-    if (exists $self->{'DBH'}) {
-	my $cats = {};
-	my $mapping = &dbStorageRules( $self->{'DBH'}, $cats,'1262');
-	return &applyStorageRules($mapping,$protocol,$dest,'pre',$input,$custodial);
-    }
-    if (exists $self->{'XML'}){
-	return &pfnLookup($input,$protocol,$dest,$self->{'XML'},$custodial);
-    }
-    die "We should not be here";	
-}
 
 # Calculate source and destination PFNs for a transfer task.
 # Note: This function will die if it cannot successfully make a
