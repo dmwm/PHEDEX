@@ -43,9 +43,9 @@ sub insertSubscriptionParam
 
     my $sql = qq{
 	insert into t_dps_subs_param
-	    (id, priority, is_custodial, original, time_create)
+	    (id, priority, is_custodial, user_group, original, time_create)
 	  values
-	    (seq_dps_subs_param.nextval, :priority, :is_custodial, :original, :time_create)
+	    (seq_dps_subs_param.nextval, :priority, :is_custodial, :user_group, :original, :time_create)
 	    returning id into :param_id
 	};
 
