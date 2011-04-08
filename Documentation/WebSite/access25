@@ -5264,6 +5264,9 @@ sub myurl
       if ($args{"page"} && ($args{"page"} ne "Request::View" &&
 			    $args{"page"} ne "Request::Admin"));
 
+  # If argsonly is set, do not add the saved parameters
+  return $self->SUPER::myurl(%args) if delete $args{argsonly};
+
   # Keep my if remaining on the same page (but e.g. different instance)
   return $self->SUPER::myurl($self->urlparams(@save), %args);
 }
@@ -5558,7 +5561,10 @@ sub send_request_update_email
 
     my $creator_name = $$data{CREATOR_DATA}{IDENTITY}{NAME};
     my $creator_email = $$data{CREATOR_DATA}{IDENTITY}{EMAIL};
-    my $detail_url = $self->myurl(page => 'Request::View', request => $rid, fullurl => 1);
+    my $detail_url = $self->myurl(page => 'Request::View',
+				  argsonly => 1,
+				  request => $rid,
+				  fullurl => 1);
     my $admin_email = $$self{SECMOD}->getEmail();
     my $msg_comments = ($comments ? "\nThe person who handled this had the following comments:\n\n\"$comments\"\n" 
 			: '');
@@ -5600,9 +5606,6 @@ ENDEMAIL
 }
 
 1;
-
-
-
 
 ######################################################################
 package Web25::Components::Status;
