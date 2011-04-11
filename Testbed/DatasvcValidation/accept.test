@@ -104,7 +104,7 @@ groups?group=DataOps group =1
 groupusage node >0
 groupusage?node=T1_US_FNAL_MSS node =1
 groupusage?group=DataOps node >0
-groupusage?group=undefined node >0
+groupusage?group=deprecated-undefined node >0
 
 # PHEDEX::Web::API::Inject - let PhEDEx know data exists
 # can not do acceptance test for now
