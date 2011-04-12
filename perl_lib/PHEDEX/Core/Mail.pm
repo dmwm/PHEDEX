@@ -225,6 +225,17 @@ sub _send_request_create_email
         }
     }
 
+    # Get request dataa
+    my $request_data = '';
+    foreach (@{$$data{'DATA'}{'DBS'}{DATASET}})
+    {
+        $request_data .= "     $_->{NAME}\n";
+    }
+    foreach (@{$$data{'DATA'}{'DBS'}{BLOCK}})
+    {
+        $request_data .= "     $_->{NAME}\n";
+    }
+
     # Get the list of Global admins
     my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex');
 
@@ -357,6 +368,7 @@ ENDEMAIL
    DBS:
      $$data{'DATA'}{'DBS'}{'NAME'}
    Data:
+$request_data
 ENDEMAIL
 
     $message .= join('', map( { "     $_\n" } @datalist));
