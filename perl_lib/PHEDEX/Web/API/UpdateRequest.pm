@@ -57,12 +57,17 @@ sub approve
 
   # check authentication
   $core->{SECMOD}->reqAuthnCert();
-  my $auth;
-  my %h;
+  my ($auth,%h,$type,$ability);
+
+  $type = PHEDEX::Core::DB::dbexec($core->{DBH}, qq{ select name from t_req_type where id=(select type from t_req_request where id = :id) }, ':id' => $args{request} )->fetchrow();
+
 # TW allow code to work from website or from data-service
 # This is ugly...
   if ( $core->can('getAuth') ) {
-    $auth = $core->getAuth('datasvc_subscribe');
+    if    ( $type eq 'xfer' )   { $ability = 'datasvc_subscribe'; }
+    elsif ( $type eq 'delete' ) { $ability = 'datasvc_delete'; }
+    else { die("Unknown request type: '$type'\n"); }
+    $auth = $core->getAuth($ability);
   } else {
     my $secmod = $core->{SECMOD};
     $auth = {
@@ -112,14 +117,6 @@ sub approve
 						        "User agent"  => $core->{USER_AGENT} );
   };
   die "Error evaluating client identity" if $@;
-
-  my ($sql, %p, $type);
-  $type = PHEDEX::Core::DB::dbexec($core->{DBH}, qq{ select type from t_req_request where id = :id }, ':id' => $args{request} )->fetchrow();
-  if    ( $type == 1  ) { $type = 'xfer'; }
-  elsif ( $type == 2  ) { $type = 'delete'; }
-  elsif ( $type == '' ) { die("Unknown request: $args{request}"); }
-  else { die("Unknown request type: '$type'\n"); }
-
 
   my $now = time();
   eval {
