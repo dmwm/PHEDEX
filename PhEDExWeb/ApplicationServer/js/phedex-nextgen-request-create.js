@@ -256,7 +256,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
 
             obj.Accept.set('disabled',false);
-            dom.results.className = 'phedex-invisible';
+            dom.preview_text.innerHTML = dom.preview_label.innerHTML = '';
+            Dom.addClass(dom.preview,'phedex-invisible');
+            Dom.addClass(dom.results,'phedex-invisible');
           }
         }(this);
         Reset.on('click', this.onResetSubmit);
@@ -288,6 +290,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               Dom.addClass(dom.preview,'phedex-box-red');
               return;
             }
+            Dom.removeClass(dom.preview,'phedex-box-red');
             dom.preview_label.innerHTML = 'Preview:';
             dom.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
             dom.preview_summary = Dom.get('phedex-preview-summary');
@@ -734,13 +737,13 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Time Start
       this.time_start = {
         text:'YYYY-MM-DD [hh:mm:ss]',
-        help_text:'<p>Specify a <strong>start time</strong> to subscribe only data injected after a certain time.</p><p>This field is optional. If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
+        help_text:'<p>Subscribe only <strong>data injected since</strong> a certain time. This field is optional.</p><p><strong>N.B.</strong> This does not affect the transfer scheduling, only the selection of a time-window of data. Data will still be transferred as soon as it can be queued to your destination.</p><p>If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
       };
       var time_start = this.time_start;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-time-start'>Start Time <a class='phedex-nextgen-help' id='phedex-help-time-start' href='#'>[?]</a></div>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-time-start'>Data injected since <a class='phedex-nextgen-help' id='phedex-help-time-start' href='#'>[?]</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
                           "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
@@ -967,6 +970,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
             Dom.addClass(dom.results,'phedex-box-green');
             Dom.removeClass(dom.results,'phedex-invisible');
+            d.preview_text.innerHTML = d.preview_label.innerHTML = '';
+            Dom.addClass(dom.preview,'phedex-invisible');
           }
         }
       }(this);
