@@ -1018,6 +1018,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
+          Dom.addClass(obj.dom.results,'phedex-invisible');
           dom.results_label.innerHTML = '';
           dom.results_text.innerHTML  = '';
           obj.formFail = false;
@@ -1735,6 +1736,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
+          Dom.addClass(obj.dom.results,'phedex-invisible');
           dom.results_label.innerHTML = '';
           dom.results_text.innerHTML  = '';
           obj.formFail = false;
