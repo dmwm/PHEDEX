@@ -149,7 +149,9 @@ sub data
             $h{file_create_since} = delete $h{create_since};
         }
     }
-    elsif ((!$h{file}||($h{file} =~ m/\*/))&&(!$h{dataset}||($h{dataset} =~ m/\*/))&&(!$h{block}||($h{block} =~ m/\*/)))
+    elsif ((!$h{file}||($h{file} =~ m/(\*|%)/)) &&
+           (!$h{dataset}||($h{dataset} =~ m/(\*|%)/)) &&
+           (!$h{block}||($h{block} =~ m/(\*|%)/)))
     {
 	if ($h{level} eq 'block')
 	{
