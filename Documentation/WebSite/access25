@@ -3653,7 +3653,7 @@ sub printRequest
 
     print { $$self{CONTENT} } "<label class='inline'>Currently matched data:</label>";
     $self->printDataTable($data);
-    my $data_items = $data->{XFER_DATA}{DATA};
+    my $data_items = $data->{XFER_DATA}{DATA} || $data->{DELETE_DATA}{DATA};
     $data_items =~ s%\n% %g;
     $data_items =~ s% +%<br />%g;
     print { $$self{CONTENT} } '<br/>',
