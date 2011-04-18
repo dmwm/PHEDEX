@@ -3434,16 +3434,18 @@ sub getRequestData
     elsif ($n_dis !=0)     { $state = 'Partially disapproved'; }
     $$data{REQUEST_STATE} = $state;
     $$data{REQUEST_NEEDS_ADMIN} = $n_pend;
-    
+ 
+    my $time_start;
     if ($$data{TYPE} eq 'xfer') {
 	$$data{XFER_DATA} = &dbexec($$self{DBH}, qq{
 	    select rx.priority, rx.is_custodial, rx.is_move, rx.is_static,
 	           rx.is_transient, rx.is_distributed, 
-	           g.id user_group_id, g.name user_group, rx.data
+	           g.id user_group_id, g.name user_group, rx.data, rx.time_start, rx.data
 	      from t_req_xfer rx
 	      left join t_adm_group g on g.id = rx.user_group
 	     where rx.request = :request
 	 }, ':request' => $rid)->fetchrow_hashref();
+        $time_start = $data->{XFER_DATA}{TIME_START};
     } elsif ($$data{TYPE} eq 'delete') {
 	$$data{DELETE_DATA} = &dbexec($$self{DBH}, qq{
 	    select rd.rm_subscriptions, rd.data
@@ -3452,11 +3454,17 @@ sub getRequestData
 	 }, ':request' => $rid)->fetchrow_hashref();
     }
 				
-    $$data{DATA} = &dbexec($$self{DBH}, qq{
+    my $sql = qq{
 	select 'DATASET' lvl, rds.name, ds.id, nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	  from t_req_dataset rds left join t_dps_dataset ds on ds.id = rds.dataset_id
                                  left join t_dps_block b on b.dataset = ds.id
-         where rds.request = :request
+         where rds.request = :request };
+    my %p = ( ':request' => $rid );
+    if ( $time_start ) {
+      $sql .= qq { and b.time_create >= :time_create };
+      $p{':time_create'} = $time_start;
+    }
+    $sql .= qq {
          group by rds.name, ds.id
         union
         select 'BLOCK' lvl, rb.name, b.id, b.files, b.bytes
@@ -3466,7 +3474,8 @@ sub getRequestData
         select 'FILE' lvl, rf.name, f.id, 1 files, f.filesize bytes
           from t_req_file rf left join t_dps_file f on f.id = rf.file_id
          where rf.request = :request
-     }, ':request' => $rid)->fetchall_hashref([qw(LVL ID)]);
+     };
+     $$data{DATA} =  &dbexec($$self{DBH},$sql, %p)->fetchall_hashref([qw(LVL ID)]);
 
      my ($total_files, $total_bytes) = (0, 0);
      foreach my $lvl (keys %{$$data{DATA}}) {
@@ -3480,8 +3489,6 @@ sub getRequestData
 
     return $data;
 }
-
-
 
 sub writeRequest
 {
@@ -3618,6 +3625,14 @@ sub printRequest
 	print { $$self{CONTENT} }
 	"<label>Group:</label>", "<span class='labeled'>", 
 	($$data{XFER_DATA}{USER_GROUP} || 'undefined'), "</span><br/>";
+	my $time_start = $$data{XFER_DATA}{TIME_START};
+	if ( $time_start ) {
+          $time_start = scalar gmtime($time_start) . ' UTC';
+        } else {
+          $time_start = 'all data (no start-time specified)';
+        }
+	print { $$self{CONTENT} }
+	"<label>Data Injected After:</label>", "<span class='labeled'>",$time_start, "</span><br/>";
     }
 
     # Data hideaway box
@@ -3635,7 +3650,16 @@ sub printRequest
     # Data details (hidden at first)
     "<div id='data$rid' class='hideaway' style='display:none;'>",
     "<label class='inline'>DBS URL:</label>", $$data{DBS}, "<br/>";
+
+    print { $$self{CONTENT} } "<label class='inline'>Currently matched data:</label>";
     $self->printDataTable($data);
+    my $data_items = $data->{XFER_DATA}{DATA};
+    $data_items =~ s%\n% %g;
+    $data_items =~ s% +%<br />%g;
+    print { $$self{CONTENT} } '<br/>',
+				"<div><label class='inline'>Original request string:</label><br/>",
+			          "<div style='background-color:#eee'>$data_items</div>",
+			        '</div><br/>';
     print { $$self{CONTENT} } "</div></div><br/>";
 
     # Nodes
@@ -4102,10 +4126,7 @@ sub output
 
 }
 
-
 1;
-
-
 
 ######################################################################
 package Web25::Request::CreateTools;
