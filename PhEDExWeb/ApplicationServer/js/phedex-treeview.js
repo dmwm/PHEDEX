@@ -938,7 +938,7 @@ PHEDEX.TreeView.format = {
   UnixEpochToGMT: function(epoch) {
     if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toGMTString();
-  }
+  },
   UnixEpochToUTC: function(epoch) {
     if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toUTCString().replace(/GMT/,'UTC');
