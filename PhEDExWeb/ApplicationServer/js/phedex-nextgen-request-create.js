@@ -112,7 +112,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 name: id,
                                 value: id,
                                 container: 'buttons-right' });
-//         this.Preview.set('disabled',true);
+        this.Preview.set('disabled',true);
         this.Preview.on('click', this.onPreviewSubmit);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
@@ -269,12 +269,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       table: { columns: [{ key:'dataset',       label:'Dataset', className:'align-left' },
                          { key:'blocks',        label:'Blocks',  className:'align-right', parser:'number' },
                          { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                         { key:'time_create',   label:'Creation time', className:'align-right', formatter:'UnixEpochToGMT', parser:'number' },
+                         { key:'time_create',   label:'Creation time', className:'align-right', formatter:'UnixEpochToUTC', parser:'number' },
                          { key:'is_open',       label:'Open' }],
           nestedColumns:[{ key:'block',         label:'Block', className:'align-left' },
                          { key:'b_files',       label:'Files', className:'align-right', parser:'number' },
                          { key:'b_bytes',       label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
-                         { key:'b_time_create', label:'Creation time', formatter:'UnixEpochToGMT', parser:'number' },
+                         { key:'b_time_create', label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
                          { key:'b_is_open',     label:'Open' }]
               },
     },
@@ -316,15 +316,19 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           if ( this.value == data_items.text ) {
             this.value = '';
             Dom.setStyle(this,'color','black');
+            obj.Preview.set('disabled',false);
           }
         }
       }(this);
-      d.data_items.onblur=function() {
-        if ( this.value == '' ) {
-          this.value = data_items.text;
-          Dom.setStyle(this,'color',null);
+      d.data_items.onblur=function(obj) {
+        return function() {
+          if ( this.value == '' ) {
+            this.value = data_items.text;
+            Dom.setStyle(this,'color',null);
+            obj.Preview.set('disabled',true);
+          }
         }
-      }
+      }(this);
 
 // Preview
       el = document.createElement('div');
@@ -347,7 +351,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.dbs = {
         instanceDefault:{
           prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          test:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+          test:'LoadTest',
           debug:'LoadTest',
           tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           tbedii:'test',
@@ -377,13 +381,23 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
       var makeDBSMenu = function(obj) {
         return function(data,context) {
-          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i;
+          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i, dDiv;
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
             dbs.MenuButton.set('label', '<em>'+sText+'</em>');
           };
+
           dbsList = data.dbs;
+          if ( !dbsList ) {
+            dDiv = Dom.get('dbs_menu');
+            dDiv.innerHTML = '&nbsp;<strong>Error</strong> loading dbs names, cannot continue';
+            Dom.addClass(dDiv,'phedex-box-red');
+            obj.Preview.set('disabled',true);
+            obj.Accept.set('disabled',true);
+            Dom.get('data_items').disabled = true;
+            return;
+          }
           for (i in dbsList ) {
             dbsEntry = dbsList[i];
             if ( dbsEntry.name == dbs._default ) {
@@ -441,6 +455,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         return function(data,context) {
           var nodes=[], node, i, j, k, pDiv, destination=d.destination;
 
+          pDiv = Dom.get('destination-panel');
+          if ( !data.node ) {
+            pDiv.innerHTML = '&nbsp;<strong>Error</strong> loading node names, cannot continue';
+            Dom.addClass(pDiv,'phedex-box-red');
+            obj.Preview.set('disabled',true);
+            obj.Accept.set('disabled',true);
+            Dom.get('data_items').disabled = true;
+            return;
+          }
           for ( i in data.node ) {
             node = data.node[i].name;
             if ( instance.instance != 'prod' ) { nodes.push(node ); }
@@ -449,7 +472,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             }
           }
           nodes = nodes.sort();
-          pDiv = Dom.get('destination-panel');
           pDiv.innerHTML = '';
           k = '1';
           for ( i in nodes ) {
@@ -580,15 +602,25 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
       var makeGroupMenu = function(obj) {
         return function(data,context) {
-          var onMenuItemClick, groupMenuItems=[], groupList, group, i;
-          Dom.get('user_group_menu').innerHTML = '';
+          var onMenuItemClick, groupMenuItems=[], groupList, group, i, gDiv;
+          gDiv = Dom.get('user_group_menu');
+          gDiv.innerHTML = '';
+          groupList = data.group;
+          if ( !groupList ) {
+            gDiv.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
+            Dom.addClass(gDiv,'phedex-box-red');
+            obj.Preview.set('disabled',true);
+            obj.Accept.set('disabled',true);
+            Dom.get('data_items').disabled = true;
+            return;
+          }
+
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
             if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           };
-          groupList = data.group;
           for (i in groupList ) {
             group = groupList[i];
             if ( !group.name.match(/^deprecated-/) ) {
@@ -610,7 +642,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Time Start
       this.time_start = {
         text:'YYYY-MM-DD [hh:mm:ss]',
-        help_text:'<p>Subscribe only <strong>data injected after</strong> a certain time. This field is optional.</p><p><strong>N.B.</strong> This does not affect the transfer scheduling, only the selection of a time-window of data. Data will still be transferred as soon as it can be queued to your destination.</p><p>If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
+        help_text:'<p>This field is optional. Only data injected into PhEDEx after the specified time will be subscribed with this request. If you do not specify a time, all the data from the dataset(s) requested will be subscribed</p><p><strong>N.B.</strong> This does not affect the transfer scheduling, only the selection of a time-window of data. Data will still be transferred as soon as it can be queued to your destination.</p><p>If you do not specify a time, all the data will be subscribed.</p><p>You can enter a date & time in the box, or select a date from the calendar</p><p>The time will be rounded down to the latest block-boundary before the time you specify. I.e. you will receive whole blocks, starting from the block that contains the start-time you specify</p><p>The time is interpreted as UT, not as your local time.</p>'
       };
       var time_start = this.time_start;
       el = document.createElement('div');
@@ -1266,15 +1298,19 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           if ( this.value == data_items.text ) {
             this.value = '';
             Dom.setStyle(this,'color','black');
+            obj.Preview.set('disabled',false);
           }
         }
       }(this);
-      d.data_items.onblur=function() {
-        if ( this.value == '' ) {
-          this.value = data_items.text;
-          Dom.setStyle(this,'color',null);
+      d.data_items.onblur=function(obj) {
+        return function() {
+          if ( this.value == '' ) {
+            this.value = data_items.text;
+            Dom.setStyle(this,'color',null);
+            obj.Preview.set('disabled',true);
+          }
         }
-      }
+      }(this);
 
 // Preview
       el = document.createElement('div');
@@ -1327,13 +1363,22 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
       var makeDBSMenu = function(obj) {
         return function(data,context) {
-          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i;
+          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i, dDiv;
           onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
             var sText = p_oItem.cfg.getProperty('text');
             if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
             dbs.MenuButton.set('label', '<em>'+sText+'</em>');
           };
           dbsList = data.dbs;
+          if ( !dbsList ) {
+            dDiv = Dom.get('dbs_menu');
+            dDiv.innerHTML = '&nbsp;<strong>Error</strong> loading dbs names, cannot continue';
+            Dom.addClass(dDiv,'phedex-box-red');
+            obj.Preview.set('disabled',true);
+            obj.Accept.set('disabled',true);
+            Dom.get('data_items').disabled = true;
+            return;
+          }
           for (i in dbsList ) {
             dbsEntry = dbsList[i];
             if ( dbsEntry.name == dbs._default ) {
@@ -1391,6 +1436,15 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         return function(data,context) {
           var nodes=[], node, i, j, k, pDiv, destination=d.destination;
 
+          pDiv = Dom.get('destination-panel');
+          if ( !data.node ) {
+            pDiv.innerHTML = '&nbsp;<strong>Error</strong> loading node names, cannot continue';
+            Dom.addClass(pDiv,'phedex-box-red');
+            obj.Preview.set('disabled',true);
+            obj.Accept.set('disabled',true);
+            Dom.get('data_items').disabled = true;
+            return;
+          }
           for ( i in data.node ) {
             node = data.node[i].name;
             if ( instance.instance != 'prod' ) { nodes.push(node ); }
@@ -1399,7 +1453,6 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
             }
           }
           nodes = nodes.sort();
-          pDiv = Dom.get('destination-panel');
           pDiv.innerHTML = '';
           k = '1';
           for ( i in nodes ) {
