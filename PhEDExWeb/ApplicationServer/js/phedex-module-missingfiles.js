@@ -54,7 +54,7 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                                    { key: 'name',        label: 'File' },
                                    { key: 'bytes',       label: 'File Bytes', className:'align-right', formatter:'customBytes', parser:'number' },
                                    { key: 'origin_node', label: 'Origin Node' },
-                                   { key: 'time_create', label: 'TimeCreate', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key: 'time_create', label: 'TimeCreate', formatter:'UnixEpochToUTC', parser:'number' },
                                    { key: 'group',       label: 'Group' },
                                    { key: 'se',          label: 'SE' },
                                    { key: 'node_id',     label: 'Node ID', className:'align-right', parser:'number' },

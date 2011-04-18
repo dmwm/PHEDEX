@@ -117,8 +117,8 @@ PHEDEX.Module.CustodialLocation=function(sandbox, string) {
               {width:100,text:'SE',          className:'phedex-tree-replica-se',         otherClasses:'align-right', ctxArgs:'sort-alpha', hide:true },
               {width: 80,text:'Files',       className:'phedex-tree-replica-files',      otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Bytes',       className:'phedex-tree-replica-bytes',      otherClasses:'align-right', ctxArgs:'sort-num', format:PxUf.bytes },
-              {width:180,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
-              {width:180,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
+              {width:180,text:'Create Time', className:'phedex-tree-replica-timecreate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToUTC' },
+              {width:180,text:'Update Time', className:'phedex-tree-replica-timeupdate', otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToUTC' },
               {width: 90,text:'Subscribed',  className:'phedex-tree-replica-subscribed', otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60,text:'Complete',    className:'phedex-tree-replica-complete',   otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 90,text:'Group',       className:'phedex-tree-replica-group',      otherClasses:'align-right', ctxArgs:['group','sort-alpha'], ctxKey:'group' }

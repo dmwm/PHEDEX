@@ -83,7 +83,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number', formatter:'customBytes'}
           ],
           nestedColumns:[
-            {key:'timebin',       label:'Timebin',   formatter:'UnixEpochToGMT' },
+            {key:'timebin',       label:'Timebin',   formatter:'UnixEpochToUTC' },
             {key:'pend_bytes',    label:'Queued',    className:'align-right', parser:'number', formatter:'customBytes' },
             {key:'request_bytes', label:'Requested', className:'align-right', parser:'number', formatter:'customBytes' },
             {key:'ratio',         label:'Ratio',     className:'align-right', parser:'number' }

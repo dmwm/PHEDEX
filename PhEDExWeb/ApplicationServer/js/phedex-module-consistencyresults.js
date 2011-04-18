@@ -90,7 +90,7 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
             format:[
               {width: 60,text:'ID',           className:'phedex-tree-test-id',           otherClasses:'align-left',  ctxArgs:'sort-alpha' },
               {width: 60,text:'Kind',         className:'phedex-tree-test-kind',         otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width:180,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToGMT' },
+              {width:180,text:'Report Time',  className:'phedex-tree-test-timereport',   otherClasses:'align-right', ctxArgs:'sort-alpha', format:'UnixEpochToUTC' },
               {width: 90,text:'Status',       className:'phedex-tree-test-status',       otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80,text:'Files',        className:'phedex-tree-test-files',        otherClasses:'align-right', ctxArgs:'sort-num' },
               {width: 80,text:'Files OK',     className:'phedex-tree-test-files-ok',     otherClasses:'align-right', ctxArgs:'sort-num' },

@@ -58,7 +58,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           columns: [
             {key:'node',        label:'Node'},
             {key:'name',        label:'Agent'},
-            {key:'time_update', label:'Date', formatter:'UnixEpochToGMT'},
+            {key:'time_update', label:'Date', formatter:'UnixEpochToUTC'},
             {key:'pid',         label:'PID',  parser:'number', className:'align-right'},
             {key:'version',     label:'Version' },
             {key:'label',       label:'Label' },
@@ -67,7 +67,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
           ]
 //             {key:'node',                 label:'Node'},
 //             {key:'name',                 label:'Agent'},
-//             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToGMT'},
+//             {key:'agent[0].time_update', label:'Date', formatter:'UnixEpochToUTC'},
 //             {key:'agent[0].pid',         label:'PID',  className:'align-right'},
 //             {key:'agent[0].version',     label:'Version' },
 //             {key:'agent[0].label',       label:'Label' },
@@ -170,7 +170,7 @@ PHEDEX.Module.Agents = function(sandbox, string) {
             now = new Date() / 1000,
             minDate = now,
             maxDate = 0,
-            i, u, minGMT, maxGMT, dMin, dMax;
+            i, u, minUTC, maxUTC, dMin, dMax;
         if ( !node ) { msg = 'No extra information available (no node selected yet!)'; }
         for (i in this.data) {
           u = this.data[i].time_update;
@@ -179,8 +179,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         }
         if ( maxDate > 0 )
         {
-          minGMT = new Date(minDate*1000).toGMTString();
-          maxGMT = new Date(maxDate*1000).toGMTString();
+          minUTC = new Date(minDate*1000).toUTCString();
+          maxUTC = new Date(maxDate*1000).toUTCString();
           dMin = Math.round(now - minDate);
           dMax = Math.round(now - maxDate);
           msg = ' Update-times: '+dMin+' - '+dMax+' seconds ago';

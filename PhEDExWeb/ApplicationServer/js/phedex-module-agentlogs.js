@@ -55,7 +55,7 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
                 ctxArgs: { Node:'node' },
                 table: { columns: [{ key:'node',    label:'Node' },
                                    { key:'name',    label:'Agent Name' },
-                                   { key:'time',    label:'Log Time', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key:'time',    label:'Log Time', formatter:'UnixEpochToUTC', parser:'number' },
                                    { key:'reason',  label:'Log Reason' },
                                    { key:'message', label:'Log Message', width:450, formatter:'customTextBox'}]
                 },

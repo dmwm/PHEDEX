@@ -512,7 +512,22 @@ YwDF.UnixEpochToGMT =  function(elCell, oRecord, oColumn, oData) {
   {
     elCell.innerHTML = '-';
   } else {
-    elCell.innerHTML = new Date(oData*1000).toGMTString();
+    elCell.innerHTML = new Date(oData*1000).toUTCString();
+  }
+};
+/** A custom formatter for unix-epoch dates. Sets the elCell innerHTML to the UTC representation of oDate. In practice, identical to UnixEpochToGMT, but post-edits the string to show UTC.
+* @method YAHOO.widget.DataTable.Formatter.UnixEpochToUTC
+* @param elCell {HTML element} Cell for which the formatter must be applied
+* @param oRecord {datatable record}
+* @param oColumn {datatable column}
+* @param oData {data-value} unix epoch seconds
+*/
+YwDF.UnixEpochToUTC =  function(elCell, oRecord, oColumn, oData) {
+  if( !oData )
+  {
+    elCell.innerHTML = '-';
+  } else {
+    elCell.innerHTML =new Date(oData*1000).toUTCString().replace(/GMT/,'UTC');
   }
 };
 

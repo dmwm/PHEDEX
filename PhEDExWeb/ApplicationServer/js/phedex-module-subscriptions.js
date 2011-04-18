@@ -117,9 +117,9 @@ PHEDEX.Module.Subscriptions=function(sandbox, string) {
               {width: 40, text:'Move',          className:'phedex-tree-subscription-move',          otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60, text:'Priority',      className:'phedex-tree-subscription-priority',      otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80, text:'Suspended',     className:'phedex-tree-subscription-suspended',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
-              {width:180, text:'Suspend until', className:'phedex-tree-subscription-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT', hide:true },
-              {width:180, text:'Creation-time', className:'phedex-tree-subscription-creation-time', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' },
-              {width:180, text:'Update-time',   className:'phedex-tree-subscription-update-time',   otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToGMT' }
+              {width:180, text:'Suspend until', className:'phedex-tree-subscription-suspend-until', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToUTC', hide:true },
+              {width:180, text:'Creation-time', className:'phedex-tree-subscription-creation-time', otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToUTC' },
+              {width:180, text:'Update-time',   className:'phedex-tree-subscription-update-time',   otherClasses:'align-right', ctxArgs:['sort-alpha'], format:'UnixEpochToUTC' }
             ]
           }
         ],

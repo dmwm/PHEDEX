@@ -64,7 +64,7 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             meta: {
                 ctxArgs: { Node:'node', Group:'group' },
                 table: { columns: [{ key:'id',          label:'Request ID', className:'align-right',    parser:'number' },
-                                   { key:'time_create', label:'TimeCreate', formatter:'UnixEpochToGMT', parser:'number' },
+                                   { key:'time_create', label:'TimeCreate', formatter:'UnixEpochToUTC', parser:'number' },
                                    { key:'group',       label:'Group' },
                                    { key:'priority',    label:'Priority' },
                                    { key:'custodial',   label:'Custodial' },
