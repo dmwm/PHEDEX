@@ -4417,158 +4417,154 @@ sub output
   &create_check_identity($self, \$bad);
   return if $bad;
 
-  my $type = param('type');
-  my $node_label = '';
-  my $confirm_page = $self->myurl(page=>'Request::Confirm');
-
-
-  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type ) { 
-    print { $$self{CONTENT} } "<div id='Request::Create'></div>";
-    return;
-  }
-
-
-  if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
-      print { $$self{CONTENT} }
-      "<div>",
-      "<h1>Choose a request type</h1>",
-      "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
-      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
-      "</div>"; # Request::Create
-      return;
-  } else {
-      my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
-      print { $$self{CONTENT} } "<div><h1>$headings{$type}</h1><br/>";
-      if ($type eq 'xfer') { 
-	  $node_label = 'Destinations'; 
-      }
-      elsif ($type eq 'delete') {
-	  $node_label = 'Nodes'; 
-      }
-  }
-
-  my $email_contact = $$self{SECMOD}->getEmail();
-  
-  my @dbsnames = $self->fetch_dbses();
-  my $defaultdbs = $$self{CONFIG}{DEFAULT_DBS} || 'blank';
-  my @nodes = $self->get_request_nodes();
-  my @groups = sort $self->fetch_groups();
-
-  my $dbs_selection =  popup_menu(-name=>'dbs', 
-				  -values=>[ map { &escapeHTML($_) } @dbsnames ],
-				  -default=>&escapeHTML($defaultdbs) );
-
-
-  print { $$self{CONTENT} }
-  "<form class='nice' method='post' action='$confirm_page'>\n",
-  hidden('type', $type),
-  "<label>E-mail:</label>", textfield(-name=>'email', -default=>$email_contact, -class=>'labeled', -style=>'width:450px'), "<br/>\n",
-
-  &hidden(-name=>'dbschoice', 'value'=>'known'),
-  "<label>DBS:</label>",  "<div class='labeled'>",$dbs_selection, "</div><br/>",
-
-  "<label>Data Items:<br/><br/>",
-  "<span class='note'>/Primary/Processed/Tier<br/>or<br/>",
-  "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
-  &help("More Help", "Data Item List", 
-	"A whitespace separated list of the datasets or blocks you are ",
-	"requesting.  The wildcard '*' may be used, but the dataset ",
-	"path separators '/' are required.  E.g. to subscribe to all ",
-	"'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'."), 
-  "</label>\n",
-  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
-  "<br/>",
-
-  "<label>$node_label:</label>",
-  "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
-  "<table><tr valign='top'>",
-  "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
-   sort grep (/^T1_|T0_/, @nodes)),
-  "  </td>\n",
-  "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
-   grep (/^T2_/, @nodes)),
-  "  </td>\n",
-  "  <td>\n",
-  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
-   grep (! /^T[012]_/, @nodes)),
-  "  </td>\n",
-  " </tr></table></div><br/>\n";
-  
-  if ($type eq 'xfer') {
-      print { $$self{CONTENT} }
-      "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
-						  -values=>['n', 'y'],
-						  -default=>'n',
-						  -labels=>{'n' => 'Replica', 'y' => 'Move'},
-						  -class=>'labeled'),
-      &help("What's this?", "Transfer Type", "A <b>replica</b> replicates ",
-	    "data from the source to the destination, while a <b>move</b> ",
-	    "replicates the data then deletes the data at the source.  Note that ",
-	    "moves are only used for moving data from T2s to T1s."),
-      "<br/>",
-      "<label>Subscription Type:</label>", popup_menu(-name=>'is_static', 
- 						      -values=>['n', 'y'],
- 						      -default=>'n',
- 						      -labels=>{'n' => 'Growing', 'y' => 'Static' },
- 						      -class=>'labeled'), 
-       &help("What's this?", "Subscription Type", 
-	     "A <b>growing</b> subscription downloads blocks/files added to open ",
-	     "datasets/blocks as they become available, until the dataset/block is ",
-	     "closed.  Also, wildcard patterns will be re-evaluated to match new ",
-	     "datasets/blocks which become available.  A <b>static</b> subscription ",
-	     "will expand datasets into block subscriptions, and no open blocks will ",
-	     "be subscribed.  Wildcard patterns will not be re-evaluated. ",
-	     "A static subscription is a snapshot of data available now"),
-      "<br/>",
-      "<label>Priority:</label>", popup_menu(-name=>'priority', 
-					     -values=>[2, 1, 0], 
-					     -default=>2,
-					     -labels=>{ 0 => 'High',
-							1 => 'Normal',
-							2 => 'Low' },
-					     -class=>'labeled'),
-      &help("What's this?", "Priority",
-	    "Priority is used to determine which data items get priority when resources are limited."),
-      "<br/>",
-      "<label>Custodial:</label>", popup_menu(-name=>'is_custodial', 
-					     -values=>['n', 'y'], 
-					     -default=>'n',
-					     -labels=>{ 'n' => 'Non-custodial',
-							'y' => 'Custodial' },
-					     -class=>'labeled'),
-      &help("What's this?", "Custodial",
-	    "Whether or not the target node(s) have a custodial responsibility for the data in this request."),
-      "<br/>",
-      "<label>Group:</label>", popup_menu(-name=>'group', 
-					  -values=>['undefined', @groups],
-					  -default=>'undefined',
-					  -class=>'labeled'),
-      &help("What's this?", "Group",
-	    "The group which is requesting this data.  Used for accounting purposes.  This can be left undefined."),
-      "<br/>";
-  } elsif ($type eq 'delete') {
-      print { $$self{CONTENT} }
-      "<label>Remove Subscriptions?:</label>",
-      popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
-      &help("[what's this?]", "Remove Subscriptions",
-	    "If you choose not to remove the subscription when deleting data PhEDEx will ",
-	    "retransfer the data to your node after the deletion is complete."),
-      "<br/>";
-  }
-  print { $$self{CONTENT} }
-  "<label>Comment:</label>", textarea(-name=>'comments',
-				      -default=>'', -style=>'width:450px;height:150px;',
-				      -class=>'labeled'), "<br/>\n",
-    "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
-  "</form>",
-  "</div>"; # Request::Create
+  print { $$self{CONTENT} } "<div id='Request::Create'></div>" if param('type');
+#  my $node_label = '';
+#  my $confirm_page = $self->myurl(page=>'Request::Confirm');
+#
+#  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type ) { 
+#    print { $$self{CONTENT} } "<div id='Request::Create'></div>";
+#    return;
+#  }
+#
+#  if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
+#      print { $$self{CONTENT} }
+#      "<div>",
+#      "<h1>Choose a request type</h1>",
+#      "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
+#      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
+#      "</div>"; # Request::Create
+#      return;
+#  } else {
+#      my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
+#      print { $$self{CONTENT} } "<div><h1>$headings{$type}</h1><br/>";
+#      if ($type eq 'xfer') { 
+#	  $node_label = 'Destinations'; 
+#      }
+#      elsif ($type eq 'delete') {
+#	  $node_label = 'Nodes'; 
+#      }
+#  }
+#
+#  my $email_contact = $$self{SECMOD}->getEmail();
+#  
+#  my @dbsnames = $self->fetch_dbses();
+#  my $defaultdbs = $$self{CONFIG}{DEFAULT_DBS} || 'blank';
+#  my @nodes = $self->get_request_nodes();
+#  my @groups = sort $self->fetch_groups();
+#
+#  my $dbs_selection =  popup_menu(-name=>'dbs', 
+#				  -values=>[ map { &escapeHTML($_) } @dbsnames ],
+#				  -default=>&escapeHTML($defaultdbs) );
+#
+#
+#  print { $$self{CONTENT} }
+#  "<form class='nice' method='post' action='$confirm_page'>\n",
+#  hidden('type', $type),
+#  "<label>E-mail:</label>", textfield(-name=>'email', -default=>$email_contact, -class=>'labeled', -style=>'width:450px'), "<br/>\n",
+#
+#  &hidden(-name=>'dbschoice', 'value'=>'known'),
+#  "<label>DBS:</label>",  "<div class='labeled'>",$dbs_selection, "</div><br/>",
+#
+#  "<label>Data Items:<br/><br/>",
+#  "<span class='note'>/Primary/Processed/Tier<br/>or<br/>",
+#  "/Primary/Processed/Tier#Block<br/>(Use * as wildcard)</span><br/>",
+#  &help("More Help", "Data Item List", 
+#	"A whitespace separated list of the datasets or blocks you are ",
+#	"requesting.  The wildcard '*' may be used, but the dataset ",
+#	"path separators '/' are required.  E.g. to subscribe to all ",
+#	"'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'."), 
+#  "</label>\n",
+#  textarea(-name=>'data', -value=>'', -style=>'width:450px;height:150px;', -class=>'labeled'), 
+#  "<br/>",
+#
+#  "<label>$node_label:</label>",
+#  "<div class='labeled'  style='font-size:8pt;width:450px;height:150px;overflow:scroll;border:thin solid black;' >",
+#  "<table><tr valign='top'>",
+#  "  <td>\n",
+#  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
+#   sort grep (/^T1_|T0_/, @nodes)),
+#  "  </td>\n",
+#  "  <td>\n",
+#  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
+#   grep (/^T2_/, @nodes)),
+#  "  </td>\n",
+#  "  <td>\n",
+#  (map { &striplabels(checkbox(-name=>'nodes', -label=>'', -value=>$_)."$_<br/>") }
+#   grep (! /^T[012]_/, @nodes)),
+#  "  </td>\n",
+#  " </tr></table></div><br/>\n";
+#  
+#  if ($type eq 'xfer') {
+#      print { $$self{CONTENT} }
+#      "<label>Transfer Type:</label>", popup_menu(-name=>'is_move', 
+#						  -values=>['n', 'y'],
+#						  -default=>'n',
+#						  -labels=>{'n' => 'Replica', 'y' => 'Move'},
+#						  -class=>'labeled'),
+#      &help("What's this?", "Transfer Type", "A <b>replica</b> replicates ",
+#	    "data from the source to the destination, while a <b>move</b> ",
+#	    "replicates the data then deletes the data at the source.  Note that ",
+#	    "moves are only used for moving data from T2s to T1s."),
+#      "<br/>",
+#      "<label>Subscription Type:</label>", popup_menu(-name=>'is_static', 
+# 						      -values=>['n', 'y'],
+# 						      -default=>'n',
+# 						      -labels=>{'n' => 'Growing', 'y' => 'Static' },
+# 						      -class=>'labeled'), 
+#       &help("What's this?", "Subscription Type", 
+#	     "A <b>growing</b> subscription downloads blocks/files added to open ",
+#	     "datasets/blocks as they become available, until the dataset/block is ",
+#	     "closed.  Also, wildcard patterns will be re-evaluated to match new ",
+#	     "datasets/blocks which become available.  A <b>static</b> subscription ",
+#	     "will expand datasets into block subscriptions, and no open blocks will ",
+#	     "be subscribed.  Wildcard patterns will not be re-evaluated. ",
+#	     "A static subscription is a snapshot of data available now"),
+#      "<br/>",
+#      "<label>Priority:</label>", popup_menu(-name=>'priority', 
+#					     -values=>[2, 1, 0], 
+#					     -default=>2,
+#					     -labels=>{ 0 => 'High',
+#							1 => 'Normal',
+#							2 => 'Low' },
+#					     -class=>'labeled'),
+#      &help("What's this?", "Priority",
+#	    "Priority is used to determine which data items get priority when resources are limited."),
+#      "<br/>",
+#      "<label>Custodial:</label>", popup_menu(-name=>'is_custodial', 
+#					     -values=>['n', 'y'], 
+#					     -default=>'n',
+#					     -labels=>{ 'n' => 'Non-custodial',
+#							'y' => 'Custodial' },
+#					     -class=>'labeled'),
+#      &help("What's this?", "Custodial",
+#	    "Whether or not the target node(s) have a custodial responsibility for the data in this request."),
+#      "<br/>",
+#      "<label>Group:</label>", popup_menu(-name=>'group', 
+#					  -values=>['undefined', @groups],
+#					  -default=>'undefined',
+#					  -class=>'labeled'),
+#      &help("What's this?", "Group",
+#	    "The group which is requesting this data.  Used for accounting purposes.  This can be left undefined."),
+#      "<br/>";
+#  } elsif ($type eq 'delete') {
+#      print { $$self{CONTENT} }
+#      "<label>Remove Subscriptions?:</label>",
+#      popup_menu(-name=>'rm_subscriptions', -values=>[qw(y n)], -labels=>{y => 'Yes', n => 'No'}, -class=>'labeled'),
+#      &help("[what's this?]", "Remove Subscriptions",
+#	    "If you choose not to remove the subscription when deleting data PhEDEx will ",
+#	    "retransfer the data to your node after the deletion is complete."),
+#      "<br/>";
+#  }
+#  print { $$self{CONTENT} }
+#  "<label>Comment:</label>", textarea(-name=>'comments',
+#				      -default=>'', -style=>'width:450px;height:150px;',
+#				      -class=>'labeled'), "<br/>\n",
+#    "<label>&nbsp;</label>", submit(-name=>'submit', -value=>'Submit Request', -class=>'labeled'),
+#  "</form>",
+#  "</div>"; # Request::Create
 }
 
 1;
-
-
 
 ######################################################################
 package Web25::Request::Confirm;
@@ -5360,10 +5356,10 @@ sub output
 
     my $client_id = $self->logClientInfo();
     my $comments_id;
-    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-      $comments_id = &PHEDEX::RequestAllocator::SQL::writeRequestComments($self, $rid, $client_id, $comments, $now)
-	if $comments;
-    }
+#    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#      $comments_id = &PHEDEX::RequestAllocator::SQL::writeRequestComments($self, $rid, $client_id, $comments, $now)
+#	if $comments;
+#    }
 
     my $ok = 1;
     my @results;
@@ -5376,15 +5372,15 @@ sub output
 	    push @results, "No action taken for $node";
 	} elsif ($action eq 'disapprove') {
 	    $ok &&= $self->disapprove($data, $node_obj, $now, $rid, $comments);
-            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-	      $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
-            }
+#            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#	      $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
+#            }
 	    push @results, "Disapproved request \#$rid for $node";
 	} elsif ($action eq 'approve') {
 	    $ok &&= $self->approve($data, $node_obj, $now, $rid, $comments);
-            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-	      $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
-            }
+#            if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#	      $ok &&= $self->markRequestDone($rid, $node_id, 'y', $client_id, $now, $comments_id);
+#            }
 	    push @results, "Approved request \#$rid for $node";
 	} elsif ($action eq 'stopeval') {
 	    $ok &&= $self->markRequestUndone($rid, $node_id);
@@ -5420,92 +5416,87 @@ sub disapprove
 {
   my ($self, $data, $node_obj, $time, $rid, $comments) = @_;
 
-  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-    if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
-	$self->updateMoveSource($$data{ID}, $node_obj, $time);
-    }
-  } else { # SCHEMA version 4 or higher
-      eval("require PHEDEX::Web::API::UpdateRequest;");
-      die $@ if $@;
-      my %h = (
-		request  => $rid,
-		node     => $node_obj->{NODE_ID},
-		decision => 'disapprove'
-	      );
-      if ( $comments ) { $h{comments} = $comments; }
-      PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
-  }
-
+#  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#    if ($$data{TYPE} eq 'xfer' && $$data{XFER_DATA}{IS_MOVE} eq 'y' && $$node_obj{POINT} eq 'Source Node') {
+#	$self->updateMoveSource($$data{ID}, $node_obj, $time);
+#    }
+#  } else { # SCHEMA version 4 or higher
+  eval("require PHEDEX::Web::API::UpdateRequest;");
+  die $@ if $@;
+  my %h = (
+	    request  => $rid,
+	    node     => $node_obj->{NODE_ID},
+	    decision => 'disapprove'
+	  );
+  if ( $comments ) { $h{comments} = $comments; }
+  PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+#  }
   return 1;
 }
 
 sub approve
 {
   my ($self, $data, $node_obj, $time, $rid, $comments) = @_; # TW RID added for 4.0 schema
-  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-    if ($$data{TYPE} eq 'xfer') {
-	if ($$node_obj{POINT} eq 'Destination Node') {
-	    $self->subscribe($$data{ID}, $node_obj, $time);
-	}
-	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
-	    $self->updateMoveSource($$data{ID}, $node_obj, $time);
-	}
-    } elsif ($$data{TYPE} eq 'delete') {
-	if ($$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y') {
-	    $self->unsubscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
-	} 
-	$self->delete($$data{ID}, $$node_obj{NODE_ID}, $time);
-    }
-  } else { # SCHEMA version 4 or higher
-      eval("require PHEDEX::Web::API::UpdateRequest;");
-      die $@ if $@;
-      my %h = (
-		request  => $rid,
-		node     => $node_obj->{NODE_ID},
-		decision => 'approve'
-	      );
-      if ( $comments ) { $h{comments} = $comments; }
-      PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
-  }
+#  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#    if ($$data{TYPE} eq 'xfer') {
+#	if ($$node_obj{POINT} eq 'Destination Node') {
+#	    $self->subscribe($$data{ID}, $node_obj, $time);
+#	}
+#	if ($$data{XFER_DATA}{IS_MOVE} eq 'y') {
+#	    $self->updateMoveSource($$data{ID}, $node_obj, $time);
+#	}
+#    } elsif ($$data{TYPE} eq 'delete') {
+#	if ($$data{DELETE_DATA}{RM_SUBSCRIPTIONS} eq 'y') {
+#	    $self->unsubscribe($$data{ID}, $$node_obj{NODE_ID}, $time);
+#	} 
+#	$self->delete($$data{ID}, $$node_obj{NODE_ID}, $time);
+#    }
+#  } else { # SCHEMA version 4 or higher
+  eval("require PHEDEX::Web::API::UpdateRequest;");
+  die $@ if $@;
+  my %h = (
+	    request  => $rid,
+	    node     => $node_obj->{NODE_ID},
+	    decision => 'approve'
+	  );
+  if ( $comments ) { $h{comments} = $comments; }
+  PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+#  }
   return 1;
 }
 
-sub subscribe
-{
-    my ($self, $rid, $node_obj, $time) = @_;
-# TW HACK load the old code here
-    eval ("require PHEDEX::RequestAllocator::wrapper");
-    die $@ if $@;
-    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
-
-    return 1;
-}
+#sub subscribe
+#{
+#    my ($self, $rid, $node_obj, $time) = @_;
+## TW HACK load the old code here
+#    eval ("require PHEDEX::RequestAllocator::wrapper");
+#    die $@ if $@;
+#    &PHEDEX::RequestAllocator::Core::addSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+#
+#    return 1;
+#}
 
 sub updateMoveSource
 {
-    my ($self, $rid, $node_obj, $time) = @_;
- 
-    if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
-      &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
-    } else {
-      &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
-    }
-
-    return 1;
+  my ($self, $rid, $node_obj, $time) = @_;
+#    if ( $self->{SCHEMA}{MAJOR} >= 4 ) {
+#      &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+#    } else {
+    &PHEDEX::RequestAllocator::Core::updateMoveSubscriptionsForRequest($self, $rid, $node_obj->{NODE_ID}, $time);
+#    }
+  return 1;
 }
 
 sub unsubscribe
 {
-    my ($self, $rid, $node_id, $time) = @_;
-
-    if ( $self->{SCHEMA}{MAJOR} < 4 ) {
-      # TW HACK load the old code here!
-      eval ("require PHEDEX::RequestAllocator::wrapper");
-      die $@ if $@;
-    }
-    &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_id, $time);
-
-    return 1;
+  my ($self, $rid, $node_id, $time) = @_;
+#    if ( $self->{SCHEMA}{MAJOR} < 4 ) {
+#      # TW HACK load the old code here!
+#      eval ("require PHEDEX::RequestAllocator::wrapper");
+#      die $@ if $@;
+#    }
+  &PHEDEX::RequestAllocator::Core::deleteSubscriptionsForRequest($self, $rid, $node_id, $time);
+  return 1;
 }
 
 sub delete
@@ -7947,11 +7938,11 @@ sub init
     $$self{NODE_LIST} = [ sort_name $self->node_list() ];
 
     # build the group list
-    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-      $$self{GROUP_LIST} = ['undefined', sort grep(!/^deprecated-/, $self->fetch_groups()) ];
-    } else {
-      $$self{GROUP_LIST} = [sort grep(!/^deprecated-/, $self->fetch_groups()) ];
-    }
+#    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#      $$self{GROUP_LIST} = ['undefined', sort grep(!/^deprecated-/, $self->fetch_groups()) ];
+#    } else {
+    $$self{GROUP_LIST} = [sort grep(!/^deprecated-/, $self->fetch_groups()) ];
+#    }
     
     # Data columns
     $$self{DCOLUMN_NAMES} = [ qw(DBS Name Blocks Files Bytes Open Transient Id) ];
@@ -9125,19 +9116,19 @@ sub output_page
 
   # Pseudo columns
   my %pseudo;
-  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-    %pseudo = (
-      'SELECT'    => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" },
-      'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
-      'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
-    );
-  } else {
-    %pseudo = (
-      'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
-      'PCT_FILES' => sub { my $x = $_[1]->{PERCENT_FILES}; defined($x) ? $x/100 : undef; }, # This is cheating a bit
-      'PCT_BYTES' => sub { my $x = $_[1]->{PERCENT_BYTES}; defined($x) ? $x/100 : undef; }, # ...so is this...
-    );
-  }
+#  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#    %pseudo = (
+#      'SELECT'    => sub { "<input type='checkbox' name='s_id' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_ID}:$_[1]->{NODE_ID}'/>" },
+#      'PCT_FILES' => sub { ($_[1]->{NODE_FILES} || 0) / ($_[1]->{DEST_FILES} || -1); },
+#      'PCT_BYTES' => sub { ($_[1]->{NODE_BYTES} || 0) / ($_[1]->{DEST_BYTES} || -1); }
+#    );
+#  } else {
+  %pseudo = (
+    'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
+    'PCT_FILES' => sub { my $x = $_[1]->{PERCENT_FILES}; defined($x) ? $x/100 : undef; }, # This is cheating a bit
+    'PCT_BYTES' => sub { my $x = $_[1]->{PERCENT_BYTES}; defined($x) ? $x/100 : undef; }, # ...so is this...
+  );
+#  }
 
   # Filters
   my @reqfilter   = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
@@ -9225,7 +9216,7 @@ sub output_page
   $dbtable->set_querycols( @querycols );
 
   my $key = 's_id';
-  if ( $self->{SCHEMA}{MAJOR} <= 4 ) { $key = 's_value'; }
+#  if ( $self->{SCHEMA}{MAJOR} <= 4 ) { $key = 's_value'; }
   if (@admin_auth) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
@@ -9310,51 +9301,51 @@ sub update_subscriptions
 			  where _ITEM_ = :id and destination = :dest ];
 
     my $action_list;
-    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-      $action_list = 
-      {
-	  suspend => { desc => ' suspended',
-		       var  => 'time_suspend_until',
-		       val  => 9_999_999_999 },
-    	  unsuspend => { desc => ' unsuspended',
-		         var => 'time_suspend_until',
-		         val  => undef },
-	  priorityhi => { desc => ' set to high priority',
-			  var => 'priority',
-			  val => 0 },
-	  prioritymd => { desc => ' set to medium priority',
-			  var => 'priority',
-			  val => 1 },
-	  prioritylo => { desc => ' set to low priority',
-			  var => 'priority',
-			  val => 2 },
-	  groupchange => { desc => " assigned to group $group_name",
-			   var => 'user_group',
-			   val => $group_id }
-      };
-    } else {
-      $action_list = 
-      {
-	  suspend => { desc => ' suspended',
-		       var  => 'SUSPEND_UNTIL',
-		       val  => 9_999_999_999 },
-    	  unsuspend => { desc => ' unsuspended',
-		         var => 'SUSPEND_UNTIL',
-		         val  => undef },
-	  priorityhi => { desc => ' set to high priority',
-			  var => 'PRIORITY',
-			  val => 'high' },
-	  prioritymd => { desc => ' set to normal priority',
-			  var => 'PRIORITY',
-			  val => 'normal' },
-	  prioritylo => { desc => ' set to low priority',
-			  var => 'PRIORITY',
-			  val => 'low' },
-	  groupchange => { desc => " assigned to group $group_name",
-			   var => 'GROUP',
-			   val => $group_name }
-      };
-    }
+#    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#      $action_list = 
+#      {
+#	  suspend => { desc => ' suspended',
+#		       var  => 'time_suspend_until',
+#		       val  => 9_999_999_999 },
+#    	  unsuspend => { desc => ' unsuspended',
+#		         var => 'time_suspend_until',
+#		         val  => undef },
+#	  priorityhi => { desc => ' set to high priority',
+#			  var => 'priority',
+#			  val => 0 },
+#	  prioritymd => { desc => ' set to medium priority',
+#			  var => 'priority',
+#			  val => 1 },
+#	  prioritylo => { desc => ' set to low priority',
+#			  var => 'priority',
+#			  val => 2 },
+#	  groupchange => { desc => " assigned to group $group_name",
+#			   var => 'user_group',
+#			   val => $group_id }
+#      };
+#    } else {
+    $action_list = 
+    {
+	suspend => { desc => ' suspended',
+		     var  => 'SUSPEND_UNTIL',
+		     val  => 9_999_999_999 },
+    	unsuspend => { desc => ' unsuspended',
+		       var => 'SUSPEND_UNTIL',
+		       val  => undef },
+	priorityhi => { desc => ' set to high priority',
+			var => 'PRIORITY',
+			val => 'high' },
+	prioritymd => { desc => ' set to normal priority',
+			var => 'PRIORITY',
+			val => 'normal' },
+	prioritylo => { desc => ' set to low priority',
+			var => 'PRIORITY',
+			val => 'low' },
+	groupchange => { desc => " assigned to group $group_name",
+			 var => 'GROUP',
+			 val => $group_name }
+    };
+#    }
 
     # Execute the update
     my $action = $action_list->{param('subsaction')};
@@ -9363,38 +9354,38 @@ sub update_subscriptions
     my %warn_hash;  # to keep unique warnings
 
     my $key = 's_value';
-    if ( $self->{SCHEMA}{MAJOR} <= 3 ) { $key = 's_id'; }
+#    if ( $self->{SCHEMA}{MAJOR} <= 3 ) { $key = 's_id'; }
     foreach (param($key)) {
 	my ($level, $item, $destination) = split /:/;
         my $permission;
-	if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-	  $permission = grep $destination == $_, values %auth_nodes; # Check permission
-        } else {
-	  $permission = $auth_nodes{$destination}; # Check permission
-        }
+#	if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#	  $permission = grep $destination == $_, values %auth_nodes; # Check permission
+#        } else {
+         $permission = $auth_nodes{$destination}; # Check permission
+#        }
 	if ( $permission ) { # Check permission
 	    $update_sql =~ s/_VAR_/$$action{var}/;
 	    $update_sql =~ s/_ITEM_/$level/;
 
 	    my @rv;
-	    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-	      @rv = &dbexec($$self{DBH}, $update_sql, 
-			     ':val' => $$action{val},
-			     ':id'  => $item,
-			     ':dest' => $destination);
-	      $n_changed += $rv[1];
-	    } else {
-	      eval("use PHEDEX::Web::SQL");
-	      my %h = (
-		        NODE => $destination,
-		        $level => $item,
-		        $action->{var} => $action->{val}
-		      );
-	      my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
-	      my $v = $r->[0]->{uc($action->{var})};
-	      if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
-              if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
-	    }
+#	    if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#	      @rv = &dbexec($$self{DBH}, $update_sql, 
+#			     ':val' => $$action{val},
+#			     ':id'  => $item,
+#			     ':dest' => $destination);
+#	      $n_changed += $rv[1];
+#	    } else {
+	    eval("use PHEDEX::Web::SQL");
+	    my %h = (
+		      NODE => $destination,
+		      $level => $item,
+		      $action->{var} => $action->{val}
+		    );
+	    my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
+	    my $v = $r->[0]->{uc($action->{var})};
+	    if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
+            if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
+#	    }
 	} else {
 	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
 		"$all_nodes{$destination} subscriptions!</p>";
@@ -9425,71 +9416,72 @@ sub data_subscriptions
   my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
   my ($sql,$p,$q);
 
-  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
-    $sql = qq{
-       select s.request,
-              NVL2(s.block, 'BLOCK', 'DATASET') item_level,
-	      NVL2(s.block, s.block, s.dataset) item_id,
-	      NVL2(s.block, b.name, ds.name) item_name,
-	      NVL2(s.block, b.is_open, ds.is_open) item_open,
-	      ds.id dataset_id, ds.name dataset_name,
-	      n.id node_id, n.name node_name,
-	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
-	      s.priority, s.is_move, s.is_transient,
-              s.is_custodial, g.name user_group,
-	      s.time_suspend_until, s.time_create,
-	      s.time_clear, s.time_complete, s.time_done,
-	      reps.exist_files, reps.node_files, reps.dest_files,
-	      reps.exist_bytes, reps.node_bytes, reps.dest_bytes
-	    from t_dps_subscription s
-	    join t_adm_node n on n.id = s.destination
-	    left join t_dps_block b on b.id = s.block
-	    left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
-	    left join t_adm_group g on g.id = s.user_group
-	    join
-	    (select s2.destination, s2.dataset, s2.block,
-		    sum(b2.files) exist_files, sum(b2.bytes) exist_bytes,
-		    sum(br.node_files) node_files, sum(br.dest_files) dest_files,
-		    sum(br.node_bytes) node_bytes, sum(br.dest_bytes) dest_bytes
-	       from t_dps_subscription s2
-	       left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
-	       left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
-	       group by s2.destination, s2.dataset, s2.block
-	    ) reps
-	    on reps.destination = s.destination
-	   and (reps.dataset = s.dataset or reps.block = s.block)
-       where n.id in ($node_list)
-       order by s.time_create desc, s.dataset desc, s.block desc, n.name
-    };
-    $q = &dbexec($$self{DBH}, $sql, %node_binds);
-  } else {
+#  if ( $self->{SCHEMA}{MAJOR} <= 3 ) {
+#    $sql = qq{
+#       select s.request,
+#              NVL2(s.block, 'BLOCK', 'DATASET') item_level,
+#	      NVL2(s.block, s.block, s.dataset) item_id,
+#	      NVL2(s.block, b.name, ds.name) item_name,
+#	      NVL2(s.block, b.is_open, ds.is_open) item_open,
+#	      ds.id dataset_id, ds.name dataset_name,
+#	      n.id node_id, n.name node_name,
+#	      s.destination subs_destination, s.dataset subs_dataset, s.block subs_block,
+#	      s.priority, s.is_move, s.is_transient,
+#              s.is_custodial, g.name user_group,
+#	      s.time_suspend_until, s.time_create,
+#	      s.time_clear, s.time_complete, s.time_done,
+#	      reps.exist_files, reps.node_files, reps.dest_files,
+#	      reps.exist_bytes, reps.node_bytes, reps.dest_bytes
+#	    from t_dps_subscription s
+#	    join t_adm_node n on n.id = s.destination
+#	    left join t_dps_block b on b.id = s.block
+#	    left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+#	    left join t_adm_group g on g.id = s.user_group
+#	    join
+#	    (select s2.destination, s2.dataset, s2.block,
+#		    sum(b2.files) exist_files, sum(b2.bytes) exist_bytes,
+#		    sum(br.node_files) node_files, sum(br.dest_files) dest_files,
+#		    sum(br.node_bytes) node_bytes, sum(br.dest_bytes) dest_bytes
+#	       from t_dps_subscription s2
+#	       left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
+#	       left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
+#	       group by s2.destination, s2.dataset, s2.block
+#	    ) reps
+#	    on reps.destination = s.destination
+#	   and (reps.dataset = s.dataset or reps.block = s.block)
+#       where n.id in ($node_list)
+#       order by s.time_create desc, s.dataset desc, s.block desc, n.name
+#    };
+#    $q = &dbexec($$self{DBH}, $sql, %node_binds);
+#  } else {
+
 #   TW This is so ugly, I may just have to go and learn Java instead, as pennance.
 #   We load the dataservice SQL module, call the function to get the query, then edit the query
 #   to match what the website is expecting. Why? Because I can't figure out how to get the website
 #   to use the query directly. Hiddeous, isn't it...
-    eval ("require PHEDEX::Web::SQL");
-    die $@ if $@;
-    my %h = ( COLLAPSE => 'y' );
-    my @node_names = map { $_->{NAME} } @{$$self{NODE_SHOWN}};
-    if ( @node_names ) {
-      $h{NODE} = \@node_names;
-    }
-    if ( $self->{PARAMS}{reqfilter} ) {
-      $h{REQUEST} = $self->{PARAMS}{reqfilter};
-    }
-    ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self, %h );
-    $sql =~ s%level%item_level%g;
-    $sql =~ s% open,% item_open,%g;
-    $sql =~ s%name node%name node_name%g;
-    $sql =~ s%desc,\s+n.name%desc, node_name%g;
-    $sql =~ s% move,% ,%g;
-    $sql =~ s% custodial,% ,%g;
-    $sql =~ s% "group",% user_group,%g;
-    $sql =~ s%'block'%'BLOCK'%g;
-    $sql =~ s%'dataset'%'DATASET'%g;
-    $sql =~ s% suspend_until% time_suspend_until%g;
-    $q = &dbexec($$self{DBH}, $sql, %{$p});
+  eval ("require PHEDEX::Web::SQL");
+  die $@ if $@;
+  my %h = ( COLLAPSE => 'y' );
+  my @node_names = map { $_->{NAME} } @{$$self{NODE_SHOWN}};
+  if ( @node_names ) {
+    $h{NODE} = \@node_names;
   }
+  if ( $self->{PARAMS}{reqfilter} ) {
+    $h{REQUEST} = $self->{PARAMS}{reqfilter};
+  }
+  ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self, %h );
+  $sql =~ s%level%item_level%g;
+  $sql =~ s% open,% item_open,%g;
+  $sql =~ s%name node%name node_name%g;
+  $sql =~ s%desc,\s+n.name%desc, node_name%g;
+  $sql =~ s% move,% ,%g;
+  $sql =~ s% custodial,% ,%g;
+  $sql =~ s% "group",% user_group,%g;
+  $sql =~ s%'block'%'BLOCK'%g;
+  $sql =~ s%'dataset'%'DATASET'%g;
+  $sql =~ s% suspend_until% time_suspend_until%g;
+  $q = &dbexec($$self{DBH}, $sql, %{$p});
+#  }
 
   return $q;
 }
