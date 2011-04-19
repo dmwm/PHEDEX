@@ -993,17 +993,25 @@ sub getRequestData
 
     if ($h{TYPE} eq 'xfer')
     {
-	my @version = PHEDEX::Core::SQL::getSchemaVersion($self);
-	my $major = $version[0];
+#	my @version = PHEDEX::Core::SQL::getSchemaVersion($self);
+#	my $major = $version[0];
+#        $sql .= qq {
+#            rx.priority priority,
+#            rx.is_custodial custodial,
+#            rx.is_move move,
+#            rx.is_static static, };
+#	if ( $major >= 4 ) {
+#          $sql .= qq { rx.time_start, };
+#	}
+#	$sql .= qq {
+#            g.name "group",
+#            rx.data usertext};
         $sql .= qq {
             rx.priority priority,
             rx.is_custodial custodial,
             rx.is_move move,
-            rx.is_static static, };
-	if ( $major >= 4 ) {
-          $sql .= qq { rx.time_start, };
-	}
-	$sql .= qq {
+            rx.is_static static,
+            rx.time_start,
             g.name "group",
             rx.data usertext};
     }
@@ -1830,11 +1838,11 @@ sub getDataSubscriptions
     delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
     delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
-    # backward compatible to old schema
-    my @version = PHEDEX::Core::SQL::getSchemaVersion($core);
-    if ( $version[0] < 4 ) {
-        return getDataSubscriptions2($core, %h);
-    }
+#    # backward compatible to old schema
+#    my @version = PHEDEX::Core::SQL::getSchemaVersion($core);
+#    if ( $version[0] < 4 ) {
+#        return getDataSubscriptions2($core, %h);
+#    }
 
     my ($sql,$q,$p,@r);
     ($sql,$p) = getDataSubscriptionsQuery($core, %h);
@@ -2169,193 +2177,192 @@ sub getDataSubscriptionsQuery
     return ($sql,\%p);
 }
 
-sub getDataSubscriptions2
-{
-    my $core = shift;
-    my %h = @_;
-    my ($sql, $q, %p, @r);
-
-    delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
-    delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
-
-    $p{':now'} = time();
-
-    $sql = qq {
-        select
-            s.request,
-            NVL2(s.block, 'block', 'dataset') "level",
-            NVL2(s.block, s.block, s.dataset) item_id,
-            NVL2(s.block, b.name, ds.name) item_name,
-            NVL2(s.block, b.is_open, ds.is_open) open,
-            NVL2(s.block, b.time_update, ds.time_update) time_update,
-            ds.id dataset_id,
-            ds.name dataset_name,
-            n.id node_id,
-            n.name node,
-            n.se_name se,
-            s.dataset subs_dataset,
-            s.block subs_block,
-            s.priority,
-            s.is_move move,
-            s.is_custodial custodial,
-            g.name "group",
-            case
-                when s.time_suspend_until > :now then 'y'
-                else 'n'
-            end suspended,
-            s.time_suspend_until suspend_until,
-            s.time_create,
-            b.files files,
-            b.bytes bytes,
-            reps.node_files,
-            reps.node_bytes,
-            ds_stat.files ds_files,
-            ds_stat.bytes ds_bytes,
-            NVL2(s.block, reps.node_bytes * 100 / b.bytes, reps.node_bytes * 100 / ds_stat.bytes) percent_bytes
-        from
-            t_dps_subscription s
-            join t_adm_node n on n.id = s.destination
-            left join t_dps_block b on b.id = s.block
-            left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
-            left join t_adm_group g on g.id = s.user_group
-            join
-            (select
-                s2.destination,
-                s2.dataset,
-                s2.block,
-                sum(br.node_files) node_files,
-                sum(br.node_bytes) node_bytes
-            from
-                t_dps_subscription s2
-                left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
-                left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
-            group by
-                s2.destination,
-                s2.dataset,
-                s2.block
-            ) reps
-            on reps.destination = s.destination
-            and (reps.dataset = s.dataset or reps.block = s.block)
-            join
-            (select
-                d.id id,
-                sum(b.files) files,
-                sum(b.bytes) bytes
-            from
-                t_dps_dataset d join
-                t_dps_block b on b.dataset = d.id
-            group by
-                d.id
-            ) ds_stat on ds_stat.id = ds.id
-    };
-
-    my $filters = '';
-    build_multi_filters($core, \$filters, \%p, \%h, ( 
-                                                      SE => 'n.se_name',
-                                                      REQUEST => 's.request',
-                                                      GROUP => 'g.name',
-                                                      NODE => 'n.name',
-                                                      BLOCK => 'b.name',
-                                                      DATASET => 'ds.name'
-						      ));
-
-    if (exists $h{SUSPENDED})
-    {
-        if ($h{SUSPENDED} eq 'y')
-        {
-            if ($filters)
-            {
-                $filters .= qq { and nvl(s.time_suspend_until, -1) > :now };
-            }
-            else
-            {
-                $filters = qq { nvl(s.time_suspend_until, -1) > :now };
-            }
-        }
-        elsif ($h{SUSPENDED} eq 'n')
-        {
-            if ($filters)
-            {
-                $filters .= qq { and nvl(s.time_suspend_until, -1) <= :now };
-            }
-            else
-            {
-               $filters = qq { nvl(s.time_suspend_until, -1) <= :now };
-            }
-        }
-    }
-
-    if (exists $h{CREATE_SINCE})
-    {
-        if ($filters)
-        {
-            $filters .= " and s.time_create >= :create_since ";
-        }
-        else
-        {
-            $filters = " s.time_create >= :create_since ";
-        }
-        $p{':create_since'} = &str2time($h{CREATE_SINCE});
-    }
-
-    if (exists $h{PRIORITY})
-    {
-        if ($filters)
-        {
-            $filters .= " and s.priority = :priority ";
-        }
-        else
-        {
-            $filters = " s.priority = :priority ";
-        }
-        $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
-    }
-
-    if (exists $h{MOVE})
-    {
-        if ($filters)
-        {
-            $filters .= " and s.is_move = :move ";
-        }
-        else
-        {
-            $filters = " s.is_move = :move ";
-        }
-        $p{':move'} = $h{MOVE};
-    }
-
-    if (exists $h{CUSTODIAL})
-    {
-        if ($filters)
-        {
-            $filters .= " and s.is_custodial = :custodial";
-        }
-        else
-        {
-            $filters = " s.is_custodial = :custodial";
-        }
-        $p{':custodial'} = $h{CUSTODIAL};
-    }
-
-    $sql .= "where ($filters) " if ($filters);
-    $sql .= qq {
-        order by
-            s.time_create desc,
-            s.dataset desc,
-            s.block desc,
-            n.name
-    };
-    $q = execute_sql( $core, $sql, %p);
-
-    while ( $_ = $q->fetchrow_hashref() )
-    {
-        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
-        push @r, $_;
-    }
-    return \@r;
-    
-}
-
+#sub getDataSubscriptions2
+#{
+#    my $core = shift;
+#    my %h = @_;
+#    my ($sql, $q, %p, @r);
+#
+#    delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
+#    delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
+#
+#    $p{':now'} = time();
+#
+#    $sql = qq {
+#        select
+#            s.request,
+#            NVL2(s.block, 'block', 'dataset') "level",
+#            NVL2(s.block, s.block, s.dataset) item_id,
+#            NVL2(s.block, b.name, ds.name) item_name,
+#            NVL2(s.block, b.is_open, ds.is_open) open,
+#            NVL2(s.block, b.time_update, ds.time_update) time_update,
+#            ds.id dataset_id,
+#            ds.name dataset_name,
+#            n.id node_id,
+#            n.name node,
+#            n.se_name se,
+#            s.dataset subs_dataset,
+#            s.block subs_block,
+#            s.priority,
+#            s.is_move move,
+#            s.is_custodial custodial,
+#            g.name "group",
+#            case
+#                when s.time_suspend_until > :now then 'y'
+#                else 'n'
+#            end suspended,
+#            s.time_suspend_until suspend_until,
+#            s.time_create,
+#            b.files files,
+#            b.bytes bytes,
+#            reps.node_files,
+#            reps.node_bytes,
+#            ds_stat.files ds_files,
+#            ds_stat.bytes ds_bytes,
+#            NVL2(s.block, reps.node_bytes * 100 / b.bytes, reps.node_bytes * 100 / ds_stat.bytes) percent_bytes
+#        from
+#            t_dps_subscription s
+#            join t_adm_node n on n.id = s.destination
+#            left join t_dps_block b on b.id = s.block
+#            left join t_dps_dataset ds on ds.id = s.dataset or ds.id = b.dataset
+#            left join t_adm_group g on g.id = s.user_group
+#            join
+#            (select
+#                s2.destination,
+#                s2.dataset,
+#                s2.block,
+#                sum(br.node_files) node_files,
+#                sum(br.node_bytes) node_bytes
+#            from
+#                t_dps_subscription s2
+#                left join t_dps_block b2 on b2.dataset = s2.dataset or b2.id = s2.block
+#                left join t_dps_block_replica br on br.node = s2.destination and br.block = b2.id
+#            group by
+#                s2.destination,
+#                s2.dataset,
+#                s2.block
+#            ) reps
+#            on reps.destination = s.destination
+#            and (reps.dataset = s.dataset or reps.block = s.block)
+#            join
+#            (select
+#                d.id id,
+#                sum(b.files) files,
+#                sum(b.bytes) bytes
+#            from
+#                t_dps_dataset d join
+#                t_dps_block b on b.dataset = d.id
+#            group by
+#                d.id
+#            ) ds_stat on ds_stat.id = ds.id
+#    };
+#
+#    my $filters = '';
+#    build_multi_filters($core, \$filters, \%p, \%h, ( 
+#                                                      SE => 'n.se_name',
+#                                                      REQUEST => 's.request',
+#                                                      GROUP => 'g.name',
+#                                                      NODE => 'n.name',
+#                                                      BLOCK => 'b.name',
+#                                                      DATASET => 'ds.name'
+#						      ));
+#
+#    if (exists $h{SUSPENDED})
+#    {
+#        if ($h{SUSPENDED} eq 'y')
+#        {
+#            if ($filters)
+#            {
+#                $filters .= qq { and nvl(s.time_suspend_until, -1) > :now };
+#            }
+#            else
+#            {
+#                $filters = qq { nvl(s.time_suspend_until, -1) > :now };
+#            }
+#        }
+#        elsif ($h{SUSPENDED} eq 'n')
+#        {
+#            if ($filters)
+#            {
+#                $filters .= qq { and nvl(s.time_suspend_until, -1) <= :now };
+#            }
+#            else
+#            {
+#               $filters = qq { nvl(s.time_suspend_until, -1) <= :now };
+#            }
+#        }
+#    }
+#
+#    if (exists $h{CREATE_SINCE})
+#    {
+#        if ($filters)
+#        {
+#            $filters .= " and s.time_create >= :create_since ";
+#        }
+#        else
+#        {
+#            $filters = " s.time_create >= :create_since ";
+#        }
+#        $p{':create_since'} = &str2time($h{CREATE_SINCE});
+#    }
+#
+#    if (exists $h{PRIORITY})
+#    {
+#        if ($filters)
+#        {
+#            $filters .= " and s.priority = :priority ";
+#        }
+#        else
+#        {
+#            $filters = " s.priority = :priority ";
+#        }
+#        $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
+#    }
+#
+#    if (exists $h{MOVE})
+#    {
+#        if ($filters)
+#        {
+#            $filters .= " and s.is_move = :move ";
+#        }
+#        else
+#        {
+#            $filters = " s.is_move = :move ";
+#        }
+#        $p{':move'} = $h{MOVE};
+#    }
+#
+#    if (exists $h{CUSTODIAL})
+#    {
+#        if ($filters)
+#        {
+#            $filters .= " and s.is_custodial = :custodial";
+#        }
+#        else
+#        {
+#            $filters = " s.is_custodial = :custodial";
+#        }
+#        $p{':custodial'} = $h{CUSTODIAL};
+#    }
+#
+#    $sql .= "where ($filters) " if ($filters);
+#    $sql .= qq {
+#        order by
+#            s.time_create desc,
+#            s.dataset desc,
+#            s.block desc,
+#            n.name
+#    };
+#    $q = execute_sql( $core, $sql, %p);
+#
+#    while ( $_ = $q->fetchrow_hashref() )
+#    {
+#        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
+#        push @r, $_;
+#    }
+#    return \@r;
+#    
+#}
 
 # getMissingFiles
 sub getMissingFiles
