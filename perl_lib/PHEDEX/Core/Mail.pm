@@ -151,7 +151,6 @@ sub send_email
     }
     open (MAIL, "| /usr/sbin/sendmail -t") or do {
       warn scalar localtime, " sendmail: $!\n";
-#     return 0;
       return %args;
     };
     print MAIL
