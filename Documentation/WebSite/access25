@@ -3651,15 +3651,14 @@ sub printRequest
     "<div id='data$rid' class='hideaway' style='display:none;'>",
     "<label class='inline'>DBS URL:</label>", $$data{DBS}, "<br/>";
 
-    print { $$self{CONTENT} } "<label class='inline'>Currently matched data:</label>";
-    $self->printDataTable($data);
     my $data_items = $data->{XFER_DATA}{DATA} || $data->{DELETE_DATA}{DATA};
     $data_items =~ s%\n% %g;
     $data_items =~ s% +%<br />%g;
-    print { $$self{CONTENT} } '<br/>',
-				"<div><label class='inline'>Original request string:</label><br/>",
-			          "<div style='background-color:#eee'>$data_items</div>",
-			        '</div><br/>';
+    print { $$self{CONTENT} } "<div><label class='inline'>Original request string:</label><br/>",
+			        "<div class='labeled databox tinytext'>$data_items</div>",
+			      '</div><br/>';
+    print { $$self{CONTENT} } "<label class='inline'>Currently matched data:</label>";
+    $self->printDataTable($data);
     print { $$self{CONTENT} } "</div></div><br/>";
 
     # Nodes
@@ -3810,8 +3809,9 @@ sub printRequestSpecific
 	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
 	}
 	$$spec{DATA} =~ s/ +/<br\/>/g;
-	print { $$self{CONTENT} }
-	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
+# TW moved to 'Data' hideaway
+#	print { $$self{CONTENT} }
+#	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
     } elsif ($$data{TYPE} eq 'delete') {
 	my $spec = $$data{DELETE_DATA};
 	my %labels = ( RM_SUBSCRIPTIONS => 'Remove Subscriptions?',
@@ -3820,9 +3820,10 @@ sub printRequestSpecific
 	    print { $$self{CONTENT} }
 	    "<label>$labels{$key}:</label><span class='labeled'>", &yesno($$spec{$key}), "</span><br/>";
 	}
-	$$spec{DATA} =~ s/ +/<br\/>/g;
-	print { $$self{CONTENT} }
-	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
+# TW moved to 'Data' hideaway
+#	$$spec{DATA} =~ s/ +/<br\/>/g;
+#	print { $$self{CONTENT} }
+#	"<label>$labels{DATA}:</label><span class='labeled databox tinytext'>$$spec{DATA}</span><br/>";
     } else {
 	print { $$self{CONTENT} } 'N/A';
     }
@@ -4417,8 +4418,9 @@ sub output
   &create_check_identity($self, \$bad);
   return if $bad;
 
-  print { $$self{CONTENT} } "<div id='Request::Create'></div>" if param('type');
-#  my $node_label = '';
+  my $type = param('type');
+  print { $$self{CONTENT} } "<div id='Request::Create'></div>" if $type;
+  my $node_label = '';
 #  my $confirm_page = $self->myurl(page=>'Request::Confirm');
 #
 #  if ( $self->{SCHEMA}{MAJOR} >= 4 && $type ) { 
@@ -4426,24 +4428,24 @@ sub output
 #    return;
 #  }
 #
-#  if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
-#      print { $$self{CONTENT} }
-#      "<div>",
-#      "<h1>Choose a request type</h1>",
-#      "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
-#      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
-#      "</div>"; # Request::Create
-#      return;
-#  } else {
-#      my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
-#      print { $$self{CONTENT} } "<div><h1>$headings{$type}</h1><br/>";
-#      if ($type eq 'xfer') { 
-#	  $node_label = 'Destinations'; 
-#      }
-#      elsif ($type eq 'delete') {
-#	  $node_label = 'Nodes'; 
-#      }
-#  }
+  if (!defined $type || !grep($type eq $_, qw(xfer delete))) {
+      print { $$self{CONTENT} }
+      "<div>",
+      "<h1>Choose a request type</h1>",
+      "<ul><li><a href='", $self->myurl('type'=>'xfer'), "'>Transfer Request</a></li>",
+      "<li><a href='", $self->myurl('type'=>'delete'), "'>Deletion Request</a></li></ul>",
+      "</div>"; # Request::Create
+      return;
+  } else {
+      my %headings = (xfer => "New Transfer Request", delete => "New Deletion Request");
+      print { $$self{CONTENT} } "<div><h1>$headings{$type}</h1><br/>";
+      if ($type eq 'xfer') { 
+	  $node_label = 'Destinations'; 
+      }
+      elsif ($type eq 'delete') {
+	  $node_label = 'Nodes'; 
+      }
+  }
 #
 #  my $email_contact = $$self{SECMOD}->getEmail();
 #  
@@ -7684,7 +7686,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} =~ m%(^[a-zA-Z0-9:.\-_/=\?*]*$)?$% ) {
+             $params{$_} !~ m%(^[a-zA-Z0-9:.\-_/=\?*]*$)?$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
