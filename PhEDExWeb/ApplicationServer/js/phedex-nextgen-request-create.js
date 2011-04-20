@@ -62,6 +62,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         } else if ( type == 'delete' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,args), true);
         } else if ( !type ) {
+          var l = location, href = location.href;
+          var e = document.createElement('div');
+          e.innerHTML = '<h1>Choose a request type</h1>' +
+                      '<ul>' +
+                        "<li><a href='" + location.pathname + "?type=xfer'>Transfer Request</a></li>" +
+                        "<li><a href='" + location.pathname + "?type=delete'>Deletion Request</a></li>" +
+                      '</ul>';
+          args.el.innerHTML='';
+          args.el.appendChild(e);
+          return;
         } else {
           throw new Error('type is defined but unknown: '+type);
         }
@@ -269,13 +279,13 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       table: { columns: [{ key:'dataset',       label:'Dataset', className:'align-left' },
                          { key:'blocks',        label:'Blocks',  className:'align-right', parser:'number' },
                          { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                         { key:'time_create',   label:'Creation time', className:'align-right', formatter:'UnixEpochToUTC', parser:'number' },
-                         { key:'is_open',       label:'Open' }],
+                         { key:'time_create',   label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
+                         { key:'is_open',       label:'Open', className:'align-right' }],
           nestedColumns:[{ key:'block',         label:'Block', className:'align-left' },
                          { key:'b_files',       label:'Files', className:'align-right', parser:'number' },
                          { key:'b_bytes',       label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
                          { key:'b_time_create', label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
-                         { key:'b_is_open',     label:'Open' }]
+                         { key:'b_is_open',     label:'Open', className:'align-right' }]
               },
     },
     initSub: function() {
@@ -1771,8 +1781,8 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           Dom.addClass(dom.results,'phedex-box-yellow');
           dom.results_label.innerHTML = 'Status:';
           dom.results_text.innerHTML  = 'Submitting request (please wait)' +
-          "<br/>" +
-          "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
+          '<br/>' +
+          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
           PHEDEX.Datasvc.Call({ api:'delete', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
         }
       }(this);
