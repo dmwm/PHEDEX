@@ -6811,7 +6811,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -7367,7 +7367,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -8591,7 +8591,7 @@ sub validate
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} =~ m%(\\|;)% ) {
+             $params{$_} =~ m%;% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -10072,7 +10072,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*]*$% ) {
+           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
