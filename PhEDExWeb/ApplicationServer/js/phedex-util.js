@@ -58,66 +58,71 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
 }
 
 PHEDEX.Util.format={
-    bytes:function(raw) {
-      var f = parseFloat(raw);
-      if (f>=1099511627776) { return (f/1099511627776).toFixed(1)+' TB'; }
-      if (f>=1073741824) { return (f/1073741824).toFixed(1)+' GB'; }
-      if (f>=1048576) { return (f/1048576).toFixed(1)+' MB'; }
-      if (f>=1024) { return (f/1024).toFixed(1)+' KB'; }
-      if (f>=0) { return f.toFixed(0)+' B'; }
-      return '-';
-    },
-    '%':function(raw) {
-      return (100*parseFloat(raw)).toFixed(2)+'%';
-    },
-    longString:function(raw) {
-      return "<acronym title='"+raw+"'>"+raw+"</acronym>";
-    },
-    block:function(raw) {
-      if (raw.length>50) {
-        var _short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    },
-    file:function(raw) {
-      if (raw.length>50) {
-        var _short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    },
-    date:function(raw) {
-      var d =new Date(parseFloat(raw)*1000);
-      return d.toGMTString();
-    },
-    dataset:function(raw) {
-      if (raw.length>50) {
-        var _short = raw.substring(0,50);
-        return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
-      } else {
-        return raw;
-      }
-    },
-    filesBytes:function(f,b) {
-//    allow a single object to be passed in instead of two literals
-      if ( typeof(f) == 'object' ) { b = f.bytes; f=f.files; }
-      var str = f+' files';
-      if ( f > 0  ) { str += " / "+PHEDEX.Util.format.bytes(b); }
-      return str;
-    },
-    spanWrap:function(raw) {
-//    wrap the raw data in a span, to allow it to be tagged/found in the DOM. Can use this for detecting long
-//    strings that are partially hidden because the div is too short, and show a tooltip or something...
-      return "<span class='span-wrap'>"+raw+"</span>";
-    },
-    toFixed: function(mantissa) {
-      return function(raw) {
-        return raw.toFixed(mantissa);
-      }
+  bytes:function(raw) {
+    var f = parseFloat(raw), bounds, bounds_length, i;
+    bounds = [ [ Math.pow(1024,6), 'E' ],
+               [ Math.pow(1024,5), 'P' ],
+               [ Math.pow(1024,4), 'T' ],
+               [ Math.pow(1024,3), 'G' ],
+               [ Math.pow(1024,2), 'M' ],
+               [          1024,    'K' ] ];
+    bounds_length = bounds.length;
+    for (i=0; i<bounds_length; i++) {
+      if ( f>bounds[i][0] ) { return (f/bounds[i][0]).toFixed(1)+' '+bounds[i][1]+'iB'; }
     }
+    return '-';
+  },
+  '%':function(raw) {
+    return (100*parseFloat(raw)).toFixed(2)+'%';
+  },
+  longString:function(raw) {
+    return "<acronym title='"+raw+"'>"+raw+"</acronym>";
+  },
+  block:function(raw) {
+    if (raw.length>50) {
+      var _short = raw.substring(0,50);
+      return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
+    } else {
+      return raw;
+    }
+  },
+  file:function(raw) {
+    if (raw.length>50) {
+      var _short = raw.substring(0,50);
+      return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
+    } else {
+      return raw;
+    }
+  },
+  date:function(raw) {
+    var d =new Date(parseFloat(raw)*1000);
+    return d.toGMTString();
+  },
+  dataset:function(raw) {
+    if (raw.length>50) {
+      var _short = raw.substring(0,50);
+      return "<acronym title='"+raw+"'>"+_short+"...</acronym>";
+    } else {
+      return raw;
+    }
+  },
+  filesBytes:function(f,b) {
+//  allow a single object to be passed in instead of two literals
+    if ( typeof(f) == 'object' ) { b = f.bytes; f=f.files; }
+    var str = f+' files';
+    if ( f > 0  ) { str += " / "+PHEDEX.Util.format.bytes(b); }
+    return str;
+  },
+  spanWrap:function(raw) {
+//  wrap the raw data in a span, to allow it to be tagged/found in the DOM. Can use this for detecting long
+//  strings that are partially hidden because the div is too short, and show a tooltip or something...
+    return "<span class='span-wrap'>"+raw+"</span>";
+  },
+  toFixed: function(mantissa) {
+    return function(raw) {
+      return raw.toFixed(mantissa);
+    }
+  }
 }
 
 PHEDEX.Util.Sort={

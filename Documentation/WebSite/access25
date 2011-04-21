@@ -305,7 +305,7 @@ sub format_size {
 
   $precision = "1" if ! defined $precision;
   return $bytes || $nodash
-    ? sprintf("%s%.${precision}f %sB", $minus, $val, $unit)
+    ? sprintf("%s%.${precision}f %siB", $minus, $val, $unit)
     : '&#8211;';
 }
 

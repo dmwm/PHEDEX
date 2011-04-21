@@ -94,12 +94,12 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
             format: [
               {width:160,text:'From Node',     className:'phedex-tree-from-node',   otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
               {width:160,text:'To Node',       className:'phedex-tree-to-node',     otherClasses:'align-left',  ctxArgs:['node','sort-alpha'], ctxKey:'node' },
-              {width:120,text:'Done',          className:'phedex-tree-done',        otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width:120,text:'Failed',        className:'phedex-tree-failed',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
-              {width:120,text:'Expired',       className:'phedex-tree-expired',     otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:130,text:'Done',          className:'phedex-tree-done',        otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:130,text:'Failed',        className:'phedex-tree-failed',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:130,text:'Expired',       className:'phedex-tree-expired',     otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
               {width: 70,text:'Rate',          className:'phedex-tree-rate',        otherClasses:'align-right', ctxArgs:'sort-num', format:function(x){return PxUf.bytes(x)+'/s';} },
               {width: 70,text:'Quality',       className:'phedex-tree-quality',     otherClasses:'align-right', ctxArgs:'sort-num', format:PxU.format['%'] },
-              {width:120,text:'Queued',        className:'phedex-tree-queued',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
+              {width:130,text:'Queued',        className:'phedex-tree-queued',      otherClasses:'align-right', ctxArgs:['sort-files','sort-bytes'], format:PxUf.filesBytes },
               {width: 90,text:'Link Errors',   className:'phedex-tree-error-total', otherClasses:'align-right', ctxArgs:'sort-num' },
               {width:110,text:'Logged Errors', className:'phedex-tree-error-log',   otherClasses:'align-right', ctxArgs:'sort-num', hide:true }
             ]
