@@ -105,9 +105,14 @@ sub subscribe
     {
       die "You must be authenticated to access this API\n";
     }
-    my $auth;
+    my ($auth,$auth_method);
+    if ( $core->{SECMOD}->isCertAuthenticated() ) { $auth_method = 'CERTIFICATE'; }
+    if ( $core->{SECMOD}->isPasswdAuthenticated() ) { $auth_method = 'PASSWORD'; }
     if ( $args{request_only} eq 'n' ) {
       $auth = $core->getAuth('datasvc_subscribe');
+      if ( $auth_method != 'CERTIFICATE' ) {
+        die "You must be authenticated with a certificate to auto-approve requests\n";
+      }
     } else {
       $auth = $core->getAuth();
     }
@@ -128,9 +133,7 @@ sub subscribe
     my $rid2;
     eval
     {
-	my ($rid,@valid_args,$client_id,$identity,$id_params,$auth_method);
-	if ( $core->{SECMOD}->isCertAuthenticated() ) { $auth_method = 'CERTIFICATE'; }
-	if ( $core->{SECMOD}->isPasswdAuthenticated() ) { $auth_method = 'PASSWORD'; }
+	my ($rid,@valid_args,$client_id,$identity,$id_params);
 	$id_params = &PHEDEX::Core::Identity::getIdentityFromSecMod( $core, $core->{SECMOD} );
 	$identity = &PHEDEX::Core::Identity::fetchAndSyncIdentity( $core,
 								   AUTH_METHOD => $auth_method,
