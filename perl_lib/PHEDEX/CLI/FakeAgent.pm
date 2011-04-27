@@ -12,9 +12,7 @@ use Getopt::Long;
 use Sys::Hostname;
 use Socket;
 use CGI;
-use Apache2::Const -compile => qw(FORBIDDEN OK);
 
-our $VERSION = 1.0;
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
 
@@ -34,10 +32,9 @@ our %params =
 	  FORMAT	=> undef,
 	  INSTANCE	=> undef,
 	  CALL		=> undef,
-	  TARGET	=> undef,
 
 	  PARANOID	=> 1,
-	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
+	  ME	 	=> 'PHEDEX::CLI::FakeAgent',
 
 	  SERVICE	=> undef,
 #	  Hope I'm not on a node with multiple network interfaces!
@@ -59,7 +56,7 @@ sub new
   bless $self, $class;
 
   $self->init();
-  $self->CMSAgent($self->{ME});
+  $self->agent($self->{ME} . ' ' . $self->_agent);
   return $self;
 }
 
