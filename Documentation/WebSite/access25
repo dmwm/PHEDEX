@@ -3510,26 +3510,26 @@ sub printRequest
     "<label>State:</label>", "<span class='labeled'>", 
     $$data{REQUEST_STATE}, "</span><br/>";
 
-    # Group for transfer requests.  This is transfer-request specific,
-    # but it needs more prominence than the hideaway box below
+    my ($time_start_label,$time_start);
     if ($$data{TYPE} eq 'xfer') {
 	print { $$self{CONTENT} }
 	"<label>Group:</label>", "<span class='labeled'>", 
 	($$data{XFER_DATA}{USER_GROUP} || 'undefined'), "</span><br/>";
-	my $time_start = $$data{XFER_DATA}{TIME_START};
+        $time_start = $data->{XFER_DATA}{TIME_START};
 	if ( $time_start ) {
-          $time_start = scalar gmtime($time_start) . ' UTC';
+          $time_start_label = scalar gmtime($time_start) . ' UTC';
         } else {
-          $time_start = 'all data (no start-time specified)';
+          $time_start_label = 'all data (no start-time specified)';
         }
 	print { $$self{CONTENT} }
-	"<label>Data Injected After:</label>", "<span class='labeled'>",$time_start, "</span><br/>";
+	"<label>Data Injected After:</label>", "<span class='labeled'>",$time_start_label, "</span><br/>";
     }
 
     # Data hideaway box
     my $data_label;
     if ($$data{REQUEST_FILES} == 0 && $$data{REQUEST_BYTES} == 0) {
 	$data_label = "No longer available in TMDB";
+	if ($time_start) { $data_label = "No data available since specified start-time"; }
     } else {
 	$data_label = "$$data{REQUEST_FILES} files, ". &format_size($$data{REQUEST_BYTES});
     }
