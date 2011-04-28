@@ -560,8 +560,12 @@ ul li.phedex-contextmenu-beta:before {
 .phedex-invisible { display: none; }
 .phedex-inline { display: inline; }
 
-.phedex-nextgen-container {
+.phedex-silver-border {
   border: 1px solid silver;
+}
+
+.phedex-vertical-buttons {
+  padding: 2px 0;
 }
 
 .phedex-nextgen-hd {
@@ -570,13 +574,11 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 .phedex-nextgen-bd {
-  border: 1px solid silver;
   font-size: 14px;
   padding: 5px;
 }
 
 .phedex-nextgen-ft {
-  border: 1px solid silver;
   font-size: 14px;
   padding: 5px;
 }
