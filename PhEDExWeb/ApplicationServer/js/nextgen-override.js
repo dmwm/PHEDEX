@@ -26,6 +26,9 @@ function createCoreApp() {
   params.el = document.getElementById(page);
   if ( !params.el ) { return; }
   banner('loading, please wait...');
+  params.el.innerHTML  = 'loading, please wait...' +
+          '<br/>' +
+          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
 
 // Now I can create the core application and sandbox, and then start creating PhEDEx modules
   banner('Create sandbox and core application...');
@@ -40,7 +43,8 @@ function createCoreApp() {
 
   uri = location.search;
   if ( uri.match(/^\?(.*)$/) ) {
-    substrs = RegExp.$1.split('&')
+    substrs = RegExp.$1.replace(/;/,'&')
+    substrs = substrs.split('&')
     for (i in substrs ) {
       if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
         params[RegExp.$1] = RegExp.$2;
@@ -58,14 +62,13 @@ function createCoreApp() {
   page = page.replace(/::/g,'-');
   page = page.toLowerCase();
   page = 'phedex-nextgen-'+page;
-  ngoSuccess = function(item,e) {
+  ngoSuccess = function(item) {
     return function() {
 //    (try to) Create and run the page
       var cTor = PxU.getConstructor(item);
       if ( !cTor ) { return; }
       try {
         var obj = new cTor(PxS,item);
-        obj.useElement(params.el);
         obj.init(params);
       } catch(ex) { }
     };
