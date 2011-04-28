@@ -75,7 +75,9 @@ PHEDEX.Loader = function(opts) {
 
 // old website override modules
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
-    'phedex-nextgen-request-create': { requires:['phedex-module','phedex-datatable','button','calendar'] },
+    'phedex-nextgen-util':               { requires:['phedex-util'] },
+    'phedex-nextgen-data-subscriptions': { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','tabview'] },
+    'phedex-nextgen-request-create':     { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','calendar'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
