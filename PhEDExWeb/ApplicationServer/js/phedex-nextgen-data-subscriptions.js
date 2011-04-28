@@ -79,6 +79,21 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               obj[action](value);
               return;
             }
+            switch (action) {
+              case 'SelectAllColumns': {
+debugger;
+//                 for ( i in nodePanel.elList ) { nodePanel.elList[i].checked = true; }
+                break;
+              }
+              case 'DeselectAllColumns': {
+debugger;
+//                 for ( i in nodePanel.elList ) { nodePanel.elList[i].checked = false; }
+                break;
+              }
+              default: {
+                break;
+              }
+            }
           }
         }(this);
         _sbx.listen(this.id, selfHandler);
@@ -144,7 +159,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         d.options = { panel:Dom.get('phedex-options-panel'), ctl:Dom.get('phedex-options-control') };
         onShowOptionsClick = function(obj) {
           return function() {
-            var opts = d.options, tabView;
+            var opts = d.options, tabView, SelectAll, DeselectAll;
             if ( Dom.hasClass(opts.panel,'phedex-invisible') ) {
               Dom.removeClass(opts.panel,'phedex-invisible');
               opts.ctl.innerHTML = 'Hide options';
@@ -156,36 +171,63 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               tabView = opts.tabView = new YAHOO.widget.TabView();
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Columns',
-                content: '<p>Lorem ipsum.</p>',
+                content:
+                      "<div id='phedex-columnpanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
+                        "<div id='phedex-columnlabel-"+seq+"' class='phedex-nextgen-label'>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-selectall-columns-"+seq+"'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-columns-"+seq+"'></div>" +
+                        "</div>" +
+                        "<div id='phedex-columnpanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
+                        "</div>" +
+                      "</div>",
                 active: true
               }));
-
-
-
+              SelectAll   = new YAHOO.widget.Button({ label:'Select all columns',   id:'selectallcolumns',   container:'phedex-selectall-columns-'+seq });
+              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns-'+seq });
+              SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAllColumns'); } );
+              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Nodes',
-//                 content: "<div id='phedex-nextgen-nodepanel'></div>"
                 content:
                       "<div id='phedex-nodepanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
                         "<div id='phedex-nodelabel-"+seq+"' class='phedex-nextgen-label'>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-selectall-"+seq+"'></div>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-"+seq+"'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes-"+seq+"'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes-"+seq+"'></div>" +
                         "</div>" +
                         "<div id='phedex-nodepanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
                           "<em>loading node list...</em>" +
                         "</div>" +
                       "</div>"
               }));
-              var SelectAllNodes   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-'+seq }),
-                  DeselectAllNodes = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-'+seq });
-              SelectAllNodes.on('click', function() { _sbx.notify(obj.id,'SelectAllNodes'); } );
-              DeselectAllNodes.on('click', function() { _sbx.notify(obj.id,'DeselectAllNodes'); } );
+              SelectAll   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes-'+seq });
+              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes-'+seq });
+              SelectAll.on('click', function() { _sbx.notify(obj.id,'SelectAllNodes'); } );
+              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllNodes'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Filters',
-                content: '<form action="#"><fieldset><legend>Lorem Ipsum</legend><label for="foo"> <input id="foo" name="foo"></label><input type="submit" value="submit"></fieldset></form>'
+                content:
+                      "<div id='phedex-filterpanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
+                        "<div id='phedex-filterlabel-"+seq+"' class='phedex-nextgen-label'>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-filters-"+seq+"'></div>" +
+                        "</div>" +
+                        "<div id='phedex-filterpanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-filterpanel'>" +
+//                           "<em>loading group list...</em>" +
+                        "</div>" +
+                      "</div>",
               }));
+
+// Requests - textfield 
+// Data items - textfield (default: '.*')
+// Priority - dropdown (inc 'any')
+// Active/Suspended - dropdown (inc 'any')
+// Custodial - dropdown (inc 'any')
+// Group - dropdown (inc 'any')
+
+              DeselectAll = new YAHOO.widget.Button({ label:'Reset filters', id:'deselectallfilters', container:'phedex-deselectall-filters-'+seq });
+              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
+
               tabView.appendTo(opts.panel);
 try { // TW take out the try-catch
               obj.nodePanel = PHEDEX.Nextgen.Util.NodePanel( obj, Dom.get('phedex-nodepanel-'+seq) );
