@@ -27,7 +27,18 @@ PHEDEX.Sandbox = function() {
       },
      _stats = {};
 
-  return {
+  var obj = {
+    _events:[], _map:{}, _stats:{}, _me:'sandbox',
+      _getEvent: function(event,create) {
+        if ( _events[event] ) { return _events[event]; }
+        if ( create ) {
+          _events[event] = new Yu.CustomEvent(event, this, false, Yu.CustomEvent.LIST);
+          log('new listen-event: '+event,'info',_me);
+          return _events[event];
+        }
+        log('non-existant event: '+event,'warn',_me);
+      },
+
 /**
  * Notify subscribed listeners about an event. Notification is asynchronous, this function will return before the notification is actually sent.
  * @method notify
@@ -133,7 +144,11 @@ PHEDEX.Sandbox = function() {
     getStats: function() {
       return _stats;
     }
-  }
+  };
+
+// make the sandbox unique!
+  PHEDEX.Sandbox = function() { return obj; };
+  return obj;
 };
 
 log('loaded...','info','sandbox');
