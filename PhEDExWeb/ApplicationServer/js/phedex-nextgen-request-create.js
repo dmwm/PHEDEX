@@ -20,9 +20,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         var d = this.dom;
         d.target = el;
         d.container  = document.createElement('div'); d.container.className  = 'phedex-nextgen-container'; d.container.id = 'doc2';
-        d.hd         = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd';        d.hd.id = 'hd';
-        d.bd         = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd';        d.bd.id = 'bd';
-        d.ft         = document.createElement('div'); d.ft.className         = 'phedex-nextgen-ft';        d.ft.id = 'ft';
+        d.hd         = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd phedex-silver-border'; d.hd.id = 'hd';
+        d.bd         = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd phedex-silver-border'; d.bd.id = 'bd';
+        d.ft         = document.createElement('div'); d.ft.className         = 'phedex-nextgen-ft phedex-silver-border'; d.ft.id = 'ft';
         d.main       = document.createElement('div'); d.main.className       = 'yui-main';
         d.main_block = document.createElement('div'); d.main_block.className = 'yui-b phedex-nextgen-main-block';
 
@@ -507,7 +507,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
         }
       }(this);
-      setTimeout( function() { PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel }); }, 5000);
+      PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
 
 // Site Custodial
       this.site_custodial = {
@@ -1488,7 +1488,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           obj.Accept.set('disabled',false);
         }
       }(this);
-      setTimeout( function() { PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel }); }, 5000);
+      PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
 
 // Remove Subscriptions?
       this.remove_subscription = { values:['yes','no'], _default:0 };
