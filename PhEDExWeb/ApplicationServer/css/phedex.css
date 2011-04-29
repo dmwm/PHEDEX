@@ -612,6 +612,11 @@ ul li.phedex-contextmenu-beta:before {
   width: 90px;
 }
 
+.phedex-nextgen-filterpanel {
+  width: 660px;
+  display: inline-block;
+  margin: 0 0 0 5px;
+}
 .phedex-nextgen-control {
   width: 660px;
   display: inline-block;
@@ -634,8 +639,21 @@ ul li.phedex-contextmenu-beta:before {
   width: 660px;
   color: silver;
 }
-.phedex-nextgen-form-right .phedex-nextgen-text {
-  width: 170px;
+.phedex-nextgen-filter {
+  display: inline-block;
+  margin: 0 0 5px 5px;
+}
+.phedex-nextgen-filter-element {
+  display: inline-block;
+}
+.phedex-filter-global-buttons {
+  display: inline-block;
+  width: 660px;
+}
+
+.phedex-filter-inputbox {
+  width: 200px;
+  height: 1.5em;
 }
 
 .phedex-nextgen-hr {
