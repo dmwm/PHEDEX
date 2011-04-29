@@ -151,15 +151,15 @@ debugger;
             form, el, seq=PxU.Sequence();
 
         el = document.createElement('div');
-        el.innerHTML = "<div class='phedex-nextgen-form-element-xx' id='doc3'>" +
-                         "<span>&nbsp;</span>" + "<a id='phedex-options-control' class='phedex-nextgen-form-link' href='#'>Show options</a>" +
+        el.innerHTML = "<div id='doc3'>" +
+                         "<a id='phedex-options-control' class='phedex-nextgen-form-link' href='#'>Show options</a>" +
                          "<div id='phedex-options-panel' class='phedex-invisible phedex-silver-border'></div>" +
                        "</div>";
         mb.appendChild(el);
         d.options = { panel:Dom.get('phedex-options-panel'), ctl:Dom.get('phedex-options-control') };
         onShowOptionsClick = function(obj) {
           return function() {
-            var opts = d.options, tabView, SelectAll, DeselectAll;
+            var opts=d.options, tabView, SelectAll, DeselectAll, Apply, el;
             if ( Dom.hasClass(opts.panel,'phedex-invisible') ) {
               Dom.removeClass(opts.panel,'phedex-invisible');
               opts.ctl.innerHTML = 'Hide options';
@@ -172,7 +172,7 @@ debugger;
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Columns',
                 content:
-                      "<div id='phedex-columnpanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
+                      "<div id='phedex-columnpanel-container' class='phedex-nextgen-form-element'>" +
                         "<div id='phedex-columnlabel-"+seq+"' class='phedex-nextgen-label'>" +
                           "<div class='phedex-vertical-buttons' id='phedex-selectall-columns-"+seq+"'></div>" +
                           "<div class='phedex-vertical-buttons' id='phedex-deselectall-columns-"+seq+"'></div>" +
@@ -183,14 +183,14 @@ debugger;
                 active: true
               }));
               SelectAll   = new YAHOO.widget.Button({ label:'Select all columns',   id:'selectallcolumns',   container:'phedex-selectall-columns-'+seq });
-              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns-'+seq });
               SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAllColumns'); } );
+              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns-'+seq });
               DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Nodes',
                 content:
-                      "<div id='phedex-nodepanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
+                      "<div id='phedex-nodepanel-container' class='phedex-nextgen-form-element'>" +
                         "<div id='phedex-nodelabel-"+seq+"' class='phedex-nextgen-label'>" +
                           "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes-"+seq+"'></div>" +
                           "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes-"+seq+"'></div>" +
@@ -201,40 +201,207 @@ debugger;
                       "</div>"
               }));
               SelectAll   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes-'+seq });
+              SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAllNodes'); } );
               DeselectAll = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes-'+seq });
-              SelectAll.on('click', function() { _sbx.notify(obj.id,'SelectAllNodes'); } );
               DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllNodes'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Filters',
                 content:
-                      "<div id='phedex-filterpanel-container-"+seq+"' class='phedex-nextgen-form-element'>" +
+                      "<div id='phedex-filterpanel-container' class='phedex-nextgen-form-element'>" +
                         "<div id='phedex-filterlabel-"+seq+"' class='phedex-nextgen-label'>" +
                           "<div class='phedex-vertical-buttons' id='phedex-deselectall-filters-"+seq+"'></div>" +
                         "</div>" +
-                        "<div id='phedex-filterpanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-filterpanel'>" +
-//                           "<em>loading group list...</em>" +
+                        "<div id='phedex-filterpanel-"+seq+"' class='phedex-nextgen-control'>" +
+                          "<div id='phedex-filterpanel-requests'>requests</div>" +
+                          "<div id='phedex-filterpanel-dataitems'>data items</div>" +
+                          "<div id='phedex-filterpanel-priority'>priority</div>" +
+                          "<div id='phedex-filterpanel-active'>active/suspended</div>" +
+                          "<div id='phedex-filterpanel-custodial'>custodial</div>" +
+                          "<div id='phedex-filterpanel-group'>group</div>" +
                         "</div>" +
-                      "</div>",
+                      "</div>"
               }));
-
-// Requests - textfield 
-// Data items - textfield (default: '.*')
-// Priority - dropdown (inc 'any')
-// Active/Suspended - dropdown (inc 'any')
-// Custodial - dropdown (inc 'any')
-// Group - dropdown (inc 'any')
-
               DeselectAll = new YAHOO.widget.Button({ label:'Reset filters', id:'deselectallfilters', container:'phedex-deselectall-filters-'+seq });
               DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
 
-              tabView.appendTo(opts.panel);
-try { // TW take out the try-catch
+              tabView.appendTo(opts.panel); // need to attach elements to DOM before further manipulation
+
+              var field, Field; // oh boy, I'm asking for trouble here...
+              el = Dom.get('phedex-filterpanel-requests');
+              field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "" + "</textarea></div>" +
+                        "</div>" +
+                      "</div>";
+
+              el = Dom.get('phedex-filterpanel-dataitems');
+              field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "" + "</textarea></div>" +
+                        "</div>" +
+                      "</div>";
+
+// Generic for all buttons...
+              var menu, button, Button = YAHOO.widget.Button,
+                  onSelectedMenuItemChange = function(_field) {
+                    return function(event) {
+                      var oMenuItem = event.newValue,
+                          text = oMenuItem.cfg.getProperty('text'),
+                          value = oMenuItem.value,
+                          previous;
+                          if ( event.prevValue ) { previous = event.prevValue.value; }
+                      if ( value == previous ) { return; }
+                      this.set('label', ("<em class='yui-button-label'>" + text + '</em>'));
+                      _sbx.notify(obj.id,_field,value,text);
+                    };
+                  }
+
+// Priority...
+              el = Dom.get('phedex-filterpanel-priority');
+              field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
+                        "</div>" +
+                      "</div>";
+              menu = [
+                { text: 'any',    value: 'any' },
+                { text: 'low',    value: 'low' },
+                { text: 'normal', value: 'normal' },
+                { text: 'high',   value: 'high' }
+              ];
+              button = new Button({
+                id:          'menubutton-'+field,
+                name:        'menubutton-'+field,
+                label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+                type:        'menu',
+                lazyloadmenu: false,
+                menu:         menu,
+                container:   'phedex-filterpanel-ctl-'+field
+              });
+              button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+
+// Active/Suspended...
+              el = Dom.get('phedex-filterpanel-active');
+              field=el.innerHTML, Field=PxU.initialCaps(field);
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
+                        "</div>" +
+                      "</div>";
+              menu = [
+                { text: 'any',       value: 'any' },
+                { text: 'active',    value: 'active' },
+                { text: 'suspended', value: 'suspended' }
+              ];
+              button = new Button({
+                id:          'menubutton-'+field,
+                name:        'menubutton-'+field,
+                label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+                type:        'menu',
+                lazyloadmenu: false,
+                menu:         menu,
+                container:   'phedex-filterpanel-ctl-'+field
+              });
+              button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+
+// Custodial - dropdown (inc 'any')
+              el = Dom.get('phedex-filterpanel-custodial');
+              field=el.innerHTML, Field=PxU.initialCaps(field);
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
+                        "</div>" +
+                      "</div>";
+              menu = [
+                { text: 'any',           value: 'any' },
+                { text: 'custodial',     value: 'custodial' },
+                { text: 'non-custodial', value: 'non-custodial' }
+              ];
+              button = new Button({
+                id:          'menubutton-'+field,
+                name:        'menubutton-'+field,
+                label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+                type:        'menu',
+                lazyloadmenu: false,
+                menu:         menu,
+                container:   'phedex-filterpanel-ctl-'+field
+              });
+              button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+
+// Group - dropdown (inc 'any')
+              el = Dom.get('phedex-filterpanel-group');
+              field=el.innerHTML, Field=PxU.initialCaps(field);
+              el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                        "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                        "<div class='phedex-nextgen-filter'>" +
+                          "<div id='phedex-filterpanel-ctl-"+field+"'>" +
+                            "<em>loading group list...</em>" +
+                          "</div>" +
+                        "</div>" +
+                      "</div>";
+
+              var makeGroupMenu = function(o) {
+                return function(data,context) {
+                  var groupList=data.group, menu, button, i, e;
+                  e = Dom.get('phedex-filterpanel-ctl-'+field);
+                  if ( !groupList ) {
+                    e.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
+                    Dom.addClass(e,'phedex-box-red');
+                    _sbx.notify(o.id,'abort');
+                    return;
+                  }
+                  e.innerHTML='';
+                  menu = [ { text:'any', value:0 } ];
+                  for (i in groupList ) {
+                    group = groupList[i];
+                    if ( !group.name.match(/^deprecated-/) ) {
+                      menu.push( { text:group.name, value:group.id } );
+                    }
+                  }
+                  button = new Button({
+                    id:          'menubutton-'+field,
+                    name:        'menubutton-'+field,
+                    label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+                    type:        'menu',
+                    lazyloadmenu: false,
+                    menu:         menu,
+                    container:    e
+                  });
+                  button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+                  button.getMenu().cfg.setProperty('scrollincrement',5);
+                };
+              }(obj);
+              PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
+
+// Node panel...
               obj.nodePanel = PHEDEX.Nextgen.Util.NodePanel( obj, Dom.get('phedex-nodepanel-'+seq) );
-} catch(ex) {
-var _ex = ex;
-debugger;
-}
+
+// 'Apply' button...
+              el = document.createElement('div');
+              el.id = 'phedex-filter-apply';
+              opts.panel.appendChild(el);
+              Apply   = new YAHOO.widget.Button({ label:'Apply', id:'apply', container:el });
+              Apply.on('click', function() {
+ _sbx.notify(obj.id,'Apply'); } );
+              var e, x, y, h, cRegion=Dom.getRegion('phedex-columnpanel-container');
+              x = cRegion.right;
+              y = cRegion.bottom;
+              Dom.setX(el,x+5);
+              Dom.setY(el,y-28-5); // 28 is the height of the button, but that's not rendered yet so I can't calculate it from the DOM
+
+//            now fiddle with the bounding panel. Yuck!
+              e = Dom.get('phedex-options-panel');
+              h = e.offsetHeight - 29;
+              e.style.height = h+'px';
             }
           };
         }(this);
@@ -244,113 +411,6 @@ debugger;
         form.id   = 'data_subscriptions';
         form.name = 'data_subscriptions';
         mb.appendChild(form);
-
-// Dataset/block name(s)
-//       this.data_items = { text:'enter one or more block/data-set names, separated by white-space or commas.' };
-//       var data_items = this.data_items;
-//       el = document.createElement('div');
-//       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-//                         "<div class='phedex-nextgen-label'>Data Items</div>" +
-//                         "<div class='phedex-nextgen-control'>" +
-//                           "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
-//                         "</div>" +
-//                       "</div>";
-//       form.appendChild(el);
-//
-//       d.data_items = Dom.get('data_items');
-//       d.data_items.onfocus = function(obj) {
-//         return function() {
-//           if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
-//           if ( this.value == data_items.text ) {
-//             this.value = '';
-//             Dom.setStyle(this,'color','black');
-//             obj.Preview.set('disabled',false);
-//           }
-//         }
-//       }(this);
-//       d.data_items.onblur=function(obj) {
-//         return function() {
-//           if ( this.value == '' ) {
-//             this.value = data_items.text;
-//             Dom.setStyle(this,'color',null);
-//             obj.Preview.set('disabled',true);
-//           }
-//         }
-//       }(this);
-
-// Results
-//       el = document.createElement('div');
-//       el.innerHTML = "<div id='phedex-nextgen-results' class='phedex-invisible'>" +
-//                        "<div class='phedex-nextgen-form-element'>" +
-//                           "<div id='phedex-nextgen-results-label' class='phedex-nextgen-label'>Results</div>" +
-//                           "<div class='phedex-nextgen-control'>" +
-//                             "<div id='phedex-nextgen-results-text'></div>" +
-//                           "</div>" +
-//                         "</div>" +
-//                       "</div>";
-//       form.appendChild(el);
-//       d.results = Dom.get('phedex-nextgen-results');
-//       d.results_label = Dom.get('phedex-nextgen-results-label');
-//       d.results_text  = Dom.get('phedex-nextgen-results-text');
-
-//       this.requestCallback = function(obj) {
-//         return function(data,context) {
-//           var dom = obj.dom, str, msg, rid;
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML = '';
-//           Dom.removeClass(dom.results,'phedex-box-yellow');
-//           if ( data.message ) { // indicative of failure~
-//             str = "Error when making call '" + context.api + "':";
-//             msg = data.message.replace(str,'').trim();
-//             obj.onAcceptFail(msg);
-//             obj.Accept.set('disabled',false);
-//           }
-//           if ( rid = data.request_created[0].id ) {
-//             obj.onResetSubmit();
-//             var uri = location.href;
-//             uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
-//             uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
-//             uri = uri.replace(/\/[^/]*$/g,'/');
-//
-//             dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
-//               "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
-//             Dom.addClass(dom.results,'phedex-box-green');
-//             Dom.removeClass(dom.results,'phedex-invisible');
-//           }
-//         }
-//       }(this);
-//       this.onAcceptFail = function(obj) {
-//         return function(text) {
-//           var dom = obj.dom;
-//           Dom.removeClass(dom.results,'phedex-invisible');
-//           Dom.addClass(dom.results,'phedex-box-red');
-//           dom.results_label.innerHTML = 'Error:';
-//           if ( dom.results_text.innerHTML ) {
-//             dom.results_text.innerHTML += '<br />';
-//           }
-//           dom.results_text.innerHTML += text;
-//           obj.formFail = true;
-//         }
-//       }(this);
-//       this.onAcceptSubmit = function(obj) {
-//         return function(id,action) {
-//           var dbs = obj.dbs,
-//               dom = obj.dom;
-//
-// // Prepare the form for output messages, disable the button to prevent multiple clicks
-//           Dom.removeClass(obj.dom.results,'phedex-box-red');
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML  = '';
-//           obj.formFail = false;
-//           this.set('disabled',true);
-//
-//           dom.results_text.innerHTML  = 'Submitting request (please wait)' +
-//           '<br/>' +
-//           "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
-// //           PHEDEX.Datasvc.Call({ api:'delete', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
-//         }
-//       }(this);
-
       }
     }
   }
