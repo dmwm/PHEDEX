@@ -55,6 +55,8 @@ use base 'PHEDEX::Transfer::Command', 'PHEDEX::Core::Logging';
 #	in FDT Java (fdt.jar).
 #
 # logging added: $self->Logmsg('msg');
+#
+# SCM information: Revision = "$Revision$ Tags = "$Tags$"
 
 
 use PHEDEX::Core::Command;
@@ -114,15 +116,16 @@ sub start_transfer_job
     #   fdtcp may be too verbose in providing full log from the client FDT Java
     #   party on a failed transfer per file.
     # log output of the command
-    my $spec   = "$job->{DIR}/copyjob";
-    my $report = "$job->{DIR}/report";
-    my $log    = "$job->{DIR}/log";
+    my $spec     = "$job->{DIR}/copyjob";
+    my $report   = "$job->{DIR}/report";
+    my $log      = "$job->{DIR}/log";
+    my $fdtcpLog = "$job->{DIR}/fdtcp.log";
 
     # Now generate copyjob
     $self->writeSpec($spec, @tasks);
 
     # Prepare the command
-    my @command = (@{$self->{COMMAND}}, $self->makeArgs($spec, $report, $log));
+    my @command = (@{$self->{COMMAND}}, $self->makeArgs($spec, $report, $log, $fdtcpLog));
 
     # Queue the command
     $self->{JOBMANAGER}->addJob( $session->postback('fdt_job_done'),
@@ -230,10 +233,10 @@ sub writeSpec
 # Create command line arguments for the transfer command.
 sub makeArgs
 {
-    my ($self, $spec, $report, $log) = @_;
+    my ($self, $spec, $report, $log, $fdtcpLog) = @_;
     
     # for fdtcp internal logging: "--logFile=<file>" not the same as $log - will be overwritten 
-    return ("--copyjobfile=$spec", "--report=$report");    
+    return ("--copyjobfile=$spec", "--report=$report", "--logFile=$fdtcpLog");    
 }
 
 1;
