@@ -1,5 +1,5 @@
 package PHEDEX::Transfer::FDT;
-use base 'PHEDEX::Transfer::Command', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Transfer::Command', 'PHEDEX::Core::Logging', 'PHEDEX::Transfer::Core';
 
 # author: Zdenek Maxa, zdenek.maxa@cern.ch
 #
