@@ -8652,6 +8652,7 @@ sub output_page
 {
   my ($self) = @_;
 
+# print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
   if (!$$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ||
       !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
@@ -9643,7 +9644,7 @@ sub output
   textfield(-name=>'node', -value=>$nodefilter, -size=>10, -class=>'labeled'),
   "<label class='inline'>for block</label>",
   textfield(-name=>'block', -value=>$blockfilter, -size=>20, -class=>'labeled'),
-  "<label class='inline'>with</label",
+  "<label class='inline'>with</label>",
   popup_menu(-name=>'status', values=>\@status, -class=>'labeled'),
   "<label class='inline'>status</label",
   submit(-label=>'Update', -class=>'labeled'), "<br/>",
