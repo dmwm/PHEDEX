@@ -81,6 +81,60 @@ debugger;
       }(obj);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
       return nodePanel;
+    },
+    CBoxPanel: function(obj,parent, config) {
+      var el, panel, seq=PxU.Sequence(), name=config.name, items=config.items,
+          selfHandler = function(o) {
+        return function(ev,arr) {
+          var action = arr[0],
+              value  = arr[1], i;
+          switch (action) {
+            case 'SelectAll-'+name: {
+              for ( i in panel.elList ) { panel.elList[i].checked = true; }
+              break;
+            }
+            case 'DeselectAll-'+name: {
+              for ( i in panel.elList ) { panel.elList[i].checked = false; }
+              break;
+            }
+            case 'Reset-'+name: {
+              for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
+              break;
+            }
+            default: {
+              break;
+            }
+          }
+        }
+      }(obj);
+      _sbx.listen(obj.id, selfHandler);
+
+      panel = { items:items };
+      el = document.createElement('div');
+      if ( typeof(parent) != 'object' ) { parent = Dom.get(parent); }
+      panel.dom = { parent:parent };
+
+try { // TW take out the try-catch
+          var item, i;
+          parent.innerHTML = '';
+          for ( i in items ) {
+            item = items[i];
+            parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+item.label+"' />"+item.label+"</div>";
+          }
+          panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
+          for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
+          var onSelectClick =function(event, matchedEl, container) {
+            if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+              _sbx.notify(o.id,'Selected-'+name, matchedEl.name, matchedEl.checked);
+            }
+          };
+          YAHOO.util.Event.delegate(parent, 'click', onSelectClick, 'input');
+} catch(ex) {
+var _ex = ex;
+debugger;
+}
+
+      return panel;
     }
   };
 }();
