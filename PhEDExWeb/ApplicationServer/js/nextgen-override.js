@@ -44,13 +44,23 @@ function createCoreApp() {
   uri = location.search;
   if ( uri.match(/^\?(.*)$/) ) {
     substrs = RegExp.$1.replace(/;/,'&')
-    substrs = substrs.split('&')
+    substrs = substrs.split('&');
+    var key, val;
     for (i in substrs ) {
       if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
-        params[RegExp.$1] = RegExp.$2;
+        key = RegExp.$1;
+        val = RegExp.$2;
       } else {
-        params[substrs[i]] = true;
+        key = substrs[i];
+        val = true;
       }
+      if ( params[key] ) {
+        if ( typeof(params[key]) != 'object'  ) {
+          params[key] = [ params[key] ];
+        }
+        params[key].push(val);
+      }
+      else { params[key] = val; }
     }
   }
 
