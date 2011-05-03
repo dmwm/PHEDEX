@@ -16,6 +16,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         minwidth:600,
         minheight:50
       },
+      _default:{}, // default values for various DOM fields, extracted as they are built
       waitToEnableAccept:2,
       meta: {
         table: { columns:[ { key:'block',        label:'Block', className:'align-left' },
@@ -74,20 +75,14 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
-                value  = arr[1];
+                value  = arr[1], i;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               obj[action](value);
               return;
             }
             switch (action) {
-              case 'SelectAllColumns': {
-debugger;
-//                 for ( i in nodePanel.elList ) { nodePanel.elList[i].checked = true; }
-                break;
-              }
-              case 'DeselectAllColumns': {
-debugger;
-//                 for ( i in nodePanel.elList ) { nodePanel.elList[i].checked = false; }
+              case 'ResetFilters': {
+                for ( i in obj._default ) { obj._default[i](); }
                 break;
               }
               default: {
@@ -98,57 +93,12 @@ debugger;
         }(this);
         _sbx.listen(this.id, selfHandler);
         this.initSub();
-        this.initButtons();
-      },
-      initButtons: function() {
-//         var ft=this.dom.ft, Reset, //, Validate, Cancel;
-//             el = document.createElement('div');
-//         Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-left');
-//         el.id='buttons-left';
-//         ft.appendChild(el);
-// 
-//         el = document.createElement('div');
-//         Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-centre');
-//         el.id='buttons-centre';
-//         ft.appendChild(el);
-// 
-//         el = document.createElement('div');
-//         Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-right');
-//         el.id='buttons-right';
-//         ft.appendChild(el);
-// 
-//         var label='Reset', id='button'+label;
-//         Reset = new YAHOO.widget.Button({
-//                                 type: 'submit',
-//                                 label: label,
-//                                 id: id,
-//                                 name: id,
-//                                 value: id,
-//                                 container: 'buttons-left' });
-//         label='Accept', id='button'+label;
-//         this.Accept = new YAHOO.widget.Button({
-//                                 type: 'submit',
-//                                 label: label,
-//                                 id: id,
-//                                 name: id,
-//                                 value: id,
-//                                 container: 'buttons-right' });
-//         this.Accept.set('disabled',true);
-//         this.Accept.on('click', this.onAcceptSubmit);
-// 
-//         this.onResetSubmit = function(obj) {
-//           return function(id,action) {
-//             var dbs = obj.dbs,
-//                 dom = obj.dom;
-//           }
-//         }(this);
-//         Reset.on('click', this.onResetSubmit);
       },
       initSub: function() {
         var d = this.dom,
             mb = d.main_block,
             hd = d.hd,
-            form, el, seq=PxU.Sequence();
+            form, el;
 
         el = document.createElement('div');
         el.innerHTML = "<div id='doc3'>" +
@@ -159,12 +109,14 @@ debugger;
         d.options = { panel:Dom.get('phedex-options-panel'), ctl:Dom.get('phedex-options-control') };
         onShowOptionsClick = function(obj) {
           return function() {
-            var opts=d.options, tabView, SelectAll, DeselectAll, Apply, el;
+            var opts=d.options, tabView, SelectAll, DeselectAll, Reset, Apply, el, apply=obj.dom.apply;
             if ( Dom.hasClass(opts.panel,'phedex-invisible') ) {
               Dom.removeClass(opts.panel,'phedex-invisible');
+              if ( apply ) { Dom.removeClass(apply,'phedex-invisible'); }
               opts.ctl.innerHTML = 'Hide options';
             } else {
               Dom.addClass(opts.panel,'phedex-invisible');
+              Dom.addClass(apply,'phedex-invisible');
               opts.ctl.innerHTML = 'Show options';
             }
             if ( !opts.tabView ) {
@@ -173,46 +125,49 @@ debugger;
                 label: 'Columns',
                 content:
                       "<div id='phedex-columnpanel-container' class='phedex-nextgen-form-element'>" +
-                        "<div id='phedex-columnlabel-"+seq+"' class='phedex-nextgen-label'>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-selectall-columns-"+seq+"'></div>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-columns-"+seq+"'></div>" +
+                        "<div id='phedex-columnlabel' class='phedex-nextgen-label'>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-selectall-columns'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-columns'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-reset-columns'></div>" +
                         "</div>" +
-                        "<div id='phedex-columnpanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
+                        "<div id='phedex-columnpanel' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
                         "</div>" +
                       "</div>",
                 active: true
               }));
-              SelectAll   = new YAHOO.widget.Button({ label:'Select all columns',   id:'selectallcolumns',   container:'phedex-selectall-columns-'+seq });
-              SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAllColumns'); } );
-              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns-'+seq });
-              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
+              SelectAll   = new YAHOO.widget.Button({ label:'Select all columns',   id:'selectallcolumns',   container:'phedex-selectall-columns' });
+              SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAll-columns'); } );
+              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns' });
+              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAll-columns'); } );
+              Reset      = new YAHOO.widget.Button({ label:'Reset to defaults', id:'resetcolumns', container:'phedex-reset-columns' });
+              Reset.on(      'click', function() { _sbx.notify(obj.id,'Reset-columns'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Nodes',
                 content:
                       "<div id='phedex-nodepanel-container' class='phedex-nextgen-form-element'>" +
-                        "<div id='phedex-nodelabel-"+seq+"' class='phedex-nextgen-label'>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes-"+seq+"'></div>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes-"+seq+"'></div>" +
+                        "<div id='phedex-nodelabel' class='phedex-nextgen-label'>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes'></div>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes'></div>" +
                         "</div>" +
-                        "<div id='phedex-nodepanel-"+seq+"' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
+                        "<div id='phedex-nodepanel' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
                           "<em>loading node list...</em>" +
                         "</div>" +
                       "</div>"
               }));
-              SelectAll   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes-'+seq });
+              SelectAll   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes' });
               SelectAll.on(  'click', function() { _sbx.notify(obj.id,'SelectAllNodes'); } );
-              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes-'+seq });
+              DeselectAll = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes' });
               DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllNodes'); } );
 
               tabView.addTab( new YAHOO.widget.Tab({
                 label: 'Filters',
                 content:
                       "<div id='phedex-filterpanel-container' class='phedex-nextgen-form-element'>" +
-                        "<div id='phedex-filterlabel-"+seq+"' class='phedex-nextgen-label'>" +
-                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-filters-"+seq+"'></div>" +
+                        "<div id='phedex-filterlabel' class='phedex-nextgen-label'>" +
+                          "<div class='phedex-vertical-buttons' id='phedex-deselectall-filters'></div>" +
                         "</div>" +
-                        "<div id='phedex-filterpanel-"+seq+"' class='phedex-nextgen-control'>" +
+                        "<div id='phedex-filterpanel' class='phedex-nextgen-control'>" +
                           "<div id='phedex-filterpanel-requests'>requests</div>" +
                           "<div id='phedex-filterpanel-dataitems'>data items</div>" +
                           "<div id='phedex-filterpanel-priority'>priority</div>" +
@@ -222,29 +177,74 @@ debugger;
                         "</div>" +
                       "</div>"
               }));
-              DeselectAll = new YAHOO.widget.Button({ label:'Reset filters', id:'deselectallfilters', container:'phedex-deselectall-filters-'+seq });
-              DeselectAll.on('click', function() { _sbx.notify(obj.id,'DeselectAllColumns'); } );
+              DeselectAll = new YAHOO.widget.Button({ label:'Reset to defaults', id:'deselectallfilters', container:'phedex-deselectall-filters' });
+              DeselectAll.on('click', function() { _sbx.notify(obj.id,'ResetFilters'); } );
 
               tabView.appendTo(opts.panel); // need to attach elements to DOM before further manipulation
 
+// for the Filter tab
               var field, Field; // oh boy, I'm asking for trouble here...
+// Requests
               el = Dom.get('phedex-filterpanel-requests');
               field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
               el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
                         "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
                         "<div class='phedex-nextgen-filter'>" +
-                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "" + "</textarea></div>" +
+                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "List of request-IDs" + "</textarea></div>" +
                         "</div>" +
                       "</div>";
+              d[field] = el = Dom.get('phedex-filterpanel-ctl-'+field);
+              obj._default[field] = function(e,t) {
+                return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
+              }(el,el.value);
+              Dom.setStyle(el,'color','grey')
+              el.onfocus=function(obj,text) {
+                return function() {
+                  if ( this.value == text ) {
+                    this.value = '';
+                    Dom.setStyle(this,'color','black');
+                  }
+                }
+              }(this,el.value);
+              el.onblur=function(obj,text) {
+                return function() {
+                  if ( this.value == '' ) {
+                    this.value = text;
+                    Dom.setStyle(this,'color','grey')
+                  }
+                }
+              }(this,el.value);
 
+// Data items
               el = Dom.get('phedex-filterpanel-dataitems');
-              field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
+              field=el.innerHTML, Field=PxU.initialCaps(field);
               el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
                         "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
                         "<div class='phedex-nextgen-filter'>" +
-                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "" + "</textarea></div>" +
+                          "<div><textarea id='phedex-filterpanel-ctl-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "Block name or Perl reg-ex" + "</textarea></div>" +
                         "</div>" +
                       "</div>";
+              d[field] = el = Dom.get('phedex-filterpanel-ctl-'+field);
+              obj._default[field] = function(e,t) {
+                return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
+              }(el,el.value);
+              Dom.setStyle(el,'color','grey')
+              el.onfocus=function(obj,text) {
+                return function() {
+                  if ( this.value == text ) {
+                    this.value = '';
+                    Dom.setStyle(this,'color','black');
+                  }
+                }
+              }(this,el.value);
+              el.onblur=function(obj,text) {
+                return function() {
+                  if ( this.value == '' ) {
+                    this.value = text;
+                    Dom.setStyle(this,'color','grey')
+                  }
+                }
+              }(this,el.value);
 
 // Generic for all buttons...
               var menu, button, Button = YAHOO.widget.Button,
@@ -276,7 +276,7 @@ debugger;
                 { text: 'normal', value: 'normal' },
                 { text: 'high',   value: 'high' }
               ];
-              button = new Button({
+              obj.ctl[field] = button = new Button({
                 id:          'menubutton-'+field,
                 name:        'menubutton-'+field,
                 label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
@@ -286,6 +286,9 @@ debugger;
                 container:   'phedex-filterpanel-ctl-'+field
               });
               button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+              obj._default[field] = function(_button,_field,index) {
+                return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+              }(button,field,0);
 
 // Active/Suspended...
               el = Dom.get('phedex-filterpanel-active');
@@ -311,6 +314,9 @@ debugger;
                 container:   'phedex-filterpanel-ctl-'+field
               });
               button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+              obj._default[field] = function(_button,_field,index) {
+                return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+              }(button,field,0);
 
 // Custodial - dropdown (inc 'any')
               el = Dom.get('phedex-filterpanel-custodial');
@@ -336,6 +342,9 @@ debugger;
                 container:   'phedex-filterpanel-ctl-'+field
               });
               button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
+              obj._default[field] = function(_button,_field,index) {
+                return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+              }(button,field,0);
 
 // Group - dropdown (inc 'any')
               el = Dom.get('phedex-filterpanel-group');
@@ -378,30 +387,55 @@ debugger;
                   });
                   button.on('selectedMenuItemChange', onSelectedMenuItemChange(field));
                   button.getMenu().cfg.setProperty('scrollincrement',5);
+                  o._default[field] = function(_button,_field,index) {
+                    return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+                  }(button,field,0);
                 };
               }(obj);
               PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
 
-// Node panel...
-              obj.nodePanel = PHEDEX.Nextgen.Util.NodePanel( obj, Dom.get('phedex-nodepanel-'+seq) );
+// for the Node tab...
+              obj.nodePanel = PHEDEX.Nextgen.Util.NodePanel( obj, Dom.get('phedex-nodepanel') );
 
-// 'Apply' button...
-              el = document.createElement('div');
+// for the Columns tab...
+              var items = [
+                {label:'Select',           checked:true},
+                {label:'Priority',         checked:true},
+                {label:'% Files',          checked:false},
+                {label:'Time Create',      checked:true},
+                {label:'Request',          checked:true},
+                {label:'Custodial',        checked:true},
+                {label:'% Bytes',          checked:true},
+                {label:'Time Complete',    checked:false},
+                {label:'Data Level',       checked:true},
+                {label:'Group',            checked:true},
+                {label:'Replica/Move',     checked:true},
+                {label:'Time Done',        checked:false},
+                {label:'Data Item',        checked:true},
+                {label:'Node Files',       checked:true},
+                {label:'Active/Suspended', checked:true},
+                {label:'Time Move Auth.',  checked:true},
+                {label:'Node',             checked:true},
+                {label:'Node Bytes',       checked:true},
+                {label:'Item Open',        checked:false}
+              ];
+              obj.columnPanel = PHEDEX.Nextgen.Util.CBoxPanel( obj, Dom.get('phedex-columnpanel'), { items:items, name:'columns' } );
+
+// All tabs: the 'Apply' button...
+              obj.dom.apply = el = document.createElement('span');
               el.id = 'phedex-filter-apply';
-              opts.panel.appendChild(el);
+              Dom.get('doc3').appendChild(el);
               Apply   = new YAHOO.widget.Button({ label:'Apply', id:'apply', container:el });
-              Apply.on('click', function() {
- _sbx.notify(obj.id,'Apply'); } );
-              var e, x, y, h, cRegion=Dom.getRegion('phedex-columnpanel-container');
+              var e, x, y, h, cRegion=Dom.getRegion('phedex-filterpanel-container');
               x = cRegion.right;
               y = cRegion.bottom;
               Dom.setX(el,x+5);
               Dom.setY(el,y-28-5); // 28 is the height of the button, but that's not rendered yet so I can't calculate it from the DOM
 
-//            now fiddle with the bounding panel. Yuck!
-              e = Dom.get('phedex-options-panel');
-              h = e.offsetHeight - 29;
-              e.style.height = h+'px';
+              Apply.on('click', function() {
+// TW Do something here...
+_sbx.notify(obj.id,'Apply'); }
+ );
             }
           };
         }(this);
