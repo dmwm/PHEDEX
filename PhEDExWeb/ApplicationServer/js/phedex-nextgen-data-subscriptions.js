@@ -116,7 +116,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               opts.ctl.innerHTML = 'Hide options';
             } else {
               Dom.addClass(opts.panel,'phedex-invisible');
-              Dom.addClass(apply,'phedex-invisible');
+              if ( apply ) { Dom.addClass(apply,'phedex-invisible'); }
               opts.ctl.innerHTML = 'Show options';
             }
             if ( !opts.tabView ) {
@@ -426,8 +426,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               el.id = 'phedex-filter-apply';
               Dom.get('doc3').appendChild(el);
               Apply   = new YAHOO.widget.Button({ label:'Apply', id:'apply', container:el });
-              var e, x, y, h, cRegion=Dom.getRegion('phedex-filterpanel-container');
+              var e, x, y, h, cRegion=Dom.getRegion('phedex-columnpanel-container');
               x = cRegion.right;
+              if ( x<0 ) { throw new Error('Looks like someone forgot to update the cRegion to a visible object?'); }
               y = cRegion.bottom;
               Dom.setX(el,x+5);
               Dom.setY(el,y-28-5); // 28 is the height of the button, but that's not rendered yet so I can't calculate it from the DOM
@@ -436,6 +437,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 // TW Do something here...
 _sbx.notify(obj.id,'Apply'); }
  );
+var xyz=1;
             }
           };
         }(this);
