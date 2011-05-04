@@ -370,8 +370,6 @@ ENDEMAIL
 $request_data
 ENDEMAIL
 
-    $message .= join('', map( { "     $_\n" } @datalist));
-
     my $nodes_by_point = {};
     foreach my $node1 (@{$$data{'DESTINATIONS'}{'NODE'}})
     {
