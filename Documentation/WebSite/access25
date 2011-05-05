@@ -5095,6 +5095,7 @@ sub output
     my $comments_id;
 
     my $ok = 1;
+    my $changes = 0;
     my @results;
     foreach my $node (sort keys %node_actions) {
 	my $action = $node_actions{$node};
@@ -5106,26 +5107,38 @@ sub output
 	} elsif ($action eq 'disapprove') {
 	    $ok &&= $self->disapprove($data, $node_obj, $now, $rid, $comments);
 	    push @results, "Disapproved request \#$rid for $node";
+	    $changes++;
 	} elsif ($action eq 'approve') {
 	    $ok &&= $self->approve($data, $node_obj, $now, $rid, $comments);
 	    push @results, "Approved request \#$rid for $node";
+	    $changes++;
 	} elsif ($action eq 'stopeval') {
 	    $ok &&= $self->markRequestUndone($rid, $node_id);
 	    $ok &&= $self->markRequestDone($rid, $node_id, 'n', $client_id, $now, $comments_id);
 	    push @results, "Disapproved request \#$rid for $node to stop request re-evaluation";
+	    $changes++;
 	}
     }
 
     if ($ok) {
-       	$$self{DBH}->commit();
-	$self->send_request_update_email($rid, \%node_actions, $comments);
-	print {$$self{CONTENT}} 
-	"<h1>Request Updated</h1>",
-	"<p>", join('<br/>', @results), "</p>",
-	"<p class='blocktext'>Your changes to request \#$rid ",
-	"have been applied and an update email was sent to the ",
-	"requestor as well as the Data Managers/Site Admins of the ",
-	"relevant sites.</p>";
+        if ( $changes ) {
+          $$self{DBH}->commit();
+          $self->send_request_update_email($rid, \%node_actions, $comments);
+          print {$$self{CONTENT}} 
+          "<h1>Request Updated</h1>",
+          "<p>", join('<br/>', @results), "</p>",
+          "<p class='blocktext'>Your changes to request \#$rid ",
+          "have been applied and an update email was sent to the ",
+          "requestor as well as the Data Managers/Site Admins of the ",
+          "relevant sites.</p>";
+        } else {
+          print {$$self{CONTENT}} 
+          "<h1>No changes made!</h1>",
+          "<p>No sites were approved or disapproved in this update, therefore ",
+          "no action was taken, and no email will be sent.</p>",
+          "<p>You need to actually approve or disapprove a request for at least one site ",
+          "before any action will be recorded in the database</p>";
+        }
     } else {
 	$$self{DBH}->rollback();
 	print {$$self{CONTENT}} "<h1>Error</h1>";
