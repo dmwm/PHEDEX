@@ -225,7 +225,7 @@ div.phedex-panel-banner-help { /* need the specificity! */
 .phedex-panel-buttons {
   float: right;
 }
-.phedex-panel-status {
+.phedex-clear-both .phedex-panel-status {
   clear: both;
 }
 .phedex-panel-outer {
@@ -325,9 +325,6 @@ a.phedex-core-control-widget-disabled { /* extra specificity ('a') to take prece
   border: 1px solid red;
   font-weight: bold;
 }
-.phedex-core-widget {
-/*  background-color: #eee;*/
-}
 .phedex-core-widget-progress {
   position:absolute;
   right:6px;
@@ -403,13 +400,6 @@ div .phedex-tnode-highlight-associated {
   background-color: #ff8;
 }
 
-.phedex-data-odd { /* not used at present */
-  background-color: #EDF5FF;
-}
-.phedex-data-even { /* not used at present */
-  background-color: #fff;
-}
-
 .phedex-tnode-overflow { /* used to show a field is truncated, if it's not obvious */
   border-right: 1px dotted red;
   border-bottom: 1px dotted red;
@@ -456,7 +446,6 @@ div.phedex-nav-link {
   overflow:hidden;
   text-indent:-10000em;
   text-decoration:none;
-/*   background: url(/yui/build/assets/skins/sam/sprite.png) no-repeat 0 -300px; */
   background: url(/images/widget-close.gif) no-repeat;
   cursor:pointer;
 }
@@ -587,7 +576,6 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 .phedex-nextgen-form-element {
-  width: 850px;
   padding: 5px 0;
   display: inline-block;
 }
@@ -604,29 +592,20 @@ ul li.phedex-contextmenu-beta:before {
   display: inline-block;
   vertical-align:top;
   text-align: right;
+  font-weight: bold;
   padding: 0 5px 0 0;
+  float: left;
 }
-.phedex-nextgen-form-left .phedex-nextgen-label {
-}
-.phedex-nextgen-form-right .phedex-nextgen-label {
-  width: 90px;
-}
-
-.phedex-nextgen-filterpanel {
-  width: 660px;
+.phedex-nextgen-filter {
   display: inline-block;
-  margin: 0 0 0 5px;
+  margin: 0 0 5px 5px;
+  width: auto;
+}
+.phedex-nextgen-filter-element {
+  display: inline-block;
 }
 .phedex-nextgen-control {
-  width: 660px;
-  display: inline-block;
-  margin: 0 0 0 5px;
-}
-.phedex-nextgen-form-left .phedex-nextgen-control {
-  width: 240px;
-}
-.phedex-nextgen-form-right .phedex-nextgen-control {
-  width: 330px;
+  margin: 0 150px 0 175px;
 }
 
 .phedex-nextgen-textarea {
@@ -639,20 +618,14 @@ ul li.phedex-contextmenu-beta:before {
   width: 660px;
   color: silver;
 }
-.phedex-nextgen-filter {
-  display: inline-block;
-  margin: 0 0 5px 5px;
-}
-.phedex-nextgen-filter-element {
-  display: inline-block;
-}
+
 .phedex-filter-global-buttons {
   display: inline-block;
   width: 660px;
 }
 
 .phedex-filter-inputbox {
-  width: 200px;
+  width: 400px;
   height: 1.5em;
 }
 
@@ -683,10 +656,24 @@ ul li.phedex-contextmenu-beta:before {
   text-overflow: ellipsis;
 }
 
+#phedex-data-subscriptions-nodepanel-wrapper {
+  margin: 0 0 5px 180px; /* 175 + 5, for the phedex-nextgen-label next to it... */
+  width: 668px; /* 8 px extra to allow for the resize handles */
+}
+#phedex-data-subscriptions-input-requests, #phedex-data-subscriptions-input-dataitems  {
+  width: 660px;
+}
+#phedex-data-subscriptions-input-dataitems  {
+  height: 5em;
+}
 div.phedex-nextgen-nodepanel {
   height: 150px;
   overflow: auto;
   border: 1px solid silver;
+  margin: 0;
+  padding: 5px 0 0 0;
+  width: 660px;
+  display: inline-block;
 }
 div.phedex-nextgen-nodepanel-elem {
   display: inline-block;
@@ -719,4 +706,31 @@ div.phedex-nextgen-nodepanel-elem {
 }
 .phedex-nextgen-help {
  text-decoration: none;
+}
+
+/* Fixed-Floating-Fixed three-column layout */
+.phedex-tab-header {
+  text-align: center;
+}
+.phedex-tab-footer {
+  clear: left;
+  width: 100%;
+  text-align: center;
+}
+.phedex-tab-content-wrapper {
+  float: left;
+  width: 100%;
+}
+.phedex-tab-left { /* width: WLeft; */
+  width: 230px;
+  float: left;
+  margin-left: -100%;
+}
+.phedex-tab-right { /* width: WRight; margin-left: -WRight; */
+  width: 300px;
+  margin-left: -300px;
+  float: left;
+}
+.phedex-tab-centre { /* margin: 0 WRight 0 WLeft; */
+  margin: 0 300px 0 230px;
 }
