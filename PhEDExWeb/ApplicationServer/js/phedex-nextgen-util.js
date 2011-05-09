@@ -6,7 +6,7 @@ PHEDEX.Nextgen.Util = function() {
 
   return {
     NodePanel: function(obj,parent) {
-      var el, nodePanel, seq=PxU.Sequence(),
+      var nodePanel, seq=PxU.Sequence(),
           selfHandler = function(o) {
         return function(ev,arr) {
           var action = arr[0],
@@ -29,12 +29,10 @@ PHEDEX.Nextgen.Util = function() {
       _sbx.listen(obj.id, selfHandler);
 
       nodePanel = { nodes:[], selected:[] };
-      el = document.createElement('div');
       if ( typeof(parent) != 'object' ) { parent = Dom.get(parent); }
       nodePanel.dom = { parent:parent };
       var makeNodePanel = function(o) {
         return function(data,context) {
-try { // TW take out the try-catch
           var nodes=[], node, i, j, k,
             instance=PHEDEX.Datasvc.Instance();
 
@@ -73,10 +71,6 @@ try { // TW take out the try-catch
             }
           };
           YAHOO.util.Event.delegate(parent, 'click', onSelectClick, 'input');
-} catch(ex) {
-var _ex = ex;
-debugger;
-}
         }
       }(obj);
       PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
@@ -113,28 +107,30 @@ debugger;
       el = document.createElement('div');
       if ( typeof(parent) != 'object' ) { parent = Dom.get(parent); }
       panel.dom = { parent:parent };
-
-try { // TW take out the try-catch
-          var item, i;
-          parent.innerHTML = '';
-          for ( i in items ) {
-            item = items[i];
-            parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+item.label+"' />"+item.label+"</div>";
-          }
-          panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
-          for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
-          var onSelectClick =function(event, matchedEl, container) {
-            if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-              _sbx.notify(o.id,'Selected-'+name, matchedEl.name, matchedEl.checked);
-            }
-          };
-          YAHOO.util.Event.delegate(parent, 'click', onSelectClick, 'input');
-} catch(ex) {
-var _ex = ex;
-debugger;
-}
+      var item, i;
+      parent.innerHTML = '';
+      for ( i in items ) {
+        item = items[i];
+        parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+item.label+"' />"+item.label+"</div>";
+      }
+      panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
+      for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
+      var onSelectClick =function(event, matchedEl, container) {
+        if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+          _sbx.notify(o.id,'Selected-'+name, matchedEl.name, matchedEl.checked);
+        }
+      };
+      YAHOO.util.Event.delegate(parent, 'click', onSelectClick, 'input');
 
       return panel;
+    },
+    makeResizable: function(wrapper,el) {
+      var resize = new YAHOO.util.Resize(wrapper);
+      resize.on('resize', function(_el) {
+        return function(e) {
+          Dom.setStyle(_el, 'height', (e.height - 10) + 'px');
+          Dom.setStyle(_el, 'width',  (e.width  - 10) + 'px');
+        }}(el), resize, true);
     }
-  };
+  }
 }();
