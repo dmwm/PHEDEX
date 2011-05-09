@@ -99,7 +99,8 @@ sub Report
   my $mapping = $obj->{PHEDEX}{MAPPING};
 
   foreach my $m (@$mapping) {
-      print "$m->{LFN} $m->{PFN} $m->{SPACE_TOKEN}\n";
+      my $token = $m->{SPACE_TOKEN} || "<no space token>";
+      print "$m->{LFN} $m->{PFN} $token\n";
   }
 
 }
