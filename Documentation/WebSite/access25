@@ -9616,12 +9616,13 @@ sub output
 
   my %params = $self->validate_all
       (
-       allow => [qw(node block test status)],
+       allow => [qw(node block test status page_num)],
        spec => {
-	   node   => { using => 'regex', default => '.*' },
-	   block  => { using => 'regex', default => '.*' },
-	   test   => { allowing => \@tests, default => 'Any' },
-	   status => { allowing => \@status, default => 'Any' },
+	   node     => { using => 'regex', default => '.*' },
+	   block    => { using => 'regex', default => '.*' },
+	   test     => { allowing => \@tests, default => 'Any' },
+	   status   => { allowing => \@status, default => 'Any' },
+	   page_num => { using => 'pos_int' },
        }
        );
 # TW Explicit checking of arguments
