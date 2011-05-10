@@ -217,21 +217,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 el=Dom.get('phedex-reset-filters'),
                 x, y, h;
             Dom.setY(el,cRegion.top);
-
-//          ...then the 'Apply' button
-            el=Dom.get('phedex-apply-filters');
-//             cRegion = Dom.getRegion('phedex-filterpanel-priority');
-//             x = cRegion.right;
-// //             if ( x<0 ) { debugger; throw new Error('Looks like someone forgot to update the cRegion to a visible object?'); }
-//             y = cRegion.bottom;
-//             Dom.setX(el,x/*+5*/);
-//             Dom.setY(el,y/*-28-5*/); // 28 is the height of the button, but that's not rendered yet so I can't calculate it from the DOM
           }
         }(this);
         tab.on('activeChange',function(ev) {
           if ( !ev.newValue ) { return; }
           setupRowFilterTab(ev);
-//           setupRowFilterTab = function(){}; // only needed once, so now dummy it out
+          setupRowFilterTab = function(){}; // only needed once, so now dummy it out
         });
 
 // for the Filter tab
