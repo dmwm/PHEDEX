@@ -660,12 +660,20 @@ ul li.phedex-contextmenu-beta:before {
   margin: 0 0 5px 180px; /* 175 + 5, for the phedex-nextgen-label next to it... */
   width: 668px; /* 8 px extra to allow for the resize handles */
 }
-#phedex-data-subscriptions-input-requests, #phedex-data-subscriptions-input-dataitems  {
+#phedex-data-subscriptions-input-requests, #phedex-data-subscriptions-input-dataitems {
   width: 660px;
 }
-#phedex-data-subscriptions-input-dataitems  {
+#phedex-data-subscriptions-input-dataitems {
   height: 5em;
 }
+#phedex-data-subscriptions-apply-filters {
+  width: 1100px;
+  height: 0px;
+  text-align: right;
+  position: relative;
+  top: -30px;
+}
+
 div.phedex-nextgen-nodepanel {
   height: 150px;
   overflow: auto;
