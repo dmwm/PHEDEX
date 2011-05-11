@@ -20,7 +20,8 @@ function createCoreApp() {
 // This is called once the core is fully loaded.
 
   var page=location.href,/* el,*/ uri, params={}, substrs, i, ngoSuccess;
-  if ( page.match(/^(.*)\?/)  )        { page = RegExp.$1; }
+  if ( page.match(/^(.*)\?/) )         { page = RegExp.$1; }
+  if ( page.match(/^(.*)#/) )          { page = RegExp.$1; }
   if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
   params.el = document.getElementById(page);
@@ -80,7 +81,9 @@ function createCoreApp() {
       try {
         var obj = new cTor(PxS,item);
         obj.init(params);
-      } catch(ex) { }
+      } catch(ex) {
+        var _ex = ex;
+      }
     };
   }(page);
   var callbacks = {
