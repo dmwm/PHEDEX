@@ -82,6 +82,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                 value  = arr[1];
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               obj[action](value);
+              return;
             }
           }
         }(this);
@@ -162,11 +163,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
 
 // Destination
-            elList = obj.destination.elList;
+            elList = obj.nodePanel.elList;
             for (i in elList) {
               elList[i].checked = false;
             }
-            obj.destination.selected = {};
 
 // Remove Subscription
             if ( tmp = obj.remove_subscription ) {
@@ -311,13 +311,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label' id='phedex-label-data-items'>Data Items <a class='phedex-nextgen-help' id='phedex-help-data-items' href='#'>[?]</a></div>" +
-                        "<div class='phedex-nextgen-control'>" +
+                        "<div id='data_items-wrapper' class='phedex-nextgen-control'>" +
                           "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
       data_items.help_align = Dom.get('phedex-label-data-items');
       Dom.get('phedex-help-data-items').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','data_items');");
+      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items');
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -342,7 +343,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Preview
       el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-preview'>" + // class='phedex-invisible'>" +
+      el.innerHTML = "<div id='phedex-nextgen-preview'>" +
                        "<div class='phedex-nextgen-form-element'>" +
                           "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'></div>" +
                           "<div class='phedex-nextgen-control'>" +
@@ -450,64 +451,29 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
 // Destination
-      this.destination = { nodes:[], selected:[] };
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form-element');
       el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
                        "<div class='phedex-nextgen-label'>Destination</div>" +
-                       "<div id='destination-panel' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
-                         "<em>loading destination list...</em>" +
+                       "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
+                         "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
+                           "<em>loading destination list...</em>" +
+                         "</div>" +
                        "</div>" +
                      "</div>";
       form.appendChild(el);
+      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel');
+      this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
+
       d.destination = Dom.get('destination-container');
-      var makeNodePanel = function(obj) {
-        return function(data,context) {
-          var nodes=[], node, i, j, k, pDiv, destination=d.destination;
-
-          pDiv = Dom.get('destination-panel');
-          if ( !data.node ) {
-            pDiv.innerHTML = '&nbsp;<strong>Error</strong> loading node names, cannot continue';
-            Dom.addClass(pDiv,'phedex-box-red');
-            obj.Preview.set('disabled',true);
-            obj.Accept.set('disabled',true);
-            Dom.get('data_items').disabled = true;
-            return;
+      var onDestinationClick = function(obj) {
+        return function(event, matchedEl, container) {
+          if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+            obj.Accept.set('disabled',false);
           }
-          for ( i in data.node ) {
-            node = data.node[i].name;
-            if ( instance.instance != 'prod' ) { nodes.push(node ); }
-            else {
-              if ( node.match(/^T(0|1|2|3)_/) && !node.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node ); }
-            }
-          }
-          nodes = nodes.sort();
-          pDiv.innerHTML = '';
-          k = '1';
-          for ( i in nodes ) {
-            node = nodes[i];
-            node.match(/^T(0|1|2|3)_/);
-            j = RegExp.$1;
-            if ( j > k ) {
-              pDiv.innerHTML += "<hr class='phedex-nextgen-hr'>";
-              k = j;
-            }
-            pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
-            obj.destination.nodes.push(node);
-          }
-          destination.appendChild(pDiv);
-          obj.destination.elList = Dom.getElementsByClassName('phedex-checkbox','input',destination);
-          var onDestinationClick =function(event, matchedEl, container) {
-                if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-                  obj.Accept.set('disabled',false);
-                }
-              };
-          YAHOO.util.Event.delegate(destination, 'click', onDestinationClick, 'input');
-
-          if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
         }
       }(this);
-      PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
+      YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
 
 // Site Custodial
       this.site_custodial = {
@@ -527,7 +493,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       form.appendChild(el);
       site_custodial.help_align = Dom.get('phedex-label-site-custodial');
       Dom.get('phedex-help-site-custodial').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','site_custodial');");
-      site_custodial.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.site_custodial);
+      site_custodial.elList = Dom.getElementsByClassName('phedex-radio','input',d.site_custodial);
 
 // Subscription type
       this.subscription_type = {
@@ -548,7 +514,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       subscription_type.help_align = Dom.get('phedex-label-subscription-type');
       Dom.get('phedex-help-subscription-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','subscription_type');");
       d.subscription_type = Dom.get('subscription_type');
-      subscription_type.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.subscription_type);
+      subscription_type.elList = Dom.getElementsByClassName('phedex-radio','input',d.subscription_type);
 
 // Transfer type
       this.transfer_type = {
@@ -569,14 +535,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       transfer_type.help_align = Dom.get('phedex-label-transfer-type');
       Dom.get('phedex-help-transfer-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','transfer_type');");
       d.transfer_type = Dom.get('transfer_type');
-      transfer_type.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.transfer_type);
+      transfer_type.elList = Dom.getElementsByClassName('phedex-radio','input',d.transfer_type);
 
 // Priority
       this.priority = {
         values:['high','normal','low'],
         _default:2,
         help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>'
-      }; // !TODO note the default is actually 'low'!
+      };
       var priority = this.priority;
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
@@ -591,7 +557,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       priority.help_align = Dom.get('phedex-label-priority');
       Dom.get('phedex-help-priority').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','priority');");
       d.priority = Dom.get('priority');
-      priority.elList = elList = Dom.getElementsByClassName('phedex-radio','input',d.priority);
+      priority.elList = Dom.getElementsByClassName('phedex-radio','input',d.priority);
 
 // User group
       this.user_group = {
@@ -811,11 +777,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Comments</div>" +
-                        "<div class='phedex-nextgen-control'>" +
+                        "<div id='comments-wrapper' class='phedex-nextgen-control'>" +
                           "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments.text + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments');
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
@@ -853,7 +820,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.results_label.innerHTML = '';
           dom.results_text.innerHTML = '';
           Dom.removeClass(dom.results,'phedex-box-yellow');
-          if ( data.message ) { // indicative of failure~
+          if ( data.message ) { // indicative of failure
             str = "Error when making call '" + context.api + "':";
             msg = data.message.replace(str,'').trim();
             obj.onAcceptFail(msg);
@@ -953,11 +920,11 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // DBS - done directly in the xml
 
 // Destination
-          elList = obj.destination.elList;
+          elList = obj.nodePanel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.destination.nodes[i]); }
+            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Destination nodes specified');
@@ -1295,11 +1262,12 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Data Items</div>" +
-                        "<div class='phedex-nextgen-control'>" +
+                        "<div id='data_items-wrapper' class='phedex-nextgen-control'>" +
                           "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items');
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -1324,7 +1292,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // Preview
       el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-preview'>" + // class='phedex-invisible'>" +
+      el.innerHTML = "<div id='phedex-nextgen-preview'>" +
                        "<div class='phedex-nextgen-form-element'>" +
                           "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'></div>" +
                           "<div class='phedex-nextgen-control'>" +
@@ -1431,64 +1399,29 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
 // Destination
-      this.destination = { nodes:[], selected:[] };
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form-element');
       el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
                        "<div class='phedex-nextgen-label'>Destination</div>" +
-                       "<div id='destination-panel' class='phedex-nextgen-control phedex-nextgen-nodepanel'>" +
-                         "<em>loading destination list...</em>" +
+                       "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
+                         "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
+                           "<em>loading destination list...</em>" +
+                         "</div>" +
                        "</div>" +
                      "</div>";
       form.appendChild(el);
+      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel');
+      this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
+
       d.destination = Dom.get('destination-container');
-      var makeNodePanel = function(obj) {
-        return function(data,context) {
-          var nodes=[], node, i, j, k, pDiv, destination=d.destination;
-
-          pDiv = Dom.get('destination-panel');
-          if ( !data.node ) {
-            pDiv.innerHTML = '&nbsp;<strong>Error</strong> loading node names, cannot continue';
-            Dom.addClass(pDiv,'phedex-box-red');
-            obj.Preview.set('disabled',true);
-            obj.Accept.set('disabled',true);
-            Dom.get('data_items').disabled = true;
-            return;
+      var onDestinationClick = function(obj) {
+        return function(event, matchedEl, container) {
+          if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+            obj.Accept.set('disabled',false);
           }
-          for ( i in data.node ) {
-            node = data.node[i].name;
-            if ( instance.instance != 'prod' ) { nodes.push(node ); }
-            else {
-              if ( node.match(/^T(0|1|2|3)_/) && !node.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node ); }
-            }
-          }
-          nodes = nodes.sort();
-          pDiv.innerHTML = '';
-          k = '1';
-          for ( i in nodes ) {
-            node = nodes[i];
-            node.match(/^T(0|1|2|3)_/);
-            j = RegExp.$1;
-            if ( j > k ) {
-              pDiv.innerHTML += "<hr class='phedex-nextgen-hr'>";
-              k = j;
-            }
-            pDiv.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
-            obj.destination.nodes.push(node);
-          }
-          destination.appendChild(pDiv);
-          obj.destination.elList = Dom.getElementsByClassName('phedex-checkbox','input',destination);
-          var onDestinationClick =function(event, matchedEl, container) {
-                if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-                  obj.Accept.set('disabled',false);
-                }
-              };
-          YAHOO.util.Event.delegate(destination, 'click', onDestinationClick, 'input');
-
-          obj.Accept.set('disabled',false);
         }
       }(this);
-      PHEDEX.Datasvc.Call({ api:'nodes', callback:makeNodePanel });
+      YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
 
 // Remove Subscriptions?
       this.remove_subscription = { values:['yes','no'], _default:0 };
@@ -1550,7 +1483,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       email.input.onblur = onEmailInput;
 
       kl = new YAHOO.util.KeyListener(email.input,
-                               { keys:13 }, // '13' is the enter key, seems there's no mnemonic for this?
+                               { keys:13 }, // TODO '13' is the enter key, seems there's no mnemonic for this?
                                { fn:function(obj){ return function() { onEmailInput(); } }(this),
                                scope:this, correctScope:true } );
      kl.enable();
@@ -1575,11 +1508,12 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       el = document.createElement('div');
       el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label'>Comments</div>" +
-                        "<div class='phedex-nextgen-control'>" +
+                        "<div id='comments-wrapper' class='phedex-nextgen-control'>" +
                           "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments.text + "</textarea></div>" +
                         "</div>" +
                       "</div>";
       form.appendChild(el);
+      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments');
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
@@ -1632,10 +1566,9 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           dom.results_label.innerHTML = '';
           dom.results_text.innerHTML = '';
           Dom.removeClass(dom.results,'phedex-box-yellow');
-          if ( data.message ) { // indicative of failure~
+          if ( data.message ) { // indicative of failure
             str = "Error when making call '" + context.api + "':";
             msg = data.message.replace(str,'').trim();
-//             obj.onAcceptFail('The call failed for some reason. Please ask an expert to consult the logfiles');
             obj.onAcceptFail(msg);
             obj.Accept.set('disabled',false);
           }
@@ -1731,11 +1664,11 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 // DBS - done directly in the xml
 
 // Destination
-          elList = obj.destination.elList;
+          elList = obj.nodePanel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.destination.nodes[i]); }
+            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Destination nodes specified');
@@ -1848,11 +1781,11 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           delete data.blocks;
 
 // Destination
-          elList = obj.destination.elList;
+          elList = obj.nodePanel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.destination.nodes[i]); }
+            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Target nodes specified');
