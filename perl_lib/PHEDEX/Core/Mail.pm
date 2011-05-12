@@ -215,7 +215,7 @@ sub _send_request_create_email
     # Get a list of the sites involved in this request
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my (%sites);  # for unique list
-    foreach my $sd (qw(DESTINATIONS MOVE_SOURCES))
+    foreach my $sd (qw(DESTINATIONS MOVE_SOURCES NODES))
     {
         foreach my $node1 (@{$$data{$sd}{'NODE'}})
         {
