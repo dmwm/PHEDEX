@@ -128,8 +128,8 @@ PHEDEX.Nextgen.Util = function() {
       var resize = new YAHOO.util.Resize(wrapper);
       resize.on('resize', function(_el) {
         return function(e) {
-          Dom.setStyle(_el, 'height', (e.height - 10) + 'px');
-          Dom.setStyle(_el, 'width',  (e.width  - 10) + 'px');
+          Dom.setStyle(_el, 'height', (e.height - 7) + 'px');
+          Dom.setStyle(_el, 'width',  (e.width  - 7) + 'px');
         }}(el), resize, true);
     }
   }
