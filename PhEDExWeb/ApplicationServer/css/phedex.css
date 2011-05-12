@@ -610,7 +610,7 @@ ul li.phedex-contextmenu-beta:before {
 
 .phedex-nextgen-textarea {
   width: 660px;
-  height: 150px;
+  height: 100px;
   color: silver;
 }
 
@@ -666,12 +666,13 @@ ul li.phedex-contextmenu-beta:before {
 #phedex-data-subscriptions-input-dataitems {
   height: 5em;
 }
+#phedex-data-subscriptions-options-panel {
+  padding: 5px 0 0;
+}
 #phedex-data-subscriptions-apply-filters {
-  width: 1100px;
-  height: 0px;
-  text-align: right;
-  position: relative;
-  top: -30px;
+  width: 300px;
+  float: right;
+  text-align: left;
 }
 
 div.phedex-nextgen-nodepanel {

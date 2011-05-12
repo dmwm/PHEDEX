@@ -100,10 +100,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         el = document.createElement('div');
         el.innerHTML = "<div id='doc3'>" +
                          "<a id='phedex-options-control' class='phedex-nextgen-form-link' href='#'>Show options</a>" +
-                         "<div id='phedex-options-panel' class='phedex-invisible phedex-silver-border'></div>" +
+                         "<div id='phedex-data-subscriptions-options-panel' class='phedex-invisible'></div>" +
                        "</div>";
         mb.appendChild(el);
-        d.options = { panel:Dom.get('phedex-options-panel'), ctl:Dom.get('phedex-options-control') };
+        d.options = { panel:Dom.get('phedex-data-subscriptions-options-panel'), ctl:Dom.get('phedex-options-control') };
         var onShowOptionsClick = function(obj) {
           return function() {
             var opts=d.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, el, apply=obj.dom.apply;
@@ -146,16 +146,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           active: true
         });
         tabView.addTab(tab);
-        SelectAll   = new YAHOO.widget.Button({ label:'Select all columns',   id:'selectallcolumns',   container:'phedex-selectall-columns' });
+        SelectAll   = new YAHOO.widget.Button({ label:'Select all',   id:'selectallcolumns',   container:'phedex-selectall-columns' });
         SelectAll.on(  'click', function(obj) { return function() { _sbx.notify(obj.id,'SelectAll-columns'); } }(this) );
-        DeselectAll = new YAHOO.widget.Button({ label:'Deselect all columns', id:'deselectallcolumns', container:'phedex-deselectall-columns' });
+        DeselectAll = new YAHOO.widget.Button({ label:'Clear all', id:'deselectallcolumns', container:'phedex-deselectall-columns' });
         DeselectAll.on('click', function(obj) { return function() { _sbx.notify(obj.id,'DeselectAll-columns'); } }(this) );
         Reset      = new YAHOO.widget.Button({ label:'Reset to defaults', id:'resetcolumns', container:'phedex-reset-columns' });
         Reset.on(      'click', function(obj) { return function() { _sbx.notify(obj.id,'Reset-columns'); } }(this) );
 
-        SelectAll   = new YAHOO.widget.Button({ label:'Select all nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes' });
+        SelectAll   = new YAHOO.widget.Button({ label:'Select all Nodes',   id:'selectallnodes',   container:'phedex-selectall-nodes' });
         SelectAll.on(  'click', function(obj) { return function() { _sbx.notify(obj.id,'SelectAllNodes'); } }(this) );
-        DeselectAll = new YAHOO.widget.Button({ label:'Deselect all nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes' });
+        DeselectAll = new YAHOO.widget.Button({ label:'Clear all Nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes' });
         DeselectAll.on('click', function(obj) { return function() { _sbx.notify(obj.id,'DeselectAllNodes'); } }(this) );
 
         tab = new YAHOO.widget.Tab({
@@ -188,7 +188,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 "</div>"
         });
         tabView.addTab(tab);
-        Reset = new YAHOO.widget.Button({ label:'Reset filters', id:'resetfilters', container:'phedex-reset-filters' });
+//        Reset = new YAHOO.widget.Button({ label:'Reset filters', id:'resetfilters', container:'phedex-reset-filters' });
         Reset.on('click', function(obj) { return function() { _sbx.notify(obj.id,'Reset-filters'); } }(this) );
         Apply = new YAHOO.widget.Button({ label:'Apply', id:'apply', container:'phedex-data-subscriptions-apply-filters' });
         Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'Apply'); } }(this) );
@@ -210,20 +210,20 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 
         tabView.appendTo(opts.panel); // need to attach elements to DOM before further manipulation
 
-        var setupRowFilterTab = function(obj) {
-          return function(ev) {
-//        Put the 'Reset Filters' button in the right place...
-            var cRegion=Dom.getRegion('phedex-label-requests'),
-                el=Dom.get('phedex-reset-filters'),
-                x, y, h;
-            Dom.setY(el,cRegion.top);
-          }
-        }(this);
-        tab.on('activeChange',function(ev) {
-          if ( !ev.newValue ) { return; }
-          setupRowFilterTab(ev);
-          setupRowFilterTab = function(){}; // only needed once, so now dummy it out
-        });
+//        var setupRowFilterTab = function(obj) {
+//          return function(ev) {
+////        Put the 'Reset Filters' button in the right place...
+//            var cRegion=Dom.getRegion('phedex-label-requests'),
+//                el=Dom.get('phedex-reset-filters'),
+//                x, y, h;
+//            Dom.setY(el,cRegion.top);
+//          }
+//        }(this);
+//        tab.on('activeChange',function(ev) {
+//          if ( !ev.newValue ) { return; }
+//          setupRowFilterTab(ev);
+//          setupRowFilterTab = function(){}; // only needed once, so now dummy it out
+//        });
 
 // for the Filter tab
         var field, Field; // oh boy, I'm asking for trouble here...
@@ -473,25 +473,45 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         PHEDEX.Nextgen.Util.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel');
 
 // for the Columns tab...
+//        var items = [
+//          {label:'Select',           checked:true},
+//          {label:'Priority',         checked:true},
+//          {label:'% Files',          checked:false},
+//          {label:'Time Create',      checked:true},
+//          {label:'Request',          checked:true},
+//          {label:'Custodial',        checked:true},
+//          {label:'% Bytes',          checked:true},
+//          {label:'Time Complete',    checked:false},
+//          {label:'Data Level',       checked:true},
+//          {label:'Group',            checked:true},
+//          {label:'Replica/Move',     checked:true},
+//          {label:'Time Done',        checked:false},
+//          {label:'Data Item',        checked:true},
+//          {label:'Node Files',       checked:true},
+//          {label:'Active/Suspended', checked:true},
+//          {label:'Node',             checked:true},
+//          {label:'Node Bytes',       checked:true},
+//          {label:'Item Open',        checked:false}
+//        ];
         var items = [
           {label:'Select',           checked:true},
-          {label:'Priority',         checked:true},
-          {label:'% Files',          checked:false},
-          {label:'Time Create',      checked:true},
           {label:'Request',          checked:true},
-          {label:'Custodial',        checked:true},
-          {label:'% Bytes',          checked:true},
-          {label:'Time Complete',    checked:false},
           {label:'Data Level',       checked:true},
-          {label:'Group',            checked:true},
-          {label:'Replica/Move',     checked:true},
-          {label:'Time Done',        checked:false},
           {label:'Data Item',        checked:true},
-          {label:'Node Files',       checked:true},
-          {label:'Active/Suspended', checked:true},
           {label:'Node',             checked:true},
+          {label:'Priority',         checked:true},
+          {label:'Custodial',        checked:true},
+          {label:'Group',            checked:true},
+          {label:'Node Files',       checked:true},
           {label:'Node Bytes',       checked:true},
-          {label:'Item Open',        checked:false}
+          {label:'% Files',          checked:false},
+          {label:'% Bytes',          checked:true},
+          {label:'Replica/Move',     checked:true},
+          {label:'Active/Suspended', checked:true},
+          {label:'Item Open',        checked:false},
+          {label:'Time Create',      checked:true},
+          {label:'Time Complete',    checked:false},
+          {label:'Time Done',        checked:false}
         ];
         this.columnPanel = PHEDEX.Nextgen.Util.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:items, name:'columns' } );
       }
