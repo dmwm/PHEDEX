@@ -166,7 +166,10 @@ sub age
   }
 
   my $str = "";
-  my $full = 0;
+  if ( $diff < 0 ) {
+    $str = '-';
+    $diff = abs($diff);
+  }
 
   if ($precision ne 'minute' &&  abs($diff) <= 3600) {
       $str .= sprintf("%dm", $diff / 60);
@@ -179,7 +182,6 @@ sub age
   {
     $str .= sprintf("%dd", $diff / 86400);
     $diff %= 86400;
-    $full = 1;
   }
   $str .= sprintf("%dh", $diff / 3600);
   $diff %= 3600;
