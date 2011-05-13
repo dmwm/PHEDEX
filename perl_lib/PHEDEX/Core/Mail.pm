@@ -267,11 +267,23 @@ sub _send_request_create_email
 
     # Get the Data Managers of this group
     my $group_data_manager = "";
-    my @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'}) || ();
-    # @group_data_managers = () if ! defined @group_data_managers;
-    foreach (@group_data_managers)
+    my @group_data_managers;
+    if (defined $$data{'GROUP'})
     {
-        $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
+        @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'}) || ();
+        # @group_data_managers = () if ! defined @group_data_managers;
+        foreach (@group_data_managers)
+        {
+            $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
+        }
+        if (not $group_data_manager)
+        {
+            $group_data_manager = qq {   (can not find data mangers for group "$$data{'GROUP'}")\n};
+        }
+    }
+    else
+    {
+        $group_data_manager = "   (N/A)\n";
     }
 
     # global admins
