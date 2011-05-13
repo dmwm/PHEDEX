@@ -1086,9 +1086,17 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Now build the args!
           if ( data.datasets ) {
-            args.dataset = [];
             for ( dataset in data.datasets ) {
-              args.dataset.push(dataset);
+              blocks = data.datasets[dataset];
+              if ( typeof(blocks) == 'number' ) {
+                if ( !args.dataset ) { args.dataset = []; }
+                args.dataset.push(dataset);
+              } else {
+                for ( block in blocks ) {
+                  if ( !args.block ) { args.block = []; }
+                  args.block.push(block);
+                }
+              }
             }
           }
           Dom.removeClass(dom.preview,'phedex-invisible');
@@ -1791,16 +1799,25 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
             obj.onAcceptFail('No Target nodes specified');
           }
 
+// No 'time start' for deletions, set create_since to zero
+          args.create_since = 0;
 
 // If there were errors, I can give up now!
           if ( obj.formFail ) { return; }
 
 // Now build the args!
-          args.create_since = 0;
           if ( data.datasets ) {
-            args.dataset = [];
             for ( dataset in data.datasets ) {
-              args.dataset.push(dataset);
+              blocks = data.datasets[dataset];
+              if ( typeof(blocks) == 'number' ) {
+                if ( !args.dataset ) { args.dataset = []; }
+                args.dataset.push(dataset);
+              } else {
+                for ( block in blocks ) {
+                  if ( !args.block ) { args.block = []; }
+                  args.block.push(block);
+                }
+              }
             }
           }
           Dom.removeClass(dom.preview,'phedex-invisible');
