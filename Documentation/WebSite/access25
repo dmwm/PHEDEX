@@ -3905,7 +3905,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -5903,7 +5903,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -6170,7 +6170,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -6496,7 +6496,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, *|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -6661,7 +6661,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} !~ m%^[_,A-Z,a-z,0-9, *|]*$% ) {
+             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -7033,7 +7033,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -7348,7 +7348,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*|]*$% ) {
+             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*|]*$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -9636,7 +9636,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^[_,A-Z,a-z,0-9, .*]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
