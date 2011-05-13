@@ -7306,7 +7306,7 @@ sub myurl
 			  $args{"page"} ne "Activity::TransferDetails" &&
 			  $args{"page"} ne "Activity::ErrorInfo"));
 
-  if ( $args{page} eq 'Activity::ErrorInfo' ) {
+  if ( !$args{page} or $args{page} eq 'Activity::ErrorInfo' ) {
     @save = qw(tofilter fromfilter andor report_code xfer_code from_pfn to_pfn log_detail log_validate);
   }
   # Keep my if remaining on the same page (but e.g. different instance)
