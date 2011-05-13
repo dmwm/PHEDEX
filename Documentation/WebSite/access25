@@ -3365,6 +3365,12 @@ sub getRequestData
         select 'BLOCK' lvl, rb.name, b.id, b.files, b.bytes
           from t_req_block rb left join t_dps_block b on b.id = rb.block_id
          where rb.request = :request
+    };
+    if ( $time_start ) {
+      $sql .= qq { and b.time_create >= :time_create };
+      $p{':time_create'} = $time_start;
+    }
+    $sql .= qq {
         union
         select 'FILE' lvl, rf.name, f.id, 1 files, f.filesize bytes
           from t_req_file rf left join t_dps_file f on f.id = rf.file_id
