@@ -7,6 +7,10 @@
 ### /afs/cern.ch/project/oracle/admin/tnsnames.ora
 ###
 
+#
+# DEVDB development databases
+#
+# Oracle 10gR2
 devdb10=(
 	DESCRIPTION=
 	(ADDRESS= (PROTOCOL=TCP) (HOST=oradev10.cern.ch) (PORT=10520) )
@@ -14,6 +18,15 @@ devdb10=(
 	(CONNECT_DATA=
 		(SID=D10)
 	)
+)
+# Oracle 11gR2
+devdb11=(
+        DESCRIPTION=
+        (ADDRESS= (PROTOCOL=TCP) (HOST=dbvrtg018.cern.ch) (PORT=1574) )
+        (ENABLE=BROKEN)
+        (CONNECT_DATA=
+                (SID=DEVDB11)
+        )
 )
 
 #
