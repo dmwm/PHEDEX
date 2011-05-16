@@ -8217,7 +8217,7 @@ sub validate
 	(
 	 allow => [qw(node dcolumn rcolumn scolumn nvalue rows dbs dexp bexp filter
 		      col subsaction reqfilter priority suspended custodial group
-		      groupchange s_id s_value action actionvalue create_source create_dest rate lp_id)],
+		      groupchange s_value action actionvalue create_source create_dest rate lp_id)],
 	 spec  => 
 	 {
 	     # Params for Data::Replicas
@@ -8241,7 +8241,6 @@ sub validate
  	     custodial    => { allowing => [qw(any y n)], default => 'any' },
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
-	     s_id         => { using => 'subscribe_id', multiple => 1 }, # combined ID
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
 
 	     # params for Data::LoadTest
@@ -8877,12 +8876,11 @@ sub output_page
   }
   $dbtable->set_querycols( @querycols );
 
-  my $key = 's_id';
   if (@admin_auth) {
       print { $$self{CONTENT} }
       "<p><label>Selections:</label>\n",
-      "<input type='button' value='Select all' onclick=\"select_all('subsform', '$key', '1')\"/>\n",
-      "<input type='button' value='Select none' onclick=\"select_all('subsform', '$key', '0')\"/>\n",
+      "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_value', '1')\"/>\n",
+      "<input type='button' value='Select none' onclick=\"select_all('subsform', 's_value', '0')\"/>\n",
       "</p>\n";
 
       my $target = $self->myurl();
@@ -8989,8 +8987,7 @@ sub update_subscriptions
     my $n_changed = 0;
     my %warn_hash;  # to keep unique warnings
 
-    my $key = 's_value';
-    foreach (param($key)) {
+    foreach (param('s_value')) {
 	my ($level, $item, $destination) = split /:/;
         my $permission;
          $permission = $auth_nodes{$destination}; # Check permission
