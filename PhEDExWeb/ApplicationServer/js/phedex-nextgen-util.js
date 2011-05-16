@@ -131,6 +131,42 @@ PHEDEX.Nextgen.Util = function() {
           Dom.setStyle(_el, 'height', (e.height - 7) + 'px');
           Dom.setStyle(_el, 'width',  (e.width  - 7) + 'px');
         }}(el), resize, true);
+    },
+    authHelpMessage: function() {
+      var str = '', i, j, k, text, roles, role, arg, auth,
+          args = Array.apply(null,arguments),
+          auths = {
+                    'cert':'grid certificate authentication',
+                    'any': 'to log in via grid certificate or password'
+                  };
+      for ( i in args ) {
+        arg = args[i];
+        auth = arg.need;
+        text = arg.to;
+        roles = arg.role;
+
+        str += '<p>You need <strong>'+auths[auth]+'</strong> and to be a ';
+        j = roles.length;
+        for ( k=0; k<j; k++ ) {
+          role = roles[k];
+          str += "<strong>'"+role+"'</strong>";
+          if ( j>1 ) {
+            if ( j == k+2 ) { str += ' or '; }
+            else            { str += ', '; }
+          }
+        }
+        str += ' in order to '+text+'</p>';
+      }
+      str += "<hr class='phedex-nextgen-hr'>" +
+             "<p>Passwords are managed via "+
+             "<a href='/sitedb/sitedb/sitelist/'>SiteDB</a> and are synced with the CMS hypernews passwords.</p>" +
+             "<p>See the <a href='http://lcg.web.cern.ch/lcg/registration.htm'>LCG registration page</a> to find help on obtaining a grid certificate.</p>" +
+             "<p>Authorization roles are handled by <a href='/sitedb/sitedb/sitelist/'>SiteDB.</a> If you're logged in, you can click on your name (top-right of this page) to see which PhEDEx roles you have</p>" +
+             "<p>If you think you have the necessary rights in SiteDB and are logged in " +
+             "<a href='/phedex/tony/Data::Subscriptions'>with your certificate</a> or " +
+             "<a href='/phedex/tony/Data::Subscriptions?SecModPwd=1'>password</a> but you are still having problems with this page you may " +
+             "<a href='mailto:cms-phedex-admins@cern.ch'>contact the PhEDEx developers</a>.</p>";
+      return str;
     }
   }
 }();
