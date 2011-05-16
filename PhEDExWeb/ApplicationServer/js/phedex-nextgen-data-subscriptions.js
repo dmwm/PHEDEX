@@ -49,24 +49,65 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         el.innerHTML = '';
         el.appendChild(d.container);
 
-        d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
+        d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible'; d.floating_help.id = 'phedex-help-'+PxU.Sequence();
         document.body.appendChild(d.floating_help);
       },
-      Help:function(arg) {
-        var item      = this[arg],
-            help_text = item.help_text,
-            elSrc     = item.help_align,
-            elContent = this.dom.floating_help,
-            elRegion  = Dom.getRegion(elSrc);
-        if ( this.help_item != arg ) {
-          Dom.removeClass(elContent,'phedex-invisible');
-          Dom.setX(elContent,elRegion.left);
-          Dom.setY(elContent,elRegion.bottom);
-          elContent.innerHTML = help_text;
-          this.help_item = arg;
+      gotAuthData: function(data,context) {
+        if ( !data.auth ) { return; }
+        var auth, roles, role, i;
+        obj.isAdmin = false;
+        try {
+          roles = data.auth[0].role;
+        } catch(ex) { }// AUTH call failed, proceed regardless...
+        for ( i in roles ) {
+          role = roles[i];
+          if ( role.name == 'Admin' && role.group == 'phedex' ) { obj.isAdmin = true; }
+          if ( role.name == 'PADA Admin' ||
+               role.name == 'Data Manager' ||
+               role.name == 'Site Admin' ) {
+            obj.isAdmin = true;
+          }
+        }
+        if ( !obj.isAdmin ) {
+          var el  = document.createElement('a'),
+              toggle,
+              id=PxU.Sequence();
+          el.id = 'phedex-help-anchor-'+id;
+          el.href = '#';
+          el.innerHTML = 'Privileged Activities Help';
+          Dom.get('doc3').appendChild(el);
+          toggle = "var s = new PHEDEX.Sandbox(); s.notify('"+obj.id+"','Help','privilegedActivity');";
+          obj.privilegedActivity = {
+              text: "<a id='close-anchor-"+id+"' class='float-right' href='#'>[close]</a>" +
+                    "<p><strong>Privileged Activities:</strong></p>" +
+                    PHEDEX.Nextgen.Util.authHelpMessage(
+                      { to:'change priorities of subscriptions and manage groups', need:'cert', role:['Data Manager', 'Admin'] },
+                      { to:'suspend/unsuspend subscriptions',                      need:'any',  role:['Data Manager', 'Site Admin', 'PADA Admin', 'Admin'] }
+                    ),
+              el:el,
+              close:'close-anchor-'+id,
+              toggle:toggle
+            };
+          el.setAttribute('onclick',toggle);
+          return; // Do this here so I don't need the 'else' for isAdmin...
+        }
+
+// User has administrative rights, add the menus!
+      },
+      Help:function(item) {
+        item = this[item];
+        var elRegion = Dom.getRegion(item.el),
+            elHelp   = this.dom.floating_help;
+        elHelp.innerHTML = item.text;
+        if ( Dom.hasClass(elHelp,'phedex-invisible') ) {
+          Dom.removeClass(elHelp,'phedex-invisible');
+          Dom.setX(elHelp,elRegion.right+10);
+          Dom.setY(elHelp,elRegion.top);
         } else {
-          Dom.addClass(elContent,'phedex-invisible');
-          delete this.help_item;
+          Dom.addClass(elHelp,'phedex-invisible');
+        }
+        if ( item.close && item.toggle ) {
+          Dom.get(item.close).setAttribute('onclick',item.toggle);
         }
       },
       init: function(args) {
@@ -77,7 +118,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             var action = arr[0],
                 value  = arr[1], i;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
-              obj[action](value);
+              arr.shift();
+              obj[action].apply(obj,arr);
               return;
             }
             switch (action) {
@@ -94,14 +136,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initSub();
         _sbx.notify(this.id,'buildOptionsTabview');
+        PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
       },
       initSub: function() {
         var d = this.dom, mb = d.main_block, form, el;
         el = document.createElement('div');
-        el.innerHTML = "<div id='doc3'>" +
-                         "<a id='phedex-options-control' class='phedex-nextgen-form-link' href='#'>Show options</a>" +
-                         "<div id='phedex-data-subscriptions-options-panel' class='phedex-invisible'></div>" +
-                       "</div>";
+        el.innerHTML = "<a id='phedex-options-control' class='phedex-nextgen-form-link' href='#'>Show options</a>" +
+                       "<div id='phedex-data-subscriptions-options-panel' class='phedex-invisible'></div>";
         mb.appendChild(el);
         d.options = { panel:Dom.get('phedex-data-subscriptions-options-panel'), ctl:Dom.get('phedex-options-control') };
         var onShowOptionsClick = function(obj) {
