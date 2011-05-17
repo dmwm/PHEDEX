@@ -298,7 +298,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             }
           }
         }(this,el.value);
-        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field);
+        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Data items
         el = Dom.get('phedex-filterpanel-dataitems');
@@ -331,7 +331,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             }
           }
         }(this,el.value);
-        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field);
+        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Generic for all buttons...
         var menu, button, Button = YAHOO.widget.Button,
@@ -511,7 +511,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 
 // for the Node tab...
         this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('phedex-nodepanel') );
-        PHEDEX.Nextgen.Util.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel');
+        PHEDEX.Nextgen.Util.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
 
 // for the Columns tab...
 //        var items = [

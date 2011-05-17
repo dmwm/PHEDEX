@@ -318,7 +318,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       form.appendChild(el);
       data_items.help_align = Dom.get('phedex-label-data-items');
       Dom.get('phedex-help-data-items').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','data_items');");
-      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items');
+      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -462,7 +462,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel');
+      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
       this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
 
       d.destination = Dom.get('destination-container');
@@ -782,7 +782,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments');
+      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
@@ -1275,7 +1275,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items');
+      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -1418,7 +1418,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel');
+      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
       this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
 
       d.destination = Dom.get('destination-container');
@@ -1521,7 +1521,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments');
+      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {

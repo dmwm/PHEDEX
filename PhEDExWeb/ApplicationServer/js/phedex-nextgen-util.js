@@ -124,12 +124,12 @@ PHEDEX.Nextgen.Util = function() {
 
       return panel;
     },
-    makeResizable: function(wrapper,el) {
-      var resize = new YAHOO.util.Resize(wrapper);
+    makeResizable: function(wrapper,el,cfg) {
+      var resize = new YAHOO.util.Resize(wrapper,cfg);
       resize.on('resize', function(_el) {
         return function(e) {
-          Dom.setStyle(_el, 'height', (e.height - 7) + 'px');
           Dom.setStyle(_el, 'width',  (e.width  - 7) + 'px');
+          Dom.setStyle(_el, 'height', (e.height - 7) + 'px');
         }}(el), resize, true);
     },
     authHelpMessage: function() {
