@@ -71,6 +71,8 @@ fi
 cd $phedex_js_path
 cat phedex-base.js phedex-loader.js | tee phedex-base-loader.js >/dev/null
 
+echo "Command is:"
+echo java -jar $yuicompressor_path $file -o $phedex_min_js_path/{src,src-min.js}
 cd $phedex_js_path
 for file in `dir -d *.js` ; do
 echo "Converting $file"
