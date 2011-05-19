@@ -78,6 +78,7 @@ PHEDEX.Nextgen.Util = function() {
     },
     CBoxPanel: function(obj,parent, config) {
       var el, panel, seq=PxU.Sequence(), name=config.name, items=config.items,
+          elList, item,
           selfHandler = function(o) {
         return function(ev,arr) {
           var action = arr[0],
@@ -92,7 +93,7 @@ PHEDEX.Nextgen.Util = function() {
               break;
             }
             case 'Reset-'+name: {
-              for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
+              for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i]._default; }
               break;
             }
             default: {
@@ -113,8 +114,11 @@ PHEDEX.Nextgen.Util = function() {
         item = items[i];
         parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+item.label+"' />"+item.label+"</div>";
       }
-      panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
-      for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i].checked; }
+      elList = panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
+      for ( i in elList ) {
+        item = items[i];
+        elList[i].checked = item.checked || item._default;
+      }
       var onSelectClick =function(event, matchedEl, container) {
         if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
           _sbx.notify(o.id,'Selected-'+name, matchedEl.name, matchedEl.checked);
