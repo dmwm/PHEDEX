@@ -54,13 +54,14 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           delete this.help_item;
         }
       },
-      init: function(args) {
-        if ( !args ) { args={}; }
-        var type=args.type, el;
+      init: function(params) {
+        if ( !params ) { params={}; }
+        this.params = params;
+        var type=params.type, el;
         if ( type == 'xfer' ) {
-          Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,args), true);
+          Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,params), true);
         } else if ( type == 'delete' ) {
-          Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,args), true);
+          Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,params), true);
         } else if ( !type ) {
           var l = location, href = location.href;
           var e = document.createElement('div');
@@ -69,13 +70,13 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                         "<li><a href='" + location.pathname + "?type=xfer'>Transfer Request</a></li>" +
                         "<li><a href='" + location.pathname + "?type=delete'>Deletion Request</a></li>" +
                       '</ul>';
-          args.el.innerHTML='';
-          args.el.appendChild(e);
+          params.el.innerHTML='';
+          params.el.appendChild(e);
           return;
         } else {
           throw new Error('type is defined but unknown: '+type);
         }
-        this.useElement(args.el);
+        this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
