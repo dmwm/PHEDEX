@@ -7,21 +7,14 @@ YAHOO.util.Event.onDOMReady(function() {
   banner('Loading core application...');
   PxL.load(createCoreApp,'core','sandbox','datasvc');
 
-  var phedex_app_version = document.getElementById('phedex-app-version'),
-      phedex_home = document.getElementById('phedex-link-home');
+  var phedex_app_version = document.getElementById('phedex-app-version');
   if ( phedex_app_version ) { phedex_app_version.innerHTML = PxW.Version; }
-  if ( phedex_home ) {
-    var uri = location.href;
-    phedex_home.href = uri.replace(/#.*$/g,'');
-  }
 });
 
 function createCoreApp() {
 // This is called once the core is fully loaded.
 
-  var page=location.href,/* el,*/ uri, params={}, substrs, i, ngoSuccess;
-  if ( page.match(/^(.*)\?/) )         { page = RegExp.$1; }
-  if ( page.match(/^(.*)#/) )          { page = RegExp.$1; }
+  var page=location.pathname, uri, params={}, substrs, i, ngoSuccess;
   if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
   params.el = document.getElementById(page);
@@ -44,7 +37,8 @@ function createCoreApp() {
 
   uri = location.search;
   if ( uri.match(/^\?(.*)$/) ) {
-    substrs = RegExp.$1.replace(/;/,'&')
+    substrs = decodeURIComponent(RegExp.$1);
+    substrs = substrs.replace(/;/,'&')
     substrs = substrs.split('&');
     var key, val;
     for (i in substrs ) {
