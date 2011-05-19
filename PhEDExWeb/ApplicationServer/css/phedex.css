@@ -674,6 +674,16 @@ ul li.phedex-contextmenu-beta:before {
   float: right;
   text-align: left;
 }
+#phedex-data-subscriptions-selector, #phedex-data-subscriptions-dataform {
+  padding: 0 5px;
+}
+#phedex-data-subscriptions-label-action, #phedex-data-subscriptions-label-select {
+  width: 110px;
+  width: auto;
+}
+.phedex-data-subscriptions-action {
+  padding: 2px 0;
+}
 
 div.phedex-nextgen-nodepanel {
   height: 150px;
