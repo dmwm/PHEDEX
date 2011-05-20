@@ -20,7 +20,7 @@ function createCoreApp() {
   params.el = document.getElementById(page);
   if ( !params.el ) { return; }
   banner('loading, please wait...');
-  params.el.innerHTML  = 'loading, please wait...' +
+  params.el.innerHTML  = 'loading application, please wait...' +
           '<br/>' +
           "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
 
@@ -86,6 +86,9 @@ function createCoreApp() {
                     Timeout:  function(item) { banner('Timeout loading javascript modules'); },
                     Progress: function(item) { banner('Loaded item: '+item.name); }
                   };
+  params.el.innerHTML  = 'loading page-specific modules, please wait...' +
+          '<br/>' +
+          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
   PxL.load(callbacks,page,'datasvc');
   document.body.className = 'yui-skin-sam';
 };
