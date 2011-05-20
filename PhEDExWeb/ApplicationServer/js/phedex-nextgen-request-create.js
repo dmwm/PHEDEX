@@ -2,7 +2,8 @@ PHEDEX.namespace('Nextgen.Request');
 PHEDEX.Nextgen.Request.Create = function(sandbox) {
   var string = 'nextgen-request-create',
       _sbx = sandbox,
-      Dom = YAHOO.util.Dom;
+      Dom = YAHOO.util.Dom,
+      NUtil = PHEDEX.Nextgen.Util;
   Yla(this,new PHEDEX.Module(_sbx,string));
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -274,7 +275,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
 PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
   var Dom   = YAHOO.util.Dom,
-      Event = YAHOO.util.Event;
+      Event = YAHOO.util.Event,
+      NUtil = PHEDEX.Nextgen.Util;
   return {
     meta: {
       table: { columns: [{ key:'dataset',       label:'Dataset', className:'align-left' },
@@ -319,7 +321,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       form.appendChild(el);
       data_items.help_align = Dom.get('phedex-label-data-items');
       Dom.get('phedex-help-data-items').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','data_items');");
-      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
+      NUtil.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -463,8 +465,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
-      this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
+      NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
+      this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
 
       d.destination = Dom.get('destination-container');
       var onDestinationClick = function(obj) {
@@ -783,7 +785,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
+      NUtil.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
@@ -1009,9 +1011,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.removeClass(dom.results,'phedex-invisible');
           Dom.addClass(dom.results,'phedex-box-yellow');
           dom.results_label.innerHTML = 'Status:';
-          dom.results_text.innerHTML  = 'Submitting request (please wait)' +
-          '<br/>' +
-          "<img src='http://us.i1.yimg.com/us.yimg.com/i/us/per/gr/gp/rel_interstitial_loading.gif'/>";
+          dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
           PHEDEX.Datasvc.Call({ api:'subscribe', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
         }
       }(this);
@@ -1103,9 +1103,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           Dom.removeClass(dom.preview,'phedex-invisible');
           Dom.addClass(dom.preview,'phedex-box-yellow');
           dom.preview_label.innerHTML = 'Status:';
-          dom.preview_text.innerHTML  = 'Calculating request (please wait)' +
-          '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
           args.level = 'block';
           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context) { obj.previewCallback(data,context); } });
         }
@@ -1238,7 +1236,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
   var Dom   = YAHOO.util.Dom,
-      Event = YAHOO.util.Event;
+      Event = YAHOO.util.Event,
+      NUtil = PHEDEX.Nextgen.Util;
   return {
     meta: {
       table: { columns:[ { key:'block',        label:'Block', className:'align-left' },
@@ -1276,7 +1275,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
+      NUtil.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
 
       d.data_items = Dom.get('data_items');
       d.data_items.onfocus = function(obj) {
@@ -1419,8 +1418,8 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                        "</div>" +
                      "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
-      this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('destination-panel') );
+      NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
+      this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
 
       d.destination = Dom.get('destination-container');
       var onDestinationClick = function(obj) {
@@ -1522,7 +1521,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                         "</div>" +
                       "</div>";
       form.appendChild(el);
-      PHEDEX.Nextgen.Util.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
+      NUtil.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
 
       d.comments = Dom.get('comments');
       d.comments.onfocus = function() {
@@ -1722,9 +1721,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           Dom.removeClass(dom.results,'phedex-invisible');
           Dom.addClass(dom.results,'phedex-box-yellow');
           dom.results_label.innerHTML = 'Status:';
-          dom.results_text.innerHTML  = 'Submitting request (please wait)' +
-          '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
           PHEDEX.Datasvc.Call({ api:'delete', method:'post', args:args, callback:function(data,context) { obj.requestCallback(data,context); } });
         }
       }(this);
@@ -1824,9 +1821,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           Dom.removeClass(dom.preview,'phedex-invisible');
           Dom.addClass(dom.preview,'phedex-box-yellow');
           dom.preview_label.innerHTML = 'Status:';
-          dom.preview_text.innerHTML  = 'Calculating request (please wait)' +
-          '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
           args.level = 'dataset'; //'block';
           PHEDEX.Datasvc.Call({ api:'blockreplicas', args:args, callback:function(data,context) { obj.previewCallback(data,context); } });
         }
