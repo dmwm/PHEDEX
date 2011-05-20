@@ -2,6 +2,7 @@ PHEDEX.namespace('Nextgen.Data');
 PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
   var string = 'nextgen-data-subscriptions',
       _sbx = sandbox,
+      NUtil = PHEDEX.Nextgen.Util,
       Dom = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
       Button = YAHOO.widget.Button;
@@ -69,13 +70,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       gotAuthData: function(data,context) {
         if ( !data.auth ) { return; }
         var auth, roles, role, i;
+        if ( typeof(auth) != 'object' ) { auth = {}; } // AUTH call failed, proceed regardless...
 
         obj.auth = auth = data.auth[0];
         auth.isAdmin = false;
         auth.can = [];
-        try {
-          roles = auth.role;
-        } catch(ex) { }// AUTH call failed, proceed regardless...
+        roles = auth.role;
         for ( i in roles ) {
           role = roles[i];
           if ( ( role.name == 'Admin' && role.group == 'phedex' ) ||
@@ -108,7 +108,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         obj.privilegedActivity = {
             text: "<a id='close-anchor-"+id+"' class='float-right' href='#'>[close]</a>" +
                   "<p><strong>Privileged Activities:</strong></p>" +
-                  PHEDEX.Nextgen.Util.authHelpMessage(
+                  NUtil.authHelpMessage(
                     { to:'change priorities of subscriptions and manage groups', need:'cert', role:['Data Manager', 'Admin'] },
                     { to:'suspend/unsuspend subscriptions',                      need:'any',  role:['Data Manager', 'Site Admin', 'PADA Admin', 'Admin'] }
                   ),
@@ -117,7 +117,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             toggle:toggle
           };
         el.setAttribute('onclick',toggle);
-        return; // Do this here so I don't need the 'else' for isAdmin...
+        return;
       },
       isAdmin: function() {
 //     User has administrative rights, add the menus!
@@ -180,15 +180,10 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           field='action';
           el = document.createElement('span');
           el.id = 'phedex-subscription-action-'+id;
-//           el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
-//                     "<div class='phedex-nextgen-label' id='phedex-data-subscriptions-label-"+field+"'>Action:</div>" +
-//                     "<div class='phedex-nextgen-filter'>" +
-//                       "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
-//                     "</div>" +
-//                   "</div>";
           el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
                            "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-action'>Action:</span>" +
                            "<span id='phedex-data-subscriptions-ctl-action'></span>" +
+                           "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group menu</em></span>" +
                            "<span id='phedex-data-subscriptions-ctl-update'></span>" +
                          "</div>";
           form.appendChild(el);
@@ -211,30 +206,6 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           };
           button = new Button({ label:'Apply changes',  id:'phedex-data-subscriptions-update',  container:'phedex-data-subscriptions-ctl-update'  });
           button.on('click',this.onUpdate);
-
-//       my $target = $self->myurl();
-//       print { $$self{CONTENT} }
-//       "<form id='subsform' method='post' action='$target'>",
-//       # Save view parameters
-//       $self->saveform(),
-//       "<input type='hidden' name='priority' value='$priofilter'/>",
-//       "<input type='hidden' name='suspended' value='$suspfilter'/>",
-//       "<p>\n",
-//       "<label>Actions:</label>\n",
-//       "<select class='labeled' name='subsaction' onchange='return hideshowdropdown(this)'>\n";
-//       foreach my $auth (@admin_auth) {
-//           foreach my $opt (@{$admin_grps{$auth}}) {
-//               print { $$self{CONTENT} }
-//               "<option value='$opt'>$admin_opts{$opt}</option>\n";
-//           }
-//       }
-//       print { $$self{CONTENT} }
-//       "</select>\n",
-//       popup_menu(-name=>'groupchange', -values=>$$self{GROUP_LIST}, -id=>'groupchange', -style=>'display:none'),
-//       "<input type='submit' value='Update'/>\n",
-//       "</p>\n"
-//       ;
-
         }
       },
       Help:function(item) {
@@ -280,8 +251,31 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         _sbx.listen(this.id, selfHandler);
         this.initFilters();
         this.initSub();
-        _sbx.notify(this.id,'buildOptionsTabview');
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
+        PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
+        this.getSubscriptions();
+        _sbx.notify(this.id,'buildOptionsTabview');
+      },
+      getSubscriptions: function() {
+        this.dom.datatable.innerHTML = NUtil.stdLoading('loading subscriptions data...');
+        PHEDEX.Datasvc.Call({ api:'subscriptions', callback:this.gotSubscriptions, args:{collapse:'y'} });
+      },
+      gotSubscriptions:function(data,context) {
+        var datasets=data.dataset, i, j, k, dataset, blocks, block, table, row,
+            d=obj.dom, level;
+        if ( !datasets ) {
+          d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
+          d.datatable.style.margin = '5px 0';
+          return;
+        }
+        d.datatable.innerHTML = d.datatable.style.margin = '';
+try { // TW Build the data-table!
+        for (i in datasets) {
+          dataset = datasets[i];
+          row=[];
+          if ( dataset.subscription ) { level = 'DATASET'; }
+        }
+} catch(ex) { var _ex = ex; debugger; }
       },
       initFilters: function() {
         var p=this.params, i, j, requests, columns, col, label,
@@ -345,6 +339,13 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
               }
             }
           }
+        }
+
+        if ( p.node ) {
+          if ( typeof(p.node) != 'object' ) {
+            p.node = [ p.node ];
+          }
+// TW Still need to do something with the nodes!
         }
       },
       initSub: function() {
@@ -440,7 +441,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                     "<div class='phedex-clear-both' id='phedex-filterpanel-group'>group</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-active'>active/suspended</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-priority'>priority</div>" +
-//                     "<div id='phedex-filterpanel-completion'>Completion</div>" +
+                    "<div id='phedex-filterpanel-completion'>Completion</div>" +
                   "</div>" +
                 "</div>" +
                 "<div id='phedex-data-subscriptions-apply-filters''>" +
@@ -450,7 +451,6 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         Apply = new Button({ label:'Apply', id:'apply', container:'phedex-data-subscriptions-apply-filters' });
         Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'Apply'); } }(this) );
 
-//         tabView.appendTo(opts.panel); // need to attach elements to DOM before further manipulation
         tabView.appendTo(form); // need to attach elements to DOM before further manipulation
 
 // for the Filter tab
@@ -485,7 +485,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
             }
           }
         }(this,el.value);
-        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
+        NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Data items
         el = Dom.get('phedex-filterpanel-dataitems');
@@ -518,7 +518,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
             }
           }
         }(this,el.value);
-        PHEDEX.Nextgen.Util.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
+        NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Generic for all buttons...
         var menu, button;
@@ -531,94 +531,34 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                 if ( event.prevValue ) { previous = event.prevValue.value; }
                 if ( value == previous ) { return; }
                   this.set('label', ("<em class='yui-button-label'>" + text + '</em>'));
-                _sbx.notify(this.id,_field,value,text);
+//                 _sbx.notify(this.id,_field,value,text);
               };
             }
 
 // Priority...
-        el = Dom.get('phedex-filterpanel-priority');
-        field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
-        el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
-                  "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-                  "<div class='phedex-nextgen-filter'>" +
-                    "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
-                  "</div>" +
-                "</div>";
         menu = [
           { text: 'any',    value: 'any' },
           { text: 'low',    value: 'low' },
           { text: 'normal', value: 'normal' },
           { text: 'high',   value: 'high' }
         ];
-        this.ctl[field] = button = new Button({
-          id:          'menubutton-'+field,
-          name:        'menubutton-'+field,
-          label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
-          type:        'menu',
-          lazyloadmenu: false,
-          menu:         menu,
-          container:   'phedex-filterpanel-ctl-'+field
-        });
-        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-        this._default[field] = function(_button,_field,index) {
-          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-        }(button,field,0);
+        this.filterButton('phedex-filterpanel-priority',menu);
 
 // Active/Suspended...
-        el = Dom.get('phedex-filterpanel-active');
-        field=el.innerHTML, Field=PxU.initialCaps(field);
-        el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
-                  "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-                  "<div class='phedex-nextgen-filter'>" +
-                    "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
-                  "</div>" +
-                "</div>";
         menu = [
           { text: 'any',       value: 'any' },
           { text: 'active',    value: 'active' },
           { text: 'suspended', value: 'suspended' }
         ];
-        button = new Button({
-          id:          'menubutton-'+field,
-          name:        'menubutton-'+field,
-          label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
-          type:        'menu',
-          lazyloadmenu: false,
-          menu:         menu,
-          container:   'phedex-filterpanel-ctl-'+field
-        });
-        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-        this._default[field] = function(_button,_field,index) {
-          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-        }(button,field,0);
+        this.filterButton('phedex-filterpanel-active',menu);
 
 // Custodial - dropdown (inc 'any')
-        el = Dom.get('phedex-filterpanel-custodial');
-        field=el.innerHTML, Field=PxU.initialCaps(field);
-        el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
-                  "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-                  "<div class='phedex-nextgen-filter'>" +
-                    "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
-                  "</div>" +
-                "</div>";
         menu = [
           { text: 'any',           value: 'any' },
           { text: 'custodial',     value: 'custodial' },
           { text: 'non-custodial', value: 'non-custodial' }
         ];
-        button = new Button({
-          id:          'menubutton-'+field,
-          name:        'menubutton-'+field,
-          label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
-          type:        'menu',
-          lazyloadmenu: false,
-          menu:         menu,
-          container:   'phedex-filterpanel-ctl-'+field
-        });
-        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-        this._default[field] = function(_button,_field,index) {
-          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-        }(button,field,0);
+        this.filterButton('phedex-filterpanel-custodial',menu);
 
 // Group - dropdown (inc 'any')
         el = Dom.get('phedex-filterpanel-group');
@@ -632,76 +572,89 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                         "</div>" +
                       "</div>";
 
-        var makeGroupMenu = function(o,f) {
-          return function(data,context) {
-            var groupList=data.group, menu, button, i, e;
-            e = Dom.get('phedex-filterpanel-ctl-'+f);
-            if ( !groupList ) {
-              e.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
+// Completion - dropdown (inc 'any')
+        menu = [
+          { text: 'any',        value: 'any' },
+          { text: 'complete',   value: 'complete' },
+          { text: 'incomplete', value: 'incomplete' }
+        ];
+        this.filterButton('phedex-filterpanel-completion',menu);
+
+// for the Node tab...
+        this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel') );
+        NUtil.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
+
+// for the Columns tab...
+        this.columnPanel = NUtil.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.columns, name:'columns' } );
+      },
+      filterButton: function(el,menu) {
+        var id=PxU.Sequence(), field, Field;
+        if ( typeof(el) == 'string' ) { el = Dom.get(el); }
+        field=el.innerHTML, Field=PxU.initialCaps(field);
+        el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
+                         "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
+                         "<div class='phedex-nextgen-filter'>" +
+                           "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
+                         "</div>" +
+                       "</div>";
+        button = new Button({
+          id:          'menubutton-'+id,
+          name:        'menubutton-'+id,
+          label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+          type:        'menu',
+          lazyloadmenu: false,
+          menu:         menu,
+          container:    'phedex-filterpanel-ctl-'+field
+        });
+       button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
+         this._default[field] = function(_button,index) {
+          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+        }(button,0);
+      },
+      makeGroupMenu: function(el,menu) {
+            var groups=this.groups, menu, button, i, id=PxU.Sequence();
+            if ( typeof(el) == 'string' ) { el = Dom.get(el); }
+            if ( !groups ) {
+              el.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
               Dom.addClass(e,'phedex-box-red');
-              _sbx.notify(o.id,'abort');
+              _sbx.notify(this.id,'abort');
               return;
             }
-            e.innerHTML='';
-            menu = [ { text:'any', value:0 } ];
-            for (i in groupList ) {
-              group = groupList[i];
+            el.innerHTML='';
+            if ( !menu ) { menu = []; }
+            for (i in groups ) {
+              group = groups[i];
               if ( !group.name.match(/^deprecated-/) ) {
                 menu.push( { text:group.name, value:group.id } );
               }
             }
             button = new Button({
-              id:          'menubutton-'+f,
-              name:        'menubutton-'+f,
+              id:          'menubutton-'+id,
+              name:        'menubutton-'+id,
               label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
               type:        'menu',
               lazyloadmenu: false,
               menu:         menu,
-              container:    e
+              container:    el
             });
-            button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(f));
             button.getMenu().cfg.setProperty('scrollincrement',5);
-            o._default[f] = function(_button,_f,index) {
-              return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-            }(button,f,0);
-          };
-        }(this,field);
-        PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
+            return button;
+          },
+      gotGroupMenu: function(data,context) {
+// I have two group menus on this form, one in the filter-panel, one in the update-subscription form
+        var button, field;
+// use 'obj', not this, because I am the datasvc callback. Scope is different...
+        obj.groups = data.group;
+        field = 'phedex-filterpanel-ctl-group';
+        button = obj.makeGroupMenu(field, [{ text:'any', value:0 }] );
+        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange(field));
+        obj._default['group'] = function(_button,index) {
+          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+        }(button,0);
 
-// // Completion - dropdown (inc 'any')
-//         el = Dom.get('phedex-filterpanel-completion');
-//         field=el.innerHTML, Field=PxU.initialCaps(field);
-//         el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
-//                          "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-//                          "<div class='phedex-nextgen-filter'>" +
-//                            "<div id='phedex-filterpanel-ctl-"+field+"'></div>" +
-//                          "</div>" +
-//                        "</div>";
-//         menu = [
-//           { text: 'any',        value: 'any' },
-//           { text: 'complete',   value: 'complete' },
-//           { text: 'incomplete', value: 'incomplete' }
-//         ];
-//         button = new Button({
-//           id:          'menubutton-'+field,
-//           name:        'menubutton-'+field,
-//           label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
-//           type:        'menu',
-//           lazyloadmenu: false,
-//           menu:         menu,
-//           container:   'phedex-filterpanel-ctl-'+field
-//         });
-//        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-//          this._default[field] = function(_button,_field,index) {
-//           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-//         }(button,field,0);
-
-// for the Node tab...
-        this.nodePanel = PHEDEX.Nextgen.Util.NodePanel( this, Dom.get('phedex-nodepanel') );
-        PHEDEX.Nextgen.Util.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
-
-// for the Columns tab...
-        this.columnPanel = PHEDEX.Nextgen.Util.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.columns, name:'columns' } );
+        field = 'phedex-data-subscriptions-ctl-group';
+        button = obj.makeGroupMenu(field,[]);
+        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange(field));
       }
     }
   }
