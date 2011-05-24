@@ -289,7 +289,7 @@ sub pfn2se
 }
 
 # Override Core::batch_tasks.  FTS will only allow jobs to a unique
-# fromSE, toSE
+# fromSE, toSE, fromSpaceToken, toSpaceToken
 sub batch_tasks
 {
     my ($self, $tasklist, $batch_size) = @_;
@@ -297,14 +297,19 @@ sub batch_tasks
     my $task0 = @{$tasklist}[0];
     my $fromSE = &pfn2se($task0->{FROM_PFN});
     my $toSE   = &pfn2se($task0->{TO_PFN});
+    my $fromSpaceToken = $task0->{FROM_TOKEN};
+    my $toSpaceToken = $task0->{TO_TOKEN};
 
     # only take tasks matching these SEs
     if ($fromSE && $toSE) {
 	my @batch; my @remaining; my $n = 0;
 	foreach my $task (@$tasklist) {
+	    no warnings 'uninitialized';
 	    if ($n < $batch_size &&
 		&pfn2se($task->{FROM_PFN}) eq $fromSE &&
-		&pfn2se($task->{TO_PFN})   eq $toSE) {
+		&pfn2se($task->{TO_PFN})   eq $toSE &&
+		$task->{FROM_TOKEN} eq $fromSpaceToken &&
+		$task->{TO_TOKEN} eq $toSpaceToken) {
 		push @batch, $task;
 		$n++;
 	    } else {
@@ -378,7 +383,13 @@ sub start_transfer_job
 	my $f = PHEDEX::Transfer::Backend::File->new(%args);
 	$files{$task->{TO_PFN}} = $f;
     }
- 
+
+    # Return if the job didn't contain any tasks (possible if the tasks expired before the submission of the job)
+    if ($n_files==0) {
+	self->Alert("No tasks found for JOBID=$jobid");
+	return;
+    }
+
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
