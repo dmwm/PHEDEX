@@ -9000,12 +9000,25 @@ sub update_subscriptions
 	    my %h = (
 		      NODE => $destination,
 		      $level => $item,
-		      $action->{var} => $action->{val}
+#		      $action->{var} => $action->{val}
 		    );
+	    my $p = &PHEDEX::Web::SQL::getDataSubscriptions($self,%h);
+	    $h{$action->{var}} = $action->{val};
 	    my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
-	    my $v = $r->[0]->{uc($action->{var})};
-	    if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
-            if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
+	    my ($before,$after);
+	    foreach my $rr ( @{$r} ) {
+	      if ( $rr->{LEVEL} eq lc $level ) {
+	        $after = $rr->{$action->{var}};
+	      }
+	    }
+	    foreach my $pp ( @{$p} ) {
+	      if ( $pp->{LEVEL} eq lc $level ) {
+	        $before = $pp->{$action->{var}};
+	      }
+	    }
+	    if ( $before != $after ) { $n_changed++; }
+#	    if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
+#            if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
 	} else {
 	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
 		"$all_nodes{$destination} subscriptions!</p>";
