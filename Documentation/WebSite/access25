@@ -3492,7 +3492,7 @@ sub printRequest
 
     print { $$self{CONTENT} }
     # Request box
-    "<div class='nice paramblock lev1'>",
+    "<div class='nice paramblock lev1 Request::View::Id' id='Request::View::Id::",$rid,"'>",
     "<h1>Request $rid : ", $self->getRequestTitle($data), "</h1>",
     # Requestor hideaway box
     "<label>Requestor:</label>", "<div class='labeled'>",
@@ -3907,7 +3907,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -3920,6 +3920,7 @@ sub output
 
     my $viewurl = $self->myurl();
     print {$$self{CONTENT}}
+    "<div id='xRequest::View'></div>",
     "<form class='nice' method='get' action='$viewurl'>",
     "<label class='inline'>View request \#s </label>",
     textfield(-name=>'request', -default=>$request, -class=>'labeled'),
@@ -5905,7 +5906,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -5977,7 +5978,7 @@ sub output
     "<label for='errors'>Include links with nothing but errors</label> ",
     "<input type='submit' value='Update'></p>\n",
     "<p>\n",
-    "<div id='Activity::Rate'>\n",
+    "<div id='xActivity::Rate'>\n",
     "<table class='striped'>",
 #    "<thead>\n",
 
@@ -6172,7 +6173,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -6498,7 +6499,7 @@ sub output
     if ( $params{$_} ) {
       $params{$_} = unescape($params{$_});
       if ( $params{$_} ne '.*' &&
-           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
+           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
         die("The $_ parameter (foo) to bar did not pass");
       }
     }
@@ -6663,7 +6664,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, *|]*$% ) {
+             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
@@ -7350,7 +7351,7 @@ sub output
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*|]*$% ) {
+             $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
