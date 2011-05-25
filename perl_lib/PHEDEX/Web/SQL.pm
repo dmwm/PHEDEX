@@ -71,6 +71,9 @@ sub getBlockReplicas
                     else 'y'
                end subscribed,
 	       br.is_custodial,
+               ds.name dataset_name,
+               ds.id dataset_id,
+               ds.is_open dataset_is_open,
 	       g.name user_group
           from t_dps_block_replica br
 	  join t_dps_block b on b.id = br.block
@@ -4013,6 +4016,51 @@ sub updateSubscription
                     NODE => $h{NODE},
                     BLOCK => $h{BLOCK},
                     DATASET => $h{DATASET});
+}
+
+#
+sub getDatasetInfo
+{
+    my $core = shift;
+    my %h = @_;
+
+    my $filters = '';
+    my %p;
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        ID => 'd.id',
+        DATASET => 'd.name'));
+
+    my $sql = qq{
+        select
+            d.id,
+            d.name,
+            d.is_open,
+            d.is_transient,
+            d.time_create,
+            d.time_update,
+            sum(b.bytes) bytes,
+            sum(b.files) files
+        from
+            t_dps_dataset d
+            join t_dps_block b on b.dataset = d.id
+        where
+            $filters
+        group by
+            d.id,
+            d.name,
+            d.is_open,
+            d.is_transient,
+            d.time_create,
+            d.time_update
+    };
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+
+    while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
+
+    return \@r;
 }
 
 1;
