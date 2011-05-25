@@ -59,7 +59,7 @@ sub approve
   $core->{SECMOD}->reqAuthnCert();
   my ($auth,%h,$type,$ability);
 
-  $type = PHEDEX::Core::DB::dbexec($core->{DBH}, qq{ select name from t_req_type where id=(select type from t_req_request where id = :id) }, ':id' => $args{request} )->fetchrow();
+  $type = PHEDEX::Web::SQL::getRequestType($core->{DBH}, ( REQUEST => $args{request} ));
 
 # TW allow code to work from website or from data-service
 # This is ugly...
