@@ -405,8 +405,18 @@ sub start_transfer_job
     $ftsjob->Log('backend: ' . ref($self));
 
     # this writes out a copyjob file
-    $ftsjob->Prepare();
-
+    eval {
+	$ftsjob->Prepare();
+    };
+    if ($@) {
+	my $reason = "Cannot create copyjob file $dir/copyjob";
+        $ftsjob->Log("$reason\n$@");
+        foreach my $file ( values %files ) {
+            $file->Reason($reason);
+            $kernel->yield('transfer_done', $file->{TASKID}, &xferinfo($file, $ftsjob));
+        }
+    }
+    
     # now get FTS service for the job
     # we take a first file in the job and determine
     # the FTS endpoint based on this (using ftsmap file, if given)
