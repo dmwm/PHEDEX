@@ -375,14 +375,16 @@ sub resume_transfer_jobs
     }
 
     # This job has not been started before, or it can't be restarted.
-    $job->{ASKSTART} ||= -1;  # ensure the job doesn't get started
     # Go through the tasks and decide what to do depending on its state
+    my $npend=0;
+    my $nready=0;
     foreach $taskid ( keys %{$job->{TASKS}} )
     {
       $resume_hdr = "Resume JOB=$job->{ID} TASK=$taskid";
       if ( ! defined( $task->{READY} ) )
       {
-	# The task has not been prepared for transfer.  We start it from the beginning.
+       	# The task has not been prepared for transfer.  We start it from the beginning.
+	$npend++;
 	$self->Logmsg("$resume_hdr: task was not ready, call start_task");
         $kernel->call($session, 'start_task', $taskid, { JOBID => $job->{ID}, JOBDIR => $job->{DIR} });
       }
@@ -393,7 +395,9 @@ sub resume_transfer_jobs
 	# If the transfer status could be found and loaded, we use it,
 	# otherwise we use a dummy transfer status that will trigger
 	# post-transfer validation and allow us to move on
-	my ($xferinfo,$xferinfo_file);
+        $job->{ASKSTART} ||= -1;  # ensure the job doesn't get started
+	$nready++;
+        my ($xferinfo,$xferinfo_file);
 	$xferinfo_file = $task->{JOBDIR} . "/T${taskid}-xferinfo";
 	if ( -f $xferinfo_file )
 	{
@@ -415,6 +419,9 @@ sub resume_transfer_jobs
 	}
         $kernel->call($session, 'transfer_done', $taskid, $xferinfo);
       }
+    }
+    if ( $npend && $nready ) {
+	$self->Logmsg("$resume_hdr: job contained both pending and ready tasks; pending tasks will not restart");
     }
   }
 }
