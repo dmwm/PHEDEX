@@ -41,21 +41,48 @@ Return block replicas known to PhEDEx.
  custodial      y or n. filter for custodial responsibility.  default is
                 to return either.
  group          group name.  default is to return replicas for any group.
+ show_dataset   y or n, default n. If y, show dataset information with
+                the blocks; if n, only show blocks
 
  (*) See the rules of multi-value filters in the Core module
 
 =head2 Output
 
+ when show_dataset=n
+
   <block>
-     <replica/>
-     <replica/>
+    <replica/>
+    <replica/>
       ...
   </block>
+   ...
+
+ when show_dataset=y
+
+  <dataset>
+    <block>
+      <replica/>
+      <replica/>
+       ...
+    </block>
+    <block>
+       ...
+    </block>
+     ...
+  </dataset>
    ...
 
 where <block> represents a block of files and <replica> represents a
 copy of that block at some node.  An empty response means that no
 block replicas exist for the given options.
+
+=head3 <dataset> attributes (if show_dataset=y)
+
+ name     dataset name
+ id       dataset id
+ files    number of files in this dataset
+ bytes    number of bytes in this dataset
+ is_open  y or n, if dataset is open
 
 =head3 <block> attributes
 
@@ -128,13 +155,42 @@ my $map = {
     }
 };
 
+my $map_d = {
+    _KEY => 'DATASET_ID',
+    id => 'DATASET_ID',
+    name => 'DATASET_NAME',
+    is_open => 'DATASET_IS_OPEN',
+    block => {
+        _KEY => 'BLOCK_ID',
+        id => 'BLOCK_ID',
+        name => 'BLOCK_NAME',
+        files => 'BLOCK_FILES',
+        bytes => 'BLOCK_BYTES',
+        is_open => 'IS_OPEN',
+        replica => {
+            _KEY => 'NODE_ID',
+            node_id => 'NODE_ID',
+            node => 'NODE_NAME',
+            se => 'SE_NAME',
+            files => 'REPLICA_FILES',
+            bytes => 'REPLICA_BYTES',
+            time_create => 'REPLICA_CREATE',
+            time_update => 'REPLICA_UPDATE',
+            complete => 'REPLICA_COMPLETE',
+            subscribed => 'SUBSCRIBED',
+            custodial => 'IS_CUSTODIAL',
+            group => 'USER_GROUP'
+        }
+    }
+};
+
 sub duration { return 5 * 60; }
 sub invoke { return blockReplicas(@_); }
 sub blockReplicas
 {
     my ($core,%h) = @_;
 
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group / )
+    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -146,7 +202,47 @@ sub blockReplicas
 
     my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
 
-    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+    if ($r)
+    {
+        if ($h{SHOW_DATASET} eq 'y')
+        {
+            my $r1 = &PHEDEX::Core::Util::flat2tree($map_d, $r);
+            my @dids;
+
+            # get all dataset ids
+            foreach (@{$r1})
+            {
+                push @dids, $_->{id};
+            }
+
+            # get stats of datasets
+            my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
+
+            # turn it into a hash
+            my %dinfo;
+            foreach (@{$d})
+            {
+                $dinfo{$_->{ID}} = $_;
+            }
+
+            # feed stats back to dataset info
+            foreach (@{$r1})
+            {
+                $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
+                $_->{files} = $dinfo{$_->{id}}->{FILES};
+            }
+            
+            return { dataset => $r1 };
+        }
+        else
+        {
+            return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+        }
+    }
+    else
+    {
+        return { block => [] };
+    }
 }
 
 # spooling
@@ -158,7 +254,7 @@ my @keys = ('BLOCK_ID');
 sub spool
 {
     my ($core, %h) = @_;
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group / )
+    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -166,6 +262,11 @@ sub spool
     if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
     {
         $h{CREATE_SINCE} = "-1d";
+    }
+
+    if ($h{SHOW_DATASET} eq 'y')
+    {
+        @keys = ('DATASET_ID');
     }
 
     $h{'__spool__'} = 1;
@@ -176,7 +277,40 @@ sub spool
     $r = $sth->spool();
     if ($r)
     {
-        return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+        if ($h{SHOW_DATASET} eq 'y')
+        {
+            my $r1 = &PHEDEX::Core::Util::flat2tree($map_d, $r);
+            my @dids;
+
+            # get all dataset ids
+            foreach (@{$r1})
+            {
+                push @dids, $_->{id};
+            }
+
+            # get stats of datasets
+            my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
+
+            # turn it into a hash
+            my %dinfo;
+            foreach (@{$d})
+            {
+                $dinfo{$_->{ID}} = $_;
+            }
+
+            # feed stats back to dataset info
+            foreach (@{$r1})
+            {
+                $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
+                $_->{files} = $dinfo{$_->{id}}->{FILES};
+            }
+            
+            return { dataset => $r1 };
+        }
+        else
+        {
+            return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+        }
     }
     else
     {
