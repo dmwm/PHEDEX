@@ -142,7 +142,7 @@ sub getBlockReplicas
 	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
-    $sql .= qq{ order by b.id };
+    $sql .= qq{ order by ds.id, b.id };
 
     # return $q in spooling mode
     $q = execute_sql( $self, $sql, %p );
