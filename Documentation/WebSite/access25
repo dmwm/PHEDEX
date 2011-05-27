@@ -9024,7 +9024,7 @@ sub update_subscriptions
 	        $before = $pp->{$action->{var}};
 	      }
 	    }
-	    if ( $before != $after ) { $n_changed++; }
+	    if ( $before ne $after ) { $n_changed++; }
 #	    if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
 #            if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
 	} else {
