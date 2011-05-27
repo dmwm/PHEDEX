@@ -5006,6 +5006,7 @@ our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administer Request",
 	       LINK_TITLE => "Administer Requests",
 	       SECURE => 1 };
 use CGI qw(:standard unescape);
+use POSIX qw(strftime);
 import Web25::Common;
 
 sub new
@@ -5084,9 +5085,15 @@ sub output
     my $data = $self->getRequestData($rid);
 
     # Check that the request has some data
-    unless (keys %{$$data{DATA}{DATASET}} || keys %{$$data{DATA}{BLOCK}}) {
+    if ( ! (keys %{$$data{DATA}{DATASET}} || keys %{$$data{DATA}{BLOCK}}) ) {
+      if ( $data->{XFER_DATA} && $data->{XFER_DATA}{TIME_START} ) {
+#	$self->alert("No data injected since the start-time you specified (",
+#		     strftime ("%Y-%m-%d %H:%M:%S GMT", gmtime($data->{XFER_DATA}{TIME_START})),
+#		     "). There may be data injected in the future, in which case you would get it if this request is approved");
+      } else {
 	$self->alert("Request has no data");
 	return;
+      }
     }
 
     # Check that each of the nodes is part of this request
