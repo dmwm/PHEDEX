@@ -626,20 +626,24 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       var time_start = this.time_start;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+      el.innerHTML =  "<div class='phedex-nextgen-form-element'>" +
                         "<div class='phedex-nextgen-label' id='phedex-label-time-start'>Data injected after <a class='phedex-nextgen-help' id='phedex-help-time-start' href='#'>[?]</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
                           "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
                           "</div>" +
                         "</div>" +
-                      "</div>" +
-                      "<div id='phedex-nextgen-calendar-el' class='phedex-invisible'></div>";
+                      "</div>";
       form.appendChild(el);
       time_start.help_align = Dom.get('phedex-label-time-start');
       Dom.get('phedex-help-time-start').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','time_start');");
       d.calendar_icon = Dom.get('phedex-nextgen-calendar-icon');
-      d.calendar_el   = Dom.get('phedex-nextgen-calendar-el');
+
+      el = document.createElement('div');
+      el.id='phedex-nextgen-calendar-el';
+      el.className='phedex-invisible';
+      document.body.appendChild(el);
+      d.calendar_el = el;
 
       var mySelectHandler = function(o) {
         return function(type,args,obj) {
@@ -1116,6 +1120,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           var dom=this.dom, datasets=data.dbs, ds, dsName, blocks, block, i, j, n,
               t=this.meta.table, cDef;
           Dom.removeClass(dom.preview,'phedex-box-yellow');
+          Dom.removeClass(dom.preview,'phedex-box-red');
           if ( !datasets ) {
             dom.preview_text.innerHTML = 'Error retrieving information from the data-service';
             Dom.addClass(dom.preview,'phedex-box-red');
@@ -1123,10 +1128,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }
           if ( datasets.length == 0 ) {
             dom.preview_text.innerHTML = 'No data found matching your selection';
-            Dom.addClass(dom.preview,'phedex-box-red');
+            if ( context.args.create_since ) {
+              dom.preview_text.innerHTML += '<br/><br/>No data injected since the time you specified (' + PxUf.UnixEpochToUTC(context.args.create_since) + ')' +
+                                            '<br/><br/>If you expect data to be injected later, you can continue with the request. Otherwise, please modify your selection.';
+              Dom.addClass(dom.preview,'phedex-box-yellow');
+            } else {
+              Dom.addClass(dom.preview,'phedex-box-red');
+            }
             return;
           }
-          Dom.removeClass(dom.preview,'phedex-box-red');
           dom.preview_label.innerHTML = 'Preview:';
           dom.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
           dom.preview_summary = Dom.get('phedex-preview-summary');
