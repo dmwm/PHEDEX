@@ -78,6 +78,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-nextgen-util':               { requires:['phedex-util'] },
     'phedex-nextgen-data-subscriptions': { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','tabview','resize'] },
     'phedex-nextgen-request-create':     { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','calendar'] },
+    'phedex-nextgen-request-view':     { requires:['phedex-module','phedex-nextgen-util','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
