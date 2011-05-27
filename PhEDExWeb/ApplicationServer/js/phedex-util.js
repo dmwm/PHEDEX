@@ -98,6 +98,14 @@ PHEDEX.Util.format={
     var d =new Date(parseFloat(raw)*1000);
     return d.toGMTString();
   },
+  UnixEpochToGMT: function(epoch) {
+    if ( !epoch ) { return '-'; }
+    return new Date(epoch*1000).toGMTString();
+  },
+  UnixEpochToUTC: function(epoch) {
+    if ( !epoch ) { return '-'; }
+    return new Date(epoch*1000).toUTCString().replace(/GMT/,'UTC');
+  },
   dataset:function(raw) {
     if (raw.length>50) {
       var _short = raw.substring(0,50);

@@ -935,14 +935,8 @@ PHEDEX.TreeView.Filter = function(sandbox,obj) {
 };
 
 PHEDEX.TreeView.format = {
-  UnixEpochToGMT: function(epoch) {
-    if ( !epoch ) { return '-'; }
-    return new Date(epoch*1000).toGMTString();
-  },
-  UnixEpochToUTC: function(epoch) {
-    if ( !epoch ) { return '-'; }
-    return new Date(epoch*1000).toUTCString().replace(/GMT/,'UTC');
-  }
+  UnixEpochToGMT: PHEDEX.Util.format.UnixEpochToGMT,
+  UnixEpochToUTC: PHEDEX.Util.format.UnixEpochToUTC
 }
 
 log('loaded...','info','treeview');
