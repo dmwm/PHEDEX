@@ -530,4 +530,30 @@ sub uc_keys
     return $o;
 }
 
+# HTTP_ERROR
+# wrap/decode http error in special format so that it won't collide
+# with normal error message
+#
+# The format is:
+#
+# %HTTP-ERROR%#<error_code>#<message>
+#
+# where <error> code is HTTP error number.
+# <message> is not actually used now but could be in the future
+sub http_error
+{
+    my ($error, $msg) = @_;
+    if (!$error)
+    {
+        $error = 200; # default
+    }
+    return sprintf("%%HTTP-ERROR%%#%d#%s", $error, $msg);
+}
+
+sub decode_http_error
+{
+    my $code = shift;
+    return $code =~ m|^%HTTP-ERROR%#(\d+)#(.*)$|;
+}
+
 1;
