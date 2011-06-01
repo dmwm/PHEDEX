@@ -281,16 +281,15 @@ eval
        return;
    }
 
-    # Find out how many we have pending per link so we can throttle.
-    ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
-	for grep(! $$_{FINISHED}, values %$tasks);
+   # Find out how many we have pending per link so we can throttle.
+   ($pending{"$$_{FROM_NODE} -> $$_{TO_NODE}"} ||= 0)++
+       for grep(! $$_{FINISHED}, values %$tasks);
 
-    # Fetch new tasks.
-    my $i = &dbprep($$self{DBH}, qq{
-	insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
-	values (:task, :now, :from_pfn, :to_pfn, :space_token)});
-
-     my $q = &dbexec($$self{DBH}, qq{
+   # Fetch new tasks.
+   my $i = &dbprep($$self{DBH}, qq{
+       insert into t_xfer_task_inxfer (task, time_update, from_pfn, to_pfn, space_token)
+	   values (?,?,?,?,?)});
+   my $q = &dbexec($$self{DBH}, qq{
 	select
 	    xt.id taskid, xt.fileid, xt.rank, xt.priority, xt.is_custodial,
 	    f.logical_name, f.filesize, f.checksum,
@@ -313,9 +312,12 @@ eval
 	order by time_assign asc, rank asc},
         ":limit" => $now + 3600, %dest_args, %src_args);
 
-    my %errors;
-    while (my $row = $q->fetchrow_hashref())
-    {
+   my $rows=0;
+   my %iargs;
+   my %errors;
+   while (my $row = $q->fetchrow_hashref())
+   {
+
 	# If we have just too much work, leave.
 	last if scalar keys %$tasks >= 15_000;
 
@@ -354,21 +356,44 @@ eval
 	}
         map { $row->{$_} = $h->{$_} } keys %{$h};
 	$row->{SPACE_TOKEN} = $h->{TO_TOKEN};
-	&dbbindexec($i, ":task" => $$row{TASKID}, ":now" => $now,
-			":from_pfn" => $$row{FROM_PFN},
-			":to_pfn" => $$row{TO_PFN},
-		        ":space_token" => $$row{SPACE_TOKEN}
-		    );
 	$$row{TIME_INXFER} = $now;
-        ($pending{$linkkey} ||= 0)++;
-        ($fetched{$linkkey} ||= 0)++;
 
 	# Generate a local task descriptor.  It doesn't really matter
 	# if things go badly wrong here, we'll clean it up in purge.
-	return if ! &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
+	last unless &output("$$self{TASKDIR}/$$row{TASKID}", Dumper($row));
 	$$tasks{$$row{TASKID}} = $row;
-    }
 
+	# If task descriptor was generated properly, add task to bulk update array
+	my $arg=1;
+	push(@{$iargs{$arg++}}, $$row{TASKID});
+	push(@{$iargs{$arg++}}, $now);
+	push(@{$iargs{$arg++}}, $$row{FROM_PFN});
+	push(@{$iargs{$arg++}}, $$row{TO_PFN});
+	push(@{$iargs{$arg++}}, $$row{SPACE_TOKEN});
+
+        ($pending{$linkkey} ||= 0)++;
+        ($fetched{$linkkey} ||= 0)++;
+	
+	if ((++$rows % 100) == 0)
+	   {
+	       &dbbindexec($i, %iargs);
+	       $$self{DBH}->commit();
+	       foreach my $t (@{$iargs{1}}) {
+		   $self->Logmsg("set status to inxfer for task=$t") if $$self{VERBOSE};
+	       }
+	       %iargs = ();
+	   }
+    }
+   
+   if (%iargs)
+   {
+       &dbbindexec($i, %iargs);
+       $$self{DBH}->commit();
+       foreach my $t (@{$iargs{1}}) {
+           $self->Logmsg("set status to inxfer for task=$t") if $$self{VERBOSE};
+       }
+   }
+   
     # report error summary
     foreach my $err (keys %errors) {
 	$self->Alert ("'$err' occurred for $errors{$err} tasks" );
@@ -382,8 +407,7 @@ eval
        }
    }
 
-    $q->finish(); # In case we left before going through all the results
-   $self->{DBH}->commit();
+   $q->finish(); # In case we left before going through all the results
 }; $self->rollbackOnError();
 }
 
