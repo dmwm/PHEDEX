@@ -12,7 +12,7 @@ use Data::Dumper;
 $|++;
 
 
-my $web_server = "cmswttest.cern.ch";
+my $web_server = "cmsweb-testbed.cern.ch";
 my $url_path   = "/phedex/datasvc";
 my $url_instance = "/prod";
 my $url_data   = "/xml/prod";
