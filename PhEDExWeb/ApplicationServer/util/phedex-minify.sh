@@ -25,6 +25,7 @@ if [ ! -f $yuicompressor_path ]; then
   unzip -q `basename $yuicompressor_url`
   if [ ! -f $yuicompressor_path ]; then
     echo "YUI compressor jar file is still missing, giving up..."
+    echo "(looked for $yuicompressor_path )"
     exit 1
   fi
 fi
