@@ -267,6 +267,125 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
         }
       },
+      makeControlOutputbox: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, className;
+        if ( config.className ) { className = "class='"+config.className+"'"; }
+        el = document.createElement('div');
+        el.innerHTML = "<div id='phedex-nextgen-"+labelLower+"'"+className+"'>" +
+                         "<div class='phedex-nextgen-form-element'>" +
+                            "<div id='phedex-nextgen-"+labelLower+"-label' class='phedex-nextgen-label'></div>" +
+                            "<div class='phedex-nextgen-control'>" +
+                              "<div id='phedex-nextgen-"+labelLower+"-text'></div>" +
+                            "</div>" +
+                          "</div>" +
+                        "</div>";
+        parent.appendChild(el);
+        d[labelLower] = Dom.get('phedex-nextgen-'+labelLower);
+        d[labelLower+'_label'] = Dom.get('phedex-nextgen-'+labelLower+'-label');
+        d[labelLower+'_text']  = Dom.get('phedex-nextgen-'+labelLower+'-text');
+      },
+      makeControlDestination: function(parent) {
+      var el = document.createElement('div'),
+          d = this.dom, el;
+        el = document.createElement('div');
+        Dom.addClass(el,'phedex-nextgen-form-element');
+        el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
+                         "<div class='phedex-nextgen-label'>Destination</div>" +
+                         "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
+                           "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
+                             "<em>loading destination list...</em>" +
+                           "</div>" +
+                         "</div>" +
+                       "</div>";
+        parent.appendChild(el);
+        NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
+        this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
+
+        d.destination = Dom.get('destination-container');
+        var onDestinationClick = function(obj) {
+          return function(event, matchedEl, container) {
+            if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
+              obj.Accept.set('disabled',false);
+            }
+          }
+        }(this);
+        YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
+      },
+      makeControlRadio: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, i, radioStr='', helpStr='';
+        el = document.createElement('div');
+        for ( i in config.values ) {
+          radioStr += "<div><input class='phedex-radio' type='radio' name='"+labelForm+"' value='"+i+"'";
+          if ( config._default == i ) { radioStr += " checked"; }
+          radioStr += ">"+config.values[i]+"</input></div>";
+        }
+        if ( config.help ) {
+          helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelCss+"' href='#'>[?]</a>";
+        }
+
+        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                          "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+"</div>" +
+                          "<div id='"+labelForm+"' class='phedex-nextgen-control'>" +
+                            radioStr +
+                         "</div>" +
+                       "</div>";
+        parent.appendChild(el);
+        if ( config.help ) {
+          config.help_align = Dom.get('phedex-label-'+labelCss);
+          Dom.get('phedex-help-'+labelCss).setAttribute('onclick', "PxS.notify('"+this.id+"','Help','"+labelForm+"');");
+        }
+        config.elList = Dom.getElementsByClassName('phedex-radio','input',labelForm);
+      },
+      makeControlTextbox: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, resize;
+        el = document.createElement('div');
+        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                          "<div class='phedex-nextgen-label'>"+label+"</div>" +
+                          "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
+                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + config.text + "</textarea></div>" +
+                          "</div>" +
+                        "</div>";
+        parent.appendChild(el);
+        resize = config.resize || {maxWidth:745, minWidth:100};
+        NUtil.makeResizable(labelCss+'-wrapper',labelLower,resize);
+
+        d[labelLower] = Dom.get(labelLower);
+        d[labelLower].onfocus = function() {
+          if ( this.value == config.text ) {
+            this.value = '';
+            Dom.setStyle(this,'color','black');
+          }
+        }
+        d[labelLower].onblur=function() {
+          if ( this.value == '' ) {
+            this.value = config.text;
+            Dom.setStyle(this,'color',null);
+          }
+        }
+      },
+      getRadioValues: function(config) {
+        var elList=config.elList, map=config.map, i, value;
+        for (i in elList) {
+          el = elList[i];
+          if ( el.checked ) {
+            value = config.values[el.value];
+            if ( map ) { value = map[value]; }
+          }
+        }
+        return value;
+      }
     }
   };
   Yla(this,_construct(this),true);
@@ -344,22 +463,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         }
       }(this);
 
-// Preview
-      el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-preview'>" +
-                       "<div class='phedex-nextgen-form-element'>" +
-                          "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'></div>" +
-                          "<div class='phedex-nextgen-control'>" +
-                            "<div id='phedex-nextgen-preview-text'></div>" +
-                          "</div>" +
-                        "</div>" +
-                        "<div class='phedex-nextgen-preview-button'><div id='preview-button-right' class='phedex-nextgen-buttons-right'></div></div>" +
-                      "</div>";
-      form.appendChild(el);
-      d.preview = Dom.get('phedex-nextgen-preview');
-      d.preview_label  = Dom.get('phedex-nextgen-preview-label');
-      d.preview_text   = Dom.get('phedex-nextgen-preview-text');
-      d.preview_button = Dom.get('preview-button-right');
+      this.makeControlOutputbox({label:'Preview'},form);
 
 // DBS
       this.dbs = {
@@ -453,114 +557,46 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }(this);
       Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
-// Destination
-      el = document.createElement('div');
-      Dom.addClass(el,'phedex-nextgen-form-element');
-      el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
-                       "<div class='phedex-nextgen-label'>Destination</div>" +
-                       "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
-                         "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
-                           "<em>loading destination list...</em>" +
-                         "</div>" +
-                       "</div>" +
-                     "</div>";
-      form.appendChild(el);
-      NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
-      this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
-
-      d.destination = Dom.get('destination-container');
-      var onDestinationClick = function(obj) {
-        return function(event, matchedEl, container) {
-          if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-            obj.Accept.set('disabled',false);
-          }
-        }
-      }(this);
-      YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
+      this.makeControlDestination(form);
 
 // Site Custodial
       this.site_custodial = {
         values:['yes','no'],
         _default:1,
-        help_text:'<p>Whether or not the target node(s) have a custodial responsibility for the data in this request.</p><p>Only T1s and the T0 maintain custodial copies, T2s and T3s never have custodial responsibility</p>'
+        help_text:'<p>Whether or not the target node(s) have a custodial responsibility for the data in this request.</p><p>Only T1s and the T0 maintain custodial copies, T2s and T3s never have custodial responsibility</p>',
+        label:'Site Custodial',
+        map:{yes:'y', no:'n'}
       };
-      var site_custodial = this.site_custodial;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-site-custodial'>Site Custodial <a class='phedex-nextgen-help' id='phedex-help-site-custodial' href='#'>[?]</a></div>" +
-                        "<div id='site_custodial' class='phedex-nextgen-control'>" +
-                          "<div><input class='phedex-radio' type='radio' name='site_custodial' value='0'>yes</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='site_custodial' value='1' checked>no</input></div>" +
-                       "</div>" +
-                     "</div>";
-      form.appendChild(el);
-      site_custodial.help_align = Dom.get('phedex-label-site-custodial');
-      Dom.get('phedex-help-site-custodial').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','site_custodial');");
-      site_custodial.elList = Dom.getElementsByClassName('phedex-radio','input',d.site_custodial);
+      this.makeControlRadio(this.site_custodial,form);
 
 // Subscription type
       this.subscription_type = {
         values:['growing','static'],
         _default:0,
-        help_text:'<p>A <strong>growing</strong> subscription downloads blocks/files added to open datasets/blocks as they become available, until the dataset/block is closed.</p><p>Also, wildcard patterns will be re-evaluated to match new datasets/blocks which become available.</p><p>A <strong>static</strong> subscription will expand datasets into block subscriptions.</p><p>Wildcard patterns will not be re-evaluated. A static subscription is a snapshot of blocks available now</p>'
+        help_text:'<p>A <strong>growing</strong> subscription downloads blocks/files added to open datasets/blocks as they become available, until the dataset/block is closed.</p><p>Also, wildcard patterns will be re-evaluated to match new datasets/blocks which become available.</p><p>A <strong>static</strong> subscription will expand datasets into block subscriptions.</p><p>Wildcard patterns will not be re-evaluated. A static subscription is a snapshot of blocks available now</p>',
+        label:'Subscription Type',
+        map:{'static':'y', growing:'n'}
       };
-      var subscription_type = this.subscription_type;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-subscription-type'>Subscription Type <a class='phedex-nextgen-help' id='phedex-help-subscription-type' href='#'>[?]</a></div>" +
-                        "<div id='subscription_type' class='phedex-nextgen-control'>" +
-                          "<div><input class='phedex-radio' type='radio' name='subscription_type' value='0' checked>growing</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='subscription_type' value='1'>static</input></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      subscription_type.help_align = Dom.get('phedex-label-subscription-type');
-      Dom.get('phedex-help-subscription-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','subscription_type');");
-      d.subscription_type = Dom.get('subscription_type');
-      subscription_type.elList = Dom.getElementsByClassName('phedex-radio','input',d.subscription_type);
+      this.makeControlRadio(this.subscription_type,form);
 
 // Transfer type
       this.transfer_type = {
         values:['replica','move'],
         _default:0,
-        help_text:'<p>A <strong>replica</strong> replicates data from the source to the destination, creating a new copy of the data.</p><p>A <strong>move</strong> replicates the data then deletes the data at the source. The deletion will be automatic if the source data is unsubscribed; if it is subscribed, the source site will be asked to approve or disapprove the deletion.</p><p>Note that moves are only used for moving data from T2s to T1s</p>'
+        help_text:'<p>A <strong>replica</strong> replicates data from the source to the destination, creating a new copy of the data.</p><p>A <strong>move</strong> replicates the data then deletes the data at the source. The deletion will be automatic if the source data is unsubscribed; if it is subscribed, the source site will be asked to approve or disapprove the deletion.</p><p>Note that moves are only used for moving data from T2s to T1s</p>',
+        label:'Transfer Type',
+        map:{move:'y', replica:'n'}
       };
-      var transfer_type = this.transfer_type;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-transfer-type'>Transfer Type <a class='phedex-nextgen-help' id='phedex-help-transfer-type' href='#'>[?]</a></div>" +
-                        "<div id='transfer_type' class='phedex-nextgen-control'>" +
-                          "<div><input class='phedex-radio' type='radio' name='transfer_type' value='0' checked>replica</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='transfer_type' value='1'>move</input></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      transfer_type.help_align = Dom.get('phedex-label-transfer-type');
-      Dom.get('phedex-help-transfer-type').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','transfer_type');");
-      d.transfer_type = Dom.get('transfer_type');
-      transfer_type.elList = Dom.getElementsByClassName('phedex-radio','input',d.transfer_type);
+      this.makeControlRadio(this.transfer_type,form);
 
 // Priority
       this.priority = {
         values:['high','normal','low'],
         _default:2,
-        help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>'
+        help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>',
+        label:'Priority'
       };
-      var priority = this.priority;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-priority'>Priority <a class='phedex-nextgen-help' id='phedex-help-priority' href='#'>[?]</a></div>" +
-                        "<div id='priority' class='phedex-nextgen-control'>" +
-                          "<div><input class='phedex-radio' type='radio' name='priority' value='0'>high</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='priority' value='1'>normal</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='priority' value='2' checked>low</input></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      priority.help_align = Dom.get('phedex-label-priority');
-      Dom.get('phedex-help-priority').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','priority');");
-      d.priority = Dom.get('priority');
-      priority.elList = Dom.getElementsByClassName('phedex-radio','input',d.priority);
+      this.makeControlRadio(this.priority,form);
 
 // User group
       this.user_group = {
@@ -779,46 +815,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:gotAuthData })
 
 // Comments
-      this.comments = { text:'enter any additional comments here' };
-      var comments = this.comments;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Comments</div>" +
-                        "<div id='comments-wrapper' class='phedex-nextgen-control'>" +
-                          "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments.text + "</textarea></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      NUtil.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
-
-      d.comments = Dom.get('comments');
-      d.comments.onfocus = function() {
-        if ( this.value == comments.text ) {
-          this.value = '';
-          Dom.setStyle(this,'color','black');
-        }
-      }
-      d.comments.onblur=function() {
-        if ( this.value == '' ) {
-          this.value = comments.text;
-          Dom.setStyle(this,'color',null);
-        }
-      }
+      this.comments = {
+        text:'enter any additional comments here',
+        label:'Comments'
+      };
+      this.makeControlTextbox(this.comments,form);
 
 // Results
-      el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-results' class='phedex-invisible'>" +
-                       "<div class='phedex-nextgen-form-element'>" +
-                          "<div id='phedex-nextgen-results-label' class='phedex-nextgen-label'>Results</div>" +
-                          "<div class='phedex-nextgen-control'>" +
-                            "<div id='phedex-nextgen-results-text'></div>" +
-                          "</div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      d.results = Dom.get('phedex-nextgen-results');
-      d.results_label = Dom.get('phedex-nextgen-results-label');
-      d.results_text  = Dom.get('phedex-nextgen-results-text');
+      this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
 
 // Set up the Accept and Reset handlers
       this.requestCallback = function(obj) {
@@ -938,36 +942,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }
 
 // Site Custodial
-          tmp = obj.site_custodial;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.custodial = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
-          }
-
+          args.custodial = obj.getRadioValues(obj.site_custodial);
 // Subscription Type
-          tmp = obj.subscription_type;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args['static'] = ( tmp.values[el.value] == 'static' ? 'y' : 'n' ); }
-          }
-
+          args['static'] = obj.getRadioValues(obj.subscription_type);
 // Transfer Type
-          tmp = obj.transfer_type;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.move = ( tmp.values[el.value] == 'move' ? 'y' : 'n' ); }
-          }
-
+          args.move = obj.getRadioValues(obj.transfer_type);
 // Priority
-          tmp = obj.priority;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.priority = tmp.values[el.value]; }
-          }
+debugger;
+          args.priority = obj.getRadioValues(obj.priority);
 
 // User Group
           if ( ! user_group.value ) {
@@ -1308,22 +1290,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         }
       }(this);
 
-// Preview
-      el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-preview'>" +
-                       "<div class='phedex-nextgen-form-element'>" +
-                          "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'></div>" +
-                          "<div class='phedex-nextgen-control'>" +
-                            "<div id='phedex-nextgen-preview-text'></div>" +
-                          "</div>" +
-                        "</div>" +
-                        "<div class='phedex-nextgen-preview-button'><div id='preview-button-right' class='phedex-nextgen-buttons-right'></div></div>" +
-                      "</div>";
-      form.appendChild(el);
-      d.preview = Dom.get('phedex-nextgen-preview');
-      d.preview_label  = Dom.get('phedex-nextgen-preview-label');
-      d.preview_text   = Dom.get('phedex-nextgen-preview-text');
-      d.preview_button = Dom.get('preview-button-right');
+      this.makeControlOutputbox({label:'Preview'},form);
 
 // DBS
       this.dbs = {
@@ -1416,45 +1383,15 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       }(this);
       Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
 
-// Destination
-      el = document.createElement('div');
-      Dom.addClass(el,'phedex-nextgen-form-element');
-      el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
-                       "<div class='phedex-nextgen-label'>Destination</div>" +
-                       "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
-                         "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
-                           "<em>loading destination list...</em>" +
-                         "</div>" +
-                       "</div>" +
-                     "</div>";
-      form.appendChild(el);
-      NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
-      this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
-
-      d.destination = Dom.get('destination-container');
-      var onDestinationClick = function(obj) {
-        return function(event, matchedEl, container) {
-          if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-            obj.Accept.set('disabled',false);
-          }
-        }
-      }(this);
-      YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
+      this.makeControlDestination(form);
 
 // Remove Subscriptions?
-      this.remove_subscription = { values:['yes','no'], _default:0 };
-      var remove_subscription = this.remove_subscription;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Remove Subscriptions?</div>" +
-                        "<div id='remove_subscription' class='phedex-nextgen-control'>" +
-                          "<div><input class='phedex-radio' type='radio' name='remove_subscription' value='0' checked>yes</input></div>" +
-                          "<div><input class='phedex-radio' type='radio' name='remove_subscription' value='1'>no</input></div>" +
-                       "</div>" +
-                     "</div>";
-      form.appendChild(el);
-      remove_subscription.elList = Dom.getElementsByClassName('phedex-radio','input',d.remove_subscription);
-
+      this.remove_subscription = {
+        values:['yes','no'],
+        _default:0,
+        label:'Remove Subscriptions'
+      };
+      this.makeControlRadio(this.remove_subscription,form);
 
 // Email
       el = document.createElement('div');
@@ -1504,7 +1441,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                                { keys:13 }, // TODO '13' is the enter key, seems there's no mnemonic for this?
                                { fn:function(obj){ return function() { onEmailInput(); } }(this),
                                scope:this, correctScope:true } );
-     kl.enable();
+      kl.enable();
 
       var gotAuthData = function(obj) {
         return function(data,context) {
@@ -1521,62 +1458,14 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:gotAuthData })
 
 // Comments
-      this.comments = { text:'enter any additional comments here' };
-      var comments = this.comments;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Comments</div>" +
-                        "<div id='comments-wrapper' class='phedex-nextgen-control'>" +
-                          "<div><textarea id='comments' name='comments' class='phedex-nextgen-textarea'>" + comments.text + "</textarea></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      NUtil.makeResizable('comments-wrapper','comments',{maxWidth:745, minWidth:100});
-
-      d.comments = Dom.get('comments');
-      d.comments.onfocus = function() {
-        if ( this.value == comments.text ) {
-          this.value = '';
-          Dom.setStyle(this,'color','black');
-        }
-      }
-      d.comments.onblur=function() {
-        if ( this.value == '' ) {
-          this.value = comments.text;
-          Dom.setStyle(this,'color',null);
-        }
-      }
-
-// Preview
-      el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-preview' class='phedex-invisible'>" +
-                       "<div class='phedex-nextgen-form-element'>" +
-                          "<div id='phedex-nextgen-preview-label' class='phedex-nextgen-label'>Preview</div>" +
-                          "<div class='phedex-nextgen-control'>" +
-                            "<div id='phedex-nextgen-preview-text'></div>" +
-                          "</div>" +
-                        "</div>" +
-                        "<div id='phedex-nextgen-preview-button'></div>" +
-                      "</div>";
-      form.appendChild(el);
-      d.preview = Dom.get('phedex-nextgen-preview');
-      d.preview_label = Dom.get('phedex-nextgen-preview-label');
-      d.preview_text  = Dom.get('phedex-nextgen-preview-text');
+      this.comments = {
+        text:'enter any additional comments here',
+        label:'Comments'
+      };
+      this.makeControlTextbox(this.comments,form);
 
 // Results
-      el = document.createElement('div');
-      el.innerHTML = "<div id='phedex-nextgen-results' class='phedex-invisible'>" +
-                       "<div class='phedex-nextgen-form-element'>" +
-                          "<div id='phedex-nextgen-results-label' class='phedex-nextgen-label'>Results</div>" +
-                          "<div class='phedex-nextgen-control'>" +
-                            "<div id='phedex-nextgen-results-text'></div>" +
-                          "</div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      d.results = Dom.get('phedex-nextgen-results');
-      d.results_label = Dom.get('phedex-nextgen-results-label');
-      d.results_text  = Dom.get('phedex-nextgen-results-text');
+      this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
 
       this.requestCallback = function(obj) {
         return function(data,context) {
