@@ -21,9 +21,9 @@ body {
 .phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
 .float-left    { float: left; }
 .float-right   { float: right; }
-.align-left,  .yui-skin-sam .yui-dt .align-left  { text-align: left; }
-.align-right, .yui-skin-sam .yui-dt .align-right { text-align: right; }
-.align-justify { text-align: justify; }
+.align-left,    .yui-skin-sam .yui-dt .align-left    { text-align: left; }
+.align-right,   .yui-skin-sam .yui-dt .align-right   { text-align: right; }
+.align-justify, .yui-skin-sam .yui-dt .align-justify { text-align: justify; }
 .phedex-hide-overflow { overflow: hidden; }
 .inline_list {
   display: table;
