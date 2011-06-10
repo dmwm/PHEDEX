@@ -2,7 +2,8 @@ PHEDEX.namespace('Nextgen.Request');
 PHEDEX.Nextgen.Request.Create = function(sandbox) {
   var string = 'nextgen-request-create',
       _sbx = sandbox,
-      Dom = YAHOO.util.Dom,
+      Dom   = YAHOO.util.Dom,
+      Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
   Yla(this,new PHEDEX.Module(_sbx,string));
 
@@ -16,7 +17,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         minwidth:600,
         minheight:50
       },
-      waitToEnableAccept:2,
       useElement: function(el) {
         var d = this.dom;
         d.target = el;
@@ -81,9 +81,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
-                value  = arr[1];
+                value  = arr.shift();
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
-              obj[action](value);
+              obj[action].apply(obj,arr);//(value);
               return;
             }
           }
@@ -165,7 +165,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
 
 // Destination
-            elList = obj.nodePanel.elList;
+            elList = obj.destination.Panel.elList;
             for (i in elList) {
               elList[i].checked = false;
             }
@@ -267,6 +267,128 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
         }
       },
+      synchronise: function(item,state) {
+        this[item].set('disabled', state == 'allSet' ? false : true );
+      },
+      setValueFor: function(label) {
+        var key, i, j, ok=true, synchronise=this.meta.synchronise;
+        if ( !synchronise ) { return; }
+        for (i in synchronise) {
+          key = synchronise[i];
+          if ( typeof(key[label]) != 'undefined' ) {
+            if ( key[label] ) { return; } // no change in value, so nothing to notify
+            key[label] = true;
+            for (j in key) {
+              ok = ok && key[j];
+            }
+            if ( ok ) {
+              PxS.notify(this.id,'synchronise',i,'allSet');
+            }
+          }
+        }
+      },
+      unsetValueFor: function(label) {
+        var key, i, j, ok=true, synchronise=this.meta.synchronise;
+        if ( !synchronise ) { return; }
+        for (i in synchronise) {
+          key = synchronise[i];
+          if ( typeof(key[label]) != 'undefined' ) {
+            if ( !key[label] ) { return; } // no change in value, so nothing to notify
+            for (j in key) {
+              ok = ok && key[j];
+            }
+            key[label] = false;
+            if ( ok ) {
+              PxS.notify(this.id,'synchronise',i,'notAllSet');
+            }
+          }
+        }
+      },
+      makeControlDBS: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, resize, helpStr='',
+            instance = PHEDEX.Datasvc.Instance();
+        config._default = config.instanceDefault[instance.instance] || '(not defined)';
+
+        el = document.createElement('div');
+        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                          "<div class='phedex-nextgen-label'>"+label+"</div>" +
+                        "<div class='phedex-nextgen-control'>" +
+                          "<div id='dbs_selected'>" + "<span id='dbs_value'>" + config._default + "</span>" +
+                            "<span>&nbsp;</span>" + "<a id='change_dbs' class='phedex-nextgen-form-link' href='#'>change</a>" +
+                          "</div>" +
+                        "<div id='dbs_menu''></div>" +
+                        "</div>" +
+                      "</div>";
+        parent.appendChild(el);
+        config.menu     = Dom.get('dbs_menu');
+        config.value    = Dom.get('dbs_value');
+        config.selected = Dom.get('dbs_selected');
+        Dom.setStyle(config.value,'color','grey');
+
+        var makeDBSMenu = function(obj) {
+          return function(data,context) {
+            var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i, dDiv;
+            onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
+              var sText = p_oItem.cfg.getProperty('text');
+              if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
+              config.MenuButton.set('label', '<em>'+sText+'</em>');
+            };
+
+            dbsList = data.dbs;
+            if ( !dbsList ) {
+              dDiv = Dom.get('dbs_menu');
+              dDiv.innerHTML = '&nbsp;<strong>Error</strong> loading dbs names, cannot continue';
+              Dom.addClass(dDiv,'phedex-box-red');
+              obj.Preview.set('disabled',true);
+              obj.Accept.set('disabled',true);
+              Dom.get('data_items').disabled = true;
+              return;
+            }
+            for (i in dbsList ) {
+              dbsEntry = dbsList[i];
+              if ( dbsEntry.name == config._default ) {
+                dbsEntry.name = '<strong>'+dbsEntry.name+'</strong>';
+                config.defaultId = i;
+              }
+              dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
+            }
+            config.menu.innerHTML = '';
+            config.MenuButton = new YAHOO.widget.Button({  type: 'menu',
+                                    label: '<em>'+config._default+'</em>',
+                                    id:   'dbsMenuButton',
+                                    name: 'dbsMenuButton',
+                                    menu:  dbsMenuItems,
+                                    container: 'dbs_menu' });
+            config.MenuButton.on('selectedMenuItemChange',function(event) {
+              var menuItem = event.newValue,
+                  value    = menuItem.cfg.getProperty('text');
+                  if ( value.match(/<strong>(.*)</) ) { value = RegExp.$1; }
+              config.value.innerHTML = value;
+              Dom.removeClass(config.selected,'phedex-invisible');
+              Dom.setStyle(config.MenuButton,'display','none');
+            });
+            config.gotMenu = true;
+          }
+        }(this);
+
+        onChangeDBSClick = function(obj) {
+          return function() {
+            if ( !config.gotMenu ) {
+              PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
+              config.menu.innerHTML = '<em>loading menu, please wait...</em>';
+              Dom.addClass(dbs.selected,'phedex-invisible');
+            } else {
+              Dom.setStyle(config.MenuButton,'display',null);
+              Dom.addClass(config.selected,'phedex-invisible');
+            }
+          };
+        }(this);
+        Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
+      },
       makeControlOutputbox: function(config,parent) {
         var label = config.label,
             labelLower = label.toLowerCase(),
@@ -288,32 +410,90 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         d[labelLower+'_label'] = Dom.get('phedex-nextgen-'+labelLower+'-label');
         d[labelLower+'_text']  = Dom.get('phedex-nextgen-'+labelLower+'-text');
       },
-      makeControlDestination: function(parent) {
-      var el = document.createElement('div'),
-          d = this.dom, el;
+      makeControlDestination: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, resize, className;
+        if ( config.className ) { className = "class='"+config.className+"'"; }
         el = document.createElement('div');
         Dom.addClass(el,'phedex-nextgen-form-element');
-        el.innerHTML = "<div id='destination-container' class='phedex-nextgen-form-element'>" +
-                         "<div class='phedex-nextgen-label'>Destination</div>" +
-                         "<div id='destination-panel-wrapper' class='phedex-nextgen-control'>" +
-                           "<div id='destination-panel' class='phedex-nextgen-nodepanel'>" +
-                             "<em>loading destination list...</em>" +
+        el.innerHTML = "<div id='"+labelLower+"-container' class='phedex-nextgen-form-element'>" +
+                         "<div class='phedex-nextgen-label'>"+label+"</div>" +
+                         "<div id='"+labelLower+"-panel-wrapper' class='phedex-nextgen-control'>" +
+                           "<div id='"+labelLower+"-panel' class='phedex-nextgen-nodepanel'>" +
+                             "<em>loading "+labelLower+" list...</em>" +
                            "</div>" +
                          "</div>" +
                        "</div>";
         parent.appendChild(el);
-        NUtil.makeResizable('destination-panel-wrapper','destination-panel',{maxWidth:745, minWidth:100});
-        this.nodePanel = NUtil.NodePanel( this, Dom.get('destination-panel') );
+        resize = config.resize || {maxWidth:745, minWidth:100};
+        NUtil.makeResizable(labelLower+'-panel-wrapper',labelLower+'-panel',resize);
+        config.Panel = NUtil.NodePanel( this, Dom.get(labelLower+'-panel') );
 
-        d.destination = Dom.get('destination-container');
-        var onDestinationClick = function(obj) {
+        d.destination = Dom.get(labelLower+'-container');
+        var onPanelClick = function(obj) {
           return function(event, matchedEl, container) {
-            if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-              obj.Accept.set('disabled',false);
+            var panel = config.Panel,
+                elList = panel.elList,
+                i, elList;
+            config.node = [];
+            for (i in elList) {
+              el = elList[i];
+              if ( el.checked ) { config.node.push(panel.nodes[i]); }
+            }
+            if ( config.node.length == 0 ) {
+              PxS.notify(obj.id,'unsetValueFor',labelForm);
+            } else {
+              PxS.notify(obj.id,'setValueFor',labelForm);
             }
           }
         }(this);
-        YAHOO.util.Event.delegate(d.destination, 'click', onDestinationClick, 'input');
+        YAHOO.util.Event.delegate(d.destination, 'click', onPanelClick, 'input');
+      },
+      makeControlTextbox: function(config,parent) {
+        var label = config.label,
+            labelLower = label.toLowerCase(),
+            labelCss   = labelLower.replace(/ /,'-'),
+            labelForm  = labelLower.replace(/ /,'_'),
+            d = this.dom, el, resize, helpStr='';
+        el = document.createElement('div');
+        if ( config.help_text ) {
+          helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelCss+"' href='#'>[?]</a>";
+        }
+        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                          "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+"</div>" +
+                          "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
+                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + config.text + "</textarea></div>" +
+                          "</div>" +
+                        "</div>";
+        parent.appendChild(el);
+        if ( config.help_text ) {
+          config.help_align = Dom.get('phedex-label-'+labelCss);
+          Dom.get('phedex-help-'+labelCss).setAttribute('onclick', "PxS.notify('"+this.id+"','Help','"+labelForm+"');");
+        }
+
+        resize = config.resize || {maxWidth:745, minWidth:100};
+        NUtil.makeResizable(labelCss+'-wrapper',labelLower,resize);
+
+        d[labelForm] = Dom.get(labelLower);
+        d[labelForm].onfocus = function() {
+          if ( this.value == config.text ) {
+            this.value = '';
+            Dom.setStyle(this,'color','black');
+            PxS.notify(obj.id,'setValueFor',labelForm);
+          }
+        }
+        d[labelForm].onblur=function() {
+          if ( this.value == '' ) {
+            this.value = config.text;
+            Dom.setStyle(this,'color',null);
+            PxS.notify(obj.id,'unsetValueFor',labelForm);
+          } else {
+            PxS.notify(obj.id,'setValueFor',labelForm);
+          }
+        }
       },
       makeControlRadio: function(config,parent) {
         var label = config.label,
@@ -327,7 +507,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           if ( config._default == i ) { radioStr += " checked"; }
           radioStr += ">"+config.values[i]+"</input></div>";
         }
-        if ( config.help ) {
+        if ( config.help_text ) {
           helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelCss+"' href='#'>[?]</a>";
         }
 
@@ -338,42 +518,11 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                          "</div>" +
                        "</div>";
         parent.appendChild(el);
-        if ( config.help ) {
+        if ( config.help_text ) {
           config.help_align = Dom.get('phedex-label-'+labelCss);
           Dom.get('phedex-help-'+labelCss).setAttribute('onclick', "PxS.notify('"+this.id+"','Help','"+labelForm+"');");
         }
         config.elList = Dom.getElementsByClassName('phedex-radio','input',labelForm);
-      },
-      makeControlTextbox: function(config,parent) {
-        var label = config.label,
-            labelLower = label.toLowerCase(),
-            labelCss   = labelLower.replace(/ /,'-'),
-            labelForm  = labelLower.replace(/ /,'_'),
-            d = this.dom, el, resize;
-        el = document.createElement('div');
-        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                          "<div class='phedex-nextgen-label'>"+label+"</div>" +
-                          "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
-                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + config.text + "</textarea></div>" +
-                          "</div>" +
-                        "</div>";
-        parent.appendChild(el);
-        resize = config.resize || {maxWidth:745, minWidth:100};
-        NUtil.makeResizable(labelCss+'-wrapper',labelLower,resize);
-
-        d[labelLower] = Dom.get(labelLower);
-        d[labelLower].onfocus = function() {
-          if ( this.value == config.text ) {
-            this.value = '';
-            Dom.setStyle(this,'color','black');
-          }
-        }
-        d[labelLower].onblur=function() {
-          if ( this.value == '' ) {
-            this.value = config.text;
-            Dom.setStyle(this,'color',null);
-          }
-        }
       },
       getRadioValues: function(config) {
         var elList=config.elList, map=config.map, i, value;
@@ -409,6 +558,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                          { key:'b_time_create', label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
                          { key:'b_is_open',     label:'Open', className:'align-right' }]
               },
+      synchronise: {
+        Preview: { data_items:false },
+        Accept:  { data_items:false, destination:false, user_group:false }
+      }
     },
     initSub: function() {
       var d = this.dom,
@@ -424,45 +577,15 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Subscription level
 
-// Dataset/block name(s)
+// Data Items
       this.data_items = {
         text:'enter one or more block/data-set names, separated by white-space or commas.',
-        help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>"
+        help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>",
+        label:'Data Items'
       };
-      var data_items = this.data_items;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label' id='phedex-label-data-items'>Data Items <a class='phedex-nextgen-help' id='phedex-help-data-items' href='#'>[?]</a></div>" +
-                        "<div id='data_items-wrapper' class='phedex-nextgen-control'>" +
-                          "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      data_items.help_align = Dom.get('phedex-label-data-items');
-      Dom.get('phedex-help-data-items').setAttribute('onclick', "PxS.notify('"+this.id+"','Help','data_items');");
-      NUtil.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
+      this.makeControlTextbox(this.data_items,form);
 
-      d.data_items = Dom.get('data_items');
-      d.data_items.onfocus = function(obj) {
-        return function() {
-          if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
-          if ( this.value == data_items.text ) {
-            this.value = '';
-            Dom.setStyle(this,'color','black');
-            obj.Preview.set('disabled',false);
-          }
-        }
-      }(this);
-      d.data_items.onblur=function(obj) {
-        return function() {
-          if ( this.value == '' ) {
-            this.value = data_items.text;
-            Dom.setStyle(this,'color',null);
-            obj.Preview.set('disabled',true);
-          }
-        }
-      }(this);
-
+// Preview
       this.makeControlOutputbox({label:'Preview'},form);
 
 // DBS
@@ -474,90 +597,16 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           tbedii:'test',
           tony:'test'
-        }
+        },
+        label:'DBS'
       };
+      this.makeControlDBS(this.dbs,form);
 
-      var dbs = this.dbs,
-          instance = PHEDEX.Datasvc.Instance();
-      dbs._default = dbs.instanceDefault[instance.instance] || '(not defined)';
-
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>DBS</div>" +
-                        "<div class='phedex-nextgen-control'>" +
-                          "<div id='dbs_selected'>" + "<span id='dbs_value'>" + dbs._default + "</span>" +
-                            "<span>&nbsp;</span>" + "<a id='change_dbs' class='phedex-nextgen-form-link' href='#'>change</a>" +
-                          "</div>" +
-                        "<div id='dbs_menu''></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      dbs.menu     = Dom.get('dbs_menu');
-      dbs.value    = Dom.get('dbs_value');
-      dbs.selected = Dom.get('dbs_selected');
-      Dom.setStyle(dbs.value,'color','grey');
-
-      var makeDBSMenu = function(obj) {
-        return function(data,context) {
-          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i, dDiv;
-          onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
-            var sText = p_oItem.cfg.getProperty('text');
-            if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
-            dbs.MenuButton.set('label', '<em>'+sText+'</em>');
-          };
-
-          dbsList = data.dbs;
-          if ( !dbsList ) {
-            dDiv = Dom.get('dbs_menu');
-            dDiv.innerHTML = '&nbsp;<strong>Error</strong> loading dbs names, cannot continue';
-            Dom.addClass(dDiv,'phedex-box-red');
-            obj.Preview.set('disabled',true);
-            obj.Accept.set('disabled',true);
-            Dom.get('data_items').disabled = true;
-            return;
-          }
-          for (i in dbsList ) {
-            dbsEntry = dbsList[i];
-            if ( dbsEntry.name == dbs._default ) {
-              dbsEntry.name = '<strong>'+dbsEntry.name+'</strong>';
-              dbs.defaultId = i;
-            }
-            dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
-          }
-          dbs.menu.innerHTML = '';
-          dbs.MenuButton = new YAHOO.widget.Button({  type: 'menu',
-                                  label: '<em>'+dbs._default+'</em>',
-                                  id:   'dbsMenuButton',
-                                  name: 'dbsMenuButton',
-                                  menu:  dbsMenuItems,
-                                  container: 'dbs_menu' });
-          dbs.MenuButton.on('selectedMenuItemChange',function(event) {
-            var menuItem = event.newValue,
-                value    = menuItem.cfg.getProperty('text');
-                if ( value.match(/<strong>(.*)</) ) { value = RegExp.$1; }
-            dbs.value.innerHTML = value;
-            Dom.removeClass(dbs.selected,'phedex-invisible');
-            Dom.setStyle(dbs.MenuButton,'display','none');
-          });
-          obj.dbs.gotMenu = true;
-        }
-      }(this);
-
-      onChangeDBSClick = function(obj) {
-        return function() {
-          if ( !obj.dbs.gotMenu ) {
-            PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
-            dbs.menu.innerHTML = '<em>loading menu, please wait...</em>';
-            Dom.addClass(dbs.selected,'phedex-invisible');
-          } else {
-            Dom.setStyle(dbs.MenuButton,'display',null);
-            Dom.addClass(dbs.selected,'phedex-invisible');
-          }
-        };
-      }(this);
-      Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
-
-      this.makeControlDestination(form);
+// Destination
+      this.destination = {
+        label:'Destination'
+      };
+      this.makeControlDestination(this.destination,form);
 
 // Site Custodial
       this.site_custodial = {
@@ -634,7 +683,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
-            if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
+            PxS.notify(obj.id,'setValueFor','user_group');
+//             if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           };
           for (i in groupList ) {
             group = groupList[i];
@@ -649,7 +699,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                                     menu:  groupMenuItems,
                                     container: 'user_group_menu' });
           user_group.MenuButton.getMenu().cfg.setProperty('scrollincrement',5);
-          if ( --obj.waitToEnableAccept == 0 ) { obj.Accept.set('disabled',false); }
        }
       }(this);
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
@@ -798,14 +847,14 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                                { keys:YAHOO.util.KeyListener.KEY.ENTER },
                                { fn:function(obj){ return function() { onEmailInput(); } }(this),
                                scope:this, correctScope:true } );
-     kl.enable();
+      kl.enable();
 
       var gotAuthData = function(obj) {
         return function(data,context) {
           var address = '';
           try { address = data.auth[0].email; }
           catch(ex) {
-// AUTH failed, don't know what address to put in!
+//          AUTH failed, don't know what address to put in!
             email.value.innerHTML = email._default;
           }
           if ( !address ) { return; }
@@ -876,7 +925,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               data_items = dom.data_items,
               menu, menu_items,
               data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i;
+              elList, el, i, panel;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
@@ -931,11 +980,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // DBS - done directly in the xml
 
 // Destination
-          elList = obj.nodePanel.elList;
+          panel = obj.destination.Panel;
+          elList = panel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
+            if ( el.checked ) { args.node.push(panel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Destination nodes specified');
@@ -948,7 +998,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Transfer Type
           args.move = obj.getRadioValues(obj.transfer_type);
 // Priority
-debugger;
           args.priority = obj.getRadioValues(obj.priority);
 
 // User Group
@@ -963,7 +1012,7 @@ debugger;
             args.time_start = time_start.time_start;
           }
 
-// Email TODO check field?
+// Email TODO check if we need this field?
 //           args.email = email.value.innerHTML;
 
 // Comments
@@ -972,6 +1021,7 @@ debugger;
 // Never subscribe automatically from this form
           args.request_only = 'y';
 
+// Do not suppress the email
           args.no_mail = 'n';
 
 // Hardwired, for best practise!
@@ -1243,6 +1293,10 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
                          { key:'r_files',      label:'Files', className:'align-right', parser:'number' },
                          { key:'r_bytes',      label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' }]
               },
+      synchronise: {
+        Preview: { data_items:false },
+        Accept:  { data_items:false, destination:false }
+      }
     },
     initSub: function() {
       var d = this.dom,
@@ -1256,40 +1310,15 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       form.name = 'subscribe_data';
       mb.appendChild(form);
 
-// Dataset/block name(s)
-      this.data_items = { text:'enter one or more block/data-set names, separated by white-space or commas.' };
-      var data_items = this.data_items;
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>Data Items</div>" +
-                        "<div id='data_items-wrapper' class='phedex-nextgen-control'>" +
-                          "<div><textarea id='data_items' name='data_items' class='phedex-nextgen-textarea'>" + data_items.text + "</textarea></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      NUtil.makeResizable('data_items-wrapper','data_items',{maxWidth:745, minWidth:100});
+// Data Items
+      this.data_items = {
+        text:'enter one or more block/data-set names, separated by white-space or commas.',
+        help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>",
+        label:'Data Items'
+      };
+      this.makeControlTextbox(this.data_items,form);
 
-      d.data_items = Dom.get('data_items');
-      d.data_items.onfocus = function(obj) {
-        return function() {
-          if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
-          if ( this.value == data_items.text ) {
-            this.value = '';
-            Dom.setStyle(this,'color','black');
-            obj.Preview.set('disabled',false);
-          }
-        }
-      }(this);
-      d.data_items.onblur=function(obj) {
-        return function() {
-          if ( this.value == '' ) {
-            this.value = data_items.text;
-            Dom.setStyle(this,'color',null);
-            obj.Preview.set('disabled',true);
-          }
-        }
-      }(this);
-
+// Preview
       this.makeControlOutputbox({label:'Preview'},form);
 
 // DBS
@@ -1301,89 +1330,16 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
           tbedii:'test',
           tony:'test'
-        }
+        },
+        label:'DBS'
       };
+      this.makeControlDBS(this.dbs,form);
 
-      var dbs = this.dbs,
-          instance = PHEDEX.Datasvc.Instance();
-      dbs._default = dbs.instanceDefault[instance.instance] || '(not defined)';
-
-      el = document.createElement('div');
-      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                        "<div class='phedex-nextgen-label'>DBS</div>" +
-                        "<div class='phedex-nextgen-control'>" +
-                          "<div id='dbs_selected'>" + "<span id='dbs_value'>" + dbs._default + "</span>" +
-                            "<span>&nbsp;</span>" + "<a id='change_dbs' class='phedex-nextgen-form-link' href='#'>change</a>" +
-                          "</div>" +
-                        "<div id='dbs_menu''></div>" +
-                        "</div>" +
-                      "</div>";
-      form.appendChild(el);
-      dbs.menu     = Dom.get('dbs_menu');
-      dbs.value    = Dom.get('dbs_value');
-      dbs.selected = Dom.get('dbs_selected');
-      Dom.setStyle(dbs.value,'color','grey');
-
-      var makeDBSMenu = function(obj) {
-        return function(data,context) {
-          var onMenuItemClick, onChangeDBSClick, dbsMenuItems=[], dbsList, dbsEntry, i, dDiv;
-          onMenuItemClick = function (p_sType, p_aArgs, p_oItem) {
-            var sText = p_oItem.cfg.getProperty('text');
-            if ( sText.match(/<strong>(.*)<\/strong>/) ) { sText = RegExp.$1; }
-            dbs.MenuButton.set('label', '<em>'+sText+'</em>');
-          };
-          dbsList = data.dbs;
-          if ( !dbsList ) {
-            dDiv = Dom.get('dbs_menu');
-            dDiv.innerHTML = '&nbsp;<strong>Error</strong> loading dbs names, cannot continue';
-            Dom.addClass(dDiv,'phedex-box-red');
-            obj.Preview.set('disabled',true);
-            obj.Accept.set('disabled',true);
-            Dom.get('data_items').disabled = true;
-            return;
-          }
-          for (i in dbsList ) {
-            dbsEntry = dbsList[i];
-            if ( dbsEntry.name == dbs._default ) {
-              dbsEntry.name = '<strong>'+dbsEntry.name+'</strong>';
-              dbs.defaultId = i;
-            }
-            dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
-          }
-          dbs.menu.innerHTML = '';
-          dbs.MenuButton = new YAHOO.widget.Button({  type: 'menu',
-                                  label: '<em>'+dbs._default+'</em>',
-                                  id:   'dbsMenuButton',
-                                  name: 'dbsMenuButton',
-                                  menu:  dbsMenuItems,
-                                  container: 'dbs_menu' });
-          dbs.MenuButton.on('selectedMenuItemChange',function(event) {
-            var menuItem = event.newValue,
-                value    = menuItem.cfg.getProperty('text');
-                if ( value.match(/<strong>(.*)</) ) { value = RegExp.$1; }
-            dbs.value.innerHTML = value;
-            Dom.removeClass(dbs.selected,'phedex-invisible');
-            Dom.setStyle(dbs.MenuButton,'display','none');
-          });
-          obj.dbs.gotMenu = true;
-        }
-      }(this);
-
-      onChangeDBSClick = function(obj) {
-        return function() {
-          if ( !obj.dbs.gotMenu ) {
-            PHEDEX.Datasvc.Call({ api:'dbs', callback:makeDBSMenu });
-            dbs.menu.innerHTML = '<em>loading menu, please wait...</em>';
-            Dom.addClass(dbs.selected,'phedex-invisible');
-          } else {
-            Dom.setStyle(dbs.MenuButton,'display',null);
-            Dom.addClass(dbs.selected,'phedex-invisible');
-          }
-        };
-      }(this);
-      Event.on(Dom.get('change_dbs'),'click',onChangeDBSClick);
-
-      this.makeControlDestination(form);
+// Destination
+      this.destination = {
+        label:'Destination'
+      };
+      this.makeControlDestination(this.destination,form);
 
 // Remove Subscriptions?
       this.remove_subscription = {
@@ -1516,7 +1472,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
               data_items = dom.data_items,
               menu, menu_items,
               data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i;
+              elList, el, i, panel;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
@@ -1571,11 +1527,12 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 // DBS - done directly in the xml
 
 // Destination
-          elList = obj.nodePanel.elList;
+          panel = obj.destination.Panel;
+          elList = panel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
+            if ( el.checked ) { args.node.push(panel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Destination nodes specified');
@@ -1633,7 +1590,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
               data_items = dom.data_items,
               menu, menu_items,
               data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i;
+              elList, el, i, panel;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
@@ -1686,11 +1643,12 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
           delete data.blocks;
 
 // Destination
-          elList = obj.nodePanel.elList;
+          panel = obj.destination.Panel;
+          elList = panel.elList;
           args.node = [];
           for (i in elList) {
             el = elList[i];
-            if ( el.checked ) { args.node.push(obj.nodePanel.nodes[i]); }
+            if ( el.checked ) { args.node.push(panel.nodes[i]); }
           }
           if ( args.node.length == 0 ) {
             obj.onAcceptFail('No Target nodes specified');
