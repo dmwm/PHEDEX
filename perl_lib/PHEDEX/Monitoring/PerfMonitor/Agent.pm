@@ -369,18 +369,20 @@ sub idle
                                 nvl(hs.to_node,he.to_node) to_node,
                                 nvl(hs.timebin,he.timebin) timebin,
                                 nvl(hs.timewidth,he.timewidth) timewidth,
-                                hs.pend_bytes, he.done_bytes, he.try_bytes,
-                                sign(nvl(hs.pend_bytes,0) +
-                                     nvl(he.done_bytes,0) +
-                                     nvl(he.try_bytes,0)) has_data
+                                sum(hs.pend_bytes) pend_bytes, sum(he.done_bytes) done_bytes, sum(he.try_bytes) try_bytes,
+                                sign(sum(nvl(hs.pend_bytes,0)) +
+                                     sum(nvl(he.done_bytes,0)) +
+                                     sum(nvl(he.try_bytes,0))) has_data
                          from t_history_link_stats hs
                            full join t_history_link_events he
                              on he.timebin = hs.timebin
                              and he.from_node = hs.from_node
                              and he.to_node = hs.to_node
                              and he.priority = hs.priority
-                       where (hs.timebin is not null and hs.timebin > :period and hs.timebin <= :now)
-                          or (he.timebin is not null and he.timebin > :period and he.timebin <= :now)
+                         where (hs.timebin is not null and hs.timebin > :period and hs.timebin <= :now)
+                           or (he.timebin is not null and he.timebin > :period and he.timebin <= :now)
+		         group by nvl(hs.from_node,he.from_node), nvl(hs.to_node,he.to_node),
+			   nvl(hs.timebin,he.timebin), nvl(hs.timewidth,he.timewidth)
                         ) group by from_node, to_node) n
                 on (p.from_node = n.from_node and p.to_node = n.to_node)
 		when matched then
