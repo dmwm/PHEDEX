@@ -539,7 +539,7 @@ sub uc_keys
 # %HTTP-ERROR%#<error_code>#<message>
 #
 # where <error> code is HTTP error number.
-# <message> is not actually used now but could be in the future
+# <message> is a string for error message
 sub http_error
 {
     my ($error, $msg) = @_;
@@ -554,6 +554,57 @@ sub decode_http_error
 {
     my $code = shift;
     return $code =~ m|^%HTTP-ERROR%#(\d+)#(.*)$|;
+}
+
+# Only handle 4XX (client errors) and 5XX (server errors)
+my %http_status = (
+    400 => "Bad Request",
+    401 => "Unauthorized",
+    402 => "Payment Required",
+    403 => "Forbidden",
+    404 => "Not Found",
+    405 => "Method Not Allowed",
+    406 => "Not Acceptable",
+    407 => "Proxy Authentication Required",
+    408 => "Request Timeout",
+    409 => "Conflict",
+    410 => "Gone",
+    411 => "Length Required",
+    412 => "Precondition Failed",
+    413 => "Request Entity Too Large",
+    414 => "Request-URI Too Long",
+    415 => "Unsupported Media Type",
+    416 => "Requested Range Not Satisfiable",
+    417 => "Expectation Failed",
+    500 => "Internal Server Error",
+    501 => "Not Implemented",
+    502 => "Bad Gateway",
+    503 => "Service Unavailable",
+    504 => "Gateway Timeout",
+    505 => "HTTP Version Not Supported"
+);
+
+# Template for Error Document
+my $error_document = qq{
+<html><head>
+<title>%d %s</title>
+</head><body>
+<h1>%s</h1>
+<p>%s</p>
+</body></html>
+};
+
+# generate a custom error document ONLY IF $error code is in %http_status
+# and $message is not empty
+# otherwise, return undef and let caller use default error document.
+sub error_document
+{
+    my ($error, $message) = @_;
+    if (defined $http_status{$error} && $message)
+    {
+        return sprintf($error_document, $error, $http_status{$error}, $http_status{$error}, $message);
+    }
+    return undef;
 }
 
 1;
