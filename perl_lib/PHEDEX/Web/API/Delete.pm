@@ -23,7 +23,7 @@ Makes deletion requests
 
 =head2 Options
 
- node             destination node name, can be multible
+ node             destination node name, can be multiple
  data             XML structure representing the data to be deleted. See PHEDEX::Core::XML
  level            deletion level, either 'dataset' or 'block'.  Default is 'dataset'
  rm_subscriptions 'y' or 'n', remove subscriptions, default is 'y'.
