@@ -214,7 +214,7 @@ sub call
     if ( ! $obj )
     {
       my $api = $self->{API};
-      eval {
+      my $result = eval {
 	if ( $self->{CONFIG}{TRAP_WARNINGS} )
 	{
 	  $SIG{__WARN__} = sub
@@ -254,6 +254,11 @@ sub call
             $fmt->header($phedex);
             do
             {
+                # error or data?
+                if (defined $obj && !ref($obj))
+                {
+                    return $obj;
+                }
                 $fmt->output($obj);
             } while (($obj = $spool->($self, %args))
                      && $fmt->separator());
@@ -266,6 +271,11 @@ sub call
             my $invoke = $api . '::invoke';
 	    # make the call
             $obj = $invoke->($self, %args);
+            # error or data?
+            if (defined $obj && !ref($obj))
+            {
+                return $obj;
+            }
             $t2 = &mytimeofday();
             my $duration = $self->getCacheDuration() || 0;
             $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
@@ -290,6 +300,10 @@ sub call
         }
         warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
       };
+
+      # check http-error
+      return $result if $result;
+
       if ($@) {
 	  my $message = $@;
 	  if ($message =~ /ORA-00942/) # table or view doesn't exist
