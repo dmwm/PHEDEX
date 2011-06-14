@@ -10,6 +10,7 @@ use PHEDEX::Web::Core;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Loader;
 use PHEDEX::Web::Format;
+use PHEDEX::Web::Util;
 
 our ($TESTING, $TESTING_MAIL);
 
@@ -41,6 +42,27 @@ sub new
 
   bless $self, $class;
   return $self;
+}
+
+sub handler
+{
+    local $| = 1;
+    my $r = shift;
+    # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
+    my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
+    my $result = $service->invoke();
+    if (defined $result)
+    {
+        my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
+        my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
+        if ($error_document)
+        {
+            $r->custom_response($error, $error_document);
+        }
+        $r->status($error);
+        return $error;
+    }
+    return Apache2::Const::OK;
 }
 
 sub get_apache_params
@@ -117,7 +139,8 @@ sub invoke
 				    CONFIG => $self->{CONFIG},
 				    CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
 				    SECMOD_CONFIG => $config->{SECMOD_CONFIG},
-				    AUTHZ => $config->{AUTHZ}
+				    AUTHZ => $config->{AUTHZ},
+                                    REQUEST_HANDLER => $self->{REQUEST_HANDLER}
 				    );
   };
   if ($@) {
