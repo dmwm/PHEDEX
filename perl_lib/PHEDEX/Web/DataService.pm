@@ -92,6 +92,10 @@ sub invoke
       return;
   }
 
+  if ($format eq 'combo') {
+      return comboLoader($self);
+  }
+
   my $type;
   if    ($format eq 'xml')  { $type = 'text/xml'; }
   elsif ($format eq 'json') { $type = 'text/javascript'; }
@@ -280,6 +284,81 @@ sub print_doc
 		};
         }
         print $line;
+    }
+}
+
+# comboLoader($core)
+sub comboLoader
+{
+    my $core = shift;
+
+    # Where do I get DocumentRoot for ApplicationServer ?
+    my $root = $core->{REQUEST_HANDLER}->document_root();
+
+    my %args = Vars();
+    my $files = $args{f};
+    if (not $files)
+    {
+        return PHEDEX::Web::Util::http_error(204, undef);
+    }
+
+    my @file = split(/,/, $files);
+
+    # resolve absolute path
+    my @efiles = map { ($_ =~ m!^/!)? $root . $_ : $root . '/' . $_ } @file;
+
+    # check suffix and consistency
+    my @token = split('\.', $file[0]);
+    my $type = $token[$#token];
+    if (not ($type eq 'css' or $type eq 'js'))
+    {
+        return PHEDEX::Web::Util::http_error(415, "unknown type $file[0]. Only *.css or *.js are supported.");
+    }
+
+    my (@wrong_type, @not_found);
+    my $idx = 0;
+    # print Dumper(\@efiles);
+    foreach (@file)
+    {
+        @token = split('\.', $_);
+        if ($token[$#token] ne $type)
+        {
+            push @wrong_type, $_;
+        }
+    
+        if (! -r $efiles[$idx])
+        {
+            push @not_found, $_;
+        }
+        $idx++;
+    }
+
+    if (@wrong_type)
+    {
+        my $msg = qq{Wrong file type: (looking for *.$type)<br>} . join("<br>", @wrong_type);
+        return PHEDEX::Web::Util::http_error(415, $msg);
+    }
+
+    if (@not_found)
+    {
+        my $msg = qq{Not found:<br>} . join("<br>", @not_found);
+        return PHEDEX::Web::Util::http_error(404, $msg);
+    }
+
+    #suppose everything is fine
+
+    $type = "text/" . (($type eq "js")?"javascript":$type);
+
+    # print header
+    print header(-type => $type);
+    # read the files
+    foreach (@efiles)
+    {
+        open FILE, $_;
+        while (<FILE>)
+        {
+            print $_;
+        }
     }
 }
 
