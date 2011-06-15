@@ -100,7 +100,8 @@ our (%params);
             CONFIG => undef,
 	    CACHE_CONFIG => undef,
 	    SECMOD_CONFIG => undef,
-	    AUTHZ => undef
+	    AUTHZ => undef,
+            REQUEST_HANDLER => undef
 	    );
 
 # A map of API calls to data sources
