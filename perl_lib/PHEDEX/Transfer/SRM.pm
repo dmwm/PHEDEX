@@ -150,7 +150,7 @@ sub writeSpec
 
     my $rv = 0;
     if ($syntax eq 'dcache') {
-	$rv = &output ($spec, join ("\n", map { "$_->{FROM_PFN} $_->{TO_PFN}" } @tasks));
+	$rv = &output ($spec, join ("", map { "$_->{FROM_PFN} $_->{TO_PFN}\n" } @tasks));
     } elsif ($syntax eq 'bestman') {
 	$rv = &output ($spec, 
 		 join ("\n", 
