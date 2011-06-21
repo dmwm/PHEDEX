@@ -113,7 +113,8 @@ sub mergeLogBlockLatency
     $sql = qq{
 	merge into t_log_block_latency l
 	using
-	  (select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create, bd.priority,
+	  (select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create,
+	          decode(b.is_open,'n',b.time_update,'y',NULL) block_close, bd.priority,
 	          bd.is_custodial, bd.time_subscription, bd.time_create, bd.time_complete time_done,
 	          nvl2(bd.time_suspend_until, :now, NULL) this_suspend
 	     from t_dps_block_dest bd
@@ -127,15 +128,16 @@ sub mergeLogBlockLatency
 	when matched then
           update set l.files = d.files,
 	             l.bytes = d.bytes,
+	             l.block_close = d.block_close,
 	             l.priority = d.priority,
 		     l.suspend_time = nvl(l.suspend_time,0) + nvl(:now - l.last_suspend,0),
                      l.last_suspend = d.this_suspend,
 	             l.time_update = :now
            where l.last_replica is null
 	when not matched then
-          insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create,
+          insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create, l.block_close,
 		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.suspend_time)
-          values (:now, d.destination, d.block, d.files, d.bytes, d.block_create,
+          values (:now, d.destination, d.block, d.files, d.bytes, d.block_create, d.block_close,
 		  d.priority, d.is_custodial, d.time_subscription, d.this_suspend, 0)
     };
 
@@ -195,7 +197,12 @@ sub mergeLogBlockLatency
     $sql = qq{
 	merge into t_log_block_latency u
 	using
-          (select l.time_subscription, l.destination, l.block, max(xr.time_create) last_replica
+          (select l.time_subscription, l.destination, l.block,
+	       percentile_disc(0.25) within group (order by xr.time_create asc) percent25_replica,
+	       percentile_disc(0.50) within group (order by xr.time_create asc) percent50_replica,
+               percentile_disc(0.75) within group (order by xr.time_create asc) percent75_replica,
+               percentile_disc(0.95) within group (order by xr.time_create asc) percent95_replica,
+	       max(xr.time_create) last_replica
              from t_dps_block_dest bd
 	     join t_dps_block b on b.id = bd.block
 	     join t_xfer_replica xr on xr.node = bd.destination
@@ -212,6 +219,10 @@ sub mergeLogBlockLatency
             and u.block = d.block)
         when matched then
           update set u.time_update = :now,
+	             u.percent25_replica = d.percent25_replica,
+	             u.percent50_replica = d.percent50_replica,
+                     u.percent75_replica = d.percent75_replica,
+                     u.percent95_replica = d.percent95_replica,
 	             u.last_replica = d.last_replica,
                      u.last_suspend = NULL,
                      u.latency = d.last_replica - 
