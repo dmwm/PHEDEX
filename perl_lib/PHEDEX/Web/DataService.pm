@@ -51,18 +51,18 @@ sub handler
     # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
     my $result = $service->invoke();
-    if (defined $result)
+#   The call will return a hashref of data if all went well, or a
+#   textual error message, formatted correctly, if something went wrong
+    return Apache2::Const::OK if (defined $result && (ref($result) eq 'HASH'));
+    my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
+
+    my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
+    if ($error_document)
     {
-        my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
-        my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
-        if ($error_document)
-        {
-            $r->custom_response($error, $error_document);
-        }
-        $r->status($error);
-        return $error;
+      $r->custom_response($error, $error_document);
     }
-    return Apache2::Const::OK;
+    $r->status($error);
+    return $error;
 }
 
 sub get_apache_params
@@ -291,6 +291,7 @@ sub print_doc
 sub comboLoader
 {
     my $core = shift;
+    my ($msg,@efiles);
 
     # Where do I get DocumentRoot for ApplicationServer ?
     my $root = $core->{REQUEST_HANDLER}->document_root();
@@ -305,7 +306,14 @@ sub comboLoader
     my @file = split(/,/, $files);
 
     # resolve absolute path
-    my @efiles = map { ($_ =~ m!^/!)? $root . $_ : $root . '/' . $_ } @file;
+# TW hack!
+    foreach ( @file ) {
+      s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
+      s%^/phedex/datasvc/app/js%$root/ApplicationServer/js%;
+      s%^/phedex/datasvc/app/css%$root/ApplicationServer/css%;
+      if ( !m%^/% ) { $_ = '/' . $_; }
+      push @efiles, $_;
+    }
 
     # check suffix and consistency
     my @token = split('\.', $file[0]);
@@ -335,13 +343,13 @@ sub comboLoader
 
     if (@wrong_type)
     {
-        my $msg = qq{Wrong file type: (looking for *.$type)<br>} . join("<br>", @wrong_type);
+        $msg = qq{Wrong file type: (looking for *.$type)<br>} . join("<br>", @wrong_type);
         return PHEDEX::Web::Util::http_error(415, $msg);
     }
 
     if (@not_found)
     {
-        my $msg = qq{Not found:<br>} . join("<br>", @not_found);
+        $msg = qq{Not found:<br>} . join("<br>", @not_found);
         return PHEDEX::Web::Util::http_error(404, $msg);
     }
 
@@ -360,6 +368,7 @@ sub comboLoader
             print $_;
         }
     }
+    return undef;
 }
 
 1;
