@@ -27,6 +27,8 @@ our %params =
 	  NAMESPACE	=> 'posix',
 	  max_priority	=> 0,			# max of active requests
 	  QUEUE_LENGTH	=> 100,			# length of queue per cycle
+          MAX_QUEUE_LENGTH => 900,              # upper limit if the ajustable queue length, do not change it.
+          FIX_QUEUE_LENGTH => 'y',              # turn on/off queue length 
           DBS_URL       => undef,               # DBS URL to contact, if not set URL from TMDB will be used
           CLEAN_STARTUP => 'y',                 # Clean request leave in Active State
           AGENT_CACHE_MAXFILES => 10000,        # Maximum number of files allow in cache
@@ -467,12 +469,12 @@ sub do_tests
 # I drained the queue, make a larger queue: First make sure that something has been made, i.e. we at least
 # have spend few seconds, then see if there is room for improvement, i.e. at least there are few idle seconds
 # and finally check that we perform a full cycle. It so, make a bigger queue proportional to the time left
-# put a hard limit of 900 
+# put a hard limit of MAX_QUEUE_LENGTH 
      my $dt0   = time() - $self->{TIME_QUEUE_FETCH};
      my $scale= ( $dt0 > 30 ) ? $self->{WAITTIME}/$dt0 : 0;
-     if ( ($self->{WAITTIME} - $dt0) > 30 && $scale && $self->{LAST_QUEUE} == $self->{QUEUE_LENGTH} ) {
+     if ( $self->{FIX_QUEUE_LENGTH} eq 'y'  && ($self->{WAITTIME} - $dt0) > 30 && $scale && $self->{LAST_QUEUE} == $self->{QUEUE_LENGTH} ) {
         my $new_queue_length = int($self->{QUEUE_LENGTH} * $scale);
-        $self->{QUEUE_LENGTH} = ($new_queue_length <= 900) ? $new_queue_length : 900; 
+        $self->{QUEUE_LENGTH} = ($new_queue_length <= $self->{MAX_QUEUE_LENGTH}) ? $new_queue_length : $self->{MAX_QUEUE_LENGTH}; 
         $self->Dbgmsg("do_tests: Queue too small, increasing QUEUE_LENGTH to $self->{QUEUE_LENGTH}") if ($self->{DEBUG});
      } 
      return;
