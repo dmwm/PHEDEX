@@ -163,12 +163,12 @@ PHEDEX.Loader = function(opts) {
       _loader._filter = function(str) { // overload the builtin, private (!) _filter function
         var f = this.filter;
         if (f) { str = str.replace(new RegExp(f.searchExp, 'g'), f.replaceStr); }
-        str = str.replace(new RegExp('/yui/build//','g'),PxW.BaseURL);
+        str = str.replace(new RegExp('/yui/build//','g'),'/');
         str = str.replace(new RegExp('&','g'),',');
         str = str.replace(/,$/,'');
         return str;
       }
-      _loader.comboBase = '/combo/?f=';
+      _loader.comboBase = '/phedex/datasvc/combo/?f=';
       _loader.root = '/yui/build/';
     }
   };
