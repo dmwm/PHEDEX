@@ -194,7 +194,6 @@ sub doNSCheck
   $were_n = $n_files;
 
   my $agent_reqid = 'req_id_' . $request->{ID};  # We will use this as blockname?
-  do_delete_from_cache();                        # We clean the cache before making a test, which eventually will put something in cache
 
   foreach my $r ( @{$request->{LFNs}} )
   {
@@ -294,14 +293,6 @@ sub stop
   $poe_kernel->call($session,'upload_result');
 }
 
-# hook to call the POE method
-sub do_delete_from_cache
-{
-  my $self = shift;
-  my $session = $poe_kernel->get_active_session;
-  $poe_kernel->call($session,'delete_from_cache');
-}
-
 sub _poe_init
 {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
@@ -333,6 +324,8 @@ sub delete_from_cache
   return;
  }
 
+ $kernel->yield('delete_from_cache');   # come back again, this will stop when all files in cache are within the cache limits
+
  my $nfiles_in_block = scalar @{$self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}};
 
  $self->Dbgmsg("delete_from_cache: Flush block $blockName from the cache, remove $nfiles_in_block  files") if $self->{DEBUG};
@@ -348,10 +341,8 @@ sub delete_from_cache
  my $nfiles_in_cache = scalar keys %{$self->{AGENT_CACHE_NAMESPACE}};
  $self->Dbgmsg("delete_from_cache: nfiles in cache $nfiles_in_cache  and size of local cache $self->{AGENT_CACHE_LOCAL}->{size}") if $self->{DEBUG};
 
- if ( $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} ) {
-  $self->Dbgmsg("delete_from_cache: Local cache has too many entries $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} ") if $self->{DEBUG};
-  $kernel->yield('delete_from_cache');
- }
+ $self->Dbgmsg("delete_from_cache: Local cache has too many entries $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} ") if ( $self->{AGENT_CACHE_LOCAL}->{size} > $self->{AGENT_CACHE_MAXFILES} );
+
 }
 
 
@@ -685,6 +676,8 @@ sub get_work
 # the do_tests loop
   $self->{LAST_QUEUE} = $self->{QUEUE}->get_item_count();
   $self->{TIME_QUEUE_FETCH} = time();
+
+  $kernel->yield('delete_from_cache');  # loop for old stuff in cache, no matter if work has to be done or not
 
   if ( $self->{QUEUE}->get_item_count() ) { $kernel->yield('do_tests'); }
   else                                    { $self->disconnectAgent(); }   # Disconnect from the database
