@@ -309,6 +309,7 @@ sub comboLoader
 # TW hack!
     foreach ( @file ) {
       s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
+      s%^/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
       s%^/phedex/datasvc/app/js%$root/ApplicationServer/js%;
       s%^/phedex/datasvc/app/css%$root/ApplicationServer/css%;
       if ( !m%^/% ) { $_ = '/' . $_; }
