@@ -9686,7 +9686,7 @@ sub output
   textfield(-name=>'block', -value=>$blockfilter, -size=>20, -class=>'labeled'),
   "<label class='inline'>with</label>",
   popup_menu(-name=>'status', values=>\@status, -class=>'labeled'),
-  "<label class='inline'>status</label",
+  "<label class='inline'>status</label>",
   submit(-label=>'Update', -class=>'labeled'), "<br/>",
   "</form>";
   my @where;
