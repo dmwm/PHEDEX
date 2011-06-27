@@ -51,9 +51,11 @@ sub handler
     # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
     my $result = $service->invoke();
-#   The call will return a hashref of data if all went well, or a
+#   The call will return a hashref of data if all went well, or an
+#   undefined value for the comboLoader, or a
 #   textual error message, formatted correctly, if something went wrong
-    return Apache2::Const::OK if (defined $result && (ref($result) eq 'HASH'));
+    return Apache2::Const::OK if (!defined $result);
+    return Apache2::Const::OK if ( (ref($result) eq 'HASH') );
     my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
 
     my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
