@@ -215,7 +215,7 @@ sub call
     if ( ! $obj )
     {
       my $api = $self->{API};
-      my $result = eval {
+      eval {
 	if ( $self->{CONFIG}{TRAP_WARNINGS} )
 	{
 	  $SIG{__WARN__} = sub
@@ -303,8 +303,6 @@ sub call
       };
 
       # check http-error
-      return $result if $result;
-
       if ($@) {
 	  my $message = $@;
 	  if ($message =~ /ORA-00942/) # table or view doesn't exist
