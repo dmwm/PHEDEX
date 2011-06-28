@@ -51,12 +51,12 @@ sub handler
     # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
     my $result = $service->invoke();
-#   The call will return a hashref of data if all went well, or an
-#   undefined value for the comboLoader, or a
-#   textual error message, formatted correctly, if something went wrong
+#   The call will return an undefined value if all went well, or for the comboLoader,
+#   or a textual error message, formatted correctly, if something went wrong
     return Apache2::Const::OK if (!defined $result);
-    return Apache2::Const::OK if ( (ref($result) eq 'HASH') );
-    my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
+    return Apache2::Const::OK if (!$result);
+#   return Apache2::Const::OK if ( ref($result) eq 'HASH' );
+    my ($error, $message);# = PHEDEX::Web::Util::decode_http_error($result);
 
     my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
     if ($error_document)
@@ -296,7 +296,11 @@ sub comboLoader
     my ($msg,@efiles);
 
     # Where do I get DocumentRoot for ApplicationServer ?
-    my $root = $core->{REQUEST_HANDLER}->document_root();
+    my $r = $core->{REQUEST_HANDLER};
+    my $root = $r->document_root();
+    my $path = $r->uri();
+    my $path_info = $r->path_info();
+    $path =~ s%$path_info%/app%;
 
     my %args = Vars();
     my $files = $args{f};
@@ -312,8 +316,8 @@ sub comboLoader
     foreach ( @file ) {
       s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
       s%^/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
-      s%^/phedex/datasvc/app/js%$root/ApplicationServer/js%;
-      s%^/phedex/datasvc/app/css%$root/ApplicationServer/css%;
+      s%^$path/js%$root/ApplicationServer/js%;
+      s%^$path/css%$root/ApplicationServer/css%;
       if ( !m%^/% ) { $_ = '/' . $_; }
       push @efiles, $_;
     }
@@ -358,17 +362,47 @@ sub comboLoader
 
     #suppose everything is fine
 
-    $type = "text/" . (($type eq "js")?"javascript":$type);
 
     # print header
-    print header(-type => $type);
+    print header(-type => "text/" . (($type eq "js")?"javascript":$type));
     # read the files
-    foreach (@efiles)
+    foreach my $file (@efiles)
     {
-        open FILE, $_;
-        while (<FILE>)
-        {
-            print $_;
+        open FILE, $file;
+	if ( $type eq 'css' ) { # CSS background URL properties may need adjusting to the local filesystem
+          my ($text,$start,$end,$newUrl,$url,$tmp);
+          while ( $text = <FILE>)
+          {
+	    while ( $text =~ m%^(.*?url\s*\(\s*)(\S+)(\s*\).*)$% ) {
+	      $start = $1;
+	      $url   = $2;
+	      $end   = $3;
+	      print $start;
+	      if ( $url =~ m%^/% ) { # Absolute URL, use as-is
+		print $path,$url;
+	      } elsif ( $url =~ m%^http(s)?://% ) { # Likewise, use as-is
+		print $url;
+	      } else { # relative URL, calculate path...
+		$newUrl = $file;
+		$newUrl =~ s%/[^/]+$%/%;
+		$newUrl .= $url;
+		do {
+		  $newUrl =~ m%(/[^/.]+/\.\./)%;
+		  if ( $tmp=$1 ) {
+		    $newUrl =~ s%$tmp%/%;
+		  }
+		} while ( $tmp );
+		$newUrl =~ s%^$ENV{PHEDEX_YUI_ROOT}%/yui%;
+		$newUrl =~ s%^$ENV{PHEDEX_PROTOVIS_ROOT}%/protovis%;
+		$newUrl =~ s%^$root/ApplicationServer/css%$path/css%;
+	        print $path,$newUrl;
+	      }
+	      $text = $end;
+	    }
+            print $text if $text;
+	  }
+        } else { # type is javascript, no mangling required
+          while ( <FILE> ) { print; }
         }
     }
     return undef;
