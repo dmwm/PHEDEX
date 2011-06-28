@@ -128,13 +128,9 @@ PHEDEX.Webapp = {
  * @type boolean
  */
   ProductionMode: function() {
-    if ( location.href.match(/http(s)?:\/\/localhost/) )   { return false; }
-    if ( location.href.match(/http(s)?:\/\/cmswttest/) )   { return false; }
-    if ( location.href.match(/http(s)?:\/\/vocms109/)  )   { return false; }
-    if ( location.href.match(/http(s)?:\/\/phedex-web-dev/) )   { return false; }
-    if ( location.href.match(/\/phedex\/dev[1,2,3]/) ) { return false; }
-    if ( location.href.match(/tony.html/) )   { return false; }
-    if ( location.href.match(/phedex-debug.html/) ) { return false; }
+    if ( location.href.match(/http(s)?:\/\/localhost/) )      { return false; }
+    if ( location.href.match(/http(s)?:\/\/phedex-web-dev/) ) { return false; }
+    if ( location.href.match(/phedex-debug.html/) )           { return false; }
     return true;
   }(),
 
@@ -144,7 +140,12 @@ PHEDEX.Webapp = {
  * @type boolean
  * @public
  */
-  combineRequests: false
+  combineRequests: function() {
+    if ( location.href.match(/http(s)?:\/\/localhost/) )      { return false; }
+    if ( location.href.match(/http(s)?:\/\/phedex-web-dev/) ) { return false; }
+    if ( location.href.match(/phedex-debug.html/) )           { return false; }
+    return true;
+  }()
 };
 
 /**
