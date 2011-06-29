@@ -9,10 +9,10 @@
 	margin:5px 3px;
 }
 .yui-skin-sam .yui-dt td.__NESTED__ div.expand {
-	background:transparent url(/yui/build/assets/skins/sam/sprite.png) no-repeat 0 -350px;
+	background:transparent url(/phedex/datasvc/app/yui/build/assets/skins/sam/sprite.png) no-repeat 0 -350px;
 }
 .yui-skin-sam .yui-dt td.__NESTED__ div.collapse {
-	background:transparent url(/yui/build/assets/skins/sam/sprite.png) no-repeat 0 -400px;
+	background:transparent url(/phedex/datasvc/app/yui/build/assets/skins/sam/sprite.png) no-repeat 0 -400px;
 }
 
 .yui-skin-sam .yui-dt tr {
