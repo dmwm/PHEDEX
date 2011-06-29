@@ -108,8 +108,9 @@ sub mergeLogBlockLatency
     # If a block latency record doesn't exist for a block destination,
     # create it -- but only consider active blocks because we can't
     # calculate the latency for inactive ones.  If the record does
-    # exist, update the suspension time as long as the block isn't
-    # complete at the destination.
+    # exist, update the suspension time since the latest replication 
+    # as long as the block isn't complete at the destination.
+    # Also update block and subs stats (files, bytes, block_close, priority)
     $sql = qq{
 	merge into t_log_block_latency l
 	using
@@ -130,13 +131,13 @@ sub mergeLogBlockLatency
 	             l.bytes = d.bytes,
 	             l.block_close = d.block_close,
 	             l.priority = d.priority,
-		     l.suspend_time = nvl(l.suspend_time,0) + nvl(:now - l.last_suspend,0),
+		     l.partial_suspend_time = nvl(l.partial_suspend_time,0) + nvl(:now - l.last_suspend,0),
                      l.last_suspend = d.this_suspend,
 	             l.time_update = :now
            where l.last_replica is null
 	when not matched then
           insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create, l.block_close,
-		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.suspend_time)
+		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.partial_suspend_time)
           values (:now, d.destination, d.block, d.files, d.bytes, d.block_create, d.block_close,
 		  d.priority, d.is_custodial, d.time_subscription, d.this_suspend, 0)
     };
@@ -145,7 +146,7 @@ sub mergeLogBlockLatency
     push @r, $n;
 
     # Performance note:
-    # These merge...update statements are about 25x more efficient than the equivilent (but shorter)
+    # These merge...update statements are about 25x more efficient than the equivalent (but shorter)
     # update t_log_block_latency set X = (select ...) where Y is null
 
     # Update first request
@@ -192,6 +193,33 @@ sub mergeLogBlockLatency
     ($q, $n) = execute_sql( $self, $sql, %p );
     push @r, $n;
 
+    # Update most recent replica if the block record is not complete; if a new replica was created
+    # since the previous update, add the partial suspension time since the latest replica to the total suspension time
+    $sql = qq{
+        merge into t_log_block_latency u
+        using
+          (select l.time_subscription, l.destination, l.block,
+	       max(xr.time_create) latest_replica, l.partial_suspend_time
+	    from t_xfer_replica xr
+             join t_xfer_file xf on xf.id = xr.fileid
+             join t_log_block_latency l on l.destination = xr.node
+                                       and l.block = xf.inblock
+            where l.first_replica is not null and l.last_replica is null
+            group by l.time_subscription, l.destination, l.block, l.partial_suspend_time) d
+        on (u.time_subscription = d.time_subscription
+            and u.destination = d.destination
+            and u.block = d.block)
+        when matched then
+          update set u.time_update = :now,
+                     u.latest_replica = d.latest_replica,
+                     u.total_suspend_time = nvl(d.partial_suspend_time,0) + nvl(u.total_suspend_time,0),
+	             u.partial_suspend_time=0
+	    where d.latest_replica>nvl(u.latest_replica,0)
+    };
+
+    ($q, $n) = execute_sql( $self, $sql, %p );
+    push @r, $n;
+
     # Update last replica and latency total for finished blocks
     # The formula is t_last_replica - t_soonest_possible_start - t_suspended
     $sql = qq{
@@ -227,7 +255,7 @@ sub mergeLogBlockLatency
                      u.last_suspend = NULL,
                      u.latency = d.last_replica - 
 	                         greatest(u.block_create,u.time_subscription)
-			          - u.suspend_time
+			          - u.total_suspend_time
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
@@ -240,7 +268,7 @@ sub mergeLogBlockLatency
 	   set l.time_update = :now, 
                l.latency = :now - 
 	                   greatest(l.block_create,l.time_subscription)
-		           - l.suspend_time
+		           - l.total_suspend_time - l.partial_suspend_time
          where l.last_replica is null
     };
 

@@ -1185,13 +1185,15 @@ create table t_log_block_latency
    block_close		float		        , -- time the block was closed
    first_request	float			, -- time block was first routed (t_xfer_request appeared)
    first_replica	float			, -- time the first file was replicated
+   latest_replica	float			, -- time when a file was most recently replicated
    percent25_replica	float			, -- time the 25th-percentile file was replicated
    percent50_replica	float			, -- time the 50th-percentile file was replicated
    percent75_replica	float			, -- time the 75th-percentile file was replicated
    percent95_replica	float			, -- time the 95th-percentile file was replicated
    last_replica		float			, -- time the last file was replicated
    last_suspend		float			, -- time the block was last observed suspended
-   suspend_time		float			, -- seconds the block was suspended
+   partial_suspend_time	float			, -- seconds the block was suspended since the creation of the latest replica
+   total_suspend_time	float			, -- seconds the block was suspended since the start of the transfer
    latency		float			, -- current latency for this block
    --
    constraint fk_status_block_latency_dest
