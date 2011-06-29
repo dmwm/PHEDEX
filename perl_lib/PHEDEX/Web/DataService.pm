@@ -379,7 +379,7 @@ sub comboLoader
 	      $end   = $3;
 	      print $start;
 	      if ( $url =~ m%^/% ) { # Absolute URL, use as-is
-		print $path,$url;
+		print $url;
 	      } elsif ( $url =~ m%^http(s)?://% ) { # Likewise, use as-is
 		print $url;
 	      } else { # relative URL, calculate path...
@@ -394,7 +394,7 @@ sub comboLoader
 		} while ( $tmp );
 		$newUrl =~ s%^$ENV{PHEDEX_YUI_ROOT}%/yui%;
 		$newUrl =~ s%^$ENV{PHEDEX_PROTOVIS_ROOT}%/protovis%;
-		$newUrl =~ s%^$root/ApplicationServer/css%$path/css%;
+		$newUrl =~ s%^$root/ApplicationServer%%;
 	        print $path,$newUrl;
 	      }
 	      $text = $end;
