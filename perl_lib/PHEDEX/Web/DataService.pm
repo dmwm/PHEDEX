@@ -95,7 +95,7 @@ sub invoke
   }
 
   if ($format eq 'combo') {
-      return comboLoader($self);
+      return $self->comboLoader();
   }
 
   my $type;
