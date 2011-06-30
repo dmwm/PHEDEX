@@ -4308,6 +4308,9 @@ sub output
 1;
 
 ######################################################################
+#
+# TW This is obsolete
+#
 #package Web25::Request::Confirm;
 #use strict; use warnings;
 #use base "Web25::Request::Page";
@@ -8674,8 +8677,8 @@ sub output_page
 {
   my ($self) = @_;
 
-my $TW = 0;
   my (@admin_auth,%admin_opts,%admin_grps);
+my $TW = 0;
 if ( $TW ) { # TW
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
