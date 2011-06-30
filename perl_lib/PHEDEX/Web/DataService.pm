@@ -51,12 +51,14 @@ sub handler
     # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
     my $result = $service->invoke();
-#   The call will return an undefined value if all went well, or for the comboLoader,
-#   or a textual error message, formatted correctly, if something went wrong
+
+#   The call will return an undefined value if all went well, or for the comboLoader.
+#   Or it will return a textual error message, formatted correctly, if something went wrong
+#   If there was an error that was detected and handled upstream, the return value here is undefined
+#   N.B. Need to make sure the webapp code handles errors properly before returning HTTP errors here
     return Apache2::Const::OK if (!defined $result);
     return Apache2::Const::OK if (!$result);
-#   return Apache2::Const::OK if ( ref($result) eq 'HASH' );
-    my ($error, $message);# = PHEDEX::Web::Util::decode_http_error($result);
+    my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
 
     my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
     if ($error_document)
@@ -152,6 +154,10 @@ sub invoke
   if ($@) {
       &error($format, "failed to initialize data service API '$call':  $@");
       return;
+# TW When the datasvc javascript handles errors properly, do this...
+#      my $msg = $@;
+#      $msg =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
+#      return PHEDEX::Web::Util::http_error(404,"failed to initialize data service API '$call': $msg");
   }
 
   my %cache_headers;
