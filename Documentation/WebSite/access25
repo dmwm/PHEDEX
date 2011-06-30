@@ -5631,7 +5631,7 @@ sub output
     my $andor = param('andor') || 'and';
 
     print {$$self{CONTENT}}
-    "<form method='get' action='#' class='nice'/>",
+    "<form method='get' action='#' class='nice'>",
     "<label class='inline'>Show links matching from </label>",
     textfield(-name=>'from_filter', -value=>$from_filter, -class=>'labeled'),
     popup_menu(-name=>'andor',
@@ -7398,7 +7398,7 @@ sub output
 	      "if you wish to filter on any of the other fields.  The ",
 	      "<b>Transfer Log</b> cannot be ", "filtered due to its ",
 	      "large size."),
-   	"<form method='get' action='#' class='nice'/>",
+   	"<form method='get' action='#' class='nice'>",
 	"<label>Show errors on links to </label>",
 	textfield(-name=>'tofilter', -value=>$tofilter, -class=>'labeled'),
 	"<label>from</label>",
@@ -9762,7 +9762,7 @@ sub output
   
 }
 
-
+1;
 
 ######################################################################
 package Web25::Reports::DailyReports;
