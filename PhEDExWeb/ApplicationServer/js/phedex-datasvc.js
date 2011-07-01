@@ -144,9 +144,11 @@ PHEDEX.Datasvc = (function() {
 
   // method _fail : fires the error handler
   _fail = function(response) {
-    var query = response.argument;
+    var query = response.argument,
+        context = query.context,
+        message = 'Error from "'+context.api+'" call: '+response.status+' ('+response.statusText+')';
     Ylog('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error',_me);
-    query.failure_event.fire(new Error(response.statusText), query.context);
+    query.failure_event.fire({error:message}, context, response);
     _maybe_schedule(query);
   }
 
@@ -295,7 +297,9 @@ PHEDEX.Datasvc = (function() {
       }
 
       if (!query.failure_event) {
-        query.failure_event = query.success_event;
+//        query.failure_event = query.success_event;
+        query.failure_event = new YuCE('CallbackSuccessEvent');
+        query.failure_event.subscribe(function (type, data) { query.callback(data[0], data[1], data[2])} );
       }
 
       if (query.limit == null || query.limit < 0) {
@@ -348,6 +352,15 @@ PHEDEX.Datasvc = (function() {
       for (var i in _instances ) {
         if ( _instances[i].name == name ) { return _instances[i]; }
       }
+    },
+
+    throwIfError: function(message,response) {
+      if ( !response ) { return; }
+//     'banner' may not be defined if running outside the PhEDEx environment
+      try {
+        banner(message.error+'. Aborting application','error');
+      } catch(ex) {};
+      throw new Error('error from datasvc, cannot continue');
     }
   };
 })();
