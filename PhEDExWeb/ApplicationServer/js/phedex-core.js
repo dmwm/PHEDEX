@@ -294,12 +294,13 @@ PHEDEX.Core = function(sandbox,loader) {
           dataReady.subscribe(function(type,args) {
             return function(_m) {
               banner('Data-service returned OK...')
-              var data = args[0],
-                  context = args[1];
+              var data     = args[0],
+                  context  = args[1],
+                  response = args[2];
               try {
                 if ( !_m.gotData ) { banner(who+' was nuked before data arrived!'); }
                 else {
-                  _m.gotData(data,context);
+                  _m.gotData(data,context,response);
                   if ( context.maxAge ) {
                     _m.data_expires = new Date().getTime()/1000 + parseInt(context.maxAge);
                   }
@@ -348,11 +349,12 @@ PHEDEX.Core = function(sandbox,loader) {
           dataReady.subscribe(function(type,args) {
             return function(_m) {
               banner('Data-service returned OK...')
-              var data = args[0],
-                  context = args[1];
+              var data     = args[0],
+                  context  = args[1],
+                  response = args[2];
               try {
                 if ( !_m.gotData ) { banner(who+' was nuked before data arrived!'); }
-                else { _m.gotData(data,context); }
+                else { _m.gotData(data,context,response); }
               } catch(ex) {
                 log(ex,'error',who);
                 banner('Error processing data for '+_m.me,'error');

@@ -49,7 +49,8 @@ function createCoreApp() {
 
 // Prepare the success-callback...
 // this example simply dumps the object returned by the call, with minimal parsing to show how to get started
-  var dataCallback = function(data,context) {
+  var dataCallback = function(data,context,response) {
+    PHEDEX.Datasvc.throwIfError(data,response); // if there was an HTTP error, this will throw an error, and not return.
     banner('Data-service returned OK...')
 
 // N.B. Use the try/catch to protect against failed calls, since the same callback is used for success or failure.

@@ -417,7 +417,8 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         _sbx.notify( this.id, 'getData', { api:'TransferHistory',    args:args, magic:magic } );
         _sbx.notify( this.id, 'getData', { api:'ErrorLogSummary',    args:args, magic:magic } );
       },
-      gotData: function(data,context) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data: api='+context.api+', id='+context.poll_id+', magic:'+context.magic,'info',this.me);
         if ( this._magic != context.magic ) {
           log('Old data has lost its magic: "'+this._magic+'" != "'+context.magic+'"','warn',this.me);

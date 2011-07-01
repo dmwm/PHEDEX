@@ -67,7 +67,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible'; d.floating_help.id = 'phedex-help-'+PxU.Sequence();
         document.body.appendChild(d.floating_help);
       },
-      gotAuthData: function(data,context) {
+      gotAuthData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         if ( !data.auth ) { return; }
         var auth, roles, role, i;
         if ( typeof(auth) != 'object' ) { auth = {}; } // AUTH call failed, proceed regardless...
@@ -157,7 +158,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             return function(obj) {
               return function() {
                 var elList;
-debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
+// debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
               }
             }(this);
           };
@@ -202,7 +203,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           }(button,field,0);
           this.onUpdate = function() {
             var elList;
-debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
+// debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
           };
           button = new Button({ label:'Apply changes',  id:'phedex-data-subscriptions-update',  container:'phedex-data-subscriptions-ctl-update'  });
           button.on('click',this.onUpdate);
@@ -260,7 +261,8 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         this.dom.datatable.innerHTML = NUtil.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({ api:'subscriptions', callback:this.gotSubscriptions, args:{collapse:'y'} });
       },
-      gotSubscriptions:function(data,context) {
+      gotSubscriptions:function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         var datasets=data.dataset, i, j, k, dataset, blocks, block, table, row,
             d=obj.dom, level;
         if ( !datasets ) {
@@ -275,7 +277,7 @@ try { // TW Build the data-table!
           row=[];
           if ( dataset.subscription ) { level = 'DATASET'; }
         }
-} catch(ex) { var _ex = ex; debugger; }
+} catch(ex) { var _ex = ex; /*debugger;*/ }
       },
       initFilters: function() {
         var p=this.params, i, j, requests, columns, col, label,
@@ -640,7 +642,8 @@ try { // TW Build the data-table!
             button.getMenu().cfg.setProperty('scrollincrement',5);
             return button;
           },
-      gotGroupMenu: function(data,context) {
+      gotGroupMenu: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
 // I have two group menus on this form, one in the filter-panel, one in the update-subscription form
         var button, field;
 // use 'obj', not this, because I am the datasvc callback. Scope is different...

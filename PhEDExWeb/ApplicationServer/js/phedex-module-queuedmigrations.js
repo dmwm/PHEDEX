@@ -227,7 +227,8 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
             * @method gotData
             * @param data {object} queued migration file information in json format.
             */
-            gotData: function(data) {
+            gotData: function(data,context,response) {
+                PHEDEX.Datasvc.throwIfError(data,response);
                 var strFromNode, strToNode;
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data...';

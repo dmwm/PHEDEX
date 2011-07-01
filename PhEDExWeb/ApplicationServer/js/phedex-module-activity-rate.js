@@ -159,7 +159,8 @@ PHEDEX.Module.Activity.Rate = function(sandbox, string) {
 //         _sbx.notify( this.id, 'getData', { api:'transferhistory', args:{} } );
         _sbx.notify( this.id, 'getData', { api:'activity/rate', args:{} } );
       },
-      gotData: function(data,context) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
         if ( !data.link ) {

@@ -54,7 +54,8 @@ PHEDEX.Module.Nodes = function(sandbox, string) {
         this.dom.title.innerHTML = this.me+': fetching data...';
         _sbx.notify( this.id, 'getData', { api: 'nodes' } );
       },
-      gotData: function(data) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
         if ( !data.node ) {

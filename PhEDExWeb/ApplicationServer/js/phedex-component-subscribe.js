@@ -629,7 +629,8 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         }
         return { panel:panel, cBoxes:cBoxes, focus:focus, marker:marker };
       },
-      gotData: function(data,context) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         var rid, api=context.api;
         switch (api) {
           case 'subscribe': {

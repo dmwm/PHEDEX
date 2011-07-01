@@ -160,7 +160,8 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
             * @method gotData
             * @param data {object} agent logs information in json format.
             */
-            gotData: function(data) {
+            gotData: function(data,context,response) {
+              PHEDEX.Datasvc.throwIfError(data,response);
               log('Got new data', 'info', this.me);
               this.dom.title.innerHTML = 'Parsing data...';
               if (data.agent) {

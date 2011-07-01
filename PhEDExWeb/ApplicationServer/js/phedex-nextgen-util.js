@@ -36,7 +36,7 @@ PHEDEX.Nextgen.Util = function() {
       if ( typeof(parent) != 'object' ) { parent = Dom.get(parent); }
       nodePanel.dom = { parent:parent };
       var makeNodePanel = function(o) {
-        return function(data,context) {
+        return function(data,context,response) {
           var nodes=[], node, i, j, k,
             instance=PHEDEX.Datasvc.Instance();
 

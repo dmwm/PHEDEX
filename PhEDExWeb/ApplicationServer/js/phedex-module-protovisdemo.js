@@ -76,7 +76,8 @@ PHEDEX.Module.ProtovisDemo = function(sandbox, string) {
  * data returned by the API call, see the phedex dataservice API documentation for details. This data is then massaged into a suitable form
  * for protovis to digest, and used in whatever representation you like.
  */
-      gotData: function(data,context) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
 

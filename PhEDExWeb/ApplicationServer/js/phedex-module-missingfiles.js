@@ -170,7 +170,8 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
             * @method gotData
             * @param data {object} missing files information in json format.
             */
-            gotData: function(data) {
+            gotData: function(data,context,response) {
+                PHEDEX.Datasvc.throwIfError(data,response);
                 log('Got new data', 'info', this.me);
                 this.dom.title.innerHTML = 'Parsing data';
                 this.data = data.block;

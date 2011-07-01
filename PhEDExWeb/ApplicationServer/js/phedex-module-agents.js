@@ -154,7 +154,8 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         log('Fetching data','info',this.me);
         _sbx.notify( this.id, 'getData', { api:'agents', args:{node:node} } );
       },
-      gotData: function(data,context) {
+      gotData: function(data,context,response) {
+        PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
         if ( !data.node ) {

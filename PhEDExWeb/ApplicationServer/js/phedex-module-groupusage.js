@@ -152,7 +152,8 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
             * @method gotData
             * @param data {object} group information in json format used to fill the datatable directly using a defined schema.
             */
-            gotData: function(data) {
+            gotData: function(data,context,response) {
+                PHEDEX.Datasvc.throwIfError(data,response);
                 log('Got new data','info',this.me);
                 this.dom.title.innerHTML = 'Parsing data';
                 if ( !data.node ) {

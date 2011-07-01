@@ -58,7 +58,8 @@ function createCoreApp() {
 // create a module, initialise it, and override the default (dummy) "gotData" function to do something useful
   myModule = new PHEDEX.Module(PxS,'myModule');
   myModule.init();
-  myModule.gotData = function(data,context) {
+  myModule.gotData = function(data,context,response) {
+    PHEDEX.Datasvc.throwIfError(data,response); // if there was an HTTP error, this will throw an error, and not return.
     banner('Data-service returned OK...')
 // N.B. Use the try/catch to protect against failed calls, since the same callback is used for success or failure.
     try {

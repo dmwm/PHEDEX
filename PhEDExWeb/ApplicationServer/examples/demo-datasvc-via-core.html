@@ -43,7 +43,8 @@ function runDemo() {
 
 // this is the important bit. Create an object which must have a 'gotData' function that will be called by the core when the data is ready. This is essentially a stripped-down PHEDEX.Module.
 Me = {
-  gotData: function(data,context) {
+  gotData: function(data,context,response) {
+    PHEDEX.Datasvc.throwIfError(data,response); // if there was an HTTP error, this will throw an error, and not return.
     banner('Data-service returned OK...')
 
 // N.B. Use the try/catch to protect against failed calls, since the same callback is used for success or failure.

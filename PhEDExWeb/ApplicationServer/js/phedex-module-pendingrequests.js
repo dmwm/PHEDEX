@@ -240,7 +240,8 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
             * @method gotData
             * @param data {object} pending requests information in json format.
             */
-            gotData: function (data,context) {
+            gotData: function (data,context,response) {
+                PHEDEX.Datasvc.throwIfError(data,response);
                 var msg = '';
                 log('Got new data', 'info', this.me);
                 if ( this._magic != context.magic ) {
