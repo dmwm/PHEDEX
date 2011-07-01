@@ -152,12 +152,12 @@ sub invoke
 				    );
   };
   if ($@) {
-      &error($format, "failed to initialize data service API '$call':  $@");
-      return;
+#      &error($format, "failed to initialize data service API '$call':  $@");
+#      return;
 # TW When the datasvc javascript handles errors properly, do this...
-#      my $msg = $@;
-#      $msg =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
-#      return PHEDEX::Web::Util::http_error(404,"failed to initialize data service API '$call': $msg");
+      my $msg = $@;
+      $msg =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
+      return PHEDEX::Web::Util::http_error(404,"failed to initialize data service API '$call': $msg");
   }
 
   my %cache_headers;
