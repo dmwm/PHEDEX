@@ -82,6 +82,7 @@ use PHEDEX::Web::Util;
 use PHEDEX::Web::Cache;
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
+use Digest::MD5;
 
 use Carp qw / longmess /;
 our (%params);
@@ -305,8 +306,14 @@ sub call
       # check http-error
       if ($@) {
 	  my $message = $@;
-	  if ($message =~ /ORA-00942/) # table or view doesn't exist
-	  { $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug'; }
+	  if ($message =~ /ORA-00942/) { # table or view doesn't exist
+	    $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug';
+          } elsif ( $message =~ m%was called% ) {
+#           $message =~ s%was called at.*$%was called.%;
+            my $id = Digest::MD5::md5_hex($message);
+            warn("id=$id, api=$self->{CALL}: $message");
+            $message = "see logfile for details (id=$id)";
+          }
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $message");
 	  return;
       }
