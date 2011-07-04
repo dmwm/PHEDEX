@@ -306,6 +306,9 @@ sub call
       # check http-error
       if ($@) {
 	  my $message = $@;
+          my ($error,$text);
+          ($error,$text) = PHEDEX::Web::Util::decode_http_error($message);
+          if ( $error ) { return $message; }
 	  if ($message =~ /ORA-00942/) { # table or view doesn't exist
 	    $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug';
           } elsif ( $message =~ m%was called% ) {
@@ -384,6 +387,10 @@ sub initSecurity
       $args{PWDFORM_HANDLER} = sub {
           die "authentication check failed:  user not registered in SiteDB\n"
           };
+      # and disable the defaultReqcertHandler
+      $args{REQCERT_FAIL_HANDLER} = sub {
+        die &PHEDEX::Web::Util::http_error(403,'You are not authorised, perhaps you have not presented a valid certificate?');
+      };
   }
   my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
   if ( ! $secmod->init() )
