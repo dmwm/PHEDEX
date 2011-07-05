@@ -1,7 +1,7 @@
 // When the DOM is available, start loading the essential bits and pieces
 // This is where the real application starts.
 YAHOO.util.Event.onDOMReady(function() {
-  PxW.combineRequests = false;
+//   PxW.combineRequests = false;
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
