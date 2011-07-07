@@ -320,6 +320,7 @@ sub comboLoader
     # resolve absolute path
 # TW hack!
     foreach ( @file ) {
+      s%^$path/yui%$ENV{PHEDEX_YUI_ROOT}%;
       s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
       s%^/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
       s%^$path/js%$root/ApplicationServer/js%;
