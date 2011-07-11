@@ -70,6 +70,7 @@ PHEDEX.Util.format={
     for (i=0; i<bounds_length; i++) {
       if ( f>bounds[i][0] ) { return (f/bounds[i][0]).toFixed(1)+' '+bounds[i][1]+'iB'; }
     }
+    if ( f ) { return f; }
     return '-';
   },
   '%':function(raw) {
