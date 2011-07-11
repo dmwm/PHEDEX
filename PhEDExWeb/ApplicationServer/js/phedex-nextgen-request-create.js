@@ -548,16 +548,21 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       NUtil = PHEDEX.Nextgen.Util;
   return {
     meta: {
-      table: { columns: [{ key:'dataset',       label:'Dataset', className:'align-left' },
-                         { key:'blocks',        label:'Blocks',  className:'align-right', parser:'number' },
-                         { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                         { key:'time_create',   label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
-                         { key:'is_open',       label:'Open', className:'align-right' }],
-          nestedColumns:[{ key:'block',         label:'Block', className:'align-left' },
-                         { key:'b_files',       label:'Files', className:'align-right', parser:'number' },
-                         { key:'b_bytes',       label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
-                         { key:'b_time_create', label:'Creation time', formatter:'UnixEpochToUTC', parser:'number' },
-                         { key:'b_is_open',     label:'Open', className:'align-right' }]
+      table: { columns: [{ key:'level',         label:'Level',   className:'align-left' },
+                                { key:'item',          label:'Item',    className:'align-left' },
+                                { key:'files',         label:'Files',   className:'align-right', parser:'number' },
+                                { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
+                                { key:'dbs',           label:'DBS',     className:'align-left' },
+                                { key:'source',        label:'Source',  className:'align-left' },
+                                { key:'comment',       label:'Comment', className:'align-left' }],
+                 nestedColumns:[{ key:'node',          label:'Node',    className:'align-left' },
+                                { key:'b_files',       label:'Files',   className:'align-right', parser:'number' },
+                                { key:'b_bytes',       label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
+                                { key:'is_subscribed', label:'Subscribed' },
+                                { key:'is_custodial',  label:'Custodial' },
+                                { key:'is_move',       label:'Move' },
+                                { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
+                                { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
               },
       synchronise: {
         Preview: { data_items:false },
@@ -1067,7 +1072,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               data_items = dom.data_items,
               menu, menu_items,
               data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i;
+              panel, elList, el, i;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
           Dom.removeClass(obj.dom.results,'phedex-box-red');
@@ -1128,14 +1133,24 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // If there were errors, I can give up now!
           if ( obj.formFail ) { return; }
 
+// Destination
+          panel = obj.destination.Panel;
+          elList = panel.elList;
+          args.node = [];
+          for (i in elList) {
+            el = elList[i];
+            if ( el.checked ) { args.node.push(panel.nodes[i]); }
+          }
+
 // Now build the args!
           if ( data.datasets ) {
             for ( dataset in data.datasets ) {
               blocks = data.datasets[dataset];
               if ( typeof(blocks) == 'number' ) {
-                if ( !args.dataset ) { args.dataset = []; }
-                args.dataset.push(dataset);
+                if ( !args.data ) { args.data = []; }
+                args.data.push(dataset);
               } else {
+debugger; // what happens now???
                 for ( block in blocks ) {
                   if ( !args.block ) { args.block = []; }
                   args.block.push(block);
@@ -1149,6 +1164,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
           args.level = 'block';
 //           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context,response) { obj.previewCallback(data,context,response); } });
+
+          args.type = obj.params.type;
+          args.dbs = dbs.value.innerHTML;
           PHEDEX.Datasvc.Call({
                                 api:'previewrequestdata',
                                 args:args,
@@ -1158,61 +1176,132 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       }(this);
     },
     previewCallback: function(data,context,response) {
-      var rid, api=context.api, Table=[], Row, Nested, unique=0, ds, block, nFiles, nBytes, tDatasets=0, tBlocks=0, tFiles=0, tBytes=0;
+      var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
+          preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, nodeMap={};
+      Dom.removeClass(dom.preview,'phedex-box-yellow');
+      Dom.removeClass(dom.preview,'phedex-box-red');
       switch (api) {
-        case 'data': {
-          var dom=this.dom, datasets=data.dbs, ds, dsName, blocks, block, i, j, n,
-              t=this.meta.table, cDef;
-          Dom.removeClass(dom.preview,'phedex-box-yellow');
-          Dom.removeClass(dom.preview,'phedex-box-red');
-          if ( !datasets ) {
-            dom.preview_text.innerHTML = 'Error retrieving information from the data-service';
-            Dom.addClass(dom.preview,'phedex-box-red');
-            return;
-          }
-          if ( datasets.length == 0 ) {
-            dom.preview_text.innerHTML = 'No data found matching your selection';
-            if ( context.args.create_since ) {
-              dom.preview_text.innerHTML += '<br/><br/>No data injected since the time you specified (' + PxUf.UnixEpochToUTC(context.args.create_since) + ')' +
-                                            '<br/><br/>If you expect data to be injected later, you can continue with the request. Otherwise, please modify your selection.';
-              Dom.addClass(dom.preview,'phedex-box-yellow');
-            } else {
-              Dom.addClass(dom.preview,'phedex-box-red');
-            }
-            return;
-          }
+        case 'previewrequestdata': {
+          preview = data.preview;
           dom.preview_label.innerHTML = 'Preview:';
           dom.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
           dom.preview_summary = Dom.get('phedex-preview-summary');
           dom.preview_table   = Dom.get('phedex-preview-table');
-          datasets = datasets[0].dataset;
-          for (i in datasets) {
-            Nested = [];
-            ds = datasets[i];
-            Row = { dataset:ds.name, block:0, time_create:ds.time_create, is_open:ds.is_open };
+          if ( !preview ) {
+            dom.preview_text.innerHTML = 'Error retrieving information from the data-service';
+            Dom.addClass(dom.preview,'phedex-box-red');
+            return;
+          }
+          if ( preview.comment ) { dom.preview_summary = preview.comment; }
+          for (i in context.args.node ) { nodeMap[context.args.node[i]] = 0; }
+          for (i in preview) {
+            item = preview[i];
+            Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
+            tFiles += parseInt(item.files) || 0;
+            tBytes += parseInt(item.bytes) || 0;
+            for (j in item.src_info ) {
+              src_info = item.src_info[j];
+              text = src_info.node;
+              if ( src_info.files != item.files )  { text += ', incomplete'; }
+              if ( src_info.is_subscribed == 'n' ) { text += ', not subscribed'; }
+              else {
+                if ( nodeMap[src_info.node] != null ) {
+                  text = "<span class='phedex-box-red'>" + text + "</span>";
+                  nodeMap[src_info.node]++;
+                }
+              }
+              if ( Row.source ) { Row.source += '<br/>' + text; }
+              else { Row.source = text; }
+            }
+            if ( Row.comment ) {
+              showComment = true;
+            }
+            if ( item.dbs == dbs ) {
+              Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
+            } else {
+              showDBS = true;
+            }
             Row.uniqueid = unique++;
-            nFiles = nBytes = 0;
-            for (j in ds.block ) {
-              block = ds.block[j];
-              nFiles += parseInt(block.files);
-              nBytes += parseInt(block.bytes);
-              Nested.push({ block:block.name, b_time_create:block.time_create, b_is_open:block.is_open, b_files:block.files, b_bytes:block.bytes });
+            Nested = [];
+            for (j in item.src_info ) {
+              src_info = item.src_info[j];
+              Nested.push({ node:src_info.node,
+                            b_files:src_info.files,
+                            b_bytes:src_info.bytes,
+                            is_subscribed:src_info.is_subscribed,
+                            is_custodial:src_info.is_custodial,
+                            is_move:src_info.is_move,
+                            time_start:src_info.time_start,
+                            subs_level:src_info.subs_level
+                           });
             }
             if ( Nested.length > 0 ) {
-              tBlocks += Nested.length;
-              tFiles  += nFiles;
-              tBytes  += nBytes;
-              Row.blocks = Nested.length;
               Row.nesteddata = Nested;
-              Row.bytes = nBytes;
             }
             Table.push(Row);
           }
-          tDatasets = datasets.length;
-          dom.preview_summary.innerHTML = tDatasets+' datasets, '+tBlocks+' blocks, '+tFiles+' files, '+PxUf.bytes(tBytes);
-          dom.preview_summary.innerHTML = +tDatasets +' dataset' + ( tDatasets>1 ? 's' : '' ) + ', ' +
-                                          tBlocks +   ' block' +   ( tBlocks>1   ? 's' : '' ) + ', ' +
-                                          tFiles + ' files, ' + PxUf.bytes(tBytes);
+          if ( tBytes == 0 ) {
+            var create_since=context.args.create_since;
+            if ( create_since ) {
+              if ( create_since > new Date().getTime()/1000 ) {
+                text = 'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
+              } else {
+                text = 'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
+              }
+              Dom.addClass(dom.preview,'phedex-box-yellow');
+            } else {
+              text = 'No data found matching your selection';
+              Dom.addClass(dom.preview,'phedex-box-red');
+            }
+            text += '<br/><br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
+            dom.preview_summary.innerHTML = text;
+            return;
+          }
+          if ( preview.length == 1 ) {
+            text = 'One data-item matches your request';
+          } else {
+            text = preview.length+' data-items match your request';
+          }
+          text += '<br/>Found '+tFiles+' file';
+          if ( tFiles != 1 ) { text += 's'; }
+          if ( tFiles ) {
+            text += ', ' + ( tBytes ? PxUf.bytes(tBytes) : '0') + ' byte';
+            if ( tBytes != 1 ) { text += 's'; }
+          }
+          j=true;
+          for (i in nodeMap) {
+            if ( nodeMap[i] == preview.length ) {
+              if ( j ) {
+                text += '<br/>All items are already subscribed to <strong>'+i+'</strong>';
+                j=false;
+              } else {
+                text += ', <strong>'+i+'</strong>';
+              }
+              delete nodeMap[i];
+            }
+          }
+          j=true;
+          for (i in nodeMap) {
+            if ( nodeMap[i] ) {
+              if ( j ) {
+                text += '<br/>Some items are already subscribed to <strong>'+i+'</strong>';
+                j=false;
+              } else {
+                text += ', <strong>'+i+'</strong>';
+              }
+              delete nodeMap[i];
+            }
+          }
+
+//           for (i in nodeMap) {
+//             if ( nodeMap[i] ) {
+//               text += '<br/>Node '+i+' matches ';
+//               if ( nodeMap[i] == preview.length ) { text += 'all data-items'; }
+//               else { text += nodeMap[i]+' data-items'; }
+//             }
+//           }
+          dom.preview_summary.innerHTML = text;
+
           i = t.columns.length;
           if (!t.map) { t.map = {}; }
           while (i > 0) { //This is for main columns
@@ -1253,7 +1342,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                               initialLoad: false,
                               generateNestedRequest: this.processNestedrequest
                           });
-          var oCallback = {
+          oCallback = {
             success: this.dataTable.onDataReturnInitializeTable,
             failure: this.dataTable.onDataReturnInitializeTable,
             scope: this.dataTable
@@ -1264,7 +1353,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
               delete obj.nestedtables[ev.dt.getId()];
             }
           }(this));
-
           this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
             var dt = oArgs.dt,
                 oCallback = {
@@ -1274,6 +1362,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             }, ctxId;
             this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
             if ( !dt ) { return; }
+            var col = dt.getColumn('b_files');
+            dt.sortColumn(col, YAHOO.widget.DataTable.CLASS_DESC);
             // This is to maintain the list of created nested tables that would be used in context menu
             if ( !o.nestedtables ) {
               o.nestedtables = {};
@@ -1282,12 +1372,19 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           }, this);
           this.dataSource.sendRequest('', oCallback);
 
-          var column = this.dataTable.getColumn('dataset');
+          column = this.dataTable.getColumn('item');
           this.dataTable.sortColumn(column, YAHOO.widget.DataTable.CLASS_ASC);
-          break;
-        }
-        case 'previewrequestdata': {
-debugger;
+          elList = Dom.getElementsByClassName('phedex-error','span',this.dom.preview_table);
+          for (i in elList) { // I've hacked the error class into the entry in the table, but it really needs to belong to its parent, for better visual effect
+            Dom.removeClass(elList[i],'phedex-error');
+            Dom.addClass(elList[i].parentNode,'phedex-error');
+          }
+          if ( !showDBS ) {
+            this.dataTable.hideColumn(this.dataTable.getColumn('dbs'));
+          }
+          if ( !showComment ) {
+            this.dataTable.hideColumn(this.dataTable.getColumn('comment'));
+          }
           break;
         }
       }
