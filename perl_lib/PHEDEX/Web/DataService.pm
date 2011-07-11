@@ -322,6 +322,7 @@ sub comboLoader
     foreach ( @file ) {
       s%^$path/yui%$ENV{PHEDEX_YUI_ROOT}%;
       s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
+      s%^$path/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
       s%^/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
       s%^$path/js%$root/ApplicationServer/js%;
       s%^$path/css%$root/ApplicationServer/css%;
