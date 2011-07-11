@@ -2,6 +2,7 @@ package PHEDEX::Web::API::PreviewRequestData;
 use PHEDEX::Web::Util;
 use PHEDEX::Web::SQL;
 use PHEDEX::RequestAllocator::Core;
+use PHEDEX::Core::Util;
 use warnings;
 use strict;
 use Data::Dumper;
@@ -22,19 +23,8 @@ sub previewrequestdata {
   my ($core,%params) = @_;
   my ($rid,$i,%h,$type,$response,$requests,$request);
 
-  checkRequired(\%params,qw(data type nodes dbs is_move is_custodial is_static));  
+  checkRequired(\%params,qw(data type));  
   $type = $params{type};
-#  eval {
-#    if ( $type eq 'xfer' ) {
-#      $requests = PHEDEX::RequestAllocator::Core::getTransferRequests($core, REQUESTS => [$params{request}]);
-#    } elsif ( $type eq 'delete' ) {
-#      $requests = PHEDEX::RequestAllocator::Core::getDeleteRequests($core, REQUESTS => [$params{request}]);
-#    } else {
-#      die "Request is of unknown type\n";
-#    }
-#  };
-#  if ( $@ ) { die $@; }
-#  $request =(values %{$requests})[0];
 
   eval {
     if ( $type eq 'xfer' ) {
@@ -56,43 +46,14 @@ sub previewXferRequestData
   if ( !ref($params{data}) ) {
     $params{data} = [ $params{data} ];
   }
-  my @nodes = $params{nodes};
-  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,$$core{DBH},
+  my @nodes = PHEDEX::Core::Util::arrayref_expand($params{node});
+
+  my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,
              $params{dbs},
              $params{is_static} eq 'y' ? 1 : 0,
+	     $params{create_since},
              @{$params{data}});
-
-#  print { $$core{CONTENT} } "<h1>Data Item Lookup</h1>",#    "<p>The following table summarizes an attempt to look for your requested data items in PhEDEx.</p>";
-#  my $table = new Web25::TableSpool;
-#  $table->set_filehandle( $$core{CONTENT} );
-#  $table->set_tableclass('data');
-#  $table->set_stripeclass('stripe');
-#  $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN SOURCES COMMENT)]);
-#  $table->set_tablehead({LEVEL => 'Data Level',
-#      ITEM => 'Data Item',
-#      FILES => 'Files',
-#      BYTES => 'Size',
-#      DPS_ISKNOWN => 'Known to PhEDEx',
-#      DBS_ISKNOWN => 'Known to DBS',
-#      SOURCES => 'Sources (current)',
-#      COMMENT => 'Comment'});
-#  $table->set_cellformats({COMMENT     => sub { return 'alarm' if $_[1]->{PROBLEM};
-#           return 'warn'  if $_[1]->{WARN};
-#           return '';
-#             },
-#        DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
-#        DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
-#
-#  $table->set_dataformats({DPS_ISKNOWN => \&yesno,
-#        DBS_ISKNOWN => \&yesno,
-#        LEVEL => sub { ucfirst lc $_[0] },
-#        BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
-#  $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
-#
-#  $table->start();
-#  $table->head();
   my @table;
-
   my $problems = 0;
   my %subscribed_sources;
   foreach my $userglob (sort @{$params{data}}) {
@@ -112,19 +73,19 @@ sub previewXferRequestData
 
         if ($$res{FILES} == 0) {
           my $item_level = ucfirst lc $$res{LEVEL};
-          push @comments, "$item_level has no files";
+          push @comments, "$item_level is empty";
           $warn = 1;
         }
         if ($$res{DBS} ne $params{dbs})  {
-          push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
+          push @comments, 'Wrong DBS';
           $warn = 1; $row_problem = 1;
         }
         if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) {
-          push @comments, "User duplicated requests";
+          push @comments, 'User duplicated requests';
           $warn = 1;
         }
         if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  {
-          push @comments, "Data item known to PhEDEx in multiple DBSes";
+          push @comments, 'Data item known to PhEDEx in multiple DBSes';
           $warn = 1;
         }
         if ($$res{LEVEL} eq 'BLOCK' && $params{is_move} eq 'y') {
@@ -134,39 +95,32 @@ sub previewXferRequestData
 
         my $src_info = {};
         foreach my $replica (@{$$res{REPLICAS}}) {
-          $$src_info{ $$replica{NODE_NAME} }{ NODE_NAME } = $$replica{NODE_NAME} ;
+          $$src_info{ $$replica{NODE_NAME} }{ NODE } = $$replica{NODE_NAME} ;
           $$src_info{ $$replica{NODE_NAME} }{ FILES } = $$replica{FILES};
         }
         foreach my $subsc (@{$$res{SUBSCRIPTIONS}}) {
-          $$src_info{ $$subsc{NODE_NAME } }{ NODE_NAME } = $$subsc{NODE_NAME};
-          $$src_info{ $$subsc{NODE_NAME } }{ SUBSCRIBED } = 1;
+          $$src_info{ $$subsc{NODE_NAME } }{ NODE } = $$subsc{NODE_NAME};
+          $$src_info{ $$subsc{NODE_NAME } }{ IS_SUBSCRIBED } = 'y';
           $$src_info{ $$subsc{NODE_NAME } }{ IS_CUSTODIAL } = $$subsc{IS_CUSTODIAL};
           $$src_info{ $$subsc{NODE_NAME } }{ IS_MOVE } = $$subsc{IS_MOVE};
-        }
-
-        foreach my $node ( @nodes ) {
-          if (exists $$src_info{$node} && $$src_info{$node}{SUBSCRIBED}) {
-            push @comments, "Already subscribed to $node";
-            $warn = 1;
-          }
         }
 
         # Check subscriptions if a move or custodial request was made
         if ($params{is_move} eq 'y') {
           my @subsc_t1s;
-          foreach my $s (grep $$_{SUBSCRIBED}, values %$src_info) {
-            if ($$s{NODE_NAME} =~ /^T1/ && !grep $_ eq $$s{NODE_NAME}, @nodes) {
+          foreach my $s (grep $$_{IS_SUBSCRIBED}, values %$src_info) {
+            if ($$s{NODE} =~ /^T1/ && !grep $_ eq $$s{NODE}, @nodes) {
               # A T1 is already subscribed that is not in this request
               push @subsc_t1s, $s;
-            } elsif ($$s{NODE_NAME} =~ /^T1/) {
+            } elsif ($$s{NODE} =~ /^T1/) {
               # T1 overlapping request, do nothing
             } else {
               # add to list of subscribed sources
-              $subscribed_sources{ $$s{NODE_NAME} } = 1;
+              $subscribed_sources{ $$s{NODE} } = 1;
             }
           }
           if (@subsc_t1s) {
-            push @comments, "Cannot move data subscribed to another T1";
+            push @comments, 'Cannot move data subscribed to another T1';
             $row_problem = 1;
           }
         }
@@ -175,28 +129,48 @@ sub previewXferRequestData
           my @custodial = grep ($$_{IS_CUSTODIAL} eq 'y', values %$src_info);
           if (@custodial) {
             push @comments, "Data already custodial for ".
-            join(', ', sort map { $$_{NODE_NAME} } @custodial);
+            join(', ', sort map { $$_{NODE} } @custodial);
             $warn = 1;
           }
         }
 
         # prepare a list of source nodes with helpful information
-	@{$res->{SOURCES}} = ();
-        foreach my $info (sort { $$a{NODE_NAME} cmp $$b{NODE_NAME} } values %$src_info) {
-	  my $src = $info->{NODE_NAME} . ': ' . ($info->{FILES} || 0) . ' file';
-	  if ( $info->{FILES} > 1 ) { $src .= 's'; }
-	  $src .= ' ' . ($info->{SUBSCRIBED} ? '' : 'not ') . 'subscribed';
-          push @{$$res{SOURCES}}, $src;
-#          push @{$$res{SOURCES}} join(' ', $$info{NODE_NAME}, ':',
-#              ($$info{FILES} || 0), "files,",
-#              ($$info{SUBSCRIBED} ? "subscribed" : "not subscribed"));
-        }
-        $$res{SOURCES} ||= ['None found'];
+#	@{$res->{SOURCES}} = ();
+#        foreach my $info (sort { $$b{IS_SUBSCRIBED} cmp $$a{IS_SUBSCRIBED} ||
+#				 $$b{FILES} <=> $$a{FILES} ||
+#				 $$b{IS_CUSTODIAL}  cmp $$a{IS_CUSTODIAL} ||
+#				 $$b{NODE}          cmp $$a{NODE} } values %$src_info) {
+#          push @{$$res{SOURCES}}, [ $info->{NODE}, $info->{FILES}, $info->{IS_SUBSCRIBED} ];
+#        }
+#        $$res{SOURCES} ||= ['None found'];
         $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
         $$res{COMMENT} = join('<br/>', @comments);
-        $$res{COMMENT} ||= 'None';
         $$res{WARN} = $warn;
         $$res{PROBLEM} = $row_problem;
+        foreach ( @{$$res{SUBSCRIPTIONS}} ) {
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{NODE}          = $_->{NODE_NAME};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{SUBS_LEVEL}    = $_->{SUBS_LVL};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_CUSTODIAL}  = $_->{IS_CUSTODIAL};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_MOVE}       = $_->{IS_MOVE};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{TIME_START}    = $_->{TIME_START};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_SUBSCRIBED} = 'y';
+        }
+        foreach ( @{$$res{REPLICAS}} ) {
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{NODE}  = $_->{NODE_NAME};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{BYTES} = $_->{BYTES};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{FILES} = $_->{FILES};
+        }
+        delete $res->{REPLICAS};
+        delete $res->{SUBSCRIPTIONS};
+        foreach ( values %{$res->{SRC_INFO}} ) {
+          $_->{IS_SUBSCRIBED} ||= 'n';
+          $_->{SUBS_LEVEL}    ||= '-';
+          $_->{TIME_START}    ||= undef;
+          $_->{IS_CUSTODIAL}  ||= '-';
+          $_->{IS_MOVE}       ||= '-';
+          $_->{FILES}         ||= '-';
+          $_->{BYTES}         ||= '-';
+        }
 
         if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
         push @table,($res);
@@ -205,30 +179,6 @@ sub previewXferRequestData
     }
   }
 
-#  unless ($problems) {
-#  # Save the previous state
-#    $$core{SESSION}->param('type', 'xfer');
-#    $$core{SESSION}->param('type_params', { 'is_move' => $params{is_move},
-#           'is_transient' => 'n', # XXX hardcoded
-#           'is_static' => $params{is_static},
-#           'is_distributed' => 'n', # XXX hardcoded
-#           'priority' => $params{priority},
-#           'is_custodial' => $params{is_custodial},
-#           'user_group' => $params{user_group},
-#           'data' => join(' ', @{$params{data}})
-#           });
-#    $$core{SESSION}->param('comments', $params{comments});
-#    $$core{SESSION}->param('dbs', $params{dbs});
-#    $$core{SESSION}->param('user_email', $params{email});
-#    my @node_pairs;
-#    push @node_pairs, ['d', $_ ] foreach @{$params{nodes}};
-#    push @node_pairs, ['s', $_ ] foreach keys %subscribed_sources;
-#    $$core{SESSION}->param('nodes', \@node_pairs);
-#    $$core{SESSION}->param('data', $resolved);
-#  }
-
-# return $problems;
-#die "\n",Data::Dumper->Dump([ $table, $problems ]);
   return \@table;
 }
 
@@ -407,14 +357,15 @@ sub previewDeleteRequestData
 #   DBS_ISKNOWN = 'y' or 'n'
 sub resolve_data
 {
-    my ($core,$dbh, $userdbs, $static, @userdata);
-    ($core,$dbh, $userdbs, $static, @userdata) = @_;
+    my ($core,$dbh, $userdbs, $static, $time_create, @userdata);
+    ($core, $userdbs, $static, $time_create, @userdata) = @_;
     my ($level,%binds,$ds_lookup,$b_lookup,$sql,$userglob,$globlevel,$lastid,$id,$name);
 
     my $resolved = {};
     my $userdupes = {};
     my $dbsdupes = {};
     my $all = {};
+    $dbh = $core->{DBH};
 
     foreach $level (qw(DATASET BLOCK)) {
 	$$all{$level} = [];
@@ -455,10 +406,10 @@ sub resolve_data
    	     join t_dps_dbs dbs on dbs.id = ds.dbs
              left join t_dps_block b on b.dataset = ds.id
 	 }
-	. 'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$ds_lookup).')'
-        . qq{ group by dbs.id, dbs.name, ds.id, ds.name
-	      order by ds.id };
-	
+	. 'where ('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$ds_lookup).')';
+	$sql .= qq{ and b.time_create >= :time_create } if $time_create;
+        $sql .= qq{ group by dbs.id, dbs.name, ds.id, ds.name order by ds.id };
+	if ( $time_create ) { $binds{':time_create'} = $time_create; }
 	$all_items->{DATASET} = &PHEDEX::Core::DB::dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
     }
 
@@ -642,7 +593,7 @@ sub fetch_subscriptions
 
   my ($sql,%binds,$where);
   if ($level eq 'DATASET') {
-    $where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'd.dataset', @items).')';
+    $where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'd.id', @items).')';
     $sql = qq { select 'DATASET' subs_lvl,
 		  d.id dataset_id,
 		  d.id subs_item_id,
@@ -651,14 +602,16 @@ sub fetch_subscriptions
 		  rx.is_custodial is_custodial,
 		  rx.is_move is_move,
 		  rx.time_start time_start
-		from t_dps_block d
+		from t_dps_dataset d
 		join t_dps_subs_dataset sd on sd.dataset = d.id
+		join t_dps_subs_param sp on sp.id = sd.param
 		join t_adm_node n on n.id = sd.destination
-		join t_req_xfer rx on rx.request = sd.param
+		join t_req_xfer rx on rx.request = sp.request
 		where
 	      };
   } elsif ($level eq 'BLOCK') {
     $where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'b.id', @items).')';
+# select d.id dataset_id, n.id, n.name from t_dps_dataset d join t_dps_subs_dataset sd on sd.dataset = d.id join t_adm_node n on n.id = sd.destination join t_dps_subs_param sp on sp.id = sd.param join t_req_xfer rx on rx.request = sp.request where d.id = 149064
     $sql = qq { select 'BLOCK' subs_lvl,
 		  b.dataset dataset_id,
 		  b.id subs_item_id,
