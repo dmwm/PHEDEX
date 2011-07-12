@@ -308,6 +308,7 @@ sub call
 	  my $message = $@;
           my ($error,$text);
           ($error,$text) = PHEDEX::Web::Util::decode_http_error($message);
+          $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
           if ( $error ) { return $message; }
 	  if ($message =~ /ORA-00942/) { # table or view doesn't exist
 	    $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug';
