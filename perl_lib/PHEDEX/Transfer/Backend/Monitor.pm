@@ -295,14 +295,14 @@ sub poll_job_postback
         if ( $job->ExitStates->{$result->{JOB_STATE}} )
         {
           $kernel->yield('report_job',$job);
-          goto PJDONE;
         }
       }
-
 #     Put this job back in the queue before I forget about it completely!
-      $priority = $job->Priority();
-      $self->Dbgmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
-      $self->{QUEUE}->enqueue( $priority, $job );
+      else {
+	  $priority = $job->Priority();
+	  $self->Dbgmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
+	  $self->{QUEUE}->enqueue( $priority, $job );
+      }
       goto PJDONE;
   }
 
