@@ -59,6 +59,37 @@ for role in \
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update, flashback on $table to $role;" ;;
 
+      # OPS* roles
+      T_ADM_GROUP:*_OPS*_* | \
+      T_ADM_LINK*:*_OPS*_* | \
+      T_ADM_NODE:*_OPS*_* )
+        # Select, update and insert, but not delete
+        # Delete would remove historical records
+        echo; echo "grant select on $table to $reader;"
+	echo "grant select on $table to $writer;"
+	echo "grant insert, select, update on $table to $role;" ;;
+             
+      T_DPS_BLOCK_DELETE:*_OPS*_* | \
+      T_DPS_SUBS_*:*_OPS*_* | \
+      T_XFER_DELETE:*_OPS*_* | \
+      T_STATUS_BLOCK_ARRIVE:*_OPS*_* | \
+      T_STATUS_BLOCK_PATH:*_OPS*_* )
+        # Select, update and delete, but no insert
+	# Insertion should be done through datasvc/website
+	echo; echo "grant select on $table to $reader;"
+        echo "grant select on $table to $writer;"
+	echo "grant select, update, delete on $table to $role;" ;;   
+
+      T_DPS_*:*_OPS*_* | \
+      T_DVS_*:*_OPS*_* | \
+      T_LOADTEST_PARAM:*_OPS*_* | \
+      T_STATUS_BLOCK_VERIFY:*_OPS*_* | \
+      T_XFER_*:*_OPS*_* )
+        # Select, update, insert and delete
+        echo; echo "grant select on $table to $reader;"
+	echo "grant select on $table to $writer;"
+	echo "grant delete, insert, select, update on $table to $role;" ;;
+
       T_DVS_BLOCK:*_WEBSITE_* | \
       T_REQ_*:*_WEBSITE_* | \
       T_ADM_*:*_WEBSITE_* | \
