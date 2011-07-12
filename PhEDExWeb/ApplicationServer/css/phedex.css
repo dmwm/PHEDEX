@@ -19,12 +19,19 @@ body {
 .phedex-box-yellow    { border: 1px solid #ff8; background-color: #ffe; }
 .phedex-box-mauve     { border: 1px solid #f8f; background-color: #fef; }
 .phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
+.phedex-grey   { color: gray };
+.phedex-silver { color: silver };
 .float-left    { float: left; }
 .float-right   { float: right; }
 .align-left,    .yui-skin-sam .yui-dt .align-left    { text-align: left; }
 .align-right,   .yui-skin-sam .yui-dt .align-right   { text-align: right; }
 .align-justify, .yui-skin-sam .yui-dt .align-justify { text-align: justify; }
 .phedex-hide-overflow { overflow: hidden; }
+
+.phedex-error {
+  background-color: #f66;
+}
+
 .inline_list {
   display: table;
   width: 100%;
@@ -595,6 +602,16 @@ ul li.phedex-contextmenu-beta:before {
   font-weight: bold;
   padding: 0 5px 0 0;
   float: left;
+}
+.phedex-nextgen-label-disabled {
+  width: 175px;
+  display: inline-block;
+  vertical-align:top;
+  text-align: right;
+  padding: 0 5px 0 0;
+  float: left;
+  font-weight: normal;
+  color: silver;
 }
 .phedex-nextgen-filter {
   display: inline-block;
