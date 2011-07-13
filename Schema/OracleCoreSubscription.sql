@@ -45,6 +45,10 @@ create table t_dps_subs_dataset
    constraint pk_dps_subs_dataset
      primary key (destination, dataset),
    --
+   constraint fk_dps_subs_dataset_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
    constraint fk_dps_subs_dataset_ds
      foreign key (dataset) references t_dps_dataset (id)
      on delete cascade,
@@ -54,6 +58,9 @@ create table t_dps_subs_dataset
    --
    constraint ck_dps_subs_dataset_move     
      check (is_move in ('y', 'n')));
+
+create index ix_dps_subs_dataset_dest
+  on t_dps_subs_dataset (destination);
 
 create index ix_dps_subs_dataset_ds
   on t_dps_subs_dataset (dataset);
@@ -75,6 +82,10 @@ create table t_dps_subs_block
    constraint pk_dps_subs_block
      primary key (destination, block),
    --
+   constraint fk_dps_subs_block_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
    constraint fk_dps_subs_block_block
      foreign key (dataset, block) references t_dps_block (dataset, id)
      on delete cascade,
@@ -84,6 +95,9 @@ create table t_dps_subs_block
    --
    constraint ck_dps_subs_block_move 
      check (is_move in ('y', 'n')));
+
+create index ix_dps_subs_block_dest
+  on t_dps_subs_block (destination);
 
 create index ix_dps_subs_block_ds
   on t_dps_subs_block (dataset);

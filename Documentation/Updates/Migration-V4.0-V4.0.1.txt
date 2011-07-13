@@ -1,0 +1,56 @@
+# Migration procedure applied to Debug instance **
+
+# This migration should be able to be performed while agents and website are still active
+
+# cd to a directory where the PHEDEX directory exists and there is an
+# RPM installation
+
+cd /data/DebugNodes
+
+# Source environment
+source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
+
+# Checkout the Schema revision for 4.0.1
+
+cvs co -d PHEDEX_CVS/Schema -r PHEDEX_4_0_1 COMP/PHEDEX/Schema
+
+# Set authentication for DB access
+export PHEDEX_INSTANCE=Debug;
+export PHEDEX_DB="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Admin";
+export PHEDEX_DB_R="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Reader";
+export PHEDEX_DB_W="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/CERN";
+export PHEDEX_CON=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
+export PHEDEX_CON_R=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R});
+export PHEDEX_CON_W=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W});
+export PHEDEX_SCHEMA=$(echo $PHEDEX_CON | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_R=$(echo $PHEDEX_CON_R | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_W=$(echo $PHEDEX_CON_W | perl -p -e 's|/.*$||')
+env | egrep 'PHEDEX_(DB|CON|SCHEMA)';
+
+# Get rid of X tables
+sqlplus -S $PHEDEX_CON @PHEDEX_CVS/Schema/OracleResetOld.sql </dev/null
+
+# Connect to DB using SQLPlus
+sqlplus $PHEDEX_CON
+
+-- From SQLPLUS
+
+set serveroutput on size 100000;
+set timing on;
+spool migration.sqllog
+
+alter table t_dps_subs_dataset
+ add constraint fk_dps_subs_dataset_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade;
+
+alter table t_dps_subs_block
+ add constraint fk_dps_subs_block_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade;
+
+create index ix_dps_subs_dataset_dest
+  on t_dps_subs_dataset (destination);
+
+create index ix_dps_subs_block_dest
+  on t_dps_subs_block (destination);
