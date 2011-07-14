@@ -2,6 +2,7 @@
 use warnings;
 use strict;
 
+use PHEDEX::CLI::UserAgent;
 use Time::HiRes qw(gettimeofday tv_interval);
 use POSIX;
 use XML::Simple;
@@ -23,16 +24,31 @@ my $verbose = 0;
 my $test_file;
 my $output_dir;
 my $help;
+my ($use_cert,$cert_file,$key_file,$use_perl,$use_json,$use_xml);
 
+$use_cert = 0;
+$use_perl = $use_json = $use_xml = 1;
 GetOptions(
-    "verbose!" => \$verbose,
+    "verbose!"	  => \$verbose,
     "webserver=s" => \$web_server,
-    "path=s" => \$url_path,
-    "debug!" => \$debug,
-    "file=s" => \$test_file,
-    "output|O=s" => \$output_dir,
-    "help" => \$help,
+    "path=s"	  => \$url_path,
+    "debug!"	  => \$debug,
+    "file=s"	  => \$test_file,
+    "output|O=s"  => \$output_dir,
+    "help"	  => \$help,
+    'use-cert!'   => \$use_cert,
+    'cert_file=s' => \$cert_file,
+    'key_file=s'  => \$key_file,
+    'xml!'	  => \$use_xml,
+    'json!'	  => \$use_json,
+    'perl!'	  => \$use_perl,
 );
+
+if ( $use_cert )
+{
+  $cert_file = $ENV{HOME} . '/.globus/usercert.pem' unless $cert_file;
+  $key_file  = $ENV{HOME} . '/.globus/userkey.pem'  unless $key_file;
+}
 
 sub usage()
 {
@@ -51,6 +67,14 @@ Usage: $0 [--verbose] [--debug] [--webserver <web_host>] [--path <path>] [--file
                         without --file, the commands are read from stdin
 --ouptut <dir>          save data service output to files in this directory
 --debug                 turn on debugging mode
+
+--use_cert		use a certificate for the requests. The default is not
+                        to use certificates.
+--cert_file <file>	your public certificate. Default is ~/.globus/usercert.pem
+--key_file <file>	your private key. Default is ~/.globus/userkey.pem
+
+--no-(xml|perl|json)	disable checking the xml/perl/json formats indivually.
+                        Useful for a faster pass through the suite while developing
 
 EOF
 }
@@ -72,122 +96,135 @@ sub verify
         my $url = "${url_prefix}/${format}${url_instance}/$call";
     print "verifying '$url', expecting $expect\n" if $debug;
 
-    my $result = "OK";
-    my $tee = $output_dir ? sprintf("tee $output_dir/%03s.${format}|", $n) : '';
-    my $t0 = [gettimeofday];
-    my $data;
-    if ($format eq 'xml')
-    {
-        my $fh = IO::File->new("wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} ")
-            || die "could not execute wget\n";
-        $data = $xml->XMLin($fh, ForceArray=>1);
-    }
-    elsif ($format eq 'perl')
-    {
-        my $VAR1;
-        open FILE, "wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} "
-            || die "could not execute wget\n";
-	{ local $/ = undef; $data = eval (<FILE>)->{'PHEDEX'} }
-	close FILE;
-    }
-    elsif ($format eq 'json')
-    {
-        open FILE, "wget --no-check-certificate -O - '${url}' 2>/dev/null 1|${tee} "
-	    || die "could not execute wget\n";
-	{ local $/ = undef; $data = join "", <FILE>; }
-	eval { $data = &decode_json($data)->{'phedex'}; };
-	do { $result = "ERROR"; $n++; print "decode_json error: $@\n" } if $@;
-    }
-    else #ERROR
-    {
-        printf "ERROR: unknown format $format\n";
-        $n++;
-        return;
-    }
-    print "got data from '$url', parsing...\n" if $debug;
+    my ($pua,$status,$response,$data,$content,$len,$call_time,$elapsed);
+    my ($t0,$result,$tee);
+    $result = "OK";
+    $tee = $output_dir ? sprintf("tee $output_dir/%03s.${format}|", $n) : '';
+    $t0 = [gettimeofday];
 
-    # Parse response to count elements
-    my $call_time = 0;
-    my $len;
-    # got to be a hash
-    if (ref($data) ne "HASH")
-    {
-        $result = "ERROR";
-    }
-    else
-    {
-        if ($key)
-        {
-            my $list;
-            if ($format eq "perl")
-            {
-                $key = uc $key;
-            }
-            else
-            {
-                $key = lc $key;
-            }
-            $list = $data->{$key};
-            if (ref($list) eq "HASH")
-            {
-                $len = keys %{$list};
-            }
-            elsif (ref($list) eq "ARRAY")
-            {
-                $len = @{$list};
-            }
-            else
-            {
-		if ($format eq 'xml')
-                {
-                    $len = 0;
-                }
-                else
-                {
-                    $len = undef;
-                }
-            }
+    $pua = PHEDEX::CLI::UserAgent->new
+	(
+          DEBUG         => $debug,
+          CERT_FILE     => $cert_file,
+          KEY_FILE      => $key_file,
+          URL           => $url_prefix,
+          FORMAT        => $format,
+          INSTANCE      => $url_instance,
+          NOCERT        => !$use_cert,
+        );
+    $pua->CALL($call);
+    $response = $pua->get($url);
+    $status = $response->code;
+    if ( $status == 200 ) {
+      $content = $response->content;
 
-            # deal with count
-            if ($count)
-            {
-                my $val;
-                my $c1 = substr($count, 0, 1);
-                my $c2 = substr($count, 0, 2);
-                $val = (($c2 eq '>=') || ($c2 eq '<='))?int(substr($count, 2)):int(substr($count, 1));
-                if ($c2 eq '>=')
-                {
-                    $result = ($len >= $val)?'OK':'CTERR';
-                }
-                elsif ($c2 eq '<=')
-                {
-                    $result = ($len <= $val)?'OK':'CTERR';
-                }
-                elsif ($c1 eq '>')
-                {
-                    $result = ($len >  $val)?'OK':'CTERR';
-                }
-                elsif ($c1 eq '<')
-                {
-                    $result = ($len <  $val)?'OK':'CTERR';
-                }
-                elsif ($c1 eq '=')
-                {
-                    $result = ($len ==  $val)?'OK':'CTERR';
-                }
-            }
-        }
+      if ($format eq 'xml')
+      {
+        $data = $xml->XMLin($content, ForceArray=>1);
+      }
+      elsif ($format eq 'perl')
+      {
+          my $VAR1;
+	  { local $/ = undef; $data = eval ($content)->{'PHEDEX'} }
+      }
+      elsif ($format eq 'json')
+      {
+	  eval { $data = &decode_json($content)->{'phedex'}; };
+	  do { $result = "ERROR"; $n++; print "decode_json error: $@\n" } if $@;
+      }
+      else #ERROR
+      {
+          printf "ERROR: unknown format $format\n";
+          $n++;
+          return;
+      }
+      print "got data from '$url', parsing...\n" if $debug;
 
-        if ($format eq "perl")
-        {
-            $call_time = $data->{CALL_TIME};
-        }
-        else
-        {
-            $call_time = $data->{call_time};
-        }
+      # Parse response to count elements
+      $call_time = 0;
+      # got to be a hash
+      if (ref($data) ne "HASH")
+      {
+          $result = "ERROR";
+      }
+      else
+      {
+          if ($key)
+          {
+              my $list;
+              if ($format eq "perl")
+              {
+                  $key = uc $key;
+              }
+              else
+              {
+                  $key = lc $key;
+              }
+              $list = $data->{$key};
+              if (ref($list) eq "HASH")
+              {
+                  $len = keys %{$list};
+              }
+              elsif (ref($list) eq "ARRAY")
+              {
+                  $len = @{$list};
+              }
+              else
+              {
+		  if ($format eq 'xml')
+                  {
+                      $len = 0;
+                  }
+                  else
+                  {
+                      $len = undef;
+                  }
+              }
+  
+              # deal with count
+              if ($count)
+              {
+                  my $val;
+                  my $c1 = substr($count, 0, 1);
+                  my $c2 = substr($count, 0, 2);
+                  $val = (($c2 eq '>=') || ($c2 eq '<='))?int(substr($count, 2)):int(substr($count, 1));
+                  if ($c2 eq '>=')
+                  {
+                      $result = ($len >= $val)?'OK':'CTERR';
+                  }
+                  elsif ($c2 eq '<=')
+                  {
+                      $result = ($len <= $val)?'OK':'CTERR';
+                  }
+                  elsif ($c1 eq '>')
+                  {
+                      $result = ($len >  $val)?'OK':'CTERR';
+                  }
+                  elsif ($c1 eq '<')
+                  {
+                      $result = ($len <  $val)?'OK':'CTERR';
+                  }
+                  elsif ($c1 eq '=')
+                  {
+                      $result = ($len ==  $val)?'OK':'CTERR';
+                  }
+              }
+          }
+
+          if ($format eq "perl")
+          {
+              $call_time = $data->{CALL_TIME};
+          }
+          else
+          {
+              $call_time = $data->{call_time};
+          }
+      }
+    } else { # Status was not OK, use the status code as the result
+      $result = $status;
     }
-    my $elapsed = tv_interval ( $t0, [gettimeofday]);
+
+    $elapsed = tv_interval ( $t0, [gettimeofday]);
     # presentation of $len/count
     if (! defined $len)
     {
@@ -198,6 +235,9 @@ sub verify
         $len = sprintf("%-7i", $len);
     }
     my $res = ($result eq $expect)?"PASS":"FAIL";
+    if ( $expect eq 'ERROR' ) {
+      print "# Error expected, got $result, for $url\n";
+    }
     printf "%03i %4s (%5s %5s) call=%8.4f total=%8.4f count=$len %s\n", $n, $res, $expect, $result, $call_time, $elapsed, $url;
     $n++;
 }
@@ -238,11 +278,11 @@ while(<$inf>)
 
     if ($c1 eq "-")
     {
-            $expect = "ERROR";
+            $expect = $key || 400; # default error is 'bad request'
             $call = substr($call, 1);
     }
     #verify("$root_url/$call", $expect);
-    verify("${url_prefix}${url_path}", "xml", $call, $expect, $key, $count);
-    verify("${url_prefix}${url_path}", "perl", $call, $expect, $key, $count);
-    verify("${url_prefix}${url_path}", "json", $call, $expect, $key, $count);
+    $use_xml  && verify("${url_prefix}${url_path}", "xml", $call, $expect, $key, $count);
+    $use_perl && verify("${url_prefix}${url_path}", "perl", $call, $expect, $key, $count);
+    $use_json && verify("${url_prefix}${url_path}", "json", $call, $expect, $key, $count);
 }
