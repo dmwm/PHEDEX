@@ -125,7 +125,9 @@ sub invoke { return fileReplicas(@_); }
 sub fileReplicas
 {
     my ($core,%h) = @_;
-    my %p = &validate_params(\%h,
+    my %p;
+    eval {
+      %p = &validate_params(\%h,
                            uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
@@ -142,7 +144,10 @@ sub fileReplicas
 #                               se            => { using => 'any'   },
 #                               group         => { using => 'any'   },
 			   });
-				
+    };
+    if ( $@ ) {
+      die PHEDEX::Web::Util::http_error(400,$@);
+    }
     my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
 
     return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
@@ -161,6 +166,7 @@ sub spool
 
     if (!$sth)
     {
+      eval {
         %p = &validate_params(\%h,
                            uc_keys => 1,
 			   allow => [qw(block node se update_since create_since
@@ -178,8 +184,12 @@ sub spool
 #                               se            => { using => 'any'   },
 #                               group         => { using => 'any'   },
 			   });
-        $p{'__spool__'} = 1;
-        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getFileReplicas($core, %p), $limit, @keys);
+      };
+      if ( $@ ) {
+        die PHEDEX::Web::Util::http_error(400,$@);
+      }
+      $p{'__spool__'} = 1;
+      $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getFileReplicas($core, %p), $limit, @keys);
     }
 
     my $r;

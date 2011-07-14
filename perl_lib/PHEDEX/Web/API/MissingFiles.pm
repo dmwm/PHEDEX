@@ -111,7 +111,7 @@ sub missingfiles
     # block or lfn is required
     if (!$h{'block'} && !$h{'lfn'})
     {
-        die "Arguments 'block' or 'lfn' are required.";
+        die PHEDEX::Web::Util::http_error(400,"Arguments 'block' or 'lfn' are required.");
     }
 
     # convert parameter keys to upper case
@@ -138,7 +138,7 @@ sub spool
     # block or lfn is required
     if (!$h{'block'} && !$h{'lfn'})
     {
-        die "Arguments 'block' or 'lfn' are required.";
+        die PHEDEX::Web::Util::http_error(400,"Arguments 'block' or 'lfn' are required.");
     }
 
     # convert parameter keys to upper case
