@@ -122,7 +122,7 @@ sub agentlogs
     # need at least one of the input
     if (! keys %h)
     {
-        die "need at least one of the input arguments: node host user pid agent update_since\n";
+        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: node host user pid agent update_since\n";
     }
 
     # convert parameter keys to upper case
@@ -148,7 +148,7 @@ sub spool
     # need at least one of the input
     if (! keys %h)
     {
-        die "need at least one of the input arguments: node host user pid agent update_since\n";
+        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: node host user pid agent update_since\n";
     }
 
     # convert parameter keys to upper case

@@ -134,7 +134,7 @@ sub errorlog
     # need at least one of the input
     if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
     {
-       die "need at least one of the input argument: from, to, block, lfn";
+        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: from, to, block, lfn");
     }
 
     # convert parameter keys to upper case
