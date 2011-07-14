@@ -22,7 +22,7 @@ sub invoke { return previewrequestdata(@_); }
 sub previewrequestdata {
   my ($core,%params) = @_;
   my ($rid,$i,%h,$type,$response,$requests,$request);
-
+die "Argh!\n";
   checkRequired(\%params,qw(data type));  
   $type = $params{type};
 
@@ -50,7 +50,7 @@ sub previewXferRequestData
 
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,
              $params{dbs},
-             $params{is_static} eq 'y' ? 1 : 0,
+             (defined $params{is_static} && $params{is_static} eq 'y') ? 1 : 0,
 	     $params{create_since},
              @{$params{data}});
   my @table;
@@ -184,6 +184,7 @@ sub previewXferRequestData
 
 sub previewDeleteRequestData
 {
+  return previewXferRequestData(@_);
 #    my ($self, %params) = @_;
 #
 #    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,$$self{DBH}, $params{dbs}, 0, @{$params{data}});
@@ -338,7 +339,6 @@ sub previewDeleteRequestData
 #    $$self{SESSION}->param('data', $resolved);
 #  }
 #  return $problems;
-  return { request => 'delete' };
 }
 
 
@@ -535,7 +535,7 @@ sub resolve_data
 	}
     }
 
-    foreach my $userglob (@userdata) {
+    foreach $userglob (@userdata) {
 	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
 	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
 	    $item->{SUBSCRIPTIONS} = $all_subscriptions->{$item->{LEVEL}}->{$item->{ID}};
