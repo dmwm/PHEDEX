@@ -413,9 +413,9 @@ sub checkRequired
 	    $provided->{$arg} eq '' ||
 	    $provided->{$arg} =~ /^\*+$/
 	    ) {
-	    die "The arguments ", 
-	    join(', ', map { "'$_'" } @required) ,
-	    " are required\n";
+	    die http_error(400,"The arguments " .
+	    join(', ', map { "'$_'" } @required) .
+	    " are required");
 	}
     }
 }
@@ -552,8 +552,17 @@ sub http_error
 
 sub decode_http_error
 {
-    my $code = shift;
-    return $code =~ m|^%HTTP-ERROR%#(\d+)#(.*)$|;
+    my $text = shift;
+    my ($error,$message);
+    if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)$| ) {
+      $error = $1;
+      $message = $2;
+    } else {
+warn "'die' without explicit status for \"$text\"";
+      $error = 500;
+      $message = $text;
+    }
+    return ($error,$message);
 }
 
 # Only handle 4XX (client errors) and 5XX (server errors)
