@@ -58,8 +58,14 @@ sub handler
 #   N.B. Need to make sure the webapp code handles errors properly before returning HTTP errors here
     return Apache2::Const::OK if (!defined $result);
     return Apache2::Const::OK if (!$result);
-    my ($error, $message) = PHEDEX::Web::Util::decode_http_error($result);
+    my ($error, $message);
+    if ( ref($result) eq 'ARRAY' ) {
+      ($error,$message) = @{$result};
+    } else {
+      ($error,$message) = PHEDEX::Web::Util::decode_http_error($result);
+    }
 
+    $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
     my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
     if ($error_document)
     {
@@ -152,12 +158,8 @@ sub invoke
 				    );
   };
   if ($@) {
-#      &error($format, "failed to initialize data service API '$call':  $@");
-#      return;
-# TW When the datasvc javascript handles errors properly, do this...
       my $msg = $@;
-      $msg =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
-      return PHEDEX::Web::Util::http_error(404,"failed to initialize data service API '$call': $msg");
+      return [404,"failed to initialize data service API '$call': $msg"];
   }
 
   my %cache_headers;
