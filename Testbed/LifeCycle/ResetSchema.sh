@@ -44,5 +44,7 @@ fi
 $PHEDEX_SQLPLUS @$PHEDEX/Schema/OracleResetAll.sql < /dev/null
 $PHEDEX_SQLPLUS @$PHEDEX/Schema/OracleInit.sql < /dev/null
 
-echo "insert into t_dps_dbs values (1, 'test', 'unknown', now());" | $PHEDEX_SQLPLUS
+echo "insert into t_dps_dbs values (1, 'test',        'unknown', now());" | $PHEDEX_SQLPLUS
+echo "insert into t_dps_dbs values (2, 'other',       'unknown', now());" | $PHEDEX_SQLPLUS
+echo "insert into t_dps_dbs values (3, 'yet-another', 'unknown', now());" | $PHEDEX_SQLPLUS
 echo "Schema successfully reset!"
