@@ -306,18 +306,16 @@ sub call
       # check http-error
       if ($@) {
 	  my $message = $@;
-          my ($error,$text);
-          ($error,$text) = PHEDEX::Web::Util::decode_http_error($message);
-          $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
-          if ( $error ) { return $message; }
 	  if ($message =~ /ORA-00942/) { # table or view doesn't exist
 	    $message = 'Unexpected database error. Please try again later, or contact experts if you suspect a bug';
           } elsif ( $message =~ m%was called% ) {
-#           $message =~ s%was called at.*$%was called.%;
             my $id = Digest::MD5::md5_hex($message);
             warn("id=$id, api=$self->{CALL}: $message");
             $message = "see logfile for details (id=$id)";
           }
+          my ($error,$text);
+          ($error,$text) = PHEDEX::Web::Util::decode_http_error($message);
+          if ( $error ) { return [$error,$text]; }
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $message");
 	  return;
       }
@@ -390,7 +388,7 @@ sub initSecurity
           };
       # and disable the defaultReqcertHandler
       $args{REQCERT_FAIL_HANDLER} = sub {
-        die &PHEDEX::Web::Util::http_error(403,'You are not authorised, perhaps you have not presented a valid certificate?');
+        die &PHEDEX::Web::Util::http_error(401,'You are not authorised, perhaps you have not presented a valid certificate?');
       };
   }
   my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
