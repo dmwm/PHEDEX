@@ -21,21 +21,23 @@ sub duration { return 0; }
 sub invoke { return previewrequestdata(@_); }
 sub previewrequestdata {
   my ($core,%params) = @_;
-  my ($rid,$i,%h,$type,$response,$requests,$request);
-die "Argh!\n";
-  checkRequired(\%params,qw(data type));  
-  $type = $params{type};
+  my ($type,$response);
 
-  eval {
-    if ( $type eq 'xfer' ) {
-      $response = previewXferRequestData($core, %params);
-    } elsif ( $type eq 'delete' ) {
-      $response = previewDeleteRequestData($core, %params);
-    } else {
-      die "Request is of unknown type\n";
-    }
-  };
+  checkRequired(\%params,qw(data type));  
+#  $type = $params{type};
+
+#  eval {
+#    if ( $type eq 'xfer' ) {
+#      $response = previewXferRequestData($core, %params);
+#    } elsif ( $type eq 'delete' ) {
+#      $response = previewDeleteRequestData($core, %params);
+#    } else {
+#      die "Request is of unknown type\n";
+#    }
+#  };
   if ( $@ ) { die $@; }
+
+  $response = previewXferRequestData($core, %params);
   return { preview => $response };
 }
 
