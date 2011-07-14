@@ -133,7 +133,7 @@ sub blockReplicaCompare
     }
     elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
     {
-        die "argument show is not one of 'match', 'diff' or 'neither'";
+        die PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
     }
 
     if (!$h{VALUE})
@@ -147,7 +147,7 @@ sub blockReplicaCompare
     {
         if (!$h{DATASET} && !$h{BLOCK})
         {
-           die "'dataset' or 'bock' is required for show='neither'";
+           die PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
         }
         $r = PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h);
     }
@@ -183,7 +183,7 @@ sub spool
     }
     elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
     {
-        die "argument show is not one of 'match', 'diff' or 'neither'";
+        die PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
     }
 
     if (!$h{VALUE})
@@ -197,7 +197,7 @@ sub spool
     {
         if (!$h{DATASET} && !$h{BLOCK})
         {
-           die "'dataset' or 'bock' is required for show='neither'";
+           die PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
         }
         $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h), $limit, @keys) if !$sth;
     }
