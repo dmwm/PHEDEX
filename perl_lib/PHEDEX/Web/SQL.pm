@@ -1917,7 +1917,7 @@ sub getDataSubscriptionsQuery
             $block_filter
     };
 
-    my $collapse_filter;
+    my $collapse_filter = '';
     if ($h{COLLAPSE} eq 'y')
     {
         $collapse_filter = qq{
