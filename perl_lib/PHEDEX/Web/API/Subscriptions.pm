@@ -160,10 +160,10 @@ sub subscriptions
 {
     my ($core, %h) = @_;
 
-    # remove collapse if it is not 'y'
+    # provide default for collapse if it is not 'y'
     if ((exists $h{collapse}) && ($h{collapse} ne 'y'))
     {
-        delete $h{collapse};
+        $h{collapse} = 'n';
     }
 
     # convert parameter keys to upper case
