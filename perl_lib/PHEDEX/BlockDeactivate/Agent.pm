@@ -56,7 +56,7 @@ sub idle
       # of a block have as many files as the block has, deactive the
       # block (and all replicas).  We also require for extra safety
       # that there can be no files in transfer, or export, and the
-      # block is not scheduled for deletion
+      # block is not scheduled for deletion or was recently deleted
       #
       # We do *not* require that dest_files = node_files, as at file
       # source nodes dest_files is usually zero, and we still want
