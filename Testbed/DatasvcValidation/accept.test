@@ -50,7 +50,7 @@ blockreplicacompare?a=T1_UK_RAL_Buffer&b=T2_US_Florida&show=neither&dataset=/QCD
 # PHEDEX::Web::API::BlockTestFiles - detailed consistency-check result
 blocktestfiles?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699 node
 
-# PHEDEX::Web::API::BolckTests - consistency-check results
+# PHEDEX::Web::API::BlockTests - consistency-check results
 blocktests?block=/ZeroBias/BeamCommissioning09-PromptReco-v2/RECO%237e9d1e73-357e-43cb-9967-198259a1a699 node
 
 # PHEDEX::Web::API::Bounce - simple data service debugging tool
