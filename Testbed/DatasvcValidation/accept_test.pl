@@ -6,12 +6,12 @@ use PHEDEX::CLI::UserAgent;
 use Time::HiRes qw(gettimeofday tv_interval);
 use POSIX;
 use XML::Simple;
+$XML::Simple::PREFERRED_PARSER = 'XML::LibXML::SAX';
 use IO::File;
 use Getopt::Long;
 use JSON::XS;
 use Data::Dumper;
 $|++;
-
 
 my $web_server = "cmsweb-testbed.cern.ch";
 my $url_path   = "/phedex/datasvc";
