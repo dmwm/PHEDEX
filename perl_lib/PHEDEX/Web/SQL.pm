@@ -1828,6 +1828,9 @@ sub getDataSubscriptions
     delete $h{BLOCK} if exists $h{BLOCK} && not $h{BLOCK};
     delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
+    # set correct default COLLAPSE value
+    $h{COLLAPSE} = 'n' unless $h{COLLAPSE};
+
     my ($sql,$q,$p,@r);
     ($sql,$p) = getDataSubscriptionsQuery($core, %h);
     $q = execute_sql($core, $sql, %{$p});
@@ -3401,8 +3404,8 @@ sub getData
     my $core = shift;
     my %h = @_;
 
-    my $file_select;
-    my $file_join;
+    my $file_select = '';
+    my $file_join = '';
 
     if ($h{LEVEL} eq 'file')
     {
