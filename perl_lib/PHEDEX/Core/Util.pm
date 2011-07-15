@@ -172,8 +172,7 @@ sub build_hash
     if (ref($map) eq "HASH")
     {
         # if there is an element with the key
-        return unless $map->{_KEY};
-        my $key = join ('+', (map {$input->{$_}} split('\+', $map->{_KEY})));
+        my $key = join ('+', (map {$input->{$_}||''} split('\+', $map->{_KEY})));
 
         # skip generating output if there is no key value
         if ($key eq '')
