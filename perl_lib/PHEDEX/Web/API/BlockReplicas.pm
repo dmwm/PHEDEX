@@ -185,70 +185,71 @@ my $map_d = {
 };
 
 sub duration { return 5 * 60; }
-sub invoke { return blockReplicas(@_); }
-sub blockReplicas
-{
-    my ($core,%h) = @_;
-
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
-    {
-        $h{CREATE_SINCE} = "-1d";
-    }
-
-    my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
-
-    if ($r)
-    {
-        if ($h{SHOW_DATASET} eq 'y')
-        {
-            my $r1 = &PHEDEX::Core::Util::flat2tree($map_d, $r);
-            my @dids;
-
-            # get all dataset ids
-            foreach (@{$r1})
-            {
-                push @dids, $_->{id};
-            }
-
-            # get stats of datasets
-            my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
-
-            # turn it into a hash
-            my %dinfo;
-            foreach (@{$d})
-            {
-                $dinfo{$_->{ID}} = $_;
-            }
-
-            # feed stats back to dataset info
-            foreach (@{$r1})
-            {
-                $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
-                $_->{files} = $dinfo{$_->{id}}->{FILES};
-            }
-            
-            return { dataset => $r1 };
-        }
-        else
-        {
-            return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-        }
-    }
-    else
-    {
-        return { block => [] };
-    }
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return blockReplicas(@_); }
+#sub blockReplicas
+#{
+#    my ($core,%h) = @_;
+#
+#    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
+#    {
+#        $h{CREATE_SINCE} = "-1d";
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
+#
+#    if ($r)
+#    {
+#        if ($h{SHOW_DATASET} eq 'y')
+#        {
+#            my $r1 = &PHEDEX::Core::Util::flat2tree($map_d, $r);
+#            my @dids;
+#
+#            # get all dataset ids
+#            foreach (@{$r1})
+#            {
+#                push @dids, $_->{id};
+#            }
+#
+#            # get stats of datasets
+#            my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
+#
+#            # turn it into a hash
+#            my %dinfo;
+#            foreach (@{$d})
+#            {
+#                $dinfo{$_->{ID}} = $_;
+#            }
+#
+#            # feed stats back to dataset info
+#            foreach (@{$r1})
+#            {
+#                $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
+#                $_->{files} = $dinfo{$_->{id}}->{FILES};
+#            }
+#            
+#            return { dataset => $r1 };
+#        }
+#        else
+#        {
+#            return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#        }
+#    }
+#    else
+#    {
+#        return { block => [] };
+#    }
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('BLOCK_ID');
 
 sub spool
@@ -259,6 +260,7 @@ sub spool
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
+    $h{SHOW_DATASET} ||= 'n';
     if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
     {
         $h{CREATE_SINCE} = "-1d";

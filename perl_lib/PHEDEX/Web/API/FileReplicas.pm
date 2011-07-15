@@ -121,42 +121,43 @@ my $map = {
 };
 
 sub duration{ return 5 * 60; }
-sub invoke { return fileReplicas(@_); }
-sub fileReplicas
-{
-    my ($core,%h) = @_;
-    my %p;
-    eval {
-      %p = &validate_params(\%h,
-                           uc_keys => 1,
-			   allow => [qw(block node se update_since create_since
-					complete dist_complete subscribed custodial group lfn)],
-			   require_one_of => [ qw(block lfn dataset) ],
-			   spec => {
-			       block         => { using => 'block' },
-			       complete      => { using => 'yesno' },
-			       dist_complete => { using => 'yesno' },
-			       subscribed    => { using => 'yesno' },
-			       custodial     => { using => 'yesno' },
-                               create_since  => { using => 'time'  },
-                               lfn           => { using => 'lfn'   },
-                               node          => { using => 'node'  },
-#                               se            => { using => 'any'   },
-#                               group         => { using => 'any'   },
-			   });
-    };
-    if ( $@ ) {
-      die PHEDEX::Web::Util::http_error(400,$@);
-    }
-    my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
-
-    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return fileReplicas(@_); }
+#sub fileReplicas
+#{
+#    my ($core,%h) = @_;
+#    my %p;
+#    eval {
+#      %p = &validate_params(\%h,
+#                           uc_keys => 1,
+#			   allow => [qw(block node se update_since create_since
+#					complete dist_complete subscribed custodial group lfn)],
+#			   require_one_of => [ qw(block lfn dataset) ],
+#			   spec => {
+#			       block         => { using => 'block' },
+#			       complete      => { using => 'yesno' },
+#			       dist_complete => { using => 'yesno' },
+#			       subscribed    => { using => 'yesno' },
+#			       custodial     => { using => 'yesno' },
+#                               create_since  => { using => 'time'  },
+#                               lfn           => { using => 'lfn'   },
+#                               node          => { using => 'node'  },
+##                               se            => { using => 'any'   },
+##                               group         => { using => 'any'   },
+#			   });
+#    };
+#    if ( $@ ) {
+#      die PHEDEX::Web::Util::http_error(400,$@);
+#    }
+#    my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
+#
+#    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('BLOCK_ID');
 
 sub spool

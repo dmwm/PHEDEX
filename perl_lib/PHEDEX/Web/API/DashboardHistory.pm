@@ -88,7 +88,8 @@ use PHEDEX::Web::Spooler;
 use Data::Dumper;
 
 sub duration { return 60 * 60; }
-sub invoke { return transferhistory(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return transferhistory(@_); }
 
 my $map = {
     _KEY => 'FROM+TO',
@@ -109,25 +110,25 @@ my $map = {
     }
 };
 
-sub transferhistory
-{
-    my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth ctime / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
-
-    foreach (@$r)
-    {
-        $_ -> {'QUALITY'} = &Quality ($_);
-    }
-
-    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+#sub transferhistory
+#{
+#    my ($core, %h) = @_;
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / from to starttime endtime binwidth ctime / )
+#    {
+#        $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getTransferHistory($core, %h);
+#
+#    foreach (@$r)
+#    {
+#        $_ -> {'QUALITY'} = &Quality ($_);
+#    }
+#
+#    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 sub Quality
 {
@@ -147,7 +148,7 @@ sub Quality
 }
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('FROM', 'TO');
 
 sub spool
@@ -180,6 +181,5 @@ sub spool
         return $r;
     }
 }
-
 
 1;

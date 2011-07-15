@@ -114,55 +114,56 @@ my $map = {
 };
 
 sub duration { return 5 * 60; }
-sub invoke { return blockReplicaCompare(@_); }
-sub blockReplicaCompare
-{
-    my ($core,%h) = @_;
-
-    &checkRequired(\%h, qw / a b / );
-
-    foreach ( qw / a b show value dataset block / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    # default values
-    if (!$h{SHOW})
-    {
-        $h{SHOW} = 'diff';
-    }
-    elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
-    {
-        die PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
-    }
-
-    if (!$h{VALUE})
-    {
-        $h{VALUE} = 'bytes';
-    }
-
-    my $r;
-
-    if ($h{SHOW} eq 'neither')
-    {
-        if (!$h{DATASET} && !$h{BLOCK})
-        {
-           die PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
-        }
-        $r = PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h);
-    }
-    else
-    {
-        $r = PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h);
-    }
-
-    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return blockReplicaCompare(@_); }
+#sub blockReplicaCompare
+#{
+#    my ($core,%h) = @_;
+#
+#    &checkRequired(\%h, qw / a b / );
+#
+#    foreach ( qw / a b show value dataset block / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    # default values
+#    if (!$h{SHOW})
+#    {
+#        $h{SHOW} = 'diff';
+#    }
+#    elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
+#    {
+#        die PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
+#    }
+#
+#    if (!$h{VALUE})
+#    {
+#        $h{VALUE} = 'bytes';
+#    }
+#
+#    my $r;
+#
+#    if ($h{SHOW} eq 'neither')
+#    {
+#        if (!$h{DATASET} && !$h{BLOCK})
+#        {
+#           die PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
+#        }
+#        $r = PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h);
+#    }
+#    else
+#    {
+#        $r = PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h);
+#    }
+#
+#    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('BLOCK');
 
 sub spool

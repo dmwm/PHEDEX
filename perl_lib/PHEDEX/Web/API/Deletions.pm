@@ -72,7 +72,8 @@ use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
-sub invoke { return deletionqueue(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return deletionqueue(@_); }
 
 my $map = {
     _KEY => 'DATASET_ID',
@@ -98,37 +99,36 @@ my $map = {
     }
 };
 
-
-sub deletionqueue
-{
-    my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / node se block dataset id request request_since complete complete_since / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getDeletions($core, %h);
-    my $s = &PHEDEX::Core::Util::flat2tree($map, $r);
-    # now, deal with the files and bytes in the dataset
-    foreach my $d (@$s)
-    {
-        $d->{files} = 0;
-        $d->{bytes} = 0;
-        foreach (@{$d->{block}})
-        {
-            $d->{files} += $_->{files};
-            $d->{bytes} += $_->{bytes};
-        }
-    }
-    return { dataset => $s };
-}
+#sub deletionqueue
+#{
+#    my ($core, %h) = @_;
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / node se block dataset id request request_since complete complete_since / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getDeletions($core, %h);
+#    my $s = &PHEDEX::Core::Util::flat2tree($map, $r);
+#    # now, deal with the files and bytes in the dataset
+#    foreach my $d (@$s)
+#    {
+#        $d->{files} = 0;
+#        $d->{bytes} = 0;
+#        foreach (@{$d->{block}})
+#        {
+#            $d->{files} += $_->{files};
+#            $d->{bytes} += $_->{bytes};
+#        }
+#    }
+#    return { dataset => $s };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('DATASET_ID');
 
 sub spool

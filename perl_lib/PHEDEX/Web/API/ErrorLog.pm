@@ -87,7 +87,8 @@ use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
-sub invoke { return errorlog(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return errorlog(@_); }
 
 my $map = {
     _KEY => 'FROM+TO',
@@ -127,30 +128,30 @@ my $map = {
     }
 };
 
-sub errorlog
-{
-    my ($core, %h) = @_;
-
-    # need at least one of the input
-    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
-    {
-        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: from, to, block, lfn");
-    }
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to block dataset lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getErrorLog($core, %h);
-    return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+#sub errorlog
+#{
+#    my ($core, %h) = @_;
+#
+#    # need at least one of the input
+#    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{dataset}&&!$h{lfn})
+#    {
+#        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: from, to, block, lfn");
+#    }
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / from to block dataset lfn / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getErrorLog($core, %h);
+#    return { link => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 200;
+our $limit = 200;
 my @keys = ('FROM', 'TO');
 
 sub spool

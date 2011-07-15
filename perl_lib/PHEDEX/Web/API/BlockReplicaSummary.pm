@@ -77,30 +77,31 @@ my $map = {
 };
 
 sub duration { return 5 * 60; }
-sub invoke { return blockReplicas(@_); }
-sub blockReplicas
-{
-    my ($core,%h) = @_;
-
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
-    {
-        $h{CREATE_SINCE} = "-1d";
-    }
-
-    my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
-
-    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return blockReplicas(@_); }
+#sub blockReplicas
+#{
+#    my ($core,%h) = @_;
+#
+#    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
+#    {
+#        $h{CREATE_SINCE} = "-1d";
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getBlockReplicas($core, %h);
+#
+#    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('BLOCK_ID');
 
 sub spool

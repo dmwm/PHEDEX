@@ -69,7 +69,8 @@ use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
-sub invoke { return agentlogs(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return agentLogs(@_); }
 
 my $map = {
     _KEY => 'HOST+USER+PID',
@@ -115,30 +116,30 @@ my $map2 = {
     }
 };
         
-sub agentlogs
-{
-    my ($core, %h) = @_;
-
-    # need at least one of the input
-    if (! keys %h)
-    {
-        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: node host user pid agent update_since\n");
-    }
-
-    # convert parameter keys to upper case
-    foreach ( qw / node host user pid agent update_since / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getAgentLogs($core, %h);
-    return { agent => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+#sub agentlogs
+#{
+#    my ($core, %h) = @_;
+#
+#    # need at least one of the input
+#    if (! keys %h)
+#    {
+#        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: node host user pid agent update_since\n");
+#    }
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / node host user pid agent update_since / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getAgentLogs($core, %h);
+#    return { agent => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('HOST','USER','PID');
 
 sub spool

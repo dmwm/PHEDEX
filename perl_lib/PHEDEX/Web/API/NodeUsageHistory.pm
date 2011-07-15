@@ -97,24 +97,25 @@ my $map = {
 };
 
 sub duration { return 60 * 60; }
-sub invoke { return nodeusagehistory(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return nodeusagehistory(@_); }
 
-sub nodeusagehistory
-{
-    my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / node starttime endtime binwidth ctime / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getNodeUsageHistory($core, %h);
-    return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+#sub nodeusagehistory
+#{
+#    my ($core, %h) = @_;
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / node starttime endtime binwidth ctime / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getNodeUsageHistory($core, %h);
+#    return { node => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('NODE_NAME');
 
 sub spool

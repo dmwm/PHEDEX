@@ -115,65 +115,66 @@ my $map = {
 
 
 sub duration { return 60 * 60; }
-sub invoke { 
-    my ($core, %h) = @_;
-
-    # convert parameter key to upper case
-    foreach ( qw / from to state priority block dataset / )
-    {
-	$h{uc $_} = delete $h{$_} if $h{$_};
-    }
-    
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getTransferQueue($core, %h, LEVEL => 'FILE'));
-
-    # make up stats for blocks
-    foreach my $link (@$r)
-    {
-        foreach my $transfer_queue (@{$link->{transfer_queue}})
-        {
-            foreach my $block (@{$transfer_queue->{block}})
-            {
-                my $bytes = 0;
-                my $files = 0;
-                my $time_state;
-                my $time_assign;
-                my $time_expire;
-                foreach my $file (@{$block->{file}})
-                {
-                    $bytes += $file->{bytes};
-                    $files += 1;
-                    if ((! defined $time_state) or
-                        (int($time_state) > int($file->{time_state})))
-                    {
-                        $time_state = $file->{time_state};
-                    }
-
-                    if ((! defined $time_assign) or
-                        (int($time_assign) > int($file->{time_assign}))) 
-                    {
-                        $time_assign = $file->{time_assign};
-                    }
-
-                    if ((! defined $time_expire) or
-                        (int($time_expire) > int($file->{time_expire})))
-                    {
-                        $time_expire = $file->{time_expire};
-                    }
-                    $block->{files} = $files;
-                    $block->{bytes} = $bytes;
-                    $block->{time_state} = $time_state;
-                    $block->{time_assign} = $time_assign;
-                    $block->{time_expire} = $time_expire;
-                }
-            }
-        }
-    }
-
-    return { link => $r };
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { 
+#    my ($core, %h) = @_;
+#
+#    # convert parameter key to upper case
+#    foreach ( qw / from to state priority block dataset / )
+#    {
+#	$h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#    
+#    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getTransferQueue($core, %h, LEVEL => 'FILE'));
+#
+#    # make up stats for blocks
+#    foreach my $link (@$r)
+#    {
+#        foreach my $transfer_queue (@{$link->{transfer_queue}})
+#        {
+#            foreach my $block (@{$transfer_queue->{block}})
+#            {
+#                my $bytes = 0;
+#                my $files = 0;
+#                my $time_state;
+#                my $time_assign;
+#                my $time_expire;
+#                foreach my $file (@{$block->{file}})
+#                {
+#                    $bytes += $file->{bytes};
+#                    $files += 1;
+#                    if ((! defined $time_state) or
+#                        (int($time_state) > int($file->{time_state})))
+#                    {
+#                        $time_state = $file->{time_state};
+#                    }
+#
+#                    if ((! defined $time_assign) or
+#                        (int($time_assign) > int($file->{time_assign}))) 
+#                    {
+#                        $time_assign = $file->{time_assign};
+#                    }
+#
+#                    if ((! defined $time_expire) or
+#                        (int($time_expire) > int($file->{time_expire})))
+#                    {
+#                        $time_expire = $file->{time_expire};
+#                    }
+#                    $block->{files} = $files;
+#                    $block->{bytes} = $bytes;
+#                    $block->{time_state} = $time_state;
+#                    $block->{time_assign} = $time_assign;
+#                    $block->{time_expire} = $time_expire;
+#                }
+#            }
+#        }
+#    }
+#
+#    return { link => $r };
+#}
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('FROM_ID', 'TO_ID');
 
 sub spool{ 

@@ -77,7 +77,8 @@ use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
-sub invoke { return transferqueuehistory(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return transferqueuehistory(@_); }
 
 my $map = {
     _KEY => 'FROM+TO',
@@ -100,25 +101,25 @@ my $map = {
     }
 };
 
-sub transferqueuehistory
-{
-    my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth ctime / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getTransferQueueHistory($core, %h);
-
-    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
-}
+#sub transferqueuehistory
+#{
+#    my ($core, %h) = @_;
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / from to starttime endtime binwidth ctime / )
+#    {
+#        $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getTransferQueueHistory($core, %h);
+#
+#    return { link => PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('FROM', 'TO');
 
 sub spool

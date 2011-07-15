@@ -90,26 +90,27 @@ my $map = {
 };
 
 sub duration { return 60 * 60; }
-sub invoke { return errorlogsummary(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return errorlogsummary(@_); }
 
-sub errorlogsummary
-{
-    my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to block dataset lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getErrorLogSummary($core, %h);
-    return { link => &PHEDEX::Core::Util::flat2tree($map, $r)};
-}
+#sub errorlogsummary
+#{
+#    my ($core, %h) = @_;
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / from to block dataset lfn / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getErrorLogSummary($core, %h);
+#    return { link => &PHEDEX::Core::Util::flat2tree($map, $r)};
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('FROM', 'TO');
 
 sub spool

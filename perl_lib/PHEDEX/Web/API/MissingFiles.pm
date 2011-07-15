@@ -102,33 +102,33 @@ my $map = {
 
 
 sub duration { return 60 * 60; }
-sub invoke { return missingfiles(@_); }
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
+#sub invoke { return missingfiles(@_); }
 
-sub missingfiles
-{
-    my ($core, %h) = @_;
-
-    # block or lfn is required
-    if (!$h{'block'} && !$h{'lfn'})
-    {
-        die PHEDEX::Web::Util::http_error(400,"Arguments 'block' or 'lfn' are required.");
-    }
-
-    # convert parameter keys to upper case
-    foreach ( qw / block node se subscribed custodial group lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Web::SQL::getMissingFiles($core, %h);
-    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-    # return { subscription => $r };
-}
+#sub missingfiles
+#{
+#    my ($core, %h) = @_;
+#
+#    # block or lfn is required
+#    if (!$h{'block'} && !$h{'lfn'})
+#    {
+#        die PHEDEX::Web::Util::http_error(400,"Arguments 'block' or 'lfn' are required.");
+#    }
+#
+#    # convert parameter keys to upper case
+#    foreach ( qw / block node se subscribed custodial group lfn / )
+#    {
+#      $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    my $r = PHEDEX::Web::SQL::getMissingFiles($core, %h);
+#    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
+#}
 
 # spooling
 
 my $sth;
-my $limit = 1000;
+our $limit = 1000;
 my @keys = ('BLOCK_ID');
 
 sub spool
