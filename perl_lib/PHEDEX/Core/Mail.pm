@@ -21,8 +21,10 @@ our @EXPORT_OK = qw( send_email send_request_create_email send_request_update_em
 # [2] class/package variable $TESTING, manipulated by testing_mode()
 #
 # a true value of either one will put send_email() in testing mode
-our $TESTING = 0;
-our $TESTING_MAIL = 'cms-phedex-admins@cern.ch';
+#our $TESTING = 0;
+#our $TESTING_MAIL = 'cms-phedex-admins@cern.ch';
+our $TESTING = 1;
+our $TESTING_MAIL = 'huangch@fnal.gov';
 
 sub new
 {
@@ -379,7 +381,7 @@ ENDEMAIL
    DBS:
      $$data{'DATA'}{'DBS'}{'NAME'}
    Data:
-$request_data
+$$data{'DATA'}{'USERTEXT'}{'$T'}
 ENDEMAIL
 
     my $nodes_by_point = {};
