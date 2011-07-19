@@ -378,8 +378,10 @@ ENDEMAIL
      $instance
    DBS:
      $$data{'DATA'}{'DBS'}{'NAME'}
-   Data:
+   Originally Requested Data:
 $$data{'DATA'}{'USERTEXT'}{'$T'}
+   Matched Data:
+$request_data
 ENDEMAIL
 
     my $nodes_by_point = {};
