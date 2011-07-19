@@ -225,15 +225,9 @@ sub _send_request_create_email
     }
 
     # Get request dataa
-    my $request_data = '';
-    foreach (@{$$data{'DATA'}{'DBS'}{DATASET}})
-    {
-        $request_data .= "     $_->{NAME}\n";
-    }
-    foreach (@{$$data{'DATA'}{'DBS'}{BLOCK}})
-    {
-        $request_data .= "     $_->{NAME}\n";
-    }
+    my $request_data = '    ';
+    $request_data .= join("\n    ", sort map { $_->{NAME} } @{$data->{DATA}{DBS}{DATASET}}),"\n";
+    $request_data .= join("\n    ", sort map { $_->{NAME} } @{$data->{DATA}{DBS}{BLOCK}}),"\n";
 
     # Get the list of Global admins
     my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex');
