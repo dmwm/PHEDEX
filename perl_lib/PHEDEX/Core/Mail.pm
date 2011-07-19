@@ -224,10 +224,27 @@ sub _send_request_create_email
         }
     }
 
-    # Get request dataa
-    my $request_data = '    ';
-    $request_data .= join("\n    ", sort map { $_->{NAME} } @{$data->{DATA}{DBS}{DATASET}}),"\n";
-    $request_data .= join("\n    ", sort map { $_->{NAME} } @{$data->{DATA}{DBS}{BLOCK}}),"\n";
+    # Get request data, compare to matched data...
+    my (%h1,%h2,$sep,$matched_data);
+    $matched_data = $sep = '     ';
+    map { $h1{$_->{NAME}}++ } @{$data->{DATA}{DBS}{DATASET}};
+    map { $h2{$_->{NAME}}++ } @{$data->{DATA}{DBS}{BLOCK}};
+    $matched_data .= join("\n$sep", sort keys %h1) . "\n";
+    $matched_data .= join("\n$sep", sort keys %h2);
+    $matched_data =~ s%\n$%%;
+
+    my $requested_data = $$data{'DATA'}{'USERTEXT'}{'$T'};
+    my $showRequested = 0;
+    foreach ( split("\n",$requested_data) ) {
+      $showRequested = 1 unless ( $h1{$_} ||  $h2{$_} );
+    }
+    if ( $showRequested ) {
+      $requested_data =~ s%\n%\n$sep%g;
+      $requested_data = "\n" . $sep . $requested_data;
+    } else {
+      $requested_data = ' == Matched Data';
+    }
+    $requested_data = "   Originally Requested Data:" . $requested_data;
 
     # Get the list of Global admins
     my @global_admins = $$self{SECMOD}->getUsersWithRoleForGroup('Admin', 'phedex');
@@ -372,10 +389,9 @@ ENDEMAIL
      $instance
    DBS:
      $$data{'DATA'}{'DBS'}{'NAME'}
-   Originally Requested Data:
-$$data{'DATA'}{'USERTEXT'}{'$T'}
+$requested_data
    Matched Data:
-$request_data
+$matched_data
 ENDEMAIL
 
     my $nodes_by_point = {};
