@@ -5,6 +5,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       Dom   = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
+      IconError = "<img src='/images/icon-circle-red.png' style='vertical-align:bottom' />",
+      IconWarn  = "<img src='/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
+      IconOK    = "<img src='/images/icon-circle-green.png' style='vertical-align:bottom' />",
   Yla(this,new PHEDEX.Module(_sbx,string));
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -16,6 +19,24 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         height:200,
         minwidth:600,
         minheight:50
+      },
+      meta: {
+        table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
+                           { key:'item',          label:'Item',     className:'align-left' },
+                           { key:'files',         label:'Files',    className:'align-right', parser:'number' },
+                           { key:'bytes',         label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
+                           { key:'dbs',           label:'DBS',      className:'align-left' },
+                           { key:'replicas',      label:'Replicas', className:'align-left' },
+                           { key:'comment',       label:'Comment',  className:'align-left' }],
+            nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' },
+                           { key:'b_files',       label:'Files',    className:'align-right', parser:'number' },
+                           { key:'b_bytes',       label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
+                           { key:'is_subscribed', label:'Subscribed' },
+                           { key:'is_custodial',  label:'Custodial' },
+                           { key:'is_move',       label:'Move' },
+                           { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
+                           { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
+                }
       },
       useElement: function(el) {
         var d = this.dom;
@@ -110,7 +131,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         ft.appendChild(el);
 
         var label='Reset', id='button'+label;
-        Reset = new YAHOO.widget.Button({
+        this.Reset = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
                                 id: id,
@@ -126,7 +147,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 value: id,
                                 container: 'buttons-right' });
         this.Preview.set('disabled',true);
-        this.Preview.on('click', this.onPreviewSubmit);
+        this.Preview.on('click', this.onPreviewSubmit,this,true);
         label='Accept', id='button'+label;
         this.Accept = new YAHOO.widget.Button({
                                 type: 'submit',
@@ -136,126 +157,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 value: id,
                                 container: 'buttons-right' });
         this.Accept.set('disabled',true);
-        this.Accept.on('click', this.onAcceptSubmit);
-
-        this.onResetSubmit = function(obj) {
-          return function(id,action) {
-            var dbs = obj.dbs,
-                dom = obj.dom,
-                user_group  = obj.user_group,
-                email       = obj.email,
-                time_start  = dom.time_start,
-                data_items  = dom.data_items,
-                comments    = dom.comments,
-                menu, menu_items,
-                tmp, elList, _default, el, i;
-
-// Subscription level: hardwired to 'block' in the request
-
-// Data Items
-            data_items.value = '';
-            data_items.onblur();
-
-// DBS
-            if ( dbs.gotMenu ) {
-              dbs.value.innerHTML = dbs._default;
-              menu       = dbs.MenuButton.getMenu();
-              menu_items = menu.getItems();
-              menu.activeItem = menu_items[dbs.defaultId];
-            }
-
-// Destination
-            elList = obj.destination.Panel.elList;
-            for (i in elList) {
-              elList[i].checked = false;
-            }
-
-// Remove Subscription
-            if ( tmp = obj.remove_subscription ) {
-              elList = tmp.elList;
-              _default = tmp._default;
-              for (i in elList) {
-                el = elList[i];
-                if ( el.value == _default ) { el.checked = true; }
-                else                        { el.checked = false; }
-              }
-            }
-
-// Site Custodial
-            if ( tmp = obj.site_custodial ) {
-              elList = tmp.elList;
-              _default = tmp._default;
-              for (i in elList) {
-                el = elList[i];
-                if ( el.value == _default ) { el.checked = true; }
-                else                        { el.checked = false; }
-              }
-            }
-
-// Subscription Type
-            if ( tmp = obj.subscription_type ) {
-              elList = tmp.elList;
-              _default = tmp._default;
-              for (i in elList) {
-                el = elList[i];
-                if ( el.value == _default ) { el.checked = true; }
-                else                        { el.checked = false; }
-              }
-            }
-
-// Transfer Type
-            if ( tmp = obj.transfer_type ) {
-              elList = tmp.elList;
-              _default = tmp._default;
-              for (i in elList) {
-                el = elList[i];
-                if ( el.value == _default ) { el.checked = true; }
-                else                        { el.checked = false; }
-              }
-            }
-
-// Priority
-            if ( tmp = obj.priority ) {
-              elList = tmp.elList;
-              _default = tmp._default;
-              for (i in elList) {
-                el = elList[i];
-                if ( el.value == _default ) { el.checked = true; }
-                else                        { el.checked = false; }
-              }
-            }
-
-// User Group
-            if ( user_group ) {
-              user_group.MenuButton.set('label', user_group._default);
-              user_group.value = null;
-            }
-
-// Time Start
-// TODO need to reset the calendar YUI module too
-            if ( time_start ) {
-              time_start.value = '';
-              time_start.onblur();
-            }
-
-// Email
-            if ( email ) {
-              email.value.innerHTML = email.input.value = email._default;
-            }
-
-// Comments
-            if ( comments ) {
-              comments.value = '';
-              comments.onblur();
-            }
-
-            obj.Accept.set('disabled',false);
-            dom.preview_text.innerHTML = dom.preview_label.innerHTML = '';
-            Dom.addClass(dom.preview,'phedex-invisible');
-            Dom.addClass(dom.results,'phedex-invisible');
-          }
-        }(this);
-        Reset.on('click', this.onResetSubmit);
+        this.Accept.on('click', this.onAcceptSubmit,this,true);
+//         this.Reset.on('click', this.onResetSubmit,this.true);
       },
       processNestedrequest: function (record) {
         try {
@@ -395,13 +298,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelLower = label.toLowerCase(),
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
-            d = this.dom, el, className;
+            d = this.dom, el, className='', helpStr='';
+        if ( config.help_text ) {
+          helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelLower+"' href='#'>[?]</a>";
+        }
         if ( config.className ) { className = "class='"+config.className+"'"; }
         el = document.createElement('div');
         el.innerHTML = "<div id='phedex-nextgen-"+labelLower+"'"+className+"'>" +
                          "<div class='phedex-nextgen-form-element'>" +
-                            "<div id='phedex-nextgen-"+labelLower+"-label' class='phedex-nextgen-label'></div>" +
-                            "<div class='phedex-nextgen-control'>" +
+                           "<div class='phedex-nextgen-label' id='phedex-nextgen-"+labelLower+"-label'>"+label+helpStr+"</div>" +
+                           "<div class='phedex-nextgen-control'>" +
                               "<div id='phedex-nextgen-"+labelLower+"-text'></div>" +
                             "</div>" +
                           "</div>" +
@@ -410,6 +316,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         d[labelLower] = Dom.get('phedex-nextgen-'+labelLower);
         d[labelLower+'_label'] = Dom.get('phedex-nextgen-'+labelLower+'-label');
         d[labelLower+'_text']  = Dom.get('phedex-nextgen-'+labelLower+'-text');
+        if ( config.help_text ) {
+          config.help_align = d[labelLower+'_label'];
+          Dom.get('phedex-help-'+labelCss).setAttribute('onclick', "PxS.notify('"+this.id+"','Help','"+labelForm+"');");
+        }
       },
       makeControlDestination: function(config,parent) {
         var label = config.label,
@@ -525,6 +435,19 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
         config.elList = Dom.getElementsByClassName('phedex-radio','input',labelForm);
       },
+      makeControlPreview: function(parent) {
+        this.preview = {
+          label:'Preview',
+          className:'phedex-invisible',
+          help_text:"<p>This panel shows a preview of the data that matches your request.</p><p>The global summary lists the amount of data found, and flags any errors or warnings with a red or yellow bullet.</p><p>Warnings are given for things like data which is already subscribed to the nodes you are requesting. This is perfectly legitimate if you are overriding a previous request, to change the start-time or user-group, for example.</p><p>The data-table shows information about the known replicas. For each node where the data is supposed to reside, the replica is complete unless indicated otherwise ('empty' or 'incomplete'), and the data is subscribed to that node unless indicated otherwise.</p><p>Nodes that form part of your request are colour-coded yellow or green to indicate that there is or is not a pre-existing subscription for the same data.</p><p>Click on the '+' icon in the left-hand column of a row a summary of information about the subscriptions to each node.</p><p>Note that a replica may be shown as complete in this table, but if more data is injected into the block/dataset later on, it may not become incomplete.</p><p>For more complete information about the data at a node, see the Data::Replicas or Data::Subscriptions pages</p>"
+        }
+
+        var d = this.dom;
+        this.makeControlOutputbox(this.preview,parent);
+        d.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
+        d.preview_summary = Dom.get('phedex-preview-summary');
+        d.preview_table   = Dom.get('phedex-preview-table');
+      },
       getRadioValues: function(config) {
         var elList=config.elList, map=config.map, i, value;
         for (i in elList) {
@@ -569,7 +492,756 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           Dom.removeClass(time_start.label,'phedex-nextgen-label-disabled');
           time_start.help_text = time_start.help_text_enabled;
         }
+      },
+      previewCallback: function(data,context,response) {
+        var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
+            preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, type=this.params.type,
+            summary={}, s, node, create_since, isRequired={}, unknown=0, known=0, excessNodes;
+
+        Dom.removeClass(dom.preview,'phedex-box-yellow');
+        Dom.removeClass(dom.preview,'phedex-box-red');
+        switch (api) {
+          case 'previewrequestdata': {
+            preview = data.preview;
+            Dom.removeClass(dom.preview,'phedex-invisible');
+            if ( !preview ) {
+              dom.preview_summary.innerHTML = 'Error retrieving information from the data-service';
+              Dom.addClass(dom.preview,'phedex-box-red');
+              return;
+            }
+            if ( preview.comment ) { dom.preview_summary = preview.comment; }
+            for (i in context.args.node ) {
+              isRequired[context.args.node[i]] = true;
+            }
+
+//          Build the datatable and the information for per-node summaries
+            for (i in preview) {
+              item = preview[i];
+              Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
+              if ( item.level == 'User Search' ) { unknown++; }
+              else { known++; }
+
+              tFiles += parseInt(item.files) || 0;
+              tBytes += parseInt(item.bytes) || 0;
+              for (j in item.src_info ) { // produce individual entries,plus summary matrix
+                src_info = item.src_info[j];
+                text = node = src_info.node;
+                if ( !summary[node] ) {
+                  summary[node] = { empty:0, incomplete:0, subscribed:0, OK:0, isRequired:isRequired[node] };
+                }
+                s = summary[node];
+
+                if ( item.files == 0 ) { // empty items are OK by definition (!)
+                  s.OK++;
+                } else {                         // item is not empty
+                  if ( src_info.files == '-' ) { // replica is empty
+                    text += ', empty';
+                    s.empty++;
+                  } else if ( src_info.files == item.files )  { // replica is incomplete
+                    s.OK++;
+                  } else {                       // replica is (currently) complete
+                    text += ', incomplete';
+                    s.incomplete++;
+                  }
+                }
+                if ( src_info.is_subscribed == 'n' ) {
+                  text += ', not subscribed';
+                  if ( type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-green'>" + text + "</span>"; }
+                } else {
+                  s.subscribed++;
+                  if ( type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-yellow'>" + text + "</span>"; }
+                }
+                if ( type == 'delete' ) {
+                  if ( s.isRequired ) {
+                    if ( src_info.files == '-' && src_info.subscribed == 'n' ) { text = "<span class='phedex-box-red'>" + text + "</span>"; }
+                    else {
+                      text = "<span class='phedex-box-green'>" + text + "</span>";
+                    }
+                  }
+                }
+
+                if ( Row.replicas ) { Row.replicas += '<br/>' + text; }
+                else { Row.replicas = text; }
+              }
+              if ( Row.comment ) {
+                showComment = true;
+              }
+              if ( item.dbs == dbs ) {
+                Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
+              } else {
+                showDBS = true;
+              }
+              Row.uniqueid = unique++;
+              Nested = [];
+              for (j in item.src_info ) {
+                src_info = item.src_info[j];
+                Nested.push({ node:src_info.node,
+                              b_files:src_info.files,
+                              b_bytes:src_info.bytes,
+                              is_subscribed:src_info.is_subscribed,
+                              is_custodial:src_info.is_custodial,
+                              is_move:src_info.is_move,
+                              time_start:src_info.time_start,
+                              subs_level:src_info.subs_level
+                             });
+              }
+              if ( Nested.length > 0 ) {
+                Row.nesteddata = Nested;
+              }
+              Table.push(Row);
+            }
+
+//          Build the global summary
+            text = '';
+            if ( known ) {
+              if ( known == 1 ) {
+                text = 'One data-item matches your request';
+              } else {
+                text = known+' data-items match your request';
+              }
+              text += ', with '+tFiles+' file';
+              if ( tFiles != 1 ) { text += 's'; }
+              if ( tFiles ) {
+                text += ', ' + ( tBytes ? PxUf.bytes(tBytes) : '0') + ' byte';
+                if ( tBytes != 1 ) { text += 's'; }
+              }
+              text += ' in total';
+            }
+
+//          Fatal errors first...
+            if ( unknown ) {
+              if ( known ) { text += '<br/>'; }
+              text += IconWarn+unknown+' item';
+              if ( unknown > 1 ) { text += 's'; }
+              text += ' did not match anything known to PhEDEx';
+            }
+            create_since=context.args.create_since;
+            if ( tBytes == 0 ) {
+              if ( create_since ) {
+                if ( create_since > new Date().getTime()/1000 ) {
+                  text += IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
+                } else {
+                  text += IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
+                }
+                Dom.addClass(dom.preview,'phedex-box-yellow');
+              } else {
+                text = IconError+'No data found matching your selection';
+                Dom.addClass(dom.preview,'phedex-box-red');
+              }
+              text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
+              dom.preview_summary.innerHTML = text;
+              return;
+            }
+
+            if ( create_since ) {
+              text += '<br/>'+IconWarn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(create_since);
+            }
+
+            j=true;
+            for (node in summary) {
+              s = summary[node];
+              if ( !s.isRequired ) {
+                delete summary[node];
+                continue;
+              }
+              if ( s.subscribed == known ) {
+                if ( j ) {
+                  if ( type == 'xfer' ) {
+                    text += "<br/>"+IconWarn+"All matched items are already subscribed to <strong>"+node+"</strong>";
+                    excessNodes = node;
+                  } else {
+                    text += '<br/>'+IconOK+'All matched items are subscribed to <strong>'+node+'</strong>';
+                  }
+                  j=false;
+                } else {
+                  text += ', <strong>'+node+'</strong>';
+                  if ( type == 'xfer' ) { excessNodes += ' '+node; }
+                }
+                delete summary[node];
+                delete isRequired[node];
+              }
+            }
+            if ( excessNodes ) {
+              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove these nodes)</a>";
+            }
+            j=true;
+            for (node in summary) {
+              s = summary[node];
+              if ( s.OK == known ) {
+                if ( j ) {
+                  text += '<br/>'+IconOK+'All matched items have replicas at <strong>'+node+'</strong>';
+                  j=false;
+                } else {
+                  text += ', <strong>'+node+'</strong>';
+                }
+                delete summary[node];
+                delete isRequired[node];
+              }
+            }
+
+            if ( type == 'xfer' ) {
+              j=true;
+              for (node in summary) {
+                s = summary[node];
+                if ( s.subscribed ) {
+                  if ( j ) {
+                    text += '<br/>'+IconWarn+'Some items are already subscribed to <strong>'+node+'</strong>';
+                    j=false;
+                  } else {
+                    text += ', <strong>'+node+'</strong>';
+                  }
+                  delete summary[node];
+                  delete isRequired[node];
+                }
+              }
+            }
+
+            j=true;
+            for (node in summary) {
+              if ( j ) {
+                if ( type == 'xfer' ) {
+                  text += '<br/>'+IconWarn+'Some items already have replicas at <strong>'+node+'</strong>';
+                } else {
+                  text += '<br/>'+IconWarn+'Only some items have replicas at <strong>'+node+'</strong>';
+                }
+                j=false;
+              } else {
+                text += ', <strong>'+node+'</strong>';
+              }
+              delete summary[node];
+              delete isRequired[node];
+            }
+
+            if ( type == 'delete' ) {
+              j=true;
+              for (node in isRequired) {
+                if ( j ) {
+                  text += '<br/>'+IconError+'No items have replicas at <strong>'+node+'</strong>';
+                  j=false;
+                  excessNodes = node;
+                } else {
+                  text += ', <strong>'+node+'</strong>';
+                  excessNodes += ' '+node;
+                }
+              }
+              if ( excessNodes ) {
+                text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove these nodes)</a>";
+              }
+            }
+            dom.preview_summary.innerHTML = text;
+
+            i = t.columns.length;
+            if (!t.map) { t.map = {}; }
+            while (i > 0) { //This is for main columns
+              i--;
+              cDef = t.columns[i];
+              if (typeof cDef != 'object') { cDef = { key:cDef }; t.columns[i] = cDef; }
+              if (!cDef.label)      { cDef.label      = cDef.key; }
+              if (!cDef.resizeable) { cDef.resizeable = true; }
+              if (!cDef.sortable)   { cDef.sortable   = true; }
+              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+            }
+            if ( !t.nestedColumns ) {
+              t.nestedColumns = [];
+            }
+            i = t.nestedColumns.length;
+            while (i > 0) { //This is for inner nested columns
+              i--;
+              cDef = t.nestedColumns[i];
+              if (typeof cDef != 'object') { cDef = { key:cDef }; t.nestedColumns[i] = cDef; }
+              if (!cDef.label)      { cDef.label      = cDef.key; }
+              if (!cDef.resizeable) { cDef.resizeable = true; }
+              if (!cDef.sortable)   { cDef.sortable   = true; }
+              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+            }
+            if ( this.dataSource ) {
+              delete this.dataSource;
+              delete this.nestedDataSource;
+            }
+            this.dataSource = new YAHOO.util.DataSource(Table);
+            this.nestedDataSource = new YAHOO.util.DataSource();
+            if ( this.dataTable  ) {
+              this.dataTable.destroy();
+              delete this.dataTable;
+            }
+            if ( t.columns[0].key == '__NESTED__' ) { t.columns.shift(); } // NestedDataTable has side-effects on its arguments, need to undo that before re-creating the table
+            this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.preview_table, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
+                            {
+                               initialLoad: false,
+                               generateNestedRequest: this.processNestedrequest
+                            });
+            oCallback = {
+              success: this.dataTable.onDataReturnInitializeTable,
+              failure: this.dataTable.onDataReturnInitializeTable,
+              scope: this.dataTable
+            };
+
+            this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
+              return function(ev) {
+                delete obj.nestedtables[ev.dt.getId()];
+              }
+            }(this));
+            this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
+              var dt = oArgs.dt,
+                  oCallback = {
+                  success: dt.onDataReturnInitializeTable,
+                  failure: dt.onDataReturnInitializeTable,
+                  scope: dt
+              }, ctxId;
+              this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
+              if ( !dt ) { return; }
+              var col = dt.getColumn('b_files');
+              dt.sortColumn(col, YAHOO.widget.DataTable.CLASS_DESC);
+              // This is to maintain the list of created nested tables that would be used in context menu
+              if ( !o.nestedtables ) {
+                o.nestedtables = {};
+              }
+              o.nestedtables[dt.getId()] = dt;
+            }, this);
+            this.dataSource.sendRequest('', oCallback);
+
+            column = this.dataTable.getColumn('item');
+            this.dataTable.sortColumn(column, YAHOO.widget.DataTable.CLASS_ASC);
+            elList = Dom.getElementsByClassName('phedex-error','span',this.dom.preview_table);
+            for (i in elList) { // I've hacked the error class into the entry in the table, but it really needs to belong to its parent, for better visual effect
+              Dom.removeClass(elList[i],'phedex-error');
+              Dom.addClass(elList[i].parentNode,'phedex-error');
+            }
+            if ( !showDBS ) {
+              this.dataTable.hideColumn(this.dataTable.getColumn('dbs'));
+            }
+            if ( !showComment ) {
+              this.dataTable.hideColumn(this.dataTable.getColumn('comment'));
+            }
+            break;
+          }
+        }
+      },
+      suppressExcessNodes: function(excessNodes) {
+        var elList, el, i, j, nodes, node;
+        nodes = excessNodes.split(' ');
+        elList = this.destination.Panel.elList;
+        for (i in nodes) {
+          node = nodes[i];
+          for (j in elList) {
+            el = elList[j];
+            if ( el.name == node ) {
+              el.checked = false;
+              break;
+            }
+          }
+        }
+        PxS.notify(this.id,'onPreviewSubmit');
+      },
+      requestCallback: function(data,context,response) {
+        var dom = this.dom, str, msg, rid;
+        dom.results_label.innerHTML = '';
+        dom.results_text.innerHTML = '';
+        Dom.removeClass(dom.results,'phedex-box-yellow');
+        if ( response ) { // indicative of failure
+          msg = response.responseText;
+          this.onAcceptFail(msg);
+          this.Accept.set('disabled',false);
+          return;
+        }
+        if ( rid = data.request_created[0].id ) {
+          this.onResetSubmit();
+          var uri = location.href;
+          uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
+          uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
+          uri = uri.replace(/\/[^/]*$/g,'/');
+
+          dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
+            "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
+          Dom.addClass(dom.results,'phedex-box-green');
+          Dom.removeClass(dom.results,'phedex-invisible');
+          d.preview_summary.innerHTML = '';
+          d.preview_table.innerHTML = '';
+          Dom.addClass(dom.preview,'phedex-invisible');
+        }
+      },
+      onAcceptFail: function(text) {
+        var dom = this.dom;
+        Dom.removeClass(dom.results,'phedex-invisible');
+        Dom.addClass(dom.results,'phedex-box-red');
+        dom.results_label.innerHTML = 'Error:';
+        if ( dom.results_text.innerHTML ) {
+          dom.results_text.innerHTML += '<br />';
+        }
+        dom.results_text.innerHTML += text;
+        this.formFail = true;
+      },
+      onAcceptSubmit: function(id,action) {
+        var dbs = this.dbs,
+            dom = this.dom,
+            user_group = this.user_group,
+            email      = this.email,
+            time_start = this.time_start,
+            data_items = dom.data_items,
+            menu, menu_items,
+            data={}, args={}, tmp, value, type=this.params.type, block, dataset, xml,
+            elList, el, i, panel, api;
+
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+        Dom.removeClass(this.dom.results,'phedex-box-red');
+        dom.results_label.innerHTML = '';
+        dom.results_text.innerHTML  = '';
+        this.formFail = false;
+        this.Accept.set('disabled',true);
+
+// Subscription level is hardwired for now.
+
+// Data Items: Several layers of checks:
+// 1. If the string is empty, or matches the inline help, abort
+
+        if ( !data_items.value || data_items.value == this.data_items.text ) {
+          this.onAcceptFail('No Data-Items specified');
+        }
+// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+        if ( data_items.value != this.data_items.text ) {
+          tmp = data_items.value.split(/ |\n|,/);
+          data = {blocks:{}, datasets:{} };
+          for (i in tmp) {
+            block = tmp[i];
+            if ( block != '' ) {
+              if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                dataset = RegExp.$1;
+                if ( dataset == block ) { data.datasets[dataset] = 1; }
+                else                    { data.blocks[block] = 1; }
+              } else {
+                this.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+              }
+            }
+          }
+        }
+// 3. Blocks which are contained within explicit datasets are suppressed
+        for (block in data.blocks) {
+          block.match(/^([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( data.datasets[dataset] ) {
+            delete data.blocks[block];
+          }
+        }
+// 4. Blocks are grouped into their corresponding datasets
+        for (block in data.blocks) {
+          block.match(/([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+          data.datasets[dataset][block] = 1;
+        }
+// 5. the block-list is now redundant, clean it up!
+        delete data.blocks;
+
+// DBS - done directly in the xml
+
+// Destination
+        panel = this.destination.Panel;
+        elList = panel.elList;
+        args.node = [];
+        for (i in elList) {
+          el = elList[i];
+          if ( el.checked ) { args.node.push(panel.nodes[i]); }
+        }
+        if ( args.node.length == 0 ) {
+          this.onAcceptFail('No Destination nodes specified');
+        }
+
+// Site Custodial
+        if ( this.site_custodial ) { args.custodial = this.getRadioValues(this.site_custodial); }
+// Subscription Type
+        if ( this.subscription_type ) { args['static'] = this.getRadioValues(this.subscription_type); }
+// Transfer Type
+        if ( this.transfer_type ) { args.move = this.getRadioValues(this.transfer_type); }
+// Priority
+        if ( this.priority ) { args.priority = this.getRadioValues(this.priority); }
+
+// User Group
+        if ( user_group ) {
+          if ( !user_group.value ) {
+            this.onAcceptFail('No User-Group specified');
+          }
+          args.group = user_group.value;
+        }
+
+// Time Start
+        if ( time_start ) {
+          this.getTimeStart();
+          if ( time_start.time_start ) {
+            args.time_start = time_start.time_start;
+          }
+        }
+
+// Email TODO check if we need this field?
+//         args.email = email.value.innerHTML;
+
+// Comments
+        if ( dom.comments.value && dom.comments.value != this.comments.text ) { args.comments = dom.comments.value; }
+
+// Never subscribe automatically from this form
+        if ( type == 'xfer' ) {
+          args.request_only = 'y';
+// Do not suppress the email
+          args.no_mail = 'n';
+        }
+
+// Hardwired, for best practise!
+        args.level = 'block';
+
+// If there were errors, I can give up now!
+        if ( this.formFail ) {
+          this.set('disabled',true);
+          return;
+        }
+
+// Now build the XML!
+        xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
+        for ( dataset in data.datasets ) {
+          xml += '<dataset name="'+dataset+'" is-open="dummy">';
+          for ( block in data.datasets[dataset] ) {
+            xml += '<block name="'+block+'" is-open="dummy" />';
+          }
+          xml += '</dataset>';
+        }
+        xml += '</dbs></data>';
+        args.data = xml;
+        Dom.removeClass(dom.results,'phedex-invisible');
+        Dom.addClass(dom.results,'phedex-box-yellow');
+        dom.results_label.innerHTML = 'Status:';
+        dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
+        if ( type == 'xfer'   ) { api = 'subscribe'; }
+        if ( type == 'delete' ) { api = 'delete'; }
+        PHEDEX.Datasvc.Call({
+                              api:api,
+                              method:'post',
+                              args:args,
+                              callback:function(data,context,response) { obj.requestCallback(data,context,response); }
+                            });
+      },
+      onPreviewSubmit: function(id,action) {
+        var dbs = this.dbs,
+            dom = this.dom,
+            time_start = this.time_start,
+            data_items = dom.data_items,
+            menu, menu_items,
+            data={}, args={}, tmp, value, type, block, dataset, xml,
+            panel, elList, el, i;
+
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+        Dom.removeClass(dom.results,'phedex-box-red');
+        Dom.addClass(dom.results,'phedex-invisible');
+        Dom.removeClass(dom.preview,'phedex-invisible');
+        dom.preview_summary.innerHTML = dom.preview_table.innerHTML = dom.results_text.innerHTML  = '';
+        this.formFail = false;
+
+// Data Items: Several layers of checks:
+// 1. If the string is empty, or matches the inline help, abort
+        if ( !data_items.value || data_items.value == this.data_items.text ) {
+          this.onAcceptFail('No Data-Items specified');
+        }
+// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+        if ( data_items.value != this.data_items.text ) {
+          tmp = data_items.value.split(/ |\n|,/);
+          data = {blocks:{}, datasets:{} };
+          for (i in tmp) {
+            block = tmp[i];
+            if ( block != '' ) {
+              if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+                dataset = RegExp.$1;
+                if ( dataset == block ) { data.datasets[dataset] = 1; }
+                else                    { data.blocks[block] = 1; }
+              } else {
+                this.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+              }
+            }
+          }
+        }
+// 3. Blocks which are contained within explicit datasets are suppressed
+        for (block in data.blocks) {
+          block.match(/^([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( data.datasets[dataset] ) {
+            delete data.blocks[block];
+          }
+        }
+// 4. Blocks are grouped into their corresponding datasets
+        for (block in data.blocks) {
+          block.match(/([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+          data.datasets[dataset][block] = 1;
+        }
+// 5. the block-list is now redundant, clean it up!
+        delete data.blocks;
+
+// Time Start
+        if ( time_start ) {
+          this.getTimeStart();
+          if ( time_start.time_start ) {
+            args.create_since = time_start.time_start;
+          } else {
+            args.create_since = 0;
+          }
+        }
+
+// If there were errors, I can give up now!
+        if ( this.formFail ) { return; }
+
+// Destination
+        panel = this.destination.Panel;
+        elList = panel.elList;
+        args.node = [];
+        for (i in elList) {
+          el = elList[i];
+          if ( el.checked ) { args.node.push(panel.nodes[i]); }
+        }
+
+// Now build the args!
+        if ( data.datasets ) {
+          for ( dataset in data.datasets ) {
+            blocks = data.datasets[dataset];
+            if ( typeof(blocks) == 'number' ) {
+              if ( !args.data ) { args.data = []; }
+              args.data.push(dataset);
+            } else {
+debugger; // what happens now???
+              for ( block in blocks ) {
+                if ( !args.block ) { args.block = []; }
+                args.block.push(block);
+              }
+            }
+          }
+        }
+        Dom.removeClass(dom.preview,'phedex-invisible');
+        Dom.addClass(dom.preview,'phedex-box-yellow');
+        dom.preview_summary.innerHTML = NUtil.stdLoading('Calculating request (please wait)');
+        args.level = 'block';
+
+        args.type = this.params.type;
+        args.dbs = dbs.value.innerHTML;
+        PHEDEX.Datasvc.Call({
+                              api:'previewrequestdata',
+                              args:args,
+                              callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+                            });
+      },
+
+      onResetSubmit: function(id,action) {
+        var dbs = this.dbs,
+            dom = this.dom,
+            user_group  = this.user_group,
+            email       = this.email,
+            time_start  = dom.time_start,
+            data_items  = dom.data_items,
+            comments    = dom.comments,
+            menu, menu_items,
+            tmp, elList, _default, el, i;
+
+// Subscription level: hardwired to 'block' in the request
+
+// Data Items
+        data_items.value = '';
+        data_items.onblur();
+
+// DBS
+        if ( dbs.gotMenu ) {
+          dbs.value.innerHTML = dbs._default;
+          menu       = dbs.MenuButton.getMenu();
+          menu_items = menu.getItems();
+          menu.activeItem = menu_items[dbs.defaultId];
+        }
+
+// Destination
+        elList = this.destination.Panel.elList;
+        for (i in elList) {
+          elList[i].checked = false;
+        }
+
+// Remove Subscription
+        if ( tmp = this.remove_subscriptions ) {
+          elList = tmp.elList;
+          _default = tmp._default;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.value == _default ) { el.checked = true; }
+            else                        { el.checked = false; }
+          }
+        }
+
+// Site Custodial
+        if ( tmp = this.site_custodial ) {
+          elList = tmp.elList;
+          _default = tmp._default;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.value == _default ) { el.checked = true; }
+            else                        { el.checked = false; }
+          }
+        }
+
+// Subscription Type
+        if ( tmp = this.subscription_type ) {
+          elList = tmp.elList;
+          _default = tmp._default;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.value == _default ) { el.checked = true; }
+            else                        { el.checked = false; }
+          }
+        }
+
+// Transfer Type
+        if ( tmp = this.transfer_type ) {
+          elList = tmp.elList;
+          _default = tmp._default;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.value == _default ) { el.checked = true; }
+            else                        { el.checked = false; }
+          }
+        }
+
+// Priority
+        if ( tmp = this.priority ) {
+          elList = tmp.elList;
+          _default = tmp._default;
+          for (i in elList) {
+            el = elList[i];
+            if ( el.value == _default ) { el.checked = true; }
+            else                        { el.checked = false; }
+          }
+        }
+
+// User Group
+        if ( user_group ) {
+          user_group.MenuButton.set('label', user_group._default);
+         user_group.value = null;
+         }
+
+// Time Start
+// TODO need to reset the calendar YUI module too
+        if ( time_start ) {
+          time_start.value = '';
+          time_start.onblur();
+        }
+
+// Email
+        if ( email ) {
+          email.value.innerHTML = email.input.value = email._default;
+        }
+
+// Comments
+        if ( comments ) {
+          comments.value = '';
+          comments.onblur();
+        }
+
+        this.Accept.set('disabled',false);
+        dom.preview_summary.innerHTML = '';
+        dom.preview_table.innerHTML = '';
+        Dom.addClass(dom.preview,'phedex-invisible');
+        Dom.addClass(dom.results,'phedex-invisible');
       }
+
     }
   };
   Yla(this,_construct(this),true);
@@ -581,34 +1253,16 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
   return {
-    meta: {
-      table: { columns: [{ key:'level',         label:'Level',   className:'align-left' },
-                                { key:'item',          label:'Item',    className:'align-left' },
-                                { key:'files',         label:'Files',   className:'align-right', parser:'number' },
-                                { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                                { key:'dbs',           label:'DBS',     className:'align-left' },
-                                { key:'source',        label:'Source',  className:'align-left' },
-                                { key:'comment',       label:'Comment', className:'align-left' }],
-                 nestedColumns:[{ key:'node',          label:'Node',    className:'align-left' },
-                                { key:'b_files',       label:'Files',   className:'align-right', parser:'number' },
-                                { key:'b_bytes',       label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                                { key:'is_subscribed', label:'Subscribed' },
-                                { key:'is_custodial',  label:'Custodial' },
-                                { key:'is_move',       label:'Move' },
-                                { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
-                                { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
-              },
-      synchronise: {
-        Preview: { data_items:false },
-        Accept:  { data_items:false, destination:false, user_group:false, auth:false }
-      }
-    },
     initSub: function() {
       var d = this.dom,
           mb = d.main_block,
           hd = d.hd,
           form, elList, el, label, control, i, ctl;
       hd.innerHTML = 'Subscribe data';
+      this.meta.synchronise = {
+        Preview: { data_items:false },
+        Accept:  { data_items:false, destination:false, user_group:false, auth:false }
+      };
 
       form = document.createElement('form');
       form.id   = 'subscribe_data';
@@ -626,7 +1280,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.makeControlTextbox(this.data_items,form);
 
 // Preview
-      this.makeControlOutputbox({label:'Preview'},form);
+      this.makeControlPreview(form);
 
 // DBS
       this.dbs = {
@@ -905,507 +1559,264 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
+//       this.onAcceptSubmit = function(obj) {
+//         return function(id,action) {
+//           var dbs = obj.dbs,
+//               dom = obj.dom,
+//               user_group = obj.user_group,
+//               email      = obj.email,
+//               time_start = obj.time_start,
+//               data_items = dom.data_items,
+//               menu, menu_items,
+//               data={}, args={}, tmp, value, type=obj.params.type, block, dataset, xml,
+//               elList, el, i, panel, api;
+// 
+// // Prepare the form for output messages, disable the button to prevent multiple clicks
+//           Dom.removeClass(obj.dom.results,'phedex-box-red');
+//           dom.results_label.innerHTML = '';
+//           dom.results_text.innerHTML  = '';
+//           obj.formFail = false;
+//           this.set('disabled',true);
+// 
+// // Subscription level is hardwired for now.
+// 
+// // Data Items: Several layers of checks:
+// // 1. If the string is empty, or matches the inline help, abort
+// 
+//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
+//             obj.onAcceptFail('No Data-Items specified');
+//           }
+// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+//           if ( data_items.value != obj.data_items.text ) {
+//             tmp = data_items.value.split(/ |\n|,/);
+//             data = {blocks:{}, datasets:{} };
+//             for (i in tmp) {
+//               block = tmp[i];
+//               if ( block != '' ) {
+//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+//                   dataset = RegExp.$1;
+//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
+//                   else                    { data.blocks[block] = 1; }
+//                 } else {
+//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+//                 }
+//               }
+//             }
+//           }
+// // 3. Blocks which are contained within explicit datasets are suppressed
+//           for (block in data.blocks) {
+//             block.match(/^([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( data.datasets[dataset] ) {
+//               delete data.blocks[block];
+//             }
+//           }
+// // 4. Blocks are grouped into their corresponding datasets
+//           for (block in data.blocks) {
+//             block.match(/([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+//             data.datasets[dataset][block] = 1;
+//           }
+// // 5. the block-list is now redundant, clean it up!
+//           delete data.blocks;
+// 
+// // DBS - done directly in the xml
+// 
+// // Destination
+//           panel = obj.destination.Panel;
+//           elList = panel.elList;
+//           args.node = [];
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
+//           }
+//           if ( args.node.length == 0 ) {
+//             obj.onAcceptFail('No Destination nodes specified');
+//           }
+// 
+// // Site Custodial
+//           if ( obj.site_custodial ) { args.custodial = obj.getRadioValues(obj.site_custodial); }
+// // Subscription Type
+//           if ( obj.subscription_type ) { args['static'] = obj.getRadioValues(obj.subscription_type); }
+// // Transfer Type
+//           if ( obj.transfer_type ) { args.move = obj.getRadioValues(obj.transfer_type); }
+// // Priority
+//           if ( obj.priority ) { args.priority = obj.getRadioValues(obj.priority); }
+// 
+// // User Group
+//           if ( user_group ) {
+//             if ( !user_group.value ) {
+//               obj.onAcceptFail('No User-Group specified');
+//             }
+//             args.group = user_group.value;
+//           }
+// 
+// // Time Start
+//           if ( time_start ) {
+//             obj.getTimeStart();
+//             if ( time_start.time_start ) {
+//               args.time_start = time_start.time_start;
+//             }
+//           }
+// 
+// // Email TODO check if we need this field?
+// //           args.email = email.value.innerHTML;
+// 
+// // Comments
+//           if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
+// 
+// // Never subscribe automatically from this form
+//           if ( type == 'xfer' ) {
+//             args.request_only = 'y';
+// // Do not suppress the email
+//             args.no_mail = 'n';
+//           }
+// 
+// // Hardwired, for best practise!
+//           args.level = 'block';
+// 
+// // If there were errors, I can give up now!
+//           if ( obj.formFail ) {
+//             this.set('disabled',true);
+//             return;
+//           }
+// 
+// // Now build the XML!
+//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
+//           for ( dataset in data.datasets ) {
+//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
+//             for ( block in data.datasets[dataset] ) {
+//               xml += '<block name="'+block+'" is-open="dummy" />';
+//             }
+//             xml += '</dataset>';
+//           }
+//           xml += '</dbs></data>';
+//           args.data = xml;
+//           Dom.removeClass(dom.results,'phedex-invisible');
+//           Dom.addClass(dom.results,'phedex-box-yellow');
+//           dom.results_label.innerHTML = 'Status:';
+//           dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
+//           if ( type == 'xfer'   ) { api = 'subscribe'; }
+//           if ( type == 'delete' ) { api = 'delete'; }
+//           PHEDEX.Datasvc.Call({
+//                                 api:api,
+//                                 method:'post',
+//                                 args:args,
+//                                 callback:function(data,context,response) { obj.requestCallback(data,context,response); }
+//                               });
+//         }
+//       }(this);
 
-// Set up the Accept and Reset handlers
-      this.requestCallback = function(obj) {
-        return function(data,context,response) {
-          var dom = obj.dom, str, msg, rid;
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML = '';
-          Dom.removeClass(dom.results,'phedex-box-yellow');
-          if ( data.message ) { // indicative of failure
-            str = "Error when making call '" + context.api + "':";
-            msg = data.message.replace(str,'').trim();
-            obj.onAcceptFail(msg);
-            obj.Accept.set('disabled',false);
-          }
-          if ( rid = data.request_created[0].id ) {
-            obj.onResetSubmit();
-            var uri = location.href;
-            uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
-            uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
-            uri = uri.replace(/\/[^/]*$/g,'/');
-
-            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
-              "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
-            Dom.addClass(dom.results,'phedex-box-green');
-            Dom.removeClass(dom.results,'phedex-invisible');
-            d.preview_text.innerHTML = d.preview_label.innerHTML = '';
-            Dom.addClass(dom.preview,'phedex-invisible');
-          }
-        }
-      }(this);
-      this.onAcceptFail = function(obj) {
-        return function(text) {
-          var dom = obj.dom;
-          Dom.removeClass(dom.results,'phedex-invisible');
-          Dom.addClass(dom.results,'phedex-box-red');
-          dom.results_label.innerHTML = 'Error:';
-          if ( dom.results_text.innerHTML ) {
-            dom.results_text.innerHTML += '<br />';
-          }
-          dom.results_text.innerHTML += text;
-          obj.formFail = true;
-        }
-      }(this);
-      this.onAcceptSubmit = function(obj) {
-        return function(id,action) {
-          var dbs = obj.dbs,
-              dom = obj.dom,
-              user_group = obj.user_group,
-              email      = obj.email,
-              time_start = obj.time_start,
-              data_items = dom.data_items,
-              menu, menu_items,
-              data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i, panel;
-
-// Prepare the form for output messages, disable the button to prevent multiple clicks
-          Dom.removeClass(obj.dom.results,'phedex-box-red');
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML  = '';
-          obj.formFail = false;
-          this.set('disabled',true);
-
-// Subscription level is hardwired for now.
-
-// Data Items: Several layers of checks:
-// 1. If the string is empty, or matches the inline help, abort
-
-          if ( !data_items.value || data_items.value == obj.data_items.text ) {
-            obj.onAcceptFail('No Data-Items specified');
-          }
-// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-          if ( data_items.value != obj.data_items.text ) {
-            tmp = data_items.value.split(/ |\n|,/);
-            data = {blocks:{}, datasets:{} };
-            for (i in tmp) {
-              block = tmp[i];
-              if ( block != '' ) {
-                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                  dataset = RegExp.$1;
-                  if ( dataset == block ) { data.datasets[dataset] = 1; }
-                  else                    { data.blocks[block] = 1; }
-                } else {
-                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-                }
-              }
-            }
-          }
-// 3. Blocks which are contained within explicit datasets are suppressed
-          for (block in data.blocks) {
-            block.match(/^([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( data.datasets[dataset] ) {
-              delete data.blocks[block];
-            }
-          }
-// 4. Blocks are grouped into their corresponding datasets
-          for (block in data.blocks) {
-            block.match(/([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-            data.datasets[dataset][block] = 1;
-          }
-// 5. the block-list is now redundant, clean it up!
-          delete data.blocks;
-
-// DBS - done directly in the xml
-
-// Destination
-          panel = obj.destination.Panel;
-          elList = panel.elList;
-          args.node = [];
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.node.push(panel.nodes[i]); }
-          }
-          if ( args.node.length == 0 ) {
-            obj.onAcceptFail('No Destination nodes specified');
-          }
-
-// Site Custodial
-          args.custodial = obj.getRadioValues(obj.site_custodial);
-// Subscription Type
-          args['static'] = obj.getRadioValues(obj.subscription_type);
-// Transfer Type
-          args.move = obj.getRadioValues(obj.transfer_type);
-// Priority
-          args.priority = obj.getRadioValues(obj.priority);
-
-// User Group
-          if ( ! user_group.value ) {
-            obj.onAcceptFail('No User-Group specified');
-          }
-          args.group = user_group.value;
-
-// Time Start
-          obj.getTimeStart();
-          if ( time_start.time_start ) {
-            args.time_start = time_start.time_start;
-          }
-
-// Email TODO check if we need this field?
-//           args.email = email.value.innerHTML;
-
-// Comments
-          if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
-
-// Never subscribe automatically from this form
-          args.request_only = 'y';
-
-// Do not suppress the email
-          args.no_mail = 'n';
-
-// Hardwired, for best practise!
-          args.level = 'block';
-
-// If there were errors, I can give up now!
-          if ( obj.formFail ) {
-            this.set('disabled',true);
-            return;
-          }
-
-// Now build the XML!
-          xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
-          for ( dataset in data.datasets ) {
-            xml += '<dataset name="'+dataset+'" is-open="dummy">';
-            for ( block in data.datasets[dataset] ) {
-              xml += '<block name="'+block+'" is-open="dummy" />';
-            }
-            xml += '</dataset>';
-          }
-          xml += '</dbs></data>';
-          args.data = xml;
-          Dom.removeClass(dom.results,'phedex-invisible');
-          Dom.addClass(dom.results,'phedex-box-yellow');
-          dom.results_label.innerHTML = 'Status:';
-          dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
-          PHEDEX.Datasvc.Call({
-                                api:'subscribe',
-                                method:'post',
-                                args:args,
-                                callback:function(data,context,response) { obj.requestCallback(data,context,response); }
-                              });
-        }
-      }(this);
-
-      this.onPreviewSubmit = function(obj) {
-        return function(id,action) {
-          var dbs = obj.dbs,
-              dom = obj.dom,
-              time_start = obj.time_start,
-              data_items = dom.data_items,
-              menu, menu_items,
-              data={}, args={}, tmp, value, type, block, dataset, xml,
-              panel, elList, el, i;
-
-// Prepare the form for output messages, disable the button to prevent multiple clicks
-          Dom.removeClass(obj.dom.results,'phedex-box-red');
-          Dom.addClass(obj.dom.results,'phedex-invisible');
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML  = '';
-          obj.formFail = false;
-
-// Data Items: Several layers of checks:
-// 1. If the string is empty, or matches the inline help, abort
-
-          if ( !data_items.value || data_items.value == obj.data_items.text ) {
-            obj.onAcceptFail('No Data-Items specified');
-          }
-// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-          if ( data_items.value != obj.data_items.text ) {
-            tmp = data_items.value.split(/ |\n|,/);
-            data = {blocks:{}, datasets:{} };
-            for (i in tmp) {
-              block = tmp[i];
-              if ( block != '' ) {
-                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                  dataset = RegExp.$1;
-                  if ( dataset == block ) { data.datasets[dataset] = 1; }
-                  else                    { data.blocks[block] = 1; }
-                } else {
-                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-                }
-              }
-            }
-          }
-// 3. Blocks which are contained within explicit datasets are suppressed
-          for (block in data.blocks) {
-            block.match(/^([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( data.datasets[dataset] ) {
-              delete data.blocks[block];
-            }
-          }
-// 4. Blocks are grouped into their corresponding datasets
-          for (block in data.blocks) {
-            block.match(/([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-            data.datasets[dataset][block] = 1;
-          }
-// 5. the block-list is now redundant, clean it up!
-          delete data.blocks;
-
-// Time Start
-          obj.getTimeStart();
-          if ( time_start.time_start ) {
-            args.create_since = time_start.time_start;
-          } else {
-            args.create_since = 0;
-          }
-
-// If there were errors, I can give up now!
-          if ( obj.formFail ) { return; }
-
-// Destination
-          panel = obj.destination.Panel;
-          elList = panel.elList;
-          args.node = [];
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.node.push(panel.nodes[i]); }
-          }
-
-// Now build the args!
-          if ( data.datasets ) {
-            for ( dataset in data.datasets ) {
-              blocks = data.datasets[dataset];
-              if ( typeof(blocks) == 'number' ) {
-                if ( !args.data ) { args.data = []; }
-                args.data.push(dataset);
-              } else {
-debugger; // what happens now???
-                for ( block in blocks ) {
-                  if ( !args.block ) { args.block = []; }
-                  args.block.push(block);
-                }
-              }
-            }
-          }
-          Dom.removeClass(dom.preview,'phedex-invisible');
-          Dom.addClass(dom.preview,'phedex-box-yellow');
-          dom.preview_label.innerHTML = 'Status:';
-          dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
-          args.level = 'block';
-//           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context,response) { obj.previewCallback(data,context,response); } });
-
-          args.type = obj.params.type;
-          args.dbs = dbs.value.innerHTML;
-          PHEDEX.Datasvc.Call({
-                                api:'previewrequestdata',
-                                args:args,
-                                callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-                              });
-        }
-      }(this);
-    },
-    previewCallback: function(data,context,response) {
-      var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
-          preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, nodeMap={};
-      Dom.removeClass(dom.preview,'phedex-box-yellow');
-      Dom.removeClass(dom.preview,'phedex-box-red');
-      switch (api) {
-        case 'previewrequestdata': {
-          preview = data.preview;
-          dom.preview_label.innerHTML = 'Preview:';
-          dom.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
-          dom.preview_summary = Dom.get('phedex-preview-summary');
-          dom.preview_table   = Dom.get('phedex-preview-table');
-          if ( !preview ) {
-            dom.preview_text.innerHTML = 'Error retrieving information from the data-service';
-            Dom.addClass(dom.preview,'phedex-box-red');
-            return;
-          }
-          if ( preview.comment ) { dom.preview_summary = preview.comment; }
-          for (i in context.args.node ) { nodeMap[context.args.node[i]] = 0; }
-          for (i in preview) {
-            item = preview[i];
-            Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
-            tFiles += parseInt(item.files) || 0;
-            tBytes += parseInt(item.bytes) || 0;
-            for (j in item.src_info ) {
-              src_info = item.src_info[j];
-              text = src_info.node;
-              if ( src_info.files != item.files )  { text += ', incomplete'; }
-              if ( src_info.is_subscribed == 'n' ) { text += ', not subscribed'; }
-              else {
-                if ( nodeMap[src_info.node] != null ) {
-                  text = "<span class='phedex-box-red'>" + text + "</span>";
-                  nodeMap[src_info.node]++;
-                }
-              }
-              if ( Row.source ) { Row.source += '<br/>' + text; }
-              else { Row.source = text; }
-            }
-            if ( Row.comment ) {
-              showComment = true;
-            }
-            if ( item.dbs == dbs ) {
-              Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
-            } else {
-              showDBS = true;
-            }
-            Row.uniqueid = unique++;
-            Nested = [];
-            for (j in item.src_info ) {
-              src_info = item.src_info[j];
-              Nested.push({ node:src_info.node,
-                            b_files:src_info.files,
-                            b_bytes:src_info.bytes,
-                            is_subscribed:src_info.is_subscribed,
-                            is_custodial:src_info.is_custodial,
-                            is_move:src_info.is_move,
-                            time_start:src_info.time_start,
-                            subs_level:src_info.subs_level
-                           });
-            }
-            if ( Nested.length > 0 ) {
-              Row.nesteddata = Nested;
-            }
-            Table.push(Row);
-          }
-          if ( tBytes == 0 ) {
-            var create_since=context.args.create_since;
-            if ( create_since ) {
-              if ( create_since > new Date().getTime()/1000 ) {
-                text = 'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
-              } else {
-                text = 'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
-              }
-              Dom.addClass(dom.preview,'phedex-box-yellow');
-            } else {
-              text = 'No data found matching your selection';
-              Dom.addClass(dom.preview,'phedex-box-red');
-            }
-            text += '<br/><br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
-            dom.preview_summary.innerHTML = text;
-            return;
-          }
-          if ( preview.length == 1 ) {
-            text = 'One data-item matches your request';
-          } else {
-            text = preview.length+' data-items match your request';
-          }
-          text += '<br/>Found '+tFiles+' file';
-          if ( tFiles != 1 ) { text += 's'; }
-          if ( tFiles ) {
-            text += ', ' + ( tBytes ? PxUf.bytes(tBytes) : '0') + ' byte';
-            if ( tBytes != 1 ) { text += 's'; }
-          }
-          j=true;
-          for (i in nodeMap) {
-            if ( nodeMap[i] == preview.length ) {
-              if ( j ) {
-                text += '<br/>All items are already subscribed to <strong>'+i+'</strong>';
-                j=false;
-              } else {
-                text += ', <strong>'+i+'</strong>';
-              }
-              delete nodeMap[i];
-            }
-          }
-          j=true;
-          for (i in nodeMap) {
-            if ( nodeMap[i] ) {
-              if ( j ) {
-                text += '<br/>Some items are already subscribed to <strong>'+i+'</strong>';
-                j=false;
-              } else {
-                text += ', <strong>'+i+'</strong>';
-              }
-              delete nodeMap[i];
-            }
-          }
-          dom.preview_summary.innerHTML = text;
-
-          i = t.columns.length;
-          if (!t.map) { t.map = {}; }
-          while (i > 0) { //This is for main columns
-            i--;
-            cDef = t.columns[i];
-            if (typeof cDef != 'object') { cDef = { key:cDef }; t.columns[i] = cDef; }
-            if (!cDef.label)      { cDef.label      = cDef.key; }
-            if (!cDef.resizeable) { cDef.resizeable = true; }
-            if (!cDef.sortable)   { cDef.sortable   = true; }
-            if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-          }
-          if ( !t.nestedColumns ) {
-            t.nestedColumns = [];
-          }
-          i = t.nestedColumns.length;
-          while (i > 0) { //This is for inner nested columns
-            i--;
-            cDef = t.nestedColumns[i];
-            if (typeof cDef != 'object') { cDef = { key:cDef }; t.nestedColumns[i] = cDef; }
-            if (!cDef.label)      { cDef.label      = cDef.key; }
-            if (!cDef.resizeable) { cDef.resizeable = true; }
-            if (!cDef.sortable)   { cDef.sortable   = true; }
-            if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-          }
-          if ( this.dataSource ) {
-            delete this.dataSource;
-            delete this.nestedDataSource;
-          }
-          this.dataSource = new YAHOO.util.DataSource(Table);
-          this.nestedDataSource = new YAHOO.util.DataSource();
-          if ( this.dataTable  ) {
-            this.dataTable.destroy();
-            delete this.dataTable;
-          }
-          if ( t.columns[0].key == '__NESTED__' ) { t.columns.shift(); } // NestedDataTable has side-effects on its arguments, need to undo that before re-creating the table
-          this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.preview_table, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
-                          {
-                              initialLoad: false,
-                              generateNestedRequest: this.processNestedrequest
-                          });
-          oCallback = {
-            success: this.dataTable.onDataReturnInitializeTable,
-            failure: this.dataTable.onDataReturnInitializeTable,
-            scope: this.dataTable
-          };
-
-          this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
-            return function(ev) {
-              delete obj.nestedtables[ev.dt.getId()];
-            }
-          }(this));
-          this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
-            var dt = oArgs.dt,
-                oCallback = {
-                success: dt.onDataReturnInitializeTable,
-                failure: dt.onDataReturnInitializeTable,
-                scope: dt
-            }, ctxId;
-            this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-            if ( !dt ) { return; }
-            var col = dt.getColumn('b_files');
-            dt.sortColumn(col, YAHOO.widget.DataTable.CLASS_DESC);
-            // This is to maintain the list of created nested tables that would be used in context menu
-            if ( !o.nestedtables ) {
-              o.nestedtables = {};
-            }
-            o.nestedtables[dt.getId()] = dt;
-          }, this);
-          this.dataSource.sendRequest('', oCallback);
-
-          column = this.dataTable.getColumn('item');
-          this.dataTable.sortColumn(column, YAHOO.widget.DataTable.CLASS_ASC);
-          elList = Dom.getElementsByClassName('phedex-error','span',this.dom.preview_table);
-          for (i in elList) { // I've hacked the error class into the entry in the table, but it really needs to belong to its parent, for better visual effect
-            Dom.removeClass(elList[i],'phedex-error');
-            Dom.addClass(elList[i].parentNode,'phedex-error');
-          }
-          if ( !showDBS ) {
-            this.dataTable.hideColumn(this.dataTable.getColumn('dbs'));
-          }
-          if ( !showComment ) {
-            this.dataTable.hideColumn(this.dataTable.getColumn('comment'));
-          }
-          break;
-        }
-      }
+//       this.onPreviewSubmit = function(obj) {
+//         return function(id,action) {
+//           var dbs = obj.dbs,
+//               dom = obj.dom,
+//               time_start = obj.time_start,
+//               data_items = dom.data_items,
+//               menu, menu_items,
+//               data={}, args={}, tmp, value, type, block, dataset, xml,
+//               panel, elList, el, i;
+// 
+// // Prepare the form for output messages, disable the button to prevent multiple clicks
+//           Dom.removeClass(obj.dom.results,'phedex-box-red');
+//           Dom.addClass(obj.dom.results,'phedex-invisible');
+//           dom.results_label.innerHTML = '';
+//           dom.results_text.innerHTML  = '';
+//           obj.formFail = false;
+// 
+// // Data Items: Several layers of checks:
+// // 1. If the string is empty, or matches the inline help, abort
+// 
+//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
+//             obj.onAcceptFail('No Data-Items specified');
+//           }
+// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+//           if ( data_items.value != obj.data_items.text ) {
+//             tmp = data_items.value.split(/ |\n|,/);
+//             data = {blocks:{}, datasets:{} };
+//             for (i in tmp) {
+//               block = tmp[i];
+//               if ( block != '' ) {
+//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+//                   dataset = RegExp.$1;
+//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
+//                   else                    { data.blocks[block] = 1; }
+//                 } else {
+//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+//                 }
+//               }
+//             }
+//           }
+// // 3. Blocks which are contained within explicit datasets are suppressed
+//           for (block in data.blocks) {
+//             block.match(/^([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( data.datasets[dataset] ) {
+//               delete data.blocks[block];
+//             }
+//           }
+// // 4. Blocks are grouped into their corresponding datasets
+//           for (block in data.blocks) {
+//             block.match(/([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+//             data.datasets[dataset][block] = 1;
+//           }
+// // 5. the block-list is now redundant, clean it up!
+//           delete data.blocks;
+// 
+// // Time Start
+//           obj.getTimeStart();
+//           if ( time_start.time_start ) {
+//             args.create_since = time_start.time_start;
+//           } else {
+//             args.create_since = 0;
+//           }
+// 
+// // If there were errors, I can give up now!
+//           if ( obj.formFail ) { return; }
+// 
+// // Destination
+//           panel = obj.destination.Panel;
+//           elList = panel.elList;
+//           args.node = [];
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
+//           }
+// 
+// // Now build the args!
+//           if ( data.datasets ) {
+//             for ( dataset in data.datasets ) {
+//               blocks = data.datasets[dataset];
+//               if ( typeof(blocks) == 'number' ) {
+//                 if ( !args.data ) { args.data = []; }
+//                 args.data.push(dataset);
+//               } else {
+// debugger; // what happens now???
+//                 for ( block in blocks ) {
+//                   if ( !args.block ) { args.block = []; }
+//                   args.block.push(block);
+//                 }
+//               }
+//             }
+//           }
+//           Dom.removeClass(dom.preview,'phedex-invisible');
+//           Dom.addClass(dom.preview,'phedex-box-yellow');
+//           dom.preview_label.innerHTML = 'Status:';
+//           dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
+//           args.level = 'block';
+// 
+//           args.type = obj.params.type;
+//           args.dbs = dbs.value.innerHTML;
+//           PHEDEX.Datasvc.Call({
+//                                 api:'previewrequestdata',
+//                                 args:args,
+//                                 callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+//                               });
+//         }
+//       }(this);
     }
   }
 }
@@ -1415,34 +1826,16 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
   return {
-    meta: {
-      table: { columns: [{ key:'level',         label:'Level',   className:'align-left' },
-                                { key:'item',          label:'Item',    className:'align-left' },
-                                { key:'files',         label:'Files',   className:'align-right', parser:'number' },
-                                { key:'bytes',         label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                                { key:'dbs',           label:'DBS',     className:'align-left' },
-                                { key:'source',        label:'Source',  className:'align-left' },
-                                { key:'comment',       label:'Comment', className:'align-left' }],
-                 nestedColumns:[{ key:'node',          label:'Node',    className:'align-left' },
-                                { key:'b_files',       label:'Files',   className:'align-right', parser:'number' },
-                                { key:'b_bytes',       label:'Bytes',   className:'align-right', parser:'number', formatter:'customBytes' },
-                                { key:'is_subscribed', label:'Subscribed' },
-                                { key:'is_custodial',  label:'Custodial' },
-                                { key:'is_move',       label:'Move' },
-                                { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
-                                { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
-              },
-      synchronise: {
-        Preview: { data_items:false, destination:false },
-        Accept:  { data_items:false, destination:false, auth:false }
-      }
-    },
     initSub: function() {
       var d = this.dom,
           mb = d.main_block,
           hd = d.hd,
           form, elList, el, label, control, i, ctl;
       hd.innerHTML = 'Delete data';
+      this.meta.synchronise = {
+        Preview: { data_items:false, destination:false },
+        Accept:  { data_items:false, destination:false, auth:false }
+      };
 
       form = document.createElement('form');
       form.id   = 'subscribe_data';
@@ -1458,7 +1851,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       this.makeControlTextbox(this.data_items,form);
 
 // Preview
-      this.makeControlOutputbox({label:'Preview'},form);
+      this.makeControlPreview(form);
 
 // DBS
       this.dbs = {
@@ -1481,12 +1874,13 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       this.makeControlDestination(this.destination,form);
 
 // Remove Subscriptions?
-      this.remove_subscription = {
+      this.remove_subscriptions = {
         values:['yes','no'],
         _default:0,
-        label:'Remove Subscriptions'
+        label:'Remove Subscriptions',
+        help_text:"<p>Whether or not the subscriptions for the data in this request should be removed.</p><p>If subscriptions are removed (default), the data will not be retransferred after the deletion. Use this to permanently delete the data from your site.</p><p>If subscriptions are <em>not</em> removed, the data will automatically be queued for retransfer after the deletion is completed. Use this to re-transfer a fresh copy of the data after files have been lost (e.g. through hardware failure).</p>"
       };
-      this.makeControlRadio(this.remove_subscription,form);
+      this.makeControlRadio(this.remove_subscriptions,form);
 
 // Email
       el = document.createElement('div');
@@ -1548,514 +1942,242 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
-
-      this.requestCallback = function(obj) {
-        return function(data,context,response) {
-          var dom = obj.dom, str, msg, rid;
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML = '';
-          Dom.removeClass(dom.results,'phedex-box-yellow');
-          if ( data.message ) { // indicative of failure
-            str = "Error when making call '" + context.api + "':";
-            msg = data.message.replace(str,'').trim();
-            obj.onAcceptFail(msg);
-            obj.Accept.set('disabled',false);
-          }
-          if ( rid = data.request_created[0].id ) {
-            obj.onResetSubmit();
-            var uri = location.href;
-            uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/');
-            uri = uri.replace(/\?.*$/g,'');      // shouldn't be necessary, but we'll see...
-            uri = uri.replace(/\/[^/]*$/g,'/');
-
-            dom.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
-              "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
-            Dom.addClass(dom.results,'phedex-box-green');
-            Dom.removeClass(dom.results,'phedex-invisible');
-          }
-        }
-      }(this);
-      this.onAcceptFail = function(obj) {
-        return function(text) {
-          var dom = obj.dom;
-          Dom.removeClass(dom.results,'phedex-invisible');
-          Dom.addClass(dom.results,'phedex-box-red');
-          dom.results_label.innerHTML = 'Error:';
-          if ( dom.results_text.innerHTML ) {
-            dom.results_text.innerHTML += '<br />';
-          }
-          dom.results_text.innerHTML += text;
-          obj.formFail = true;
-        }
-      }(this);
-      this.onAcceptSubmit = function(obj) {
-        return function(id,action) {
-          var dbs = obj.dbs,
-              dom = obj.dom,
-              user_group = obj.user_group,
-              email      = obj.email,
-              time_start = obj.time_start,
-              data_items = dom.data_items,
-              menu, menu_items,
-              data={}, args={}, tmp, value, type, block, dataset, xml,
-              elList, el, i, panel;
-
-// Prepare the form for output messages, disable the button to prevent multiple clicks
-          Dom.removeClass(obj.dom.results,'phedex-box-red');
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML  = '';
-          obj.formFail = false;
-          this.set('disabled',true);
-
-// Subscription level is hardwired for now.
-
-// Data Items: Several layers of checks:
-// 1. If the string is empty, or matches the inline help, abort
-
-          if ( !data_items.value || data_items.value == obj.data_items.text ) {
-            obj.onAcceptFail('No Data-Items specified');
-          }
-// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-          if ( data_items.value != obj.data_items.text ) {
-            tmp = data_items.value.split(/ |\n|,/);
-            data = {blocks:{}, datasets:{} };
-            for (i in tmp) {
-              block = tmp[i];
-              if ( block != '' ) {
-                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                  dataset = RegExp.$1;
-                  if ( dataset == block ) { data.datasets[dataset] = 1; }
-                  else                    { data.blocks[block] = 1; }
-                } else {
-                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-                }
-              }
-            }
-          }
-// 3. Blocks which are contained within explicit datasets are suppressed
-          for (block in data.blocks) {
-            block.match(/^([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( data.datasets[dataset] ) {
-              delete data.blocks[block];
-            }
-          }
-// 4. Blocks are grouped into their corresponding datasets
-          for (block in data.blocks) {
-            block.match(/([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-            data.datasets[dataset][block] = 1;
-          }
-// 5. the block-list is now redundant, clean it up!
-          delete data.blocks;
-
-// DBS - done directly in the xml
-
-// Destination
-          panel = obj.destination.Panel;
-          elList = panel.elList;
-          args.node = [];
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.node.push(panel.nodes[i]); }
-          }
-          if ( args.node.length == 0 ) {
-            obj.onAcceptFail('No Destination nodes specified');
-          }
-
-// Remove Subscriptions
-          tmp = obj.remove_subscription;
-          elList = tmp.elList;
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.rm_subscriptions = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
-          }
-
-// Email TODO check field?
-//           args.email = email.value.innerHTML;
-
-// Comments
-          if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
-
-          args.no_mail = 'n';
-
-// Hardwired, for best practise!
-          args.level = 'block'; // TODO is this right for deletions?
-
-// If there were errors, I can give up now!
-          if ( obj.formFail ) {
-            this.set('disabled',true);
-            return;
-          }
-
-// Now build the XML!
-          xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
-          for ( dataset in data.datasets ) {
-            xml += '<dataset name="'+dataset+'" is-open="dummy">';
-            for ( block in data.datasets[dataset] ) {
-              xml += '<block name="'+block+'" is-open="dummy" />';
-            }
-            xml += '</dataset>';
-          }
-          xml += '</dbs></data>';
-          args.data = xml;
-          Dom.removeClass(dom.results,'phedex-invisible');
-          Dom.addClass(dom.results,'phedex-box-yellow');
-          dom.results_label.innerHTML = 'Status:';
-          dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
-          PHEDEX.Datasvc.Call({
-                                api:'delete',
-                                method:'post',
-                                args:args,
-                                callback:function(data,context,response) { obj.requestCallback(data,context,response); }
-                              });
-        }
-      }(this);
-
-      this.onPreviewSubmit = function(obj) {
-        return function(id,action) {
-          var dbs = obj.dbs,
-              dom = obj.dom,
-              time_start = obj.time_start,
-              data_items = dom.data_items,
-              menu, menu_items,
-              data={}, args={}, tmp, value, type, block, dataset, xml,
-              panel, elList, el, i;
-
-// Prepare the form for output messages, disable the button to prevent multiple clicks
-          Dom.removeClass(obj.dom.results,'phedex-box-red');
-          Dom.addClass(obj.dom.results,'phedex-invisible');
-          dom.results_label.innerHTML = '';
-          dom.results_text.innerHTML  = '';
-          obj.formFail = false;
-
-// Data Items: Several layers of checks:
-// 1. If the string is empty, or matches the inline help, abort
-
-          if ( !data_items.value || data_items.value == obj.data_items.text ) {
-            obj.onAcceptFail('No Data-Items specified');
-          }
-// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-          if ( data_items.value != obj.data_items.text ) {
-            tmp = data_items.value.split(/ |\n|,/);
-            data = {blocks:{}, datasets:{} };
-            for (i in tmp) {
-              block = tmp[i];
-              if ( block != '' ) {
-                if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                  dataset = RegExp.$1;
-                  if ( dataset == block ) { data.datasets[dataset] = 1; }
-                  else                    { data.blocks[block] = 1; }
-                } else {
-                  obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-                }
-              }
-            }
-          }
-// 3. Blocks which are contained within explicit datasets are suppressed
-          for (block in data.blocks) {
-            block.match(/^([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( data.datasets[dataset] ) {
-              delete data.blocks[block];
-            }
-          }
-// 4. Blocks are grouped into their corresponding datasets
-          for (block in data.blocks) {
-            block.match(/([^#]*)#/);
-            dataset = RegExp.$1;
-            if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-            data.datasets[dataset][block] = 1;
-          }
-// 5. the block-list is now redundant, clean it up!
-          delete data.blocks;
-
-// Time Start
-          if ( time_start ) {
-            obj.getTimeStart();
-            if ( time_start.time_start ) {
-              args.create_since = time_start.time_start;
-            } else {
-              args.create_since = 0;
-            }
-          }
-
-// If there were errors, I can give up now!
-          if ( obj.formFail ) { return; }
-
-// Destination
-          panel = obj.destination.Panel;
-          elList = panel.elList;
-          args.node = [];
-          for (i in elList) {
-            el = elList[i];
-            if ( el.checked ) { args.node.push(panel.nodes[i]); }
-          }
-
-// Now build the args!
-          if ( data.datasets ) {
-            for ( dataset in data.datasets ) {
-              blocks = data.datasets[dataset];
-              if ( typeof(blocks) == 'number' ) {
-                if ( !args.data ) { args.data = []; }
-                args.data.push(dataset);
-              } else {
-debugger; // what happens now???
-                for ( block in blocks ) {
-                  if ( !args.block ) { args.block = []; }
-                  args.block.push(block);
-                }
-              }
-            }
-          }
-          Dom.removeClass(dom.preview,'phedex-invisible');
-          Dom.addClass(dom.preview,'phedex-box-yellow');
-          dom.preview_label.innerHTML = 'Status:';
-          dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
-          args.level = 'block';
-//           PHEDEX.Datasvc.Call({ api:'data', args:args, callback:function(data,context,response) { obj.previewCallback(data,context,response); } });
-
-          args.type = obj.params.type;
-          args.dbs = dbs.value.innerHTML;
-          PHEDEX.Datasvc.Call({
-                                api:'previewrequestdata',
-                                args:args,
-                                callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-                              });
-        }
-      }(this);
-    },
-    previewCallback: function(data,context,response) {
-      var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
-          preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, nodeMap={}, type=this.params.type;
-      Dom.removeClass(dom.preview,'phedex-box-yellow');
-      Dom.removeClass(dom.preview,'phedex-box-red');
-      switch (api) {
-        case 'previewrequestdata': {
-          preview = data.preview;
-          dom.preview_label.innerHTML = 'Preview:';
-          dom.preview_text.innerHTML = "<div id='phedex-preview-summary'></div><div id='phedex-preview-table'></div>";
-          dom.preview_summary = Dom.get('phedex-preview-summary');
-          dom.preview_table   = Dom.get('phedex-preview-table');
-          if ( !preview ) {
-            dom.preview_text.innerHTML = 'Error retrieving information from the data-service';
-            Dom.addClass(dom.preview,'phedex-box-red');
-            return;
-          }
-          if ( preview.comment ) { dom.preview_summary = preview.comment; }
-          for (i in context.args.node ) { nodeMap[context.args.node[i]] = 0; }
-          for (i in preview) {
-            item = preview[i];
-            Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
-            tFiles += parseInt(item.files) || 0;
-            tBytes += parseInt(item.bytes) || 0;
-            for (j in item.src_info ) {
-              src_info = item.src_info[j];
-              text = src_info.node;
-              if ( src_info.files != item.files )  { text += ', incomplete'; }
-              if ( src_info.is_subscribed == 'n' ) { text += ', not subscribed'; }
-              else {
-                if ( type == 'xfer' && nodeMap[src_info.node] != null ) {
-                  text = "<span class='phedex-box-red'>" + text + "</span>";
-                  nodeMap[src_info.node]++;
-                }
-              }
-              if ( type == 'delete' ) {
-                  if ( src_info.files == '-' ) { text = "<span class='phedex-box-red'>" + text + "</span>"; }
-                  else { nodeMap[src_info.node]++; }
-              }
-              if ( Row.source ) { Row.source += '<br/>' + text; }
-              else { Row.source = text; }
-            }
-            if ( Row.comment ) {
-              showComment = true;
-            }
-            if ( item.dbs == dbs ) {
-              Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
-            } else {
-              showDBS = true;
-            }
-            Row.uniqueid = unique++;
-            Nested = [];
-            for (j in item.src_info ) {
-              src_info = item.src_info[j];
-              Nested.push({ node:src_info.node,
-                            b_files:src_info.files,
-                            b_bytes:src_info.bytes,
-                            is_subscribed:src_info.is_subscribed,
-                            is_custodial:src_info.is_custodial,
-                            is_move:src_info.is_move,
-                            time_start:src_info.time_start,
-                            subs_level:src_info.subs_level
-                           });
-            }
-            if ( Nested.length > 0 ) {
-              Row.nesteddata = Nested;
-            }
-            Table.push(Row);
-          }
-          if ( tBytes == 0 ) {
-            var create_since=context.args.create_since;
-            if ( create_since ) {
-              if ( create_since > new Date().getTime()/1000 ) {
-                text = 'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
-              } else {
-                text = 'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
-              }
-              Dom.addClass(dom.preview,'phedex-box-yellow');
-            } else {
-              text = 'No data found matching your selection';
-              Dom.addClass(dom.preview,'phedex-box-red');
-            }
-            text += '<br/><br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
-            dom.preview_summary.innerHTML = text;
-            return;
-          }
-          if ( preview.length == 1 ) {
-            text = 'One data-item matches your request';
-          } else {
-            text = preview.length+' data-items match your request';
-          }
-          text += '<br/>Found '+tFiles+' file';
-          if ( tFiles != 1 ) { text += 's'; }
-          if ( tFiles ) {
-            text += ', ' + ( tBytes ? PxUf.bytes(tBytes) : '0') + ' byte';
-            if ( tBytes != 1 ) { text += 's'; }
-          }
-          j=true;
-          for (i in nodeMap) {
-            if ( nodeMap[i] == preview.length ) {
-              if ( j ) {
-                if ( type == 'xfer' ) {
-                  text += '<br/>All items are already subscribed to <strong>'+i+'</strong>';
-                } else {
-                  text += '<br/>All items exist at <strong>'+i+'</strong>';
-                }
-                j=false;
-              } else {
-                text += ', <strong>'+i+'</strong>';
-              }
-              delete nodeMap[i];
-            }
-          }
-          j=true;
-          for (i in nodeMap) {
-            if ( nodeMap[i] ) {
-              if ( j ) {
-                if ( type == 'xfer' ) {
-                  text += '<br/>Some items are already subscribed to <strong>'+i+'</strong>';
-                } else {
-                  text += '<br/>Not all items exist at <strong>'+i+'</strong>';
-                }
-                j=false;
-              } else {
-                text += ', <strong>'+i+'</strong>';
-              }
-              delete nodeMap[i];
-            }
-          }
-          if ( type == 'delete' ) {
-            j=true;
-            for (i in nodeMap) {
-              if ( !nodeMap[j] ) {
-                if ( j ) {
-                  text += '<br/>No items exist at <strong>'+i+'</strong>';
-                  j=false;
-                } else {
-                  text += ', <strong>'+i+'</strong>';
-                }
-              }
-            }
-          }
-          dom.preview_summary.innerHTML = text;
-
-          i = t.columns.length;
-          if (!t.map) { t.map = {}; }
-          while (i > 0) { //This is for main columns
-            i--;
-            cDef = t.columns[i];
-            if (typeof cDef != 'object') { cDef = { key:cDef }; t.columns[i] = cDef; }
-            if (!cDef.label)      { cDef.label      = cDef.key; }
-            if (!cDef.resizeable) { cDef.resizeable = true; }
-            if (!cDef.sortable)   { cDef.sortable   = true; }
-            if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-          }
-          if ( !t.nestedColumns ) {
-            t.nestedColumns = [];
-          }
-          i = t.nestedColumns.length;
-          while (i > 0) { //This is for inner nested columns
-            i--;
-            cDef = t.nestedColumns[i];
-            if (typeof cDef != 'object') { cDef = { key:cDef }; t.nestedColumns[i] = cDef; }
-            if (!cDef.label)      { cDef.label      = cDef.key; }
-            if (!cDef.resizeable) { cDef.resizeable = true; }
-            if (!cDef.sortable)   { cDef.sortable   = true; }
-            if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-          }
-          if ( this.dataSource ) {
-            delete this.dataSource;
-            delete this.nestedDataSource;
-          }
-          this.dataSource = new YAHOO.util.DataSource(Table);
-          this.nestedDataSource = new YAHOO.util.DataSource();
-          if ( this.dataTable  ) {
-            this.dataTable.destroy();
-            delete this.dataTable;
-          }
-          if ( t.columns[0].key == '__NESTED__' ) { t.columns.shift(); } // NestedDataTable has side-effects on its arguments, need to undo that before re-creating the table
-          this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.preview_table, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
-                          {
-                              initialLoad: false,
-                              generateNestedRequest: this.processNestedrequest
-                          });
-          oCallback = {
-            success: this.dataTable.onDataReturnInitializeTable,
-            failure: this.dataTable.onDataReturnInitializeTable,
-            scope: this.dataTable
-          };
-
-          this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
-            return function(ev) {
-              delete obj.nestedtables[ev.dt.getId()];
-            }
-          }(this));
-          this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
-            var dt = oArgs.dt,
-                oCallback = {
-                success: dt.onDataReturnInitializeTable,
-                failure: dt.onDataReturnInitializeTable,
-                scope: dt
-            }, ctxId;
-            this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-            if ( !dt ) { return; }
-            var col = dt.getColumn('b_files');
-            dt.sortColumn(col, YAHOO.widget.DataTable.CLASS_DESC);
-            // This is to maintain the list of created nested tables that would be used in context menu
-            if ( !o.nestedtables ) {
-              o.nestedtables = {};
-            }
-            o.nestedtables[dt.getId()] = dt;
-          }, this);
-          this.dataSource.sendRequest('', oCallback);
-
-          column = this.dataTable.getColumn('item');
-          this.dataTable.sortColumn(column, YAHOO.widget.DataTable.CLASS_ASC);
-          elList = Dom.getElementsByClassName('phedex-error','span',this.dom.preview_table);
-          for (i in elList) { // I've hacked the error class into the entry in the table, but it really needs to belong to its parent, for better visual effect
-            Dom.removeClass(elList[i],'phedex-error');
-            Dom.addClass(elList[i].parentNode,'phedex-error');
-          }
-          if ( !showDBS ) {
-            this.dataTable.hideColumn(this.dataTable.getColumn('dbs'));
-          }
-          if ( !showComment ) {
-            this.dataTable.hideColumn(this.dataTable.getColumn('comment'));
-          }
-          break;
-        }
-      }
+//       this.onAcceptSubmit = function(obj) {
+//         return function(id,action) {
+//           var dbs = obj.dbs,
+//               dom = obj.dom,
+//               user_group = obj.user_group,
+//               email      = obj.email,
+//               time_start = obj.time_start,
+//               data_items = dom.data_items,
+//               menu, menu_items,
+//               data={}, args={}, tmp, value, type, block, dataset, xml,
+//               elList, el, i, panel;
+// 
+// // Prepare the form for output messages, disable the button to prevent multiple clicks
+//           Dom.removeClass(obj.dom.results,'phedex-box-red');
+//           dom.results_label.innerHTML = '';
+//           dom.results_text.innerHTML  = '';
+//           obj.formFail = false;
+//           this.set('disabled',true);
+// 
+// // Subscription level is hardwired for now.
+// 
+// // Data Items: Several layers of checks:
+// // 1. If the string is empty, or matches the inline help, abort
+// 
+//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
+//             obj.onAcceptFail('No Data-Items specified');
+//           }
+// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+//           if ( data_items.value != obj.data_items.text ) {
+//             tmp = data_items.value.split(/ |\n|,/);
+//             data = {blocks:{}, datasets:{} };
+//             for (i in tmp) {
+//               block = tmp[i];
+//               if ( block != '' ) {
+//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+//                   dataset = RegExp.$1;
+//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
+//                   else                    { data.blocks[block] = 1; }
+//                 } else {
+//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+//                 }
+//               }
+//             }
+//           }
+// // 3. Blocks which are contained within explicit datasets are suppressed
+//           for (block in data.blocks) {
+//             block.match(/^([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( data.datasets[dataset] ) {
+//               delete data.blocks[block];
+//             }
+//           }
+// // 4. Blocks are grouped into their corresponding datasets
+//           for (block in data.blocks) {
+//             block.match(/([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+//             data.datasets[dataset][block] = 1;
+//           }
+// // 5. the block-list is now redundant, clean it up!
+//           delete data.blocks;
+// 
+// // DBS - done directly in the xml
+// 
+// // Destination
+//           panel = obj.destination.Panel;
+//           elList = panel.elList;
+//           args.node = [];
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
+//           }
+//           if ( args.node.length == 0 ) {
+//             obj.onAcceptFail('No Destination nodes specified');
+//           }
+// 
+// // Remove Subscriptions
+//           tmp = obj.remove_subscriptions;
+//           elList = tmp.elList;
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args.rm_subscriptions = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
+//           }
+// 
+// // Email TODO check field?
+// //           args.email = email.value.innerHTML;
+// 
+// // Comments
+//           if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
+// 
+//           args.no_mail = 'n';
+// 
+// // Hardwired, for best practise!
+//           args.level = 'block'; // TODO is this right for deletions?
+// 
+// // If there were errors, I can give up now!
+//           if ( obj.formFail ) {
+//             this.set('disabled',true);
+//             return;
+//           }
+// 
+// // Now build the XML!
+//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
+//           for ( dataset in data.datasets ) {
+//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
+//             for ( block in data.datasets[dataset] ) {
+//               xml += '<block name="'+block+'" is-open="dummy" />';
+//             }
+//             xml += '</dataset>';
+//           }
+//           xml += '</dbs></data>';
+//           args.data = xml;
+//           Dom.removeClass(dom.results,'phedex-invisible');
+//           Dom.addClass(dom.results,'phedex-box-yellow');
+//           dom.results_label.innerHTML = 'Status:';
+//           dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
+//           PHEDEX.Datasvc.Call({
+//                                 api:'delete',
+//                                 method:'post',
+//                                 args:args,
+//                                 callback:function(data,context,response) { obj.requestCallback(data,context,response); }
+//                               });
+//         }
+//       }(this);
+// 
+//       this.onPreviewSubmit = function(obj) {
+//         return function(id,action) {
+//           var dbs = obj.dbs,
+//               dom = obj.dom,
+//               time_start = obj.time_start,
+//               data_items = dom.data_items,
+//               menu, menu_items,
+//               data={}, args={}, tmp, value, type, block, dataset, xml,
+//               panel, elList, el, i;
+// 
+// // Prepare the form for output messages, disable the button to prevent multiple clicks
+//           Dom.removeClass(obj.dom.results,'phedex-box-red');
+//           Dom.addClass(obj.dom.results,'phedex-invisible');
+//           dom.results_label.innerHTML = '';
+//           dom.results_text.innerHTML  = '';
+//           obj.formFail = false;
+// 
+// // Data Items: Several layers of checks:
+// // 1. If the string is empty, or matches the inline help, abort
+// 
+//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
+//             obj.onAcceptFail('No Data-Items specified');
+//           }
+// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
+//           if ( data_items.value != obj.data_items.text ) {
+//             tmp = data_items.value.split(/ |\n|,/);
+//             data = {blocks:{}, datasets:{} };
+//             for (i in tmp) {
+//               block = tmp[i];
+//               if ( block != '' ) {
+//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+//                   dataset = RegExp.$1;
+//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
+//                   else                    { data.blocks[block] = 1; }
+//                 } else {
+//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
+//                 }
+//               }
+//             }
+//           }
+// // 3. Blocks which are contained within explicit datasets are suppressed
+//           for (block in data.blocks) {
+//             block.match(/^([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( data.datasets[dataset] ) {
+//               delete data.blocks[block];
+//             }
+//           }
+// // 4. Blocks are grouped into their corresponding datasets
+//           for (block in data.blocks) {
+//             block.match(/([^#]*)#/);
+//             dataset = RegExp.$1;
+//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+//             data.datasets[dataset][block] = 1;
+//           }
+// // 5. the block-list is now redundant, clean it up!
+//           delete data.blocks;
+// 
+// // Time Start
+//           if ( time_start ) {
+//             obj.getTimeStart();
+//             if ( time_start.time_start ) {
+//               args.create_since = time_start.time_start;
+//             } else {
+//               args.create_since = 0;
+//             }
+//           }
+// 
+// // If there were errors, I can give up now!
+//           if ( obj.formFail ) { return; }
+// 
+// // Destination
+//           panel = obj.destination.Panel;
+//           elList = panel.elList;
+//           args.node = [];
+//           for (i in elList) {
+//             el = elList[i];
+//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
+//           }
+// 
+// // Now build the args!
+//           if ( data.datasets ) {
+//             for ( dataset in data.datasets ) {
+//               blocks = data.datasets[dataset];
+//               if ( typeof(blocks) == 'number' ) {
+//                 if ( !args.data ) { args.data = []; }
+//                 args.data.push(dataset);
+//               } else {
+// debugger; // what happens now???
+//                 for ( block in blocks ) {
+//                   if ( !args.block ) { args.block = []; }
+//                   args.block.push(block);
+//                 }
+//               }
+//             }
+//           }
+//           Dom.removeClass(dom.preview,'phedex-invisible');
+//           Dom.addClass(dom.preview,'phedex-box-yellow');
+//           dom.preview_label.innerHTML = 'Status:';
+//           dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
+//           args.level = 'block';
+// 
+//           args.type = obj.params.type;
+//           args.dbs = dbs.value.innerHTML;
+//           PHEDEX.Datasvc.Call({
+//                                 api:'previewrequestdata',
+//                                 args:args,
+//                                 callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+//                               });
+//         }
+//       }(this);
     }
   }
 }
