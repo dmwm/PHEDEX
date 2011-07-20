@@ -24,26 +24,7 @@ sub previewrequestdata {
   my ($type,$response);
 
   checkRequired(\%params,qw(data type));  
-#  $type = $params{type};
-
-#  eval {
-#    if ( $type eq 'xfer' ) {
-#      $response = previewXferRequestData($core, %params);
-#    } elsif ( $type eq 'delete' ) {
-#      $response = previewDeleteRequestData($core, %params);
-#    } else {
-#      die "Request is of unknown type\n";
-#    }
-#  };
-  if ( $@ ) { die $@; }
-
-  $response = previewXferRequestData($core, %params);
-  return { preview => $response };
-}
-
-sub previewXferRequestData
-{
-  my ($core, %params) = @_;
+  if ( $@ ) { die PHEDEX::Web::Util::http_error(400,$@); }
 
   if ( !ref($params{data}) ) {
     $params{data} = [ $params{data} ];
@@ -64,7 +45,7 @@ sub previewXferRequestData
       ITEM  => $userglob,
       DPS_ISKNOWN => 'n',
       DBS_ISKNOWN => 'n',
-      COMMENT => 'Data item not known to PhEDEx',
+      COMMENT => 'Not known to PhEDEx',
       WARN => 1});
       $problems = 1;
     } else {
@@ -87,7 +68,7 @@ sub previewXferRequestData
           $warn = 1;
         }
         if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  {
-          push @comments, 'Data item known to PhEDEx in multiple DBSes';
+          push @comments, 'Known to PhEDEx in multiple DBSes';
           $warn = 1;
         }
         if ($$res{LEVEL} eq 'BLOCK' && $params{is_move} eq 'y') {
@@ -181,168 +162,8 @@ sub previewXferRequestData
     }
   }
 
-  return \@table;
+  return { preview => \@table };
 }
-
-sub previewDeleteRequestData
-{
-  return previewXferRequestData(@_);
-#    my ($self, %params) = @_;
-#
-#    my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,$$self{DBH}, $params{dbs}, 0, @{$params{data}});
-#
-#    my $del_queue = &PHEDEX::Core::DB::dbexec($$self{DBH},
-#     qq{select n.id node_id, n.name node,
-#                     ds.id dataset_id, ds.name dataset,
-#                     b.id block_id, b.name block, b.bytes,
-#                                  bd.block block_queued
-#                             from t_dps_block_delete bd
-#                join t_dps_block b on b.id = bd.block
-#                          join t_dps_dataset ds on ds.id = b.dataset
-#                             join t_adm_node n on n.id = bd.node
-#      })->fetchall_hashref([qw(NODE DATASET_ID BLOCK_ID)]);
-#
-#    my $table = new Web25::TableSpool;
-#    $table->set_filehandle( $$self{CONTENT} );
-#    $table->set_tableclass('data');
-#    $table->set_stripeclass('stripe');
-#    $table->set_tablecols([qw(LEVEL ITEM FILES BYTES DPS_ISKNOWN DBS_ISKNOWN SOURCES COMMENT)]);
-#    $table->set_tablehead({LEVEL => 'Data Level',
-#        ITEM => 'Data Item',
-#        FILES => 'Files',
-#        BYTES => 'Size',
-#        DPS_ISKNOWN => 'Known to PhEDEx',
-#        DBS_ISKNOWN => 'Known to DBS',
-#        SOURCES => 'Sources (current)',
-#        COMMENT => 'Comment'});
-#    $table->set_cellformats({COMMENT     => sub { return 'alarm' if $_[1]->{PROBLEM};
-#             return 'warn'  if $_[1]->{WARN};
-#             return '';
-#               },
-#          DPS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''},
-#          DBS_ISKNOWN => sub { $_[0] eq 'n' ? 'alarm' : ''}});
-#
-#    $table->set_dataformats({DPS_ISKNOWN => \&yesno,
-#          DBS_ISKNOWN => \&yesno,
-#          LEVEL => sub { ucfirst lc $_[0] },
-#          BYTES => sub { &format_size($_[0], 1, 2, 'G') }});
-#    $table->set_statcols({FILES => 'SUM', BYTES => 'SUM'});
-#
-#    $table->start();
-#    $table->head();
-#
-#    my $problems = 0;
-#    foreach my $userglob (sort @{$params{data}}) {
-#    if (! @{$$resolved{$userglob}} ) {
-#      $table->row({LEVEL => 'User Search',
-#      ITEM  => $userglob,
-#      DPS_ISKNOWN => 'n',
-#      DBS_ISKNOWN => 'n',
-#      COMMENT => 'Data item not found anywhere',
-#      WARN => 1});
-#      $problems = 1;
-#    } else {
-#      foreach my $res (@{$$resolved{$userglob}}) {
-#        my @comments;
-#        my $warn = 0;
-#
-#        if ($$res{FILES} == 0) {
-#          my $item_level = ucfirst lc $$res{LEVEL};
-#          push @comments, "$item_level has no files";
-#          $warn = 1;
-#        }
-#        if ($$res{DBS} ne $params{dbs})  {
-#          push @comments, "Known to PhEDEx in another DBS ($$res{DBS})";
-#          $warn = 1; $problems = 1;
-#        }
-#        if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) {
-#          push @comments, "User duplicated requests";
-#          $warn = 1;
-#        }
-#        if ($$dbsdupes{$$res{LEVEL}}{$$res{ID}})  {
-#          push @comments, "Data item known to PhEDEx in multiple DBSes";
-#          $warn = 1;
-#        }
-#
-#        my $src_info = {};
-#        foreach my $replica (@{$$res{REPLICAS}}) {
-#          $$src_info{ $$replica{NODE_NAME} }{ NODE_NAME } = $$replica{NODE_NAME} ;
-#          $$src_info{ $$replica{NODE_NAME} }{ FILES } = $$replica{FILES};
-#        }
-#        foreach my $subsc (@{$$res{SUBSCRIPTIONS}}) {
-#          $$src_info{ $$subsc{NODE_NAME } }{ NODE_NAME } = $$subsc{NODE_NAME};
-#          $$src_info{ $$subsc{NODE_NAME } }{ SUBSCRIBED } = 1;
-#          $$src_info{ $$subsc{NODE_NAME } }{ IS_CUSTODIAL } = $$subsc{IS_CUSTODIAL};
-#          $$src_info{ $$subsc{NODE_NAME } }{ IS_MOVE } = $$subsc{IS_MOVE};
-#        }
-#
-#        foreach my $node (@{$params{nodes}}) {
-#          next unless exists $$src_info{$node};
-#          if (!$$src_info{$node}{FILES})
-#          {
-#            push @comments, "$node has nothing to delete";
-#            $warn = 1;
-#          }
-#          if ($$res{LEVEL} eq 'BLOCK' && $params{rm_subscriptions} eq 'y' &&
-#            grep($$_{SUBS_LVL} eq 'DATASET' &&
-#            $$_{NODE_NAME} eq $node, @{$$res{SUBSCRIPTIONS}}) )
-#          {
-#            push @comments, "You will remove a ".
-#          "dataset-level subscription from $node if you ".
-#          "delete this block.";
-#            $warn = 1;
-#          }
-#          if ($$src_info{$node}{SUBSCRIBED} && $$src_info{$node}{IS_CUSTODIAL} eq 'y')
-#          {
-#            push @comments, "You are requesting to delete ".
-#          "a custodial copy of the data.  This must be ".
-#          "approved by a global administrator.";
-#            $warn = 1;
-#          }
-#
-#          if ($$res{LEVEL} eq 'DATASET' && exists $$del_queue{$node}{ $$res{ID} })
-#          {
-#            my $n_blocks = scalar keys %{$$del_queue{$node}{ $$res{ID} }};
-#            push @comments, "$node already has $n_blocks blocks from this dataset queued for deletion";
-#            $warn = 1;
-#          }
-#        }
-#        # prepare a list of source nodes with helpful information
-#        foreach my $info (sort { $$a{NODE_NAME} cmp $$b{NODE_NAME} } values %$src_info) {
-#          $$res{SOURCES} .= join(' ', $$info{NODE_NAME}, ':',
-#            ($$info{FILES} || 0), "files,",
-#            ($$info{SUBSCRIBED} ? "subscribed" : "not subscribed"), "<br/>");
-#        }
-#        $$res{SOURCES} ||= 'None found';
-#        $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
-#        $$res{COMMENT} = join('<br/>', @comments);
-#        $$res{COMMENT} ||= 'None';
-#        $$res{WARN} = $warn;
-#        $$res{PROBLEM} = $problems;
-#
-#        if ($$res{DPS_ISKNOWN} eq 'n' || $$res{DBS_ISKNOWN} eq 'n') { $problems = 1; }
-#        $table->row($res);
-#      }
-#    }
-#  }
-#  $table->finish();
-#
-#  unless ($problems) {
-#  # Save the previous state
-#    $$self{SESSION}->param('type', 'delete');
-#    $$self{SESSION}->param('type_params', { 'rm_subscriptions' => $params{rm_subscriptions},
-#           'data' => join(' ', @{$params{data}})
-#           });
-#    $$self{SESSION}->param('comments', $params{comments});
-#    $$self{SESSION}->param('dbs', $params{dbs});
-#    $$self{SESSION}->param('user_email', $params{email});
-#    my @node_pairs = map { [ undef, $_ ] } @{$params{nodes}};
-#    $$self{SESSION}->param('nodes', \@node_pairs);
-#    $$self{SESSION}->param('data', $resolved);
-#  }
-#  return $problems;
-}
-
 
 # Resolve user datasets;  Search DPS and DBS for glob patterns
 # Fill data object with results:
@@ -484,28 +305,6 @@ sub resolve_data
 	}
     }
 
-#    # Lookup in DBS items not found in TMDB. TODO: Put some limit on
-#    # this.  We are able to look up 1000's of items from TMDB, but
-#    # getting data from DBS is slower and the user will not know why
-#    # their search failed
-#    my $undef_id = 0;
-#    foreach $userglob (@userdata) {
-#	if ($userdbs && ! @{$$resolved{$userglob}}) {
-#	    my @dbsdata = dbs_lookup($core,$userdbs, $userglob);
-#	    my $globlevel = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
-#	    foreach $name (@dbsdata) {
-#		$undef_id++;
-#		push @{$$resolved{$userglob}}, { DBS => $userdbs,
-#						 LEVEL => $globlevel,
-#						 DATASET => ($globlevel eq 'DATASET' ? $name : undef),
-#						 BLOCK   => ($globlevel eq 'BLOCK' ? $name : undef),
-#						 DPS_ISKNOWN => 'n',
-#						 DBS_ISKNOWN => 'y',
-#						 ID => 'undef'.$undef_id };
-#	    }
-#	}
-#    }
-
     # Look for data which the user has requested in duplicate
     $lastid = -1;
     foreach $level (qw(DATASET BLOCK)) {
@@ -613,7 +412,6 @@ sub fetch_subscriptions
 	      };
   } elsif ($level eq 'BLOCK') {
     $where = '('.&PHEDEX::Core::SQL::filter_or_eq($dbh, undef, \%binds, 'b.id', @items).')';
-# select d.id dataset_id, n.id, n.name from t_dps_dataset d join t_dps_subs_dataset sd on sd.dataset = d.id join t_adm_node n on n.id = sd.destination join t_dps_subs_param sp on sp.id = sd.param join t_req_xfer rx on rx.request = sp.request where d.id = 149064
     $sql = qq { select 'BLOCK' subs_lvl,
 		  b.dataset dataset_id,
 		  b.id subs_item_id,
@@ -632,50 +430,7 @@ sub fetch_subscriptions
   $sql .= $where;
 
   my $q = &PHEDEX::Core::DB::dbexec($dbh, $sql, %binds);
-#  my $q = &PHEDEX::Core::DB::dbexec($dbh, qq{
-#	select NVL2(s.block, 'BLOCK', 'DATASET') subs_lvl,
-#       NVL2(s.block, s.block, s.dataset) subs_item_id,
-#       sb.dataset dataset_id, sb.id block_id,
-#       n.id node_id, n.name node_name,
-#       s.is_move, s.is_custodial
-#	  from t_dps_subscription s
-#         join t_dps_block sb on sb.id = s.block or sb.dataset = s.dataset
-#         join t_adm_node n on s.destination = n.id 
-#	 where $where }, %binds);
-
   return $q->fetchall_arrayref({});
 }
-
-#sub dbs_lookup
-#{
-#  my ($core, $dbs, $pattern) = @_;
-#
-#  ### Security:  Strict list of characters allowed to go to shell
-#  my $reg = qr/[^\w\.\*\-\#\/\?=:\+\&]/;
-#  foreach ( $dbs, $pattern ) {
-#    if (/$reg/) {
-#      die "Invalid string '$_' given to dbs_lookup()";
-#    }
-#  }
-#        
-#  if ($dbs =~ /^https/) {
-#    # remove secure connection
-#    $dbs =~ s/^https/http/;
-#    $dbs =~ s|:\d+/|/|;
-#    $dbs =~ s/_writer//;
-#  }
-#die "\n",Data::Dumper->Dump([ $core ]);
-#  my $dbslookup = $core->{DBS_LOOKUP} || '/bin/false';
-#  my $dbscmd = "$dbslookup -u '$dbs' -d '$pattern'";
-#  my $dbsresults = `$dbscmd`;
-#
-#  my @paths;
-#  if ($dbsresults) {
-#    foreach (split "\n", $dbsresults) {
-#      push @paths, $_ if /^\//;
-#    }
-#  }
-#  return @paths;
-#}
 
 1;
