@@ -11,12 +11,14 @@ body {
 .phedex-bkg-green     { background-color: #efe; }
 .phedex-bkg-red       { background-color: #fee; }
 .phedex-bkg-yellow    { background-color: #ffe; }
+.phedex-bkg-orange    { background-color: #feb; }
 .phedex-bkg-mauve     { background-color: #fef; }
 .phedex-bkg-turquoise { background-color: #eff; }
 .phedex-box-blue      { border: 1px solid #88f; background-color: #eef; }
 .phedex-box-green     { border: 1px solid #8f8; background-color: #efe; }
 .phedex-box-red       { border: 1px solid #f88; background-color: #fee; }
 .phedex-box-yellow    { border: 1px solid #ff8; background-color: #ffe; }
+.phedex-box-orange    { border: 1px solid #fb0; background-color: #feb; }
 .phedex-box-mauve     { border: 1px solid #f8f; background-color: #fef; }
 .phedex-box-turquoise { border: 1px solid #8ff; background-color: #eff; }
 .phedex-grey   { color: gray };
@@ -595,7 +597,7 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 .phedex-nextgen-label {
-  width: 175px;
+  width: 205px;
   display: inline-block;
   vertical-align:top;
   text-align: right;
@@ -604,7 +606,7 @@ ul li.phedex-contextmenu-beta:before {
   float: left;
 }
 .phedex-nextgen-label-disabled {
-  width: 175px;
+  width: 205px;
   display: inline-block;
   vertical-align:top;
   text-align: right;
@@ -622,7 +624,7 @@ ul li.phedex-contextmenu-beta:before {
   display: inline-block;
 }
 .phedex-nextgen-control {
-  margin: 0 100px 0 180px;
+  margin: 0 100px 0 210px;
 }
 
 .phedex-nextgen-textarea {
