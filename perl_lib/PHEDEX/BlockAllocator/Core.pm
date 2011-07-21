@@ -658,7 +658,7 @@ sub blockDestinations
 	      and br.node_files >= b.files
               and bd.state != 3)
              -- block is incomplete, update state
-             or (s.time_complete is null and bd.state = 3)
+             or (nvl(br.node_files,0)<b.files and bd.state = 3)
              -- update priority
              or (bd.priority != sp.priority)
              -- suspension finished, update state
@@ -697,7 +697,7 @@ sub blockDestinations
       }
 
       # Reactivate block destinations which do not have all files replicated (deleted data)
-      if (!$block->{SUBS_COMPLETE} &&
+      if ($block->{NODE_FILES} < $block->{EXIST_FILES} &&
 	  $block->{BD_STATE} == 3) {
 	  $self->Logmsg("reactivating incomplete block destination $bd_identifier");
 	  $bd_update->{BD_STATE} = 0;
