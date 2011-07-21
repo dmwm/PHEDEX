@@ -911,7 +911,7 @@ sub routeFiles
 	    if (defined $$req{REPLICAS} && keys %{$$req{REPLICAS}}) {
 		$fstats{$dest}{'no path to destination'}++;
 		$state = 3;
-		$texpire = $now + $MIN_REQ_EXPIRE/5 + rand($EXPIRE_JITTER);
+		$texpire = $now + $MIN_REQ_EXPIRE/3.5 + rand($EXPIRE_JITTER);
 	    } else {
 		$fstats{$dest}{'no source replicas'}++;
 		$state = 4;
