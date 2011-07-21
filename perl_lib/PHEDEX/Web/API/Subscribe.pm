@@ -200,7 +200,7 @@ sub subscribe
     if ( $@ )
     {
 	$core->{DBH}->rollback(); # Processes seem to hang without this!
-	die $@;
+	die PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # determine if we commit
