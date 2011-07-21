@@ -903,26 +903,30 @@ sub routeFiles
 	my %fargs;
 	my %fstats;
 	foreach my $req (@failedreqs) {
-	    # state 3='no path to destination', 4='no source replicas'
+	    # state 3='no path to destination', use shorter expiration time (2 to 5 hours default) 
+	    # state 4='no source replicas', use standard expiration time (7 to 10 hours default)
 	    my ($state, $texpire);
 	    my $dest = $$req{DESTINATION};
 	    my $file = $$req{FILEID};
 	    if (defined $$req{REPLICAS} && keys %{$$req{REPLICAS}}) {
 		$fstats{$dest}{'no path to destination'}++;
 		$state = 3;
+		$texpire = $now + $MIN_REQ_EXPIRE/5 + rand($EXPIRE_JITTER);
 	    } else {
 		$fstats{$dest}{'no source replicas'}++;
 		$state = 4;
+		$texpire = $now + $MIN_REQ_EXPIRE + rand($EXPIRE_JITTER);
 	    }
 	    my $n = 1;
 	    push(@{$fargs{$n++}}, $state);
+	    push(@{$fargs{$n++}}, $texpire);
 	    push(@{$fargs{$n++}}, $dest);
 	    push(@{$fargs{$n++}}, $file);
 	}
 	
 	&dbexec($dbh, qq{
 	    update t_xfer_request
-	       set state = ?
+	       set state = ?, time_expire = ?,
 	     where destination = ? and fileid = ?}, %fargs) if %fargs;
 
 	$dbh->commit();
