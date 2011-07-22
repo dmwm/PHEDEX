@@ -926,7 +926,7 @@ sub routeFiles
 	
 	&dbexec($dbh, qq{
 	    update t_xfer_request
-	       set state = ?, time_expire = ?,
+	       set state = ?, time_expire = ?
 	     where destination = ? and fileid = ?}, %fargs) if %fargs;
 
 	$dbh->commit();
