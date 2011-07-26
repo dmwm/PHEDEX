@@ -1072,7 +1072,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 //               if ( !args.data ) { args.data = []; }
               args.data.push(dataset);
             } else {
-debugger; // what happens now???
+//debugger; // what happens now???
               for ( block in blocks ) {
                 if ( !args.block ) { args.block = []; }
                 args.block.push(block);
