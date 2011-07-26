@@ -7,7 +7,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       NUtil = PHEDEX.Nextgen.Util;
       IconError = "<img src='/images/icon-circle-red.png' style='vertical-align:bottom' />",
       IconWarn  = "<img src='/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
-      IconOK    = "<img src='/images/icon-circle-green.png' style='vertical-align:bottom' />",
+      IconOK    = "<img src='/images/icon-circle-green.png' style='vertical-align:bottom' />";
   Yla(this,new PHEDEX.Module(_sbx,string));
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -20,6 +20,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         minwidth:600,
         minheight:50
       },
+      type:null,
       meta: {
         table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
                            { key:'item',          label:'Item',     className:'align-left' },
@@ -79,12 +80,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       init: function(params) {
         if ( !params ) { params={}; }
         this.params = params;
-        var type=params.type, el;
-        if ( type == 'xfer' ) {
+        var el;
+        if ( params.type == 'xfer' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,params), true);
-        } else if ( type == 'delete' ) {
+        } else if ( this.type == 'delete' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,params), true);
-        } else if ( !type ) {
+        } else if ( !this.type ) {
           var l = location, href = location.href;
           var e = document.createElement('div');
           e.innerHTML = '<h1>Choose a request type</h1>' +
@@ -96,7 +97,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           params.el.appendChild(e);
           return;
         } else {
-          throw new Error('type is defined but unknown: '+type);
+          throw new Error('type is defined but unknown: '+this.type);
         }
         this.useElement(params.el);
         var selfHandler = function(obj) {
@@ -214,6 +215,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelForm  = labelLower.replace(/ /,'_'),
             d = this.dom, el, resize, helpStr='',
             instance = PHEDEX.Datasvc.Instance();
+        labelForm = labelForm.replace(/-/,'_');
         config._default = config.instanceDefault[instance.instance] || '(not defined)';
 
         el = document.createElement('div');
@@ -261,7 +263,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               dbsMenuItems.push( { text:dbsEntry.name, value:dbsEntry.id, onclick:{ fn:onMenuItemClick } } );
             }
             config.menu.innerHTML = '';
-            config.MenuButton = new YAHOO.widget.Button({  type: 'menu',
+            config.MenuButton = new YAHOO.widget.Button({ type: 'menu',
                                     label: '<em>'+config._default+'</em>',
                                     id:   'dbsMenuButton',
                                     name: 'dbsMenuButton',
@@ -299,6 +301,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
             d = this.dom, el, className='', helpStr='';
+        labelForm = labelForm.replace(/-/,'_');
         if ( config.help_text ) {
           helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelLower+"' href='#'>[?]</a>";
         }
@@ -327,6 +330,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
             d = this.dom, el, resize, className;
+        labelForm = labelForm.replace(/-/,'_');
         if ( config.className ) { className = "class='"+config.className+"'"; }
         el = document.createElement('div');
         Dom.addClass(el,'phedex-nextgen-form-element');
@@ -369,6 +373,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
             d = this.dom, el, resize, helpStr='';
+        labelForm = labelForm.replace(/-/,'_');
         el = document.createElement('div');
         if ( config.help_text ) {
           helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelCss+"' href='#'>[?]</a>";
@@ -412,6 +417,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
             d = this.dom, el, i, radioStr='', helpStr='';
+        labelForm = labelForm.replace(/-/,'_');
         el = document.createElement('div');
         for ( i in config.values ) {
           radioStr += "<div><input class='phedex-radio' type='radio' name='"+labelForm+"' value='"+i+"'";
@@ -460,7 +466,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         return value;
       },
       gotAuthData: function(data,context,response) {
-        var auth, i, roles, role, address='', canWildcard=false, canTimeStart=false, time_start=obj.time_start, email=obj.email, type=obj.params.type, d=obj.dom;
+        var auth, i, roles, role, address='', canWildcard=false, canTimeStart=false, time_start=obj.time_start, email=obj.email, d=obj.dom;
         try {
           auth = data.auth[0];
           PxS.notify(obj.id,'setValueFor','auth');
@@ -480,13 +486,13 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         catch(ex) {
 //        AUTH failed, don't know what address to put in!
           email.value.innerHTML = email._default;
-          if ( type == 'xfer' ) {
+          if ( this.type == 'xfer' ) {
             time_start.help_text = '<p>This field is disabled because there was an error checking your access rights. If you believe you have the necessary rights, please reload the page and try again.</p><p>If the problem persists, contact the PhEDEx developers</p>';
           }
           d.results_text.innerHTML = '<p>An error occurred while checking your access-rights.<p/><p>Some features may not work correctly, or may be disabled. Try reloading the page to see if that fixes the problem, and contact the PhEDEx developers if the error persists</p>';            Dom.addClass(obj.dom.results,'phedex-box-red');
           Dom.removeClass(d.results,'phedex-invisible');
         }
-        if ( canTimeStart && type == 'xfer' ) {
+        if ( canTimeStart && this.type == 'xfer' ) {
           time_start.input.disabled = false;
           Dom.addClass(time_start.label,'phedex-nextgen-label');
           Dom.removeClass(time_start.label,'phedex-nextgen-label-disabled');
@@ -495,7 +501,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       },
       previewCallback: function(data,context,response) {
         var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
-            preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, type=this.params.type,
+            preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text,
             summary={}, s, node, create_since, isRequired={}, unknown=0, known=0, excessNodes;
 
         Dom.removeClass(dom.preview,'phedex-box-yellow');
@@ -546,12 +552,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                 }
                 if ( src_info.is_subscribed == 'n' ) {
                   text += ', not subscribed';
-                  if ( type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-green'>" + text + "</span>"; }
+                  if ( this.type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-green'>" + text + "</span>"; }
                 } else {
                   s.subscribed++;
-                  if ( type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-yellow'>" + text + "</span>"; }
+                  if ( this.type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-yellow'>" + text + "</span>"; }
                 }
-                if ( type == 'delete' ) {
+                if ( this.type == 'delete' ) {
                   if ( s.isRequired ) {
                     if ( src_info.files == '-' && src_info.subscribed == 'n' ) { text = "<span class='phedex-box-red'>" + text + "</span>"; }
                     else {
@@ -608,10 +614,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               text += ' in total';
             }
 
-//          Fatal errors first...
+//          Most severe errors first...
+            if ( !unknown || !dom.data_items.value.match(/\*/) ) {
+              text += '<br/>'+IconError+'All items were matched & there are no wildcards, <strong>re-evaluating</strong> makes no sense';
+            }
             if ( unknown ) {
-              if ( known ) { text += '<br/>'; }
-              text += IconWarn+unknown+' item';
+              text += '<br/>'+IconWarn+unknown+' item';
               if ( unknown > 1 ) { text += 's'; }
               text += ' did not match anything known to PhEDEx';
             }
@@ -619,9 +627,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             if ( tBytes == 0 ) {
               if ( create_since ) {
                 if ( create_since > new Date().getTime()/1000 ) {
-                  text += IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
+                  text += '<br/>'+IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
                 } else {
-                  text += IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
+                  text += '<br/>'+IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
                 }
                 Dom.addClass(dom.preview,'phedex-box-yellow');
               } else {
@@ -646,7 +654,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               }
               if ( s.subscribed == known ) {
                 if ( j ) {
-                  if ( type == 'xfer' ) {
+                  if ( this.type == 'xfer' ) {
                     text += "<br/>"+IconWarn+"All matched items are already subscribed to <strong>"+node+"</strong>";
                     excessNodes = node;
                   } else {
@@ -655,7 +663,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                   j=false;
                 } else {
                   text += ', <strong>'+node+'</strong>';
-                  if ( type == 'xfer' ) { excessNodes += ' '+node; }
+                  if ( this.type == 'xfer' ) { excessNodes += ' '+node; }
                 }
                 delete summary[node];
                 delete isRequired[node];
@@ -679,7 +687,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               }
             }
 
-            if ( type == 'xfer' ) {
+            if ( this.type == 'xfer' ) {
               j=true;
               for (node in summary) {
                 s = summary[node];
@@ -699,7 +707,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             j=true;
             for (node in summary) {
               if ( j ) {
-                if ( type == 'xfer' ) {
+                if ( this.type == 'xfer' ) {
                   text += '<br/>'+IconWarn+'Some items already have replicas at <strong>'+node+'</strong>';
                 } else {
                   text += '<br/>'+IconWarn+'Only some items have replicas at <strong>'+node+'</strong>';
@@ -712,7 +720,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               delete isRequired[node];
             }
 
-            if ( type == 'delete' ) {
+            if ( this.type == 'delete' ) {
               j=true;
               for (node in isRequired) {
                 if ( j ) {
@@ -868,10 +876,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         if ( dom.results_text.innerHTML ) {
           dom.results_text.innerHTML += '<br />';
         }
-        dom.results_text.innerHTML += text;
+        dom.results_text.innerHTML += IconError+text;
         this.formFail = true;
       },
-      onAcceptSubmit: function(id,action) {
+      checkRequestParameters: function() {
         var dbs = this.dbs,
             dom = this.dom,
             user_group = this.user_group,
@@ -879,21 +887,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             time_start = this.time_start,
             data_items = dom.data_items,
             menu, menu_items,
-            data={}, args={}, tmp, value, type=this.params.type, block, dataset, xml,
+            data={}, args={}, tmp, value, block, dataset,
             elList, el, i, panel, api;
-
-// Prepare the form for output messages, disable the button to prevent multiple clicks
-        Dom.removeClass(this.dom.results,'phedex-box-red');
-        dom.results_label.innerHTML = '';
-        dom.results_text.innerHTML  = '';
-        this.formFail = false;
-        this.Accept.set('disabled',true);
-
-// Subscription level is hardwired for now.
-
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
-
         if ( !data_items.value || data_items.value == this.data_items.text ) {
           this.onAcceptFail('No Data-Items specified');
         }
@@ -932,7 +929,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 // 5. the block-list is now redundant, clean it up!
         delete data.blocks;
 
-// DBS - done directly in the xml
+// 6. Stash the structure to be able to return it
+        args.data = data;
 
 // Destination
         panel = this.destination.Panel;
@@ -942,26 +940,24 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           el = elList[i];
           if ( el.checked ) { args.node.push(panel.nodes[i]); }
         }
-        if ( args.node.length == 0 ) {
-          this.onAcceptFail('No Destination nodes specified');
-        }
+
+// DBS - done directly in the xml
 
 // Site Custodial
         if ( this.site_custodial ) { args.custodial = this.getRadioValues(this.site_custodial); }
 // Subscription Type
         if ( this.subscription_type ) { args['static'] = this.getRadioValues(this.subscription_type); }
+// Re-evaluate
+        if ( this.re_evaluate_request ) { args['re-evaluate'] = this.getRadioValues(this.re_evaluate_request); }
+        if ( args['re-evaluate'] == 'y' && args['static'] == 'y' ) {
+          this.onAcceptFail('A static, re-evaluated request makes no sense!');
+        }
 // Transfer Type
         if ( this.transfer_type ) { args.move = this.getRadioValues(this.transfer_type); }
 // Priority
         if ( this.priority ) { args.priority = this.getRadioValues(this.priority); }
-
 // User Group
-        if ( user_group ) {
-          if ( !user_group.value ) {
-            this.onAcceptFail('No User-Group specified');
-          }
-          args.group = user_group.value;
-        }
+        if ( user_group ) { args.group = user_group.value; }
 
 // Time Start
         if ( time_start ) {
@@ -978,7 +974,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         if ( dom.comments.value && dom.comments.value != this.comments.text ) { args.comments = dom.comments.value; }
 
 // Never subscribe automatically from this form
-        if ( type == 'xfer' ) {
+        if ( this.type == 'xfer' ) {
           args.request_only = 'y';
 // Do not suppress the email
           args.no_mail = 'n';
@@ -987,6 +983,36 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 // Hardwired, for best practise!
         args.level = 'block';
 
+        return args;
+      },
+      onAcceptSubmit: function(id,action) {
+        var dbs = this.dbs,
+            dom = this.dom,
+            user_group = this.user_group,
+            email      = this.email,
+            time_start = this.time_start,
+            data_items = dom.data_items,
+            menu, menu_items,
+            data={}, args={}, tmp, value, block, dataset, xml,
+            elList, el, i, panel, api;
+
+// Prepare the form for output messages, disable the button to prevent multiple clicks
+        Dom.removeClass(this.dom.results,'phedex-box-red');
+        dom.results_label.innerHTML = '';
+        dom.results_text.innerHTML  = '';
+        this.formFail = false;
+        this.Accept.set('disabled',true);
+
+// Subscription level is hardwired for now.
+
+        args = this.checkRequestParameters();
+        if ( args.node.length == 0 ) {
+          this.onAcceptFail('No Destination nodes specified');
+        }
+        if ( !args.group.value ) {
+          this.onAcceptFail('No User-Group specified');
+        }
+
 // If there were errors, I can give up now!
         if ( this.formFail ) {
           this.set('disabled',true);
@@ -994,6 +1020,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
 
 // Now build the XML!
+        data = args.data;
         xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
         for ( dataset in data.datasets ) {
           xml += '<dataset name="'+dataset+'" is-open="dummy">';
@@ -1004,12 +1031,13 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
         xml += '</dbs></data>';
         args.data = xml;
+
         Dom.removeClass(dom.results,'phedex-invisible');
         Dom.addClass(dom.results,'phedex-box-yellow');
         dom.results_label.innerHTML = 'Status:';
         dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
-        if ( type == 'xfer'   ) { api = 'subscribe'; }
-        if ( type == 'delete' ) { api = 'delete'; }
+        if ( this.type == 'xfer'   ) { api = 'subscribe'; }
+        if ( this.type == 'delete' ) { api = 'delete'; }
         PHEDEX.Datasvc.Call({
                               api:api,
                               method:'post',
@@ -1023,7 +1051,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             time_start = this.time_start,
             data_items = dom.data_items,
             menu, menu_items,
-            data={}, args={}, tmp, value, type, block, dataset, xml,
+            data={}, args={}, tmp, value, block, dataset, xml,
             panel, elList, el, i;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
@@ -1033,74 +1061,15 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         dom.preview_summary.innerHTML = dom.preview_table.innerHTML = dom.results_text.innerHTML  = '';
         this.formFail = false;
 
-// Data Items: Several layers of checks:
-// 1. If the string is empty, or matches the inline help, abort
-        if ( !data_items.value || data_items.value == this.data_items.text ) {
-          this.onAcceptFail('No Data-Items specified');
-        }
-// 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-        if ( data_items.value != this.data_items.text ) {
-          tmp = data_items.value.split(/ |\n|,/);
-          data = {blocks:{}, datasets:{} };
-          for (i in tmp) {
-            block = tmp[i];
-            if ( block != '' ) {
-              if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-                dataset = RegExp.$1;
-                if ( dataset == block ) { data.datasets[dataset] = 1; }
-                else                    { data.blocks[block] = 1; }
-              } else {
-                this.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-              }
-            }
-          }
-        }
-// 3. Blocks which are contained within explicit datasets are suppressed
-        for (block in data.blocks) {
-          block.match(/^([^#]*)#/);
-          dataset = RegExp.$1;
-          if ( data.datasets[dataset] ) {
-            delete data.blocks[block];
-          }
-        }
-// 4. Blocks are grouped into their corresponding datasets
-        for (block in data.blocks) {
-          block.match(/([^#]*)#/);
-          dataset = RegExp.$1;
-          if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-          data.datasets[dataset][block] = 1;
-        }
-// 5. the block-list is now redundant, clean it up!
-        delete data.blocks;
-
-// Time Start
-        if ( time_start ) {
-          this.getTimeStart();
-          if ( time_start.time_start ) {
-            args.create_since = time_start.time_start;
-          } else {
-            args.create_since = 0;
-          }
-        }
-
-// If there were errors, I can give up now!
-        if ( this.formFail ) { return; }
-
-// Destination
-        panel = this.destination.Panel;
-        elList = panel.elList;
-        args.node = [];
-        for (i in elList) {
-          el = elList[i];
-          if ( el.checked ) { args.node.push(panel.nodes[i]); }
-        }
-
 // Now build the args!
+        args = this.checkRequestParameters();
+        data = args.data;
+        args.data = [];
         if ( data.datasets ) {
           for ( dataset in data.datasets ) {
             blocks = data.datasets[dataset];
             if ( typeof(blocks) == 'number' ) {
-              if ( !args.data ) { args.data = []; }
+//               if ( !args.data ) { args.data = []; }
               args.data.push(dataset);
             } else {
 debugger; // what happens now???
@@ -1116,7 +1085,7 @@ debugger; // what happens now???
         dom.preview_summary.innerHTML = NUtil.stdLoading('Calculating request (please wait)');
         args.level = 'block';
 
-        args.type = this.params.type;
+        args.type = this.type;
         args.dbs = dbs.value.innerHTML;
         PHEDEX.Datasvc.Call({
                               api:'previewrequestdata',
@@ -1253,6 +1222,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
   return {
+    type: 'xfer',
     initSub: function() {
       var d = this.dom,
           mb = d.main_block,
@@ -1321,6 +1291,16 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         map:{'static':'y', growing:'n'}
       };
       this.makeControlRadio(this.subscription_type,form);
+
+// Re-evaluate
+      this.re_evaluate_request = {
+        values:['yes','no'],
+        _default:1,
+        help_text:"<p>A <strong>re-evaluated</strong> request will be re-examined periodically to see if new datasets or blocks match the request. The opposite is a <strong>snapshot</strong> request, which is for data that exists in TMDB at the time of the request. Most requests should be snapshots, so do not alter this option unless you understand it.</p><p>This applies to block and dataset <em>names</em>, not to the files within them. It allows you to subscribe existing or future datasets, and is, in effect, orthogonal to the <strong>subscription type</strong>, which allows you to choose between existing or future blocks within a dataset.</p><p>This is useful for requests with wildcards in them, such as <strong>/*/*/*Higgs*</strong>. New Higgs datasets may appear at any time, so that string may match more datasets tomorrow than it matches today.</p><p>A <strong>snapshot</strong> of that request will match all datasets currently in TMDB, but if a new dataset is injected later with a name that matches that string, it will <em>not</em> be subscribed. A <strong>re-evaluated</strong> request for that same string will also be matched against any new datasets that are created later on, so can add new datasets to this same subscription.</p><p><strong>N.B.</strong> Not all combinations of options make sense, e.g. a <strong>static</strong> request is also a <strong>snapshot</strong>, by definition. A <strong>re-evaluated</strong> request only makes sense for a <strong>growing</strong> request where the requested data includes wildcards in the name, or where some of the data-items do not yet exist.</p>",
+        label:'Re-evaluate request',
+        map:{yes:'y', no:'n' }
+      };
+      this.makeControlRadio(this.re_evaluate_request,form);
 
 // Transfer type
       this.transfer_type = {
@@ -1559,264 +1539,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
-//       this.onAcceptSubmit = function(obj) {
-//         return function(id,action) {
-//           var dbs = obj.dbs,
-//               dom = obj.dom,
-//               user_group = obj.user_group,
-//               email      = obj.email,
-//               time_start = obj.time_start,
-//               data_items = dom.data_items,
-//               menu, menu_items,
-//               data={}, args={}, tmp, value, type=obj.params.type, block, dataset, xml,
-//               elList, el, i, panel, api;
-// 
-// // Prepare the form for output messages, disable the button to prevent multiple clicks
-//           Dom.removeClass(obj.dom.results,'phedex-box-red');
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML  = '';
-//           obj.formFail = false;
-//           this.set('disabled',true);
-// 
-// // Subscription level is hardwired for now.
-// 
-// // Data Items: Several layers of checks:
-// // 1. If the string is empty, or matches the inline help, abort
-// 
-//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
-//             obj.onAcceptFail('No Data-Items specified');
-//           }
-// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-//           if ( data_items.value != obj.data_items.text ) {
-//             tmp = data_items.value.split(/ |\n|,/);
-//             data = {blocks:{}, datasets:{} };
-//             for (i in tmp) {
-//               block = tmp[i];
-//               if ( block != '' ) {
-//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-//                   dataset = RegExp.$1;
-//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
-//                   else                    { data.blocks[block] = 1; }
-//                 } else {
-//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-//                 }
-//               }
-//             }
-//           }
-// // 3. Blocks which are contained within explicit datasets are suppressed
-//           for (block in data.blocks) {
-//             block.match(/^([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( data.datasets[dataset] ) {
-//               delete data.blocks[block];
-//             }
-//           }
-// // 4. Blocks are grouped into their corresponding datasets
-//           for (block in data.blocks) {
-//             block.match(/([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-//             data.datasets[dataset][block] = 1;
-//           }
-// // 5. the block-list is now redundant, clean it up!
-//           delete data.blocks;
-// 
-// // DBS - done directly in the xml
-// 
-// // Destination
-//           panel = obj.destination.Panel;
-//           elList = panel.elList;
-//           args.node = [];
-//           for (i in elList) {
-//             el = elList[i];
-//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
-//           }
-//           if ( args.node.length == 0 ) {
-//             obj.onAcceptFail('No Destination nodes specified');
-//           }
-// 
-// // Site Custodial
-//           if ( obj.site_custodial ) { args.custodial = obj.getRadioValues(obj.site_custodial); }
-// // Subscription Type
-//           if ( obj.subscription_type ) { args['static'] = obj.getRadioValues(obj.subscription_type); }
-// // Transfer Type
-//           if ( obj.transfer_type ) { args.move = obj.getRadioValues(obj.transfer_type); }
-// // Priority
-//           if ( obj.priority ) { args.priority = obj.getRadioValues(obj.priority); }
-// 
-// // User Group
-//           if ( user_group ) {
-//             if ( !user_group.value ) {
-//               obj.onAcceptFail('No User-Group specified');
-//             }
-//             args.group = user_group.value;
-//           }
-// 
-// // Time Start
-//           if ( time_start ) {
-//             obj.getTimeStart();
-//             if ( time_start.time_start ) {
-//               args.time_start = time_start.time_start;
-//             }
-//           }
-// 
-// // Email TODO check if we need this field?
-// //           args.email = email.value.innerHTML;
-// 
-// // Comments
-//           if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
-// 
-// // Never subscribe automatically from this form
-//           if ( type == 'xfer' ) {
-//             args.request_only = 'y';
-// // Do not suppress the email
-//             args.no_mail = 'n';
-//           }
-// 
-// // Hardwired, for best practise!
-//           args.level = 'block';
-// 
-// // If there were errors, I can give up now!
-//           if ( obj.formFail ) {
-//             this.set('disabled',true);
-//             return;
-//           }
-// 
-// // Now build the XML!
-//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
-//           for ( dataset in data.datasets ) {
-//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
-//             for ( block in data.datasets[dataset] ) {
-//               xml += '<block name="'+block+'" is-open="dummy" />';
-//             }
-//             xml += '</dataset>';
-//           }
-//           xml += '</dbs></data>';
-//           args.data = xml;
-//           Dom.removeClass(dom.results,'phedex-invisible');
-//           Dom.addClass(dom.results,'phedex-box-yellow');
-//           dom.results_label.innerHTML = 'Status:';
-//           dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
-//           if ( type == 'xfer'   ) { api = 'subscribe'; }
-//           if ( type == 'delete' ) { api = 'delete'; }
-//           PHEDEX.Datasvc.Call({
-//                                 api:api,
-//                                 method:'post',
-//                                 args:args,
-//                                 callback:function(data,context,response) { obj.requestCallback(data,context,response); }
-//                               });
-//         }
-//       }(this);
-
-//       this.onPreviewSubmit = function(obj) {
-//         return function(id,action) {
-//           var dbs = obj.dbs,
-//               dom = obj.dom,
-//               time_start = obj.time_start,
-//               data_items = dom.data_items,
-//               menu, menu_items,
-//               data={}, args={}, tmp, value, type, block, dataset, xml,
-//               panel, elList, el, i;
-// 
-// // Prepare the form for output messages, disable the button to prevent multiple clicks
-//           Dom.removeClass(obj.dom.results,'phedex-box-red');
-//           Dom.addClass(obj.dom.results,'phedex-invisible');
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML  = '';
-//           obj.formFail = false;
-// 
-// // Data Items: Several layers of checks:
-// // 1. If the string is empty, or matches the inline help, abort
-// 
-//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
-//             obj.onAcceptFail('No Data-Items specified');
-//           }
-// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-//           if ( data_items.value != obj.data_items.text ) {
-//             tmp = data_items.value.split(/ |\n|,/);
-//             data = {blocks:{}, datasets:{} };
-//             for (i in tmp) {
-//               block = tmp[i];
-//               if ( block != '' ) {
-//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-//                   dataset = RegExp.$1;
-//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
-//                   else                    { data.blocks[block] = 1; }
-//                 } else {
-//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-//                 }
-//               }
-//             }
-//           }
-// // 3. Blocks which are contained within explicit datasets are suppressed
-//           for (block in data.blocks) {
-//             block.match(/^([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( data.datasets[dataset] ) {
-//               delete data.blocks[block];
-//             }
-//           }
-// // 4. Blocks are grouped into their corresponding datasets
-//           for (block in data.blocks) {
-//             block.match(/([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-//             data.datasets[dataset][block] = 1;
-//           }
-// // 5. the block-list is now redundant, clean it up!
-//           delete data.blocks;
-// 
-// // Time Start
-//           obj.getTimeStart();
-//           if ( time_start.time_start ) {
-//             args.create_since = time_start.time_start;
-//           } else {
-//             args.create_since = 0;
-//           }
-// 
-// // If there were errors, I can give up now!
-//           if ( obj.formFail ) { return; }
-// 
-// // Destination
-//           panel = obj.destination.Panel;
-//           elList = panel.elList;
-//           args.node = [];
-//           for (i in elList) {
-//             el = elList[i];
-//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
-//           }
-// 
-// // Now build the args!
-//           if ( data.datasets ) {
-//             for ( dataset in data.datasets ) {
-//               blocks = data.datasets[dataset];
-//               if ( typeof(blocks) == 'number' ) {
-//                 if ( !args.data ) { args.data = []; }
-//                 args.data.push(dataset);
-//               } else {
-// debugger; // what happens now???
-//                 for ( block in blocks ) {
-//                   if ( !args.block ) { args.block = []; }
-//                   args.block.push(block);
-//                 }
-//               }
-//             }
-//           }
-//           Dom.removeClass(dom.preview,'phedex-invisible');
-//           Dom.addClass(dom.preview,'phedex-box-yellow');
-//           dom.preview_label.innerHTML = 'Status:';
-//           dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
-//           args.level = 'block';
-// 
-//           args.type = obj.params.type;
-//           args.dbs = dbs.value.innerHTML;
-//           PHEDEX.Datasvc.Call({
-//                                 api:'previewrequestdata',
-//                                 args:args,
-//                                 callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-//                               });
-//         }
-//       }(this);
     }
   }
 }
@@ -1826,6 +1548,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
   return {
+    type:'delete',
     initSub: function() {
       var d = this.dom,
           mb = d.main_block,
@@ -1942,242 +1665,6 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
-//       this.onAcceptSubmit = function(obj) {
-//         return function(id,action) {
-//           var dbs = obj.dbs,
-//               dom = obj.dom,
-//               user_group = obj.user_group,
-//               email      = obj.email,
-//               time_start = obj.time_start,
-//               data_items = dom.data_items,
-//               menu, menu_items,
-//               data={}, args={}, tmp, value, type, block, dataset, xml,
-//               elList, el, i, panel;
-// 
-// // Prepare the form for output messages, disable the button to prevent multiple clicks
-//           Dom.removeClass(obj.dom.results,'phedex-box-red');
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML  = '';
-//           obj.formFail = false;
-//           this.set('disabled',true);
-// 
-// // Subscription level is hardwired for now.
-// 
-// // Data Items: Several layers of checks:
-// // 1. If the string is empty, or matches the inline help, abort
-// 
-//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
-//             obj.onAcceptFail('No Data-Items specified');
-//           }
-// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-//           if ( data_items.value != obj.data_items.text ) {
-//             tmp = data_items.value.split(/ |\n|,/);
-//             data = {blocks:{}, datasets:{} };
-//             for (i in tmp) {
-//               block = tmp[i];
-//               if ( block != '' ) {
-//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-//                   dataset = RegExp.$1;
-//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
-//                   else                    { data.blocks[block] = 1; }
-//                 } else {
-//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-//                 }
-//               }
-//             }
-//           }
-// // 3. Blocks which are contained within explicit datasets are suppressed
-//           for (block in data.blocks) {
-//             block.match(/^([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( data.datasets[dataset] ) {
-//               delete data.blocks[block];
-//             }
-//           }
-// // 4. Blocks are grouped into their corresponding datasets
-//           for (block in data.blocks) {
-//             block.match(/([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-//             data.datasets[dataset][block] = 1;
-//           }
-// // 5. the block-list is now redundant, clean it up!
-//           delete data.blocks;
-// 
-// // DBS - done directly in the xml
-// 
-// // Destination
-//           panel = obj.destination.Panel;
-//           elList = panel.elList;
-//           args.node = [];
-//           for (i in elList) {
-//             el = elList[i];
-//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
-//           }
-//           if ( args.node.length == 0 ) {
-//             obj.onAcceptFail('No Destination nodes specified');
-//           }
-// 
-// // Remove Subscriptions
-//           tmp = obj.remove_subscriptions;
-//           elList = tmp.elList;
-//           for (i in elList) {
-//             el = elList[i];
-//             if ( el.checked ) { args.rm_subscriptions = ( tmp.values[el.value] == 'yes' ? 'y' : 'n' ); }
-//           }
-// 
-// // Email TODO check field?
-// //           args.email = email.value.innerHTML;
-// 
-// // Comments
-//           if ( dom.comments.value && dom.comments.value != obj.comments.text ) { args.comments = dom.comments.value; }
-// 
-//           args.no_mail = 'n';
-// 
-// // Hardwired, for best practise!
-//           args.level = 'block'; // TODO is this right for deletions?
-// 
-// // If there were errors, I can give up now!
-//           if ( obj.formFail ) {
-//             this.set('disabled',true);
-//             return;
-//           }
-// 
-// // Now build the XML!
-//           xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
-//           for ( dataset in data.datasets ) {
-//             xml += '<dataset name="'+dataset+'" is-open="dummy">';
-//             for ( block in data.datasets[dataset] ) {
-//               xml += '<block name="'+block+'" is-open="dummy" />';
-//             }
-//             xml += '</dataset>';
-//           }
-//           xml += '</dbs></data>';
-//           args.data = xml;
-//           Dom.removeClass(dom.results,'phedex-invisible');
-//           Dom.addClass(dom.results,'phedex-box-yellow');
-//           dom.results_label.innerHTML = 'Status:';
-//           dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
-//           PHEDEX.Datasvc.Call({
-//                                 api:'delete',
-//                                 method:'post',
-//                                 args:args,
-//                                 callback:function(data,context,response) { obj.requestCallback(data,context,response); }
-//                               });
-//         }
-//       }(this);
-// 
-//       this.onPreviewSubmit = function(obj) {
-//         return function(id,action) {
-//           var dbs = obj.dbs,
-//               dom = obj.dom,
-//               time_start = obj.time_start,
-//               data_items = dom.data_items,
-//               menu, menu_items,
-//               data={}, args={}, tmp, value, type, block, dataset, xml,
-//               panel, elList, el, i;
-// 
-// // Prepare the form for output messages, disable the button to prevent multiple clicks
-//           Dom.removeClass(obj.dom.results,'phedex-box-red');
-//           Dom.addClass(obj.dom.results,'phedex-invisible');
-//           dom.results_label.innerHTML = '';
-//           dom.results_text.innerHTML  = '';
-//           obj.formFail = false;
-// 
-// // Data Items: Several layers of checks:
-// // 1. If the string is empty, or matches the inline help, abort
-// 
-//           if ( !data_items.value || data_items.value == obj.data_items.text ) {
-//             obj.onAcceptFail('No Data-Items specified');
-//           }
-// // 2. Each non-empty substring must match /X/Y/Z, even if wildcards are used
-//           if ( data_items.value != obj.data_items.text ) {
-//             tmp = data_items.value.split(/ |\n|,/);
-//             data = {blocks:{}, datasets:{} };
-//             for (i in tmp) {
-//               block = tmp[i];
-//               if ( block != '' ) {
-//                 if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
-//                   dataset = RegExp.$1;
-//                   if ( dataset == block ) { data.datasets[dataset] = 1; }
-//                   else                    { data.blocks[block] = 1; }
-//                 } else {
-//                   obj.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)');
-//                 }
-//               }
-//             }
-//           }
-// // 3. Blocks which are contained within explicit datasets are suppressed
-//           for (block in data.blocks) {
-//             block.match(/^([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( data.datasets[dataset] ) {
-//               delete data.blocks[block];
-//             }
-//           }
-// // 4. Blocks are grouped into their corresponding datasets
-//           for (block in data.blocks) {
-//             block.match(/([^#]*)#/);
-//             dataset = RegExp.$1;
-//             if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
-//             data.datasets[dataset][block] = 1;
-//           }
-// // 5. the block-list is now redundant, clean it up!
-//           delete data.blocks;
-// 
-// // Time Start
-//           if ( time_start ) {
-//             obj.getTimeStart();
-//             if ( time_start.time_start ) {
-//               args.create_since = time_start.time_start;
-//             } else {
-//               args.create_since = 0;
-//             }
-//           }
-// 
-// // If there were errors, I can give up now!
-//           if ( obj.formFail ) { return; }
-// 
-// // Destination
-//           panel = obj.destination.Panel;
-//           elList = panel.elList;
-//           args.node = [];
-//           for (i in elList) {
-//             el = elList[i];
-//             if ( el.checked ) { args.node.push(panel.nodes[i]); }
-//           }
-// 
-// // Now build the args!
-//           if ( data.datasets ) {
-//             for ( dataset in data.datasets ) {
-//               blocks = data.datasets[dataset];
-//               if ( typeof(blocks) == 'number' ) {
-//                 if ( !args.data ) { args.data = []; }
-//                 args.data.push(dataset);
-//               } else {
-// debugger; // what happens now???
-//                 for ( block in blocks ) {
-//                   if ( !args.block ) { args.block = []; }
-//                   args.block.push(block);
-//                 }
-//               }
-//             }
-//           }
-//           Dom.removeClass(dom.preview,'phedex-invisible');
-//           Dom.addClass(dom.preview,'phedex-box-yellow');
-//           dom.preview_label.innerHTML = 'Status:';
-//           dom.preview_text.innerHTML  = NUtil.stdLoading('Calculating request (please wait)');
-//           args.level = 'block';
-// 
-//           args.type = obj.params.type;
-//           args.dbs = dbs.value.innerHTML;
-//           PHEDEX.Datasvc.Call({
-//                                 api:'previewrequestdata',
-//                                 args:args,
-//                                 callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-//                               });
-//         }
-//       }(this);
     }
   }
 }
