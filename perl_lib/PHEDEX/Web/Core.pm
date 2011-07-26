@@ -79,7 +79,7 @@ use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
 use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Web::Util;
-use PHEDEX::Web::Cache;
+#use PHEDEX::Web::Cache; # TW
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 use Digest::MD5;
@@ -99,7 +99,7 @@ our (%params);
 	    DEBUG => 0,
 	    CONFIG_FILE => undef,
             CONFIG => undef,
-	    CACHE_CONFIG => undef,
+# TW	    CACHE_CONFIG => undef,
 	    SECMOD_CONFIG => undef,
 	    AUTHZ => undef,
             REQUEST_HANDLER => undef
@@ -137,7 +137,7 @@ sub new
     my $module = $loader->Load($self->{CALL});
     $self->{API} = $module;
 
-    $self->{CACHE} = PHEDEX::Web::Cache->new( %{$self->{CACHE_CONFIG}} );
+# TW    $self->{CACHE} = PHEDEX::Web::Cache->new( %{$self->{CACHE_CONFIG}} );
 
     return $self;
 }
@@ -211,10 +211,10 @@ sub call
     $t1 = &mytimeofday();
     &process_args(\%args);
 
-    my $obj = $self->getData($self->{CALL}, %args);
+    my $obj; # TW = $self->getData($self->{CALL}, %args);
     my $stdout = '';
-    if ( ! $obj )
-    {
+# TW    if ( ! $obj )
+# TW    {
       my $api = $self->{API};
       eval {
 	if ( $self->{CONFIG}{TRAP_WARNINGS} )
@@ -280,7 +280,7 @@ sub call
             }
             $t2 = &mytimeofday();
             my $duration = $self->getCacheDuration() || 0;
-            $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
+# TW            $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
     # wrap the object in a 'phedex' element with useful metadata
             $obj->{stdout}->{'$t'} = $stdout if $stdout;
             $obj->{instance} = $self->{INSTANCE};
@@ -319,25 +319,26 @@ sub call
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $message");
 	  return;
       }
-    }
+# TW    }
 }
 
+# TW deprecated
 # Cache controls
-sub getData
-{
-    my ($self, $name, %h) = @_;
-    my ($t1,$t2,$data);
-
-    return undef unless exists $data_sources->{$name};
-
-    $t1 = &mytimeofday();
-    $data = $self->{CACHE}->get( $name, \%h );
-    return undef unless $data;
-    $t2 = &mytimeofday();
-    warn "got '$name' from cache in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-
-    return $data;
-}
+#sub getData
+#{
+#    my ($self, $name, %h) = @_;
+#    my ($t1,$t2,$data);
+#
+#    return undef unless exists $data_sources->{$name};
+#
+#    $t1 = &mytimeofday();
+#    $data = $self->{CACHE}->get( $name, \%h );
+#    return undef unless $data;
+#    $t2 = &mytimeofday();
+#    warn "got '$name' from cache in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
+#
+#    return $data;
+#}
 
 
 
