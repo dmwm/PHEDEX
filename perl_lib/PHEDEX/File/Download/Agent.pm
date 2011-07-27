@@ -319,7 +319,7 @@ eval
    {
 
 	# If we have just too much work, leave.
-	last if scalar keys %$tasks >= self->{MAX_TASKS};
+	last if scalar keys %$tasks >= $self->{MAX_TASKS};
 
 	# If we have too many on this link, skip.
 	my $linkkey = "$$row{FROM_NODE} -> $$row{TO_NODE}";
