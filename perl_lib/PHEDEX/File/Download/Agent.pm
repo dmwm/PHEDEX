@@ -41,6 +41,7 @@ sub new
 		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
 		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
 		  STATS => [],			# Historical stats.
+		  MAX_TASKS => 5000,            # Max number of local tasks
 
 		  LAST_CONNECT => 0,		# Last time connected and made known
 		  LAST_WORK => time(),		# Last time we saw work
@@ -274,10 +275,9 @@ eval
    my (%pending, %busy, %fetched);
 
    # If we have just too much work, leave.
-   my $maxtasks = 5_000;
    my $localtasks = scalar keys %$tasks;
-   if ($localtasks >= $maxtasks) {
-       $self->Logmsg('over $maxtasks pending tasks ($localtasks), not fetching more') if $self->{VERBOSE};
+   if ($localtasks >= $self->{MAX_TASKS}) {
+       $self->Logmsg("over $self->{MAX_TASKS} pending tasks ($localtasks), not fetching more") if $self->{VERBOSE};
        return;
    }
 
@@ -319,7 +319,7 @@ eval
    {
 
 	# If we have just too much work, leave.
-	last if scalar keys %$tasks >= 15_000;
+	last if scalar keys %$tasks >= self->{MAX_TASKS};
 
 	# If we have too many on this link, skip.
 	my $linkkey = "$$row{FROM_NODE} -> $$row{TO_NODE}";
