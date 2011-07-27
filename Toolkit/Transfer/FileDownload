@@ -30,6 +30,7 @@
 ##H      [-validate CMD[,ARG...]] [-delete CMD[,ARG...]]
 ##H      [-no-pre-validate] [-no-pre-delete]
 ##H      [-util-jobs N] [-util-timeout N]
+##H      [-max-tasks N]
 ##H      -backend TYPE
 ##H      [-protocols NAME[,NAME...]]
 ##H      [-batch-files N] [-jobs NJOBS]
@@ -55,6 +56,7 @@
 ##H                    in parallel (default 10)
 ##H -util-timeout      timeout for utility (-validate, -delete) jobs in
 ##H                    seconds (default 600)
+##H -max-tasks   maximum number of transfer tasks to fetch from DB (default 5000)
 ##H
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
 ##H               options that follow are passed to the backend as such
@@ -137,6 +139,7 @@ use PHEDEX::Core::Help;
 	     "pre-delete!"   => \$args{PREDELETE},
 	     "util-jobs=i"   => \$args{NJOBS},
 	     "util-timeout=i" => \$args{TIMEOUT},
+	     "max-tasks=i" => \$args{MAX_TASKS},
 
              "backend=s"   => sub { $args{BACKEND_TYPE} = $_[1]; die "!FINISH"; },
 
