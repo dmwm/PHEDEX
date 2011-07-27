@@ -316,7 +316,7 @@ sub batch_tasks
 		push @remaining, $task;
 	    }
 	}
-	$tasklist = \@remaining; # redifine the task list
+	@$tasklist = @remaining; # redifine the task list
 	return @batch;
     } else {
 	# otherwise just do the normal thing and hope for the best
