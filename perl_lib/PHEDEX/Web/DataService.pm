@@ -50,6 +50,8 @@ sub handler
     my $r = shift;
     # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
+    my $service_path = $service->{CONFIG}{SERVICE_PATH};
+    ($service->{PATH_INFO} = $r->uri()) =~ s%^$service_path%%;
     my $result = $service->invoke();
 
 #   The call will return an undefined value if all went well, or for the comboLoader.
@@ -92,7 +94,7 @@ sub invoke
   my $self = shift;
 
   # Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
-  my $path = path_info() || "xml/prod";
+  my $path = $self->{PATH_INFO} || "xml/prod";
 
   my ($format, $db, $call) = ("xml", "prod", undef);
   $format = $1 if ($path =~ m!\G/([^/]+)!g);
@@ -226,7 +228,7 @@ sub print_doc
     my $self = shift;
     chdir '/tmp';
     my $service_path = $self->{CONFIG}{SERVICE_PATH};
-    my $call = path_info();
+    my $call = $self->{PATH_INFO};
     $call =~ s%^/doc/$%%;
     $call =~ s%^/doc%%;
     $call =~s%\?.*$%%;
@@ -309,9 +311,7 @@ sub comboLoader
     # Where do I get DocumentRoot for ApplicationServer ?
     my $r = $core->{REQUEST_HANDLER};
     my $root = $r->document_root();
-    my $path = $r->uri();
-    my $path_info = $r->path_info();
-    $path =~ s%$path_info%/app%;
+    my $path = $core->{CONFIG}{SERVICE_PATH} . '/app';
 
     my %args = Vars();
     my $files = $args{f};
