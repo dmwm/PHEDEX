@@ -615,8 +615,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
 
 //          Most severe errors first...
-            if ( !unknown || !dom.data_items.value.match(/\*/) ) {
-              text += '<br/>'+IconError+'All items were matched & there are no wildcards, <strong>re-evaluating</strong> makes no sense';
+            if ( this.re_evaluate_request ) {
+              if ( !unknown && !dom.data_items.value.match(/\*/) && this.getRadioValues(this.re_evaluate_request) == 'y') {
+                text += '<br/>'+IconError+'All items were matched & there are no wildcards, so <strong>re-evaluating</strong> makes no sense';
+              }
             }
             if ( unknown ) {
               text += '<br/>'+IconWarn+unknown+' item';
@@ -1072,7 +1074,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 //               if ( !args.data ) { args.data = []; }
               args.data.push(dataset);
             } else {
-//debugger; // what happens now???
+// debugger; // what happens now???
+throw new Error("Now what...?");
               for ( block in blocks ) {
                 if ( !args.block ) { args.block = []; }
                 args.block.push(block);
@@ -1298,9 +1301,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         _default:1,
         help_text:"<p>A <strong>re-evaluated</strong> request will be re-examined periodically to see if new datasets or blocks match the request. The opposite is a <strong>snapshot</strong> request, which is for data that exists in TMDB at the time of the request. Most requests should be snapshots, so do not alter this option unless you understand it.</p><p>This applies to block and dataset <em>names</em>, not to the files within them. It allows you to subscribe existing or future datasets, and is, in effect, orthogonal to the <strong>subscription type</strong>, which allows you to choose between existing or future blocks within a dataset.</p><p>This is useful for requests with wildcards in them, such as <strong>/*/*/*Higgs*</strong>. New Higgs datasets may appear at any time, so that string may match more datasets tomorrow than it matches today.</p><p>A <strong>snapshot</strong> of that request will match all datasets currently in TMDB, but if a new dataset is injected later with a name that matches that string, it will <em>not</em> be subscribed. A <strong>re-evaluated</strong> request for that same string will also be matched against any new datasets that are created later on, so can add new datasets to this same subscription.</p><p><strong>N.B.</strong> Not all combinations of options make sense, e.g. a <strong>static</strong> request is also a <strong>snapshot</strong>, by definition. A <strong>re-evaluated</strong> request only makes sense for a <strong>growing</strong> request where the requested data includes wildcards in the name, or where some of the data-items do not yet exist.</p>",
         label:'Re-evaluate request',
-        map:{yes:'y', no:'n' }
+        map:{yes:'y', no:'n' },
       };
       this.makeControlRadio(this.re_evaluate_request,form);
+// TW Hide this control until the data-service supports it's use
+      d.re_evaluate_request = Dom.get('phedex-label-re-evaluate-request');
+      d.re_evaluate_request.parentNode.className = 'phedex-invisible';
 
 // Transfer type
       this.transfer_type = {
