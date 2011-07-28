@@ -386,7 +386,7 @@ sub start_transfer_job
 
     # Return if the job didn't contain any tasks (possible if the tasks expired before the submission of the job)
     if ($n_files==0) {
-	self->Alert("No tasks found for JOBID=$jobid");
+	$self->Alert("No tasks found for JOBID=$jobid");
 	return;
     }
 
@@ -518,6 +518,9 @@ sub fts_job_submitted
   if ( exists $result->{ERROR} ) { 
     # something went wrong...
     my $reason = "Could not submit to FTS\n";
+    foreach ( split /\n/, $command->{STDERR} ) {
+	$ftsjob->Log($_);
+    }
     $ftsjob->Log( @{$result->{ERROR}} );
     $ftsjob->RawOutput( @{$result->{RAW_OUTPUT}} );
     foreach my $file ( values %{$ftsjob->FILES} ) {
