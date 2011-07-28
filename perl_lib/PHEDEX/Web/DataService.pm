@@ -80,15 +80,6 @@ sub handler
     return $error;
 }
 
-sub get_apache_params
-{
-    my ($self,$r) = @_;
-    my $h = $r->headers_in();
-#   my $s = $r->server();
-    $self->{XForwardedHost} = $h->{'X-Forwarded-Host'};	# e.g. cmswttest.cern.ch
-    $self->{CMSRequestURI}  = $h->{'CMS-Request-URI'};	# e.g. /phedex/dev2/datasvc/perl/prod/bounce
-}
-
 sub invoke
 {
   my $self = shift;
