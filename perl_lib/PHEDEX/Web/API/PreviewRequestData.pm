@@ -34,7 +34,7 @@ sub previewrequestdata {
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,
              $params{dbs},
              (defined $params{is_static} && $params{is_static} eq 'y') ? 1 : 0,
-	     $params{create_since},
+	     $params{time_start},
              @{$params{data}});
   my @table;
   my $problems = 0;
