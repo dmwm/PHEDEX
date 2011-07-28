@@ -56,7 +56,7 @@
 ##H                    in parallel (default 10)
 ##H -util-timeout      timeout for utility (-validate, -delete) jobs in
 ##H                    seconds (default 600)
-##H -max-tasks   maximum number of transfer tasks to fetch from DB (default 5000)
+##H -max-tasks   maximum number of transfer tasks to fetch from DB (default 15000)
 ##H
 ##H -backend     the transfer backend to use: Globus, SRM, FTS, DCCP; all
 ##H               options that follow are passed to the backend as such
