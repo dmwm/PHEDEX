@@ -13,6 +13,10 @@ Please include comments at the top of the program, stating at least:
 as code gets modified, the comments at the top should be updated accordingly.
 
 - I don't care what language stuff is written in, we'll take anything.
+- please please please give your program a meaningful name. If you need to
+  add more than one file (e.g a config file as well as the tool), please
+  name them coherently (tool-to-do-X, tool-to-do-X.config...). It makes it
+  easier to find things if they are all grouped together by name-prefix.
 - Do make sure that your program is not dangerous. It should not assume
   that the person running it will have only low-level privileges, if it is
   run by someone with global admin privileges it should be safe.
