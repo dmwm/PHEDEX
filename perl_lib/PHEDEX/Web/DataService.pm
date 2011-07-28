@@ -320,8 +320,7 @@ sub comboLoader
       s%^/yui%$ENV{PHEDEX_YUI_ROOT}%;
       s%^$path/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
       s%^/protovis%$ENV{PHEDEX_PROTOVIS_ROOT}%;
-      s%^$path/js%$root/ApplicationServer/js%;
-      s%^$path/css%$root/ApplicationServer/css%;
+      s%^$path/(css|examples|html|images|js)%$root/ApplicationServer/$1%;
       if ( !m%^/% ) { $_ = '/' . $_; }
       push @efiles, $_;
     }
