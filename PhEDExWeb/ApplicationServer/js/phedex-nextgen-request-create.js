@@ -5,9 +5,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       Dom   = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
       NUtil = PHEDEX.Nextgen.Util;
-      IconError = "<img src='/images/icon-circle-red.png' style='vertical-align:bottom' />",
-      IconWarn  = "<img src='/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
-      IconOK    = "<img src='/images/icon-circle-green.png' style='vertical-align:bottom' />";
+      IconError = "<img src='"+PxW.BaseURL+"/images/icon-circle-red.png' style='vertical-align:bottom' />",
+      IconWarn  = "<img src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
+      IconOK    = "<img src='"+PxW.BaseURL+"/images/icon-circle-green.png' style='vertical-align:bottom' />";
   Yla(this,new PHEDEX.Module(_sbx,string));
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -83,7 +83,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         var el;
         if ( params.type == 'xfer' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,params), true);
-        } else if ( this.type == 'delete' ) {
+        } else if ( params.type == 'delete' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,params), true);
         } else if ( !this.type ) {
           var l = location, href = location.href;
@@ -472,27 +472,29 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           PxS.notify(obj.id,'setValueFor','auth');
           address = auth.email;
           email.value.innerHTML = email.input.value = email._default = address;
-          roles = auth.role;
-          for (i in roles) {
-            role = roles[i];
-            if ( role.group == 'phedex' ) {
-              if ( role.name == 'Admin' ) {
-                canWildcard = true;
-                canTimeStart = true;
-              }
-            }
-          }
+// TW hardwired for now
+          canTimeStart = canWildCard = true;
+//           roles = auth.role;
+//           for (i in roles) {
+//             role = roles[i];
+//             if ( role.group == 'phedex' ) {
+//               if ( role.name == 'Admin' ) {
+//                 canWildcard = true;
+//                 canTimeStart = true;
+//               }
+//             }
+//           }
         }
         catch(ex) {
 //        AUTH failed, don't know what address to put in!
           email.value.innerHTML = email._default;
-          if ( this.type == 'xfer' ) {
+          if ( obj.type == 'xfer' ) {
             time_start.help_text = '<p>This field is disabled because there was an error checking your access rights. If you believe you have the necessary rights, please reload the page and try again.</p><p>If the problem persists, contact the PhEDEx developers</p>';
           }
           d.results_text.innerHTML = '<p>An error occurred while checking your access-rights.<p/><p>Some features may not work correctly, or may be disabled. Try reloading the page to see if that fixes the problem, and contact the PhEDEx developers if the error persists</p>';            Dom.addClass(obj.dom.results,'phedex-box-red');
           Dom.removeClass(d.results,'phedex-invisible');
         }
-        if ( canTimeStart && this.type == 'xfer' ) {
+        if ( canTimeStart && obj.type == 'xfer' ) {
           time_start.input.disabled = false;
           Dom.addClass(time_start.label,'phedex-nextgen-label');
           Dom.removeClass(time_start.label,'phedex-nextgen-label-disabled');
