@@ -22,7 +22,7 @@ function createCoreApp() {
   banner('loading, please wait...');
   params.el.innerHTML  = 'loading application, please wait...' +
           '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          "<img src='" + PxW.BaseURL + "/images/barbers_pole_loading.gif'/>";
 
 // Now I can create the core application and sandbox, and then start creating PhEDEx modules
   banner('Create sandbox and core application...');
@@ -88,7 +88,7 @@ function createCoreApp() {
                   };
   params.el.innerHTML  = 'loading page-specific modules, please wait...' +
           '<br/>' +
-          "<img src='" + PxW.BaseURL + "images/barbers_pole_loading.gif'/>";
+          "<img src='" + PxW.BaseURL + "/images/barbers_pole_loading.gif'/>";
   PxL.load(callbacks,page,'datasvc');
   document.body.className = 'yui-skin-sam';
 };
