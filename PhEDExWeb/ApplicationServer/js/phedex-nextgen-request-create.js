@@ -504,7 +504,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       previewCallback: function(data,context,response) {
         var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
             preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text,
-            summary={}, s, node, create_since, isRequired={}, unknown=0, known=0, excessNodes;
+            summary={}, s, node, create_since, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0;
 
         Dom.removeClass(dom.preview,'phedex-box-yellow');
         Dom.removeClass(dom.preview,'phedex-box-red');
@@ -661,20 +661,22 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                   if ( this.type == 'xfer' ) {
                     text += "<br/>"+IconWarn+"All matched items are already subscribed to <strong>"+node+"</strong>";
                     excessNodes = node;
+                    nExcessNodes = 1;
                   } else {
                     text += '<br/>'+IconOK+'All matched items are subscribed to <strong>'+node+'</strong>';
                   }
                   j=false;
                 } else {
                   text += ', <strong>'+node+'</strong>';
-                  if ( this.type == 'xfer' ) { excessNodes += ' '+node; }
+                  if ( this.type == 'xfer' ) { excessNodes += ' '+node; nExcessNodes++; }
                 }
                 delete summary[node];
                 delete isRequired[node];
               }
             }
-            if ( excessNodes ) {
-              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove these nodes)</a>";
+            if ( nExcessNodes ) {
+              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
+                      (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
             }
             j=true;
             for (node in summary) {
@@ -731,13 +733,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                   text += '<br/>'+IconError+'No items have replicas at <strong>'+node+'</strong>';
                   j=false;
                   excessNodes = node;
+                  nExcessNodes = 1;
                 } else {
                   text += ', <strong>'+node+'</strong>';
                   excessNodes += ' '+node;
+                  nExcessNodes++;
                 }
               }
-              if ( excessNodes ) {
-                text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove these nodes)</a>";
+              if ( nExcessNodes ) {
+                text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
+                        (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
               }
             }
             dom.preview_summary.innerHTML = text;
