@@ -504,7 +504,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       previewCallback: function(data,context,response) {
         var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
             preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text,
-            summary={}, s, node, create_since, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0;
+            summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0;
 
         Dom.removeClass(dom.preview,'phedex-box-yellow');
         Dom.removeClass(dom.preview,'phedex-box-red');
@@ -623,17 +623,18 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               }
             }
             if ( unknown ) {
-              text += '<br/>'+IconWarn+unknown+' item';
+              if ( text ) { text += '<br/>'; }
+              text += IconWarn+unknown+' item';
               if ( unknown > 1 ) { text += 's'; }
               text += ' did not match anything known to PhEDEx';
             }
-            create_since=context.args.create_since;
+            time_start=context.args.time_start;
             if ( tBytes == 0 ) {
-              if ( create_since ) {
-                if ( create_since > new Date().getTime()/1000 ) {
-                  text += '<br/>'+IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(create_since) + ') is in the future, no currently existing data will match it.';
+              if ( time_start ) {
+                if ( time_start > new Date().getTime()/1000 ) {
+                  text += '<br/>'+IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.';
                 } else {
-                  text += '<br/>'+IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(create_since) + ')';
+                  text += '<br/>'+IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')';
                 }
                 Dom.addClass(dom.preview,'phedex-box-yellow');
               } else {
@@ -645,8 +646,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               return;
             }
 
-            if ( create_since ) {
-              text += '<br/>'+IconWarn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(create_since);
+            if ( time_start ) {
+              text += '<br/>'+IconWarn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(time_start);
             }
 
             j=true;
@@ -1018,7 +1019,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         if ( args.node.length == 0 ) {
           this.onAcceptFail('No Destination nodes specified');
         }
-        if ( !args.group.value ) {
+        if ( !args.group ) {
           this.onAcceptFail('No User-Group specified');
         }
 
