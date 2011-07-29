@@ -50,6 +50,7 @@ sub new
     bless $self, $class;
 
     $self->{JOBS} = {};  # Transfer jobs
+    $self->{CATALOGUES} = {};  # TFC cache
 
     # Remember various useful details.
     $self->{MASTER} = $master;  # My owner
