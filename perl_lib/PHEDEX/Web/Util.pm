@@ -496,6 +496,90 @@ sub auth_nodes
     }
 }
 
+# stolen from the old website, for porting here.
+# Returns a list of nodes.
+# If argument 'with_ids' is true, returns a hash of node_name => node_id
+# else it returns an array of nodes
+#
+# If web_user_auth is set with the name of some role (e.g. 'Data
+# Manager'), we check the security module to find out if the user has
+# that role, find out for which sites they have that role, and return
+# a list of nodes associated with those sites.
+#
+# web_user_auth can be set with multiple roles separated by '||', for
+# which all authorized nodes among those roles will be returned.
+# (e.g. web_user_auth => 'Data Manager||Site Admin')
+#
+# The role 'Admin' need not be specified in web_user_auth.  If
+# the user is a Admin then all nodes are always returned.
+#
+# Otherwise it returns from t_adm_node table, which contains all nodes.
+# The default behavior is to return an array of all nodes from t_adm_node.
+sub fetch_nodes
+{
+    my ($self, %args) = @_;
+
+    my @auth_nodes;
+    if (exists $args{web_user_auth} && $args{web_user_auth}) {
+        my $roles = $$self{SECMOD}->getRoles();
+        my @to_check = split /\|\|/, $args{web_user_auth};
+        my $roles_ok = 0;
+        foreach my $role (@to_check) {
+            if (grep $role eq $_, keys %{$roles}) {
+                $roles_ok = 1;
+            }
+        }
+
+        my $global_admin = (exists $$roles{'Admin'} &&
+                            grep $_ eq 'phedex', @{$$roles{'Admin'}}) || 0;
+
+        # Special "global admin" role only if explicitly specified
+        $global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
+                              exists $$roles{'PADA Admin'} &&
+                              grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
+
+        return unless ($roles && ($roles_ok || $global_admin));
+
+        # If the user is not a global admin, make a list of sites and
+        # nodes they are authorized for.  If they are a global admin
+        # we continue below where all nodes will be returned.
+        if (!$global_admin) {
+            my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
+            my %auth_sites;
+            foreach my $role (@to_check) {
+                if (exists $$roles{$role}) {
+                    foreach my $site (@{$$roles{$role}}) {
+                        $auth_sites{$site} = 1;
+                    }
+                }
+            }
+            foreach my $node (keys %node_map) {
+                foreach my $site (keys %auth_sites) {
+                    push @auth_nodes, $node if $node_map{$node} eq $site;
+                }
+            }
+#           If not a global admin and no authorised sites, quit
+            return unless @auth_nodes;
+        }
+    }
+
+    my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
+    my $q = &dbexec($$self{DBH}, $sql);
+
+    my %nodes;
+    while (my ($node, $node_id) = $q->fetchrow()) {
+        # Filter by auth_nodes if there are any
+        if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
+            $nodes{$node} = $node_id;
+        }
+    }
+    if (exists $args{with_ids} && $args{with_ids}) {
+        return %nodes;
+    } else {
+        return keys %nodes;
+    }
+}
+
 # lowercase all hash keys
 sub lc_keys
 {
