@@ -41,8 +41,8 @@ If successful returns a 'request_updated' element with one attribute,
 sub duration { return 0; }
 sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
-sub invoke { return approve(@_); }
-sub approve
+sub invoke { return updateRequest(@_); }
+sub updateRequest
 {
   my ($core, %args) = @_;
 
@@ -63,36 +63,21 @@ sub approve
 
 # TW allow code to work from website or from data-service
 # This is ugly...
-  if ( $core->can('getAuth') ) {
-    if    ( $type eq 'xfer' )   { $ability = 'datasvc_subscribe'; }
-    elsif ( $type eq 'delete' ) { $ability = 'datasvc_delete'; }
-    else { die("Unknown request type: '$type'\n"); }
-    $auth = $core->getAuth($ability);
-  } else {
-    my $secmod = $core->{SECMOD};
-    $auth = {
-        STATE  => $secmod->getAuthnState(),
-        ROLES  => $secmod->getRoles(),
-        DN     => $secmod->getDN(),
-    };
-    %h = $core->fetch_nodes(web_user_auth => 'Data Manager', with_ids => 1);
-    $auth->{NODES} = \%h;
+  my $secmod = $core->{SECMOD};
+  $auth = {
+      STATE  => $secmod->getAuthnState(),
+      ROLES  => $secmod->getRoles(),
+      DN     => $secmod->getDN(),
+  };
 
-    my $nodes = [ arrayref_expand($args{node}) ];
-    my (@rh,$nname);
-    foreach my $nid ( @{$nodes} ) {
-      $nname = "node_id $nid";
-      foreach my $x ( keys %h ) {
-        if ( $h{$x} == $nid ) {
-          $nname = $x;
-          last;
-        }
-      }
-      push @rh, $nname;
-    }
-    $args{node} = \@rh;
-  }
-  if (! $auth->{STATE} eq 'cert' ) {
+  if    ( $type eq 'xfer' )   { $ability = 'datasvc_subscribe'; }
+  elsif ( $type eq 'delete' ) { $ability = 'datasvc_delete'; }
+  else { die("Unknown request type: '$type'\n"); }
+  $auth->{NODES} = PHEDEX::Web::Util::auth_nodes($core,$core->{AUTHZ}, $ability, with_ids => 1);
+  %h = PHEDEX::Web::Util::fetch_nodes($core, web_user_auth => 'Data Manager', with_ids => 1);
+  map { $auth->{NODES}{$_} = $h{$_} } keys %h;
+
+  if ( !$secmod->isCertAuthenticated() ) {
     die("Certificate authentication failed\n");
   }
 
