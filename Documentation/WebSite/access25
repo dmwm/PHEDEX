@@ -560,6 +560,8 @@ sub fetch_nodes
 		    push @auth_nodes, $node if $node_map{$node} eq $site;
 		}
 	    }
+#           If not a global admin and no authorised sites, quit
+            return unless @auth_nodes;
 	}
     }
 
