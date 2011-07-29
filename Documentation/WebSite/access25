@@ -519,67 +519,8 @@ sub auth_help_warning
 # The default behavior is to return an array of all nodes from t_adm_node.
 sub fetch_nodes
 {
-    my ($self, %args) = @_;
-
-    my @auth_nodes;
-    if (exists $args{web_user_auth} && $args{web_user_auth}) {
-	my $roles = $$self{SECMOD}->getRoles();
-	my @to_check = split /\|\|/, $args{web_user_auth};
-	my $roles_ok = 0;
-	foreach my $role (@to_check) {
-	    if (grep $role eq $_, keys %{$roles}) {
-		$roles_ok = 1;
-	    }
-	}
-
-	my $global_admin = (exists $$roles{'Admin'} &&
-			    grep $_ eq 'phedex', @{$$roles{'Admin'}}) || 0;
-
-	# Special "global admin" role only if explicitly specified
-	$global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
-			      exists $$roles{'PADA Admin'} &&
-			      grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
-
-	return unless ($roles && ($roles_ok || $global_admin));
-
-	# If the user is not a global admin, make a list of sites and
-	# nodes they are authorized for.  If they are a global admin
-	# we continue below where all nodes will be returned.
-	if (!$global_admin) {
-	    my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	    my %auth_sites;
-	    foreach my $role (@to_check) {
-		if (exists $$roles{$role}) {
-		    foreach my $site (@{$$roles{$role}}) {
-			$auth_sites{$site} = 1;
-		    }
-		}
-	    }
-	    foreach my $node (keys %node_map) {
-		foreach my $site (keys %auth_sites) {
-		    push @auth_nodes, $node if $node_map{$node} eq $site;
-		}
-	    }
-#           If not a global admin and no authorised sites, quit
-            return unless @auth_nodes;
-	}
-    }
-
-    my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
-    my $q = &dbexec($$self{DBH}, $sql);
-    
-    my %nodes;
-    while (my ($node, $node_id) = $q->fetchrow()) {
-	# Filter by auth_nodes if there are any
-	if (!@auth_nodes || grep $node eq $_, @auth_nodes) {
-	    $nodes{$node} = $node_id;
-	}
-    }
-    if (exists $args{with_ids} && $args{with_ids}) {
-	return %nodes;
-    } else {
-	return keys %nodes;
-    }
+# TW Need to move to PHEDEX::Web::Util
+    return PHEDEX::Web::Util::fetch_nodes(@_);
 }
 
 
@@ -4261,6 +4202,7 @@ our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Administer Request",
 use CGI qw(:standard unescape);
 use POSIX qw(strftime);
 import Web25::Common;
+use PHEDEX::Web::API::UpdateRequest;
 
 sub new
 {
@@ -4424,12 +4366,9 @@ sub output
 sub disapprove
 {
   my ($self, $data, $node_obj, $time, $rid, $comments) = @_;
-
-  eval("require PHEDEX::Web::API::UpdateRequest;");
-  die $@ if $@;
   my %h = (
 	    request  => $rid,
-	    node     => $node_obj->{NODE_ID},
+	    node     => $node_obj->{NODE},
 	    decision => 'disapprove'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
@@ -4439,12 +4378,10 @@ sub disapprove
 
 sub approve
 {
-  my ($self, $data, $node_obj, $time, $rid, $comments) = @_; # TW RID added for 4.0 schema
-  eval("require PHEDEX::Web::API::UpdateRequest;");
-  die $@ if $@;
+  my ($self, $data, $node_obj, $time, $rid, $comments) = @_;
   my %h = (
 	    request  => $rid,
-	    node     => $node_obj->{NODE_ID},
+	    node     => $node_obj->{NODE},
 	    decision => 'approve'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
@@ -4496,7 +4433,8 @@ sub send_request_update_email
 
     # Build list action descriptions
     my $action_desc = '';
-    foreach my $node (keys %$node_actions) {
+    my ($site,$node);
+    foreach $node (keys %$node_actions) {
 	my $action = $$node_actions{$node};
 	if ($action eq 'null') {
 	    next;
@@ -4514,19 +4452,19 @@ sub send_request_update_email
     # Get a list of the sites involved in this request update
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my %sites;  # for unique list
-    foreach my $node (@action_nodes) {
+    foreach $node (@action_nodes) {
 	$sites{ $node_sites{$node} } = 1 if exists $node_sites{$node};
     }
     
     # Get the list of Data Managers affected by this request
     my @data_managers;
-    foreach my $site (keys %sites) {
+    foreach $site (keys %sites) {
 	push @data_managers, $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
     }
 
     # Get the list of Site Admins affected by this request
     my @site_admins;
-    foreach my $site (keys %sites) {
+    foreach $site (keys %sites) {
 	push @site_admins, $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
     }
 
