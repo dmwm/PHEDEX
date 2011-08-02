@@ -317,9 +317,11 @@ sub receive
 		from t_xfer_task_harvest xth
 		  join t_xfer_task xt on xt.id = xth.task
 		  join t_xfer_task_done xtd on xtd.task = xth.task
+		  join t_xfer_path xp on xp.fileid = xt.fileid
+		    and xp.to_node = xt.to_node
 		  join t_xfer_request xq
-		    on xq.fileid = xt.fileid
-		    and xq.destination = xt.to_node
+		    on xq.fileid = xp.fileid
+		    and xq.destination = xp.destination
 		where xtd.report_code != 0)
 	set state = 1, time_expire = :now + dbms_random.value(2700,5400)},
 	":now" => $now);
