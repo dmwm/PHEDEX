@@ -212,6 +212,14 @@ eval
        if ($$tasks{$task}{REPORT_CODE} != PHEDEX_RC_SUCCESS &&
 	   $$tasks{$task}{REPORT_CODE} != PHEDEX_RC_EXPIRED)
        {
+	   # Truncate transfer logs longer than 100k characters,
+	   # reporting only the initial and final part of the log
+	   
+	   my $xferlog = $$tasks{$task}{LOG_XFER};
+	   if (length($xferlog) > 100_000) {
+	       substr($xferlog,49_950,length($xferlog)-2*49_950)="\n[omitted ".(length($xferlog)-2*49_950)." characters from transfer log]\n";
+	   }
+
 	   my $arg = 1;
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{TO_NODE_ID});
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_NODE_ID});
@@ -229,7 +237,7 @@ eval
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{FROM_PFN});
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{TO_PFN});
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{SPACE_TOKEN});
-	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_XFER});
+	   push(@{$eargs{$arg++}}, $xferlog);
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_DETAIL});
 	   push(@{$eargs{$arg++}}, $$tasks{$task}{LOG_VALIDATE});
        }
