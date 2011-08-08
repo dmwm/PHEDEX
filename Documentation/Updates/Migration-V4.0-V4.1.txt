@@ -171,6 +171,7 @@ create or replace function schema_version return varchar is
 begin
   return('4.1.0');
 end schema_version;
+/
 
 select schema_version from dual;
 
