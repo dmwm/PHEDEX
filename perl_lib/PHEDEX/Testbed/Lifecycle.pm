@@ -9,7 +9,7 @@ use POE;
 
 use Carp;
 
-our @EXPORT = qw( );
+our @EXPORT = qw( evaluate );
 
 $SIG{__WARN__} = sub
 {
@@ -737,6 +737,103 @@ sub gaussian_rand {
     $g2 = $g2 * $sdev + $mean;
     # return both if wanted, else just one
     return wantarray ? ($g1, $g2) : $g1;
+}
+
+sub dump_ref
+{
+  my $ref = shift;
+  return unless ( ref($ref) eq 'HASH' );
+  foreach ( keys %{$ref} ) { print "$_ : ", $ref->{$_}, "\n"; }
+}
+
+
+# If supplied argument is a scalar, returns it without change;
+# Otherwise expects reference to a hash, which will be processed by
+# a subroutine called algoALGO, where ALGO is the value of 'algo' key in the 
+# argument hash. 
+sub evaluate
+{
+    my $arg = shift || croak "Missing argument for \"evaluate\"\n";
+    my $argtype = ref (\$arg);
+    print "In EVALUATE, argtype = ". $argtype . "\n";
+    if ( $argtype eq "SCALAR")
+    {
+        print "SCALAR argument type: do nothing\n";
+        return $arg;
+    }
+    #print "NR2 must be hash: " . ref (\$argtype) .  "\n"; return;
+    $arg -> {algo} || croak "No algorithm specified in evaluate (algo)\n";
+    my $algo = "algo" . $arg -> {algo};
+    print "NR3 Calling $algo\n";
+    {
+	no strict 'refs';
+	&$algo($arg);
+    }
+}
+
+sub algotable
+{
+    my ($size,$min,$max,$step);
+    my $arg = shift;
+    print "In algotable: \n";
+    profile_table($arg -> {min},$arg -> {max},$arg -> {step}, $arg -> {table});
+    #foreach (key %{$arg}) {print $_ . " = " . $arg -> {$_} . "\n";} ;
+}
+
+
+sub bin_table
+{
+  my ($i,@s,$sum,$bin,$table);
+  $table = shift || croak "Missing argument for \"table\"\n";;
+
+  foreach ( @{$table} )
+  {
+    $sum+= $_;
+    push @s, $sum;
+  }
+  $i = int rand($sum);
+
+  $bin = 0;
+  foreach ( @s )
+  {
+    last if ( $_ > $i );
+    $bin++;
+  }
+  return $bin;
+}
+
+sub profile_table
+{
+  my ($size,$min,$max,$step);
+  my ($minp,$maxp,$table,$i,$j,$n,@s,$sum);
+
+  $min   = shift ; defined $min || croak "Missing argument for \"min\"\n";
+  $max   = shift ; defined $max || croak "Missing argument for \"max\"\n";
+  $step  = shift || croak "Missing argument for \"step\"\n";
+  $table = shift || croak "Missing argument for \"table\"\n";
+
+  if ( !defined($table) ) { return profile_flat($min,$max,$step); }
+
+  $j = bin_table($table);
+  $n = scalar @{$table};
+  $maxp = (1+$j)*($max-$min)/$n + $min;
+  $minp =    $j *($max-$min)/$n + $min;
+
+  $size = int(rand($maxp-$minp))+$minp;
+  $size = $step * int($size/$step);
+  return $size;
+}
+
+sub profile_flat
+{
+  my ($size,$min,$max,$step);
+  $min  = shift || croak "Missing argument for \"min\"\n";;
+  $max  = shift || croak "Missing argument for \"max\"\n";;
+  $step = shift || croak "Missing argument for \"step\"\n";;
+
+  $size = int(rand($max-$min))+$min;
+  $size = $step * int($size/$step);
+  return $size;
 }
 
 1;
