@@ -755,19 +755,15 @@ sub evaluate
 {
     my $arg = shift || croak "Missing argument for \"evaluate\"\n";
     my $argtype = ref (\$arg);
-    print "In EVALUATE, argtype = ". $argtype . "\n";
     if ( $argtype eq "SCALAR")
     {
-        print "SCALAR argument type: do nothing\n";
         return $arg;
     }
-    #print "NR2 must be hash: " . ref (\$argtype) .  "\n"; return;
     $arg -> {algo} || croak "No algorithm specified in evaluate (algo)\n";
     my $algo = "algo" . $arg -> {algo};
-    print "NR3 Calling $algo\n";
     {
 	no strict 'refs';
-	&$algo($arg);
+	return &$algo($arg);
     }
 }
 
@@ -776,8 +772,7 @@ sub algotable
     my ($size,$min,$max,$step);
     my $arg = shift;
     print "In algotable: \n";
-    profile_table($arg -> {min},$arg -> {max},$arg -> {step}, $arg -> {table});
-    #foreach (key %{$arg}) {print $_ . " = " . $arg -> {$_} . "\n";} ;
+    return profile_table($arg -> {min},$arg -> {max},$arg -> {step}, $arg -> {table});
 }
 
 
