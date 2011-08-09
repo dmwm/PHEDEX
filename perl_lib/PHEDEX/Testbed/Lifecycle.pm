@@ -196,7 +196,7 @@ sub lifecycle
 
   $event = $events[0];
   return unless $event;
-  $delay = $ds->{CycleTime};
+  $delay = evaluate($ds->{CycleTime});
   return unless $delay;
   if ( $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
   if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
@@ -409,7 +409,7 @@ sub srcdelete
   # only delete closed blocks
   if ($block->{BlockIsOpen} ne 'n') {
       # try again later, after more injections
-      my $delay = $ds->{CycleTime} * 1.5;
+      my $delay = evaluate($ds->{CycleTime}) * 1.5;
       $self->Dbgmsg("srcdelete:  block $block->{block} is not closed.  Not deleting it.") 
 	  if $self->{Verbose};
       return;
