@@ -244,6 +244,15 @@ sub ReadConfig
       }
     }
 
+#   Fill in global defaults for undefined dataset defaults
+
+     foreach (qw/ StuckFileFraction FileSizeMean/)
+     {
+       if ( ! defined( $ds->{$_} ) )
+       {
+         $ds->{$_} = $self->{$_};
+       }
+     }
   }
 
   no strict 'refs';
@@ -665,16 +674,26 @@ my $_file_number=0;
 sub getNextLFN
 {
   my ($self,$ds,$blockid,$n_file) = @_;
-  my ($file,$lfn,$size,$mean,$sdev,$cksum);
+  my ($file,$lfn,$size,$mean,$sdev,$cksum,$RN,$suffix);
   if ( !$self->{LFNList} )
   {
-    $lfn  = $ds->{Name}. "-${blockid}-${n_file}";
+$suffix = "";
+    #print "print out stuckfile fraction = $ds->{StuckFileFraction} \n";
+    if ($ds->{StuckFileFraction} > 0)
+    {
+       $RN = rand 100;
+      ($RN < $ds->{StuckFileFraction}) && ($suffix = "-stuckfile");
+    }
+    $lfn  = $ds->{Name}. "-${blockid}-${n_file}".$suffix;
     $mean = $ds->{FileSizeMean} || 2.0;
     $sdev = $ds->{FileSizeStdDev} || 0.2;
     $size = int(gaussian_rand($mean, $sdev) * (1024**3)); 
     $cksum = 'cksum:'. int(rand() * (10**10));
     return { lfn => $lfn, size => $size, cksum => $cksum};
   }
+
+
+
   if ( !$self->{lfns} )
   {
     open LFNs, "<$self->{LFNList}" or $self->Fatal("Cannot open $self->{LFNList}: $!");
@@ -683,6 +702,8 @@ sub getNextLFN
       next if m%^#%;
       ($lfn,$size,$cksum) = split(' ',$_);
       $size = int(gaussian_rand($mean, $sdev) * (1024**3)) unless $size;
+
+
       $cksum = 'cksum:'. int(rand() * (10**10)) unless $cksum;
       push @{$self->{lfns}}, { lfn => $lfn, size => $size, cksum => $cksum};
     }
