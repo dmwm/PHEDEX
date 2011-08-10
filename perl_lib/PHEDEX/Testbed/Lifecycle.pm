@@ -329,7 +329,7 @@ sub t1subscribe
   {
     my $p = deep_copy($payload);
     $p->{T1} = $_;
-    unless ($self->subscribeBlock($ds,$block,$_)) {
+    unless ($self->subscribeBlock($ds,$block,$_) != 0 ) {
 	# try again
 	$self->{DBH}->rollback;
 	$kernel->delay_set('t1subscribe', 1, $payload);
@@ -370,7 +370,7 @@ sub t2subscribe
   {
     my $p = deep_copy($payload);
     $p->{T2} = $_;
-    unless ($self->subscribeBlock($ds,$block,$_)) {
+    unless ($self->subscribeBlock($ds,$block,$_) != 0) {
 	# try again
 	$self->{DBH}->rollback();
 	$kernel->delay_set('t2subscribe', 1, $payload);
@@ -521,7 +521,7 @@ sub subscribeBlock
   return 1 if $self->{Dummy};
 
   my $nodeid = $self->{NodeIDs}{$node};
-  return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
+  return 1 if $self->{_states}{$block->{blockid}}{subscribed}{$nodeid};
   
   $self->Logmsg("Subscription parameters for $block->{block} to node $_") unless $self->{Quiet};
   
@@ -538,7 +538,7 @@ sub subscribeBlock
       $self->Alert("subscribeBlock:  $@"); 
       return 0; 
   }
-  
+
   $self->Logmsg("Subscription for $block->{block} to node $_") unless $self->{Quiet};
 
   my $h;
@@ -547,13 +547,18 @@ sub subscribeBlock
   $h->{is_move}		= $ds->{IsMove};
   $h->{time_create}	= $block->{created};
   $h->{param}           = $param;
-
-  eval { $self->insertSubscription( $h ) };
+  
+  my $nsub;
+  eval { $nsub = $self->insertSubscription( $h ) };
   if ($@) {
       $self->Alert("subscribeBlock:  $@");
       return 0;
   }
-  return 1;
+  
+  if ($nsub!=0) {
+      $self->{_states}{$block->{blockid}}{subscribed}{$nodeid}++;
+  }
+  return $nsub;
 }
 
 sub unsubscribeBlock
