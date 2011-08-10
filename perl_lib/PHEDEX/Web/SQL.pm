@@ -4034,6 +4034,8 @@ sub getDatasetInfo
         ID => 'd.id',
         DATASET => 'd.name'));
 
+    my $where = "where $filters" if $filters;
+
     my $sql = qq{
         select
             d.id,
@@ -4047,8 +4049,7 @@ sub getDatasetInfo
         from
             t_dps_dataset d
             join t_dps_block b on b.dataset = d.id
-        where
-            $filters
+        $where
         group by
             d.id,
             d.name,
