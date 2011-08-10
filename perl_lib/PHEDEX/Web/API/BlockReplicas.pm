@@ -291,20 +291,23 @@ sub spool
             }
 
             # get stats of datasets
-            my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
-
-            # turn it into a hash
-            my %dinfo;
-            foreach (@{$d})
+            if ($#dids > 0)
             {
-                $dinfo{$_->{ID}} = $_;
-            }
+                my $d = PHEDEX::Web::SQL::getDatasetInfo($core, 'ID' => \@dids);
 
-            # feed stats back to dataset info
-            foreach (@{$r1})
-            {
-                $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
-                $_->{files} = $dinfo{$_->{id}}->{FILES};
+                # turn it into a hash
+                my %dinfo;
+                foreach (@{$d})
+                {
+                    $dinfo{$_->{ID}} = $_;
+                }
+
+                # feed stats back to dataset info
+                foreach (@{$r1})
+                {
+                    $_->{bytes} = $dinfo{$_->{id}}->{BYTES};
+                    $_->{files} = $dinfo{$_->{id}}->{FILES};
+                }
             }
             
             return { dataset => $r1 };
