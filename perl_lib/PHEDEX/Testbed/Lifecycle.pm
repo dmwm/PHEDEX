@@ -67,18 +67,20 @@ sub _poe_init
 # This sets up the basic state-machinery.
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
+  $self->{SESSION} = $session;
   $kernel->alias_set( $self->{ME} );
 
 # Declare the injection and other states. Set the stats counter to fire, and
 # start watching my configuration file. Things don't actually get rolling until
 # the configuration file is read, so yield to that at the end.
-  $kernel->state(     'inject', $self);
-  $kernel->state('t1subscribe', $self);
-  $kernel->state('t2subscribe', $self);
-  $kernel->state(   't2delete', $self);
-  $kernel->state(  'srcdelete', $self);
-  $kernel->state(  'nextEvent', $self );
-  $kernel->state(  'lifecycle', $self );
+  $kernel->state(       'inject', $self);
+  $kernel->state('injectionDone', $self);
+  $kernel->state(  't1subscribe', $self);
+  $kernel->state(  't2subscribe', $self);
+  $kernel->state(     't2delete', $self);
+  $kernel->state(    'srcdelete', $self);
+  $kernel->state(    'nextEvent', $self );
+  $kernel->state(    'lifecycle', $self );
 
   $kernel->state( 'stats', $self );
   $kernel->delay_set('stats',$self->{StatsFrequency});
@@ -264,18 +266,14 @@ sub inject
   return unless $ds->{Incarnation} == $self->{Incarnation};
 
   my $block = $self->makeBlock($ds);
-  $self->doInject($ds,$block);
-
-  $self->{NInjected}++;
-  $self->{replicas}{$ds->{InjectionSite}}++;
   $payload->{block} = $block;
-  $kernel->yield( 'nextEvent', $payload );
+  $self->doInject($ds,$block,$payload);
 }
 
 our $sequence = 0;
 sub doInject
 {
-  my ($self,$ds,$block,$xmlfile) = @_;
+  my ($self,$ds,$block,$payload,$xmlfile) = @_;
 
   $xmlfile = $self->{DROPDIR} . 'injection-' . $sequence++ . '.xml' unless $xmlfile;
   my $n = scalar @{$block->{files}};
@@ -299,11 +297,23 @@ sub doInject
   $cmd .= ' -nodes ' . $ds->{InjectionSite};
   $cmd .= ' -filedata ' . $xmlfile;
 
-#  open INJECT, "$cmd 2>&1 |" or $self->Fatal("$cmd: $!");
-#  while ( <INJECT> ) { $self->Logmsg($_) if $self->{Debug}; }
-#  close INJECT or $self->Fatal("close: $cmd: $!");
   my @cmd = split(' ',$cmd);
-  $self->{JOBMANAGER}->addJob( sub { unlink "$xmlfile"; }, {TIMEOUT=>999}, @cmd);
+  my $injection_postback = $self->{SESSION}->postback('injectionDone',$ds,$payload,$xmlfile);
+  $self->{JOBMANAGER}->addJob( $injection_postback, {TIMEOUT=>999}, @cmd);
+}
+
+sub injectionDone
+{
+  my ($self, $kernel, $arg0, $arg1) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+  my ($ds,$payload,$xmlfile);
+  ($ds,$payload,$xmlfile) = @{$arg0};
+  $ds      = $arg0->[0];
+  $payload = $arg0->[1];
+  $xmlfile = $arg0->[2];
+  unlink $xmlfile;
+  $self->{NInjected}++;
+  $self->{replicas}{$ds->{InjectionSite}}++;
+  $kernel->yield( 'nextEvent', $payload );
 }
 
 sub t1subscribe
