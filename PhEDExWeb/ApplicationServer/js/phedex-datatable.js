@@ -530,6 +530,21 @@ YwDF.UnixEpochToUTC =  function(elCell, oRecord, oColumn, oData) {
     elCell.innerHTML =new Date(oData*1000).toUTCString().replace(/GMT/,'UTC');
   }
 };
+/** A custom formatter for time-intervals. Sets the elCell innerHTML to the number of days, hours, minutes, and seconds represented by the cell value
+* @method YAHOO.widget.DataTable.Formatter.secondsToDHMS
+* @param elCell {HTML element} Cell for which the formatter must be applied
+* @param oRecord {datatable record}
+* @param oColumn {datatable column}
+* @param oData {data-value} unix epoch seconds
+*/
+YwDF.secondsToDHMS =  function(elCell, oRecord, oColumn, oData) {
+  if( !oData )
+  {
+    elCell.innerHTML = '-';
+  } else {
+    elCell.innerHTML = PxUf.secondsToDHMS(oData);
+  }
+};
 
 /** A custom formatter for byte-counts. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
 * @method YAHOO.widget.DataTable.Formatter.customBytes

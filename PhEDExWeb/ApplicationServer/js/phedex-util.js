@@ -107,6 +107,19 @@ PHEDEX.Util.format={
     if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toUTCString().replace(/GMT/,'UTC');
   },
+  secondsToDHMS:function(seconds) {
+    var days, hours, minutes;
+    days = Math.floor(seconds / 86400);
+    seconds  = Math.floor(seconds - days * 86400);
+    hours = Math.floor(seconds / 3600);
+    minutes = Math.floor((seconds - (hours * 3600))/60);
+    seconds -= ((hours * 3600) + (minutes * 60));
+    seconds += ''; minutes += ''; hours += '';
+    while (hours.length < 2)   {hours   = '0' + hours;}
+    while (minutes.length < 2) {minutes = '0' + minutes;}
+    while (seconds.length < 2) {seconds = '0' + seconds;}
+    return days+' d '+hours + ':' + minutes + ':' + seconds;
+  },
   dataset:function(raw) {
     if (raw.length>50) {
       var _short = raw.substring(0,50);
