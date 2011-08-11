@@ -173,12 +173,16 @@ writeLog() if $log;
 
 #-----------------------------------------------------------
 
+my $SSL_key_file  = '/tmp/' . $ENV{USER} . '/certs/server-key.pem';
+my $SSL_cert_file = '/tmp/' . $ENV{USER} . '/certs/server-cert.pem';
+( -f $SSL_key_file && -f $SSL_cert_file )
+  || die "No $SSL_key_file or no $SSL_cert_file, probably you need to run make-certs.sh?\n";
 $server = HTTP::Daemon::SSL->new
   ( 
     LocalPort		=> $listen_port,
     LocalAddr		=> 'localhost',
-    SSL_key_file	=> '/tmp/' . $ENV{USER} . '/certs/server-key.pem',
-    SSL_cert_file	=> '/tmp/' . $ENV{USER} . '/certs/server-cert.pem',
+    SSL_key_file	=> $SSL_key_file,
+    SSL_cert_file	=> $SSL_cert_file,
   ) || die;
 
 print scalar localtime,": listening on port $listen_port, redirect to $redirect_to\n";
