@@ -244,8 +244,14 @@ sub ReadConfig
       }
     }
 
-#   Fill in global defaults for undefined dataset defaults
+#   Set global default for the case it was missing in the configuration: 
+     if ( ! defined $self->{StuckFileFraction} ) 
+     { 
+	$self->{StuckFileFraction} = 0;
+     }
 
+
+#   Fill in global defaults for undefined dataset defaults 
      foreach (qw/ StuckFileFraction FileSizeMean/)
      {
        if ( ! defined( $ds->{$_} ) )
