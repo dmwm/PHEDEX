@@ -16,10 +16,15 @@ my @fields = reverse (split "/", $pfn);
 my $filename = shift @fields;
 my $blockname = shift @fields;
 my $datasetname = shift @fields; 
-
+my $threshold = 0;
 print  "file: $filename\nblock: $blockname\ndataset: $datasetname\n";
 
 ($filename =~ /-stuckfile$/) && print "Matches STUCK file\n";
+if ($datasetname =~ /_Fail(\d+)$/) {
+    $threshold = int($1)/100.; 
+    print "Probability of FAILED files: $threshold\n"; 
+}
+
 
 if ($status eq 'pre') {
     print "pre-validation test\n";
@@ -39,7 +44,7 @@ if ($status eq 'pre') {
     }
 } else {
     print "post-validation test\n";
-    if (($r < .1)||($filename =~ /-stuckfile$/)) {
+    if (($r < $threshold)||($filename =~ /-stuckfile$/)) {
 	print "post-validation failure\n";
 	exit(1);
     } else {
