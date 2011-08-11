@@ -446,7 +446,7 @@ try { // TW Build the data-table!
                     "<div id='phedex-filterpanel-completion'>Completion</div>" +
                   "</div>" +
                 "</div>" +
-                "<div id='phedex-data-subscriptions-apply-filters''>" +
+                "<div id='phedex-data-subscriptions-apply-filters'>" +
                 "</div>"
         });
         tabView.addTab(tab);
@@ -459,7 +459,7 @@ try { // TW Build the data-table!
         var field, Field; // oh boy, I'm asking for trouble here...
 // Requests
         el = Dom.get('phedex-filterpanel-requests');
-        field=el.innerHTML, Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
+        field=el.innerHTML; Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
         el.innerHTML = "<div class='phedex-nextgen-filter-element-x'>" +
                   "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
                   "<div class='phedex-nextgen-filter'>" +
@@ -491,7 +491,7 @@ try { // TW Build the data-table!
 
 // Data items
         el = Dom.get('phedex-filterpanel-dataitems');
-        field=el.innerHTML, Field=PxU.initialCaps(field);
+        field=el.innerHTML; Field=PxU.initialCaps(field);
         field = field.replace(/ /,'');
         el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
                   "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
@@ -564,7 +564,7 @@ try { // TW Build the data-table!
 
 // Group - dropdown (inc 'any')
         el = Dom.get('phedex-filterpanel-group');
-        field=el.innerHTML, Field=PxU.initialCaps(field);
+        field=el.innerHTML; Field=PxU.initialCaps(field);
         el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
                         "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
                         "<div class='phedex-nextgen-filter'>" +
@@ -592,7 +592,7 @@ try { // TW Build the data-table!
       filterButton: function(el,menu) {
         var id=PxU.Sequence(), field, Field;
         if ( typeof(el) == 'string' ) { el = Dom.get(el); }
-        field=el.innerHTML, Field=PxU.initialCaps(field);
+        field=el.innerHTML; Field=PxU.initialCaps(field);
         el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
                          "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
                          "<div class='phedex-nextgen-filter'>" +
