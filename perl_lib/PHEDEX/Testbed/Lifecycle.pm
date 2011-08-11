@@ -684,7 +684,7 @@ $suffix = "";
        $RN = rand 100;
       ($RN < $ds->{StuckFileFraction}) && ($suffix = "-stuckfile");
     }
-    $lfn  = $ds->{Name}. "-${blockid}-${n_file}".$suffix;
+    $lfn  = $ds->{Name} . "/${blockid}/${n_file}" . $suffix;
     $mean = $ds->{FileSizeMean} || 2.0;
     $sdev = $ds->{FileSizeStdDev} || 0.2;
     $size = int(gaussian_rand($mean, $sdev) * (1024**3)); 
