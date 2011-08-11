@@ -18,6 +18,7 @@ do
 done
 
 echo 'pause before starting next node...'; sleep 15
+echo "Starting Lifecycle and central agents"
 $Master --config $Config/Config.Mgmt.Testbed start watchdog
 echo 'pause before starting next node...'; sleep 15
 node="T0_Test_Buffer"
