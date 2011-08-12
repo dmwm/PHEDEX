@@ -4246,5 +4246,180 @@ sub getBlockLatency
 }
 
 
+# getHistoryBlockLatency
+sub getiHistoryBlockLatency
+{
+    my $core = shift;
+    my %h = @_;
+    my $filters = '';
+    my %p;
+
+    my $sql = qq{
+        select
+            b.id,
+            b.name,
+            b.files,
+            b.bytes,
+            d.name as dataset,
+            b.time_create,
+            b.time_update,
+            n.name as destination,
+            n.id as destination_id,
+            n.se_name as destination_se,
+            l.time_update as ltime_update,
+            l.files as lfiles,
+            l.bytes as lbytes,
+            l.priority,
+            l.is_custodial,
+            l.time_subscription,
+            l.block_create,
+            l.block_close,
+            l.first_request,
+            l.first_replica,
+            l.percent25_replica,
+            l.percent50_replica,
+            l.percent75_replica,
+            l.percent95_replica,
+            l.last_replica,
+            l.total_suspend_time,
+            l.latency
+        from
+            t_history_block_latency l
+            left join t_dps_block b on l.block = b.id
+            left join t_dps_dataset d on b.dataset = d.id
+            join t_adm_node n on l.destination = n.id
+    };
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        ID => 'l.block',
+        BLOCK => 'b.name',
+        TO_NODE => 'n.name',
+        CUSTODIAL => 'l.is_custodial',
+        DATASET => 'd.name'
+    ));
+
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+        else
+        {
+            $filters = ' l.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.time_update >= '.$h{UPDATE_SINCE};
+        }
+        else
+        {
+            $filters = ' l.time_update >= '.$h{UPDATE_SINCE};
+        }
+    }
+
+    if (exists $h{SUBSCRIBE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and l.time_subscription >= :time_subscription ';
+        }
+        else
+        {
+            $filters =  ' l.time_subscription >= :time_subscription ';
+        }
+        $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
+    }
+
+    if (exists $h{FIRST_REQUEST_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.first_request >= :first_request ';
+        }
+        else
+        {
+            $filters = ' l.first_request >= :first_request ';
+        }
+        $p{':first_request'} = $h{FIRST_REQUEST_SINCE};
+    }
+
+    if (exists $h{LATENCY_GREATER_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency >= :lmin ';
+        }
+        else
+        {
+            $filters = ' l.latency >= :lmin ';
+        }
+        $p{':lmin'} = $h{LATENCY_GREATER_THAN};
+    }
+
+    if (exists $h{LATENCY_LESS_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency <= :lmax ';
+        }
+        else
+        {
+            $filters = ' l.latency <= :lmax ';
+        }
+        $p{':lmax'} = $h{LATENCY_LESS_THAN};
+    }
+
+    if (exists $h{EVER_SUSPENDED})
+    {
+        my $suspend_sql;
+
+        if ($h{EVER_SUSPENDED} eq 'y')
+        {
+            $suspend_sql = 'l.total_suspend_time > 0 ';
+        }
+        elsif ($h{EVER_SUSPENDED} eq 'n')
+        {
+            $suspend_sql = 'l.total_suspend_time = 0 ';
+        }
+        
+        if ($filters)
+        {
+            $filters .= " and $suspend_sql ";
+        }
+        else
+        {
+            $filters .= " $suspend_sql ";
+        }
+    }
+
+    if ($filters)
+    {
+        $sql .= "where  $filters ";
+    }
+
+    $sql .= " order by b.id ";
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
+    while ($_ = $q->fetchrow_hashref() )
+    {
+        # take care of priority
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_->{PRIORITY}, 0);
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 
 1;
