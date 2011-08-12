@@ -1,7 +1,7 @@
 package PHEDEX::Monitoring::InfoStatesClean::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::BlockLatency::SQL';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
@@ -46,6 +46,9 @@ sub idle
 		over (partition by from_node, to_node order by time_done desc) rank
 	       from t_xfer_error)
 	      where rank <= 100)});
+
+	# Archive completed block latency information
+	$self->mergeBlockLatencyHistory();
     };
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;

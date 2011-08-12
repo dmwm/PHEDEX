@@ -1,5 +1,5 @@
 package PHEDEX::Infrastructure::FilePump::Agent;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging','PHEDEX::BlockLatency::SQL';
 
 use strict;
 use warnings;
@@ -333,6 +333,9 @@ sub receive
 	  join t_xfer_task_done xtd on xtd.task = xth.task
         where xtd.report_code != 0},
 	":now" => $now);
+
+    # Record file-level latency information
+    $self->mergeStatusFileArrive();
 
     # Finally remove all we've processed.
     &dbexec($dbh, qq{
