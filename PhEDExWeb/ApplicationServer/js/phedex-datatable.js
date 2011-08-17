@@ -60,7 +60,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @private
             */
             _processData: function(moduledata) {
-              var t=[], table = this.meta.table, i = moduledata.length, k = table.columns.length, j, a, c;
+              var t=[], table=this.meta.table, i=moduledata.length, k=table.columns.length, j, a, c, y, val;
               while (i > 0) {
                 i--
                 a = moduledata[i], y = [];
@@ -118,6 +118,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 h[this._getKeyByKeyOrLabel(m.hide[i])] = 1;
               }
               m.hide = h;
+              if ( !this.dom.datatable ) { this.dom.datatable = this.dom.content; }
               this.buildTable()
               this.decorators.push( { name:'Refresh', source:'component-refresh' });
               this.decorators.push(
@@ -312,7 +313,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             resizePanel: function () {
                 var table = this.dataTable,
                 old_width = table.getContainerEl().clientWidth,
-                offset = this.dom.header.offsetWidth - this.dom.content.offsetWidth,
+                offset = this.dom.header.offsetWidth - this.dom.datatable.offsetWidth,
                 x = table.getTableEl().offsetWidth + offset;
                 if (x >= old_width) {
                     this.module.cfg.setProperty('width', x + 'px');
@@ -375,12 +376,9 @@ PHEDEX.DataTable = function (sandbox, string) {
                 if (!t.map) { t.map = {}; }
                 while (i > 0) { //This is for main columns
                     i--;
-                    var cDef = t.columns[i];
+                    cDef = t.columns[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
                     if (!cDef.label) { cDef.label = cDef.key; }
-//                     if (cDef.key.match('].')) {
-//                         cDef.buildPath = true;
-//                     }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
                     if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
@@ -391,12 +389,9 @@ PHEDEX.DataTable = function (sandbox, string) {
                 i = t.nestedColumns.length;
                 while (i > 0) { //This is for inner nested columns
                     i--;
-                    var cDef = t.nestedColumns[i];
+                    cDef = t.nestedColumns[i];
                     if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
                     if (!cDef.label) { cDef.label = cDef.key; }
-//                     if (cDef.key.match('].')) {
-//                         cDef.buildPath = true;
-//                     }
                     if (!cDef.resizeable) { cDef.resizeable = true; }
                     if (!cDef.sortable) { cDef.sortable = true; }
                     if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
@@ -404,7 +399,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 this.dataSource = new YuDS();
                 this.nestedDataSource = new YuDS();
                 try {
-                    this.dataTable = new Yw.NestedDataTable(this.dom.content, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
+                    this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
                                     {
                                         initialLoad: false,
                                         generateNestedRequest: this.processNestedrequest
