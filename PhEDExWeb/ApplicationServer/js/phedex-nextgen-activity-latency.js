@@ -148,6 +148,10 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
        var d = this.dom,
            el = d.dataitems,
            val = el.value;
+        if ( val == 'Block name or Perl reg-ex' ) {
+          d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data-item specified</span>";
+          return;
+        }
         d.datatable.innerHTML = NUtil.stdLoading('loading latency data...');
         d.plot.innerHTML = '';
         PHEDEX.Datasvc.Call( { api:'blocklatency', callback:this.gotLatencyData, args:{block:val} } );
@@ -156,7 +160,7 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
         PHEDEX.Datasvc.throwIfError(data,response);
         var blocks=data.block, block, dest, d=obj.dom, t=obj.meta.table,
             Row, Table=[], Nested, unique=0, cDef, latency, i, j, k, l, n;
-        if ( !blocks ) {
+        if ( !blocks.length ) {
           d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
           d.datatable.style.margin = '5px 0';
           return;
