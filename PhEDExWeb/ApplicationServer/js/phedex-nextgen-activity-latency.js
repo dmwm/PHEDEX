@@ -5,9 +5,12 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
       NUtil = PHEDEX.Nextgen.Util,
       Dom = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
-      Button = YAHOO.widget.Button;
+      Button = YAHOO.widget.Button,
+      YwDF  = Yw.DataTable.Formatter,
+      YuDS  = YAHOO.util.DataSource,
+      YuDSB = YAHOO.util.DataSourceBase;
 
-  Yla(this,new PHEDEX.Module(sandbox,string));
+  Yla(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox, node;
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -30,7 +33,7 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
             { key:'files',       label:'Files',           className:'align-right', parser:'number' },
             { key:'bytes',       label:'Bytes',           className:'align-right', parser:'number', formatter:'customBytes' },
             { key:'time_create', label:'Creation Time',   className:'align-right', formatter:'UnixEpochToUTC' },
-            { key:'time_update', label:'Creation Update', className:'align-right', formatter:'UnixEpochToUTC' },
+            { key:'time_update', label:'Last Update',     className:'align-right', formatter:'UnixEpochToUTC' },
           ],
           nestedColumns:[
             { key:'node',                 label:'Node',                 className:'align-right' },
@@ -39,6 +42,8 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
             { key:'bytes',                label:'Bytes',                className:'align-right', parser:'number', formatter:'customBytes' },
             { key:'priority',             label:'Priority',             className:'align-right' },
             { key:'is_custodial',         label:'Custodial',            className:'align-right' },
+            { key:'block_create',         label:'Block Create',         className:'align-right', formatter:'UnixEpochToUTC' },
+            { key:'block_close',          label:'Block Close',          className:'align-right', formatter:'UnixEpochToUTC' },
             { key:'first_replica',        label:'1st Replica',          className:'align-right', formatter:'UnixEpochToUTC' },
             { key:'first_request',        label:'1st Request',          className:'align-right', formatter:'UnixEpochToUTC' },
             { key:'last_replica',         label:'Last Replica',         className:'align-right', formatter:'UnixEpochToUTC' },
@@ -52,14 +57,12 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
             { key:'percent95_replica',    label:'95th percentile',      className:'align-right', formatter:'UnixEpochToUTC' },
             { key:'partial_suspend_time', label:'Partial Suspend Time', className:'align-right', parser:'number' },
             { key:'total_suspend_time',   label:'Total Suspend Time',   className:'align-right', parser:'number' }
-// // block_close
-// // block_create
           ],
         }
       },
       useElement: function(el) {
         var d = this.dom;
-        d.target = el;
+        this.el = el;
         d.container = document.createElement('div'); d.container.className  = 'phedex-nextgen-container'; d.container.id = 'doc3';
         d.hd        = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd'; d.hd.id = 'hd';
         d.bd        = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd'; d.bd.id = 'bd';
@@ -70,6 +73,9 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
         d.dataform  = document.createElement('div'); d.dataform.id          = 'phedex-activity-latency-dataform';
         d.datatable = document.createElement('div'); d.datatable.id         = 'phedex-activity-latency-datatable';
         d.datatable.style.padding='0 0 0 210px';
+        d.plot      = document.createElement('div'); d.plot.id              = 'phedex-activity-latency-plot';
+        d.plot.style.padding = '0 0 0 210px';
+
         form = document.createElement('form');
         form.id   = 'activity-latency-action';
         form.name = 'activity-latency-action';
@@ -78,6 +84,7 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
         this.activity_latency_action = form;
 
         d.bd.appendChild(d.main);
+//         d.container.appendChild(d.main);
         d.main.appendChild(d.main_block);
         d.container.appendChild(d.hd);
         d.container.appendChild(d.bd);
@@ -85,16 +92,17 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
         d.container.appendChild(d.selector);
         d.container.appendChild(d.dataform);
         d.dataform.appendChild(form);
-        d.dataform.appendChild(d.datatable);
+        d.container.appendChild(d.plot);
+        d.container.appendChild(d.datatable);
         el.innerHTML = '';
         el.appendChild(d.container);
 
-	form.innerHTML =
+        form.innerHTML =
                 "<div id='phedex-filterpanel-container' class='phedex-nextgen-filterpanel'>" +
                   "<div id='phedex-filterpanel' class='phedex-nextgen-control'>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-dataitems'>data items</div>" +
                   "</div>" +
-                  "<div id='phedex-activity-latency-apply' style='float:right'>" +
+                  "<div id='phedex-activity-latency-apply' style='float:right'></div>" +
                 "</div>"
 
         d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
@@ -141,12 +149,13 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
            el = d.dataitems,
            val = el.value;
         d.datatable.innerHTML = NUtil.stdLoading('loading latency data...');
+        d.plot.innerHTML = '';
         PHEDEX.Datasvc.Call( { api:'blocklatency', callback:this.gotLatencyData, args:{block:val} } );
       },
       gotLatencyData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         var blocks=data.block, block, dest, d=obj.dom, t=obj.meta.table,
-            Row, Table=[], Nested, unique=0, cDef, latency, i, j, k, n;
+            Row, Table=[], Nested, unique=0, cDef, latency, i, j, k, l, n;
         if ( !blocks ) {
           d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
           d.datatable.style.margin = '5px 0';
@@ -170,28 +179,50 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
             for (k in dest.latency) {
               latency = dest.latency[k];
               Nested.push({
-			    node:                 dest.name,
-			    latency:              latency.latency,
-			    files:                latency.files,
-			    bytes:                latency.bytes,
-			    priority:             latency.priority,
-			    is_custodial:         latency.is_custodial,
-			    first_replica:        latency.first_replica,
-			    first_request:        latency.first_request,
-			    last_replica:         latency.last_replica,
-			    percent25_replica:    latency.percent25_replica,
-			    percent50_replica:    latency.percent50_replica,
-			    percent75_replica:    latency.percent75_replica,
-			    percent95_replica:    latency.percent95_replica,
-			    partial_suspend_time: latency.partial_suspend_time,
-			    total_suspend_time:   latency.total_suspend_time,
-			   });
+                node:                 dest.name,
+                latency:              latency.latency,
+                files:                latency.files,
+                bytes:                latency.bytes,
+                block_create:         latency.block_create,
+                block_close:          latency.block_close,
+                priority:             latency.priority,
+                is_custodial:         latency.is_custodial,
+                first_replica:        latency.first_replica,
+                first_request:        latency.first_request,
+                last_replica:         latency.last_replica,
+                percent25_replica:    latency.percent25_replica,
+                percent50_replica:    latency.percent50_replica,
+                percent75_replica:    latency.percent75_replica,
+                percent95_replica:    latency.percent95_replica,
+                partial_suspend_time: latency.partial_suspend_time,
+                total_suspend_time:   latency.total_suspend_time,
+              });
               if (!Row.max_latency ) { Row.max_latency = latency.latency; }
               if (Row.max_latency < latency.latency ) { Row.max_latency = latency.latency; }
             }
           }
           Row.nesteddata = Nested;
           Table.push(Row);
+        }
+
+        var columns = t.columns, nestedColumns = t.nestedColumns, column, nestedColumn;
+        for (i in Table) {
+          Row=Table[i];
+          for ( j in columns) {
+            column = columns[j];
+            if ( column.parser ) {
+              Row[column.key] = column.parser(Row[column.key]);
+            }
+          }
+          for (k in Row.nesteddata) {
+            Nested=Row.nesteddata[k];
+            for (l in nestedColumns) {
+              nestedColumn = nestedColumns[l];
+              if ( nestedColumn.parser ) {
+                Nested[nestedColumn.key] = nestedColumn.parser(Nested[nestedColumn.key]);
+              }
+            }
+          }
         }
 
         i = t.columns.length;
@@ -222,6 +253,7 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
           delete obj.dataSource;
           delete obj.nestedDataSource;
         }
+
         obj.dataSource = new YAHOO.util.DataSource(Table);
         obj.nestedDataSource = new YAHOO.util.DataSource();
         if ( obj.dataTable  ) {
@@ -234,11 +266,6 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
                            initialLoad: false,
                            generateNestedRequest: obj.processNestedrequest
                         });
-        oCallback = {
-          success: obj.dataTable.onDataReturnInitializeTable,
-          failure: obj.dataTable.onDataReturnInitializeTable,
-          scope: obj.dataTable
-        };
         obj.dataTable.subscribe('nestedDestroyEvent',function(o) {
           return function(ev) {
             delete o.nestedtables[ev.dt.getId()];
@@ -261,8 +288,14 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
           }
           o.nestedtables[dt.getId()] = dt;
         }, obj);
+        oCallback = {
+          success: obj.dataTable.onDataReturnInitializeTable,
+          failure: obj.dataTable.onDataReturnInitializeTable,
+          scope: obj.dataTable
+        };
         obj.dataSource.sendRequest('', oCallback);
-
+// TW Here we try to plot something!
+        _sbx.notify(obj.id,'plotLatencyData',data);
       },
       processNestedrequest: function (record) {
         try {
@@ -271,9 +304,107 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
           return nesteddata;
         }
         catch (ex) {
-debugger;
           log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
         }
+      },
+      plotLatencyData: function(data) {
+        var i, j, k, l, dst, ltn, d1, result=[], tmp, dom=this.dom, order, max, min, value, newResult=[], maxInterval, now,
+             vis, width = 900, height = 400;
+        order=[
+//           'block_create', 'block_close',
+//           'time_create', 'time_subscription', 'time_update',
+//           'first_request', 'first_replica', 'latest_replica', 'last_replica',
+            {key:'first_request',     value:0},
+            {key:'percent25_replica', value:25},
+            {key:'percent50_replica', value:50},
+            {key:'percent75_replica', value:75},
+            {key:'percent95_replica', value:95},
+            {key:'last_replica',      value:100}
+          ];
+        for ( i in data.block ) {
+          tmp={};
+          d1 = data.block[i];
+          tmp.time_create = d1.time_create;
+          tmp.time_update = d1.time_update;
+          tmp.name = d1.name;
+          for ( j in d1.destination ) {
+            dst = d1.destination[j];
+            tmp.node = dst.name;
+            for ( k in dst.latency ) {
+              ltn = dst.latency[k];
+              for ( l in ltn ) {
+                tmp[l] = ltn[l];
+              }
+              result.push( tmp );
+            }
+          }
+        }
+        log('Got new data','info',this.me);
+
+        vis = new pv.Panel()
+                    .canvas(dom.plot)
+                    .width(width)
+                    .height(height)
+                    .margin(20)
+                    .bottom(20);
+
+        maxInterval = 0;
+        now = new Date().getTime()/1000;
+        for ( i in result ) {
+          max = 0;
+          min = now;
+          d = result[i];
+          tmp=[];
+          for (j in order) {
+            value = d[order[j].key];
+            if ( value ) {
+              tmp.push([order[j].value,value]);
+              if ( value > max ) { max = value; }
+              if ( value < min ) { min = value; }
+            }
+          }
+          if ( max > min ) { // only consider complete entries
+            if ( max - min > maxInterval ) { maxInterval = max - min; }
+            newResult.push(tmp);
+          }
+        }
+
+        for ( i in newResult ) {
+          tmp = newResult[i];
+          min = tmp[0][1];
+          for ( j in tmp ) {
+            if ( tmp[j][1] ) { tmp[j][1] = (tmp[j][1]-min)/(maxInterval); }
+          }
+
+          vis.add(pv.Line)
+             .data(tmp)
+             .left(function(t) {   return width  * t[0] / 100;} )
+             .bottom(function(t) { return height * t[1]; })
+             .strokeStyle("rgba(0, 0, 0, .5)")
+             .lineWidth(1);
+        }
+
+        var percentiles, times, step, y;
+        y = pv.Scale.linear(0, maxInterval).range(0,height);
+        step = 3600, range=pv.range(0, Math.ceil(maxInterval/step)*step, step);
+        times = vis.add(pv.Rule)
+                   .data(function() { return range; })
+                   .bottom(y)
+                   .strokeStyle("#eee");
+        times.anchor('left').add(pv.Label)
+             .textStyle('#000')
+             .text(function(s) { return Math.round(s/step); });
+
+        percentiles = vis.add(pv.Rule)
+                         .data(order)
+                         .left(function(s) { return width * s.value/100; } )
+                         .strokeStyle( '#eee' );
+        percentiles.anchor('bottom').add(pv.Label)
+                   .textStyle('#000')
+                   .text(function(s) { return s.value+'%'; });
+
+//         dom.title.innerHTML = 'Found '+newResult.length+' completed blocks out of '+result.length+' candidates';
+        vis.render();
       },
       Help:function(arg) {
         var item      = this[arg],
@@ -296,7 +427,6 @@ debugger;
         if ( !params ) { params={}; }
         this.params = params;
         var el;
-        this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
@@ -308,13 +438,38 @@ debugger;
           }
         }(this);
         _sbx.listen(this.id, selfHandler);
+        this.useElement(params.el);
         this.initSub();
       },
       initSub: function() {
-        var d = this.dom,
-            mb = d.main_block,
-            hd = d.hd,
-            form, elList, el, label, control, i, ctl;
+        var d = this.dom;
+        this.needProcess = true; //Process data by default
+        var t = this.meta.table,
+            i = t.columns.length,
+            cDef;
+        if (!t.map) { t.map = {}; }
+        while (i > 0) { //This is for main columns
+          i--;
+          cDef = t.columns[i];
+          if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
+          if (!cDef.label) { cDef.label = cDef.key; }
+          if (!cDef.resizeable) { cDef.resizeable = true; }
+          if (!cDef.sortable) { cDef.sortable = true; }
+          if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+          if ( cDef.parser && typeof cDef.parser == 'string') { cDef.parser = YuDSB.Parser[cDef.parser]; }
+        }
+        if ( !t.nestedColumns ) { t.nestedColumns = []; }
+        i = t.nestedColumns.length;
+        while (i > 0) { //This is for inner nested columns
+          i--;
+          cDef = t.nestedColumns[i];
+          if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
+          if (!cDef.label) { cDef.label = cDef.key; }
+          if (!cDef.resizeable) { cDef.resizeable = true; }
+          if (!cDef.sortable) { cDef.sortable = true; }
+          if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+          if ( cDef.parser && typeof cDef.parser == 'string') { cDef.parser = YuDSB.Parser[cDef.parser]; }
+        }
       }
     }
   };
@@ -322,4 +477,3 @@ debugger;
   return this;
 };
 log('loaded...','info','nextgen-activity-latency');
-
