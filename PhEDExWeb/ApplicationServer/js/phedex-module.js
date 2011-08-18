@@ -161,6 +161,20 @@ PHEDEX.Module = function(sandbox, string) {
  * @method setArgs
  */
       setArgs:      function() {},
+
+/**
+ * Set configuration options from an external source. Called after init(), but before anything else, so the module should be complete but not yet have any DOM elements or behavioural constraints.
+ * @method setConfig
+ * @param config {object} hash of configuration options
+ * @public
+ */
+      setConfig: function(config) {
+        var i;
+        for ( i in config ) {
+          this.options[i] = config[i];
+        }
+      },
+
 /** initialisation specific to derived-types (i.e. PHEDEX.DataTable or PHEDEX.TreeView). May or may not be needed, depending on the specific module. Invoked automatically and internally by the core
  * @method initDerived
  * @private
@@ -176,7 +190,6 @@ PHEDEX.Module = function(sandbox, string) {
  */
       initData: function() {
 log('Should not be here','warn','module');
-//         _sbx.notify( this.id, 'initData' );
       },
 
       /**
@@ -243,34 +256,38 @@ log('Should not be here','warn','module');
             var action = arr[0],
                 value = arr[1];
             switch (action) {
-                case 'getData': { 
-                    obj.needProcess = true;
-                    break;
+              case 'getData': {
+                obj.needProcess = true;
+                break;
+              }
+              case 'datasvcFailure': {
+                obj.dom.title.innerHTML = 'Error fetching data';
+                break;
+              }
+              case 'show target': { obj.adjustHeader( value); break; }
+              case 'hide target': { obj.adjustHeader(-value); break; }
+              case 'activate': {
+                obj[value]();
+                _sbx.notify(arr[2],action,'done');
+                break;
+              }
+              case 'setConfig': {
+                this.setConfig(value);
+                break;
+              }
+              default: {
+//              Special case for mapping 'doX*' to 'x*'
+                if ( !obj.allowNotify[action] ) {
+                  if ( action.match('^do') ) {
+                    action = action.substring(2,3).toLowerCase() + action.substring(3,action.length);
+                  }
                 }
-                case 'datasvcFailure': {
-                  obj.dom.title.innerHTML = 'Error fetching data';
-                  break;
+                if ( obj[action] && obj.allowNotify[action]) {
+                    log('selfHandler: default action for event: '+action+' '+Ylang.dump(value),'warn',obj.me);
+                    obj[action](value);
                 }
-                case 'show target': { obj.adjustHeader( value); break; }
-                case 'hide target': { obj.adjustHeader(-value); break; }
-                case 'activate': {
-                    obj[value]();
-                    _sbx.notify(arr[2],action,'done');
-                    break;
-                }
-                default: {
-//                  Special case for mapping 'doX*' to 'x*'
-                    if ( !obj.allowNotify[action] ) {
-                      if ( action.match('^do') ) {
-                        action = action.substring(2,3).toLowerCase() + action.substring(3,action.length);
-                      }
-                    }
-                    if ( obj[action] && obj.allowNotify[action]) {
-                        log('selfHandler: default action for event: '+action+' '+Ylang.dump(value),'warn',obj.me);
-                        obj[action](value);
-                    }
-                    break;
-                }
+                break;
+              }
             }
           }
         }(this);
@@ -310,7 +327,6 @@ log('Should not be here','warn','module');
 //        YUI defines an element-style of 'display:block' on modules or panels. Remove it, we don't want it there...
         this.el.style.display=null;
 
-        _sbx.notify(this.id,'initModule');
         log('initModule complete','info','module');
       },
 
@@ -342,7 +358,6 @@ log('Should not be here','warn','module');
         d.content = PxU.makeChild(d.body, 'div', {className:'phedex-core-content'});
         d.footer  = PxU.makeChild(el, 'div', {className:'ft'});
 
-        _sbx.notify(this.id,'initDom');
         log(this.id+' initDom complete','info','module');
         return el;
       },
