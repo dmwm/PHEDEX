@@ -173,6 +173,10 @@ PHEDEX.Module = function(sandbox, string) {
         for ( i in config ) {
           this.options[i] = config[i];
         }
+//      Special case for metadata
+        for ( i in config.meta ) {
+          this.meta[i] = config.meta[i];
+        }
       },
 
 /** initialisation specific to derived-types (i.e. PHEDEX.DataTable or PHEDEX.TreeView). May or may not be needed, depending on the specific module. Invoked automatically and internally by the core
@@ -347,13 +351,17 @@ log('Should not be here','warn','module');
         this.el = el;
         YuD.addClass(el,'phedex-core-widget');
 
-        d.header  = PxU.makeChild(el, 'div', {className:'hd'});
-        d.buttons = PxU.makeChild(d.header, 'span' );
-        d.param   = PxU.makeChild(d.header, 'span', {className:'phedex-core-param'});
-        d.title   = PxU.makeChild(d.header, 'span', {className:'phedex-core-title'});
-        d.title.innerHTML = this.me+': initialising...';
-        d.control = PxU.makeChild(d.header, 'span', {className:'phedex-core-control'});
-        d.extra   = PxU.makeChild(d.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+        if ( this.options.noHeader ) {
+          d.header = d.buttons = d.param = d.title = d.control = d.extra ={};
+        } else {
+          d.header  = PxU.makeChild(el, 'div', {className:'hd'});
+          d.buttons = PxU.makeChild(d.header, 'span' );
+          d.param   = PxU.makeChild(d.header, 'span', {className:'phedex-core-param'});
+          d.title   = PxU.makeChild(d.header, 'span', {className:'phedex-core-title'});
+          d.title.innerHTML = this.me+': initialising...';
+          d.control = PxU.makeChild(d.header, 'span', {className:'phedex-core-control'});
+          d.extra   = PxU.makeChild(d.header, 'div', {className:'phedex-core-extra phedex-invisible'});
+        }
         d.body    = PxU.makeChild(el, 'div', {className:'bd'});
         d.content = PxU.makeChild(d.body, 'div', {className:'phedex-core-content'});
         d.footer  = PxU.makeChild(el, 'div', {className:'ft'});
