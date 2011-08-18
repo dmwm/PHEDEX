@@ -31,7 +31,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
       ap = args.payload,
       _defTitle = {
         'Show all fields':'Click the button to see all the data-fields for this module, or the pulldown-menu to select individual fields to add to the display'
-      }
+      },
       column_menu = new Yw.Menu('menu_'+PHEDEX.Util.Sequence()),
       button = new Yw.Button(
           {
