@@ -216,7 +216,6 @@ PHEDEX.TreeView = function(sandbox,string) {
           }
         }(this);
         _sbx.listen(this.id,moduleHandler);
-        _sbx.notify(this.id,'initDerived');
       },
 
       postGotData: function(step,node) {
