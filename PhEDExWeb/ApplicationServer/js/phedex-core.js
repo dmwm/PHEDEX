@@ -125,7 +125,6 @@ PHEDEX.Core = function(sandbox,loader) {
       _loadModule(null,arr);
       return;
     }
-    name = PxU.initialCaps(name);
     log ('creating a module "'+name+'"','info',_me);
     try {
       var ctor = PxU.getConstructor(module),
@@ -162,7 +161,9 @@ PHEDEX.Core = function(sandbox,loader) {
     var ii = m.decorators.length,
         i  = 0,
         nDec = 0,
-        ctor, d;
+        ctor, d, config = _config[m.me] || {};
+
+    if ( config.noDecorators ) { return; }
     m._nDecorators = m.decorators.length;
     while ( i < ii ) {
       d = m.decorators[i];
@@ -216,7 +217,9 @@ PHEDEX.Core = function(sandbox,loader) {
   };
   var _loadDecorators = function(m) {
     var i, _m=[], _mh = {},
-        _d=m.decorators;
+        _d=m.decorators, config = _config[m.me] || {};
+    if ( config.noDecorators ) { return; }
+
     for (i in _d) {
       if ( _d[i].source ) { _mh[_d[i].source] = 1; }
     }
@@ -260,7 +263,7 @@ PHEDEX.Core = function(sandbox,loader) {
     var m = _modules[who];
     switch ( action ) {
       case 'init': {
-        var parent, el, config =_config[m.me.toLowerCase()];
+        var parent, el, config =_config[m.me];
         if ( config ) {
           parent = config.parent;
           m.setConfig(config);
