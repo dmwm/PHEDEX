@@ -112,9 +112,9 @@ PHEDEX.Logger = function() {
 
         div = PxU.makeChild(el,'div');
         div.id = el.id +'_yui';
-        div.style.width = 'auto';
 
         el.style.width = conf.width;
+        conf.width = 'auto'; // apply the width to the container, but not to the logger inside it
         el.style.fontSize = div.style.fontSize = conf.fontSize;
         _reader = new Yw.LogReader(div.id,conf);
         _reader.hideSource('global');
