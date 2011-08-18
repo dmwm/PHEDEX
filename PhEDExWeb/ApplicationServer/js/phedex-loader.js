@@ -45,8 +45,8 @@ PHEDEX.Loader = function(opts) {
     'phedex-sandbox':   { requires:['phedex-util'] },
     'phedex-core':      { requires:['phedex-sandbox'] },
     'phedex-module':    { requires:['phedex-core','container','resize'] },
-    'phedex-treeview':  { requires: ['phedex-module','treeview','phedex-component-refresh','treeview-css'] },
-    'phedex-datatable': { requires: ['phedex-module','datatable','phedex-component-refresh','nesteddatatable'] },
+    'phedex-treeview':  { requires: ['phedex-module','treeview', 'treeview-css'] },
+    'phedex-datatable': { requires: ['phedex-module','datatable','nesteddatatable'] },
     'phedex-protovis':  { requires: ['phedex-module','protovis'] },
 
 // These are the main data-display modules
