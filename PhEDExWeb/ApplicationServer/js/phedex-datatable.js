@@ -32,9 +32,13 @@ PHEDEX.DataTable = function (sandbox, string) {
             type: 'DataTable',
 
             /**
-            * utility function used by _processData, to simplify the code a bit.
+            * extract the named field from the src object, applying any parser functions, and store in the dst object. If the field is an object, treat the key as the
+            * item to extract from the src, and the value as the item to set in the dst.
+            * E.g.
+            * _extractElement('name',[name:'T1_ES_PIC_Buffer',time:12345678},dst) will set dst[name] = 'T1_ES_PIC_Buffer'.
+            * _extractElement({name:'node'},[name:'T1_ES_PIC_Buffer',time:12345678},dst) will set dst[node] = 'T1_ES_PIC_Buffer'.
             * @method _extractElement
-            * @private
+            * @public
             */
             _extractElement : function(field,src,dst) {
               var fn, key=field, mKey=field, val;
@@ -61,6 +65,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             */
             _processData: function(moduledata) {
               var t=[], table=this.meta.table, i=moduledata.length, k=table.columns.length, j, a, c, y, val;
+              if ( !this.needProcess ) { return; }
               while (i > 0) {
                 i--
                 a = moduledata[i], y = [];
@@ -68,9 +73,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                 while (j > 0) {
                   j--;
                   c = table.columns[j], val = a[table.map[c.key]];
-                  if (c.parser) {
-                    val = c.parser(val);
-                  }
+                  if (c.parser) { val = c.parser(val); }
                   y[c.key] = val;
                 }
                 t.push(y);
@@ -153,6 +156,15 @@ PHEDEX.DataTable = function (sandbox, string) {
               m._filter = this.createFilterMeta();
               // Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
               // obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
+//debugger;
+              for (i in m.filter) {
+                h = {};
+                for (key in m.filter[i].fields) {
+                  h[this._getKeyByKeyOrLabel(key)] = m.filter[i].fields[key];
+                }
+                m.filter[i].fields = h;
+              }
+//debugger;
               mff = m._filter.fields;
               for (i in allColumns) {
                 col = allColumns[i];
@@ -167,13 +179,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                   if ( mff[j] ) { mff[j].nested = true; }
                 }
               }
-              for (i in m.filter) {
-                h = {};
-                for (key in m.filter[i].fields) {
-                  h[this._getKeyByKeyOrLabel(key)] = m.filter[i].fields[key];
-                }
-                m.filter[i].fields = h;
-              }
+//debugger;
               if (m.sort) {
                 if (m.sort.field && !m.sort.dir) { m.sort.dir = Yw.DataTable.CLASS_ASC; }
               }
@@ -191,7 +197,6 @@ PHEDEX.DataTable = function (sandbox, string) {
                 }
               } (this);
               _sbx.listen(this.id, moduleHandler);
-              _sbx.notify(this.id, 'initDerived');
             },
 
             postGotData: function (step, node) {
@@ -429,18 +434,16 @@ PHEDEX.DataTable = function (sandbox, string) {
                         try {
                           _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
                         }
-                        catch (excm) { }
+                        catch (_ex) { }
                         try {
                           _sbx.notify(o.ctl.MouseOver.id,'addContextElement',dt);
                         }
-                        catch (excm) { }
+                        catch (_ex) { }
                     }, this);
                 }
                 catch (ex) {
                     log('Error in creating nested datatable.. ' + err(ex), 'error', _me);
                 }
-                var w = this.dataTable.getTableEl().offsetWidth;
-                this.el.style.width = w + 'px';
 
                 this.dataTable.subscribe('columnSortEvent', function (obj) {
                     return function (ev) {
@@ -464,7 +467,6 @@ PHEDEX.DataTable = function (sandbox, string) {
                 // Only needed for resizeable windows, I think?
                 this.dataTable.subscribe('renderEvent', function (obj) {
                     return function () {
-                        // _sbx.notify(obj.id,'doSort');
                         obj.resizePanel();
                     }
                 } (this));
@@ -533,12 +535,8 @@ YwDF.UnixEpochToUTC =  function(elCell, oRecord, oColumn, oData) {
 * @param oData {data-value} unix epoch seconds
 */
 YwDF.secondsToDHMS =  function(elCell, oRecord, oColumn, oData) {
-  if( !oData )
-  {
-    elCell.innerHTML = '-';
-  } else {
-    elCell.innerHTML = PxUf.secondsToDHMS(oData);
-  }
+  if( !oData ) { elCell.innerHTML = '-'; }
+  else         { elCell.innerHTML = PxUf.secondsToDHMS(oData); }
 };
 
 /** A custom formatter for byte-counts. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
@@ -549,10 +547,7 @@ YwDF.secondsToDHMS =  function(elCell, oRecord, oColumn, oData) {
 * @param oData {data-value} number of bytes
 */
 YwDF.customBytes = function(elCell, oRecord, oColumn, oData) {
-  if(oData != null)
-  {
-    elCell.innerHTML = PxUf.bytes(oData);
-  }
+  if(oData != null) { elCell.innerHTML = PxUf.bytes(oData); }
 };
 
 /** A custom formatter for rates. Sets the elCell innerHTML to the smallest reasonable representation of oData, with units
@@ -563,10 +558,7 @@ YwDF.customBytes = function(elCell, oRecord, oColumn, oData) {
 * @param oData {data-value} number of bytes
 */
 YwDF.customRate = function(elCell, oRecord, oColumn, oData) {
-  if(oData != null)
-  {
-    elCell.innerHTML = PxUf.bytes(oData) + '/s';
-  }
+  if(oData != null) { elCell.innerHTML = PxUf.bytes(oData) + '/s'; }
 };
 
 /** A custom formatter for floating-point. Sets the elCell innerHTML to a fixed-mantissa representation of oData
@@ -579,10 +571,7 @@ YwDF.customRate = function(elCell, oRecord, oColumn, oData) {
 YwDF.customFixed = function(mantissa) {
   var fn = PxUf.toFixed(mantissa);
   return function(elCell, oRecord, oColumn, oData) {
-    if(oData != null)
-    {
-      elCell.innerHTML = fn(oData);
-    }
+    if(oData != null) { elCell.innerHTML = fn(oData); }
   }
 };
 
@@ -614,7 +603,7 @@ PHEDEX.DataTable.ContextMenu = function (obj, args) {
 //    for some obscure reason, YAHOO.lang.JSON.stringify fails on data for datatable objects. It doesn't spit the dummy, it just returns empty arrays.
 //    manually performing a deep-copy gets round this problem. Note that this manual deep copy is not perfect, it converts arrays into objects, but
 //    that is OK for now. We won't want to re-load this data into this application, so this will do.
-//    N.B. This is not a YAHOO bug, it's a feature of either Firefox or JSON itself. An array with named kets returns a length of zero, which screws
+//    N.B. This is not a YAHOO bug, it's a feature of either Firefox or JSON itself. An array with named keys returns a length of zero, which screws
 //    the stringifier.
       var w = window.open('', 'Window_'+PxU.Sequence(), 'width=640,height=480,scrollbars=yes'),
           d = el.obj.data,
@@ -799,42 +788,6 @@ PHEDEX.DataTable.MouseOver = function(sandbox,args) {
 PHEDEX.DataTable.Filter = function (sandbox, obj) {
     _construct = function () {
         return {
-//           // Function to convert the filter column field into walk path to find its value
-//           _buildPath: function (needle) {
-//             var path = null, keys = [], i = 0;
-//             if (needle) {
-//             // Strip the ["string keys"] and [1] array indexes
-//               needle = needle.
-//                         replace(/\[(['"])(.*?)\1\]/g,
-//                         function (x, $1, $2) { keys[i] = $2; return '.@' + (i++); }).
-//                         replace(/\[(\d+)\]/g,
-//                         function (x, $1) { keys[i] = parseInt($1, 10) | 0; return '.@' + (i++); }).
-//                         replace(/^\./, ''); // remove leading dot
-// 
-//               // If the cleaned needle contains invalid characters, the
-//               // path is invalid
-//               if (!/[^\w\.\$@]/.test(needle)) {
-//                 path = needle.split('.');
-//                 for (i = path.length - 1; i >= 0; --i) {
-//                   if (path[i].charAt(0) === '@') {
-//                     path[i] = keys[parseInt(path[i].substr(1), 10)];
-//                   }
-//                 }
-//               } else {
-//               }
-//             }
-//             return path;
-//           },
-// 
-//           // Function to walk a path and return the value
-//           _walkPath: function (path, origin) {
-//             var v = origin, i = 0, len = path.length;
-//             for (; i < len && v; ++i) {
-//               v = v[path[i]];
-//             }
-//             return v;
-//           },
-
             /**
             * Resets the filter in the module.
             * @method resetFilter
@@ -862,13 +815,6 @@ PHEDEX.DataTable.Filter = function (sandbox, obj) {
                     field = this.meta._filter.fields[j];
                     fValue = a.values;
                     kValue = rowdata[obj._getKeyByKeyOrLabel(field.original)];
-                    // If buildPath is true, then the column key has to be resolved to build complete path to get the value
-//                     if (field.buildPath) {
-//                         if (!pathcache[j]) {
-//                             pathcache[j] = this._buildPath(j);
-//                         }
-//                         kValue = this._walkPath(pathcache[j], obj.data[i]);
-//                     }
                     if (a.preprocess) { kValue = a.preprocess(kValue); }
                     status = this.Apply[field.type](fValue, kValue);
                     if (a.negate) { status = !status; }
