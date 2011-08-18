@@ -238,10 +238,6 @@ PHEDEX.DataTable = function (sandbox, string) {
             hideFields: function () {
 // TODO This could probably be made faster by searching the metadata first, before searching the tables?
               var key, k, col, i, w, minWidth = this.options.minwidth, m = this.meta;
-              if ( ! m.table.nestedColumns.length ) {
-                if ( !m.hide ) { m.hide = {}; }
-                m.hide['__NESTED__'] = 1;
-              }
               if (!m.hide) { return; }
               for (key in m.hide) {
                 k = this._getKeyByKeyOrLabel(key);
@@ -290,8 +286,9 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @param arg {string} The name of a column.
             */
             menuSelectItem: function (args) {
-              var m=this.meta, l=m.table.nestedColumns.length, i, key,
+              var m=this.meta, l=0, i, key,
                   dt=this.dataTable, col, j;
+              if ( m.table.nestedColumns ) { l = m.table.nestedColumns.length; }
               for (i in args) {
                 delete m.hide[args[i]];
                 key = this._getKeyByKeyOrLabel(args[i]);
@@ -374,105 +371,106 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @param dsschema {YAHOO.util.DataSource.responseSchema} (optional) a responseSchema to describe how to parse the data.
             */
             buildTable: function () {
-                this.needProcess = true; //Process data by default
-                var t = this.meta.table,
-                    i = t.columns.length,
-                    cDef;
-                if (!t.map) { t.map = {}; }
-                while (i > 0) { //This is for main columns
-                    i--;
-                    cDef = t.columns[i];
-                    if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
-                    if (!cDef.label) { cDef.label = cDef.key; }
-                    if (!cDef.resizeable) { cDef.resizeable = true; }
-                    if (!cDef.sortable) { cDef.sortable = true; }
-                    if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-                }
-                if ( !t.nestedColumns ) {
-                  t.nestedColumns = [];
-                }
-                i = t.nestedColumns.length;
-                while (i > 0) { //This is for inner nested columns
-                    i--;
-                    cDef = t.nestedColumns[i];
-                    if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
-                    if (!cDef.label) { cDef.label = cDef.key; }
-                    if (!cDef.resizeable) { cDef.resizeable = true; }
-                    if (!cDef.sortable) { cDef.sortable = true; }
-                    if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-                }
-                this.dataSource = new YuDS();
+              this.needProcess = true; //Process data by default
+              var t = this.meta.table,
+                  i = t.columns.length,
+                  cDef, dtConfig;
+
+              dtConfig = {
+                           initialLoad: false,
+                           generateNestedRequest: this.processNestedrequest,
+                           draggableColumns:true
+                         };
+              this.dataSource = new YuDS();
+
+              if (!t.map) { t.map = {}; }
+              while (i > 0) { //This is for main columns
+                i--;
+                cDef = t.columns[i];
+                if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
+                if (!cDef.label) { cDef.label = cDef.key; }
+                if (!cDef.resizeable) { cDef.resizeable = true; }
+                if (!cDef.sortable) { cDef.sortable = true; }
+                if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+              }
+              if ( t.nestedColumns ) { // map the nested columns too
                 this.nestedDataSource = new YuDS();
-                try {
-                    this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
-                                    {
-                                        initialLoad: false,
-                                        generateNestedRequest: this.processNestedrequest
-                                    });
-
-                    this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
-                          return function(ev) {
-                            delete obj.nestedtables[ev.dt.getId()];
-                          }
-                        }(this) );
-
-                    this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
-                        var dt = oArgs.dt,
-                            oCallback = {
-                            success: dt.onDataReturnInitializeTable,
-                            failure: dt.onDataReturnInitializeTable,
-                            scope: dt
-                        }, ctxId;
-                        this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-                        if ( !dt ) { return; }
-                        // This is to maintain the list of created nested tables that would be used in context menu
-                        if ( !o.nestedtables ) {
-                          o.nestedtables = {};
-                        }
-                        o.nestedtables[dt.getId()] = dt;
-                        o.hideFields();
-                        try {
-                          _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
-                        }
-                        catch (_ex) { }
-                        try {
-                          _sbx.notify(o.ctl.MouseOver.id,'addContextElement',dt);
-                        }
-                        catch (_ex) { }
-                    }, this);
+                i = t.nestedColumns.length;
+                while (i > 0) {
+                  i--;
+                  cDef = t.nestedColumns[i];
+                  if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
+                  if (!cDef.label) { cDef.label = cDef.key; }
+                  if (!cDef.resizeable) { cDef.resizeable = true; }
+                  if (!cDef.sortable) { cDef.sortable = true; }
+                  if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
                 }
-                catch (ex) {
-                    log('Error in creating nested datatable.. ' + err(ex), 'error', _me);
+              }
+
+//            create the right type of data-table
+              if ( t.nestedColumns ) {
+                this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource, dtConfig);
+              } else {
+                this.dataTable = new Yw.DataTable(this.dom.datatable, t.columns, this.dataSource, dtConfig);
+              }
+              this.dataTable.subscribe('columnSortEvent', function (obj) {
+                return function (ev) {
+                  var column = obj.dataTable.getColumn(ev.column);
+                  obj.meta.sort.field = column.key;
+                  obj.meta.sort.dir = ev.dir;
+                  _sbx.notify(obj.id, 'updateHistory');
                 }
+              } (this));
+              // TODO This can get shoved into the context-menu someday, it's the only place that needs it
+              this.dataTable.subscribe('columnHideEvent', function (obj) {
+                return function (ev) {
+                  var column = obj.dataTable.getColumn(ev.column);
+                  if ( column.key == '__NESTED__' ) { return; }
+                  log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
+                  _sbx.notify(obj.id, 'hideColumn', { text: column.label, value: column.label });
+                }
+              } (this));
 
-                this.dataTable.subscribe('columnSortEvent', function (obj) {
-                    return function (ev) {
-                        var column = obj.dataTable.getColumn(ev.column);
-                        obj.meta.sort.field = column.key;
-                        obj.meta.sort.dir = ev.dir;
-                        _sbx.notify(obj.id, 'updateHistory');
-                    }
-                } (this));
+              // Only needed for resizeable windows, I think?
+              this.dataTable.subscribe('renderEvent', function (obj) {
+                return function () {
+                  obj.resizePanel();
+                }
+              } (this));
+              var w = this.dataTable.getTableEl().offsetWidth;
+              if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
+              this.el.style.width = w + 'px';
 
-                // TODO This can get shoved into the context-menu someday, it's the only place that needs it
-                this.dataTable.subscribe('columnHideEvent', function (obj) {
-                    return function (ev) {
-                        var column = obj.dataTable.getColumn(ev.column);
-                        if ( column.key == '__NESTED__' ) { return; }
-                        log('columnHideEvent: label:' + column.label + ' key:' + column.key, 'info', _me);
-                        _sbx.notify(obj.id, 'hideColumn', { text: column.label, value: column.label });
-                    }
-                } (this));
+              if ( t.nestedColumns ) { // further events to drive the nested data table
+                this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
+                  return function(ev) {
+                    delete obj.nestedtables[ev.dt.getId()];
+                  }
+                }(this) );
 
-                // Only needed for resizeable windows, I think?
-                this.dataTable.subscribe('renderEvent', function (obj) {
-                    return function () {
-                        obj.resizePanel();
-                    }
-                } (this));
-                var w = this.dataTable.getTableEl().offsetWidth;
-                if (this.options.minwidth && w < this.options.minwidth) { w = this.options.minwidth; }
-                this.el.style.width = w + 'px';
+                this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
+                  var dt = oArgs.dt,
+                      oCallback = {
+                      success: dt.onDataReturnInitializeTable,
+                      failure: dt.onDataReturnInitializeTable,
+                      scope: dt
+                  }, ctxId;
+                  this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
+                  if ( !dt ) { return; }
+                  // This is to maintain the list of created nested tables that would be used in context menu
+                  if ( !o.nestedtables ) {
+                    o.nestedtables = {};
+                  }
+                  o.nestedtables[dt.getId()] = dt;
+                  o.hideFields();
+                  try {
+                    _sbx.notify(o.ctl.ContextMenu.id,'addContextElement',dt.getTbodyEl());
+                  } catch (_ex) { }
+                  try {
+                    _sbx.notify(o.ctl.MouseOver.id,'addContextElement',dt);
+                  } catch (_ex) { }
+                }, this);
+              }
             },
 
             /** return a boolean indicating if the module is in a fit state to be bookmarked
