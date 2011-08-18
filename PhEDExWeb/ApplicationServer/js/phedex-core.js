@@ -7,7 +7,7 @@
  * @param loader {PHEDEX.Loader} reference to a PhEDEx loader object
  */
 PHEDEX.Core = function(sandbox,loader) {
-  var _modules = {}, _loaded = [],
+  var _modules = {}, _loaded = [], _config = {},
       _sbx = sandbox,
       _ldr = loader,
       _me = 'core',
@@ -87,6 +87,22 @@ PHEDEX.Core = function(sandbox,loader) {
       Progress: function(item) { banner('Loaded item: '+item.name); }
     }, module);
     return;
+  };
+
+/**
+  * set the configuration for a given module type. This includes things like stating which DOM element is to be its parent, if not the default. It can also specify things like resizing constraints, or other things relating to the page layout that the core cannot otherwise know.
+  * The core listens to <strong>SetModuleConfig</strong> notifications, which should be sent before a module is created. E.g:
+  * <pre>
+  * sandbox.notify('SetModuleConfig','agents',{parent:'id-of-dom-element'});
+  * </pre>
+  * @method _setModuleConfig
+  * @private
+  * @param name {string} name of module as it will be used to invoke CreateModule later
+  * @param config {object} hash of configuration parameters.
+  */
+  var _setModuleConfig = function(ev,arr) {
+    var name = arr[0], config = arr[1];
+    _config[name] = config;
   };
 
 /**
@@ -244,11 +260,31 @@ PHEDEX.Core = function(sandbox,loader) {
     var m = _modules[who];
     switch ( action ) {
       case 'init': {
-        var el = m.initDom();
-        if ( el && _parent ) { _parent.appendChild(el); }
-        else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
+        var parent, el, config =_config[m.me.toLowerCase()];
+        if ( config ) {
+          parent = config.parent;
+          m.setConfig(config);
+        }
+        el = m.initDom();
+        if ( !parent ) { parent = _parent; }
+        if ( parent ) {
+          if ( el ) { _parent.appendChild(el); }
+          else { log('module "'+name+'" did not return a DOM element?','warn',_me); }
+        }
+        _sbx.notify(m.id,'initDom');
+        break;
+      }
+      case 'initDom': {
         m.initModule();
+        _sbx.notify(m.id,'initModule');
+        break;
+      }
+      case 'initModule': {
         m.initDerived();
+        _sbx.notify(m.id,'initDerived');
+        break;
+      }
+      case 'initDerived': {
         m.initMe();
         if ( m._state ) {
           try {
@@ -266,7 +302,7 @@ PHEDEX.Core = function(sandbox,loader) {
         _loadDecorators(m);
         break;
       }
-      case 'initData':
+      case 'initData': // deliberate fallthrough!
       case 'setArgs': {
         log('calling "'+who+'.show()"','info',_me);
         m.getData();
@@ -387,6 +423,7 @@ PHEDEX.Core = function(sandbox,loader) {
       _sbx.listen('LoadModule',      _loadModule);
       _sbx.listen('ModuleLoaded',    _createModule);
       _sbx.listen('CreateModule',    _createModule);
+      _sbx.listen('SetModuleConfig', _setModuleConfig);
       _sbx.notify('CoreCreated');
       banner('PhEDEx App is up and running!','info');
 
