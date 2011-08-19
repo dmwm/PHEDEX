@@ -61,6 +61,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-missingfiles':      { requires:['phedex-datatable'] },
     'phedex-module-nodes':             { requires:['phedex-datatable'] },
     'phedex-module-pendingrequests':   { requires:['phedex-datatable'] },
+    'phedex-module-previewrequestdata':{ requires:['phedex-datatable'] },
     'phedex-module-queuedmigrations':  { requires:['phedex-datatable'] },
     'phedex-module-static':            { requires:['phedex-config'] },
     'phedex-module-subscriptions':     { requires:['phedex-treeview'] },
@@ -80,7 +81,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-nextgen-activity-latency':   { requires:['phedex-module', 'phedex-nextgen-util','button','phedex-datatable','protovis'] },
     'phedex-nextgen-util':               { requires:['phedex-util'] },
     'phedex-nextgen-data-subscriptions': { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','tabview','resize'] },
-    'phedex-nextgen-request-create':     { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','calendar'] },
+    'phedex-nextgen-request-create':     { requires:['phedex-module','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':     { requires:['phedex-module','phedex-nextgen-util','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
