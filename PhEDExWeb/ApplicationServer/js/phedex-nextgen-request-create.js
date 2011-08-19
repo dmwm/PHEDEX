@@ -14,31 +14,26 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
   _construct = function(obj) {
     return {
-      options: {
-        width:500,
-        height:200,
-        minwidth:600,
-        minheight:50
-      },
+      options: { },
       type:null,
-      meta: {
-        table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
-                           { key:'item',          label:'Item',     className:'align-left' },
-                           { key:'files',         label:'Files',    className:'align-right', parser:'number' },
-                           { key:'bytes',         label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
-                           { key:'dbs',           label:'DBS',      className:'align-left' },
-                           { key:'replicas',      label:'Replicas', className:'align-left' },
-                           { key:'comment',       label:'Comment',  className:'align-left' }],
-            nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' },
-                           { key:'b_files',       label:'Files',    className:'align-right', parser:'number' },
-                           { key:'b_bytes',       label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
-                           { key:'is_subscribed', label:'Subscribed' },
-                           { key:'is_custodial',  label:'Custodial' },
-                           { key:'is_move',       label:'Move' },
-                           { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
-                           { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
-                }
-      },
+//       meta: {
+//         table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
+//                            { key:'item',          label:'Item',     className:'align-left' },
+//                            { key:'files',         label:'Files',    className:'align-right', parser:'number' },
+//                            { key:'bytes',         label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
+//                            { key:'dbs',           label:'DBS',      className:'align-left' },
+//                            { key:'replicas',      label:'Replicas', className:'align-left' },
+//                            { key:'comment',       label:'Comment',  className:'align-left' }],
+//             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' },
+//                            { key:'b_files',       label:'Files',    className:'align-right', parser:'number' },
+//                            { key:'b_bytes',       label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
+//                            { key:'is_subscribed', label:'Subscribed' },
+//                            { key:'is_custodial',  label:'Custodial' },
+//                            { key:'is_move',       label:'Move' },
+//                            { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
+//                            { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
+//                 }
+//       },
       useElement: function(el) {
         var d = this.dom;
         d.target = el;
@@ -113,6 +108,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initSub();
         this.initButtons();
+        this.allowNotify['gotPreviewModule'] = 1;
+        _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noHeader:true });
+        _sbx.notify('CreateModule','previewrequestdata');
       },
       initButtons: function() {
         var ft=this.dom.ft, Reset, //, Validate, Cancel;
@@ -159,7 +157,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                                 container: 'buttons-right' });
         this.Accept.set('disabled',true);
         this.Accept.on('click', this.onAcceptSubmit,this,true);
-//         this.Reset.on('click', this.onResetSubmit,this.true);
       },
       processNestedrequest: function (record) {
         try {
@@ -472,7 +469,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           PxS.notify(obj.id,'setValueFor','auth');
           address = auth.email;
           email.value.innerHTML = email.input.value = email._default = address;
-// TW hardwired for now
+// TW hardwired for now. Inspect the roles if I need to allow TimeStart or WildCard only for certain roles.
           canTimeStart = canWildCard = true;
 //           roles = auth.role;
 //           for (i in roles) {
@@ -899,6 +896,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             menu, menu_items,
             data={}, args={}, tmp, value, block, dataset,
             elList, el, i, panel, api;
+
+        this.formFail = false;
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
         if ( !data_items.value || data_items.value == this.data_items.text ) {
@@ -1010,7 +1009,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         Dom.removeClass(this.dom.results,'phedex-box-red');
         dom.results_label.innerHTML = '';
         dom.results_text.innerHTML  = '';
-        this.formFail = false;
         this.Accept.set('disabled',true);
 
 // Subscription level is hardwired for now.
@@ -1055,6 +1053,30 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                               callback:function(data,context,response) { obj.requestCallback(data,context,response); }
                             });
       },
+
+      gotPreviewModule: function(arg) {
+        this.previewId = arg.moduleId;
+        var previewHandler = function(obj) {
+          return function(ev,arr) {
+            var action = arr[0],
+                value  = arr.shift();
+            switch (action) {
+              case 'gotData': {
+debugger;
+                break;
+              }
+              case 'destroy': {
+debugger;
+                delete this.previewId;
+                break;
+              }
+            }
+          }
+        }(this);
+        _sbx.listen(this.previewId,previewHandler);
+        this.onPreviewSubmit(); // TW Really? How do I know???
+      },
+
       onPreviewSubmit: function(id,action) {
         var dbs = this.dbs,
             dom = this.dom,
@@ -1064,15 +1086,20 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             data={}, args={}, tmp, value, block, dataset, xml,
             panel, elList, el, i;
 
+        if ( !this.previewId ) {
+          _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
+          return;
+        }
+
 // Prepare the form for output messages, disable the button to prevent multiple clicks
         Dom.removeClass(dom.results,'phedex-box-red');
         Dom.addClass(dom.results,'phedex-invisible');
         Dom.removeClass(dom.preview,'phedex-invisible');
         dom.preview_summary.innerHTML = dom.preview_table.innerHTML = dom.results_text.innerHTML  = '';
-        this.formFail = false;
 
 // Now build the args!
         args = this.checkRequestParameters();
+        if ( this.formFail ) { return; }
         data = args.data;
         args.data = [];
         if ( data.datasets ) {
@@ -1098,11 +1125,12 @@ throw new Error("Now what...?");
 
         args.type = this.type;
         args.dbs = dbs.value.innerHTML;
-        PHEDEX.Datasvc.Call({
-                              api:'previewrequestdata',
-                              args:args,
-                              callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-                            });
+_sbx.notify(this.previewId,'setArgs',args);
+//         PHEDEX.Datasvc.Call({
+//                               api:'previewrequestdata',
+//                               args:args,
+//                               callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+//                             });
       },
 
       onResetSubmit: function(id,action) {
