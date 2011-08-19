@@ -152,8 +152,17 @@ PHEDEX.Module = function(sandbox, string) {
                      destroy:1,
                      getStatePlugin:1,
                      setState:1,
-                     decoratorsConstructed:1
+                     decoratorsConstructed:1,
+                     lookingForA:1
                    },
+/** Called by modules that need a partner. They indicate the class of the module they wish to hook up with, and the module replies with its Id.
+ * @param arg { object} oject containing the <strong>callerId</strong> and the <strong>moduleClass</strong> it is looking for. If this objects <strong>me</strong> matches the moduleClass, it replies to the caller directly, using <strong>arg.callback</strong> to notify it where it wants.
+ */
+      lookingForA: function(arg) {
+        if ( arg.moduleClass == '*' || arg.moduleClass == this.me ) {
+          _sbx.notify(arg.callerId,arg.callback,{moduleClass:this.me, moduleId:this.id});
+        }
+      },
 
 // These functions must be overridden by modules that need them. Providing them here avoids the need to test for their existence before calling them
       adjustHeader: function() {},
@@ -237,7 +246,7 @@ log('Should not be here','warn','module');
                 if ( !obj.allowNotify[action] ) { return; }
               }
             }
-            if ( typeof(obj[action]) == 'null' )      { return; }
+            if ( typeof(obj[action]) == 'null' ) { return; }
             if ( typeof(obj[action]) != 'function' ) {
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
