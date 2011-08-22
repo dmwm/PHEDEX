@@ -188,11 +188,10 @@ PHEDEX.DataTable = function (sandbox, string) {
                 return function (ev, arr) {
                   var action = arr[0];
                   switch (action) {
-                    case 'gotData':
-                      {
-                        o.postGotData();
-                        break;
-                      }
+                    case 'gotData': {
+                      o.postGotData();
+                      break;
+                    }
                   }
                 }
               } (this);
