@@ -148,6 +148,7 @@ PHEDEX.Module = function(sandbox, string) {
                      menuSelectItem:1,
                      setArgs:1,
                      getData:1,
+                     gotData:1,
                      datasvcFailure:1,
                      destroy:1,
                      getStatePlugin:1,
@@ -236,7 +237,7 @@ log('Should not be here','warn','module');
  */
         this.genericHandler = function(obj) {
           return function(ev,arr) {
-            var who = arr[0],
+           var who = arr[0],
                 action = arr[1];
             if ( who && who != '*' && who != obj.me ) { return; }
 //          Special case for mapping 'doX*' to 'x*'
@@ -251,11 +252,15 @@ log('Should not be here','warn','module');
 //            is this really an error? Should I always be able to respond to a message from the core?
               throw new Error('Do not now how to execute "'+action+'" for module "'+obj.id+'"');
             }
-            log('genericHandler action for event: '+action+' '+Ylang.dump(arr[2]),'warn',obj.me);
-            obj[action](arr[2]);
+            log('genericHandler action for event: '+action+' '+Ylang.dump(arr),'warn',obj.me);
+            var arr1 = arr.slice();
+            arr1.shift();
+            arr1.shift();
+            obj[action].apply(obj,arr1);
           }
         }(this);
         _sbx.listen('module',this.genericHandler);
+
 
 /**
  * Handle messages sent directly to this module. This function is subscribed to listen for its own <strong>id</strong> as an event, and will take action accordingly. This is primarily for interaction with decorators, so actions are specific to the types of decorator. Some are toggles, e.g. <strong>show target</strong> and <strong>hide target</strong>. Others are hidden method-invocations (e.g. <strong>hideFields</strong>), where the action is used to invoke a function with the same name. Still others are more generic, such as <strong>expand</strong>, which require that the module that created the decoration specify a handler to be named when this function is invoked. <strong>expand</strong> specifically applies to <strong>PHEDEX.Component.Control</strong>, when used for the <strong>Extra</strong> field. The handler passed to the control constructor tells it which function will fill in the information in the expanded field.
@@ -296,8 +301,10 @@ log('Should not be here','warn','module');
                   }
                 }
                 if ( obj[action] && obj.allowNotify[action]) {
-                    log('selfHandler: default action for event: '+action+' '+Ylang.dump(value),'warn',obj.me);
-                    obj[action](value);
+                    log('selfHandler: default action for event: '+action+' '+Ylang.dump(arr),'warn',obj.me);
+                    var arr1 = arr.slice();
+                    arr1.shift();
+                    obj[action].apply(obj,arr1);
                 }
                 break;
               }
