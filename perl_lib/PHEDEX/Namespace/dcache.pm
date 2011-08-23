@@ -40,13 +40,11 @@ sub new
   if ( exists($self->{AGENT})) {
     if ( exists($self->{AGENT}->{NOCACHE}) &&
        $self->{AGENT}->{NOCACHE} != $self->{NOCACHE}) { $self->{NOCACHE} = $self->{AGENT}->{NOCACHE}; }
-$DB::single=1;
     foreach ( qw / INPUT_FILE PRELOAD / ) {
       if ( exists($self->{AGENT}->{$_}) ) { $self->{$_} = $self->{AGENT}->{$_}; }
     }
   }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
-$DB::single=1;
   $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
 
 # This is where the interface-specific modules are loaded. The modules are
