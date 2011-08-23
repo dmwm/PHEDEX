@@ -30,6 +30,11 @@ body {
 .align-justify, .yui-skin-sam .yui-dt .align-justify { text-align: justify; }
 .phedex-hide-overflow { overflow: hidden; }
 
+.phedex-cell-liner {
+  width: 100%;
+  display: inline-block;
+}
+
 .phedex-error {
   background-color: #f66;
 }
