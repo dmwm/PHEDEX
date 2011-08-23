@@ -572,6 +572,12 @@ debugger;
             email      = this.email,
             time_start = this.time_start,
             data_items = dom.data_items,
+            comments   = dom.comments,
+            site_custodial      = this.site_custodial,
+            subscription_type   = this.subscription_type,
+            re_evaluate_request = this.re_evaluate_request,
+            transfer_type       = this.transfer_type,
+            priority            = this.priority,
             menu, menu_items,
             data={}, args={}, tmp, value, block, dataset,
             elList, el, i, panel, api;
@@ -630,20 +636,19 @@ debugger;
         }
 
 // DBS - done directly in the xml
-
 // Site Custodial
-        if ( this.site_custodial ) { args.custodial = this.getRadioValues(this.site_custodial); }
+        if ( site_custodial ) { args.custodial = getRadioValues(this.site_custodial); }
 // Subscription Type
-        if ( this.subscription_type ) { args['static'] = this.getRadioValues(this.subscription_type); }
+        if ( subscription_type ) { args['static'] = getRadioValues(this.subscription_type); }
 // Re-evaluate
-        if ( this.re_evaluate_request ) { args['re-evaluate'] = this.getRadioValues(this.re_evaluate_request); }
+        if ( re_evaluate_request ) { args['re-evaluate'] = this.getRadioValues(this.re_evaluate_request); }
         if ( args['re-evaluate'] == 'y' && args['static'] == 'y' ) {
           this.onAcceptFail('A static, re-evaluated request makes no sense!');
         }
 // Transfer Type
-        if ( this.transfer_type ) { args.move = this.getRadioValues(this.transfer_type); }
+        if ( transfer_type ) { args.move = getRadioValues(this.transfer_type); }
 // Priority
-        if ( this.priority ) { args.priority = this.getRadioValues(this.priority); }
+        if ( priority ) { args.priority = getRadioValues(this.priority); }
 // User Group
         if ( user_group ) { args.group = user_group.value; }
 
@@ -659,7 +664,7 @@ debugger;
 //         args.email = email.value.innerHTML;
 
 // Comments
-        if ( dom.comments.value && dom.comments.value != this.comments.text ) { args.comments = dom.comments.value; }
+        if ( comments.value && comments.value != this.comments.text ) { args.comments = comments.value; }
 
 // Never subscribe automatically from this form
         if ( this.type == 'xfer' ) {
@@ -675,7 +680,6 @@ debugger;
       },
       onAcceptSubmit: function(id,action) {
         var dbs = this.dbs,
-            user_group = this.user_group,
             email      = this.email,
             time_start = this.time_start,
             data_items = dom.data_items,
@@ -695,7 +699,7 @@ debugger;
         if ( args.node.length == 0 ) {
           this.onAcceptFail('No Destination nodes specified');
         }
-        if ( !args.group ) {
+        if ( this.user_group && !args.group ) {
           this.onAcceptFail('No User-Group specified');
         }
 

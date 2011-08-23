@@ -44,6 +44,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
                            { key:'is_custodial',  label:'Custodial' },
                            { key:'is_move',       label:'Move' },
                            { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
+                           { key:'user_group',    label:'User group' },
                            { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
                 },
         hide:[],
@@ -148,6 +149,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
                           is_custodial:src_info.is_custodial,
                           is_move:src_info.is_move,
                           time_start:src_info.time_start,
+                          user_group:src_info.user_group,
                           subs_level:src_info.subs_level
                          });
           }
@@ -199,7 +201,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             text = Icon.Error+'No data found matching your selection';
             state = 'error';
           }
-          text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
+          if ( this.type == 'xfer' ) { text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.'; }
           this.setSummary(state,text);
           return;
         }
