@@ -1,14 +1,13 @@
 PHEDEX.namespace('Nextgen.Request');
 PHEDEX.Nextgen.Request.Create = function(sandbox) {
   var string = 'nextgen-request-create',
-      _sbx = sandbox,
+      _sbx  = sandbox, dom,
       Dom   = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
-      NUtil = PHEDEX.Nextgen.Util;
-      IconError = "<img src='"+PxW.BaseURL+"/images/icon-circle-red.png' style='vertical-align:bottom' />",
-      IconWarn  = "<img src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
-      IconOK    = "<img src='"+PxW.BaseURL+"/images/icon-circle-green.png' style='vertical-align:bottom' />";
+      NUtil = PHEDEX.Nextgen.Util,
+      Icon  = PHEDEX.Util.icon;
   Yla(this,new PHEDEX.Module(_sbx,string));
+  dom = this.dom;
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
@@ -16,44 +15,25 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
     return {
       options: { },
       type:null,
-//       meta: {
-//         table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
-//                            { key:'item',          label:'Item',     className:'align-left' },
-//                            { key:'files',         label:'Files',    className:'align-right', parser:'number' },
-//                            { key:'bytes',         label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
-//                            { key:'dbs',           label:'DBS',      className:'align-left' },
-//                            { key:'replicas',      label:'Replicas', className:'align-left' },
-//                            { key:'comment',       label:'Comment',  className:'align-left' }],
-//             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' },
-//                            { key:'b_files',       label:'Files',    className:'align-right', parser:'number' },
-//                            { key:'b_bytes',       label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
-//                            { key:'is_subscribed', label:'Subscribed' },
-//                            { key:'is_custodial',  label:'Custodial' },
-//                            { key:'is_move',       label:'Move' },
-//                            { key:'time_start',    label:'Start time',  formatter:'UnixEpochToUTC', parser:'number' },
-//                            { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
-//                 }
-//       },
       useElement: function(el) {
-        var d = this.dom;
-        d.target = el;
-        d.container  = document.createElement('div'); d.container.className  = 'phedex-nextgen-container'; d.container.id = 'doc2';
-        d.hd         = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd phedex-silver-border'; d.hd.id = 'hd';
-        d.bd         = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd phedex-silver-border'; d.bd.id = 'bd';
-        d.ft         = document.createElement('div'); d.ft.className         = 'phedex-nextgen-ft phedex-silver-border'; d.ft.id = 'ft';
-        d.main       = document.createElement('div'); d.main.className       = 'yui-main';
-        d.main_block = document.createElement('div'); d.main_block.className = 'yui-b phedex-nextgen-main-block';
+        dom.target = el;
+        dom.container  = document.createElement('div'); dom.container.className  = 'phedex-nextgen-container'; dom.container.id = 'doc2';
+        dom.hd         = document.createElement('div'); dom.hd.className         = 'phedex-nextgen-hd phedex-silver-border'; dom.hd.id = 'hd';
+        dom.bd         = document.createElement('div'); dom.bd.className         = 'phedex-nextgen-bd phedex-silver-border'; dom.bd.id = 'bd';
+        dom.ft         = document.createElement('div'); dom.ft.className         = 'phedex-nextgen-ft phedex-silver-border'; dom.ft.id = 'ft';
+        dom.main       = document.createElement('div'); dom.main.className       = 'yui-main';
+        dom.main_block = document.createElement('div'); dom.main_block.className = 'yui-b phedex-nextgen-main-block';
 
-        d.bd.appendChild(d.main);
-        d.main.appendChild(d.main_block);
-        d.container.appendChild(d.hd);
-        d.container.appendChild(d.bd);
-        d.container.appendChild(d.ft);
+        dom.bd.appendChild(dom.main);
+        dom.main.appendChild(dom.main_block);
+        dom.container.appendChild(dom.hd);
+        dom.container.appendChild(dom.bd);
+        dom.container.appendChild(dom.ft);
         el.innerHTML = '';
-        el.appendChild(d.container);
+        el.appendChild(dom.container);
 
-        d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
-        document.body.appendChild(d.floating_help);
+        dom.floating_help = document.createElement('div'); dom.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible';
+        document.body.appendChild(dom.floating_help);
       },
       Help:function(arg) {
         var item      = this[arg],
@@ -98,9 +78,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         var selfHandler = function(obj) {
           return function(ev,arr) {
             var action = arr[0],
-                value  = arr.shift();
+                arr1 = arr.slice();
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
-              obj[action].apply(obj,arr);//(value);
+              arr1.shift();
+              obj[action].apply(obj,arr1);
               return;
             }
           }
@@ -109,8 +90,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.initSub();
         this.initButtons();
         this.allowNotify['gotPreviewModule'] = 1;
+        this.allowNotify['previewCallback'] = 1;
         _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noHeader:true });
         _sbx.notify('CreateModule','previewrequestdata');
+
+  dom.data_items.innerHTML = '/lifecycle/custodial/inject_3*';
+  _sbx.notify(this.id,'setValueFor','data_items');
       },
       initButtons: function() {
         var ft=this.dom.ft, Reset, //, Validate, Cancel;
@@ -503,334 +488,28 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text,
             summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0;
 
+        this.data = data;
+        this.context = context;
+
         Dom.removeClass(dom.preview,'phedex-box-yellow');
         Dom.removeClass(dom.preview,'phedex-box-red');
         switch (api) {
           case 'previewrequestdata': {
-            preview = data.preview;
+            if ( !this.previewId ) {
+              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
+              _sbx.delay(50, this.id, 'previewCallback',data,context,response);
+              return;
+            }
+            _sbx.notify(this.previewId,'doGotData',data,context,response);
+            dom.preview_summary.innerHTML = '';
             Dom.removeClass(dom.preview,'phedex-invisible');
-            if ( !preview ) {
-              dom.preview_summary.innerHTML = 'Error retrieving information from the data-service';
-              Dom.addClass(dom.preview,'phedex-box-red');
-              return;
-            }
-            if ( preview.comment ) { dom.preview_summary = preview.comment; }
-            for (i in context.args.node ) {
-              isRequired[context.args.node[i]] = true;
-            }
-
-//          Build the datatable and the information for per-node summaries
-            for (i in preview) {
-              item = preview[i];
-              Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
-              if ( item.level == 'User Search' ) { unknown++; }
-              else { known++; }
-
-              tFiles += parseInt(item.files) || 0;
-              tBytes += parseInt(item.bytes) || 0;
-              for (j in item.src_info ) { // produce individual entries,plus summary matrix
-                src_info = item.src_info[j];
-                text = node = src_info.node;
-                if ( !summary[node] ) {
-                  summary[node] = { empty:0, incomplete:0, subscribed:0, OK:0, isRequired:isRequired[node] };
-                }
-                s = summary[node];
-
-                if ( item.files == 0 ) { // empty items are OK by definition (!)
-                  s.OK++;
-                } else {                         // item is not empty
-                  if ( src_info.files == '-' ) { // replica is empty
-                    text += ', empty';
-                    s.empty++;
-                  } else if ( src_info.files == item.files )  { // replica is incomplete
-                    s.OK++;
-                  } else {                       // replica is (currently) complete
-                    text += ', incomplete';
-                    s.incomplete++;
-                  }
-                }
-                if ( src_info.is_subscribed == 'n' ) {
-                  text += ', not subscribed';
-                  if ( this.type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-green'>" + text + "</span>"; }
-                } else {
-                  s.subscribed++;
-                  if ( this.type == 'xfer' && s.isRequired ) { text = "<span class='phedex-box-yellow'>" + text + "</span>"; }
-                }
-                if ( this.type == 'delete' ) {
-                  if ( s.isRequired ) {
-                    if ( src_info.files == '-' && src_info.subscribed == 'n' ) { text = "<span class='phedex-box-red'>" + text + "</span>"; }
-                    else {
-                      text = "<span class='phedex-box-green'>" + text + "</span>";
-                    }
-                  }
-                }
-
-                if ( Row.replicas ) { Row.replicas += '<br/>' + text; }
-                else { Row.replicas = text; }
-              }
-              if ( Row.comment ) {
-                showComment = true;
-              }
-              if ( item.dbs == dbs ) {
-                Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
-              } else {
-                showDBS = true;
-              }
-              Row.uniqueid = unique++;
-              Nested = [];
-              for (j in item.src_info ) {
-                src_info = item.src_info[j];
-                Nested.push({ node:src_info.node,
-                              b_files:src_info.files,
-                              b_bytes:src_info.bytes,
-                              is_subscribed:src_info.is_subscribed,
-                              is_custodial:src_info.is_custodial,
-                              is_move:src_info.is_move,
-                              time_start:src_info.time_start,
-                              subs_level:src_info.subs_level
-                             });
-              }
-              if ( Nested.length > 0 ) {
-                Row.nesteddata = Nested;
-              }
-              Table.push(Row);
-            }
-
-//          Build the global summary
-            text = '';
-            if ( known ) {
-              if ( known == 1 ) {
-                text = 'One data-item matches your request';
-              } else {
-                text = known+' data-items match your request';
-              }
-              text += ', with '+tFiles+' file';
-              if ( tFiles != 1 ) { text += 's'; }
-              if ( tFiles ) {
-                text += ', ' + ( tBytes ? PxUf.bytes(tBytes) : '0') + ' byte';
-                if ( tBytes != 1 ) { text += 's'; }
-              }
-              text += ' in total';
-            }
-
-//          Most severe errors first...
-            if ( this.re_evaluate_request ) {
-              if ( !unknown && !dom.data_items.value.match(/\*/) && this.getRadioValues(this.re_evaluate_request) == 'y') {
-                text += '<br/>'+IconError+'All items were matched & there are no wildcards, so <strong>re-evaluating</strong> makes no sense';
-              }
-            }
-            if ( unknown ) {
-              if ( text ) { text += '<br/>'; }
-              text += IconWarn+unknown+' item';
-              if ( unknown > 1 ) { text += 's'; }
-              text += ' did not match anything known to PhEDEx';
-            }
-            time_start=context.args.time_start;
-            if ( tBytes == 0 ) {
-              if ( time_start ) {
-                if ( time_start > new Date().getTime()/1000 ) {
-                  text += '<br/>'+IconWarn+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.';
-                } else {
-                  text += '<br/>'+IconWarn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')';
-                }
-                Dom.addClass(dom.preview,'phedex-box-yellow');
-              } else {
-                text = IconError+'No data found matching your selection';
-                Dom.addClass(dom.preview,'phedex-box-red');
-              }
-              text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
-              dom.preview_summary.innerHTML = text;
-              return;
-            }
-
-            if ( time_start ) {
-              text += '<br/>'+IconWarn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(time_start);
-            }
-
-            j=true;
-            for (node in summary) {
-              s = summary[node];
-              if ( !s.isRequired ) {
-                delete summary[node];
-                continue;
-              }
-              if ( s.subscribed == known ) {
-                if ( j ) {
-                  if ( this.type == 'xfer' ) {
-                    text += "<br/>"+IconWarn+"All matched items are already subscribed to <strong>"+node+"</strong>";
-                    excessNodes = node;
-                    nExcessNodes = 1;
-                  } else {
-                    text += '<br/>'+IconOK+'All matched items are subscribed to <strong>'+node+'</strong>';
-                  }
-                  j=false;
-                } else {
-                  text += ', <strong>'+node+'</strong>';
-                  if ( this.type == 'xfer' ) { excessNodes += ' '+node; nExcessNodes++; }
-                }
-                delete summary[node];
-                delete isRequired[node];
-              }
-            }
-            if ( nExcessNodes ) {
-              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
-                      (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
-            }
-            j=true;
-            for (node in summary) {
-              s = summary[node];
-              if ( s.OK == known ) {
-                if ( j ) {
-                  text += '<br/>'+IconOK+'All matched items have replicas at <strong>'+node+'</strong>';
-                  j=false;
-                } else {
-                  text += ', <strong>'+node+'</strong>';
-                }
-                delete summary[node];
-                delete isRequired[node];
-              }
-            }
-
-            if ( this.type == 'xfer' ) {
-              j=true;
-              for (node in summary) {
-                s = summary[node];
-                if ( s.subscribed ) {
-                  if ( j ) {
-                    text += '<br/>'+IconWarn+'Some items are already subscribed to <strong>'+node+'</strong>';
-                    j=false;
-                  } else {
-                    text += ', <strong>'+node+'</strong>';
-                  }
-                  delete summary[node];
-                  delete isRequired[node];
-                }
-              }
-            }
-
-            j=true;
-            for (node in summary) {
-              if ( j ) {
-                if ( this.type == 'xfer' ) {
-                  text += '<br/>'+IconWarn+'Some items already have replicas at <strong>'+node+'</strong>';
-                } else {
-                  text += '<br/>'+IconWarn+'Only some items have replicas at <strong>'+node+'</strong>';
-                }
-                j=false;
-              } else {
-                text += ', <strong>'+node+'</strong>';
-              }
-              delete summary[node];
-              delete isRequired[node];
-            }
-
-            if ( this.type == 'delete' ) {
-              j=true;
-              for (node in isRequired) {
-                if ( j ) {
-                  text += '<br/>'+IconError+'No items have replicas at <strong>'+node+'</strong>';
-                  j=false;
-                  excessNodes = node;
-                  nExcessNodes = 1;
-                } else {
-                  text += ', <strong>'+node+'</strong>';
-                  excessNodes += ' '+node;
-                  nExcessNodes++;
-                }
-              }
-              if ( nExcessNodes ) {
-                text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
-                        (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
-              }
-            }
-            dom.preview_summary.innerHTML = text;
-
-            i = t.columns.length;
-            if (!t.map) { t.map = {}; }
-            while (i > 0) { //This is for main columns
-              i--;
-              cDef = t.columns[i];
-              if (typeof cDef != 'object') { cDef = { key:cDef }; t.columns[i] = cDef; }
-              if (!cDef.label)      { cDef.label      = cDef.key; }
-              if (!cDef.resizeable) { cDef.resizeable = true; }
-              if (!cDef.sortable)   { cDef.sortable   = true; }
-              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-            }
-            if ( !t.nestedColumns ) {
-              t.nestedColumns = [];
-            }
-            i = t.nestedColumns.length;
-            while (i > 0) { //This is for inner nested columns
-              i--;
-              cDef = t.nestedColumns[i];
-              if (typeof cDef != 'object') { cDef = { key:cDef }; t.nestedColumns[i] = cDef; }
-              if (!cDef.label)      { cDef.label      = cDef.key; }
-              if (!cDef.resizeable) { cDef.resizeable = true; }
-              if (!cDef.sortable)   { cDef.sortable   = true; }
-              if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
-            }
-            if ( this.dataSource ) {
-              delete this.dataSource;
-              delete this.nestedDataSource;
-            }
-            this.dataSource = new YAHOO.util.DataSource(Table);
-            this.nestedDataSource = new YAHOO.util.DataSource();
-            if ( this.dataTable  ) {
-              this.dataTable.destroy();
-              delete this.dataTable;
-            }
-            if ( t.columns[0].key == '__NESTED__' ) { t.columns.shift(); } // NestedDataTable has side-effects on its arguments, need to undo that before re-creating the table
-            this.dataTable = new YAHOO.widget.NestedDataTable(this.dom.preview_table, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource,
-                            {
-                               initialLoad: false,
-                               generateNestedRequest: this.processNestedrequest
-                            });
-            oCallback = {
-              success: this.dataTable.onDataReturnInitializeTable,
-              failure: this.dataTable.onDataReturnInitializeTable,
-              scope: this.dataTable
-            };
-
-            this.dataTable.subscribe('nestedDestroyEvent',function(obj) {
-              return function(ev) {
-                delete obj.nestedtables[ev.dt.getId()];
-              }
-            }(this));
-            this.dataTable.subscribe('nestedCreateEvent', function (oArgs, o) {
-              var dt = oArgs.dt,
-                  oCallback = {
-                  success: dt.onDataReturnInitializeTable,
-                  failure: dt.onDataReturnInitializeTable,
-                  scope: dt
-              }, ctxId;
-              this.nestedDataSource.sendRequest('', oCallback); //This is to update the datatable on UI
-              if ( !dt ) { return; }
-              var col = dt.getColumn('b_files');
-              dt.sortColumn(col, YAHOO.widget.DataTable.CLASS_DESC);
-              // This is to maintain the list of created nested tables that would be used in context menu
-              if ( !o.nestedtables ) {
-                o.nestedtables = {};
-              }
-              o.nestedtables[dt.getId()] = dt;
-            }, this);
-            this.dataSource.sendRequest('', oCallback);
-
-            column = this.dataTable.getColumn('item');
-            this.dataTable.sortColumn(column, YAHOO.widget.DataTable.CLASS_ASC);
-            elList = Dom.getElementsByClassName('phedex-error','span',this.dom.preview_table);
-            for (i in elList) { // I've hacked the error class into the entry in the table, but it really needs to belong to its parent, for better visual effect
-              Dom.removeClass(elList[i],'phedex-error');
-              Dom.addClass(elList[i].parentNode,'phedex-error');
-            }
-            if ( !showDBS ) {
-              this.dataTable.hideColumn(this.dataTable.getColumn('dbs'));
-            }
-            if ( !showComment ) {
-              this.dataTable.hideColumn(this.dataTable.getColumn('comment'));
-            }
             break;
           }
         }
+      },
+      previewSummary: function() {
+debugger;
+        var preview=this.preview;
       },
       suppressExcessNodes: function(excessNodes) {
         var elList, el, i, j, nodes, node;
@@ -883,7 +562,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         if ( dom.results_text.innerHTML ) {
           dom.results_text.innerHTML += '<br />';
         }
-        dom.results_text.innerHTML += IconError+text;
+        dom.results_text.innerHTML += Icon.Error+text;
         this.formFail = true;
       },
       checkRequestParameters: function() {
@@ -996,7 +675,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       },
       onAcceptSubmit: function(id,action) {
         var dbs = this.dbs,
-            dom = this.dom,
             user_group = this.user_group,
             email      = this.email,
             time_start = this.time_start,
@@ -1006,7 +684,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             elList, el, i, panel, api;
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
-        Dom.removeClass(this.dom.results,'phedex-box-red');
+        Dom.removeClass(dom.results,'phedex-box-red');
         dom.results_label.innerHTML = '';
         dom.results_text.innerHTML  = '';
         this.Accept.set('disabled',true);
@@ -1058,15 +736,19 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.previewId = arg.moduleId;
         var previewHandler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0],
-                value  = arr.shift();
+            var action = arr[0], arr1;
             switch (action) {
-              case 'gotData': {
-debugger;
+              case 'setSummary': {
+                arr1 = arr.slice();
+                arr1.shift();
+                obj.setSummary.apply(obj,arr1);
+                break;
+              }
+              case 'suppressExcessNodes': {
+                obj.suppressExcessNodes(arr[1]);
                 break;
               }
               case 'destroy': {
-debugger;
                 delete this.previewId;
                 break;
               }
@@ -1074,12 +756,20 @@ debugger;
           }
         }(this);
         _sbx.listen(this.previewId,previewHandler);
-        this.onPreviewSubmit(); // TW Really? How do I know???
       },
 
+      setSummary: function(status,text) {
+        var map = {error:'phedex-box-red', warn:'phedex-box-yellow'}, i;
+        dom.preview_summary.innerHTML = text;
+        for ( i in map ) {
+          Dom.removeClass(dom.preview,map[i]);
+        }
+        if ( map[status] ) {
+          Dom.addClass(dom.preview,map[status]);
+        }
+      },
       onPreviewSubmit: function(id,action) {
         var dbs = this.dbs,
-            dom = this.dom,
             time_start = this.time_start,
             data_items = dom.data_items,
             menu, menu_items,
@@ -1088,14 +778,13 @@ debugger;
 
         if ( !this.previewId ) {
           _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
-          return;
         }
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks
         Dom.removeClass(dom.results,'phedex-box-red');
         Dom.addClass(dom.results,'phedex-invisible');
         Dom.removeClass(dom.preview,'phedex-invisible');
-        dom.preview_summary.innerHTML = dom.preview_table.innerHTML = dom.results_text.innerHTML  = '';
+        dom.preview_summary.innerHTML = dom.results_text.innerHTML  = '';
 
 // Now build the args!
         args = this.checkRequestParameters();
@@ -1109,7 +798,7 @@ debugger;
 //               if ( !args.data ) { args.data = []; }
               args.data.push(dataset);
             } else {
-// debugger; // what happens now???
+debugger; // what happens now???
 throw new Error("Now what...?");
               for ( block in blocks ) {
                 if ( !args.block ) { args.block = []; }
@@ -1125,17 +814,15 @@ throw new Error("Now what...?");
 
         args.type = this.type;
         args.dbs = dbs.value.innerHTML;
-_sbx.notify(this.previewId,'setArgs',args);
-//         PHEDEX.Datasvc.Call({
-//                               api:'previewrequestdata',
-//                               args:args,
-//                               callback:function(data,context,response) { obj.previewCallback(data,context,response); }
-//                             });
+        PHEDEX.Datasvc.Call({
+                              api:'previewrequestdata',
+                              args:args,
+                              callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+                            });
       },
 
       onResetSubmit: function(id,action) {
         var dbs = this.dbs,
-            dom = this.dom,
             user_group  = this.user_group,
             email       = this.email,
             time_start  = dom.time_start,
@@ -1263,10 +950,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
   return {
     type: 'xfer',
     initSub: function() {
-      var d = this.dom,
+      var d   = this.dom,
           mb = d.main_block,
           hd = d.hd,
-          form, elList, el, label, control, i, ctl;
+          form, el;
       hd.innerHTML = 'Subscribe data';
       this.meta.synchronise = {
         Preview: { data_items:false },
@@ -1592,10 +1279,10 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
   return {
     type:'delete',
     initSub: function() {
-      var d = this.dom,
+      var d  = this.dom,
           mb = d.main_block,
           hd = d.hd,
-          form, elList, el, label, control, i, ctl;
+          form, elList, el;
       hd.innerHTML = 'Delete data';
       this.meta.synchronise = {
         Preview: { data_items:false, destination:false },
