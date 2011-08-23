@@ -375,11 +375,15 @@ PHEDEX.DataTable = function (sandbox, string) {
               this.needProcess = true; //Process data by default
               var t = this.meta.table,
                   i = t.columns.length,
-                  cDef, dtConfig;
+                  cDef, masterConfig, nestedConfig;
 
-              dtConfig = {
+              masterConfig = {
                            initialLoad: false,
                            generateNestedRequest: this.processNestedrequest,
+                           draggableColumns:true
+                         };
+              nestedConfig = {
+                           initialLoad: false,
                            draggableColumns:true
                          };
               this.dataSource = new YuDS();
@@ -410,7 +414,7 @@ PHEDEX.DataTable = function (sandbox, string) {
 
 //            create the right type of data-table
               if ( t.nestedColumns ) {
-                this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource, dtConfig);
+                this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource, masterConfig, nestedConfig);
               } else {
                 this.dataTable = new Yw.DataTable(this.dom.datatable, t.columns, this.dataSource, dtConfig);
               }
