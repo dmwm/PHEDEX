@@ -91,7 +91,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.initButtons();
         this.allowNotify['gotPreviewModule'] = 1;
         this.allowNotify['previewCallback'] = 1;
-        _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noHeader:true });
+        _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
         _sbx.notify('CreateModule','previewrequestdata');
 
   dom.data_items.innerHTML = '/lifecycle/custodial/inject_3*';
@@ -767,6 +767,9 @@ debugger;
         if ( map[status] ) {
           Dom.addClass(dom.preview,map[status]);
         }
+        if ( status == 'error' ) {
+          Dom.addClass(dom.preview_table,'phedex-invisible');
+        }
       },
       onPreviewSubmit: function(id,action) {
         var dbs = this.dbs,
@@ -784,6 +787,7 @@ debugger;
         Dom.removeClass(dom.results,'phedex-box-red');
         Dom.addClass(dom.results,'phedex-invisible');
         Dom.removeClass(dom.preview,'phedex-invisible');
+        Dom.removeClass(dom.preview_table,'phedex-invisible');
         dom.preview_summary.innerHTML = dom.results_text.innerHTML  = '';
 
 // Now build the args!

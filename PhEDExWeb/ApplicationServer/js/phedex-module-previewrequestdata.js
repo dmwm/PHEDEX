@@ -12,6 +12,23 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
   _construct = function(obj) {
     return {
       options: { },
+      decorators: [
+        {
+          name: 'ContextMenu',
+          source:'component-contextmenu'
+        },
+        {
+          name: 'cMenuButton',
+          source:'component-splitbutton',
+          payload:{
+            name:'Show all fields',
+            map: {
+              hideColumn:'addMenuItem'
+            },
+            container: 'control'
+          }
+        }
+      ],
       meta: {
         table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
                            { key:'item',          label:'Item',     className:'align-left' },
@@ -30,7 +47,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
                            { key:'subs_level',    label:'Subscription level', className:'align-leftx' }]
                 },
         hide:[],
-        sort:{ Field:'Item' }
+        sort:{ field:'Item' }
       },
       setSummary: function(status, text) {
         var dom = this.dom;
@@ -287,6 +304,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
                     (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
           }
         }
+        text += '<br>';
         this.setSummary('OK',text);
 
         if ( !showDBS )     { this.meta.hide['DBS'] = 1; }

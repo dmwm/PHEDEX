@@ -123,23 +123,25 @@ PHEDEX.DataTable = function (sandbox, string) {
               m.hide = h;
               if ( !this.dom.datatable ) { this.dom.datatable = this.dom.content; }
               this.buildTable()
-              this.decorators.push( { name:'Refresh', source:'component-refresh' });
-              this.decorators.push(
-              {
-                name: 'Filter',
-                source: 'component-filter',
-                payload: {
-                  control: {
-                    parent: 'control',
-                    payload: {
-                      disabled: false,
-                      hidden: true
-                    },
-                    el: 'content'
-                  }
-                },
-                target: 'filter'
-              });
+              if ( !this.options.noExtraDecorators ) {
+                this.decorators.push( { name:'Refresh', source:'component-refresh' });
+                this.decorators.push(
+                {
+                  name: 'Filter',
+                  source: 'component-filter',
+                  payload: {
+                    control: {
+                      parent: 'control',
+                      payload: {
+                        disabled: false,
+                        hidden: true
+                      },
+                      el: 'content'
+                    }
+                  },
+                  target: 'filter'
+                });
+              }
 
               m.parser = {};
               for (i in columns)  { allColumns.push(columns[i]); }
