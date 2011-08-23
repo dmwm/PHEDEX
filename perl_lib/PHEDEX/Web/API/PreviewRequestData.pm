@@ -118,14 +118,6 @@ sub previewrequestdata {
         }
 
         # prepare a list of source nodes with helpful information
-#	@{$res->{SOURCES}} = ();
-#        foreach my $info (sort { $$b{IS_SUBSCRIBED} cmp $$a{IS_SUBSCRIBED} ||
-#				 $$b{FILES} <=> $$a{FILES} ||
-#				 $$b{IS_CUSTODIAL}  cmp $$a{IS_CUSTODIAL} ||
-#				 $$b{NODE}          cmp $$a{NODE} } values %$src_info) {
-#          push @{$$res{SOURCES}}, [ $info->{NODE}, $info->{FILES}, $info->{IS_SUBSCRIBED} ];
-#        }
-#        $$res{SOURCES} ||= ['None found'];
         $$res{ITEM} = $$res{$$res{LEVEL}}; # Name of dataset or block, depending on which it is for
         $$res{COMMENT} = join('<br/>', @comments);
         $$res{WARN} = $warn;
@@ -136,6 +128,7 @@ sub previewrequestdata {
           $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_CUSTODIAL}  = $_->{IS_CUSTODIAL};
           $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_MOVE}       = $_->{IS_MOVE};
           $res->{SRC_INFO}{$_->{NODE_NAME}}{TIME_START}    = $_->{TIME_START};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{USER_GROUP}    = $_->{USER_GROUP};
           $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_SUBSCRIBED} = 'y';
         }
         foreach ( @{$$res{REPLICAS}} ) {
@@ -402,10 +395,12 @@ sub fetch_subscriptions
 		  n.id node_id, n.name node_name,
 		  rx.is_custodial is_custodial,
 		  rx.is_move is_move,
-		  rx.time_start time_start
+		  rx.time_start time_start,
+                  gr.name user_group
 		from t_dps_dataset d
 		join t_dps_subs_dataset sd on sd.dataset = d.id
 		join t_dps_subs_param sp on sp.id = sd.param
+		join t_adm_group gr on sp.user_group = gr.id
 		join t_adm_node n on n.id = sd.destination
 		join t_req_xfer rx on rx.request = sp.request
 		where
@@ -419,9 +414,12 @@ sub fetch_subscriptions
 		  n.id node_id, n.name node_name,
 		  rx.is_custodial is_custodial,
 		  rx.is_move is_move,
-		  rx.time_start time_start
+		  rx.time_start time_start,
+                  gr.name user_group
 		from t_dps_block b
 		join t_dps_subs_block sb on sb.block = b.id
+		join t_dps_subs_param sp on sp.id = sb.param
+		join t_adm_group gr on sp.user_group = gr.id
 		join t_adm_node n on n.id = sb.destination
 		join t_req_xfer rx on rx.request = sb.param
 		where
