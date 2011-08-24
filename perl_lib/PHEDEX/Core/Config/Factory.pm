@@ -199,6 +199,7 @@ sub createAgents
 # Monitor myself too!
   $Agents{$self->{ME}}{self} = $self;
   $self->Logmsg('I am running these agents: ',join(', ',sort keys %Agents));
+  eval { $self->connectAgent(); };
   return ($self->{AGENTS} = \%Agents);
 }
 
