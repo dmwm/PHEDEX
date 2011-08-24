@@ -4246,8 +4246,8 @@ sub getBlockLatency
 }
 
 
-# getHistoryBlockLatency
-sub getiHistoryBlockLatency
+# getBlockLatencyHistory
+sub getBlockLatencyHistory
 {
     my $core = shift;
     my %h = @_;
@@ -4421,5 +4421,116 @@ sub getiHistoryBlockLatency
     return \@r;
 }
 
+# getFileLatencyHistory
+sub getFileLatencyHistory
+{
+    my $core = shift;
+    my %h = @_;
+    my $filters = '';
+    my %p;
+
+    my $sql = qq{
+      select
+        b.id as block_id,
+        b.name as block,
+        b.files,
+        b.bytes,
+        b.time_create as block_time_create,
+        b.time_update as block_time_update,
+        f.id as file_id,
+        f.logical_name as lfn,
+        f.filesize,
+        h.time_subscription,
+        h.time_update,
+        h.priority,
+        h.is_custodial,
+        h.time_requested,
+        h.time_routed,
+        h.time_assigned,
+        h.time_exported,
+        h.attempts,
+        h.time_first_attempt,
+        h.time_latest_attempt,
+        h.time_on_buffer,
+        h.time_at_destination,
+        n.name destination,
+        d.name as dataset
+      from
+        t_history_file_arrive h
+        join t_dps_file f on h.fileid = f.id
+        join t_dps_block b on f.inblock = b.id
+        join t_dps_dataset d on d.id = b.dataset
+        join t_adm_node n on n.id = h.destination
+    };
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        ID => 'b.id',
+        BLOCK => 'b.name',
+        TO_NODE => 'n.name',
+        CUSTODIAL => 'h.is_custodial',
+        DATASET => 'd.name',
+        LFN => 'f.logical_name'
+    ));
+
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= ' and h.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+        else
+        {
+            $filters = ' h.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and h.time_update >= '.$h{UPDATE_SINCE};
+        }
+        else
+        {
+            $filters = ' h.time_update >= '.$h{UPDATE_SINCE};
+        }
+    }
+
+    if (exists $h{SUBSCRIBE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and h.time_subscription >= :time_subscription ';
+        }
+        else
+        {
+            $filters =  ' h.time_subscription >= :time_subscription ';
+        }
+        $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
+    }
+
+    if ($filters)
+    {
+        $sql .= "where  $filters ";
+    }
+
+    $sql .= " order by b.id ";
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
+    while ($_ = $q->fetchrow_hashref() )
+    {
+        # take care of priority
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_->{PRIORITY}, 0);
+        push @r, $_;
+    }
+
+    return \@r;
+}
 
 1;
