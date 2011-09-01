@@ -8,6 +8,7 @@ use File::Basename;
 use PHEDEX::Core::Command;
 
 our @array_params    = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
+our @hash_params     = qw / BAD JUNK /;
 our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
 our @writeable_files = qw / LOGFILE PIDFILE /;
@@ -20,7 +21,7 @@ sub new
   my $self = {};
 
 # Map requiered parameters from calling Class
-  my @all = (@array_params,@required_params,@writeable_dirs,@writeable_files);
+  my @all = (@array_params,@hash_params,@required_params,@writeable_dirs,@writeable_files);
   map { $self->{$_} = ${$h{_AC}}{$_} } @all;
   $self->{_AC} = $h{_AC};
 
@@ -36,7 +37,7 @@ sub AUTOLOAD
   return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
 
 # if $attr exits, catch the reference to it
-  if ( my $do_it = $self->{_AC}->can($attr) ) { &$do_it($self,@_); } 
+  if ( $self->{_AC}->can($attr) ) { $self->{_AC}->$attr(@_); } 
   else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for Dropbox"); }     
 }
 
