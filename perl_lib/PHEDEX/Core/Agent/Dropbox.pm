@@ -7,21 +7,37 @@ use File::Path;
 use File::Basename;
 use PHEDEX::Core::Command;
 
+our @array_params    = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
 our @writeable_files = qw / LOGFILE PIDFILE /;
 
 sub new
 {
-    my ($proto,%h) = @_;
-    my $class = ref($proto) || $proto;
-    my $self = {};
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my %h = @_;
+  my $self = {};
 
-#   Map the Agent Class
-    map { $self->{$_} = ${$h{_AC}}{$_} } keys %{$h{_AC}};
+# Map requiered parameters from calling Class
+  my @all = (@array_params,@required_params,@writeable_dirs,@writeable_files);
+  map { $self->{$_} = ${$h{_AC}}{$_} } @all;
+  $self->{_AC} = $h{_AC};
 
-    bless $self, $class;
-    return $self;
+  return bless $self, $class;
+}
+
+# this workaround is ugly but allow us NOT rewrite everything
+sub AUTOLOAD
+{
+  my $self = shift;
+  my $attr = our $AUTOLOAD;
+  $attr =~ s/.*:://;
+  return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
+
+# if $attr exits, catch the reference to it
+  if ( my $do_it = $self->{_AC}->can($attr) ) { &$do_it($self,@_); } 
+  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for Dropbox"); }     
 }
 
 sub isInvalid
