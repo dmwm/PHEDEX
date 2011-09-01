@@ -2,41 +2,38 @@ package PHEDEX::Core::Agent::DB;
 
 use strict;
 use warnings;
-#use base 'PHEDEX::Core::Logging';
 use POSIX;
-#use File::Path;
-#use File::Basename;
-#use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
+our @all_needed = qw / MYNODE DBCONFIG SHARED_DBH DBH DBH_AGENT_IDENTIFIED DBH_ID_HOST DROPDIR ID_MYNODE ID_AGENT DBH_AGENT_UPDATE ME LABEL INBOX WORKDIR OUTDIR NODES NODES_ID IGNORE_NODES_IDS IGNORE_NODES ACCEPT_NODES ACCEPT_NODES_IDS /;
+
 sub new
 {
-    my ($proto,%h) = @_;
-    my $class = ref($proto) || $proto;
-    my $self = {};
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my %h = @_;
+  my $self = {};
 
-#   Map the Agent Class
-    map { $self->{$_} = ${$h{_AC}}{$_} } keys %{$h{_AC}};
+# Map requiered parameters from calling Class
+  map { $self->{$_} = ${$h{_AC}}{$_} } @all_needed;
+  $self->{_AC} = $h{_AC};
+  
+  return bless $self, $class;
+}   
+    
+# this workaround is ugly but allow us NOT rewrite everything
+sub AUTOLOAD
+{
+  my $self = shift; 
+  my $attr = our $AUTOLOAD;
+  $attr =~ s/.*:://;
+  return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
 
-   # $self->{MYNODE}       = ${$h{_AC}}{MYNODE};
-   # $self->{DBH}          = ${$h{_AC}}{DBH};
-   # $self->{SHARED_DBH}   = ${$h{_AC}}{SHARED_DBH};
-   # $self->{NODES}        = ${$h{_AC}}{NODES};
-   # $self->{ACCEPT_NODES} = ${$h{_AC}}{ACCEPT_NODES};
-   # $self->{IGNORE_NODES} = ${$h{_AC}}{IGNORE_NODES};
-
-
-
-    bless $self, $class;
-    return $self;
-}
-
-sub Alert 
-{  
-   my $self = shift;
-   #PHEDEX::Core::Logging::Alert($self,@_);
-}
+# if $attr exits, catch the reference to it
+  if ( $self->{_AC}->can($attr) ) { $self->{_AC}->$attr(@_); } 
+  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for DB"); }
+}   
 
 # Connect to database and identify self
 sub connectAgent
@@ -56,7 +53,8 @@ sub connectAgent
 	$self->identifyAgent();
 	$self->checkAgentMessages();
     }
-
+    map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
+    
     return $dbh;
 }
 
@@ -79,6 +77,7 @@ sub rollbackOnError
     return 0 unless $err;
     chomp ($err);
     $self->Alert($err);
+
     eval { $$self{DBH}->rollback() } if $$self{DBH};
     return 1;
 }
@@ -539,6 +538,7 @@ sub expandNodes
     }
   }
 
+  map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
   return @result;
 }
 
@@ -607,6 +607,8 @@ sub otherNodeFilter
     $args{":accept$n"} = $id;
     push(@afilter, "$idfield = :accept$n");
   }
+
+  map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
 
   my $ifilter = (@ifilter ? join(" and ", @ifilter) : "");
   my $afilter = (@afilter ? join(" or ", @afilter) : "");
