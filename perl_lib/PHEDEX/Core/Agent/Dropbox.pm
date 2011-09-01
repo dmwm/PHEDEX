@@ -7,8 +7,6 @@ use File::Path;
 use File::Basename;
 use PHEDEX::Core::Command;
 
-our @array_params    = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
-our @hash_params     = qw / BAD JUNK /;
 our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
 our @writeable_files = qw / LOGFILE PIDFILE /;
@@ -21,7 +19,8 @@ sub new
   my $self = {};
 
 # Map requiered parameters from calling Class
-  my @all = (@array_params,@hash_params,@required_params,@writeable_dirs,@writeable_files);
+  my @all = 
+  qw / NODAEMON ME NEXTDIR STARTTIME NODES IGNORE_NODES ACCEPT_NODES BAD JUNK DROPDIR DBCONFIG INBOX WORKDIR OUTDIR LOGFILE PIDFILE /;
   map { $self->{$_} = ${$h{_AC}}{$_} } @all;
   $self->{_AC} = $h{_AC};
 
