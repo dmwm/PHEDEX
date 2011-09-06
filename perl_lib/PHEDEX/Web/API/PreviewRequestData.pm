@@ -33,7 +33,7 @@ sub previewrequestdata {
 
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,
              $params{dbs},
-             (defined $params{is_static} && $params{is_static} eq 'y') ? 1 : 0,
+             (defined $params{static} && $params{static} eq 'y') ? 1 : 0,
 	     $params{time_start},
              @{$params{data}});
   my @table;
@@ -212,6 +212,11 @@ sub resolve_data
     # Now we look for matching data in TMDB using the SQL like patterns
     # We order by ID so we can check for redundant DBS items later
     my $all_items = {};
+
+    if ($has{BLOCK} && $has{DATASET} && !$static) {
+      die(PHEDEX::Web::Util::http_error(400,"A mixed block-level and dataset-level request is allowed only if it is also static\n"));
+    }
+
     if ($has{DATASET} && !$static) {
 	$ds_lookup = $userglob_like{DATASET};
 
@@ -253,7 +258,7 @@ sub resolve_data
 	}
 
 	$sql .= join ' or ', @filters;
-	$sql .= " and b.is_open = 'n'";
+#	$sql .= " and b.is_open = 'n'";
 	$sql .= ' order by b.id';
 
 	$all_items->{BLOCK} = &PHEDEX::Core::DB::dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
