@@ -5,7 +5,6 @@ use strict;
 
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Util qw( arrayref_expand);
-#use PHEDEX::Web::Format;
 use PHEDEX::Core::Timing;
 
 use HTML::Entities; # for encoding XML
@@ -14,7 +13,6 @@ use Carp;
 use Clone;
 
 our @ISA = qw(Exporter);
-#our @EXPORT = qw ( process_args validate_params checkRequired error auth_nodes );
 our @EXPORT = qw ( process_args validate_params checkRequired auth_nodes );
 
 # process arguments used for common features
