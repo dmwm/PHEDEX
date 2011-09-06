@@ -93,9 +93,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.allowNotify['previewCallback'] = 1;
         _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
         _sbx.notify('CreateModule','previewrequestdata');
-
-  dom.data_items.innerHTML = '/lifecycle/custodial/inject_3*';
-  _sbx.notify(this.id,'setValueFor','data_items');
       },
       initButtons: function() {
         var ft=this.dom.ft, Reset, //, Validate, Cancel;
@@ -493,6 +490,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
         Dom.removeClass(dom.preview,'phedex-box-yellow');
         Dom.removeClass(dom.preview,'phedex-box-red');
+        if ( response ) {
+          this.setSummary('error',"Error retrieving preview data");
+          return;
+        }
         switch (api) {
           case 'previewrequestdata': {
             if ( !this.previewId ) {
@@ -507,10 +508,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           }
         }
       },
-      previewSummary: function() {
-debugger;
-        var preview=this.preview;
-      },
       suppressExcessNodes: function(excessNodes) {
         var elList, el, i, j, nodes, node;
         nodes = excessNodes.split(' ');
@@ -524,6 +521,18 @@ debugger;
               break;
             }
           }
+        }
+        PxS.notify(this.id,'onPreviewSubmit');
+      },
+      makeRequestStatic: function() {
+        var i, el, elList=this.subscription_type.elList, values=this.subscription_type.values, value;
+        for (i in values) {
+          if ( values[i] == 'static' ) { value = i; }
+        }
+        for (i in elList) {
+          el = elList[i];
+          if ( el.value == value ) { el.checked = true; }
+          else                     { el.checked = false; }
         }
         PxS.notify(this.id,'onPreviewSubmit');
       },
@@ -637,18 +646,18 @@ debugger;
 
 // DBS - done directly in the xml
 // Site Custodial
-        if ( site_custodial ) { args.custodial = getRadioValues(this.site_custodial); }
+        if ( site_custodial ) { args.custodial = this.getRadioValues(site_custodial); }
 // Subscription Type
-        if ( subscription_type ) { args['static'] = getRadioValues(this.subscription_type); }
+        if ( subscription_type ) { args['static'] = this.getRadioValues(subscription_type); }
 // Re-evaluate
-        if ( re_evaluate_request ) { args['re-evaluate'] = this.getRadioValues(this.re_evaluate_request); }
+        if ( re_evaluate_request ) { args['re-evaluate'] = this.getRadioValues(re_evaluate_request); }
         if ( args['re-evaluate'] == 'y' && args['static'] == 'y' ) {
           this.onAcceptFail('A static, re-evaluated request makes no sense!');
         }
 // Transfer Type
-        if ( transfer_type ) { args.move = getRadioValues(this.transfer_type); }
+        if ( transfer_type ) { args.move = this.getRadioValues(transfer_type); }
 // Priority
-        if ( priority ) { args.priority = getRadioValues(this.priority); }
+        if ( priority ) { args.priority = this.getRadioValues(priority); }
 // User Group
         if ( user_group ) { args.group = user_group.value; }
 
@@ -752,6 +761,10 @@ debugger;
                 obj.suppressExcessNodes(arr[1]);
                 break;
               }
+              case 'makeRequestStatic': {
+                obj.makeRequestStatic();
+                break;
+              }
               case 'destroy': {
                 delete this.previewId;
                 break;
@@ -780,8 +793,8 @@ debugger;
             time_start = this.time_start,
             data_items = dom.data_items,
             menu, menu_items,
-            data={}, args={}, tmp, value, block, dataset, xml,
-            panel, elList, el, i;
+            data={}, args={}, tmp, value, block, blocks, dataset, xml,
+            panel, elList, el, i, has={ blocks:0, datasets:0 };
 
         if ( !this.previewId ) {
           _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
@@ -803,14 +816,12 @@ debugger;
           for ( dataset in data.datasets ) {
             blocks = data.datasets[dataset];
             if ( typeof(blocks) == 'number' ) {
-//               if ( !args.data ) { args.data = []; }
               args.data.push(dataset);
+              has.blocks++;
             } else {
-debugger; // what happens now???
-throw new Error("Now what...?");
               for ( block in blocks ) {
-                if ( !args.block ) { args.block = []; }
-                args.block.push(block);
+                args.data.push(block);
+                has.datasets++;
               }
             }
           }
@@ -822,6 +833,10 @@ throw new Error("Now what...?");
 
         args.type = this.type;
         args.dbs = dbs.value.innerHTML;
+        if ( has.blocks && has.datasets && ( args['static'] == 'n' ) ) {
+          this.setSummary('error',"A request with both blocks and datasets must also be declared as 'static' <a href='#' onclick=\"PxS.notify('"+this.id+"','makeRequestStatic')\">fix this for me</a>");
+          return;
+        }
         PHEDEX.Datasvc.Call({
                               api:'previewrequestdata',
                               args:args,
