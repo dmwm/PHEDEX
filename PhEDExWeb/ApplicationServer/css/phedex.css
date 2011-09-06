@@ -631,6 +631,9 @@ ul li.phedex-contextmenu-beta:before {
 .phedex-nextgen-control {
   margin: 0 100px 0 210px;
 }
+.phedex-nextgen-control p {
+  margin: 0 0 0.5em 0;
+}
 
 .phedex-nextgen-textarea {
   width: 660px;
