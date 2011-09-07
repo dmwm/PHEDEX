@@ -30,9 +30,9 @@ sub previewrequestdata {
     $params{data} = [ $params{data} ];
   }
   my @nodes = PHEDEX::Core::Util::arrayref_expand($params{node});
-
   my ($resolved, $userdupes, $dbsdupes) = &resolve_data($core,
              $params{dbs},
+             $params{type},
              (defined $params{static} && $params{static} eq 'y') ? 1 : 0,
 	     $params{time_start},
              @{$params{data}});
@@ -173,8 +173,8 @@ sub previewrequestdata {
 #   DBS_ISKNOWN = 'y' or 'n'
 sub resolve_data
 {
-    my ($core,$dbh, $userdbs, $static, $time_create, @userdata);
-    ($core, $userdbs, $static, $time_create, @userdata) = @_;
+    my ($core,$dbh,$params,$ds_ids,$b_ids, $userdbs, $type, $static, $time_create, @userdata);
+    ($core,$userdbs, $type, $static, $time_create, @userdata) = @_;
     my ($level,%binds,$ds_lookup,$b_lookup,$sql,$userglob,$globlevel,$lastid,$id,$name);
 
     my $resolved = {};
@@ -213,11 +213,7 @@ sub resolve_data
     # We order by ID so we can check for redundant DBS items later
     my $all_items = {};
 
-    if ($has{BLOCK} && $has{DATASET} && !$static) {
-      die(PHEDEX::Web::Util::http_error(400,"A mixed block-level and dataset-level request is allowed only if it is also static\n"));
-    }
-
-    if ($has{DATASET} && !$static) {
+    if ($has{DATASET}) {
 	$ds_lookup = $userglob_like{DATASET};
 
 	$sql =  qq{
@@ -234,7 +230,7 @@ sub resolve_data
 	$all_items->{DATASET} = &PHEDEX::Core::DB::dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
     }
 
-    if ($has{BLOCK} || ($has{DATASET} && $static)) {
+    if ($has{BLOCK}) {
 	$b_lookup = $userglob_like{BLOCK};
 	$ds_lookup = $userglob_like{DATASET};
 
@@ -247,18 +243,14 @@ sub resolve_data
             where
 	};
 
+	%binds = ();
 	my @filters;
 	if ($has{BLOCK}) {
 	    push @filters,
 	    '('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'b.name', @$b_lookup).')';
 	}
-	if ($has{DATASET} && $static) {
-	    push @filters,
-	    '('.&PHEDEX::Core::SQL::filter_or_like($dbh, undef, \%binds, 'ds.name', @$ds_lookup).')';
-	}
 
 	$sql .= join ' or ', @filters;
-#	$sql .= " and b.is_open = 'n'";
 	$sql .= ' order by b.id';
 
 	$all_items->{BLOCK} = &PHEDEX::Core::DB::dbexec($dbh, $sql, %binds)->fetchall_arrayref({});
