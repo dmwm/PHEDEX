@@ -400,7 +400,7 @@ ENDEMAIL
         $$nodes_by_point{'Destination Node'} ||= [];
         push @{$$nodes_by_point{'Destination Node'}}, $$node1{'NAME'};
     }
-    foreach my $node1 (@{$$data{'MOVE_SOURCES'}{'NODE'}})
+    foreach my $node1 (@{$$data{'MOVE_SOURCES'}{'NODE'}}, @{$$data{'NODES'}{'NODE'}})
     {
         $$nodes_by_point{'Source Node'} ||= [];
         push @{$$nodes_by_point{'Source Node'}}, $$node1{'NAME'};
