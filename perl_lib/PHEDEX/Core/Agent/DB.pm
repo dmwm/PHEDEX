@@ -6,7 +6,7 @@ use POSIX;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
-our @all_needed = qw / MYNODE DBCONFIG SHARED_DBH DBH DBH_AGENT_IDENTIFIED DBH_ID_HOST DROPDIR ID_MYNODE ID_AGENT DBH_AGENT_UPDATE ME LABEL INBOX WORKDIR OUTDIR NODES NODES_ID IGNORE_NODES_IDS IGNORE_NODES ACCEPT_NODES ACCEPT_NODES_IDS /;
+our @all_db = qw / MYNODE DBCONFIG SHARED_DBH DBH DBH_AGENT_IDENTIFIED DBH_ID_HOST DROPDIR ID_MYNODE ID_AGENT DBH_AGENT_UPDATE ME LABEL INBOX WORKDIR OUTDIR NODES NODES_ID IGNORE_NODES_IDS IGNORE_NODES ACCEPT_NODES ACCEPT_NODES_IDS /; #/ needed parameter from calling class
 
 sub new
 {
@@ -16,7 +16,7 @@ sub new
   my $self = {};
 
 # Map requiered parameters from calling Class
-  map { $self->{$_} = ${$h{_AC}}{$_} } @all_needed;
+  map { $self->{$_} = ${$h{_AC}}{$_} } @all_db;
   $self->{_AC} = $h{_AC};
   
   return bless $self, $class;
@@ -53,7 +53,7 @@ sub connectAgent
 	$self->identifyAgent();
 	$self->checkAgentMessages();
     }
-    map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
+    map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
     
     return $dbh;
 }
@@ -538,7 +538,7 @@ sub expandNodes
     }
   }
 
-  map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
+  map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
   return @result;
 }
 
@@ -608,7 +608,7 @@ sub otherNodeFilter
     push(@afilter, "$idfield = :accept$n");
   }
 
-  map { $self->{_AC}->{$_} = $self->{$_} } @all_needed;
+  map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
 
   my $ifilter = (@ifilter ? join(" and ", @ifilter) : "");
   my $afilter = (@afilter ? join(" or ", @afilter) : "");

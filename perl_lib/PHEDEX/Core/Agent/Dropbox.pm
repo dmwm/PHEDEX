@@ -11,6 +11,8 @@ our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
 our @writeable_files = qw / LOGFILE PIDFILE /;
 
+our @all_dropbox = qw / NODAEMON ME NEXTDIR STARTTIME NODES IGNORE_NODES ACCEPT_NODES BAD JUNK DROPDIR DBCONFIG INBOX WORKDIR OUTDIR LOGFILE PIDFILE /; #/ needed parameters from calling class 
+
 sub new
 {
   my $proto = shift;
@@ -19,9 +21,7 @@ sub new
   my $self = {};
 
 # Map requiered parameters from calling Class
-  my @all = 
-  qw / NODAEMON ME NEXTDIR STARTTIME NODES IGNORE_NODES ACCEPT_NODES BAD JUNK DROPDIR DBCONFIG INBOX WORKDIR OUTDIR LOGFILE PIDFILE /;
-  map { $self->{$_} = ${$h{_AC}}{$_} } @all;
+  map { $self->{$_} = ${$h{_AC}}{$_} } @all_dropbox;
   $self->{_AC} = $h{_AC};
 
   return bless $self, $class;
