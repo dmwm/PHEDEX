@@ -116,8 +116,14 @@ Returns a hash of key:  glob pattern value: item type (DATASET or BLOCK)
 
 sub parseUserClob
 {
-    my (@userdata) = @_;
-    my %parsed;
+    my (%parsed,$userdata,@userdata);
+    foreach $userdata ( shift ) {
+      if ( ref($userdata) eq 'ARRAY' ) {
+        foreach ( @{$userdata} ) { push @userdata,$_; }
+      } else {
+        push @userdata, $userdata;
+      }
+    }
     foreach my $string (@userdata) {
 	$string =~ s/^\s+//;  $string =~ s/\s+$//;
 	my @data = split(/\s+/, $string);
