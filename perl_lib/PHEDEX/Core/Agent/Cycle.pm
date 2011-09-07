@@ -3,54 +3,54 @@ package PHEDEX::Core::Agent::Cycle;
 use strict;
 use warnings;
 
-
-our %params =
-	(
-	  WAITTIME	=> 7,
-	  AUTO_NAP      => 1,
-	  STARTTIME	=> undef,
-	  DEBUG         => $ENV{PHEDEX_DEBUG} || 0,
- 	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
-	  NOTIFICATION_HOST	=> undef,
-	  NOTIFICATION_PORT	=> undef,
-	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
-	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
-	);
+our @all_cycle =  qw //; #/ parameters needed from calling class
 
 sub new
 {
-    my $proto = shift;
-    my $class = ref($proto) || $proto;
-    my $self  = $class->SUPER::new(@_);
-    my %p = %params;
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my %h = @_;
+  my $self = {};
 
-    my %args = (@_);
+# Map requiered parameters from calling Class 
+  map { $self->{$_} = ${$h{_AC}}{$_} } @all_cycle;
+  $self->{_AC} = $h{_AC};
 
-    bless $self, $class;
-
-#   Start a POE session for myself
-    POE::Session->create
+# Start a POE session for myself
+  POE::Session->create
       (
         object_states =>
         [
           $self =>
           {
-            _preprocess		=> '_preprocess',
-            _process_start	=> '_process_start',
-            _process_stop	=> '_process_stop',
-            _maybeStop		=> '_maybeStop',
-	    _make_stats		=> '_make_stats',
+            _preprocess         => '_preprocess',
+            _process_start      => '_process_start',
+            _process_stop       => '_process_stop',
+            _maybeStop          => '_maybeStop',
+            _make_stats         => '_make_stats',
 
             _start   => '_start',
             _stop    => '_stop',
-	    _child   => '_child',
+            _child   => '_child',
             _default => '_default',
           },
         ],
       );
 
+  return bless $self, $class;
+}
 
-    return $self;
+# this workaround is ugly but allow us NOT rewrite everything
+sub AUTOLOAD
+{
+  my $self = shift;
+  my $attr = our $AUTOLOAD;
+  $attr =~ s/.*:://;
+  return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
+
+# if $attr exits, catch the reference to it
+  if ( $self->{_AC}->can($attr) ) { $self->{_AC}->$attr(@_); } 
+  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for Cycle"); }     
 }
 
 sub _start
