@@ -6355,129 +6355,6 @@ sub output
 1;
 
 ######################################################################
-package Web25::Activity::FileInfo;
-use strict; use warnings;
-use base "Web25::Page";
-import Web25::Common;
-use CGI qw(:standard);
-use POSIX qw(strftime);
-
-our $INDEX = { LIST => 0, ORDER => 100, TITLE => "File Info" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub myurl
-{
-  my ($self, %args) = @_;
-  my @save = qw(to_node from_node state);
-
-  # Return bare link if we are switching pages
-  return $self->SUPER::myurl(%args)
-    if ($args{"page"} && $args{"page"} ne "Activity::FileInfo");
-
-  # Keep my if remaining on the same page (but e.g. different instance)
-  return $self->SUPER::myurl($self->urlparams(@save), %args);
-}
-
-sub output
-{
-  my ($self) = @_;
-  my %params = $self->validate_all
-      (
-       allow =>    [qw(to_node from_node state priority)],
-       required => [qw(to_node from_node state priority)],
-       spec  => 
-       {
-	   to_node   => { using => 'node' },
-	   from_node => { using => 'node' },
-	   state     => { allowing => [qw(exported transferring transferred assigned)] },
-	   priority  => { using => 'pos_int' },
-       }
-       );
-
-
-  my $to_node   = $params{to_node};
-  my $from_node = $params{from_node};
-  my $state     = $params{state};
-  my $priority  = $params{priority};
-
-  my $state_join = '';
-  my $state_cols = 'NULL from_pfn, NULL to_pfn, NULL space_token,';
-  my $state_where = '';
-  if    ($state eq 'exported')     { 
-      $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
-      $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
-  } elsif ($state eq 'transferring') {
-      $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
-      $state_cols = 'ts.from_pfn, ts.to_pfn, ts.space_token,';
-      $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
-  } elsif ($state eq 'transferred')  { 
-      $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
-  elsif ($state eq 'assigned') {
-      $state_where = 'and xt.id not in ( select task from t_xfer_task_export )';
-  } else {
-      $self->alert('Invalid state');
-  }
-     
-  my $sql = qq{
-    select f.id, f.logical_name, f.filesize,
-           $state_cols
-	   xt.time_assign, err.cnt num_errors
-      from t_xfer_task xt
-      $state_join
-      join t_xfer_file f on f.id = xt.fileid
-      join t_adm_node ns on ns.id = xt.from_node
-      join t_adm_node nd on nd.id = xt.to_node
-      left join (select xe.fileid, xe.from_node, xe.to_node, count(*) cnt 
-                   from t_xfer_error xe
-                  group by xe.fileid, xe.from_node, xe.to_node
-                 ) err 
-           on     err.fileid = xt.fileid 
-              and err.from_node= xt.from_node 
-              and err.to_node = xt.to_node
-    where ns.name = :from_node
-      and nd.name = :to_node
-      and xt.priority = :priority
-      $state_where
-      order by xt.time_assign, f.logical_name};
-
-  my $query = &dbexec($$self{DBH}, $sql, 
-		      ':from_node' => $from_node,
-		      ':to_node' => $to_node,
-		      ':priority' => $priority);
-  print { $$self{CONTENT} }
-    "<h1>Files $state from $from_node to $to_node.</h1>\n",
-    "<ol align='left'>\n";
-  while (my $row = $query->fetchrow_arrayref)
-  {
-    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $space_token, $assigned, $nerrors) = @$row;
-    my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
-				'tofilter' => $to_node,
-				'fromfilter' => $from_node,
-				'fileid' => $fileid);
-    print { $$self{CONTENT} }
-    "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
-    "<b>size</b>=$size<br />",
-    ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
-    ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
-    ($space_token ? "<b>to_pfn</b>=@{[&escapeHTML($space_token)]}<br />" : ""),
-    ($nerrors ? "<span class='alarm'><b>errors</b>=$nerrors</span> <a href='$errorurl'>(View)</a><br />"  : ""),
-    ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
-    "<br /></li>\n";
-  }
-  print { $$self{CONTENT} } "</ol></p>\n";
-}
-
-1;
-
-######################################################################
 package Web25::Activity::ErrorInfo;
 use strict; use warnings;
 use base "Web25::Page";
@@ -6768,6 +6645,89 @@ sub output
 	print { $$self{CONTENT} } "</div>";
     }
     print {$$self{CONTENT}} $pager->pager();
+}
+
+1;
+
+######################################################################
+package Web25::Activity::Latency;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard unescape);
+
+#our $INDEX = { LIST => 1, ORDER => 9, TITLE => "Latency",
+#	       LINK_TITLE => "Show block & file latency information" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+#sub myurl
+#{
+#  my ($self, %args) = @_;
+#  my @save = qw(tofilter fromfilter andor);
+#
+#  # Return bare link if we are switching pages
+#  return $self->SUPER::myurl(%args)
+#    if ($args{"page"} && ($args{"page"} ne "Activity::Latency"));
+#
+#  if ( !$args{page} or $args{page} eq 'Activity::Latency' ) {
+#    @save = qw(tofilter fromfilter blockfilter priority);
+#  }
+#  # Keep my if remaining on the same page (but e.g. different instance)
+#  return $self->SUPER::myurl($self->urlparams(@save), %args);
+#}
+
+sub output
+{
+  my ($self) = @_;
+#  my %params = $self->validate_all
+#      (
+#       allow => [qw(tofilter fromfilter blockfilter priority)],
+#       spec  => 
+#       {
+#	   tofilter    => { using => 'regex', default => '.*' },
+#	   fromfilter  => { using => 'regex', default => '.*' },
+#	   blockfilter => { using => 'regex', default => '.*' },
+#	   priority    => { allowing => [qw(any high normal low)],
+#			    default   => 'any' },
+#       }
+#       );
+## Explicit checking of arguments
+#  foreach ( qw( blockfilter ) ) {
+#    if ( $params{$_} ) {
+#      $params{$_} = unescape($params{$_});
+#      if ( $params{$_} ne '.*' &&
+#           $params{$_} !~ m%^[a-zA-Z0-9:.\-_/#*|]*$% ) {
+#        die("The $_ parameter (foo) to bar did not pass");
+#      }
+#    }
+#  }
+#  foreach ( qw( fromfilter tofilter ) ) {
+#    if ( $params{$_} ) {
+#      $params{$_} = unescape($params{$_});
+#      if ( $params{$_} ne '.*' &&
+#           $params{$_} !~ m%^!?[_,A-Z,a-z,0-9, .*()|]*$% ) {
+#        die("The $_ parameter (foo) to bar did not pass");
+#      }
+#    }
+#  }
+#
+#  my $tofilter    = $params{tofilter};
+#  my $fromfilter  = $params{fromfilter};
+#  my $priority    = $params{priority};
+#  my $blockfilter = $params{blockfilter};
+#
+#  my $now = time();
+#  my @nodes = sort $self->fetch_nodes();
+
+  print {$$self{CONTENT}} "<div id='Activity::Latency'></div>";
 }
 
 1;
@@ -7872,7 +7832,7 @@ sub output_page
   my ($self) = @_;
 
   my (@admin_auth,%admin_opts,%admin_grps);
-my $TW = 1;
+my $TW = 0;
 if ( $TW ) { # TW
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
