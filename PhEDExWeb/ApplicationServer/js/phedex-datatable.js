@@ -416,7 +416,7 @@ PHEDEX.DataTable = function (sandbox, string) {
               if ( t.nestedColumns ) {
                 this.dataTable = new Yw.NestedDataTable(this.dom.datatable, t.columns, this.dataSource, t.nestedColumns, this.nestedDataSource, masterConfig, nestedConfig);
               } else {
-                this.dataTable = new Yw.DataTable(this.dom.datatable, t.columns, this.dataSource, dtConfig);
+                this.dataTable = new Yw.DataTable(this.dom.datatable, t.columns, this.dataSource, masterConfig);
               }
               this.dataTable.subscribe('columnSortEvent', function (obj) {
                 return function (ev) {
