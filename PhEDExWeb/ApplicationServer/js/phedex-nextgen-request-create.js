@@ -327,8 +327,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         config.Panel = NUtil.NodePanel( this, Dom.get(labelLower+'-panel') );
 
         d.destination = Dom.get(labelLower+'-container');
-        var onPanelClick = function(obj) {
-          return function(event, matchedEl, container) {
+        this.onPanelClick = function(obj) {
+          return function(event, matchedEl, container) { /* None of these arguments are used! They are declared only for completion... */
             var panel = config.Panel,
                 elList = panel.elList,
                 i, elList;
@@ -342,9 +342,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             } else {
               PxS.notify(obj.id,'setValueFor',labelForm);
             }
+            return config.node.length;
           }
         }(this);
-        YAHOO.util.Event.delegate(d.destination, 'click', onPanelClick, 'input');
+        YAHOO.util.Event.delegate(d.destination, 'click', this.onPanelClick, 'input');
       },
       makeControlTextbox: function(config,parent) {
         var label = config.label,
@@ -522,19 +523,11 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
           }
         }
-        PxS.notify(this.id,'onPreviewSubmit');
-      },
-      makeRequestStatic: function() {
-        var i, el, elList=this.subscription_type.elList, values=this.subscription_type.values, value;
-        for (i in values) {
-          if ( values[i] == 'static' ) { value = i; }
+        if ( this.onPanelClick() ) {
+          PxS.notify(this.id,'onPreviewSubmit'); // still some nodes left, so re-generate the preview
+        } else {
+          Dom.addClass(dom.preview,'phedex-invisible'); // no nodes left, hide the preview
         }
-        for (i in elList) {
-          el = elList[i];
-          if ( el.value == value ) { el.checked = true; }
-          else                     { el.checked = false; }
-        }
-        PxS.notify(this.id,'onPreviewSubmit');
       },
       requestCallback: function(data,context,response) {
         var dom = this.dom, str, msg, rid;
@@ -761,10 +754,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                 obj.suppressExcessNodes(arr[1]);
                 break;
               }
-              case 'makeRequestStatic': {
-                obj.makeRequestStatic();
-                break;
-              }
               case 'destroy': {
                 delete this.previewId;
                 break;
@@ -794,7 +783,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             data_items = dom.data_items,
             menu, menu_items,
             data={}, args={}, tmp, value, block, blocks, dataset, xml,
-            panel, elList, el, i, has={ blocks:0, datasets:0 };
+            panel, elList, el, i;
 
         if ( !this.previewId ) {
           _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
@@ -817,11 +806,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             blocks = data.datasets[dataset];
             if ( typeof(blocks) == 'number' ) {
               args.data.push(dataset);
-              has.blocks++;
             } else {
               for ( block in blocks ) {
                 args.data.push(block);
-                has.datasets++;
               }
             }
           }
@@ -833,10 +820,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
         args.type = this.type;
         args.dbs = dbs.value.innerHTML;
-        if ( has.blocks && has.datasets && ( args['static'] == 'n' ) ) {
-          this.setSummary('error',"A request with both blocks and datasets must also be declared as 'static' <a href='#' onclick=\"PxS.notify('"+this.id+"','makeRequestStatic')\">fix this for me</a>");
-          return;
-        }
         PHEDEX.Datasvc.Call({
                               api:'previewrequestdata',
                               args:args,
