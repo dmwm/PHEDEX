@@ -558,6 +558,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
       },
       onAcceptFail: function(text) {
         var dom = this.dom;
+        Dom.addClass(dom.preview,'phedex-invisible');
         Dom.removeClass(dom.results,'phedex-invisible');
         Dom.addClass(dom.results,'phedex-box-red');
         dom.results_label.innerHTML = 'Error:';
@@ -597,7 +598,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           for (i in tmp) {
             block = tmp[i];
             if ( block != '' ) {
-              if ( block.match(/(\/[^/]*\/[^/]*\/[^/#]*)(#.*)?$/ ) ) {
+              if ( block.match(/(\/[^/]+\/[^/]+\/[^/#]+)(#.*)?$/ ) ) {
                 dataset = RegExp.$1;
                 if ( dataset == block ) { data.datasets[dataset] = 1; }
                 else                    { data.blocks[block] = 1; }
@@ -981,9 +982,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       };
       this.makeControlTextbox(this.data_items,form);
 
-// Preview
-      this.makeControlPreview(form);
-
 // DBS
       this.dbs = {
         instanceDefault:{
@@ -1272,6 +1270,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       };
       this.makeControlTextbox(this.comments,form);
 
+// Preview
+      this.makeControlPreview(form);
+
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
     }
@@ -1307,9 +1308,6 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         label:'Data Items'
       };
       this.makeControlTextbox(this.data_items,form);
-
-// Preview
-      this.makeControlPreview(form);
 
 // DBS
       this.dbs = {
@@ -1397,6 +1395,9 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         label:'Comments'
       };
       this.makeControlTextbox(this.comments,form);
+
+// Preview
+      this.makeControlPreview(form);
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
