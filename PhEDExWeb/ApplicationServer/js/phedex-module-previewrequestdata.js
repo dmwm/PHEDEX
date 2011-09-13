@@ -205,11 +205,12 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           this.setSummary(state,text);
           return;
         }
-
         if ( time_start ) {
           text += '<br/>'+Icon.Warn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(time_start);
         }
 
+//      Now for information related to subscriptions and replicas
+//      First, we only report for nodes that were part of the request. Eliminate others
         j=true;
         for (node in summary) {
           s = summary[node];
@@ -217,14 +218,26 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             delete summary[node];
             continue;
           }
+        }
+
+//      Next, check if _all_ items are subscribed to the destination
+        for (node in summary) {
           if ( s.subscribed == known ) {
             if ( j ) {
               if ( type == 'xfer' ) {
-                text += "<br/>"+Icon.Warn+"All matched items are already subscribed to <strong>"+node+"</strong>";
+                if ( known == 1 ) {
+                  text += "<br/>"+Icon.Warn+'Item is already subscribed to <strong>'+node+'</strong>';
+                } else {
+                  text += "<br/>"+Icon.Warn+'All matched items are already subscribed to <strong>'+node+'</strong>';
+                }
                 excessNodes = node;
                 nExcessNodes = 1;
               } else {
-                text += '<br/>'+Icon.OK+'All matched items are subscribed to <strong>'+node+'</strong>';
+                if ( known == 1 ) {
+                  text += '<br/>'+Icon.OK+'Item is subscribed to <strong>'+node+'</strong>';
+                } else {
+                  text += '<br/>'+Icon.OK+'All matched items are subscribed to <strong>'+node+'</strong>';
+                }
               }
               j=false;
             } else {
@@ -235,16 +248,24 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             delete isRequired[node];
           }
         }
+
+//      ...offer to suppress nodes that are already subscribed, applies only to xfer requests, since nExcessNodes is not set for deletes!
         if ( nExcessNodes ) {
           text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
                   (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
         }
+
+//      Now check if all items have unsubscribed replicas at the destinations
         j=true;
         for (node in summary) {
           s = summary[node];
           if ( s.OK == known ) {
             if ( j ) {
-              text += '<br/>'+Icon.OK+'All matched items have replicas at <strong>'+node+'</strong>';
+              if ( known == 1 ) {
+                text += '<br/>'+Icon.OK+'Item has a replica at <strong>'+node+'</strong>';
+              } else {
+                text += '<br/>'+Icon.OK+'All matched items have replicas at <strong>'+node+'</strong>';
+              }
               j=false;
             } else {
               text += ', <strong>'+node+'</strong>';
@@ -254,6 +275,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
         }
 
+//      for transfers, check if only some of the items (not all) are already subscribed.
         if ( type == 'xfer' ) {
           j=true;
           for (node in summary) {
@@ -271,7 +293,11 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
         }
 
+//      now check if only some items have replicas
         j=true;
+        if ( summary.length && ( known == 1 ) ) {
+debugger; // is this possible???
+        }
         for (node in summary) {
           if ( j ) {
             if ( type == 'xfer' ) {
