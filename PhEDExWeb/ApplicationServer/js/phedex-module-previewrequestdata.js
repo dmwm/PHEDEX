@@ -293,45 +293,45 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
         }
 
-//      now check if only some items have replicas
-        j=true;
-        if ( summary.length && ( known == 1 ) ) {
-debugger; // is this possible???
-        }
-        for (node in summary) {
-          if ( j ) {
-            if ( type == 'xfer' ) {
-              text += '<br/>'+Icon.Warn+'Some items already have replicas at <strong>'+node+'</strong>';
-            } else {
-              text += '<br/>'+Icon.Warn+'Only some items have replicas at <strong>'+node+'</strong>';
-            }
-            j=false;
-          } else {
-            text += ', <strong>'+node+'</strong>';
-          }
-          delete summary[node];
-          delete isRequired[node];
-        }
-
-        if ( type == 'delete' ) {
+        if ( known > 1 ) {
+//        now check if only some items have replicas
           j=true;
-          for (node in isRequired) {
+          for (node in summary) {
             if ( j ) {
-              text += '<br/>'+Icon.Error+'No items have replicas at <strong>'+node+'</strong>';
+              if ( type == 'xfer' ) {
+                text += '<br/>'+Icon.Warn+'Some items already have replicas at <strong>'+node+'</strong>';
+              } else {
+                text += '<br/>'+Icon.Warn+'Only some items have replicas at <strong>'+node+'</strong>';
+              }
               j=false;
-              excessNodes = node;
-              nExcessNodes = 1;
             } else {
               text += ', <strong>'+node+'</strong>';
-              excessNodes += ' '+node;
-              nExcessNodes++;
+            }
+            delete summary[node];
+            delete isRequired[node];
+          }
+
+          if ( type == 'delete' ) {
+            j=true;
+            for (node in isRequired) {
+              if ( j ) {
+                text += '<br/>'+Icon.Error+'No items have replicas at <strong>'+node+'</strong>';
+                j=false;
+                excessNodes = node;
+                nExcessNodes = 1;
+              } else {
+                text += ', <strong>'+node+'</strong>';
+                excessNodes += ' '+node;
+                nExcessNodes++;
+              }
+            }
+            if ( nExcessNodes ) {
+              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
+                    (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
             }
           }
-          if ( nExcessNodes ) {
-            text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
-                    (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
-          }
         }
+
         text += '<br>';
         this.setSummary('OK',text);
 
