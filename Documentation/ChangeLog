@@ -1,3 +1,52 @@
+Changes for PhEDEx 4.0.1
+
+Changes for Schema and DB config
+  - Adding missing foreign key constraints and indexes on destination node in 4.0 subscription tables
+  - Add OPS* roles with necessary write privileges for operations (e.g. FileDeleteTMDB) but no admin privileges
+  - Add devdb11 (Oracle 11gR2 development DB) in tnsnames.ora
+	
+Changes for Central Agents
+  - BlockAllocator: trigger reactivation of inactive block replicas after direct deletion, see Sav #59403
+  - BlockAllocator: Update files/bytes counts for entries in latency log table for active blocks (Sav #79857)
+  - BlockDeactivate: wait before deactivating recently deleted blocks, to let BlockMonitor update the block replicas (partial fix for Sav #79639)
+  - FileRouter: Reduce expiration time for requests with no valid transfer path (#75456). This will cause the FileRouter to check more often
+	if the agents/links for this transfer have been (re-)enabled.
+  - PerfMonitor: fixes in link latency calculation that caused the link latency to be either 0 or overestimated in the link_param table, causing the FileRouter
+	to use incorrect values for routing. (#83051 and #83102)
+  - RequestAllocator: re-evaluate pending wildcard requests, to make sure that the request size preview shown in the request approval page is up-to-date
+                                                                                                                                            
+
+Changes for Site Agents
+  - FileDownload: add transfer backend for FDT transfers
+  - FileDownload: when fetching new tasks from the DB, set their status to 'infxer' in bulk (should increase agent efficiency, and protect central agents from #82112)
+  - FileDownload: enable caching mechanism for TFC rules (to avoid fetching the rules from the DB for every transfer,
+	also increasing agent efficiency and protecting central agents from #82112)
+  - FileDownload: trim central part of transfer log before uploading to DB if the logfile is longer than 100k characters
+  - FileDownload: add glite-transfer-submit error message to transfer log in case of failure in FTS submission
+  - FileDownload: add -max-tasks option to set the maximum number of transfer tasks to fetch from DB (default 15000)
+  - FileDownload: fix to prevent losing tasks after an agent restart (#62299)
+  - FileDownload: crash fix in FTS backend when trying to submit FTS jobs with 0 tasks
+  - FileDownload: fix for using wrong space-tokens in FTS jobs (#82373)
+  - FileDownload: crash fix for FTS backend when copyjob file cannot be written (#73735)
+  - FileDownload: FTS backend: immediately fetch more tasks from the DB when all current tasks are done
+  - FileDownload: SRM backend - added newline at end of copyjob file
+  - FileDownload: transfer jobs that cannot be monitored are now correctly abandoned after the timeout
+  - BlockDownloadVerify: Using a more aggressive clean-up of the namespace cache
+  - BlockDownloadVerify: in the dcache namespace, pass the PRELOAD library correctly from the agent configuration
+  - Watchdog: report status of Watchdog Agent to DB
+  - Watchdog: remove "mail" plugin for report notification (duplicate of "email")
+		
+Changes for Operator Tools
+  - Add phedex CLI support for the ErrorLogSummary datasvc API.
+  - Fix space-token handling in phedex CLI for the LFN2PFN datasvc API
+	
+Core library changes
+  - PHEDEX::Core::JobManager : do not die if the JobManager cannot open the job logfile, simply write to STDOUT instead.
+	- Fixes some crashes, including a FileDownload agent crash reported in Sav #73735
+  - PHEDEX::Core::Util : fix for an "uninitialized variable" warning
+  - PHEDEX::RequestAllocator::Core : fix parsing of arguments for 'flat' data format (used by website)
+	
+        	
 Changes for PhEDEx 4.0.0
 
 Changes for Schema
