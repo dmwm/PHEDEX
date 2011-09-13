@@ -14,7 +14,7 @@ PHEDEX.Loader = function(opts) {
     * @protected
     */
     var _dependencies = {
-    'treeview-css':   { type: 'css', fullpath: '/yui/examples/treeview/assets/css/menu/tree.css' },
+    'treeview-css':   { type: 'css', fullpath: '/css/tree.css' },
     'phedex-css':     { type: 'css', fullpath: '/css/phedex.css' },
     'nesteddatatable-css': { type:'css', fullpath:'/css/nesteddatatable.css' },
     'nesteddatatable':  { type:'js',  fullpath:'/js/yui-nesteddatatable.js', requires:['datatable','nesteddatatable-css'] },
