@@ -191,7 +191,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           this.ctl[field] = button = new Button({
             id:          'phedex-data-subscriptions-action',
             name:        'phedex-data-subscriptions-action',
-            label:       "<em class='yui-button-label'>"+admin_menu[0].text+'</em>',
+            label:        admin_menu[0].text,
             type:        'menu',
             lazyloadmenu: false,
             menu:         admin_menu,
@@ -532,7 +532,7 @@ try { // TW Build the data-table!
                     previous;
                 if ( event.prevValue ) { previous = event.prevValue.value; }
                 if ( value == previous ) { return; }
-                  this.set('label', ("<em class='yui-button-label'>" + text + '</em>'));
+                  this.set('label', text);
 //                 _sbx.notify(this.id,_field,value,text);
               };
             }
@@ -602,7 +602,7 @@ try { // TW Build the data-table!
         button = new Button({
           id:          'menubutton-'+id,
           name:        'menubutton-'+id,
-          label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+          label:        menu[0].text,
           type:        'menu',
           lazyloadmenu: false,
           menu:         menu,
@@ -633,7 +633,7 @@ try { // TW Build the data-table!
             button = new Button({
               id:          'menubutton-'+id,
               name:        'menubutton-'+id,
-              label:       "<em class='yui-button-label'>"+menu[0].text+'</em>',
+              label:        menu[0].text,
               type:        'menu',
               lazyloadmenu: false,
               menu:         menu,
