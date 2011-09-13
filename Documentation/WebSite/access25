@@ -2649,6 +2649,7 @@ sub generate
     $result =~ s/\@$key\@/$value/g;
   }
 
+  print header(-type => 'text/html'), $result;
 }
 
 1;
