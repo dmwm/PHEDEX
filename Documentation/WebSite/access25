@@ -277,7 +277,6 @@ sub format_percent
   return $n ? sprintf("%.1f %%", $n*100) : '&#8211;';
 }
 
-
 # Format a file size as a string.  The value is automatically
 # abbreviated with a k/M/G/T/P/E suffix, either the first that
 # applies or a minimum scale requested by the caller.  The default
@@ -522,7 +521,6 @@ sub fetch_nodes
 # TW Need to move to PHEDEX::Web::Util
     return PHEDEX::Web::Util::fetch_nodes(@_);
 }
-
 
 # Returns a list of groups.
 # If argument 'with_ids' is true, then return a hash of name => id
@@ -2490,44 +2488,6 @@ sub generate
       $$replacements{THIS_IS_A_TEST} = '';
   }
 
-  # Prepare our cookies
-  # The first cookie, 'PhEDEx', contains a session id and the server
-  # name (so the frontend redirects to the same backend for the
-  # session)
-  # The second cookie comes from the security module
-  my @cookies;
-# TW Deprecate
-#  my $session_name = 'PhEDEx';
-#  if ($$index{SESSION}) {
-#      require CGI::Session;
-#      CGI::Session->name($session_name);
-#      my $session_dir = $$self{CONFIG}{SESSION_DIR} || '/tmp/cgi-sessions';
-#      my %cookie_params = cookie($session_name);
-#      my $session = new CGI::Session("driver:File", $cookie_params{SESSIONID}, {Directory=>$session_dir});
-#      $session->expire("+24h"); # expire time is 24 hours
-#      $$self{SESSION} = $session;
-#      $$self{SESSIONID} = $session->id();
-#      my $cookie = cookie(-name=>$session_name,
-#			  -value=>{ SESSIONID => $$self{SESSIONID},
-## cookie redirection disabled until the security of this method is reviewed
-##				    SERVER    => server_name() 
-#				    },
-#			  -secure=>1, -httponly=>1,
-#			  -expires=>'');
-#      push @cookies, $cookie;
-#  } else {
-#      # remove the cookie if this page does not use sessions
-#      my $cookie = cookie(-name=>$session_name,
-#			  -value=>'',
-#			  -secure=>1, -httponly=>1,
-#			  -expires=>"-1y");
-#      push @cookies, $cookie;
-#  }
-
-  if(( my $cookie = $$self{SECMOD}->getCookie() )) {
-      push @cookies, $cookie;
-  }
-  
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
   my ($output, $options, $head) = ("", "", "");
@@ -2683,21 +2643,12 @@ sub generate
   $$replacements{OPTIONS} = join("\n", $options);
 
   # Instantiate the desired template and spit it out
-#  my $template = param('layout');
-#  $template = 'default'
-#    if (! $template || ! grep($template eq $_, qw(default bare)));
-#
-#  my $result = ($template eq 'bare' ? $TEMPLATE_BARE : $TEMPLATE_DEFAULT);
   my $result = $TEMPLATE_DEFAULT;
   while (my ($key, $value) = each %$replacements)
   {
     $result =~ s/\@$key\@/$value/g;
   }
 
-  print header(-type => 'text/html', -cookie=>\@cookies), $result;
-
-# TW Deprecate
-#  if ($$index{SESSION}) { $$self{SESSION}->flush(); }
 }
 
 1;
@@ -4165,8 +4116,6 @@ import Web25::Common;
 use CGI qw(:standard);
 
 our $INDEX = { LIST => 1, ORDER => 1, TITLE => "Create Request",
-# TW Deprecate
-#	       SESSION => 0,
 	       LINK_TITLE => "Create a new request",
 	       SECURE => 0 };
 
@@ -7832,7 +7781,7 @@ sub output_page
   my ($self) = @_;
 
   my (@admin_auth,%admin_opts,%admin_grps);
-my $TW = 0;
+my $TW = 1;
 if ( $TW ) { # TW
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
@@ -9327,55 +9276,6 @@ sub output
 }
 
 1;
-
-######################################################################
-# TW Deprecate
-#package Web25::Test::Test;
-#use strict; use warnings;
-#use base "Web25::Page";
-#import Web25::Common;
-#use CGI qw(:standard);
-#use CGI::Session;
-#
-#our $INDEX = { LIST => 0, ORDER => 100, TITLE => "Test Functions",
-#	       SESSION => 1,
-#	       LINK_TITLE => "Testing Page" };
-#
-#sub new
-#{
-#  my $proto = shift;
-#  my $class = ref($proto) || $proto;
-#  my $self = $class->SUPER::new(@_);
-#  bless $self, $class;
-#  return $self;
-#}
-#
-#sub output
-#{
-#  my ($self) = @_;
-#
-#   &dump_var($$self{CONTENT}, 'TESTING', $TESTING);
-#   return if (!$TESTING);  # For security
-#
-#  use PHEDEX::Web::Util;
-#  my %params = ( 
-#		 good_ds => '/X/Y/Z', 
-#		 bad_ds  => '/I/AM/BAD',
-#		 foo     => [qw(/a/b/c /x/y/z /bop/baz/bar* /one/two/three)],
-#		 );
-#  my %val_spec = (allow => [qw(good_ds bad_ds foo)],
-#		  spec =>  { foo => { using => [qw(dataset)], multiple => 1 } },
-#	      );
-#
-#			
-#  &dump_var($$self{CONTENT}, 'original args', \%params);
-#  &dump_var($$self{CONTENT}, 'validation spec', \%val_spec);
-#  my %args = &validate_params(\%params, %val_spec); # dies on problems
-#  print {$$self{CONTENT}} "<p>validation passed!</p>";
-#  &dump_var($$self{CONTENT}, 'clean args', \%args);
-#}
-#
-#1;
 
 ######################################################################
 package main;
