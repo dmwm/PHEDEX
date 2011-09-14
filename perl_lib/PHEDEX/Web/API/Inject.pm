@@ -23,7 +23,7 @@ on how many files, blocks, and datasets were injected etc.
 		PHEDEX::Core::XML (an example follows)
  strict		throw an error if it can't insert the data exactly as
 		requested. Otherwise simply return the statistics. The
-		default is to be strict, you can turn it off with 'nostrict'.
+		default is to be strict, you can turn it off with 'strict=0'.
 
 =head2 Input
 
@@ -104,7 +104,7 @@ Returns an C<< <injected> >> element, with the following attributes:
  closed_datasets	number of closed datasets injected
  closed_blocks		number of closed blocks injected
 
-If 'nostrict' is specified, attempting to re-inject already-injected data will
+If 'strict=0' is specified, attempting to re-inject already-injected data will
 not give an error, but all the stats values will be zero.
 
 =cut
