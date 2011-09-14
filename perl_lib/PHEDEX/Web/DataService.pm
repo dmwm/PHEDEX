@@ -69,12 +69,6 @@ sub handler
 
     $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
 
-#    Suppress the error-document, it doesn't play nicely with code-based clients.
-#    my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
-#    if ($error_document)
-#    {
-#      $r->custom_response($error, $error_document);
-#    }
     $r->custom_response($error, $message);
     $r->status($error);
     return $error;
