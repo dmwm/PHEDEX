@@ -191,7 +191,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           this.ctl[field] = button = new Button({
             id:          'phedex-data-subscriptions-action',
             name:        'phedex-data-subscriptions-action',
-            label:        admin_menu[0].text,
+            label:       '<em>Choose an action</em>',
             type:        'menu',
             lazyloadmenu: false,
             menu:         admin_menu,
@@ -231,8 +231,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0],
-                value  = arr[1], i;
+            var action = arr[0], i;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               arr.shift();
               obj[action].apply(obj,arr);
@@ -241,6 +240,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             switch (action) {
               case 'Reset-filters': {
                 for ( i in obj._default ) { obj._default[i](); }
+                break;
+              }
+              case 'menuChange': {
+                if ( arr[1] == 'action' ) {
+                  if ( arr[2] == 'groupchange' ) {
+                    obj.changeGroupButton.set('disabled',false);
+                  } else {
+                    obj.changeGroupButton.set('disabled',true);
+                  }
+                }
                 break;
               }
               default: {
@@ -533,7 +542,7 @@ try { // TW Build the data-table!
                 if ( event.prevValue ) { previous = event.prevValue.value; }
                 if ( value == previous ) { return; }
                   this.set('label', text);
-//                 _sbx.notify(this.id,_field,value,text);
+                _sbx.notify(obj.id,'menuChange',_field,value,text);
               };
             }
 
@@ -613,35 +622,36 @@ try { // TW Build the data-table!
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
         }(button,0);
       },
-      makeGroupMenu: function(el,menu) {
-            var groups=this.groups, menu, button, i, id=PxU.Sequence();
-            if ( typeof(el) == 'string' ) { el = Dom.get(el); }
-            if ( !groups ) {
-              el.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
-              Dom.addClass(e,'phedex-box-red');
-              _sbx.notify(this.id,'abort');
-              return;
-            }
-            el.innerHTML='';
-            if ( !menu ) { menu = []; }
-            for (i in groups ) {
-              group = groups[i];
-              if ( !group.name.match(/^deprecated-/) ) {
-                menu.push( { text:group.name, value:group.id } );
-              }
-            }
-            button = new Button({
-              id:          'menubutton-'+id,
-              name:        'menubutton-'+id,
-              label:        menu[0].text,
-              type:        'menu',
-              lazyloadmenu: false,
-              menu:         menu,
-              container:    el
-            });
-            button.getMenu().cfg.setProperty('scrollincrement',5);
-            return button;
-          },
+      makeGroupMenu: function(el,menu,_default) {
+        var groups=this.groups, menu, button, i, id=PxU.Sequence();
+        if ( typeof(el) == 'string' ) { el = Dom.get(el); }
+        if ( !groups ) {
+          el.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
+          Dom.addClass(e,'phedex-box-red');
+          _sbx.notify(this.id,'abort');
+          return;
+        }
+        el.innerHTML='';
+        if ( !menu ) { menu = []; }
+        for (i in groups ) {
+          group = groups[i];
+          if ( !group.name.match(/^deprecated-/) ) {
+            menu.push( { text:group.name, value:group.id } );
+          }
+        }
+        if ( !_default ) { _default = menu[0].text; }
+        button = new Button({
+          id:          'menubutton-'+id,
+          name:        'menubutton-'+id,
+          label:       _default,
+          type:        'menu',
+          lazyloadmenu: false,
+          menu:         menu,
+          container:    el
+        });
+        button.getMenu().cfg.setProperty('scrollincrement',5);
+        return button;
+      },
       gotGroupMenu: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
 // I have two group menus on this form, one in the filter-panel, one in the update-subscription form
@@ -656,8 +666,10 @@ try { // TW Build the data-table!
         }(button,0);
 
         field = 'phedex-data-subscriptions-ctl-group';
-        button = obj.makeGroupMenu(field,[]);
+        button = obj.makeGroupMenu(field,[], '<em>Choose a group</em>');
         button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange(field));
+        button.set('disabled',true);
+        obj.changeGroupButton = button;
       }
     }
   }
