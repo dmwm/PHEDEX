@@ -152,7 +152,7 @@ PHEDEX.Nextgen.Activity.Latency = function(sandbox) {
           d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data-item specified</span>";
           return;
         }
-        d.datatable.innerHTML = NUtil.stdLoading('loading latency data...');
+        d.datatable.innerHTML = PxU.stdLoading('loading latency data...');
         d.plot.innerHTML = '';
         PHEDEX.Datasvc.Call( { api:'blocklatency', callback:this.gotLatencyData, args:{block:val} } );
       },

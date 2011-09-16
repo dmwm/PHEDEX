@@ -728,7 +728,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         Dom.removeClass(dom.results,'phedex-invisible');
         Dom.addClass(dom.results,'phedex-box-yellow');
         dom.results_label.innerHTML = 'Status:';
-        dom.results_text.innerHTML  = NUtil.stdLoading('Submitting request (please wait)');
+        dom.results_text.innerHTML  = PxU.stdLoading('Submitting request (please wait)');
         if ( this.type == 'xfer'   ) { api = 'subscribe'; }
         if ( this.type == 'delete' ) { api = 'delete'; }
         PHEDEX.Datasvc.Call({
@@ -816,7 +816,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
         Dom.removeClass(dom.preview,'phedex-invisible');
         Dom.addClass(dom.preview,'phedex-box-yellow');
-        dom.preview_summary.innerHTML = NUtil.stdLoading('Calculating request (please wait)');
+        dom.preview_summary.innerHTML = PxU.stdLoading('Calculating request (please wait)');
         args.level = 'block';
 
         args.type = this.type;
@@ -952,8 +952,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
 
 PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
   var Dom   = YAHOO.util.Dom,
-      Event = YAHOO.util.Event,
-      NUtil = PHEDEX.Nextgen.Util;
+      Event = YAHOO.util.Event;
   return {
     type: 'xfer',
     initSub: function() {
@@ -1281,8 +1280,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
   var Dom   = YAHOO.util.Dom,
-      Event = YAHOO.util.Event,
-      NUtil = PHEDEX.Nextgen.Util;
+      Event = YAHOO.util.Event;
   return {
     type:'delete',
     initSub: function() {

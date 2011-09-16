@@ -318,6 +318,11 @@ window.onerror = function(msg, url, line) {
   }
 }
 
+PHEDEX.Util.stdLoading: function(text) {
+  if ( !text ) { text = 'loading, please wait...'; }
+  return text+"<br/><img src='" + PxW.BaseURL + "/images/barbers_pole_loading.gif'/>";
+};
+
 PHEDEX.Util.protectMe = function(instance) {
   if ( !PxW.ProductionMode ) {
     for (var name in instance) {

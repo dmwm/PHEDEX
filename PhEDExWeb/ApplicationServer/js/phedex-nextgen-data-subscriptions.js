@@ -271,7 +271,7 @@ debugger;
         this.getSubscriptions();
       },
       getSubscriptions: function() {
-        this.dom.datatable.innerHTML = NUtil.stdLoading('loading subscriptions data...');
+        this.dom.datatable.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({ api:'subscriptions', callback:this.gotSubscriptions, args:{collapse:'y'} });
       },
       gotSubscriptions:function(data,context,response) {

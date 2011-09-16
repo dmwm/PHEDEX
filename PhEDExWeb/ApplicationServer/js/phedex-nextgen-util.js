@@ -5,10 +5,6 @@ PHEDEX.Nextgen.Util = function() {
       _sbx = new PHEDEX.Sandbox();
 
   return {
-    stdLoading: function(text) {
-      if ( !text ) { text = 'loading, please wait...'; }
-      return text+"<br/><img src='" + PxW.BaseURL + "/images/barbers_pole_loading.gif'/>";
-    },
     NodePanel: function(obj,parent) {
       var nodePanel, seq=PxU.Sequence(),
           selfHandler = function(o) {

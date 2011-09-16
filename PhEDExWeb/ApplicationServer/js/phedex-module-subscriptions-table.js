@@ -1,5 +1,5 @@
-PHEDEX.namespace('PHEDEX.Module');
-PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
+PHEDEX.namespace('PHEDEX.Module.Subscriptions');
+PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
   var _sbx  = sandbox,
       Dom   = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
@@ -380,4 +380,4 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
   return this;
 };
 
-log('loaded...','info','previewrequestdata');
+log('loaded...','info','subscriptions.table');
