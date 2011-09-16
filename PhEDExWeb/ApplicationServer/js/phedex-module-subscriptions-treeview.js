@@ -1,6 +1,6 @@
-PHEDEX.namespace('Module');
+PHEDEX.namespace('Module.Subscriptions');
 
-PHEDEX.Module.Subscriptions=function(sandbox, string) {
+PHEDEX.Module.Subscriptions.Treeview=function(sandbox, string) {
   var _sbx = sandbox,
 /** creation-time-window, in hours, counting backwards from 'now'. Set to '9999' for infinity.
  * @property create_since {integer}
