@@ -266,6 +266,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
+      applyFilters: function(a,b,c) {
+debugger;
+        this.getSubscriptions();
+      },
       getSubscriptions: function() {
         this.dom.datatable.innerHTML = NUtil.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({ api:'subscriptions', callback:this.gotSubscriptions, args:{collapse:'y'} });
@@ -274,7 +278,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         PHEDEX.Datasvc.throwIfError(data,response);
         var datasets=data.dataset, i, j, k, dataset, blocks, block, table, row,
             d=obj.dom, level;
-        if ( !datasets ) {
+        if ( !datasets || !datasets.length ) {
           d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
           d.datatable.style.margin = '5px 0';
           return;
@@ -434,16 +438,17 @@ try { // TW Build the data-table!
           content:
                 "<div id='phedex-filterpanel-container' class='phedex-nextgen-filterpanel'>" +
                   "<div id='phedex-filterlabel' class='phedex-nextgen-label float-left'>" +
-                    "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes'></div>" +
-                    "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes'></div>" +
-                    "<div class='phedex-vertical-buttons' id='phedex-deselectall-filters'></div>" +
-                    "<div class='phedex-vertical-buttons' id='phedex-reset-filters'></div>" +
                   "</div>" +
-                  "<div id='phedex-filterpanel' class='phedex-nextgen-control'>" +
-                    "<div class='phedex-nextgen-label' id='phedex-label-node'>"+''+"</div>" +
-                    "<div id='phedex-data-subscriptions-nodepanel-wrapper'>" +
-                      "<div class='phedex-nextgen-nodepanel' id='phedex-nodepanel'>" +
-                        "<em>loading node list...</em>" +
+                  "<div id='phedex-filterpanel' /*class='phedex-nextgen-control'*/>" +
+                    "<div class='phedex-clear-both' id='phedex-filterpanel-nodes'>" +
+                      "<div class='phedex-nextgen-label' id='phedex-label-node'>"+
+                        "<div class='phedex-vertical-buttons' id='phedex-selectall-nodes'></div>" +
+                        "<div class='phedex-vertical-buttons' id='phedex-deselectall-nodes'></div>" +
+                      "</div>" +
+                      "<div id='phedex-data-subscriptions-nodepanel-wrapper'>" +
+                        "<div class='phedex-nextgen-nodepanel' id='phedex-nodepanel'>" +
+                          "<em>loading node list...</em>" +
+                        "</div>" +
                       "</div>" +
                     "</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-requests'>requests</div>" +
@@ -460,7 +465,7 @@ try { // TW Build the data-table!
         });
         tabView.addTab(tab);
         Apply = new Button({ label:'Apply', id:'apply', container:'phedex-data-subscriptions-apply-filters' });
-        Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'Apply'); } }(this) );
+        Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'applyFilters'); } }(this) );
 
         tabView.appendTo(form); // need to attach elements to DOM before further manipulation
 
