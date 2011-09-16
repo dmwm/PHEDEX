@@ -113,7 +113,7 @@ PHEDEX.Module.Subscriptions.Treeview=function(sandbox, string) {
               {width: 80, text:'RequestID',     className:'phedex-tree-subscription-rid',           otherClasses:'align-right', ctxArgs:['rid','sort-num'], ctxKey:'rid' },
               {width:120, text:'Node',          className:'phedex-tree-subscription-node',          otherClasses:'align-left',  ctxArgs:['node', 'sort-alpha'], ctxKey:'node' },
               {width: 80, text:'Group',         className:'phedex-tree-subscription-group',         otherClasses:'align-left',  ctxArgs:['group','sort-alpha'], ctxKey:'group' },
-              {width: 60, text:'Custodial',     className:'phedex-tree-subscription-custodial',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
+              {width: 80, text:'Custodial',     className:'phedex-tree-subscription-custodial',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 40, text:'Move',          className:'phedex-tree-subscription-move',          otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 60, text:'Priority',      className:'phedex-tree-subscription-priority',      otherClasses:'align-right', ctxArgs:'sort-alpha' },
               {width: 80, text:'Suspended',     className:'phedex-tree-subscription-suspended',     otherClasses:'align-right', ctxArgs:'sort-alpha' },
