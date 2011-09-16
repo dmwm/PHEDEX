@@ -304,4 +304,4 @@ PHEDEX.Module.Subscriptions.Treeview=function(sandbox, string) {
   return this;
 }
 
-log('loaded...','info','subscriptions');
+log('loaded...','info','subscriptions.treeview');
