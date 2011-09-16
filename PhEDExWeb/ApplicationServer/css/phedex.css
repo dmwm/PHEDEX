@@ -601,6 +601,14 @@ ul li.phedex-contextmenu-beta:before {
   width: 425px;
 }
 
+.phedex-label-subscriptions {
+  width: 140px;
+  display: inline-block;
+  vertical-align:top;
+  text-align: right;
+  font-weight: bold;
+  padding: 0 5px 0 0;
+}
 .phedex-nextgen-label {
   width: 205px;
   display: inline-block;
@@ -684,8 +692,8 @@ ul li.phedex-contextmenu-beta:before {
 }
 
 #phedex-data-subscriptions-nodepanel-wrapper {
-  margin: 0 0 5px 180px; /* 175 + 5, for the phedex-nextgen-label next to it... */
-  width: 668px; /* 8 px extra to allow for the resize handles */
+  margin: 0 0 5px 215px;
+  width: 665px; /* 5 px extra to allow for the resize handles */
 }
 #phedex-data-subscriptions-input-requests, #phedex-data-subscriptions-input-dataitems {
   width: 660px;
@@ -697,9 +705,8 @@ ul li.phedex-contextmenu-beta:before {
   padding: 5px 0 0;
 }
 #phedex-data-subscriptions-apply-filters {
-  width: 300px;
-  float: right;
-  text-align: left;
+  margin: 0 0 0 900px;
+  float: left;
 }
 #phedex-data-subscriptions-selector, #phedex-data-subscriptions-dataform {
   padding: 0 5px;
