@@ -24,7 +24,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             map: {
               hideColumn:'addMenuItem'
             },
-            container: 'control'
+            container: 'param'
           }
         }
       ],
@@ -58,9 +58,9 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
       },
       _processData: function(preview) {
-        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
-            t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state,
-            summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0, tmp;
+        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser,
+            cDef, i, j, k, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state,
+            summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0, tmp, knownNodes={};
 
         i = t.columns.length;
         if (!t.map) { t.map = {}; }
@@ -81,6 +81,9 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         for (i in preview) {
           item = preview[i];
           Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
+          for (j in Row) {
+            if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
+          }
           if ( item.level == 'User Search' ) { unknown++; }
           else { known++; }
 
@@ -92,6 +95,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           while ( j = tmp.shift() ) { // produce individual entries,plus summary matrix
             src_info = item.src_info[j];
             text = node = src_info.node;
+            knownNodes[node]=1;
             if ( !summary[node] ) {
               summary[node] = { empty:0, incomplete:0, subscribed:0, OK:0, isRequired:isRequired[node] };
             }
@@ -141,16 +145,20 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           Nested = [];
           for (j in item.src_info ) {
             src_info = item.src_info[j];
-            Nested.push({ node:src_info.node,
-                          b_files:src_info.files,
-                          b_bytes:src_info.bytes,
-                          is_subscribed:src_info.is_subscribed,
-                          is_custodial:src_info.is_custodial,
-                          is_move:src_info.is_move,
-                          time_start:src_info.time_start,
-                          user_group:src_info.user_group,
-                          subs_level:src_info.subs_level
-                         });
+            tmp = { node:src_info.node,
+                    b_files:src_info.files,
+                    b_bytes:src_info.bytes,
+                    is_subscribed:src_info.is_subscribed,
+                    is_custodial:src_info.is_custodial,
+                    is_move:src_info.is_move,
+                    time_start:src_info.time_start,
+                    user_group:src_info.user_group,
+                    subs_level:src_info.subs_level
+                  };
+            for (k in tmp) {
+              if ( parser[k] ) { tmp[k] = parser[k](tmp[k]); }
+            }
+            Nested.push(tmp);
           }
           if ( Nested.length > 0 ) {
             Row.nesteddata = Nested;
@@ -293,7 +301,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
 
         if ( known > 1 ) {
-//        now check if only some items have replicas
+//        now check if only some items have replicas, in the case that there are multiple items
           j=true;
           for (node in summary) {
             if ( j ) {
@@ -309,25 +317,35 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             delete summary[node];
             delete isRequired[node];
           }
+        }
 
-          if ( type == 'delete' ) {
-            j=true;
-            for (node in isRequired) {
-              if ( j ) {
-                text += '<br/>'+Icon.Error+'No items have replicas at <strong>'+node+'</strong>';
-                j=false;
-                excessNodes = node;
-                nExcessNodes = 1;
-              } else {
-                text += ', <strong>'+node+'</strong>';
-                excessNodes += ' '+node;
-                nExcessNodes++;
+//      now check for required nodes with no replicas in deletion requests
+        if ( type == 'delete' ) {
+          j=true;
+          for (node in isRequired) {
+            if ( j ) {
+              text += '<br/>'+Icon.Error+'No items have replicas at ';
+              excessNodes = node;
+              nExcessNodes = 1;
+            } else {
+              text += ', ';
+              excessNodes += ' '+node;
+              nExcessNodes++;
+            }
+            if ( node.match(/MSS/) ) {
+              tmp=node.replace(/MSS$/,'Buffer');
+              if ( knownNodes[tmp] ) { continue; }
+              else {
+                text += '<strong>'+node+'/Buffer</strong>';
               }
+            } else {
+              text += '<strong>'+node+'</strong>';
             }
-            if ( nExcessNodes ) {
-              text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
-                    (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
-            }
+            j=false;
+          }
+          if ( nExcessNodes ) {
+            text += " <a href='#' id='_phedex_remove_excess_nodes' onclick=\"PxS.notify('"+this.id+"','suppressExcessNodes','"+excessNodes+"')\" >(remove " +
+                  (nExcessNodes == 1 ? "this node" : "these nodes" ) + ")</a>";
           }
         }
 
