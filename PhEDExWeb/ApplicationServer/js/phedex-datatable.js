@@ -566,15 +566,75 @@ YwDF.customRate = function(elCell, oRecord, oColumn, oData) {
 
 /** A custom formatter for floating-point. Sets the elCell innerHTML to a fixed-mantissa representation of oData
 * @method YAHOO.widget.DataTable.Formatter.customFixed
-* @param elCell {HTML element} Cell for which the formatter must be applied
-* @param oRecord {datatable record}
-* @param oColumn {datatable column}
-* @param oData {data-value} the number to be formatted
+* @param mantissa {integer} number of decimal places to show
 */
 YwDF.customFixed = function(mantissa) {
   var fn = PxUf.toFixed(mantissa);
   return function(elCell, oRecord, oColumn, oData) {
     if(oData != null) { elCell.innerHTML = fn(oData); }
+  }
+};
+
+/** A custom formatter for percentages. Sets the elCell innerHTML to a fixed-mantissa representation of oData, with optional colour-coding to show different value-ranges
+* @method YAHOO.widget.DataTable.Formatter.percentMap
+* @param mantissa {integer} number of decimal places to show
+* @param classMap {array} an array of <strong>{min:float, max:float, className:string}</strong> entries to css-code the field. An entry is applied to a field if it is => min and <= max. Either min or max may be omitted to specify an open range, or both may be omitted to set a global default. The first matching entry is taken, so it's up to the coder to make sure the fields don't overlap, or that they give the desired result if they do
+*/
+YwDF.percentMap = function(mantissa,classMap) {
+  var fn = PxUf.toFixed(mantissa),
+      Dom = YAHOO.util.Dom;
+  return function(elCell, oRecord, oColumn, oData) {
+    var className, item, i, value = fn(oData);
+    if ( oData != null ) {
+      for ( i in classMap ) {
+        item = classMap[i];
+        if ( item.min && value < item.min ) { continue; }
+        if ( item.max && value > item.max ) { continue; }
+        className = item.className;
+        break;
+      }
+      if ( className ) { Dom.addClass(elCell,className); }
+      elCell.innerHTML = value;
+    }
+//     if ( value == 0 ) { value = '-'; }
+  }
+};
+
+/** A custom formatter for string data. Sets the elCell class according to a map of values
+* @method YAHOO.widget.DataTable.Formatter.colourMap
+* @param mantissa {integer} number of decimal places to show
+* @param classMap {array} an array of <strong>{min:float, max:float, className:string}</strong> entries to css-code the field. An entry is applied to a field if it is => min and <= max. Either min or max may be omitted to specify an open range, or both may be omitted to set a global default. The first matching entry is taken, so it's up to the coder to make sure the fields don't overlap, or that they give the desired result if they do
+*/
+YwDF.colourMap = function(colourMap) {
+  var Dom = YAHOO.util.Dom;
+  return function(elCell, oRecord, oColumn, oData) {
+    var className, item, i;
+    if ( oData != null ) {
+      for ( i in colourMap ) {
+        item = colourMap[i];
+        if ( item.key == oData ) { className = item.className; }
+        break;
+      }
+      if ( className ) { Dom.addClass(elCell,className); }
+    }
+    elCell.innerHTML = oData;
+  }
+};
+
+/** A custom formatter for string data. Builds a link from a template, using the cell data to complete it.
+* @method YAHOO.widget.DataTable.Formatter.linkTo
+* @param template {string} template for link
+* @param regex {regex} expression to match in the template, to substitute for the cell value
+* @param ifNull {string} string to use if the cell data is null
+*/
+YwDF.linkTo = function(template,regex,ifNull) {
+  return function(elCell, oRecord, oColumn, oData) {
+    if ( oData != null ) {
+      oData = "<a href='"+template.replace(regex,oData)+"'>"+oData+"</a>";
+    } else {
+      if ( ifNull ) { oData = ifNull; }
+    }
+    elCell.innerHTML = oData;
   }
 };
 
