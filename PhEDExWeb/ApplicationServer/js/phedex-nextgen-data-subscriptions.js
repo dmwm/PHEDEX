@@ -45,6 +45,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         d.main_block = document.createElement('div'); d.main_block.className = 'yui-b phedex-nextgen-main-block';
         d.selector   = document.createElement('div'); d.selector.id          = 'phedex-data-subscriptions-selector';
         d.dataform   = document.createElement('div'); d.dataform.id          = 'phedex-data-subscriptions-dataform';
+        d.messages   = document.createElement('div'); d.messages.id          = 'phedex-data-subscriptions-messages';
         d.datatable  = document.createElement('div'); d.datatable.id         = 'phedex-data-subscriptions-datatable';
         form = document.createElement('form');
         form.id   = 'data-subscriptions-action';
@@ -61,6 +62,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         d.container.appendChild(d.selector);
         d.container.appendChild(d.dataform);
         d.dataform.appendChild(form);
+        d.dataform.appendChild(d.messages);
         d.dataform.appendChild(d.datatable);
         el.innerHTML = '';
         el.appendChild(d.container);
@@ -264,6 +266,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.initSub();
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
+        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
+        _sbx.notify('CreateModule','subscriptions-table');
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
@@ -271,27 +275,68 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 debugger;
         this.getSubscriptions();
       },
+      gotSubscriptionsId: function(arg) {
+        this.subscriptionsId = arg.moduleId;
+        var handler = function(obj) {
+          return function(ev,arr) {
+            var action = arr[0], arr1;
+            switch (action) {
+              case 'setSummary': {
+                arr1 = arr.slice();
+                arr1.shift();
+                obj.setSummary.apply(obj,arr1);
+                break;
+              }
+              case 'destroy': {
+                delete this.previewId;
+                break;
+              }
+            }
+          }
+        }(this);
+        _sbx.listen(this.subscriptionsId,handler);
+      },
       getSubscriptions: function() {
-        this.dom.datatable.innerHTML = PxU.stdLoading('loading subscriptions data...');
-        PHEDEX.Datasvc.Call({ api:'subscriptions', callback:this.gotSubscriptions, args:{collapse:'y'} });
+        this.dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
+        PHEDEX.Datasvc.Call({
+                              api:'subscriptions',
+                              args:{collapse:'y', create_since:1},
+                              callback:function(data,context,response) { obj.gotSubscriptions(data,context,response); }
+                            });
       },
       gotSubscriptions:function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
-        var datasets=data.dataset, i, j, k, dataset, blocks, block, table, row,
+        var datasets=data.dataset, api=context.api, i, j, k, dataset, blocks, block, table, row,
             d=obj.dom, level;
-        if ( !datasets || !datasets.length ) {
-          d.datatable.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
-          d.datatable.style.margin = '5px 0';
+
+        if ( response ) {
+          this.setSummary('error',"Error retrieving subscriptions data");
           return;
         }
-        d.datatable.innerHTML = d.datatable.style.margin = '';
-try { // TW Build the data-table!
-        for (i in datasets) {
-          dataset = datasets[i];
-          row=[];
-          if ( dataset.subscription ) { level = 'DATASET'; }
+        switch (api) {
+          case 'subscriptions': {
+            if ( !this.subscriptionsId ) {
+              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'subscriptions-table', callerId:this.id, callback:'gotSubscriptionsId'});
+              _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
+              return;
+            }
+            _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
+            d.messages.innerHTML = '';
+            Dom.removeClass(d.messages,'phedex-invisible');
+            if ( !datasets || !datasets.length ) {
+              d.messages.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
+              d.messages.style.margin = '5px 0';
+              return;
+            }
+            d.messages.innerHTML = d.messages.style.margin = '';
+            for (i in datasets) {
+              dataset = datasets[i];
+              row=[];
+              if ( dataset.subscription ) { level = 'DATASET'; }
+            }
+            break;
+          }
         }
-} catch(ex) { var _ex = ex; /*debugger;*/ }
       },
       initFilters: function() {
         var p=this.params, i, j, requests, columns, col, label,
