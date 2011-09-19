@@ -826,7 +826,7 @@ PHEDEX.TreeView.Sort = function(sandbox,args) {
 }
 
 /** This class is invoked by PHEDEX.Module to create the correct handler for datatable mouse-over events.
- * @namespace PHEDEX.DataTable
+ * @namespace PHEDEX.TreeView
  * @class MouseOver
  * @param sandbox {PHEDEX.Sandbox} reference to a PhEDEx sandbox object (unused)
  * @param args {object} reference to an object that specifies details of how the control should operate. Only <strong>args.payload.obj.dataTable</strong> is used, to subscribe to the <strong>onRowMouseOver</strong> and >strong>onRowMouseOut</strong> events.
