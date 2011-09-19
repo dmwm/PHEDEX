@@ -141,16 +141,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.Accept.set('disabled',true);
         this.Accept.on('click', this.onAcceptSubmit,this,true);
       },
-      processNestedrequest: function (record) {
-        try {
-          var nesteddata = record.getData('nesteddata');
-          this.nestedDataSource = new YuDS(nesteddata);
-          return nesteddata;
-        }
-        catch (ex) {
-          log('Error in expanding nested table.. ' + ex.Message, 'error', _me);
-        }
-      },
       synchronise: function(item,state) {
         this[item].set('disabled', state == 'allSet' ? false : true );
       },
