@@ -5,7 +5,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       NUtil = PHEDEX.Nextgen.Util,
       Dom = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
-      Button = YAHOO.widget.Button;
+      Yw = YAHOO.widget,
+      Button = Yw.Button;
   Yla(this,new PHEDEX.Module(_sbx,string));
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
@@ -371,8 +372,8 @@ try { // TW Build the data-table!
         mb.appendChild(el);
         ctl.options = {
             panel:Dom.get('phedex-data-subscriptions-options-panel'),
-            label_show:"<img id='"+id+"' src='"+PxW.BaseURL+"/images/icon-wedge-green-down.png' style='vertical-align:top'>Show options",
-            label_hide:"<img id='"+id+"' src='"+PxW.BaseURL+"/images/icon-wedge-green-up.png'   style='vertical-align:top'>Hide options",
+            label_show:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-down.png' style='vertical-align:top'>Show options",
+            label_hide:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-up.png'   style='vertical-align:top'>Hide options",
           };
         ctl.options.button = b = new Button({
                                           label:ctl.options.label_show,
@@ -405,8 +406,8 @@ try { // TW Build the data-table!
         form.method = 'get';
         this.data_subscriptions_filter = form;
         opts.panel.appendChild(form);
-        tabView = opts.tabView = new YAHOO.widget.TabView();
-        tab = new YAHOO.widget.Tab({
+        tabView = opts.tabView = new Yw.TabView();
+        tab = new Yw.Tab({
           label: 'Show/hide Columns',
           content:
                 "<div id='phedex-columnpanel-container' class='phedex-nextgen-form-element'>" +
@@ -433,7 +434,7 @@ try { // TW Build the data-table!
         DeselectAll = new Button({ label:'Clear all Nodes', id:'deselectallnodes', container:'phedex-deselectall-nodes' });
         DeselectAll.on('click', function(obj) { return function() { _sbx.notify(obj.id,'DeselectAllNodes'); } }(this) );
 
-        tab = new YAHOO.widget.Tab({
+        tab = new Yw.Tab({
           label: 'Select Data',
           content:
                 "<div id='phedex-filterpanel-container' class='phedex-nextgen-filterpanel'>" +

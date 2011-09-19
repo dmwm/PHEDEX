@@ -348,7 +348,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                   if ( this.datasetLookup ) {
                     icon = this.dom.datasetIcon;
                     YuD.removeClass(icon,'phedex-invisible');
-                    icon.src = PxW.BaseURL+'/images/progress.gif';
+                    icon.src = PxW.WebAppURL+'/images/progress.gif';
                     _sbx.notify( this.id, 'getData', { api:'data', args:{dataset:value, level:'block'} } );
                   } else {
                     if ( cd[value] ) { return; }
@@ -388,7 +388,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
         ctl.id = 'calendar_'+PxU.Sequence();
         ctl.title = 'Show calendar for date-selection';
         var img = document.createElement('img');
-        img.src = PxW.BaseURL+'/images/calendar_icon.gif';
+        img.src = PxW.WebAppURL+'/images/calendar_icon.gif';
         img.width = img.height = 18;
         img.style.verticalAlign = 'text-bottom';
         ctl.appendChild(img);
@@ -659,7 +659,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
               if ( datasets.length == 0 ) {
                 item = context.args.dataset || context.args.block;
                 YuD.removeClass(icon,'phedex-invisible');
-                icon.src = PxW.BaseURL + '/images/close-red-16x16.gif';
+                icon.src = PxW.WebAppURL + '/images/close-red-16x16.gif';
                 return;
               }
               datasets = datasets[0].dataset;
@@ -677,7 +677,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
                 cart.elements[dsName] = {type:'dataset', el:el };
               }
               YuD.removeClass(icon,'phedex-invisible');
-              icon.src = PxW.BaseURL + '/images/check-green-16x16.gif';
+              icon.src = PxW.WebAppURL + '/images/check-green-16x16.gif';
             } catch(ex) {
               var _x = ex;
             }

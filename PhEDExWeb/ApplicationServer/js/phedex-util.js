@@ -142,7 +142,7 @@ PHEDEX.Util.format={
   },
   toFixed: function(mantissa) {
     return function(raw) {
-      return raw.toFixed(mantissa);
+      return parseFloat(raw).toFixed(mantissa);
     }
   }
 }
@@ -276,12 +276,12 @@ PHEDEX.Util.feature = {
   beta:  "<div class='phedex-feature-class phedex-feature-beta'  title='this feature is in beta-release, and may not be production quality'>&beta;</div>"
 };
 PHEDEX.Util.icon = {
- 'green-circle':  "<img alt='0 the number here drives the sort-order' class='phedex-icon-class phedex-icon-green-circle'  src='"+PxW.BaseURL+"/images/icon-circle-green.png' />",
- 'yellow-circle': "<img alt='1 the number here drives the sort-order' class='phedex-icon-class phedex-icon-yellow-circle' src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' />",
- 'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.BaseURL+"/images/icon-circle-red.png' />",
-  Error:          "<img src='"+PxW.BaseURL+"/images/icon-circle-red.png' style='vertical-align:bottom' />",
-  Warn:           "<img src='"+PxW.BaseURL+"/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
-  OK:             "<img src='"+PxW.BaseURL+"/images/icon-circle-green.png' style='vertical-align:bottom' />"
+ 'green-circle':  "<img alt='0 the number here drives the sort-order' class='phedex-icon-class phedex-icon-green-circle'  src='"+PxW.WebAppURL+"/images/icon-circle-green.png' />",
+ 'yellow-circle': "<img alt='1 the number here drives the sort-order' class='phedex-icon-class phedex-icon-yellow-circle' src='"+PxW.WebAppURL+"/images/icon-circle-yellow.png' />",
+ 'red-circle':    "<img alt='2 the number here drives the sort-order' class='phedex-icon-class phedex-icon-red-circle'    src='"+PxW.WebAppURL+"/images/icon-circle-red.png' />",
+  Error:          "<img src='"+PxW.WebAppURL+"/images/icon-circle-red.png' style='vertical-align:bottom' />",
+  Warn:           "<img src='"+PxW.WebAppURL+"/images/icon-circle-yellow.png' style='vertical-align:bottom' />",
+  OK:             "<img src='"+PxW.WebAppURL+"/images/icon-circle-green.png' style='vertical-align:bottom' />"
 };
 
 PHEDEX.Util.UserAgent = function() {
@@ -320,7 +320,7 @@ window.onerror = function(msg, url, line) {
 
 PHEDEX.Util.stdLoading = function(text) {
   if ( !text ) { text = 'loading, please wait...'; }
-  return text+"<br/><img src='" + PxW.BaseURL + "/images/barbers_pole_loading.gif'/>";
+  return text+"<br/><img src='" + PxW.WebAppURL + "/images/barbers_pole_loading.gif'/>";
 }
 
 PHEDEX.Util.protectMe = function(instance) {

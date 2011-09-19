@@ -73,13 +73,25 @@ PHEDEX.Webapp = {
   }(),
 
 /**
- * The base URL of the application, created using a string set by the RPM build or a default.
- * @property BaseURL
+ * The base URL of the website, created using a string set by the RPM build or a default.
+ * @property WebURL
  * @namespace PHEDEX.Webapp
  * @protected
  * @type string
  */
-  BaseURL: function() {
+  WebURL: function() {
+    var webUrl = '@WEB_BASEURL@'; // set when RPM is built
+    return webUrl.match(/WEB_BASEURL/) ? '/phedex/' : webUrl;
+  }(),
+
+/**
+ * The base URL of the application, created using a string set by the RPM build or a default.
+ * @property WebAppURL
+ * @namespace PHEDEX.Webapp
+ * @protected
+ * @type string
+ */
+  WebAppURL: function() {
     var baseUrl = '@WEBAPP_BASEURL@'; // set when RPM is built
     return baseUrl.match(/WEBAPP_BASEURL/) ? '/phedex/datasvc/app' : baseUrl;
   }(),
@@ -92,8 +104,8 @@ PHEDEX.Webapp = {
  * @type string
  */
   DataserviceBaseURL: function() {
-    var dataserviceBaseUrl = '@WEBAPP_DATASERVICEBASEURL@'; // set when RPM is built
-    return dataserviceBaseUrl.match(/WEBAPP_DATASERVICEBASEURL/) ? '/phedex/datasvc/' : dataserviceBaseUrl;
+    var dataserviceBaseUrl = '@WEBAPP_DATASERVICE_BASEURL@'; // set when RPM is built
+    return dataserviceBaseUrl.match(/WEBAPP_DATASERVICE_BASEURL/) ? '/phedex/datasvc/' : dataserviceBaseUrl;
   }(),
 
 /**
@@ -104,8 +116,8 @@ PHEDEX.Webapp = {
  * @type string
  */
   DataserviceURL: function() {
-    var dataserviceBaseUrl = '@WEBAPP_DATASERVICEBASEURL@'; // set when RPM is built
-    return dataserviceBaseUrl.match(/WEBAPP_DATASERVICEBASEURL/) ? '/phedex/datasvc/json/' : dataserviceBaseUrl + 'json/';
+    var dataserviceBaseUrl = '@WEBAPP_DATASERVICE_BASEURL@'; // set when RPM is built
+    return dataserviceBaseUrl.match(/WEBAPP_DATASERVICE_BASEURL/) ? '/phedex/datasvc/json/' : dataserviceBaseUrl + 'json/';
   }(),
 
 /**

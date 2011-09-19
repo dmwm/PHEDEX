@@ -67,6 +67,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                       '<ul>' +
                         "<li><a href='" + location.pathname + "?type=xfer'>Transfer Request</a></li>" +
                         "<li><a href='" + location.pathname + "?type=delete'>Deletion Request</a></li>" +
+                        "<li>If you want to transfer private data, you need to <a  href='https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookGroupActivities'>use the StoreResults service</a> to promote your data to the global DBS, then come back here</li>" +
                       '</ul>';
           params.el.innerHTML='';
           params.el.appendChild(e);
@@ -1124,7 +1125,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                         "<div class='phedex-nextgen-label-disabled' id='phedex-label-time-start'>Data injected after <a class='phedex-nextgen-help' id='phedex-help-time-start' href='#'>[?]</a></div>" +
                         "<div class='phedex-nextgen-control'>" +
                           "<div><input type='text' id='time_start' name='time_start' class='phedex-nextgen-text' value='" + time_start.text + "' />" +
-                          "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.BaseURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
+                          "<img id='phedex-nextgen-calendar-icon' width='18' height='18' src='" + PxW.WebAppURL + "/images/calendar_icon.gif' style='vertical-align:middle; padding:0 0 0 2px;' />" +
                           "</div>" +
                         "</div>" +
                       "</div>";

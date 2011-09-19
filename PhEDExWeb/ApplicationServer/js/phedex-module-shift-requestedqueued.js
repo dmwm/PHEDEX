@@ -239,9 +239,9 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
             }
           }
         });
-        PxL.get(PxW.BaseURL+'/images/icon-circle-red.png',
-                PxW.BaseURL+'/images/icon-circle-yellow.png',
-                PxW.BaseURL+'/images/icon-circle-green.png');
+        PxL.get(PxW.WebAppURL+'/images/icon-circle-red.png',
+                PxW.WebAppURL+'/images/icon-circle-yellow.png',
+                PxW.WebAppURL+'/images/icon-circle-green.png');
       }
     };
   };

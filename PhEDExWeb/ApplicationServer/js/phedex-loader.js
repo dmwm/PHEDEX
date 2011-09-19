@@ -99,7 +99,7 @@ PHEDEX.Loader = function(opts) {
     loadOptional: true,
     allowRollup:  true,
     combine:      PxW.combineRequests,
-    base:         PxW.BaseURL + '/yui/build/',
+    base:         PxW.WebAppURL + '/yui/build/',
     timeout:      15000,
 // filter:'DEBUG',
     skin: {
@@ -189,7 +189,7 @@ PHEDEX.Loader = function(opts) {
         if ( !args.type ) { args.type = 'js'; }
         if ( !args.fullpath ) { args.fullpath = '/'+args.type+'/'+args.name+'.'+args.type; }
         if ( !args.fullpath.match('^/yui/build') ) {
-          args.fullpath = PxW.BaseURL + args.fullpath;
+          args.fullpath = PxW.WebAppURL + args.fullpath;
           args.path = args.fullpath;
           args.ext=false;
         }
