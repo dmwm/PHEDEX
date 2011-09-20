@@ -8,7 +8,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       Yw = YAHOO.widget,
       Button = Yw.Button;
   Yla(this,new PHEDEX.Module(_sbx,string));
-
+alert('TODO: select/clear/reset in show/hide columns needs to be connected to the table. Initial list of columns to show/hide cannot come from system defaults, user may have interacted with them already. Sometimes table-data comes in before the table is ready (create table earlier?)');
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
   _construct = function(obj) {
@@ -22,17 +22,27 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       _default:{}, // default values for various DOM fields, extracted as they are built
       waitToEnableAccept:2,
       meta: {
-        table: { columns:[ { key:'block',        label:'Block', className:'align-left' },
-                           { key:'b_files',      label:'Files', className:'align-right', parser:'number' },
-                           { key:'b_bytes',      label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' },
-                           { key:'b_replicas',   label:'# Replicas', parser:'number'}],
-            nestedColumns:[{ key:'node',         label:'Node', className:'align-left' },
-                           { key:'r_complete',   label:'Complete' },
-                           { key:'r_custodial',  label:'Custodial' },
-                           { key:'r_group',      label:'Group' },
-                           { key:'r_files',      label:'Files', className:'align-right', parser:'number' },
-                           { key:'r_bytes',      label:'Bytes', className:'align-right', parser:'number', formatter:'customBytes' }]
-                },
+        showColumns:
+        [
+          {label:'Select',        _default:true},
+          {label:'Request',       _default:true},
+          {label:'Data Level',    _default:true},
+          {label:'Data Item',     _default:true},
+          {label:'Node',          _default:true},
+          {label:'Priority',      _default:true},
+          {label:'Custodial',     _default:true},
+          {label:'Group',         _default:true},
+          {label:'Node Files',    _default:true},
+          {label:'Node Bytes',    _default:true},
+          {label:'% Files',       _default:false},
+          {label:'% Bytes',       _default:true},
+          {label:'Replica/Move',  _default:true},
+          {label:'Suspended',     _default:true},
+          {label:'Open',          _default:false},
+          {label:'Time Create',   _default:true},
+//           {label:'Time Complete', _default:false},
+          {label:'Time Done',     _default:false}
+        ],
       },
       useElement: function(el) {
         var d = this.dom, form;
@@ -229,6 +239,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       init: function(params) {
+        var i, hideThese=[], columns=this.meta.showColumns;
         if ( !params ) { params={}; }
         this.params = params;
         this.useElement(params.el);
@@ -255,6 +266,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 }
                 break;
               }
+              case 'CBoxPanel-selected': {
+                var label=arr[1], show=arr[2];
+                _sbx.notify(obj.subscriptionsId,'setColumnVisibility',label,show);
+                break;
+              }
               default: {
                 break;
               }
@@ -266,7 +282,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.initSub();
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
-        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
+
+        for (i in columns) {
+          if ( !columns[i]._default ) {
+            hideThese.push(columns[i].label);
+          }
+        }
+        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true, meta:{hide:hideThese}});
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
@@ -364,34 +386,13 @@ debugger;
           p.requests = [];
         }
 
-        columns = this.columns = [
-          {label:'Select',           _default:true},
-          {label:'Request',          _default:true},
-          {label:'Data Level',       _default:true},
-          {label:'Data Item',        _default:true},
-          {label:'Node',             _default:true},
-          {label:'Priority',         _default:true},
-          {label:'Custodial',        _default:true},
-          {label:'Group',            _default:true},
-          {label:'Node Files',       _default:true},
-          {label:'Node Bytes',       _default:true},
-          {label:'% Files',          _default:false},
-          {label:'% Bytes',          _default:true},
-          {label:'Replica/Move',     _default:true},
-          {label:'Active/Suspended', _default:true},
-          {label:'Item Open',        _default:false},
-          {label:'Time Create',      _default:true},
-          {label:'Time Complete',    _default:false},
-          {label:'Time Done',        _default:false}
-        ];
-
+        columns = this.meta.showColumns;
         if ( p.col ) {
           if ( typeof(p.col) != 'object'  ) {
             p.col = [ p.col ];
           }
           for ( i in p.col ) {
             label = p.col[i];
-            label = label.replace(/pct/,'%');
             for (j in columns) {
               col = columns[j];
               if ( col.label == label ) {
@@ -647,7 +648,7 @@ debugger;
         NUtil.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
 
 // for the Columns tab...
-        this.columnPanel = NUtil.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.columns, name:'columns' } );
+        this.columnPanel = NUtil.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.meta.showColumns, name:'columns' } );
       },
       filterButton: function(el,menu) {
         var id=PxU.Sequence(), field, Field;
