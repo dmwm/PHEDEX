@@ -520,6 +520,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           Dom.addClass(dom.preview,'phedex-invisible'); // no nodes left, hide the preview
         }
       },
+      setDBS: function(dbs) {
+        this.dbs.value.innerHTML = dbs;
+        PxS.notify(this.id,'onPreviewSubmit');
+      },
       requestCallback: function(data,context,response) {
         var dom = this.dom, str, msg, rid;
         dom.results_label.innerHTML = '';
@@ -744,6 +748,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               }
               case 'suppressExcessNodes': {
                 obj.suppressExcessNodes(arr[1]);
+                break;
+              }
+              case 'setDBS': {
+                obj.setDBS(arr[1]);
                 break;
               }
               case 'destroy': {
