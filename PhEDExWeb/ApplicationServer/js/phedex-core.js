@@ -118,6 +118,7 @@ PHEDEX.Core = function(sandbox,loader) {
  */
   var _createModule = function(ev,arr) {
     var name = arr[0],
+        args = arr[1], i,
         module = name.toLowerCase();
     if ( ! module.match('^phedex-') ) { module = 'phedex-module-'+module; }
     if ( !_loaded[module] ) {
@@ -131,11 +132,18 @@ PHEDEX.Core = function(sandbox,loader) {
           YtP.registerObject(name,m);
     } catch(ex) { log(ex,'error',_me); banner("Failed to construct an instance of '"+name+"'!",'error'); }
     m.init(_global_options);
-    if ( arr[1] ) {
-      if ( arr[1].state ) {
-        m._state = arr[1].state;
-      } else {
-        m.setArgs(arr[1]);
+    if ( args ) {
+      if ( args.state ) {
+        m._state = args.state;
+        delete args.state;
+      }
+      if ( args.notify ) {
+        _sbx.notify(args.notify.who,args.notify.what,m.id);
+        delete args.notify;
+      }
+      for (i in args ) { // only call setArgs if there's something left in args!
+        m.setArgs(args);
+        continue;
       }
     }
   }
