@@ -12,7 +12,7 @@ var YwDF  = Yw.DataTable.Formatter,
 PHEDEX.DataTable = function (sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
-
+    this.allowNotify['setColumnVisibility'] = 1;
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -185,7 +185,6 @@ PHEDEX.DataTable = function (sandbox, string) {
               if (m.sort) {
                 if (m.sort.field && !m.sort.dir) { m.sort.dir = Yw.DataTable.CLASS_ASC; }
               }
-
               var moduleHandler = function (o) {
                 return function (ev, arr) {
                   var action = arr[0];
@@ -230,6 +229,22 @@ PHEDEX.DataTable = function (sandbox, string) {
                 this.dataSource.sendRequest('', oCallback);
                 var w = this.dataTable.getTableEl().offsetWidth;
                 this.el.style.width = w + 'px';
+            },
+
+            /**
+            * Toggle visibility for a given column
+            * @method setColumnVisibility
+            * @param key {string} key for the column to hide/show
+            * @param visible {boolean} state if the column is to be visible
+            */
+            setColumnVisibility: function(label,show) {
+              var hide=this.meta.hide, i;
+              if ( show ) {
+                this.menuSelectItem([label]); // poor choice of name for the function, but there it is... TODO fix that
+              } else {
+                hide[this._getKeyByKeyOrLabel(label)] = 1;
+                this.hideFields();
+              }
             },
 
             /**
@@ -286,7 +301,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @private
             * @param arg {string} The name of a column.
             */
-            menuSelectItem: function (args) {
+            menuSelectItem: function(args) {
               var m=this.meta, l=0, i, key,
                   dt=this.dataTable, col, j;
               if ( m.table.nestedColumns ) { l = m.table.nestedColumns.length; }
