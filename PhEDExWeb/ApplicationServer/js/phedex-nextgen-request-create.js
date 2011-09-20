@@ -90,10 +90,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initSub();
         this.initButtons();
-        this.allowNotify['gotPreviewModule'] = 1;
-        this.allowNotify['previewCallback'] = 1;
+//         this.allowNotify['gotPreviewId'] = 1;
+//         this.allowNotify['previewCallback'] = 1;
         _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
-        _sbx.notify('CreateModule','previewrequestdata');
+        _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
       },
       initButtons: function() {
         var ft=this.dom.ft, Reset, //, Validate, Cancel;
@@ -489,7 +489,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         switch (api) {
           case 'previewrequestdata': {
             if ( !this.previewId ) {
-              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
+              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewId'});
               _sbx.delay(50, this.id, 'previewCallback',data,context,response);
               return;
             }
@@ -734,7 +734,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
                             });
       },
 
-      gotPreviewModule: function(arg) {
+      gotPreviewId: function(arg) {
         this.previewId = arg.moduleId;
         var previewHandler = function(obj) {
           return function(ev,arr) {
@@ -786,7 +786,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             panel, elList, el, i;
 
         if ( !this.previewId ) {
-          _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewModule'});
+          _sbx.notify('module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewId'});
         }
 
 // Prepare the form for output messages, disable the button to prevent multiple clicks

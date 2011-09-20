@@ -267,7 +267,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
         _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
-        _sbx.notify('CreateModule','subscriptions-table');
+        _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
@@ -276,7 +276,7 @@ debugger;
         this.getSubscriptions();
       },
       gotSubscriptionsId: function(arg) {
-        this.subscriptionsId = arg.moduleId;
+        this.subscriptionsId = arg;
         var handler = function(obj) {
           return function(ev,arr) {
             var action = arr[0], arr1;
