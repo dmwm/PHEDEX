@@ -92,7 +92,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
             for (var i = 0; i < m.length; i++) {
               v.push(m[i].value);
             }
-            _sbx.notify(partner,'menuSelectItem',v,obj.id);
+            _sbx.notify(partner,'menuSelectItem',v/* TODO Obsolete, surely? ,obj.id*/);
             column_menu.clearContent();
             obj.refreshButton();
 //             _sbx.notify(partner,'resizePanel'); // not used yet...
@@ -121,7 +121,7 @@ PHEDEX.Component.SplitButton = function(sandbox,args) {
               case 'gotData': {
                 var m = column_menu.getItems();
                 for (var i = 0; i < m.length; i++) {
-                  _sbx.notify(partner,'menuSelectItems',m[i].value);
+                  _sbx.notify(partner,'menuSelectItems',[m[i].value]);
                 }
                 return;
               }
