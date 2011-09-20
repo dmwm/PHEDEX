@@ -33,7 +33,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
         }
       ],
       meta: {
-        table: { columns: [{ key:'Select',       label:'Select',        className:'phedex-invisible'},
+        table: { columns: [{ key:'select',       label:'Select',        className:'phedex-invisible'},
                            { key:'request',      label:'Request',       className:'align-right', parser:'number', formatter:formatRid },
                            { key:'level',        label:'Data Level',    className:'align-left' },
                            { key:'item',         label:'Data Item',     className:'align-left' },
@@ -49,7 +49,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                            { key:'suspended',    label:'Suspended',     className:'align-left', formatter:formatSuspended },
                            { key:'open',         label:'Open',          className:'align-left' },
                            { key:'timeCreate',   label:'Time Create',   className:'align-left', parser:'number', formatter:'UnixEpochToUTC' },
-                           { key:'timeComplete', label:'Time Complete', className:'align-left phedex-invisible', parser:'number', formatter:'UnixEpochToUTC' },
+//                            { key:'timeComplete', label:'Time Complete', className:'align-left phedex-invisible', parser:'number', formatter:'UnixEpochToUTC' },
                            { key:'timeDone',     label:'Time Done',     className:'align-left', parser:'number', formatter:'UnixEpochToUTC' },
                           ],
 //             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' }]
