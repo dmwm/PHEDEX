@@ -121,7 +121,7 @@ PHEDEX.Nextgen.Util = function() {
       }
       var onSelectClick =function(event, matchedEl, container) {
         if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
-          _sbx.notify(o.id,'Selected-'+name, matchedEl.name, matchedEl.checked);
+          _sbx.notify(obj.id,'CBoxPanel-selected', matchedEl.name, matchedEl.checked);
         }
       };
       YAHOO.util.Event.delegate(parent, 'click', onSelectClick, 'input');
