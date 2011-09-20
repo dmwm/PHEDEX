@@ -59,7 +59,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
       },
       _processData: function(preview) {
         var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser,
-            cDef, i, j, k, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state,
+            cDef, i, j, k, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state, wrongDBS={}, wrongDBSCount=0,
             summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0, tmp, knownNodes={};
 
         i = t.columns.length;
@@ -135,6 +135,10 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
           if ( Row.comment ) {
             showComment = true;
+            if (Row.comment.match(/^Wrong DBS \("(.+)"\)$/) ) {
+              wrongDBS[RegExp.$1] = 1;
+              wrongDBSCount++
+            }
           }
           if ( item.dbs == dbs ) {
             Row.dbs = "<span class='phedex-silver'>" + Row.dbs + "</span>";
@@ -194,6 +198,20 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           text += Icon.Warn+unknown+' item';
           if ( unknown > 1 ) { text += 's'; }
           text += ' did not match anything known to PhEDEx';
+        }
+        if ( type == 'delete' ) {
+          if ( wrongDBSCount ) {
+            if ( wrongDBS.length > 1 || wrongDBSCount < known ) {
+              text += '<br/>'+Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
+            } else {
+              for (tmp in wrongDBS) { // there is only one entry in wrongDBS!
+                text += "<br/>"+Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
+              }
+            }
+          }
+        }
+        if ( showComment ) {
+          text += '<br/>'+Icon.Warn+'Some or all data-items have comments that may indicate errors.';
         }
         time_start=context.args.time_start;
         if ( tBytes == 0 ) {
@@ -323,6 +341,11 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         if ( type == 'delete' ) {
           j=true;
           for (node in isRequired) {
+            tmp=null;
+            if ( node.match(/MSS/) ) {
+              tmp=node.replace(/MSS$/,'Buffer');
+              if ( knownNodes[tmp] ) { continue; }
+            }
             if ( j ) {
               text += '<br/>'+Icon.Error+'No items have replicas at ';
               excessNodes = node;
@@ -332,12 +355,8 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
               excessNodes += ' '+node;
               nExcessNodes++;
             }
-            if ( node.match(/MSS/) ) {
-              tmp=node.replace(/MSS$/,'Buffer');
-              if ( knownNodes[tmp] ) { continue; }
-              else {
-                text += '<strong>'+node+'/Buffer</strong>';
-              }
+            if ( tmp ) {
+              text += '<strong>'+node+'/Buffer</strong>';
             } else {
               text += '<strong>'+node+'</strong>';
             }
