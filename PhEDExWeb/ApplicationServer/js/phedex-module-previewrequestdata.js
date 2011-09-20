@@ -5,7 +5,6 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
       Event = YAHOO.util.Event,
       Icon  = PHEDEX.Util.icon;
   Yla(this,new PHEDEX.DataTable(_sbx,string));
-
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
   _construct = function(obj) {
