@@ -60,7 +60,7 @@ sub previewrequestdata {
           $warn = 1;
         }
         if ($$res{DBS} ne $params{dbs})  {
-          push @comments, 'Wrong DBS';
+          push @comments, 'Wrong DBS ("' . $res->{DBS} . '")';
           $warn = 1; $row_problem = 1;
         }
         if ($$userdupes{$$res{LEVEL}}{$$res{ID}}) {
