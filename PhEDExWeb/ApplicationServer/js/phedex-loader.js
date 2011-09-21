@@ -68,6 +68,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-subscriptions-table':    { requires:['phedex-datatable'] },
     'phedex-module-unroutabledata':         { requires:['phedex-treeview'] },
 
+// prototype activity-rate module, probably not useful anymore
     'phedex-module-activity-rate':          { requires:['phedex-datatable'] },
 // demo protovis modules
     'phedex-module-protovisdemo':           { requires:['phedex-protovis'] },
@@ -81,8 +82,8 @@ PHEDEX.Loader = function(opts) {
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
     'phedex-nextgen-activity-latency':   { requires:['phedex-module', 'phedex-nextgen-util','button','phedex-datatable','protovis'] },
     'phedex-nextgen-util':               { requires:['phedex-util'] },
-    'phedex-nextgen-data-subscriptions': { requires:['phedex-module','phedex-datatable','phedex-nextgen-util','button','tabview','resize'] },
-    'phedex-nextgen-request-create':     { requires:['phedex-module','phedex-nextgen-util','button','calendar'] },
+    'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-nextgen-util','button','tabview','resize'] },
+    'phedex-nextgen-request-create':     { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':     { requires:['phedex-module','phedex-nextgen-util','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
