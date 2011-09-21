@@ -20,9 +20,6 @@ PHEDEX.Nextgen.Util = function() {
               for ( i in nodePanel.elList ) { nodePanel.elList[i].checked = false; }
               break;
             }
-            default: {
-              break;
-            }
           }
         }
       }(obj);
@@ -86,14 +83,17 @@ PHEDEX.Nextgen.Util = function() {
           switch (action) {
             case 'SelectAll-'+name: {
               for ( i in panel.elList ) { panel.elList[i].checked = true; }
+              _sbx.notify(obj.id,'DoneSelectAll-'+name);
               break;
             }
             case 'DeselectAll-'+name: {
               for ( i in panel.elList ) { panel.elList[i].checked = false; }
+              _sbx.notify(obj.id,'DoneDeselectAll-'+name);
               break;
             }
             case 'Reset-'+name: {
               for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i]._default; }
+              _sbx.notify(obj.id,'DoneReset-'+name);
               break;
             }
             default: {
