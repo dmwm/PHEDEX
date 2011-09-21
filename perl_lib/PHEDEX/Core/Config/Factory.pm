@@ -82,6 +82,7 @@ sub new
                                                  REJECT => \@report_reject );
   $self->{report_plug} = $report_loader->Load( lc($self->{REPORT_PLUGIN}) )->new( DEBUG => $self->{DEBUG} );
   $self->{TimesIdle} = 1;
+  $self->{last_db_connect} = time();
 
   return $self;
 }
@@ -222,6 +223,12 @@ sub idle
   my ($now,$last_seen,$last_reported,$mtime);
 
   $now = time();
+  if ( ($now - $self->{last_db_connect}) > 30*60 ) {        
+     eval { 
+            $self->connectAgent(); 
+          };
+     $self->{last_db_connect} = $now;
+  };
   $Config = $self->{CONFIGURATION};
 
   foreach $agent ( keys %{$self->{AGENTS}} )
