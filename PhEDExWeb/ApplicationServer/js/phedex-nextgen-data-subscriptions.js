@@ -20,7 +20,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         minheight:50
       },
       _default:{}, // default values for various DOM fields, extracted as they are built
-      _filter: { nodes:[], requests:[], data:[] }, // values set by the filter tab, updated as they are changed
+      _filter: { node:[], request:[], data:[] }, // values set by the filter tab, updated as they are changed
       meta: {
         showColumns:
         [
@@ -161,9 +161,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                            "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-select'>Selections:</span>" +
                            "<span id='phedex-data-subscriptions-ctl-select-all'></span>" +
                            "<span id='phedex-data-subscriptions-ctl-clear-all'></span>" +
-// TW this is what it used to look like...
-//                          "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_value', '1')\"/>" +
-//                          "<input type='button' value='Select none' onclick=\"select_all('subsform', 's_value', '0')\"/>" +
                          "</div>";
           selector.appendChild(el);
           var onSelectAllOrNone = function(val) {
@@ -244,7 +241,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0], i;
+            var action=arr[0], i, value, field;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               arr.shift();
               obj[action].apply(obj,arr);
@@ -263,26 +260,35 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                     obj.changeGroupButton.set('disabled',true);
                   }
                 } else {
+                  value = arr[2];
+alert("need to map values too :-( e.g. 'non-custodial' -> 'n'");
                   switch (arr[1]) {
-                    case 'custodiality':     { obj._filter.custodial = arr[2]; break; }
-                    case 'active/suspended': { obj._filter.suspended = arr[2]; break; }
-                    case 'priority':         { obj._filter.priority  = arr[2]; break; }
-                    case 'completion':       { obj._filter.complete  = arr[2]; break; }
-                    case 'group':            { obj._filter.group     = arr[2]; break; }
+                    case 'custodiality':     { field = 'custodial'; break; }
+                    case 'active/suspended': { field = 'suspended'; break; }
+                    case 'priority':         { field = 'priority';  break; }
+                    case 'completion':       { field = 'complete';  break; }
+                    case 'group':            { field = 'group';     break; }
+                  }
+                  if ( field ) {
+                    if ( value == 'any' ) {
+                      delete obj._filter[field];
+                    } else {
+                      obj._filter[field] = value;
+                    }
                   }
                 }
                 break;
               }
               case 'SelectAllNodes': {
-                obj._filter.nodes = obj.nodePanel.nodes;
+                obj._filter.node = obj.nodePanel.nodes;
                 break;
               }
               case 'DeselectAllNodes': {
-                obj._filter.nodes = [];
+                obj._filter.node = [];
                 break;
               }
               case 'NodeSelected': {
-                var i, nodes=obj._filter.nodes;
+                var i, nodes=obj._filter.node;
                 for (i in nodes) {
                   if ( nodes[i] == arr[1] ) {
                     if ( arr[2] ) { break; }
@@ -323,10 +329,6 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
-      applyFilters: function() {
-debugger;
-        this.getSubscriptions();
-      },
       setHiddenColumns: function() {
         var el, elList=this.columnPanel.elList, i, columns=[];
         for ( i in elList ) {
@@ -362,10 +364,21 @@ debugger;
         _sbx.listen(this.subscriptionsId,handler);
       },
       getSubscriptions: function() {
+        var args = {collapse:'y', create_since:1}, i, filter=this._filter, f;
+        for (i in filter) {
+          f = filter[i];
+          if ( typeof(f) == 'string' ) {
+            args[i] = f;
+          } else {
+            if ( f.length ) {
+              args[i] = f.join(',');
+            }
+          }
+        }
         this.dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
-                              args:{collapse:'y', create_since:1},
+                              args:args,
                               callback:function(data,context,response) { obj.gotSubscriptions(data,context,response); }
                             });
       },
@@ -490,7 +503,7 @@ debugger;
         b.on('click',onShowOptionsClick);
       },
       buildOptionsTabview: function() {
-        var d=this.dom, ctl = this.ctl, mb=d.main_block, form, el,
+        var d=this.dom, ctl = this.ctl, mb=d.main_block, form, el, elBlur,
             opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=this.dom.apply;
         if ( opts.tabview ) { return; }
         form = document.createElement('form');
@@ -559,7 +572,7 @@ debugger;
         });
         tabView.addTab(tab);
         Apply = new Button({ label:'Apply', id:'apply', container:'phedex-data-subscriptions-apply-filters' });
-        Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'applyFilters'); } }(this) );
+        Apply.on('click', function(obj) { return function() { _sbx.notify(obj.id,'getSubscriptions'); } }(this) );
 
         tabView.appendTo(form); // need to attach elements to DOM before further manipulation
 
@@ -587,16 +600,20 @@ debugger;
             }
           }
         }(this,el.value);
-        el.onblur=function(obj,text) {
+        elBlur = function(obj,field,text) {
           return function() {
-            if ( this.value == '' ) {
+            var value = this.value;
+            value = value.replace(/\n|,/g,' ');
+            if ( value.match(/^ *$/) ) {
               this.value = text;
               Dom.setStyle(this,'color','grey')
+              obj._filter[field] = [];
             } else {
-              obj._filter.requests = this.value.split(/ |\n|,/);
+              obj._filter[field]  = value.split(/ |\n|,/);
             }
           }
-        }(this,el.value);
+        };
+        el.onblur=elBlur(this,'request',el.value);
         NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Data items
@@ -622,16 +639,7 @@ debugger;
             }
           }
         }(this,el.value);
-        el.onblur=function(obj,text) {
-          return function() {
-            if ( this.value == '' ) {
-              this.value = text;
-              Dom.setStyle(this,'color','grey')
-            } else {
-              obj._filter.data = this.value.split(/ |\n|,/);
-            }
-          }
-        }(this,el.value);
+        el.onblur=elBlur(this,'data',el.value);
         NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
 
 // Generic for all buttons...
