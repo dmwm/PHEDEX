@@ -8,7 +8,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       Yw = YAHOO.widget,
       Button = Yw.Button;
   Yla(this,new PHEDEX.Module(_sbx,string));
-alert('TODO: select/clear/reset in show/hide columns needs to be connected to the table. Initial list of columns to show/hide cannot come from system defaults, user may have interacted with them already. Sometimes table-data comes in before the table is ready (create table earlier?)');
+
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
   _construct = function(obj) {
@@ -20,11 +20,10 @@ alert('TODO: select/clear/reset in show/hide columns needs to be connected to th
         minheight:50
       },
       _default:{}, // default values for various DOM fields, extracted as they are built
-      waitToEnableAccept:2,
+      _filter: { nodes:[], requests:[], data:[] }, // values set by the filter tab, updated as they are changed
       meta: {
         showColumns:
         [
-          {label:'Select',        _default:true},
           {label:'Request',       _default:true},
           {label:'Data Level',    _default:true},
           {label:'Data Item',     _default:true},
@@ -171,7 +170,7 @@ alert('TODO: select/clear/reset in show/hide columns needs to be connected to th
             return function(obj) {
               return function() {
                 var elList;
-// debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
+debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
               }
             }(this);
           };
@@ -216,7 +215,7 @@ alert('TODO: select/clear/reset in show/hide columns needs to be connected to th
           }(button,field,0);
           this.onUpdate = function() {
             var elList;
-// debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
+debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
           };
           button = new Button({ label:'Apply changes',  id:'phedex-data-subscriptions-update',  container:'phedex-data-subscriptions-ctl-update'  });
           button.on('click',this.onUpdate);
@@ -263,12 +262,48 @@ alert('TODO: select/clear/reset in show/hide columns needs to be connected to th
                   } else {
                     obj.changeGroupButton.set('disabled',true);
                   }
+                } else {
+                  switch (arr[1]) {
+                    case 'custodiality':     { obj._filter.custodial = arr[2]; break; }
+                    case 'active/suspended': { obj._filter.suspended = arr[2]; break; }
+                    case 'priority':         { obj._filter.priority  = arr[2]; break; }
+                    case 'completion':       { obj._filter.complete  = arr[2]; break; }
+                    case 'group':            { obj._filter.group     = arr[2]; break; }
+                  }
+                }
+                break;
+              }
+              case 'SelectAllNodes': {
+                obj._filter.nodes = obj.nodePanel.nodes;
+                break;
+              }
+              case 'DeselectAllNodes': {
+                obj._filter.nodes = [];
+                break;
+              }
+              case 'NodeSelected': {
+                var i, nodes=obj._filter.nodes;
+                for (i in nodes) {
+                  if ( nodes[i] == arr[1] ) {
+                    if ( arr[2] ) { break; }
+                    nodes.splice(i,1);
+                    break;
+                  }
+                }
+                if ( arr[2] ) {
+                  nodes.push(arr[1]);
                 }
                 break;
               }
               case 'CBoxPanel-selected': {
                 var label=arr[1], show=arr[2];
-                _sbx.notify(obj.subscriptionsId,'setColumnVisibility',label,show);
+                _sbx.notify(obj.subscriptionsId,'setColumnVisibility',[ {label:label,show:show} ]);
+                break;
+              }
+              case 'DoneSelectAll-columns':   // deliberate fall-through
+              case 'DoneDeselectAll-columns': // deliberate fall-through
+              case 'DoneReset-columns': {
+                obj.setHiddenColumns();
                 break;
               }
               default: {
@@ -283,19 +318,22 @@ alert('TODO: select/clear/reset in show/hide columns needs to be connected to th
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
 
-        for (i in columns) {
-          if ( !columns[i]._default ) {
-            hideThese.push(columns[i].label);
-          }
-        }
-        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true, meta:{hide:hideThese}});
+        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
-      applyFilters: function(a,b,c) {
+      applyFilters: function() {
 debugger;
         this.getSubscriptions();
+      },
+      setHiddenColumns: function() {
+        var el, elList=this.columnPanel.elList, i, columns=[];
+        for ( i in elList ) {
+          el = elList[i];
+          columns.push({label:el.name, show:el.checked});
+        }
+        _sbx.notify(obj.subscriptionsId,'setColumnVisibility',columns);
       },
       gotSubscriptionsId: function(arg) {
         this.subscriptionsId = arg;
@@ -311,6 +349,11 @@ debugger;
               }
               case 'destroy': {
                 delete this.previewId;
+                break;
+              }
+              case 'initDerived': { // module is live, set the hidden fields!
+                obj.subscriptionsModuleIsReady = true;
+                obj.setHiddenColumns();
                 break;
               }
             }
@@ -339,6 +382,10 @@ debugger;
           case 'subscriptions': {
             if ( !this.subscriptionsId ) {
               _sbx.delay(25,'module','*','lookingForA',{moduleClass:'subscriptions-table', callerId:this.id, callback:'gotSubscriptionsId'});
+              _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
+              return;
+            }
+            if ( !this.subscriptionsModuleIsReady ) {
               _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
               return;
             }
@@ -427,7 +474,7 @@ debugger;
                                           container:'phedex-options-control' });
         var onShowOptionsClick = function(obj) {
           return function() {
-            var ctl=obj.ctl, opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, el, apply=obj.dom.apply;
+            var ctl=obj.ctl, opts=ctl.options, apply=obj.dom.apply;
             if ( Dom.hasClass(opts.panel,'phedex-invisible') ) {
               Dom.removeClass(opts.panel,'phedex-invisible');
               if ( apply ) { Dom.removeClass(apply,'phedex-invisible'); }
@@ -504,7 +551,7 @@ debugger;
                     "<div class='phedex-clear-both' id='phedex-filterpanel-group'>group</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-active'>active/suspended</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-priority'>priority</div>" +
-                    "<div id='phedex-filterpanel-completion'>Completion</div>" +
+                    "<div id='phedex-filterpanel-completion'>completion</div>" +
                   "</div>" +
                 "</div>" +
                 "<div id='phedex-data-subscriptions-apply-filters'>" +
@@ -545,6 +592,8 @@ debugger;
             if ( this.value == '' ) {
               this.value = text;
               Dom.setStyle(this,'color','grey')
+            } else {
+              obj._filter.requests = this.value.split(/ |\n|,/);
             }
           }
         }(this,el.value);
@@ -578,6 +627,8 @@ debugger;
             if ( this.value == '' ) {
               this.value = text;
               Dom.setStyle(this,'color','grey')
+            } else {
+              obj._filter.data = this.value.split(/ |\n|,/);
             }
           }
         }(this,el.value);
@@ -594,7 +645,7 @@ debugger;
                 if ( event.prevValue ) { previous = event.prevValue.value; }
                 if ( value == previous ) { return; }
                   this.set('label', text);
-                _sbx.notify(obj.id,'menuChange',_field,value,text);
+                _sbx.notify(obj.id,'menuChange',_field,text);
               };
             }
 
@@ -712,7 +763,7 @@ debugger;
         obj.groups = data.group;
         field = 'phedex-filterpanel-ctl-group';
         button = obj.makeGroupMenu(field, [{ text:'any', value:0 }] );
-        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange(field));
+        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
         obj._default['group'] = function(_button,index) {
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
         }(button,0);
