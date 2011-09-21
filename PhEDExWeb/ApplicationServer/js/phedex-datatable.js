@@ -237,12 +237,21 @@ PHEDEX.DataTable = function (sandbox, string) {
             * @param key {string} key for the column to hide/show
             * @param visible {boolean} state if the column is to be visible
             */
-            setColumnVisibility: function(label,show) {
-              var hide=this.meta.hide, i;
-              if ( show ) {
-                this.menuSelectItem([label]); // poor choice of name for the function, but there it is... TODO fix that
-              } else {
-                hide[this._getKeyByKeyOrLabel(label)] = 1;
+            setColumnVisibility: function(columns) {
+              var hide=this.meta.hide, i, column, show=[], nHide=0;
+              for (i in columns) {
+                column = columns[i];
+                if ( column.show ) {
+                  show.push(column.label);
+                } else {
+                  hide[this._getKeyByKeyOrLabel(column.label)] = 1;
+                  nHide++;
+                }
+              }
+              if ( show.length ) {
+                this.menuSelectItem(show); // poor choice of name for the function, but there it is... TODO fix that
+              }
+              if ( nHide ) {
                 this.hideFields();
               }
             },
