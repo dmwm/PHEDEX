@@ -15,7 +15,7 @@ $PHEDEX::Core::Factory::rerun = 0;
 our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
-	  ME		=> 'AgentFactory',
+	  ME		=> 'WatchDog',          # Name for the record
 	  WAITTIME	=> 90 + rand(3),	# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
@@ -200,7 +200,10 @@ sub createAgents
 # Monitor myself too!
   $Agents{$self->{ME}}{self} = $self;
   $self->Logmsg('I am running these agents: ',join(', ',sort keys %Agents));
-  eval { $self->connectAgent(); };
+  eval { 
+         $self->connectAgent(); 
+       };
+  $self->rollbackOnError();
   return ($self->{AGENTS} = \%Agents);
 }
 
@@ -227,6 +230,7 @@ sub idle
      eval { 
             $self->connectAgent(); 
           };
+     $self->rollbackOnError();
      $self->{last_db_connect} = $now;
   };
   $Config = $self->{CONFIGURATION};
