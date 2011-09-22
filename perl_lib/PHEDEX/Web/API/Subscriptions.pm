@@ -30,6 +30,11 @@ Show existing subscriptions and their parameters.
   collapse         y or n. default n. If y, do not show block level
                    subscriptions of a dataset if it was subscribed at
                    dataset level.
+  percent_min      only subscriptions that are this complete will be shown.
+  percent_max      only subscriptions less than this complete will be shown.
+                   N.B. percent_min may be greater than percent_max, to
+                   exclude subscriptions that lie between the two numerical
+                   limits
 
   * when no arguments are specified, except "collapse", default create_since is set to 1 day ago
 
@@ -167,7 +172,7 @@ sub subscriptions
     }
 
     # convert parameter keys to upper case
-    foreach ( qw / dataset block node se create_since request custodial group move priority suspended collapse / )
+    foreach ( qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / )
     {
       $h{uc $_} = delete $h{$_} if $h{$_};
     }

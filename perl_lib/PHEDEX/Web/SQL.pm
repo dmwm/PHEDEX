@@ -2153,6 +2153,44 @@ sub getDataSubscriptionsQuery
         $p{':custodial'} = $h{CUSTODIAL};
     }
 
+    my $both_pcts = exists($h{PERCENT_MIN}) && exists($h{PERCENT_MAX});
+    if ( $both_pcts ) { $filters .= " and ( "; }
+    if (exists $h{PERCENT_MAX})
+    {
+        if ($filters)
+        {
+	    if (!$both_pcts) { $filters .= " and"; }
+            $filters .= " ds.percent_files <= :percent_max";
+        }
+        else
+        {
+            $filters = " ds.percent_files <= :percent_max";
+        }
+        $p{':percent_max'} = $h{PERCENT_MAX};
+    }
+
+    if (exists $h{PERCENT_MIN})
+    {
+        if ($filters)
+        {
+	    if ($both_pcts && ($h{PERCENT_MAX} < $h{PERCENT_MIN}) )
+	    {
+		$filters .= " or"
+	    }
+	    else
+	    {
+		$filters .= " and"
+	    }
+            $filters .= " ds.percent_files >= :percent_min";
+        }
+        else
+        {
+            $filters = " ds.percent_files >= :percent_min";
+        }
+        $p{':percent_min'} = $h{PERCENT_MIN};
+    }
+    if ( $both_pcts ) { $filters .= " ) "; }
+
     $sql .= "where ($filters) " if ($filters);
     $sql .= qq {
         order by
