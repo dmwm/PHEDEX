@@ -42,6 +42,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 //           {label:'Time Complete', _default:false},
           {label:'Time Done',     _default:false}
         ],
+        map:
+        {
+          custodial:{custodial:'y', 'non-custodial':'n'},
+          suspended:{suspended:'y', active:'n'},
+          create_since:{forever:0, '2 years':86400*365*2, '1 year':86400*365, '6 months':86400*182}
+//           complete: {complete:'y',  incomplete:'n'},
+        },
       },
       useElement: function(el) {
         var d = this.dom, form;
@@ -261,13 +268,13 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                   }
                 } else {
                   value = arr[2];
-alert("need to map values too :-( e.g. 'non-custodial' -> 'n'");
                   switch (arr[1]) {
-                    case 'custodiality':     { field = 'custodial'; break; }
-                    case 'active/suspended': { field = 'suspended'; break; }
-                    case 'priority':         { field = 'priority';  break; }
-                    case 'completion':       { field = 'complete';  break; }
-                    case 'group':            { field = 'group';     break; }
+                    case 'custodiality':     { field = 'custodial';    break; }
+                    case 'active/suspended': { field = 'suspended';    break; }
+                    case 'priority':         { field = 'priority';     break; }
+                    case 'completion':       { field = 'complete';     break; }
+                    case 'created since':    { field = 'create_since'; break; }
+                    case 'group':            { field = 'group';        break; }
                   }
                   if ( field ) {
                     if ( value == 'any' ) {
@@ -364,16 +371,25 @@ alert("need to map values too :-( e.g. 'non-custodial' -> 'n'");
         _sbx.listen(this.subscriptionsId,handler);
       },
       getSubscriptions: function() {
-        var args = {collapse:'y', create_since:1}, i, filter=this._filter, f;
+        var args = {collapse:'y', create_since:0}, i, filter=this._filter, f, map=this.meta.map;
         for (i in filter) {
           f = filter[i];
           if ( typeof(f) == 'string' ) {
-            args[i] = f;
+            if ( map[i] ) { args[i] = map[i][f]; }
+            else          { args[i] = f; }
           } else {
             if ( f.length ) {
               args[i] = f.join(',');
             }
           }
+        }
+        if ( args.complete ) { // special case...
+          if ( args.complete == 'complete' )   { args.percent_min=100; }
+          if ( args.complete == 'incomplete' ) { args.percent_max=99.99999; }
+          delete args.complete;
+        }
+        if ( args.create_since ) { // another special case...
+          args.create_since = new Date().getTime()/1000 - args.create_since;
         }
         this.dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
@@ -565,6 +581,7 @@ alert("need to map values too :-( e.g. 'non-custodial' -> 'n'");
                     "<div class='phedex-clear-both' id='phedex-filterpanel-active'>active/suspended</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-priority'>priority</div>" +
                     "<div id='phedex-filterpanel-completion'>completion</div>" +
+                    "<div id='phedex-filterpanel-create-since'>created since</div>" +
                   "</div>" +
                 "</div>" +
                 "<div id='phedex-data-subscriptions-apply-filters'>" +
@@ -701,6 +718,15 @@ alert("need to map values too :-( e.g. 'non-custodial' -> 'n'");
           { text: 'incomplete', value: 'incomplete' }
         ];
         this.filterButton('phedex-filterpanel-completion',menu);
+
+// Created-since - dropdown
+        menu = [
+          { text: 'forever',  value: 0 },
+          { text: '2 years',  value: 86400*365*2 },
+          { text: '1 year',   value: 86400*365 },
+          { text: '6 months', value: 86400*182 }
+        ];
+        this.filterButton('phedex-filterpanel-create-since',menu);
 
 // for the Node tab...
         this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel') );
