@@ -46,9 +46,24 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         {
           custodial:{custodial:'y', 'non-custodial':'n'},
           suspended:{suspended:'y', active:'n'},
-          create_since:{forever:0, '2 years':86400*365*2, '1 year':86400*365, '6 months':86400*182}
-//           complete: {complete:'y',  incomplete:'n'},
+          create_since:{forever:0, '2 years':24, '1 year':12, '6 months':6}, // months...
         },
+        filterMap:
+        {
+          fields:
+          {
+             custodiality:      'custodial',
+            'active/suspended': 'suspended',
+             priority:          'priority',
+             group:             'group'
+          },
+          values:
+          {
+            custodial:{custodial:'y', 'non-custodial':'n'},
+            suspended:{suspended:'y', active:'n'},
+           'created since':{forever:0, '2 years':24, '1 year':12, '6 months':6} // months...
+          },
+        }
       },
       useElement: function(el) {
         var d = this.dom, form;
@@ -207,7 +222,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           this.ctl[field] = button = new Button({
             id:          'phedex-data-subscriptions-action',
             name:        'phedex-data-subscriptions-action',
-            label:       '<em>Choose an action</em>',
+            label:       'Choose an action',
             type:        'menu',
             lazyloadmenu: false,
             menu:         admin_menu,
@@ -218,8 +233,9 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
             return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
           }(button,field,0);
           this.onUpdate = function() {
-            var elList;
+            var elList, action, param;
 debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
+            action = this.ctl.action;
           };
           button = new Button({ label:'Apply changes',  id:'phedex-data-subscriptions-update',  container:'phedex-data-subscriptions-ctl-update'  });
           button.on('click',this.onUpdate);
@@ -248,40 +264,64 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action=arr[0], i, value, field;
+            var action=arr[0], i, value, field, _filter, filterMap, _filterField;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               arr.shift();
               obj[action].apply(obj,arr);
               return;
             }
+            _filter = obj._filter;
+            filterMap = obj.meta.filterMap;
             switch (action) {
               case 'Reset-filters': {
                 for ( i in obj._default ) { obj._default[i](); }
                 break;
               }
-              case 'menuChange': {
-                if ( arr[1] == 'action' ) {
-                  if ( arr[2] == 'groupchange' ) {
-                    obj.changeGroupButton.set('disabled',false);
-                  } else {
-                    obj.changeGroupButton.set('disabled',true);
-                  }
+              case 'menuChange_action': {
+                if ( arr[2] == 'Change group' ) {
+                  obj.ctl.group.set('disabled',false);
                 } else {
-                  value = arr[2];
-                  switch (arr[1]) {
-                    case 'custodiality':     { field = 'custodial';    break; }
-                    case 'active/suspended': { field = 'suspended';    break; }
-                    case 'priority':         { field = 'priority';     break; }
-                    case 'completion':       { field = 'complete';     break; }
-                    case 'created since':    { field = 'create_since'; break; }
-                    case 'group':            { field = 'group';        break; }
+                  obj.ctl.group.set('disabled',true);
+                }
+                break;
+              }
+              case 'menuChange_group': {
+                if ( arr[2] == 'any' ) {
+                  delete _filter.group;
+                } else {
+                  _filter.group = arr[2];
+                }
+                break;
+              }
+              case 'menuChange_filter': {
+                field = filterMap.fields[arr[1]];
+                if ( field ) {
+                  if ( arr[2] == 'any' ) {
+                    delete _filter[field];
+                  } else {
+                    _filterField = filterMap.values[field];
+                    if ( _filterField ) { _filter[field] = _filterField[arr[2]]; }
+                    else                { _filter[field] = arr[2]; }
+                    if ( _filter[field] == null ) { delete _filter[field]; }
                   }
-                  if ( field ) {
-                    if ( value == 'any' ) {
-                      delete obj._filter[field];
-                    } else {
-                      obj._filter[field] = value;
-                    }
+                  break;
+                }
+
+//              special cases
+                if ( arr[1] == 'completion' ) {
+                  delete _filter.percent_min;
+                  delete _filter.percent_max;
+                  if ( arr[2] == 'complete' )   { _filter.percent_min=100; }
+                  if ( arr[2] == 'incomplete' ) { _filter.percent_max=99.99999; }
+                  break;
+                }
+// another special case. Note the finesse here, create_since=0 is valid, means forever, and does not enter this code
+                if ( arr[1] == 'created since' ) {
+                  i = filterMap.values[arr[1]][arr[2]];
+                  if ( i ) {
+                    _filter.create_since = new Date().getTime()/1000 - filterMap.values[arr[1]][arr[2]]*86400*30;
+                  } else {
+                    _filter.create_since = 0;
                   }
                 }
                 break;
@@ -371,25 +411,16 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         _sbx.listen(this.subscriptionsId,handler);
       },
       getSubscriptions: function() {
-        var args = {collapse:'y', create_since:0}, i, filter=this._filter, f, map=this.meta.map;
+        var args = {collapse:'y', create_since:6*30*86400 /* months */}, i, filter=this._filter, f, map=this.meta.map;
         for (i in filter) {
           f = filter[i];
-          if ( typeof(f) == 'string' ) {
-            if ( map[i] ) { args[i] = map[i][f]; }
-            else          { args[i] = f; }
-          } else {
+          if ( typeof(f) == 'array' || typeof(f) == 'object' ) {
             if ( f.length ) {
-              args[i] = f.join(',');
+              args[i] = f;
             }
+          } else {
+            args[i] = f;
           }
-        }
-        if ( args.complete ) { // special case...
-          if ( args.complete == 'complete' )   { args.percent_min=100; }
-          if ( args.complete == 'incomplete' ) { args.percent_max=99.99999; }
-          delete args.complete;
-        }
-        if ( args.create_since ) { // another special case...
-          args.create_since = new Date().getTime()/1000 - args.create_since;
         }
         this.dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
@@ -661,7 +692,8 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
 
 // Generic for all buttons...
         var menu, button;
-        this.onSelectedMenuItemChange = function(_field) {
+        this.onSelectedMenuItemChange = function(_field,action) {
+              if ( !action ) { action = _field; }
               return function(event) {
                 var oMenuItem = event.newValue,
                     text = oMenuItem.cfg.getProperty('text'),
@@ -670,7 +702,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                 if ( event.prevValue ) { previous = event.prevValue.value; }
                 if ( value == previous ) { return; }
                   this.set('label', text);
-                _sbx.notify(obj.id,'menuChange',_field,text);
+                _sbx.notify(obj.id,'menuChange_'+action,_field,text);
               };
             }
 
@@ -720,13 +752,12 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         this.filterButton('phedex-filterpanel-completion',menu);
 
 // Created-since - dropdown
-        menu = [
-          { text: 'forever',  value: 0 },
-          { text: '2 years',  value: 86400*365*2 },
-          { text: '1 year',   value: 86400*365 },
-          { text: '6 months', value: 86400*182 }
-        ];
-        this.filterButton('phedex-filterpanel-create-since',menu);
+        var m=this.meta.map.create_since, i;
+        menu=[];
+        for (i in m) {
+          menu.push({text:i, value:m[i]});
+        }
+        this.filterButton('phedex-filterpanel-create-since',menu,menu.length-1);
 
 // for the Node tab...
         this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel') );
@@ -735,8 +766,9 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
 // for the Columns tab...
         this.columnPanel = NUtil.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.meta.showColumns, name:'columns' } );
       },
-      filterButton: function(el,menu) {
+      filterButton: function(el,menu,_default) {
         var id=PxU.Sequence(), field, Field;
+        if ( !_default ) { _default = 0; }
         if ( typeof(el) == 'string' ) { el = Dom.get(el); }
         field=el.innerHTML; Field=PxU.initialCaps(field);
         el.innerHTML = "<div class='phedex-nextgen-filter-element'>" +
@@ -748,15 +780,15 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         button = new Button({
           id:          'menubutton-'+id,
           name:        'menubutton-'+id,
-          label:        menu[0].text,
+          label:        menu[_default].text,
           type:        'menu',
           lazyloadmenu: false,
           menu:         menu,
           container:    'phedex-filterpanel-ctl-'+field
         });
-       button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-         this._default[field] = function(_button,index) {
-          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field,'filter'));
+        this._default[field] = function(_button,index) {
+          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||_default)); };
         }(button,0);
       },
       makeGroupMenu: function(el,menu,_default) {
@@ -797,16 +829,16 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         obj.groups = data.group;
         field = 'phedex-filterpanel-ctl-group';
         button = obj.makeGroupMenu(field, [{ text:'any', value:0 }] );
-        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
+        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group','filter'));
         obj._default['group'] = function(_button,index) {
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
         }(button,0);
 
         field = 'phedex-data-subscriptions-ctl-group';
-        button = obj.makeGroupMenu(field,[], '<em>Choose a group</em>');
-        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange(field));
+        button = obj.makeGroupMenu(field,[], 'Choose a group');
+        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
         button.set('disabled',true);
-        obj.changeGroupButton = button;
+        obj.ctl.group = button;
       }
     }
   }
