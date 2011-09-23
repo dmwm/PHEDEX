@@ -27,7 +27,7 @@ Show existing subscriptions and their parameters.
   move             y (move) or n (replica)
   suspended        y or n, default is either
 
-  collapse         y or n. default n. If y, do not show block level
+  collapse         y or n. default y. If y, do not show block level
                    subscriptions of a dataset if it was subscribed at
                    dataset level.
   percent_min      only subscriptions that are this complete will be shown.
@@ -165,10 +165,10 @@ sub subscriptions
 {
     my ($core, %h) = @_;
 
-    # provide default for collapse if it is not 'y'
-    if ((exists $h{collapse}) && ($h{collapse} ne 'y'))
+    # provide default for collapse if it is not 'n'
+    if ((exists $h{collapse}) && ($h{collapse} ne 'n'))
     {
-        $h{collapse} = 'n';
+        $h{collapse} = 'y';
     }
 
     # convert parameter keys to upper case
