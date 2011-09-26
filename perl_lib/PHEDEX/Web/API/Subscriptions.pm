@@ -19,7 +19,7 @@ Show existing subscriptions and their parameters.
   node             node name (wildcards)
   se               storage element
   create_since     timestamp. only subscriptions created after.*
-  request          request number which created the subscription.
+  request          request number(s) which created the subscription.
   custodial        y or n to filter custodial/non subscriptions.
                    default is null (either)
   group            group name filter 
