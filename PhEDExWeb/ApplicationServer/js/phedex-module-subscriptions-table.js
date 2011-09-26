@@ -33,7 +33,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
         }
       ],
       meta: {
-        table: { columns: [{ key:'select',       label:'Select'},
+        table: { columns: [{ key:'select',       label:'Select' },
                            { key:'request',      label:'Request',       className:'align-right', parser:'number', formatter:formatRid },
                            { key:'level',        label:'Data Level',    className:'align-left' },
                            { key:'item',         label:'Data Item',     className:'align-left' },
@@ -54,16 +54,8 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                           ],
 //             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' }]
                 },
-        hide:[],
+        hide:['Select'], // hidden by default, requires positive authentication to enable it
         sort:{ field:'Item' }
-      },
-      setSummary: function(status, text) {
-        var dom = this.dom;
-        if ( typeof(dom.title.innerHTML) != 'undefined' ) {
-          dom.title.innerHTML = text;
-        } else {
-          _sbx.notify(this.id,'setSummary',status,text);
-        }
       },
       _processData: function(data) {
         var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, column, elList, oCallback,
@@ -87,7 +79,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             s.level = s.level.toUpperCase();
             cBox = s.level+':'+item.name+':'+s.node;
 // <input type='checkbox' name='s_value' value='BLOCK:/lifecycle/mc/bari_4#058c9352:TX_CH_CERN_Rapolas'
-            Row = { select:"<input type='checkbox' name='s_value' value='"+cBox+"' />",
+            Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' value='"+cBox+"' />",
                     request:s.request,
                     level:s.level,
                     item:item.name,
