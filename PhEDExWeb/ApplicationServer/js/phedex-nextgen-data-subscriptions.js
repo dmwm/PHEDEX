@@ -1,13 +1,14 @@
 PHEDEX.namespace('Nextgen.Data');
 PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
   var string = 'nextgen-data-subscriptions',
-      _sbx = sandbox,
+      _sbx = sandbox, dom,
       NUtil = PHEDEX.Nextgen.Util,
       Dom = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
       Yw = YAHOO.widget,
       Button = Yw.Button;
   Yla(this,new PHEDEX.Module(_sbx,string));
+  dom = this.dom;
 
   log('Nextgen: creating a genuine "'+string+'"','info',string);
 
@@ -66,18 +67,19 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       useElement: function(el) {
-        var d = this.dom, form;
-        d.target = el;
-        d.container  = document.createElement('div'); d.container.className  = 'phedex-nextgen-container'; d.container.id = 'doc3';
-        d.hd         = document.createElement('div'); d.hd.className         = 'phedex-nextgen-hd';        d.hd.id = 'hd';
-        d.bd         = document.createElement('div'); d.bd.className         = 'phedex-nextgen-bd';        d.bd.id = 'bd';
-        d.ft         = document.createElement('div'); d.ft.className         = 'phedex-nextgen-ft';        d.ft.id = 'ft';
-        d.main       = document.createElement('div'); d.main.className       = 'yui-main';
-        d.main_block = document.createElement('div'); d.main_block.className = 'yui-b phedex-nextgen-main-block';
-        d.selector   = document.createElement('div'); d.selector.id          = 'phedex-data-subscriptions-selector';
-        d.dataform   = document.createElement('div'); d.dataform.id          = 'phedex-data-subscriptions-dataform';
-        d.messages   = document.createElement('div'); d.messages.id          = 'phedex-data-subscriptions-messages';
-        d.datatable  = document.createElement('div'); d.datatable.id         = 'phedex-data-subscriptions-datatable';
+        var d = dom, form;
+        dom.target = el;
+        dom.container  = document.createElement('div'); dom.container.className  = 'phedex-nextgen-container'; dom.container.id = 'doc3';
+        dom.hd         = document.createElement('div'); dom.hd.className         = 'phedex-nextgen-hd';        dom.hd.id = 'hd';
+        dom.bd         = document.createElement('div'); dom.bd.className         = 'phedex-nextgen-bd';        dom.bd.id = 'bd';
+        dom.ft         = document.createElement('div'); dom.ft.className         = 'phedex-nextgen-ft';        dom.ft.id = 'ft';
+        dom.main       = document.createElement('div'); dom.main.className       = 'yui-main';
+        dom.main_block = document.createElement('div'); dom.main_block.className = 'yui-b phedex-nextgen-main-block';
+        dom.selector   = document.createElement('div'); dom.selector.id          = 'phedex-data-subscriptions-selector';
+        dom.dataform   = document.createElement('div'); dom.dataform.id          = 'phedex-data-subscriptions-dataform';
+        dom.messages   = document.createElement('div'); dom.messages.id          = 'phedex-data-subscriptions-messages';
+        dom.messages.style.padding = '5px';
+        dom.datatable  = document.createElement('div'); dom.datatable.id         = 'phedex-data-subscriptions-datatable';
         form = document.createElement('form');
         form.id   = 'data-subscriptions-action';
         form.name = 'data-subscriptions-action';
@@ -85,29 +87,29 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         form.action = location.pathname;
         this.data_subscriptions_action = form;
 
-        d.bd.appendChild(d.main);
-        d.main.appendChild(d.main_block);
-        d.container.appendChild(d.hd);
-        d.container.appendChild(d.bd);
-        d.container.appendChild(d.ft);
-        d.container.appendChild(d.selector);
-        d.container.appendChild(d.dataform);
-        d.dataform.appendChild(form);
-        d.dataform.appendChild(d.messages);
-        d.dataform.appendChild(d.datatable);
+        dom.bd.appendChild(dom.main);
+        dom.main.appendChild(dom.main_block);
+        dom.container.appendChild(dom.hd);
+        dom.container.appendChild(dom.bd);
+        dom.container.appendChild(dom.ft);
+        dom.container.appendChild(dom.selector);
+        dom.container.appendChild(dom.dataform);
+        dom.dataform.appendChild(form);
+        dom.dataform.appendChild(dom.messages);
+        dom.dataform.appendChild(dom.datatable);
         el.innerHTML = '';
-        el.appendChild(d.container);
+        el.appendChild(dom.container);
 
-        d.floating_help = document.createElement('div'); d.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible'; d.floating_help.id = 'phedex-help-'+PxU.Sequence();
-        document.body.appendChild(d.floating_help);
+        dom.floating_help = document.createElement('div'); dom.floating_help.className = 'phedex-nextgen-floating-help phedex-invisible'; dom.floating_help.id = 'phedex-help-'+PxU.Sequence();
+        document.body.appendChild(dom.floating_help);
       },
       gotAuthData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         if ( !data.auth ) { return; }
         var auth, roles, role, i;
-        if ( typeof(auth) != 'object' ) { auth = {}; } // AUTH call failed, proceed regardless...
 
         obj.auth = auth = data.auth[0];
+        if ( typeof(auth) != 'object' ) { auth = {}; } // AUTH call failed, proceed regardless...
         auth.isAdmin = false;
         auth.can = [];
         roles = auth.role;
@@ -133,7 +135,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 //      User has no administrative rights. Add a link explaining why.
         var el = document.createElement('a'),
             auth = obj.auth,
-            d=obj.dom, container=d.container,
+            container = dom.container,
             toggle, id=PxU.Sequence();
         el.id = 'phedex-help-anchor-'+id;
         el.href = '#';
@@ -157,7 +159,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       isAdmin: function() {
 //     User has administrative rights, add the menus!
         var auth=obj.auth,
-            i, j, k, d=obj.dom, container=d.container, selector=d.selector, form=obj.data_subscriptions_action,
+            i, j, k, container=dom.container, selector=dom.selector, form=obj.data_subscriptions_action,
             id=PxU.Sequence(),
             field, el, button,
             admin_opts = {
@@ -166,13 +168,20 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                    priorityhi:  'Make high priority',
                    prioritymd:  'Make normal priority',
                    prioritylo:  'Make low priority',
-                   groupchange: 'Change group'
+                   groupchange: 'Change group',
+                   deletedata:  'Delete this data'
                  },
             admin_grps = {
                    'suspend':['suspend', 'unsuspend'],
                    'priority':['priorityhi', 'prioritymd', 'prioritylo', 'groupchange']
                  },
             admin_menu=[];
+
+//      Notify the table that it can show the select column
+        if ( this.subscriptionsId ) {
+          _sbx.notify(this.subscriptionsId,'setColumnVisibility',{label:'Select', show:true});
+        }
+
         for ( i in auth.can ) {
           j=admin_grps[auth.can[i]];
           for ( k in j ) { admin_menu.push({ value:j[k], text:admin_opts[j[k]] }); }
@@ -185,18 +194,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                            "<span id='phedex-data-subscriptions-ctl-clear-all'></span>" +
                          "</div>";
           selector.appendChild(el);
-          var onSelectAllOrNone = function(val) {
-            return function(obj) {
-              return function() {
-                var elList;
-debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
-              }
-            }(this);
+          this.onSelectAllOrNone = function(val) {
+            var elList, i;
+            elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
+            for (i in elList) {
+              elList[i].checked = val;
+            }
           };
           button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
-          button.on('click',onSelectAllOrNone(1));
+          button.on('click',function() { obj.onSelectAllOrNone(true) });
           button = new Button({ label:'Clear all', id:'phedex-data-subscriptions-clear-all', container:'phedex-data-subscriptions-ctl-clear-all' });
-          button.on('click',onSelectAllOrNone(0));
+          button.on('click',function() { obj.onSelectAllOrNone(false) });
 
           i = document.createElement('input');
           i.type = 'hidden'
@@ -215,7 +223,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
                            "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-action'>Action:</span>" +
                            "<span id='phedex-data-subscriptions-ctl-action'></span>" +
-                           "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group menu</em></span>" +
+                           "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group list</em></span>" +
                            "<span id='phedex-data-subscriptions-ctl-update'></span>" +
                          "</div>";
           form.appendChild(el);
@@ -232,19 +240,44 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           this._default[field] = function(_button,_field,index) {
             return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
           }(button,field,0);
-          this.onUpdate = function() {
-            var elList, action, param;
-debugger; // TW have to find the 'select' column and act on it... Better build the table first :-)
-            action = this.ctl.action;
-          };
-          button = new Button({ label:'Apply changes',  id:'phedex-data-subscriptions-update',  container:'phedex-data-subscriptions-ctl-update'  });
+          this.onUpdate = function(obj) {
+            return function() {
+              var elList, action, param, values=[], i;
+              action = obj.ctl.action;
+              elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
+              for (i in elList) {
+                if ( elList[i].checked ) {
+                  values.push(elList[i].text);
+                }
+              }
+              if ( !values.length ) {
+                obj.setSummary('error','You did not select any subscriptions to modify');
+                return;
+              }
+debugger;
+              obj.setSummary('OK','Acting on '+values.length+' subscription'+(value.length==1 ? '' : 's'));
+            };
+          }(this);
+          button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
           button.on('click',this.onUpdate);
+          button.set('disabled',true);
+          this.ctl.applyChanges = button;
+        }
+      },
+      setSummary: function(status,text) {
+        var map = {error:'phedex-box-red', warn:'phedex-box-yellow'}, i;
+        dom.messages.innerHTML = text;
+        for ( i in map ) {
+          Dom.removeClass(dom.messages,map[i]);
+        }
+        if ( map[status] ) {
+          Dom.addClass(dom.messages,map[status]);
         }
       },
       Help:function(item) {
         item = this[item];
         var elRegion = Dom.getRegion(item.el),
-            elHelp   = this.dom.floating_help;
+            elHelp   = dom.floating_help;
         elHelp.innerHTML = item.text;
         if ( Dom.hasClass(elHelp,'phedex-invisible') ) {
           Dom.removeClass(elHelp,'phedex-invisible');
@@ -278,19 +311,23 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                 break;
               }
               case 'menuChange_action': {
-                if ( arr[2] == 'Change group' ) {
+                if ( !obj.update ) {
+                  obj.update = {};
+                  if ( arr[3] != 'groupchange' ) {
+                    obj.ctl.applyChanges.set('disabled',false);
+                  }
+                }
+                if ( arr[3] == 'groupchange' ) {
                   obj.ctl.group.set('disabled',false);
                 } else {
                   obj.ctl.group.set('disabled',true);
                 }
+                obj.update.action = arr[3];
                 break;
               }
               case 'menuChange_group': {
-                if ( arr[2] == 'any' ) {
-                  delete _filter.group;
-                } else {
-                  _filter.group = arr[2];
-                }
+                obj.update.group = arr[2];
+                obj.ctl.applyChanges.set('disabled',false);
                 break;
               }
               case 'menuChange_filter': {
@@ -371,18 +408,26 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
 
-        _sbx.notify('SetModuleConfig','subscriptions-table', { parent:this.dom.datatable, autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
+        _sbx.notify('SetModuleConfig','subscriptions-table',
+                        { parent:dom.datatable,
+                          autoDestruct:false,
+                          noDecorators:true,
+                          noExtraDecorators:true,
+                          noHeader:true });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
       setHiddenColumns: function() {
-        var el, elList=this.columnPanel.elList, i, columns=[];
+        var el, elList=this.columnPanel.elList, i, columns=[], auth;
         for ( i in elList ) {
           el = elList[i];
           columns.push({label:el.name, show:el.checked});
         }
-        _sbx.notify(obj.subscriptionsId,'setColumnVisibility',columns);
+        auth = false;
+        if ( this.auth ) { auth = this.auth.isAdmin; }
+        columns.push({label:'Select', show:auth});
+        _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
       },
       gotSubscriptionsId: function(arg) {
         this.subscriptionsId = arg;
@@ -390,12 +435,12 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
           return function(ev,arr) {
             var action = arr[0], arr1;
             switch (action) {
-              case 'setSummary': {
-                arr1 = arr.slice();
-                arr1.shift();
-                obj.setSummary.apply(obj,arr1);
-                break;
-              }
+//               case 'setSummary': {
+//                 arr1 = arr.slice();
+//                 arr1.shift();
+//                 obj.setSummary.apply(obj,arr1);
+//                 break;
+//               }
               case 'destroy': {
                 delete this.previewId;
                 break;
@@ -411,7 +456,8 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         _sbx.listen(this.subscriptionsId,handler);
       },
       getSubscriptions: function() {
-        var args = {collapse:'y', create_since:6*30*86400 /* months */}, i, filter=this._filter, f, map=this.meta.map;
+        var args = {collapse:'y', create_since:6*30*86400 /* months */}, i, filter=this._filter, f, map=this.meta.map,
+            datasets, blocks, data, level;
         for (i in filter) {
           f = filter[i];
           if ( typeof(f) == 'array' || typeof(f) == 'object' ) {
@@ -422,7 +468,26 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
             args[i] = f;
           }
         }
-        this.dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
+        for (i in args.data) {
+          data = args.data[i];
+          level = NUtil.parseBlockName(data);
+          if ( level == 'BLOCK' ) {
+            if ( !blocks ) { blocks = []; }
+            blocks.push(data);
+            continue;
+          }
+          if ( level == 'DATASET' ) {
+            if ( !datasets ) { datasets = []; }
+            datasets.push(data);
+            continue;
+          }
+          this.setSummary('error','Data-item not valid');
+          return;
+        }
+        if ( datasets  ) { args.dataset = datasets; }
+        if ( blocks    ) { args.block   = blocks; }
+        if ( args.data ) { delete args.data; }
+        dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
                               args:args,
@@ -431,11 +496,10 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
       },
       gotSubscriptions:function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
-        var datasets=data.dataset, api=context.api, i, j, k, dataset, blocks, block, table, row,
-            d=obj.dom, level;
+        var datasets=data.dataset, api=context.api, i, j, k, dataset, blocks, block, table, row, level;
 
         if ( response ) {
-          this.setSummary('error',"Error retrieving subscriptions data");
+          this.setSummary('error','Error retrieving subscriptions data');
           return;
         }
         switch (api) {
@@ -450,14 +514,11 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
               return;
             }
             _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
-            d.messages.innerHTML = '';
-            Dom.removeClass(d.messages,'phedex-invisible');
             if ( !datasets || !datasets.length ) {
-              d.messages.innerHTML = "<span class='phedex-box-red' style='padding:5px;'>No data found matching your query!</span>";
-              d.messages.style.margin = '5px 0';
+              this.setSummary('error','No data found matching your query!');
               return;
             }
-            d.messages.innerHTML = d.messages.style.margin = '';
+            this.setSummary('OK',datasets.length+' item'+(datasets.length == 1 ? '' : 's')+' found');
             for (i in datasets) {
               dataset = datasets[i];
               row=[];
@@ -518,7 +579,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         }
       },
       initSub: function() {
-        var d=this.dom, mb=d.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=d.container;
+        var mb=dom.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=dom.container;
         el = document.createElement('div');
         el.innerHTML = "<div id='phedex-options-control'></div>" +
                        "<div id='phedex-data-subscriptions-options-panel' class='phedex-invisible'></div>";
@@ -549,9 +610,23 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         }(this);
         b.on('click',onShowOptionsClick);
       },
+
+      onSelectedMenuItemChange: function(_field,action) {
+        if ( !action ) { action = _field; }
+        return function(event) {
+          var oMenuItem = event.newValue,
+              text = oMenuItem.cfg.getProperty('text'),
+              value = oMenuItem.value,
+              previous;
+          if ( event.prevValue ) { previous = event.prevValue.value; }
+          if ( value == previous ) { return; }
+          this.set('label', text);
+          _sbx.notify(obj.id,'menuChange_'+action,_field,text,value);
+        };
+      },
       buildOptionsTabview: function() {
-        var d=this.dom, ctl = this.ctl, mb=d.main_block, form, el, elBlur,
-            opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=this.dom.apply;
+        var ctl=this.ctl, mb=dom.main_block, form, el, elBlur, menu, button,
+            opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=dom.apply;
         if ( opts.tabview ) { return; }
         form = document.createElement('form');
         form.id   = 'data-subscriptions-filter';
@@ -635,7 +710,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                     "<div id='phedex-nextgen-filter-resize-"+field+"'><textarea id='phedex-data-subscriptions-input-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "List of request-IDs" + "</textarea></div>" +
                   "</div>" +
                 "</div>";
-        d[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
+        dom[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
         this._default[field] = function(e,t) {
           return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
         }(el,el.value);
@@ -674,7 +749,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
                     "<div id='phedex-nextgen-filter-resize-"+field+"'><textarea id='phedex-data-subscriptions-input-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "Block name or Perl reg-ex" + "</textarea></div>" +
                   "</div>" +
                 "</div>";
-        d[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
+        dom[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
         this._default[field] = function(e,t) {
           return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
         }(el,el.value);
@@ -689,22 +764,6 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         }(this,el.value);
         el.onblur=elBlur(this,'data',el.value);
         NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
-
-// Generic for all buttons...
-        var menu, button;
-        this.onSelectedMenuItemChange = function(_field,action) {
-              if ( !action ) { action = _field; }
-              return function(event) {
-                var oMenuItem = event.newValue,
-                    text = oMenuItem.cfg.getProperty('text'),
-                    value = oMenuItem.value,
-                    previous;
-                if ( event.prevValue ) { previous = event.prevValue.value; }
-                if ( value == previous ) { return; }
-                  this.set('label', text);
-                _sbx.notify(obj.id,'menuChange_'+action,_field,text);
-              };
-            }
 
 // Priority...
         menu = [
@@ -796,7 +855,7 @@ debugger; // TW have to find the 'select' column and act on it... Better build t
         if ( typeof(el) == 'string' ) { el = Dom.get(el); }
         if ( !groups ) {
           el.innerHTML = '&nbsp;<strong>Error</strong> loading group names, cannot continue';
-          Dom.addClass(e,'phedex-box-red');
+          Dom.addClass(el,'phedex-box-red');
           _sbx.notify(this.id,'abort');
           return;
         }
