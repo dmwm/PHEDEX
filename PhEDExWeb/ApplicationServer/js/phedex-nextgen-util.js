@@ -171,6 +171,15 @@ PHEDEX.Nextgen.Util = function() {
              "<a href='/phedex/tony/Data::Subscriptions?SecModPwd=1'>password</a> but you are still having problems with this page you may " +
              "<a href='mailto:cms-phedex-admins@cern.ch'>contact the PhEDEx developers</a>.</p>";
       return str;
+    },
+    parseBlockName: function(string) {
+      if ( string.match(/(\/[^/]+\/[^/]+\/[^/#]+)(#.*)?$/ ) ) {
+        if ( RegExp.$2 ) {
+          return 'BLOCK';
+        }
+        return 'DATASET';
+      }
+      return null;
     }
   }
 }();
