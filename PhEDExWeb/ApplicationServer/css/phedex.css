@@ -239,7 +239,7 @@ div.phedex-panel-banner-help { /* need the specificity! */
 .phedex-panel-buttons {
   float: right;
 }
-.phedex-clear-both .phedex-panel-status {
+.phedex-clear-both, .phedex-panel-status {
   clear: both;
 }
 .phedex-panel-outer {
