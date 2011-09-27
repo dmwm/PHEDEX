@@ -158,7 +158,6 @@ PHEDEX.DataTable = function (sandbox, string) {
               m._filter = this.createFilterMeta();
               // Now add the key-names to the friendlyName object, to allow looking up friendlyNames from column keys as well. Needed for some of the more
               // obscure metadata manipulations. Finessing the lookup in this direction only allows me to avoid adding datatable-specific code elsewhere
-//debugger;
               for (i in m.filter) {
                 h = {};
                 for (key in m.filter[i].fields) {
@@ -166,7 +165,6 @@ PHEDEX.DataTable = function (sandbox, string) {
                 }
                 m.filter[i].fields = h;
               }
-//debugger;
               mff = m._filter.fields;
               for (i in allColumns) {
                 col = allColumns[i];
@@ -181,7 +179,6 @@ PHEDEX.DataTable = function (sandbox, string) {
                   if ( mff[j] ) { mff[j].nested = true; }
                 }
               }
-//debugger;
               if (m.sort) {
                 if (m.sort.field && !m.sort.dir) { m.sort.dir = Yw.DataTable.CLASS_ASC; }
               }
@@ -408,7 +405,7 @@ PHEDEX.DataTable = function (sandbox, string) {
               this.needProcess = true; //Process data by default
               var t = this.meta.table,
                   i = t.columns.length,
-                  cDef, masterConfig, nestedConfig;
+                  cDef, masterConfig, nestedConfig, tmp;
 
               masterConfig = {
                            initialLoad: false,
@@ -426,10 +423,19 @@ PHEDEX.DataTable = function (sandbox, string) {
                 i--;
                 cDef = t.columns[i];
                 if (typeof cDef != 'object') { cDef = { key: cDef }; t.columns[i] = cDef; }
-                if (!cDef.label) { cDef.label = cDef.key; }
+                if (!cDef.label)      { cDef.label = cDef.key; }
                 if (!cDef.resizeable) { cDef.resizeable = true; }
-                if (!cDef.sortable) { cDef.sortable = true; }
                 if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+                if (!cDef.sortable)   { cDef.sortable = true; }
+                if ( tmp = cDef.sortOptions ) {
+                  if ( typeof(tmp.sortFunction == 'string') ) {
+                    tmp.sortFunction = function(obj,method) {
+                      return function() {
+                        obj[method].apply(obj,arguments);
+                      };
+                    }(this,tmp.sortFunction);
+                  }
+                }
               }
               if ( t.nestedColumns ) { // map the nested columns too
                 this.nestedDataSource = new YuDS();
@@ -438,10 +444,19 @@ PHEDEX.DataTable = function (sandbox, string) {
                   i--;
                   cDef = t.nestedColumns[i];
                   if (typeof cDef != 'object') { cDef = { key: cDef }; t.nestedColumns[i] = cDef; }
-                  if (!cDef.label) { cDef.label = cDef.key; }
+                  if (!cDef.label)      { cDef.label = cDef.key; }
                   if (!cDef.resizeable) { cDef.resizeable = true; }
-                  if (!cDef.sortable) { cDef.sortable = true; }
                   if (!t.map[cDef.key]) { t.map[cDef.key] = cDef.key.toLowerCase(); }
+                  if (!cDef.sortable)   { cDef.sortable = true; }
+                  if ( tmp = cDef.sortOptions ) {
+                    if ( typeof(tmp.sortFunction == 'string') ) {
+                      tmp.sortFunction = function(obj,method) {
+                        return function() {
+                          obj[method].apply(obj,arguments);
+                        };
+                      }(this,tmp.sortFunction);
+                    }
+                  }
                 }
               }
 
