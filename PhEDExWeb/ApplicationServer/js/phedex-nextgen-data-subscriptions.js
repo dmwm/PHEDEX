@@ -64,7 +64,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             suspended:{suspended:'y', active:'n'},
            'created since':{forever:0, '2 years':24, '1 year':12, '6 months':6} // months...
           },
-        }
+        },
+        selected:{},
+        nSelected:0
       },
       useElement: function(el) {
         var d = dom, form;
@@ -200,6 +202,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             for (i in elList) {
               elList[i].checked = val;
             }
+            if ( !val ) {
+              this.meta.selected  = {};
+              this.meta.nSelected = 0;
+            }
+            this.ctl.applyChanges.set('disabled',!val);
           };
           button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
           button.on('click',function() { obj.onSelectAllOrNone(true) });
@@ -242,20 +249,14 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }(button,field,0);
           this.onUpdate = function(obj) {
             return function() {
-              var elList, action, param, values=[], i;
+              var elList, action, param, selected=obj.meta.selected, i, n=obj.meta.nSelected;
               action = obj.ctl.action;
-              elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
-              for (i in elList) {
-                if ( elList[i].checked ) {
-                  values.push(elList[i].text);
-                }
-              }
-              if ( !values.length ) {
+              if ( !n ) {
                 obj.setSummary('error','You did not select any subscriptions to modify');
                 return;
               }
+              obj.setSummary('OK',obj.update.action+' '+n+' subscription'+(n==1 ? '' : 's'));
 debugger;
-              obj.setSummary('OK','Acting on '+values.length+' subscription'+(value.length==1 ? '' : 's'));
             };
           }(this);
           button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
@@ -313,9 +314,6 @@ debugger;
               case 'menuChange_action': {
                 if ( !obj.update ) {
                   obj.update = {};
-                  if ( arr[3] != 'groupchange' ) {
-                    obj.ctl.applyChanges.set('disabled',false);
-                  }
                 }
                 if ( arr[3] == 'groupchange' ) {
                   obj.ctl.group.set('disabled',false);
@@ -323,11 +321,12 @@ debugger;
                   obj.ctl.group.set('disabled',true);
                 }
                 obj.update.action = arr[3];
+                _sbx.notify(obj.id,'setApplyChangesState');
                 break;
               }
               case 'menuChange_group': {
                 obj.update.group = arr[2];
-                obj.ctl.applyChanges.set('disabled',false);
+                _sbx.notify(obj.id,'setApplyChangesState');
                 break;
               }
               case 'menuChange_filter': {
@@ -396,6 +395,21 @@ debugger;
                 obj.setHiddenColumns();
                 break;
               }
+              case 'setApplyChangesState': {
+                var update = obj.update;
+                if ( obj.meta.nSelected &&
+                     update &&
+                     (
+                       (update.action == 'groupchange' && update.group) ||
+                       (update.action != 'groupchange' && update.action != null)
+                     )
+                   ) {
+                  obj.ctl.applyChanges.set('disabled',false);
+                } else {
+                  obj.ctl.applyChanges.set('disabled',true);
+                }
+                break;
+              }
               default: {
                 break;
               }
@@ -433,7 +447,7 @@ debugger;
         this.subscriptionsId = arg;
         var handler = function(obj) {
           return function(ev,arr) {
-            var action = arr[0], arr1;
+            var action = arr[0];
             switch (action) {
               case 'destroy': {
                 delete this.previewId;
@@ -442,6 +456,19 @@ debugger;
               case 'initDerived': { // module is live, set the hidden fields!
                 obj.subscriptionsModuleIsReady = true;
                 obj.setHiddenColumns();
+                break;
+              }
+              case 'checkbox-select': {
+                var id=arr[1], checked=arr[2], params=arr[3], selected=obj.meta.selected, i;
+                if ( checked ) {
+                  selected[id] = params;
+                  obj.meta.nSelected++;
+                  _sbx.notify(obj.id,'setApplyChangesState');
+                } else {
+                  delete selected[id];
+                  obj.meta.nSelected--;
+                  _sbx.notify(obj.id,'setApplyChangesState');
+                }
                 break;
               }
             }
