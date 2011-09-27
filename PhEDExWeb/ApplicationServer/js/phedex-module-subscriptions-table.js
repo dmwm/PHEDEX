@@ -55,11 +55,13 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 //             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' }]
                 },
         hide:['Select'], // hidden by default, requires positive authentication to enable it
-        sort:{ field:'Item' }
+        sort:{ field:'Item' },
+        select:{},
       },
       _processData: function(data) {
         var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, column, elList, oCallback,
-            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, cBox;
+            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, /*cBox,*/ id,
+            select=meta.select;
 
         i = t.columns.length;
         if (!t.map) { t.map = {}; }
@@ -77,9 +79,11 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           for (j in item.subscription) {
             s = item.subscription[j];
             s.level = s.level.toUpperCase();
-            cBox = s.level+':'+item.name+':'+s.node;
-// <input type='checkbox' name='s_value' value='BLOCK:/lifecycle/mc/bari_4#058c9352:TX_CH_CERN_Rapolas'
-            Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' value='"+cBox+"' />",
+//             cBox = s.level+':'+item.name+':'+s.node;
+            id = 'cbox_'+PxU.Sequence();
+            select[id] = { level:s.level, item:item.name, node:s.node };
+//             Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+cBox+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />",
+            Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />",
                     request:s.request,
                     level:s.level,
                     item:item.name,
@@ -145,7 +149,21 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 //         this.needProcess = false;
         return Table;
       },
-
+      initMe: function() {
+        this.allowNotify['checkboxSelect'] = 1;
+      },
+      checkboxSelect: function(id) {
+        var el = Dom.get(id),
+            record = this.dataTable.getRecord(el),
+            text = record.getData('select');
+        if ( el.checked ) {
+          text = text.replace(/ name=/," checked='yes' name=");
+        } else {
+          text = text.replace(/checked='yes' /,'');
+        }
+        this.dataTable.updateCell(record,'select',text);
+        _sbx.notify(this.id,'checkbox-select',id,el.checked,this.meta.select[id]);
+      },
       initData: function() {
         if ( this.args ) {
           _sbx.notify( this.id, 'initData' );
