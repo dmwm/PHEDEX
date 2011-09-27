@@ -435,12 +435,6 @@ debugger;
           return function(ev,arr) {
             var action = arr[0], arr1;
             switch (action) {
-//               case 'setSummary': {
-//                 arr1 = arr.slice();
-//                 arr1.shift();
-//                 obj.setSummary.apply(obj,arr1);
-//                 break;
-//               }
               case 'destroy': {
                 delete this.previewId;
                 break;
