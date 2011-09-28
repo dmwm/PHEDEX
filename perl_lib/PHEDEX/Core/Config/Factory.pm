@@ -15,7 +15,7 @@ $PHEDEX::Core::Factory::rerun = 0;
 our %params =
 	(
 	  MYNODE	=> undef,		# my TMDB nodename
-	  ME		=> 'WatchDog',          # Name for the record
+	  ME		=> 'Watchdog',          # Name for the record
 	  WAITTIME	=> 90 + rand(3),	# This agent cycle time
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG} || 0,
