@@ -66,10 +66,28 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           },
         },
         selected:{},
-        nSelected:0
+        nSelected:0,
+        admin:
+        {
+          opts:
+          {
+            suspend:     'Suspend subscriptions',
+            unsuspend:   'Unsuspend subscriptions',
+            priorityhi:  'Make high priority',
+            priorityno:  'Make normal priority',
+            prioritylo:  'Make low priority',
+            groupchange: 'Change group',
+            deletedata:  'Delete this data'
+          },
+          groups:
+          {
+            'suspend':['suspend', 'unsuspend'],
+            'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange']
+          }
+        }
       },
       useElement: function(el) {
-        var d = dom, form;
+        var form;
         dom.target = el;
         dom.container  = document.createElement('div'); dom.container.className  = 'phedex-nextgen-container'; dom.container.id = 'doc3';
         dom.hd         = document.createElement('div'); dom.hd.className         = 'phedex-nextgen-hd';        dom.hd.id = 'hd';
@@ -130,8 +148,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
 
         }
-        if (  auth.isAdmin ) { _sbx.notify(obj.id,'isAdmin'); }
-        if ( !auth.isAdmin ) { _sbx.notify(obj.id,'isNotAdmin'); }
+        if ( auth.isAdmin ) { _sbx.notify(obj.id,'isAdmin'); }
+        else                { _sbx.notify(obj.id,'isNotAdmin'); }
       },
       isNotAdmin: function() {
 //      User has no administrative rights. Add a link explaining why.
@@ -164,19 +182,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             i, j, k, container=dom.container, selector=dom.selector, form=obj.data_subscriptions_action,
             id=PxU.Sequence(),
             field, el, button,
-            admin_opts = {
-                   suspend:     'Suspend subscriptions',
-                   unsuspend:   'Unsuspend subscriptions',
-                   priorityhi:  'Make high priority',
-                   prioritymd:  'Make normal priority',
-                   prioritylo:  'Make low priority',
-                   groupchange: 'Change group',
-                   deletedata:  'Delete this data'
-                 },
-            admin_grps = {
-                   'suspend':['suspend', 'unsuspend'],
-                   'priority':['priorityhi', 'prioritymd', 'prioritylo', 'groupchange']
-                 },
+            admin_opts = this.meta.admin.opts,
+            admin_grps = this.meta.admin.groups,
             admin_menu=[];
 
 //      Notify the table that it can show the select column
@@ -200,18 +207,22 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             var elList, i;
             elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
             for (i in elList) {
-              elList[i].checked = val;
+              if ( elList[i].checked != val ) {
+                _sbx.notify(this.subscriptionsId,'checkboxSelect',elList[i].id,val);
+              }
             }
-            if ( !val ) {
-              this.meta.selected  = {};
-              this.meta.nSelected = 0;
-            }
-            this.ctl.applyChanges.set('disabled',!val);
+            i = elList.length;
+            if ( val ) { this.setSummary('OK','Selected '+i+' subscription'+(i==1?'':'s')); }
+            else       { this.setSummary('OK','&nbsp;'); }
           };
           button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
           button.on('click',function() { obj.onSelectAllOrNone(true) });
+          button.set('disabled',true);
+          this.ctl.selectAll = button;
           button = new Button({ label:'Clear all', id:'phedex-data-subscriptions-clear-all', container:'phedex-data-subscriptions-ctl-clear-all' });
           button.on('click',function() { obj.onSelectAllOrNone(false) });
+          button.set('disabled',true);
+          this.ctl.selectNone = button;
 
           i = document.createElement('input');
           i.type = 'hidden'
@@ -232,6 +243,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                            "<span id='phedex-data-subscriptions-ctl-action'></span>" +
                            "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group list</em></span>" +
                            "<span id='phedex-data-subscriptions-ctl-update'></span>" +
+                           "<span id='phedex-data-subscriptions-ctl-interrupt' class='phedex-invisible'></span>" +
                          "</div>";
           form.appendChild(el);
           this.ctl[field] = button = new Button({
@@ -249,24 +261,113 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }(button,field,0);
           this.onUpdate = function(obj) {
             return function() {
-              var elList, action, param, selected=obj.meta.selected, i, n=obj.meta.nSelected;
-              action = obj.ctl.action;
+              var elList, action, param, selected=obj.meta.selected, i, j, n=obj.meta.nSelected, msg, args={}, item, level, fn,
+                  pending=[], tmp;
+              action = obj.update.action;
               if ( !n ) {
                 obj.setSummary('error','You did not select any subscriptions to modify');
                 return;
               }
-              obj.setSummary('OK',obj.update.action+' '+n+' subscription'+(n==1 ? '' : 's'));
-debugger;
+              msg = '"'+obj.meta.admin.opts[action]+'"';
+              if ( action == 'groupchange' ) {
+                msg += ' to "'+obj.update.group+'"';
+              }
+              obj.setSummary('OK','Apply '+msg+' to '+n+' subscription'+(n==1?'':'s'));
+              switch (action) {
+                case 'group':      { args.group = obj.update.group;   break; }
+                case 'suspend':    { args.suspend_until = 9999999999; break; }
+                case 'unsuspend':  { args.suspend_until = 0;          break; }
+                case 'prioritylo': { args.priority = 'low';           break; }
+                case 'priorityno': { args.priority = 'normal';        break; }
+                case 'priorityhi': { args.priority = 'high';          break; }
+              }
+              obj.nResponse = { OK:0, fail:0 };
+              for (i in selected) {
+                item = selected[i];
+                delete args.block;
+                delete args.dataset;
+                args.node = item.node;
+                level = item.level.toLowerCase();
+                args[level] = item.item;
+                fn = function(id) {
+                  return function(data,context,response) { obj.gotActionReply(data,context,response,id,n); }
+                }(i);
+                tmp={};
+                for ( j in args ) { tmp[j] = args[j]; }
+                pending.push({ fn:fn, args:tmp, cbox:parseInt(i.match(/^cbox_([0-9]*)$/)[1]) });
+                delete args[level];
+              }
+              obj.pending = pending.sort( function(a,b) { return YAHOO.util.Sort.compare(a.cbox,b.cbox); } );
+              obj.interrupted = false;
+              obj.dispatchUpdate();
             };
           }(this);
           button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
           button.on('click',this.onUpdate);
           button.set('disabled',true);
           this.ctl.applyChanges = button;
+          button = new Button({ label:'Interrupt processing', id:'phedex-data-subscriptions-interrupt', container:'phedex-data-subscriptions-ctl-interrupt' });
+          button.on('click',this.interruptProcessing);
+          this.ctl.interrupt = button;
+          dom.interrupt_container = this.ctl.interrupt.get('container');
         }
       },
+      interruptProcessing: function() {
+        delete obj.pending;
+        obj.setSummary('warn','Processing interrupted');
+        Dom.addClass(dom.interrupt_container,'phedex-invisible');
+        _sbx.notify(obj.id,'setApplyChangesState');
+        obj.interrupted = true;
+      },
+      dispatchUpdate: function() {
+        var i, fn, args, pending=this.pending, item;
+        if ( !this.queued ) {
+          this.queued = 0;
+        }
+        while ( pending.length ) {
+          item = pending.shift();
+          fn   = item.fn;
+          args = item.args;
+          PHEDEX.Datasvc.Call({api:'bounce', args:args, callback:fn});
+          this.queued++;
+          if ( this.queued >= 5 ) { break; }
+        }
+        if ( this.queued ) {
+          this.ctl.applyChanges.set('disabled',true);
+          Dom.removeClass(dom.interrupt_container,'phedex-invisible');
+        }
+      },
+      gotActionReply: function(data,context,response,cbox,total) {
+        var status='OK',
+            nResponse = this.nResponse,
+            nSelected = this.meta.nSelected, msg;
+        this.queued--;
+        _sbx.notify(this.id,'dispatchUpdate');
+        if ( response ) {
+          nResponse.fail++;
+        } else {
+          nResponse.OK++;
+          _sbx.notify(this.subscriptionsId,'checkboxSelect',cbox,false);
+        }
+        if ( nResponse.fail ) { status = 'error'; }
+        msg = nResponse.fail+' failure'+(nResponse==1?'':'s')+', '+
+              nResponse.OK+' success'+(nResponse.OK==1?'':'es')+
+             ' out of '+total+' subscription'+(total==1?'':'s');
+        if ( nResponse.OK + nResponse.fail == total ) {
+          if ( nResponse.fail == 0 ) {
+            msg = 'All subscriptions successfully updated';
+          } else {
+            msg = 'Finished with '+msg;
+          }
+        }
+        if ( this.interrupted ) {
+          status = 'warn';
+          msg += ' (Interrupted by user)';
+        }
+        this.setSummary(status,msg);
+      },
       setSummary: function(status,text) {
-        var map = {error:'phedex-box-red', warn:'phedex-box-yellow'}, i;
+        var map = {error:'phedex-box-red', warn:'phedex-box-yellow', OK:'phedex-box-green'}, i;
         dom.messages.innerHTML = text;
         for ( i in map ) {
           Dom.removeClass(dom.messages,map[i]);
@@ -396,7 +497,7 @@ debugger;
                 break;
               }
               case 'setApplyChangesState': {
-                var update = obj.update;
+                var update = obj.update, pending = obj.pending;
                 if ( obj.meta.nSelected &&
                      update &&
                      (
@@ -432,6 +533,9 @@ debugger;
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
+      initMe: function() {
+        this.allowNotify['dispatchUpdate'] = 1;
+      },
       setHiddenColumns: function() {
         var el, elList=this.columnPanel.elList, i, columns=[], auth;
         for ( i in elList ) {
@@ -459,15 +563,18 @@ debugger;
                 break;
               }
               case 'checkbox-select': {
-                var id=arr[1], checked=arr[2], params=arr[3], selected=obj.meta.selected, i;
+                var id=arr[1], checked=arr[2], params=arr[3], meta=obj.meta, selected=meta.selected, i;
                 if ( checked ) {
                   selected[id] = params;
-                  obj.meta.nSelected++;
-                  _sbx.notify(obj.id,'setApplyChangesState');
+                  meta.nSelected++;
+                  if ( meta.nSelected == 1 ) { _sbx.notify(obj.id,'setApplyChangesState'); } // minor optimisation!
                 } else {
                   delete selected[id];
-                  obj.meta.nSelected--;
-                  _sbx.notify(obj.id,'setApplyChangesState');
+                  meta.nSelected--;
+                  if ( !meta.nSelected ) {
+                    _sbx.notify(obj.id,'setApplyChangesState'); // minor optimisation!
+                    Dom.addClass(dom.interrupt_container,'phedex-invisible');
+                  }
                 }
                 break;
               }
@@ -517,37 +624,44 @@ debugger;
       },
       gotSubscriptions:function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
-        var datasets=data.dataset, api=context.api, i, j, k, dataset, blocks, block, table, row, level;
-
+        var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0;
         if ( response ) {
           this.setSummary('error','Error retrieving subscriptions data');
           return;
         }
-        switch (api) {
-          case 'subscriptions': {
-            if ( !this.subscriptionsId ) {
-              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'subscriptions-table', callerId:this.id, callback:'gotSubscriptionsId'});
-              _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
-              return;
+
+        if ( !this.subscriptionsId ) {
+          _sbx.delay(25,'module','*','lookingForA',{moduleClass:'subscriptions-table', callerId:this.id, callback:'gotSubscriptionsId'});
+          _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
+          return;
+        }
+        if ( !this.subscriptionsModuleIsReady ) {
+          _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
+          return;
+        }
+        _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
+        this.ctl.selectAll.set( 'disabled',false);
+        this.ctl.selectNone.set('disabled',false);
+        if ( !datasets || !datasets.length ) {
+          this.setSummary('error','No data found matching your query!');
+          return;
+        }
+
+        for (i in datasets) {
+          dataset = datasets[i];
+          subscriptions = dataset.subscription;
+          if ( subscriptions ) {
+            nSubs += subscriptions.length;
+          }
+          for (j in dataset.block) {
+            subscriptions = dataset.block[j].subscription;
+            if ( subscriptions ) {
+              nSubs += subscriptions.length;
             }
-            if ( !this.subscriptionsModuleIsReady ) {
-              _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
-              return;
-            }
-            _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
-            if ( !datasets || !datasets.length ) {
-              this.setSummary('error','No data found matching your query!');
-              return;
-            }
-            this.setSummary('OK',datasets.length+' item'+(datasets.length == 1 ? '' : 's')+' found');
-            for (i in datasets) {
-              dataset = datasets[i];
-              row=[];
-              if ( dataset.subscription ) { level = 'DATASET'; }
-            }
-            break;
           }
         }
+        this.setSummary('OK',datasets.length+' data-item'+(datasets.length == 1 ? '' : 's')+' found, '+
+                        +nSubs+' subscription'+(nSubs==1?'':'s'));
       },
       initFilters: function() {
         var p=this.params, i, j, requests, columns, col, label,
@@ -606,10 +720,10 @@ debugger;
                        "<div id='phedex-data-subscriptions-options-panel' class='phedex-invisible'></div>";
         mb.appendChild(el);
         ctl.options = {
-            panel:Dom.get('phedex-data-subscriptions-options-panel'),
-            label_show:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-down.png' style='vertical-align:top'>Show options",
-            label_hide:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-up.png'   style='vertical-align:top'>Hide options",
-          };
+          panel:Dom.get('phedex-data-subscriptions-options-panel'),
+          label_show:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-down.png' style='vertical-align:middle'>Show options",
+          label_hide:"<img id='"+id+"' src='"+PxW.WebAppURL+"/images/icon-wedge-green-up.png'   style='vertical-align:middle'>Hide options",
+        };
         ctl.options.button = b = new Button({
                                           label:ctl.options.label_show,
                                           id:'phedex-options-control-button',
