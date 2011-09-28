@@ -13,6 +13,7 @@ our $DBS_LOOKUP = undef;
 use CMSWebTools::SecurityModule::Oracle;
 use PHEDEX::Core::SQL;
 use Data::Dumper;
+use POSIX qw(SIGALRM);
 
 ######################################################################
 package Web25::Common; use strict; use warnings; use base "Exporter";
@@ -2292,7 +2293,34 @@ sub generate
   $$self{SECMOD}->setSignupHandler($signup_url);
   $$self{SECMOD}->setReqCertFailHandler($signup_url);
   $$self{SECMOD}->setCallerURL($caller_url);
-  $$self{SECMOD}->init();
+
+# Instead of calling SECMOD->init directly, trap errors with a timeout.
+# $$self{SECMOD}->init();
+  my $SIGALRM = 13; # kludge :-(
+  my $mask      = POSIX::SigSet->new($SIGALRM);
+  my $action    = POSIX::SigAction->new(sub { die "my private alarm" }, $mask);
+  my $oldaction = POSIX::SigAction->new();
+  POSIX::sigaction($SIGALRM, $action, $oldaction );
+  eval {
+      alarm 10;
+      $$self{SECMOD}->init();
+      alarm 0;
+  };
+  POSIX::sigaction($SIGALRM, $oldaction); # restore original
+  if ( $@ and $@ =~ /my private alarm/ ) {
+    my $feedbackurl =
+      "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
+      . "PhEDEx%20web%20(SiteDB)%20is%20inaccessible";
+    print header(-type => 'text/html'),
+      "<center><div class='alert' style='background-color:#FFF0F5;border:1px solid #DC143C; text-align:center; max-width:50%; magrin:1em; padding:1em'>\n",
+      "<p>Timed out connecting to SiteDB, maybe there's a database problem?</p>\n",
+      " Please try again at another time, or if the problem persists,",
+      " <a href='$feedbackurl'>notify the administrators</a>.",
+      "</p>",
+      "</div></center>\n";
+    return;
+  }
+  if ( $@ ) { die $@; }
 
   # Find the class scope index of this page instance.
   my $index = do { no strict "refs"; ${"@{[ref $self]}::INDEX"} };
@@ -2352,6 +2380,7 @@ sub generate
   $$self{LOGIN_MESSAGE} .= "<p>$login_state</p>";
   
   # Check whether we are looking at our vs. global view
+  my $otherurl;
   if (! $$self{SECMOD}->isAuthenticated() )
   {
       $$self{MY_VIEW} = 0;
@@ -2361,13 +2390,13 @@ sub generate
     elsif (!param('view') || param('view') eq 'my')
   {
       $$self{MY_VIEW} = 1;
-      my $otherurl = $self->myurl('view' => 'global');
+      $otherurl = $self->myurl('view' => 'global');
       $$self{VIEW_MESSAGE} = "<p><label>View:</label><strong>my</strong> | <a href='$otherurl'>global</a></p>";
   }
   else
   {
       $$self{MY_VIEW} = 0;
-      my $otherurl = $self->myurl('view' => 'my');
+      $otherurl = $self->myurl('view' => 'my');
       $$self{VIEW_MESSAGE} = "<p><label>View:</label><a href='$otherurl'>my</a> | <strong>global</strong></p>";
   }
 
@@ -4517,7 +4546,7 @@ sub output
 					     BlockActivate BlockDeactivate);
   my @support = grep exists $agents{$_}, qw(BlockDownloadVerifyInjector InfoFileSize InfoStatesClean
 					    InvariantMonitor PerfMonitor LoadTestInjector LoadTestCleanup);
-  my @site = grep exists $agents{$_}, qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify);
+  my @site = grep exists $agents{$_}, qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify Watchdog AgentFactory);
 
   my @other;
   foreach my $agent (keys %agents) {
@@ -6305,6 +6334,129 @@ sub output
 1;
 
 ######################################################################
+package Web25::Activity::FileInfo;
+use strict; use warnings;
+use base "Web25::Page";
+import Web25::Common;
+use CGI qw(:standard);
+use POSIX qw(strftime);
+
+our $INDEX = { LIST => 0, ORDER => 100, TITLE => "File Info" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub myurl
+{
+  my ($self, %args) = @_;
+  my @save = qw(to_node from_node state);
+
+  # Return bare link if we are switching pages
+  return $self->SUPER::myurl(%args)
+    if ($args{"page"} && $args{"page"} ne "Activity::FileInfo");
+
+  # Keep my if remaining on the same page (but e.g. different instance)
+  return $self->SUPER::myurl($self->urlparams(@save), %args);
+}
+
+sub output
+{
+  my ($self) = @_;
+  my %params = $self->validate_all
+      (
+       allow =>    [qw(to_node from_node state priority)],
+       required => [qw(to_node from_node state priority)],
+       spec  => 
+       {
+	   to_node   => { using => 'node' },
+	   from_node => { using => 'node' },
+	   state     => { allowing => [qw(exported transferring transferred assigned)] },
+	   priority  => { using => 'pos_int' },
+       }
+       );
+
+
+  my $to_node   = $params{to_node};
+  my $from_node = $params{from_node};
+  my $state     = $params{state};
+  my $priority  = $params{priority};
+
+  my $state_join = '';
+  my $state_cols = 'NULL from_pfn, NULL to_pfn, NULL space_token,';
+  my $state_where = '';
+  if    ($state eq 'exported')     { 
+      $state_join = 'join t_xfer_task_export ts on ts.task = xt.id'; 
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_inxfer )';
+  } elsif ($state eq 'transferring') {
+      $state_join = 'join t_xfer_task_inxfer ts on ts.task = xt.id'; 
+      $state_cols = 'ts.from_pfn, ts.to_pfn, ts.space_token,';
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_done )';
+  } elsif ($state eq 'transferred')  { 
+      $state_join = 'join t_xfer_task_done ts on ts.task = xt.id'; }
+  elsif ($state eq 'assigned') {
+      $state_where = 'and xt.id not in ( select task from t_xfer_task_export )';
+  } else {
+      $self->alert('Invalid state');
+  }
+     
+  my $sql = qq{
+    select f.id, f.logical_name, f.filesize,
+           $state_cols
+	   xt.time_assign, err.cnt num_errors
+      from t_xfer_task xt
+      $state_join
+      join t_xfer_file f on f.id = xt.fileid
+      join t_adm_node ns on ns.id = xt.from_node
+      join t_adm_node nd on nd.id = xt.to_node
+      left join (select xe.fileid, xe.from_node, xe.to_node, count(*) cnt 
+                   from t_xfer_error xe
+                  group by xe.fileid, xe.from_node, xe.to_node
+                 ) err 
+           on     err.fileid = xt.fileid 
+              and err.from_node= xt.from_node 
+              and err.to_node = xt.to_node
+    where ns.name = :from_node
+      and nd.name = :to_node
+      and xt.priority = :priority
+      $state_where
+      order by xt.time_assign, f.logical_name};
+
+  my $query = &dbexec($$self{DBH}, $sql, 
+		      ':from_node' => $from_node,
+		      ':to_node' => $to_node,
+		      ':priority' => $priority);
+  print { $$self{CONTENT} }
+    "<h1>Files $state from $from_node to $to_node.</h1>\n",
+    "<ol align='left'>\n";
+  while (my $row = $query->fetchrow_arrayref)
+  {
+    my ($fileid, $lfn, $size, $from_pfn, $to_pfn, $space_token, $assigned, $nerrors) = @$row;
+    my $errorurl = $self->myurl('page' => 'Activity::ErrorInfo',
+				'tofilter' => $to_node,
+				'fromfilter' => $from_node,
+				'fileid' => $fileid);
+    print { $$self{CONTENT} }
+    "<li><b>lfn</b>=@{[&escapeHTML($lfn)]}<br />",
+    "<b>size</b>=$size<br />",
+    ($from_pfn ? "<b>from_pfn</b>=@{[&escapeHTML($from_pfn)]}<br />" : ""),
+    ($to_pfn ? "<b>to_pfn</b>=@{[&escapeHTML($to_pfn)]}<br />" : ""),
+    ($space_token ? "<b>to_pfn</b>=@{[&escapeHTML($space_token)]}<br />" : ""),
+    ($nerrors ? "<span class='alarm'><b>errors</b>=$nerrors</span> <a href='$errorurl'>(View)</a><br />"  : ""),
+    ($assigned ? "<b>time_assign</b>=@{[strftime('%Y-%m-%d %H:%M:%S', gmtime($assigned))]} UTC<br />" : ""),
+    "<br /></li>\n";
+  }
+  print { $$self{CONTENT} } "</ol></p>\n";
+}
+
+1;
+
+######################################################################
 package Web25::Activity::ErrorInfo;
 use strict; use warnings;
 use base "Web25::Page";
@@ -7825,7 +7977,7 @@ if ( $TW ) { # TW
   }
 
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
-} # TW
+
   my $q =$self->data_subscriptions();
   my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
 		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
@@ -8051,6 +8203,7 @@ if ( $TW ) { # TW
   $optspane->add_tab('Filters', $filterform);
 
   print { $$self{OPTIONS} } $optspane->output();
+} # TW
 }
 
 sub output_options_form { }
