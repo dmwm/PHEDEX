@@ -71,7 +71,6 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           this.setSummary('error','Error retrieving information from the data-service');
           return;
         }
-        this.setSummary('OK',data.length+' item'+(data.length == 1 ? '' : 's')+' found');
 
 //      Build the datatable and the information for per-node summaries
         for (i in data) {
@@ -82,7 +81,6 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 //             cBox = s.level+':'+item.name+':'+s.node;
             id = 'cbox_'+PxU.Sequence();
             select[id] = { level:s.level, item:item.name, node:s.node };
-//             Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+cBox+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />",
             Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />",
                     request:s.request,
                     level:s.level,
@@ -99,7 +97,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                     suspended:s.suspended,
                     open:item.is_open,
                     timeCreate:s.time_create,
-                    timeComplete:'???',
+                    timeComplete:'???', // TW
                     timeDone:s.time_update
                   };
             for (j in Row) {
@@ -134,7 +132,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                       suspended:s.suspended,
                       open:item.is_open,
                       timeCreate:s.time_create,
-                      timeComplete:'???',
+                      timeComplete:'???', // TW
                       timeDone:s.time_update
                     };
             }
@@ -144,6 +142,8 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             Table.push(Row);
           }
         }
+        this.setSummary('OK',data.length+' data-item'+(data.length==1?'':'s')+' found, '
+                        +Table.length+' subscription'+(Table.length==1?'':'s'));
 
 // TW Need to uncomment this later?
 //         this.needProcess = false;
@@ -152,17 +152,19 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
       initMe: function() {
         this.allowNotify['checkboxSelect'] = 1;
       },
-      checkboxSelect: function(id) {
-        var el = Dom.get(id),
-            record = this.dataTable.getRecord(el),
-            text = record.getData('select');
-        if ( el.checked ) {
+      checkboxSelect: function(id,value) {
+        var el = id, record, text;
+        if ( typeof(el) == 'string' ) { el = Dom.get(id); }
+        record = this.dataTable.getRecord(el);
+        text = record.getData('select');
+        if ( value == null ) { value = el.checked; }
+        if ( value ) {
           text = text.replace(/ name=/," checked='yes' name=");
         } else {
           text = text.replace(/checked='yes' /,'');
         }
         this.dataTable.updateCell(record,'select',text);
-        _sbx.notify(this.id,'checkbox-select',id,el.checked,this.meta.select[id]);
+        _sbx.notify(this.id,'checkbox-select',id,value,this.meta.select[id]);
       },
       initData: function() {
         if ( this.args ) {
