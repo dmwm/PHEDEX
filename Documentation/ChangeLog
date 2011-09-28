@@ -33,7 +33,9 @@ Changes for Site Agents
   - FileDownload: transfer jobs that cannot be monitored are now correctly abandoned after the timeout
   - BlockDownloadVerify: Using a more aggressive clean-up of the namespace cache
   - BlockDownloadVerify: in the dcache namespace, pass the PRELOAD library correctly from the agent configuration
-  - Watchdog: report status of Watchdog Agent to DB
+  - Watchdog: agent name is now properly registered as "Watchdog" instead of "AgentFactory"
+  - Watchdog: report status of Watchdog Agent to DB every 30 minutes
+  - Watchdog: print alert to log file in case of DB connection error
   - Watchdog: remove "mail" plugin for report notification (duplicate of "email")
 		
 Changes for Operator Tools
