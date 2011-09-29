@@ -26,6 +26,9 @@ use PHEDEX::Core::Config::Factory;
 	     "agent_list=s@"	=> sub { push(@{$args{AGENT_LIST}}, split(/,/, $_[1])) },
 	     "limit=s@"		=> \$args{LIMIT},
 	     "memuse"		=> sub { eval "use Devel::Size"; },
+             "summary_interval=s" => \$args{_SUMMARY_INTERVAL},
+             "report_plugin=s"    => \$args{_REPORT_PLUGIN},
+             "notify_plugin=s"    => \$args{_NOTIFY_PLUGIN},
 	     );
 
 $Factory = PHEDEX::Core::Config::Factory->new( %args, @ARGV );
