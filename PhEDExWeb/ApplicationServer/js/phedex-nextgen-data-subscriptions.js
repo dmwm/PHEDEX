@@ -299,6 +299,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               }
               obj.pending = pending.sort( function(a,b) { return YAHOO.util.Sort.compare(a.cbox,b.cbox); } );
               obj.interrupted = false;
+              obj.changedRows = 0;
               obj.dispatchUpdate();
             };
           }(this);
@@ -315,7 +316,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       interruptProcessing: function() {
         delete obj.pending;
         obj.setSummary('warn','Processing interrupted');
-        Dom.addClass(dom.interrupt_container,'phedex-invisible');
+        _sbx.notify(obj.id,'setUIIdle');
         _sbx.notify(obj.id,'setApplyChangesState');
         obj.interrupted = true;
       },
@@ -328,36 +329,47 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           item = pending.shift();
           fn   = item.fn;
           args = item.args;
-          PHEDEX.Datasvc.Call({api:'bounce', args:args, callback:fn});
+          PHEDEX.Datasvc.Call({method:'POST', api:'updatesubscription', args:args, callback:fn});
           this.queued++;
           if ( this.queued >= 5 ) { break; }
         }
         if ( this.queued ) {
           this.ctl.applyChanges.set('disabled',true);
-          Dom.removeClass(dom.interrupt_container,'phedex-invisible');
+          _sbx.notify(obj.id,'setUIBusy');
         }
       },
       gotActionReply: function(data,context,response,cbox,total) {
         var status='OK',
             nResponse = this.nResponse,
-            nSelected = this.meta.nSelected, msg;
+            nSelected = this.meta.nSelected,
+            sum, msg, row, now, etc;
         this.queued--;
         _sbx.notify(this.id,'dispatchUpdate');
         if ( response ) {
           nResponse.fail++;
         } else {
           nResponse.OK++;
-          _sbx.notify(this.subscriptionsId,'checkboxSelect',cbox,false);
+//           _sbx.notify(this.subscriptionsId,'checkboxSelect',cbox,false);
+          _sbx.notify(this.subscriptionsId,'updateRow',cbox,data.dataset[0]);
         }
         if ( nResponse.fail ) { status = 'error'; }
         msg = nResponse.fail+' failure'+(nResponse==1?'':'s')+', '+
               nResponse.OK+' success'+(nResponse.OK==1?'':'es')+
              ' out of '+total+' subscription'+(total==1?'':'s');
-        if ( nResponse.OK + nResponse.fail == total ) {
+        sum = nResponse.OK+nResponse.fail;
+        if ( sum == total ) {
           if ( nResponse.fail == 0 ) {
             msg = 'All subscriptions successfully updated';
           } else {
             msg = 'Finished with '+msg;
+          }
+          _sbx.notify(this.id,'setApplyChangesState');
+          _sbx.notify(obj.id,'setUIIdle');
+        } else {
+          if ( total > 20 && sum > 10 ) {
+            now = new Date().getTime()/1000;
+            etc = Math.floor((now-this.UIbusy)*(total-sum)/sum);
+            msg += ' | Estimate '+etc+' second'+(etc==1?'':'s')+' remaining';
           }
         }
         if ( this.interrupted ) {
@@ -399,7 +411,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action=arr[0], i, value, field, _filter, filterMap, _filterField;
+            var action=arr[0], i, value, field, _filter, filterMap, _filterField, ctl=obj.ctl;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               arr.shift();
               obj[action].apply(obj,arr);
@@ -496,6 +508,27 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 obj.setHiddenColumns();
                 break;
               }
+              case 'setUIBusy': {
+                Dom.removeClass(dom.interrupt_container,'phedex-invisible');
+                ctl.selectAll.set( 'disabled',true);
+                ctl.selectNone.set('disabled',true);
+                ctl.options.button.set('disabled',true);
+                if ( !obj.UIbusy ) { obj.UIbusy = new Date().getTime()/1000; }
+                break;
+              }
+              case 'setUIIdle': {
+                Dom.addClass(dom.interrupt_container,'phedex-invisible');
+                ctl.selectAll.set( 'disabled',false);
+                ctl.selectNone.set('disabled',false);
+                ctl.options.button.set('disabled',false);
+                obj.UIbusy = 0;
+                if ( obj.changedRows ) {
+                  obj.setSummary('OK',obj.changedRows+' subscription'+(obj.changedRows==1?' was':'s were')+' changed');
+                } else {
+                  obj.setSummary('error','Nothing was changed!');
+                }
+                break;
+              }
               case 'setApplyChangesState': {
                 var update = obj.update, pending = obj.pending;
                 if ( obj.meta.nSelected &&
@@ -571,9 +604,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 } else {
                   delete selected[id];
                   meta.nSelected--;
-                  if ( !meta.nSelected ) {
-                    _sbx.notify(obj.id,'setApplyChangesState'); // minor optimisation!
-                    Dom.addClass(dom.interrupt_container,'phedex-invisible');
+                }
+                break;
+              }
+              case 'rowUpdated': {
+                obj.changedRows++;
+                if ( !obj.UIbusy ) {
+                  if ( obj.changedRows ) {
+                    obj.setSummary('OK',obj.changedRows+' subscription'+(obj.changedRows==1?'':'s')+' changed');
+                  } else {
+                    obj.setSummary('error','Nothing was changed!');
                   }
                 }
                 break;
