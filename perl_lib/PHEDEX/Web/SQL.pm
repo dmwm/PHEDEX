@@ -1829,7 +1829,7 @@ sub getDataSubscriptions
     delete $h{DATASET} if exists $h{DATASET} && not $h{DATASET};
 
     # set correct default COLLAPSE value
-    $h{COLLAPSE} = 'n' unless $h{COLLAPSE};
+    $h{COLLAPSE} = 'y' unless $h{COLLAPSE};
 
     my ($sql,$q,$p,@r);
     ($sql,$p) = getDataSubscriptionsQuery($core, %h);
