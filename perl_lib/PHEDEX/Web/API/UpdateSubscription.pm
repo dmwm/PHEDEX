@@ -1,6 +1,7 @@
 package PHEDEX::Web::API::UpdateSubscription;
 use warnings;
 use strict;
+use URI::Escape;
 
 =pod
 
@@ -55,6 +56,8 @@ Update user_group, priority and/or suspend_until of a existing subscription
   time_create      when the subscription was created
   suspended        is suspended? y or n
   suspend_until    time suspension expires 
+  percent_files    percentage of files at destination
+  percent_bytes    percentage of bytes at destination
 
 =head3 <dataset> attributes:
 
@@ -101,7 +104,9 @@ my $map = {
         time_create => 'TIME_CREATE',
         time_update => 'TIME_UPDATE',
         suspended => 'SUSPENDED',
-        suspend_until => 'SUSPEND_UNTIL'
+        suspend_until => 'SUSPEND_UNTIL',
+        percent_files => 'PERCENT_FILES',
+        percent_bytes => 'PERCENT_BYTES'
     }
 };
 
@@ -134,7 +139,9 @@ my $map2 = {
             time_create => 'TIME_CREATE',
             time_update => 'TIME_UPDATE',
             suspended => 'SUSPENDED',
-            suspend_until => 'SUSPEND_UNTIL'
+            suspend_until => 'SUSPEND_UNTIL',
+            percent_files => 'PERCENT_FILES',
+            percent_bytes => 'PERCENT_BYTES'
         }
     }
 };
@@ -148,10 +155,12 @@ sub update_subscription
 {
     my ($core, %h) = @_;
 
+    $h{block}   = uri_unescape($h{block})   if $h{block};
+    $h{dataset} = uri_unescape($h{dataset}) if $h{dataset};
     # convert parameter keys to upper case
     foreach ( qw / dataset block node group priority suspend_until / )
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+      $h{uc $_} = delete $h{$_} if exists($h{$_});
     }
 
     # check authentication
