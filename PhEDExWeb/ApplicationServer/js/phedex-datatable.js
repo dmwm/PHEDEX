@@ -656,14 +656,16 @@ YwDF.percentMap = function(mantissa,classMap) {
 YwDF.colourMap = function(colourMap) {
   var Dom = YAHOO.util.Dom;
   return function(elCell, oRecord, oColumn, oData) {
-    var className, item, i;
+    var item, i;
     if ( oData != null ) {
       for ( i in colourMap ) {
         item = colourMap[i];
-        if ( item.key == oData ) { className = item.className; }
-        break;
+        if ( item.key == oData ) {
+          Dom.addClass(elCell,item.className);
+        } else {
+          Dom.removeClass(elCell,item.className);
+        }
       }
-      if ( className ) { Dom.addClass(elCell,className); }
     }
     elCell.innerHTML = oData;
   }
