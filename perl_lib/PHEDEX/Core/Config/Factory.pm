@@ -67,6 +67,10 @@ sub new
         $ENV{PHEDEX_SITE};
   die "'PHEDEX_SITE' not set correctly in your configuration file, giving up...\n" unless $self->{PHEDEX_SITE};
 
+  $self->{SUMMARY_INTERVAL} = $self->{_SUMMARY_INTERVAL} if ( $self->{_SUMMARY_INTERVAL} );
+  $self->{REPORT_PLUGIN} = $self->{_REPORT_PLUGIN} if ( $self->{_REPORT_PLUGIN} ); 
+  $self->{NOTIFY_PLUGIN} = $self->{_NOTIFY_PLUGIN} if ( $self->{_NOTIFY_PLUGIN} ); 
+
   $self->{NOTIFY_PLUGIN} = 'Log' if (lc($self->{NOTIFY_PLUGIN}) eq 'logfile' );
   $self->{NOTIFY_PLUGIN} = 'Email' if (lc($self->{NOTIFY_PLUGIN}) eq 'mail' );
 
