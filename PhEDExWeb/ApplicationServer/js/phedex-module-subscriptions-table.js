@@ -117,8 +117,9 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
               if ( known[s.request] ) { // if this is a block for a known dataset-level request...
                 continue;
               }
+              s.level = s.level.toUpperCase();
               Row = { request:s.request,
-                      level:'DATASET',
+                      level:s.level,
                       item:block.name,
                       node:s.node,
                       priority:s.priority,
@@ -151,6 +152,50 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
       },
       initMe: function() {
         this.allowNotify['checkboxSelect'] = 1;
+        this.allowNotify['updateRow'] = 1;
+      },
+      updateRow: function(id,data) {
+        var el = id, i, record, recordSet, oldRow, oldValue, newRow, newValue, s, changed=false;
+        if ( typeof(el) == 'string' ) { el = Dom.get(id); }
+        recordSet = this.dataTable.getRecordSet();
+        record = this.dataTable.getRecord(el);
+        oldRow = record.getData();
+        if ( oldRow.level == 'BLOCK' ) { // pick up information at the right level
+debugger;
+          data = data.block;
+        }
+        s = data.subscription[0];
+        newRow = { select:oldRow.select,
+                   request:s.request,
+                   level:s.level.toUpperCase(),
+                   item:data.name,
+                   node:s.node,
+                   priority:s.priority,
+                   custodial:s.custodial,
+                   group:s.group,
+                   nodeFiles:s.node_files,
+                   nodeBytes:s.node_bytes,
+                   pctFiles:s.percent_files,
+                   pctBytes:s.percent_bytes,
+                   replicaMove:( s.move == 'y' ? 'replica' : 'move' ),
+                   suspended:s.suspended,
+                   open:data.is_open,
+                   timeCreate:s.time_create,
+                   timeComplete:'???', // TW
+                   timeDone:s.time_update
+                 };
+        for (i in oldRow) {
+          oldValue = oldRow[i];
+          newValue = newRow[i];
+          if ( newValue != oldValue ) {
+            changed = true;
+            break;
+          }
+        }
+        if ( changed ) {
+          this.dataTable.updateRow(record,newRow);
+          _sbx.notify(this.id,'rowUpdated');
+        }
       },
       checkboxSelect: function(id,value) {
         var el = id, record, text;
