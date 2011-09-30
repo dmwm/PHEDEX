@@ -12,7 +12,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
   _construct = function(obj) {
     var formatPct       = YwDF.percentMap(2, [ {min:100, className:'phedex-box-green'}, {className:'phedex-box-red'} ] ),
         formatSuspended = YwDF.colourMap( [ {key:'y', className:'phedex-box-yellow'} ] ),
-        formatRid       = YwDF.linkTo(PxW.WebURL+PHEDEX.Datasvc.Instance().instance+'/Request::View?request=RID',/RID$/,'unknown');
+        formatRid       = YwDF.linkTo(PxW.WebURL+PHEDEX.Datasvc.Instance().instance+'/Request::View?request=RID',/RID$/,'-');
     return {
       options: { },
       decorators: [
@@ -60,8 +60,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
       },
       _processData: function(data) {
         var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, column, elList, oCallback,
-            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, /*cBox,*/ id,
-            select=meta.select;
+            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, id;
 
         i = t.columns.length;
         if (!t.map) { t.map = {}; }
@@ -78,10 +77,8 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           for (j in item.subscription) {
             s = item.subscription[j];
             s.level = s.level.toUpperCase();
-//             cBox = s.level+':'+item.name+':'+s.node;
             id = 'cbox_'+PxU.Sequence();
-            select[id] = { level:s.level, item:item.name, node:s.node };
-            Row = { select:"<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />",
+            Row = { select:'',
                     request:s.request,
                     level:s.level,
                     item:item.name,
@@ -103,6 +100,9 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             for (j in Row) {
               if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
             }
+            if ( s.request != null ) {
+              Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
+            }
             Table.push(Row);
             if ( Row.level == 'DATASET' ) { // TW ...which it always will at this point in the structure!
               if ( Row.request ) { known[Row.request] = 1; }
@@ -118,7 +118,9 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                 continue;
               }
               s.level = s.level.toUpperCase();
-              Row = { request:s.request,
+              id = 'cbox_'+PxU.Sequence();
+              Row = { select:'',
+                      request:s.request,
                       level:s.level,
                       item:block.name,
                       node:s.node,
@@ -136,11 +138,14 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                       timeComplete:'???', // TW
                       timeDone:s.time_update
                     };
-            }
-            for (j in Row) {
-              if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
+              for (j in Row) {
+                if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
+              }
+              if ( s.request != null ) {
+                Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
             }
             Table.push(Row);
+            }
           }
         }
         this.setSummary('OK',data.length+' data-item'+(data.length==1?'':'s')+' found, '
@@ -161,8 +166,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
         record = this.dataTable.getRecord(el);
         oldRow = record.getData();
         if ( oldRow.level == 'BLOCK' ) { // pick up information at the right level
-debugger;
-          data = data.block;
+          data = data.block[0];
         }
         s = data.subscription[0];
         newRow = { select:oldRow.select,
@@ -198,10 +202,11 @@ debugger;
         }
       },
       checkboxSelect: function(id,value) {
-        var el = id, record, text;
+        var el=id, record, text, values;
         if ( typeof(el) == 'string' ) { el = Dom.get(id); }
         record = this.dataTable.getRecord(el);
-        text = record.getData('select');
+        values = record.getData();
+        text = values.select;
         if ( value == null ) { value = el.checked; }
         if ( value ) {
           text = text.replace(/ name=/," checked='yes' name=");
@@ -209,7 +214,7 @@ debugger;
           text = text.replace(/checked='yes' /,'');
         }
         this.dataTable.updateCell(record,'select',text);
-        _sbx.notify(this.id,'checkbox-select',id,value,this.meta.select[id]);
+        _sbx.notify(this.id,'checkbox-select',id,value,{ level:values.level, item:values.item, node:values.node });
       },
       initData: function() {
         if ( this.args ) {
@@ -234,13 +239,12 @@ debugger;
       gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
-        if ( !data.dataset ) {
+        if ( !data || !data.dataset ) {
           throw new Error('data incomplete for '+context.api);
         }
         this.data = data.dataset;
         this.context = context;
         this.fillDataSource(this.data);
-        _sbx.notify( this.id, 'gotData' );
       },
      }
   };
