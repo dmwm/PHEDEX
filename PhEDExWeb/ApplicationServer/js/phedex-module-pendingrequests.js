@@ -264,7 +264,6 @@ PHEDEX.Module.PendingRequests = function (sandbox, string) {
                     msg = 'for group: ' + _groupname;
                 }
                 this.dom.title.innerHTML = this.data.length + ' pending request(s) ' + msg;
-                _sbx.notify(this.id, 'gotData');
             }
         };
     };

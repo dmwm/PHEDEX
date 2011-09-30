@@ -181,7 +181,6 @@ PHEDEX.Module.Static = function(sandbox, string) {
             banner('Error in static component', 'error', _me);
             return;
         }
-        _sbx.notify(this.id, 'gotData');
         this._gettingData = true;
     }
 

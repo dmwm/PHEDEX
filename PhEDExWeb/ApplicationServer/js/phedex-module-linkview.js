@@ -435,7 +435,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           this._magic = null;
           this.dom.title.innerHTML = node;
           this.fillBody();
-          _sbx.notify( this.id, 'gotData' );
         }
         else { banner('Received '+context.api+' data, waiting for more...'); }
       }

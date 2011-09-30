@@ -162,7 +162,6 @@ PHEDEX.Module.GroupUsage = function(sandbox, string) {
                 this.data = data.node;
                 this.dom.title.innerHTML = _groupname + ': ' + this.data.length + ' nodes found';
                 this.fillDataSource(this.data);
-                _sbx.notify( this.id, 'gotData' );
             }
         };
     };

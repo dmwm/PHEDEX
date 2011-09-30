@@ -327,7 +327,6 @@ PHEDEX.Module.ConsistencyResults=function(sandbox, string) {
         this._magic = null;
         this.dom.title.innerHTML = ( node ? 'node='+node : '' ) + ( node && block ? ', ' : '' ) + ( block ? 'block='+block : '' );
         this.fillBody();
-        _sbx.notify( this.id, 'gotData' );
       }
     };
   };

@@ -180,7 +180,6 @@ PHEDEX.Module.MissingFiles = function(sandbox, string) {
                 }
                 this.fillDataSource(this.data);
                 this.dom.title.innerHTML = this.data.length + ' missing file(s) for ' + _blockname;
-                _sbx.notify(this.id, 'gotData');
             }
         };
     };

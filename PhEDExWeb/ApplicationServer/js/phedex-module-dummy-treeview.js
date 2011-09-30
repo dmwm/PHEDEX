@@ -92,7 +92,6 @@ PHEDEX.Module.Dummy.TreeView = function(sandbox, string) {
           );
         }
         this.tree.render();
-        _sbx.notify( this.id, 'gotData' );
       },
     };
   };

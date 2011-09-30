@@ -17,7 +17,6 @@ PHEDEX.Module.Dummy = function(sandbox, string) {
 //         _sbx.notify( this.id, 'getData', { api:'bounce' } );
 //       },
 //       gotData: function(data) {
-        _sbx.notify( this.id, 'gotData' );
       },
     };
   };

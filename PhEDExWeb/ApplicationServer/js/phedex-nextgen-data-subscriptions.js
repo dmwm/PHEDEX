@@ -349,7 +349,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           nResponse.fail++;
         } else {
           nResponse.OK++;
-//           _sbx.notify(this.subscriptionsId,'checkboxSelect',cbox,false);
           _sbx.notify(this.subscriptionsId,'updateRow',cbox,data.dataset[0]);
         }
         if ( nResponse.fail ) { status = 'error'; }
@@ -663,7 +662,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                             });
       },
       gotSubscriptions:function(data,context,response) {
-        PHEDEX.Datasvc.throwIfError(data,response);
         var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0;
         if ( response ) {
           this.setSummary('error','Error retrieving subscriptions data');

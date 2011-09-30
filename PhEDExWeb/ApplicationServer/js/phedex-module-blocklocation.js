@@ -788,7 +788,6 @@ PHEDEX.Module.BlockLocation = function(sandbox, string) {
                     _divMissingBlks.innerHTML = strXmlMsg;
                 }
             }
-            _sbx.notify(this.id, 'gotData');
         }
         catch (e) {
             banner("Error in processing the received response. Please check the input.", 'error');

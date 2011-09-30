@@ -172,7 +172,6 @@ PHEDEX.Module.AgentLogs = function(sandbox, string) {
               else {
                 this.dom.title.innerHTML = 'No agent logs are found for "' + _nodename + '"';
               }
-              _sbx.notify(this.id, 'gotData');
             }
         };
     };

@@ -186,9 +186,6 @@ PHEDEX.Module.ProtovisQualityMap = function(sandbox, string) {
             .text(function(d){d.node});
 
         vis.render();
-
-//      This tells the core that all went well, and allows it to react properly to other things
-        _sbx.notify( this.id, 'gotData' );
       }
     };
   };

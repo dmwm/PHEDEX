@@ -297,7 +297,6 @@ PHEDEX.Module.Subscriptions.Treeview=function(sandbox, string) {
         this._magic = null;
         this.dom.title.innerHTML = 'datasvc returned OK';
         this.fillBody();
-        _sbx.notify( this.id, 'gotData' );
       }
     };
   };

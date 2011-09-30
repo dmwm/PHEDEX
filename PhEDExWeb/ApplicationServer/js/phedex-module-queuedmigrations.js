@@ -248,7 +248,6 @@ PHEDEX.Module.QueuedMigrations = function(sandbox, string) {
                 strFromNode = _getFromNode(_nodename);
                 strToNode = _getToNode(strFromNode);
                 this.dom.title.innerHTML = this.data.length + ' non-migrated file(s) from' + strFromNode + ' to ' + strToNode;
-                _sbx.notify(this.id, 'gotData');
             },
 
             /**

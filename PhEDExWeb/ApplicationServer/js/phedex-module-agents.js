@@ -164,7 +164,6 @@ PHEDEX.Module.Agents = function(sandbox, string) {
         this.data = data.node;
         this.dom.title.innerHTML = node + ': ' + this.data.length + ' agents';
         this.fillDataSource(this.data);
-        _sbx.notify( this.id, 'gotData' );
       },
       fillExtra: function() {
         var msg = 'If you are reading this, there is a bug somewhere...',

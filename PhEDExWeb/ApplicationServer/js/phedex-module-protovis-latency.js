@@ -138,8 +138,6 @@ PHEDEX.Module.Protovis.Latency = function(sandbox, string) {
 
         dom.title.innerHTML = 'Found '+newResult.length+' completed blocks out of '+result.length+' candidates';
         vis.render();
-
-        _sbx.notify( this.id, 'gotData' );
       }
     };
   };

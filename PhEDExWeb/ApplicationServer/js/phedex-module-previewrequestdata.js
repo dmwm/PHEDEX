@@ -408,7 +408,6 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         this.data = data.preview;
         this.context = context;
         this.fillDataSource(this.data);
-        _sbx.notify( this.id, 'gotData' );
       },
      }
   };

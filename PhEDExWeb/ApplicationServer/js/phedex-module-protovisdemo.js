@@ -155,9 +155,6 @@ PHEDEX.Module.ProtovisDemo = function(sandbox, string) {
             .text(x.tickFormat);
 
           vis.render();
-
-//      This tells the core that all went well, and allows it to react properly to other things
-        _sbx.notify( this.id, 'gotData' );
       }
     };
   };

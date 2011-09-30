@@ -169,7 +169,6 @@ PHEDEX.Module.Activity.Rate = function(sandbox, string) {
         this.data = data.link;
 //         this.dom.title.innerHTML = node + ': ' + this.data.length + " agents";
         this.fillDataSource(this.data);
-        _sbx.notify( this.id, 'gotData' );
 
         if ( context.maxAge ) {
           setTimeout( function(obj) {

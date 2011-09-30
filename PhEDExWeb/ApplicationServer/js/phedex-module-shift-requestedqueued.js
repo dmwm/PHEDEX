@@ -171,7 +171,6 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
 //        if ( nNotOK ) {
 // TODO This should be something more meaningful, like an explanation of the algorithm...
 //        }
-        _sbx.notify( this.id, 'gotData' );
         _sbx.notify( this.id, 'setModeFullLabel', this.setModeFullLabel() );
         if ( context.maxAge ) {
           setTimeout( function(obj) {
