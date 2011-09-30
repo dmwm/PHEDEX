@@ -37,6 +37,7 @@ Changes for Site Agents
   - Watchdog: report status of Watchdog Agent to DB every 30 minutes
   - Watchdog: print alert to log file in case of DB connection error
   - Watchdog: remove "mail" plugin for report notification (duplicate of "email")
+  - Watchdog: added support for options "-summary_interval", "-report_plugin", "-notify_plugin" in the config file
 		
 Changes for Operator Tools
   - Add phedex CLI support for the ErrorLogSummary datasvc API.
@@ -47,7 +48,9 @@ Core library changes
 	- Fixes some crashes, including a FileDownload agent crash reported in Sav #73735
   - PHEDEX::Core::Util : fix for an "uninitialized variable" warning
   - PHEDEX::RequestAllocator::Core : fix parsing of arguments for 'flat' data format (used by website)
-	
+
+Changes for dependencies
+  - Update dependencies to HG1109b tag
         	
 Changes for PhEDEx 4.0.0
 
