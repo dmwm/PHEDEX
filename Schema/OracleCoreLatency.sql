@@ -49,10 +49,10 @@ create table t_status_file_arrive
    filesize		integer 	not null, -- file size in bytes
    priority		integer			, -- task priority
    is_custodial		char (1)		, -- task custodiality
-   time_requested	float			, -- timestamp of the first time the file was activated for transfer by FileRouter
-   time_routed		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
-   time_assigned	float			, -- timestamp of the first time that a transfer task was created by FileIssue
-   time_exported	float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
+   time_request		float			, -- timestamp of the first time the file was activated for transfer by FileRouter
+   time_route		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
+   time_assign		float			, -- timestamp of the first time that a transfer task was created by FileIssue
+   time_export		float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
    attempts		integer			, -- number of transfer attempts TODO-force not null and only log files with at least one transfer attempt?
    time_first_attempt	float			, -- timestamp of the first transfer attempt TODO-force not null and only log files with at least one transfer attempt?
    time_latest_attempt	float			, -- timestamp of the most recent transfer attempt TODO-force not null and only log files with at least one transfer attempt?
@@ -150,10 +150,10 @@ create table t_history_file_arrive
    filesize		integer 	not null, -- file size in bytes
    priority		integer			, -- task priority
    is_custodial		char (1)		, -- task custodiality
-   time_requested	float			, -- timestamp of the first time the file was activated for transfer by FileRouter
-   time_routed		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
-   time_assigned	float			, -- timestamp of the first time that a transfer task was created by FileIssue
-   time_exported	float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
+   time_request		float			, -- timestamp of the first time the file was activated for transfer by FileRouter
+   time_route		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
+   time_assign		float			, -- timestamp of the first time that a transfer task was created by FileIssue
+   time_export		float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
    attempts		integer			, -- number of transfer attempts TODO-force not null and only log files with at least one transfer attempt?
    time_first_attempt	float			, -- timestamp of the first transfer attempt TODO-force not null and only log files with at least one transfer attempt?
    time_latest_attempt	float			, -- timestamp of the most recent transfer attempt TODO-force not null and only log files with at least one transfer attempt?

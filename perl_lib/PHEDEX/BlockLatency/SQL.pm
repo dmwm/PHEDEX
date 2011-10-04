@@ -289,7 +289,7 @@ sub mergeStatusFileArrive
 		    (select xtd.time_update, xt.to_node, xt.fileid,
 		     xf.inblock, xf.filesize, 
 		     decode(ln.is_local,'y',xt.priority/2,'n',(xt.priority-1)/2) priority,
-		     xt.is_custodial, xp.time_request time_requested, xp.time_confirm time_routed,
+		     xt.is_custodial, xp.time_request, xp.time_confirm time_route,
 		     xt.time_assign, xte.time_update time_export, xtd.report_code
 		     from t_xfer_task_harvest xth
 		     join t_xfer_task xt on xt.id = xth.task
@@ -309,10 +309,10 @@ sub mergeStatusFileArrive
 		  fl.time_at_destination=decode(new.report_code,0,new.time_update,NULL)
 		  where fl.time_at_destination is null
 		  when not matched then
-		  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_requested, time_routed, 
-			  time_assigned, time_exported, attempts, time_first_attempt, time_latest_attempt, time_at_destination)
+		  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, time_route, 
+			  time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_at_destination)
 		  values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize, 
-			  new.priority, new.is_custodial, new.time_requested, new.time_routed, new.time_assign, new.time_export,
+			  new.priority, new.is_custodial, new.time_request, new.time_route, new.time_assign, new.time_export,
 			  1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 			  };
 
@@ -333,8 +333,8 @@ sub mergeBlockLatencyHistory
 	merge into t_history_file_arrive u
 	    using
 	    (select bl.time_subscription, fl.time_update, fl.destination, fl.fileid, fl.inblock, 
-	          fl.filesize, fl.priority, fl.is_custodial, fl.time_requested, fl.time_routed,
-	    fl.time_assigned, fl.time_exported, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
+	          fl.filesize, fl.priority, fl.is_custodial, fl.time_request, fl.time_route,
+	    fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
 	    fl.time_on_buffer, fl.time_at_destination
 	    from t_status_block_latency bl join t_status_file_arrive fl on bl.block=fl.inblock and bl.destination=fl.destination
 	    where bl.last_replica is not null)
@@ -351,10 +351,10 @@ sub mergeBlockLatencyHistory
 		       u.filesize,
 		       u.priority,
 		       u.is_custodial,
-		       u.time_requested,
-		       u.time_routed,
-		       u.time_assigned,
-		       u.time_exported,
+		       u.time_request,
+		       u.time_route,
+		       u.time_assign,
+		       u.time_export,
 		       u.attempts,
 		       u.time_first_attempt,
 		       u.time_latest_attempt,
@@ -369,10 +369,10 @@ sub mergeBlockLatencyHistory
 		d.filesize,
 		d.priority,
 		d.is_custodial,
-		d.time_requested,
-		d.time_routed,
-		d.time_assigned,
-		d.time_exported,
+		d.time_request,
+		d.time_route,
+		d.time_assign,
+		d.time_export,
 		d.attempts,
 		d.time_first_attempt,
 		d.time_latest_attempt,
@@ -429,18 +429,18 @@ sub mergeBlockLatencyHistory
                 d.filesize,
                 d.priority,
                 d.is_custodial,
-                d.time_requested,
-                d.time_routed,
-                d.time_assigned,
-                d.time_exported,
+                d.time_request,
+                d.time_route,
+                d.time_assign,
+                d.time_export,
                 d.attempts,
                 d.time_first_attempt,
                 d.time_latest_attempt,
                 d.time_on_buffer,
                 d.time_at_destination)
 	    select bl.time_subscription, fl.time_update, fl.destination, fl.fileid, fl.inblock,
-                  fl.filesize, fl.priority, fl.is_custodial, fl.time_requested, fl.time_routed,
-            fl.time_assigned, fl.time_exported, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
+                  fl.filesize, fl.priority, fl.is_custodial, fl.time_request, fl.time_route,
+            fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
             fl.time_on_buffer, fl.time_at_destination
             from t_status_block_latency bl join t_status_file_arrive fl on bl.block=fl.inblock and bl.destination=fl.destination
             where bl.last_replica is not null and fl.fileid is null
@@ -458,7 +458,7 @@ sub mergeBlockLatencyHistory
           (select bl.time_update, bl.time_subscription, bl.destination, bl.block, bl.files,
 	   bl.bytes, bl.priority,
 	       bl.is_custodial, bl.block_create, bl.block_close,
-	       min(fl.time_requested) first_request,
+	       min(fl.time_request) first_request,
 	       min(fl.time_at_destination) first_replica,
 	       percentile_disc(0.25) within group (order by fl.time_at_destination asc) percent25_replica,
 	       percentile_disc(0.50) within group (order by fl.time_at_destination asc) percent50_replica,
