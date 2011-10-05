@@ -5124,7 +5124,7 @@ sub output
   }
 
   $q = &dbexec($$self{DBH}, qq{
-    select
+    select /*+ index(h PK_HISTORY_LINK_STATS) */
       f.name from_node,
       t.name to_node,
       nvl(avg(h.param_rate),0) param_rate,
