@@ -72,7 +72,7 @@ Evenrything we want to know about historical file latency
   time_subscription     time when the block was subscribed
   time_update           time when status was updated
   time_request          time when it was requested
-  time_routed           time when it was routed
+  time_route            time when it was routed
   time_assign           time when it was assigned
   time_export           time when it was exported
   attempts              number of attempts
@@ -112,10 +112,10 @@ my $map = {
                 time_update => 'TIME_UPDATE',
                 priority => 'PRIORITY',
                 is_custodial => 'IS_CUSTODIAL',
-                time_requested => 'TIME_REQUEST',
-                time_routed => 'TIME_ROUTE',
-                time_assigned => 'TIME_ASSIGN',
-                time_exported => 'TIME_EXPORT',
+                time_request => 'TIME_REQUEST',
+                time_route => 'TIME_ROUTE',
+                time_assign => 'TIME_ASSIGN',
+                time_export => 'TIME_EXPORT',
                 attempts => 'ATTEMPTS',
                 time_first_attempt => 'TIME_FIRST_ATTEMPT',
                 time_latest_attempt => 'TIME_LATEST_ATTEMPT',
