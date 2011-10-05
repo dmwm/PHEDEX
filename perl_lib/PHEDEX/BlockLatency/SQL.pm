@@ -551,7 +551,7 @@ sub mergeStatusBlockLatency
               join t_dps_block b on b.id = bd.block
               join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
               left join t_status_block_latency bl on bl.destination=br.node and bl.block=br.block
-              where br.is_active = 'y' and bl.block is null and b.is_open='n' and bd.time_complete is null 
+              where br.is_active = 'y' and bl.block is null and bd.time_complete is null 
 	  };
 
     ($q,$n) = execute_sql( $self, $sql, %p );
