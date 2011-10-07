@@ -34,11 +34,11 @@ format:
     <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query" dls="dbs">
       <dataset name="/sample/dataset" is-open="y">
         <block name="/sample/dataset#1" is-open="y">
-          <file name="file1" size="10" checksum="cksum:1234,adler32:5678"/>
-          <file name="file2" size="22" checksum="cksum:456"/>
+          <file name="file1" bytes="10" checksum="cksum:1234,adler32:5678"/>
+          <file name="file2" bytes="22" checksum="cksum:456"/>
         </block>
         <block name="/sample/dataset#2" is-open="y">
-          <file name="file3" size="1" checksum="cksum:2"/>
+          <file name="file3" bytes="1" checksum="cksum:2"/>
         </block>
       </dataset>
       <dataset name="/sample/dataset2" is-open="n">
@@ -139,7 +139,7 @@ sub inject
   if ( $@ )
   {
     $core->{DBH}->rollback(); # Processes seem to hang without this!
-    die $@;
+    die PHEDEX::Web::Util::http_error(400,$@);
   }
 
   # determine if we commit
@@ -147,7 +147,7 @@ sub inject
   if (%$stats) {
       $commit = 1;
   } else {
-      die "no injection was done\n";
+      die PHEDEX::Web::Util::http_error(400,"no injection was done");
       $core->{DBH}->rollback();
   }
   $commit = 0 if $args{dummy};
