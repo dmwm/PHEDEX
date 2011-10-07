@@ -285,6 +285,48 @@ sub mergeStatusFileArrive
     my ($self,%h) = @_;
     my ($sql,$q,$n,@r);
 
+    # SPECIAL-case: Merge tasks to Buffer nodes before recording taks to final destination
+
+    $sql = qq { merge into t_status_file_arrive fl using
+                    (select xtd.time_update, nmss.id to_node, xt.fileid,
+                     xf.inblock, xf.filesize,
+                     (xt.priority-1)/2 priority,
+                     xt.is_custodial, xp.time_request, xp.time_confirm time_route,
+                     xt.time_assign, xte.time_update time_export, xtd.report_code
+                     from t_xfer_task_harvest xth
+                     join t_xfer_task xt on xt.id = xth.task 
+                     join t_xfer_task_export xte on xte.task = xt.id
+                     join t_xfer_file xf on xf.id=xt.fileid
+                     join t_xfer_task_done xtd on xtd.task = xth.task
+                     left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
+                     join t_adm_link ln on ln.from_node=xt.from_node and ln.to_node=xt.to_node and ln.is_local='n'
+		     join t_adm_node nd on nd.id=xt.to_node and nd.kind='Buffer'
+		     join t_adm_link lnmig on lnmig.from_node=xt.to_node and lnmig.is_local='y'
+		     join t_adm_node nmss on nmss.id=lnmig.to_node and nmss.kind='MSS'
+                     join t_status_block_latency bl on bl.destination=nmss.id and bl.block=xf.inblock
+                     ) new
+                  on (fl.destination = new.to_node and fl.fileid = new.fileid)
+                  when matched then
+                  update set
+                  fl.time_update=new.time_update, fl.priority=new.priority, fl.is_custodial=new.is_custodial,
+                  fl.attempts=nvl(fl.attempts,0)+1,
+                  fl.time_latest_attempt=new.time_update,
+                  fl.time_on_buffer=decode(new.report_code,0,new.time_update,NULL)
+                  where fl.time_at_destination is null and fl.time_on_buffer is null
+                  when not matched then
+                  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, time_route,
+                          time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_on_buffer)
+                  values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize,
+                          new.priority, new.is_custodial, new.time_request, new.time_route, new.time_assign, new.time_export,
+                          1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
+	      };
+
+    ($q, $n) = execute_sql( $self, $sql );
+    push @r, $n;
+
+    # Merge transfers to final destination
+    # NOTE: don't increment attempts count for Buffer-->MSS transfers, so that 'attempts' is only the number of WAN attempts
+
     $sql = qq { merge into t_status_file_arrive fl using
 		    (select xtd.time_update, xt.to_node, xt.fileid,
 		     xf.inblock, xf.filesize, 
@@ -298,14 +340,15 @@ sub mergeStatusFileArrive
 		     join t_xfer_task_done xtd on xtd.task = xth.task
 		     left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
 		     join t_adm_link ln on ln.from_node=xt.from_node and ln.to_node=xt.to_node
+		     join t_adm_node nd on ln.to_node=nd.id
 		     join t_status_block_latency bl on bl.destination=xt.to_node and bl.block=xf.inblock
 		     ) new
 		  on (fl.destination = new.to_node and fl.fileid = new.fileid)
 		  when matched then
 		  update set
 		  fl.time_update=new.time_update, fl.priority=new.priority, fl.is_custodial=new.is_custodial,
-		  fl.attempts=nvl(fl.attempts,0)+1,
-		  fl.time_latest_attempt=new.time_update,
+		  fl.attempts=nvl2(fl.time_on_buffer,fl.attempts,nvl(fl.attempts,0)+1),
+		  fl.time_latest_attempt=nvl2(fl.time_on_buffer, fl.time_latest_attempt, new.time_update),
 		  fl.time_at_destination=decode(new.report_code,0,new.time_update,NULL)
 		  where fl.time_at_destination is null
 		  when not matched then
@@ -569,9 +612,13 @@ sub mergeStatusBlockLatency
 
     my $filesql = qq {
 	insert into t_status_file_arrive
-	    (time_update, destination, fileid, inblock, filesize, time_at_destination)
-	    select ?, xr.node, xr.fileid, xf.inblock, xf.filesize, xr.time_create
+	    (time_update, destination, fileid, inblock, filesize, time_on_buffer, time_at_destination)
+	    select ?, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_create, xr.time_create
 	        from t_xfer_replica xr join t_xfer_file xf on xr.fileid=xf.id
+		join t_adm_node nd on xr.node=nd.id
+		left join t_adm_link ln on ln.to_node=nd.id and ln.is_local='y'
+		left join t_adm_node nbuf on nbuf.id=ln.from_node and nbuf.kind='Buffer'
+		left join t_xfer_replica xrb on xrb.node=nbuf.id and xrb.fileid=xf.id
 		where xr.node = ? and xf.inblock = ?
 	};
 	    
