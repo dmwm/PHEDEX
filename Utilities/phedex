@@ -242,7 +242,7 @@ while (@ARGV)
   {
       my $content = $response->content();
       chomp $content;
-      print "Bad response from server, output below:\n$content\n";
+      print "Bad response from server ",$response->code(),"(",$response->message(),"), output below:\n$content\n";
       print Data::Dumper->Dump([ $pua, $cli, $response ],[ 'UserAgent', 'CLI', 'Response' ]) if $debug;
 #      print Data::Dumper->Dump([ \%ENV ], [ '$ENV' ]) if $debug;
       die "exiting after failure\n";
