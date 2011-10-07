@@ -131,7 +131,7 @@ sub blockLatencyHistory
         if ($h{$_})
         {
             $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die "invalid $_ value" if not defined $h{$_};
+            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
         }
     }
 
@@ -159,7 +159,7 @@ sub spool
         if ($h{$_})
         {
             $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die "invalid $_ value" if not defined $h{$_};
+            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
         }
     }
 

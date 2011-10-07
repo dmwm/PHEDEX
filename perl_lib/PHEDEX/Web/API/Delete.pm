@@ -73,10 +73,10 @@ sub to_delete
     $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
     $h{no_mail} ||= 'n';
     foreach (qw(rm_subscriptions)) {
-	die "'$_' must be 'y' or 'n'" unless $h{$_} =~ /^[yn]$/;
+	die PHEDEX::Web::Util::http_error(400,"'$_' must be 'y' or 'n'") unless $h{$_} =~ /^[yn]$/;
     }
     unless (grep $h{level} eq $_, qw(DATASET BLOCK)) {
-	die "'level' must be either 'dataset' or 'block'";
+	die PHEDEX::Web::Util::http_error(400,"'level' must be either 'dataset' or 'block'");
     }
 
     # check authentication
@@ -84,7 +84,7 @@ sub to_delete
     my $auth = $core->getAuth();
     delete $auth->{ROLES}->{Admin};
     if (! $auth->{STATE} eq 'cert' ) {
-	die("Certificate authentication failed\n");
+	die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed");
     }
 
     my $now = &mytimeofday();
@@ -93,7 +93,7 @@ sub to_delete
     $data = PHEDEX::Core::XML::parseData( XML => $data);
 
     # only one DBS allowed for the moment...  (FIXME??)
-    die "multiple DBSes in data XML.  Only data from one DBS may be deleted at a time\n"
+    die PHEDEX::Web::Util::http_error(400,"multiple DBSes in data XML.  Only data from one DBS may be deleted at a time")
 	if scalar values %{$data->{DBS}} > 1;
 
     ($data) = values %{$data->{DBS}};
@@ -129,7 +129,7 @@ sub to_delete
     if ($@)
     {
         $core->{DBH}->rollback(); # Processes seem to hang without this!
-        die $@;
+        die PHEDEX::Web::Util::http_error(400,$@);
     }
 
     $core->{DBH}->commit(); # Could be over committed, but who cares?

@@ -49,11 +49,11 @@ sub updateRequest
   &checkRequired(\%args, qw(request node decision));
 
   # check values of options
-  die "unknown decision, allowed values are 'approve' or 'disapprove'" 
+  die PHEDEX::Web::Util::http_error(400,"unknown decision, allowed values are 'approve' or 'disapprove'") 
     unless $args{decision} =~ m%^(approve|disapprove)$%;
   $args{uc($args{decision})} = 1;
 
-  die "Request-ID not numeric" unless $args{request} =~ m%^\d+$%;
+  die PHEDEX::Web::Util::http_error(400,"Request-ID not numeric") unless $args{request} =~ m%^\d+$%;
 
   # check authentication
   $core->{SECMOD}->reqAuthnCert();
@@ -72,20 +72,20 @@ sub updateRequest
 
   if    ( $type eq 'xfer' )   { $ability = 'datasvc_subscribe'; }
   elsif ( $type eq 'delete' ) { $ability = 'datasvc_delete'; }
-  else { die("Unknown request type: '$type'\n"); }
+  else { die PHEDEX::Web::Util::http_error(400,"Unknown request type: '$type'"); }
   $auth->{NODES} = PHEDEX::Web::Util::auth_nodes($core,$core->{AUTHZ}, $ability, with_ids => 1);
   %h = PHEDEX::Web::Util::fetch_nodes($core, web_user_auth => 'Data Manager', with_ids => 1);
   map { $auth->{NODES}{$_} = $h{$_} } keys %h;
 
   if ( !$secmod->isCertAuthenticated() ) {
-    die("Certificate authentication failed\n");
+    die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed");
   }
 
   # check authorization
   my $nodes = [ arrayref_expand($args{node}) ];
   foreach my $node (@{$nodes}) {
     my $nodeid = $auth->{NODES}->{$node} || 0;
-    die("You are not authorised to approve data to node $node") unless $nodeid;
+    die PHEDEX::Web::Util::http_error(400,"You are not authorised to approve data to node $node") unless $nodeid;
   }
 
   # ok, now try to act on the request
@@ -101,7 +101,7 @@ sub updateRequest
 						        "Remote host" => $core->{REMOTE_HOST},
 						        "User agent"  => $core->{USER_AGENT} );
   };
-  die "Error evaluating client identity" if $@;
+  die ("Error evaluating client identity") if $@;
 
   my $now = time();
   eval {
@@ -111,7 +111,7 @@ sub updateRequest
       $requests = &PHEDEX::RequestAllocator::Core::getDeleteRequests($core, REQUESTS => [$args{request}]);
     }
   };
-  die("Couldn't retrieve request $args{request}") if $@;
+  die PHEDEX::Web::Util::http_error(400,"Couldn't retrieve request $args{request}") if $@;
 
   my ($selected_requests,$request,$rid,%node_count,$extra_nodes);
 # Verify authorisation first...
@@ -123,7 +123,7 @@ sub updateRequest
        $node_count{$node->{NODE}}++;
       # Check if user is authorized for this node
       if (! $auth->{NODES}->{ $node->{NODE} }) {
-	die "You are not authorised to approve data to node $node->{NODE}\n";
+	die PHEDEX::Web::Util::http_error(400,"You are not authorised to approve data to node $node->{NODE}");
       }
       $selected_requests->{$node_id} = $node;
     }
@@ -139,7 +139,7 @@ sub updateRequest
     }
   }
   if ( $extra_nodes ) {
-    die("Request ID=$args{request} does not include node(s) $extra_nodes");
+    die PHEDEX::Web::Util::http_error(400,"Request ID=$args{request} does not include node(s) $extra_nodes");
   }
 # Set the request decision
   my $comments_id;
@@ -156,8 +156,8 @@ sub updateRequest
         &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, $node->{NODE_ID}, $decision, $client_id, $now, $comments_id);
       };
       if ( $@ ) {
-        if ( $@ =~ m%ORA-00001: unique constraint% ) { die "Request $rid has already been decided at node $node->{NODE}"; }
-        die $@;
+        if ( $@ =~ m%ORA-00001: unique constraint% ) { die PHEDEX::Web::Util::http_error(400,"Request $rid has already been decided at node $node->{NODE}"); }
+        die PHEDEX::Web::Util::http_error(400,$@);
       }
     }
   }
@@ -211,7 +211,7 @@ sub updateRequest
 			 	@validate_args
 				);
             };
-            die $@ if $@;
+            die PHEDEX::Web::Util::http_error(400,$@) if $@;
           }
         }
       }
@@ -246,12 +246,12 @@ sub updateRequest
               &PHEDEX::RequestAllocator::Core::addDeletionsForRequest($core, $rid, $node->{NODE_ID}, $now);
           } else {
             # This is impossible because of the checks above, but anyway...
-            die("Request $rid: TYPE is neither 'xfer' nor 'delete' ($request->{TYPE})");
+            die PHEDEX::Web::Util::http_error(400,"Request $rid: TYPE is neither 'xfer' nor 'delete' ($request->{TYPE})");
           }
         } elsif ( $args{DISAPPROVE} ) {
           # nothing to do, the request decision has already been set
         } else {
-          die("Decision is neither approve nor disapprove, somebody has a bug!");
+          die PHEDEX::Web::Util::http_error(500,"Decision is neither approve nor disapprove, somebody has a bug!");
         }
       }
     }
@@ -267,7 +267,7 @@ sub updateRequest
   if (%$requests) {
     $commit = 1;
   } else {
-    die "no requests were created\n";
+    die PHEDEX::Web::Util::http_error(400,"no requests were created");
     $core->{DBH}->rollback();
   }
   $commit = 0 if $args{dummy};

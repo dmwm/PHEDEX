@@ -132,7 +132,7 @@ sub FileLatencyHistory
 {
     my ($core,%h) = @_;
 
-    die "block or lfn is required" if (!$h{block} && !$h{lfn});
+    die PHEDEX::Web::Util::http_error(400,"block or lfn is required") if (!$h{block} && !$h{lfn});
 
     # take care of time
     foreach ( qw / subscribe_since update_since / )
@@ -140,7 +140,7 @@ sub FileLatencyHistory
         if ($h{$_})
         {
             $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die "invalid $_ value" if not defined $h{$_};
+            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
         }
     }
 
@@ -168,7 +168,7 @@ sub spool2
         if ($h{$_})
         {
             $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die "invalid $_ value" if not defined $h{$_};
+            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
         }
     }
 

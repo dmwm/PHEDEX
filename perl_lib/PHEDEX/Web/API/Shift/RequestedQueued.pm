@@ -219,7 +219,7 @@ sub _shift_requestedqueued
 #   Sanity check...
     if ( !defined $s{$node}{REASON} )
     {
-      die "REASON not defined for $node. Have you changed the algorithm?\n";
+      die "REASON not defined for $node. Have you changed the algorithm?";
     }
     $s{$node}{STATUS_TEXT} = $status_map->{$s{$node}{STATUS}};
     $s{$node}{STATUS} += 0; # numification :-(

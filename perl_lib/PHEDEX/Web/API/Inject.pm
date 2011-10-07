@@ -126,7 +126,7 @@ sub inject
   $node = $args{node};
 
   $nodeid = $auth->{NODES}->{$node} || 0;
-  die("You are not authorised to inject data to node $node") unless $nodeid;
+  die PHEDEX::Web::Util::http_error(403,"You are not authorised to inject data to node $node") unless $nodeid;
   $result = PHEDEX::Core::XML::parseData( XML => $args{data} );
 
   $strict  = defined $args{strict}  ? $args{strict}  : 1;

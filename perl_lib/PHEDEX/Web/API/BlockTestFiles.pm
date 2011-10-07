@@ -116,7 +116,7 @@ sub blocktestfiles
 {
     my ($core,%h) = @_;
 
-    die "Either 'block' or 'test' is required" if (!$h{'block'} and !$h{'test'});
+    die PHEDEX::Web::Util::http_error(400,"Either 'block' or 'test' is required") if (!$h{'block'} and !$h{'test'});
 
     # convert parameter keys to upper case
     foreach ( qw / node block kind status test_since test / )

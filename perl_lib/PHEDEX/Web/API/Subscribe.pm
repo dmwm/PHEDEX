@@ -75,7 +75,7 @@ sub subscribe
 {
     my ($core, %args) = @_;
     &checkRequired(\%args, qw(data node group));
-    die "group $args{group} is forbidden" if ($args{group} =~ m/^deprecated-/);
+    die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
     # default values for options
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
@@ -87,23 +87,23 @@ sub subscribe
 
     # check values of options
     my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
-    die "unknown priority, allowed values are 'high', 'normal' or 'low'" 
+    die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal' or 'low'") 
 	unless exists $priomap{$args{priority}};
     $args{priority} = $priomap{$args{priority}}; # translate into numerical value
 
     foreach (qw(move static custodial request_only)) {
-	die "'$_' must be 'y' or 'n'" unless $args{$_} =~ /^[yn]$/;
+	die PHEDEX::Web::Util::http_error(400,"'$_' must be 'y' or 'n'") unless $args{$_} =~ /^[yn]$/;
     }
 
     unless (grep $args{level} eq $_, qw(DATASET BLOCK)) {
-	die "'level' must be either 'dataset' or 'block'";
+	die PHEDEX::Web::Util::http_error(400,"'level' must be either 'dataset' or 'block'");
     }
 
     # check authentication
     if ( ! ($core->{SECMOD}->isSecure() &&
             $core->{SECMOD}->isAuthenticated() ) )
     {
-      die "You must be authenticated to access this API\n";
+      die PHEDEX::Web::Util::http_error(401,"You must be authenticated to access this API");
     }
     my ($auth,$auth_method);
     if ( $core->{SECMOD}->isCertAuthenticated() ) { $auth_method = 'CERTIFICATE'; }
@@ -111,7 +111,7 @@ sub subscribe
     if ( $args{request_only} eq 'n' ) {
       $auth = $core->getAuth('datasvc_subscribe');
       if ( $auth_method != 'CERTIFICATE' ) {
-        die "You must be authenticated with a certificate to auto-approve requests\n";
+        die PHEDEX::Web::Util::http_error(401,"You must be authenticated with a certificate to auto-approve requests");
       }
     } else {
       $auth = $core->getAuth();
@@ -124,7 +124,7 @@ sub subscribe
     $args{comments} = uri_unescape($args{comments});
     $data = PHEDEX::Core::XML::parseData( XML => $data);
     # only one DBS allowed for the moment...  (FIXME??)
-    die "multiple DBSes in data XML.  Only data from one DBS may be subscribed at a time\n"
+    die PHEDEX::Web::Util::http_error(400,"multiple DBSes in data XML.  Only data from one DBS may be subscribed at a time")
 	if scalar values %{$data->{DBS}} > 1;
     ($data) = values %{$data->{DBS}};
     $data->{FORMAT} = 'tree';
@@ -169,7 +169,7 @@ sub subscribe
 		foreach my $node (values %{$request->{NODES}}) {
 		    # Check if user is authorized for this node
 		    if (! $auth->{NODES}->{ $node->{NODE} }) {
-			die "You are not authorised to subscribe data to node $node->{NODE}\n";
+			die PHEDEX::Web::Util::http_error(400,"You are not authorised to subscribe data to node $node->{NODE}");
 		    }
 		    # Set the decision
 		    &PHEDEX::RequestAllocator::Core::setRequestDecision($core, $rid, 
@@ -208,7 +208,7 @@ sub subscribe
     if (%$requests) {
 	$commit = 1;
     } else {
-	die "no requests were created\n";
+	die PHEDEX::Web::Util::http_error(400,"no requests were created");
 	$core->{DBH}->rollback();
     }
     $commit = 0 if $args{dummy};

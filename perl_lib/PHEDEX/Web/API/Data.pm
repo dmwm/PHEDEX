@@ -121,7 +121,7 @@ sub data
     # check for level
     if (exists $h{level} && $h{level} ne 'file' && $h{level} ne 'block')
     {
-        die "level has to be either 'file' or 'block'\n";
+        die PHEDEX::Web::Util::http_error(400,"level has to be either 'file' or 'block'");
     }
 
     # default level = block
@@ -133,7 +133,7 @@ sub data
         $h{create_since} = PHEDEX::Core::Timing::str2time($h{create_since});
         if (not defined $h{create_since})
         {
-            die "Bad value for 'create_since'\n";
+            die PHEDEX::Web::Util::http_error(400,"Bad value for 'create_since'");
         }
     }
 

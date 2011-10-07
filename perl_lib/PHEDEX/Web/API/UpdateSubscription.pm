@@ -167,7 +167,7 @@ sub update_subscription
     $core->{SECMOD}->reqAuthnCert();
     my $auth = $core->getAuth('datasvc_subscribe');
     if (! $auth->{STATE} eq 'cert' ) {
-        die("Certificate authentication failed\n");
+        die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed\n");
     }
 
     my $r = PHEDEX::Web::SQL::updateSubscription($core, %h);
