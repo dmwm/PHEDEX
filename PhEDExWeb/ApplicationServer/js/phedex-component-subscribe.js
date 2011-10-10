@@ -693,7 +693,6 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
     };
   };
   Yla(this,_construct(this),true);
-  PxU.protectMe(this);
   this._init(args);
   return this;
 }
