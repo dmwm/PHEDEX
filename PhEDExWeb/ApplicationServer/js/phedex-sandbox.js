@@ -98,12 +98,7 @@ PHEDEX.Sandbox = function() {
  * @param fn {function} callback function to handle the event. The function is called in the scope of the object that called listen.
  */
     listen: function(event,fn) {
-      _getEvent(event,true).subscribe( function(ev,arr) {
- try {
-   fn(ev,arr[0]);
- } catch(ex) {
-debugger;
-} } );
+      _getEvent(event,true).subscribe( function(ev,arr) { fn(ev,arr[0]); } );
       log('listener for: '+event,'info',_me);
     },
 
