@@ -67,13 +67,14 @@ function createCoreApp() {
   page = page.replace(/::/g,'-');
   page = page.toLowerCase();
   page = 'phedex-nextgen-'+page;
-  ngoSuccess = function(item) {
-    return function() {
+  ngoSuccess = function(p) {
+    return function(item) {
+      PxS.notify('Loaded',item);
 //    (try to) Create and run the page
-      var cTor = PxU.getConstructor(item);
+      var cTor = PxU.getConstructor(p);
       if ( !cTor ) { return; }
       try {
-        var obj = new cTor(PxS,item);
+        var obj = new cTor(PxS,p);
         obj.init(params);
       } catch(ex) {
         var _ex = ex;
