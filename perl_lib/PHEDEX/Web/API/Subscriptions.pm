@@ -36,7 +36,7 @@ Show existing subscriptions and their parameters.
                    exclude subscriptions that lie between the two numerical
                    limits
 
-  * when no arguments are specified, except "collapse", default create_since is set to 1 day ago
+  * when no block or dataset arguments are specified, default create_since is set to 1 day ago
 
 =head2 Output
 
@@ -177,22 +177,23 @@ sub subscriptions
       $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
-    # if there is no input argument, set default "since" to 24 hours ago
-    if ((scalar keys %h == 0) || (scalar keys %h == 1) && exists $h{COLLAPSE})
+    # if there is no block/dataset argument, set default "since" to 24 hours ago
+    if (not (exists $h{BLOCK} || exists $h{DATASET}))
     {
         $h{CREATE_SINCE} = time() - 3600*24;
     }
+
 
     my $r = PHEDEX::Web::SQL::getDataSubscriptions($core, %h);
     # separate DATASET and BLOCK
     my (@dataset, @block);
     foreach (@{$r})
     {
-        if ($_->{'LEVEL'} eq 'dataset')
+        if ($_->{'ITEM_ID'} eq $_->{'DATASET_ID'})
         {
             push @dataset, $_;
 	}
-	elsif ($_->{'LEVEL'} eq 'block')
+	else
         {
             push @block, $_;
         }
