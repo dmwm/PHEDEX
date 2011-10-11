@@ -1849,20 +1849,55 @@ sub getDataSubscriptionsQuery
 
     my ($sql, $q, %p);
     $p{':now'} = time();
-    my $block_filter = '';
-    if ($h{COLLAPSE} eq "y")
+
+    # take care of block implied dataset
+    if ($h{BLOCK})
     {
-        build_multi_filters($core, \$block_filter, \%p, \%h, ( 
+        if (ref($h{BLOCK}))
+        {
+            # any $h{DATASET}?
+            if ($h{DATASET})
+            {
+                if (!ref($h{DATASET}))
+                {
+                    $h{DATASET} = [$h{DATASET}];
+                }
+            }
+            else
+            {
+                $h{DATASET} = [];
+            }
+
+            # array
+            foreach (@{$h{BLOCK}})
+            {
+                push @{$h{DATASET}}, ($_ =~ m/(.*)#/)[0];
+            }
+        }
+        else
+        {
+            if ($h{DATASET})
+            {
+                # has dataset
+                if (!ref($h{DATASET}))
+                {
+                    $h{DATASET} = [$h{DATASET}];
+                }
+                push @{$h{DATASET}}, ($h{BLOCK} =~ m/(.*)#/)[0];
+                
+            }
+            else
+            {
+                # no dataset
+                $h{DATASET} = ($h{BLOCK} =~ m/(.*)#/)[0];
+            }
+        }
+    }
+     
+    my $block_filter = '';
+    build_multi_filters($core, \$block_filter, \%p, \%h, ( 
                                                       BLOCK => 'b.name'
 						      ));
-    }
-    else
-    {
-        build_multi_filters($core, \$block_filter, \%p, \%h, ( 
-                                                      BLOCK => 'b.name',
-                                                      DATASET => 'd.name'
-						      ));
-    }
 
     if ($block_filter)
     {
@@ -1880,7 +1915,17 @@ sub getDataSubscriptionsQuery
 
     my $ds_block_query = qq{
             select
-               'block' "level",
+                case
+                    when
+                       (select
+                            distinct param
+                        from
+                            t_dps_subs_dataset sd
+                        where
+                            sd.param = sb.param) is null
+                    then 'block'
+                    else 'dataset'
+                end "level",
                 sb.param,
                 sb.block item_id,
                 b.name item_name,
@@ -1924,13 +1969,11 @@ sub getDataSubscriptionsQuery
     if ($h{COLLAPSE} eq 'y')
     {
         $collapse_filter = qq{
-            sb.dataset not in (
+            sb.param not in (
             select
-                dataset
+                param
             from
-                t_dps_subs_dataset
-            where
-                destination = sb.destination) };
+                t_dps_subs_dataset) };
 
         if (!$block_filter)
         {
@@ -1995,11 +2038,7 @@ sub getDataSubscriptionsQuery
 
     my $ds_query;
 
-    if ($block_filter && !$dataset_filter)
-    {
-        $ds_query = $ds_block_query;
-    }
-    elsif ($dataset_filter && !$block_filter)
+    if ($h{DATASET} && !$h{BLOCK})
     {
         $ds_query = $ds_dataset_query;
     }
@@ -2012,7 +2051,7 @@ sub getDataSubscriptionsQuery
                 $collapse_filter
         };
     }
-    
+
 #    if (!$dataset_filter)
 #    {
 #        $ds_query = $ds_block_query;
@@ -2199,6 +2238,7 @@ sub getDataSubscriptionsQuery
             ds.item_name desc,
             n.name
     };
+
     return ($sql,\%p);
 }
 
