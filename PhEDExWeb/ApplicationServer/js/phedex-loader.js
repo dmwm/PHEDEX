@@ -139,6 +139,9 @@ PHEDEX.Loader = function(opts) {
         for (var i in item) { l += i+' ';};
         log(ev+': '+type+', '+l);
         _busy = false;
+        if ( typeof(PxS) != 'undefined' ) { // TW Hack to notify the core of all loaded items
+          try { PxS.notify('Loaded',item); } catch(ex) { } // silently ignore errors
+        }
         break;
       }
       case 'Failure':  { log(ev+': '+type+', '+item.msg,'error',_me); _busy = false; break; }

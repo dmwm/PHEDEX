@@ -69,7 +69,6 @@ function createCoreApp() {
   page = 'phedex-nextgen-'+page;
   ngoSuccess = function(p) {
     return function(item) {
-      PxS.notify('Loaded',item);
 //    (try to) Create and run the page
       var cTor = PxU.getConstructor(p);
       if ( !cTor ) { return; }
