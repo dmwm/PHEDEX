@@ -47,7 +47,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         {
           custodial:{custodial:'y', 'non-custodial':'n'},
           suspended:{suspended:'y', active:'n'},
-          create_since:{forever:0, '2 years':24, '1 year':12, '6 months':6}, // months...
+          create_since:{'1 month':1, '2 months':2, '3 months':3, '6 months':6, '1 year':12, '2 years':24, forever:0}, // months...
         },
         filterMap:
         {
@@ -62,7 +62,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           {
             custodial:{custodial:'y', 'non-custodial':'n'},
             suspended:{suspended:'y', active:'n'},
-           'created since':{forever:0, '2 years':24, '1 year':12, '6 months':6} // months...
+           'created since':{'1 month':1, '2 months':2, '3 months':3, '6 months':6, '1 year':12, '2 years':24, forever:0} // months...
           },
         },
         selected:{},
@@ -188,7 +188,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 
 //      Notify the table that it can show the select column
         if ( this.subscriptionsId ) {
-          _sbx.notify(this.subscriptionsId,'setColumnVisibility',{label:'Select', show:true});
+          _sbx.notify(this.subscriptionsId,'setColumnVisibility',[{label:'Select', show:true}]);
         }
 
         for ( i in auth.can ) {
@@ -623,7 +623,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.listen(this.subscriptionsId,handler);
       },
       getSubscriptions: function() {
-        var args = {collapse:'y', create_since:6*30*86400 /* months */}, i, filter=this._filter, f, map=this.meta.map,
+        var args = {collapse:'y', create_since:new Date().getTime()/1000 - 30*86400 /* 1 month */},
+            i, filter=this._filter, f, map=this.meta.map,
             datasets, blocks, data, level;
         for (i in filter) {
           f = filter[i];
@@ -989,7 +990,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         for (i in m) {
           menu.push({text:i, value:m[i]});
         }
-        this.filterButton('phedex-filterpanel-create-since',menu,menu.length-1);
+        this.filterButton('phedex-filterpanel-create-since',menu);
 
 // for the Node tab...
         this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel') );
