@@ -49,10 +49,11 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                            { key:'suspended',    label:'Suspended',     className:'align-left', formatter:formatSuspended },
                            { key:'open',         label:'Open',          className:'align-left' },
                            { key:'timeCreate',   label:'Time Create',   className:'align-left', parser:'number', formatter:'UnixEpochToUTC' },
-//                            { key:'timeComplete', label:'Time Complete', className:'align-left phedex-invisible', parser:'number', formatter:'UnixEpochToUTC' },
                            { key:'timeDone',     label:'Time Done',     className:'align-left', parser:'number', formatter:'UnixEpochToUTC' },
                           ],
-//             nestedColumns:[{ key:'node',          label:'Node',     className:'align-left' }]
+                  config:{
+//                     paginator: new YAHOO.widget.Paginator({rowsPerPage:2}),
+                  }
                 },
         hide:['Select'], // hidden by default, requires positive authentication to enable it
         sort:{ field:'Item' },
@@ -143,8 +144,8 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
               }
               if ( s.request != null ) {
                 Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
-            }
-            Table.push(Row);
+              }
+              Table.push(Row);
             }
           }
         }
