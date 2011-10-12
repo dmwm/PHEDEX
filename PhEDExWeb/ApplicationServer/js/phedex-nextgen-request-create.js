@@ -90,8 +90,6 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initSub();
         this.initButtons();
-//         this.allowNotify['gotPreviewId'] = 1;
-//         this.allowNotify['previewCallback'] = 1;
         _sbx.notify('SetModuleConfig','previewrequestdata', { parent:this.dom.preview_table,  autoDestruct:false, noDecorators:true, noExtraDecorators:true, noHeader:true });
         _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
       },
@@ -186,7 +184,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             d = this.dom, el, resize, helpStr='',
             instance = PHEDEX.Datasvc.Instance();
         labelForm = labelForm.replace(/-/,'_');
-        config._default = config.instanceDefault[instance.instance] || '(not defined)';
+        config._default = this.params.dbs || config.instanceDefault[instance.instance] || '(not defined)';
 
         el = document.createElement('div');
         el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
@@ -352,7 +350,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                           "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+"</div>" +
                           "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
-                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + config.text + "</textarea></div>" +
+                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + (config.initial_text || config.text) + "</textarea></div>" +
                           "</div>" +
                         "</div>";
         parent.appendChild(el);
@@ -380,6 +378,10 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           } else {
             PxS.notify(obj.id,'setValueFor',labelForm);
           }
+        }
+        if ( config.initial_text ) {
+          Dom.setStyle(d[labelForm],'color','black');
+          PxS.notify(this.id,'setValueFor',labelForm);
         }
       },
       makeControlRadio: function(config,parent) {
@@ -958,6 +960,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       var d   = this.dom,
           mb = d.main_block,
           hd = d.hd,
+          params = this.params,
           form, el;
       hd.innerHTML = 'Subscribe data';
       this.meta.synchronise = {
@@ -976,7 +979,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.data_items = {
         text:'enter one or more block/data-set names, separated by white-space or commas.',
         help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>",
-        label:'Data Items'
+        label:'Data Items',
+        initial_text: params.data
       };
       this.makeControlTextbox(this.data_items,form);
 
@@ -1046,7 +1050,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Priority
       this.priority = {
         values:['high','normal','low'],
-        _default:2,
+        _default: this.params.priority || 2,
         help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>',
         label:'Priority'
       };
