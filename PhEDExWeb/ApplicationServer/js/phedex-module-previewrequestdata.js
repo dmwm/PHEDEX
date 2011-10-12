@@ -57,7 +57,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
       },
       _processData: function(preview) {
-        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser,
+        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser, maxPreview=50,
             cDef, i, j, k, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state, wrongDBS={}, wrongDBSCount=0,
             summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0, tmp, knownNodes={};
 
@@ -171,11 +171,13 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
 
 //      Build the global summary
         text = '';
+
         if ( known ) {
+          if ( text ) { text += '<br/>'; }
           if ( known == 1 ) {
-            text = 'One data-item matches your request';
+            text += 'One data-item matches your request';
           } else {
-            text = known+' data-items match your request';
+            text += known+' data-items match your request';
           }
           text += ', with '+tFiles+' file';
           if ( tFiles != 1 ) { text += 's'; }
@@ -186,10 +188,17 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           text += ' in total';
         }
 
+        if ( Table.length > maxPreview ) {
+          if ( text ) { text += '<br/>'; }
+          text += Icon.Warn+'Too many items to show in a preview, truncating at '+maxPreview+' rows';
+          Table.length = maxPreview;
+        }
+
 //      Most severe errors first...
         if ( this.re_evaluate_request ) {
           if ( !unknown && !dom.data_items.value.match(/\*/) && this.getRadioValues(this.re_evaluate_request) == 'y') {
-            text += '<br/>'+Icon.Error+'All items were matched & there are no wildcards, so <strong>re-evaluating</strong> makes no sense';
+            if ( text ) { text += '<br/>'; }
+            text += Icon.Error+'All items were matched & there are no wildcards, so <strong>re-evaluating</strong> makes no sense';
           }
         }
         if ( unknown ) {
@@ -200,29 +209,32 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
         if ( type == 'delete' ) {
           if ( wrongDBSCount ) {
+            if ( text ) { text += '<br/>'; }
             if ( wrongDBS.length > 1 || wrongDBSCount < known ) {
-              text += '<br/>'+Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
+              text += Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
             } else {
               for (tmp in wrongDBS) { // there is only one entry in wrongDBS!
-                text += "<br/>"+Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
+                text += Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
               }
             }
           }
         }
         if ( showComment ) {
-          text += '<br/>'+Icon.Warn+'Some or all data-items have comments that may indicate errors.';
+          if ( text ) { text += '<br/>'; }
+          text += Icon.Warn+'Some or all data-items have comments that may indicate errors.';
         }
         time_start=context.args.time_start;
         if ( tBytes == 0 ) {
+          if ( text ) { text += '<br/>'; }
           if ( time_start ) {
            if ( time_start > new Date().getTime()/1000 ) {
-             text += '<br/>'+Icon.Warn+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.';
+             text += Icon.Warn+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.';
            } else {
-             text += '<br/>'+Icon.Warn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')';
+             text += Icon.Warn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')';
             }
             state = 'warn';
           } else {
-            text = Icon.Error+'No data found matching your selection';
+            text += Icon.Error+'No data found matching your selection';
             state = 'error';
           }
           if ( this.type == 'xfer' ) { text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.'; }
@@ -230,7 +242,8 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           return;
         }
         if ( time_start ) {
-          text += '<br/>'+Icon.Warn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(time_start);
+          if ( text ) { text += '<br/>'; }
+          text += Icon.Warn+'You will only receive data injected after '+PxUf.UnixEpochToUTC(time_start);
         }
 
 //      Now for information related to subscriptions and replicas
@@ -248,19 +261,20 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         for (node in summary) {
           if ( s.subscribed == known ) {
             if ( j ) {
+              if ( text ) { text += '<br/>'; }
               if ( type == 'xfer' ) {
                 if ( known == 1 ) {
-                  text += "<br/>"+Icon.Warn+'Item is already subscribed to <strong>'+node+'</strong>';
+                  text += Icon.Warn+'Item is already subscribed to <strong>'+node+'</strong>';
                 } else {
-                  text += "<br/>"+Icon.Warn+'All matched items are already subscribed to <strong>'+node+'</strong>';
+                  text += Icon.Warn+'All matched items are already subscribed to <strong>'+node+'</strong>';
                 }
                 excessNodes = node;
                 nExcessNodes = 1;
               } else {
                 if ( known == 1 ) {
-                  text += '<br/>'+Icon.OK+'Item is subscribed to <strong>'+node+'</strong>';
+                  text += Icon.OK+'Item is subscribed to <strong>'+node+'</strong>';
                 } else {
-                  text += '<br/>'+Icon.OK+'All matched items are subscribed to <strong>'+node+'</strong>';
+                  text += Icon.OK+'All matched items are subscribed to <strong>'+node+'</strong>';
                 }
               }
               j=false;
@@ -285,10 +299,11 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           s = summary[node];
           if ( s.OK == known ) {
             if ( j ) {
+              if ( text ) { text += '<br/>'; }
               if ( known == 1 ) {
-                text += '<br/>'+Icon.OK+'Item has a replica at <strong>'+node+'</strong>';
+                text += Icon.OK+'Item has a replica at <strong>'+node+'</strong>';
               } else {
-                text += '<br/>'+Icon.OK+'All matched items have replicas at <strong>'+node+'</strong>';
+                text += Icon.OK+'All matched items have replicas at <strong>'+node+'</strong>';
               }
               j=false;
             } else {
@@ -306,7 +321,8 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
             s = summary[node];
             if ( s.subscribed ) {
               if ( j ) {
-                text += '<br/>'+Icon.Warn+'Some items are already subscribed to <strong>'+node+'</strong>';
+                if ( text ) { text += '<br/>'; }
+                text += Icon.Warn+'Some items are already subscribed to <strong>'+node+'</strong>';
                 j=false;
               } else {
                 text += ', <strong>'+node+'</strong>';
@@ -322,10 +338,11 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           j=true;
           for (node in summary) {
             if ( j ) {
+              if ( text ) { text += '<br/>'; }
               if ( type == 'xfer' ) {
-                text += '<br/>'+Icon.Warn+'Some items already have replicas at <strong>'+node+'</strong>';
+                text += Icon.Warn+'Some items already have replicas at <strong>'+node+'</strong>';
               } else {
-                text += '<br/>'+Icon.Warn+'Only some items have replicas at <strong>'+node+'</strong>';
+                text += Icon.Warn+'Only some items have replicas at <strong>'+node+'</strong>';
               }
               j=false;
             } else {
@@ -346,7 +363,8 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
               if ( knownNodes[tmp] ) { continue; }
             }
             if ( j ) {
-              text += '<br/>'+Icon.Error+'No items have replicas at ';
+              if ( text ) { text += '<br/>'; }
+              text += Icon.Error+'No items have replicas at ';
               excessNodes = node;
               nExcessNodes = 1;
             } else {
@@ -372,7 +390,6 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
 
         if ( !showDBS )     { this.meta.hide['DBS'] = 1; }
         if ( !showComment ) { this.meta.hide['Comment'] = 1; }
-        this.setSummary('OK',text);
 
 // TW Need to uncomment this later?
 //         this.needProcess = false;
