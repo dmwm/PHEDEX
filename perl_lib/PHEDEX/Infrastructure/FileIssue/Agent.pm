@@ -72,8 +72,8 @@ sub confirm
     # Otherwise the task is not custodial
     # 
     # Also, do not create tasks where a deletion is scheduled for
-    # either the source or the destination node, in order to allow the
-    # deletion to proceed.
+    # either the source or the destination node (or locally connected MSS nodes),
+    # in order to allow the deletion to proceed.
     my $q = &dbexec($dbh, qq{
 	select
           xp.fileid, f.inblock block_id, f.logical_name,
@@ -118,6 +118,18 @@ sub confirm
 	  left join t_xfer_delete xd
 	    on xd.fileid = f.id
             and (xd.node = ns.id or xd.node = nd.id)
+	  left join (select xdmss.fileid,
+		       ndbuf.id node
+		     from t_xfer_delete xdmss
+		       join t_adm_node ndmss
+		       on ndmss.id=xdmss.node and ndmss.kind='MSS'
+		       join t_adm_link lnmss
+		       on lnmss.to_node=ndmss.id and lnmss.is_local='y'
+		       join t_adm_node ndbuf
+		       on lnmss.from_node=ndbuf.id and ndbuf.kind='Buffer'
+		     ) xdbuf
+	    on xdbuf.fileid = f.id
+            and (xdbuf.node = ns.id or xdbuf.node = nd.id)
           join t_xfer_request xrq
             on xp.fileid = xrq.fileid
             and xp.destination = xrq.destination
@@ -129,6 +141,7 @@ sub confirm
           and xe.fileid is null
           and xt.id is null
           and xd.fileid is null
+	  and xdbuf.fileid is null
 	  and ((ns.kind = 'MSS' and nd.kind = 'Buffer')
 	       or (ns.kind = 'Buffer' and nd.kind = 'MSS'
        	           and xsi.from_node is not null)
