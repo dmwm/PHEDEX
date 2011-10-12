@@ -13,7 +13,81 @@ use Data::Dumper;
 
 PHEDEX::Web::API::PreviewRequestData - get detailed information about a request before approving it
 
+=head2 Options
+
+ data		the data to be subscribed. May contain '*' wildcard, can be multiple
+ type           'xfer' or 'delete'. Used to analyse possible warning or error conditions.
+ node		destination node names, can be multiple
+ static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (growing)
+ time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
+ dbs            which DBS the data is expected to be in
+
+ Only 'data' and 'type' are mandatory. The other arguments either narrow down the request, or assist
+in checking for errors.
+
+ This API will also silently accept all the arguments that the Subscriptions API accepts. That way,
+you can call both with exactly the same data-structure.
+
+=head3 Output
+
+  <preview>
+    <src_info>
+      <node> ... </node>
+    </src_info>
+    ...
+  </preview>
+  ...
+
+=head3 <preview> attributes
+
+  id		Request ID
+  level		BLOCK or DATASET, specifying what level this item corresponds to
+  dataset	name of dataset, if level = DATASET. Undefined otherwise
+  block		name of block, if level = BLOCK. Undefined otherwise
+  item		name of dataset or block, whatever the value of 'level'
+  dbs		name of the DBS this item is found in
+  bytes		number of bytes in this item
+  files		number of files in this item
+  dps_isknown	y or n, if this item is known to PhEDEx
+  dbs_isknown	y or n, if this item is known to DBS
+  comment	additional information, if any, for this item
+  warn		additional warning information, suggesting possible errors that may apply to this item
+  problem	description of problem, if any, with this item
+
+=head3 <src_info> attributes
+
+  none
+
+=head3 <node> attributes
+
+  files		number of files at this node for this item
+  bytes		number of bytes at this node for this item
+  node		node-name for this replica of this item
+  is_move	y, n, or null, if the data is subscribed and is a move or not
+  is_custodial	y, n, or null, if the data is subscribed and is custodial or not
+  is_subscribed y or n, if the data is subscribed or not
+  time_start	if not null, only data after this time (epoch seconds) is subscribed
+  user_group	if subscribed, gives the user-group the data belongs to
+  subs_level	BLOCK or DATASET, specifies the subscription level
+
+=cut
+
 =head2 DESCRIPTION
+
+This API takes the same input as the Subscribe API, and returns a data-structure with information about
+the data that matches that input. This allows you to see if other subscriptions are being overridden,
+how much data you are requesting for transfer, where the files and data already reside, and other
+things that you may want to know before finally placing the subscription request.
+
+Although this API does not need all the arguments it accepts, it is specifically designed to accept
+identically the same input as the Subscribe API, so that a script or tool that calls it can then
+pass the same structure to that API, thereby simplifying coding. The only mandatory arguments are
+'data' and 'type'.
+
+Other arguments are used in the analysis to spot potential problems, which are reported as
+'comment's, 'warn'ings, or 'problem's, according to their severity. A comment is purely for
+information, a warning suggests that the request may fail, or may not be what you want, and a
+problem is something that will definitely cause the request to fail.  
 
 =cut
 
@@ -36,6 +110,7 @@ sub previewrequestdata {
              (defined $params{static} && $params{static} eq 'y') ? 1 : 0,
 	     $params{time_start},
              @{$params{data}});
+
   my @table;
   my $problems = 0;
   my %subscribed_sources;
@@ -193,14 +268,14 @@ sub resolve_data
     my %has = ( DATASET => 0, BLOCK => 0);
     my %userglob_re;
     my %userglob_like = ( DATASET => [], BLOCK => [] );
+    my ($re,$like);
     foreach $userglob (@userdata) {
 	$$resolved{$userglob} ||= [];
 
 	$level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 
-	my $re = $userglob;
+	$re = $like = $userglob;
 	$re =~ s:\*+:[^/\#]+:g;                              # simple glob to regex, only * is supported
-	my $like = $userglob;
 	$like =~ s:\*+:%:g;                                  # glob to sql like, only * is supported
 	if ( $static && $level eq 'DATASET' ) {              # turn dataset match into block match if static
 	  $re .= '#[^/\#]+';
@@ -210,7 +285,6 @@ sub resolve_data
           }
         }
 	$has{$level}++;
-
 	$userglob_re{$userglob} = qr/^$re$/;                 # compile regexp
 
 	push @{$userglob_like{$level}}, $like;
