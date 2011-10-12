@@ -13,6 +13,7 @@ PHEDEX.DataTable = function (sandbox, string) {
     Yla(this, new PHEDEX.Module(sandbox, string));
     var _me = 'datatable', _sbx = sandbox;
     this.allowNotify['setColumnVisibility'] = 1;
+    this.allowNotify['postGotData'] = 1;
 
     /**
     * this instantiates the actual object, and is called internally by the constructor. This allows control of the construction-sequence, first augmenting the object with the base-class, then constructing the specific elements of this object here, then any post-construction operations before returning from the constructor
@@ -212,10 +213,8 @@ PHEDEX.DataTable = function (sandbox, string) {
                     this.fillDataSourceWithSchema(moduledata); // Fill datasource directly if schema is available
                     return;
                 }
-                if (this.needProcess) {
-                    // Process the data if it is new to module and is not from filter
-                    this.data = this._processData(moduledata);
-                    moduledata = this.data;     // Cache the processed data for further use by filter
+                if (this.needProcess) { // Process the data if it is new to module and is not from filter
+                    moduledata = this._processData(moduledata);
                 }
                 this.dataSource = new YuDS(moduledata);
                 var oCallback = {
@@ -412,6 +411,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                            generateNestedRequest: this.processNestedrequest,
                            draggableColumns:true
                          };
+              if ( t.config ) { Yla(masterConfig,t.config,true); }
               nestedConfig = {
                            initialLoad: false,
                            draggableColumns:true
