@@ -475,9 +475,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
       },
       previewCallback: function(data,context,response) {
-        var dom=this.dom, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback,
-            preview, t=this.meta.table, cDef, i, j, item, src_info, tFiles=0, tBytes=0, text,
-            summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0;
+        var dom=this.dom, api=context.api;
 
         this.data = data;
         this.context = context;
@@ -496,6 +494,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               return;
             }
             _sbx.notify(this.previewId,'doGotData',data,context,response);
+            _sbx.notify(this.previewId,'doPostGotData');
             dom.preview_summary.innerHTML = '';
             Dom.removeClass(dom.preview,'phedex-invisible');
             break;
