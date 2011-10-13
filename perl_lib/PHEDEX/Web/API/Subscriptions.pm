@@ -70,6 +70,7 @@ Show existing subscriptions and their parameters.
   suspend_until    time suspension expires 
   percent_files    percentage of files at destination
   percent_bytes    percentage of bytes at destination
+  start_time       time when transfer started (only active transfers have start time)
 
 =head3 <dataset> attributes:
 
@@ -118,7 +119,8 @@ my $map = {
         suspended => 'SUSPENDED',
         suspend_until => 'SUSPEND_UNTIL',
         percent_files => 'PERCENT_FILES',
-        percent_bytes => 'PERCENT_BYTES'
+        percent_bytes => 'PERCENT_BYTES',
+        time_start => 'TIME_START'
     }
 };
 
@@ -153,7 +155,8 @@ my $map2 = {
             suspended => 'SUSPENDED',
             suspend_until => 'SUSPEND_UNTIL',
             percent_files => 'PERCENT_FILES',
-            percent_bytes => 'PERCENT_BYTES'
+            percent_bytes => 'PERCENT_BYTES',
+            time_start => 'TIME_START'
         }
     }
 };
