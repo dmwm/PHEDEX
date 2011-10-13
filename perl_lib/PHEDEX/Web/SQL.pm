@@ -1923,8 +1923,8 @@ sub getDataSubscriptionsQuery
                             t_dps_subs_dataset sd
                         where
                             sd.param = sb.param) is null
-                    then 'block'
-                    else 'dataset'
+                    then 'BLOCK'
+                    else 'DATASET'
                 end "level",
                 sb.param,
                 sb.block item_id,
@@ -1987,7 +1987,7 @@ sub getDataSubscriptionsQuery
 
     my $ds_dataset_query = qq{
             select
-                'dataset' "level",
+                'DATASET' "level",
                 sd.param,
                 sd.dataset item_id,
                 d.name item_name,
@@ -2095,7 +2095,8 @@ sub getDataSubscriptionsQuery
             ds.node_files,
             ds.node_bytes,
             ds.percent_bytes,
-            ds.percent_files
+            ds.percent_files,
+            rx.time_start
         from
             t_dps_subs_param sp
             join
@@ -2103,6 +2104,7 @@ sub getDataSubscriptionsQuery
                 $ds_query
             ) ds on ds.param = sp.id
             join t_adm_node n on ds.destination = n.id
+            left join t_req_xfer rx on rx.request = sp.request
             left join t_adm_group g on g.id = sp.user_group
     };
 
@@ -2151,6 +2153,19 @@ sub getDataSubscriptionsQuery
             $filters = " ds.time_create >= :create_since ";
         }
         $p{':create_since'} = &str2time($h{CREATE_SINCE});
+    }
+
+    if (exists $h{START_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= " and rx.time_start >= :start_since ";
+        }
+        else
+        {
+            $filters = " rx.time_start >= :start_since ";
+        }
+        $p{':start_since'} = &str2time($h{START_SINCE});
     }
 
     if (exists $h{PRIORITY})
