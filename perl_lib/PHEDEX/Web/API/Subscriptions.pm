@@ -181,7 +181,7 @@ sub subscriptions
     }
 
     # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if (not (exists $h{BLOCK} || exists $h{DATASET}))
+    if (not (exists $h{BLOCK} || exists $h{DATASET} || exists $h{CREATE_SINCE}))
     {
         $h{CREATE_SINCE} = time() - 3600*24;
     }
