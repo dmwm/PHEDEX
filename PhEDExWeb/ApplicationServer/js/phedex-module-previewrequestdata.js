@@ -28,8 +28,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
       ],
       meta: {
-        table: { columns: [{ key:'level',         label:'Level',    className:'align-left' },
-                           { key:'item',          label:'Item',     className:'align-left' },
+        table: { columns: [{ key:'item',          label:'Item',     className:'align-left' },
                            { key:'files',         label:'Files',    className:'align-right', parser:'number' },
                            { key:'bytes',         label:'Bytes',    className:'align-right', parser:'number', formatter:'customBytes' },
                            { key:'dbs',           label:'DBS',      className:'align-left' },
@@ -79,7 +78,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
 //      Build the datatable and the information for per-node summaries
         for (i in preview) {
           item = preview[i];
-          Row = { level:item.level, item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
+          Row = { item:item[item.level.toLowerCase()] || item.item, files:item.files, bytes:item.bytes, dbs:item.dbs, comment:item.comment };
           for (j in Row) {
             if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
           }
