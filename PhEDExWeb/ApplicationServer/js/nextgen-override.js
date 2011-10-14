@@ -38,7 +38,7 @@ function createCoreApp() {
   uri = location.search;
   if ( uri.match(/^\?(.*)$/) ) {
     substrs = decodeURIComponent(RegExp.$1);
-    substrs = substrs.replace(/;/,'&')
+    substrs = substrs.replace(/;/g,'&')
     substrs = substrs.split('&');
     var key, val;
     for (i in substrs ) {
