@@ -2155,19 +2155,6 @@ sub getDataSubscriptionsQuery
         $p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
 
-    if (exists $h{START_SINCE})
-    {
-        if ($filters)
-        {
-            $filters .= " and rx.time_start >= :start_since ";
-        }
-        else
-        {
-            $filters = " rx.time_start >= :start_since ";
-        }
-        $p{':start_since'} = &str2time($h{START_SINCE});
-    }
-
     if (exists $h{PRIORITY})
     {
         if ($filters)
