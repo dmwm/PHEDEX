@@ -62,7 +62,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
 
         i = t.columns.length;
         if (!t.map) { t.map = {}; }
-        Dom.removeClass(dom.preview,'phedex-invisible');
+        Dom.removeClass(dom.content,'phedex-invisible');
 
         if ( !preview ) {
           this.setSummary('error','Error retrieving information from the data-service');
@@ -227,17 +227,21 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           if ( text ) { text += '<br/>'; }
           if ( time_start ) {
            if ( time_start > new Date().getTime()/1000 ) {
-             text += Icon.Warn+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.';
+             state = 'error';
+             text = Icon.Error+'The specified start-time (' + PxUf.UnixEpochToUTC(time_start) + ') is in the future, no currently existing data will match it.'; // supercede all previous messages
            } else {
-             text += Icon.Warn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')';
+             state = 'warn';
+             text = Icon.Warn+'No data injected since the time you specified (' + PxUf.UnixEpochToUTC(time_start) + ')'; // supercedes all previous messages
             }
-            state = 'warn';
           } else {
-            text += Icon.Error+'No data found matching your selection';
+            text = Icon.Error+'No data found matching your selection'; // supercedes all preceding messages
             state = 'error';
           }
-          if ( this.type == 'xfer' ) { text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.'; }
+          if ( this.context.args.type == 'xfer' ) {
+            text += '<br/>If you expect data to be injected later on, you can continue with this request. Otherwise, please modify it.';
+          }
           this.setSummary(state,text);
+          Dom.addClass(dom.content,'phedex-invisible');
           return;
         }
         if ( time_start ) {
