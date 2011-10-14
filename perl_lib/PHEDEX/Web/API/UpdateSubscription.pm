@@ -58,7 +58,7 @@ Update user_group, priority and/or suspend_until of a existing subscription
   suspend_until    time suspension expires 
   percent_files    percentage of files at destination
   percent_bytes    percentage of bytes at destination
-  start_time       time when transfer started (only active transfers have start time)
+  time_start       time when transfer started (only active transfers have start time)
 
 =head3 <dataset> attributes:
 
