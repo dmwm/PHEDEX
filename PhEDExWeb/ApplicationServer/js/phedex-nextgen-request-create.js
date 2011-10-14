@@ -1149,7 +1149,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
           o.dom.time_start.value = selected[0]+'-'+selected[1]+'-'+selected[2]+' 00:00:00';
           if ( o.formFail ) { o.Accept.set('disabled',false); o.formFail=false; }
           Dom.setStyle(o.dom.time_start,'color','black');
-          YuD.addClass(elCal,'phedex-invisible');
+          YuD.addClass(o.dom.calendar_el,'phedex-invisible');
         }
       }(this);
       var cal = new YAHOO.widget.Calendar( 'cal'+PxU.Sequence(), d.calendar_el); //, {maxdate:now.month+'-'+now.day+'-'+now.year } );
