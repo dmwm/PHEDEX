@@ -6455,7 +6455,6 @@ sub output
 }
 
 1;
-
 ######################################################################
 package Web25::Activity::ErrorInfo;
 use strict; use warnings;
@@ -7978,7 +7977,6 @@ if ( $TW ) { # TW
   }
 
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
-
   my $q =$self->data_subscriptions();
   my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
 		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
@@ -8273,13 +8271,15 @@ sub update_subscriptions
 	    my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
 	    my ($before,$after);
 	    foreach my $rr ( @{$r} ) {
-	      if ( $rr->{LEVEL} eq lc $level ) {
+	      if ( uc $rr->{LEVEL} eq uc $level ) {
 	        $after = $rr->{$action->{var}};
+                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($after) ) { $after = 'undef'; }
 	      }
 	    }
 	    foreach my $pp ( @{$p} ) {
-	      if ( $pp->{LEVEL} eq lc $level ) {
+	      if ( uc $pp->{LEVEL} eq uc $level ) {
 	        $before = $pp->{$action->{var}};
+                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($before) ) { $before = 'undef'; }
 	      }
 	    }
 	    if ( $before ne $after ) { $n_changed++; }
