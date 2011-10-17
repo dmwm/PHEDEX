@@ -177,7 +177,7 @@ sub subscriptions
     # convert parameter keys to upper case
     foreach ( qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / )
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+      $h{uc $_} = delete $h{$_} if exists($h{$_});
     }
 
     # if there is no block/dataset argument, set default "since" to 24 hours ago
