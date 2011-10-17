@@ -56,7 +56,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         }
       },
       _processData: function(preview) {
-        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser, maxPreview=50,
+        var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, showDBS=false, showComment=false, dbs=context.args.dbs, column, elList, oCallback, meta=this.meta, t=meta.table, parser=meta.parser, maxPreview=200,
             cDef, i, j, k, item, src_info, tFiles=0, tBytes=0, text, type=context.args.type, state, wrongDBS={}, wrongDBSCount=0,
             summary={}, s, node, time_start, isRequired={}, unknown=0, known=0, excessNodes, nExcessNodes=0, tmp, knownNodes={};
 
