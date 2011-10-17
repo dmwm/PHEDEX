@@ -3210,7 +3210,7 @@ sub formatClientData
 sub getRequestData
 {
     my ($self, $rid) = @_;
-    $$self{DBH}->{LongReadLen} = 10_000;
+    $$self{DBH}->{LongReadLen} = 100_000;
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $data = {};
@@ -3273,7 +3273,7 @@ sub getRequestData
 	     where rd.request = :request
 	 }, ':request' => $rid)->fetchrow_hashref();
     }
-				
+
     my $sql = qq{
 	select 'DATASET' lvl, rds.name, ds.id, nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	  from t_req_dataset rds left join t_dps_dataset ds on ds.id = rds.dataset_id
@@ -7481,7 +7481,7 @@ sub validate
 	 spec  => 
 	 {
 	     # Params for Data::Replicas
-	     node         => { allowing => [(map { $$_{ID} } @{$$self{NODE_LIST}})],  multiple => 1 },
+	     node         => { regex => '^[A-Z,a-z,0-9_]+',  multiple => 1 },
 	     dcolumn      => { allowing => $$self{DCOLUMN_NAMES}, multiple => 1 },
 	     rcolumn      => { allowing => $$self{RCOLUMN_NAMES}, multiple => 1 },
 	     scolumn      => { allowing => $$self{SCOLUMN_NAMES}, multiple => 1 },
@@ -7524,7 +7524,19 @@ sub validate
         }
       }
     }
-    my $fileid     = $params{fileid};
+    my $nodes_allowed;
+    foreach ( @{$self->{NODE_LIST}} ) {
+      $nodes_allowed->{$_->{ID}} = $nodes_allowed->{$_->{NAME}} = 1;
+    }
+    if ( $params{node} ) {
+      if ( ref($params{node}) eq 'ARRAY' ) {
+        foreach ( @{$params{node}} ) {
+          $nodes_allowed->{$_} or die("The $_ parameter (foo) to bar did not pass");
+        }
+      } else {
+        $nodes_allowed->{$params{node}} or die("The $params{node} parameter (foo) to bar did not pass");
+      }
+    }
 
   return $$self{PARAMS} = \%params;
 }
