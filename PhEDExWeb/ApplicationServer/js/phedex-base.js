@@ -116,8 +116,8 @@ PHEDEX.Webapp = {
  * @type string
  */
   DataserviceURL: function() {
-    var dataserviceBaseUrl = '@WEBAPP_DATASERVICE_BASEURL@'; // set when RPM is built
-    return dataserviceBaseUrl.match(/WEBAPP_DATASERVICE_BASEURL/) ? '/phedex/datasvc/json/' : dataserviceBaseUrl + 'json/';
+    var dataserviceUrl = '@WEBAPP_DATASERVICE_BASEURL@'; // set when RPM is built
+    return dataserviceUrl.match(/WEBAPP_DATASERVICE_BASEURL/) ? '/phedex/datasvc/json/' : dataserviceUrl;
   }(),
 
 /**
