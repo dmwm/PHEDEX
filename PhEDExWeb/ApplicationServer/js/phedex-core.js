@@ -130,8 +130,13 @@ PHEDEX.Core = function(sandbox,loader) {
       try {
         var ctor = PxU.getConstructor(module),
             m = new ctor(_sbx,name);
-            YtP.registerObject(name,m);
-      } catch(ex) { log(ex,'error',this._me); banner("Failed to construct an instance of '"+name+"'!",'error'); }
+      } catch(ex) {
+        log(ex,'error',this._me);
+        banner("Failed to construct an instance of '"+name+"'!",'error');
+        return;
+      }
+      YtP.registerObject(name,m);
+      PxU.protectMe(m);
       m.init(this._global_options);
       if ( args ) {
         if ( args.state ) {
@@ -210,12 +215,14 @@ PHEDEX.Core = function(sandbox,loader) {
             if ( !_d.payload.obj ) { _d.payload.obj = _m; }
             try {
               _m.ctl[_d.name] = new _ctor(_sbx,_d);
-              YtP.registerObject(_d.name,_m.ctl[_d.name]);
               if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
             } catch (ex) {
               banner('Error creating a '+_d.name+' for the '+_m.me+' module','error');
-              log(err(ex),'error',this._me); return;
+              log(err(ex),'error',this._me);
+               return;
             }
+            YtP.registerObject(_d.name,_m.ctl[_d.name]);
+            PxU.protectMe(_m);
             if ( !--_m._nDecorators ) {
               _sbx.notify(_m.id,'decoratorsConstructed');
               delete _m._nDecorators; // clean up after myself
@@ -479,12 +486,14 @@ PHEDEX.Core = function(sandbox,loader) {
           try {
             var ctor = PxU.getConstructor(name),
                 m = new ctor(_sbx);
-                YtP.registerObject(name,m);
           } catch (ex) {
             banner('Cannot construct '+name,'error');
             log('Cannot construct '+name,'error',obj._me);
             log(ex,'error',obj._me);
+            return;
           }
+          YtP.registerObject(name,m);
+          PxU.protectMe(m);
           try {
             if ( m ) { m.init(args); }
           } catch (ex) {
