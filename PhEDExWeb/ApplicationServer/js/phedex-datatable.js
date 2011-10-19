@@ -409,7 +409,8 @@ PHEDEX.DataTable = function (sandbox, string) {
               masterConfig = {
                            initialLoad: false,
                            generateNestedRequest: this.processNestedrequest,
-                           draggableColumns:true
+                           draggableColumns:true,
+                           renderLoopSize: 50
                          };
               if ( t.config ) { Yla(masterConfig,t.config,true); }
               nestedConfig = {
