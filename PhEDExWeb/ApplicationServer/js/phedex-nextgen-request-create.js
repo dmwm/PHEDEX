@@ -350,7 +350,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
                           "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+"</div>" +
                           "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
-                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + (config.initial_text || config.text) + "</textarea></div>" +
+                            "<div><textarea id='"+labelForm+"' name='"+labelForm+"' class='phedex-nextgen-textarea'>" + (config.initial_text || config.text) + "</textarea></div>" +
                           "</div>" +
                         "</div>";
         parent.appendChild(el);
@@ -362,7 +362,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         resize = config.resize || {maxWidth:745, minWidth:100};
         NUtil.makeResizable(labelCss+'-wrapper',labelLower,resize);
 
-        d[labelForm] = Dom.get(labelLower);
+        d[labelForm] = Dom.get(labelForm);
         d[labelForm].onfocus = function() {
           if ( this.value == config.text ) {
             this.value = '';
@@ -486,20 +486,15 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           this.setSummary('error',"Error retrieving preview data");
           return;
         }
-        switch (api) {
-          case 'previewrequestdata': {
-            if ( !this.previewId ) {
-              _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewId'});
-              _sbx.delay(50, this.id, 'previewCallback',data,context,response);
-              return;
-            }
-            _sbx.notify(this.previewId,'doGotData',data,context,response);
-            _sbx.notify(this.previewId,'doPostGotData');
-            dom.preview_summary.innerHTML = '';
-            Dom.removeClass(dom.preview,'phedex-invisible');
-            break;
-          }
+        if ( !this.previewId ) {
+          _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewId'});
+          _sbx.delay(50, this.id, 'previewCallback',data,context,response);
+          return;
         }
+        _sbx.notify(this.previewId,'doGotData',data,context,response);
+        _sbx.notify(this.previewId,'doPostGotData');
+        dom.preview_summary.innerHTML = '';
+        Dom.removeClass(dom.preview,'phedex-invisible');
       },
       suppressExcessNodes: function(excessNodes) {
         var elList, el, i, j, nodes, node;
