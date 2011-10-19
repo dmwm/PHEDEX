@@ -5,7 +5,7 @@ PHEDEX.Nextgen.Util = function() {
       _sbx = new PHEDEX.Sandbox();
 
   return {
-    NodePanel: function(obj,parent) {
+    NodePanel: function(obj,parent,default_nodes) {
       var nodePanel, seq=PxU.Sequence(),
           selfHandler = function(o) {
         return function(ev,arr) {
@@ -30,7 +30,7 @@ PHEDEX.Nextgen.Util = function() {
       nodePanel.dom = { parent:parent };
       var makeNodePanel = function(o) {
         return function(data,context,response) {
-          var nodes=[], node, i, j, k,
+          var nodes=[], node, i, j, k, l, checked,
             instance=PHEDEX.Datasvc.Instance();
 
           if ( !data.node ) {
@@ -41,25 +41,33 @@ PHEDEX.Nextgen.Util = function() {
           }
           _sbx.notify(o.id,'NodeListLoaded');
           for ( i in data.node ) {
-            node = data.node[i].name;
-            if ( instance.instance != 'prod' ) { nodes.push(node ); }
+            node = data.node[i];
+            if ( instance.instance != 'prod' ) { nodes.push(node); }
             else {
-              if ( node.match(/^T(0|1|2|3)_/) && !node.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node ); }
+              if ( node.name.match(/^T(0|1|2|3)_/) && !node.name.match(/^T[01]_.*_(Buffer|Export)$/) ) { nodes.push(node); }
             }
           }
-          nodes = nodes.sort();
+          nodes = nodes.sort( function(a,b) { return YAHOO.util.Sort.compare(a.name,b.name); } );
           parent.innerHTML = '';
           k = '1';
           for ( i in nodes ) {
             node = nodes[i];
-            node.match(/^T(0|1|2|3)_/);
+            node.name.match(/^T(0|1|2|3)_/);
             j = RegExp.$1;
             if ( j > k ) {
               parent.innerHTML += "<hr class='phedex-nextgen-hr'>";
               k = j;
             }
-            parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'><input class='phedex-checkbox' type='checkbox' name='"+node+"' />"+node+"</div>";
-            nodePanel.nodes.push(node);
+            checked = null;
+            for ( l in default_nodes ) {
+              if ( default_nodes[l] == node.id || default_nodes[l] == node.name ) {
+                checked = 'checked';
+              }
+            }
+            parent.innerHTML += "<div class='phedex-nextgen-nodepanel-elem'>" +
+                                  "<input class='phedex-checkbox' type='checkbox' name='"+node.name+"' "+checked+"/>"+node.name +
+                                "</div>";
+            nodePanel.nodes.push(node.name);
           }
           nodePanel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
           var onSelectClick =function(event, matchedEl, container) {
