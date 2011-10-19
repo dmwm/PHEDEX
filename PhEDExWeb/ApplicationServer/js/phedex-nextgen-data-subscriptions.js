@@ -21,7 +21,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         minheight:50
       },
       _default:{}, // default values for various DOM fields, extracted as they are built
-      _filter: { node:[], request:[], data:[] }, // values set by the filter tab, updated as they are changed
+      _filter: { node:[], request:[], data_items:[] }, // values set by the filter tab, updated as they are changed
       meta: {
         showColumns:
         [
@@ -227,12 +227,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           i = document.createElement('input');
           i.type = 'hidden'
           i.name = 'priority';
-          i.value = this.params.priority;
+          i.value = this._filter.priority;
           form.appendChild(i);
           i = document.createElement('input');
           i.type = 'hidden'
           i.name = 'suspended';
-          i.value = this.params.suspended;
+          i.value = this._filter.suspended;
           form.appendChild(i);
 
           field='action';
@@ -386,6 +386,19 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( map[status] ) {
           Dom.addClass(dom.messages,map[status]);
         }
+      },
+      setValueFor: function(label,value) {
+        value = value.replace(/\n|,/g,' ');
+        if ( value.match(/^ *$/) ) {
+          this._filter[label] = [];
+        } else {
+          this._filter[label]  = value.split(/ |\n|,/);
+        }
+      },
+      unsetValueFor: function(label) {
+debugger;
+        this._filter[label] = [];
+debugger;
       },
       Help:function(item) {
         item = this[item];
@@ -595,9 +608,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 break;
               }
               case 'checkbox-select': {
-                var id=arr[1], checked=arr[2], params=arr[3], meta=obj.meta, selected=meta.selected, i;
-                if ( checked ) {
-                  selected[id] = params;
+                var id=arr[1], meta=obj.meta, selected=meta.selected, i;
+                if ( arr[2] ) {
+                  selected[id] = arr[3];
                   meta.nSelected++;
                   if ( meta.nSelected == 1 ) { _sbx.notify(obj.id,'setApplyChangesState'); } // minor optimisation!
                 } else {
@@ -624,10 +637,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       },
       getSubscriptions: function() {
         var args = {collapse:'y', create_since:new Date().getTime()/1000 - 30*86400 /* 1 month */},
-            i, filter=this._filter, f, map=this.meta.map,
+            i, _filter=this._filter, f, map=this.meta.map,
             datasets, blocks, data, level;
-        for (i in filter) {
-          f = filter[i];
+        for (i in _filter) {
+          f = _filter[i];
           if ( typeof(f) == 'array' || typeof(f) == 'object' ) {
             if ( f.length ) {
               args[i] = f;
@@ -636,8 +649,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             args[i] = f;
           }
         }
-        for (i in args.data) {
-          data = args.data[i];
+        for (i in args.data_items) {
+          data = args.data_items[i];
           level = NUtil.parseBlockName(data);
           if ( level == 'BLOCK' ) {
             if ( !blocks ) { blocks = []; }
@@ -654,7 +667,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
         if ( datasets  ) { args.dataset = datasets; }
         if ( blocks    ) { args.block   = blocks; }
-        if ( args.data ) { delete args.data; }
+        if ( args.data_items ) { delete args.data_items; }
+        if ( args.requests ) {
+          args.request = args.requests;
+          delete args.requests;
+        }
+delete args.node; // TW HACK!
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
@@ -703,33 +721,30 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                         +nSubs+' subscription'+(nSubs==1?'':'s'));
       },
       initFilters: function() {
-        var p=this.params, i, j, requests, columns, col, label,
-            _default =
-              {
-                item:      '.*',
-                priority:  'any',
-                suspended: 'any',
-                custodial: 'any',
-                group:     'any'
-              };
-        for ( i in _default ) {
-          if ( !p[i] ) { p[i] = _default[i]; }
-        }
+        var p=this.params, i, j, tmp, columns, col, label, _f=this._filter;
 
-        if ( p.reqfilter ) {
-          p.requests = p.reqfilter;
-          delete p.reqfilter;
-        }
+// special case for reqfilter (map to 'requests') and filter (map to 'data_items')
+        _f.requests = [];
+        if ( p.reqfilter ) { p.requests = p.reqfilter; }
         if ( p.requests ) {
-          requests = p.requests.split(/(\s*,*\s+|\s*,+\s*)/);
-          p.requests = [];
-          for ( i in requests ) {
-            if ( requests[i].match(/^\d+$/) ) {
-              p.requests.push(requests[i]);
+          tmp = p.requests.split(/(\s*,*\s+|\s*,+\s*)/);
+          for ( i in tmp ) {
+            if ( tmp[i].match(/^\d+$/) ) { // only accept numeric IDs.
+              _f.requests.push(tmp[i]);
+            } else {
+// TW should post an error here
             }
           }
-        } else {
-          p.requests = [];
+        }
+
+        _f.data_items = [];
+        if ( p.filter ) { p.data_items = p.filter; }
+        if ( p.data_items ) {
+          tmp = p.data_items .split(/(\s*,*\s+|\s*,+\s*)/);
+          p.data_items  = [];
+          for ( i in tmp ) {
+            p.data_items .push(tmp[i]);
+          }
         }
 
         columns = this.meta.showColumns;
@@ -749,11 +764,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
 
-        if ( p.node ) {
-          if ( typeof(p.node) != 'object' ) {
-            p.node = [ p.node ];
-          }
-// TW Still need to do something with the nodes!
+        _f.node = p.node;
+        if ( _f.node ) {
+          if ( typeof(_f.node) != 'object' ) { _f.node = [ _f.node ]; }
         }
       },
       initSub: function() {
@@ -803,23 +816,25 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         };
       },
       makeControlTextbox: function(config,parent) {
-// debugger;
         var label = config.label,
             labelLower = label.toLowerCase(),
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
-            d = this.dom, el, resize, helpStr='';
+            d = this.dom, el, resize, helpStr='',
+            textareaClassName = config.textareaClassName || 'phedex-nextgen-textarea';
         labelForm = labelForm.replace(/-/,'_');
         el = document.createElement('div');
         if ( config.help_text ) {
           helpStr = " <a class='phedex-nextgen-help' id='phedex-help-"+labelCss+"' href='#'>[?]</a>";
         }
-        el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
-                          "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+"</div>" +
-                          "<div id='"+labelCss+"-wrapper' class='phedex-nextgen-control'>" +
-                            "<div><textarea id='"+labelLower+"' name='"+labelLower+"' class='phedex-nextgen-textarea'>" + (config.initial_text || config.text) + "</textarea></div>" +
-                          "</div>" +
-                        "</div>";
+        el.innerHTML = "<div>" +
+                  "<div class='phedex-nextgen-label' id='phedex-label-"+labelCss+"'>"+label+helpStr+":</div>" +
+                  "<div class='phedex-nextgen-filter'>" +
+                    "<div id='phedex-nextgen-filter-resize-"+labelCss+"'>" +
+                      "<textarea id='"+labelForm+"' name='"+labelForm+"' class='"+textareaClassName+"'>" + (config.initial_text || config.text) + "</textarea>" +
+                    "</div>" +
+                  "</div>" +
+                "</div>";
         parent.appendChild(el);
         if ( config.help_text ) {
           config.help_align = Dom.get('phedex-label-'+labelCss);
@@ -827,9 +842,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
 
         resize = config.resize || {maxWidth:745, minWidth:100};
-        NUtil.makeResizable(labelCss+'-wrapper',labelLower,resize);
+        NUtil.makeResizable('phedex-nextgen-filter-resize-'+labelCss,labelLower,resize);
 
-        d[labelForm] = Dom.get(labelLower);
+        d[labelForm] = Dom.get(labelForm);
         d[labelForm].onfocus = function() {
           if ( this.value == config.text ) {
             this.value = '';
@@ -843,16 +858,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             Dom.setStyle(this,'color',null);
             PxS.notify(obj.id,'unsetValueFor',labelForm);
           } else {
-            PxS.notify(obj.id,'setValueFor',labelForm);
+            PxS.notify(obj.id,'setValueFor',labelForm,this.value);
           }
         }
         if ( config.initial_text ) {
           Dom.setStyle(d[labelForm],'color','black');
-          PxS.notify(this.id,'setValueFor',labelForm);
+          PxS.notify(this.id,'setValueFor',labelForm,config.initial_text);
         }
       },
       buildOptionsTabview: function() {
-        var ctl=this.ctl, mb=dom.main_block, form, el, elBlur, menu, button, _default, params=this.params,
+        var ctl=this.ctl, mb=dom.main_block, form, el, elBlur, menu, button, _default, _filter=this._filter,
             opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=dom.apply;
         if ( opts.tabview ) { return; }
         form = document.createElement('form');
@@ -907,8 +922,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                         "</div>" +
                       "</div>" +
                     "</div>" +
-                    "<div class='phedex-clear-both' id='phedex-filterpanel-requests'>requests</div>" +
-                    "<div class='phedex-clear-both' id='phedex-filterpanel-dataitems'>data items</div>" +
+                    "<div class='phedex-clear-both' id='phedex-filterpanel-requests'></div>" +
+                    "<div class='phedex-clear-both' id='phedex-filterpanel-dataitems'></div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-custodial'>custodiality</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-group'>group</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-active'>active/suspended</div>" +
@@ -929,78 +944,21 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 // for the Filter tab
         var field, Field;
 // Requests
-// debugger;
-      this.request_ids = {
-        text:'enter one or more request-IDs, separated by white-space or commas.',
-//         help_text:"<p></p>",
-//         initial_text: params.requests,
-        label:'Requests'
-      };
-      if ( params.requests ) { this.request_ids.initial_text = params.requests.join(' '); }
-//       this.makeControlTextbox(this.request_ids,form);
-
-        el = Dom.get('phedex-filterpanel-requests');
-        field=el.innerHTML; Field=PxU.initialCaps(field); // oh boy, I'm asking for trouble here...
-        el.innerHTML = "<div>" +
-                  "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-                  "<div class='phedex-nextgen-filter'>" +
-                    "<div id='phedex-nextgen-filter-resize-"+field+"'><textarea id='phedex-data-subscriptions-input-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "List of request-IDs" + "</textarea></div>" +
-                  "</div>" +
-                "</div>";
-        dom[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
-        this._default[field] = function(e,t) {
-          return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
-        }(el,el.value);
-        Dom.setStyle(el,'color','grey')
-        el.onfocus=function(obj,text) {
-          return function() {
-            if ( this.value == text ) {
-              this.value = '';
-              Dom.setStyle(this,'color','black');
-            }
-          }
-        }(this,el.value);
-        elBlur = function(obj,field,text) {
-          return function() {
-            var value = this.value;
-            value = value.replace(/\n|,/g,' ');
-            if ( value.match(/^ *$/) ) {
-              this.value = text;
-              Dom.setStyle(this,'color','grey')
-              obj._filter[field] = [];
-            } else {
-              obj._filter[field]  = value.split(/ |\n|,/);
-            }
-          }
+        this.request_ids = {
+          text:'List of request-IDs, separated by white-space or commas.',
+          label:'Requests',
+          textareaClassName:'phedex-nextgen-text'
         };
-        el.onblur=elBlur(this,'request',el.value);
-        NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
+        if ( _filter.requests.length ) { this.request_ids.initial_text = _filter.requests.join(' '); }
+        this.makeControlTextbox(this.request_ids,Dom.get('phedex-filterpanel-requests'));
 
 // Data items
-        el = Dom.get('phedex-filterpanel-dataitems');
-        field=el.innerHTML; Field=PxU.initialCaps(field);
-        field = field.replace(/ /,'');
-        el.innerHTML = "<div>" +
-                  "<div class='phedex-nextgen-label' id='phedex-label-"+field+"'>"+Field+":</div>" +
-                  "<div class='phedex-nextgen-filter'>" +
-                    "<div id='phedex-nextgen-filter-resize-"+field+"'><textarea id='phedex-data-subscriptions-input-"+field+"' name='"+field+"' class='phedex-filter-inputbox'>" + "Block name or Perl reg-ex" + "</textarea></div>" +
-                  "</div>" +
-                "</div>";
-        dom[field] = el = Dom.get('phedex-data-subscriptions-input-'+field);
-        this._default[field] = function(e,t) {
-          return function() { e.value=t; Dom.setStyle(e,'color','grey'); }
-        }(el,el.value);
-        Dom.setStyle(el,'color','grey')
-        el.onfocus=function(obj,text) {
-          return function() {
-            if ( this.value == text ) {
-              this.value = '';
-              Dom.setStyle(this,'color','black');
-            }
-          }
-        }(this,el.value);
-        el.onblur=elBlur(this,'data',el.value);
-        NUtil.makeResizable('phedex-nextgen-filter-resize-'+field,'phedex-data-subscriptions-input-'+field,{maxWidth:1000, minWidth:100});
+        this.data_items = {
+          text:'enter one or more block/data-set names, separated by white-space or commas.',
+          label:'Data Items'
+        };
+        if ( _filter.data_items.length ) { this.data_items.initial_text = _filter.data_items.join(' '); }
+        this.makeControlTextbox(this.data_items,Dom.get('phedex-filterpanel-dataitems'));
 
 // Priority...
         menu = [
@@ -1009,7 +967,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           { text: 'normal', value: 'normal' },
           { text: 'high',   value: 'high' }
         ];
-        switch (obj.params.priority) {
+        switch (_filter.priority) {
           case 'high':   { _default = 'high';   break; }
           case 'normal': { _default = 'normal'; break; }
           case 'low':    { _default = 'low';    break; }
@@ -1023,7 +981,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           { text: 'active',    value: 'active' },
           { text: 'suspended', value: 'suspended' }
         ];
-        switch (obj.params.suspended) {
+        switch (_filter.suspended) {
           case 'y':
           case 'suspended': { _default = 'suspended'; break; }
           case 'n':
@@ -1038,7 +996,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           { text: 'custodial',     value: 'custodial' },
           { text: 'non-custodial', value: 'non-custodial' }
         ];
-        switch (obj.params.custodial) {
+        switch (_filter.custodial) {
           case 'y':
           case 'custodial':     { _default = 'custodial';     break; }
           case 'n':
@@ -1065,7 +1023,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           { text: 'complete',   value: 'complete' },
           { text: 'incomplete', value: 'incomplete' }
         ];
-        switch (obj.params.complete) {
+        switch (_filter.complete) {
           case 'y':
           case 'complete':   { _default = 'complete';   break; }
           case 'n':
@@ -1083,7 +1041,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.filterButton('phedex-filterpanel-create-since',menu);
 
 // for the Node tab...
-        this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel') );
+        this.nodePanel = NUtil.NodePanel( this, Dom.get('phedex-nodepanel'), _filter.node );
         NUtil.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
 
 // for the Columns tab...
@@ -1161,7 +1119,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 // use 'obj', not 'this', because I am the datasvc callback. Scope is different...
         obj.groups = data.group;
         field = 'phedex-filterpanel-ctl-group';
-        button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj.params.group );
+        button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj._filter.group );
         button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group','filter'));
         obj._default['group'] = function(_button,index) {
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
