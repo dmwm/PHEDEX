@@ -2996,6 +2996,36 @@ sub output
 1;
 
 ######################################################################
+package Web25::Error;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard);
+import Web25::Common;
+our $INDEX = { LIST => 999, ORDER => 999, NOLOGIN => 1, TITLE => "Error" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+  my ($self) = @_;
+
+  no strict "refs";
+  print { $$self{CONTENT} }
+    "<center><div classe˙='alert'>",
+    $self->{ERROR_MSG},
+    "</div></center>";
+}
+
+1;
+
+######################################################################
 package Web25::Info::Main;
 use strict; use warnings;
 use base "Web25::Page";
@@ -9478,14 +9508,43 @@ sub runme
   my $path = path_info() || "/prod";
   my ($db, $cgipage) = ("prod", "Info::Main");
   $db = $1 if ($path =~ m!\G/([^/]+)!g);
+  my $newDB;
+  if ( $db  && not exists $config->{INSTANCES}{$db}) {
+    my $map = {
+      testbed	=> 'tbedi',
+      testbed2	=> 'tbedii',
+      dev	=> 'test',
+      tbedi	=> 'testbed',
+      tbedii	=> 'testbed2',
+      test	=> 'dev',
+    };
+    if ( $newDB = $map->{lc $db} ) {
+      $config->{INSTANCES}{$db} = $config->{INSTANCES}{$newDB};
+      $config->{INSTANCES}{$db}{ID} = $db;
+    }
+  }
   $cgipage = $1 if ($path =~ m!\G/([^/]+)!g);
 
-  # Grab the database name from the path info
-  $db = "prod" if ! $db || ! exists $$config{INSTANCES}{$db};
-  
   # Get the scope object for the page.
   no strict "refs";
   my $type = "Web25::Info::Main";
+
+  # Grab the database name from the path info
+  my $content;
+  if ( ! exists $$config{INSTANCES}{$db} ) {
+      my $feedbackurl =
+        "mailto:$config->{FEEDBACK_MAIL}?subject="
+        . "PhEDEx%20web%20(SiteDB)%20is%20inaccessible or unknown";
+      $content =
+	  "<center><div class='alert'>\n".
+	  " <p>The PhEDEx instance you asked for is not known to this installation.<br />".
+	  " Please choose another instance, try again at another time, or if the problem".
+	  " persists and this is an instance you should be using,".
+	  " please <a href='$feedbackurl'>notify the administrators</a>.".
+	  "</p>".
+          "</div></center>\n";
+      $cgipage = 'Error';
+  }
   $type = "Web25::$cgipage"
     if ($cgipage =~ /^[A-Za-z0-9]+(::[A-Za-z0-9]+)*/
 	&& exists ${"Web25::$cgipage\::"}{INDEX}
@@ -9494,6 +9553,7 @@ sub runme
   # Instantiate the page object and remember it as a CGI parameter
   # so we can use it in generating links to other pages.
   my $page = &{"$type\::new"}($type, CONFIG => $config, DBID => $db);
+  if ( $content ) { $page->{ERROR_MSG} = $content; }
   $type =~ s!^Web25::!!;
   param('page', $type);
   
