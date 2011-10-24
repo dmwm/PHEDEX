@@ -206,15 +206,13 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           if ( unknown > 1 ) { text += 's'; }
           text += ' did not match anything known to PhEDEx';
         }
-        if ( type == 'delete' ) {
-          if ( wrongDBSCount ) {
-            if ( text ) { text += '<br/>'; }
-            if ( wrongDBS.length > 1 || wrongDBSCount < known ) {
-              text += Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
-            } else {
-              for (tmp in wrongDBS) { // there is only one entry in wrongDBS!
-                text += Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
-              }
+        if ( wrongDBSCount ) {
+          if ( text ) { text += '<br/>'; }
+          if ( wrongDBS.length > 1 || wrongDBSCount < known ) {
+            text += Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
+          } else {
+            for (tmp in wrongDBS) { // there is only one entry in wrongDBS!
+              text += Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
             }
           }
         }
