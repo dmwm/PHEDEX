@@ -410,7 +410,7 @@ PHEDEX.DataTable = function (sandbox, string) {
                            initialLoad: false,
                            generateNestedRequest: this.processNestedrequest,
                            draggableColumns:true,
-                           renderLoopSize: 50
+                           renderLoopSize: 100
                          };
               if ( t.config ) { Yla(masterConfig,t.config,true); }
               nestedConfig = {
@@ -488,6 +488,7 @@ PHEDEX.DataTable = function (sandbox, string) {
               // Only needed for resizeable windows, I think?
               this.dataTable.subscribe('renderEvent', function (obj) {
                 return function () {
+                  _sbx.notify(obj.id,'datatable_renderEvent');
                   obj.resizePanel();
                 }
               } (this));
