@@ -3,6 +3,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
   var string = 'nextgen-data-subscriptions',
       _sbx = sandbox, dom,
       NUtil = PHEDEX.Nextgen.Util,
+      Icon  = PxU.icon,
       Dom = YAHOO.util.Dom,
       Event = YAHOO.util.Event,
       Yw = YAHOO.widget,
@@ -84,7 +85,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             'suspend':['suspend', 'unsuspend'],
             'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange']
           }
-        }
+        },
+        maxRows:500,
       },
       useElement: function(el) {
         var form;
@@ -204,16 +206,19 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                          "</div>";
           selector.appendChild(el);
           this.onSelectAllOrNone = function(val) {
-            var elList, i;
+            var elList, i, elUpdate=[];
             elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
             for (i in elList) {
               if ( elList[i].checked != val ) {
-                _sbx.notify(this.subscriptionsId,'checkboxSelect',elList[i].id,val);
+                elUpdate.push(elList[i]);
               }
             }
+            if ( elUpdate.length ) {
+              _sbx.notify(this.subscriptionsId,'checkboxSelect',elUpdate,val);
+            }
             i = elList.length;
-            if ( val ) { this.setSummary('OK','Selected '+i+' subscription'+(i==1?'':'s')); }
-            else       { this.setSummary('OK','&nbsp;'); }
+            if ( val ) { this.setSummary('OK',   'Selected '+i+' subscription'+(i==1?'':'s')); }
+            else       { this.setSummary('OK','De-selected '+i+' subscription'+(i==1?'':'s')); }
           };
           button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
           button.on('click',function() { obj.onSelectAllOrNone(true) });
@@ -396,9 +401,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       unsetValueFor: function(label) {
-debugger;
+// debugger;
         this._filter[label] = [];
-debugger;
+// debugger;
       },
       Help:function(item) {
         item = this[item];
@@ -476,7 +481,7 @@ debugger;
                   if ( arr[2] == 'incomplete' ) { _filter.percent_max=99.99999; }
                   break;
                 }
-// another special case. Note the finesse here, create_since=0 is valid, means forever, and does not enter this code
+// another special case. Note the finesse here, create_since=0 is valid, means forever, and does not get subtracted from 'now'
                 if ( arr[1] == 'created since' ) {
                   i = filterMap.values[arr[1]][arr[2]];
                   if ( i ) {
@@ -556,6 +561,18 @@ debugger;
                 }
                 break;
               }
+              case 'goToFilter': {
+debugger;
+                obj.onShowOptionsClick();
+debugger;
+                break;
+              }
+              case 'doubleMaxRows': {
+                obj.meta.maxRows *= 2;
+                _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
+                obj.getSubscriptions();
+                break;
+              }
               default: {
                 break;
               }
@@ -573,7 +590,9 @@ debugger;
                           autoDestruct:false,
                           noDecorators:true,
                           noExtraDecorators:true,
-                          noHeader:true });
+                          noHeader:true,
+                          meta:{maxRows:this.meta.maxRows}
+                        });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
@@ -630,6 +649,11 @@ debugger;
                 }
                 break;
               }
+              case 'datatable_renderEvent': {
+                obj.ctl.selectAll.set( 'disabled',false);
+                obj.ctl.selectNone.set('disabled',false);
+                break;
+              }
             }
           }
         }(this);
@@ -672,7 +696,6 @@ debugger;
           args.request = args.requests;
           delete args.requests;
         }
-delete args.node; // TW HACK!
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
@@ -681,7 +704,7 @@ delete args.node; // TW HACK!
                             });
       },
       gotSubscriptions:function(data,context,response) {
-        var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0;
+        var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, tmp;
         if ( response ) {
           this.setSummary('error','Error retrieving subscriptions data');
           return;
@@ -697,8 +720,6 @@ delete args.node; // TW HACK!
           return;
         }
         _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
-        this.ctl.selectAll.set( 'disabled',false);
-        this.ctl.selectNone.set('disabled',false);
         if ( !datasets || !datasets.length ) {
           this.setSummary('error','No data found matching your query!');
           return;
@@ -717,11 +738,22 @@ delete args.node; // TW HACK!
             }
           }
         }
-        this.setSummary('OK',datasets.length+' data-item'+(datasets.length == 1 ? '' : 's')+' found, '+
-                        +nSubs+' subscription'+(nSubs==1?'':'s'));
+        tmp = context.args.create_since;
+        if ( tmp ) { tmp = new Date().getTime()/1000 - tmp; }
+        summary = 'Showing subscriptions created since '+PxUf.secondsToYMD(tmp) +
+                  '<br />' + datasets.length+' data-item'+(datasets.length==1?'':'s')+' found, ' +
+                  nSubs+' subscription'+(nSubs==1?'':'s');
+        if ( nSubs >= this.meta.maxRows ) {
+          summary += "<br/>"+Icon.Warn+"Table is truncated at "+this.meta.maxRows+" rows. You can choose to "+
+                     "<a href='#' onclick=\"PxS.notify('"+this.id+"','goToFilter')\">filter the data</a> " +
+                     "to reduce the number of rows in the table, or you can try to " +
+                     "<a href='#' onclick=\"PxS.notify('"+this.id+"','doubleMaxRows')\">double the limit</a> " +
+                     "(warning, this may crash your browser)";
+        }
+        this.setSummary('OK',summary);
       },
       initFilters: function() {
-        var p=this.params, i, j, tmp, columns, col, label, _f=this._filter;
+        var p=this.params, i, j, tmp, columns, col, label, label_lc, _f=this._filter;
 
 // special case for reqfilter (map to 'requests') and filter (map to 'data_items')
         _f.requests = [];
@@ -737,6 +769,20 @@ delete args.node; // TW HACK!
           }
         }
 
+// special case for create_since
+        if ( p.create_since ) {
+          _f.create_since = parseInt(p.create_since);
+          tmp = new Date().getTime()/1000;
+          if ( _f.create_since > tmp ) {
+            this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(_f.create_since)+'!');
+            throw new Error ("User cannot tell the time");
+          }
+          if ( _f.create_since < 0 ) {
+            _f.create_since = tmp + _f.create_since;
+          }
+        }
+
+// special case for data_items
         _f.data_items = [];
         if ( p.filter ) { p.data_items = p.filter; }
         if ( p.data_items ) {
@@ -752,21 +798,25 @@ delete args.node; // TW HACK!
           if ( typeof(p.col) != 'object'  ) {
             p.col = [ p.col ];
           }
+          for (j in columns) {
+            columns[j]._default = false;
+          }
           for ( i in p.col ) {
             label = p.col[i];
+            label_lc = label.toLowerCase().replace(/_/g,' ');
             for (j in columns) {
               col = columns[j];
-              if ( col.label == label ) {
-                col.checked = true;
+              if ( col.label == label || col.label.toLowerCase() == label_lc ) {
+                col._default = true;
                 continue;
               }
             }
           }
         }
 
-        _f.node = p.node;
-        if ( _f.node ) {
-          if ( typeof(_f.node) != 'object' ) { _f.node = [ _f.node ]; }
+        if ( p.node ) {
+          if ( typeof(p.node) == 'object' ) { _f.node = p.node; }
+          else { _f.node = [ p.node ]; }
         }
       },
       initSub: function() {
@@ -784,7 +834,7 @@ delete args.node; // TW HACK!
                                           label:ctl.options.label_show,
                                           id:'phedex-options-control-button',
                                           container:'phedex-options-control' });
-        var onShowOptionsClick = function(obj) {
+        this.onShowOptionsClick = function(obj) {
           return function() {
             var ctl=obj.ctl, opts=ctl.options, apply=obj.dom.apply;
             if ( Dom.hasClass(opts.panel,'phedex-invisible') ) {
@@ -799,7 +849,7 @@ delete args.node; // TW HACK!
             if ( !opts.tabView ) { obj.buildOptionsTabview(); }
           }
         }(this);
-        b.on('click',onShowOptionsClick);
+        b.on('click',this.onShowOptionsClick);
       },
 
       onSelectedMenuItemChange: function(_field,action) {
