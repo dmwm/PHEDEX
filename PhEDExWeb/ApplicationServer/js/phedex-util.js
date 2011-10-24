@@ -120,6 +120,17 @@ PHEDEX.Util.format={
     while (seconds.length < 2) {seconds = '0' + seconds;}
     return days+' d '+hours + ':' + minutes + ':' + seconds;
   },
+  secondsToYMD:function(seconds) {
+    var years, months, days, result=' ';
+    years = Math.floor(seconds / (86400*365) );
+    seconds  = Math.floor(seconds - years * 86400*365);
+    months = Math.floor(seconds / (86400*30));
+    days = Math.floor((seconds - (months * 86400*30))/86400);
+    if ( years  ) { result += years  + ' year'  + (years  > 1 ? 's ' : ' ' ); }
+    if ( months ) { result += months + ' month' + (months > 1 ? 's ' : ' ' ); }
+    if ( days   ) { result += days   + ' day'   + (days   > 1 ? 's ' : ' '  ); }
+    return result;
+  },
   dataset:function(raw) {
     if (raw.length>50) {
       var _short = raw.substring(0,50);
