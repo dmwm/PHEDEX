@@ -1,9 +1,12 @@
-package PHEDEX::Namespace::chimera_dump::stat;
-# Implements the 'stat' function for dump access
+package PHEDEX::Namespace::chimera_dump::date;
+# Implements the 'date' function for dump access
 use strict;
 use warnings;
 use Time::Local;
 use File::Basename;
+use XML::Parser;
+use XML::Simple;
+use Time::Local;
 use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 
 # @fields defines the actual set of attributes to be returned
@@ -34,10 +37,7 @@ sub execute
   my ($self,$ns,$file,$tfc) = @_;
   my $nfiles = 0;
   my $call   = 'date';
-  print "hello execute date!\n";
   my $pfn = $tfc->lfn2pfn($file,$ns->Protocol());
-
-  print "hello execute date!\n";
 
   return $ns->Command($call,$pfn) if $ns->{NOCACHE};
 
@@ -90,7 +90,7 @@ sub parse
     else                              { $y = $y_or_hm; }
     @t = ( 0, $m, $h, $d, $M, $y );
     $x->{mtime} = timelocal(@t);
-    $ns->{CACHE}->store('stat',"$dir/$file",$x);
+    $ns->{CACHE}->store('date',"$dir/$file",$x);
     $result = $x;
   }
   return $result;
@@ -109,24 +109,34 @@ sub parse_chimera_dump
   else
      { open(DUMP, "grep $dir $file_dump |") or die  "Could not open: $file_dump\n"; }
 
-  while (<DUMP>){
-    my ($x,$file);
-    chomp;
-    #m%^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$%
-    #    or next;
-    if (~ m%^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$%) {
-       $file = $1;
-       $x->{size} = $2;
-    }
-    #else (~ m%^\S+\s\S+\"(\S+)\"$%) {
-    #   print "time = $1\n";
-    #}
-    $ns->{CACHE}->store('stat',"$file",$x);
-    if ( $file eq $testfile ) { $result++; }
-  }
-  close DUMP;
+ my ($x,$file,$time);
+ my $xml= new XML::Simple;
+ my $data = $xml->XMLin($file_dump);
+ $file = $testfile;
+ $x->{timeFromXml} = $self->convertToUnixTime($data->{'dump'}->{'recorded'}); 
+ if ($file_dump =~ m%^\D+(\d+)\D+$% ) {
+    $time = $1;
+    $time =~ s/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/$1-$2-$3T$4:$5:00Z/g;
+ }
+ $x->{timeFromName} = $self->convertToUnixTime($time);
+ $ns->{CACHE}->store('date',"$file",$x);
+ if ( $file eq $testfile ) { $result++; }
+ return $result;
+}
 
-  return $result;
+sub convertToUnixTime 
+{
+  my ($self,$time) = @_;
+  my ($unixTime, $d, $t, @d, @t);
+  if ($time =~ m%(\S+)T(\S+)Z%) 
+  {
+    $d = $1;
+    @d = split /-/, $1;
+    $t = $2;
+    @t = split /:/, $2;
+  }
+  $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1], $d[0]);
+  return $unixTime;
 }
 
 sub Help
