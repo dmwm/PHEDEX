@@ -10,7 +10,7 @@ use Time::Local;
 use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 
 # @fields defines the actual set of attributes to be returned
-our @fields = qw / access uid gid size mtime /; 
+our @fields = qw / access timeFromXml timeFromName /; 
 sub new
 {
   my ($proto,$h) = @_;
