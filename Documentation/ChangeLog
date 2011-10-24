@@ -14,8 +14,8 @@ Changes for Central Agents
   - PerfMonitor: fixes in link latency calculation that caused the link latency to be either 0 or overestimated in the link_param table, causing the FileRouter
 	to use incorrect values for routing. (#83051 and #83102)
   - RequestAllocator: re-evaluate pending wildcard requests, to make sure that the request size preview shown in the request approval page is up-to-date
-                                                                                                                                            
-
+  - FileIssue: don't issue transfer tasks to/from T0/T1 Buffer nodes if there is a pending deletion task for that file on the connected MSS node (#65239)
+        
 Changes for Site Agents
   - FileDownload: add transfer backend for FDT transfers
   - FileDownload: when fetching new tasks from the DB, set their status to 'infxer' in bulk (should increase agent efficiency, and protect central agents from #82112)
@@ -42,6 +42,7 @@ Changes for Site Agents
 Changes for Operator Tools
   - Add phedex CLI support for the ErrorLogSummary datasvc API.
   - Fix space-token handling in phedex CLI for the LFN2PFN datasvc API
+  - Print the actual error code and message in the event of errors
 	
 Core library changes
   - PHEDEX::Core::JobManager : do not die if the JobManager cannot open the job logfile, simply write to STDOUT instead.
