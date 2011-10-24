@@ -125,7 +125,7 @@ PHEDEX.Nextgen.Util = function() {
       elList = panel.elList = Dom.getElementsByClassName('phedex-checkbox','input',parent);
       for ( i in elList ) {
         item = items[i];
-        elList[i].checked = item.checked || item._default;
+        elList[i].checked = item._default;
       }
       var onSelectClick =function(event, matchedEl, container) {
         if (Dom.hasClass(matchedEl, 'phedex-checkbox')) {
