@@ -55,13 +55,15 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 //                     paginator: new YAHOO.widget.Paginator({rowsPerPage:2}),
                   }
                 },
+        maxRows:0,
         hide:['Select'], // hidden by default, requires positive authentication to enable it
         sort:{ field:'Item' },
         select:{},
       },
       _processData: function(data) {
         var dom=this.dom, context=this.context, api=context.api, Table=[], Row, Nested, unique=0, column, elList, oCallback,
-            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, id;
+            meta=this.meta, t=meta.table, parser=meta.parser, cDef, i, j, k, item, s, blocks, block, known={}, id,
+            maxRows = meta.maxRows, summary;
 
         i = t.columns.length;
         if (!t.map) { t.map = {}; }
@@ -74,6 +76,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 
 //      Build the datatable and the information for per-node summaries
         for (i in data) {
+          if ( maxRows && Table.length >= maxRows ) { break; }
           item = data[i];
           for (j in item.subscription) {
             s = item.subscription[j];
@@ -149,8 +152,13 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             }
           }
         }
-        this.setSummary('OK',data.length+' data-item'+(data.length==1?'':'s')+' found, '
-                        +Table.length+' subscription'+(Table.length==1?'':'s'));
+        summary = 'Showing subscriptions created since '+PxUf.UnixEpochToUTC(context.args.create_since) +
+                  '<br />' +data.length+' data-item'+(data.length==1?'':'s')+' found, ' +
+                  Table.length+' subscription'+(Table.length==1?'':'s');
+        if ( Table.length >= maxRows ) {
+          summary += '<br/>'+Icon.Warn+'Table truncated at '+maxRows+' rows';
+        }
+        this.setSummary('OK',summary);
 
 // TW Need to uncomment this later?
 //         this.needProcess = false;
@@ -158,7 +166,11 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
       },
       initMe: function() {
         this.allowNotify['checkboxSelect'] = 1;
-        this.allowNotify['updateRow'] = 1;
+        this.allowNotify['updateRow']  = 1;
+        this.allowNotify['setMaxRows'] = 1;
+      },
+      setMaxRows: function(maxRows) {
+        this.meta.maxRows = maxRows;
       },
       updateRow: function(id,data) {
         var el = id, i, record, recordSet, oldRow, oldValue, newRow, newValue, s, changed=false;
@@ -202,20 +214,26 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           _sbx.notify(this.id,'rowUpdated');
         }
       },
-      checkboxSelect: function(id,value) {
-        var el=id, record, text, values;
-        if ( typeof(el) == 'string' ) { el = Dom.get(id); }
-        record = this.dataTable.getRecord(el);
-        values = record.getData();
-        text = values.select;
-        if ( value == null ) { value = el.checked; }
-        if ( value ) {
-          text = text.replace(/ name=/," checked='yes' name=");
-        } else {
-          text = text.replace(/checked='yes' /,'');
+      checkboxSelect: function(elList,value) {
+        var el, record, text, values;
+        if ( typeof(elList) == 'string' ) {
+          elList = [ Dom.get(elList) ];
         }
-        this.dataTable.updateCell(record,'select',text);
-        _sbx.notify(this.id,'checkbox-select',id,value,{ level:values.level, item:values.item, node:values.node });
+        for ( i in elList ) {
+          el = elList[i];
+          record = this.dataTable.getRecord(el);
+          values = record.getData();
+          text = values.select;
+          if ( value == null ) { value = el.checked; }
+          if ( value ) {
+            text = text.replace(/checkbox' name=/,"checkbox' checked='yes' name=");
+          } else {
+            text = text.replace(/checked='yes' /,'');
+          }
+          this.dataTable.updateCell(record,'select',text,true);
+          _sbx.notify(this.id,'checkbox-select',el.id,value,{ level:values.level, item:values.item, node:values.node });
+        }
+        this.dataTable.render();
       },
       initData: function() {
         if ( this.args ) {
