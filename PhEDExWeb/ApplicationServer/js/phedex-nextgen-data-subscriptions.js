@@ -401,9 +401,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       unsetValueFor: function(label) {
-// debugger;
         this._filter[label] = [];
-// debugger;
       },
       Help:function(item) {
         item = this[item];
@@ -562,15 +560,53 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 break;
               }
               case 'goToFilter': {
-debugger;
                 obj.onShowOptionsClick();
-debugger;
+                obj.ctl.options.tabView.selectTab(1);
                 break;
               }
-              case 'doubleMaxRows': {
-                obj.meta.maxRows *= 2;
+              case 'changeMaxRows': {
+                var el = Dom.get('phedex-setMaxRows-popup'),
+                    parent = Dom.get('phedex-setMaxRows'),
+                    elRegion = Dom.getRegion('phedex-setMaxRows'),
+                    id = PxU.Sequence(), button;
+                if ( el ) {
+                  Dom.removeClass(el,'phedex-invisible');
+                } else {
+                  el = document.createElement('div');
+                  el.innerHTML =
+                      "<div id='phedex-setMaxRows-popup' style='width:20em; border:1px solid blue; background-color:#f8ffff; text-align:left; padding:0 0 0 5px;'>" +
+                        "<a id='close-anchor-"+id+"' class='float-right' href='#'>[close]</a>" +
+                        "<div style='clear:both;'>" +
+                          "How many rows do you want to see?" +
+                          "<br/>N.B. 1000 rows is a safe limit" +
+                          "<br/><input id='phedex-setMaxRows-input' type='text' style='margin:6px; width:10em'>" +
+                          "<div class='float-right' id='phedex-setMaxRows-apply'></div>" +
+                        "<div>" +
+                      "<div>";
+                  document.body.appendChild(el);
+                  Dom.get('close-anchor-'+id).setAttribute('onclick', "var d=YAHOO.util.Dom;d.addClass(d.get('phedex-setMaxRows-popup'),'phedex-invisible');");
+                  button = new YAHOO.widget.Button({
+                                 label: 'Apply',
+                                 id: 'apply-setMaxRows',
+                                 container: 'phedex-setMaxRows-apply' });
+                  button.on('click',function() {
+                    _sbx.notify(obj.id,'maxRowsChanged',Dom.get('phedex-setMaxRows-input').value);
+                  });
+                }
+                Dom.setX(el,elRegion.left);
+                Dom.setY(el,elRegion.bottom);
+                Dom.get('phedex-setMaxRows-input').focus();
+                break;
+              }
+              case 'maxRowsChanged': {
+                value = arr[1];
+                if ( !value.match(/^[0-9]+$/) ) { break; }
+                value = parseInt(value);
+                if ( !value ) { break; }
+                if ( value == obj.meta.maxRows ) { break; }
+                obj.meta.maxRows = value;
                 _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
-                obj.getSubscriptions();
+                obj.gotSubscriptions(obj.data,obj.context);
                 break;
               }
               default: {
@@ -724,6 +760,8 @@ debugger;
           this.setSummary('error','No data found matching your query!');
           return;
         }
+        this.data = data; // keep these in case the user changes the number of rows!
+        this.context = context;
 
         for (i in datasets) {
           dataset = datasets[i];
@@ -744,11 +782,11 @@ debugger;
                   '<br />' + datasets.length+' data-item'+(datasets.length==1?'':'s')+' found, ' +
                   nSubs+' subscription'+(nSubs==1?'':'s');
         if ( nSubs >= this.meta.maxRows ) {
-          summary += "<br/>"+Icon.Warn+"Table is truncated at "+this.meta.maxRows+" rows. You can choose to "+
+          summary += "<br/>"+Icon.Warn+"Table is truncated at "+this.meta.maxRows+" rows. You can "+
                      "<a href='#' onclick=\"PxS.notify('"+this.id+"','goToFilter')\">filter the data</a> " +
-                     "to reduce the number of rows in the table, or you can try to " +
-                     "<a href='#' onclick=\"PxS.notify('"+this.id+"','doubleMaxRows')\">double the limit</a> " +
-                     "(warning, this may crash your browser)";
+                     "to reduce the number of rows, or you can " +
+                     "<a id='phedex-setMaxRows' href='#' onclick=\"PxS.notify('"+this.id+"','changeMaxRows')\">change the limit</a> " +
+                     "to see more data";
         }
         this.setSummary('OK',summary);
       },
