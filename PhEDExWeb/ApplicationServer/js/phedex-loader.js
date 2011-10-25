@@ -40,7 +40,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
     'phedex-profiler':  { requires:['phedex-util','profiler','datatable','json'] },
-    'phedex-history':   { requires:['phedex-sandbox'] },
+    'phedex-history':   { requires:['phedex-sandbox','history'] },
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
