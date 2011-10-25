@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::dump;
+package PHEDEX::Namespace::chimera_dump;
 use strict;
 use warnings;
 no strict 'refs';
@@ -51,7 +51,6 @@ sub new
 # passed a reference to this object when they are loaded/created, so they
 # can pick out the parameters you define above.
   $self->SUPER::_init_commands;
-  print "interface\n";
   print Dumper($self) if $self->{DEBUG};
   $self->Help if $help;
   return $self;

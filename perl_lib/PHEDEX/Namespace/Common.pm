@@ -84,7 +84,6 @@ sub AUTOLOAD
 # Note the order. Check for 'execute' capability before checking for a
 # matchine command, that allows the execute function to use the command
 # interface for itself.
-  print "COMMANDS, $attr\n";
   if ( exists($self->{COMMANDS}{$attr}) )
   {
     my $result = $self->{CACHE}->fetch($attr,\@_);
