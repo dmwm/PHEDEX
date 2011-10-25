@@ -40,6 +40,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-globalfilter': { requires: ['phedex-component-filter'] },
 
     'phedex-profiler':  { requires:['phedex-util','profiler','datatable','json'] },
+    'phedex-history':   { requires:['phedex-sandbox'] },
     'phedex-registry':  { requires:['phedex-util'] },
     'phedex-logger':    { requires:['phedex-util','logger','connection','cookie'] },
     'phedex-sandbox':   { requires:['phedex-util'] },
@@ -82,7 +83,7 @@ PHEDEX.Loader = function(opts) {
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
     'phedex-nextgen-activity-latency':   { requires:['phedex-module', 'phedex-nextgen-util','button','phedex-datatable','protovis'] },
     'phedex-nextgen-util':               { requires:['phedex-util'] },
-    'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-nextgen-util','button','tabview','resize'] },
+    'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-history','phedex-nextgen-util','button','tabview','resize'] },
     'phedex-nextgen-request-create':     { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':     { requires:['phedex-module','phedex-nextgen-util','button'] },
 
