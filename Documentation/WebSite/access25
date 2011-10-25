@@ -8800,9 +8800,6 @@ sub create_injection
 	return;
     }
 
-    foreach (\$from, \$to) {
-	$$_ =~ s/^T._//;  $$_ =~ s/_(Buffer|Disk|MSS)$//;
-    }
     my $dest_ds_name = "/PhEDEx_Debug/LoadTest07_$from/$to";
     my $dest_ds;
     my @rv;
