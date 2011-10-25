@@ -831,6 +831,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
 
+// special case for columns
         columns = this.meta.showColumns;
         if ( p.col ) {
           if ( typeof(p.col) != 'object'  ) {
@@ -856,6 +857,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( typeof(p.node) == 'object' ) { _f.node = p.node; }
           else { _f.node = [ p.node ]; }
         }
+        if ( p.rows ) { this.meta.maxRows = p.rows; }
       },
       initSub: function() {
         var mb=dom.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=dom.container;
