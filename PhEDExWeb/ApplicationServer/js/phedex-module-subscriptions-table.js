@@ -76,7 +76,6 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
 
 //      Build the datatable and the information for per-node summaries
         for (i in data) {
-          if ( maxRows && Table.length >= maxRows ) { break; }
           item = data[i];
           for (j in item.subscription) {
             s = item.subscription[j];
@@ -107,6 +106,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             if ( s.request != null ) {
               Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
             }
+            if ( maxRows && Table.length >= maxRows ) { break; }
             Table.push(Row);
             if ( Row.level == 'DATASET' ) { // TW ...which it always will at this point in the structure!
               if ( Row.request ) { known[Row.request] = 1; }
@@ -148,6 +148,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
               if ( s.request != null ) {
                 Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
               }
+              if ( maxRows && Table.length >= maxRows ) { break; }
               Table.push(Row);
             }
           }
