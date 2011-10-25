@@ -4,9 +4,6 @@ use strict;
 use warnings;
 use Time::Local;
 use File::Basename;
-use XML::Parser;
-use XML::Simple;
-use Time::Local;
 use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 
 # @fields defines the actual set of attributes to be returned
@@ -103,25 +100,37 @@ sub parse_chimera_dump
   my $dir       = dirname $testfile;
   my $result    = 0;
   my $file_dump = $ns -> {INPUT_FILE};
+  my ($x,$file,$time,$line,$file_dump_xml);
+  $file = $testfile;
 
-  if ( $file_dump =~ m%.gz$% )
-     { open DUMP, "cat $file_dump | gzip -d - | grep $dir |" or die "Could not open: $file_dump\n"; }
-  else
-     { open(DUMP, "grep $dir $file_dump |") or die  "Could not open: $file_dump\n"; }
+  if ( $file_dump =~ m%(\S+).bz2$% ) {
+    open DUMP, "cat $file_dump | bzip2 -d -|" or die "Could not open: $file_dump\n";
+    $file_dump_xml = $1;
+  }
+  else {
+    open(DUMP, "$file_dump") or die  "Could not open: $file_dump\n"; 
+    $file_dump_xml = $file_dump;  
+  }
 
- my ($x,$file,$time);
- my $xml= new XML::Simple;
- my $data = $xml->XMLin($file_dump);
- $file = $testfile;
- $x->{timeFromXml} = $self->convertToUnixTime($data->{'dump'}->{'recorded'}); 
- if ($file_dump =~ m%^\D+(\d+)\D+$% ) {
+  while ($line = <DUMP>){
+    if ($line =~ m/^<dump recorded=\"(\S+)\">$/) {
+       $time = $1;
+       last;
+    }
+  } 
+  close DUMP;
+  $x->{timeFromXml} = $self->convertToUnixTime($time);
+
+  if ($file_dump_xml =~ m%^\D+(\d+)\D+$% ) {
     $time = $1;
     $time =~ s/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})$/$1-$2-$3T$4:$5:00Z/g;
- }
- $x->{timeFromName} = $self->convertToUnixTime($time);
- $ns->{CACHE}->store('date',"$file",$x);
- if ( $file eq $testfile ) { $result++; }
- return $result;
+  }
+
+  $x->{timeFromName} = $self->convertToUnixTime($time);
+
+  $ns->{CACHE}->store('date',"$file",$x);
+  $result++;
+  return $result;
 }
 
 sub convertToUnixTime 
