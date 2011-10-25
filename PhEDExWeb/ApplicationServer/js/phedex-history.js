@@ -1,8 +1,7 @@
 PHEDEX.History = new (function() {
-debugger;
   var _sbx = new PHEDEX.Sandbox(),
       Dom = YAHOO.util.Dom,
-      YuH = YAHOO.util.History.
+      YuH = YAHOO.util.History,
       id = 'history_'+PxU.Sequence();
   log('creating "'+id+'"','info','history');
 
@@ -14,13 +13,18 @@ debugger;
       init: function() {
         try {
           YuH.initialize("yui-history-field", "yui-history-iframe");
-        } catch (e) { return; }
+        } catch (ex) {
+          var _ex=ex;
+          return;
+        }
 
-        var bookmarkedSection = YuH.getBookmarkedState("navbar");
-        var querySection      = YuH.getQueryStringParameter("section");
-        var initialSection    = bookmarkedSection || querySection || "none";
-        _sbx.notify(this.id,'init');
-      }
+debugger;
+        var initialState = YuH.getBookmarkedState('page');
+        if ( initialState ) { _sbx.notify(this.id,'History',initialState); }
+      },
+      setState: function() {
+debugger;
+      },
     };
   };
 
