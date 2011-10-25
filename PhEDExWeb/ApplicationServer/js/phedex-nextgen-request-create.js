@@ -154,7 +154,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               ok = ok && key[j];
             }
             if ( ok ) {
-              PxS.notify(this.id,'synchronise',i,'allSet');
+              _sbx.notify(this.id,'synchronise',i,'allSet');
             }
           }
         }
@@ -171,7 +171,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             }
             key[label] = false;
             if ( ok ) {
-              PxS.notify(this.id,'synchronise',i,'notAllSet');
+              _sbx.notify(this.id,'synchronise',i,'notAllSet');
             }
           }
         }
@@ -297,7 +297,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             labelLower = label.toLowerCase(),
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
-            d = this.dom, el, resize, className;
+            d=this.dom, el, resize, className, default_nodes=this.params.node;
         labelForm = labelForm.replace(/-/,'_');
         if ( config.className ) { className = "class='"+config.className+"'"; }
         el = document.createElement('div');
@@ -313,7 +313,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         parent.appendChild(el);
         resize = config.resize || {maxWidth:745, minWidth:100};
         NUtil.makeResizable(labelLower+'-panel-wrapper',labelLower+'-panel',resize);
-        config.Panel = NUtil.NodePanel( this, Dom.get(labelLower+'-panel') );
+        if ( typeof(default_nodes) == 'string' ) { default_nodes = [ default_nodes ]; }
+        config.Panel = NUtil.NodePanel( this, Dom.get(labelLower+'-panel'), default_nodes );
 
         d.destination = Dom.get(labelLower+'-container');
         this.onPanelClick = function(obj) {
@@ -327,14 +328,15 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
               if ( el.checked ) { config.node.push(panel.nodes[i]); }
             }
             if ( config.node.length == 0 ) {
-              PxS.notify(obj.id,'unsetValueFor',labelForm);
+              _sbx.notify(obj.id,'unsetValueFor',labelForm);
             } else {
-              PxS.notify(obj.id,'setValueFor',labelForm);
+              _sbx.notify(obj.id,'setValueFor',labelForm);
             }
             return config.node.length;
           }
         }(this);
         YAHOO.util.Event.delegate(d.destination, 'click', this.onPanelClick, 'input');
+        if ( default_nodes ) { _sbx.notify(obj.id,'setValueFor',labelForm); }
       },
       makeControlTextbox: function(config,parent) {
         var label = config.label,
@@ -367,21 +369,21 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           if ( this.value == config.text ) {
             this.value = '';
             Dom.setStyle(this,'color','black');
-            PxS.notify(obj.id,'setValueFor',labelForm);
+            _sbx.notify(obj.id,'setValueFor',labelForm);
           }
         }
         d[labelForm].onblur=function() {
           if ( this.value == '' ) {
             this.value = config.text;
             Dom.setStyle(this,'color',null);
-            PxS.notify(obj.id,'unsetValueFor',labelForm);
+            _sbx.notify(obj.id,'unsetValueFor',labelForm);
           } else {
-            PxS.notify(obj.id,'setValueFor',labelForm);
+            _sbx.notify(obj.id,'setValueFor',labelForm);
           }
         }
         if ( config.initial_text ) {
           Dom.setStyle(d[labelForm],'color','black');
-          PxS.notify(this.id,'setValueFor',labelForm);
+          _sbx.notify(this.id,'setValueFor',labelForm);
         }
       },
       makeControlRadio: function(config,parent) {
@@ -442,7 +444,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         var auth, i, roles, role, address='', canWildcard=false, canTimeStart=false, time_start=obj.time_start, email=obj.email, d=obj.dom;
         try {
           auth = data.auth[0];
-          PxS.notify(obj.id,'setValueFor','auth');
+          _sbx.notify(obj.id,'setValueFor','auth');
           address = auth.email;
           email.value.innerHTML = email.input.value = email._default = address;
 // TW hardwired for now. Inspect the roles if I need to allow TimeStart or WildCard only for certain roles.
@@ -511,14 +513,14 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           }
         }
         if ( this.onPanelClick() ) {
-          PxS.notify(this.id,'onPreviewSubmit'); // still some nodes left, so re-generate the preview
+          _sbx.notify(this.id,'onPreviewSubmit'); // still some nodes left, so re-generate the preview
         } else {
           Dom.addClass(dom.preview,'phedex-invisible'); // no nodes left, hide the preview
         }
       },
       setDBS: function(dbs) {
         this.dbs.value.innerHTML = dbs;
-        PxS.notify(this.id,'onPreviewSubmit');
+        _sbx.notify(this.id,'onPreviewSubmit');
       },
       requestCallback: function(data,context,response) {
         var dom = this.dom, str, msg, rid;
@@ -973,9 +975,12 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       this.data_items = {
         text:'enter one or more block/data-set names, separated by white-space or commas.',
         help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>",
-        label:'Data Items',
-        initial_text: params.data
+        label:'Data Items'
       };
+      if ( params.data ) {
+        if ( typeof(params.data) == 'string' ) { this.data_items.initial_text = params.data; }
+        else                                   { this.data_items.initial_text = params.data.join("\n"); }
+      }
       this.makeControlTextbox(this.data_items,form);
 
 // DBS
@@ -1087,7 +1092,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             var sText = p_oItem.cfg.getProperty('text');
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
-            PxS.notify(obj.id,'setValueFor','user_group');
+            _sbx.notify(obj.id,'setValueFor','user_group');
 //             if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           };
           for (i in groupList ) {
@@ -1262,7 +1267,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 // Comments
       this.comments = {
         text:'enter any additional comments here',
-        label:'Comments'
+        label:'Comments',
+        initial_text:params.comment
       };
       this.makeControlTextbox(this.comments,form);
 
@@ -1284,6 +1290,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
       var d  = this.dom,
           mb = d.main_block,
           hd = d.hd,
+          params = this.params,
           form, elList, el;
       hd.innerHTML = 'Delete data';
       this.meta.synchronise = {
@@ -1302,6 +1309,10 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         help_text:"<p><strong>/Primary/Processed/Tier</strong> or<br/><strong>/Primary/Processed/Tier#Block</strong></p><p>Use an asterisk (*) as wildcard, and either whitespace or a comma as a separator between multiple entries</p><p>Even if wildcards are used, the dataset path separators '/' are required. E.g. to subscribe to all 'Higgs' datasets you would have to write '/Higgs/*/*', not '/Higgs*'.</p>",
         label:'Data Items'
       };
+      if ( params.data ) {
+        if ( typeof(params.data) == 'string' ) { this.data_items.initial_text = params.data; }
+        else                                   { this.data_items.initial_text = params.data.join("\n"); }
+      }
       this.makeControlTextbox(this.data_items,form);
 
 // DBS
@@ -1387,7 +1398,8 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 // Comments
       this.comments = {
         text:'enter any additional comments here',
-        label:'Comments'
+        label:'Comments',
+        initial_text:params.comment
       };
       this.makeControlTextbox(this.comments,form);
 
