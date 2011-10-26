@@ -2127,6 +2127,8 @@ function select_all(form_id, name, value) {
   Rounded("div.toc", "top", "transparent", "#e4f1db");
   // Rounded("div.menuopt li", "top", "transparent", "#e4f1db");
 '>
+<iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+<input id="yui-history-field" type="hidden" style='visibility:hidden'>
 <div id="page">
 <div id="header">
  <!-- Logo and page title -->
@@ -7521,7 +7523,7 @@ sub validate
 	     dexp         => { using => 'pos_int', multiple => 1 },
 	     bexp         => { using => 'pos_int', multiple => 1 },
 	     filter       => { using => 'regex' },
-	     col          => { regex => '^[A-Z_]+$', multiple => 1 },
+	     col          => { regex => '^[A-Za-z_ ]+$', multiple => 1 },
 
 	     # params for Data::Subscriptions
 	     subsaction   => { allowing => [qw(suspend unsuspend priorityhi prioritymd prioritylo groupchange)]},
@@ -7533,6 +7535,8 @@ sub validate
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
+	     create_since => { regex => '^-?[0-9]+$' },
+	     rows         => { using => 'pos_int' },
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
