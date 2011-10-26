@@ -1,0 +1,114 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <iframe id='yui-history-iframe' src='/phedex/datasvc/app/images/phedex-logo-small.gif' style='visibility:hidden'></iframe>
+ <input id='yui-history-field' type='hidden' style='visibility:hidden'>
+
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+
+ <div id="nav">
+   <ul>
+     <li><a href='#?s=item-1'>item-1</a><span id='item-1' class='phedex-invisible'> You are in item 1</span></li>
+     <li><a href='#?s=item-2'>item-2</a><span id='item-2' class='phedex-invisible'> You are in item 2</span></li>
+     <li><a href='#?s=item-3'>item-3</a><span id='item-3' class='phedex-invisible'> You are in item 3</span></li>
+     <li><a href='#?s=item-4'>item-4</a><span id='item-4' class='phedex-invisible'> You are in item 4</span></li>
+     <li><a href='#?s=item-5'>item-5</a><span id='item-5' class='phedex-invisible'> You are in item 5</span></li>
+     <li><a href='#?s=item-6'>item-6</a><span id='item-6' class='phedex-invisible'> You are in item 6</span></li>
+   </ul>
+ </div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+
+// When the DOM is available, start loading the essential bits and pieces
+YAHOO.util.Event.onDOMReady( runDemo );
+function runDemo() {
+  PxL  = new PHEDEX.Loader();
+  banner('Loading sandbox...');
+  PxL.load(createCoreApp,'sandbox');
+}
+
+function createCoreApp() {
+  banner('Create sandbox...');
+  PxS = new PHEDEX.Sandbox();
+  banner('Sandbox successfully created...');
+
+  PxS.listen('History',handler);
+  PxL.load(function() { new PHEDEX.History({ module:'s' }); },'phedex-history');
+}
+
+function handler(ev,arr) {
+  switch (arr[0]) {
+    case 'onStateChange': {
+      loadSection(arr[1]);
+      break;
+    }
+    case 'initialiseApplication': {
+      initialiseNavigationBar(arr[1]);
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+};
+
+function initialiseNavigationBar(currentState) {
+// Process links. Attach a handler that talks to the history manager, and cancels the 'follow the link' default action
+  var anchors, i, len, anchor, href, section;
+  anchors = YAHOO.util.Dom.get('nav').getElementsByTagName('a');
+  for (i = 0, len = anchors.length; i < len; i++) {
+    anchor = anchors[i];
+    YAHOO.util.Event.addListener(anchor, 'click', function (evt) {
+      var href = this.getAttribute('href');
+      PxS.notify('History','navigate',href);
+      YAHOO.util.Event.preventDefault(evt); // prevent following the link!
+    });
+  }
+
+  loadSection(currentState);
+}
+
+var loadSection = function() {
+  var Dom = YAHOO.util.Dom,
+      defaultEl = currentEl = 'item-1';
+  return function(state) {
+    if ( state == 'none' ) { state = defaultEl; }
+    var el = Dom.get(state);
+    if ( currentEl && currentEl != el.id ) {
+      Dom.addClass(currentEl,'phedex-invisible');
+    }
+    Dom.removeClass(el,'phedex-invisible');
+    currentEl = el.id;
+  };
+}();
+
+</script>
+</body>
+</html>
