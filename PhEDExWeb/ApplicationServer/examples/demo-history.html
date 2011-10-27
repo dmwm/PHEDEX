@@ -62,7 +62,7 @@ function createCoreApp() {
 
 // listen out for history events
   PxS.listen('History',handler);
-  PxL.load(function() { new PHEDEX.History({ module:'state' });; },'phedex-history');
+  PxL.load(function() { new PHEDEX.History({ module:'state' }); },'phedex-history');
 }
 
 function handler(ev,arr) {
