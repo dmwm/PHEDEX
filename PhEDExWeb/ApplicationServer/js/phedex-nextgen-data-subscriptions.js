@@ -86,11 +86,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange']
           }
         },
-        maxRows:500,
+        maxRowsDefault:500
       },
       useElement: function(el) {
         var form;
         dom.target = el;
+        dom.permalink  = document.createElement('div'); dom.permalink.className = 'float-right'; dom.permalink.id = 'phedex-permalink';
         dom.container  = document.createElement('div'); dom.container.className  = 'phedex-nextgen-container'; dom.container.id = 'doc3';
         dom.hd         = document.createElement('div'); dom.hd.className         = 'phedex-nextgen-hd';        dom.hd.id = 'hd';
         dom.bd         = document.createElement('div'); dom.bd.className         = 'phedex-nextgen-bd';        dom.bd.id = 'bd';
@@ -108,6 +109,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         form.method = 'post';
         form.action = location.pathname;
         this.data_subscriptions_action = form;
+
+//      Would like to just float-right the div, but then the link doesn't behave correctly with mouse-over events
+        dom.permalink.style.position = 'absolute';
+        dom.permalink.style.right    = '1em';
+        dom.permalink.style.zIndex   = 1;
+        dom.permalink.innerHTML = "<a href='#' id='phedex-page-permalink'>permalink</a> to this pages' state";
+        dom.bd.appendChild(dom.permalink);
 
         dom.bd.appendChild(dom.main);
         dom.main.appendChild(dom.main_block);
@@ -420,9 +428,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       init: function(params) {
-        var i, hideThese=[], columns=this.meta.showColumns;
+        var i, hideThese=[], columns=this.meta.showColumns, el;
         if ( !params ) { params={}; }
         this.params = params;
+        this.meta.maxRows = this.meta.maxRowsDefault;
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
@@ -618,6 +627,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initFilters();
         this.initSub();
+        this.initHistory();
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
 
@@ -633,8 +643,35 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
-      initMe: function() {
-        this.allowNotify['dispatchUpdate'] = 1;
+      initHistory: function() {
+// set up the History management
+        var handler = function(ev,arr) {
+          switch (arr[0]) {
+            case 'stateChange': {
+              break;
+            }
+            case 'initialiseApplication': {
+              break;
+            }
+            case 'permalink': { // separate handler for notifying me that the permalink has changed. I use this to set a link on the page
+              Dom.get('phedex-page-permalink').setAttribute('href',arr[1]);
+              break;
+            }
+            default: {
+              break;
+            }
+          }
+        };
+        _sbx.listen('History',handler);
+        new PHEDEX.History({ module:'state' });
+      },
+      setHistory: function(args) {
+        var state={}, i;
+        for ( i in args ) { state[i] = args[i]; }
+        if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
+          state.rows = this.meta.maxRows;
+        }
+        _sbx.notify('History','navigate',state);
       },
       setHiddenColumns: function() {
         var el, elList=this.columnPanel.elList, i, columns=[], auth;
@@ -738,6 +775,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                               args:args,
                               callback:function(data,context,response) { obj.gotSubscriptions(data,context,response); }
                             });
+        this.setHistory(args);
       },
       gotSubscriptions:function(data,context,response) {
         var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, tmp;
