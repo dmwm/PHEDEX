@@ -19,7 +19,8 @@ PHEDEX.History = function( config ) {
         return function(ev,arr) {
           switch (arr[0]) {
             case 'navigate': {
-              var s = YAHOO.util.History.getQueryStringParameter(module,arr[1]) || undefined;
+              var s = arr[1];
+              s = s.replace(/^.*[\?,#]/,'');
               YuH.navigate(module,s);
               break;
             }
@@ -29,13 +30,61 @@ PHEDEX.History = function( config ) {
           }
         };
       }(this),
+      parse: function(state) {
+        var key, val, i, params={}, substrs=state, reg=new RegExp('/^'+module+'=');
+        if ( state == undefined ) { return params; }
+        substrs = substrs.replace(/^.*#/,'')
+                         .replace(reg,'');
+        substrs = decodeURIComponent(substrs);
+        substrs = substrs.replace(/^\?/,'')
+                         .replace(/;/g,'&')
+                         .replace(/:/g,'=')
+        substrs = substrs.split('&');
+        for (i in substrs ) {
+          if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
+            key = RegExp.$1;
+            val = RegExp.$2;
+          } else {
+            key = substrs[i];
+            val = true;
+          }
+          if ( params[key] ) {
+            if ( typeof(params[key]) != 'object'  ) {
+              params[key] = [ params[key] ];
+            }
+            params[key].push(val);
+          }
+          else { params[key] = val; }
+        }
+        return params;
+      },
+      makeHref: function(state) {
+        var str='', key, val;
+        for (key in state) {
+          val = state[key];
+          if ( typeof(val) == 'array' ) {
+            str += key + '=' + val.join(key+'=');
+          } else {
+            str += key + '=' + val;
+          }
+          str += ';';
+        }
+        str = str.replace(/;$/,'');
+        return str;
+      },
       onStateChange: function(state) {
-        _sbx.notify('History','onStateChange',state);
+        var href = location.pathname + '#' + state,
+            params = this.parse(state);
+        _sbx.notify('History','stateChange',params);
+        _sbx.notify('History','permalink',decodeURIComponent(href));
       },
       init: function() {
         var initialState = YuH.getBookmarkedState(module) ||
                            YuH.getQueryStringParameter(module) ||
-                           undefined;
+                           location.href ||
+                            undefined;
+            state = this.parse(initialState);
+        initialState = this.makeHref(state);
         YuH.register(module,initialState,this.onStateChange,null,this);
 
         try {
@@ -47,8 +96,13 @@ PHEDEX.History = function( config ) {
 
         YuH.onReady(function(obj) {
           return function() {
-            var currentState = YuH.getCurrentState(module);
-            _sbx.notify('History','initialiseApplication',currentState);
+            var href  = location.href, // YuH.getCurrentState(module),
+                state = obj.parse(href);
+            _sbx.notify('History','initialiseApplication',state);
+            href = obj.makeHref(state);
+            if ( href /*!= undefined*/ ) {
+              _sbx.notify('History','permalink',location.pathname + '#' + href);
+            }
           }
         }(this));
 
@@ -59,12 +113,7 @@ PHEDEX.History = function( config ) {
   };
 
   Yla(this, _construct());
-try {
   this.init();
-} catch (ex) {
-var _ex = ex;
-debugger;
-}
   return this;
 }
 
