@@ -15,21 +15,6 @@ PHEDEX.History = function( config ) {
       id: id,
       me: 'history',
       meta: {},
-      handler: function(obj) {
-        return function(ev,arr) {
-          switch (arr[0]) {
-            case 'navigate': {
-              var s = arr[1];
-              s = s.replace(/^.*[\?,#]/,'');
-              YuH.navigate(module,s);
-              break;
-            }
-            default: {
-              break;
-            }
-          }
-        };
-      }(this),
       parse: function(state) {
         var key, val, i, params={}, substrs=state, reg=new RegExp('/^'+module+'=');
         if ( state == undefined ) { return params; }
@@ -106,6 +91,25 @@ PHEDEX.History = function( config ) {
           }
         }(this));
 
+        this.handler = function(obj) {
+          return function(ev,arr) {
+            switch (arr[0]) {
+              case 'navigate': {
+                var s = arr[1];
+                if ( typeof(s) == 'string' ) {
+                  s = s.replace(/^.*[\?,#]/,'');
+                } else {
+                  s = obj.makeHref(s);
+                }
+                YuH.navigate(module,s);
+                break;
+              }
+              default: {
+                break;
+              }
+            }
+          };
+        }(this);
         _sbx.listen('History',this.handler);
         _sbx.listen(this.id,  this.handler);
       },
