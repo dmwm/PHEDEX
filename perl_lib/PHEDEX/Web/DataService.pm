@@ -128,7 +128,11 @@ sub invoke
   # create the core
   my $config = $self->{CONFIG};
   my $core;
-  
+
+  if ( ! $config->{INSTANCES}->{$db} ) {
+    return [404,"Invalid instance: The instance you requested is not known to this installation of the data-service\n"];
+  }
+
   eval {
       $core = new PHEDEX::Web::Core(CALL => $call,
 				    VERSION => $config->{VERSION},
