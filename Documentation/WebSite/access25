@@ -2018,8 +2018,7 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
   <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
   @REFRESH@
 
-<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
-hen css files get loaded later.-->
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
   <style type='text/css' id='phedex-body-style'>
     body {
       margin:           0;
@@ -7513,7 +7512,7 @@ sub validate
 	 spec  => 
 	 {
 	     # Params for Data::Replicas
-	     node         => { regex => '^[A-Z,a-z,0-9_]+',  multiple => 1 },
+	     node         => { using => 'node',  multiple => 1 },
 	     dcolumn      => { allowing => $$self{DCOLUMN_NAMES}, multiple => 1 },
 	     rcolumn      => { allowing => $$self{RCOLUMN_NAMES}, multiple => 1 },
 	     scolumn      => { allowing => $$self{SCOLUMN_NAMES}, multiple => 1 },
@@ -7553,7 +7552,7 @@ sub validate
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} =~ m%;% ) {
+             $params{$_} !~ m%!?[_,A-Z,a-z,0-9, .*()|]% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
