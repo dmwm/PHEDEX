@@ -50,10 +50,10 @@ our %COMMON_VALIDATION =
 (
  'dataset'      => qr|^(/[^/\#]+){3}$|,
  'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
- 'block_*'      => qr!(^(/[^/\#]+){3}\#[^/\#]+$)|\*!,
- 'lfn'          => qr|^/|,
- 'wildcard'     => qr|\*|,
- 'node'         => qr|^T\d|,
+ 'block_*'      => qr!(^(/[^/\#]+){3}\#[^/\#]+$)|^\*$!,
+#'lfn'          => qr|^/|,
+#'wildcard'     => qr|\*|,
+ 'node'         => qr|^T\d[A-Z,a-z,_]+$|,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
  'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
  'boolean'      => sub { $_[0] eq 'true' || $_[0] eq 'false' ? 1 : 0 },
@@ -68,10 +68,10 @@ our %COMMON_VALIDATION =
 			 return 1; },
  'pos_float'	=> qr|^\d+\.?\d*$|,
  'hostname'	=> qr|^[a-zA-Z][a-zA-Z0-9_.]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$|,
- 'unchecked'	=> qr|.*|,
+#'unchecked'	=> qr|.*|,
  'subscribe_id'	=> qr%^(DATASET|BLOCK):\d+:\d+$%,
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
- 'create_dest'	=> qr/^(T\d|-1$|\d+$)/, # Name, ID, or -1. Ugh...
+ 'create_dest'	=> qr/^(T\d[A-Z,a-z,_]+|-1|\d+)$/, # Name, ID, or -1. Ugh...
  'create_source'=> qr%^(-1|(/[^/\#]+){3}|\d+)$%, # name, ID, or -1. Blearg!
 );
 
@@ -624,11 +624,15 @@ sub uc_keys
 # <message> is a string for error message
 sub http_error
 {
-    my ($error, $msg) = @_;
+    my $error = shift;
+    my $msg = join(' ', @_);
     if (!$error)
     {
         $error = 200; # default
     }
+    # removing html tags
+    $msg =~ s/</&lt;/g;
+    $msg =~ s/>/&gt;/g;
     return sprintf("%%HTTP-ERROR%%#%d#%s", $error, $msg);
 }
 
