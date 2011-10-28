@@ -56,7 +56,7 @@ sub lfn2pfn
     my $nodes = &PHEDEX::Web::SQL::getNodes($core, NODE => $h{node});
 
     unless (@$nodes) {
-	die PHEDEX::Web::Util::http_error(400,"no nodes found for '", join(', ', &PHEDEX::Core::SQL::arrayref_expand($h{node})));
+	die PHEDEX::Web::Util::http_error(400,"no nodes found for '", join(', ', &PHEDEX::Core::SQL::arrayref_expand($h{node})), "'");
     }
 
     my $catcache = {};
