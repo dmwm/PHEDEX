@@ -22,7 +22,7 @@ devdb10=(
 # Oracle 11gR2
 devdb11=(
         DESCRIPTION=
-        (ADDRESS= (PROTOCOL=TCP) (HOST=dbvrtg018.cern.ch) (PORT=10121) )
+        (ADDRESS= (PROTOCOL=TCP) (HOST=dbsrvg3305.cern.ch) (PORT=10121) )
         (ENABLE=BROKEN)
         (CONNECT_DATA=
                 (SID=DEVDB11)
