@@ -624,11 +624,15 @@ sub uc_keys
 # <message> is a string for error message
 sub http_error
 {
-    my ($error, $msg) = @_;
+    my $error = shift;
+    my $msg = join(' ', @_);
     if (!$error)
     {
         $error = 200; # default
     }
+    # removing html tags
+    $msg =~ s/</&lt;/g;
+    $msg =~ s/>/&gt;/g;
     return sprintf("%%HTTP-ERROR%%#%d#%s", $error, $msg);
 }
 
