@@ -503,6 +503,7 @@ PHEDEX.Core = function(sandbox,loader) {
         }
       }(this);
       PxU.protectMe(this);
+      PxU.protectMe(_sbx);
     }
   };
 }
