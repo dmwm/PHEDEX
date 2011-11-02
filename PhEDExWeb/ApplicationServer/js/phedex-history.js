@@ -3,7 +3,7 @@ PHEDEX.History = function( config ) {
       Dom = YAHOO.util.Dom,
       YuH = YAHOO.util.History,
       id = 'history_'+PxU.Sequence(),
-      module = 's',
+      module = 'state',
       undefined = 'undefined';
   if ( typeof(config) == 'object' ) {
     if ( config.module ) { module = config.module; }
@@ -16,9 +16,10 @@ PHEDEX.History = function( config ) {
       me: 'history',
       meta: {},
       config: config,
-      parse: function(state) {
-        var key, val, i, params={}, substrs=state, reg=new RegExp('/^'+module+'=');
-        if ( state == undefined ) { return params; }
+      module: module,
+      parse: function(href) {
+        var key, val, i, state={}, substrs=href, reg=new RegExp('/^'+module+'=');
+        if ( href == undefined ) { return state; }
         substrs = substrs.replace(/^.*#/,'')
                          .replace(reg,'');
         substrs = decodeURIComponent(substrs);
@@ -34,43 +35,43 @@ PHEDEX.History = function( config ) {
             key = substrs[i];
             val = true;
           }
-          if ( params[key] ) {
-            if ( typeof(params[key]) != 'object'  ) {
-              params[key] = [ params[key] ];
+          if ( state[key] ) {
+            if ( typeof(state[key]) != 'object'  ) {
+              state[key] = [ state[key] ];
             }
-            params[key].push(val);
+            state[key].push(val);
           }
-          else { params[key] = val; }
+          else { state[key] = val; }
         }
-        return params;
+        return state;
       },
       makeHref: function(state) {
-        var str='', i, key, val, stateKeys=[];
+        var href='', i, key, val, stateKeys=[];
         for (key in state) {
           stateKeys.push(key);
         }
+        if ( !stateKeys.length ) { return ''; }
         stateKeys = stateKeys.sort();
         for (i in stateKeys) {
           key = stateKeys[i];
           val = state[key];
           if ( typeof(val) == 'array' ) {
-            str += key + '=' + val.join(key+'=');
+            href += key + '=' + val.join(key+'=');
           } else {
-            str += key + '=' + val;
+            href += key + '=' + val;
           }
-          str += ';';
+          href += ';';
         }
-        str = '#' + str.replace(/;$/,'');
-        return str;
+        href = '#' + href.replace(/;$/,'');
+        return href;
       },
       onStateChange: function(state) {
         if ( typeof(state) == 'string' ) { state = this.parse(state); }
         var href = this.makeHref(state);
-        if ( this.href == href ) {
-debugger;
- return; }
+        if ( this.href == href ) { return; }
         this.href = href;
         _sbx.notify('History','stateChange',state);
+        log('history','info','state change: '+href);
         this.notifyApplication(href);
         this.reveal();
         this.setLink(href);
@@ -79,26 +80,29 @@ debugger;
         if ( this.href == href ) { return; }
         this.href = href;
         _sbx.notify('History','permalink',href);
+        log('history','info','notify application: '+href);
       },
       reveal: function() {
-        var container = this.config.container;
+        var container = config.container;
         if ( typeof(container) == 'string' ) {
-          container = this.config.container = Dom.get(container);
+          container = config.container = Dom.get(container);
         }
         container.style.display = '';
         container.style.color = '';
         this.reveal = function() {}; // make idempotent
+        log('history','info','revealing permalink');
       },
       setLink: function(href) {
-        var el = this.config.el;
+        var el = config.el;
         if ( !el ) {
           this.setLink = function() {}; // unplug myself as I cannot do anything
           return;
         }
         if ( typeof(el) == 'string' ) {
-          el = this.config.el = Dom.get(el);
+          el = config.el = Dom.get(el);
         }
         el.setAttribute('href',href);
+        log('history','info','set permalink: '+href);
       },
       init: function() {
         var initialState = YuH.getBookmarkedState(module) ||
@@ -125,9 +129,9 @@ debugger;
             href = obj.makeHref(state);
             if ( href ) {
               _sbx.notify('History','permalink',href);
-              this.notifyApplication(href);
-              this.reveal();
-              this.setLink(href);
+              obj.notifyApplication(href);
+              obj.reveal();
+              obj.setLink(href);
             }
           }
         }(this));
@@ -143,6 +147,7 @@ debugger;
                   s = obj.makeHref(s);
                 }
                 YuH.navigate(module,s);
+                log('history','info','navigated to '+s);
                 break;
               }
               case 'permalink': {
