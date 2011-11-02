@@ -123,7 +123,6 @@ PHEDEX.History = function( config ) {
         YuH.onReady(function(obj) {
           return function() {
             var state, href = location.href;
-//             if ( ! href.match('#') ) { return; } // No URL fragment on startup?
             state = obj.parse(href);
             _sbx.notify('History','initialiseApplication',state);
             href = obj.makeHref(state);
