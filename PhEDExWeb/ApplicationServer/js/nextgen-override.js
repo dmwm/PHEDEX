@@ -5,7 +5,7 @@ YAHOO.util.Event.onDOMReady(function() {
   log('initialising','info','app');
   PxL  = new PHEDEX.Loader();
   banner('Loading core application...');
-  PxL.load(createCoreApp,'core','sandbox','datasvc');
+  PxL.load(createCoreApp,'core','sandbox','datasvc','logger');
 
   var phedex_app_version = document.getElementById('phedex-app-version');
   if ( phedex_app_version ) { phedex_app_version.innerHTML = PxW.Version; }
@@ -34,6 +34,7 @@ function createCoreApp() {
     PxC.create();
   } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
   banner('Core application is running, ready to create PhEDEx data-modules...');
+  new PHEDEX.Logger().init();
 
   uri = location.search;
   if ( uri.match(/^\?(.*)$/) ) {
