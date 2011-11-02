@@ -23,7 +23,7 @@ PHEDEX.History = function( config ) {
         substrs = substrs.replace(/^.*#/,'')
                          .replace(reg,'');
         substrs = decodeURIComponent(substrs);
-        substrs = substrs.replace(/^\?/,'')
+        substrs = substrs.replace(/^.*\?/,'')
                          .replace(/;/g,'&')
                          .replace(/:/g,'=')
         substrs = substrs.split('&');
@@ -70,11 +70,11 @@ PHEDEX.History = function( config ) {
         var href = this.makeHref(state);
         if ( this.href == href ) { return; }
         this.href = href;
-        _sbx.notify('History','stateChange',state);
+        _sbx.notify('History','stateChange',state,href);
         log('history','info','state change: '+href);
         this.notifyApplication(href);
-        this.reveal();
         this.setLink(href);
+        this.reveal();
       },
       notifyApplication: function(href) {
         if ( this.href == href ) { return; }
@@ -85,8 +85,10 @@ PHEDEX.History = function( config ) {
       reveal: function() {
         var container = config.container;
         if ( typeof(container) == 'string' ) {
-          container = config.container = Dom.get(container);
+          container = Dom.get(container);
         }
+        if ( !container ) { return; }
+        config.container = container;
         container.style.display = '';
         container.style.color = '';
         this.reveal = function() {}; // make idempotent
@@ -94,13 +96,11 @@ PHEDEX.History = function( config ) {
       },
       setLink: function(href) {
         var el = config.el;
-        if ( !el ) {
-          this.setLink = function() {}; // unplug myself as I cannot do anything
-          return;
-        }
         if ( typeof(el) == 'string' ) {
-          el = config.el = Dom.get(el);
+          el = Dom.get(el);
         }
+        if ( !el ) { return; }
+        config.el = el;
         el.setAttribute('href',href);
         log('history','info','set permalink: '+href);
       },
@@ -123,15 +123,13 @@ PHEDEX.History = function( config ) {
         YuH.onReady(function(obj) {
           return function() {
             var state, href = location.href;
-            if ( ! href.match('#') ) { return; } // No URL fragment on startup?
+//             if ( ! href.match('#') ) { return; } // No URL fragment on startup?
             state = obj.parse(href);
             _sbx.notify('History','initialiseApplication',state);
             href = obj.makeHref(state);
             if ( href ) {
               _sbx.notify('History','permalink',href);
               obj.notifyApplication(href);
-              obj.reveal();
-              obj.setLink(href);
             }
           }
         }(this));
@@ -140,18 +138,20 @@ PHEDEX.History = function( config ) {
           return function(ev,arr) {
             switch (arr[0]) {
               case 'navigate': {
-                var s = arr[1];
-                if ( typeof(s) == 'string' ) {
-                  s = s.replace(/^.*[\?,#]/,'');
+                var href = arr[1];
+                if ( typeof(href) == 'string' ) {
+                  href = href.replace(/^.*[\?,#]/,'');
                 } else {
-                  s = obj.makeHref(s);
+                  href = obj.makeHref(href);
                 }
-                YuH.navigate(module,s);
-                log('history','info','navigated to '+s);
+                _sbx.notify('History','navigatedTo',href);
+                YuH.navigate(module,href);
+                log('history','info','navigated to '+href);
                 break;
               }
               case 'permalink': {
                 obj.setLink(arr[1]);
+                obj.reveal();
                 break;
               }
               default: {
