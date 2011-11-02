@@ -1,7 +1,6 @@
 /* Cleaned up from http://webdesign.html.it/articoli/leggi/528/more-nifty-corners/ */
 function NiftyCheck()
 {
-  webapp_link();
   if (!document.getElementById || !document.createElement)
     return false;
 
@@ -219,24 +218,3 @@ function Mix(c1,c2)
   }
   return("#"+r[0].toString(16)+r[1].toString(16)+r[2].toString(16));
 }
-
-// Added by TW, to update the web-page without branching the code...
-// insert a link to the next-gen website, flashing onto the screen a few seconds after the page appears...
-
-webapp_link = function() {
-  var elList, el, tgt, child, uri;
-  tgt = document.getElementById('nextgen-link');
-  if ( tgt ) { return; }
-  child = document.createElement('li');
-  child.id = 'nextgen-link';
-  elList = document.getElementsByClassName('catopt');
-  try {
-    el = elList[0].childNodes[1];
-  } catch(ex) { /* cannot find element, abort! */ return; }
-  uri = location.href;
-  uri = uri.replace(/\/$/, '');
-  uri = uri.replace(/\/[^/]*\/[^/]*::.*/,'');
-  child.innerHTML = '<a href="'+uri+'/datasvc/app" title="Enter the next-gen website, enter the future!">Next-gen website</a>';
-  el.appendChild(child);
-  return child;
-};
