@@ -570,7 +570,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 break;
               }
               case 'changeMaxRows': {
-                var el = Dom.get('phedex-setMaxRows-popup'),
+                var el = dom.setMaxRowsPopup,
                     parent = Dom.get('phedex-setMaxRows'),
                     elRegion = Dom.getRegion('phedex-setMaxRows'),
                     id = PxU.Sequence(), button;
@@ -589,13 +589,18 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                         "<div>" +
                       "<div>";
                   document.body.appendChild(el);
-                  Dom.get('close-anchor-'+id).setAttribute('onclick', "var d=YAHOO.util.Dom;d.addClass(d.get('phedex-setMaxRows-popup'),'phedex-invisible');");
+                  dom.setMaxRowsPopup = Dom.get('phedex-setMaxRows-popup');
+                  Event.addListener('close-anchor-'+id,'click',function(ev) {
+                    Event.preventDefault(ev);
+                    Dom.addClass(dom.setMaxRowsPopup,'phedex-invisible');
+                  });
                   button = new YAHOO.widget.Button({
                                  label: 'Apply',
                                  id: 'apply-setMaxRows',
                                  container: 'phedex-setMaxRows-apply' });
                   button.on('click',function() {
                     _sbx.notify(obj.id,'maxRowsChanged',Dom.get('phedex-setMaxRows-input').value);
+                    Dom.addClass(dom.setMaxRowsPopup,'phedex-invisible');
                   });
                 }
                 Dom.setX(el,elRegion.left);
@@ -611,6 +616,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 if ( value == obj.meta.maxRows ) { break; }
                 obj.meta.maxRows = value;
                 _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
+//                 obj.setHistory();
                 obj.gotSubscriptions(obj.data,obj.context);
                 break;
               }
@@ -635,7 +641,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                           meta:{maxRows:this.meta.maxRows}
                         });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
-//         this.getSubscriptions(); // TW Not needed here, triggered by history manager
         _sbx.notify(this.id,'buildOptionsTabview');
       },
       initHistory: function() {
@@ -668,9 +673,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       },
       setHistory: function(args) {
         var state={}, i;
-        for ( i in args ) { state[i] = args[i]; }
+        if ( args ) {
+          for ( i in args ) { state[i] = args[i]; }
+        } else {
+          state = this.getArgs();
+        }
         if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
           state.rows = this.meta.maxRows;
+          if ( obj.subscriptionsId ) {
+            _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
+          }
         }
 // TW Need to add COLumns, if not set to default
         _sbx.notify('History','navigate',state);
@@ -733,8 +745,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }(this);
         _sbx.listen(this.subscriptionsId,handler);
+        _sbx.notify(obj.subscriptionsId,'setMaxRows',this.meta.maxRows);
       },
-      getSubscriptions: function() {
+      getArgs: function() {
         var args = {collapse:'y', create_since:new Date().getTime()/1000 - 30*86400 /* 1 month */},
             i, _filter=this._filter, f, map=this.meta.map,
             datasets, blocks, data, level;
@@ -767,6 +780,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( datasets  ) { args.dataset = datasets; }
         if ( blocks    ) { args.block   = blocks; }
         if ( args.data_items ) { delete args.data_items; }
+        return args;
+      },
+      getSubscriptions: function() {
+        var args = this.getArgs();
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
@@ -819,12 +836,22 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                   nSubs+' subscription'+(nSubs==1?'':'s');
         if ( nSubs >= this.meta.maxRows ) {
           summary += "<br/>"+Icon.Warn+"Table is truncated at "+this.meta.maxRows+" rows. You can "+
-                     "<a href='#' onclick=\"PxS.notify('"+this.id+"','goToFilter')\">filter the data</a> " +
+                     "<a id='phedex-goToFilter'href='#'>filter the data</a> " +
                      "to reduce the number of rows, or you can " +
-                     "<a id='phedex-setMaxRows' href='#' onclick=\"PxS.notify('"+this.id+"','changeMaxRows')\">change the limit</a> " +
+                     "<a id='phedex-setMaxRows' href='#'>change the limit</a> " +
                      "to see more data";
         }
         this.setSummary('OK',summary);
+        if ( nSubs >= this.meta.maxRows ) { // need to do this after setSummary, so the DOM is correct!
+          Event.addListener('phedex-setMaxRows','click',function(ev) {
+            Event.preventDefault(ev);
+            _sbx.notify(obj.id,'changeMaxRows');
+          });
+          Event.addListener('phedex-goToFilter','click',function(ev) {
+            Event.preventDefault(ev);
+            _sbx.notify(obj.id,'goToFilter');
+          });
+        }
       },
       setState: function(state) {
         var i, j, tmp, columns, col, label, label_lc, _f=this._filter;
@@ -893,7 +920,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( typeof(state.node) == 'object' ) { _f.node = state.node; }
           else { _f.node = [ state.node ]; }
         }
-        if ( state.rows ) { this.meta.maxRows = state.rows; }
       },
       initSub: function() {
         var mb=dom.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=dom.container;
