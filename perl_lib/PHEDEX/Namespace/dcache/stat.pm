@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use Time::Local;
 use File::Basename;
-use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / access uid gid size mtime /; 
@@ -31,18 +30,17 @@ sub execute
 # 'execute' will use the common 'Command' function to do the work, but on the
 # base directory, not on the file itself. This lets it cache the results for
 # an entire directory instead of having to go back to the SE for every file 
-  my ($self,$ns,$file,$tfc) = @_;
+  my ($self,$ns,$file) = @_;
   my $nfiles = 0;
   my $call   = 'stat';
-  my $pfn = $tfc->lfn2pfn($file,$ns->Protocol());
 
-  return $ns->Command($call,$pfn) if $ns->{NOCACHE};
+  return $ns->Command($call,$file) if $ns->{NOCACHE};
 
-  my $dir = dirname $pfn;
+  my $dir = dirname $file;
   if ( $ns->{INPUT_FILE} ) {
-    if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$pfn); 
+    if ( -r $ns->{INPUT_FILE} ) { $nfiles = $self->parse_chimera_dump($ns,$file); 
                                   if ( $nfiles < 1 ) {
-                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does not have information about $pfn, accessing system\n";
+                                     print "dcache: chimera dump file $ns->{INPUT_FILE} does not have information about $file, accessing system\n";
                                      $ns->Command($call,$dir); 
                                   }
                                 }
@@ -52,7 +50,7 @@ sub execute
   }
 
 # Explicitly pull the right value from the cache
-  return $ns->{CACHE}->fetch($call,$pfn);
+  return $ns->{CACHE}->fetch($call,$file);
 }
 
 sub parse

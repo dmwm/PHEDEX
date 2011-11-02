@@ -3,7 +3,7 @@ package PHEDEX::Core::Catalogue;
 use strict;
 use warnings;
 use base 'Exporter';
-our @EXPORT = qw(lfn2pfn pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
+our @EXPORT = qw(pfnLookup lfnLookup storageRules dbStorageRules applyStorageRules makeTransferTask);
 use XML::Parser;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Timing;
@@ -12,51 +12,6 @@ use PHEDEX::Core::SQL;
 # Cache of already parsed storage rules.  Keyed by rule type, then by
 # file name, and stores as value the file time stamp and parsed result.
 my %cache;
-
-# Wrapper-class to provide uniform access to the catalog storagemap 
-# both from the database, and from the xml file. 
-# Provides member function for converting lfn to pfn, using same signature 
-# as lfnLookup.
-sub new {
-    my $proto = shift;
-    my $class = ref $proto || $proto;
-    my $map =shift;
-    my $node = shift;
-    my ($self,%params);
-    %params = ();
-    $self = \%params;
-    if ( ! $map ) {
-      $self->{'DUMMY'}=1;
-    } elsif  (ref($map)) {
-      $self->{'DBH'}=$map;
-      # Require node name as an argument, get the node id and store both
-      die " Node name is not specified. Normally it should not happen, so exiting." unless $node;
-      my $q = &dbexec($map,
-                      qq{select id, name from t_adm_node n where n.name=:pat },
-                      ":pat" => $node);
-      my ($id, $name) = $q->fetchrow();
-      $self->{'NODE_ID'}=$id;
-      $self->{'NODE'}=$name;
-    } else {
-      $self->{'XML'}=$map;
-    }
-    $self->{'CATS'}={};
-    bless $self, $class;
-    return $self;
-}
-sub lfn2pfn {
-    my ( $self, $input, $protocol, $dest, $custodial) = @_; # Do we need custodiality here? 
-    if (exists $self->{'DUMMY'}) {return $input};
-    if (exists $self->{'DBH'}) {
-	my $cats = {};
-	my $mapping = &dbStorageRules( $self->{'DBH'}, $cats, $self->{'NODE_ID'});
-	return &applyStorageRules($mapping,$protocol,$dest,'pre',$input,$custodial);
-    }
-    if (exists $self->{'XML'}){
-	return &pfnLookup($input,$protocol,$dest,$self->{'XML'},$custodial);
-    }
-    die "We should not be here";	
-}
 
 # Calculate source and destination PFNs for a transfer task.
 # Note: This function will die if it cannot successfully make a
@@ -235,6 +190,7 @@ sub lfnLookup
 sub storageRules
 {
     my ($file, $kind) = @_;
+
     # Check if we have a valid cached result
     if (exists $cache{$kind}{$file})
     {

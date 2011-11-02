@@ -2,41 +2,27 @@
 use strict;
 use warnings;
 use Getopt::Long qw /:config pass_through require_order /;
-use PHEDEX::Core::DB;
 use PHEDEX::Core::Loader;
-use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
+use PHEDEX::Namespace;
 
-my ($loader,$module,$interface,$ns,$mapping);
+my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
-my (@entries,$lfnlist,$pfnlist,$input,$catalogue,$result,$command);
-my ($db,$node);
+my (@pfn,$pfnlist,$result,$command);
+
 sub usage
 {
   print <<EOF;
 
   Usage:
 
-  setool  INPUT INTERFACE {OPTIONS} [COMMAND]
-
-  INPUT can be given in one of the three forms:
-
-  --pfnlist  PFNLIST
-  --lfnlist  LFNLIST --catalogue CATALOGUE
-  --lfnlist  LFNLIST --db FILE[:SECTION] --node NODE
-
-  PFNLIST is a file containing full PFNs as found in your storage element, 
-  one entry per line.
-  If '-' is given instead of file name, the script will read from stdin. 
+  setool --pfnlist PFNLIST INTERFACE {OPTIONS} [COMMAND]
+ 
+  PFNLIST is a file containing full PFNs as found in your storage
+  element, one pfn per line.
+  If PFNLIST is given as '-', the script will read from stdin.
   Gzipped (*.gz) or bzipped (*.bz2) files can be read directly,
   allowing for compact filelists.
-
-  LFNLIST is a file containing LFNs, i.e. starting with '/store'. 
-  With --lfnlist option additional  arguments are required, in order to
-  perform LFN to PFN conversion:
-  CATALOGUE -  local xml file providing storage trivial file catalogue, or
-  FILE:SECTION  file and section with the database connection parameters,
-  NAME - the name of the node as registered in the PhEDEx database.
 
   INTERFACE is the protocol for accessing the SE.
 
@@ -57,68 +43,39 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
 
 GetOptions(
-           "lfnlist|l=s"    => \$lfnlist,
-           "pfnlist|p=s"    => \$pfnlist,
-           "catalogue|c=s"  => \$catalogue,
-           "db=s"   => \$db,
-           "node=s"  => \$node,
+           "pfnlist=s"      => \$pfnlist,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
 	  );
 
-if ( $lfnlist && $pfnlist ) { die "ERROR: options --lfnlist and --pfnlist are mutually exclusive!
-Use either --lfnlist with --catalogue option, or --pfnlist. \nSee --help for help.\n"};
-
-if ( $pfnlist )
-{
-  $input = $pfnlist;
-  print "WARNING: will ignore --catalogue option when used with --pfnlist.\n" if $catalogue;
-  $catalogue='';
-}
-
-if ($lfnlist) {
-  $input = $lfnlist;
-  # Getting catalogue:
-  if ( $db) { 
-    die "ERROR:  --node argument is required with --db option. See --help." unless $node;
-    my $conn = { DBCONFIG => $db };
-    $catalogue = &connectToDatabase ( $conn );
-  } elsif ( ! $catalogue) { 
-    die "ERROR: --catalogue is required with --lfnlist option. See --help.\n";
-  }
-}
-
 $interface = shift;
 die "INTERFACE argument must be specified\n" unless $interface;
-
 $module = $loader->Load($interface);
 $ns = $module->new();
-
-if ($input)
+if ( $pfnlist )
 {
-  $mapping = PHEDEX::Core::Catalogue -> new($catalogue, $node);
-  if ( $input =~ m%.gz$% )
-  { open LFN, "cat $input | gzip -d - |" or die "open: $input: $!\n"; }
-  elsif ( $input =~ m%.bz2$% )
-  { open LFN, "cat $input | bzip2 -d - |" or die "open: $input: $!\n"; }
-  elsif ( $input =~ m%^-$% )
-  { *LFN = *STDIN; }
+  if ( $pfnlist =~ m%.gz$% )
+  { open PFN, "cat $pfnlist | gzip -d - |" or die "open: $pfnlist: $!\n"; }
+  elsif ( $pfnlist =~ m%.bz2$% )
+  { open PFN, "cat $pfnlist | bzip2 -d - |" or die "open: $pfnlist: $!\n"; }
+  elsif ( $pfnlist =~ m%^-$% )
+  { *PFN = *STDIN; }
   else
-  { open LFN, "<$input" or die "open: $input: $!\n"; }
-  while ( <LFN> )
+  { open PFN, "<$pfnlist" or die "open: $pfnlist: $!\n"; }
+  while ( <PFN> )
   {
     chomp;
     $debug && print "Read: $_\n";;
-    push @entries, $_;
+    push @pfn, $_;
   }
 }
 
 while ( $command = shift @ARGV )
 {
-  foreach my $f ( @entries )
+  foreach my $f ( @pfn )
   {
-    $result = $ns->$command($f, $mapping);
+    $result = $ns->$command($f);
     print "$f $command = ",str_hash($result),"\n";
   }
 }

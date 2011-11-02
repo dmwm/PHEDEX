@@ -1,5 +1,5 @@
 package PHEDEX::Infrastructure::FilePump::Agent;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging','PHEDEX::BlockLatency::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 
 use strict;
 use warnings;
@@ -70,21 +70,18 @@ sub transfer
 
     # Auto-export for sites running exports without stage-in.
     # Export staged files for sites with stage-in.
-    # Auto-export migrations to MSS for sites with stage-in.
     &dbexec($dbh, qq{
 	merge into t_xfer_task_export xte using
 	  (select xt.id
 	   from t_xfer_task xt
 	     join t_adm_node ns
 	       on ns.id = xt.from_node
-	     join t_adm_node nd
-	       on nd.id = xt.to_node
 	     join t_xfer_source xs
 	       on xs.from_node = xt.from_node
 	       and xs.to_node = xt.to_node
 	     join t_xfer_replica xr
 	       on xr.id = xt.from_replica
-	   where ((ns.kind = 'Buffer' and (xr.state = 1 or nd.kind='MSS'))
+	   where ((ns.kind = 'Buffer' and xr.state = 1)
 		  or ns.kind = 'Disk')
 	     and xs.time_update >= :now - 5400) xt
 	on (xte.task = xt.id)
@@ -313,15 +310,15 @@ sub receive
     # Deactivate the request for transfers that just failed (to be
     # re-activated in 40 - 90 minutes.  This is the minimum retry time)
     &dbexec($dbh, qq{
-	update t_xfer_request xq
-	    set xq.state = 1, xq.time_expire = :now + dbms_random.value(2700,5400)
-	    where (xq.destination, xq.fileid) in
-	      (select distinct xp.destination, xp.fileid
-	       from t_xfer_task_harvest xth
-	         join t_xfer_task xt on xt.id = xth.task
-	         join t_xfer_task_done xtd on xtd.task = xth.task
-	         join t_xfer_path xp on xp.fileid = xt.fileid and xp.to_node = xt.to_node
-	       where xtd.report_code != 0)},
+	update (select xq.state, xq.time_expire
+		from t_xfer_task_harvest xth
+		  join t_xfer_task xt on xt.id = xth.task
+		  join t_xfer_task_done xtd on xtd.task = xth.task
+		  join t_xfer_request xq
+		    on xq.fileid = xt.fileid
+		    and xq.destination = xt.to_node
+		where xtd.report_code != 0)
+	set state = 1, time_expire = :now + dbms_random.value(2700,5400)},
 	":now" => $now);
 
     # Exclude from the transfer queue transfers that just failed
@@ -333,9 +330,6 @@ sub receive
 	  join t_xfer_task_done xtd on xtd.task = xth.task
         where xtd.report_code != 0},
 	":now" => $now);
-
-    # Record file-level latency information
-    $self->mergeStatusFileArrive();
 
     # Finally remove all we've processed.
     &dbexec($dbh, qq{
