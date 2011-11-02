@@ -197,126 +197,130 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           j=admin_grps[auth.can[i]];
           for ( k in j ) { admin_menu.push({ value:j[k], text:admin_opts[j[k]] }); }
         }
-        if ( admin_menu.length ) {
-          el=document.createElement('div');
-          el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
-                           "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-select'>Selections:</span>" +
-                           "<span id='phedex-data-subscriptions-ctl-select-all'></span>" +
-                           "<span id='phedex-data-subscriptions-ctl-clear-all'></span>" +
-                         "</div>";
-          selector.appendChild(el);
-          this.onSelectAllOrNone = function(val) {
-            var elList, i, elUpdate=[];
-            elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
-            for (i in elList) {
-              if ( elList[i].checked != val ) {
-                elUpdate.push(elList[i]);
-              }
+        if ( ! admin_menu.length ) { return; }
+        el=document.createElement('div');
+        el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
+                         "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-select'>Selections:</span>" +
+                         "<span id='phedex-data-subscriptions-ctl-select-all'></span>" +
+                         "<span id='phedex-data-subscriptions-ctl-clear-all'></span>" +
+                       "</div>";
+        selector.appendChild(el);
+        this.onSelectAllOrNone = function(val) {
+          var elList, i, elUpdate=[];
+          elList = Dom.getElementsByClassName('phedex-checkbox','input',dom.datatable);
+          for (i in elList) {
+            if ( elList[i].checked != val ) {
+              elUpdate.push(elList[i]);
             }
-            if ( elUpdate.length ) {
-              _sbx.notify(this.subscriptionsId,'checkboxSelect',elUpdate,val);
-            }
-            i = elList.length;
-            if ( val ) { this.setSummary('OK',   'Selected '+i+' subscription'+(i==1?'':'s')); }
-            else       { this.setSummary('OK','De-selected '+i+' subscription'+(i==1?'':'s')); }
-          };
-          button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
-          button.on('click',function() { obj.onSelectAllOrNone(true) });
-          button.set('disabled',true);
-          this.ctl.selectAll = button;
-          button = new Button({ label:'Clear all', id:'phedex-data-subscriptions-clear-all', container:'phedex-data-subscriptions-ctl-clear-all' });
-          button.on('click',function() { obj.onSelectAllOrNone(false) });
-          button.set('disabled',true);
-          this.ctl.selectNone = button;
+          }
+          if ( elUpdate.length ) {
+            _sbx.notify(this.subscriptionsId,'checkboxSelect',elUpdate,val);
+          }
+          i = elList.length;
+          if ( val ) { this.setSummary('OK',   'Selected '+i+' subscription'+(i==1?'':'s')); }
+          else       { this.setSummary('OK','De-selected '+i+' subscription'+(i==1?'':'s')); }
+        };
+        button = new Button({ label:'Select all',  id:'phedex-data-subscriptions-select-all',  container:'phedex-data-subscriptions-ctl-select-all'  });
+        button.on('click',function() { obj.onSelectAllOrNone(true) });
+        button.set('disabled',true);
+        this.ctl.selectAll = button;
+        button = new Button({ label:'Clear all', id:'phedex-data-subscriptions-clear-all', container:'phedex-data-subscriptions-ctl-clear-all' });
+        button.on('click',function() { obj.onSelectAllOrNone(false) });
+        button.set('disabled',true);
+        this.ctl.selectNone = button;
 
-          i = document.createElement('input');
-          i.type = 'hidden'
-          i.name = 'priority';
-          i.value = this._filter.priority;
-          form.appendChild(i);
-          i = document.createElement('input');
-          i.type = 'hidden'
-          i.name = 'suspended';
-          i.value = this._filter.suspended;
-          form.appendChild(i);
+        i = document.createElement('input');
+        i.type = 'hidden'
+        i.name = 'priority';
+        i.value = this._filter.priority;
+        form.appendChild(i);
+        i = document.createElement('input');
+        i.type = 'hidden'
+        i.name = 'suspended';
+        i.value = this._filter.suspended;
+        form.appendChild(i);
 
-          field='action';
-          el = document.createElement('span');
-          el.id = 'phedex-subscription-action-'+id;
-          el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
-                           "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-action'>Action:</span>" +
-                           "<span id='phedex-data-subscriptions-ctl-action'></span>" +
-                           "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group list</em></span>" +
-                           "<span id='phedex-data-subscriptions-ctl-update'></span>" +
-                           "<span id='phedex-data-subscriptions-ctl-interrupt' class='phedex-invisible'></span>" +
-                         "</div>";
-          form.appendChild(el);
-          this.ctl[field] = button = new Button({
-            id:          'phedex-data-subscriptions-action',
-            name:        'phedex-data-subscriptions-action',
-            label:       'Choose an action',
-            type:        'menu',
-            lazyloadmenu: false,
-            menu:         admin_menu,
-            container:   'phedex-data-subscriptions-ctl-action'
-          });
-          button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
-          this._default[field] = function(_button,_field,index) {
-            return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-          }(button,field,0);
-          this.onUpdate = function(obj) {
-            return function() {
-              var elList, action, param, selected=obj.meta.selected, i, j, n=obj.meta.nSelected, msg, args={}, item, level, fn,
-                  pending=[], tmp;
-              action = obj.update.action;
-              if ( !n ) {
-                obj.setSummary('error','You did not select any subscriptions to modify');
-                return;
-              }
-              msg = '"'+obj.meta.admin.opts[action]+'"';
-              if ( action == 'groupchange' ) {
-                msg += ' to "'+obj.update.group+'"';
-              }
-              obj.setSummary('OK','Apply '+msg+' to '+n+' subscription'+(n==1?'':'s'));
-              switch (action) {
-                case 'group':      { args.group = obj.update.group;   break; }
-                case 'suspend':    { args.suspend_until = 9999999999; break; }
-                case 'unsuspend':  { args.suspend_until = 0;          break; }
-                case 'prioritylo': { args.priority = 'low';           break; }
-                case 'priorityno': { args.priority = 'normal';        break; }
-                case 'priorityhi': { args.priority = 'high';          break; }
-              }
-              obj.nResponse = { OK:0, fail:0 };
-              for (i in selected) {
-                item = selected[i];
-                delete args.block;
-                delete args.dataset;
-                args.node = item.node;
-                level = item.level.toLowerCase();
-                args[level] = item.item;
-                fn = function(id) {
-                  return function(data,context,response) { obj.gotActionReply(data,context,response,id,n); }
-                }(i);
-                tmp={};
-                for ( j in args ) { tmp[j] = args[j]; }
-                pending.push({ fn:fn, args:tmp, cbox:parseInt(i.match(/^cbox_([0-9]*)$/)[1]) });
-                delete args[level];
-              }
-              obj.pending = pending.sort( function(a,b) { return YAHOO.util.Sort.compare(a.cbox,b.cbox); } );
-              obj.interrupted = false;
-              obj.changedRows = 0;
-              obj.dispatchUpdate();
-            };
-          }(this);
-          button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
-          button.on('click',this.onUpdate);
-          button.set('disabled',true);
-          this.ctl.applyChanges = button;
-          button = new Button({ label:'Interrupt processing', id:'phedex-data-subscriptions-interrupt', container:'phedex-data-subscriptions-ctl-interrupt' });
-          button.on('click',this.interruptProcessing);
-          this.ctl.interrupt = button;
-          dom.interrupt_container = this.ctl.interrupt.get('container');
+        field='action';
+        el = document.createElement('span');
+        el.id = 'phedex-subscription-action-'+id;
+        el.innerHTML = "<div class='phedex-data-subscriptions-action'>" +
+                         "<span class='phedex-nextgen-label' id='phedex-data-subscriptions-label-action'>Action:</span>" +
+                         "<span id='phedex-data-subscriptions-ctl-action'></span>" +
+                         "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group list</em></span>" +
+                         "<span id='phedex-data-subscriptions-ctl-update'></span>" +
+                         "<span id='phedex-data-subscriptions-ctl-interrupt' class='phedex-invisible'></span>" +
+                       "</div>";
+        form.appendChild(el);
+        if ( obj.groups ) { // if I already have the groups, just build the menu...
+          obj.gotGroupMenu({group:obj.groups});
+        } else { // ...otherwise, get the groups, then do it
+          PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
         }
+        this.ctl[field] = button = new Button({
+          id:          'phedex-data-subscriptions-action',
+          name:        'phedex-data-subscriptions-action',
+          label:       'Choose an action',
+          type:        'menu',
+          lazyloadmenu: false,
+          menu:         admin_menu,
+          container:   'phedex-data-subscriptions-ctl-action'
+        });
+        button.on('selectedMenuItemChange', this.onSelectedMenuItemChange(field));
+        this._default[field] = function(_button,_field,index) {
+          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+        }(button,field,0);
+        this.onUpdate = function(obj) {
+          return function() {
+            var elList, action, param, selected=obj.meta.selected, i, j, n=obj.meta.nSelected, msg, args={}, item, level, fn,
+                pending=[], tmp;
+            action = obj.update.action;
+            if ( !n ) {
+              obj.setSummary('error','You did not select any subscriptions to modify');
+              return;
+            }
+            msg = '"'+obj.meta.admin.opts[action]+'"';
+            if ( action == 'groupchange' ) {
+              msg += ' to "'+obj.update.group+'"';
+            }
+            obj.setSummary('OK','Apply '+msg+' to '+n+' subscription'+(n==1?'':'s'));
+            switch (action) {
+              case 'group':      { args.group = obj.update.group;   break; }
+              case 'suspend':    { args.suspend_until = 9999999999; break; }
+              case 'unsuspend':  { args.suspend_until = 0;          break; }
+              case 'prioritylo': { args.priority = 'low';           break; }
+              case 'priorityno': { args.priority = 'normal';        break; }
+              case 'priorityhi': { args.priority = 'high';          break; }
+            }
+            obj.nResponse = { OK:0, fail:0 };
+            for (i in selected) {
+              item = selected[i];
+              delete args.block;
+              delete args.dataset;
+              args.node = item.node;
+              level = item.level.toLowerCase();
+              args[level] = item.item;
+              fn = function(id) {
+                return function(data,context,response) { obj.gotActionReply(data,context,response,id,n); }
+              }(i);
+              tmp={};
+              for ( j in args ) { tmp[j] = args[j]; }
+              pending.push({ fn:fn, args:tmp, cbox:parseInt(i.match(/^cbox_([0-9]*)$/)[1]) });
+              delete args[level];
+            }
+            obj.pending = pending.sort( function(a,b) { return YAHOO.util.Sort.compare(a.cbox,b.cbox); } );
+            obj.interrupted = false;
+            obj.changedRows = 0;
+            obj.dispatchUpdate();
+          };
+        }(this);
+        button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
+        button.on('click',this.onUpdate);
+        button.set('disabled',true);
+        this.ctl.applyChanges = button;
+        button = new Button({ label:'Interrupt processing', id:'phedex-data-subscriptions-interrupt', container:'phedex-data-subscriptions-ctl-interrupt' });
+        button.on('click',this.interruptProcessing);
+        this.ctl.interrupt = button;
+        dom.interrupt_container = this.ctl.interrupt.get('container');
       },
       interruptProcessing: function() {
         delete obj.pending;
@@ -484,7 +488,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 if ( arr[1] == 'created since' ) {
                   i = filterMap.values[arr[1]][arr[2]];
                   if ( i ) {
-                    _filter.create_since = new Date().getTime()/1000 - filterMap.values[arr[1]][arr[2]]*86400*30;
+                    _filter.create_since = Math.floor(new Date().getTime()/1000) - filterMap.values[arr[1]][arr[2]]*86400*30;
                   } else {
                     _filter.create_since = 0;
                   }
@@ -619,8 +623,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.listen(this.id, selfHandler);
         this.initSub();
         this.initHistory();
-        PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
         PHEDEX.Datasvc.Call({ api:'groups', callback:this.gotGroupMenu });
+        PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
 
         _sbx.notify('SetModuleConfig','subscriptions-table',
                         { parent:dom.datatable,
@@ -631,7 +635,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                           meta:{maxRows:this.meta.maxRows}
                         });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
-//         this.getSubscriptions();
+//         this.getSubscriptions(); // TW Not needed here, triggered by history manager
         _sbx.notify(this.id,'buildOptionsTabview');
       },
       initHistory: function() {
@@ -639,6 +643,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         var handler = function(ev,arr) {
           switch (arr[0]) {
             case 'stateChange': {
+              if ( obj.href == arr[2] ) { return; }
+              obj.href = arr[2];
               obj.setState(arr[1]);
               obj.getSubscriptions();
               break;
@@ -646,6 +652,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             case 'initialiseApplication': {
               obj.setState(arr[1]);
               obj.getSubscriptions();
+              break;
+            }
+            case 'navigatedTo': { // bookkeeping, to suppress double-calls
+              obj.href = arr[1];
               break;
             }
             default: {
@@ -662,6 +672,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
           state.rows = this.meta.maxRows;
         }
+// TW Need to add COLumns, if not set to default
         _sbx.notify('History','navigate',state);
       },
       setHiddenColumns: function() {
@@ -1232,21 +1243,31 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       gotGroupMenu: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
 // I have two group menus on this form, one in the filter-panel, one in the update-subscription form
-        var button, field;
-// use 'obj', not 'this', because I am the datasvc callback. Scope is different...
-        obj.groups = data.group;
-        field = 'phedex-filterpanel-ctl-group';
-        button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj._filter.group );
-        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group','filter'));
-        obj._default['group'] = function(_button,index) {
-          return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
-        }(button,0);
+// check if they exist before building them, because I may call this function twice. If the 'groups'
+// API returns data before the 'auth' API does, I need to (re-) build the group menu for the admin
+// options, which means coming here again.
 
-        field = 'phedex-data-subscriptions-ctl-group';
-        button = obj.makeGroupMenu(field,[], 'Choose a group');
-        button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
-        button.set('disabled',true);
-        obj.ctl.group = button;
+// use 'obj', not 'this', because I am a datasvc callback. Scope is different...
+        obj.groups = data.group;
+        var button, field;
+        if ( !obj._default.group ) {
+          field = 'phedex-filterpanel-ctl-group';
+          button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj._filter.group );
+          button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group','filter'));
+          obj._default.group = function(_button,index) {
+            return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
+          }(button,0);
+        }
+
+        if ( !obj.ctl.group ) {
+          field = Dom.get('phedex-data-subscriptions-ctl-group'); // 'auth' API not yet returned, or user not authorised to manipulate subscriptions
+          if ( field ) {
+            button = obj.makeGroupMenu(field,[], 'Choose a group');
+            button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
+            button.set('disabled',true);
+            obj.ctl.group = button;
+          }
+        }
       }
     }
   }
