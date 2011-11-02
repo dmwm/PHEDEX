@@ -4,15 +4,20 @@ PHEDEX.namespace('Logger');
 
 PHEDEX.Logger = function() {
   var YuCookie = Yu.Cookie,
-      _reader;
+      _reader,
+      log2Server,
+      Dom = YAHOO.util.Dom;
   return {
-    log2Server: { level: { info:false, warn:false, error:false }, group:{ sandbox:false, core:true }, option:{ 'log to console':true } },
-
+    log2Server: {
+      level: { info:false, warn:false, error:false },
+      group: { sandbox:false, core:true },
+      option:{ 'log to console':true }
+    },
     _addControls: function(el,type) {
       var ctl = PxU.makeChild(el,'div');
       ctl.appendChild(document.createTextNode(PxU.initialCaps(type)+'s:'));
       var keys = [], _keys = {};
-      for (var i in this.log2Server[type]) {
+      for (var i in log2Server[type]) {
         var j = i.toLowerCase()
         if ( !_keys[j]++ ) { keys.push(j); }
       }
@@ -24,11 +29,11 @@ PHEDEX.Logger = function() {
         c.type    = 'checkbox';
         c.onclick = function(obj) {
           return function(ev) {
-            obj.log2Server[type][this.value] = this.checked;
-            YuCookie.setSubs('PHEDEX.Logger.'+type,obj.log2Server[type]);
+            log2Server[type][this.value] = this.checked;
+            YuCookie.setSubs('PHEDEX.Logger.'+type,log2Server[type]);
           }
         }(this);
-        c.checked = this.log2Server[type][keys[i]];
+        c.checked = log2Server[type][keys[i]];
         ctl.appendChild(document.createTextNode(keys[i]+':  '));
         c.value   = keys[i];
       }
@@ -38,7 +43,7 @@ PHEDEX.Logger = function() {
     },
 
     init: function(args) {
-      var el   = document.getElementById('phedex-logger'),
+      var el   = Dom.get('phedex-logger'),
           elCtl, elLog2Server, elInner, div, cookie,
           conf = {
             width: "500px",
@@ -49,6 +54,7 @@ PHEDEX.Logger = function() {
             verboseOutput: false
           };
 
+      log2Server = this.log2Server;
       Yw.Logger.reset();
       if ( !args ) { args = {}; }
       if (args.config) {
@@ -61,7 +67,7 @@ PHEDEX.Logger = function() {
         var cookie = YuCookie.getSubs('PHEDEX.Logger.option');
         if ( cookie ) {
           for (var i in cookie) {
-            this.log2Server.option[i] = cookie[i] == 'true' ? true : false;
+            log2Server.option[i] = cookie[i] == 'true' ? true : false;
           }
         }
       } catch (ex) {};
@@ -69,7 +75,7 @@ PHEDEX.Logger = function() {
         var cookie = YuCookie.getSubs('PHEDEX.Logger.level');
         if ( cookie ) {
           for (var i in cookie) {
-            this.log2Server.level[i] = cookie[i] == 'true' ? true : false;
+            log2Server.level[i] = cookie[i] == 'true' ? true : false;
           }
         }
       } catch (ex) {};
@@ -79,19 +85,19 @@ PHEDEX.Logger = function() {
           for (var i in cookie) {
             if ( i.match('_[0-9]+$') ) { next; }
             var j = i.toLowerCase();
-            this.log2Server.group[j] = cookie[j] == 'true' ? true : false;
+            log2Server.group[j] = cookie[j] == 'true' ? true : false;
           }
         }
       } catch (ex) {};
 
-      if ( args.log2Server ) { this.log2Server = args.log2server; }
+      if ( args.log2Server ) { log2Server = args.log2server; }
 
       if ( el ) {
-        elInner = document.getElementById('phedex-logger-inner')
+        elInner = Dom.get('phedex-logger-inner')
         elInner.innerHTML = '';
         elInner.style.display = 'none';
-        elCtl        = document.getElementById('phedex-logger-controls');
-        elLog2Server = document.getElementById('phedex-logger-log2server');
+        elCtl        = Dom.get('phedex-logger-controls');
+        elLog2Server = Dom.get('phedex-logger-log2server');
       }
 
       if ( elCtl && elLog2Server ) {
@@ -128,12 +134,12 @@ PHEDEX.Logger = function() {
         }
         if ( args.opts.collapse ) { PLR.collapse(); }
       }
-      if ( this.log2Server.option['log to console'] ) { Yw.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
+      if ( log2Server.option['log to console'] ) { Yw.Logger.enableBrowserConsole(); } // Enable logging to firebug console, or Safari console.
 
 //    Attempt to harvest any temporarily buffered log messages
       this.log = function(obj) {
         return function(str,level,group) {
-          var l = obj.log2Server;
+          var l = log2Server;
           if ( typeof(str) == 'object' ) {
             try { str = err(str); } // assume it's an exception object!
             catch (ex) { str = 'unknown object passed to logger'; } // ignore the error if it wasn't an exception object...
