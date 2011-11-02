@@ -91,7 +91,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       useElement: function(el) {
         var form;
         dom.target = el;
-        dom.permalink  = document.createElement('div'); dom.permalink.className = 'float-right'; dom.permalink.id = 'phedex-permalink';
         dom.container  = document.createElement('div'); dom.container.className  = 'phedex-nextgen-container'; dom.container.id = 'doc3';
         dom.hd         = document.createElement('div'); dom.hd.className         = 'phedex-nextgen-hd';        dom.hd.id = 'hd';
         dom.bd         = document.createElement('div'); dom.bd.className         = 'phedex-nextgen-bd';        dom.bd.id = 'bd';
@@ -109,13 +108,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         form.method = 'post';
         form.action = location.pathname;
         this.data_subscriptions_action = form;
-
-//      Would like to just float-right the div, but then the link doesn't behave correctly with mouse-over events
-        dom.permalink.style.position = 'absolute';
-        dom.permalink.style.right    = '1em';
-        dom.permalink.style.zIndex   = 1;
-        dom.permalink.innerHTML = "<a href='#' id='phedex-page-permalink'>permalink</a> to this pages' state";
-        dom.bd.appendChild(dom.permalink);
 
         dom.bd.appendChild(dom.main);
         dom.main.appendChild(dom.main_block);
@@ -625,7 +617,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }(this);
         _sbx.listen(this.id, selfHandler);
-        this.initFilters();
         this.initSub();
         this.initHistory();
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })
@@ -640,7 +631,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                           meta:{maxRows:this.meta.maxRows}
                         });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
-        this.getSubscriptions();
+//         this.getSubscriptions();
         _sbx.notify(this.id,'buildOptionsTabview');
       },
       initHistory: function() {
@@ -648,13 +639,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         var handler = function(ev,arr) {
           switch (arr[0]) {
             case 'stateChange': {
+              obj.setState(arr[1]);
+              obj.getSubscriptions();
               break;
             }
             case 'initialiseApplication': {
-              break;
-            }
-            case 'permalink': { // separate handler for notifying me that the permalink has changed. I use this to set a link on the page
-              Dom.get('phedex-page-permalink').setAttribute('href',arr[1]);
+              obj.setState(arr[1]);
+              obj.getSubscriptions();
               break;
             }
             default: {
@@ -663,7 +654,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         };
         _sbx.listen('History',handler);
-        new PHEDEX.History({ module:'state' });
+        new PHEDEX.History({ el:'phedex-permalink', container:'phedex-permalink-container' });
       },
       setHistory: function(args) {
         var state={}, i;
@@ -765,10 +756,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( datasets  ) { args.dataset = datasets; }
         if ( blocks    ) { args.block   = blocks; }
         if ( args.data_items ) { delete args.data_items; }
-        if ( args.requests ) {
-          args.request = args.requests;
-          delete args.requests;
-        }
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
@@ -828,17 +815,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
         this.setSummary('OK',summary);
       },
-      initFilters: function() {
-        var p=this.params, i, j, tmp, columns, col, label, label_lc, _f=this._filter;
-
+      setState: function(state) {
+        var i, j, tmp, columns, col, label, label_lc, _f=this._filter;
 // special case for reqfilter (map to 'requests') and filter (map to 'data_items')
-        _f.requests = [];
-        if ( p.reqfilter ) { p.requests = p.reqfilter; }
-        if ( p.requests ) {
-          tmp = p.requests.split(/(\s*,*\s+|\s*,+\s*)/);
+        _f.request = [];
+        if ( state.reqfilter ) { state.request = state.reqfilter; }
+        if ( state.request ) {
+          tmp = state.request.split(/(\s*,*\s+|\s*,+\s*)/);
           for ( i in tmp ) {
             if ( tmp[i].match(/^\d+$/) ) { // only accept numeric IDs.
-              _f.requests.push(tmp[i]);
+              _f.request.push(tmp[i]);
             } else {
 // TW should post an error here
             }
@@ -846,8 +832,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
 
 // special case for create_since
-        if ( p.create_since ) {
-          _f.create_since = parseInt(p.create_since);
+        if ( state.create_since ) {
+          _f.create_since = parseInt(state.create_since);
           tmp = new Date().getTime()/1000;
           if ( _f.create_since > tmp ) {
             this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(_f.create_since)+'!');
@@ -860,26 +846,26 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 
 // special case for data_items
         _f.data_items = [];
-        if ( p.filter ) { p.data_items = p.filter; }
-        if ( p.data_items ) {
+        if ( state.filter ) { state.data_items = state.filter; }
+        if ( state.data_items ) {
           tmp = p.data_items .split(/(\s*,*\s+|\s*,+\s*)/);
-          p.data_items  = [];
+          state.data_items  = [];
           for ( i in tmp ) {
-            p.data_items .push(tmp[i]);
+            state.data_items .push(tmp[i]);
           }
         }
 
 // special case for columns
         columns = this.meta.showColumns;
-        if ( p.col ) {
-          if ( typeof(p.col) != 'object'  ) {
-            p.col = [ p.col ];
+        if ( state.col ) {
+          if ( typeof(state.col) != 'object'  ) {
+            state.col = [ state.col ];
           }
           for (j in columns) {
             columns[j]._default = false;
           }
-          for ( i in p.col ) {
-            label = p.col[i];
+          for ( i in state.col ) {
+            label = state.col[i];
             label_lc = label.toLowerCase().replace(/_/g,' ');
             for (j in columns) {
               col = columns[j];
@@ -891,11 +877,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
 
-        if ( p.node ) {
-          if ( typeof(p.node) == 'object' ) { _f.node = p.node; }
-          else { _f.node = [ p.node ]; }
+// special case for nodes
+        if ( state.node ) {
+          if ( typeof(state.node) == 'object' ) { _f.node = state.node; }
+          else { _f.node = [ state.node ]; }
         }
-        if ( p.rows ) { this.meta.maxRows = p.rows; }
+        if ( state.rows ) { this.meta.maxRows = state.rows; }
       },
       initSub: function() {
         var mb=dom.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=dom.container;
@@ -948,6 +935,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             labelLower = label.toLowerCase(),
             labelCss   = labelLower.replace(/ /,'-'),
             labelForm  = labelLower.replace(/ /,'_'),
+            filterTag  = config.filterTag || labelForm,
             d = this.dom, el, resize, helpStr='',
             textareaClassName = config.textareaClassName || 'phedex-nextgen-textarea';
         labelForm = labelForm.replace(/-/,'_');
@@ -977,21 +965,20 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( this.value == config.text ) {
             this.value = '';
             Dom.setStyle(this,'color','black');
-            PxS.notify(obj.id,'setValueFor',labelForm);
           }
         }
         d[labelForm].onblur=function() {
           if ( this.value == '' ) {
             this.value = config.text;
             Dom.setStyle(this,'color',null);
-            PxS.notify(obj.id,'unsetValueFor',labelForm);
+            PxS.notify(obj.id,'unsetValueFor',filterTag);
           } else {
-            PxS.notify(obj.id,'setValueFor',labelForm,this.value);
+            PxS.notify(obj.id,'setValueFor',filterTag,this.value);
           }
         }
         if ( config.initial_text ) {
           Dom.setStyle(d[labelForm],'color','black');
-          PxS.notify(this.id,'setValueFor',labelForm,config.initial_text);
+          PxS.notify(this.id,'setValueFor',filterTag,config.initial_text);
         }
       },
       buildOptionsTabview: function() {
@@ -1075,15 +1062,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.request_ids = {
           text:'List of request-IDs, separated by white-space or commas.',
           label:'Requests',
+          filterTag:'request',
           textareaClassName:'phedex-nextgen-text'
         };
-        if ( _filter.requests.length ) { this.request_ids.initial_text = _filter.requests.join(' '); }
+        if ( _filter.request.length ) { this.request_ids.initial_text = _filter.request.join(' '); }
         this.makeControlTextbox(this.request_ids,Dom.get('phedex-filterpanel-requests'));
 
 // Data items
         this.data_items = {
           text:'enter one or more block/data-set names, separated by white-space or commas.',
-          label:'Data Items'
+          label:'Data Items',
+          filterTag:'data',
         };
         if ( _filter.data_items.length ) { this.data_items.initial_text = _filter.data_items.join(' '); }
         this.makeControlTextbox(this.data_items,Dom.get('phedex-filterpanel-dataitems'));
@@ -1262,6 +1251,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
     }
   }
   Yla(this,_construct(this),true);
+  PxU.protectMe(this);
   return this;
 }
 
