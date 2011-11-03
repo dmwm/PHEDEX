@@ -55,14 +55,14 @@ PHEDEX.History = function( config ) {
         for (i in stateKeys) {
           key = stateKeys[i];
           val = state[key];
-          if ( typeof(val) == 'array' ) {
-            href += key + '=' + val.join(key+'=');
+          if ( typeof(val) == 'array' || typeof(val) == 'object' ) {
+            href += key + '=' + val.join(';'+key+'=');
           } else {
             href += key + '=' + val;
           }
           href += ';';
         }
-        href = '#' + href.replace(/;$/,'');
+        href = /*'#' +*/ href.replace(/;$/,'');
         return href;
       },
       onStateChange: function(state) {
@@ -127,7 +127,6 @@ PHEDEX.History = function( config ) {
             _sbx.notify('History','initialiseApplication',state);
             href = obj.makeHref(state);
             if ( href ) {
-              _sbx.notify('History','permalink',href);
               obj.notifyApplication(href);
             }
           }
