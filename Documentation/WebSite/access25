@@ -7543,7 +7543,6 @@ sub validate
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
 	     create_since => { regex => '^-?[0-9]+$' },
-	     rows         => { using => 'pos_int' },
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
