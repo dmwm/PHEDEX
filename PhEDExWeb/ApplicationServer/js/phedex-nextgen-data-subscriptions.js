@@ -26,23 +26,22 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       meta: {
         showColumns:
         [
-          {label:'Request',       _default:true},
-          {label:'Data Level',    _default:true},
-          {label:'Data Item',     _default:true},
-          {label:'Node',          _default:true},
-          {label:'Priority',      _default:true},
-          {label:'Custodial',     _default:true},
-          {label:'Group',         _default:true},
-          {label:'Node Files',    _default:true},
-          {label:'Node Bytes',    _default:true},
-          {label:'% Files',       _default:false},
-          {label:'% Bytes',       _default:true},
-          {label:'Replica/Move',  _default:true},
-          {label:'Suspended',     _default:true},
-          {label:'Open',          _default:false},
-          {label:'Time Create',   _default:true},
-//           {label:'Time Complete', _default:false},
-          {label:'Time Done',     _default:false}
+          { label:'Request',      _default: true },
+          { label:'Data Level',   _default: true },
+          { label:'Data Item',    _default: true },
+          { label:'Node',         _default: true },
+          { label:'Priority',     _default: true },
+          { label:'Custodial',    _default: true },
+          { label:'Group',        _default: true },
+          { label:'Node Files',   _default: true },
+          { label:'Node Bytes',   _default: true },
+          { label:'% Files',      _default:false },
+          { label:'% Bytes',      _default: true },
+          { label:'Replica/Move', _default: true },
+          { label:'Suspended',    _default: true },
+          { label:'Open',         _default:false },
+          { label:'Time Create',  _default: true },
+          { label:'Time Done',    _default:false }
         ],
         map:
         {
@@ -424,14 +423,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       init: function(params) {
-        var i, hideThese=[], columns=this.meta.showColumns, el;
         if ( !params ) { params={}; }
         this.params = params;
         this.meta.maxRows = this.meta.maxRowsDefault;
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action=arr[0], i, value, field, _filter, filterMap, _filterField, ctl=obj.ctl;
+            var action=arr[0], i, el, value, field, _filter, filterMap, _filterField, ctl=obj.ctl;
             if ( obj[action] && typeof(obj[action]) == 'function' ) {
               arr.shift();
               obj[action].apply(obj,arr);
@@ -449,9 +447,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                   obj.update = {};
                 }
                 if ( arr[3] == 'groupchange' ) {
-                  obj.ctl.group.set('disabled',false);
+                  ctl.group.set('disabled',false);
                 } else {
-                  obj.ctl.group.set('disabled',true);
+                  ctl.group.set('disabled',true);
                 }
                 obj.update.action = arr[3];
                 _sbx.notify(obj.id,'setApplyChangesState');
@@ -475,7 +473,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                   }
                   break;
                 }
-
 //              special cases
                 if ( arr[1] == 'completion' ) {
                   delete _filter.percent_min;
@@ -518,8 +515,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 break;
               }
               case 'CBoxPanel-selected': {
-                var label=arr[1], show=arr[2];
-                _sbx.notify(obj.subscriptionsId,'setColumnVisibility',[ {label:label,show:show} ]);
+                var columns = obj.meta.showColumns, column=columns[arr[1]];
+                column.show = arr[2];
+                _sbx.notify(obj.subscriptionsId,'setColumnVisibility',[column]);
                 break;
               }
               case 'DoneSelectAll-columns':   // deliberate fall-through
@@ -558,15 +556,15 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                        (update.action != 'groupchange' && update.action != null)
                      )
                    ) {
-                  obj.ctl.applyChanges.set('disabled',false);
+                  ctl.applyChanges.set('disabled',false);
                 } else {
-                  obj.ctl.applyChanges.set('disabled',true);
+                  ctl.applyChanges.set('disabled',true);
                 }
                 break;
               }
               case 'goToFilter': {
                 obj.onShowOptionsClick();
-                obj.ctl.options.tabView.selectTab(1);
+                ctl.options.tabView.selectTab(1);
                 break;
               }
               case 'changeMaxRows': {
@@ -672,7 +670,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         new PHEDEX.History({ el:'phedex-permalink', container:'phedex-permalink-container' });
       },
       setHistory: function(args) {
-        var state={}, i;
+        var state={}, i, showMe, allDefault=true, label, column, columns=this.meta.showColumns;
         if ( args ) {
           for ( i in args ) { state[i] = args[i]; }
         } else {
@@ -684,18 +682,33 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
           }
         }
-// TW Need to add COLumns, if not set to default
+        for (label in columns) {
+          column = columns[label];
+          showMe = false;
+          if ( typeof(column.show) != 'undefined' ) {
+            showMe = column.show;
+            if ( showMe != column._default ) { allDefault = false; }
+          } else {
+            showMe = column._default;
+          }
+          if ( showMe ) {
+            if ( !state.col ) { state.col = []; }
+            state.col.push(label);
+          }
+        }
+        if ( allDefault ) { delete state.col; }
         _sbx.notify('History','navigate',state);
       },
       setHiddenColumns: function() {
-        var el, elList=this.columnPanel.elList, i, columns=[], auth;
+        var el, elList=this.columnPanel.elList, label, i, column, columns=this.meta.showColumns, auth;
         for ( i in elList ) {
           el = elList[i];
-          columns.push({label:el.name, show:el.checked});
+          column = columns[el.name];
+          column.show = el.checked;
         }
         auth = false;
         if ( this.auth ) { auth = this.auth.isAdmin; }
-        columns.push({label:'Select', show:auth});
+        columns.Select = {_default:auth};
         _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
       },
       gotSubscriptionsId: function(arg) {
@@ -854,7 +867,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       setState: function(state) {
-        var i, j, tmp, columns, col, label, label_lc, _f=this._filter;
+        var i, j, label, tmp, columns, col, _f=this._filter;
 // special case for reqfilter (map to 'requests') and filter (map to 'data_items')
         _f.request = [];
         if ( state.reqfilter ) { state.request = state.reqfilter; }
@@ -899,19 +912,21 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( typeof(state.col) != 'object'  ) {
             state.col = [ state.col ];
           }
-          for (j in columns) {
-            columns[j]._default = false;
+          for (label in columns) {
+            columns[label].show = false;
           }
           for ( i in state.col ) {
-            label = state.col[i];
-            label_lc = label.toLowerCase().replace(/_/g,' ');
-            for (j in columns) {
-              col = columns[j];
-              if ( col.label == label || col.label.toLowerCase() == label_lc ) {
-                col._default = true;
+            j = state.col[i].toLowerCase().replace(/_/g,' ');
+            for (label in columns) {
+              col = columns[label];
+              if ( j == col.label.toLowerCase() ) {
+                col.show = true;
                 continue;
               }
             }
+          }
+          for (label in columns) {
+            _sbx.notify(obj.id,'CBox-set-columns',label,columns[label].show);
           }
         }
 
@@ -1019,8 +1034,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       buildOptionsTabview: function() {
-        var ctl=this.ctl, mb=dom.main_block, form, el, elBlur, menu, button, _default, _filter=this._filter,
-            opts=ctl.options, tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=dom.apply;
+        var ctl=this.ctl, opts=ctl.options, mb=dom.main_block, form, el, elBlur, menu, button, _default, _filter=this._filter,
+            tab, tabView, SelectAll, DeselectAll, Reset, Apply, apply=dom.apply, columns=this.meta.showColumns, label, i, tmp;
         if ( opts.tabview ) { return; }
         form = document.createElement('form');
         form.id   = 'data-subscriptions-filter';
@@ -1199,7 +1214,15 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         NUtil.makeResizable('phedex-data-subscriptions-nodepanel-wrapper','phedex-nodepanel',{maxWidth:1000, minWidth:100});
 
 // for the Columns tab...
+        for ( i in columns ) {
+          columns[i].show = columns[i]._default;
+        }
         this.columnPanel = NUtil.CBoxPanel( this, Dom.get('phedex-columnpanel'), { items:this.meta.showColumns, name:'columns' } );
+        tmp={};
+        for (i in columns) {
+          tmp[columns[i].label] = columns[i];
+        }
+        this.meta.showColumns = tmp;
       },
       filterButton: function(el,menu,_default) {
         var id=PxU.Sequence(), field, Field, i, index;
