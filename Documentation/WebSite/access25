@@ -2018,8 +2018,7 @@ our $TEMPLATE_DEFAULT = <<'END_OF_TEMPLATE';
   <meta name="PhEDEx-tag" contents="PhEDEx-web @VERSION@" />
   @REFRESH@
 
-<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble w
-hen css files get loaded later.-->
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
   <style type='text/css' id='phedex-body-style'>
     body {
       margin:           0;
@@ -2127,6 +2126,8 @@ function select_all(form_id, name, value) {
   Rounded("div.toc", "top", "transparent", "#e4f1db");
   // Rounded("div.menuopt li", "top", "transparent", "#e4f1db");
 '>
+<iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+<input id="yui-history-field" type="hidden" style='visibility:hidden'>
 <div id="page">
 <div id="header">
  <!-- Logo and page title -->
@@ -2996,6 +2997,36 @@ sub output
 1;
 
 ######################################################################
+package Web25::Error;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard);
+import Web25::Common;
+our $INDEX = { LIST => 999, ORDER => 999, NOLOGIN => 1, TITLE => "Error" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+sub output
+{
+  my ($self) = @_;
+
+  no strict "refs";
+  print { $$self{CONTENT} }
+    "<center><div classe˙='alert'>",
+    $self->{ERROR_MSG},
+    "</div></center>";
+}
+
+1;
+
+######################################################################
 package Web25::Info::Main;
 use strict; use warnings;
 use base "Web25::Page";
@@ -3210,7 +3241,7 @@ sub formatClientData
 sub getRequestData
 {
     my ($self, $rid) = @_;
-    $$self{DBH}->{LongReadLen} = 10_000;
+    $$self{DBH}->{LongReadLen} = 100_000;
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $data = {};
@@ -3273,7 +3304,7 @@ sub getRequestData
 	     where rd.request = :request
 	 }, ':request' => $rid)->fetchrow_hashref();
     }
-				
+
     my $sql = qq{
 	select 'DATASET' lvl, rds.name, ds.id, nvl(sum(b.files),0) files, nvl(sum(b.bytes),0) bytes
 	  from t_req_dataset rds left join t_dps_dataset ds on ds.id = rds.dataset_id
@@ -6455,7 +6486,6 @@ sub output
 }
 
 1;
-
 ######################################################################
 package Web25::Activity::ErrorInfo;
 use strict; use warnings;
@@ -7482,7 +7512,7 @@ sub validate
 	 spec  => 
 	 {
 	     # Params for Data::Replicas
-	     node         => { allowing => [(map { $$_{ID} } @{$$self{NODE_LIST}})],  multiple => 1 },
+	     node         => { using => 'node',  multiple => 1 },
 	     dcolumn      => { allowing => $$self{DCOLUMN_NAMES}, multiple => 1 },
 	     rcolumn      => { allowing => $$self{RCOLUMN_NAMES}, multiple => 1 },
 	     scolumn      => { allowing => $$self{SCOLUMN_NAMES}, multiple => 1 },
@@ -7492,17 +7522,19 @@ sub validate
 	     dexp         => { using => 'pos_int', multiple => 1 },
 	     bexp         => { using => 'pos_int', multiple => 1 },
 	     filter       => { using => 'regex' },
-	     col          => { regex => '^[A-Z_]+$', multiple => 1 },
+	     col          => { regex => '^[A-Za-z_ ]+$', multiple => 1 },
 
 	     # params for Data::Subscriptions
 	     subsaction   => { allowing => [qw(suspend unsuspend priorityhi prioritymd prioritylo groupchange)]},
 	     reqfilter    => { using => 'pos_int_list' },
   	     priority     => { allowing => [qw(any high normal low)], default => 'any' },
- 	     suspended    => { allowing => [qw(any active suspended)], default => 'any' },
- 	     custodial    => { allowing => [qw(any y n)], default => 'any' },
+ 	     suspended    => { allowing => [qw(any y n active suspended)], default => 'any' },
+ 	     custodial    => { allowing => [qw(any y n custodial non-custodial)], default => 'any' },
+ 	     complete     => { allowing => [qw(any y n complete incomplete)], default => 'any' },
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
+	     create_since => { regex => '^-?[0-9]+$' },
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
@@ -7519,12 +7551,24 @@ sub validate
       if ( $params{$_} ) {
         $params{$_} = unescape($params{$_});
         if ( $params{$_} ne '.*' &&
-             $params{$_} =~ m%;% ) {
+             $params{$_} !~ m%!?[_,A-Z,a-z,0-9, .*()|]% ) {
           die("The $_ parameter (foo) to bar did not pass");
         }
       }
     }
-    my $fileid     = $params{fileid};
+    my $nodes_allowed;
+    foreach ( @{$self->{NODE_LIST}} ) {
+      $nodes_allowed->{$_->{ID}} = $nodes_allowed->{$_->{NAME}} = 1;
+    }
+    if ( $params{node} ) {
+      if ( ref($params{node}) eq 'ARRAY' ) {
+        foreach ( @{$params{node}} ) {
+          $nodes_allowed->{$_} or die("The $_ parameter (foo) to bar did not pass");
+        }
+      } else {
+        $nodes_allowed->{$params{node}} or die("The $params{node} parameter (foo) to bar did not pass");
+      }
+    }
 
   return $$self{PARAMS} = \%params;
 }
@@ -7934,7 +7978,7 @@ sub output_page
   my ($self) = @_;
 
   my (@admin_auth,%admin_opts,%admin_grps);
-my $TW = 1;
+my $TW = 0;
 if ( $TW ) { # TW
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
@@ -7977,7 +8021,6 @@ if ( $TW ) { # TW
   }
 
   print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
-
   my $q =$self->data_subscriptions();
   my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
 		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
@@ -8272,13 +8315,15 @@ sub update_subscriptions
 	    my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
 	    my ($before,$after);
 	    foreach my $rr ( @{$r} ) {
-	      if ( $rr->{LEVEL} eq lc $level ) {
+	      if ( uc $rr->{LEVEL} eq uc $level ) {
 	        $after = $rr->{$action->{var}};
+                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($after) ) { $after = 'undef'; }
 	      }
 	    }
 	    foreach my $pp ( @{$p} ) {
-	      if ( $pp->{LEVEL} eq lc $level ) {
+	      if ( uc $pp->{LEVEL} eq uc $level ) {
 	        $before = $pp->{$action->{var}};
+                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($before) ) { $before = 'undef'; }
 	      }
 	    }
 	    if ( $before ne $after ) { $n_changed++; }
@@ -8757,9 +8802,6 @@ sub create_injection
 	return;
     }
 
-    foreach (\$from, \$to) {
-	$$_ =~ s/^T._//;  $$_ =~ s/_(Buffer|Disk|MSS)$//;
-    }
     my $dest_ds_name = "/PhEDEx_Debug/LoadTest07_$from/$to";
     my $dest_ds;
     my @rv;
@@ -9465,14 +9507,43 @@ sub runme
   my $path = path_info() || "/prod";
   my ($db, $cgipage) = ("prod", "Info::Main");
   $db = $1 if ($path =~ m!\G/([^/]+)!g);
+  my $newDB;
+  if ( $db  && not exists $config->{INSTANCES}{$db}) {
+    my $map = {
+      testbed	=> 'tbedi',
+      testbed2	=> 'tbedii',
+      dev	=> 'test',
+      tbedi	=> 'testbed',
+      tbedii	=> 'testbed2',
+      test	=> 'dev',
+    };
+    if ( $newDB = $map->{lc $db} ) {
+      $config->{INSTANCES}{$db} = $config->{INSTANCES}{$newDB};
+      $config->{INSTANCES}{$db}{ID} = $db;
+    }
+  }
   $cgipage = $1 if ($path =~ m!\G/([^/]+)!g);
 
-  # Grab the database name from the path info
-  $db = "prod" if ! $db || ! exists $$config{INSTANCES}{$db};
-  
   # Get the scope object for the page.
   no strict "refs";
   my $type = "Web25::Info::Main";
+
+  # Grab the database name from the path info
+  my $content;
+  if ( ! exists $$config{INSTANCES}{$db} ) {
+      my $feedbackurl =
+        "mailto:$config->{FEEDBACK_MAIL}?subject="
+        . "PhEDEx%20web%20(SiteDB)%20is%20inaccessible or unknown";
+      $content =
+	  "<center><div class='alert'>\n".
+	  " <p>The PhEDEx instance you asked for is not known to this installation.<br />".
+	  " Please choose another instance, try again at another time, or if the problem".
+	  " persists and this is an instance you should be using,".
+	  " please <a href='$feedbackurl'>notify the administrators</a>.".
+	  "</p>".
+          "</div></center>\n";
+      $cgipage = 'Error';
+  }
   $type = "Web25::$cgipage"
     if ($cgipage =~ /^[A-Za-z0-9]+(::[A-Za-z0-9]+)*/
 	&& exists ${"Web25::$cgipage\::"}{INDEX}
@@ -9481,6 +9552,7 @@ sub runme
   # Instantiate the page object and remember it as a CGI parameter
   # so we can use it in generating links to other pages.
   my $page = &{"$type\::new"}($type, CONFIG => $config, DBID => $db);
+  if ( $content ) { $page->{ERROR_MSG} = $content; }
   $type =~ s!^Web25::!!;
   param('page', $type);
   
