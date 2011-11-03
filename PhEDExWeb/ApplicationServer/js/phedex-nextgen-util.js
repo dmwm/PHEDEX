@@ -86,22 +86,32 @@ PHEDEX.Nextgen.Util = function() {
           elList, item,
           selfHandler = function(o) {
         return function(ev,arr) {
-          var action = arr[0],
-              value  = arr[1], i;
+          var action=arr[0], elList=panel.elList, el, label, i;
           switch (action) {
             case 'SelectAll-'+name: {
-              for ( i in panel.elList ) { panel.elList[i].checked = true; }
+              for ( i in elList ) { elList[i].checked = true; }
               _sbx.notify(obj.id,'DoneSelectAll-'+name);
               break;
             }
             case 'DeselectAll-'+name: {
-              for ( i in panel.elList ) { panel.elList[i].checked = false; }
+              for ( i in elList ) { elList[i].checked = false; }
               _sbx.notify(obj.id,'DoneDeselectAll-'+name);
               break;
             }
             case 'Reset-'+name: {
-              for ( i in panel.elList ) { panel.elList[i].checked = panel.items[i]._default; }
+              for ( i in elList ) { elList[i].checked = panel.items[i]._default; }
               _sbx.notify(obj.id,'DoneReset-'+name);
+              break;
+            }
+            case 'CBox-set-'+name: {
+              label = arr[1];
+              for ( i in elList ) {
+                el = elList[i];
+                if ( el.name == label ) {
+                  el.checked = arr[2];
+                  break;
+                }
+              }
               break;
             }
             default: {
