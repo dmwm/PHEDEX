@@ -2484,8 +2484,6 @@ sub generate
 			 ? (" class='selected'><span>" . &escapeHTML(${$$_}{TITLE}) . "</span>")
 			 : (">" . &toclink($self, $_)))
 		      . "</li>\n" } @toc) .
-       "<li id='nextgen-link'><a title='Enter the next-gen website' href='https://localhost/phedex/datasvc/app'>Next-gen website</a></li>" .
-       "<li id='phedex-permalink-container' style='display:none'><a id='phedex-permalink' title='Permalink to this page\'s state' href='#'>Permalink</a></li>" .
        " </ul>\n" .
        "</div>" : ""),
     'PAGESELECTOR' =>
@@ -2922,14 +2920,8 @@ sub output
     $signout_url .= ($signout_url =~ /\?.+$/ ? '' : '?').($signout_url =~ /\?[^=]+=.+$/ ? '&' : '')."SecModLogout=1";
 
     my $msg = param('msg');
-    if ($msg !~ /^([\w\d_:\. ]*)$/) { die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n"; } # allowed characters in a message
+    if ($msg =~ /^([\w\d_:\. ]*)/) { $msg = $1; } # allowed characters in a message
 
-    if ( $msg ne 'reauthentication' &&
-         $msg ne 'invalid cookie' &&
-         $msg ne 'password authentication required' &&
-         $msg ne 'Client certificate rejected by web server' ) {
-         die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n";
-    }
     if ($msg eq 'reauthentication') {
 	my $here = "<a href='$signout_url'>here</a>";
 	$msg = "You were authenticated via password, but your session ".
