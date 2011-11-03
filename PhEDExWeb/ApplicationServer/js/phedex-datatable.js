@@ -229,10 +229,9 @@ PHEDEX.DataTable = function (sandbox, string) {
             },
 
             /**
-            * Toggle visibility for a given column
+            * Toggle visibility for given columns
             * @method setColumnVisibility
-            * @param key {string} key for the column to hide/show
-            * @param visible {boolean} state if the column is to be visible
+            * @param columns { array} an array of {label:string, show:bool} objects that determine if the 'label' column is to be shown.
             */
             setColumnVisibility: function(columns) {
               var hide=this.meta.hide, i, column, show=[], nHide=0;
