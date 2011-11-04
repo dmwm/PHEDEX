@@ -11,20 +11,25 @@ our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
 our @writeable_files = qw / LOGFILE PIDFILE /;
 
-our @all_dropbox = qw / NODAEMON ME NEXTDIR STARTTIME NODES IGNORE_NODES ACCEPT_NODES BAD JUNK DROPDIR DBCONFIG INBOX WORKDIR OUTDIR LOGFILE PIDFILE /; #/ needed parameters from calling class 
-
 sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
   my $self = {};
+  bless $self, $class;
 
-# Map requiered parameters from calling Class
-  map { $self->{$_} = ${$h{_AC}}{$_} } @all_dropbox;
-  $self->{_AC} = $h{_AC};
+  $self->{_AL} = $h{_AL};
 
-  return bless $self, $class;
+#/Before basic validation, we need to derive a few other parameters.
+  $self->{_AL}->{DROPDIR} .= '/' unless $self->{_AL}->{DROPDIR} =~ m%\/$%;
+  $self->{_AL}->{INBOX}    = $self->{_AL}->{DROPDIR} . 'inbox'; 
+  $self->{_AL}->{OUTDIR}   = $self->{_AL}->{DROPDIR} . 'outbox';
+  $self->{_AL}->{PIDFILE}  = $self->{_AL}->{DROPDIR} . 'pid';
+  $self->{_AL}->{STOPFLAG} = $self->{_AL}->{DROPDIR} . 'stop';
+  $self->{_AL}->{WORKDIR}  = $self->{_AL}->{DROPDIR} . 'work';
+
+  return $self;
 }
 
 # this workaround is ugly but allow us NOT rewrite everything
@@ -35,9 +40,10 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
   return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
 
-# if $attr exits, catch the reference to it
-  if ( $self->{_AC}->can($attr) ) { $self->{_AC}->$attr(@_); } 
-  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for Dropbox"); }     
+  # if $attr exits, catch the reference to it, note we will call something
+  # only if belogs to the parent calling class.
+  if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
+  else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::Dropbox"); }     
 }
 
 sub isInvalid
@@ -51,7 +57,7 @@ sub isInvalid
   my $errors = 0;
   foreach ( @{$h{REQUIRED}} )
   {
-   next if defined $self->{$_};
+   next if defined $self->{_AL}->{$_};
     $errors++;
     $self->Warn("Required parameter \"$_\" not defined!\n");
   }
@@ -59,7 +65,7 @@ sub isInvalid
 # Some parameters must be writeable directories
   foreach my $key ( @{$h{WRITEABLE_DIRS}} )
   {
-    $_ = $self->{$key};
+    $_ = $self->{_AL}->{$key};
     while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
 
 #   If the directory doesn't exist, attempt to create it...
@@ -73,7 +79,7 @@ sub isInvalid
 # directory must be writeable. Non-definition is tacitly allowed
   foreach my $key ( @{$h{WRITEABLE_FILES}} )
   {
-    if ( defined($_=$self->{$key}) )
+    if ( defined($_=$self->{_AL}->{$key}) )
     {
       while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
       if ( -e $_ )
@@ -98,7 +104,7 @@ sub isInvalid
     }
   }
 
-  if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
+  if ( !defined($self->{_AL}->{LOGFILE}) && !$self->{_AL}->{NODAEMON} )
   {
 #   LOGFILE not defined is fatal unless NODAEMON is set!
     $self->Fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
@@ -107,50 +113,83 @@ sub isInvalid
   return $errors;
 }
 
+# Make a basic cleanup
+sub cleanDropbox
+{
+    my $self = shift;
+    my $me = shift;
+ 
+    foreach my $dir (@{$self->{_AL}->{NEXTDIR}}) {
+        if ($dir =~ /^([a-z]+):/) {
+            die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
+        } else {
+            die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
+        }
+    }
+
+    if (-f $self->{_AL}->{PIDFILE})
+    {
+        if (my $oldpid = &input($self->{_AL}->{PIDFILE}))
+        {
+            chomp ($oldpid);
+            die "$me: pid $oldpid already running in $self->{_AL}->{DROPDIR}\n"
+                if kill(0, $oldpid);
+            print "$me: pid $oldpid dead in $self->{_AL}->{DROPDIR}, overwriting\n";
+            unlink ($self->{_AL}->{PIDFILE});
+        }
+    }
+
+    if (-f $self->{_AL}->{STOPFLAG})
+    {
+        print "$me: removing old stop flag $self->{_AL}->{STOPFLAG}\n";
+        unlink ($self->{_AL}->{STOPFLAG});
+    }
+
+}
 
 # Look for pending drops in inbox.
 sub readInbox
 {
     my ($self, $get_all) = @_;
 
-    die "$self->{ME}: fatal error: no inbox directory given\n" if ! $self->{INBOX};
+    die "$self->{_AL}->{ME}: fatal error: no inbox directory given\n" if ! $self->{_AL}->{INBOX};
 
     # Scan the inbox.  If this fails, file an alert but keep going,
     # the problem might be transient (just sleep for a while).
     my @files = ();
-    $self->Alert("cannot list inbox(".$self->{INBOX}."): $!")
-	if (! getdir($self->{INBOX}, \@files));
+    $self->Alert("cannot list inbox(".$self->{_AL}->{INBOX}."): $!")
+	if (! getdir($self->{_AL}->{INBOX}, \@files));
 
     # Check for junk
     foreach my $f (@files)
     {
 	# Make sure we like it.
-	if (! -d "$self->{INBOX}/$f")
+	if (! -d "$self->{_AL}->{INBOX}/$f")
 	{
-	    $self->Alert("junk ignored in inbox: $f") if ! exists $self->{JUNK}{$f};
-	    $self->{JUNK}{$f} = 1;
+	    $self->Alert("junk ignored in inbox: $f") if ! exists $self->{_AL}->{JUNK}{$f};
+	    $self->{_AL}->{JUNK}{$f} = 1;
         }
 	else
 	{
-	    delete $self->{JUNK}{$f};
+	    delete $self->{_AL}->{JUNK}{$f};
         }
     }
 
     # Return those that are ready, unless we want all;
-    return $get_all ? @files : grep(-f "$self->{INBOX}/$_/go", @files);
+    return $get_all ? @files : grep(-f "$self->{_AL}->{INBOX}/$_/go", @files);
 }
 
 # Look for pending tasks in the work directory.
 sub readPending
 {
     my $self = shift;
-    die "$self->{ME}: fatal error: no work directory given\n" if ! $self->{WORKDIR};
+    die "$self->{_AL}->{ME}: fatal error: no work directory given\n" if ! $self->{_AL}->{WORKDIR};
 
     # Scan the work directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    $self->Alert("cannot list workdir(".$self->{WORKDIR}."): $!")
-	if (! getdir($self->{WORKDIR}, \@files));
+    $self->Alert("cannot list workdir(".$self->{_AL}->{WORKDIR}."): $!")
+	if (! getdir($self->{_AL}->{WORKDIR}, \@files));
 
     return @files;
 }
@@ -159,13 +198,13 @@ sub readPending
 sub readOutbox
 {
     my $self = shift;
-    die "$self->{ME}: fatal error: no outbox directory given\n" if ! $self->{OUTDIR};
+    die "$self->{_AL}->{ME}: fatal error: no outbox directory given\n" if ! $self->{_AL}->{OUTDIR};
 
     # Scan the outbox directory.  If this fails, file an alert but keep
     # going, the problem might be transient.
     my @files = ();
-    $self->Alert("cannot list outdir(".$self->{OUTDIR}."): $!")
-	if (! getdir ($self->{OUTDIR}, \@files));
+    $self->Alert("cannot list outdir(".$self->{_AL}->{OUTDIR}."): $!")
+	if (! getdir ($self->{_AL}->{OUTDIR}, \@files));
 
     return @files;
 }
@@ -174,7 +213,7 @@ sub readOutbox
 sub renameDrop
 {
     my ($self, $drop, $newname) = @_;
-    &mv ("$self->{WORKDIR}/$drop", "$self->{WORKDIR}/$newname")
+    &mv ("$self->{_AL}->{WORKDIR}/$drop", "$self->{_AL}->{WORKDIR}/$newname")
         || do { $self->Alert ("can't rename $drop to $newname"); return 0; };
     return 1;
 }
@@ -240,63 +279,63 @@ sub relayDrop
     my ($self, $drop) = @_;
 
     # Move to output queue if not done yet
-    if (-d "$self->{WORKDIR}/$drop")
+    if (-d "$self->{_AL}->{WORKDIR}/$drop")
     {
-        &mv ("$self->{WORKDIR}/$drop", "$self->{OUTDIR}/$drop") || return;
+        &mv ("$self->{_AL}->{WORKDIR}/$drop", "$self->{_AL}->{OUTDIR}/$drop") || return;
     }
 
     # Check if we've already successfully copied this one downstream.
     # If so, just nuke it; manual recovery is required to kick the
     # downstream ones forward.
-    if (-f "$self->{OUTDIR}/$drop/gone") {
-	&rmtree ("$self->{OUTDIR}/$drop");
+    if (-f "$self->{_AL}->{OUTDIR}/$drop/gone") {
+	&rmtree ("$self->{_AL}->{OUTDIR}/$drop");
 	return;
     }
 
     # Clean up our markers
-    &rmtree("$self->{OUTDIR}/$drop/go");
-    &rmtree("$self->{OUTDIR}/$drop/gone");
-    &rmtree("$self->{OUTDIR}/$drop/bad");
-    &rmtree("$self->{OUTDIR}/$drop/done");
+    &rmtree("$self->{_AL}->{OUTDIR}/$drop/go");
+    &rmtree("$self->{_AL}->{OUTDIR}/$drop/gone");
+    &rmtree("$self->{_AL}->{OUTDIR}/$drop/bad");
+    &rmtree("$self->{_AL}->{OUTDIR}/$drop/done");
 
     # Copy to the next ones.  We want to be careful with the ordering
     # here -- we want to copy the directory exactly once, ever.  So
     # execute in an order that is safe even if we get interrupted.
-    if (scalar @{$self->{NEXTDIR}} == 0)
+    if (scalar @{$self->{_AL}->{NEXTDIR}} == 0)
     {
-	&rmtree ("$self->{OUTDIR}/$drop");
+	&rmtree ("$self->{_AL}->{OUTDIR}/$drop");
     }
-    elsif (scalar @{$self->{NEXTDIR}} == 1 && $self->{NEXTDIR}[0] !~ /^([a-z]+):/)
+    elsif (scalar @{$self->{_AL}->{NEXTDIR}} == 1 && $self->{_Al}->{NEXTDIR}[0] !~ /^([a-z]+):/)
     {
-	-d "$self->{NEXTDIR}[0]/inbox"
-	    || mkdir "$self->{NEXTDIR}[0]/inbox"
-	    || -d "$self->{NEXTDIR}[0]/inbox"
-	    || return $self->Alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
+	-d "$self->{_AL}->{NEXTDIR}[0]/inbox"
+	    || mkdir "$self->{_AL}->{NEXTDIR}[0]/inbox"
+	    || -d "$self->{_AL}->{NEXTDIR}[0]/inbox"
+	    || return $self->Alert("cannot create $self->{_AL}->{NEXTDIR}[0]/inbox: $!");
 
 	# Make sure the destination doesn't exist yet.  If it does but
 	# looks like a failed copy, nuke it; otherwise complain and give up.
-	if (-d "$self->{NEXTDIR}[0]/inbox/$drop"
-	    && -f "$self->{NEXTDIR}[0]/inbox/$drop/go-pending"
-	    && ! -f "$self->{NEXTDIR}[0]/inbox/$drop/go") {
-	    &rmtree ("$self->{NEXTDIR}[0]/inbox/$drop")
-        } elsif (-d "$self->{NEXTDIR}[0]/inbox/$drop") {
-	    return $self->Alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
+	if (-d "$self->{_AL}->{NEXTDIR}[0]/inbox/$drop"
+	    && -f "$self->{_AL}->{NEXTDIR}[0]/inbox/$drop/go-pending"
+	    && ! -f "$self->{_AL}->{NEXTDIR}[0]/inbox/$drop/go") {
+	    &rmtree ("$self->{_AL}->{NEXTDIR}[0]/inbox/$drop")
+        } elsif (-d "$self->{_AL}->{NEXTDIR}[0]/inbox/$drop") {
+	    return $self->Alert("$self->{_AL}->{NEXTDIR}[0]/inbox/$drop already exists!");
 	}
 
-	&mv ("$self->{OUTDIR}/$drop", "$self->{NEXTDIR}[0]/inbox/$drop")
-	    || return $self->Alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
-	&touch ("$self->{NEXTDIR}[0]/inbox/$drop/go")
-	    || $self->Alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
+	&mv ("$self->{_AL}->{OUTDIR}/$drop", "$self->{_AL}->{NEXTDIR}[0]/inbox/$drop")
+	    || return $self->Alert("failed to copy $drop to $self->{_AL}->{NEXTDIR}[0]/$drop: $!");
+	&touch ("$self->{_AL}->{NEXTDIR}[0]/inbox/$drop/go")
+	    || $self->Alert ("failed to make $self->{_AL}->{NEXTDIR}[0]/inbox/$drop go");
     }
     else
     {
-        foreach my $dir (@{$self->{NEXTDIR}})
+        foreach my $dir (@{$self->{_AL}->{NEXTDIR}})
         {
 	    if ($dir =~ /^scp:/) {
-		$self->scpBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->scpBridgeDrop ("$self->{_AL}->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    } elsif ($dir =~ /^rfio:/) {
-		$self->rfioBridgeDrop ("$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+		$self->rfioBridgeDrop ("$self->{_AL}->{OUTDIR}/$drop", "$dir/inbox/$drop");
 		next;
 	    }
 
@@ -317,7 +356,7 @@ sub relayDrop
 	    }
 
 	    # Copy to the next stage, preserving everything
-	    my $status = &runcmd  ("cp", "-Rp", "$self->{OUTDIR}/$drop", "$dir/inbox/$drop");
+	    my $status = &runcmd  ("cp", "-Rp", "$self->{_AL}->{OUTDIR}/$drop", "$dir/inbox/$drop");
 	    return $self->Alert ("can't copy $drop to $dir/inbox: $status") if $status;
 
 	    # Mark it almost ready to go
@@ -326,19 +365,19 @@ sub relayDrop
 
         # Now mark myself gone downstream so we won't try copying again
         # (FIXME: error checking?)
-        &touch ("$self->{OUTDIR}/$drop/gone");
+        &touch ("$self->{_AL}->{OUTDIR}/$drop/gone");
 
         # All downstream versions copied safely now.  Now really let them
         # go onwards.  If this fails, it's not fatal because someone can
         # still manually fix them to be in ready state.  We haven't lost
         # anything.  (FIXME: avoidable?)
-        foreach my $dir (@{$self->{NEXTDIR}}) {
+        foreach my $dir (@{$self->{_AL}->{NEXTDIR}}) {
 	    next if $dir =~ /^([a-z]+):/; # FIXME: also handle here?
 	    &mv("$dir/inbox/$drop/go-pending", "$dir/inbox/$drop/go");
         }
 
         # Now junk it here
-        &rmtree("$self->{OUTDIR}/$drop");
+        &rmtree("$self->{_AL}->{OUTDIR}/$drop");
     }
 }
 
@@ -348,26 +387,26 @@ sub inspectDrop
 {
     my ($self, $drop) = @_;
 
-    if (! -d "$self->{WORKDIR}/$drop")
+    if (! -d "$self->{_AL}->{WORKDIR}/$drop")
     {
 	$self->Alert("$drop is not a pending task");
 	return 0;
     }
 
-    if (-f "$self->{WORKDIR}/$drop/bad")
+    if (-f "$self->{_AL}->{WORKDIR}/$drop/bad")
     {
-	$self->Alert("$drop marked bad, skipping") if ! exists $self->{BAD}{$drop};
-	$self->{BAD}{$drop} = 1;
+	$self->Alert("$drop marked bad, skipping") if ! exists $self->{_AL}->{BAD}{$drop};
+	$self->{_AL}->{BAD}{$drop} = 1;
 	return 0;
     }
 
-    if (! -f "$self->{WORKDIR}/$drop/go")
+    if (! -f "$self->{_AL}->{WORKDIR}/$drop/go")
     {
 	$self->Alert("$drop is incomplete!");
 	return 0;
     }
 
-    if (-f "$self->{WORKDIR}/$drop/done")
+    if (-f "$self->{_AL}->{WORKDIR}/$drop/done")
     {
 	&relayDrop ($self, $drop);
 	return 0;
@@ -380,8 +419,8 @@ sub inspectDrop
 sub markBad
 {
     my ($self, $drop) = @_;
-    &touch("$self->{WORKDIR}/$drop/bad");
-    $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
+    &touch("$self->{_AL}->{WORKDIR}/$drop/bad");
+    $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{_AL}->{STARTTIME})]} failed");
 }
 
 1;

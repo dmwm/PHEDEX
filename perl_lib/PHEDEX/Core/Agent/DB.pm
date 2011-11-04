@@ -6,20 +6,17 @@ use POSIX;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 
-our @all_db = qw / MYNODE DBCONFIG SHARED_DBH DBH DBH_AGENT_IDENTIFIED DBH_ID_HOST DROPDIR ID_MYNODE ID_AGENT DBH_AGENT_UPDATE ME LABEL INBOX WORKDIR OUTDIR NODES NODES_ID IGNORE_NODES_IDS IGNORE_NODES ACCEPT_NODES ACCEPT_NODES_IDS /; #/ needed parameter from calling class
-
 sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
   my $self = {};
+  bless $self, $class;
 
-# Map requiered parameters from calling Class
-  map { $self->{$_} = ${$h{_AC}}{$_} } @all_db;
-  $self->{_AC} = $h{_AC};
+  $self->{_AL} = $h{_AL};
   
-  return bless $self, $class;
+  return $self;
 }   
     
 # this workaround is ugly but allow us NOT rewrite everything
@@ -30,9 +27,10 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
   return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
 
-# if $attr exits, catch the reference to it
-  if ( $self->{_AC}->can($attr) ) { $self->{_AC}->$attr(@_); } 
-  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for DB"); }
+  # if $attr exits, catch the reference to it, note we will call something
+  # only if belogs to the parent calling class.
+  if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
+  else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::DB"); }
 }   
 
 # Connect to database and identify self
@@ -41,20 +39,18 @@ sub connectAgent
     my ($self, $identify) = @_;
     my $dbh;
 
-    $dbh = &connectToDatabase($self);
+    $dbh = &connectToDatabase($self->{_AL});
 
     # Make myself known if I have a name.  If this fails, the database
     # is probably so wedged that we can't do anything useful, so bail
     # out.  The caller is in charge of committing or rolling back on
     # any errors raised.
     $self->checkNodes();
-    if ($self->{MYNODE}) {
+    if ($self->{_AL}->{MYNODE}) {
 	$self->updateAgentStatus();
 	$self->identifyAgent();
 	$self->checkAgentMessages();
     }
-    map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
-    
     return $dbh;
 }
 
@@ -63,8 +59,8 @@ sub connectAgent
 sub disconnectAgent
 {
     my ($self, $force) = @_;
-    return if ($self->{SHARED_DBH});
-    &disconnectFromDatabase($self, $self->{DBH}, $force);
+    return if ($self->{_AL}->{SHARED_DBH});
+    &disconnectFromDatabase($self, $self->{_AL}->{DBH}, $force);
 }
 
 # For use after eval { } protected DB-interaction code.  Logs the
@@ -78,7 +74,7 @@ sub rollbackOnError
     chomp ($err);
     $self->Alert($err);
 
-    eval { $$self{DBH}->rollback() } if $$self{DBH};
+    eval { $self->{_AL}->{DBH}->rollback() } if $self->{_AL}->{DBH};
     return 1;
 }
 
@@ -87,19 +83,19 @@ sub checkNodes
 {
     my ($self) = @_;
 
-    my $q = &dbprep($self->{DBH}, qq{
+    my $q = &dbprep($self->{_AL}->{DBH}, qq{
         select count(*) from t_adm_node where name like :pat});
 
-    if ( $self->{MYNODE} )
+    if ( $self->{_AL}->{MYNODE} )
     {
-      &dbbindexec($q, ':pat' => $self->{MYNODE});
-      $self->Fatal("'$self->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
+      &dbbindexec($q, ':pat' => $self->{_AL}->{MYNODE});
+      $self->Fatal("'$self->{_AL}->{MYNODE}' does not match any node known to TMDB, check -node argument\n")
 	unless $q->fetchrow();
     }
 
     my %params = (NODES => '-nodes', ACCEPT_NODES => '-accept', IGNORE_NODES => '-ignore');
     while (my ($param, $arg) = each %params) {
-	foreach my $pat (@{$self->{$param}}) {
+	foreach my $pat (@{$self->{_AL}->{$param}}) {
 	    &dbbindexec($q, ':pat' => $pat);
 	    $self->Fatal("'$pat' does not match any node known to TMDB, check $arg argument\n")
 		unless $q->fetchrow();
@@ -117,7 +113,7 @@ sub checkNodes
 sub identifyAgent
 {
   my ($self) = @_;
-  my $dbh = $self->{DBH};
+  my $dbh = $self->{_AL}->{DBH};
   my $now = &mytimeofday();
 
   # If we have a new database connection, log agent start-up and/or
@@ -134,20 +130,20 @@ sub identifyAgent
           (:now, :reason, :host_name, :user_name, :process_id,
            :working_dir, :state_dir, :message)},
           ":now" => $now,
-          ":reason" => ($self->{DBH_AGENT_IDENTIFIED}{$self->{MYNODE}}
+          ":reason" => ($self->{_AL}->{DBH_AGENT_IDENTIFIED}{$self->{_AL}->{MYNODE}}
           ? "AGENT RECONNECTED" : "AGENT STARTED"),
-          ":host_name" => $self->{DBH_ID_HOST},
+          ":host_name" => $self->{_AL}->{DBH_ID_HOST},
           ":user_name" => scalar getpwuid($<),
           ":process_id" => $$,
           ":working_dir" => &getcwd(),
-          ":state_dir" => $self->{DROPDIR},
+          ":state_dir" => $self->{_AL}->{DROPDIR},
           ":message" => $ident);
     $dbh->{private_phedex_newconn} = 0;
     $dbh->commit();
   }
 
   # Avoid re-identifying ourselves further if already done.
-  return if $self->{DBH_AGENT_IDENTIFIED}{$self->{MYNODE}};
+  return if $self->{_AL}->{DBH_AGENT_IDENTIFIED}{$self->{_AL}->{MYNODE}};
 
   # Get PhEDEx distribution version.
   my $distribution = undef;
@@ -223,15 +219,15 @@ sub identifyAgent
   &dbexec ($dbh, qq{
 	delete from t_agent_version
 	where node = :node and agent = :me},
-	":node" => $self->{ID_MYNODE},
-	":me" => $self->{ID_AGENT});
+	":node" => $self->{_AL}->{ID_MYNODE},
+	":me" => $self->{_AL}->{ID_AGENT});
 
   foreach my $fname (keys %fileinfo)
   {
     &dbbindexec ($stmt,
 		     ":now" => $now,
-		     ":node" => $self->{ID_MYNODE},
-		     ":agent" => $self->{ID_AGENT},
+		     ":node" => $self->{_AL}->{ID_MYNODE},
+		     ":agent" => $self->{_AL}->{ID_AGENT},
 		     ":filename" => $fname,
 		     ":filesize" => $fileinfo{$fname}{SIZE},
 		     ":checksum" => $fileinfo{$fname}{CHECKSUM},
@@ -241,7 +237,7 @@ sub identifyAgent
   }
 
   $dbh->commit ();
-  $self->{DBH_AGENT_IDENTIFIED}{$self->{MYNODE}} = 1;
+  $self->{_AL}->{DBH_AGENT_IDENTIFIED}{$self->{_AL}->{MYNODE}} = 1;
 }
 
 # Update the agent status in the database.  This identifies the
@@ -249,29 +245,29 @@ sub identifyAgent
 sub updateAgentStatus
 {
   my ($self) = @_;
-  my $dbh = $self->{DBH};
+  my $dbh = $self->{_AL}->{DBH};
   my $now = &mytimeofday();
-  return if ($self->{DBH_AGENT_UPDATE}{$self->{MYNODE}} || 0) > $now - 5*60;
+  return if ($self->{_AL}->{DBH_AGENT_UPDATE}{$self->{_AL}->{MYNODE}} || 0) > $now - 5*60;
 
   # Obtain my node id
-  my $me = $self->{ME};
-  ($self->{ID_MYNODE}) = &dbexec($dbh, qq{
+  my $me = $self->{_AL}->{ME};
+  ($self->{_AL}->{ID_MYNODE}) = &dbexec($dbh, qq{
 	select id from t_adm_node where name = :node},
-	":node" => $self->{MYNODE})->fetchrow();
-  $self->Fatal("node $self->{MYNODE} not known to the database\n")
-        if ! defined $self->{ID_MYNODE};
+	":node" => $self->{_AL}->{MYNODE})->fetchrow();
+  $self->Fatal("node $self->{_AL}->{MYNODE} not known to the database\n")
+        if ! defined $self->{_AL}->{ID_MYNODE};
 
   # Check whether agent and agent status rows exist already.
-  ($self->{ID_AGENT}) = &dbexec($dbh, qq{
+  ($self->{_AL}->{ID_AGENT}) = &dbexec($dbh, qq{
 	select id from t_agent where name = :me},
 	":me" => $me)->fetchrow();
   my ($state) = &dbexec($dbh, qq{
 	select state from t_agent_status
 	where node = :node and agent = :agent},
-    	":node" => $self->{ID_MYNODE}, ":agent" => $self->{ID_AGENT})->fetchrow();
+    	":node" => $self->{_AL}->{ID_MYNODE}, ":agent" => $self->{_AL}->{ID_AGENT})->fetchrow();
 
   # Add agent if doesn't exist yet.
-  if (! defined $self->{ID_AGENT})
+  if (! defined $self->{_AL}->{ID_AGENT})
   {
     eval
     {
@@ -281,44 +277,44 @@ sub updateAgentStatus
         ":me" => $me);
     };
     die $@ if $@ && $@ !~ /ORA-00001:/;
-      ($self->{ID_AGENT}) = &dbexec($dbh, qq{
+      ($self->{_AL}->{ID_AGENT}) = &dbexec($dbh, qq{
     select id from t_agent where name = :me},
     ":me" => $me)->fetchrow();
   }
 
   # Add agent status if doesn't exist yet.
   my ($ninbox, $npending, $nreceived, $ndone, $nbad, $noutbox) = (0) x 7;
-  my $dir = $self->{DROPDIR};
+  my $dir = $self->{_AL}->{DROPDIR};
      $dir =~ s|/worker-\d+$||; $dir =~ s|/+$||; $dir =~ s|/[^/]+$||;
-  my $label = $self->{DROPDIR};
+  my $label = $self->{_AL}->{DROPDIR};
      $label =~ s|/worker-\d+$||; $label =~ s|/+$||; $label =~ s|.*/||;
-  if ( defined($self->{LABEL}) )
+  if ( defined($self->{_AL}->{LABEL}) )
   {
-    if ( $label ne $self->{LABEL} )
+    if ( $label ne $self->{_AL}->{LABEL} )
     {
 #      print "Using agent label \"",$self->{LABEL},
 #	    "\" instead of derived label \"$label\"\n";
-      $label = $self->{LABEL};
+      $label = $self->{_AL}->{LABEL};
     }
   }
-  my $wid = ($self->{DROPDIR} =~ /worker-(\d+)$/ ? "W$1" : "M");
-  my $fqdn = $self->{DBH_ID_HOST};
+  my $wid = ($self->{_AL}->{DROPDIR} =~ /worker-(\d+)$/ ? "W$1" : "M");
+  my $fqdn = $self->{_AL}->{DBH_ID_HOST};
   my $pid = $$;
 
-  my $dirtmp = $self->{INBOX};
+  my $dirtmp = $self->{_AL}->{INBOX};
   foreach my $d (<$dirtmp/*>) {
     $ninbox++;
     $nreceived++ if -f "$d/go";
   }
 
-  $dirtmp = $self->{WORKDIR};
+  $dirtmp = $self->{_AL}->{WORKDIR};
   foreach my $d (<$dirtmp/*>) {
     $npending++;
     $nbad++ if -f "$d/bad";
     $ndone++ if -f "$d/done";
   }
 
-  $dirtmp = $self->{OUTDIR};
+  $dirtmp = $self->{_AL}->{OUTDIR};
   foreach my $d (<$dirtmp/*>) {
     $noutbox++;
   }
@@ -355,8 +351,8 @@ sub updateAgentStatus
 	  values (i.node, i.agent, i.label, i.worker_id, i.host_name, i.directory_path,
 		  i.process_id, i.state, i.queue_pending, i.queue_received, i.queue_work,
 		  i.queue_completed, i.queue_bad, i.queue_outgoing, i.time_update)},
-       ":node"       => $self->{ID_MYNODE},
-       ":agent"      => $self->{ID_AGENT},
+       ":node"       => $self->{_AL}->{ID_MYNODE},
+       ":agent"      => $self->{_AL}->{ID_AGENT},
        ":label"      => $label,
        ":wid"        => $wid,
        ":fqdn"       => $fqdn,
@@ -371,7 +367,7 @@ sub updateAgentStatus
        ":now"        => $now);
 
   $dbh->commit();
-  $self->{DBH_AGENT_UPDATE}{$self->{MYNODE}} = $now;
+  $self->{_AL}->{DBH_AGENT_UPDATE}{$self->{_AL}->{MYNODE}} = $now;
 }
 
 # Now look for messages to me.  There may be many, so handle
@@ -396,7 +392,7 @@ sub updateAgentStatus
 sub checkAgentMessages
 {
   my ($self) = @_;
-  my $dbh = $self->{DBH};
+  my $dbh = $self->{_AL}->{DBH};
 
   while (1)
   {
@@ -407,8 +403,8 @@ sub checkAgentMessages
 	    from t_agent_message
 	    where node = :node and agent = :me
 	    order by time_apply asc},
-	    ":node" => $self->{ID_MYNODE},
-	    ":me" => $self->{ID_AGENT});
+	    ":node" => $self->{_AL}->{ID_MYNODE},
+	    ":me" => $self->{_AL}->{ID_AGENT});
     while (my ($t, $msg) = $messages->fetchrow())
     {
       # If it's a message for a future time, stop processing.
@@ -452,8 +448,8 @@ sub checkAgentMessages
 	delete from t_agent_message
 	where node = :node and agent = :me
 	  and (time_apply < :t or (time_apply = :t and message = :msg))},
-      	":node" => $self->{ID_MYNODE},
-	":me" => $self->{ID_AGENT},
+      	":node" => $self->{_AL}->{ID_MYNODE},
+	":me" => $self->{_AL}->{ID_AGENT},
 	":t" => $t,
 	":msg" => $msg)
         if ! $keep;
@@ -493,7 +489,7 @@ sub checkAgentMessages
 sub expandNodes
 {
   my ($self, $require) = @_;
-  my $dbh = $self->{DBH};
+  my $dbh = $self->{_AL}->{DBH};
   my $now = &mytimeofday();
   my @result;
 
@@ -514,7 +510,7 @@ sub expandNodes
 	if @filters;
 
   # Now expand to the list of nodes
-  foreach my $pat (@{$self->{NODES}})
+  foreach my $pat (@{$self->{_AL}->{NODES}})
   {
     my $q = &dbexec($dbh, qq{
       select id, name from t_adm_node n
@@ -523,22 +519,21 @@ sub expandNodes
       ":pat" => $pat, %args);
     while (my ($id, $name) = $q->fetchrow())
     {
-      $self->{NODES_ID}{$name} = $id;
+      $self->{_AL}->{NODES_ID}{$name} = $id;
       push(@result, $name);
 
-      my $old_mynode = $self->{MYNODE};
+      my $old_mynode = $self->{_AL}->{MYNODE};
       eval {
-        $self->{MYNODE} = $name;
+        $self->{_AL}->{MYNODE} = $name;
         $self->updateAgentStatus();
         $self->identifyAgent();
         $self->checkAgentMessages();
       };
-      $self->{MYNODE} = $old_mynode;
+      $self->{_AL}->{MYNODE} = $old_mynode;
       die $@ if $@;
     }
   }
 
-  map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
   return @result;
 }
 
@@ -548,7 +543,7 @@ sub myNodeFilter
   my ($self, $idfield) = @_;
   my (@filter, %args);
   my $n = 1;
-  foreach my $id (values %{$self->{NODES_ID}})
+  foreach my $id (values %{$self->{_AL}->{NODES_ID}})
   {
     $args{":dest$n"} = $id;
     push(@filter, "$idfield = :dest$n");
@@ -568,47 +563,45 @@ sub otherNodeFilter
 {
   my ($self, $idfield) = @_;
   my $now = &mytimeofday();
-  if (($self->{IGNORE_NODES_IDS}{LAST_CHECK} || 0) < $now - 300)
+  if (($self->{_AL}->{IGNORE_NODES_IDS}{LAST_CHECK} || 0) < $now - 300)
   {
-    my $q = &dbprep($self->{DBH}, qq{
+    my $q = &dbprep($self->{_AL}->{DBH}, qq{
         select id from t_adm_node where name like :pat});
 
     my $index = 0;
-    foreach my $pat (@{$self->{IGNORE_NODES}})
+    foreach my $pat (@{$self->{_AL}->{IGNORE_NODES}})
     {
       &dbbindexec($q, ":pat" => $pat);
       while (my ($id) = $q->fetchrow())
       {
-        $self->{IGNORE_NODES_IDS}{MAP}{++$index} = $id;
+        $self->{_AL}->{IGNORE_NODES_IDS}{MAP}{++$index} = $id;
       }
     }
 
     $index = 0;
-    foreach my $pat (@{$self->{ACCEPT_NODES}})
+    foreach my $pat (@{$self->{_AL}->{ACCEPT_NODES}})
     {
       &dbbindexec($q, ":pat" => $pat);
       while (my ($id) = $q->fetchrow())
       {
-        $self->{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
+        $self->{_AL}->{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
       }
     }
 
-    $self->{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
+    $self->{_AL}->{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
   }
 
   my (@ifilter, @afilter, %args);
-  while (my ($n, $id) = each %{$self->{IGNORE_NODES_IDS}{MAP}})
+  while (my ($n, $id) = each %{$self->{_AL}->{IGNORE_NODES_IDS}{MAP}})
   {
     $args{":ignore$n"} = $id;
     push(@ifilter, "$idfield != :ignore$n");
   }
-  while (my ($n, $id) = each %{$self->{ACCEPT_NODES_IDS}{MAP}})
+  while (my ($n, $id) = each %{$self->{_AL}->{ACCEPT_NODES_IDS}{MAP}})
   {
     $args{":accept$n"} = $id;
     push(@afilter, "$idfield = :accept$n");
   }
-
-  map { $self->{_AC}->{$_} = $self->{$_} } @all_db;
 
   my $ifilter = (@ifilter ? join(" and ", @ifilter) : "");
   my $afilter = (@afilter ? join(" or ", @afilter) : "");

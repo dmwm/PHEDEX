@@ -3,9 +3,6 @@ package PHEDEX::Core::Agent::Cycle;
 use strict;
 use warnings;
 use POE;
-use Data::Dumper;
-
-our @all_cycle =  qw / SESSION_ID stats _start _DONTSTOPME _DOINGSOMETHING WAITTIME VERBOSE pmon STATISTICS_DETAIL ME /; #/ parameters needed from calling class
 
 sub new
 {
@@ -14,9 +11,6 @@ sub new
   my %h = @_;
   my $self = {};
   bless $self, $class;
-
-# Map requiered parameters from calling Class 
-#  map { $self->{$_} = ${$h{_AC}}{$_} } @all_cycle;
 
   $self->{_AL} = $h{_AL};
 
@@ -52,11 +46,27 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
   return unless $attr =~ /[^A-Z]/;      # skip all-cap methods
 
-  print "Calling $attr from Cycle module\n";
-# if $attr exits, catch the reference to it
+  # if $attr exits, catch the reference to it, note we will call something
+  # only if belogs to the parent calling class.
   if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
-  else { PHEDEX::Core::Logging::Alert($self,"Un-known method $attr for Cycle"); }     
+  else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::Cycle"); }     
 }
+
+# Check if the agent should stop.  If the stop flag is set, cleans up
+# and quits.  Otherwise returns.
+sub maybeStop
+{
+    my $self = shift;
+
+    # Check for the stop flag file.  If it exists, quit: remove the
+    # pidfile and the stop flag and exit.
+    return if ! -f $self->{_AL}->{STOPFLAG};
+    $self->Note("exiting from stop flag");
+    $self->Notify("exiting from stop flag");
+    $self->doStop();
+}
+
+sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 # Introduced for POE-based agents to allow process to become a true loop
 sub preprocess
@@ -256,8 +266,7 @@ sub _make_stats
   }
 
   my $now = time;
-  $totalWall = $now - $self->{stats}{START};
-  print Dumper($self->{stats},$now);
+  $totalWall = $now - $self->{stats}{START}+.00001;
   my $busy= 100*$totalOnCPU/$totalWall;
   $summary = 'AGENT_STATISTICS';
   $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
