@@ -17,11 +17,12 @@ PHEDEX.History = function( config ) {
       meta: {},
       config: config,
       module: module,
+      moduleRegex: new RegExp('^'+module+'='),
       parse: function(href) {
-        var key, val, i, state={}, substrs=href, reg=new RegExp('/^'+module+'=');
+        var key, val, i, state={}, substrs=href;
         if ( href == undefined ) { return state; }
         substrs = substrs.replace(/^.*#/,'')
-                         .replace(reg,'');
+                         .replace(this.moduleRegex,'');
         substrs = decodeURIComponent(substrs);
         substrs = substrs.replace(/^.*\?/,'')
                          .replace(/;/g,'&')
