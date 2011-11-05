@@ -119,6 +119,7 @@ sub new
     my @agent_reject = ( qw / Template / );
     my $agent_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Core::Agent',
                                                   REJECT    => \@agent_reject );
+
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
     $config = $args{CONFIG_FILE} || $p{CONFIG_FILE};
@@ -178,71 +179,43 @@ sub new
     while (my ($k, $v) = each %args)
     { $self->{$k} = $v unless defined $self->{$k}; }
 
-#   Before basic validation, we need to derive a few other parameters.
-    $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
-    $self->{INBOX}    = $self->{DROPDIR} . 'inbox'; # unless $self->{INBOX};
-    $self->{OUTDIR}   = $self->{DROPDIR} . 'outbox';# unless $self->{OUTDIR};
-    $self->{PIDFILE}  = $self->{DROPDIR} . 'pid';   # unless $self->{PIDFILE};
-    $self->{STOPFLAG} = $self->{DROPDIR} . 'stop';  # unless $self->{STOPFLAG};
-    $self->{WORKDIR}  = $self->{DROPDIR} . 'work';  # unless $self->{WORKDIR};
+#   Load the Dropbox modules
+    $self->{_Dropbox} = $agent_loader->Load('Dropbox')->new( _AL => $self );
+
 #   Basic validation: Explicitly call the base method to validate only the
 #   core agent. This will be called again in the 'process' method, on the
 #   derived agent. No harm in that!
 
-#   Load the Dropbox modules
-    $self->{_Dropbox} = $agent_loader->Load('Dropbox')->new( _AC => $self );
-
     die "$me: Failed validation, exiting\n" 
-	if PHEDEX::Core::Agent::Dropbox::isInvalid($self);
+	if PHEDEX::Core::Agent::Dropbox::isInvalid($self->{_Dropbox});
 
-    foreach my $dir (@{$self->{NEXTDIR}}) {
-	if ($dir =~ /^([a-z]+):/) {
-            die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
-	} else {
-            die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
-	}
-    }
+#   Clean PID and STOP flags
+    $self->cleanDropbox($me);
 
-    if (-f $self->{PIDFILE})
-    {
-	if (my $oldpid = &input($self->{PIDFILE}))
-	{
-	    chomp ($oldpid);
-	    die "$me: pid $oldpid already running in $self->{DROPDIR}\n"
-		if kill(0, $oldpid);
-	    print "$me: pid $oldpid dead in $self->{DROPDIR}, overwriting\n";
-	    unlink ($self->{PIDFILE});
-	}
-    }
+#    bless $self, $class;
 
-    if (-f $self->{STOPFLAG})
-    {
-	print "$me: removing old stop flag $self->{STOPFLAG}\n";
-	unlink ($self->{STOPFLAG});
-    }
-
-    bless $self, $class;
-    # If required, daemonise, write pid file and redirect output.
+#   If required, daemonise, write pid file and redirect output.
     $self->daemon();
 
 #   Load the Cycle modules
     $self->{_Cycle} = $agent_loader->Load('Cycle')->new( _AL => $self );
-
      
 #   Finally, start some self-monitoring...
     $self->{pmon} = PHEDEX::Monitoring::Process->new();
 
-    # Initialise subclass.
+#   Initialise subclass.
     $self->init();
 
 #   Load the DB modules
-    $self->{_DB} = $agent_loader->Load('DB')->new( _AC => $self );
+    $self->{_DB} = $agent_loader->Load('DB')->new( _AL => $self );
 
-    # Validate the object!
+#   Validate the object!
     die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
 
 #   Announce myself...
     $self->Notify("label=$label");
+
+    bless $self, $class;
     return $self;
 }
 
@@ -254,8 +227,6 @@ sub AUTOLOAD
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
   return unless $attr =~ /[^A-Z]/;        # skip all-cap methods
-
-  $self->Logmsg("**** $attr called");
 
   if      ( $self->{_Dropbox}->can($attr) ) { $self->{_Dropbox}->$attr(@_);
   } elsif ( $self->{_DB}->can($attr)      ) { $self->{_DB}->$attr(@_);
@@ -389,21 +360,6 @@ sub init
   }
 }
 
-
-# Check if the agent should stop.  If the stop flag is set, cleans up
-# and quits.  Otherwise returns.
-sub maybeStop
-{
-    my $self = shift;
-
-    # Check for the stop flag file.  If it exists, quit: remove the
-    # pidfile and the stop flag and exit.
-    return if ! -f $self->{STOPFLAG};
-    $self->Note("exiting from stop flag");
-    $self->Notify("exiting from stop flag");
-    $self->doStop();
-}
-
 # Actually make the agent stop and exit.
 sub doStop
 {
@@ -419,13 +375,11 @@ sub doStop
 
     # Remove stop flag and pidfile
     unlink($self->{PIDFILE});
-#    unlink($self->{STOPFLAG});
 
     POE::Kernel->alarm_remove_all();
     $self->doExit(0);
 }
 
-sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 =head2 stop
 
@@ -442,11 +396,11 @@ Override this in an agent subclass to process a drop file
 
 =cut
 
-sub processDrop
-{}
+sub processDrop {}
 
 # Manage work queue.  If there are previously pending work, finish
 # it, otherwise look for and process new inbox drops.
+
 sub process
 {
   my $self = shift;
