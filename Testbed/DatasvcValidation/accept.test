@@ -94,7 +94,9 @@ errorlogsummary?from=NoWhere&to=NoWhere link =0
 filereplicas?block=/WJetsToLNu_TuneD6T_7TeV-madgraph-tauola/Fall10-START38_V12-v1/GEN-SIM-RAW%2357ffe66f-2b0e-47c0-827f-c186f30e6395&create_since=1196740000&custodial=y&node=T1_US_FNAL_MSS block =1
 filereplicas?lfn=/store/mc/Fall10/WJetsToLNu_TuneD6T_7TeV-madgraph-tauola/GEN-SIM-RAW/START38_V12-v1/0037/744CAE4D-18F9-DF11-B5CF-00093D122B2B.root&node=T1_US_FNAL_MSS block =1
 filereplicas?dataset=/GlobalSep07-A/Online-CMSSW_1_6_0_DAQ3/RAW&custodial=y&node=T1_US_FNAL_MSS block >1
-filereplicas?block=/VVJets-madgraph/Fall08_IDEAL_V11_redigi_v1/AODSIM* block
+-filereplicas?block=/VVJets-madgraph/Fall08_IDEAL_V11_redigi_v1/AODSIM* 500
+-filereplicas?block=/WJetsToLNu_<TuneD6T_7TeV-madgraph-tauola/Fall10-START38_V12-v1/GEN-SIM-RAW%2357ffe66f-2b0e-47c0-827f-c186f30e6395&create_since=1196740000&custodial=y&node=T1_US_FNAL_MSS 500
+-filereplicas?block=/WJetsToLNu_TuneD6T_7TeV-madgraph-tauola/Fall10-START38_V12-v1/GEN-SIM-RAW%2357ff>e66f-2b0e-47c0-827f-c186f30e6395&create_since=1196740000&custodial=y&node=T1_US_FNAL_MSS 500
 
 # PHEDEX::Web::API::Groups -- show groups known to PhEDEx
 groups group >0
