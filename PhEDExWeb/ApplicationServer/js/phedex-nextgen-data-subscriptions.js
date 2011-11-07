@@ -676,6 +676,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         } else {
           state = this.getArgs();
         }
+        delete state.collapse; // no need to show this in the state
         if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
           state.rows = this.meta.maxRows;
           if ( obj.subscriptionsId ) {
