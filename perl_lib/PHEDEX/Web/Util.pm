@@ -48,9 +48,9 @@ sub process_args
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
- 'dataset'      => qr|^(/[^/\#]+){3}$|,
- 'block'        => qr|^(/[^/\#]+){3}\#[^/\#]+$|,
- 'block_*'      => qr!(^(/[^/\#]+){3}\#[^/\#]+$)|^\*$!,
+ 'dataset'      => qr|^(/[^/\#<>]+){3}$|,
+ 'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#]<>+$|,
+ 'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^\*$!,
  'lfn'          => qr|^/[A-Za-z-_\d#\.\/]*$|,
 #'wildcard'     => qr|\*|,
  'node'         => qr/^(T\d[A-Z,a-z,0-9,_]+|\d+)$/,
