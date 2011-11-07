@@ -2484,6 +2484,8 @@ sub generate
 			 ? (" class='selected'><span>" . &escapeHTML(${$$_}{TITLE}) . "</span>")
 			 : (">" . &toclink($self, $_)))
 		      . "</li>\n" } @toc) .
+       "<li id='nextgen-link'><a title='Enter the next-gen website' href='https://localhost/phedex/datasvc/app'>Next-gen website</a></li>" .
+       "<li id='phedex-permalink-container' style='display:none'><a id='phedex-permalink' title='Permalink to this page\'s state' href='#'>Permalink</a></li>" .
        " </ul>\n" .
        "</div>" : ""),
     'PAGESELECTOR' =>
@@ -2664,6 +2666,11 @@ sub generate
         " <p><i>Error time=$time id=$id</i></p>\n",
         "</div></center>\n";
     }
+  }
+  if ( $self->{REDIRECT} ) {
+    warn "Redirect to $self->{REDIRECT}";
+    redirect(-status => $self->{REDIRECT_STATUS} || 301, Location => $self->{REDIRECT});
+    return;
   }
   close($$self{HEAD});
   close($$self{CONTENT});
@@ -2920,8 +2927,14 @@ sub output
     $signout_url .= ($signout_url =~ /\?.+$/ ? '' : '?').($signout_url =~ /\?[^=]+=.+$/ ? '&' : '')."SecModLogout=1";
 
     my $msg = param('msg');
-    if ($msg =~ /^([\w\d_:\. ]*)/) { $msg = $1; } # allowed characters in a message
+    if ($msg !~ /^([\w\d_:\. ]*)$/) { die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n"; } # allowed characters in a message
 
+    if ( $msg ne 'reauthentication' &&
+         $msg ne 'invalid cookie' &&
+         $msg ne 'password authentication required' &&
+         $msg ne 'Client certificate rejected by web server' ) {
+         die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n";
+    }
     if ($msg eq 'reauthentication') {
 	my $here = "<a href='$signout_url'>here</a>";
 	$msg = "You were authenticated via password, but your session ".
@@ -7531,6 +7544,7 @@ sub validate
  	     suspended    => { allowing => [qw(any y n active suspended)], default => 'any' },
  	     custodial    => { allowing => [qw(any y n custodial non-custodial)], default => 'any' },
  	     complete     => { allowing => [qw(any y n complete incomplete)], default => 'any' },
+ 	     collapse     => { allowing => [qw(y n)], default => 'y' },
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
@@ -7964,6 +7978,7 @@ use List::Util qw(max);
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Subscriptions",
 	       LINK_TITLE => "Explore subscriptions" };
 
+our $TW = 1;
 sub new
 {
   my $proto = shift;
@@ -7977,11 +7992,31 @@ sub output_page
 {
   my ($self) = @_;
 
-  my (@admin_auth,%admin_opts,%admin_grps);
-my $TW = 0;
 if ( $TW ) { # TW
+  my ($h,$page,$href,$url);
+  $url = $self->myurl();
+  $h=CGI::Vars();
+  delete $h->{view};
+  $page = delete $h->{page};
+
+  if ( keys %{$h} ) {
+    $href = '';
+    foreach ( sort keys %{$h} ) {
+      if ( ref($h->{$_}) eq 'ARRAY' ) {
+        $href .= join(";$_=",sort(@{$h->{$_}}));
+      } else {
+        $href .= $_ . '=' . $h->{$_};
+      }
+      $href .= ';';
+    }
+    $href =~ s%;$%%;
+    $url .= '#' . $href;
+    $self->{REDIRECT} = $url;
+    return;
+  }
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
+  my (@admin_auth,%admin_opts,%admin_grps);
   if (!$$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ||
       !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
@@ -8253,6 +8288,7 @@ sub output_options_form { }
 
 sub update_subscriptions
 {
+if ( !$TW ) {
     my ($self) = @_;
 
     my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin||PADA Admin', with_ids => 1);
@@ -8347,10 +8383,12 @@ sub update_subscriptions
     } else {
 	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
     }
+} # TW
 }
 
 sub data_subscriptions
 {
+if ( !$TW ) {
   my ($self) = @_;
   $self->fetch_nodes();
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
@@ -8383,6 +8421,7 @@ sub data_subscriptions
   $q = &dbexec($$self{DBH}, $sql, %{$p});
 
   return $q;
+} # TW
 }
 
 1;
