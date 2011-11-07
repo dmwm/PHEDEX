@@ -19,8 +19,8 @@ Serves the file replicas known to PhEDEx.
 
 =head2 Options
 
- block          block name, with '*' wildcards, can be multiple (*).  required when no lfn is specified.
- dataset        dataset name
+ block          block name, with '*' wildcards, can be multiple (*).  required when no lfn is specified. Block names must follow the syntax /X/Y/Z#, i.e. have three /'s and a '#'. Anything else is rejected.
+ dataset        dataset name. Syntax: /X/Y/Z, all three /'s obligatory. Wildcads are allowed.
  node           node name, can be multiple (*)
  se             storage element name, can be multiple (*)
  update_since   unix timestamp, only return replicas updated since this
@@ -122,39 +122,6 @@ my $map = {
 
 sub duration{ return 5 * 60; }
 sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
-#sub invoke { return fileReplicas(@_); }
-#sub fileReplicas
-#{
-#    my ($core,%h) = @_;
-#    my %p;
-#    eval {
-#      %p = &validate_params(\%h,
-#                           uc_keys => 1,
-#			   allow => [qw(block node se update_since create_since
-#					complete dist_complete subscribed custodial group lfn)],
-#			   require_one_of => [ qw(block lfn dataset) ],
-#			   spec => {
-#			       block         => { using => 'block' },
-#			       complete      => { using => 'yesno' },
-#			       dist_complete => { using => 'yesno' },
-#			       subscribed    => { using => 'yesno' },
-#			       custodial     => { using => 'yesno' },
-#                               create_since  => { using => 'time'  },
-#                               lfn           => { using => 'lfn'   },
-#                               node          => { using => 'node'  },
-##                               se            => { using => 'any'   },
-##                               group         => { using => 'any'   },
-#			   });
-#    };
-#    if ( $@ ) {
-#      die PHEDEX::Web::Util::http_error(400,$@);
-#    }
-#    my $r = PHEDEX::Web::SQL::getFileReplicas($core, %p);
-#
-#    return { block => &PHEDEX::Core::Util::flat2tree($map, $r) };
-#}
-
-# spooling
 
 my $sth;
 our $limit = 1000;
@@ -175,6 +142,7 @@ sub spool
 			   require_one_of => [ qw(block lfn dataset) ],
 			   spec => {
 			       block         => { using => 'block_*', multiple => 1 },
+			       dataset       => { using => 'dataset' },
 			       complete      => { using => 'yesno' },
 			       dist_complete => { using => 'yesno' },
 			       subscribed    => { using => 'yesno' },
@@ -182,8 +150,8 @@ sub spool
                                create_since  => { using => 'time'  },
                                lfn           => { using => 'lfn', multiple => 1 },
                                node          => { using => 'node', multiple => 1 },
-#                               se            => { using => 'any'   },
-#                               group         => { using => 'any'   },
+                               se            => { using => 'text'   },
+                               group         => { using => 'text'   },
 			   });
       };
       if ( $@ ) {
