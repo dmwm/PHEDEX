@@ -70,13 +70,8 @@ sub usage()
  expires=i		set the default expiry time for the response header
  cert_file=s		location of your certificate, defaults to usercert.pem in
 			~/.globus
- key_file=s		location of your user-key, defaults to userkey.pem.nok in
-			~/.globus. N.B. If you don't want to have to type in your
-			passphrase with every request, create a key-file with the
-			passphrase stripped from it. Do this only on secure
-			machines, not ones that just anybody can access!
-			You can strip the passphrase from a key-file as follows:
-			openssl rsa -in userkey.pem -out userkey.pem.nok
+ key_file=s		location of your user-key, defaults to userkey.pem in
+			~/.globus.
  pk12=s			Use a pk12 certificate. You will be prompted for the password.
  			use this to avoid being asked for a passphrase and to
 			avoid having to have a passphrase-less key-file. (i.e. it's
@@ -348,6 +343,12 @@ DONE:
       $ua = PHEDEX::CLI::UserAgent->new (%params);
       $ua->CMSAgent('PhEDEx-Proxy-server-https/1.0');
       $ua->default_header('Host' => $host) if $host;
+      $ua->add_handler( response_redirect => sub{
+        my ($response,$ua,$h) = @_;
+        my $location = $response->header('location');
+        print scalar localtime, ' ',$response->code(), " => $location\n" if $location;
+        return;
+      });
     }
     my ($method,$response,@form);
     $method = $request->method();
