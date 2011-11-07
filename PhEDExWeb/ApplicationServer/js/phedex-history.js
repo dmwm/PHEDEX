@@ -63,7 +63,7 @@ PHEDEX.History = function( config ) {
           }
           href += ';';
         }
-        href = /*'#' +*/ href.replace(/;$/,'');
+        href = href.replace(/;$/,'');
         return href;
       },
       onStateChange: function(state) {
@@ -96,12 +96,16 @@ PHEDEX.History = function( config ) {
         log('history','info','revealing permalink');
       },
       setLink: function(href) {
-        var el = config.el;
+        var el = config.el,
+            uri = location.href;
         if ( typeof(el) == 'string' ) {
           el = Dom.get(el);
         }
         if ( !el ) { return; }
         config.el = el;
+        uri = uri.replace(/#.*$/,'')
+                 .replace(/\?.*$/,'');
+        href = uri + '#' + href;
         el.setAttribute('href',href);
         log('history','info','set permalink: '+href);
       },
