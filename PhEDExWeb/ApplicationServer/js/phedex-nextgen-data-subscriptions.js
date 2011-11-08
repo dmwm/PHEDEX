@@ -518,12 +518,14 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 var columns = obj.meta.showColumns, column=columns[arr[1]];
                 column.show = arr[2];
                 _sbx.notify(obj.subscriptionsId,'setColumnVisibility',[column]);
+                obj.setHistory();
                 break;
               }
               case 'DoneSelectAll-columns':   // deliberate fall-through
               case 'DoneDeselectAll-columns': // deliberate fall-through
               case 'DoneReset-columns': {
                 obj.setHiddenColumns();
+                obj.setHistory();
                 break;
               }
               case 'setUIBusy': {
@@ -614,7 +616,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 if ( value == obj.meta.maxRows ) { break; }
                 obj.meta.maxRows = value;
                 _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
-//                 obj.setHistory();
+                obj.setHistory();
                 obj.gotSubscriptions(obj.data,obj.context);
                 break;
               }
@@ -648,8 +650,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             case 'stateChange': {
               if ( obj.href == arr[2] ) { return; }
               obj.href = arr[2];
-              obj.setState(arr[1]);
-              obj.getSubscriptions();
+              if ( obj.setState(arr[1]) ) {
+                obj.getSubscriptions();
+              }
               break;
             }
             case 'initialiseApplication': {
@@ -659,6 +662,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             }
             case 'navigatedTo': { // bookkeeping, to suppress double-calls
               obj.href = arr[1];
+              _sbx.notify('History','permalink',arr[1]);
               break;
             }
             default: {
@@ -684,6 +688,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
         for (label in columns) {
+          if ( label == 'Select' ) { continue; } // not needed in the state fragment
           column = columns[label];
           showMe = false;
           if ( typeof(column.show) != 'undefined' ) {
@@ -707,9 +712,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           column = columns[el.name];
           column.show = el.checked;
         }
-        auth = false;
-        if ( this.auth ) { auth = this.auth.isAdmin; }
-        columns.Select = {_default:auth};
+        if ( !columns.Select ) {
+          auth = false;
+          if ( this.auth ) { auth = this.auth.isAdmin; }
+          columns.Select = {label:'Select', _default:auth};
+        }
         _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
       },
       gotSubscriptionsId: function(arg) {
@@ -762,7 +769,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.notify(obj.subscriptionsId,'setMaxRows',this.meta.maxRows);
       },
       getArgs: function() {
-        var args = {collapse:'y', create_since:new Date().getTime()/1000 - 30*86400 /* 1 month */},
+        var now = Math.floor(new Date().getTime()/1000),
+            args = {collapse:'y', create_since:now - 30*86400 /* 1 month */},
             i, _filter=this._filter, f, map=this.meta.map,
             datasets, blocks, data, level;
         for (i in _filter) {
@@ -775,6 +783,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             args[i] = f;
           }
         }
+        if ( _filter.create_since < 0 ) { args.create_since = now + _filter.create_since; } // negative times count backwards from now
+        else { _filter.create_since = args.create_since; }
         for (i in args.data_items) {
           data = args.data_items[i];
           level = NUtil.parseBlockName(data);
@@ -868,7 +878,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       setState: function(state) {
-        var i, j, label, tmp, columns, col, _f=this._filter;
+        var i, j, label, tmp, columns, col, _f=this._filter, changed=false, changedColumn=false, tmp, now;
 // special case for reqfilter (map to 'requests') and filter (map to 'data_items')
         _f.request = [];
         if ( state.reqfilter ) { state.request = state.reqfilter; }
@@ -881,18 +891,20 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 // TW should post an error here
             }
           }
+          changed = true;
         }
 
 // special case for create_since
         if ( state.create_since ) {
-          _f.create_since = parseInt(state.create_since);
-          tmp = new Date().getTime()/1000;
-          if ( _f.create_since > tmp ) {
-            this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(_f.create_since)+'!');
-            throw new Error ("User cannot tell the time");
-          }
-          if ( _f.create_since < 0 ) {
-            _f.create_since = tmp + _f.create_since;
+          tmp = parseInt(state.create_since);
+          if ( tmp != _f.create_since ) {
+            now = Math.floor(new Date().getTime()/1000);
+            if ( tmp > now ) {
+              this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(tmp)+'!');
+              throw new Error ("User cannot tell the time");
+            }
+            _f.create_since = tmp;
+            changed = true;
           }
         }
 
@@ -905,6 +917,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           for ( i in tmp ) {
             state.data_items .push(tmp[i]);
           }
+          changed = true;
         }
 
 // special case for columns
@@ -919,6 +932,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           for ( i in state.col ) {
             j = state.col[i].toLowerCase().replace(/_/g,' ');
             for (label in columns) {
+              if ( label == 'Select' ) { continue; } // not needed in the state fragment
               col = columns[label];
               if ( j == col.label.toLowerCase() ) {
                 col.show = true;
@@ -929,6 +943,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           for (label in columns) {
             _sbx.notify(obj.id,'CBox-set-columns',label,columns[label].show);
           }
+          _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
         }
 
 // special case for nodes
@@ -936,6 +951,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( typeof(state.node) == 'object' ) { _f.node = state.node; }
           else { _f.node = [ state.node ]; }
         }
+
+        return changed;
       },
       initSub: function() {
         var mb=dom.main_block, el, b, ctl=this.ctl, id='image-'+PxU.Sequence(), container=dom.container;
