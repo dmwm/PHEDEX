@@ -216,7 +216,7 @@ sub call
 # TW    if ( ! $obj )
 # TW    {
       my $api = $self->{API};
-      eval {
+      my $result = eval {
 	if ( $self->{CONFIG}{TRAP_WARNINGS} )
 	{
 	  $SIG{__WARN__} = sub
@@ -302,6 +302,8 @@ sub call
         }
         warn "api call '$self->{CALL}' complete in ", sprintf('%.6f s',$t2-$t1), "\n" if $self->{DEBUG};
       };
+
+      return $result if $result;
 
       # check http-error
       if ($@) {
