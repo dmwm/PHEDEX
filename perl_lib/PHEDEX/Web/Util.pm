@@ -49,11 +49,11 @@ sub process_args
 our %COMMON_VALIDATION = 
 (
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
- 'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#]<>+$|,
+ 'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
  'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^\*$!,
  'lfn'          => qr|^/[A-Za-z-_\d#\.\/]*$|,
-#'wildcard'     => qr|\*|,
- 'node'         => qr/^(T\d[A-Z,a-z,0-9,_]+|\d+)$/,
+ 'wildcard'     => qr|\*|,
+ 'node'         => qr/^(T\d[A-Za-z0-9_*]+|\d+)$/,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
  'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
  'boolean'      => sub { $_[0] eq 'true' || $_[0] eq 'false' ? 1 : 0 },
@@ -641,11 +641,11 @@ sub decode_http_error
 {
     my $text = shift;
     my ($error,$message);
-    if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)$| ) {
+    if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)| ) {
       $error = $1;
       $message = $2;
     } else {
-warn "'die' without explicit status for \"$text\"";
+      warn "'die' without explicit status for \"$text\"";
       $error = 500;
       $message = $text;
     }
@@ -685,7 +685,7 @@ my $error_document = qq{
 <html><head>
 <title>%d %s</title>
 </head><body>
-<h1>%s</h1>
+<h1>%d %s</h1>
 <p>%s</p>
 </body></html>
 };
@@ -698,7 +698,7 @@ sub error_document
     my ($error, $message) = @_;
     if (defined $http_status{$error} && $message)
     {
-        return sprintf($error_document, $error, $http_status{$error}, $http_status{$error}, $message);
+        return sprintf($error_document, $error, $http_status{$error}, $error, $http_status{$error}, $message);
     }
     return undef;
 }
