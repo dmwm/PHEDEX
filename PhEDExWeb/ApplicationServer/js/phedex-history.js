@@ -74,8 +74,6 @@ PHEDEX.History = function( config ) {
         _sbx.notify('History','stateChange',state,href);
         log('history','info','state change: '+href);
         this.notifyApplication(href);
-        this.setLink(href);
-        this.reveal();
       },
       notifyApplication: function(href) {
         if ( this.href == href ) { return; }
