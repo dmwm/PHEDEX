@@ -318,6 +318,7 @@ PHEDEX.DataTable = function (sandbox, string) {
             menuSelectItem: function(args) {
               var m=this.meta, l=0, i, key,
                   dt=this.dataTable, col, j;
+              if ( !dt ) { return; } // can happen if columns are manipulated before the table is created/rendered
               if ( m.table.nestedColumns ) { l = m.table.nestedColumns.length; }
               for (i in args) {
                 delete m.hide[args[i]];
