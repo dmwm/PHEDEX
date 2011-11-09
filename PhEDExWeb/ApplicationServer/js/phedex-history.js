@@ -3,8 +3,7 @@ PHEDEX.History = function( config ) {
       Dom = YAHOO.util.Dom,
       YuH = YAHOO.util.History,
       id = 'history_'+PxU.Sequence(),
-      module = 'state',
-      undefined = 'undefined';
+      module = 'state';
   if ( typeof(config) == 'object' ) {
     if ( config.module ) { module = config.module; }
   }
@@ -19,21 +18,23 @@ PHEDEX.History = function( config ) {
       module: module,
       moduleRegex: new RegExp('^'+module+'='),
       parse: function(href) {
-        var key, val, i, state={}, substrs=href;
-        if ( href == undefined ) { return state; }
-        substrs = substrs.replace(/^.*#/,'')
-                         .replace(this.moduleRegex,'');
-        substrs = decodeURIComponent(substrs);
-        substrs = substrs.replace(/^.*\?/,'')
-                         .replace(/;/g,'&')
-                         .replace(/:/g,'=')
-        substrs = substrs.split('&');
-        for (i in substrs ) {
-          if ( substrs[i].match(/^([^=]*)=(.*)$/) ) {
+        var key, val, i, state={}, str=href;
+        str = str.replace(/^.*#/,'')
+                 .replace(this.moduleRegex,'')
+                 .replace(/%/g,'pct_');
+        str = decodeURIComponent(str);
+        str = str.replace(/pct_/g,'%')
+                 .replace(/^.*\?/,'')
+                 .replace(/;/g,'&')
+                 .replace(/:/g,'=');
+        if ( !str ) { return state; }
+        str = str.split('&');
+        for (i in str ) {
+          if ( str[i].match(/^([^=]*)=(.*)$/) ) {
             key = RegExp.$1;
             val = RegExp.$2;
           } else {
-            key = substrs[i];
+            key = str[i];
             val = true;
           }
           if ( state[key] ) {
@@ -107,12 +108,18 @@ PHEDEX.History = function( config ) {
         el.setAttribute('href',href);
         log('history','info','set permalink: '+href);
       },
+      getFragment: function(href) {
+        if ( !href ) { href = location.href; }
+        if ( !href.match(/[\?#]/) ) { return ''; }
+        href = href.replace(/^.*[\?#]/,'');
+        return href;
+      },
       init: function() {
-        var initialState = YuH.getBookmarkedState(module) ||
-                           YuH.getQueryStringParameter(module) ||
-                           location.href ||
-                            undefined;
-            state = this.parse(initialState);
+        var initialState, state, href=this.getFragment();
+        initialState = YuH.getBookmarkedState(module) ||
+                       YuH.getQueryStringParameter(module) ||
+                       href;
+        state = this.parse(initialState);
         initialState = this.makeHref(state);
         YuH.register(module,initialState,this.onStateChange,null,this);
 
@@ -125,8 +132,7 @@ PHEDEX.History = function( config ) {
 
         YuH.onReady(function(obj) {
           return function() {
-            var state, href = location.href;
-            state = obj.parse(href);
+            var state=obj.parse(obj.getFragment()), href;
             _sbx.notify('History','initialiseApplication',state);
             href = obj.makeHref(state);
             if ( href ) {
@@ -169,6 +175,7 @@ PHEDEX.History = function( config ) {
 
   Yla(this, _construct());
   this.init();
+  PxU.protectMe(this);
   return this;
 }
 
