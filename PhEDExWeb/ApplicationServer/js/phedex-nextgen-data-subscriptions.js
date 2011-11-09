@@ -494,6 +494,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                   } else {
                     _filter.create_since = 0;
                   }
+                  _filter.create_since_orig = _filter.create_since;
                 }
                 break;
               }
