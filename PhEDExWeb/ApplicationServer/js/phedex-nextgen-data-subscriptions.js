@@ -22,7 +22,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         minheight:50
       },
       _default:{}, // default values for various DOM fields, extracted as they are built
-      _filter: { node:[], request:[], data_items:[] }, // values set by the filter tab, updated as they are changed
+      _filter: {
+        node:[],
+        request:[],
+        data_items:[],
+        create_since_orig:Math.floor(new Date().getTime()/1000) - 30*86400 /* 1 month */
+      },
       meta: {
         showColumns:
         [
@@ -680,7 +685,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         } else {
           state = this.getArgs();
         }
-        delete state.collapse; // no need to show this in the state
+        delete state.collapse;          // no need to show this in the state
         if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
           state.rows = this.meta.maxRows;
           if ( obj.subscriptionsId ) {
@@ -699,6 +704,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             showMe = column._default;
           }
           if ( showMe ) {
+            label = label.replace(/%/g,'pct_');
             state.col.push(label);
           }
         }
@@ -772,12 +778,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _sbx.notify(obj.subscriptionsId,'setMaxRows',this.meta.maxRows);
       },
       getArgs: function() {
-        var now = Math.floor(new Date().getTime()/1000),
-            args = {collapse:'y', create_since:now - 30*86400 /* 1 month */},
-            i, _filter=this._filter, f, map=this.meta.map,
+        var args = {collapse:'y'},
+            i, _f=this._filter, f, map=this.meta.map,
             datasets, blocks, data, level;
-        for (i in _filter) {
-          f = _filter[i];
+        for (i in _f) {
+          f = _f[i];
           if ( typeof(f) == 'array' || typeof(f) == 'object' ) {
             if ( f.length ) {
               args[i] = f;
@@ -786,8 +791,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             args[i] = f;
           }
         }
-        if ( _filter.create_since < 0 ) { args.create_since = now + _filter.create_since; } // negative times count backwards from now
-        else { _filter.create_since = args.create_since; }
+        args.create_since = _f.create_since_orig;
+        delete args.create_since_orig;
         for (i in args.data_items) {
           data = args.data_items[i];
           level = NUtil.parseBlockName(data);
@@ -810,13 +815,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         return args;
       },
       getSubscriptions: function() {
-        var args = this.getArgs();
+        var args = this.getArgs(),
+            _f = this._filter;
+        if ( _f.create_since < 0 ) { args.create_since = Math.floor(new Date().getTime()/1000) + _f.create_since; }
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
                               api:'subscriptions',
                               args:args,
                               callback:function(data,context,response) { obj.gotSubscriptions(data,context,response); }
                             });
+        args.create_since = _f.create_since_orig;
         this.setHistory(args);
       },
       gotSubscriptions:function(data,context,response) {
@@ -881,10 +889,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       setState: function(state) {
-        var i, j, label, tmp, columns, col, columnsOrig={}, columnsChanged=false, _f=this._filter, changed=false, tmp, now;
-//      special case for reqfilter (map to 'requests') and filter (map to 'data_items')
+        var i, j, label, tmp, columns, col, columnsOrig={}, columnsChanged=false, _f=this._filter, changed=false, tmp, now, scale, c_s;
+//      special case for reqfilter (map to 'requests')
         _f.request = [];
-        if ( state.reqfilter ) { state.request = state.reqfilter; }
+        if ( state.reqfilter ) { state.request = state.reqfilter; delete state.reqfilter; }
         if ( state.request ) {
           tmp = state.request.split(/(\s*,*\s+|\s*,+\s*)/);
           for ( i in tmp ) {
@@ -899,23 +907,32 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           changed = true;
         }
 
-//      special case for create_since
-        if ( state.create_since ) {
-          tmp = parseInt(state.create_since);
-          if ( tmp != _f.create_since ) {
-            now = Math.floor(new Date().getTime()/1000);
-            if ( tmp > now ) {
-              this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(tmp)+'!');
-              throw new Error ("User cannot tell the time");
-            }
-            _f.create_since = tmp;
-            changed = true;
+//      special case for create_since. Handle negative dates too
+        c_s = state.create_since;
+        if ( typeof(c_s) != 'undefined' && c_s != _f.create_since ) {
+          scale = c_s.match(/[dDmMyY]$/);
+          if ( scale ) {
+            scale = scale[0].toLowerCase();
+            c_s = c_s.replace(/[dDmMyY]$/,'');
+            if ( scale == 'd' ) { scale = 86400; }
+            if ( scale == 'm' ) { scale = 86400 * 30; }
+            if ( scale == 'y' ) { scale = 86400 * 365; }
           }
+          tmp = parseInt(c_s);
+          if ( scale ) { tmp *= scale; }
+          now = Math.floor(new Date().getTime()/1000);
+          if ( tmp > now ) {
+            this.setSummary('error','You have specified a value for "create since" that is in the future. Come back at '+PxUf.UnixEpochToUTC(tmp)+'!');
+            throw new Error ("User cannot tell the time");
+          }
+          _f.create_since = tmp;
+          _f.create_since_orig = state.create_since;
+          changed = true;
         }
 
 //      special case for data_items
         _f.data_items = [];
-        if ( state.filter ) { state.data_items = state.filter; }
+        if ( state.filter ) { state.data_items = state.filter; delete state.filter; }
         if ( state.data_items ) {
           tmp = p.data_items .split(/(\s*,*\s+|\s*,+\s*)/);
           state.data_items  = [];
@@ -939,7 +956,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             columns[label].show = false;
           }
           for ( i in state.col ) {
-            j = state.col[i].toLowerCase().replace(/_/g,' ');
+            j = state.col[i].toLowerCase()
+                            .replace(/_/g,' ')
+                            .replace(/pct_/g,'%');
             for (label in columns) {
               if ( label == 'Select' ) { continue; } // not needed in the state fragment
               col = columns[label];
