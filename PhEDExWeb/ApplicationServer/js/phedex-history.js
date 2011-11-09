@@ -20,11 +20,9 @@ PHEDEX.History = function( config ) {
       parse: function(href) {
         var key, val, i, state={}, str=href;
         str = str.replace(/^.*#/,'')
-                 .replace(this.moduleRegex,'')
-                 .replace(/%/g,'pct_');
+                 .replace(this.moduleRegex,'');
         str = decodeURIComponent(str);
-        str = str.replace(/pct_/g,'%')
-                 .replace(/^.*\?/,'')
+        str = str.replace(/^.*\?/,'')
                  .replace(/;/g,'&')
                  .replace(/:/g,'=');
         if ( !str ) { return state; }
