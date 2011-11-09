@@ -10,7 +10,7 @@ PHEDEX::Web::API::RequestList - list of request according to search criteria
 
 =head1 DESCRIPTION
 
-Sserve as a simple request search and cache-able catalog of requests to save within a client, which may then use the request ID to obtain further details using TransferRequests or DeletionRequests.
+Serve as a simple request search and cache-able catalog of requests to save within a client, which may then use the request ID to obtain further details using TransferRequests or DeletionRequests.
 
 =head2 Options
 
