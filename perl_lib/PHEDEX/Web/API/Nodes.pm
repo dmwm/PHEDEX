@@ -2,6 +2,7 @@ package PHEDEX::Web::API::Nodes;
 use warnings;
 use strict;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -40,14 +41,22 @@ sub invoke { return nodes(@_); }
 sub nodes
 {
     my ($core,%h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / node noempty / )
+    my %p;
+    eval {
+        %p = &validate_params(\%h,
+            uc_keys => 1,
+            allow => [ qw/ node noempty / ],
+            spec => {
+                node => { using => 'node', multiple => 1 },
+                noempty => { using => 'yesno' }
+            });
+    };
+    if ( $@ )
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        return PHEDEX::Web::Util::http_error(400, $@);
     }
 
-    return { node => PHEDEX::Web::SQL::getNodes($core,%h) };
+    return { node => PHEDEX::Web::SQL::getNodes($core,%p) };
 }
 
 1;
