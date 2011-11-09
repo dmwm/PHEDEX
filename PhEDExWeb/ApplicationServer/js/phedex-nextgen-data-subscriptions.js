@@ -687,6 +687,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             _sbx.notify(obj.subscriptionsId,'setMaxRows',obj.meta.maxRows);
           }
         }
+        state.col = [];
         for (label in columns) {
           if ( label == 'Select' ) { continue; } // not needed in the state fragment
           column = columns[label];
@@ -698,9 +699,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             showMe = column._default;
           }
           if ( showMe ) {
-            if ( !state.col ) { state.col = []; }
             state.col.push(label);
           }
+        }
+        if ( !state.col.length ) { // nothing to show, need special sentinel
+          state.col.push('none');
         }
         if ( allDefault ) { delete state.col; }
         _sbx.notify('History','navigate',state);
@@ -878,8 +881,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
       },
       setState: function(state) {
-        var i, j, label, tmp, columns, col, _f=this._filter, changed=false, changedColumn=false, tmp, now;
-// special case for reqfilter (map to 'requests') and filter (map to 'data_items')
+        var i, j, label, tmp, columns, col, columnsOrig={}, columnsChanged=false, _f=this._filter, changed=false, tmp, now;
+//      special case for reqfilter (map to 'requests') and filter (map to 'data_items')
         _f.request = [];
         if ( state.reqfilter ) { state.request = state.reqfilter; }
         if ( state.request ) {
@@ -889,12 +892,14 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               _f.request.push(tmp[i]);
             } else {
 // TW should post an error here
+              this.setSummary('error','non-numeric request-IDs in URL, aborting');
+              return false;
             }
           }
           changed = true;
         }
 
-// special case for create_since
+//      special case for create_since
         if ( state.create_since ) {
           tmp = parseInt(state.create_since);
           if ( tmp != _f.create_since ) {
@@ -908,7 +913,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
 
-// special case for data_items
+//      special case for data_items
         _f.data_items = [];
         if ( state.filter ) { state.data_items = state.filter; }
         if ( state.data_items ) {
@@ -920,12 +925,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           changed = true;
         }
 
-// special case for columns
+//      special case for columns
         columns = this.meta.showColumns;
+        for ( label in columns ) {
+          columnsOrig[label] = columns[label].show;
+        }
         if ( state.col ) {
           if ( typeof(state.col) != 'object'  ) {
             state.col = [ state.col ];
           }
+          delete state.col.none;
           for (label in columns) {
             columns[label].show = false;
           }
@@ -940,18 +949,27 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               }
             }
           }
+        } else {
+          for (label in columns) {
+            columns[label].show = columns[label]._default;
+          }
+        }
+//      Now notify change in shown columns only if there is one!
+        for (label in columns) {
+          if ( columns[label].show != columnsOrig[label] ) { columnsChanged=true; break; }
+        }
+        if ( columnsChanged ) {
           for (label in columns) {
             _sbx.notify(obj.id,'CBox-set-columns',label,columns[label].show);
           }
           _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
         }
 
-// special case for nodes
+//      special case for nodes
         if ( state.node ) {
           if ( typeof(state.node) == 'object' ) { _f.node = state.node; }
           else { _f.node = [ state.node ]; }
         }
-
         return changed;
       },
       initSub: function() {
@@ -1327,7 +1345,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
 
         if ( !obj.ctl.group ) {
-          field = Dom.get('phedex-data-subscriptions-ctl-group'); // 'auth' API not yet returned, or user not authorised to manipulate subscriptions
+//       'auth' API not yet returned, or user not authorised to manipulate subscriptions
+          field = Dom.get('phedex-data-subscriptions-ctl-group');
           if ( field ) {
             button = obj.makeGroupMenu(field,[], 'Choose a group');
             button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group'));
