@@ -53,7 +53,6 @@ sub handler
     my $service_path = $service->{CONFIG}{SERVICE_PATH};
     ($service->{PATH_INFO} = $r->uri()) =~ s%^$service_path%%;
     my $result = $service->invoke();
-
 #   The call will return an undefined value if all went well, or for the comboLoader.
 #   Or it will return a textual error message, formatted correctly, if something went wrong
 #   If there was an error that was detected and handled upstream, the return value here is undefined
@@ -69,7 +68,17 @@ sub handler
 
     $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
 
-    $r->custom_response($error, $message);
+    my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
+
+    # return html error message only if the browser is Mozzila-alike
+    if ($error_document and (user_agent() =~ m/Mozilla/))
+    {
+        $r->custom_response($error, $error_document);
+    }
+    else
+    {
+        $r->custom_response($error, $message);
+    }
     $r->status($error);
     return $error;
 }
