@@ -34,8 +34,22 @@ sub invoke { return tfc(@_); }
 sub tfc
 {
     my ($core,%h) = @_;
-    checkRequired(\%h, 'node');
-    my $r = PHEDEX::Web::SQL::getTFC($core, %h);
+    my %p;
+    eval {
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ 'node' ],
+                required => [ 'node' ],
+                spec => {
+                    node => { using => 'node' }
+                }
+        )
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
+    }
+    my $r = PHEDEX::Web::SQL::getTFC($core, %p);
     return { 'storage-mapping' => { array => $r } };
 }
 
