@@ -87,7 +87,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           groups:
           {
             'suspend':['suspend', 'unsuspend'],
-            'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange']
+            'priority':['priorityhi', 'priorityno', 'prioritylo', 'groupchange'],
+            'delete':['deletedata']
           }
         },
         maxRowsDefault:500
@@ -151,6 +152,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( ( role.name == 'Admin' && role.group == 'phedex' ) ||
                ( role.name == 'Data Manager' ) ) {
             auth.can.push('priority');
+            auth.can.push('delete');
           }
 
         }
@@ -287,6 +289,26 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               msg += ' to "'+obj.update.group+'"';
             }
             obj.setSummary('OK','Apply '+msg+' to '+n+' subscription'+(n==1?'':'s'));
+            if ( action == 'deletedata' ) {
+//            create a hidden form and submit it
+              obj.setSummary('OK','Redirecting you to the checkout, please get your credit card ready');
+              var form = Dom.get('phedex-deletion-shopping-cart');
+              if ( form ) {
+                form.innerHTML = '';
+              } else {
+                form = document.createElement('form');
+                form.id = 'phedex-deletion-shopping-cart';
+                form.action = PxW.WebURL+PHEDEX.Datasvc.Instance().instance+'/Data::BulkDelete';
+                form.method = 'post';
+                document.body.appendChild(form);
+              }
+              for (i in selected) {
+                item = selected[i];
+                form.innerHTML += "<input type='hidden' name='dataspec' value='"+item.node+":"+item.level+":"+item.item+"'>";
+              }
+              form.submit();
+              return;
+            }
             switch (action) {
               case 'group':      { args.group = obj.update.group;   break; }
               case 'suspend':    { args.suspend_until = 9999999999; break; }
@@ -448,9 +470,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 break;
               }
               case 'menuChange_action': {
-                if ( !obj.update ) {
-                  obj.update = {};
-                }
+                if ( !obj.update ) { obj.update = {}; }
                 if ( arr[3] == 'groupchange' ) {
                   ctl.group.set('disabled',false);
                 } else {
@@ -725,7 +745,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( !columns.Select ) {
           auth = false;
           if ( this.auth ) { auth = this.auth.isAdmin; }
-          columns.Select = {label:'Select', _default:auth};
+          columns.Select = {label:'Select', _default:auth, show:auth};
         }
         _sbx.notify(this.subscriptionsId,'setColumnVisibility',columns);
       },
