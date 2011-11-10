@@ -23,7 +23,7 @@ agents.
   agent            agent name, could be multiple
   version          PhEDEx version
   update_since     updated since this time
-  detail           show "code" information at file level *
+  detail           'y' or 'n', default 'n'. show "code" information at file level *
 
 =head2 Output
 
@@ -71,6 +71,7 @@ agents.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 my $map = {
     _KEY => 'NAME+HOST+NODE+PID',
@@ -116,20 +117,34 @@ sub invoke { return agents(@_); }
 sub agents
 {
     my ($core, %h) = @_;
+    my %p;
 
-    # convert parameter keys to upper case
-    foreach ( qw / node se agent version detail update_since / )
+    eval {
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [qw(node se agent version detail update_since)],
+                spec => {
+                    node => { using => 'node' },
+                    se   => { using => 'text' },
+                    agent => { using => 'text' },
+                    version => { using => 'text' },
+                    detail => { using => 'yesno' },
+                    update_since => { using => 'time' }
+                }
+        );
+    };
+    if ($@)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     my $map2 = $map;
-    if (exists $h{DETAIL})
+    if ($p{DETAIL} eq 'y')
     {
         $map2 = $code_map;
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map2, PHEDEX::Web::SQL::getAgents($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map2, PHEDEX::Web::SQL::getAgents($core, %p));
 
     return { node => $r };
 }
