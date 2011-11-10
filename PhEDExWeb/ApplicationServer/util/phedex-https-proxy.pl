@@ -346,7 +346,7 @@ DONE:
       $ua->add_handler( response_redirect => sub{
         my ($response,$ua,$h) = @_;
         my $location = $response->header('location');
-        print scalar localtime, ' ',$response->code(), " => $location\n" if $location;
+        print scalar localtime, ': ',$response->code(), " => $location\n" if $location;
         return;
       });
     }
