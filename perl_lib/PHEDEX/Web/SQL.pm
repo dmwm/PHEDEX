@@ -304,6 +304,8 @@ sub getTFC {
    my ($self, %h) = @_;
    my ($sql,$q,%p,@r);
 
+   # to be backward compatible
+   $h{node} = $h{NODE} if $h{NODE};
    return [] unless $h{node};
 
    $sql = qq{
