@@ -3032,7 +3032,7 @@ sub output
 
   no strict "refs";
   print { $$self{CONTENT} }
-    "<center><div classe˙='alert'>",
+    "<center><div class='alert'>",
     $self->{ERROR_MSG},
     "</div></center>";
 }
@@ -7548,7 +7548,7 @@ sub validate
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
-	     create_since => { regex => '^-?[0-9]+$' },
+	     create_since => { regex => '^-?[0-9]+(d|D|m|M|y|Y)?$' },
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
@@ -9508,6 +9508,49 @@ sub output
 	}
 	$table->finish();
     }
+}
+
+1;
+
+######################################################################
+package Web25::Data::BulkDelete;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard unescape);
+import Web25::Common;
+our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Bulk Delete Data" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+use Data::Dumper;
+sub output
+{
+  my ($self) = @_;
+
+  my %params = $self->validate_all(
+    allow    => [qw(dataspec)],
+    spec     => {
+      dataspec  => { regex => qr|^[A-Za-z0-9_\-#:\./%]+$|, multiple => 1 }
+    }
+  );
+  no strict "refs";
+  print { $$self{CONTENT} }
+    "<script type='text/javascript'>",
+      "PhedexPage.postdata = [";
+  foreach ( @{$params{dataspec}} ) {
+    print { $$self{CONTENT} } "  '",unescape($_),"',\n";
+  }
+  print { $$self{CONTENT} }
+      " ];",
+    "</script>",
+    "<div id='Data::BulkDelete'></div>";
 }
 
 1;
