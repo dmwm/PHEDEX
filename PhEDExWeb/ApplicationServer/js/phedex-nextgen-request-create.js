@@ -94,7 +94,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
       },
       initButtons: function() {
-        var ft=this.dom.ft, Reset, //, Validate, Cancel;
+        var ft=this.dom.ft, Reset,
             el = document.createElement('div');
         Dom.addClass(el,'phedex-nextgen-buttons phedex-nextgen-buttons-left');
         el.id='buttons-left';
