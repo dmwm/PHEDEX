@@ -138,28 +138,39 @@ my $map2 = {
 
 # spooling
 
-my $sth;
+my $sth = undef;
 our $limit = 1000;
 my @keys = ('HOST','USER','PID');
 
 sub spool
 {
     my ($core, %h) = @_;
+    my %p;
 
-    # need at least one of the input
-    if (! keys %h)
+    if (!$sth)  #check parameters for the first time
     {
-        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: node host user pid agent update_since\n");
+        eval {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [qw(node host user pid agent update_since)],
+                    require_one_of => [qw(node host user pid agent update_since)],
+                    spec => {
+                        node => { using => 'node', multiple => 1 },
+                        host => { using => 'hostname' },
+                        pid => { using => 'pos_int' },
+                        agent => { using => 'text' },
+                        update_since => { using => 'time' }
+                    }
+             );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
     }
 
-    # convert parameter keys to upper case
-    foreach ( qw / node host user pid agent update_since / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getAgentLogs($core, %h), $limit, @keys) if !$sth;
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getAgentLogs($core, %p), $limit, @keys) if !$sth;
     my $r = $sth->spool();
     if ($r)
     {
