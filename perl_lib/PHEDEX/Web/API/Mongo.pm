@@ -23,25 +23,47 @@ sub invoke { return mongo(@_); }
 sub mongo
 {
   my ($core,%args) = @_;
-  my ($method,$conn,$db,$table,$data,@records,$cursor);
+  warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
+  my ($method,$conn,$db,$table,$data,@records,$cursor,@dirarray,%dir,%test,$site);
+  $site = $args{collName};
+  delete($args{collName});
+
   $method = $core->{REQUEST_METHOD};
   $conn = MongoDB::Connection->new(host => 'localhost', port => 8230);
-  $db = $conn->phedex;
-  $table = $db->table();
+  $db = $conn->SiteSpace;
+  $table = $db->$site();
 
   if ( $method eq 'POST' ) {
-    warn Data::Dumper->Dump([ \%args ]);
-    $table->insert(\%args);
-    push @records, \%args;
+    $dir{_id} = $args{_id} + 0.0;
+    delete($args{_id});
+    $dir{rootdir} = $args{rootdir};
+    delete($args{rootdir});
+    $dir{totalsize} = $args{totalsize} + 0.0;
+    delete($args{totalsize});
+    foreach  (keys %args) {
+      my %temp;
+      $temp{size} = $args{$_} + 0.0;
+      $temp{name} = $_;
+      push(@dirarray, \%temp);
+    }
+    $dir{dir} =\@dirarray;
+    warn "dumping converted arguments ",Data::Dumper->Dump([ \%dir ]);
+    $table->insert(\%dir);
+    push @records, \%dir;
   } else {
-    $cursor = $table->find;
+    my %temp;
+    $temp{'$gt'} = $args{time_since} + 0.0;
+    $temp{'$lt'} = $args{time_until} + 0.0;
+    $dir{_id} = \%temp;
+    warn "dumping converted arguments ",Data::Dumper->Dump([ \%dir ]);
+    $cursor = $table->find(\%dir);
+    #$cursor = $table->find({_id =>{'$gt' => 0,'$lt' => 11}});
     while ($data = $cursor->next) {
       warn Data::Dumper->Dump([ $data ]);
       push @records,$data;
     }
-    warn Data::Dumper->Dump([ \@records ]);
   }
-
+  warn "dumping records ",Data::Dumper->Dump([ \@records ]);
   return { mongo => \@records };
 }
 
