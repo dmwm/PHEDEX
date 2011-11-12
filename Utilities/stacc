@@ -2,27 +2,23 @@
 # Storage accounting tool
 use strict;
 use warnings;
-use Time::Local;
 use File::Basename;
-use PHEDEX::CLI::UserAgent;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
-my ($loader,$module,$interface,$ns,$timeFromXml);
+my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
-my (@pfn,$dump,$level,$result,$command,$rootdir,$totalsize);
+my (@pfn,$dump,$level,$result,$command);
 my %dirsizes = ();
-$totalsize = 0;
 
 sub usage {
   print <<EOF;
   Usage:
 
-  stacc --dump DUMP --collName COLLNAME --time DATE --depth LEVEL INTERFACE {OPTIONS}
+  stacc --dump DUMP -depth LEVEL INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is level of depth of the directory structure we want to go
-  COLLNAME is the name of collection where data is put
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
@@ -41,96 +37,49 @@ sub dump_recorded {
 }
 
 sub dirlevel {
-  my ($pathSimple,$temp1);
   my $path=shift;
   my $depth=shift;
-  my @tmp=();
   if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
-  if  ( $path = ~ /^(\S+\/cms)(\/\S+)$/) {
-      $temp1 = $1;
-      $pathSimple = $2;
-  }      
-  $rootdir = $temp1;
-  @tmp = split ('/', $pathSimple, $depth+2);
+  my @tmp = split ('/', $path,$depth+2);
   pop @tmp;
-  if (scalar(@tmp) > 2) {
-     return join ("/", @tmp);
-  }
-  else {
-     return $pathSimple;
-  }
+  return join ("/", @tmp);
 }
 
 sub parse_chimera_dump {
   my ($file_dump) = @_;
   #my $totalfiles    = 0;
-  my ($totaldirs,$totalfiles, $line,$time, $timeFromName);
+  my ($totalsize, $totaldirs,$totalfiles);
   if ( $file_dump =~ m%.gz$% )
     { open DUMP, "cat $file_dump | gzip -d - |" or die "Could not open: $file_dump\n"; }
   else
     { open(DUMP, "cat $file_dump |") or die  "Could not open: $file_dump\n"; }
-  while ($line = <DUMP>){
+  while (<DUMP>){
 	my ($size,$file);
-	#chomp;
-	if ($line =~ m/^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$/) {
-	   $file = $1;
-	   $size = $2;
-	   $debug and print "$file:$size\n";
-	   $totalfiles++;
-	   my $dir = dirname $file;
-	   $dirsizes{$dir}+=$size;
-	   $totalsize+=$size;
-        }
-        if ($line =~ m/^<dump recorded=\"(\S+)\">$/) {
-           $time = $1;
-        }
+	chomp;
+	m%^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$%
+      or next;
+	$file = $1;
+	$size = $2;
+	$debug and print "$file:$size\n";
+	$totalfiles++;
+	my $dir = dirname $file;
+	$dirsizes{$dir}+=$size;
+	$totalsize+=$size;
   }
   close DUMP;
-  $timeFromXml = convertToUnixTime($time);
-  
   print "total files: ", $totalfiles,"\n";
   $totaldirs = keys %dirsizes;
   print "total dirs:  ", $totaldirs, "\n";
   print "total size:  ", $totalsize, "\n";
-  print "timestamp:  ", $timeFromXml, "\n";
 }
 
-sub convertToUnixTime
-{
-  my ($time) = @_;
-  my ($unixTime, $d, $t, @d, @t);
-  if ($time =~ m/^(\S+)T(\S+)Z$/)
-  {
-    $d = $1;
-    @d = split /-/, $1;
-    $t = $2;
-    @t = split /:/, $2;
-  }
-  $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1], $d[0]);
-  return $unixTime;
-}
-
-my ($response,$content,$method,$timeout,$pua,$target,$time,$collName,%payload,%topsizes);
 GetOptions(
            "dump=s"      => \$dump,
-           "collName=s"      => \$collName,
-           "time=i"      => \$time,
            "level=s"      => \$level,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
           );
-$method   = 'post';
-$timeout  = 500;
-$pua = PHEDEX::CLI::UserAgent->new
-    (
-      URL        => 'https://pheSpaceMon.cern.ch/phedex/datasvc',
-      FORMAT    => 'perl',
-      INSTANCE    => 'debug',
-    );
-$pua->timeout($timeout) if $timeout;
-$pua->CALL('mongo');
-$target = $pua->target;
 
 if ( $dump ) {
   print  "Dump recorded:", dump_recorded($dump)."\n";
@@ -141,57 +90,14 @@ if ( $dump ) {
 #  print "DIRSIZE: $_: $dirsizes{$_} \n";
 #}
 
+my %topsizes=();
 
-$payload{"collName"}=$collName;
-$payload{"rootdir"}="/pnfs/gridka.de/cms";
-$payload{"totalsize"}=$totalsize;
-#$payload{"_id"}=$timeFromXml;
-
-
-#   $payload{"_id"}=$time + 0.0;
-   
 foreach  (keys %dirsizes) {
-  $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_} + 0;
+  $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_};
 }
 
 foreach ( keys %topsizes ) {
-  #print "TOPSIZE: $_: $topsizes{$_} \n";
-  #if ($_=~ m/\S+\.\S+/) {
-  #   print "TOPSIZE: $_: $topsizes{$_} \n";
-  #   next; 
-  #}
-  $payload{$_} = $topsizes{$_} + 0;
+  print "TOPSIZE: $_: $topsizes{$_} \n";
 }
-
-my ($j, $now, $past, $input);
-$now = time();
-for ($j = 1300 ; $j < 1300+$time ; $j++) {
-   $payload{"_id"}=$j + 0.0;
-   $response = $pua->$method($target,\%payload);
-
-   if ( $pua->response_ok($response) )
-   {
-   # HTTP call returned correctly, print contents and quit...
-     no strict 'vars';
-     $content = eval($response->content());
-     $content = $content->{PHEDEX}{MONGO};
-     #foreach $record ( @{$content} ) {
-     #  print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
-     #}
-   }
-   else
-   {
-     # Something went wrong...
-     #chomp $content;
-     print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
-           $response->content(),"\n";
-     die "exiting after failure\n";
-   }
-}
-$past = time() - $now;
-
-print "level ",$level,": ",$time, " times use time : ", $past, "\n";
-
-exit 0;
 
 print  "DONE!\n";
