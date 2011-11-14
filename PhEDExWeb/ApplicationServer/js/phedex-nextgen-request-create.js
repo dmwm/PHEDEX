@@ -985,14 +985,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
 
 // DBS
       this.dbs = {
-        instanceDefault:{
-          prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          test:'LoadTest',
-          debug:'LoadTest',
-          tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          tbedii:'test',
-          tony:'test'
-        },
+        instanceDefault:PxU.DBSDefaults,
         label:'DBS'
       };
       this.makeControlDBS(this.dbs,form);

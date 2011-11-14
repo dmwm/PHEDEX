@@ -299,6 +299,15 @@ PHEDEX.Util.UserAgent = function() {
   return 'PhEDEx-WebApp/'+PxW.Version+' (CMS) '+navigator.userAgent;
 }
 
+PHEDEX.Util.DBSDefaults = {
+  prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+  test:'LoadTest',
+  debug:'LoadTest',
+  tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+  tbedii:'test',
+  tony:'test'
+},
+
 /**
 * This is the prototype for the string trim function. This is to trim the string 
 * i.e to remove starting and trailing whitespace.
