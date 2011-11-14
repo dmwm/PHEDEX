@@ -9518,7 +9518,7 @@ use strict; use warnings;
 use base "Web25::Page";
 use CGI qw(:standard unescape);
 import Web25::Common;
-our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Bulk Delete Data" };
+our $INDEX = { LIST => 0, ORDER => 999, NOLOGIN => 1, TITLE => "Bulk Delete Data" };
 
 sub new
 {
