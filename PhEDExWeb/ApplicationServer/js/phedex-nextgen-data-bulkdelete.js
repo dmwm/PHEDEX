@@ -21,7 +21,9 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
       nNodes: 0,
       items: {},
       nItems: 0,
+      level: {},
       buttons: {},
+      requests: [],
       useElement: function(el) {
         var form;
         dom.target = el;
@@ -48,15 +50,30 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         this.useElement(params.el);
         var selfHandler = function(obj) {
           return function(ev,arr) {
-            var action=arr[0], node=arr[1], el, anim, n, i, j;
+            var action=arr[0], node=arr[1], el, anim, n, i, j, requests, uri;
             switch (action) {
+              case 'Request': {
+                requests=obj.requests;
+                requests.push(arr[2]);
+                uri=location.href;
+                uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/')
+                         .replace(/\?.*$/g,'') // shouldn't be necessary, but we'll see...
+                         .replace(/\/[^/]*$/g,'/');
+                uri += 'Request::View?request=' + requests.sort().join(' ');
+                dom.view_all.href=uri;
+                Dom.removeClass(dom.view_all,'phedex-invisible');
+                break;
+              }
               case 'Submit all': {
+                obj.SubmitAll();
                 break;
               }
               case 'Submit': {
+                obj.Submit(node);
                 break;
               }
               case 'Preview': {
+                obj.Preview(node);
                 break;
               }
               case 'Remove this item': {
@@ -77,9 +94,9 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                 }
                 delete obj.nodes[node];
                 obj.nNodes--;
-                obj.setSummary('','OK',obj.nNodes+' nodes and '+obj.nItems+' items remaining');
+                obj.setSummary('OK',obj.nNodes+' nodes and '+obj.nItems+' data-items remaining');
                 if ( ! obj.nNodes ) {
-                  obj.buttons['button-submit-all'].set('disabled',true);
+                  obj.buttons['submit-all'].set('disabled',true);
                 }
                 break;
               }
@@ -93,23 +110,28 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         this.initSub();
       },
       initSub: function() {
-        var data=PhedexPage.postdata, form=dom.form, dn, d, i, nodes=[], node, level, items=this.items, item, el,
-            button, label, id, callback, hr="<hr width='95%'/>", clear_both="<div style='clear:both; margin-bottom:5px'></div>";
+        var data=PhedexPage.postdata, form=dom.form, dn, d, i, nodes=[], node, level, items=this.items, itemLevel=this.level, item, el,
+            button, buttons=this.buttons, bn, label, idRes, idPre, tmp, callback,
+            hr = "<hr width='95%'/>",
+            clear_both = "<div style='clear:both; margin-bottom:5px'></div>";
         this.comments = {
           text:'enter any additional comments here',
           label:'Comments'
         };
         this.makeControlTextbox(this.comments,form);
         el = document.createElement('div');
-        el.innerHTML = "<div id='phedex-bulkdelete-messages' style='padding:5px'></div>" +
-                       "<div class='phedex-buttons-right' id='buttons-right' style='float:right'></div>" +
+        el.innerHTML = "<div id='phedex-bulkdelete-results' style='padding:5px'></div>" +
+                       "<div class='phedex-nextgen-buttons-right' id='buttons-right' style='padding:5px 0 0'>" +
+                          "<a id='phedex-bulkdelete-view-all' class='phedex-invisible' href='#'>view all requests</a>" +
+                        "</div>" +
                         clear_both +
                        "<div style='border-bottom:1px solid silver'></div>";
         form.appendChild(el);
-        dom.messages = Dom.get('phedex-bulkdelete-messages');
+        dom.results  = Dom.get('phedex-bulkdelete-results');
+        dom.view_all = Dom.get('phedex-bulkdelete-view-all');
 
-        label='Submit all', id='button-submit-all';
-        this.buttons[id] = button = new YAHOO.widget.Button({
+        label='Submit all', id='submit_all';
+        buttons[id] = button = new YAHOO.widget.Button({
                               type: 'submit',
                               label: label,
                               id: id,
@@ -137,36 +159,74 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
             this.nItems++;
           }
           items[item]++;
+
+          itemLevel[item] = level;
         }
         if ( !nodes.length ) {
-          this.buttons['button-submit-all'].set('disabled',true);
-          this.setSummary('','OK','Nothing to delete! Go visit the subscriptions page, and tick a few boxes...');
+          this.buttons.submit_all.set('disabled',true);
+          this.setSummary('OK','Nothing to delete! Go visit the subscriptions page, tick a few boxes, and select "Delete this data"...');
           return;
         }
-        this.setSummary('','OK','Found '+this.nNodes+' nodes and '+this.nItems+' items in total');
+        this.setSummary('OK','Found '+this.nNodes+' nodes and '+this.nItems+' data-items in total');
         nodes = nodes.sort();
         for (i in nodes) {
           node = nodes[i];
+
+          buttons[node] = {};
+          bn = buttons[node];
           dom[node] = {};
           dn = dom[node];
-          node = nodes[i];
+
           dn.el = el = document.createElement('div');
           el.id = 'phedex-bulkdelete-'+node;
           el.style.borderBottom = '1px solid silver';
+          idRes = 'phedex-nextgen-results-'+node;
+          idPre = 'phedex-nextgen-preview-'+node;
           el.innerHTML = "<div class='phedex-nextgen-label'>Node:</div>" +
                          "<div class='phedex-nextgen-control'>"+node+"</div>" +
                          "<div class='phedex-nextgen-label'>Items:</div>" +
                          "<div class='phedex-nextgen-control'>"+this.nodes[node].sort().join(' ')+"</div>" +
-                         "<div id='phedex-bulkdelete-messages-"+node+"' style='padding:5px'></div>" +
-                         "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-left'   id='buttons-left-"  +node+"'></div>" +
-                         "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-centre' id='buttons-centre-"+node+"'></div>" +
-                         "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-right'  id='buttons-right-" +node+"'></div>" +
+//                          "<div id='phedex-bulkdelete-results-"+node+"' style='padding:5px'></div>" +
+// TW should do this with makeControlOutputbox if I harmonised it w.r.t. phedex-nextgen-request-create
+                         "<div id='"+idRes+"' style='padding:5px' class='phedex-invisible'>" +
+                           "<div class='phedex-nextgen-form-element'>" +
+                             "<div class='phedex-nextgen-label' id='"+idRes+"-label'></div>" +
+                             "<div class='phedex-nextgen-control'>" +
+                               "<div id='"+idRes+"-text'></div>" +
+                             "</div>" +
+                           "</div>" +
+                         "</div>"+
+
+// TW likewise, for the preview table
+                         "<div id='"+idPre+"' style='padding:5px' class='phedex-invisible'>" +
+                           "<div class='phedex-nextgen-form-element'>" +
+                             "<div class='phedex-nextgen-label' id='"+idPre+"-label'></div>" +
+                             "<div class='phedex-nextgen-control'>" +
+                               "<div id='"+idPre+"-text'></div>" +
+                             "</div>" +
+                           "</div>" +
+                         "</div>" +
+
+// ...back to normal adding of elements...
+                         "<div id='buttons-"+node+"'>" +
+                           "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-left'   id='buttons-left-"  +node+"'></div>" +
+                           "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-centre' id='buttons-centre-"+node+"'></div>" +
+                           "<div class='phedex-nextgen-buttons phedex-nextgen-buttons-right'  id='buttons-right-" +node+"'></div>" +
+                         "</div>" +
                          clear_both;
           form.appendChild(el);
-          dom['messages-'+node] = Dom.get('phedex-bulkdelete-messages-'+node);
+          dn.buttons       = Dom.get('buttons-'+node);
+          dn.results       = Dom.get(idRes);
+          dn.results_label = Dom.get(idRes+'-label');
+          dn.results_text  = Dom.get(idRes+'-text');
+          dn.preview       = Dom.get(idPre);
+          dn.preview_text  = Dom.get(idPre+'-text');
+          dn.preview_text.innerHTML = "<div id='"+idPre+"-summary'></div><div id='"+idPre+"-table'></div>";
+          dn.preview_summary = Dom.get(idPre+'-summary');
+          dn.preview_table   = Dom.get(idPre+'-table');
 
           label='Remove this item', id='button-remove-'+node;
-          this.buttons[id] = button = new YAHOO.widget.Button({
+          bn.remove = button = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
                                 id: id,
@@ -176,7 +236,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           button.on('click', this.callback(label,node) );
 
           label='Preview', id='button-preview-'+node;
-          this.buttons[id] = button = new YAHOO.widget.Button({
+          bn.preview = button = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
                                 id: id,
@@ -186,7 +246,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           button.on('click', this.callback(label,node) );
 
           label='Submit', id='button-submit-'+node;
-          this.buttons[id] = button = new YAHOO.widget.Button({
+          bn.submit = button = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
                                 id: id,
@@ -196,10 +256,163 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           button.on('click', this.callback(label,node) );
         }
       },
-      setSummary: function(id,status,text) {
-        if ( !id ) { id = 'messages' }
-        else       { id = 'messages-'+id; }
-        var el = dom[id],
+      onAcceptFail: function(text,node) {
+        var dn=dom;
+        if ( node ) { dn = dom[node]; }
+        Dom.addClass(dn.preview,'phedex-invisible');
+        Dom.removeClass(dn.results,'phedex-invisible');
+        Dom.addClass(dn.results,'phedex-box-red');
+        dn.results_label.innerHTML = 'Error:';
+        if ( dn.results_text.innerHTML ) {
+          dn.results_text.innerHTML += '<br />';
+        }
+        dn.results_text.innerHTML += Icon.Error+text;
+      },
+      Preview: function(node) {
+        var dbs, items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level,
+            preview_summary = dn.preview_summary,
+            preview_table   = dn.preview_table,
+            preview  = dn.preview,
+            buttons  = this.buttons[node];
+
+        Dom.addClass(dn.results,'phedex-invisible');
+        Dom.removeClass(preview,'phedex-invisible');
+        preview_summary.innerHTML = '';
+        preview_table.innerHTML  = '';
+        buttons.preview.set('disabled',true);
+
+        _sbx.notify('SetModuleConfig','previewrequestdata', {
+            parent:preview_table,
+            noDecorators:true,
+            noExtraDecorators:true,
+            noHeader:true
+          });
+        _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
+// TW notify to get the data too
+// in the data callback, wait for the previewID, then act!
+      },
+      gotPreviewId: function(a,b,c) {
+debugger;
+      },
+      SubmitAll: function() {
+        var node, nodes=this.nodes;
+        for (node in nodes) {
+          this.Submit(node);
+        }
+      },
+      Submit: function(node) {
+        var dbs, items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level,
+            results_label = dn.results_label,
+            results_text  = dn.results_text,
+            results  = dn.results,
+            comments = dom.comments,
+            buttons  = this.buttons[node];
+
+        dbs = PxU.DBSDefaults[PHEDEX.Datasvc.Instance().instance];
+
+// Prepare the form for output results, disable the button to prevent multiple clicks
+        Dom.removeClass(results,'phedex-box-red');
+        results_label.innerHTML = '';
+        results_text.innerHTML  = '';
+        buttons.submit.set('disabled',true);
+        buttons.remove.set('disabled',true);
+        buttons.preview.set('disabled',true);
+
+// Data Items:
+// 1. Each substring must match /X/Y/Z, even if wildcards are used
+        tmp = this.nodes[node];
+        data = {blocks:{}, datasets:{} };
+        for (i in tmp) {
+          block = tmp[i];
+          if ( block.match(/(\/[^/]+\/[^/]+\/[^/#]+)(#.*)?$/ ) ) {
+            dataset = RegExp.$1;
+            if ( dataset == block ) { data.datasets[dataset] = 1; }
+            else                    { data.blocks[block] = 1; }
+          } else {
+            this.onAcceptFail('item "'+block+'" does not match /Primary/Processed/Tier(#/block)',node);
+          }
+        }
+
+// 2. Blocks which are contained within explicit datasets are suppressed
+        for (block in data.blocks) {
+          block.match(/^([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( data.datasets[dataset] ) {
+            delete data.blocks[block];
+          }
+        }
+// 3. Blocks are grouped into their corresponding datasets
+        for (block in data.blocks) {
+          block.match(/([^#]*)#/);
+          dataset = RegExp.$1;
+          if ( ! data.datasets[dataset] ) { data.datasets[dataset] = {}; }
+          data.datasets[dataset][block] = 1;
+        }
+// 4. the block-list is now redundant, clean it up!
+        delete data.blocks;
+
+// Now build the XML!
+        xml = '<data version="2.0"><dbs name="' + dbs + '">';
+        for ( dataset in data.datasets ) {
+          xml += '<dataset name="'+dataset+'" is-open="dummy">';
+          for ( block in data.datasets[dataset] ) {
+            xml += '<block name="'+block+'" is-open="dummy" />';
+          }
+          xml += '</dataset>';
+        }
+        xml += '</dbs></data>';
+        args.data = xml;
+
+        args.level = 'block';
+        args.node = [ node ];
+
+// Comments
+        if ( comments.value && comments.value != this.comments.text ) { args.comments = comments.value; }
+
+        Dom.removeClass(results,'phedex-invisible');
+        Dom.addClass(results,'phedex-box-yellow');
+        results_label.innerHTML = 'Status:';
+        results_text.innerHTML  = PxU.stdLoading('Submitting request (please wait)');
+        PHEDEX.Datasvc.Call({
+                              api:'delete',
+                              method:'post',
+                              args:args,
+                              callback:function(data,context,response) { obj.requestCallback(data,context,response,node); }
+                            });
+      },
+      requestCallback: function(data,context,response,node) {
+        var dn=this.dom[node], str, msg, rid;
+        dn.results_label.innerHTML = '';
+        dn.results_text.innerHTML = '';
+        Dom.removeClass(dn.results,'phedex-box-yellow');
+        if ( response ) { // indicative of failure
+          msg = response.responseText;
+          Dom.addClass(dn.buttons,'phedex-invisible');
+          this.onAcceptFail(msg,node);
+          return;
+        }
+        if ( !(rid = data.request_created[0].id) ) {
+          Dom.addClass(dn.buttons,'phedex-invisible');
+          this.onAcceptFail('failed to create request. Please try again later',node);
+          return;
+        }
+        var uri = location.href;
+        uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/')
+                 .replace(/\?.*$/g,'') // shouldn't be necessary, but we'll see...
+                 .replace(/\/[^/]*$/g,'/');
+
+        dn.results_text.innerHTML = 'Request-id = ' +rid+ ' created successfully!&nbsp;' +
+          "(<a href='" + uri+'Request::View?request='+rid+"'>view this request</a>)";
+        Dom.addClass(dn.results,'phedex-box-green');
+        Dom.removeClass(dn.results,'phedex-invisible');
+        dn.preview_summary.innerHTML = '';
+        dn.preview_table.innerHTML   = '';
+        Dom.addClass(dn.preview,'phedex-invisible');
+        Dom.addClass(dn.buttons,'phedex-invisible');
+        _sbx.notify(this.id,'Request',node,rid);
+      },
+      setSummary: function(status,text) {
+        var el = dom.results,
             map = {OK:'phedex-box-green', error:'phedex-box-red', warn:'phedex-box-yellow'}, i;
         el.innerHTML = text;
         for ( i in map ) {
