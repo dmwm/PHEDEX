@@ -38,7 +38,7 @@ $payload{collName} = $collName;
 $payload{time_since} = $time_since;
 $payload{time_until} = $time_until;
 foreach ( keys %payload ) {
-  print $_, " ", $payload{$_};
+  print $_, " ", $payload{$_}, "\n";
 }
 
 $response = $pua->get($target,\%payload);
