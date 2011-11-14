@@ -10,7 +10,7 @@ use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
 my ($loader,$module,$interface,$ns,$timeFromXml);
 my ($verbose,$debug,$terse);
-my (@pfn,$dump,$level,$result,$command,$rootdir,$totalsize);
+my (@pfn,$dump,$level,$result,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
 my %dirsizes = ();
 $totalsize = 0;
 
@@ -18,12 +18,11 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceInsert --dump DUMP --collName COLLNAME --time DATE --depth LEVEL INTERFACE {OPTIONS}
+  spaceInsert --dump DUMP --collName COLLNAME --depth LEVEL INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is level of depth of the directory structure we want to go
   COLLNAME is the name of collection where data is put
-  DATE is the timestamp needed to put for each inserted entry, here temperioly both used for the number of entries and timestamp of each entries in performance test.
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
@@ -60,8 +59,9 @@ sub dirlevel {
 
 sub parse_chimera_dump {
   my ($file_dump) = @_;
-  #my $totalfiles    = 0;
-  my ($totaldirs,$totalfiles, $line,$time, $timeFromName);
+  $totalfiles    = 0;
+  $totaldirs     = 0;
+  my ($line,$time);
   if ( $file_dump =~ m%.gz$% )
     { open DUMP, "cat $file_dump | gzip -d - |" or die "Could not open: $file_dump\n"; }
   else
@@ -107,11 +107,10 @@ sub convertToUnixTime
   return $unixTime;
 }
 
-my ($response,$content,$method,$timeout,$pua,$target,$timestamp,$collName,%payload,%topsizes);
+my ($response,$content,$method,$timeout,$pua,$target,$collName,%payload,%topsizes);
 GetOptions(
            "dump=s"      => \$dump,
            "collName=s"      => \$collName,
-           "time=i"      => \$timestamp,
            "level=s"      => \$level,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
@@ -139,16 +138,16 @@ if ( $dump ) {
 
 
 $payload{"collName"}=$collName;
-$payload{"rootdir"}="/pnfs/gridka.de/cms";
 $payload{"totalsize"}=$totalsize;
-#$payload{"_id"}=$timeFromXml;
+$payload{"totalfiles"}=$totalfiles;
+$payload{"totaldirs"}=$totaldirs;
+$payload{"_id"}=$timeFromXml;
 
-
-#   $payload{"_id"}=$time + 0.0;
-   
 foreach  (keys %dirsizes) {
   $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_} + 0;
 }
+
+$payload{"rootdir"}=$rootdir;
 
 foreach ( keys %topsizes ) {
   #print "TOPSIZE: $_: $topsizes{$_} \n";
@@ -162,33 +161,26 @@ foreach ( keys %topsizes ) {
 # test data service response time for times
 
 my ($j, $now, $past, $input);
-$now = time();
-for ($j = 100 ; $j < 100+$timestamp ; $j++) {
-   $payload{"_id"}=$j + 0.0;
-   $response = $pua->$method($target,\%payload);
+$response = $pua->$method($target,\%payload);
 
-   if ( $pua->response_ok($response) )
-   {
+if ( $pua->response_ok($response) )
+{
    # HTTP call returned correctly, print contents and quit...
-     no strict 'vars';
-     $content = eval($response->content());
-     $content = $content->{PHEDEX}{MONGO};
-     foreach $record ( @{$content} ) {
-       print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
-     }
-   }
-   else
-   {
-     # Something went wrong...
-     #chomp $content;
-     print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
-           $response->content(),"\n";
-     die "exiting after failure\n";
+   no strict 'vars';
+   $content = eval($response->content());
+   $content = $content->{PHEDEX}{MONGO};
+   foreach $record ( @{$content} ) {
+     print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
    }
 }
-$past = time() - $now;
-
-print "level ",$level,": ",$timestamp, " times use time : ", $past, "\n";
+else
+{
+   # Something went wrong...
+   chomp $content;
+   print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
+         $response->content(),"\n";
+   die "exiting after failure\n";
+}
 
 exit 0;
 
