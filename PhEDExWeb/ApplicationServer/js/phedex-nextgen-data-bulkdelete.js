@@ -100,6 +100,10 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                 }
                 break;
               }
+              case 'gotPreviewId': {
+                obj.previewId = arr[1];
+                break;
+              }
               default: {
                 break;
               }
@@ -287,12 +291,10 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
             noExtraDecorators:true,
             noHeader:true
           });
+        delete this.previewId;
         _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
 // TW notify to get the data too
 // in the data callback, wait for the previewID, then act!
-      },
-      gotPreviewId: function(a,b,c) {
-debugger;
       },
       SubmitAll: function() {
         var node, nodes=this.nodes;
