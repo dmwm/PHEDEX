@@ -10,7 +10,7 @@ phedex_css_path=$phedex_base/ApplicationServer/css
 phedex_min_js_path=$phedex_base/ApplicationServer/build/js
 phedex_min_css_path=$phedex_base/ApplicationServer/build/css
 
-yuicompressor_version='2.4.6'
+yuicompressor_version='2.4.7'
 yuicompressor_url=http://yui.zenfs.com/releases/yuicompressor/yuicompressor-${yuicompressor_version}.zip
 yuicompressor_path=$YUICOMPRESSOR_PATH
 if [ "$yuicompressor_path" == '' ]; then
