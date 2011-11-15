@@ -2484,7 +2484,7 @@ sub generate
 			 ? (" class='selected'><span>" . &escapeHTML(${$$_}{TITLE}) . "</span>")
 			 : (">" . &toclink($self, $_)))
 		      . "</li>\n" } @toc) .
-       "<li id='nextgen-link'><a title='Enter the next-gen website' href='https://localhost/phedex/datasvc/app'>Next-gen website</a></li>" .
+       "<li id='nextgen-link'><a title='Enter the next-gen website' href='/phedex/datasvc/app'>Next-gen website</a></li>" .
        "<li id='phedex-permalink-container' style='display:none'><a id='phedex-permalink' title='Permalink to this page\'s state' href='#'>Permalink</a></li>" .
        " </ul>\n" .
        "</div>" : ""),
