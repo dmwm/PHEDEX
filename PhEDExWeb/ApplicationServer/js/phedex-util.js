@@ -100,10 +100,12 @@ PHEDEX.Util.format={
     return d.toGMTString();
   },
   UnixEpochToGMT: function(epoch) {
+    if ( epoch*1 === 0 ) { return 'forever'; }
     if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toGMTString();
   },
   UnixEpochToUTC: function(epoch) {
+    if ( epoch*1 === 0 ) { return 'forever'; }
     if ( !epoch ) { return '-'; }
     return new Date(epoch*1000).toUTCString().replace(/GMT/,'UTC');
   },
