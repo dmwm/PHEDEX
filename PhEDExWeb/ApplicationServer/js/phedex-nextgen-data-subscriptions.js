@@ -873,7 +873,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
         _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
         if ( !datasets || !datasets.length ) {
-          this.setSummary('error','No data found matching your query! (Hint: showing data created since '+since+')');
+          this.setSummary('error','No data found matching your query!' +
+              ( since == 'forever' ? '' : ' (Hint: showing data created since '+since+')' ) );
           return;
         }
         this.data = data; // keep these in case the user changes the number of rows!
