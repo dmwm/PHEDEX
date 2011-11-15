@@ -13,6 +13,22 @@ BEGIN
       )	or BAIL_OUT('testing prerequisites failed');
 }
 
+our @missed;
+BEGIN
+{
+  my %tested_fields;
+  open ME, "<$0" or BAIL_OUT('cannot open myself for reading');
+  while ( <ME> ) {
+    m%^#\s+'(\S+)'\s+checking\s*$% && $tested_fields{$1}++;
+  }
+  close ME;
+  scalar keys %tested_fields or BAIL_OUT('cannot determine which fields we have tests for');
+  scalar keys %PHEDEX::Web::Util::COMMON_VALIDATION or BAIL_OUT('cannot determine which fields need testing');
+  foreach ( keys %PHEDEX::Web::Util::COMMON_VALIDATION ) {
+    defined($tested_fields{$_}) || push @missed, $_;
+  }
+}
+
 # returns 1 if passed subref and args die, 0 otherwise
 sub dies {
     my $subref = shift;
@@ -27,6 +43,13 @@ sub whydie { diag("died because: $@"); }
  ok( dies(sub { die "dying"; }), 'test dies') and
  ok( lives(sub { return "I'm alive!" }),'test lives')
 ) or BAIL_OUT('testing utility functions fail');
+
+# test to see if all items in COMMON_VALIDATION have tests defined
+sub missed_something {
+  return 0 if @missed;
+  return 1;
+}
+ok( missed_something, 'missing tests for "' . join('", "',@missed) . '"');
 
 # tests for developers who didn't read the docs
 ok( dies(\&valiate_params),                                                      'no arguments');
