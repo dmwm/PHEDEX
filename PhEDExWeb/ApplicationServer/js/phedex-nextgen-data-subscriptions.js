@@ -849,7 +849,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this.setHistory(args);
       },
       gotSubscriptions:function(data,context,response) {
-        var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, tmp;
+        var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, since;
         if ( response ) {
           this.setSummary('error','Error retrieving subscriptions data');
           return;
@@ -864,9 +864,16 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           _sbx.delay(50, this.id, 'gotSubscriptions',data,context,response);
           return;
         }
+        since = context.args.create_since*1;
+        if ( since ) {
+          since = new Date().getTime()/1000 - since;
+          since = PxUf.secondsToYMD(since);
+        } else {
+          since = 'forever';
+        }
         _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
         if ( !datasets || !datasets.length ) {
-          this.setSummary('error','No data found matching your query!');
+          this.setSummary('error','No data found matching your query! (Hint: showing data created since '+since+')');
           return;
         }
         this.data = data; // keep these in case the user changes the number of rows!
@@ -885,9 +892,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             }
           }
         }
-        tmp = context.args.create_since;
-        if ( tmp ) { tmp = new Date().getTime()/1000 - tmp; }
-        summary = 'Showing subscriptions created since '+PxUf.secondsToYMD(tmp) +
+        summary = 'Showing subscriptions created since '+ since +
                   '<br />' + datasets.length+' data-item'+(datasets.length==1?'':'s')+' found, ' +
                   nSubs+' subscription'+(nSubs==1?'':'s');
         if ( nSubs >= this.meta.maxRows ) {
