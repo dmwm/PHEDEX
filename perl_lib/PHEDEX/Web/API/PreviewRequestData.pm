@@ -110,7 +110,7 @@ sub previewrequestdata {
              (defined $params{static} && $params{static} eq 'y') ? 1 : 0,
 	     $params{time_start},
              @{$params{data}});
-
+ 
   my @table;
   my $problems = 0;
   my %subscribed_sources;
@@ -210,6 +210,7 @@ sub previewrequestdata {
           $res->{SRC_INFO}{$_->{NODE_NAME}}{NODE}  = $_->{NODE_NAME};
           $res->{SRC_INFO}{$_->{NODE_NAME}}{BYTES} = $_->{BYTES};
           $res->{SRC_INFO}{$_->{NODE_NAME}}{FILES} = $_->{FILES};
+          $res->{SRC_INFO}{$_->{NODE_NAME}}{IS_CUSTODIAL} = $_->{IS_CUSTODIAL} ? 'y' : 'n';
         }
         delete $res->{REPLICAS};
         delete $res->{SUBSCRIPTIONS};
@@ -399,18 +400,34 @@ sub resolve_data
 		$all_replicas->{$level}->{ $rep->{ $level.'_ID' } } ||= [];
 		push @{ $all_replicas->{$level}->{ $rep->{ $level.'_ID' } } }, $rep;
 	    }
-	    my $subscriptions = &fetch_subscriptions($dbh, $level, @batch);
-	    foreach my $subsc (@$subscriptions) {
-		$all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } ||= [];
-		push @{ $all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } }, $subsc;
-	    }
+#	    my $subscriptions = &fetch_subscriptions($dbh, $level, @batch);
+#	    foreach my $subsc (@$subscriptions) {
+#		$all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } ||= [];
+#		push @{ $all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } }, $subsc;
+#	    }
 	}
     }
 
+    my $subs;
     foreach $userglob (@userdata) {
 	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
 	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
-	    $item->{SUBSCRIPTIONS} = $all_subscriptions->{$item->{LEVEL}}->{$item->{ID}};
+#	    $item->{SUBSCRIPTIONS} = $all_subscriptions->{$item->{LEVEL}}->{$item->{ID}};
+	    $subs = PHEDEX::Web::SQL::getDataSubscriptions($dbh,$item->{LEVEL} => $item->{$item->{LEVEL}});
+	    foreach ( @{$subs} ) {
+	      push @{$item->{SUBSCRIPTIONS}},
+		{
+		  NODE_ID      => $_->{NODE_ID},
+		  IS_MOVE      => $_->{MOVE},
+		  NODE_NAME    => $_->{NODE},
+		  SUBS_ITEM_ID => $_->{ITEM_ID},
+		  IS_CUSTODIAL => $_->{CUSTODIAL},
+		  TIME_START   => $_->{TIME_START},
+		  USER_GROUP   => $_->{GROUP},
+		  SUBS_LVL     => uc $_->{LEVEL},
+		  $_->{LEVEL} . '_ID' => $_->{ITEM_ID}
+		};
+	    }
 	}
     }
     
