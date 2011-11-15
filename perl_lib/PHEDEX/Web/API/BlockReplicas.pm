@@ -251,35 +251,60 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
+        eval {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [qw(block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset)],
+                    spec => {
+                        block => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        node => { using => 'node', multiple => 1 },
+                        se => { using => 'text', multiple => 1 },
+                        create_since => { using => 'time' },
+                        update_since => { using => 'time' },
+                        complete => { using => 'yesno' },
+                        dis_complete => { using => 'yesno' },
+                        custodial => { using => 'yesno' },
+                        subscribed => { using => 'yesno' },
+                        group => { using => 'text' },
+                        show_dataset => { using => 'yesno' }
+                    }
+            );
+        };
 
-    $h{SHOW_DATASET} ||= 'n';
-    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
-    {
-        $h{CREATE_SINCE} = "-1d";
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+    
+        $p{SHOW_DATASET} ||= 'n';
+        if ((not $p{BLOCK}) && (not $p{DATASET}) && (not $p{NODE}) && (not $p{CREATE_SINCE}))
+        {
+            $p{CREATE_SINCE} = "-1d";
+        }
+    
+        if ($p{SHOW_DATASET} eq 'y')
+        {
+            @keys = ('DATASET_ID');
+        }
+    
+        $p{'__spool__'} = 1;
     }
-
-    if ($h{SHOW_DATASET} eq 'y')
-    {
-        @keys = ('DATASET_ID');
-    }
-
-    $h{'__spool__'} = 1;
 
     my $r;
 
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %h), $limit, @keys) if !$sth;
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %p), $limit, @keys) if !$sth;
     $r = $sth->spool();
     if ($r)
     {
-        if ($h{SHOW_DATASET} eq 'y')
+        if ($p{SHOW_DATASET} eq 'y')
         {
             my $r1 = &PHEDEX::Core::Util::flat2tree($map_d, $r);
             my @dids;
@@ -320,6 +345,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = {};
         return $r;
     }
 }
