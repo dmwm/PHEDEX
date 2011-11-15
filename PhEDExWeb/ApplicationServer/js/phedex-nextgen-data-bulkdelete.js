@@ -116,7 +116,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
       },
       initSub: function() {
         var data=PhedexPage.postdata, form=dom.form, dn, d, i, nodes=[], node, level, items=this.items, itemLevel=this.level, item, el,
-            button, buttons=this.buttons, bn, label, idRes, idPre, tmp, callback,
+            button, buttons=this.buttons, bn, label, idRes, idPre, tmp, callback, uri,
             hr = "<hr width='95%'/>",
             clear_both = "<div style='clear:both; margin-bottom:5px'></div>";
         this.comments = {
@@ -169,7 +169,11 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         }
         if ( !nodes.length ) {
           this.buttons.submit_all.set('disabled',true);
-          this.setSummary('OK','Nothing to delete! Go visit the subscriptions page, tick a few boxes, and select "Delete this data"...');
+          uri = location.href;
+          uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/')
+                   .replace(/\?.*$/g,'') // shouldn't be necessary, but we'll see...
+                   .replace(/\/[^/]*$/g,'/');
+          this.setSummary('OK',"Nothing to delete! Go visit the <a href='"+uri+"Data::Subscriptions'>subscriptions</a> page, tick a few boxes, and select \"Delete this data\"...");
           return;
         }
         this.setSummary('OK','Found '+this.nNodes+' nodes and '+this.nItems+' data-items in total');
@@ -434,7 +438,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                             });
       },
       requestCallback: function(data,context,response,node) {
-        var dn=this.dom[node], str, msg, rid, i;
+        var dn=this.dom[node], str, msg, rid, i, uri;
         dn.results_label.innerHTML = '';
         dn.results_text.innerHTML = '';
         Dom.removeClass(dn.results,'phedex-box-yellow');
@@ -449,7 +453,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           this.onAcceptFail('failed to create request. Please try again later',node);
           return;
         }
-        var uri = location.href;
+        uri = location.href;
         uri = uri.replace(/http(s):\/\/[^\/]+\//g,'/')
                  .replace(/\?.*$/g,'') // shouldn't be necessary, but we'll see...
                  .replace(/\/[^/]*$/g,'/');
