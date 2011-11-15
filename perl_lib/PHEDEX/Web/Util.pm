@@ -71,7 +71,7 @@ our %COMMON_VALIDATION =
 #'unchecked'	=> qr|.*|,
  'subscribe_id'	=> qr%^(DATASET|BLOCK):\d+:\d+$%,
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
- 'create_dest'	=> qr/^(T\d[A-Z,a-z,_]+|-1|\d+)$/, # Name, ID, or -1. Ugh...
+ 'create_dest'	=> qr/^(T\d[A-Za-z0-9_]*|-1|\d+)$/, # Name, ID, or -1. Ugh...
  'create_source'=> qr%^(-1|(/[^/\#]+){3}|\d+)$%, # name, ID, or -1. Blearg!
  'text'         => qr/^[A-Z,a-z,0-9,_\-\. *]*$/,
 );
