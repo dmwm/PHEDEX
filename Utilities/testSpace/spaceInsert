@@ -117,10 +117,14 @@ sub convertToUnixTime
   return $unixTime;
 }
 
-my ($response,$content,$method,$timeout,$pua,$target,$collName,%payload,%topsizes);
+my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$collName,%payload,%topsizes);
+
+$datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
+
 GetOptions(
            "dump=s"      => \$dump,
            "collName=s"      => \$collName,
+           "url=s"      => \$datasvcUrl,
            "level=s"      => \$level,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
@@ -130,7 +134,7 @@ $method   = 'post';
 $timeout  = 500;
 $pua = PHEDEX::CLI::UserAgent->new
     (
-      URL        => 'https://pheSpaceMon.cern.ch/phedex/datasvc',
+      URL        => $datasvcUrl,
       FORMAT    => 'perl',
       INSTANCE    => 'debug',
     );
