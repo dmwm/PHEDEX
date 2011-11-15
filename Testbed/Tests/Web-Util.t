@@ -49,7 +49,7 @@ sub missed_something {
   return 0 if @missed;
   return 1;
 }
-ok( missed_something, 'missing tests for "' . join('", "',@missed) . '"');
+ok( missed_something, 'missing tests for "' . join('", "',sort @missed) . '"');
 
 # tests for developers who didn't read the docs
 ok( dies(\&valiate_params),                                                      'no arguments');
@@ -102,6 +102,7 @@ my $type_spec = { foo => { type => Params::Validate::HASHREF } };
 ok( lives(\&validate_params, { foo => {} }, spec => $type_spec),                 'good type override') or whydie;
 ok( dies (\&validate_params, { foo => [] }, spec => $type_spec),                 'bad type override');
 
+# 'regex' checking
 my $regex_spec = { foo => { regex => qr/foo/ } };
 ok( lives(\&validate_params, { foo => 'foo' }, spec => $regex_spec),             'good regex override') or whydie;
 ok( dies (\&validate_params, { foo => 'bar' }, spec => $regex_spec),             'bad regex override');
@@ -116,44 +117,64 @@ ok( dies (\&validate_params, { foo => 'two' }, spec => $callback_spec),         
 
 # 'using' checking
 my $using_spec;
+
+# 'dataset' checking
 $using_spec = { foo => { using => 'dataset' } };
 ok( lives(\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'good dataset') or whydie;
 ok( dies (\&validate_params, { foo => '/a/b/c/d' }, spec => $using_spec),           'bad dataset: 1');
 ok( dies (\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),           'bad dataset: 2');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad dataset: 3');
+
+# 'block' checking
 $using_spec = { foo => { using => 'block' } };
 ok( lives(\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),           'good block') or whydie;
 ok( dies (\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'bad block: 1');
 ok( dies (\&validate_params, { foo => '/a/b/c/d' }, spec => $using_spec),           'bad block: 2');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad block: 3');
+
+# 'lfn' checking
 $using_spec = { foo => { using => 'lfn' } };
 ok( lives(\&validate_params, { foo => '/store/foo' }, spec => $using_spec),         'good lfn') or whydie;
 ok( dies (\&validate_params, { foo => 'srm:examle.com/a' }, spec => $using_spec),   'bad lfn: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad lfn: 2');
+
+# 'wildcard' checking
 $using_spec = { foo => { using => '!wildcard' } };
 ok( lives(\&validate_params, { foo => '/store/foo' }, spec => $using_spec),         'good !wildcard') or whydie;
 ok( dies (\&validate_params, { foo => '/store/foo*' }, spec => $using_spec),        'bad !wildcard');
+
+# 'node' checking
 $using_spec = { foo => { using => 'node' } };
 ok( lives(\&validate_params, { foo => 'T1_Example' }, spec => $using_spec),         'good node') or whydie;
 ok( dies (\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'bad node: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad node: 2');
+
+# 'yesno' checking
 $using_spec = { foo => { using => 'yesno' } };
 ok( lives(\&validate_params, { foo => 'y' }, spec => $using_spec),                  'good yesno: y') or whydie;
 ok( lives(\&validate_params, { foo => 'n' }, spec => $using_spec),                  'good yesno: n') or whydie;
 ok( dies (\&validate_params, { foo => 'yes' }, spec => $using_spec),                'bad yesno: 1');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad yesno: 2');
+
+# 'onoff' checking
 $using_spec = { foo => { using => 'onoff' } };
 ok( lives(\&validate_params, { foo => 'on' }, spec => $using_spec),                 'good onoff: y') or whydie;
 ok( lives(\&validate_params, { foo => 'off' }, spec => $using_spec),                'good onoff: n') or whydie;
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad onoff: 1');
+
+# 'boolean' checking
 $using_spec = { foo => { using => 'boolean' } };
 ok( lives(\&validate_params, { foo => 'true' }, spec => $using_spec),               'good boolean: true') or whydie;
 ok( lives(\&validate_params, { foo => 'false' }, spec => $using_spec),              'good boolean: false') or whydie;
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad boolean: 1');
+
+# 'andor' checking
 $using_spec = { foo => { using => 'andor' } };
 ok( lives(\&validate_params, { foo => 'and' }, spec => $using_spec),                'good andor: and') or whydie;
 ok( lives(\&validate_params, { foo => 'or' }, spec => $using_spec),                 'good andor: or') or whydie;
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad andor: 1');
+
+# 'time' checking
 $using_spec = { foo => { using => 'time' } };
 ok( lives(\&validate_params, { foo => time() }, spec => $using_spec),               'good time: time()') or whydie;
 ok( lives(\&validate_params, { foo => '2000-01-01' }, spec => $using_spec),         'good time: date') or whydie;
@@ -169,11 +190,15 @@ ok( lives(\&validate_params, { foo => 'abc' }, spec => $using_spec),            
 ok( lives(\&validate_params, { foo => 'a[b](c)' }, spec => $using_spec),            'good regex: a(b)[c]') or whydie;
 ok( dies (\&validate_params, { foo => '[' }, spec => $using_spec),                  'bad  regex: [');
 ok( lives(\&validate_params, { foo => 'Could not submit' }, spec => $using_spec),   'good regex: Could not submit') or whydie;
+
+# 'pos_int' checking
 $using_spec = { foo => { using => 'pos_int' } };
 ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good pos_int: 1') or whydie;
 ok( dies (\&validate_params, { foo => -2 }, spec => $using_spec),                   'bad pos_int: -2');
 ok( dies (\&validate_params, { foo => 1.1 }, spec => $using_spec),                  'bad pos_int: 1.1');
 ok( dies (\&validate_params, { foo => 'hello' }, spec => $using_spec),              'bad pos_int: hello');
+
+# 'pos_int_list' checking
 $using_spec = { foo => { using => 'pos_int_list' } };
 ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good pos_int_list: 1') or whydie;
 ok( lives(\&validate_params, { foo => '1 2 3' }, spec => $using_spec),              'good pos_int_list: 1 2 3') or whydie;
