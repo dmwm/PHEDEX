@@ -30,7 +30,7 @@ $pua = PHEDEX::CLI::UserAgent->new
       INSTANCE    => 'debug',
     );
 $pua->timeout($timeout) if $timeout;
-$pua->CALL('mongo');
+$pua->CALL('storageusage');
 $pua->Dump();
 $target = $pua->target;
 %payload = @ARGV;
@@ -45,10 +45,9 @@ $response = $pua->get($target,\%payload);
 if ( $pua->response_ok($response) )
 {
 # HTTP call returned correctly, print contents and quit...
-  print "OK!\n";
   no strict 'vars';
   $content = eval($response->content());
-  $content = $content->{PHEDEX}{MONGO};
+  $content = $content->{PHEDEX}{STORAGEUSAGE};
   foreach $record ( @{$content} ) {
     print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
   }
