@@ -24,6 +24,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
       level: {},
       buttons: {},
       requests: [],
+      dbs: PxU.DBSDefaults[PHEDEX.Datasvc.Instance().instance],
       useElement: function(el) {
         var form;
         dom.target = el;
@@ -273,16 +274,19 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         dn.results_text.innerHTML += Icon.Error+text;
       },
       Preview: function(node) {
-        var dbs, items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level,
+        var items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level, args,
+            dataset, blocks, block,
             preview_summary = dn.preview_summary,
             preview_table   = dn.preview_table,
             preview  = dn.preview,
             buttons  = this.buttons[node];
 
         Dom.addClass(dn.results,'phedex-invisible');
-        Dom.removeClass(preview,'phedex-invisible');
         preview_summary.innerHTML = '';
         preview_table.innerHTML  = '';
+        Dom.addClass(preview,'phedex-box-yellow');
+        preview_summary.innerHTML = PxU.stdLoading('Calculating request (please wait)');
+        Dom.removeClass(preview,'phedex-invisible');
         buttons.preview.set('disabled',true);
 
         _sbx.notify('SetModuleConfig','previewrequestdata', {
@@ -293,37 +297,56 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           });
         delete this.previewId;
         _sbx.notify('CreateModule','previewrequestdata',{notify:{who:this.id, what:'gotPreviewId'}});
-// TW notify to get the data too
-// in the data callback, wait for the previewID, then act!
-      },
-      SubmitAll: function() {
-        var node, nodes=this.nodes;
-        for (node in nodes) {
-          this.Submit(node);
+
+// Now build the args!
+        args = { node:[node], dbs:this.dbs, type:'delete' };
+        data = this.parseDatasets(node);
+        args.data = [];
+        if ( data.datasets ) {
+          for ( dataset in data.datasets ) {
+            blocks = data.datasets[dataset];
+            if ( typeof(blocks) == 'number' ) {
+              args.data.push(dataset);
+            } else {
+              for ( block in blocks ) {
+                args.data.push(block);
+              }
+            }
+          }
         }
+        args.level = 'block';
+        PHEDEX.Datasvc.Call({
+                              api:'previewrequestdata',
+                              args:args,
+                              callback:function(data,context,response) { obj.previewCallback(data,context,response,node); }
+                            });
+
       },
-      Submit: function(node) {
-        var dbs, items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level,
-            results_label = dn.results_label,
-            results_text  = dn.results_text,
-            results  = dn.results,
-            comments = dom.comments,
-            buttons  = this.buttons[node];
+      previewCallback: function(data,context,response,node) {
+        var api=context.api, dn=dom[node], preview  = dn.preview;
 
-        dbs = PxU.DBSDefaults[PHEDEX.Datasvc.Instance().instance];
+        Dom.removeClass(preview,'phedex-box-yellow');
+        Dom.removeClass(preview,'phedex-box-red');
+        if ( response ) {
+          this.setSummary('error',"Error retrieving preview data",node);
+          return;
+        }
+        if ( !this.previewId ) {
+          _sbx.delay(25,'module','*','lookingForA',{moduleClass:'previewrequestdata', callerId:this.id, callback:'gotPreviewId'});
+          _sbx.delay(50, this.id, 'previewCallback',data,context,response,node);
+          return;
+        }
+        _sbx.notify(this.previewId,'doGotData',data,context,response);
+        _sbx.notify(this.previewId,'doPostGotData');
+        dn.preview_summary.innerHTML = '';
+        Dom.removeClass(dn.preview,'phedex-invisible');
+      },
+      parseDatasets: function(node) {
+        var tmp = this.nodes[node],
+            data = {blocks:{}, datasets:{} },
+            i, block, dataset;
 
-// Prepare the form for output results, disable the button to prevent multiple clicks
-        Dom.removeClass(results,'phedex-box-red');
-        results_label.innerHTML = '';
-        results_text.innerHTML  = '';
-        buttons.submit.set('disabled',true);
-        buttons.remove.set('disabled',true);
-        buttons.preview.set('disabled',true);
-
-// Data Items:
 // 1. Each substring must match /X/Y/Z, even if wildcards are used
-        tmp = this.nodes[node];
-        data = {blocks:{}, datasets:{} };
         for (i in tmp) {
           block = tmp[i];
           if ( block.match(/(\/[^/]+\/[^/]+\/[^/#]+)(#.*)?$/ ) ) {
@@ -353,8 +376,36 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
 // 4. the block-list is now redundant, clean it up!
         delete data.blocks;
 
+        return data;
+      },
+      SubmitAll: function() {
+        var node, nodes=this.nodes;
+        for (node in nodes) {
+          this.Submit(node);
+        }
+      },
+      Submit: function(node) {
+        var items, data, tmp, args={}, dataset, block, i, xml, dn=dom[node], level,
+            results_label = dn.results_label,
+            results_text  = dn.results_text,
+            results  = dn.results,
+            comments = dom.comments,
+            buttons  = this.buttons[node];
+
+// Prepare the form for output results, disable the button to prevent multiple clicks
+        Dom.addClass(dn.preview,'phedex-invisible');
+        Dom.removeClass(results,'phedex-box-red');
+        results_label.innerHTML = '';
+        results_text.innerHTML  = '';
+        buttons.submit.set('disabled',true);
+        buttons.remove.set('disabled',true);
+        buttons.preview.set('disabled',true);
+
+// Data Items:
+        data = this.parseDatasets(node);
+
 // Now build the XML!
-        xml = '<data version="2.0"><dbs name="' + dbs + '">';
+        xml = '<data version="2.0"><dbs name="' + this.dbs + '">';
         for ( dataset in data.datasets ) {
           xml += '<dataset name="'+dataset+'" is-open="dummy">';
           for ( block in data.datasets[dataset] ) {
@@ -383,7 +434,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                             });
       },
       requestCallback: function(data,context,response,node) {
-        var dn=this.dom[node], str, msg, rid;
+        var dn=this.dom[node], str, msg, rid, i;
         dn.results_label.innerHTML = '';
         dn.results_text.innerHTML = '';
         Dom.removeClass(dn.results,'phedex-box-yellow');
@@ -412,6 +463,9 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         Dom.addClass(dn.preview,'phedex-invisible');
         Dom.addClass(dn.buttons,'phedex-invisible');
         _sbx.notify(this.id,'Request',node,rid);
+        delete this.nodes[node];
+        for (i in this.nodes) { return; }
+        this.buttons.submit_all.set('disabled',true);
       },
       setSummary: function(status,text) {
         var el = dom.results,
