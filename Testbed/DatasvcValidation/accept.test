@@ -33,6 +33,7 @@ auth auth =1
 
 # PHEDEX::Web::API::BlockReplicas - block replicas, the reason for PhEDEx!
 blockreplicas?node=T1_UK_RAL_MSS block
+-blockreplicas?node=T1_UK_RAL_MSS&block=/Cosmics/Commissioning08-CRUZET4_v1/RAW#8b94aa4a-39be-4289-99c8-3afafbb25db1 400
 blockreplicas?node=T1_UK_RAL_MSS&block=/Cosmics/Commissioning08-CRUZET4_v1/RAW%238b94aa4a-39be-4289-99c8-3afafbb25db1 block
 blockreplicas?node=T1_UK_RAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216 block
 blockreplicas?node=T1_UK_RAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216&group=DataOps block
@@ -125,6 +126,7 @@ links?kind=Migration link >0
 
 # PHEDEX::Web::API::MissingFiles
 -missingfiles
+-missingfiles?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&create_since=1196740000&custodial=n 400
 missingfiles?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&create_since=1196740000&custodial=n block
 missingfiles?lfn=/store/data/GlobalNov07/A/000/030/148/GlobalNov07.00030148.0892.A.storageManager.0.0000.dat block
 
