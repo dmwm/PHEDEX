@@ -33,10 +33,10 @@ auth auth =1
 
 # PHEDEX::Web::API::BlockReplicas - block replicas, the reason for PhEDEx!
 blockreplicas?node=T1_UK_RAL_MSS block
-blockreplicas?node=T1_UK_RAL_MSS&block=/Cosmics/Commissioning08-CRUZET4_v1/RAW#8b94aa4a-39be-4289-99c8-3afafbb25db1 block
+blockreplicas?node=T1_UK_RAL_MSS&block=/Cosmics/Commissioning08-CRUZET4_v1/RAW%238b94aa4a-39be-4289-99c8-3afafbb25db1 block
 blockreplicas?node=T1_UK_RAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216 block
 blockreplicas?node=T1_UK_RAL_MSS&complete=y&custodial=y&create_since=1241392456&update_since=1241475216&group=DataOps block
-blockreplicas?block=/Cosmics/Commissioning08-CRUZET4_v1/RAW#8b94aa4a-39be-4289-99c8-3afafbb25db1 block
+blockreplicas?block=/Cosmics/Commissioning08-CRUZET4_v1/RAW%238b94aa4a-39be-4289-99c8-3afafbb25db1 block
 blockreplicas?node=T1_UK_RAL_MSS&dataset=/Cosmics/Commissioning08-CRUZET4_v1/RAW block 
 
 # PHEDEX::Web::API::BlockReplicaCompare - Compare block replicas at two nodes and output either the differences or the matches
