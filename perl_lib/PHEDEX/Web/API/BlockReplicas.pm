@@ -345,7 +345,7 @@ sub spool
     else
     {
         $sth = undef;
-        %p = {};
+        %p = ();
         return $r;
     }
 }
