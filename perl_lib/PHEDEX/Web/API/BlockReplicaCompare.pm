@@ -163,6 +163,7 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 # spooling
 
 my $sth;
+my %p;
 our $limit = 1000;
 my @keys = ('BLOCK');
 
@@ -170,41 +171,58 @@ sub spool
 {
     my ($core,%h) = @_;
 
-    &checkRequired(\%h, qw / a b / );
-
-    foreach ( qw / a b show value dataset block / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    # default values
-    if (!$h{SHOW})
-    {
-        $h{SHOW} = 'diff';
-    }
-    elsif ($h{SHOW} ne 'match' && $h{SHOW} ne 'neither' && $h{SHOW} ne 'diff')
-    {
-        die PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
-    }
-
-    if (!$h{VALUE})
-    {
-        $h{VALUE} = 'bytes';
-    }
-
-    $h{'__spool__'} = 1;
-
-    if ($h{SHOW} eq 'neither')
-    {
-        if (!$h{DATASET} && !$h{BLOCK})
+        eval
         {
-           die PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [qw( a b show value dataset block )],
+                    required => [qw( a b )],
+                    spec =>
+                    {
+                        a => { using => 'node' },
+                        b => { using => 'node' },
+                        show => { regex => qr/^match$|^diff$|^neither$/ },
+                        value => { regex => qr/^files$|^bytes$|^subscribed$|^group$|^custodial$/ },
+                        dataset => { using => 'dataset', nultiple => 1 },
+                        block => { using => 'block', multiple => 1 }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
         }
-        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %h), $limit, @keys) if !$sth;
-    }
-    else
-    {
-        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare($core, %h), $limit, @keys) if !$sth;
+        # default values
+        if (!$p{SHOW})
+        {
+            $p{SHOW} = 'diff';
+        }
+        elsif ($p{SHOW} ne 'match' && $p{SHOW} ne 'neither' && $p{SHOW} ne 'diff')
+        {
+            return PHEDEX::Web::Util::http_error(400,"argument show is not one of 'match', 'diff' or 'neither'");
+        }
+    
+        if (!$p{VALUE})
+        {
+            $p{VALUE} = 'bytes';
+        }
+    
+        $p{'__spool__'} = 1;
+
+        if ($p{SHOW} eq 'neither')
+        {
+            if (!$p{DATASET} && !$p{BLOCK})
+            {
+               return PHEDEX::Web::Util::http_error(400,"'dataset' or 'bock' is required for show='neither'");
+            }
+            $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare_Neither($core, %p), $limit, @keys);
+        }
+        else
+        {
+            $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicaCompare($core, %p), $limit, @keys);
+        }
     }
 
     my $r = $sth->spool();
@@ -215,6 +233,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = {};
         return $r;
     }
 }
