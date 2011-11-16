@@ -130,25 +130,41 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
-
+my %p;
 sub spool
 {
     my ($core, %h) = @_;
 
-    # block or lfn is required
-    if (!$h{'block'} && !$h{'lfn'})
+    if (!$sth)
     {
-        die PHEDEX::Web::Util::http_error(400,"Arguments 'block' or 'lfn' are required.");
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / block node se subscribed custodial group lfn / ],
+                    require_one_of => [ qw( block lfn ) ],
+                    spec =>
+                    {
+                        block => { using => 'block_*', multiple => 1 },
+                        node => { using => 'node', multiple => 1 },
+                        se => { using => 'text', multiple => 1 },
+                        subscribed => { using => 'yesno' },
+                        custodial => { using => 'yesno' },
+                        group => { using => 'text', multiple => 1 },
+                        lfn => { using => 'lfn', multiple => 1 }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+
+        $p{'__spool__'} = 1;
+
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getMissingFiles($core, %p), $limit, @keys) ;
     }
 
-    # convert parameter keys to upper case
-    foreach ( qw / block node se subscribed custodial group lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getMissingFiles($core, %h), $limit, @keys) if !$sth;
     my $r = $sth->spool();
     if ($r)
     {
@@ -157,6 +173,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = {};
         return $r;
     }
 }
