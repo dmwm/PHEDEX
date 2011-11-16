@@ -20,11 +20,11 @@ agents?node=T1_US_FNAL_MSS node
 agents?agent=FileDownload node
 agents?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer node
 agents?se=cmssrm.fnal.gov node
-agents?node=NoWhere node =0
+-agents?node=NoWhere
 
 # PHEDEX::Web::API::AgentLogs - show messages from the agents
 agentlogs?node=T1_US_FNAL_MSS&user=phedex&agent=FileRouter agent
-agentlogs?node=NoWhere&user=phedex&agent=FileRouter agent =0
+-agentlogs?node=NoWhere&user=phedex&agent=FileRouter
 agentlogs?agent=BlockDownloadVerifyInjector agent
 -agentlogs
 
