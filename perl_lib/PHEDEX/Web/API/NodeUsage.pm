@@ -2,6 +2,7 @@ package PHEDEX::Web::API::NodeUsage;
 use warnings;
 use strict;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -47,12 +48,29 @@ sub invoke   { return nodeUsage(@_); }
 sub nodeUsage
 {
     my ($core, %h) = @_;
+    my %p;
+
+    eval
+    {
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ 'node' ],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
+    }
 
     # FIXME:  add node ID, se_name to output
 
     # $usage data structure:
     #   $usage->{$node}->{$category} = { data }
-    my $usage = &PHEDEX::Web::SQL::getNodeUsage($core, %h);
+    my $usage = &PHEDEX::Web::SQL::getNodeUsage($core, %p);
     my $result = [];
     foreach my $node (keys %$usage) {
 	my $row = { NAME => $node };
