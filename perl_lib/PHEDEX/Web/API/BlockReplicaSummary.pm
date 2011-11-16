@@ -101,27 +101,54 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 # spooling
 
 my $sth;
+my %p;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
 
 sub spool
 {
     my ($core, %h) = @_;
-    foreach ( qw / block dataset node se create_since update_since complete dist_complete custodial subscribed / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
 
-    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{NODE}) && (not $h{CREATE_SINCE}))
+    if (!$sth)
     {
-        $h{CREATE_SINCE} = "-1d";
-    }
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [qw( block dataset node se create_since update_since complete dist_complete custodial subscribed )],
+                    spec =>
+                    {
+                        block => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        node => { using => 'node', multiple => 1 },
+                        complete => { using => 'yesno' },
+                        se => { using => 'text', multiple => 1 },
+                        create_since => { using => 'time' },
+                        update_since => { using => 'time' },
+                        dist_complete => { using => 'yesno' },
+                        custodial     => { using => 'yesno' },
+                        subscribed    => { using => 'yesno' }
+                     }
+            );
+        };
 
-    $h{'__spool__'} = 1;
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+
+        if ((not $p{BLOCK}) && (not $p{DATASET}) && (not $p{NODE}) && (not $p{CREATE_SINCE}))
+        {
+            $p{CREATE_SINCE} = "-1d";
+        }
+
+        $p{'__spool__'} = 1;
+
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %p), $limit, @keys);
+    }
 
     my $r;
 
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %h), $limit, @keys) if !$sth;
     $r = $sth->spool();
     if ($r)
     {
@@ -130,6 +157,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = {};
         return $r;
     }
 }
