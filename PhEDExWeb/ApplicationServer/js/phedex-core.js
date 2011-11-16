@@ -215,6 +215,7 @@ PHEDEX.Core = function(sandbox,loader) {
             if ( !_d.payload.obj ) { _d.payload.obj = _m; }
             try {
               _m.ctl[_d.name] = new _ctor(_sbx,_d);
+              PxU.protectMe(_m.ctl[_d.name]);
               if ( _d.parent ) { _m.dom[_d.parent].appendChild(_m.ctl[_d.name].el); }
             } catch (ex) {
               banner('Error creating a '+_d.name+' for the '+_m.me+' module','error');
