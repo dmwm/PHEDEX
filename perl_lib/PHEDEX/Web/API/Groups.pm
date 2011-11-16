@@ -33,6 +33,7 @@ Return groups known to PhEDEx.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 sub duration { return 60 * 60; }
 sub invoke { return agents(@_); }
@@ -41,13 +42,24 @@ sub agents
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / group / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ 'group' ],
+                spec =>
+                {
+                    group => { using => 'text', multiple => 1 }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Web::SQL::getGroups($core, %h);
+    my $r = PHEDEX::Web::SQL::getGroups($core, %p);
     return { group => $r };
 }
 
