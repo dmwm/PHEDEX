@@ -49,6 +49,7 @@ Serves storage statistics node per group.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 my $map = {
     _KEY => 'ID',
@@ -72,14 +73,26 @@ sub invoke { return groupusage(@_); }
 sub groupusage
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / node group se / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw( node group se ) ],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    group => { using => 'text', multiple => 1 },
+                    se => { using => 'text', multiple => 1 },
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getGroupUsage($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getGroupUsage($core, %p));
     return { node => $r };
 }
 
