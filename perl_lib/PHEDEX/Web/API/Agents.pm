@@ -139,7 +139,7 @@ sub agents
     }
 
     my $map2 = $map;
-    if ($p{DETAIL} eq 'y')
+    if ( defined($p{DETAIL}) && ($p{DETAIL} eq 'y') )
     {
         $map2 = $code_map;
     }

@@ -541,7 +541,7 @@ sub getAgents
         $agent_version_filters
         group by node, agent, release ) v};
 
-    if ($h{DETAIL} eq 'y')
+    if ( defined($h{DETAIL}) && ($h{DETAIL} eq 'y') )
     {
         $code_select = qq {
             v.filename,
