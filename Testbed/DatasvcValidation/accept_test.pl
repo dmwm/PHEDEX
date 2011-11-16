@@ -125,7 +125,10 @@ sub verify
       elsif ($format eq 'perl')
       {
           my $VAR1;
-	  { local $/ = undef; $data = eval ($content)->{'PHEDEX'} }
+	  eval {
+	    { local $/ = undef; $data = eval ($content)->{'PHEDEX'} }
+	  };
+	  if ( $@ ) { print "Failed to eval result, illegal Perl object\n"; }
       }
       elsif ($format eq 'json')
       {
