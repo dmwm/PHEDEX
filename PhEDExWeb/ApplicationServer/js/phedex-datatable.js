@@ -215,8 +215,8 @@ PHEDEX.DataTable = function (sandbox, string) {
                 }
                 if (this.needProcess) { // Process the data if it is new to module and is not from filter
                     moduledata = this._processData(moduledata);
+                    this.data = moduledata; // cache for later use, e.g. by filtering
                 }
-                this.data = moduledata; // cache for later use, e.g. by filtering
                 this.dataSource = new YuDS(moduledata);
                 var oCallback = {
                     success: this.dataTable.onDataReturnInitializeTable,
