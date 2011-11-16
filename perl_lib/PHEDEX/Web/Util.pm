@@ -43,7 +43,7 @@ sub process_args
 }
 
 # Common validation for web applications.  A name pointing to either a
-# *compiled* regexp or a function which returns true if $_[0] is valid
+# *compiled* regex or a function which returns true if $_[0] is valid
 # NOTE:  Do not add anything here without making a test case for it in
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
@@ -111,7 +111,7 @@ our %COMMON_VALIDATION =
 # By default, each parameter is an optional non-empty scalar.  Specifically:
 #
 #   type     => SCALAR
-#   regexp   => qr/./   # (filter out empty strings)
+#   regex    => qr/./   # (filter out empty strings)
 #   optional => 1       # evertying is optional, unless reqired (above)
 #   untaint  => 1       # untaint output
 #
@@ -133,7 +133,7 @@ our %COMMON_VALIDATION =
 # 			   allow => [qw(block lfn time_update)],
 # 			   require_one_of => qw(block lfn),
 # 			   spec => {
-# 			       block => { using => ['block', '!wildcards'] },
+# 			       block => { using => ['block', '!wildcard'] },
 # 			       lfn   => { using => 'lfn', multiple => 1 }
 # 			   });
 #
