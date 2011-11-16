@@ -127,7 +127,7 @@ links?kind=Migration link >0
 # PHEDEX::Web::API::MissingFiles
 -missingfiles
 -missingfiles?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&create_since=1196740000&custodial=n 400
-missingfiles?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&create_since=1196740000&custodial=n block
+missingfiles?block=/GlobalNov07-A/Online/RAW%235781e989-e16f-4bcf-bb05-03684c03e359&custodial=n block
 missingfiles?lfn=/store/data/GlobalNov07/A/000/030/148/GlobalNov07.00030148.0892.A.storageManager.0.0000.dat block
 
 # PHEDEX::Web::API::Nodes - list of nodes
