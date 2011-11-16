@@ -1374,7 +1374,7 @@ sub getNodeUsage
 		     )};
 
     my $filters = '';
-    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'node');
+    build_multi_filters($self, \$filters, \%p, \%h,  node  => 'node', NODE => 'node' );
     $sql .= " where ($filters)" if $filters;
 
     $q = execute_sql( $self, $sql, %p );
