@@ -194,8 +194,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           el.innerHTML = "<div class='phedex-nextgen-label'>Node:</div>" +
                          "<div class='phedex-nextgen-control'>"+node+"</div>" +
                          "<div class='phedex-nextgen-label'>Items:</div>" +
-                         "<div class='phedex-nextgen-control'>"+this.nodes[node].sort().join(' ')+"</div>" +
-//                          "<div id='phedex-bulkdelete-results-"+node+"' style='padding:5px'></div>" +
+                         "<div class='phedex-nextgen-control'>"+this.nodes[node].sort().join('<br/>')+"</div>" +
 // TW should do this with makeControlOutputbox if I harmonised it w.r.t. phedex-nextgen-request-create
                          "<div id='"+idRes+"' style='padding:5px' class='phedex-invisible'>" +
                            "<div class='phedex-nextgen-form-element'>" +
