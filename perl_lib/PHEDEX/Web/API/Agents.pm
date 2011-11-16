@@ -124,9 +124,9 @@ sub agents
                 uc_keys => 1,
                 allow => [qw(node se agent version detail update_since)],
                 spec => {
-                    node => { using => 'node' },
-                    se   => { using => 'text' },
-                    agent => { using => 'text' },
+                    node => { using => 'node', multiple => 1 },
+                    se   => { using => 'text' , multiple => 1 },
+                    agent => { using => 'text' , multiple => 1 },
                     version => { using => 'text' },
                     detail => { using => 'yesno' },
                     update_since => { using => 'time' }
