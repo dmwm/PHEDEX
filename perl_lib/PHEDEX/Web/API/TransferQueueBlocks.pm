@@ -65,6 +65,7 @@ Serves blocks in the transfer queue, along with their state.
 =cut
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
 
 my $map = {
@@ -98,14 +99,29 @@ sub invoke { return transferqueueblocks(@_); }
 sub transferqueueblocks
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to state priority block dataset / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / from to state priority block dataset / ],
+                spec =>
+                {
+                    from => { using => 'node', multiple => 1 },
+                    to   => { using => 'node', multiple => 1 },
+                    block => { using => 'block_*', multiple => 1 },
+                    dataset => { using => 'dataset', multiple => 1 },
+                    priority => { using => 'priority' },
+                    state => { using => 'transfer_state' }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getTransferQueue($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getTransferQueue($core, %p));
     return { link => $r };
 }
 
