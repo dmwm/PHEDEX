@@ -46,7 +46,7 @@ Serves transfer current state details for links currently in use.
 =cut
 
 use PHEDEX::Web::SQL;
-use Data::Dumper;
+use PHEDEX::Web::Util;
 
 sub duration { return 60 * 60; }
 sub invoke { return agent(@_); }
@@ -54,14 +54,26 @@ sub invoke { return agent(@_); }
 sub agent
 {
     my ($core, %h) = @_;
+    my %p;
 
-    # convert parameter key to upper case
-    foreach ( qw / from to / )
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [qw(from to)],
+                spec =>
+                {
+                    from => { using => 'node', multiple => 1 },
+                    to   => { using => 'node', multiple => 1 },
+                }
+         );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Web::SQL::getTransferQueueStats($core, %h);
+    my $r = PHEDEX::Web::SQL::getTransferQueueStats($core, %p);
     return { link => $r };
 }
 
