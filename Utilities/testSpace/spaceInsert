@@ -84,7 +84,6 @@ sub parse_chimera_dump {
         }
   }
   close DUMP;
-  print "hello\n";
   $timeFromXml = convertToUnixTime($time);
   
   print "total files: ", $totalfiles,"\n";
@@ -105,15 +104,11 @@ sub convertToUnixTime
     $t = $2;
     @t = split /:/, $2;
   }
-   print "hello", time(), "\n";
-
-  print "hello",$t[2], $t[1], $t[0], $d[2], $d[1], $d[0], "\n";
 
   $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1]-1, $d[0]-1900);
   #$localtime = localtime($unixTime);
   #print "the localtime:", $localtime->mon+1,"  ", $localtime->year+1900, "\n";
 
-  
   return $unixTime;
 }
 
