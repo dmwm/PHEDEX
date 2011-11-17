@@ -133,9 +133,6 @@ $pua = PHEDEX::CLI::UserAgent->new
       FORMAT    => 'perl',
       INSTANCE    => 'debug',
     );
-$pua->timeout($timeout) if $timeout;
-$pua->CALL('mongo');
-$target = $pua->target;
 
 if ( $dump ) {
   parse_chimera_dump($dump);
@@ -167,10 +164,15 @@ foreach ( keys %topsizes ) {
   $payload{$_} = $topsizes{$_} + 0;
 }
 
-# test data service response time for times
 
 my ($j, $now, $past, $input);
+
+print "\n Beginning to connect data service\n";
+$pua->timeout($timeout) if $timeout;
+$pua->CALL('mongo');
+$target = $pua->target;
 $response = $pua->$method($target,\%payload);
+
 
 if ( $pua->response_ok($response) )
 {
