@@ -135,33 +135,33 @@ ok( dies (\&validate_params, { foo => '*' }, spec => $using_spec),              
 
 # 'block_*' checking
 $using_spec = { foo => { using => 'block_*' } };
-ok( lives(\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),           'good block_*') or whydie;
-ok( lives (\&validate_params, { foo => '*' }, spec => $using_spec),                 'good block_*:');
+ok( lives(\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),           'good block_*: 1') or whydie;
+ok( lives (\&validate_params, { foo => '*' }, spec => $using_spec),                 'good block_*: 2');
+ok( lives (\&validate_params, { foo => '/a/b/c*#d' }, spec => $using_spec),         'good block_*: 3');
+ok( lives (\&validate_params, { foo => '/*/*/*#*' }, spec => $using_spec),          'good block_*: 4');
 ok( dies (\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'bad block_*: 1');
-ok( dies (\&validate_params, { foo => '/a/b/c*#d' }, spec => $using_spec),          'bad block_*: 2');
-ok( dies (\&validate_params, { foo => '/*/*/*#*' }, spec => $using_spec),           'bad block_*: 3');
 
 # 'transfer_state' checking
 $using_spec = { foo => { using => 'transfer_state' } };
-ok( lives(\&validate_params, { foo => 'assigned' }, spec => $using_spec),           'good transfer_state') or whydie;
-ok( lives(\&validate_params, { foo => 'exported' }, spec => $using_spec),           'good transfer_state') or whydie;
-ok( lives(\&validate_params, { foo => 'transferring' }, spec => $using_spec),       'good transfer_state') or whydie;
-ok( lives(\&validate_params, { foo => 'done' }, spec => $using_spec),               'good transfer_state') or whydie;
-ok( dies(\&validate_params, { foo => 'bleargle' }, spec => $using_spec),            'bad transfer_state') or whydie;
-ok( dies(\&validate_params, { foo => 'deassigned' }, spec => $using_spec),          'bad transfer_state') or whydie;
-ok( dies(\&validate_params, { foo => 'as*igned' }, spec => $using_spec),            'bad transfer_state') or whydie;
-ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad transfer_state') or whydie;
+ok( lives(\&validate_params, { foo => 'assigned' }, spec => $using_spec),           'good transfer_state 1') or whydie;
+ok( lives(\&validate_params, { foo => 'exported' }, spec => $using_spec),           'good transfer_state 2') or whydie;
+ok( lives(\&validate_params, { foo => 'transferring' }, spec => $using_spec),       'good transfer_state 3') or whydie;
+ok( lives(\&validate_params, { foo => 'done' }, spec => $using_spec),               'good transfer_state 4') or whydie;
+ok( dies(\&validate_params, { foo => 'bleargle' }, spec => $using_spec),            'bad transfer_state 1') or whydie;
+ok( dies(\&validate_params, { foo => 'deassigned' }, spec => $using_spec),          'bad transfer_state 2') or whydie;
+ok( dies(\&validate_params, { foo => 'as*igned' }, spec => $using_spec),            'bad transfer_state 3') or whydie;
+ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad transfer_state 4') or whydie;
 
 # 'priority' checking
 $using_spec = { foo => { using => 'priority' } };
-ok( lives(\&validate_params, { foo => 'high' }, spec => $using_spec),               'good priority') or whydie;
-ok( lives(\&validate_params, { foo => 'normal' }, spec => $using_spec),             'good priority') or whydie;
-ok( lives(\&validate_params, { foo => 'low' }, spec => $using_spec),                'good priority') or whydie;
-ok( dies(\&validate_params, { foo => 'higher' }, spec => $using_spec),              'bad priority') or whydie;
-ok( dies(\&validate_params, { foo => 'slow' }, spec => $using_spec),                'bad priority') or whydie;
-ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad priority') or whydie;
-ok( dies(\&validate_params, { foo => 'l*w' }, spec => $using_spec),                 'bad priority') or whydie;
-ok( dies(\&validate_params, { foo => '2' }, spec => $using_spec),                   'bad priority') or whydie;
+ok( lives(\&validate_params, { foo => 'high' }, spec => $using_spec),               'good priority 1') or whydie;
+ok( lives(\&validate_params, { foo => 'normal' }, spec => $using_spec),             'good priority 2') or whydie;
+ok( lives(\&validate_params, { foo => 'low' }, spec => $using_spec),                'good priority 3') or whydie;
+ok( dies(\&validate_params, { foo => 'higher' }, spec => $using_spec),              'bad priority 1') or whydie;
+ok( dies(\&validate_params, { foo => 'slow' }, spec => $using_spec),                'bad priority 2') or whydie;
+ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad priority 3') or whydie;
+ok( dies(\&validate_params, { foo => 'l*w' }, spec => $using_spec),                 'bad priority 4') or whydie;
+ok( dies(\&validate_params, { foo => '2' }, spec => $using_spec),                   'bad priority 5') or whydie;
 
 # 'lfn' checking
 $using_spec = { foo => { using => 'lfn' } };
@@ -307,6 +307,36 @@ ok( dies(\&validate_params, { foo => -2 }, spec => $using_spec), 'bad create_sou
 ok( dies(\&validate_params, { foo => '/asdf/ghjk/' }, spec => $using_spec), 'bad create_source /asdf/ghjk/');
 ok( dies(\&validate_params, { foo => '/asdf/ghjk/er#w' }, spec => $using_spec), 'bad create_source /asdf/ghjk/er#w');
 
+# 'text' checking
+$using_spec = { foo => { using => 'text' } };
+ok( lives(\&validate_params, { foo => 'something' }, spec => $using_spec),          'good text: 1') or whydie;
+ok( lives(\&validate_params, { foo => 'something else' }, spec => $using_spec),     'good text: 2') or whydie;
+ok( lives(\&validate_params, { foo => '123' }, spec => $using_spec),                'good text: 3') or whydie;
+ok( lives(\&validate_params, { foo => '64-53' }, spec => $using_spec),              'good text: 4') or whydie;
+ok( lives(\&validate_params, { foo => 'a _ and a -' }, spec => $using_spec),        'good text: 5') or whydie;
+ok( lives(\&validate_params, { foo => 'an asterisk *' }, spec => $using_spec),      'good text: 6') or whydie;
+ok( lives(\&validate_params, { foo => ' ' }, spec => $using_spec),                  'good text: 7') or whydie;
+ok( lives(\&validate_params, { foo => '*' }, spec => $using_spec),                  'good text: 8') or whydie;
+ok( dies(\&validate_params, { foo => '<' }, spec => $using_spec),                   'dies text: 1') or whydie;
+ok( dies(\&validate_params, { foo => 'abc<def' }, spec => $using_spec),             'dies text: 2') or whydie;
+ok( dies(\&validate_params, { foo => '<script>' }, spec => $using_spec),            'dies text: 3') or whydie;
+ok( dies(\&validate_params, { foo => '"!@#$%^*()+=[]{}:' }, spec => $using_spec),   'dies text: 4') or whydie;
+ok( dies(\&validate_params, { foo => '!<' }, spec => $using_spec),                  'dies text: 5') or whydie;
+ok( dies(\&validate_params, { foo => ';' }, spec => $using_spec),                   'dies text: 6') or whydie;
+ok( dies(\&validate_params, { foo => '?' }, spec => $using_spec),                   'dies text: 7') or whydie;
+
+# 'view_level' checking
+$using_spec = { foo => { using => 'view_level' } };
+ok( lives(\&validate_params, { foo => 'dbs' }, spec => $using_spec),              'good view_level: 1') or whydie;
+ok( lives(\&validate_params, { foo => 'dataset' }, spec => $using_spec),          'good view_level: 2') or whydie;
+ok( lives(\&validate_params, { foo => 'block' }, spec => $using_spec),            'good view_level: 3') or whydie;
+ok( lives(\&validate_params, { foo => 'file' }, spec => $using_spec),             'good view_level: 4') or whydie;
+ok( dies(\&validate_params, { foo => 'adbs' }, spec => $using_spec),              'bad view_level: 1') or whydie;
+ok( dies(\&validate_params, { foo => 'blockade' }, spec => $using_spec),          'bad view_level: 2') or whydie;
+ok( dies(\&validate_params, { foo => 'bl*' }, spec => $using_spec),               'bad view_level: 3') or whydie;
+ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                 'bad view_level: 4') or whydie;
+ok( dies(\&validate_params, { foo => ' ' }, spec => $using_spec),                 'bad view_level: 5') or whydie;
+ok( dies(\&validate_params, { foo => '' }, spec => $using_spec),                  'bad view_level: 6') or whydie;
 
 # multiple-value checking
 my $multiple_spec = { foo => { multiple => 1 } };
