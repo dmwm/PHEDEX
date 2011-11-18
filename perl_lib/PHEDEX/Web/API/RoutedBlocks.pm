@@ -91,14 +91,28 @@ my $map = {
 sub routedblocks
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to valid block dataset / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw/ from to valid block dataset / ],
+                spec =>
+                {
+                    from    => { using => 'node', multiple => 1 },
+                    to      => { using => 'node', multiple => 1 },
+                    block   => { using => 'block_*', multiple => 1 },
+                    dataset => { using => 'dataset', multiple => 1 },
+                    valid   => { using => 'yesno' }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Web::SQL::getRoutedBlocks($core, %h);
+    my $r = PHEDEX::Web::SQL::getRoutedBlocks($core, %p);
     return { route => &PHEDEX::Core::Util::flat2tree($map, $r) };
 }
 
