@@ -152,7 +152,7 @@ sub spool
         }
         $p{'__spool__'} = 1;
         $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueueHistory($core, %p), $limit, @keys);
-
+    }
     my $r;
 
     $r = $sth->spool();
