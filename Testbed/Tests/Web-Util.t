@@ -131,6 +131,37 @@ ok( lives(\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),       
 ok( dies (\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'bad block: 1');
 ok( dies (\&validate_params, { foo => '/a/b/c/d' }, spec => $using_spec),           'bad block: 2');
 ok( dies (\&validate_params, { foo => ';rm -rf /;' }, spec => $using_spec),         'bad block: 3');
+ok( dies (\&validate_params, { foo => '*' }, spec => $using_spec),                  'bad block: 4');
+
+# 'block_*' checking
+$using_spec = { foo => { using => 'block_*' } };
+ok( lives(\&validate_params, { foo => '/a/b/c#d' }, spec => $using_spec),           'good block_*') or whydie;
+ok( lives (\&validate_params, { foo => '*' }, spec => $using_spec),                 'good block_*:');
+ok( dies (\&validate_params, { foo => '/a/b/c' }, spec => $using_spec),             'bad block_*: 1');
+ok( dies (\&validate_params, { foo => '/a/b/c*#d' }, spec => $using_spec),          'bad block_*: 2');
+ok( dies (\&validate_params, { foo => '/*/*/*#*' }, spec => $using_spec),           'bad block_*: 3');
+
+# 'transfer_state' checking
+$using_spec = { foo => { using => 'transfer_state' } };
+ok( lives(\&validate_params, { foo => 'assigned' }, spec => $using_spec),           'good transfer_state') or whydie;
+ok( lives(\&validate_params, { foo => 'exported' }, spec => $using_spec),           'good transfer_state') or whydie;
+ok( lives(\&validate_params, { foo => 'transferring' }, spec => $using_spec),       'good transfer_state') or whydie;
+ok( lives(\&validate_params, { foo => 'done' }, spec => $using_spec),               'good transfer_state') or whydie;
+ok( dies(\&validate_params, { foo => 'bleargle' }, spec => $using_spec),            'bad transfer_state') or whydie;
+ok( dies(\&validate_params, { foo => 'deassigned' }, spec => $using_spec),          'bad transfer_state') or whydie;
+ok( dies(\&validate_params, { foo => 'as*igned' }, spec => $using_spec),            'bad transfer_state') or whydie;
+ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad transfer_state') or whydie;
+
+# 'priority' checking
+$using_spec = { foo => { using => 'priority' } };
+ok( lives(\&validate_params, { foo => 'high' }, spec => $using_spec),               'good priority') or whydie;
+ok( lives(\&validate_params, { foo => 'normal' }, spec => $using_spec),             'good priority') or whydie;
+ok( lives(\&validate_params, { foo => 'low' }, spec => $using_spec),                'good priority') or whydie;
+ok( dies(\&validate_params, { foo => 'higher' }, spec => $using_spec),              'bad priority') or whydie;
+ok( dies(\&validate_params, { foo => 'slow' }, spec => $using_spec),                'bad priority') or whydie;
+ok( dies(\&validate_params, { foo => '*' }, spec => $using_spec),                   'bad priority') or whydie;
+ok( dies(\&validate_params, { foo => 'l*w' }, spec => $using_spec),                 'bad priority') or whydie;
+ok( dies(\&validate_params, { foo => '2' }, spec => $using_spec),                   'bad priority') or whydie;
 
 # 'lfn' checking
 $using_spec = { foo => { using => 'lfn' } };
@@ -302,5 +333,11 @@ ok( dies (\&validate_params, { foo => 'two' }, spec => $multiple_call),         
 ok( lives(\&validate_params, { foo => [qw(one one)] }, spec => $multiple_call),  'good multiple: call x 2') or whydie;
 ok( dies (\&validate_params, { foo => [qw(one two)] },  spec => $multiple_call), 'bad multiple: call x 2');
 
+# 'approval_state' checking
+$using_spec = { foo => { using => 'approval_state' } };
+ok( lives(\&validate_params, { foo => 'approved' }, spec => $using_spec), 'good approval_state approved');
+ok( lives(\&validate_params, { foo => 'disapproved' }, spec => $using_spec), 'good approval_state disapproved');
+ok( lives(\&validate_params, { foo => 'pending' }, spec => $using_spec), 'good approval_state pending');
+ok( dies(\&validate_params, { foo => 'not-approved' }, spec => $using_spec), 'bad approval_state not-approved');
 
 print "Tests complete...\n";
