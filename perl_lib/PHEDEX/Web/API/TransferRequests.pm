@@ -177,10 +177,10 @@ sub xfer_request
                     requested_by => { using => 'text', multiple => 1 }
                 }
         );
-        if ($@)
-        {
-            return PHEDEX::Web::Util::http_error(400,$@);
-        }
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # if there is no input argument, set default "since" to 24 hours ago
