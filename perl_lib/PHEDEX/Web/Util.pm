@@ -354,7 +354,7 @@ sub validate_params
         }
         else
         {
-            if (substr($params->{$i}, 0, 1) eq "!")
+            if (defined($params->{$i}) && substr($params->{$i}, 0, 1) eq "!")
             {
                 push @negation, $i;
                 $params->{$i} = substr($params->{$i},1);
