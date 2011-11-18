@@ -79,6 +79,7 @@ Serves files in the transfer queue, along with their state.
 =cut
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
@@ -176,18 +177,36 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('FROM_ID', 'TO_ID');
+my %p;
 
 sub spool{ 
     my ($core, %h) = @_;
 
-    # convert parameter key to upper case
-    foreach ( qw / from to state priority block dataset / )
+    if (!$sth)
     {
-	$h{uc $_} = delete $h{$_} if $h{$_};
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / from to state priority block dataset / ],
+                    spec =>
+                    {
+                        from => { using => 'node', multiple => 1 },
+                        to   => { using => 'node', multiple => 1 },
+                        block => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        priority => { using => 'priority' },
+                        state => { using => 'transfer_state' }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueue($core, %p, LEVEL => 'FILE'), $limit, @keys);
     }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueue($core, %h, LEVEL => 'FILE'), $limit, @keys) if !$sth;
     
     my $r2 = $sth->spool();
     if ($r2)
@@ -242,6 +261,7 @@ sub spool{
     else
     {
         $sth = undef;
+        %p = ();
         return $r2;
     }
 }
