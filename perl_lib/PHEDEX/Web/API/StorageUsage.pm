@@ -24,7 +24,7 @@ sub storageusage
 {
   my ($core, %args) = @_;
   warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
-  my ($method,$site,@records);
+  my ($method,$site,@sitelist,@records);
 
   $method = $core->{REQUEST_METHOD};
 
@@ -38,17 +38,20 @@ sub storageusage
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
   }
-  foreach $site (@{$args{collName}}) {
+
+  @sitelist = split(",", $args{collName});
+
+  foreach $site (@sitelist) {
      my $node = {};
      $args{site} = $site;
+     $node->{timebins} = &getNodeInfo(%args);
      $node->{node} = $site;
      $node->{subdir} = $args{rootdir};
-     $node->{timebins} = &getNodeInfo(%args);
      warn "dumping node ",Data::Dumper->Dump([ $node ]);
      push @records, $node;
   }
   warn "dumping records ",Data::Dumper->Dump([ \@records ]);
-  return { storageusage => \@records };
+  return { nodes => \@records };
 
 }
 
@@ -56,7 +59,7 @@ sub getNodeInfo
 {
   my (%args) = @_;
   warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
-  my ($conn,$db,$table,$data,$cursor);
+  my ($conn,$db,$table,$data,$cursor,$site);
   my ($level,$rootdir,%dir, $dirs);
   my ($dirarray, $dirhash, $levelarray, $levelhash, $timebin, $timebins);
   $conn = MongoDB::Connection->new(host => 'localhost', port => 8230);
@@ -134,6 +137,7 @@ sub dirlevel {
   my $depth=shift;
   my @tmp=();
   if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
+  $path = $path."/";
   @tmp = split ('/', $path, $depth+2);
   pop @tmp;
   if (scalar(@tmp) >= 2) {
