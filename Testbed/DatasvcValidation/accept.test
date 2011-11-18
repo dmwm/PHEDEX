@@ -183,7 +183,7 @@ tfc?node=T1_US_FNAL_MSS storage-mapping =1
 transferhistory link >0
 transferhistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS link =1
 transferhistory?to=T1_US_FNAL_Buffer&starttime=last_week&binwidth=3600 link
-transferhistory?from=NoWhere&to=NoWhereEither link =0
+-transferhistory?from=NoWhere&to=NoWhereEither 400
 
 # PHEDEX::Web::API::TransQueueBlocks - blocks currently queued for transfer
 transferqueueblocks link >0
@@ -205,9 +205,9 @@ transferqueuehistory?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS&starttime=last_wee
 # PHEDEX::Web::API::TransferQueueStats - current transfer queue
 transferqueuestats link >0
 transferqueuestats?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS link
-transferqueuestats?from=NoWhere&to=NoWhereEither link
+-transferqueuestats?from=NoWhere&to=NoWhereEither 400
 
 # PHEDEX::Web::API::TransferRequests - transfer requests
 transferrequests request >0
 transferrequests?node=T1_US_FNAL_MSS&limit=2 request =2
-transferrequests?node=NoWhere request =0
+-transferrequests?node=NoWhere 400
