@@ -14,6 +14,8 @@ Show detailed information regarding a verification
 
 =head2 Options
 
+ required: one of test or node
+
  test             test request id
  node             node name, could be multiple
  block            block name, could be multiple
@@ -23,8 +25,6 @@ Show detailed information regarding a verification
                   "Suspended", "Error", "Rejected" or "Indeterminate"
                   default is to show any
  test_since       show only tests after this time (*)
-
- (*) at least block or test is required.
 
 =head2 Output
 
@@ -115,24 +115,38 @@ sub invoke { return blocktestfiles(@_); }
 sub blocktestfiles
 {
     my ($core,%h) = @_;
-
-    die PHEDEX::Web::Util::http_error(400,"Either 'block' or 'test' is required") if (!$h{'block'} and !$h{'test'});
-
-    # convert parameter keys to upper case
-    foreach ( qw / node block kind status test_since test / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw/ node block kind status test_since test / ],
+                require_one_of => [ qw/ test block / ],
+                spec =>
+                {
+                    test => { using => 'pos_int', multiple => 1 },
+                    node => { using => 'node', multiple => 1 },
+                    block => { using => 'block_*', multiple => 1 },
+                    kind => { regex => qr/^cksum$|^size$|^dbs$|^migration$/, multiple => 1 },
+                    status => { regex => qr/^OK$|^Fail$|^Queued$|^Active$|^Timeout$|^Expired$|^Suspended$|^Error$/, multiple => 1 },
+                    test_since => { using => 'time' },
+                 }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # if there is no argument, set default test_since to 24 hours ago
-    if (scalar keys %h == 0)
+    if (scalar keys %p == 0)
     {
-        $h{TEST_SINCE} = time() - 3600*24;
+        $p{TEST_SINCE} = time() - 3600*24;
     }
 
-    $h{'#DETAILED#'} = 1;
+    $p{'#DETAILED#'} = 1;
 
-    return { node => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockTestFiles($core,%h)) };
+    return { node => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockTestFiles($core,%p)) };
 }
 
 1;
