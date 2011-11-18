@@ -104,6 +104,7 @@ sub blocktests
                 allow => [ qw / node block kind status test_since test / ],
                 spec =>
                 {
+                    test => { using => 'pos_int', multiple => 1 },
                     node => { using => 'node', multiple => 1 },
                     block => { using => 'block_*', multiple => 1 },
                     kind => { regex => qr/^cksum$|^size$|^dbs$|^migration$/, multiple => 1 },
