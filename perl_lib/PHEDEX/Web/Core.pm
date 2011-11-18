@@ -253,6 +253,12 @@ sub call
             $phedex = { phedex => $phedex };
             # try getting data before printing header
             $obj = $spool->($self, %args);
+            # got to bail out early if there is an error
+            if (defined $obj && !ref($obj))
+            {
+                return $obj;
+            }
+            $fmt->header($phedex);
             do
             {
                 # error or data?
@@ -260,7 +266,6 @@ sub call
                 {
                     return $obj;
                 }
-            $fmt->header($phedex);
                 $fmt->output($obj);
             } while (($obj = $spool->($self, %args))
                      && $fmt->separator());
