@@ -73,6 +73,7 @@ Serves historical information about transfer queues.
 =cut 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
@@ -121,21 +122,39 @@ my $map = {
 my $sth;
 our $limit = 1000;
 my @keys = ('FROM', 'TO');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth ctime / )
+    if (!$sth)
     {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-    $h{'__spool__'} = 1;
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / from to starttime endtime binwidth ctime / ],
+                    spec =>
+                    {
+                        from => { using => 'node', multiple => 1 },
+                        to   => { using => 'node', multiple => 1 },
+                        starttime => { using => 'time' },
+                        endtime => { using => 'time' },
+                        binwidth => { using => 'pos_int' },
+                        ctime => { using => 'yesno' },
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueueHistory($core, %p), $limit, @keys);
 
     my $r;
 
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferQueueHistory($core, %h), $limit, @keys) if !$sth;
     $r = $sth->spool();
     if ($r)
     {
@@ -144,6 +163,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = ();
         return $r;
     }
 }
