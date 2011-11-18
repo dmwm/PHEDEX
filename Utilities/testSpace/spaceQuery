@@ -4,15 +4,19 @@ use Getopt::Long;
 use PHEDEX::CLI::UserAgent;
 use Data::Dumper;
 
-my ($response,$content,$method,$timeout,$collName,$time_since,$time_until);
+my ($datasvc_url, $response,$content,$method,$timeout,$collName,$time_since,$time_until);
 my ($level,$temp,$pua,$target,%payload,$rootdir);
 $timeout = 500;
-
+$datasvc_url = 'https://pheSpaceMon.cern.ch/phedex/datasvc';
 sub usage {
   print <<EOF;
   Usage:
 
-  spaceQuery --collName NAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR
+  spaceQuery --collName NAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR 
+
+  Additional Options:
+   --url DATASVC     overrides the default data service url:
+                     $datasvc_url
 
 EOF
   exit 0;
@@ -24,6 +28,7 @@ GetOptions(
         'collName=s'    => \$collName,
         'time_since=i'    => \$time_since,
         'time_until=i'    => \$time_until,
+        'url=s'    => \$datasvc_url,
         'level=i'    => \$level,
         'root=s'    => \$rootdir,
         'help|h'         => sub { &usage() }
@@ -33,7 +38,7 @@ GetOptions(
 
 $pua = PHEDEX::CLI::UserAgent->new
     (
-      URL        => 'https://pheSpaceMon.cern.ch/phedex/datasvc',
+      URL        => $datasvc_url,
       FORMAT    => 'perl',
       INSTANCE    => 'debug',
     );
@@ -50,6 +55,7 @@ if($time_until >= 0)  { $payload{time_until} = $time_until; }
 foreach ( keys %payload ) {
   print $_, " :: ", $payload{$_}, "\n";
 }
+print "Data Service url:   $datasvc_url\n";
 
 $response = $pua->get($target,\%payload);
 if ( $pua->response_ok($response) )
