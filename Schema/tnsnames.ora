@@ -47,6 +47,113 @@ ecalh4db =
 #
 # CMSR - CMS RAC
 #########################################################
+CMSR =
+   (DESCRIPTION =
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
+     (ENABLE=BROKEN)
+     (LOAD_BALANCE = yes)
+     (CONNECT_DATA =
+       (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+     )
+   )
+
+CMSR1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr1)
+    )
+  )
+
+CMSR2 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr2)
+    )
+  )
+
+CMSR3 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr3)
+    )
+  )
+
+CMSR4 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr4)
+    )
+  )
+
+CMSR5 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr5)
+    )
+  )
+
+CMSR6 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr6)
+    )
+  )
+
+CMSR7 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr7)
+    )
+  )
+
+CMSR8 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = cmsr.cern.ch)
+      (INSTANCE_NAME = cmsr8)
+    )
+  )
+
 cmsr_backup =
    (DESCRIPTION =
      (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
@@ -62,25 +169,6 @@ cmsr_backup =
      (CONNECT_DATA =
        (SERVER = DEDICATED)
        (SERVICE_NAME = cmsr_backup.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
-     )
-   )
-
-cms_transfermgmt =
-   (DESCRIPTION =
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr5-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr6-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr7-v.cern.ch)(PORT = 10121))
-     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr8-v.cern.ch)(PORT = 10121))
-     (ENABLE=BROKEN)
-     (LOAD_BALANCE = yes)
-     (CONNECT_DATA =
-       (SERVER = DEDICATED)
-       (SERVICE_NAME = cms_transfermgmt.cern.ch)
        (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
      )
    )
@@ -141,6 +229,22 @@ cms_transfermgmt_test =
        (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
     )
   )
+
+cms_dashboard =
+   (DESCRIPTION =
+     (ADDRESS = (PROTOCOL = TCP)(HOST = lcgr1-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = lcgr2-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = lcgr3-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = lcgr4-v.cern.ch)(PORT = 10121))
+     (ADDRESS = (PROTOCOL = TCP)(HOST = lcgr5-v.cern.ch)(PORT = 10121))
+     (ENABLE=BROKEN)
+     (LOAD_BALANCE = yes)
+     (CONNECT_DATA =
+       (SERVER = DEDICATED)
+       (SERVICE_NAME = cms_dashboard.cern.ch)
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+     )
+   )
 
 cms_sstracker =
    (DESCRIPTION =
@@ -310,6 +414,21 @@ CMS_DAQ_CONFDB =
       (SERVER = DEDICATED)
       (SERVICE_NAME = cmsr_lb.cern.ch)
       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+CMS_TAGCOLLECTOR =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+     (SERVICE_NAME = cmsr_lb.cern.ch)
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
     )
   )
 
@@ -674,7 +793,7 @@ CMS_PVSS =
     )
   )
 
-CMS_PVSS_TK =
+CMS_PVSS_OFFLINE,CMS_PVSS_TK =
   (DESCRIPTION =
     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
@@ -803,7 +922,7 @@ CMSR_APEX =
     )
   )
 
-cms_reqmgr = 
+CMS_PERFORMANCE =
   (DESCRIPTION =
     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
@@ -811,9 +930,41 @@ cms_reqmgr =
     (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
     (ENABLE = BROKEN)
     (LOAD_BALANCE = yes)
-    (CONNECT_DATA = (SERVER = DEDICATED)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
      (SERVICE_NAME = cmsr_lb.cern.ch)
-       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))))
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+CMS_REQMGR = 
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr1-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr2-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr3-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr4-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+     (SERVICE_NAME = cmsr_lb.cern.ch)
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
+
+CMSR_STANDBY =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr-standby1-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr-standby2-v.cern.ch)(PORT = 10121))
+    (ADDRESS = (PROTOCOL = TCP)(HOST = cmsr-standby3-v.cern.ch)(PORT = 10121))
+    (ENABLE=BROKEN)
+    (LOAD_BALANCE = yes)
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+     (SERVICE_NAME = cmsr.cern.ch)
+       (FAILOVER_MODE = (TYPE = SELECT)(METHOD = BASIC)(RETRIES = 200)(DELAY = 15))
+    )
+  )
 
 # END CMSR ###########################################
 
