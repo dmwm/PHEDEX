@@ -109,3 +109,17 @@ do
   i=`expr $i + 1`
 done
 echo "groups inserted"
+
+(
+  echo '$PhEDEx::Lifecycle{GroupIDs} ='
+  echo '{'
+  echo '# This is for convenience. Make sure it corresponds to t_adm_group!'
+  echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
+  echo "select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
+         egrep '^\s*[0-9]+\s[A-Za-z]+$' | awk '{ print "    "$2" => "$1"," }'
+  echo '};'
+  echo ' '
+  echo '1;'
+) | tee $LIFECYCLE/LifecycleGroups.pl
+
+echo "All done!"
