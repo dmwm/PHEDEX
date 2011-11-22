@@ -142,19 +142,28 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         roles = auth.role;
         for ( i in roles ) {
           role = roles[i];
-          if ( ( role.name == 'Admin' && role.group == 'phedex' ) ||
-               ( role.name == 'PADA Admin'   ) ||
-               ( role.name == 'Data Manager' ) ||
-               ( role.name == 'Site Admin'   ) ) {
+          role.name  = role.name.toLowerCase();
+          role.group = role.group.toLowerCase();
+        }
+        for ( i in roles ) {
+          role = roles[i];
+          if ( ( role.name == 'admin' && role.group == 'phedex' ) ||
+               ( role.name == 'pada admin'   ) ||
+               ( role.name == 'data manager' ) ||
+               ( role.name == 'site admin'   ) ) {
             auth.can.push('suspend');
             auth.isAdmin = true;
+            break;
           }
-          if ( ( role.name == 'Admin' && role.group == 'phedex' ) ||
-               ( role.name == 'Data Manager' ) ) {
+        }
+        for ( i in roles ) {
+          role = roles[i];
+          if ( ( role.name == 'admin' && role.group == 'phedex' ) ||
+               ( role.name == 'data manager' ) ) {
             auth.can.push('priority');
             auth.can.push('delete');
+            break;
           }
-
         }
         if ( auth.isAdmin ) { _sbx.notify(obj.id,'isAdmin'); }
         else                { _sbx.notify(obj.id,'isNotAdmin'); }
@@ -310,12 +319,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               return;
             }
             switch (action) {
-              case 'group':      { args.group = obj.update.group;   break; }
-              case 'suspend':    { args.suspend_until = 9999999999; break; }
-              case 'unsuspend':  { args.suspend_until = 0;          break; }
-              case 'prioritylo': { args.priority = 'low';           break; }
-              case 'priorityno': { args.priority = 'normal';        break; }
-              case 'priorityhi': { args.priority = 'high';          break; }
+              case 'groupchange': { args.group = obj.update.group;   break; }
+              case 'suspend':     { args.suspend_until = 9999999999; break; }
+              case 'unsuspend':   { args.suspend_until = 0;          break; }
+              case 'prioritylo':  { args.priority = 'low';           break; }
+              case 'priorityno':  { args.priority = 'normal';        break; }
+              case 'priorityhi':  { args.priority = 'high';          break; }
             }
             obj.nResponse = { OK:0, fail:0 };
             for (i in selected) {
@@ -706,6 +715,15 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         } else {
           state = this.getArgs();
         }
+        if ( state.dataset ) {
+          state.filter = state.dataset.join(' ');
+          delete state.dataset;
+        }
+        if ( state.block ) {
+          if ( !state.filter ) { state.filter = ''; }
+          state.filter = state.block.join(' ');
+          delete state.block;
+        }
         delete state.collapse;          // no need to show this in the state
         if ( this.meta.maxRows != this.meta.maxRowsDefault ) {
           state.rows = this.meta.maxRows;
@@ -814,6 +832,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }
         args.create_since = _f.create_since_orig;
         delete args.create_since_orig;
+        if ( args.request ) { args.create_since=0; }
         for (i in args.data_items) {
           data = args.data_items[i];
           level = NUtil.parseBlockName(data);
@@ -961,10 +980,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _f.data_items = [];
         if ( state.filter ) { state.data_items = state.filter; delete state.filter; }
         if ( state.data_items ) {
-          tmp = p.data_items .split(/(\s*,*\s+|\s*,+\s*)/);
+          tmp = state.data_items.split(/(\s*,*\s+|\s*,+\s*)/);
           state.data_items  = [];
           for ( i in tmp ) {
-            state.data_items .push(tmp[i]);
+            state.data_items.push(tmp[i]);
+               _f.data_items.push(tmp[i]);
           }
           changed = true;
         }
@@ -1205,8 +1225,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 // Data items
         this.data_items = {
           text:'enter one or more block/data-set names, separated by white-space or commas.',
-          label:'Data Items',
-          filterTag:'data',
+          label:'Data Items'
         };
         if ( _filter.data_items.length ) { this.data_items.initial_text = _filter.data_items.join(' '); }
         this.makeControlTextbox(this.data_items,Dom.get('phedex-filterpanel-dataitems'));
