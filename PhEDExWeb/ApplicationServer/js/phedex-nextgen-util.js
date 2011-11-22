@@ -25,7 +25,7 @@ PHEDEX.Nextgen.Util = function() {
       }(obj);
       _sbx.listen(obj.id, selfHandler);
 
-      nodePanel = { nodes:[], selected:[] };
+      nodePanel = { nodes:[], selected:[], map:{ byName:{}, byId:{} } };
       if ( typeof(parent) != 'object' ) { parent = Dom.get(parent); }
       nodePanel.dom = { parent:parent };
       var makeNodePanel = function(o) {
@@ -52,6 +52,8 @@ PHEDEX.Nextgen.Util = function() {
           k = '1';
           for ( i in nodes ) {
             node = nodes[i];
+            nodePanel.map.byName[node.name] = node.id;
+            nodePanel.map.byId[node.id]     = node.name;
             node.name.match(/^T(0|1|2|3)_/);
             j = RegExp.$1;
             if ( j > k ) {
