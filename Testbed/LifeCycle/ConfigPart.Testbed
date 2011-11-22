@@ -1,7 +1,7 @@
 ### ENVIRON common
 . $TESTBED_ROOT/env.sh;
 PHEDEX_BASE=${PHEDEX_ROOT};
-PHEDEX_INSTANCE=DEVDB10;
+PHEDEX_INSTANCE=DEVDB11;
 
 [ -z "$PHEDEX_SITE" ] && { echo '$PHEDEX_SITE not set' 1>&2; exit 1; };
 [ -z "$PHEDEX_INSTANCE" ] && { echo '$PHEDEX_INSTANCE not set' 1>&2; exit 1; };
