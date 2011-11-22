@@ -47,6 +47,10 @@ prompt Loading block verification
 @@OracleCoreVerify.sql
 
 prompt
+prompt Loading block latency
+@@OracleCoreLatency.sql
+
+prompt
 prompt Loading views
 @@OracleCoreViews.sql
 
