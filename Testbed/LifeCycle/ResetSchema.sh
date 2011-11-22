@@ -22,9 +22,9 @@ if [ `echo $PHEDEX_DBPARAM | egrep -ic 'prod|dev|debug|admin'` -gt 0 ]; then
   echo "(It has one of 'prod|dev|debug|admin' in it, so I don't trust it)"
   exit 0
 fi
-if [ `echo $PHEDEX_SQLPLUS | egrep -ic 'devdb10'` -eq 0 ]; then
+if [ `echo $PHEDEX_SQLPLUS | egrep -ic 'devdb'` -eq 0 ]; then
   echo "Your DBParam appears to be unsafe?"
-  echo "('devdb10 does not appear in your connection string, so I don't trust it)"
+  echo "('devdb does not appear in your connection string, so I don't trust it)"
   exit 0
 fi
 
