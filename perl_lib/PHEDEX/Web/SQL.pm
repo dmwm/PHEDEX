@@ -2111,11 +2111,13 @@ sub getDataSubscriptionsQuery
     };
 
     my $filters = '';
+    my $node_field = 'n.name';
+    if ( $h{NODE} =~ m%^\d+$% ) { $node_field = 'n.id'; }
     build_multi_filters($core, \$filters, \%p, \%h, ( 
                                                       SE => 'n.se_name',
                                                       REQUEST => 'sp.request',
                                                       GROUP => 'g.name',
-                                                      NODE => 'n.name'
+                                                      NODE => $node_field,
 						      ));
 
     if (exists $h{SUSPENDED})
