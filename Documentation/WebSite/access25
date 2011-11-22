@@ -7995,6 +7995,7 @@ sub output_page
 if ( $TW ) { # TW
   my ($h,$page,$href,$url);
   $url = $self->myurl();
+  $url =~ s%\?.*$%%;
   $h=CGI::Vars();
   delete $h->{view};
   $page = delete $h->{page};
@@ -9544,8 +9545,14 @@ sub output
   print { $$self{CONTENT} }
     "<script type='text/javascript'>",
       "PhedexPage.postdata = [";
-  foreach ( @{$params{dataspec}} ) {
-    print { $$self{CONTENT} } "  '",unescape($_),"',\n";
+  if ( $params{dataspec} ) {
+    if ( ref($params{dataspec}) eq 'ARRAY' ) {
+      foreach ( @{$params{dataspec}} ) {
+        print { $$self{CONTENT} } "  '",unescape($_),"',\n";
+      }
+    } else {
+      print { $$self{CONTENT} } "  '",unescape($params{dataspec}),"',\n";
+    }
   }
   print { $$self{CONTENT} }
       " ];",
