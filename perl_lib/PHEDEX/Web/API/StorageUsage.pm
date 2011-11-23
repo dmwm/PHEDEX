@@ -20,11 +20,14 @@ GET data from storage usage db
 sub methods_allowed { return ('GET'); }
 sub duration { return 0; }
 sub invoke { return storageusage(@_); }
-sub storageusage
+
+sub storageusage 
 {
   my ($core, %args) = @_;
   warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
-  my ($method,$site,@sitelist,@records);
+  my ($method,$site,@inputSitelist, @sitelist,@records, $core);
+  my ($db, $data, $table, $cursor);
+  my $dbname = "SiteSpace";
 
   $method = $core->{REQUEST_METHOD};
 
@@ -37,16 +40,39 @@ sub storageusage
   }
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
+  } 
+  
+  if ($args{collName} =~ m/^\*$/) {
+     push @inputSitelist, "*";
+  } 
+  else {
+     @inputSitelist = split(",", $args{collName});
   }
-
-  @sitelist = split(",", $args{collName});
-
+  $db = connDB($dbname);
+ 
+  $site = "";
+  foreach $site (@inputSitelist) {
+     #db.system.indexes.find({ns:/$dbname.test/},{ns:1})
+     $table = "system.indexes";
+     if ($site =~ m/\*/) {
+       $cursor=$db->$table->find({ns=>qr/$dbname.$site/});
+     }
+     else {
+       $cursor=$db->$table->find({ns=>"$dbname.$site"});
+     }
+     while ($data = $cursor->next) {
+        #print $data->{"ns"}, "\n";
+        if ($data->{"ns"} =~ m/SiteSpace.(\S+)/) {
+           push @sitelist, $1; 
+        }
+     }
+   }
   foreach $site (@sitelist) {
      my $node = {};
      $args{site} = $site;
-     $node->{timebins} = &getNodeInfo(%args);
      $node->{node} = $site;
      $node->{subdir} = $args{rootdir};
+     $node->{timebins} = getNodeInfo($db,%args); 
      warn "dumping node ",Data::Dumper->Dump([ $node ]);
      push @records, $node;
   }
@@ -55,18 +81,23 @@ sub storageusage
 
 }
 
-sub getNodeInfo
-{
-  my (%args) = @_;
-  warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
-  my ($conn,$db,$table,$data,$cursor,$site);
-  my ($level,$rootdir,%dir, $dirs);
-  my ($dirarray, $dirhash, $levelarray, $levelhash, $timebin, $timebins);
+sub connDB {
+  my ($dbname) = @_;
+  my ($conn, $db);
   $conn = MongoDB::Connection->new(host => 'localhost', port => 8230);
-  $db = $conn->SiteSpace;
+  $db = $conn->$dbname;
+  return $db;
+}
+
+sub getNodeInfo 
+{
+  my ($db, %args) = @_;
+  warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
+  my ($table,$data,$cursor);
+  my ($level,$rootdir,%dir, $dirs);
+  my ($site,$dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
   $site = $args{site};
   $table = $db->$site();
-
   my %temp;
   $level = 4;
   if (exists $args{level}) {
@@ -84,11 +115,10 @@ sub getNodeInfo
     }
     elsif (!$args{time_until}) {
       $temp{'$gt'} = $args{time_since} + 0.0;
-    }
+    }  
     else {
-      $temp{'$gt'} = $args{time_since} + 0.0;
-      $temp{'$gt'} = $args{time_since} + 0.0;
-      $temp{'$lt'} = $args{time_until} + 0.0;
+      $temp{'$gte'} = $args{time_since} + 0.0;
+      $temp{'$lte'} = $args{time_until} + 0.0;
     }
     $dir{_id} = \%temp;
     warn "dumping converted arguments ",Data::Dumper->Dump([ \%dir ]);
@@ -96,25 +126,37 @@ sub getNodeInfo
     #$cursor = $table->find({_id =>{'$gt' => 0,'$lt' => 11}});
   }
   $timebins = ();
+
   while ($data = $cursor->next) {
     warn "dumping data from db ", Data::Dumper->Dump([ $data ]);
     $timebin = {};
     $timebin->{timestamp} = $data->{_id};
-    #@dirarray = ();
     $levelarray = ();
     for (my $i = 1; $i<= $level; $i++) {
        $dirhash = {};
        $dirarray = ();
        $levelhash = {};
        foreach $dirs ( @{$data->{dir}} ) {
-         if (!$rootdir || (index($dirs->{name},$rootdir) != -1)) {
+         #print $i, " " , dirlevel($rootdir,$i), " ", $dirs->{name}, "\n";
+         if (!$rootdir || (index($dirs->{name},dirlevel($rootdir,$i)) == 0)) {
+         #if (!$rootdir || (index($dirs->{name},$rootdir) != -1)) {
             #if (!dirlevel($dirs->{name}, $i)) {
-            #   $dirhash->{dirlevel($dirs->{name}, $i)} += $dirs->{size};
+            #   $dirhash->{dirlevel($dirs->{name}, $i)} += $dirs->{size}; 
             #}
-            $dirhash->{&dirlevel($dirs->{name}, $i)} += $dirs->{size};
+            $dirhash->{dirlevel($dirs->{name}, $i)} += $dirs->{size};
          }
        }
-       push @$dirarray, $dirhash;
+       my $count = 0;
+       foreach ( keys %{$dirhash} ) {
+         $dirhashSep = {};
+         $dirhashSep->{dir} = $_;
+         $dirhashSep->{size} = $dirhash->{$_};
+         push @$dirarray, $dirhashSep;
+         $count = $count + 1;
+       }
+
+       if ($count==0) { $level = $i; }
+
        warn "dump dirarray ", Data::Dumper->Dump([ $dirarray ]);
        $levelhash->{level} = $i;
        $levelhash->{data} = $dirarray;
@@ -127,11 +169,10 @@ sub getNodeInfo
     warn "dump timebin ", Data::Dumper->Dump([ $timebin ]);
     push @$timebins, $timebin;
   }
-
+    
   warn "dumping timebins ",Data::Dumper->Dump([ $timebins ]);
   return $timebins;
 }
-
 sub dirlevel {
   my $path=shift;
   my $depth=shift;
