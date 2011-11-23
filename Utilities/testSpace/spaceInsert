@@ -24,7 +24,7 @@ sub usage {
  
   DUMP  is a storage dump file, must exist
   LEVEL is level of depth of the directory structure we want to go
-  COLLNAME is the name of collection where data is put
+  COLLNAME is the name of collection where data is put, must exist
   URL is the url for data service
   overwrite,strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
  
@@ -134,7 +134,9 @@ GetOptions(
            "help|h"         => sub { &usage() }
           );
 
-
+if (!$dump || !$collName) {
+   die "You must provide dump file and collection Name!\n";
+}
 $method   = 'post';
 $timeout  = 500;
 $pua = PHEDEX::CLI::UserAgent->new
