@@ -555,7 +555,7 @@ sub subscribeBlock
   $hp->{is_custodial}    = $ds->{IsCustodial};
   $hp->{time_create}     = $block->{created};
   $hp->{original}        = 'y';
-  $hp->{user_group}      = $ds->{Group};
+  $hp->{user_group}      = $self->{GroupIDs}{$ds->{Group}};
 
   my $param;
   eval { $param = $self->insertSubscriptionParam( $hp ) }; 
