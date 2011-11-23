@@ -63,6 +63,7 @@ errors may have occurred then indicated by this API call.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
@@ -112,19 +113,36 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('FROM', 'TO');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / from to block dataset lfn / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / from to block dataset lfn / ],
+                    spec =>
+                    {
+                        from    => { using => 'node', multiple => 1 },
+                        to      => { using => 'node', multiple => 1 },
+                        block   => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        lfn     => { using => 'lfn', multiple => 1 }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLogSummary($core, %p), $limit, @keys);
     }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLogSummary($core, %h), $limit, @keys) if !$sth;
 
     my $r = $sth->spool();
     if ($r)
