@@ -94,5 +94,6 @@ do
 done
 echo "groups inserted"
 
+cd $LIFECYCLE
 $LIFECYCLE/getNodesGroups.sh
 echo 4-node setup completed

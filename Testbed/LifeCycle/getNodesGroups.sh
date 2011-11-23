@@ -24,7 +24,7 @@ else
   exit 0
 fi
 
-LIFECYCLE_NODES=$LIFECYCLE/LifecycleNodes.pl
+LIFECYCLE_NODES=LifecycleNodes.pl
 echo "Extract NODES into $LIFECYCLE_NODES"
 (
   echo '$PhEDEx::Lifecycle{NodeIDs} ='
@@ -38,7 +38,7 @@ echo "Extract NODES into $LIFECYCLE_NODES"
   echo '1;'
 ) | tee $LIFECYCLE_NODES
 
-LIFECYCLE_GROUPS=$LIFECYCLE/LifecycleGroups.pl
+LIFECYCLE_GROUPS=LifecycleGroups.pl
 echo "Extract GROUPS into $LIFECYCLE_GROUPS"
 (
   echo '$PhEDEx::Lifecycle{GroupIDs} ='
