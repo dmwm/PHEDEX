@@ -233,7 +233,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
           dn.preview_summary = Dom.get(idPre+'-summary');
           dn.preview_table   = Dom.get(idPre+'-table');
 
-          label='Remove this item', id='button-remove-'+node;
+          label='Remove this node', id='button-remove-'+node;
           bn.remove = button = new YAHOO.widget.Button({
                                 type: 'submit',
                                 label: label,
