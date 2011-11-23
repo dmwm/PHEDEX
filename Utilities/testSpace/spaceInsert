@@ -19,11 +19,14 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceInsert --dump DUMP --collName COLLNAME --depth LEVEL INTERFACE {OPTIONS}
+  spaceInsert --dump DUMP --overwrite --strict --collName COLLNAME --depth LEVEL --url URL
+              INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is level of depth of the directory structure we want to go
   COLLNAME is the name of collection where data is put
+  URL is the url for data service
+  overwrite,strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
@@ -86,11 +89,13 @@ sub parse_chimera_dump {
   close DUMP;
   $timeFromXml = convertToUnixTime($time);
   
-  print "total files: ", $totalfiles,"\n";
   $totaldirs = keys %dirsizes;
-  print "total dirs:  ", $totaldirs, "\n";
-  print "total size:  ", $totalsize, "\n";
-  print "timestamp:  ", $timeFromXml, "\n";
+  if ($debug) {
+     print "total files: ", $totalfiles,"\n";
+     print "total dirs:  ", $totaldirs, "\n";
+     print "total size:  ", $totalsize, "\n";
+     print "timestamp:  ", $timeFromXml, "\n";
+  }
 }
 
 sub convertToUnixTime
@@ -113,6 +118,7 @@ sub convertToUnixTime
 }
 
 my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$collName,%payload,%topsizes);
+my ($strict, $overwrite);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
 
@@ -121,10 +127,14 @@ GetOptions(
            "collName=s"      => \$collName,
            "url=s"      => \$datasvcUrl,
            "level=s"      => \$level,
+           "strict"     => \$strict,
+           "overwrite"     => \$overwrite,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
           );
+
+
 $method   = 'post';
 $timeout  = 500;
 $pua = PHEDEX::CLI::UserAgent->new
@@ -135,14 +145,23 @@ $pua = PHEDEX::CLI::UserAgent->new
     );
 
 if ( $dump ) {
+  print "Begin to dump.....\n";
   parse_chimera_dump($dump);
 }
+
 
 #foreach ( keys %dirsizes ) {
 #  print "DIRSIZE: $_: $dirsizes{$_} \n";
 #}
 
+if ($overwrite) {
+  $payload{overwrite}=1;
+}
 
+if ($strict){ 
+  $payload{overwrite}=0;
+}
+ 
 $payload{"collName"}=$collName;
 $payload{"totalsize"}=$totalsize;
 $payload{"totalfiles"}=$totalfiles;
@@ -155,19 +174,18 @@ foreach  (keys %dirsizes) {
 
 $payload{"rootdir"}=$rootdir;
 
+if ($debug) { print "dumping aggregated directory info......\n" };
 foreach ( keys %topsizes ) {
-  #print "TOPSIZE: $_: $topsizes{$_} \n";
-  #if ($_=~ m/\S+\.\S+/) {
-  #   print "TOPSIZE: $_: $topsizes{$_} \n";
-  #   next; 
-  #}
+  if ($debug) {
+     print "TOPSIZE: $_: $topsizes{$_} \n";
+  }
   $payload{$_} = $topsizes{$_} + 0;
 }
 
 
 my ($j, $now, $past, $input);
 
-print "\n Beginning to connect data service\n";
+print "Begin to connect data service.....\n";
 $pua->timeout($timeout) if $timeout;
 $pua->CALL('mongo');
 $target = $pua->target;
@@ -181,7 +199,7 @@ if ( $pua->response_ok($response) )
    $content = eval($response->content());
    $content = $content->{PHEDEX}{MONGO};
    foreach $record ( @{$content} ) {
-     print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
+     print "Inserting Record:\n  ",join('  ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
    }
 }
 else
@@ -193,6 +211,6 @@ else
    die "exiting after failure\n";
 }
 
+print  "Done!\n";
 exit 0;
 
-print  "DONE!\n";
