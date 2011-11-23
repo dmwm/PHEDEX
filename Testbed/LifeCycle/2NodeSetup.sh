@@ -86,20 +86,6 @@ $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
 echo T1_Test1_Buffer to T1_Test1_MSS
 $PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
 
-(
-  echo '$PhEDEx::Lifecycle{NodeIDs} ='
-  echo '{'
-  echo '# This is for convenience. Make sure it corresponds to t_adm_nodes!'
-  echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
-  echo "select name, id from t_adm_node order by id;" | $PHEDEX_SQLPLUS | \
-	egrep '^T' | awk '{ print "    "$1" => "$2"," }'
-  echo '};'
-  echo ' '
-  echo '1;'
-) | tee $LIFECYCLE/LifecycleNodes.pl
-
-echo 2-node setup completed
-
 i=1
 echo -n "Inserting groups: "
 for group in physicists managers operators administrators experts other
@@ -110,16 +96,5 @@ do
 done
 echo "groups inserted"
 
-(
-  echo '$PhEDEx::Lifecycle{GroupIDs} ='
-  echo '{'
-  echo '# This is for convenience. Make sure it corresponds to t_adm_group!'
-  echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
-  echo "select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
-         egrep '^\s*[0-9]+\s[A-Za-z]+$' | awk '{ print "    "$2" => "$1"," }'
-  echo '};'
-  echo ' '
-  echo '1;'
-) | tee $LIFECYCLE/LifecycleGroups.pl
-
-echo "All done!"
+$LIFECYCLE/getNodesGroups.sh
+echo 2-node setup completed
