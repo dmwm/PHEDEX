@@ -23,7 +23,7 @@ sub usage {
               INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
-  LEVEL is level of depth of the directory structure we want to go
+  LEVEL is depth of the directory structure you want to go, default is 6
   COLLNAME is the name of collection where data is put, must exist
   URL is the url for data service
   overwrite,strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
@@ -121,6 +121,7 @@ my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$collName,%pay
 my ($strict, $overwrite);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
+$level = 6;
 
 GetOptions(
            "dump=s"      => \$dump,
