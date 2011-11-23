@@ -83,6 +83,7 @@ Full text of the transfer log, the detail log, and the validate log.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
 
@@ -153,25 +154,37 @@ my $map = {
 my $sth;
 our $limit = 200;
 my @keys = ('FROM', 'TO');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # need at least one of the input
-    if (!$h{from}&&!$h{to}&&!$h{block}&&!$h{lfn})
+    if (!$sth)
     {
-        die PHEDEX::Web::Util::http_error(400,"need at least one of the input arguments: from, to, block, lfn");
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / from to block dataset lfn / ],
+                    require_one_of => [ qw / from to block lfn / ],
+                    spec =>
+                    {
+                        from    => { using => 'node', multiple => 1 },
+                        to      => { using => 'node', multiple => 1 },
+                        block   => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        lfn     => { using => 'lfn', multiple => 1 }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLog($core, %p), $limit, @keys);
     }
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to block dataset lfn / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getErrorLog($core, %h), $limit, @keys) if !$sth;
 
     my $r = $sth->spool();
     if ($r)
@@ -187,6 +200,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = ();
         return $r;
     }
 }
