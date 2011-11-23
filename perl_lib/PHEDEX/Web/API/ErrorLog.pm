@@ -18,8 +18,8 @@ errors may have occurred then indicated by this API call.
 
 =head3 Options
 
- required inputs: at least one of the followings
- optional inputs: (as filters) from, to, block, lfn
+ required inputs: at least one of the followings: from, to, block, lfn
+ optional inputs: (as filters) from, to, dataset, block, lfn
 
   from             name of the source node, could be multiple
   to               name of the destination node, could be multiple
