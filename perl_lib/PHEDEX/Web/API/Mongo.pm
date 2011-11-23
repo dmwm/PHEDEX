@@ -24,21 +24,29 @@ sub mongo
 {
   my ($core,%args) = @_;
   warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
-  my ($method,$conn,$db,$table,$data,@records,$cursor,@dirarray,%dir,%test,$site);
+  my ($method,$conn,$db,$table,$data,@records,$cursor,@dirarray,%dir,%test,$site,%word);
+  my ($overwrite, $returnid, $nospecify);
+  $overwrite = 1;
   $site = $args{collName};
-  delete($args{collName});
-
+  if ($args{overwrite}) {
+     $overwrite = $args{overwrite};
+  } 
+  else {
+     $nospecify = 1;
+  }
+  $word{connect} = "Begin to connect db........\n";
   $method = $core->{REQUEST_METHOD};
   $conn = MongoDB::Connection->new(host => 'localhost', port => 8230);
   $db = $conn->SiteSpace;
   $table = $db->$site();
+  $word{connected} = "Successfully connect db........\n";
 
   $dir{_id} = $args{_id} + 0.0;
   $dir{rootdir} = $args{rootdir};
   $dir{totalsize} = $args{totalsize} + 0.0;
   $dir{totalfiles} = $args{totalfiles} + 0.0;
   $dir{totaldirs} = $args{totaldirs} + 0.0;
-  foreach ( qw / _id rootdir totalsize totaldirs totalfiles / )
+  foreach ( qw / _id rootdir totalsize totaldirs totalfiles collName overwrite/ )
   {
        delete($args{$_});
   }
@@ -50,7 +58,19 @@ sub mongo
   }
   $dir{dir} =\@dirarray;
   warn "dumping converted arguments ",Data::Dumper->Dump([ \%dir ]);
-  $table->insert(\%dir);
+  $returnid = $table->insert(\%dir);
+
+  if (($returnid == $dir{_id}) && !$overwrite) {
+     die "You duplicate the entry with the same timestamp!\n"
+  }
+  elsif (($returnid == $dir{_id}) && $overwrite) {
+     $table->save(\%dir);
+     if ($nospecify) {
+         $word{duplicate} = "Duplicate the same entry........\n";
+     }
+  }
+  $word{inserted} = "Successfully insert an entry........\n";
+  push @records, \%word;
   push @records, \%dir;
 
   warn "dumping records ",Data::Dumper->Dump([ \@records ]);
