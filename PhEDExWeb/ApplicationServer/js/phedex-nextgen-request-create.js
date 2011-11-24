@@ -569,11 +569,12 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             time_start = this.time_start,
             data_items = dom.data_items,
             comments   = dom.comments,
-            site_custodial      = this.site_custodial,
-            subscription_type   = this.subscription_type,
-            re_evaluate_request = this.re_evaluate_request,
-            transfer_type       = this.transfer_type,
-            priority            = this.priority,
+            site_custodial       = this.site_custodial,
+            subscription_type    = this.subscription_type,
+            re_evaluate_request  = this.re_evaluate_request,
+            transfer_type        = this.transfer_type,
+            priority             = this.priority,
+            remove_subscriptions = this.remove_subscriptions,
             menu, menu_items,
             data={}, args={}, tmp, value, block, dataset,
             elList, el, i, panel, api;
@@ -647,6 +648,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         if ( priority ) { args.priority = this.getRadioValues(priority); }
 // User Group
         if ( user_group ) { args.group = user_group.value; }
+// Remove Subscriptions
+        if ( remove_subscriptions ) { args.rm_subscriptions = this.getRadioValues(remove_subscriptions); }
 
 // Time Start
         if ( time_start ) {
@@ -1333,6 +1336,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
         values:['yes','no'],
         _default:0,
         label:'Remove Subscriptions',
+        map:{yes:'y', no:'n'},
         help_text:"<p>Whether or not the subscriptions for the data in this request should be removed.</p><p>If subscriptions are removed (default), the data will not be retransferred after the deletion. Use this to permanently delete the data from your site.</p><p>If subscriptions are <em>not</em> removed, the data will automatically be queued for retransfer after the deletion is completed. Use this to re-transfer a fresh copy of the data after files have been lost (e.g. through hardware failure).</p>"
       };
       this.makeControlRadio(this.remove_subscriptions,form);
