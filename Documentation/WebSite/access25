@@ -2484,7 +2484,7 @@ sub generate
 			 ? (" class='selected'><span>" . &escapeHTML(${$$_}{TITLE}) . "</span>")
 			 : (">" . &toclink($self, $_)))
 		      . "</li>\n" } @toc) .
-       "<li id='nextgen-link'><a title='Enter the next-gen website' href='https://localhost/phedex/datasvc/app'>Next-gen website</a></li>" .
+       "<li id='nextgen-link'><a title='Enter the next-gen website' href='/phedex/datasvc/app'>Next-gen website</a></li>" .
        "<li id='phedex-permalink-container' style='display:none'><a id='phedex-permalink' title='Permalink to this page\'s state' href='#'>Permalink</a></li>" .
        " </ul>\n" .
        "</div>" : ""),
@@ -2666,6 +2666,11 @@ sub generate
         " <p><i>Error time=$time id=$id</i></p>\n",
         "</div></center>\n";
     }
+  }
+  if ( $self->{REDIRECT} ) {
+    warn "Redirect to $self->{REDIRECT}";
+    redirect(-status => $self->{REDIRECT_STATUS} || 301, Location => $self->{REDIRECT});
+    return;
   }
   close($$self{HEAD});
   close($$self{CONTENT});
@@ -3027,7 +3032,7 @@ sub output
 
   no strict "refs";
   print { $$self{CONTENT} }
-    "<center><div classe˙='alert'>",
+    "<center><div class='alert'>",
     $self->{ERROR_MSG},
     "</div></center>";
 }
@@ -7539,11 +7544,11 @@ sub validate
  	     suspended    => { allowing => [qw(any y n active suspended)], default => 'any' },
  	     custodial    => { allowing => [qw(any y n custodial non-custodial)], default => 'any' },
  	     complete     => { allowing => [qw(any y n complete incomplete)], default => 'any' },
+ 	     collapse     => { allowing => [qw(y n)], default => 'y' },
  	     group        => { allowing => ['any', @{$$self{GROUP_LIST}}], default => 'any' },
 	     groupchange  => { allowing => $$self{GROUP_LIST} },
 	     s_value  => { regex => qr%^(DATASET|BLOCK):(/[^/\#]+){3}[^:]*:T%, multiple => 1 }, # combined name, for 4.0 schema updates
-	     create_since => { regex => '^-?[0-9]+$' },
-	     rows         => { using => 'pos_int' },
+	     create_since => { regex => '^-?[0-9]+(d|D|m|M|y|Y)?$' },
 
 	     # params for Data::LoadTest
 	     action        => { allowing => [qw(rate inject_now start stop remove)] },
@@ -7973,6 +7978,7 @@ use List::Util qw(max);
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Subscriptions",
 	       LINK_TITLE => "Explore subscriptions" };
 
+our $TW = 1;
 sub new
 {
   my $proto = shift;
@@ -7986,11 +7992,30 @@ sub output_page
 {
   my ($self) = @_;
 
-  my (@admin_auth,%admin_opts,%admin_grps);
-my $TW = 0;
 if ( $TW ) { # TW
+  my ($h,$page,$href,$url);
+  $url = $self->myurl();
+  $url =~ s%\?.*$%%;
+  $h=CGI::Vars();
+  delete $h->{view};
+  $page = delete $h->{page};
+
+  my ($key,$value,@values);
+  if ( keys %{$h} ) {
+    $href = '';
+    foreach $key ( sort keys %{$h} ) {
+      $value = $h->{$key};
+      @values = split('\0',$value);
+      $href .= $key . '=' . join(";$key=",@values) . ';';
+    }
+    $href =~ s%;$%%;
+    $url .= '#' . $href;
+    $self->{REDIRECT} = $url;
+    return;
+  }
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 } else { # TW
+  my (@admin_auth,%admin_opts,%admin_grps);
   if (!$$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ||
       !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
 	$$self{SECMOD}->hasRole('Data Manager') ||
@@ -8262,6 +8287,7 @@ sub output_options_form { }
 
 sub update_subscriptions
 {
+if ( !$TW ) {
     my ($self) = @_;
 
     my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin||PADA Admin', with_ids => 1);
@@ -8356,10 +8382,12 @@ sub update_subscriptions
     } else {
 	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
     }
+} # TW
 }
 
 sub data_subscriptions
 {
+if ( !$TW ) {
   my ($self) = @_;
   $self->fetch_nodes();
   my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
@@ -8392,6 +8420,7 @@ sub data_subscriptions
   $q = &dbexec($$self{DBH}, $sql, %{$p});
 
   return $q;
+} # TW
 }
 
 1;
@@ -9478,6 +9507,55 @@ sub output
 	}
 	$table->finish();
     }
+}
+
+1;
+
+######################################################################
+package Web25::Data::BulkDelete;
+use strict; use warnings;
+use base "Web25::Page";
+use CGI qw(:standard unescape);
+import Web25::Common;
+our $INDEX = { LIST => 0, ORDER => 999, NOLOGIN => 1, TITLE => "Bulk Delete Data" };
+
+sub new
+{
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $self = $class->SUPER::new(@_);
+  bless $self, $class;
+  return $self;
+}
+
+use Data::Dumper;
+sub output
+{
+  my ($self) = @_;
+
+  my %params = $self->validate_all(
+    allow    => [qw(dataspec)],
+    spec     => {
+      dataspec  => { regex => qr|^[A-Za-z0-9_\-#:\./%]+$|, multiple => 1 }
+    }
+  );
+  no strict "refs";
+  print { $$self{CONTENT} }
+    "<script type='text/javascript'>",
+      "PhedexPage.postdata = [";
+  if ( $params{dataspec} ) {
+    if ( ref($params{dataspec}) eq 'ARRAY' ) {
+      foreach ( @{$params{dataspec}} ) {
+        print { $$self{CONTENT} } "  '",unescape($_),"',\n";
+      }
+    } else {
+      print { $$self{CONTENT} } "  '",unescape($params{dataspec}),"',\n";
+    }
+  }
+  print { $$self{CONTENT} }
+      " ];",
+    "</script>",
+    "<div id='Data::BulkDelete'></div>";
 }
 
 1;
