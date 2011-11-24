@@ -247,14 +247,16 @@ sub ReadConfig
 #   Set global default for the case it was missing in the configuration: 
     $self->{StuckFileFraction} = 0 unless defined $self->{StuckFileFraction};
     $self->{CycleTime} = 600 unless defined $self->{CycleTime};
+    $self->{Priority} = 1 unless defined $self->{Priority};
 
 
 #   Fill in global defaults for undefined dataset defaults 
-     foreach (qw/ StuckFileFraction FileSizeMean CycleTime /)
+     foreach (qw/ StuckFileFraction FileSizeMean CycleTime Priority Group NFiles /)
      {
        if ( ! defined( $ds->{$_} ) )
        {
          $ds->{$_} = $self->{$_};
+         die "$_ is undefined, even at global scope\n" unless defined $ds->{$_};
        }
      }
   }
