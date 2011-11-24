@@ -913,7 +913,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
         summary = 'Showing subscriptions created since '+ since +
-                  '<br />' + datasets.length+' data-item'+(datasets.length==1?'':'s')+' found, ' +
+                  '<br />' + datasets.length+' dataset'+(datasets.length==1?'':'s')+' found, ' +
                   nSubs+' subscription'+(nSubs==1?'':'s');
         if ( nSubs >= this.meta.maxRows ) {
           summary += "<br/>"+Icon.Warn+"Table is truncated at "+this.meta.maxRows+" rows. You can "+
