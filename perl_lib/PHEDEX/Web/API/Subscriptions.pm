@@ -16,7 +16,7 @@ Show existing subscriptions and their parameters.
 
   dataset          dataset name (wildcards)
   block            block name (wildcards)
-  node             node name or id (wildcards)
+  node             node name (wildcards) or id. Can be multiple, but cannot mix names and ids in the same request
   se               storage element
   create_since     timestamp. only subscriptions created after.*
   request          request number(s) which created the subscription.
