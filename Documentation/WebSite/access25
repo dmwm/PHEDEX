@@ -8000,15 +8000,13 @@ if ( $TW ) { # TW
   delete $h->{view};
   $page = delete $h->{page};
 
+  my ($key,$value,@values);
   if ( keys %{$h} ) {
     $href = '';
-    foreach ( sort keys %{$h} ) {
-      if ( ref($h->{$_}) eq 'ARRAY' ) {
-        $href .= join(";$_=",sort(@{$h->{$_}}));
-      } else {
-        $href .= $_ . '=' . $h->{$_};
-      }
-      $href .= ';';
+    foreach $key ( sort keys %{$h} ) {
+      $value = $h->{$key};
+      @values = split('\0',$value);
+      $href .= $key . '=' . join(";$key=",@values) . ';';
     }
     $href =~ s%;$%%;
     $url .= '#' . $href;
