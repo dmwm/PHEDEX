@@ -128,11 +128,13 @@ sub reloadConfig
   $self->createAgents();
 }
 
-
 sub createLimits
 {
   my $self = shift;
   delete $self->{_limits};
+  if ( ref($self->{LIMIT}) ne 'ARRAY' ) {
+    $self->{LIMIT} = ( $self->{LIMIT} );
+  }
   foreach ( @{$self->{LIMIT}} )
   {
     my ($re,$key,$val) = split(',',$_);
