@@ -529,7 +529,7 @@ sub expandNodes
         $self->identifyAgent();
         $self->checkAgentMessages();
       };
-      $self->{_AL}->{MYNODE} = $old_mynode;
+      $self->{_AL}->{MYNODE} = $old_mynode if ( defined $old_mynode );
       die $@ if $@;
     }
   }

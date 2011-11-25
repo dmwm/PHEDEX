@@ -1386,7 +1386,7 @@ sub expandNodes
         $self->identifyAgent();
         $self->checkAgentMessages();
       };
-      $self->{MYNODE} = $old_mynode;
+      $self->{MYNODE} = $old_mynode if ( defined $old_mynode );
       die $@ if $@;
     }
   }

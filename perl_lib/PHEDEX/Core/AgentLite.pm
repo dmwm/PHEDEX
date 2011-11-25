@@ -231,11 +231,9 @@ sub AUTOLOAD
   if      ( $self->{_Dropbox}->can($attr) ) { $self->{_Dropbox}->$attr(@_);
   } elsif ( $self->{_DB}->can($attr)      ) { $self->{_DB}->$attr(@_);
   } elsif ( $self->{_Cycle}->can($attr)   ) { $self->{_Cycle}->$attr(@_);
-  } else  { $self->Alert("Un-known method for PHEDEX::Core::Agent"); 
+  } else  { $self->Alert("Unknown method for PHEDEX::Core::Agent"); 
   }
 }
-
-
 
 =head1 Running agents as daemons
 
