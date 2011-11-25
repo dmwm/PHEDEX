@@ -428,7 +428,7 @@ sub _udp_listen
   $message = '';
   $remote_address = recv($socket, $message, DATAGRAM_MAXLEN, 0);
 
-  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]:(.*)$% )
+  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]:\s+(.*)$% )
   {
     $agent = $1;
     $pid = $2;
