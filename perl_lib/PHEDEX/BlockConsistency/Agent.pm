@@ -7,7 +7,6 @@ use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockConsistency::SQL', 'PHEDEX::Core::
 use File::Path;
 use File::Basename;
 use Cwd;
-use Data::Dumper;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Formats;
@@ -130,8 +129,6 @@ sub doDBSCheck
   }
   $n_files = $n_tested + scalar keys %dbs;
   if ( scalar keys %dbs ) {  $self->Logmsg("DBS has more than TMBD, test failed!"); }
-#      die "Hmm, how to handle this...? DBS has more than TMDB!\n";
-#      $self->setRequestState($request,'Suspended'); }
 
   $request->{N_TESTED} = $n_tested;
   $request->{N_OK} = $n_ok;
@@ -184,6 +181,7 @@ sub doNSCheck
   $self->Dbgmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
+  my $cs_t = $t;
   my $t0 = Time::HiRes::time();
   my ($t1,$dt1,$dt0);
   $dt1 = 0.;
@@ -262,6 +260,13 @@ sub doNSCheck
     {
       $self->Dbgmsg("$n_files files remaining") if ( $self->{DEBUG} );
       $t = time;
+      if ( $t - $cs_t > 30*60 ) 
+      {
+        $self->Dbgmsg("Agent busy performing a long test, refreshing connection to DB") if ( $self->{DEBUG} ); 
+        $self->updateAgentStatus();       # This should update the status of the agent in the DB
+        $self->Notify('ping');            # This should update the timer in Watchdog
+        $cs_t = $t;
+      }
     }
   }
 
