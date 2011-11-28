@@ -103,7 +103,9 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
             for (j in Row) {
               if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
             }
-            if ( s.request != null ) {
+            if ( s.request == null ) {
+              Row.select = "<div class='align-center'>n/a</div>";
+            } else {
               Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
             }
             if ( maxRows && Table.length >= maxRows ) { break; }
@@ -145,7 +147,9 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
               for (j in Row) {
                 if ( parser[j] ) { Row[j] = parser[j](Row[j]); }
               }
-              if ( s.request != null ) {
+              if ( s.request == null ) {
+                Row.select = "<div class='align-center'>n/a</div>";
+              } else {
                 Row.select = "<input type='checkbox' name='s_value' class='phedex-checkbox' id='"+id+"' value='"+id+"' onclick=\"PxS.notify('"+this.id+"','checkboxSelect','"+id+"')\" />";
               }
               if ( maxRows && Table.length >= maxRows ) { break; }
