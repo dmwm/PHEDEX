@@ -27,6 +27,7 @@ body {
 .float-right   { float: right; }
 .align-left,    .yui-skin-sam .yui-dt .align-left    { text-align: left; }
 .align-right,   .yui-skin-sam .yui-dt .align-right   { text-align: right; }
+.align-center,  .yui-skin-sam .yui-dt .align-right   { text-align: center; }
 .align-justify, .yui-skin-sam .yui-dt .align-justify { text-align: justify; }
 .phedex-hide-overflow { overflow: hidden; }
 
