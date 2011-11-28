@@ -77,7 +77,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                 obj.Preview(node);
                 break;
               }
-              case 'Remove this item': {
+              case 'Remove this node': {
                 el = dom[node].el;
                 el.style.height = el.offsetHeight+'px';
                 el.style.overflowY = 'hidden'; // hide child elements as the element shrinks
@@ -97,7 +97,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
                 obj.nNodes--;
                 obj.setSummary('OK',obj.nNodes+' nodes and '+obj.nItems+' data-items remaining');
                 if ( ! obj.nNodes ) {
-                  obj.buttons['submit-all'].set('disabled',true);
+                  obj.buttons.submit_all.set('disabled',true);
                 }
                 break;
               }
@@ -291,6 +291,10 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         preview_summary.innerHTML = PxU.stdLoading('Calculating request (please wait)');
         Dom.removeClass(preview,'phedex-invisible');
         buttons.preview.set('disabled',true);
+        if ( this.previous_preview_node ) {
+          this.buttons[this.previous_preview_node].preview.set('disabled',false);
+        }
+        this.previous_preview_node = node;
 
         _sbx.notify('SetModuleConfig','previewrequestdata', {
             parent:preview_table,
@@ -403,6 +407,9 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
         buttons.submit.set('disabled',true);
         buttons.remove.set('disabled',true);
         buttons.preview.set('disabled',true);
+        if ( this.previous_preview_node == node ) {
+          delete this.previous_preview_node; // to prevent it being re-enabled!
+        }
 
 // Data Items:
         data = this.parseDatasets(node);
