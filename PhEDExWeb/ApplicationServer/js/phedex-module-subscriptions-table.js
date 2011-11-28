@@ -238,7 +238,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           this.dataTable.updateCell(record,'select',text,true);
           _sbx.notify(this.id,'checkbox-select',el.id,value,{ level:values.level, item:values.item, node:values.node });
         }
-        if ( elList.length > 50 ) {
+        if ( elList.length > 10 ) {
           this.dataTable.render();
         }
       },
