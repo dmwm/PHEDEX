@@ -104,6 +104,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         dom.main_block = document.createElement('div'); dom.main_block.className = 'yui-b phedex-nextgen-main-block';
         dom.selector   = document.createElement('div'); dom.selector.id          = 'phedex-data-subscriptions-selector';
         dom.dataform   = document.createElement('div'); dom.dataform.id          = 'phedex-data-subscriptions-dataform';
+        dom.errors     = document.createElement('div'); dom.errors.id            = 'phedex-data-subscriptions-errors';
+        dom.errors.className = 'phedex-invisible';
         dom.messages   = document.createElement('div'); dom.messages.id          = 'phedex-data-subscriptions-messages';
         dom.messages.style.padding = '5px';
         dom.datatable  = document.createElement('div'); dom.datatable.id         = 'phedex-data-subscriptions-datatable';
@@ -122,6 +124,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         dom.container.appendChild(dom.selector);
         dom.container.appendChild(dom.dataform);
         dom.dataform.appendChild(form);
+        dom.dataform.appendChild(dom.errors);
         dom.dataform.appendChild(dom.messages);
         dom.dataform.appendChild(dom.datatable);
         el.innerHTML = '';
@@ -131,7 +134,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         document.body.appendChild(dom.floating_help);
       },
       gotAuthData: function(data,context,response) {
-        PHEDEX.Datasvc.throwIfError(data,response);
+// use 'obj', not 'this', because I am a datasvc callback. Scope is different...
+        if ( response ) {
+          obj.setError('Could not get your authentication information, continuing without it. Some features may not be available');
+          return;
+        }
         if ( !data.auth ) { return; }
         var auth, roles, role, i;
 
@@ -431,6 +438,32 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           Dom.addClass(dom.messages,map[status]);
         }
       },
+      setError: function(text) {
+        var el = dom.errors,
+            initialText = el.innerHTML,
+            now = new Date().getTime()/1000,
+            timeout = 15;
+        if ( initialText ) { text = initialText + '<br>' + text; }
+        el.innerHTML = text;
+        el.style.padding = '5px';
+        Dom.addClass(el,'phedex-box-red');
+        Dom.removeClass(el,'phedex-invisible');
+        this.errorTimer = now;
+        setTimeout( function(obj) {
+          return function() {
+            var el = dom.errors, anim,
+                now = new Date().getTime()/1000;
+            el.style.overflowY = 'hidden';
+            anim = new YAHOO.util.Anim(el, {height:{to:0}, padding:{to:0}}, 1);
+            anim.onComplete.subscribe( function() {
+              el.innerHTML='';
+              el.style.height='';
+              Dom.addClass(el,'phedex-invisible');
+            });
+            anim.animate();
+          }
+        }(this), timeout * 1000);
+      },
       setValueFor: function(label,value) {
         value = value.replace(/\n|,/g,' ');
         if ( value.match(/^ *$/) ) {
@@ -676,7 +709,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                           meta:{maxRows:this.meta.maxRows}
                         });
         _sbx.notify('CreateModule','subscriptions-table',{notify:{who:this.id, what:'gotSubscriptionsId'}});
-        _sbx.notify(this.id,'buildOptionsTabview');
+//         _sbx.notify(this.id,'buildOptionsTabview');
       },
       initHistory: function() {
 // set up the History management
@@ -692,6 +725,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             }
             case 'initialiseApplication': {
               obj.setState(arr[1]);
+              obj.buildOptionsTabview();
               obj.getSubscriptions();
               break;
             }
@@ -1065,10 +1099,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               if ( apply ) { Dom.addClass(apply,'phedex-invisible'); }
               opts.button.set('label',opts.label_show);
             }
-            if ( !opts.tabView ) { obj.buildOptionsTabview(); }
+//             if ( !opts.tabView ) { obj.buildOptionsTabview(); }
           }
         }(this);
         b.on('click',this.onShowOptionsClick);
+        b.set('disabled',true);
       },
 
       onSelectedMenuItemChange: function(_field,action) {
@@ -1324,6 +1359,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           tmp[columns[i].label] = columns[i];
         }
         this.meta.showColumns = tmp;
+        ctl.options.button.set('disabled',false);
       },
       filterButton: function(el,menu,_default) {
         var id=PxU.Sequence(), field, Field, i, index;
@@ -1391,13 +1427,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         return button;
       },
       gotGroupMenu: function(data,context,response) {
-        PHEDEX.Datasvc.throwIfError(data,response);
+// use 'obj', not 'this', because I am a datasvc callback. Scope is different...
+        var button, field;
+        if ( response ) {
+          obj.setError('Could not get group information. Reload the page if you need it');
+          return;
+        }
+
 // I have two group menus on this form, one in the filter-panel, one in the update-subscription form
 // check if they exist before building them, because I may call this function twice. If the 'groups'
 // API returns data before the 'auth' API does, I need to (re-) build the group menu for the admin
 // options, which means coming here again.
-
-// use 'obj', not 'this', because I am a datasvc callback. Scope is different...
         obj.groups = data.group;
         var button, field;
         if ( !obj._default.group ) {
