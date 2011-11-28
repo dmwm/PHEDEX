@@ -880,7 +880,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             datasets.push(data);
             continue;
           }
-          this.setSummary('error','Data-item not valid');
+          this.setSummary('error','Data-item not valid (does not match /A/B/C, where A, B and C must all be given, even if they are wildcards)');
           return;
         }
         if ( datasets  ) { args.dataset = datasets; }
@@ -891,6 +891,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       getSubscriptions: function() {
         var args = this.getArgs(),
             _f = this._filter;
+        if ( !args ) { return; }
         if ( _f.create_since < 0 ) { args.create_since = Math.floor(new Date().getTime()/1000) + _f.create_since; }
         dom.messages.innerHTML = PxU.stdLoading('loading subscriptions data...');
         PHEDEX.Datasvc.Call({
@@ -1099,7 +1100,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
               if ( apply ) { Dom.addClass(apply,'phedex-invisible'); }
               opts.button.set('label',opts.label_show);
             }
-//             if ( !opts.tabView ) { obj.buildOptionsTabview(); }
           }
         }(this);
         b.on('click',this.onShowOptionsClick);
