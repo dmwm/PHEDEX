@@ -238,7 +238,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           if ( elUpdate.length ) {
             _sbx.notify(this.subscriptionsId,'checkboxSelect',elUpdate,val);
           }
-          i = elList.length;
+          i = elUpdate.length;
           if ( val ) { this.setSummary('OK',   'Selected '+i+' subscription'+(i==1?'':'s')); }
           else       { this.setSummary('OK','De-selected '+i+' subscription'+(i==1?'':'s')); }
         };
