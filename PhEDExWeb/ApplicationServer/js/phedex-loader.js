@@ -83,7 +83,7 @@ PHEDEX.Loader = function(opts) {
 //  'phedex-nextgen-activity-rate': { requires:['phedex-module'] },
     'phedex-nextgen-activity-latency':   { requires:['phedex-module', 'phedex-nextgen-util','button','phedex-datatable','protovis'] },
     'phedex-nextgen-util':               { requires:['phedex-util'] },
-    'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-history','phedex-nextgen-util','button','tabview','resize'] },
+    'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-history','phedex-nextgen-util','button','animation','tabview','resize'] },
     'phedex-nextgen-data-bulkdelete':    { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','animation'] },
     'phedex-nextgen-request-create':     { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':       { requires:['phedex-module','phedex-nextgen-util','button'] },
