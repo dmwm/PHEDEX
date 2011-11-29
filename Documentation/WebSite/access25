@@ -9613,7 +9613,6 @@ sub runme
 
   # Get the scope object for the page.
   no strict "refs";
-  my $type = "Web25::Info::Main";
 
   # Grab the database name from the path info
   my $content;
@@ -9630,11 +9629,29 @@ sub runme
 	  "</p>".
           "</div></center>\n";
       $cgipage = 'Error';
+      $db = 'prod';
   }
+  my $type;
   $type = "Web25::$cgipage"
     if ($cgipage =~ /^[A-Za-z0-9]+(::[A-Za-z0-9]+)*/
 	&& exists ${"Web25::$cgipage\::"}{INDEX}
 	&& exists ${"Web25::$cgipage\::"}{new});
+
+  if ( ! $type ) {
+      my $feedbackurl =
+        "mailto:$config->{FEEDBACK_MAIL}?subject="
+        . "PhEDEx%20web%20page%20is%20inaccessible or unknown";
+      $content =
+	  "<center><div class='alert'>\n".
+	  " <p>The PhEDEx web page you asked for is not known to this installation.<br />".
+	  " Please choose another page, try again at another time, or if the problem".
+	  " persists and this is an instance you should be using,".
+	  " please <a href='$feedbackurl'>notify the administrators</a>.".
+	  "</p>".
+          "</div></center>\n";
+      $cgipage = 'Error';
+      $type = 'Web25::Error';
+  }
 
   # Instantiate the page object and remember it as a CGI parameter
   # so we can use it in generating links to other pages.
