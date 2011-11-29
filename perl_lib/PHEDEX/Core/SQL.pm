@@ -109,12 +109,12 @@ is used as the hash key for the returned data.
 =item execute_sql($query,%param)
 
 This will execute the sql statement C<$query> with the bind parameters 
-C<%param>, using L<PHEDEX::Core::DB::dbexec|PHEDEX::Core::DB/dbexec>. First,
-however, it checks the sql 
-statement for any 'like' clauses, and if they are present it will 1) 
-correctly escape the bind parameters (replace '_' with '\\_') and add the 
-"escape '\\'" declaration to the sql statement. Without this, the 
-underscore is interpreted as a single-character wildcard by Oracle.
+C<%param>, using L<PHEDEX::Core::DB::dbexec|PHEDEX::Core::DB/dbexec>.
+If the sql statement contains any 'like' clause, however, before the execution
+the bind parameters should be escaped with escape_sql_like, and
+the " escape '\\'" declaration should be added to the sql statement.
+Without this, the underscore is interpreted as a single-character wildcard by Oracle.
+execute_sql does not do this automatically.
 
 =item getTable($table,$key,@fields)
 
@@ -387,7 +387,8 @@ sub getTable
 }
 
 #-------------------------------------------------------------------------------
-# Escape any strings with underscores for literal use in a "like" condition
+# Escape any strings with underscores for literal use in a "like" clause
+# The corresponding SQL "like" clause needs to be followed by " escape '\\'
 # TODO:  does this belong in a more general "Utilities" package?
 sub escape_sql_like
 {
@@ -406,7 +407,9 @@ sub glob_to_sql_like
 #
 # parameters:
 #   $operator   'and' or 'or'.  default is 'or' if undefined
-#   $wild       if true, always use wildcards in the filter
+#   $wild       if true, always use wildcards in the filter;
+#                 if undef, parse filter values for wildcards;
+#                 if defined false, never use wildcards in the filter
 #   $sql        the sql string to append the filter to
 #   $binds      a hash ref of bind parameters
 #   $column     the name of the column to filter on
@@ -416,10 +419,14 @@ sub glob_to_sql_like
 #           otherwise the modified $sql
 #
 # by default, each value is filtered by the '=' operator, unless $wild
-# is specified, or the value contains a wildcard, in which case the
-# 'like' operator will be used
+# is true, or the value contains one of the supported wildcards,
+# in which case the 'like' operator will be used
 #
 # all '*' characters in @values are changed to the sql wildcard '%'
+# all '%' characters in @values are also kept as the sql wildcard '%'                                                                                                                                                         
+# all '?' characters in @values are changed to the sql wildcard '_'
+# '_' characters in @values are never treated as a wildcard and are
+# escaped in like clauses
 #
 # @values can contain arrayrefs, in which case they will be expanded
 # into the list
@@ -431,19 +438,29 @@ sub glob_to_sql_like
 sub build_filter
 {
   my ($self,$operator,$wild,$sql,$binds,$column,@values) = @_;
-  @values = glob_to_sql_like arrayref_expand @values;
+  @values = arrayref_expand @values;
+
   my $bname = $column;  $bname =~ s/\./_/; # name of bind parameter
   my $i = 1;
   my $op = '=';
   my $negate = 0;
+  my $escape = 0;
   $$sql .= join(" $operator ", map { $negate = ($_ =~ s/^!//);
                                      if ($_ ne 'NULL') {
                                        $op = $negate ? '!=' : '=';                 # negate operator?
-				       if ($wild || (!defined $wild && $_ =~ /%/)) { # wildcards?
-					 $op =~ s/!/not /; $op =~ s/=/like/; 
+				       if ($wild || (!defined $wild && $_ =~ /\*|\?|%/)) { # wildcards?
+					 $op =~ s/!/not /; $op =~ s/=/like/;
+					 # escape underscores, then convert * to % and ? to _
+					 $_ = (glob_to_sql_like(escape_sql_like($_)))[0];
+					 $escape = 1;
 				       } 
+				       else {
+					   # convert * to % and ? to _
+					   $_ = (glob_to_sql_like($_))[0];
+					   $escape = 0;
+				       }
 				       $binds->{':' . $bname . $i} = $_;             # set bind parameters
-				       "$column $op :$bname" . $i++                  # set sql statement
+				       "$column $op :$bname" . $i++ . ($escape ? " escape '\\'" : "");  # set sql statement
 				       } else {
 					   $column.($negate ? ' is not null' : ' is null');
 				       }
