@@ -901,6 +901,10 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                             });
         args.create_since = _f.create_since_orig;
         this.setHistory(args);
+
+//      delete the previous row-selection, if any...
+        this.meta.nSelected = 0;
+        this.meta.selected  = [];
       },
       gotSubscriptions:function(data,context,response) {
         var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, since;
