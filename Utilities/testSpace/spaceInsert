@@ -68,6 +68,8 @@ sub parse_chimera_dump {
   my ($line,$time);
   if ( $file_dump =~ m%.gz$% )
     { open DUMP, "cat $file_dump | gzip -d - |" or die "Could not open: $file_dump\n"; }
+  elsif ( $file_dump =~ m%.bz2$% )
+    { open DUMP, "cat $file_dump | bzip2 -cd - |" or die "Could not open: $file_dump\n"; }
   else
     { open(DUMP, "cat $file_dump |") or die  "Could not open: $file_dump\n"; }
   while ($line = <DUMP>){
