@@ -8008,7 +8008,7 @@ if ( $TW ) { # TW
       @values = split('\0',$value);
       foreach ( @values ) {
         $_ = unescape($_);
-        if ( $_ !~ m|^[\w\d\/\-\*\?\.!#: ]*$| ) {
+        if ( $_ !~ m|^[\w\/\-\*\?\.!#: ]*$| ) {
           die("The $key parameter (foo) to bar did not pass");
         }
       }
