@@ -7972,7 +7972,7 @@ package Web25::Data::Subscriptions;
 use strict; use warnings;
 use base "Web25::Data::ExplorePage";
 import Web25::Common;
-use CGI qw(:standard);
+use CGI qw(:standard unescape);
 use List::Util qw(max);
 
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Subscriptions",
@@ -8006,10 +8006,16 @@ if ( $TW ) { # TW
     foreach $key ( sort keys %{$h} ) {
       $value = $h->{$key};
       @values = split('\0',$value);
+      foreach ( @values ) {
+        $_ = unescape($_);
+        if ( $_ !~ m|^[\w\d\/\-\*\?\.!#: ]*$| ) {
+          die("The $key parameter (foo) to bar did not pass");
+        }
+      }
       $href .= $key . '=' . join(";$key=",@values) . ';';
     }
     $href =~ s%;$%%;
-    $url .= '#' . $href;
+    $url .= '#' . escapeHTML($href);
     $self->{REDIRECT} = $url;
     return;
   }
