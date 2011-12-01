@@ -63,7 +63,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
         for ( i in data.nodes ) {
           node = data.nodes[i];
           timebin = node.timebins[0];
-          this.dom.title.innerHTML = 'Node: '+collName+' Root: "'+node.subdir+'" Time: '+PxUf.UnixEpochToUTC(timebin.timestamp);
+          this.dom.title.innerHTML = 'Node: '+collName+' Root: "'+node.subdir+'" level:'+level+' Time: '+PxUf.UnixEpochToUTC(timebin.timestamp);
           for ( j in timebin.levels ) {
             _level = timebin.levels[j];
             if ( _level.level == level ) {
