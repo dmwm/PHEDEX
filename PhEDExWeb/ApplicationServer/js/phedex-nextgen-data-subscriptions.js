@@ -271,6 +271,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                          "<span id='phedex-data-subscriptions-ctl-group' 'class='phedex-invisible'><em>loading group list</em></span>" +
                          "<span id='phedex-data-subscriptions-ctl-update'></span>" +
                          "<span id='phedex-data-subscriptions-ctl-interrupt' class='phedex-invisible'></span>" +
+                         "<span id='phedex-data-subscriptions-ctl-refresh' style='margin-left:400px'></span>" +
                        "</div>";
         form.appendChild(el);
         if ( obj.groups ) { // if I already have the groups, just build the menu...
@@ -291,6 +292,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         this._default[field] = function(_button,_field,index) {
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
         }(button,field,0);
+
+        button = new Button({ label:'Refresh data', id:'phedex-data-subscriptions-refresh', container:'phedex-data-subscriptions-ctl-refresh' });
+        button.set('disabled',true);
+        this.ctl.refresh = button;
+        this.enableRefresh = function() { this.ctl.refresh.set('disabled',false); }
+        button.on('click', function(obj) {
+          return function() {
+            _sbx.notify(obj.id,'getSubscriptions');
+            obj.ctl.refresh.set('disabled',true);
+          }
+        }(this) );
         this.onUpdate = function(obj) {
           return function() {
             var elList, action, param, selected=obj.meta.selected, i, j, n=obj.meta.nSelected, msg, args={}, item, level, fn,
@@ -355,14 +367,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             obj.dispatchUpdate();
           };
         }(this);
-        button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
-        button.on('click',this.onUpdate);
-        button.set('disabled',true);
-        this.ctl.applyChanges = button;
-        button = new Button({ label:'Interrupt processing', id:'phedex-data-subscriptions-interrupt', container:'phedex-data-subscriptions-ctl-interrupt' });
-        button.on('click',this.interruptProcessing);
-        this.ctl.interrupt = button;
-        dom.interrupt_container = this.ctl.interrupt.get('container');
+        button = this.ctl.applyChanges;
+        if ( !button ) {
+          button = new Button({ label:'Apply changes', id:'phedex-data-subscriptions-update', container:'phedex-data-subscriptions-ctl-update' });
+          button.on('click',this.onUpdate);
+          button.set('disabled',true);
+          this.ctl.applyChanges = button;
+          button = new Button({ label:'Interrupt processing', id:'phedex-data-subscriptions-interrupt', container:'phedex-data-subscriptions-ctl-interrupt' });
+          button.on('click',this.interruptProcessing);
+          this.ctl.interrupt = button;
+          dom.interrupt_container = this.ctl.interrupt.get('container');
+        }
       },
       interruptProcessing: function() {
         delete obj.pending;
@@ -908,6 +923,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       },
       gotSubscriptions:function(data,context,response) {
         var datasets=data.dataset, i, j, dataset, subscriptions, nSubs=0, summary, since;
+        _sbx.delay(10000,this.id,'enableRefresh');
         if ( response ) {
           this.setSummary('error','Error retrieving subscriptions data');
           return;
@@ -930,6 +946,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           since = 'forever';
         }
         _sbx.notify(this.subscriptionsId,'doGotData',data,context,response);
+        _sbx.notify(this.subscriptionsId,'doPostGotData');
         if ( !datasets || !datasets.length ) {
           this.setSummary('error','No data found matching your query!' +
               ( since == 'forever' ? '' : ' (Hint: showing data created since '+since+')' ) );
