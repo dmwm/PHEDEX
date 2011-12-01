@@ -48,4 +48,20 @@ PHEDEX.Protovis = function (sandbox, string) {
     return this;
 }
 
+PHEDEX.Protovis.MouseOver = function(sandbox,args) {
+    var obj = args.payload.obj,
+        _sbx = sandbox;
+
+    _construct = function() {
+      return {
+        id: 'mouseover_' + PxU.Sequence(),
+        _init: function() {
+        }
+      };
+    };
+    Yla(this,_construct(this),true);
+    this._init();
+    return this;
+};
+
 log('loaded...', 'info', 'protovis');
