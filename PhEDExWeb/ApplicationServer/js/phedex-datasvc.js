@@ -185,7 +185,7 @@ PHEDEX.Datasvc = (function() {
             for (a in query.args)
             {
                 argvals = query.args[a];
-                if ( !query.post ) { a = a.toLowerCase(); }
+//                 if ( !query.post ) { a = a.toLowerCase(); }
                 if (argvals instanceof Array)
                 {
                     for (indx in argvals)
@@ -195,7 +195,7 @@ PHEDEX.Datasvc = (function() {
                 }
                 else
                 {
-                    argstr += a + "=" + encodeURIComponent(query.args[a]) + separator;
+                    argstr += a + "=" + encodeURIComponent(argvals) + separator;
                 }
             }
             argstr = argstr.substr(0, argstr.length-1); // chop off trailing separator
