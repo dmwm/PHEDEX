@@ -52,12 +52,11 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                            { key:'timeDone',     label:'Time Done',     className:'align-left', parser:'number', formatter:'UnixEpochToUTC' },
                           ],
                   config:{
-//                     paginator: new YAHOO.widget.Paginator({rowsPerPage:2}),
                   }
                 },
         maxRows:0,
         hide:['Select'], // hidden by default, requires positive authentication to enable it
-        sort:{ field:'Item' },
+        sort:{ field:'Data Item' },
         select:{},
       },
       _processData: function(data) {
