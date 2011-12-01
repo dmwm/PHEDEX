@@ -65,6 +65,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-previewrequestdata':     { requires:['phedex-datatable'] },
     'phedex-module-queuedmigrations':       { requires:['phedex-datatable'] },
     'phedex-module-static':                 { requires:['phedex-config'] },
+    'phedex-module-storageusage':           { requires:['phedex-protovis'] },
     'phedex-module-subscriptions-treeview': { requires:['phedex-treeview'] },
     'phedex-module-subscriptions-table':    { requires:['phedex-datatable'] },
     'phedex-module-unroutabledata':         { requires:['phedex-treeview'] },
