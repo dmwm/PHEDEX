@@ -283,19 +283,17 @@ sub poll_job_postback
   if ($error) {
       $self->Alert("ListJob for ",$job->ID," returned error: $error\n");
   
-#     If I haven't been successful monitoring this job for a long time, give up on it
+#     If the backend supports abandoned jobs and 
+#     I haven't been successful monitoring this job for a long time, give up on it
       my $timeout = $job->Timeout;
-      if ( $timeout && $job->Timestamp + $timeout < time  )
+      if ( $job->ExitStates->{'abandonded'} && $timeout && $job->Timestamp + $timeout < time  )
       {
         $self->Alert('Abandoning JOBID=',$job->ID," after timeout ($timeout seconds)");
         $job->State('abandoned');
 # FIXME This duplicates some code below, could be made cleaner...
         $self->WorkStats('JOBS', $job->ID, $job->State);
         $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
-        if ( $job->ExitStates->{$result->{JOB_STATE}} )
-        {
-          $kernel->yield('report_job',$job);
-        }
+	$kernel->yield('report_job',$job);
       }
 #     Put this job back in the queue before I forget about it completely!
       else {
