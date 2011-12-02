@@ -2,7 +2,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.StorageUsage = function(sandbox, string) {
   Yla(this,new PHEDEX.Protovis(sandbox,string));
 
-  var _sbx = sandbox, se, level=3;
+  var _sbx = sandbox, se, level=3, rootdir='/', other='other';
   log('Module: creating a genuine "'+string+'"','info',string);
 
    _construct = function(obj) {
@@ -44,6 +44,13 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
                 break;
               }
               case 'click': {
+                if ( level == 6 ) { return; }
+                var _rootdir = arr[1].split(' ')[0];
+                if ( _rootdir == other ) { return; }
+                rootdir = _rootdir;
+                level = level+2;
+                if ( level > 6 ) { level = 6; }
+                _sbx.notify(obj.id,'doGetData');
                 break;
               }
               default: {
@@ -64,7 +71,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
         _sbx.notify( 'module', 'needArguments', this.id );
       },
      setArgs: function(arr) {
-        if ( !arr )          { return; }
+        if ( !arr )    { return; }
         if ( !arr.se ) { return; }
         if ( arr.se == se ) { return; }
         se = arr.se;
@@ -79,7 +86,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
         }
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'storageusage', args:{se:se,level:level} } );
+        _sbx.notify( this.id, 'getData', { api:'storageusage', args:{se:se,level:level,rootdir:rootdir} } );
       },
      gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
@@ -90,7 +97,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
           throw new Error('data incomplete for '+context.api);
         }
 
-//         this.makeStackChart(data);
+        this.makeStackChart(data);
         this.makeTreemap(data);
       },
       makeStackChart: function(data) {
@@ -144,7 +151,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
       },
       makeTreemap: function(data) {
         var max=0, tmp={}, tree={}, i, j, k, _level, item, node, timebins, timebin, total=0, path;
-// parse the data into the pvData structure.
+
         for ( i in data.nodes ) {
           node = data.nodes[i];
           timebin = node.timebins[0];
@@ -169,14 +176,14 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
             delete tmp[i];
           }
         }
-        if ( j ) { tree['other'] = j; } // yes, 'tree', not 'tmp'!
+        if ( j ) { tree[other] = j; } // yes, 'tree', not 'tmp'!
         for ( i in tmp ) {
           path = i.split('/');
           path.shift();
           k = tree;
           for ( j in path ) {
             if ( parseInt(j)+1 == path.length ) {
-              k[i] = tmp[i];
+              k[path[j]] = tmp[i];
             } else {
               if ( !k[path[j]] ) { k[path[j]] = {}; }
               k = k[path[j]];
@@ -199,40 +206,39 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
             .right(10)
             .top(5);
 
-        function title(d) { return d.parentNode ? (title(d.parentNode) + '/' + d.nodeName) : ''; }
+        function pathName(d) {
+          var path = d.parentNode ? pathName(d.parentNode) + '/' + d.nodeName : '';
+          if ( path == '/'+other ) { return other; }
+          return path;
+        }
+        function tooltip(d)  { return pathName(d) + ' ' + PxUf.bytes(d.nodeValue); }
 
         var re = '',
-            color = pv.Colors.category20().by(function(d) { return title(d.parentNode); }),
+            color = pv.Colors.category20().by(function(d) { return pathName(d.parentNode); }),
             nodes = pv.dom(tree).root('tree').nodes();
 
         var treemap = vis.add(pv.Layout.Treemap)
             .nodes(nodes)
-            .round(true);
+            .round(true)
+            .def('active',-1);
 
         treemap.leaf.add(pv.Panel)
-            .fillStyle(function(d) { return color(d).alpha(title(d).match(re) ? 1 : .2); } )
+            .def('i',-1)
+            .fillStyle(function(d) { return treemap.active() == this.index ? 'lightyellow' : color(d).alpha(pathName(d).match(re) ? 1 : .2); } )
             .strokeStyle('#fff')
             .lineWidth(1)
-            .antialias(false);
+            .antialias(false)
+            .title(function(d) { return tooltip(d); })
+            .event('mouseover',function() { return treemap.active(this.index); } )
+            .event('mouseout', function() { return treemap.active(-1); } )
+            .event('click', function() { _sbx.notify(obj.id,'click',this.title()); });
 
         treemap.label.add(pv.Label)
-            .textStyle(function(d) { return pv.rgb(0, 0, 0, title(d).match(re) ? 1 : .2); } );
+            .textStyle(function(d) { return pv.rgb(0, 0, 0, pathName(d).match(re) ? 1 : .2); } );
 
-//         treemap.event('mouseover',this.callback('mouseover') )
-//                .event('mouseout', this.callback('mouseout') )
-//                .event('click',    this.callback('click') );
         vis.render();
         this.visTreemap = vis;
-      },
-      callback: function(event) {
-        var args = [obj.id, event];
-        return function() {
-          var _args = Array.apply(null,args);
-          _args.push(this);
-          _args.push(obj.visTreemap);
-          PxS.notify.apply(PxS,_args);
-        }
-      },
+      }
     };
   };
   Yla(this,_construct(this),true);
