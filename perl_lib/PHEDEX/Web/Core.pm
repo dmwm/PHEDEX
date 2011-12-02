@@ -59,7 +59,9 @@ unless otherwise specified:
  * by default the multiple-value filters form an "or" statement
  * by specifying another option, 'op=name:and', the filters will form an "and" statement
  * filter values beginning with '!' look for negated matches
- * filter values may contain the wildcard character '*'
+ * filter values may contain the wildcard characters '?', '*', or '%'
+   * '?' matches any single character
+   * '*' and '%' -- they are exactly the same -- match any string
  * filter values with the value 'NULL' will match NULL (undefined) results
 
 examples:
