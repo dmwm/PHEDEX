@@ -185,7 +185,7 @@ PHEDEX.Datasvc = (function() {
             for (a in query.args)
             {
                 argvals = query.args[a];
-//                 if ( !query.post ) { a = a.toLowerCase(); }
+                if ( !query.post ) { a = a.toLowerCase(); }
                 if (argvals instanceof Array)
                 {
                     for (indx in argvals)
