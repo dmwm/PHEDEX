@@ -4,7 +4,7 @@ use Getopt::Long;
 use PHEDEX::CLI::UserAgent;
 use Data::Dumper;
 
-my ($datasvc_url, $response,$content,$method,$timeout,$collName,$time_since,$time_until);
+my ($datasvc_url, $response,$content,$method,$timeout,$se,$time_since,$time_until);
 my ($level,$temp,$pua,$target,%payload,$rootdir,$output,$debug);
 $timeout = 500;
 $datasvc_url = 'https://pheSpaceMon.cern.ch/phedex/datasvc';
@@ -12,9 +12,9 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceQuery --collName NAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR --output FILENAME
+  spaceQuery --se NAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR --output FILENAME
   level is depth of the directory structure you want to go, default is 4
-  collname is the name of collection where data is put, must exist
+  se is the name of collection where data is put(now we use se name for collection name), must exist
   time_since&time_until is to specify the time scope
   root is the sub directory you are insterested in
   output is the file name you put output of query
@@ -30,7 +30,7 @@ EOF
 $time_since = -1;
 $time_until = -1;
 GetOptions(
-        'collName=s'    => \$collName,
+        'se=s'    => \$se,
         'time_since=i'    => \$time_since,
         'time_until=i'    => \$time_until,
         'url=s'    => \$datasvc_url,
@@ -42,7 +42,7 @@ GetOptions(
 
       );
 
-if(!$collName) { die "You must specify collect name\n"; }
+if(!$se) { die "You must specify collect name\n"; }
 $pua = PHEDEX::CLI::UserAgent->new
     (
       URL        => $datasvc_url,
@@ -53,7 +53,7 @@ $pua->timeout($timeout) if $timeout;
 $pua->CALL('storageusage');
 $pua->Dump();
 $target = $pua->target;
-$payload{collName} = $collName;
+$payload{se} = $se;
 
 if($level) { $payload{level} = $level; }
 if($rootdir) {$payload{rootdir} = $rootdir; }
