@@ -50,10 +50,10 @@ our %COMMON_VALIDATION =
 (
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
  'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
- 'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^\*$!,
+ 'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^[*%]$!,
  'lfn'          => qr|^/[A-Za-z-_\d#\.\/]*$|,
- 'wildcard'     => qr|\*|,
- 'node'         => qr/^(T\d[A-Za-z0-9_*]+|\d+)$/,
+ 'wildcard'     => qr|[*%?]|,
+ 'node'         => qr/^(T[\d?][A-Za-z0-9_*%?]+|\d+)$/,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
  'onoff'        => sub { $_[0] eq 'on' || $_[0] eq 'off' ? 1 : 0 },
  'boolean'      => sub { $_[0] eq 'true' || $_[0] eq 'false' ? 1 : 0 },
@@ -67,7 +67,7 @@ our %COMMON_VALIDATION =
 			 }
 			 return 1; },
  'pos_float'	=> qr|^\d+\.?\d*$|,
- 'hostname'	=> qr|^[a-zA-Z][a-zA-Z0-9_.]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$|,
+ 'hostname'	=> qr!^([a-zA-Z*%?][a-zA-Z0-9_.?*%]+|[%*])\.[a-zA-Z0-9_?%*]+\.[a-zA-Z0-9_?%*]+$!,
 #'unchecked'	=> qr|.*|,
  'subscribe_id'	=> qr%^(DATASET|BLOCK):\d+:\d+$%,
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
