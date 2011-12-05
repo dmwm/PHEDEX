@@ -1245,6 +1245,18 @@ sub stats
          join t_xfer_file f on f.id = xq.fileid
          group by path.destination, path.src_node, f.inblock, path.priority, path.is_valid},
 	    ":now" => $now);
+    
+    &dbexec($dbh, qq{delete from t_status_block_request});
+    &dbexec($dbh, qq{
+	insert into t_status_block_request
+	(time_update, destination, block, priority, is_custodial,
+	 state, request_files, request_bytes, xfer_attempts, time_request)
+	select :now, xq.destination, xq.inblock, xq.priority, xq.is_custodial,
+	       xq.state, count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create)
+	from t_xfer_request xq
+	join t_xfer_file f on f.id = xq.fileid
+	group by xq.destination, xq.inblock, xq.priority, xq.is_custodial, xq.state},
+	    ":now" => $now);
 
     $dbh->commit();
     $self->Logmsg("updated statistics");
@@ -1358,8 +1370,11 @@ Per-destination sums of files/sizes for requested files.
 
 =item L<t_status_block_path|Schema::OracleCoreStatus::t_status_block_path>
 
-Per-path, per-block sums of files/sizes of routed paths and requested
-files.
+Per-path, per-block sums of files/sizes of routed paths.
+
+=item L<t_status_block_request|Schema::OracleCoreStatus::t_status_block_request>
+
+Per-destination, per-block sums of files/sizes of requested files.
 
 =item L<t_history_link_stats|Schema::OracleCoreStatus::t_history_link_stats>
 
