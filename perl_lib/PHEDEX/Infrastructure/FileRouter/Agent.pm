@@ -1225,7 +1225,10 @@ sub stats
 	from t_xfer_request xq join t_xfer_file f on f.id = xq.fileid
 	group by :now, xq.destination, xq.state, xq.is_custodial, xq.priority},
 	":now" => $now);
-
+    
+    # Record path information aggregated by block. Priority is converted back to 
+    # the 3-level priority used for block subscriptions, so that local and remote
+    # hops on the same path are counted together
     &dbexec($dbh, qq{delete from t_status_block_path});
     &dbexec($dbh, qq{
 	insert into t_status_block_path
@@ -1234,7 +1237,9 @@ sub stats
        select :now, path.destination, path.src_node, f.inblock, path.priority, path.is_valid,
               count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create)
          from (
-          select distinct xp.destination, xp.src_node, xp.fileid, xp.priority, xp.is_valid from t_xfer_path xp
+	  select distinct xp.destination, xp.src_node, xp.fileid,
+	   decode(xp.is_local, 1, xp.priority/2, 0, (xp.priority-1)/2) priority,
+	   xp.is_valid from t_xfer_path xp
          ) path
          join t_xfer_request xq on xq.destination = path.destination and xq.fileid = path.fileid
          join t_xfer_file f on f.id = xq.fileid
