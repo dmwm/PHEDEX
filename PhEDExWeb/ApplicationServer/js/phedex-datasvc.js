@@ -87,6 +87,7 @@ PHEDEX.Datasvc = (function() {
 
     if (! query.poll_id ) { query.poll_id = _nextID(); }
     context.poll_id = query.poll_id;
+    context.start_time = new Date().getTime()/1000;
     return query.poll_id;
   }
 
@@ -99,7 +100,7 @@ PHEDEX.Datasvc = (function() {
    */
   _got = function(response) {
     var query = response.argument,
-        data = {};
+        data = {}, context;
     Ylog('GOT '+response.status+' ('+response.statusText+') for '+query.text,'info',_me);
     if ( response.status != 200 ) {
       _fail(response);
@@ -130,7 +131,9 @@ PHEDEX.Datasvc = (function() {
       }
     } catch(ex) { Ylog('cannot calculate max-age, ignoring...','warn',_me); }
     Ylog('FIRE '+query.text, 'info', _me);
-    query.success_event.fire(data, query.context);
+    context = query.context;
+    context.call_time = new Date().getTime()/1000 - context.start_time;
+    query.success_event.fire(data,context);
     _maybe_schedule(query, response);
 
     // set the version number, if not already done...
@@ -146,6 +149,7 @@ PHEDEX.Datasvc = (function() {
   _fail = function(response) {
     var query = response.argument,
         context = query.context,
+        context.call_time = new Date().getTime()/1000 - context.start_time;
         message = 'Error from "'+context.api+'" call: '+response.status+' ('+response.statusText+')';
     Ylog('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error',_me);
     query.failure_event.fire({error:message}, context, response);
