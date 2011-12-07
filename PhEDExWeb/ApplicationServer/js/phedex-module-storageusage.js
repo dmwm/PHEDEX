@@ -2,7 +2,7 @@ PHEDEX.namespace('Module');
 PHEDEX.Module.StorageUsage = function(sandbox, string) {
   Yla(this,new PHEDEX.Protovis(sandbox,string));
 
-  var _sbx = sandbox, se, level=3, rootdir='/', other='other';
+  var _sbx = sandbox, se, level=3, time_since=1, rootdir='/', other='other';
   log('Module: creating a genuine "'+string+'"','info',string);
 
    _construct = function(obj) {
@@ -86,7 +86,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
         }
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'storageusage', args:{se:se,level:level,rootdir:rootdir} } );
+        _sbx.notify( this.id, 'getData', { api:'storageusage', args:{se:se,level:level,time_since:time_since,rootdir:rootdir} } );
       },
      gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
@@ -96,21 +96,72 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
         if ( !data.nodes ) {
           throw new Error('data incomplete for '+context.api);
         }
-
+        
         this.makeStackChart(data);
         this.makeTreemap(data);
       },
+
       makeStackChart: function(data) {
+
         var w = 400,
             h = 200,
-            x = pv.Scale.linear(0, 9.9).range(0, w),
-            y = pv.Scale.linear(0, 14).range(0, h);
+            x = pv.Scale.linear(0, 30).range(0, w),
+            y = pv.Scale.linear(0, 3).range(0, h);
+        var n = 10, a, l;
+        var total;
+        var tmp={},i, j, k, _level, item, node, timebins, timebin, timestamp, path, size;
+        var timestamp=2, _timestamp=2;
 
-        data = pv.range(4).map(function() {
-          return pv.range(0, 10, .1).map(function(x) {
-              return {x: x, y: Math.sin(x) + Math.random() * .5 + 2};
+        for ( i in data.nodes[0].timebins ) {
+          timebin = data.nodes[0].timebins[i];
+          _level = timebin.levels[1];
+          timestamp = Math.round((timebin.timestamp)/(3600*12));
+          if(!tmp[timestamp]) {
+             tmp[timestamp] = {};
+          }
+          l = 0;
+          total=0;
+          for ( k in _level.data ) {
+            item = _level.data[k];
+            tmp[timestamp][l] = item;
+            total += item.size;
+            l=l+1;
+          }
+        }
+
+       // coalesce tiny entries
+        var littles;
+
+        for ( i in tmp ) {
+          littles = 0;
+          a = tmp[i];
+          for (j in tmp[i]) {
+            item = tmp[i][j];
+            if ( (item.size)/total < 0.3 ) {
+              littles += item.size;
+              //delete tmp[i][j];
+            }
+          }
+          if ( littles ) { 
+             item.dir = 'other';
+             item.size = littles*100;
+             tmp[i][j]= item;
+          }
+        } 
+
+      data = layers(n);
+      function layers(n) {
+        return pv.range(n).map(function(j) {
+          return pv.range(0, 60, 1).map(function(x) {
+              var size;
+              timestamp = Math.round(1316228745/(3600*12) +x);
+              item = tmp[timestamp][j];
+              size = (item.size)/(1024*1024*1024*1024*1024);
+              return {x: x, y: size};
             });
         });
+      }
+
 
 /* The root panel. */
         var vis = new pv.Panel()
@@ -121,10 +172,19 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
             .left(20)
             .right(10)
             .top(5);
+           
+
+       vis.add(pv.Label)
+            .left(70)
+            .top(6)
+            .height(h+5)
+            .textAlign("center")
+            .text("storage size(PB) vs. date(day)");
+
 
 /* X-axis and ticks. */
         vis.add(pv.Rule)
-            .data(x.ticks())
+            .data(x.ticks(30))
             .visible(function(d) { return d;})
             .left(x)
             .bottom(-5)
@@ -141,7 +201,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
 
 /* Y-axis and ticks. */
         vis.add(pv.Rule)
-            .data(y.ticks(3))
+            .data(y.ticks(10))
             .bottom(y)
             .strokeStyle(function(d) { return d ? 'rgba(128,128,128,.2)' : '#000'; })
           .anchor('left').add(pv.Label)
