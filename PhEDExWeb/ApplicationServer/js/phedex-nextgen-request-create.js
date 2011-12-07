@@ -477,7 +477,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
       },
       previewCallback: function(data,context,response) {
-        var dom=this.dom, api=context.api;
+        var dom=this.dom, api=context.api, msg;
 
         this.data = data;
         this.context = context;
@@ -485,7 +485,11 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         Dom.removeClass(dom.preview,'phedex-box-yellow');
         Dom.removeClass(dom.preview,'phedex-box-red');
         if ( response ) {
-          this.setSummary('error',"Error retrieving preview data");
+          msg = 'Error retrieving preview data';
+          if ( response.statusText == 'transaction aborted' && context.call_time > 30 ) {
+            msg += '. Probably there was a timeout. You can still make the request if you wish.';
+          }
+          this.setSummary('error',msg);
           return;
         }
         if ( !this.previewId ) {
