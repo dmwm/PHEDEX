@@ -148,7 +148,7 @@ PHEDEX.Datasvc = (function() {
   // method _fail : fires the error handler
   _fail = function(response) {
     var query = response.argument,
-        context = query.context,
+        context = query.context;
         context.call_time = new Date().getTime()/1000 - context.start_time;
         message = 'Error from "'+context.api+'" call: '+response.status+' ('+response.statusText+')';
     Ylog('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error',_me);
