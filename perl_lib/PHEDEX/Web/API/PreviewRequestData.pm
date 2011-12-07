@@ -111,6 +111,7 @@ sub previewrequestdata {
 	     $params{time_start},
              @{$params{data}});
  
+  if ( !defined($params{is_move}) ) { $params{is_move} = 'n'; }
   my @table;
   my $problems = 0;
   my %subscribed_sources;
@@ -134,7 +135,7 @@ sub previewrequestdata {
           push @comments, "$item_level is empty";
           $warn = 1;
         }
-        if ($$res{DBS} ne $params{dbs})  {
+        if ($params{dbs} && $$res{DBS} ne $params{dbs})  {
           push @comments, 'Wrong DBS ("' . $res->{DBS} . '")';
           $warn = 1; $row_problem = 1;
         }
@@ -183,7 +184,7 @@ sub previewrequestdata {
           }
         }
 
-        if ($params{is_custodial} eq 'y') {
+        if (exists($params{is_custodial}) && $params{is_custodial} eq 'y') {
           my @custodial = grep ($$_{IS_CUSTODIAL} eq 'y', values %$src_info);
           if (@custodial) {
             push @comments, "Data already custodial for ".
@@ -282,7 +283,7 @@ sub resolve_data
 	  $re .= '#[^/\#]+';
           $level = 'BLOCK';
           if ( $like !~ m/#/ ) {
-            $like .= '#%';
+            $like .= '%#%';
           }
         }
 	$has{$level}++;
@@ -400,20 +401,19 @@ sub resolve_data
 		$all_replicas->{$level}->{ $rep->{ $level.'_ID' } } ||= [];
 		push @{ $all_replicas->{$level}->{ $rep->{ $level.'_ID' } } }, $rep;
 	    }
-#	    my $subscriptions = &fetch_subscriptions($dbh, $level, @batch);
-#	    foreach my $subsc (@$subscriptions) {
-#		$all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } ||= [];
-#		push @{ $all_subscriptions->{$level}->{ $subsc->{ $level.'_ID' } } }, $subsc;
-#	    }
 	}
     }
 
-    my $subs;
+    my ($subs,%h);
     foreach $userglob (@userdata) {
 	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
 	    $item->{REPLICAS} = $all_replicas->{$item->{LEVEL}}->{$item->{ID}};
-#	    $item->{SUBSCRIPTIONS} = $all_subscriptions->{$item->{LEVEL}}->{$item->{ID}};
-	    $subs = PHEDEX::Web::SQL::getDataSubscriptions($dbh,$item->{LEVEL} => $item->{$item->{LEVEL}});
+            push @{$h{$item->{LEVEL}}}, $item->{$item->{LEVEL}};
+	}
+    }
+    $subs = PHEDEX::Web::SQL::getDataSubscriptions($dbh,%h);
+    foreach $userglob (@userdata) {
+	foreach my $item (grep $_->{DPS_ISKNOWN} eq 'y', @{$$resolved{$userglob}}) {
 	    foreach ( @{$subs} ) {
 	      push @{$item->{SUBSCRIPTIONS}},
 		{
@@ -430,7 +430,7 @@ sub resolve_data
 	    }
 	}
     }
-    
+ 
     # Return our results
     if (wantarray) {
 	return ($resolved, $userdupes, $dbsdupes);
