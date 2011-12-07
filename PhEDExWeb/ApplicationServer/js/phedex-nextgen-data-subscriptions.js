@@ -992,6 +992,13 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
       },
       setState: function(state) {
         var i, j, label, tmp, columns, col, columnsOrig={}, columnsChanged=false, _f=this._filter, changed=false, tmp, now, scale, c_s;
+        if ( state.custodial   ) { _f.custodial    = state.custodial; }
+        if ( state.group       ) { _f.group        = state.group; }
+        if ( state.suspended   ) { _f.suspended    = state.suspended; }
+        if ( state.priority    ) { _f.priority     = state.priority; }
+        if ( state.percent_min ) { _f.percent_min  = state.percent_min; }
+        if ( state.percent_max ) { _f.percent_max  = state.percent_max; }
+
 //      special case for reqfilter (map to 'requests')
         _f.request = [];
         if ( state.reqfilter ) { state.request = state.reqfilter; delete state.reqfilter; }
