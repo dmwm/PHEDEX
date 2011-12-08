@@ -55,6 +55,7 @@ PHEDEX.Datasvc = (function() {
 
     context.poll_number = query.poll_number;
     context.path = query.path;
+    context.timeout = query.timeout || 60*1000; // 1 minute (too soon?)
 
     // Check that events were defined
     if (!(query.success_event && query.failure_event)) {
@@ -79,7 +80,7 @@ PHEDEX.Datasvc = (function() {
                      {
                        success:_got,
                        failure:_fail,
-                       timeout:60*1000, // 1 minute (too soon?)
+                       timeout:context.timeout,
                        argument:query
                      },
                      query.postData
@@ -87,7 +88,7 @@ PHEDEX.Datasvc = (function() {
 
     if (! query.poll_id ) { query.poll_id = _nextID(); }
     context.poll_id = query.poll_id;
-    context.start_time = new Date().getTime()/1000;
+    context.start_time = new Date().getTime();
     return query.poll_id;
   }
 
@@ -132,7 +133,7 @@ PHEDEX.Datasvc = (function() {
     } catch(ex) { Ylog('cannot calculate max-age, ignoring...','warn',_me); }
     Ylog('FIRE '+query.text, 'info', _me);
     context = query.context;
-    context.call_time = new Date().getTime()/1000 - context.start_time;
+    context.call_time = new Date().getTime() - context.start_time;
     query.success_event.fire(data,context);
     _maybe_schedule(query, response);
 
@@ -149,7 +150,7 @@ PHEDEX.Datasvc = (function() {
   _fail = function(response) {
     var query = response.argument,
         context = query.context;
-        context.call_time = new Date().getTime()/1000 - context.start_time;
+        context.call_time = new Date().getTime() - context.start_time;
         message = 'Error from "'+context.api+'" call: '+response.status+' ('+response.statusText+')';
     Ylog('FAIL '+response.status+' ('+response.statusText+') for '+query.text,'error',_me);
     query.failure_event.fire({error:message}, context, response);
