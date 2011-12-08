@@ -181,17 +181,21 @@ sub start_batch
     #          give tasks to the backend!
     my ($from, $to) = ($tasklist->[0]->{FROM_NODE}, $tasklist->[0]->{TO_NODE});
 
-    # Determine the size of a job. The order of preference is:
-    #  1. -link-active-files limit, 2. -default-link-active-files 3. -batch-files
-    my $batch_size;
-    if ( $self->{LINK_ACTIVE}->{$from} ) {
-	$batch_size = $self->{LINK_ACTIVE}->{$from};
-    } elsif ( $self->{DEFAULT_LINK_ACTIVE} ) {
-	$batch_size = $self->{DEFAULT_LINK_ACTIVE};
-    } else {
-	$batch_size = $self->{BATCH_FILES};
-    }
+    # Determine the size of a job. The preference is -batch-files
+    # Set the job size to (-default)-link-active-files if more limiting
 
+    my $batch_size = $self->{BATCH_FILES};
+    
+    if ( $self->{LINK_ACTIVE}->{$from} ) {
+	if ( $self->{LINK_ACTIVE}->{$from} < $batch_size ) {
+	    $batch_size = $self->{LINK_ACTIVE}->{$from};
+	}
+    } elsif ( $self->{DEFAULT_LINK_ACTIVE} ) {
+	if ( $self->{DEFAULT_LINK_ACTIVE} < $batch_size ) {
+	    $batch_size = $self->{DEFAULT_LINK_ACTIVE};
+	}
+    }
+    
     # Set the job size to MAX_ACTIVE files if it is more limiting
     if ($self->{MAX_ACTIVE} && $self->{MAX_ACTIVE} < $batch_size) {
 	$batch_size = $self->{MAX_ACTIVE};
