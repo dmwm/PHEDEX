@@ -486,8 +486,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         Dom.removeClass(dom.preview,'phedex-box-red');
         if ( response ) {
           msg = 'Error retrieving preview data';
-          if ( response.statusText == 'transaction aborted' && context.call_time > 30 ) {
-            msg += '. Probably there was a timeout. You can still make the request if you wish.';
+          if ( response.statusText == 'transaction aborted' && context.call_time > context.timeout ) {
+            msg = "There was a timeout fetching the preview<br/>You can try again, or you can still make the request if you think it is correct";
           }
           this.setSummary('error',msg);
           return;
@@ -828,7 +828,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         PHEDEX.Datasvc.Call({
                               api:'previewrequestdata',
                               args:args,
-                              callback:function(data,context,response) { obj.previewCallback(data,context,response); }
+                              callback:function(data,context,response) { obj.previewCallback(data,context,response); },
+                              timeout:120*1000
                             });
       },
 
