@@ -201,7 +201,7 @@ sub xfer_request
         my @request = keys(%request);
         if (@request)
         {
-            $h{REQUEST} = \@request;
+            $p{REQUEST} = \@request;
         }
         else
         {
