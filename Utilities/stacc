@@ -8,7 +8,7 @@ use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
 my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
-my (@pfn,$dump,$level,$result,$command);
+my (@pfn,$dump,$level,$result,$command, $onlyleaves);
 my %dirsizes = ();
 
 sub usage {
@@ -22,11 +22,15 @@ sub usage {
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
-  OPTIONS are:  --verbose, --debug, --help, and anything else that the
-  interface might support. Use --help per interface to find out more.
+  OPTIONS are:
+  --verbose, --debug, --help
+  --onlyleaves  - old-style behaviour when only directories
+   directly containing data files are accounted
 
-  Known interface protocols in this installation are:
 EOF
+  #and anything else that the
+  #interface might support. Use --help per interface to find out more.
+  #Known interface protocols in this installation are:
   #print " '",join("', '", grep (!/\//,sort keys %{$loader->Commands})),"'\n\n";
   exit 0;
 }
@@ -83,6 +87,7 @@ GetOptions(
            "level=s"      => \$level,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
+           "onlyleaves"         => \$onlyleaves,
            "help|h"         => sub { &usage() }
           );
 
@@ -98,7 +103,13 @@ if ( $dump ) {
 my %topsizes=();
 
 foreach  (keys %dirsizes) {
-  $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_};
+  if ($onlyleaves){
+    $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_};
+  } else {
+    for (my $p=1; $p < $level; $p += 1) {
+      $topsizes{ dirlevel($_,$p)}+=$dirsizes{$_};
+    }
+  }
 }
 
 foreach ( keys %topsizes ) {
