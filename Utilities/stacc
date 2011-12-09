@@ -15,7 +15,7 @@ sub usage {
   print <<EOF;
   Usage:
 
-  stacc --dump DUMP -depth LEVEL INTERFACE {OPTIONS}
+  stacc --dump DUMP -level LEVEL INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is level of depth of the directory structure we want to go
@@ -40,9 +40,14 @@ sub dirlevel {
   my $path=shift;
   my $depth=shift;
   if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
-  my @tmp = split ('/', $path,$depth+2);
-  pop @tmp;
-  return join ("/", @tmp);
+  my @tmp = split ('/', $path);
+  my $topdir;
+  if (@tmp <= $depth) {
+    return $path;
+  } else {
+    $topdir = join ( '/', @tmp[0..$depth]);
+    return $topdir;
+  }
 }
 
 sub parse_chimera_dump {
