@@ -24,7 +24,7 @@ sub new
     my %args = (@_);
     my $self = $class->SUPER::new(@_);
     my %params = ( NJOBS      => 1,  # number of parallel jobs, 0 for infinite
-		   KEEPALIVE  => 1,  # whether or not to quit after all jobs are complete
+		   KEEPALIVE  => 60, # whether or not to quit after all jobs are complete
 		   JOB_COUNT  => 0,  # Bookkeeping, track the number of jobs I have submitted
 		   VERBOSE    => 0,
 		   DEBUG      => 0,
@@ -78,7 +78,7 @@ sub _jm_start
   my ( $self, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
   $self->Logmsg("starting JobManager session (id=",$session->ID,")") if $self->{DEBUG};
   $self->{JOB_MANAGER_SESSION_ID} = $session->ID;
-  $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
+  $kernel->delay_set('heartbeat',$self->{KEEPALIVE}) if $self->{KEEPALIVE};
 }
 
 sub _jm_stop
@@ -106,7 +106,7 @@ EOF
 sub heartbeat
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  $kernel->delay_set('heartbeat',60) if $self->{KEEPALIVE};
+  $kernel->delay_set('heartbeat',$self->{KEEPALIVE}) if $self->{KEEPALIVE};
 }
 
 sub job_queued
