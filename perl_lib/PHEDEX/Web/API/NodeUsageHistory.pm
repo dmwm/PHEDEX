@@ -72,6 +72,7 @@ Show how space is being used at a node
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
+use PHEDEX::Web::Util;
 
 # mapping format for the output
 my $map = {
@@ -117,20 +118,37 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('NODE_NAME');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / node starttime endtime binwidth ctime / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / node starttime endtime binwidth ctime / ],
+                    spec =>
+                    {
+                        node => { using => 'node', multiple => 1 },
+                        starttime => { using => 'time' },
+                        endtime => { using => 'time' },
+                        binwidth => { using => 'pos_int' },
+                        ctime => { using => 'yesno' }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getNodeUsageHistory($core, %p), $limit, @keys);
     }
-    $h{'__spool__'} = 1;
 
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getNodeUsageHistory($core, %h), $limit, @keys) if !$sth;
-    
     my $r = $sth->spool();
 
     if ($r)
@@ -140,6 +158,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = ();
         return $r;
     }
 }
