@@ -79,6 +79,8 @@ our %COMMON_VALIDATION =
  'view_level'   => sub { $_[0] eq 'dbs' || $_[0] eq 'dataset' || $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
  'block_or_file' => sub { $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
  'approval_state' => sub { $_[0] eq 'approved' || $_[0] eq 'disapproved' || $_[0] eq 'pending' || $_[0] eq 'mixed' ? 1 : 0 },
+ 'link_status' => sub { $_[0] eq 'ok' || $_[0] eq 'deactivated' || $_[0] eq 'to_excluded' || $_[0] eq 'from_excluded' || $_[0] eq 'to_down' || $_[0] eq 'from_down' ? 1 : 0 },
+ 'link_kind' => sub { $_[0] eq 'WAN' || $_[0] eq 'Local' || $_[0] eq 'Staging' || $_[0] eq 'Migration' ? 1 : 0 },
 );
 
 # Validates parameters using Param::Validate, along with a few
