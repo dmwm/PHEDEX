@@ -69,6 +69,7 @@ Display LoadTest streams and their parameters
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 my $map = {
     _KEY => 'NODE_ID',
@@ -109,14 +110,30 @@ sub invoke { return loadteststreams(@_); }
 sub loadteststreams
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / node se from_dataset to_dataset create_since update_since inject_since / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / node se from_dataset to_dataset create_since update_since inject_since / ],
+                spec =>
+                {
+                     node         => { using => 'node', multiple => 1 },
+                     se           => { using => 'text', multiple => 1 },
+                     from_dataset => { using => 'dataset', multiple => 1 },
+                     to_dataset   => { using => 'dataset', multiple => 1 },
+                     create_since => { using => 'time' },
+                     update_since => { using => 'time' },
+                     inject_since => { using => 'time' }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getLoadTestStreams($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getLoadTestStreams($core, %p));
 
     return { node => $r };
 }
