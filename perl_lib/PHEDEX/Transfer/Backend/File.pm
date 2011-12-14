@@ -71,7 +71,8 @@ our %exit_states =
 	  WaitingCatalogRegistration => 0,
 	  Canceled	=> 2,
 	  undefined	=> 0,
-	  lost		=> 1,
+	  lost		=> 2,
+	  abandoned     => 2,
 	);
 
 sub new

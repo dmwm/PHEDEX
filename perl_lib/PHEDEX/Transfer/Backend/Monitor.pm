@@ -263,6 +263,9 @@ sub poll_job_postback
   $command = $arg1->[0];
   if ($command->{STATUS} ne "0") { 
       $error = "ended with status $command->{STATUS}";
+      if ($command->{STDERR}) { 
+	  $error .= " and error message: $command->{STDERR}"; 
+      }
   }
 
   $job = $command->{FTSJOB};
@@ -280,6 +283,25 @@ sub poll_job_postback
       $error = join("\n",@{$result->{ERROR}});
   }
 
+  # Log the monitoring command once when the job enters the queue, or on every error
+  if ( $job->VERBOSE || $error )
+  {
+    # Log the command
+    my $logsafe_cmd = join(' ', @{$command->{CMD}});
+    $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
+    $job->Log($logsafe_cmd);
+
+    # Log any extra info
+    foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
+    
+    # Log any error message
+    foreach ( split /\n/, $command->{STDERR} ) { chomp;  $job->Log($_) };
+    
+    # Only do the verbose logging once
+    $job->VERBOSE(0);
+  };
+
+  # Job monitoring failed
   if ($error) {
       $self->Alert("ListJob for ",$job->ID," returned error: $error\n");
   
@@ -289,116 +311,114 @@ sub poll_job_postback
       {
         $self->Alert('Abandoning JOBID=',$job->ID," after timeout ($timeout seconds)");
         $job->State('abandoned');
-# FIXME This duplicates some code below, could be made cleaner...
-        $self->WorkStats('JOBS', $job->ID, $job->State);
-        $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
-	# If 'abandoned' is a terminal state for the job, report it. Otherwise let it 
-	# get back in the queue
+	# If 'abandoned' is a terminal state for the job, set the state of all unfinished files
+	# in the job to 'abandoned' as well. Else, let the job get back in the queue.
         if ( $job->ExitStates->{$job->State} )
         {
-          $kernel->yield('report_job',$job);
-          goto PJDONE;
-        }
-      }
-#     Put this job back in the queue before I forget about it completely!
-      $priority = $job->Priority();
-      $self->Dbgmsg('requeue(2) JOBID=',$job->ID) if $self->{DEBUG};
-      $self->{QUEUE}->enqueue( $priority, $job );
-      goto PJDONE;
+	    foreach ( keys %{$job->Files} ) {
+		my $f = $job->Files->{$_};
+		if ( $f->ExitStates->{$f->State} == 0 ) {
+		    my $oldstate = $f->State('abandoned');
+		    $f->Log($f->Timestamp,"from $oldstate to ",$f->State);
+		    $f->Reason('Could not monitor transfer job');
+		    # If 'abandoned' is a terminal state for the file, report it.
+		    # Otherwise, reset the job state to undefined to let it get back in the queue.
+		    if ( $f->ExitStates->{$f->State} ) {
+			$job->FILE_POSTBACK->( $f, $oldstate, undef ) if $job->FILE_POSTBACK;
+			$self->{FILE_POSTBACK}->( $f, $job ) if $self->{FILE_POSTBACK};
+		    }
+		    else {
+			$job->State('undefined');
+		    }
+		} 
+	    }
+	}
+    }
   }
 
-  if ( $job->VERBOSE )
-  {
-    # Log the command
-    my $logsafe_cmd = join(' ', @{$command->{CMD}});
-    $logsafe_cmd =~ s/ -p [\S]+/ -p _censored_/;
-    $job->Log($logsafe_cmd);
-
-    # Log any extra info
-    foreach ( @{$result->{INFO}} ) { chomp; $job->Log($_) };
-
-    # Only do this once
-    $job->VERBOSE(0);
-  };
-
-  $self->{LAST_SUCCESSFULL_POLL} = time;
-  $self->Logmsg("JOBID=",$job->ID," STATE=$result->{JOB_STATE}") if $self->{VERBOSE};
-
-  $job->State($result->{JOB_STATE});
-  $job->RawOutput(@{$result->{RAW_OUTPUT}});
-
-  my $files = $job->Files;
-  foreach ( keys %{$result->{FILES}} )
-  {
-    my $s = $result->{FILES}{$_};
-    my $f = $files->{$s->{DESTINATION}};
-    if ( ! $f )
-    {
-      $f = PHEDEX::Transfer::Backend::File->new( %{$s} );
-      $job->Files($f);
-    }
-
-    if ( ! exists $f->ExitStates->{$s->{STATE}} )
-    { 
-      my $last = $self->{_new_file_states}{$s->{STATE}} || 0;
-      if ( time - $last > 300 )
+  # Job monitoring was successful
+  else {
+      
+      $self->{LAST_SUCCESSFULL_POLL} = time;
+      $self->Logmsg("JOBID=",$job->ID," STATE=$result->{JOB_STATE}") if $self->{VERBOSE};
+      
+      $job->State($result->{JOB_STATE});
+      $job->RawOutput(@{$result->{RAW_OUTPUT}});
+      
+      my $files = $job->Files;
+      foreach ( keys %{$result->{FILES}} )
       {
-        $self->{_new_file_states}{$s->{STATE}} = time;
-        $self->Alert("Unknown file-state: " . $s->{STATE});
-      }
-    }
+	  my $s = $result->{FILES}{$_};
+	  my $f = $files->{$s->{DESTINATION}};
+	  if ( ! $f )
+	  {
+	      $f = PHEDEX::Transfer::Backend::File->new( %{$s} );
+	      $job->Files($f);
+	  }
+	  
+	  if ( ! exists $f->ExitStates->{$s->{STATE}} )
+	  { 
+	      my $last = $self->{_new_file_states}{$s->{STATE}} || 0;
+	      if ( time - $last > 300 )
+	      {
+		  $self->{_new_file_states}{$s->{STATE}} = time;
+		  $self->Alert("Unknown file-state: " . $s->{STATE});
+	      }
+	  }
+	  
+	  $self->WorkStats('FILES', $f->Destination, $f->State);
+	  $self->LinkStats($f->Destination, $f->FromNode, $f->ToNode, $f->State);
 
-    $self->WorkStats('FILES', $f->Destination, $f->State);
-    $self->LinkStats($f->Destination, $f->FromNode, $f->ToNode, $f->State);
-
-    if ( $_ = $f->State( $s->{STATE} ) )
-    {
-      $f->Log($f->Timestamp,"from $_ to ",$f->State);
-      $job->Log($f->Timestamp,$f->Source,$f->Destination,$f->State );
-      if ( $f->ExitStates->{$f->State} )
-      {
+	  if ( $_ = $f->State( $s->{STATE} ) )
+	  {
+	      $f->Log($f->Timestamp,"from $_ to ",$f->State);
+	      $job->Log($f->Timestamp,$f->Source,$f->Destination,$f->State );
+	      if ( $f->ExitStates->{$f->State} )
+	      {
 #       Log the details...
-	$summary = join (' ',
-			  map { "$_=\"" . $s->{$_} ."\"" }
-			  qw / SOURCE DESTINATION DURATION RETRIES REASON /
-			);
-        $job->Log( time, 'file transfer details',$summary,"\n" );
-        $f->Log  ( time, 'file transfer details',$summary,"\n" );
-
-        foreach ( qw / DURATION RETRIES REASON / ) { $f->$_($s->{$_}); }
+		  $summary = join (' ',
+				   map { "$_=\"" . $s->{$_} ."\"" }
+				   qw / SOURCE DESTINATION DURATION RETRIES REASON /
+				   );
+		  $job->Log( time, 'file transfer details',$summary,"\n" );
+		  $f->Log  ( time, 'file transfer details',$summary,"\n" );
+		  
+		  foreach ( qw / DURATION RETRIES REASON / ) { $f->$_($s->{$_}); }
+	      }
+	      $job->FILE_POSTBACK->( $f, $_, $s ) if $job->FILE_POSTBACK;
+	      $self->{FILE_POSTBACK}->( $f, $job ) if $self->{FILE_POSTBACK};
+	  }
       }
-      $job->FILE_POSTBACK->( $f, $_, $s ) if $job->FILE_POSTBACK;
-      $self->{FILE_POSTBACK}->( $f, $job ) if $self->{FILE_POSTBACK};
-    }
+
+      $summary = join(' ',
+		      "ETC=" . $result->{ETC},
+		      'JOB_STATE=' . $result->{JOB_STATE},
+		      'FILE_STATES:',
+		      map { $_.'='.$result->{FILE_STATES}{$_} }
+		      sort keys %{$result->{FILE_STATES}}
+		      );
+      if ( $job->Summary ne $summary )
+      {
+	  $self->Logmsg('JOBID=',$job->ID," $summary") if $self->{VERBOSE};
+	  $job->Summary($summary);
+      }
+
+      if ( ! exists $job->ExitStates->{$result->{JOB_STATE}} )
+      { 
+	  my $last = $self->{_new_job_states}{$result->{JOB_STATE}} || 0;
+	  if ( time - $last > 300 )
+	  {
+	      $self->{_new_job_states}{$result->{JOB_STATE}} = time;
+	      $self->Alert("Unknown job-state: " . $result->{JOB_STATE});
+	  }
+      }
+
+      $job->State($result->{JOB_STATE});
   }
 
-  $summary = join(' ',
-		   "ETC=" . $result->{ETC},
-		   'JOB_STATE=' . $result->{JOB_STATE},
-		   'FILE_STATES:',
-              	   map { $_.'='.$result->{FILE_STATES}{$_} }
-               	         sort keys %{$result->{FILE_STATES}}
-                 );
-  if ( $job->Summary ne $summary )
-  {
-    $self->Logmsg('JOBID=',$job->ID," $summary") if $self->{VERBOSE};
-    $job->Summary($summary);
-  }
-
-  if ( ! exists $job->ExitStates->{$result->{JOB_STATE}} )
-  { 
-    my $last = $self->{_new_job_states}{$result->{JOB_STATE}} || 0;
-    if ( time - $last > 300 )
-    {
-      $self->{_new_job_states}{$result->{JOB_STATE}} = time;
-      $self->Alert("Unknown job-state: " . $result->{JOB_STATE});
-    }
-  }
-
-  $job->State($result->{JOB_STATE});
   $self->WorkStats('JOBS', $job->ID, $job->State);
   $self->{JOB_POSTBACK}->($job) if $self->{JOB_POSTBACK};
-  if ( $job->ExitStates->{$result->{JOB_STATE}} )
+  if ( $job->ExitStates->{$job->State} )
   {
     $kernel->yield('report_job',$job);
   }
