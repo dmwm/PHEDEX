@@ -48,6 +48,7 @@ Show current link status
 =cut
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 sub duration { return 60 * 60; }
 sub invoke { return links(@_); }
@@ -55,14 +56,27 @@ sub invoke { return links(@_); }
 sub links
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / from to status kind / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / from to status kind / ],
+                spec =>
+                {
+                    from   => { using => 'node', multiple => 1 },
+                    to     => { using => 'node', multiple => 1 },
+                    status => { using => 'link_status', multiple => 1 },
+                    kind   => { using => 'link_kind', multiple => 1 }
+                }
+        );
+    };
+    if ( $@ )
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Web::SQL::getLinks($core, %h);
+    my $r = PHEDEX::Web::SQL::getLinks($core, %p);
     return { link => $r };
 }
 
