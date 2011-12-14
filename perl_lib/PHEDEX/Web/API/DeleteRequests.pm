@@ -132,30 +132,46 @@ This element will not exist if there were no comments.
 
 
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 sub duration { return 60 * 60; }
-sub invoke { return xfer_request(@_); }
+sub invoke { return delete_request(@_); }
 
-sub xfer_request
+sub delete_request
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / request limit node create_since approval requested_by / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / request limit node create_since approval requested_by / ],
+                spec =>
+                {
+                    request => { using => 'pos_int', multiple => 1 },
+                    node => { using => 'node', multiple => 1 },
+                    limit => { using => 'pos_int', multiple => 1 },
+                    create_since => { using => 'time' },
+                    approval => { using => 'approval_state', multiple => 1 },
+                    requested_by => { using => 'text', multiple => 1 }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # if there is no argument, set default "since" to 24 hours ago
-    if (scalar keys %h == 0)
+    if (scalar keys %p == 0)
     {
-        $h{CREATE_SINCE} = time() - 3600*24;
+        $p{CREATE_SINCE} = time() - 3600*24;
     }
 
-    $h{TYPE} = 'delete';
-    if (exists $h{APPROVAL})
+    $p{TYPE} = 'delete';
+    if (exists $p{APPROVAL})
     {
-        my $r1 = PHEDEX::Web::SQL::getRequestList($core, %h);
+        my $r1 = PHEDEX::Web::SQL::getRequestList($core, %p);
         my %request;
         foreach (@{$r1})
         {
@@ -164,14 +180,14 @@ sub xfer_request
         my @request = keys(%request);
         if (@request)
         {
-            $h{REQUEST} = \@request;
+            $p{REQUEST} = \@request;
         }
         else
         {
             return { request => [] };
         }
     }
-    my $r = PHEDEX::Web::SQL::getRequestData($core, %h);
+    my $r = PHEDEX::Web::SQL::getRequestData($core, %p);
     return { request => $r };
 }
 
