@@ -49,14 +49,32 @@ sub invoke { return lfn2pfn(@_); }
 sub lfn2pfn
 {
     my ($core,%h) = @_;
-    &checkRequired(\%h, 'node', 'lfn', 'protocol');
-    $h{custodial} ||= 'n';
-
+    my %p;
+    eval
+    {
+        %p = &validate_params(\%h,
+                allow => [ qw ( node lfn protocol destination custodial ) ],
+                required => [ qw ( node lfn protocol )],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    lfn => { using => 'lfn', multiple => 1 },
+                    protocol => { using => 'text', multiple => 1 },
+                    destination => { using => 'node', multiple => 1 },
+                    custodial => { using => 'yesno', multiple => 1 },
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
+    }
+    
     # TODO:  cache nodemap and TFC
-    my $nodes = &PHEDEX::Web::SQL::getNodes($core, NODE => $h{node});
+    my $nodes = &PHEDEX::Web::SQL::getNodes($core, NODE => $p{node});
 
     unless (@$nodes) {
-	die PHEDEX::Web::Util::http_error(400,"no nodes found for '", join(', ', &PHEDEX::Core::SQL::arrayref_expand($h{node})), "'");
+	die PHEDEX::Web::Util::http_error(400,"no nodes found for '", join(', ', &PHEDEX::Core::SQL::arrayref_expand($p{node})), "'");
     }
 
     my $catcache = {};
@@ -68,13 +86,13 @@ sub lfn2pfn
 	    die "could not retrieve catalogue for node $node->{NAME}\n";
 	}
 
-	my @args = ($cat, $h{protocol}, $h{destination}, 'pre');
-	foreach my $lfn ( &PHEDEX::Core::SQL::arrayref_expand($h{lfn}) ) {
-	    my ($spt, $pfn) = &applyStorageRules(@args, $lfn, $h{custodial});
+	my @args = ($cat, $p{protocol}, $p{destination}, 'pre');
+	foreach my $lfn ( &PHEDEX::Core::SQL::arrayref_expand($p{lfn}) ) {
+	    my ($spt, $pfn) = &applyStorageRules(@args, $lfn, $p{custodial});
 	    push @$mapping, { node => $node->{NAME},
-			      protocol => $h{protocol},
-			      destination => $h{destination},
-			      custodial => $h{custodial},
+			      protocol => $p{protocol},
+			      destination => $p{destination},
+			      custodial => $p{custodial},
 			      lfn => $lfn,
 			      pfn => $pfn,
 			      space_token => $spt };
