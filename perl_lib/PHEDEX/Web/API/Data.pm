@@ -73,6 +73,7 @@ Show data which is registered (injected) to PhEDEx
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 my $map = {
     _KEY => 'DBS',
@@ -111,65 +112,58 @@ sub invoke { return data(@_); }
 sub data
 {
     my ($core, %h) = @_;
+    my %p;
 
-    # knock out dataset_create_since, block_cerate_since and file_create_since
-    foreach ( qw / dataset_create_since block_create_since file_create_since  DATASET_CREATE_SINCE BLOCK_CREATE_SINCE FILE_CREATE_SINCE / )
+    eval
     {
-        delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / create_since dataset block file level / ],
+                spec =>
+                {
+                     create_sinc => { using => 'time' },
+                     dataset => { using => 'dataset', multiple => 1 },
+                     block => { using => 'block_*', multiple => 1},
+                     file => { using => 'lfn', multiple => 1 },
+                     level => { using => 'block_or_file' }
+                }
+        );
+    };
+    if ( $@ )
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    # check for level
-    if (exists $h{level} && $h{level} ne 'file' && $h{level} ne 'block')
-    {
-        die PHEDEX::Web::Util::http_error(400,"level has to be either 'file' or 'block'");
-    }
-
-    # default level = block
-    $h{level} = 'file' if ! $h{level};
-
-    # check time format
-    if (exists $h{create_since})
-    {
-        $h{create_since} = PHEDEX::Core::Timing::str2time($h{create_since});
-        if (not defined $h{create_since})
-        {
-            die PHEDEX::Web::Util::http_error(400,"Bad value for 'create_since'");
-        }
-    }
+    # default level = file
+    $p{LEVEL} = 'file' if ! $p{LEVEL};
 
     # set create_since
-    if (exists $h{create_since})
+    if (exists $p{CREATE_SINCE})
     {
-        if ($h{level} eq 'block')
+        if ($p{LEVEL} eq 'block')
         {
-            $h{block_create_since} = delete $h{create_since};
+            $p{BLOCK_CREATE_SINCE} = delete $p{CREATE_SINCE};
         }
         else
         {
-            $h{file_create_since} = delete $h{create_since};
+            $p{FILE_CREATE_SINCE} = delete $p{CREATE_SINCE};
         }
     }
-    elsif ((!$h{file}||($h{file} =~ m/(\*|%)/)) &&
-           (!$h{dataset}||($h{dataset} =~ m/(\*|%)/)) &&
-           (!$h{block}||($h{block} =~ m/(\*|%)/)))
+    elsif ((!$p{FILE}||($p{FILE} =~ m/(\*|%)/)) &&
+           (!$p{DATASET}||($p{DATASET} =~ m/(\*|%)/)) &&
+           (!$p{BLOCK}||($p{BLOCK} =~ m/(\*|%)/)))
     {
-	if ($h{level} eq 'block')
+	if ($p{LEVEL} eq 'block')
 	{
-	    $h{block_create_since} = time() - 86400;
+	    $p{BLOCK_CREATE_SINCE} = time() - 86400;
 	}
 	else
 	{
-            $h{file_create_since} = time() - 86400;
+            $p{FILE_CREATE_SINCE} = time() - 86400;
         }
     }
 
-    # convert parameter keys to upper case
-    foreach ( qw / dataset block file level file_create_since block_create_since / )
-    {
-      $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getData($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getData($core, %p));
 
     return { dbs => $r };
 }
