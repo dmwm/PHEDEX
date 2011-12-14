@@ -61,6 +61,7 @@ Serve as a simple request search and cache-able catalog of requests to save with
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 my $map = {
     _KEY => 'ID',
@@ -85,14 +86,37 @@ sub invoke { return request_list(@_); }
 sub request_list
 {
     my ($core, %h) = @_;
-
-    # convert parameter keys to upper case
-    foreach ( qw / request group type approval requested_by node decision create_since create_until decide_since decide_until dataset block decided_by / )
+    my %p;
+    eval
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / request group type approval requested_by node decision create_since create_until decide_since decide_until dataset block decided_by / ],
+                spec =>
+                {
+                    request => { using => 'pos_int', multiple => 1 },
+                    group => { using => 'text', multiple => 1 },
+                    type => { using => 'request_type', multiple => 1 },
+                    approval => { using => 'approval_state', multiple => 1 },
+                    requested_by => { using => 'text', multiple => 1 },
+                    decided_by => { using => 'text', multiple => 1 },
+                    node => { using => 'node', multiple => 1 },
+                    decision => { using => 'approval_state', multiple => 1 },
+                    create_since => { using => 'time' },
+                    create_until => { using => 'time' },
+                    decide_since => { using => 'time' },
+                    decide_until => { using => 'time' },
+                    dataset => { using => 'dataset', multiple => 1 },
+                    block => { using => 'block_*', multiple => 1 },
+                }
+        );
+    };
+    if ( $@ )
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
-    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getRequestList($core, %h));
+    my $r = PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getRequestList($core, %p));
     # take care of the approval
     foreach my $request (@{$r})
     {
