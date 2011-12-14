@@ -130,19 +130,40 @@ my $map = {
 my $sth;
 our $limit = 1000;
 my @keys = ('DATASET_ID');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / node se block dataset id request request_since complete complete_since / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / node se block dataset id request request_since complete complete_since / ],
+                    spec =>
+                    {
+                        node => { using => 'node', multiple => 1 },
+                        se   => { using => 'text', multiple => 1 },
+                        block => { using => 'block_*', multiple => 1 },
+                        dataset => { using => 'dataset', multiple => 1 },
+                        id => { using => 'pos_int', multiple => 1 },
+                        request => { using => 'pos_int', multiple => 1 },
+                        request_since => { using => 'time' },
+                        complete_since => { using => 'time' },
+                        complete => { using => 'yesno' }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getDeletions($core, %p), $limit, @keys);
     }
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getDeletions($core, %h), $limit. @keys) if !$sth;
 
     my $r = $sth->spool();
     if ($r)
@@ -164,6 +185,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = ();
         return $r;
     }
 }
