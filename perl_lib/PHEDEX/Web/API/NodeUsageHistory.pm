@@ -21,8 +21,6 @@ Show how space is being used at a node
   starttime          start time
   endtime            end time
   binwidth           width of each timebin in seconds
-  (ctime)            set output of time in YYYY-MM-DD hh:mm:ss format
-                     otherwise, output of time is in UNIX time format 
 
   default values:
   endtime = now
@@ -130,14 +128,13 @@ sub spool
         {
             %p = &validate_params(\%h,
                     uc_keys => 1,
-                    allow => [ qw / node starttime endtime binwidth ctime / ],
+                    allow => [ qw / node starttime endtime binwidth / ],
                     spec =>
                     {
                         node => { using => 'node', multiple => 1 },
                         starttime => { using => 'time' },
                         endtime => { using => 'time' },
                         binwidth => { using => 'pos_int' },
-                        ctime => { using => 'yesno' }
                     }
             );
         };
