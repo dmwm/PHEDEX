@@ -26,7 +26,6 @@ Show existing subscriptions and their parameters.
   priority         priority, one of "low", "normal" and "high"
   move             y (move) or n (replica)
   suspended        y or n, default is either
-
   collapse         y or n. default y. If y, do not show block level
                    subscriptions of a dataset if it was subscribed at
                    dataset level.
@@ -93,6 +92,7 @@ Show existing subscriptions and their parameters.
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 # mapping format for the output
 my $map = {
@@ -167,27 +167,45 @@ sub invoke { return subscriptions(@_); }
 sub subscriptions
 {
     my ($core, %h) = @_;
-
-    # provide default for collapse if it is not 'n'
-    if ((exists $h{collapse}) && ($h{collapse} ne 'n'))
+    # provide default for collapse
+    $h{collapse} ||= 'y';
+    my %p;
+    eval
     {
-        $h{collapse} = 'y';
-    }
-
-    # convert parameter keys to upper case
-    foreach ( qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / )
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / ],
+                spec =>
+                {
+                    percent_max => { using => 'pos_int' },
+                    percent_min => { using => 'pos_int' },
+                    dataset => { using => 'dataset', multiple => 1 },
+                    block => { using => 'block_*', multiple => 1 },
+                    node => { using => 'node', multiple => 1 },
+                    se => { using => 'text', multiple => 1 },
+                    create_since => { using => 'time', multiple => 1 },
+                    custodial => { using => 'yesno', multiple => 1 },
+                    group => { using => 'text', multiple => 1 },
+                    move => { using => 'yesno', multiple => 1 },
+                    priority => { using => 'priority', multiple => 1 },
+                    suspended => { using => 'yesno', multiple => 1 },
+                    collapse => { using => 'yesno', multiple => 1 },
+                }
+        );
+    };
+    if ($@)
     {
-      $h{uc $_} = delete $h{$_} if exists($h{$_});
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if (not (exists $h{BLOCK} || exists $h{DATASET} || exists $h{CREATE_SINCE}))
+    if (not (exists $p{BLOCK} || exists $p{DATASET} || exists $p{CREATE_SINCE}))
     {
-        $h{CREATE_SINCE} = time() - 3600*24;
+        $p{CREATE_SINCE} = time() - 3600*24;
     }
 
 
-    my $r = PHEDEX::Web::SQL::getDataSubscriptions($core, %h);
+    my $r = PHEDEX::Web::SQL::getDataSubscriptions($core, %p);
     # separate DATASET and BLOCK
     my (@dataset, @block);
     foreach (@{$r})
