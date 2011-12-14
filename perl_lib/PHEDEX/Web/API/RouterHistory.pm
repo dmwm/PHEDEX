@@ -22,8 +22,6 @@ Show history of file routing statistics.
   starttime         start time
   endtime           end time
   binwidth          width of each timebin in seconds
-  (ctime)           set output of time in YYYY-MM-DD hh:mm:ss format
-                    otherwise, output of time is in UNIX time format
 
   default values:
   endtime = now
@@ -70,6 +68,7 @@ Show history of file routing statistics.
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Spooler;
+use PHEDEX::Web::Util;
 
 # mapping format for the output
 my $map = {
@@ -114,21 +113,38 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('FROM_NODE', 'TO_NODE');
+my %p;
 
 sub spool
 {
     my ($core, %h) = @_;
 
-    # convert parameter keys to upper case
-    foreach ( qw / from to starttime endtime binwidth ctime / )
+    if (!$sth)
     {
-      $h{uc $_} = delete $h{$_} if $h{$_};
+        eval
+        {
+            %p = &validate_params(\%h,
+                    uc_keys => 1,
+                    allow => [ qw / from to starttime endtime binwidth / ],
+                    spec =>
+                    {
+                        from   => { using => 'node', multiple => 1 },
+                        to     => { using => 'node', multiple => 1 },
+                        starttime => { using => 'time' },
+                        endtime => { using => 'time' },
+                        binwidth => { using => 'pos_int' }
+                    }
+            );
+        };
+        if ($@)
+        {
+            return PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $p{'__spool__'} = 1;
+        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getRouterHistory($core, %p), $limit, @keys);
     }
-    $h{'__spool__'} = 1;
 
     my $r;
-
-     $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getRouterHistory($core, %h), $limit, @keys) if !$sth;
     $r = $sth->spool();
     if ($r) 
     {
@@ -137,6 +153,7 @@ sub spool
     else
     {
         $sth = undef;
+        %p = ();
         return $r;
     }
 }
