@@ -77,6 +77,7 @@ our %COMMON_VALIDATION =
  'priority'     => sub { $_[0] eq 'high' || $_[0] eq 'normal' || $_[0] eq 'low' ? 1 : 0 },
  'transfer_state' => sub { $_[0] eq 'assigned' || $_[0] eq 'exported' || $_[0] eq 'transferring' || $_[0] eq 'done' ? 1 : 0 },
  'view_level'   => sub { $_[0] eq 'dbs' || $_[0] eq 'dataset' || $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
+ 'block_or_file' => sub { $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
  'approval_state' => sub { $_[0] eq 'approved' || $_[0] eq 'disapproved' || $_[0] eq 'pending' || $_[0] eq 'mixed' ? 1 : 0 },
 );
 
