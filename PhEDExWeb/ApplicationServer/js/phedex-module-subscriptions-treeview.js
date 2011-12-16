@@ -14,6 +14,8 @@ PHEDEX.Module.Subscriptions.Treeview=function(sandbox, string) {
       update_since = 24,
       opts = {},
       width = 1200;
+alert("I have no idea if this module works properly or not");
+throw new Error("Developer clueless");
 
   Yla(this,new PHEDEX.TreeView(sandbox,string));
   Yla(opts, {
