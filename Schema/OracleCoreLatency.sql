@@ -1,5 +1,5 @@
 /* Block-level latency log information for blocks currently in transfer.*/
-create table t_status_block_latency
+create table t_dps_block_latency
   (time_update		float		not null,
    destination		integer		not null,
    block		integer		not null, -- block id
@@ -17,31 +17,31 @@ create table t_status_block_latency
    total_suspend_time	float			, -- seconds the block was suspended since the start of the transfer
    latency		float			, -- current latency for this block
    --
-   constraint pk_status_block_latency
+   constraint pk_dps_block_latency
      primary key (destination,block),
    --
-   constraint fk_status2_block_latency_dest
+   constraint fk_dps_block_latency_dest
      foreign key (destination) references t_adm_node (id),
    --
-   constraint fk_status2_block_latency_block
+   constraint fk_dps_block_latency_block
      foreign key (block) references t_dps_block (id)
      on delete cascade,
    --
-   constraint ck_status2_block_latency_cust
+   constraint ck_dps_block_latency_cust
      check (is_custodial in ('y', 'n'))
   );
 
-create index ix_status_block_latency_update
-  on t_status_block_latency (time_update);
+create index ix_dps_block_latency_update
+  on t_dps_block_latency (time_update);
 
-create index ix_status_block_latency_dest
-  on t_status_block_latency (destination);
+create index ix_dps_block_latency_dest
+  on t_dps_block_latency (destination);
 
-create index ix_status_block_latency_block
-  on t_status_block_latency (block);
+create index ix_dps_block_latency_block
+  on t_dps_block_latency (block);
 
 /* File-level latency log information for files currently in transfer.*/
-create table t_status_file_arrive
+create table t_xfer_file_latency
   (time_update		float		not null,
    destination		integer		not null, -- destination node id
    fileid		integer			, -- file id, can be NULL for invalidated files
@@ -50,53 +50,61 @@ create table t_status_file_arrive
    priority		integer			, -- task priority
    is_custodial		char (1)		, -- task custodiality
    time_request		float			, -- timestamp of the first time the file was activated for transfer by FileRouter
+   original_from_node   integer                 , -- node id of the source node for the first valid transfer path created by FileRouter                                 
+   from_node            integer                 , -- node id of the source node for the successful transfer task (can differ from above in case of rerouting)
    time_route		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
    time_assign		float			, -- timestamp of the first time that a transfer task was created by FileIssue
    time_export		float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
-   attempts		integer			, -- number of transfer attempts TODO-force not null and only log files with at least one transfer attempt?
-   time_first_attempt	float			, -- timestamp of the first transfer attempt TODO-force not null and only log files with at least one transfer attempt?
-   time_latest_attempt	float			, -- timestamp of the most recent transfer attempt TODO-force not null and only log files with at least one transfer attempt?
+   attempts		integer			, -- number of transfer attempts
+   time_first_attempt	float			, -- timestamp of the first transfer attempt
+   time_latest_attempt	float			, -- timestamp of the most recent transfer attempt
    time_on_buffer	float			, -- timestamp of the successful WAN transfer attempt (to Buffer for T1 nodes)
    time_at_destination	float			, -- timestamp of arrival on destination node (same as before for T2 nodes, or migration time for T1s)
    --
-   constraint fk_status_file_arrive_blkltn
+   constraint fk_xfer_file_latency_blkltn
      foreign key (destination, inblock)
-      references t_status_block_latency (destination, block)
+      references t_dps_block_latency (destination, block)
       on delete cascade,
    --
-   constraint fk_status_file_arrive_dest
+   constraint fk_xfer_file_latency_dest
      foreign key (destination) references t_adm_node (id),
    --
-   constraint fk_status_file_arrive_file
+   constraint fk_xfer_file_latency_orig_from
+     foreign key (original_from_node) references t_adm_node (id),
+   --
+   constraint fk_xfer_file_latency_from
+     foreign key (from_node) references t_adm_node (id),    
+   --
+   constraint fk_xfer_file_latency_file
      foreign key (fileid) references t_dps_file (id)
      on delete set null,
    --
-   constraint fk_status_file_arrive_block
+   constraint fk_xfer_file_latency_block
      foreign key (inblock) references t_dps_block (id)
      on delete cascade,
    --
-   constraint ck_status_file_arrive_cust
+   constraint ck_xfer_file_latency_cust
      check (is_custodial in ('y', 'n'))
   );
 
-create index ix_status_file_arrive_blkltn
-  on t_status_file_arrive (destination, inblock);
+create index ix_xfer_file_latency_blkltn
+  on t_xfer_file_latency (destination, inblock);
 
-create index ix_status_file_arrive_update
-  on t_status_file_arrive (time_update);
+create index ix_xfer_file_latency_update
+  on t_xfer_file_latency (time_update);
 
-create index ix_status_file_arrive_dest
-  on t_status_file_arrive (destination);
+create index ix_xfer_file_latency_dest
+  on t_xfer_file_latency (destination);
 
-create index ix_status_file_arrive_block
-  on t_status_file_arrive (inblock);
+create index ix_xfer_file_latency_block
+  on t_xfer_file_latency (inblock);
 
-create index ix_status_file_arrive_file
-  on t_status_file_arrive (fileid);
+create index ix_xfer_file_latency_file
+  on t_xfer_file_latency (fileid);
 
 
 /* Block-level latency for completed blocks */
-create table t_history_block_latency
+create table t_log_block_latency
   (time_update          float           not null,
    destination          integer         not null,
    block                integer                 , -- block id, can be null if block remvoed
@@ -117,31 +125,31 @@ create table t_history_block_latency
    total_suspend_time   float                   , -- seconds the block was suspended since the start of the transfer
    latency              float                   , -- current latency for this block
    --
-   constraint fk_history_block_latency_dest
+   constraint fk_log_block_latency_dest
      foreign key (destination) references t_adm_node (id),
    --
-   constraint fk_history_block_latency_block
+   constraint fk_log_block_latency_block
      foreign key (block) references t_dps_block (id)
      on delete set null,
    --
-   constraint ck_history_block_latency_cust
+   constraint ck_log_block_latency_cust
      check (is_custodial in ('y', 'n'))
   );
 
-create index ix_history_block_latency_subs
-  on t_history_block_latency (time_subscription);
+create index ix_log_block_latency_subs
+  on t_log_block_latency (time_subscription);
 
-create index ix_history_block_latency_up
-  on t_history_block_latency (time_update);
+create index ix_log_block_latency_up
+  on t_log_block_latency (time_update);
 
-create index ix_history_block_latency_dest
-  on t_history_block_latency (destination);
+create index ix_log_block_latency_dest
+  on t_log_block_latency (destination);
 
-create index ix_history_block_latency_block
-  on t_history_block_latency (block);
+create index ix_log_block_latency_block
+  on t_log_block_latency (block);
 
 /* File-level latency log information for files in completed blocks.*/
-create table t_history_file_arrive
+create table t_log_file_latency
   (time_subscription	float		not null,
    time_update		float		not null,
    destination		integer		not null, -- destination node id
@@ -151,23 +159,30 @@ create table t_history_file_arrive
    priority		integer			, -- task priority
    is_custodial		char (1)		, -- task custodiality
    time_request		float			, -- timestamp of the first time the file was activated for transfer by FileRouter
+   original_from_node	integer			, -- node id of the source node for the first valid transfer path created by FileRouter
+   from_node		integer			, -- node id of the source node for the successful transfer task (can differ from above in case of rerouting)
    time_route		float			, -- timestamp of the first time that a valid transfer path was created by FileRouter
    time_assign		float			, -- timestamp of the first time that a transfer task was created by FileIssue
    time_export		float			, -- timestamp of the first time was exported for transfer (staged at source Buffer, or same as assigned time for T2s)
-   attempts		integer			, -- number of transfer attempts TODO-force not null and only log files with at least one transfer attempt?
-   time_first_attempt	float			, -- timestamp of the first transfer attempt TODO-force not null and only log files with at least one transfer attempt?
-   time_latest_attempt	float			, -- timestamp of the most recent transfer attempt TODO-force not null and only log files with at least one transfer attempt?
+   attempts		integer			, -- number of transfer attempts
+   time_first_attempt	float			, -- timestamp of the first transfer attempt
    time_on_buffer	float			, -- timestamp of the successful WAN transfer attempt (to Buffer for T1 nodes)
    time_at_destination	float			, -- timestamp of arrival on destination node (same as before for T2 nodes, or migration time for T1s)
    --
-   constraint fk_history_file_arrive_dest
+   constraint fk_log_file_latency_dest
      foreign key (destination) references t_adm_node (id),
    --
-   constraint fk_history_file_arrive_file
+   constraint fk_log_file_latency_orig_from
+     foreign key (original_from_node) references t_adm_node (id),
+   --
+   constraint fk_log_file_latency_from                                                                                                                                    
+     foreign key (from_node) references t_adm_node (id),
+   --
+   constraint fk_log_file_latency_file
      foreign key (fileid) references t_dps_file (id)
      on delete set null,
    --
-   constraint fk_history_file_arrive_block
+   constraint fk_log_file_latency_block
      foreign key (inblock) references t_dps_block (id)
      on delete cascade,
    --
@@ -176,17 +191,17 @@ create table t_history_file_arrive
   );
 
 
-create index ix_history_file_arrive_subs
-  on t_history_file_arrive (time_subscription);
+create index ix_log_file_latency_subs
+  on t_log_file_latency (time_subscription);
 
-create index ix_history_file_arrive_up
-  on t_history_file_arrive (time_update);
+create index ix_log_file_latency_up
+  on t_log_file_latency (time_update);
 
-create index ix_history_file_arrive_dest
-  on t_history_file_arrive (destination);
+create index ix_log_file_latency_dest
+  on t_log_file_latency (destination);
 
-create index ix_history_file_arrive_block
-  on t_history_file_arrive (inblock);
+create index ix_log_file_latency_block
+  on t_log_file_latency (inblock);
 
-create index ix_history_file_arrive_file
-  on t_history_file_arrive (fileid);
+create index ix_log_file_latency_file
+  on t_log_file_latency (fileid);

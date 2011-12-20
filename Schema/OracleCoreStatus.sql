@@ -1171,42 +1171,6 @@ create table t_log_dataset_latency
      foreign key (dataset) references t_dps_dataset (id)
      on delete set null);
 
-/* Log for block completion time . */
-create table t_log_block_latency
-  (time_update		float		not null,
-   destination		integer		not null,
-   block		integer			, -- block id, can be null if block remvoed
-   files		integer		not null, -- number of files
-   bytes		integer		not null, -- block size in bytes
-   priority		integer		not null, -- t_dps_block_dest priority
-   is_custodial		char (1)	not null, -- t_dps_block_dest custodial
-   time_subscription	float		not null, -- time block was subscribed
-   block_create		float		not null, -- time the block was created
-   block_close		float		        , -- time the block was closed
-   first_request	float			, -- time block was first routed (t_xfer_request appeared)
-   first_replica	float			, -- time the first file was replicated
-   latest_replica	float			, -- time when a file was most recently replicated
-   percent25_replica	float			, -- time the 25th-percentile file was replicated
-   percent50_replica	float			, -- time the 50th-percentile file was replicated
-   percent75_replica	float			, -- time the 75th-percentile file was replicated
-   percent95_replica	float			, -- time the 95th-percentile file was replicated
-   last_replica		float			, -- time the last file was replicated
-   last_suspend		float			, -- time the block was last observed suspended
-   partial_suspend_time	float			, -- seconds the block was suspended since the creation of the latest replica
-   total_suspend_time	float			, -- seconds the block was suspended since the start of the transfer
-   latency		float			, -- current latency for this block
-   --
-   constraint fk_status_block_latency_dest
-     foreign key (destination) references t_adm_node (id),
-   --
-   constraint fk_status_block_latency_block
-     foreign key (block) references t_dps_block (id)
-     on delete set null,
-   --
-   constraint ck_status_block_latency_cust
-     check (is_custodial in ('y', 'n'))
-  );
-
 /* Log for user actions - lifecycle of data at a node
    actions:  0 - request data
              1 - subscribe data
@@ -1287,16 +1251,3 @@ create index ix_status_block_path_src
 
 create index ix_status_block_path_block
   on t_status_block_path (block);
---
-/* Use compound index instead? */
-create index ix_log_block_latency_update
-  on t_log_block_latency (time_update);
-
-create index ix_log_block_latency_dest
-  on t_log_block_latency (destination);
-
-create index ix_log_block_latency_block
-  on t_log_block_latency (block);
-
-create index ix_log_block_latency_subs
-  on t_log_block_latency (time_subscription);
