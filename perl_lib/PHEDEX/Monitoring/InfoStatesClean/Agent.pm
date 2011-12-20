@@ -48,7 +48,7 @@ sub idle
 	      where rank <= 100)});
 
 	# Archive completed block latency information
-	$self->mergeBlockLatencyHistory();
+	$self->mergeLogBlockLatency();
     };
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;

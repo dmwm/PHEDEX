@@ -62,7 +62,6 @@ sub idle
     my @stats4 = $self->allocate($now);
     my @stats5 = $self->blockDestinations($now);
     my @stats6 = $self->deleteSubscriptionParams($now);
-    $self->mergeLogBlockLatency();
     $self->mergeStatusBlockLatency();
     $dbh->commit();
     if (grep $_->[1] != 0,  @stats0, @stats1, @stats2, @stats3, @stats4, @stats5, @stats6) {

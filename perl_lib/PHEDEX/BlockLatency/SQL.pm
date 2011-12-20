@@ -19,10 +19,10 @@ logging the time it takes blocks to complete at a node
 
 =over
 
-=item mergeLogBlockLatency(%args)
+=item mergeStatusBlockLatency(%args)
 
-Updates the t_log_block_latency table using current data in
-t_dps_block_destination, t_xfer_request and t_xfer_replica.  Keeps
+Updates the t_dps_block_latency table using current data in
+t_dps_block_dest, t_xfer_request and t_xfer_replica.  Keeps
 track of latency up to the time the block is first completed, after
 which any changes to the block (e.g. file retransferred) are not
 accounted for.  Keeps track of block suspension time and subtracts
@@ -84,211 +84,15 @@ sub AUTOLOAD
 }
 
 #-------------------------------------------------------------------------------
-sub mergeLogBlockLatency
-{
-    my ($self,%h) = @_;
-    my ($sql,%p,$q,$n,@r);
-
-    $p{':now'} = $h{NOW} || &mytimeofday();
-
-    # delete log of unfinished blocks which are no longer destined.
-    # this will also clear anonymous block statistics (l.block = NULL)
-    # for unfinished blocks
-    $sql = qq{
-	delete from t_log_block_latency l
-	 where l.last_replica is null and 
-	 not exists
-	 ( select 1 from t_dps_block_dest bd
-	    where bd.destination = l.destination
-	      and bd.block = l.block ) };
-
-    ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
-
-    # If a block latency record doesn't exist for a block destination,
-    # create it -- but only consider active blocks because we can't
-    # calculate the latency for inactive ones.  If the record does
-    # exist, update the suspension time since the latest replication 
-    # as long as the block isn't complete at the destination.
-    # Also update block and subs stats (files, bytes, block_close, priority)
-    $sql = qq{
-	merge into t_log_block_latency l
-	using
-	  (select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create,
-	          decode(b.is_open,'n',b.time_update,'y',NULL) block_close, bd.priority,
-	          bd.is_custodial, bd.time_subscription, bd.time_create, bd.time_complete time_done,
-	          nvl2(bd.time_suspend_until, :now, NULL) this_suspend
-	     from t_dps_block_dest bd
-	     join t_dps_block b on b.id = bd.block
-	     join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
-	     where br.is_active = 'y'
-	   ) d
-	on (d.destination = l.destination
-            and d.block = l.block
-            and d.time_subscription = l.time_subscription)
-	when matched then
-          update set l.files = d.files,
-	             l.bytes = d.bytes,
-	             l.block_close = d.block_close,
-	             l.priority = d.priority,
-		     l.partial_suspend_time = nvl(l.partial_suspend_time,0) + nvl(:now - l.last_suspend,0),
-                     l.last_suspend = d.this_suspend,
-	             l.time_update = :now
-           where l.last_replica is null
-	when not matched then
-          insert (l.time_update, l.destination, l.block, l.files, l.bytes, l.block_create, l.block_close,
-		  l.priority, l.is_custodial, l.time_subscription, l.last_suspend, l.partial_suspend_time)
-          values (:now, d.destination, d.block, d.files, d.bytes, d.block_create, d.block_close,
-		  d.priority, d.is_custodial, d.time_subscription, d.this_suspend, 0)
-    };
-
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-
-    # Performance note:
-    # These merge...update statements are about 25x more efficient than the equivalent (but shorter)
-    # update t_log_block_latency set X = (select ...) where Y is null
-
-    # Update first request
-    $sql = qq{
-	merge into t_log_block_latency u
-	using
-          (select l.time_subscription, l.destination, l.block, min(xq.time_create) first_request
-             from t_xfer_request xq
-             join t_xfer_file xf on xf.id = xq.fileid
-             join t_log_block_latency l on l.destination = xq.destination
-                                       and l.block = xf.inblock
-            where l.first_request is null
-            group by l.time_subscription, l.destination, l.block) d
-        on (u.time_subscription = d.time_subscription
-            and u.destination = d.destination
-            and u.block = d.block)
-        when matched then
-          update set u.time_update = :now,
-	             u.first_request = d.first_request
-    };
-	
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-	             
-    # Update first replica
-    $sql = qq{
-	merge into t_log_block_latency u
-	using
-          (select l.time_subscription, l.destination, l.block, min(xr.time_create) first_replica
-             from t_xfer_replica xr
-             join t_xfer_file xf on xf.id = xr.fileid
-             join t_log_block_latency l on l.destination = xr.node
-                                       and l.block = xf.inblock
-            where l.first_replica is null
-            group by l.time_subscription, l.destination, l.block) d
-        on (u.time_subscription = d.time_subscription
-            and u.destination = d.destination
-            and u.block = d.block)
-        when matched then
-          update set u.time_update = :now,
-	             u.first_replica = d.first_replica
-    };
-
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-
-    # Update most recent replica if the block record is not complete; if a new replica was created
-    # since the previous update, add the partial suspension time since the latest replica to the total suspension time
-    $sql = qq{
-        merge into t_log_block_latency u
-        using
-          (select l.time_subscription, l.destination, l.block,
-	       max(xr.time_create) latest_replica, l.partial_suspend_time
-	    from t_xfer_replica xr
-             join t_xfer_file xf on xf.id = xr.fileid
-             join t_log_block_latency l on l.destination = xr.node
-                                       and l.block = xf.inblock
-            where l.first_replica is not null and l.last_replica is null
-            group by l.time_subscription, l.destination, l.block, l.partial_suspend_time) d
-        on (u.time_subscription = d.time_subscription
-            and u.destination = d.destination
-            and u.block = d.block)
-        when matched then
-          update set u.time_update = :now,
-                     u.latest_replica = d.latest_replica,
-                     u.total_suspend_time = nvl(d.partial_suspend_time,0) + nvl(u.total_suspend_time,0),
-	             u.partial_suspend_time=0
-	    where d.latest_replica>nvl(u.latest_replica,0)
-    };
-
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-
-    # Update last replica and latency total for finished blocks
-    # The formula is t_last_replica - t_soonest_possible_start - t_suspended
-    $sql = qq{
-	merge into t_log_block_latency u
-	using
-          (select l.time_subscription, l.destination, l.block,
-	       percentile_disc(0.25) within group (order by xr.time_create asc) percent25_replica,
-	       percentile_disc(0.50) within group (order by xr.time_create asc) percent50_replica,
-               percentile_disc(0.75) within group (order by xr.time_create asc) percent75_replica,
-               percentile_disc(0.95) within group (order by xr.time_create asc) percent95_replica,
-	       max(xr.time_create) last_replica
-             from t_dps_block_dest bd
-	     join t_dps_block b on b.id = bd.block
-	     join t_xfer_replica xr on xr.node = bd.destination
-	     join t_xfer_file xf on xf.id = xr.fileid and xf.inblock = bd.block
-             join t_log_block_latency l on l.block = bd.block
-	                               and l.destination = bd.destination
-	                               and l.time_subscription = bd.time_subscription
-	     where b.is_open = 'n'
-               and bd.time_complete is not null
-	       and l.last_replica is null
-             group by l.time_subscription, l.destination, l.block) d
-        on (u.time_subscription = d.time_subscription
-            and u.destination = d.destination
-            and u.block = d.block)
-        when matched then
-          update set u.time_update = :now,
-	             u.percent25_replica = d.percent25_replica,
-	             u.percent50_replica = d.percent50_replica,
-                     u.percent75_replica = d.percent75_replica,
-                     u.percent95_replica = d.percent95_replica,
-	             u.last_replica = d.last_replica,
-                     u.last_suspend = NULL,
-                     u.latency = d.last_replica - 
-	                         greatest(u.block_create,u.time_subscription)
-			          - u.total_suspend_time
-    };
-
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-
-    # Update current latency totals for unfinished blocks
-    # The formula is now - t_soonest_possible_start - t_suspended
-    $sql = qq{
-	update t_log_block_latency l
-	   set l.time_update = :now, 
-               l.latency = :now - 
-	                   greatest(l.block_create,l.time_subscription)
-		           - l.total_suspend_time - l.partial_suspend_time
-         where l.last_replica is null
-    };
-
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
-
-    return @r;
-}
-
-
-#-------------------------------------------------------------------------------
-sub mergeStatusFileArrive
+sub mergeXferFileLatency
 {
     my ($self,%h) = @_;
     my ($sql,$q,$n,@r);
 
     # SPECIAL-case: Merge tasks to Buffer nodes before recording taks to final destination
 
-    $sql = qq { merge into t_status_file_arrive fl using
-                    (select xtd.time_update, nmss.id to_node, xt.fileid,
+    $sql = qq { merge into t_xfer_file_latency fl using
+                    (select xtd.time_update, xt.from_node, nmss.id to_node, xt.fileid,
                      xf.inblock, xf.filesize,
                      (xt.priority-1)/2 priority,
                      xt.is_custodial, xp.time_request, xp.time_confirm time_route,
@@ -303,21 +107,22 @@ sub mergeStatusFileArrive
 		     join t_adm_node nd on nd.id=xt.to_node and nd.kind='Buffer'
 		     join t_adm_link lnmig on lnmig.from_node=xt.to_node and lnmig.is_local='y'
 		     join t_adm_node nmss on nmss.id=lnmig.to_node and nmss.kind='MSS'
-                     join t_status_block_latency bl on bl.destination=nmss.id and bl.block=xf.inblock
+                     join t_dps_block_latency bl on bl.destination=nmss.id and bl.block=xf.inblock
                      ) new
                   on (fl.destination = new.to_node and fl.fileid = new.fileid)
                   when matched then
                   update set
                   fl.time_update=new.time_update, fl.priority=new.priority, fl.is_custodial=new.is_custodial,
-                  fl.attempts=nvl(fl.attempts,0)+1,
+                  fl.from_node=new.from_node,
+		  fl.attempts=nvl(fl.attempts,0)+1,
                   fl.time_latest_attempt=new.time_update,
                   fl.time_on_buffer=decode(new.report_code,0,new.time_update,NULL)
                   where fl.time_at_destination is null and fl.time_on_buffer is null
                   when not matched then
-                  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, time_route,
-                          time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_on_buffer)
+                  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request,
+			  original_from_node, time_route, time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_on_buffer)
                   values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize,
-                          new.priority, new.is_custodial, new.time_request, new.time_route, new.time_assign, new.time_export,
+                          new.priority, new.is_custodial, new.time_request, new.from_node, new.time_route, new.time_assign, new.time_export,
                           1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 	      };
 
@@ -327,8 +132,8 @@ sub mergeStatusFileArrive
     # Merge transfers to final destination
     # NOTE: don't increment attempts count for Buffer-->MSS transfers, so that 'attempts' is only the number of WAN attempts
 
-    $sql = qq { merge into t_status_file_arrive fl using
-		    (select xtd.time_update, xt.to_node, xt.fileid,
+    $sql = qq { merge into t_xfer_file_latency fl using
+		    (select xtd.time_update, xt.from_node, xt.to_node, xt.fileid,
 		     xf.inblock, xf.filesize, 
 		     decode(ln.is_local,'y',xt.priority/2,'n',(xt.priority-1)/2) priority,
 		     xt.is_custodial, xp.time_request, xp.time_confirm time_route,
@@ -341,21 +146,22 @@ sub mergeStatusFileArrive
 		     left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
 		     join t_adm_link ln on ln.from_node=xt.from_node and ln.to_node=xt.to_node
 		     join t_adm_node nd on ln.to_node=nd.id
-		     join t_status_block_latency bl on bl.destination=xt.to_node and bl.block=xf.inblock
+		     join t_dps_block_latency bl on bl.destination=xt.to_node and bl.block=xf.inblock
 		     ) new
 		  on (fl.destination = new.to_node and fl.fileid = new.fileid)
 		  when matched then
 		  update set
 		  fl.time_update=new.time_update, fl.priority=new.priority, fl.is_custodial=new.is_custodial,
+		  fl.from_node=nvl2(fl.time_on_buffer,fl.from_node,new.from_node),
 		  fl.attempts=nvl2(fl.time_on_buffer,fl.attempts,nvl(fl.attempts,0)+1),
 		  fl.time_latest_attempt=nvl2(fl.time_on_buffer, fl.time_latest_attempt, new.time_update),
 		  fl.time_at_destination=decode(new.report_code,0,new.time_update,NULL)
 		  where fl.time_at_destination is null
 		  when not matched then
-		  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, time_route, 
-			  time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_at_destination)
+		  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, 
+			  original_from_node, time_route, time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_at_destination)
 		  values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize, 
-			  new.priority, new.is_custodial, new.time_request, new.time_route, new.time_assign, new.time_export,
+			  new.priority, new.is_custodial, new.time_request, new.from_node, new.time_route, new.time_assign, new.time_export,
 			  1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 			  };
 
@@ -366,20 +172,20 @@ sub mergeStatusFileArrive
 }
 
 #-------------------------------------------------------------------------------
-sub mergeBlockLatencyHistory
+sub mergeLogBlockLatency
 {
     my ($self,%h) = @_;
     my ($sql,%p,$q,$n,@r);
 
     # Merge file latency information into history table for finished blocks
     $sql = qq {
-	merge into t_history_file_arrive u
+	merge into t_log_file_latency u
 	    using
 	    (select bl.time_subscription, fl.time_update, fl.destination, fl.fileid, fl.inblock, 
-	          fl.filesize, fl.priority, fl.is_custodial, fl.time_request, fl.time_route,
-	    fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
-	    fl.time_on_buffer, fl.time_at_destination
-	    from t_status_block_latency bl join t_status_file_arrive fl on bl.block=fl.inblock and bl.destination=fl.destination
+	          fl.filesize, fl.priority, fl.is_custodial, fl.time_request, fl.original_from_node, fl.from_node,
+	          fl.time_route, fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt,
+	          fl.time_on_buffer, fl.time_at_destination
+	    from t_dps_block_latency bl join t_xfer_file_latency fl on bl.block=fl.inblock and bl.destination=fl.destination
 	    where bl.last_replica is not null)
 	    d
 	    on (u.time_subscription=d.time_subscription and
@@ -395,12 +201,13 @@ sub mergeBlockLatencyHistory
 		       u.priority,
 		       u.is_custodial,
 		       u.time_request,
+		       u.original_from_node,
+		       u.from_node,
 		       u.time_route,
 		       u.time_assign,
 		       u.time_export,
 		       u.attempts,
 		       u.time_first_attempt,
-		       u.time_latest_attempt,
 		       u.time_on_buffer,
 		       u.time_at_destination)
 	       values
@@ -413,12 +220,13 @@ sub mergeBlockLatencyHistory
 		d.priority,
 		d.is_custodial,
 		d.time_request,
+		d.original_from_node,
+		d.from_node,
 		d.time_route,
 		d.time_assign,
 		d.time_export,
 		d.attempts,
 		d.time_first_attempt,
-		d.time_latest_attempt,
 		d.time_on_buffer,
 		d.time_at_destination)
 	   };
@@ -428,13 +236,13 @@ sub mergeBlockLatencyHistory
 
 # Merge file replica information into history table for finished blocks for files with no latency info (already at destination, or missed events)
     $sql = qq {
-	merge into t_history_file_arrive u
+	merge into t_log_file_latency u
 	    using
 	    (select bl.time_subscription, xr.time_create time_update, bl.destination, xr.fileid, xf.inblock, 
 	          xf.filesize, xr.time_create time_at_destination
-	    from t_status_block_latency bl join t_xfer_file xf on bl.block=xf.inblock
+	    from t_dps_block_latency bl join t_xfer_file xf on bl.block=xf.inblock
 	     join t_xfer_replica xr on xr.fileid=xf.id and xr.node=bl.destination
-	     left join t_status_file_arrive fl on fl.fileid=xf.id and fl.destination=xr.node
+	     left join t_xfer_file_latency fl on fl.fileid=xf.id and fl.destination=xr.node
 	     where bl.last_replica is not null and fl.fileid is null)
 	    d
 	    on (u.time_subscription=d.time_subscription and
@@ -463,7 +271,7 @@ sub mergeBlockLatencyHistory
 
     # Add anonymous file statistics for completed blocks (invalidated files)
     $sql = qq {
-	insert into t_history_file_arrive d
+	insert into t_log_file_latency d
 	    (d.time_subscription,
                 d.time_update,
                 d.destination,
@@ -478,14 +286,13 @@ sub mergeBlockLatencyHistory
                 d.time_export,
                 d.attempts,
                 d.time_first_attempt,
-                d.time_latest_attempt,
                 d.time_on_buffer,
                 d.time_at_destination)
 	    select bl.time_subscription, fl.time_update, fl.destination, fl.fileid, fl.inblock,
                   fl.filesize, fl.priority, fl.is_custodial, fl.time_request, fl.time_route,
-            fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt, fl.time_latest_attempt,
+            fl.time_assign, fl.time_export, fl.attempts, fl.time_first_attempt,
             fl.time_on_buffer, fl.time_at_destination
-            from t_status_block_latency bl join t_status_file_arrive fl on bl.block=fl.inblock and bl.destination=fl.destination
+            from t_dps_block_latency bl join t_xfer_file_latency fl on bl.block=fl.inblock and bl.destination=fl.destination
             where bl.last_replica is not null and fl.fileid is null
     };
 
@@ -496,7 +303,7 @@ sub mergeBlockLatencyHistory
 
     # Merge latency information into history table for finished blocks
     $sql = qq{
-	merge into t_history_block_latency u
+	merge into t_log_block_latency u
 	using
           (select bl.time_update, bl.time_subscription, bl.destination, bl.block, bl.files,
 	   bl.bytes, bl.priority,
@@ -508,8 +315,8 @@ sub mergeBlockLatencyHistory
                percentile_disc(0.75) within group (order by fl.time_at_destination asc) percent75_replica,
                percentile_disc(0.95) within group (order by fl.time_at_destination asc) percent95_replica,
 	       bl.last_replica, bl.total_suspend_time, bl.latency
-		from t_status_block_latency bl
-	        left join t_status_file_arrive fl on bl.destination=fl.destination and bl.block=fl.inblock
+		from t_dps_block_latency bl
+	        left join t_xfer_file_latency fl on bl.destination=fl.destination and bl.block=fl.inblock
 	   where bl.last_replica is not null
 	   group by bl.time_update, bl.time_subscription, bl.destination, bl.block,
 	    bl.files, bl.bytes, bl.priority,                                                                                      
@@ -538,7 +345,7 @@ sub mergeBlockLatencyHistory
 
     # Now clean up all we have archived (will also cascade deletion of file-level entries)
 $sql = qq {
-    delete from t_status_block_latency where last_replica is not null
+    delete from t_dps_block_latency where last_replica is not null
 };
 
 ($q, $n) = execute_sql( $self, $sql, %p );
@@ -559,7 +366,7 @@ sub mergeStatusBlockLatency
     # as long as the block isn't complete at the destination.
     # Also update block and subs stats (files, bytes, block_close, priority)
     $sql = qq{
-	merge into t_status_block_latency l
+	merge into t_dps_block_latency l
 	using
 	  (select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create,
 	          decode(b.is_open,'n',b.time_update,'y',NULL) block_close, bd.priority,
@@ -593,7 +400,7 @@ sub mergeStatusBlockLatency
               from t_dps_block_dest bd
               join t_dps_block b on b.id = bd.block
               join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
-              left join t_status_block_latency bl on bl.destination=br.node and bl.block=br.block
+              left join t_dps_block_latency bl on bl.destination=br.node and bl.block=br.block
               where br.is_active = 'y' and bl.block is null and bd.time_complete is null 
 	  };
 
@@ -601,7 +408,7 @@ sub mergeStatusBlockLatency
     push @r, $n;
 
     my $blocksql = qq{
-	insert into t_status_block_latency 
+	insert into t_dps_block_latency 
 	    (time_update, destination, block, files, bytes, block_create, block_close,
                   priority, is_custodial, time_subscription, last_suspend)
 	    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -611,7 +418,7 @@ sub mergeStatusBlockLatency
     my %fargs;
 
     my $filesql = qq {
-	insert into t_status_file_arrive
+	insert into t_xfer_file_latency
 	    (time_update, destination, fileid, inblock, filesize, time_on_buffer, time_at_destination)
 	    select ?, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_create, xr.time_create
 	        from t_xfer_replica xr join t_xfer_file xf on xr.fileid=xf.id
@@ -649,12 +456,12 @@ sub mergeStatusBlockLatency
     # Update most recent replica if the block record is not complete; if a new replica was created
     # since the previous update, add the partial suspension time since the latest replica to the total suspension time
     $sql = qq{
-        merge into t_status_block_latency u
+        merge into t_dps_block_latency u
         using
           (select l.destination, l.block,
 	       max(fl.time_at_destination) latest_replica, l.partial_suspend_time
-	    from t_status_file_arrive fl
-              join t_status_block_latency l on l.destination = fl.destination
+	    from t_xfer_file_latency fl
+              join t_dps_block_latency l on l.destination = fl.destination
 	                                    and l.block = fl.inblock
             where l.last_replica is null
             group by l.destination, l.block, l.partial_suspend_time) d
@@ -674,15 +481,15 @@ sub mergeStatusBlockLatency
     # Update last replica and latency total for finished blocks
     # The formula is t_last_replica - t_soonest_possible_start - t_suspended
     $sql = qq{
-	merge into t_status_block_latency u
+	merge into t_dps_block_latency u
 	using
           (select l.destination, l.block,
 	       max(fl.time_at_destination) last_replica
              from t_dps_block_dest bd
 	     join t_dps_block b on b.id = bd.block
-	     join t_status_block_latency l on l.block = bd.block
+	     join t_dps_block_latency l on l.block = bd.block
 	                               and l.destination = bd.destination
-	     join t_status_file_arrive fl on fl.inblock=l.block
+	     join t_xfer_file_latency fl on fl.inblock=l.block
 	                               and fl.destination = l.destination
 	     where b.is_open = 'n'
                and bd.time_complete is not null
@@ -707,7 +514,7 @@ sub mergeStatusBlockLatency
     # Update current latency totals for unfinished blocks
     # The formula is now - t_soonest_possible_start - t_suspended
     $sql = qq{
-	update t_status_block_latency l
+	update t_dps_block_latency l
 	   set l.time_update = :now, 
                l.latency = :now - 
 	                   greatest(l.block_create,l.time_subscription)
