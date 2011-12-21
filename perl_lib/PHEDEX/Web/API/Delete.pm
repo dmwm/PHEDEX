@@ -65,20 +65,36 @@ sub invoke { return to_delete(@_); }
 sub to_delete
 {
     my ($core, %h) = @_;
-    &checkRequired(\%h, qw(data node));
-    my $nodes = [ arrayref_expand($h{node}) ];
 
     # defaults
     $h{rm_subscriptions} ||= 'y';
     $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
     $h{no_mail} ||= 'n';
-    foreach (qw(rm_subscriptions)) {
-	die PHEDEX::Web::Util::http_error(400,"'$_' must be 'y' or 'n'") unless $h{$_} =~ /^[yn]$/;
-    }
-    unless (grep $h{level} eq $_, qw(DATASET BLOCK)) {
-	die PHEDEX::Web::Util::http_error(400,"'level' must be either 'dataset' or 'block'");
+
+    # validation only, no to-upper
+    my %p;
+    eval
+    {
+        %p = &validate_params(\%h,
+                allow => [ qw ( node data level rm_subscriptions no_mail comments ) ],
+                required => [ qw (node data) ],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    data => { using => 'no_check' },
+                    level => { regex => qr/^BLOCK$|^DATASET$/ },
+                    rm_subscriptions => { using => 'yesno' },
+                    no_mail => { using => 'yesno' },
+                    comments => { using => 'no_check' }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
+    my $nodes = [ arrayref_expand($h{node}) ];
     # check authentication
     $core->{SECMOD}->reqAuthnCert();
     my $auth = $core->getAuth();

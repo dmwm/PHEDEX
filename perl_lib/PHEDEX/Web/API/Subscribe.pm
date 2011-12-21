@@ -74,9 +74,7 @@ sub invoke { return subscribe(@_); }
 sub subscribe
 {
     my ($core, %args) = @_;
-    &checkRequired(\%args, qw(data node group));
-    die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
-    # default values for options
+
     $args{priority} ||= 'low';
     $args{move} ||= 'n';
     $args{static} ||= 'n';
@@ -85,19 +83,43 @@ sub subscribe
     $args{level} ||= 'DATASET'; $args{level} = uc $args{level};
     $args{no_mail} ||= 'n';
 
+    # validation only, no to-upper
+    my %p;
+    eval
+    {
+        %p = &validate_params(\%args,
+                allow => [ qw ( node data level priority move static custodial group time_start request_only no_mail comments ) ],
+                required => [ qw ( data node group ) ],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    data => { using => 'no_check' },
+                    level => { regex => qr/^BLOCK$|^DATASET$/ },
+                    priority => { using => 'priority', multiple => 1 },
+                    move => { using => 'yesno' },
+                    static => { using => 'yesno' },
+                    custodial => { using => 'yesno' },
+                    group => { using => 'text' },
+                    time_start => { using => 'time' },
+                    request_only => { using => 'yesno' },
+                    no_mail => { using => 'yesno' },
+                    comments => { using => 'no_check' },
+                    dummy => { using => 'no_check' }
+                }
+        );
+    };
+    if ($@)
+    {
+        PHEDEX::Web::Util::http_error(400,$@);
+    }
+                
+    die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
+    # default values for options
     # check values of options
     my %priomap = ('high' => 0, 'normal' => 1, 'low' => 2);
     die PHEDEX::Web::Util::http_error(400,"unknown priority, allowed values are 'high', 'normal' or 'low'") 
 	unless exists $priomap{$args{priority}};
     $args{priority} = $priomap{$args{priority}}; # translate into numerical value
-
-    foreach (qw(move static custodial request_only)) {
-	die PHEDEX::Web::Util::http_error(400,"'$_' must be 'y' or 'n'") unless $args{$_} =~ /^[yn]$/;
-    }
-
-    unless (grep $args{level} eq $_, qw(DATASET BLOCK)) {
-	die PHEDEX::Web::Util::http_error(400,"'level' must be either 'dataset' or 'block'");
-    }
 
     # check authentication
     if ( ! ($core->{SECMOD}->isSecure() &&

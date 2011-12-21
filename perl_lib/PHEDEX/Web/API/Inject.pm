@@ -117,8 +117,27 @@ use URI::Escape;
 sub inject
 {
   my ($core,%args) = @_;
+  my %p;
+  eval
+  {
+      %p = &validate_params(\%args,
+              allow => [ qw( node data strict ) ],
+              required => [ qw( data node ) ],
+              spec =>
+              {
+                  node => { using => 'node' },
+                  data => { using => 'no_check' },
+                  strict => { regex => qr/^[01]$/ },
+                  dummy => { using => 'no_check' }
+              }
+      );
+  };
+  if ($@)
+  {
+      return PHEDEX::Web::Util::http_error(400,$@);
+  }
+
   $args{data} = uri_unescape($args{data});
-  &checkRequired(\%args, 'node');
 
   my ($auth,$node,$nodeid,$result,$stats,$strict);
   $core->{SECMOD}->reqAuthnCert();

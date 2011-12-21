@@ -19,6 +19,8 @@ PHEDEX::Web::API::PreviewRequestData - get detailed information about a request 
  type           'xfer' or 'delete'. Used to analyse possible warning or error conditions.
  node		destination node names, can be multiple
  static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (growing)
+ is_move        'y' or 'n', if the data is subscribed and is a move or not
+ is_custodial   'y' or 'n', if the data is subscribed and is custodial or not
  time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
  dbs            which DBS the data is expected to be in
 
@@ -96,9 +98,29 @@ sub invoke { return previewrequestdata(@_); }
 sub previewrequestdata {
   my ($core,%params) = @_;
   my ($type,$response);
-
-  checkRequired(\%params,qw(data type));  
-  if ( $@ ) { die PHEDEX::Web::Util::http_error(400,$@); }
+  my %p;
+  eval
+  {
+      %p = &validate_params(\%params,
+              allow => [ qw( data type node static is_move is_custodial time_start dbs ) ],
+              required => [ qw( data type ) ],
+              spec =>
+              {
+                  data => { using => 'no_check' },
+                  type => { using => 'request_type' },
+                  node => { using => 'node', multiple => 1 },
+                  static => { using => 'yesno' },
+                  is_move => { using => 'yesno' },
+                  is_custodial => { using => 'yesno' },
+                  time_start => { using => 'time' },
+                  dbs => { using => 'text' }
+              }
+      );
+  };
+  if ($@)
+  {
+      return PHEDEX::Web::Util::http_error(400,$@);
+  }
 
   if ( !ref($params{data}) ) {
     $params{data} = [ $params{data} ];

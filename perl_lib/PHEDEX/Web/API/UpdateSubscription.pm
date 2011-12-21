@@ -81,6 +81,7 @@ Update user_group, priority and/or suspend_until of a existing subscription
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
+use PHEDEX::Web::Util;
 
 # mapping format for the output
 my $map = {
@@ -157,13 +158,30 @@ sub invoke { return update_subscription(@_); }
 sub update_subscription
 {
     my ($core, %h) = @_;
+    my %p;
 
     $h{block}   = uri_unescape($h{block})   if $h{block};
     $h{dataset} = uri_unescape($h{dataset}) if $h{dataset};
-    # convert parameter keys to upper case
-    foreach ( qw / dataset block node group priority suspend_until / )
+
+    eval
     {
-      $h{uc $_} = delete $h{$_} if exists($h{$_});
+        %p = &validate_params(\%h,
+                uc_keys => 1,
+                allow => [ qw / dataset block node group priority suspend_until / ],
+                spec =>
+                {
+                    dataset => { using => 'dataset', multiple => 1 },
+                    block => { using => 'block_*', multiple => 1 },
+                    node => { using => 'node', multiple => 1 },
+                    group => { using => 'text', multiple => 1 },
+                    priority => { using => 'priority', multiple => 1 },
+                    suspend_until => { using => 'time' }
+                }
+        );
+    };
+    if ($@)
+    {
+        return PHEDEX::Web::Util::http_error(400,$@);
     }
 
     # check authentication
@@ -173,7 +191,7 @@ sub update_subscription
         die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed\n");
     }
 
-    my $r = PHEDEX::Web::SQL::updateSubscription($core, %h);
+    my $r = PHEDEX::Web::SQL::updateSubscription($core, %p);
 
     # separate DATASET and BLOCK
     my (@dataset, @block);

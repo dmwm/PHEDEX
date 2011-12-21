@@ -45,15 +45,30 @@ sub invoke { return updateRequest(@_); }
 sub updateRequest
 {
   my ($core, %args) = @_;
-
-  &checkRequired(\%args, qw(request node decision));
+  my %p;
+  eval
+  {
+      %p = &validate_params(\%args,
+              allow => [ qw( decision request node comments ) ],
+              required => [ qw( decision request node comments ) ],
+              spec =>
+              {
+                  decision => { regex => qr/^approve$|^disapprove$/ },
+                  request => { using => 'pos_int' },
+                  node => { using => 'node', multiple => 1 },
+                  comments => { using => 'no_check' }
+              }
+      );
+  };
+  if ($@)
+  {
+      return PHEDEX::Web::Util::http_error(400,$@);
+  }
 
   # check values of options
   die PHEDEX::Web::Util::http_error(400,"unknown decision, allowed values are 'approve' or 'disapprove'") 
     unless $args{decision} =~ m%^(approve|disapprove)$%;
   $args{uc($args{decision})} = 1;
-
-  die PHEDEX::Web::Util::http_error(400,"Request-ID not numeric") unless $args{request} =~ m%^\d+$%;
 
   # check authentication
   $core->{SECMOD}->reqAuthnCert();
