@@ -82,6 +82,7 @@ our %COMMON_VALIDATION =
  'link_status' => sub { $_[0] eq 'ok' || $_[0] eq 'deactivated' || $_[0] eq 'to_excluded' || $_[0] eq 'from_excluded' || $_[0] eq 'to_down' || $_[0] eq 'from_down' ? 1 : 0 },
  'link_kind' => sub { $_[0] eq 'WAN' || $_[0] eq 'Local' || $_[0] eq 'Staging' || $_[0] eq 'Migration' ? 1 : 0 },
  'request_type' => sub { $_[0] eq 'xfer' || $_[0] eq 'delete' ? 1 : 0 },
+ 'no_ckeck' => sub { 1 }, # use with care
 );
 
 # Validates parameters using Param::Validate, along with a few
