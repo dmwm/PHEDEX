@@ -19,7 +19,6 @@ no strict 'refs';
 use PHEDEX::Core::Loader;
 use Data::Dumper;
 use Getopt::Long;
-use PHEDEX::Core::Catalogue ( qw / lfn2pfn /);
 
 sub _init
 {
@@ -109,12 +108,10 @@ sub AUTOLOAD
 
 sub Command
 {
-  my ($self,$call,$file,$tfc) = @_[0..3];
-  # Do lfn2pfn conversion right here before the system call.
-  my $pfn=$tfc->lfn2pfn($file, $self->Protocol);
+  my ($self,$call,$file) = @_;
   my ($h,$r,@opts,$env,$cmd);
   return unless $h = $self->{COMMANDS}{$call};
-  @opts = ( @{$h->{opts}}, $pfn );
+  @opts = ( @{$h->{opts}}, $file );
   $env = $self->{ENV} || '';
   $cmd = "$env $h->{cmd} @opts";
   print "Prepare to execute $cmd\n" if $self->{DEBUG};
@@ -123,7 +120,7 @@ sub Command
   close CMD or return;
   if ( $self->{COMMANDS}{$call}->can('parse') )
   {
-    $r = $self->{COMMANDS}{$call}->parse($self,$r,$pfn)
+    $r = $self->{COMMANDS}{$call}->parse($self,$r,$file)
   }
   return $r;
 }
