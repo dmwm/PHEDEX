@@ -481,7 +481,12 @@ sub auth_help_msg
 
     $msg .= "If you think you have the necessary rights in SiteDB ".
 	"and are $login_msg but you are still ".
-	"having problems with this page you may <a href='$contact_mail'>contact the PhEDEx developers</a>.  ";
+	"having problems with this page, try this:".
+	"<ul style='text-align:left'>".
+	"<li>Verify that <a href='https://cmsweb.cern.ch/auth/trouble'>you are known to SiteDB</a></li>".
+	"<li>If you are, then verify that <a href='/phedex/datasvc/perl/prod/auth'>you have the correct authorisation</a></li>".
+	"<li>If both those conditions are satisfied, and you still get this message, please <a href='$contact_mail'>contact the PhEDEx developers</a>, and include the results from those tests.</li>".
+	"</ul>  ";
 
     return $msg;
 }
@@ -2370,8 +2375,8 @@ sub generate
   {
       $$self{LOGIN_MESSAGE} = 
 	  "<p>Sign in ".
-	  "<a href='" . $self->myurl("secure" => 1) . "'>via Cert</a> or ".
-	  "<a href='" . $self->myurl("secure" => 1, "SecModPwd" => 1) . "'>via Password</a>".
+	  "<a href='" . $self->myurl("secure" => 1) . "'>via Cert</a>".
+#	  " or <a href='" . $self->myurl("secure" => 1, "SecModPwd" => 1) . "'>via Password</a>".
 	  "</p>";
   }
   my $login_state = $$self{SECMOD}->getAuthnState();
