@@ -363,7 +363,7 @@ sub initSecurity
   my $secmod = new PHEDEX::Web::FrontendAuth({%args});
   if ( ! $secmod->init($self) )
   {
-      die("cannot initialise security module: " . $secmod->getErrMsg());
+      die "cannot initialise security module\n";
   }
   $self->{SECMOD} = $secmod;
 
