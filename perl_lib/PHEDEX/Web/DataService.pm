@@ -48,7 +48,7 @@ sub handler
 {
     local $| = 1;
     my $r = shift;
-    # warn "environment: ", join(' ', map { "$_=$ENV{$_}\n\n" } keys %ENV), "\n";
+ 
     my $service = PHEDEX::Web::DataService->new(REQUEST_HANDLER=>$r);
     my $service_path = $service->{CONFIG}{SERVICE_PATH};
     ($service->{PATH_INFO} = $r->uri()) =~ s%^$service_path%%;
@@ -157,7 +157,8 @@ sub invoke
 				    CACHE_CONFIG => $config->{CACHE_CONFIG} || {},
 				    SECMOD_CONFIG => $config->{SECMOD_CONFIG},
 				    AUTHZ => $config->{AUTHZ},
-                                    REQUEST_HANDLER => $self->{REQUEST_HANDLER}
+                                    REQUEST_HANDLER => $self->{REQUEST_HANDLER},
+                                    HEADERS_IN => $self->{REQUEST_HANDLER}->headers_in(),
 				    );
   };
   if ($@) {
