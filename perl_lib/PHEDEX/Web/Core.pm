@@ -79,9 +79,8 @@ use strict;
 use base 'PHEDEX::Core::DB';
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Timing;
-use CMSWebTools::SecurityModule::Oracle;
+use PHEDEX::Web::FrontendAuth;
 use PHEDEX::Web::Util;
-#use PHEDEX::Web::Cache; # TW
 use PHEDEX::Web::Format;
 use HTML::Entities; # for encoding XML
 use Digest::MD5;
@@ -101,10 +100,10 @@ our (%params);
 	    DEBUG => 0,
 	    CONFIG_FILE => undef,
             CONFIG => undef,
-# TW	    CACHE_CONFIG => undef,
 	    SECMOD_CONFIG => undef,
 	    AUTHZ => undef,
-            REQUEST_HANDLER => undef
+            REQUEST_HANDLER => undef,
+	    HEADERS_IN => undef,
 	    );
 
 # A map of API calls to data sources
@@ -138,8 +137,6 @@ sub new
     my $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Web::API' );
     my $module = $loader->Load($self->{CALL});
     $self->{API} = $module;
-
-# TW    $self->{CACHE} = PHEDEX::Web::Cache->new( %{$self->{CACHE_CONFIG}} );
 
     return $self;
 }
@@ -213,10 +210,8 @@ sub call
     $t1 = &mytimeofday();
     &process_args(\%args);
 
-    my $obj; # TW = $self->getData($self->{CALL}, %args);
+    my $obj;
     my $stdout = '';
-# TW    if ( ! $obj )
-# TW    {
       my $api = $self->{API};
       my $result = eval {
 	if ( $self->{CONFIG}{TRAP_WARNINGS} )
@@ -287,7 +282,6 @@ sub call
             }
             $t2 = &mytimeofday();
             my $duration = $self->getCacheDuration() || 0;
-# TW            $self->{CACHE}->set( $self->{CALL}, \%args, $obj, $duration ); # unless $args{nocache};
     # wrap the object in a 'phedex' element with useful metadata
             $obj->{stdout}->{'$t'} = $stdout if $stdout;
             $obj->{instance} = $self->{INSTANCE};
@@ -328,28 +322,7 @@ sub call
           &PHEDEX::Web::Format::error(*STDOUT, $format, "Error when making call '$self->{CALL}':  $message");
 	  return;
       }
-# TW    }
 }
-
-# TW deprecated
-# Cache controls
-#sub getData
-#{
-#    my ($self, $name, %h) = @_;
-#    my ($t1,$t2,$data);
-#
-#    return undef unless exists $data_sources->{$name};
-#
-#    $t1 = &mytimeofday();
-#    $data = $self->{CACHE}->get( $name, \%h );
-#    return undef unless $data;
-#    $t2 = &mytimeofday();
-#    warn "got '$name' from cache in ", sprintf('%.6f s', $t2-$t1), "\n" if $self->{DEBUG};
-#
-#    return $data;
-#}
-
-
 
 # Returns the cache duration for a API call.
 sub getCacheDuration
@@ -386,23 +359,9 @@ sub initSecurity
       $args{DBNAME} = $dbparam->{DBH_DBNAME};
       $args{DBUSER} = $dbparam->{DBH_DBUSER};
       $args{DBPASS} = $dbparam->{DBH_DBPASS};
-      $args{LOGLEVEL} = ($config->{SECMOD_LOGLEVEL} || 3);
-      $args{REVPROXY} = $config->{SECMOD_REVPROXY} if $config->{SECMOD_REVPROXY};
-      # practically, no self sign-up
-      $args{SIGNUP_HANDLER} = sub {
-          die "authentication check failed:  user not registered in SiteDB\n"
-          };
-      # disable the password form, too
-      $args{PWDFORM_HANDLER} = sub {
-          die "authentication check failed:  user not registered in SiteDB\n"
-          };
-      # and disable the defaultReqcertHandler
-      $args{REQCERT_FAIL_HANDLER} = sub {
-        die &PHEDEX::Web::Util::http_error(401,'You are not authorised, perhaps you have not presented a valid certificate?');
-      };
   }
-  my $secmod = new CMSWebTools::SecurityModule::Oracle({%args});
-  if ( ! $secmod->init() )
+  my $secmod = new PHEDEX::Web::FrontendAuth({%args});
+  if ( ! $secmod->init($self) )
   {
       die("cannot initialise security module: " . $secmod->getErrMsg());
   }
