@@ -10,7 +10,7 @@ our $TESTING = 0;
 our $TESTING_MAIL = undef;
 our $DBS_LOOKUP = undef;
 
-use CMSWebTools::SecurityModule::Oracle;
+use PHEDEX::Web::FrontendAuth;
 use PHEDEX::Core::SQL;
 use Data::Dumper;
 use POSIX qw(SIGALRM);
@@ -2295,24 +2295,23 @@ sub generate
   my $signout_url = $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1);
 
   # Fire up the security module
-  $$self{SECMOD}->setPwdHandler($passwd_url);
-  $$self{SECMOD}->setSignupHandler($signup_url);
-  $$self{SECMOD}->setReqCertFailHandler($signup_url);
-  $$self{SECMOD}->setCallerURL($caller_url);
+# TW
+# $$self{SECMOD}->setPwdHandler($passwd_url);
+# $$self{SECMOD}->setSignupHandler($signup_url);
+# $$self{SECMOD}->setReqCertFailHandler($signup_url);
+# $$self{SECMOD}->setCallerURL($caller_url);
 
 # Instead of calling SECMOD->init directly, trap errors with a timeout.
-# $$self{SECMOD}->init();
-  my $SIGALRM = 13; # kludge :-(
-  my $mask      = POSIX::SigSet->new($SIGALRM);
+  my $mask      = POSIX::SigSet->new(&POSIX::SIGALRM);
   my $action    = POSIX::SigAction->new(sub { die "my private alarm" }, $mask);
   my $oldaction = POSIX::SigAction->new();
-  POSIX::sigaction($SIGALRM, $action, $oldaction );
+  POSIX::sigaction(&POSIX::SIGALRM, $action, $oldaction );
   eval {
       alarm 10;
       $$self{SECMOD}->init();
       alarm 0;
   };
-  POSIX::sigaction($SIGALRM, $oldaction); # restore original
+  POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
   if ( $@ and $@ =~ /my private alarm/ ) {
     my $feedbackurl =
       "mailto:$$self{CONFIG}{FEEDBACK_MAIL}?subject="
@@ -7983,7 +7982,6 @@ use List::Util qw(max);
 our $INDEX = { LIST => 1, ORDER => 2, TITLE => "Subscriptions",
 	       LINK_TITLE => "Explore subscriptions" };
 
-our $TW = 1;
 sub new
 {
   my $proto = shift;
@@ -7997,7 +7995,6 @@ sub output_page
 {
   my ($self) = @_;
 
-if ( $TW ) { # TW
   my ($h,$page,$href,$url);
   $url = $self->myurl();
   $url =~ s%\?.*$%%;
@@ -8025,414 +8022,9 @@ if ( $TW ) { # TW
     return;
   }
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
-} else { # TW
-  my (@admin_auth,%admin_opts,%admin_grps);
-  if (!$$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ||
-      !($$self{SECMOD}->hasRole('Admin', 'phedex') ||
-	$$self{SECMOD}->hasRole('Data Manager') ||
-	$$self{SECMOD}->hasRole('Site Admin') ||
-	$$self{SECMOD}->hasRole('PADA Admin'))) {
-      $self->auth_help_popup('suspend/unsuspend subscriptions'
-			     => ['anyauth', 'Data Manager', 'Site Admin', 'PADA Admin', 'Admin'],
-			     'change priorities of subscriptions and manage groups'
-			     => ['cert', 'Data Manager', 'Admin']);
-      }
-
-  %admin_opts = ('suspend' => 'Suspend subscriptions',
-		 'unsuspend' => 'Unsuspend subscriptions',
-		 'priorityhi' => 'Make high priority',
-		 'prioritymd' => 'Make normal priority',
-		 'prioritylo' => 'Make low priority',
-		 'groupchange' => 'Change group'
-		 );
-  %admin_grps = ('suspend' => ['suspend', 'unsuspend'],
-		 'priority' => ['priorityhi', 'prioritymd', 'prioritylo', 'groupchange']);
-  if ($$self{SECMOD}->isAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
-      $$self{SECMOD}->hasRole('Data Manager') ||
-      $$self{SECMOD}->hasRole('Site Admin') ||
-      $$self{SECMOD}->hasRole('PADA Admin'))) {
-      push @admin_auth, 'suspend';
-  }
-
-  if ($$self{SECMOD}->isCertAuthenticated() &&
-      ($$self{SECMOD}->hasRole('Admin', 'phedex') ||
-      $$self{SECMOD}->hasRole('Data Manager'))) {
-      push @admin_auth, 'priority';
-  }
-
-  if (param('subsaction')) {
-      $self->update_subscriptions();
-  }
-
-  print { $$self{CONTENT} } (new Web25::OptsPane)->link("Show Options");
-  my $q =$self->data_subscriptions();
-  my @cols = qw(SELECT REQUEST ITEM_LEVEL ITEM_NAME NODE_NAME PRIORITY IS_CUSTODIAL USER_GROUP
-		NODE_FILES NODE_BYTES PCT_FILES PCT_BYTES
-		IS_MOVE TIME_SUSPEND_UNTIL ITEM_OPEN
-		TIME_CREATE TIME_COMPLETE TIME_DONE TIME_CLEAR
-		);
-  my $th =
-  { SELECT => 'Select',
-    REQUEST => 'Request',
-    ITEM_LEVEL => 'Data Level',
-    ITEM_NAME => 'Data Item',
-    NODE_NAME => 'Node',
-    PRIORITY => 'Priority',
-    IS_CUSTODIAL => 'Custodial',
-    USER_GROUP => 'Group',
-    NODE_FILES => 'Node Files',
-    NODE_BYTES => 'Node Bytes',
-    PCT_FILES => '% Files',
-    PCT_BYTES => '% Bytes',
-    IS_MOVE => 'Replica/Move',
-    TIME_SUSPEND_UNTIL => 'Active/Suspended',
-    ITEM_OPEN => 'Item Open',
-    TIME_CREATE => 'Time Create',
-    TIME_COMPLETE => 'Time Complete',
-    TIME_DONE => 'Time Done',
-    TIME_CLEAR => 'Time Move Auth.'
-    };
-
-  # Special data formats
-  my $now = time();
-  my $reqpage = $self->myurl(page => "Request::View");
-  my $df = 
-  { 
-      REQUEST => sub { return defined $_[0] ? "<a href='${reqpage}?request=$_[0]'>$_[0]</a>" : 'unknown'; },
-      PRIORITY => sub { if ($_[0] == 0) { return 'High'; }
-			if ($_[0] == 1) { return 'Normal'; }
-			if ($_[0] == 2) { return 'Low'; } },
-      IS_CUSTODIAL => \&yesno,
-      IS_MOVE => sub { return $_[0] eq 'y' ? 'Move' : 'Replica'; },
-      TIME_SUSPEND_UNTIL => sub { 
-	  my $susp_time = $_[0];
-	  if (!defined $susp_time || $susp_time <= $now) { return 'Active'; }
-	  elsif ($susp_time == 9_999_999_999)            { return 'Suspended Forever'; }
-	  else { return 'Suspended Until  '.&formatTime($susp_time, 'stamp') }
-      },
-      ITEM_OPEN => \&yesno,
-      TIME_CREATE =>   sub { &formatTime($_[0], 'stamp') || '&#8211;' },
-      TIME_COMPLETE => sub { &formatTime($_[0], 'stamp') || '&#8211;' },
-      TIME_DONE =>     sub { &formatTime($_[0], 'stamp') || '&#8211;' },
-      TIME_CLEAR => sub { 
-	  my $clear_time = $_[0];
-	  if (!defined $clear_time) { return '-'; }
-	  elsif ($clear_time == 9_999_999_999)            { return 'Pending approval'; }
-	  else { return &formatTime($clear_time, 'stamp') }
-      },
-      NODE_FILES => \&format_num,
-      NODE_BYTES => sub { &format_size($_[0]) },
-      PCT_FILES => \&format_percent,
-      PCT_BYTES => \&format_percent
-  };
-
-  # Special cell formats
-  my $cf = 
-  { 
-      TIME_SUSPEND_UNTIL => sub { return defined $_[0] && $_[0] >= $now ? 'alarm' : ''; },
-      PCT_FILES => sub { return defined $_[0] && $_[0] == 1 ? '' : 'bad' },
-      PCT_BYTES => sub { return defined $_[0] && $_[0] == 1 ? '' : 'bad' }
-  };
-
-  # Pseudo columns
-  my %pseudo;
-  %pseudo = (
-    'SELECT'    => sub { "<input type='checkbox' name='s_value' value='$_[1]->{ITEM_LEVEL}:$_[1]->{ITEM_NAME}:$_[1]->{NODE_NAME}'/>" },
-    'PCT_FILES' => sub { my $x = $_[1]->{PERCENT_FILES}; defined($x) ? $x/100 : undef; }, # This is cheating a bit
-    'PCT_BYTES' => sub { my $x = $_[1]->{PERCENT_BYTES}; defined($x) ? $x/100 : undef; }, # ...so is this...
-  );
-
-  # Filters
-  my @reqfilter   = grep(/^\d+$/, split(/\s*,*\s+/, param('reqfilter') || ''));
-  my $itemfilter  = param('filter') || '.*';
-  my $priofilter  = param('priority') || 'any';
-  my $suspfilter  = param('suspended') || 'any';
-  my $custfilter  = param('custodial') || 'any';
-  my $groupfilter = param('group') || 'any';
-
-  my $filterform = join('', "<p><i>Subscription data filters</i></p>",
-			"<div class='nice'>",
-			"<label>Requests: </label>",
-			textfield(-name=>'reqfilter', -default=>'', -size=>30, -class=>'labeled'), "<br>",
-			"<label>Data items: </label>",
-			textfield(-name=>'filter', -default=>$itemfilter, -size=>30, -class=>'labeled'), "<br>",
-			"<label>Priority: </label>",
-			popup_menu(-name=>'priority', -values=>['any', 'high', 'normal', 'low'],
-				   -default=>$priofilter, -class=>'labeled'), "<br/>",
-			"<label>Active/Suspended: </label>",
-			popup_menu(-name=>'suspended', -values=>['any', 'active', 'suspended'],
-				   -default=>$suspfilter, -class=>'labeled'), "<br/>",
-			"<label>Custodial: </label>",
-			popup_menu(-name=>'custodial', 
-				   -values=>['any', 'y', 'n'],
-				   -labels=>{ 'any' => 'any',
-					      'y' => 'custodial',
-					      'n' => 'non-custodial' },
-				   -default=>$custfilter, -class=>'labeled'), "<br/>",
-			"<label>Group: </label>",
-			popup_menu(-name=>'group', -values=>['any', @{$$self{GROUP_LIST}}],
-				   -default=>$groupfilter, -class=>'labeled'), "<br/>",
-
-			"</div>"
-			);
-
-  my $filter = 
-  { 
-      REQUEST => sub { return 1 if !@reqfilter;
-		       return 0 if @reqfilter && !defined $_[0];
-		       return 1 if grep $_[0] == $_, @reqfilter; },
-      ITEM_NAME => sub { $_[0] =~ /$itemfilter/ ? 1 : 0 },
-      PRIORITY => sub { ( $priofilter eq 'any'
-			  || ($priofilter eq 'high'   && $_[0] == 0)
-			  || ($priofilter eq 'normal' && $_[0] == 1)
-			  || ($priofilter eq 'low'    && $_[0] >= 2)) ? 1 : 0 },
-      TIME_SUSPEND_UNTIL => sub { return 1 if $suspfilter eq 'any';
-				  return 1 if $suspfilter eq 'active' && !defined $_[0];
-				  return 1 if $suspfilter eq 'suspended' && defined $_[0];
-				  return 0;
-			      },
-      IS_CUSTODIAL => sub { return 1 if $custfilter eq 'any';
-			    return 1 if $custfilter eq $_[0];
-			    return 0;
-			},
-      USER_GROUP => sub { return 1 if $groupfilter eq 'any';
-			  return 1 if defined $_[0] && $groupfilter eq $_[0];
-			  return 1 if !defined $_[0] && $groupfilter eq 'undefined';
-			  return 0;
-		      }
-  };
-
-  if (!@admin_auth) {
-      delete $pseudo{SELECT};
-      delete $df->{SELECT};
-      delete $th->{SELECT};
-      @cols = grep !/SELECT/, @cols;
-  }
-
-  my $dbtable = new Web25::DBTable;
-  $dbtable->set_filehandle($$self{CONTENT});
-  $dbtable->set_tablecols(\@cols);
-  $dbtable->set_tablehead($th);
-  $dbtable->set_tableclass('data');
-  $dbtable->set_stripeclass('stripe');
-  $dbtable->set_dataformats($df);
-  $dbtable->set_cellformats($cf);
-  $dbtable->set_filters($filter);
-  $dbtable->add_pseudocolumn($_, $pseudo{$_}) foreach (keys %pseudo);
-
-  my @querycols;
-  foreach (@cols) {
-      my $default = $_ =~ /PCT_FILES|ITEM_OPEN|TIME_COMPLETE|TIME_DONE/ ? 0 : 1;
-      push @querycols, [ ($$th{$_}, 'col', $_,  $default) ];
-  }
-  $dbtable->set_querycols( @querycols );
-
-  if (@admin_auth) {
-      print { $$self{CONTENT} }
-      "<p><label>Selections:</label>\n",
-      "<input type='button' value='Select all' onclick=\"select_all('subsform', 's_value', '1')\"/>\n",
-      "<input type='button' value='Select none' onclick=\"select_all('subsform', 's_value', '0')\"/>\n",
-      "</p>\n";
-
-      my $target = $self->myurl();
-      print { $$self{CONTENT} }
-      "<form id='subsform' method='post' action='$target'>",
-      # Save view parameters
-      $self->saveform(),
-      "<input type='hidden' name='priority' value='$priofilter'/>",
-      "<input type='hidden' name='suspended' value='$suspfilter'/>",
-      "<p>\n",
-      "<label>Actions:</label>\n",
-      "<select class='labeled' name='subsaction' onchange='return hideshowdropdown(this)'>\n";
-      foreach my $auth (@admin_auth) {
-	  foreach my $opt (@{$admin_grps{$auth}}) {
-	      print { $$self{CONTENT} } 
-	      "<option value='$opt'>$admin_opts{$opt}</option>\n";
-	  }
-      }
-      print { $$self{CONTENT} }
-      "</select>\n",
-      popup_menu(-name=>'groupchange', -values=>$$self{GROUP_LIST}, -id=>'groupchange', -style=>'display:none'),
-      "<input type='submit' value='Update'/>\n",
-      "</p>\n"
-      ;
-  }
-
-  my $nrows = $dbtable->output($q);
-
-  if (@admin_auth) {
-      print { $$self{CONTENT} } "</form>\n";
-  }
-
-  if ($nrows == 0) {
-      $self->alert("No data exists for your selected nodes.");
-  }
-
-  my $optspane = new Web25::OptsPane;
-  
-  my $target = $self->myurl();
-  $optspane->set_form_target($target);
-
-  my $form = "";
-
-  # Save everything except what this form controls
-  $form = $self->saveform(qw(node filter));
-  $optspane->add_hidden($form);
-
-  $form = $dbtable->columns_form();
-  $optspane->add_tab('Columns', $form);
-
-  # Node Selection tab
-  $form = $self->node_form();
-  $optspane->add_tab('Nodes Shown', $form);
-
-  # Data filters tab
-  $optspane->add_tab('Filters', $filterform);
-
-  print { $$self{OPTIONS} } $optspane->output();
-} # TW
 }
 
-sub output_options_form { }
-
-sub update_subscriptions
-{
-if ( !$TW ) {
-    my ($self) = @_;
-
-    my %auth_nodes = $self->fetch_nodes(web_user_auth => 'Data Manager||Site Admin||PADA Admin', with_ids => 1);
-    
-    my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
-
-    my %groups = $self->fetch_groups(with_ids=>1);
-    my $group_name = param('groupchange');
-    my $group_id = $group_name eq 'undefined' ? undef : $groups{$group_name};
-
-    my $update_sql = qq[ update t_dps_subscription set _VAR_ = :val
-			  where _ITEM_ = :id and destination = :dest ];
-
-    my $action_list;
-    $action_list = 
-    {
-	suspend => { desc => ' suspended',
-		     var  => 'SUSPEND_UNTIL',
-		     val  => 9_999_999_999 },
-    	unsuspend => { desc => ' unsuspended',
-		       var => 'SUSPEND_UNTIL',
-		       val  => undef },
-	priorityhi => { desc => ' set to high priority',
-			var => 'PRIORITY',
-			val => 'high' },
-	prioritymd => { desc => ' set to normal priority',
-			var => 'PRIORITY',
-			val => 'normal' },
-	prioritylo => { desc => ' set to low priority',
-			var => 'PRIORITY',
-			val => 'low' },
-	groupchange => { desc => " assigned to group $group_name",
-			 var => 'GROUP',
-			 val => $group_name }
-    };
-
-    # Execute the update
-    my $action = $action_list->{param('subsaction')};
-
-    my $n_changed = 0;
-    my %warn_hash;  # to keep unique warnings
-
-    foreach (param('s_value')) {
-	my ($level, $item, $destination) = split /:/;
-        my $permission;
-         $permission = $auth_nodes{$destination}; # Check permission
-	if ( $permission ) { # Check permission
-	    $update_sql =~ s/_VAR_/$$action{var}/;
-	    $update_sql =~ s/_ITEM_/$level/;
-
-	    my @rv;
-	    eval("use PHEDEX::Web::SQL");
-	    my %h = (
-		      NODE => $destination,
-		      $level => $item,
-#		      $action->{var} => $action->{val}
-		    );
-	    my $p = &PHEDEX::Web::SQL::getDataSubscriptions($self,%h);
-	    $h{$action->{var}} = $action->{val};
-	    my $r = &PHEDEX::Web::SQL::updateSubscription($self,%h);
-	    my ($before,$after);
-	    foreach my $rr ( @{$r} ) {
-	      if ( uc $rr->{LEVEL} eq uc $level ) {
-	        $after = $rr->{$action->{var}};
-                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($after) ) { $after = 'undef'; }
-	      }
-	    }
-	    foreach my $pp ( @{$p} ) {
-	      if ( uc $pp->{LEVEL} eq uc $level ) {
-	        $before = $pp->{$action->{var}};
-                if ( $action->{var} eq 'SUSPEND_UNTIL' && !defined($before) ) { $before = 'undef'; }
-	      }
-	    }
-	    if ( $before ne $after ) { $n_changed++; }
-#	    if ( (!defined($v) && !defined($action->{val}) ) || ( $v == $action->{val} ) ) { $n_changed++; }
-#            if ( !defined($action->{val}) && $action->{var} == 'SUSPEND_UNTIL' && $v == 9_999_999_999 ) { $n_changed++; }
-	} else {
-	    my $warn = "<p class='alarm'>Sorry, you don't have permission to update ".
-		"$all_nodes{$destination} subscriptions!</p>";
-	    $warn_hash{$warn} = 1;
-	}
-    }
-
-    $$self{DBH}->commit();
-
-    # Print scoldings
-    print { $$self{CONTENT} } keys %warn_hash;
-
-    # Report the changes
-    if ($n_changed) {
-	print { $$self{CONTENT} } "<p class='note'>$n_changed data items $action->{desc}!</p>";
-    } else {
-	print { $$self{CONTENT} } "<p class='alarm'>Nothing was changed!<p>";
-    }
-} # TW
-}
-
-sub data_subscriptions
-{
-if ( !$TW ) {
-  my ($self) = @_;
-  $self->fetch_nodes();
-  my @node_ids = map { $$_{IS_SHOWN} ? $$_{ID} : '' } @{$$self{NODE_LIST}};
-  @node_ids = grep /\d+/, @node_ids;
-
-  my ($node_list, %node_binds) = &dbinlist('node', @node_ids );
-  my ($sql,$p,$q);
-
-  eval ("require PHEDEX::Web::SQL");
-  die $@ if $@;
-  my %h = ( COLLAPSE => 'y' );
-  my @node_names = map { $_->{NAME} } @{$$self{NODE_SHOWN}};
-  if ( @node_names ) {
-    $h{NODE} = \@node_names;
-  }
-  if ( $self->{PARAMS}{reqfilter} ) {
-    $h{REQUEST} = $self->{PARAMS}{reqfilter};
-  }
-  ($sql,$p) = PHEDEX::Web::SQL::getDataSubscriptionsQuery($self, %h );
-  $sql =~ s%level%item_level%g;
-  $sql =~ s% open,% item_open,%g;
-  $sql =~ s%name node%name node_name%g;
-  $sql =~ s%desc,\s+n.name%desc, node_name%g;
-  $sql =~ s% move,% ,%g;
-  $sql =~ s% custodial,% ,%g;
-  $sql =~ s% "group",% user_group,%g;
-  $sql =~ s%'block'%'BLOCK'%g;
-  $sql =~ s%'dataset'%'DATASET'%g;
-  $sql =~ s% suspend_until% time_suspend_until%g;
-  $q = &dbexec($$self{DBH}, $sql, %{$p});
-
-  return $q;
-} # TW
-}
+#sub output_options_form { }
 
 1;
 
@@ -9539,7 +9131,6 @@ sub new
   return $self;
 }
 
-use Data::Dumper;
 sub output
 {
   my ($self) = @_;
@@ -9691,11 +9282,9 @@ sub runme
 	  $args{DBNAME} = $$dbparam{DBH_DBNAME};
 	  $args{DBUSER} = $$dbparam{DBH_DBUSER};
 	  $args{DBPASS} = $$dbparam{DBH_DBPASS};
-	  $args{LOGLEVEL} = ($$config{SECMOD_LOGLEVEL} || 3);
-	  $args{STRICT_SIGNUP} = ($$config{SECMOD_STRICT_SIGNUP} || 0);
-	  $args{REVPROXY} = $$config{SECMOD_REVPROXY} if $$config{SECMOD_REVPROXY};
+          $args{HEADERS_IN} = $r->headers_in();
       }
-      $$page{SECMOD} = new CMSWebTools::SecurityModule::Oracle({%args});
+      $page->{SECMOD} = new PHEDEX::Web::FrontendAuth({%args});
   }
 
   # Generate the page
