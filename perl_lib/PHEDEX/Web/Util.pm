@@ -11,6 +11,7 @@ use HTML::Entities; # for encoding XML
 use Params::Validate qw(:all);
 use Carp;
 use Clone;
+use Data::Dumper;
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw ( process_args validate_params checkRequired auth_nodes );
@@ -445,14 +446,17 @@ sub auth_nodes
 	}
     }
     return unless @abilities; # quick exit if the ability is unknown
-   
+
     # Check the roles and authorization for matches to the configuration
     my $roles = $self->{SECMOD}->getRoles();
     my $authn = $self->{SECMOD}->getAuthnState();
     my $global_scope = 0; # if true, then the user has global scope power for this ability
     my @auth_sites;       # a list of sites that the user has site scope power for this ability
     my @auth_nodes;       # a list of node regexps for which the user has node scope power for this ability
+
     foreach my $a (@abilities) {
+	$a->{ROLE}  = lc $a->{ROLE};
+	$a->{GROUP} = lc $a->{GROUP};
 	# Check authentication
 	next unless  ( ($a->{AUTHN} eq '*' && ($authn eq 'cert' || $authn eq 'passwd') ) ||
 		       ($a->{AUTHN} eq 'passwd' && ($authn eq 'cert' || $authn eq 'passwd') ) ||
