@@ -15,10 +15,12 @@ to authenticate using username and password, see L<below|"Password authenticatio
 
 =head2 Options
 
-  ability       authorization ability.  If passed then the nodes (from TMDB)
-                that the user is allowed to use "ability" for are returned.
-  require_cert  if passed then the call will die if the user is not
-                authenticated by certificate
+  ability        authorization ability.  If passed then the nodes (from TMDB)
+                 that the user is allowed to use "ability" for are returned.
+  require_cert   if passed then the call will die if the user is not
+                 authenticated by certificate
+  require_passwd if passed then the call will die if the user is not
+                 authenticated by password
 
 =head2 Output
 
@@ -82,6 +84,7 @@ sub auth
   my ($core,%args) = @_;
 
   $core->{SECMOD}->reqAuthnCert() if $args{require_cert};  
+  $core->{SECMOD}->reqAuthnPasswd() if $args{require_passwd};  
   my $auth = $core->getAuth($args{ability});
 
   # get $human_name
