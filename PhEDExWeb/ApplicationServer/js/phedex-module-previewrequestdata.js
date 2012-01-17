@@ -133,7 +133,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
           if ( Row.comment ) {
             showComment = true;
-            if (Row.comment.match(/^Wrong DBS \("(.+)"\)$/) ) {
+            if (Row.comment.match(/Wrong DBS \("[^"]+"\)/) ) {
               wrongDBS[RegExp.$1] = 1;
               wrongDBSCount++
             }
