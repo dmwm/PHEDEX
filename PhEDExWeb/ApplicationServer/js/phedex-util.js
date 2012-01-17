@@ -308,7 +308,7 @@ PHEDEX.Util.DBSDefaults = {
   tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
   tbedii:'test',
   tony:'test'
-},
+}
 
 /**
 * This is the prototype for the string trim function. This is to trim the string 
