@@ -49,8 +49,8 @@ sub process_args
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
- 'xml'		=> qr|^/[A-Za-z0-9\-_\#\.\'"\/:= \t<>]*$|,
- 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.\*]*$|,
+ 'xml'		=> qr|^/[A-Za-z0-9\-_\#\.\'"/:= \t<>]*$|,
+ 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.\*/]*$|,
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
  'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
  'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^[*%]$!,
