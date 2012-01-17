@@ -56,7 +56,7 @@ sub updateRequest
                   decision => { regex => qr/^approve$|^disapprove$/ },
                   request => { using => 'pos_int' },
                   node => { using => 'node', multiple => 1 },
-                  comments => { using => 'no_check' }
+                  comments => { using => 'text' }
               }
       );
   };

@@ -93,7 +93,7 @@ sub subscribe
                 spec =>
                 {
                     node => { using => 'node', multiple => 1 },
-                    data => { using => 'no_check' },
+                    data => { using => 'dataitem_*' },
                     level => { regex => qr/^BLOCK$|^DATASET$/ },
                     priority => { using => 'priority', multiple => 1 },
                     move => { using => 'yesno' },
@@ -103,8 +103,8 @@ sub subscribe
                     time_start => { using => 'time' },
                     request_only => { using => 'yesno' },
                     no_mail => { using => 'yesno' },
-                    comments => { using => 'no_check' },
-                    dummy => { using => 'no_check' }
+                    comments => { using => 'text' },
+                    dummy => { using => 'text' }
                 }
         );
     };

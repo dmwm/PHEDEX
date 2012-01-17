@@ -126,9 +126,9 @@ sub inject
               spec =>
               {
                   node => { using => 'node' },
-                  data => { using => 'no_check' },
+                  data => { using => 'xml' },
                   strict => { regex => qr/^[01]$/ },
-                  dummy => { using => 'no_check' }
+                  dummy => { using => 'text' }
               }
       );
   };

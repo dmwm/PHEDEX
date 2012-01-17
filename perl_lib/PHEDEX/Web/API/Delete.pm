@@ -81,11 +81,11 @@ sub to_delete
                 spec =>
                 {
                     node => { using => 'node', multiple => 1 },
-                    data => { using => 'no_check' },
+                    data => { using => 'dataitem_*' },
                     level => { regex => qr/^BLOCK$|^DATASET$/ },
                     rm_subscriptions => { using => 'yesno' },
                     no_mail => { using => 'yesno' },
-                    comments => { using => 'no_check' }
+                    comments => { using => 'text' }
                 }
         );
     };
