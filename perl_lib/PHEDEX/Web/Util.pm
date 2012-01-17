@@ -49,6 +49,8 @@ sub process_args
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
+ 'xml'		=> qr|^/[A-Za-z0-9\-_\#\.\'"\/:= \t<>]*$|,
+ 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.\*]*$|,
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
  'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
  'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^[*%]$!,
@@ -74,7 +76,7 @@ our %COMMON_VALIDATION =
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
  'create_dest'	=> qr/^(T\d[A-Za-z0-9_]*|-1|\d+)$/, # Name, ID, or -1. Ugh...
  'create_source'=> qr%^(-1|(/[^/\#]+){3}|\d+)$%, # name, ID, or -1. Blearg!
- 'text'         => qr/^[A-Z,a-z,0-9,_\-\. *]*$/,
+ 'text'         => qr/^[A-Za-z0-9_\-\., *]*$/,
  'priority'     => sub { $_[0] eq 'high' || $_[0] eq 'normal' || $_[0] eq 'low' ? 1 : 0 },
  'transfer_state' => sub { $_[0] eq 'assigned' || $_[0] eq 'exported' || $_[0] eq 'transferring' || $_[0] eq 'done' ? 1 : 0 },
  'view_level'   => sub { $_[0] eq 'dbs' || $_[0] eq 'dataset' || $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
@@ -83,7 +85,7 @@ our %COMMON_VALIDATION =
  'link_status' => sub { $_[0] eq 'ok' || $_[0] eq 'deactivated' || $_[0] eq 'to_excluded' || $_[0] eq 'from_excluded' || $_[0] eq 'to_down' || $_[0] eq 'from_down' ? 1 : 0 },
  'link_kind' => sub { $_[0] eq 'WAN' || $_[0] eq 'Local' || $_[0] eq 'Staging' || $_[0] eq 'Migration' ? 1 : 0 },
  'request_type' => sub { $_[0] eq 'xfer' || $_[0] eq 'delete' ? 1 : 0 },
- 'no_ckeck' => sub { 1 }, # use with care
+ 'no_check' => sub { 1 }, # use with care
 );
 
 # Validates parameters using Param::Validate, along with a few
