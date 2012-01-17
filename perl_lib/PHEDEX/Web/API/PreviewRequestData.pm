@@ -19,8 +19,8 @@ PHEDEX::Web::API::PreviewRequestData - get detailed information about a request 
  type           'xfer' or 'delete'. Used to analyse possible warning or error conditions.
  node		destination node names, can be multiple
  static         'y' or 'n', for 'static' or 'growing' subscription.  Default is 'n' (growing)
- is_move        'y' or 'n', if the data is subscribed and is a move or not
- is_custodial   'y' or 'n', if the data is subscribed and is custodial or not
+ move           'y' or 'n', if the data is subscribed and is a move or not
+ custodial      'y' or 'n', if the data is subscribed and is custodial or not
  time_start     starting time for dataset-level request. Default is undefined (all blocks in dataset)
  dbs            which DBS the data is expected to be in
 
@@ -66,7 +66,7 @@ you can call both with exactly the same data-structure.
   bytes		number of bytes at this node for this item
   node		node-name for this replica of this item
   is_move	y, n, or null, if the data is subscribed and is a move or not
-  is_custodial	y, n, or null, if the data is subscribed and is custodial or not
+  custodial	y, n, or null, if the data is subscribed and is custodial or not
   is_subscribed y or n, if the data is subscribed or not
   time_start	if not null, only data after this time (epoch seconds) is subscribed
   user_group	if subscribed, gives the user-group the data belongs to
@@ -96,13 +96,18 @@ problem is something that will definitely cause the request to fail.
 sub duration { return 0; }
 sub invoke { return previewrequestdata(@_); }
 sub previewrequestdata {
-  my ($core,%params) = @_;
-  my ($type,$response);
-  my %p;
+  my ($core,%params_in) = @_;
+  my ($type,$response,%p,%params);
+
+# We allow all sorts of parameters, for compatibility with the Subscribe API. But we only
+# validate and use the ones we explicitly want. So pick them out here
+  foreach ( qw / data type node static move custodial time_start dbs / ) {
+    $params{$_} = $params_in{$_} if exists $params_in{$_};
+  }
   eval
   {
       %p = &validate_params(\%params,
-              allow => [ qw( data type node static is_move is_custodial time_start dbs ) ],
+              allow => [ qw( data type node static move custodial time_start dbs ) ],
               required => [ qw( data type ) ],
               spec =>
               {
@@ -110,8 +115,8 @@ sub previewrequestdata {
                   type => { using => 'request_type' },
                   node => { using => 'node', multiple => 1 },
                   static => { using => 'yesno' },
-                  is_move => { using => 'yesno' },
-                  is_custodial => { using => 'yesno' },
+                  move => { using => 'yesno' },
+                  custodial => { using => 'yesno' },
                   time_start => { using => 'time' },
                   dbs => { using => 'text' }
               }
@@ -133,7 +138,7 @@ sub previewrequestdata {
 	     $params{time_start},
              @{$params{data}});
  
-  if ( !defined($params{is_move}) ) { $params{is_move} = 'n'; }
+  if ( !defined($params{move}) ) { $params{move} = 'n'; }
   my @table;
   my $problems = 0;
   my %subscribed_sources;
@@ -169,7 +174,7 @@ sub previewrequestdata {
           push @comments, 'Known to PhEDEx in multiple DBSes';
           $warn = 1;
         }
-        if ($$res{LEVEL} eq 'BLOCK' && $params{is_move} eq 'y') {
+        if ($$res{LEVEL} eq 'BLOCK' && $params{move} eq 'y') {
           push @comments, "Move request includes block-level data.  Only moves of datasets are supported";
           $warn = 1; $row_problem = 1;
         }
@@ -187,7 +192,7 @@ sub previewrequestdata {
         }
 
         # Check subscriptions if a move or custodial request was made
-        if ($params{is_move} eq 'y') {
+        if ($params{move} eq 'y') {
           my @subsc_t1s;
           foreach my $s (grep $$_{IS_SUBSCRIBED}, values %$src_info) {
             if ($$s{NODE} =~ /^T1/ && !grep $_ eq $$s{NODE}, @nodes) {
@@ -206,7 +211,7 @@ sub previewrequestdata {
           }
         }
 
-        if (exists($params{is_custodial}) && $params{is_custodial} eq 'y') {
+        if (exists($params{custodial}) && $params{custodial} eq 'y') {
           my @custodial = grep ($$_{IS_CUSTODIAL} eq 'y', values %$src_info);
           if (@custodial) {
             push @comments, "Data already custodial for ".
