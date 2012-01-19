@@ -187,8 +187,7 @@ PHEDEX.Nextgen.Util = function() {
              "<p>See the <a href='http://lcg.web.cern.ch/lcg/registration.htm'>LCG registration page</a> to find help on obtaining a grid certificate.</p>" +
              "<p>Authorization roles are handled by <a href='/sitedb/sitedb/sitelist/'>SiteDB.</a> If you're logged in, you can click on your name (top-right of this page) to see which PhEDEx roles you have</p>" +
              "<p>If you think you have the necessary rights in SiteDB and are logged in " +
-             "<a href='/phedex/tony/Data::Subscriptions'>with your certificate</a> or " +
-             "<a href='/phedex/tony/Data::Subscriptions?SecModPwd=1'>password</a> but you are still having problems with this page you may " +
+             "with your certificate or password but you are still having problems with this page you may " +
              "<a href='mailto:cms-phedex-admins@cern.ch'>contact the PhEDEx developers</a>.</p>";
       return str;
     },
