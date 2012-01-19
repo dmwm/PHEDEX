@@ -69,8 +69,9 @@ body {
   padding: 0 1em 0;
 }
 .phedex-login {
-  text-align:right;
+/*   text-align:right; */
   float: right;
+  padding: 0 150px 0 0;
 }
 .phedex-login-status {
   text-align:right;
