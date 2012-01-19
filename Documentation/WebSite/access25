@@ -2290,16 +2290,8 @@ sub generate
   my $db = $$self{DBID};
 
   my $signup_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::SignUp');
-  my $passwd_url = $self->myurl('fullurl' => 1, 'secure' => 1, 'page'=>'Security::Password');
   my $caller_url = $self->myurl('fullurl' => 1);
-  my $signout_url = $self->myurl("secure" => 1, "fullurl" => 1, "SecModLogout" => 1);
-
-  # Fire up the security module
-# TW
-# $$self{SECMOD}->setPwdHandler($passwd_url);
-# $$self{SECMOD}->setSignupHandler($signup_url);
-# $$self{SECMOD}->setReqCertFailHandler($signup_url);
-# $$self{SECMOD}->setCallerURL($caller_url);
+  my $signout_url = $self->{CONFIG}{SSL_SERVER_ROOT} . '/auth/logout';
 
 # Instead of calling SECMOD->init directly, trap errors with a timeout.
   my $mask      = POSIX::SigSet->new(&POSIX::SIGALRM);
@@ -2367,17 +2359,10 @@ sub generate
 	$name_display = "<a href='$signup_url'>Unknown certificate</a>";
 	$$self{LOGIN_MESSAGE} =
 	    "<p>$name_display</p>";
-#	    "<p>$name_display | <a href='$signout_url'>Sign out</a></p>";
     }
   }
-  else
-  {
-      $$self{LOGIN_MESSAGE} = 
-	  "<p>Sign in ".
-	  "<a href='" . $self->myurl("secure" => 1) . "'>via Cert</a>".
-#	  " or <a href='" . $self->myurl("secure" => 1, "SecModPwd" => 1) . "'>via Password</a>".
-	  "</p>";
-  }
+  else { $$self{LOGIN_MESSAGE} = ''; }
+
   my $login_state = $$self{SECMOD}->getAuthnState();
   if    ($login_state eq 'cert')   { $login_state = 'Logged in via Certificate'; }
   elsif ($login_state eq 'passwd') { $login_state = 'Logged in via Password'; }
@@ -2892,69 +2877,6 @@ sub output
 	}
     }
 
-}
-
-1;
-
-######################################################################
-package Web25::Security::Password;
-use strict; use warnings;
-use base "Web25::Page";
-use CGI qw(:standard unescape);
-import Web25::Common;
-our $INDEX = { LIST => 0, ORDER => 0, NOLOGIN => 1, TITLE => "Password Sign-In" };
-
-sub new
-{
-  my $proto = shift;
-  my $class = ref($proto) || $proto;
-  my $self = $class->SUPER::new(@_);
-  bless $self, $class;
-  return $self;
-}
-
-sub output
-{
-    my ($self) = @_;
-    # prepare URL of the caller
-# TW Suppress the caller_url completely to prevent XSS attacks
-#    my $caller_url = param('caller_url');
-#    if ($caller_url) {
-#	$caller_url =~ s,^http://[^/]+,$$self{CONFIG}{SSL_SERVER_ROOT},;
-#    } else {
-#	$caller_url = $$self{CONFIG}{SSL_SERVER_ROOT};
-#    }
-    my $caller_url = $$self{CONFIG}{SSL_SERVER_ROOT} . $$self{CONFIG}{SERVICE_PATH};
-
-    # prepare URL to destroy the cookie and browse unauthenticated
-    my $signout_url = $caller_url;
-    $signout_url .= ($signout_url =~ /\?.+$/ ? '' : '?').($signout_url =~ /\?[^=]+=.+$/ ? '&' : '')."SecModLogout=1";
-
-    my $msg = param('msg');
-    if ($msg !~ /^([\w\d_:\. ]*)$/) { die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n"; } # allowed characters in a message
-
-    if ( $msg ne 'reauthentication' &&
-         $msg ne 'invalid cookie' &&
-         $msg ne 'password authentication required' &&
-         $msg ne 'Client certificate rejected by web server' ) {
-         die "Illegal value for 'msg' parameter: \"$msg\" Spitting the dummy\n";
-    }
-    if ($msg eq 'reauthentication') {
-	my $here = "<a href='$signout_url'>here</a>";
-	$msg = "You were authenticated via password, but your session ".
-	    "has expired.  Enter your username/password again to ".
-	    "reauthenticate, or go $here to browse the site logged out.";
-    }
-
-    print {$$self{CONTENT}} 
-    "<h1>Password Sign-In</h1><br/>",
-    ($msg ? "<p class='blocktext' style='color:red'>$msg</p>" : ''),
-    "<p>Sign in with your CMS SiteDB/Hypernews password</p>",
-    "<form class='nice' method='post' action='$caller_url'>",
-    "<label>Username</label>",textfield(-name=>'SecModLogin', -class=>'labeled'),"<br/>",
-    "<label>Password</label>",password_field(-name=>'SecModPwd', -class=>'labeled'),"<br/>",
-    "<label>&nbsp;</label>", submit(-name=>'Submit', -value=>'submit'),
-    "</form>";
 }
 
 1;
