@@ -7946,7 +7946,7 @@ sub output_page
   print {$self->{CONTENT}} "<div id='Data::Subscriptions'></div>";
 }
 
-#sub output_options_form { }
+sub output_options_form { }
 
 1;
 
