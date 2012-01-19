@@ -23,7 +23,6 @@ PHEDEX.Login = function(sandbox) {
         _logincomp = {},    //Login component main HTML element
         _username = '',     //Login user name
         _authData = null,   //Response received from auth data service call
-        _closebtn = null,   //The close button in YUI overlay
         _bVisible = false,  //Stores the current status of overlay if it is visible or not
         _user_role_info = null, //The YUI overlay object that has user role information
         _username_id = 'phedex-login-usrname'; //Used for positioning overlay while display
@@ -77,7 +76,7 @@ PHEDEX.Login = function(sandbox) {
             if (roleLen > 0) {
                 if (!_user_role_info) {
                     //Create a new YUI overlay to show user role information
-                    _user_role_info = new Yw.Overlay("_user_role_info", { context: [_username_id, "tl", "bl", ["beforeShow", "windowResize"]], visible: false, width: "300px" });
+                    _user_role_info = new Yw.Overlay("_user_role_info", { context: [_username_id, 'tl', 'bl', ["beforeShow", "windowResize"]], visible: false, width: "300px" });
                     log('The user role information YUI overlay is created', 'info', 'login');
                 }
                 else {
@@ -97,15 +96,9 @@ PHEDEX.Login = function(sandbox) {
 
                 }
                 overlayBody.innerHTML += '<br />' + _logincomp.username.title;
-                var closebtn = document.createElement('div');
-                closebtn.id = 'phedex-login-info-close';
-                overlayBody.appendChild(closebtn);
                 _user_role_info.setBody(overlayBody);   //Fill the YUI overlay body with user role information table
                 _user_role_info.render(document.body);  //Render the YUI overlay
                 log('The user role information YUI overlay is rendered', 'info', 'login');
-                //Create a button within YUI overlay to allow user to hide YUI overlay (on clicking the button)
-                _closebtn = new Yw.Button({ label: "Close", id: "buttonClose", container: 'phedex-login-info-close', onclick: { fn: _closeOverlay} });
-                log('The user role information YUI overlay body content close button is created', 'info', 'login');
             }
         }
     };
@@ -146,16 +139,11 @@ PHEDEX.Login = function(sandbox) {
         if (_authData.state == 'cert') { //Authentication done using certificate
           _logincomp.username.title = ' logged in via certificate';
           _cur_state = 'usepassword';
-          _updateLoginButton('Login with Password');
         }
         else if (_authData.state == 'passwd') { //Authentication done using password
           _logincomp.username.title = ' logged in via password';
           _cur_state = 'logout';
-          YuD.addClass(_logincomp.btnsubmit, 'phedex-invisible');
-          _updateLoginButton('Logout');
         }
-        YuD.addClass(_logincomp.logininput, 'phedex-invisible'); //Hide the login input elements
-        log('Updated valid user login authentication info on UI', 'info', 'login');
         _formUserInfo(); //Form the overlay object if authentication succeeded
         _sbx.notify('authData',_authData);
       }
@@ -176,9 +164,7 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _loginCallFailure = function(data) {
-        _resetLoginState(); //Set the mode to password state if authentication is failed
-        banner('Unable to login. Please try again.', 'error');
-        log('Unable to login because of communication failure to make data service call', 'error', 'login');
+        banner('Unable to login. Please try again later.', 'error');
     };
 
     var _eventSuccess = new YuCE('login success'),
@@ -199,39 +185,6 @@ PHEDEX.Login = function(sandbox) {
             _user_role_info.hide();
             _bVisible = false;
         }
-        if (_cur_state == 'login') {
-            if (!_logincomp.inputname.value) {
-                banner('Please enter user name', 'warn');
-                return;
-            }
-            if (!_logincomp.inputpwd.value) {
-                banner('Please enter password', 'warn');
-                return;
-            }
-            var _pwd = _logincomp.inputpwd.value;
-            _username = _logincomp.inputname.value;
-            log('Auth data service call is made for password based authentication', 'info', 'login');
-            PHEDEX.Datasvc.Call({ method: 'post', api: 'auth', args: { SecModLogin: _username, SecModPwd: _pwd }, success_event: _eventSuccess, failure_event: _eventFailure });
-        }
-        else if (_cur_state == 'logout') {
-            _resetLoginState();
-            log('Login components are reset as user clicked logout', 'info', 'login');
-        }
-        else if (_cur_state == 'usepassword') {
-            _resetLoginState();
-            _username = '';
-            log('Login components are reset as user clicked use password', 'info', 'login');
-        }
-    };
-
-    /**
-    * @method _updateLoginButton
-    * @description This updates the text of the button based on current authentication mode.
-    * @param {Object} event is the event data.
-    * @private
-    */
-    var _updateLoginButton = function(status) {
-        _logincomp.objBtn.set('label', status);
     };
 
     /**
@@ -241,7 +194,6 @@ PHEDEX.Login = function(sandbox) {
     */
     var _loginUsingCert = function() {
         _cur_state = 'certlogin';
-        log('Auth data service call is made for certificate based authentication', 'info', 'login');
         PHEDEX.Datasvc.Call({ method:'post', api:'auth', success_event:_eventSuccess, failure_event:_eventFailure });
     };
 
@@ -251,12 +203,6 @@ PHEDEX.Login = function(sandbox) {
     * @private
     */
     var _resetLoginState = function() {
-        YuD.removeClass(_logincomp.logininput, 'phedex-invisible'); //Show the login elements
-        _logincomp.inputpwd.value = '';
-        _logincomp.inputpwd.focus();
-        if (!_logincomp.inputname.value) { _logincomp.inputname.focus(); }
-        _logincomp.username.innerHTML = '';
-        _updateLoginButton('Login');
         _cur_state = 'login';
     };
 
@@ -270,21 +216,8 @@ PHEDEX.Login = function(sandbox) {
         var logincomp = PxU.makeChild(divlogin, 'div', { id: 'phedex-nav-login', className: 'phedex-login' });
         logincomp.username = PxU.makeChild(logincomp, 'a', { className: 'phedex-login-username phedex-link' });
         logincomp.username.id = _username_id;
-        logincomp.logininput = PxU.makeChild(logincomp, 'span', { className: 'phedex-invisible' });
-//         var btnlogout = PxU.makeChild(logincomp, 'span');
-        var labelname = PxU.makeChild(logincomp.logininput, 'span');
-        labelname.innerHTML = 'User Name: ';
-        logincomp.inputname = PxU.makeChild(logincomp.logininput, 'input', { type: 'text' });
-        labelname = PxU.makeChild(logincomp.logininput, 'span');
-        labelname.innerHTML = '&nbsp;Password: ';
-        logincomp.inputpwd = PxU.makeChild(logincomp.logininput, 'input', { type: 'password' });
-        logincomp.btnsubmit = PxU.makeChild(logincomp, 'span');
         YuE.addListener(logincomp.username, 'click', _showOverlay, this, true);
-        var btnlogout = PxU.makeChild(logincomp, 'span');
-        logincomp.objBtn = new Yw.Button({ label:'Login', id:'buttonOK', container:logincomp.btnsubmit, onclick:{ fn: _onLogin} });
-        logincomp.objLogoutBtn = new Yw.Button({ label:'Logout', id:'buttonLogout', container:btnlogout, onclick:{ fn: _redirectPage} });
         _logincomp = logincomp;
-        log('The login component is created', 'info', 'login');
     };
 
     /**
@@ -323,9 +256,6 @@ PHEDEX.Login = function(sandbox) {
           if (uri.match(/^https:/)) {
             _initLoginComponent(el);
             _loginUsingCert();
-          } else {
-            logincomp = PxU.makeChild(el, 'div', { id: 'phedex-nav-login', className: 'phedex-login' }),
-            objBtn = new Yw.Button({ label: 'Login', id: 'buttonLogin', container: logincomp, onclick: { fn: _redirectPage} });
           }
           this.selfHandler = function(obj) {
             return function(ev,arr) {
@@ -349,6 +279,7 @@ PHEDEX.Login = function(sandbox) {
       };
     }
     Yla(this, _construct(), true);
+    PHEDEX.Util.protectMe(this);
 };
 PHEDEX.Core.onLoaded('login');
 log('loaded...','info','login');
