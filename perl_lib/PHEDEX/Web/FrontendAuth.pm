@@ -9,16 +9,6 @@ sub new {
   my $self = {};
   bless ($self, $class);
 
-# TW
-  if(exists $options->{CONFIG}) {
-    $self->{CONFIG} = $options->{CONFIG};
-    die "Config file specified, but don't know how to read one anymore!\n";
-#    my $confopts = $self->_readConfigFile();
-#    while( my ($opt,$val) = each %$confopts) {
-#      $options->{$opt} = $val if ! exists $options->{$opt};
-#    }
-  }
-
   my @settable = qw(DBNAME DBUSER DBPASS HEADERS_IN);
   $self->{DBNAME} = undef;
   $self->{DBUSER} = undef;
