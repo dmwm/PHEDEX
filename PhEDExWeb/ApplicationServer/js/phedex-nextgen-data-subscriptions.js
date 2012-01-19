@@ -179,11 +179,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
 //      User has no administrative rights. Add a link explaining why.
         var el = document.createElement('a'),
             auth = obj.auth,
-            container = dom.container,
+            container = Dom.get('phedex-options-control'), //dom.container,
             toggle, id=PxU.Sequence();
         el.id = 'phedex-help-anchor-'+id;
         el.href = '#';
-        el.innerHTML = 'Privileged Activities Help';
+        el.style.paddingLeft = '1em';
+        el.innerHTML = "Why can't I modify subscriptions?"; //Privileged Activities Help';
         container.appendChild(el);
         toggle = "var s = new PHEDEX.Sandbox(); s.notify('"+obj.id+"','Help','privilegedActivity');";
         obj.privilegedActivity = {
