@@ -117,7 +117,8 @@ the mapping
  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
       ELEMENT ::= KEY => VALUE
           KEY ::= identifier | identifier+KEY
-        VALUE ::= string | number | MAP
+        VALUE ::= string | number | MAP | [ string, TYPE ]
+         TYPE ::= know_type | code_reference
 
  * KEY could be a compound key made from multiple elements in above input
 
@@ -150,7 +151,8 @@ the mapping
 #  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
 #       ELEMENT ::= KEY => VALUE
 #           KEY ::= identifier | identifier+KEY
-#         VALUE ::= string | number | MAP
+#         VALUE ::= string | number | MAP | [ string, TYPE ]
+#          TYPE ::= known_types | code_reference
 # 
 #  output:
 # 
@@ -206,7 +208,7 @@ sub build_hash
                     }
                     else
                     {
-                        $output->{$key}->{$k} = $input->{$map->{$k}};
+                        $output->{$key}->{$k} = _get_value($input, $map->{$k});
                     }
                 }
             }
@@ -261,5 +263,42 @@ sub flat2tree
     }
     return hash2list($out);
 }
+
+# _get_value -- get value from $input->{$field} according to $field definition
+# allow map definition to include type conversion information
+sub _get_value
+{
+    my ($input, $field) = @_;
+
+    if (ref($field) eq 'ARRAY')
+    {
+        my $type = $field->[1];
+        $field = $field->[0];
+        return _format($input->{$field}, $type);
+    }
+    else
+    {
+        return $input->{$field};
+    }
+}
+
+# _format -- format according to $type
+sub _format
+{
+    my ($value, $type) = @_;
+
+    if (ref($type) eq 'CODE')
+    {
+        return &{$type}($value);
+    }
+    elsif ($type eq 'int')
+    {
+        return int($value);
+    }
+    else
+    {
+        return $value;
+    }
+};
 
 1;
