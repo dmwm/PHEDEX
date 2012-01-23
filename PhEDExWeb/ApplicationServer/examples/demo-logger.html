@@ -72,7 +72,11 @@ function logSomething() {
   level = levels[i];
   group = groups[j];
   msg = msg + k++;
+
   log(msg,level,group);
+  while ( Math.random() > 0.8 ) {
+    log(msg,level,group);
+  }
   setTimeout(logSomething,2000);
 }
 </script>
