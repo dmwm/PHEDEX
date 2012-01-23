@@ -138,8 +138,9 @@ PHEDEX.Logger = function() {
 
 //    Attempt to harvest any temporarily buffered log messages
       this.log = function(obj) {
+        var lastMsg='', lastLevel='', lastGroup='', lastCount=1;
         return function(str,level,group) {
-          var l = log2Server;
+          var l = log2Server, url;
           if ( typeof(str) == 'object' ) {
             try { str = err(str); } // assume it's an exception object!
             catch (ex) { str = 'unknown object passed to logger'; } // ignore the error if it wasn't an exception object...
@@ -155,10 +156,26 @@ PHEDEX.Logger = function() {
             l.level[level] = false;
             YuCookie.setSubs('PHEDEX.Logger.level',l.level);
           }
-          Ylog(str, level, group);
-          if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
-            var url = '/phedex/datasvc/log/'+level+'/'+group+'/'+str;
-            Yu.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
+          if ( lastMsg == str && lastGroup == group && lastLevel == level ) {
+            lastCount++;
+          } else {
+            if ( lastCount > 1 ) {
+              lastMsg = 'last message occurred '+lastCount+' times';
+              if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
+                url = '/phedex/datasvc/log/'+lastLevel+'/'+lastGroup+'/'+lastMsg;
+                Yu.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
+              }
+              lastCount = 1;
+              Ylog(lastMsg, lastLevel, lastGroup);
+            }
+            Ylog(str, level, group);
+            if ( ( level == 'error' || ( l.level[level] && l.group[group] ) ) && location.hostname == 'localhost' ) {
+              url = '/phedex/datasvc/log/'+level+'/'+group+'/'+str;
+              Yu.Connect.asyncRequest('GET', url, { onSuccess:function(){}, onFailure:function(){} } );
+            }
+            lastMsg   = str;
+            lastGroup = group;
+            lastLevel = level;
           }
         };
       }(this);
