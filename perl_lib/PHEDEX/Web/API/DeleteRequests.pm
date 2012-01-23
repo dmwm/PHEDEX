@@ -150,7 +150,7 @@ sub delete_request
                 {
                     request => { using => 'pos_int', multiple => 1 },
                     node => { using => 'node', multiple => 1 },
-                    limit => { using => 'pos_int', multiple => 1 },
+                    limit => { using => 'pos_int' },
                     create_since => { using => 'time' },
                     approval => { using => 'approval_state', multiple => 1 },
                     requested_by => { using => 'text', multiple => 1 }
