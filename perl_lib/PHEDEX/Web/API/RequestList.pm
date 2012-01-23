@@ -96,7 +96,7 @@ sub request_list
                 {
                     request => { using => 'pos_int', multiple => 1 },
                     group => { using => 'text', multiple => 1 },
-                    type => { using => 'request_type', multiple => 1 },
+                    type => { using => 'request_type' },
                     approval => { using => 'approval_state', multiple => 1 },
                     requested_by => { using => 'text', multiple => 1 },
                     decided_by => { using => 'text', multiple => 1 },
