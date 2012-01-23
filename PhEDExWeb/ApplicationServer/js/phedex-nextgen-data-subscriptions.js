@@ -60,6 +60,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           {
              custodiality:      'custodial',
             'active/suspended': 'suspended',
+            'replica/move':     'move',
              priority:          'priority',
              group:             'group'
           },
@@ -67,6 +68,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           {
             custodial:{custodial:'y', 'non-custodial':'n'},
             suspended:{suspended:'y', active:'n'},
+            move:{move:'y', replica:'n'},
            'created since':{'1 month':1, '2 months':2, '3 months':3, '6 months':6, '1 year':12, '2 years':24, forever:0} // months...
           },
         },
@@ -996,6 +998,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( state.custodial   ) { _f.custodial    = state.custodial; }
         if ( state.group       ) { _f.group        = state.group; }
         if ( state.suspended   ) { _f.suspended    = state.suspended; }
+        if ( state.move        ) { _f.move         = state.move; }
         if ( state.priority    ) { _f.priority     = state.priority; }
         if ( state.percent_min ) { _f.percent_min  = state.percent_min; }
         if ( state.percent_max ) { _f.percent_max  = state.percent_max; }
@@ -1260,6 +1263,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                     "<div class='phedex-clear-both' id='phedex-filterpanel-custodial'>custodiality</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-group'>group</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-active'>active/suspended</div>" +
+                    "<div class='phedex-clear-both' id='phedex-filterpanel-move'>replica/move</div>" +
                     "<div class='phedex-clear-both' id='phedex-filterpanel-priority'>priority</div>" +
                     "<div id='phedex-filterpanel-completion'>completion</div>" +
                     "<div id='phedex-filterpanel-create-since'>created since</div>" +
@@ -1323,6 +1327,21 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           default:          { _default = 'any';       break; }
         }
         this.filterButton('phedex-filterpanel-active',menu,_default);
+
+// Move/Replica...
+        menu = [
+          { text: 'any',     value: 'any' },
+          { text: 'move',    value: 'move' },
+          { text: 'replica', value: 'replica' }
+        ];
+        switch (_filter.move) {
+          case 'y':
+          case 'move':    { _default = 'move';    break; }
+          case 'n':
+          case 'replica': { _default = 'replica'; break; }
+          default:        { _default = 'any';     break; }
+        }
+        this.filterButton('phedex-filterpanel-move',menu,_default);
 
 // Custodial - dropdown (inc 'any')
         menu = [
