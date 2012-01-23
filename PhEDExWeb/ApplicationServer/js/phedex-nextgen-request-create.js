@@ -1025,8 +1025,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
       };
 // 'subscription_type' is not something we can expect the user to put into a URL. So allow the field-value names instead, asserted
 // to be true ('y') or false ('n'). Here we only examine the cases that cause the default to change. All illegal values are ignored
-      if ( this.params.static  == 'y' ) { this.subscription_type._default = 1; }
-      if ( this.params.growing == 'n' ) { this.subscription_type._default = 1; }
+      if ( this.params['static'] == 'y' ) { this.subscription_type._default = 1; }
+      if ( this.params.growing   == 'n' ) { this.subscription_type._default = 1; }
       this.makeControlRadio(this.subscription_type,form);
 
 // Re-evaluate
