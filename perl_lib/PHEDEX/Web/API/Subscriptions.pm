@@ -183,13 +183,13 @@ sub subscriptions
                     block => { using => 'block_*', multiple => 1 },
                     node => { using => 'node', multiple => 1 },
                     se => { using => 'text', multiple => 1 },
-                    create_since => { using => 'time', multiple => 1 },
-                    custodial => { using => 'yesno', multiple => 1 },
+                    create_since => { using => 'time' },
+                    custodial => { using => 'yesno' },
                     group => { using => 'text', multiple => 1 },
-                    move => { using => 'yesno', multiple => 1 },
+                    move => { using => 'yesno' },
                     priority => { using => 'priority', multiple => 1 },
-                    suspended => { using => 'yesno', multiple => 1 },
-                    collapse => { using => 'yesno', multiple => 1 },
+                    suspended => { using => 'yesno' },
+                    collapse => { using => 'yesno' },
                 }
         );
     };
