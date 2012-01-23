@@ -1012,6 +1012,7 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         label:'Site Custodial',
         map:{yes:'y', no:'n'}
       };
+      if ( this.params.custodial == 'y' ) { this.site_custodial._default = 0; }
       this.makeControlRadio(this.site_custodial,form);
 
 // Subscription type
@@ -1022,6 +1023,10 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         label:'Subscription Type',
         map:{'static':'y', growing:'n'}
       };
+// 'subscription_type' is not something we can expect the user to put into a URL. So allow the field-value names instead, asserted
+// to be true ('y') or false ('n'). Here we only examine the cases that cause the default to change. All illegal values are ignored
+      if ( this.params.static  == 'y' ) { this.subscription_type._default = 1; }
+      if ( this.params.growing == 'n' ) { this.subscription_type._default = 1; }
       this.makeControlRadio(this.subscription_type,form);
 
 // Re-evaluate
@@ -1045,6 +1050,9 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         label:'Transfer Type',
         map:{move:'y', replica:'n'}
       };
+// See subscription_type for the logic behind this
+      if ( this.params.move    == 'y' ) { this.transfer_type._default = 1; }
+      if ( this.params.replica == 'n' ) { this.transfer_type._default = 1; }
       this.makeControlRadio(this.transfer_type,form);
 
 // Priority
@@ -1054,6 +1062,13 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         help_text:'<p>Priority is used to determine which data items get priority when resources are limited.</p><p>Setting high priority does not mean your transfer will happen faster, only that it will be considered first if there is congestion causing a queue of data to build up.</p><p>Use <strong>low</strong> unless you have a good reason not to</p>',
         label:'Priority'
       };
+      if ( this.params.priority ) {
+        switch (this.params.priority) {
+          case 0: case 'high':   { this.priority._default = 0; break; }
+          case 1: case 'normal': { this.priority._default = 1; break; }
+          case 2: case 'low':    { this.priority._default = 2; break; }
+        }
+      }
       this.makeControlRadio(this.priority,form);
 
 // User group
@@ -1061,6 +1076,8 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
         _default:'<em>Choose a group</em>',
         help_text:'<p>The group which is requesting this data. Used for accounting purposes.</p><p>This field is now mandatory, whereas previously it could be left undefined.</p>'
       };
+// use 'initial', not '_default', so I can tell this is not the real default
+      if ( this.params.group ) { this.user_group.initial = this.params.group; }
       var user_group = this.user_group;
       el = document.createElement('div');
       Dom.addClass(el,'phedex-nextgen-form');
@@ -1094,7 +1111,6 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
             user_group.MenuButton.set('label', sText);
             user_group.value = sText;
             _sbx.notify(obj.id,'setValueFor','user_group');
-//             if ( obj.formFail ) { obj.Accept.set('disabled',false); obj.formFail=false; }
           };
           for (i in groupList ) {
             group = groupList[i];
@@ -1109,6 +1125,11 @@ PHEDEX.Nextgen.Request.Xfer = function(_sbx,args) {
                                     menu:  groupMenuItems,
                                     container: 'user_group_menu' });
           user_group.MenuButton.getMenu().cfg.setProperty('scrollincrement',5);
+          if ( user_group.initial ) {
+            user_group.MenuButton.set('label', user_group.initial);
+            user_group.value = user_group.initial;
+            _sbx.notify(obj.id,'setValueFor','user_group');
+          }
        }
       }(this);
       PHEDEX.Datasvc.Call({ api:'groups', callback:makeGroupMenu });
