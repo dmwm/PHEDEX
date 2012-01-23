@@ -111,7 +111,7 @@ sub previewrequestdata {
               required => [ qw( data type ) ],
               spec =>
               {
-                  data => { using => 'dataitem_*' },
+                  data => { using => 'dataitem_*', multiple => 1 },
                   type => { using => 'request_type' },
                   node => { using => 'node', multiple => 1 },
                   static => { using => 'yesno' },
