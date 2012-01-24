@@ -1444,7 +1444,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(_index||index)); };
         }(button,0);
       },
-      makeGroupMenu: function(el,menu,_default) {
+      makeGroupMenu: function(el,menu,_default,allowDeprecated) {
         var groups=this.groups, menu, button, i, id=PxU.Sequence();
         if ( typeof(el) == 'string' ) { el = Dom.get(el); }
         if ( !groups ) {
@@ -1457,7 +1457,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         if ( !menu ) { menu = []; }
         for (i in groups ) {
           group = groups[i];
-          if ( !group.name.match(/^deprecated-/) ) {
+          if ( allowDeprecated || !group.name.match(/^deprecated-/) ) {
             menu.push( { text:group.name, value:group.id } );
           }
         }
@@ -1490,7 +1490,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         var button, field;
         if ( !obj._default.group ) {
           field = 'phedex-filterpanel-ctl-group';
-          button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj._filter.group );
+          button = obj.makeGroupMenu(field, [{ text:'any', value:0 }], obj._filter.group, true );
           button.on('selectedMenuItemChange', obj.onSelectedMenuItemChange('group','filter'));
           obj._default.group = function(_button,index) {
             return function() { _button.set('selectedMenuItem',_button.getMenu().getItem(index||0)); };
