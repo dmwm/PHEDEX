@@ -170,11 +170,11 @@ sub update_subscription
                 allow => [ qw / dataset block node group priority suspend_until / ],
                 spec =>
                 {
-                    dataset => { using => 'dataset', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    group => { using => 'text', multiple => 1 },
-                    priority => { using => 'priority', multiple => 1 },
+                    dataset => { using => 'dataset' },
+                    block => { using => 'block_*' },
+                    node => { using => 'node' },
+                    group => { using => 'text' },
+                    priority => { using => 'priority' },
                     suspend_until => { using => 'time' }
                 }
         );
