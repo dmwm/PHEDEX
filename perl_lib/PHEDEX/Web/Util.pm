@@ -527,6 +527,9 @@ sub auth_nodes
 # The role 'Admin' need not be specified in web_user_auth.  If
 # the user is a Admin then all nodes are always returned.
 #
+# Following the switch to authentication via the frontend servers, all
+# role-matching is now done case-insensitive.
+#
 # Otherwise it returns from t_adm_node table, which contains all nodes.
 # The default behavior is to return an array of all nodes from t_adm_node.
 sub fetch_nodes
@@ -536,21 +539,21 @@ sub fetch_nodes
     my @auth_nodes;
     if (exists $args{web_user_auth} && $args{web_user_auth}) {
         my $roles = $$self{SECMOD}->getRoles();
-        my @to_check = split /\|\|/, $args{web_user_auth};
+        my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
-            if (grep $role eq $_, keys %{$roles}) {
+            if (grep lc $role eq $_, keys %{$roles}) {
                 $roles_ok = 1;
             }
         }
 
-        my $global_admin = (exists $$roles{'Admin'} &&
-                            grep $_ eq 'phedex', @{$$roles{'Admin'}}) || 0;
+        my $global_admin = (exists $$roles{'admin'} &&
+                            grep $_ eq 'phedex', @{$$roles{'admin'}}) || 0;
 
         # Special "global admin" role only if explicitly specified
-        $global_admin = 1 if (grep($_ eq 'PADA Admin', @to_check) &&
-                              exists $$roles{'PADA Admin'} &&
-                              grep($_ eq 'phedex', @{$$roles{'PADA Admin'}}));
+        $global_admin = 1 if (grep($_ eq 'pada admin', @to_check) &&
+                              exists $$roles{'pada admin'} &&
+                              grep($_ eq 'phedex', @{$$roles{'pada admin'}}));
 
         return unless ($roles && ($roles_ok || $global_admin));
 
@@ -563,13 +566,13 @@ sub fetch_nodes
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
                     foreach my $site (@{$$roles{$role}}) {
-                        $auth_sites{$site} = 1;
+                        $auth_sites{lc $site} = 1;
                     }
                 }
             }
             foreach my $node (keys %node_map) {
                 foreach my $site (keys %auth_sites) {
-                    push @auth_nodes, $node if $node_map{$node} eq $site;
+                    push @auth_nodes, $node if lc $node_map{$node} eq $site;
                 }
             }
 #           If not a global admin and no authorised sites, quit
@@ -587,6 +590,7 @@ sub fetch_nodes
             $nodes{$node} = $node_id;
         }
     }
+warn "Got nodes = " . Dumper( \%nodes );
     if (exists $args{with_ids} && $args{with_ids}) {
         return %nodes;
     } else {
