@@ -590,7 +590,6 @@ sub fetch_nodes
             $nodes{$node} = $node_id;
         }
     }
-warn "Got nodes = " . Dumper( \%nodes );
     if (exists $args{with_ids} && $args{with_ids}) {
         return %nodes;
     } else {
