@@ -116,14 +116,16 @@ sub getForename   { return (shift)->{USERFORENAME}; }
 sub getEmail      { return (shift)->{USEREMAIL}; }
 
 sub getRoles {
-  my $self = shift;
-  return $self->{ROLES} if $self->{ROLES};
+ my $self = shift;
+ return $self->{ROLES} if $self->{ROLES};
   my ($roles,$name,$group);
   foreach ( keys %{$self->{HEADER}} ) {
     next unless m%^cms-authz-(\S+)$%;
-    $name = $1;
-    $group = $self->{HEADER}{$_};
+    $name = lc $1;
+    $name =~ s%-% %g;
+    $group = lc $self->{HEADER}{$_};
     $group =~ s%^group:%%;
+    $group =~ s%^site:%%;
     $roles->{$name} = [] unless defined $roles->{$name};
     push @{$roles->{$name}}, $group;
   }
@@ -165,17 +167,18 @@ sub getUsersWithRoleForSite {
 # @params:  none
 # @returns:  hash of site names pointing to array of phedex nodes
 sub getPhedexNodeToSiteMap {
-    my ($self) = @_;
-    my $sql = qq { select n.name, s.name
-                     from phedex_node n
-                     join site s on s.id = n.site };
-    my $sth = $self->{DBHANDLE}->prepare($sql);
-    $sth->execute();
-    my %map;
-    while (my ($node, $site) = $sth->fetchrow()) {
-        $map{$node} = $site;
-    }
-    return %map;
+  my $self = shift;
+  my $sql = qq { select n.name phedex_name, c.name cms_name
+                 from phedex_node n
+                 join site_cms_name_map sn on sn.site_id = n.site
+                 join cms_name c on c.id = sn.cms_name_id };
+  my $sth = $self->{DBHANDLE}->prepare($sql);
+  $sth->execute();
+  my %map;
+  while (my ($node, $site) = $sth->fetchrow()) {
+      $map{$node} = $site;
+  }
+  return %map;
 }
 
 # @param: user's DN
