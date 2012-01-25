@@ -176,6 +176,8 @@ sub getPhedexNodeToSiteMap {
   $sth->execute();
   my %map;
   while (my ($node, $site) = $sth->fetchrow()) {
+      $site = lc $site;
+      $site =~ s%[^a-z0-9]+%-%g;
       $map{$node} = $site;
   }
   return %map;
