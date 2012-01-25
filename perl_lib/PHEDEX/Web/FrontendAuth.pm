@@ -97,7 +97,7 @@ sub isKnownUser {
 
 sub hasRole {
   my $self = shift;
-  my $role = shift;
+  my $role = lc shift;
   my $scope = shift;
 
   return 0 if ! exists $self->{ROLES}->{$role};
@@ -117,6 +117,7 @@ sub getEmail      { return (shift)->{USEREMAIL}; }
 
 sub getRoles {
  my $self = shift;
+
  return $self->{ROLES} if $self->{ROLES};
   my ($roles,$name,$group);
   foreach ( keys %{$self->{HEADER}} ) {
@@ -124,8 +125,8 @@ sub getRoles {
     $name = lc $1;
     $name =~ s%-% %g;
     $group = lc $self->{HEADER}{$_};
-    $group =~ s%^group:%%;
-    $group =~ s%^site:%%;
+    $group =~ s%^group:%%; # TW Slightly dodgy, mixing site and group namespaces
+    $group =~ s%^site:%%;  # TW ...but we're probably safe there!
     $roles->{$name} = [] unless defined $roles->{$name};
     push @{$roles->{$name}}, $group;
   }
