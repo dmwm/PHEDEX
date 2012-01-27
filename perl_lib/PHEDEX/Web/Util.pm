@@ -477,10 +477,6 @@ sub auth_nodes
 	    push @auth_nodes, qr/$a->{SCOPE}/;
 	}
     }
-# TW
-warn "Before checking site roles: global_scope=$global_scope" .
-	", auth_sites=" . join(', ',@auth_sites) .
-	", auth_nodes=" . join(', ',@auth_nodes) . "\n";
 
     return unless $global_scope || @auth_sites || @auth_nodes; # quick exit if user has no auth
 
@@ -489,18 +485,12 @@ warn "Before checking site roles: global_scope=$global_scope" .
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
 	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-# TW
-$node_map{saturn} = 'saturn';
-$node_map{T1_DE_KIT_Buffer} = 'saturn';
-warn "PhedexNodeToSiteMap: ",Dumper(\%node_map);
 	foreach my $node (keys %node_map) {
 	    foreach my $site (@auth_sites) {
 		push @auth_nodes, qr/^$node$/ if $node_map{$node} eq $site;
 	    }
 	}
     }
-# TW
-warn "After checking site roles: auth_nodes=", join(', ',@auth_nodes), "\n";
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
     # hidden from all users
