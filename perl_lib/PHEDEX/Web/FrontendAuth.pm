@@ -74,7 +74,8 @@ sub isSecure {
 }
 
 sub isAuthenticated {
-  return 1 if (shift)->{HEADER}{'cms-auth-status'} eq 'OK';
+  my $authnstate = (shift)->{AUTHNSTATE};
+  return 1 if ( $authnstate eq 'cert' || $authnstate eq 'passwd' );
   return 0;
 }
 
