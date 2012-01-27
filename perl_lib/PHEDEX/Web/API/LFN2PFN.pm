@@ -45,8 +45,9 @@ Translate LFNs to PFNs using the TFC published to TMDB.
 =cut
 
 sub duration{ return 15 * 60; }
-sub invoke { return lfn2pfn(@_); }
-sub lfn2pfn
+# _lfn2pfn to avoid clash with PHEDEX::Core::Catalogue, which exports lfn2pfn
+sub invoke { return _lfn2pfn(@_); }
+sub _lfn2pfn
 {
     my ($core,%h) = @_;
     my %p;
