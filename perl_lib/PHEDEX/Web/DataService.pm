@@ -71,7 +71,7 @@ sub handler
     my $error_document = PHEDEX::Web::Util::error_document( $error, $message);
 
     # return html error message only if the browser is Mozzila-alike
-    my $user_agent = user_agent() || ''
+    my $user_agent = user_agent() || '';
     if ($error_document and ($user_agent =~ m/Mozilla/))
     {
         $r->custom_response($error, $error_document);
