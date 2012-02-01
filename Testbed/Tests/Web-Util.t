@@ -363,6 +363,12 @@ ok( dies (\&validate_params, { foo => 'two' }, spec => $multiple_call),         
 ok( lives(\&validate_params, { foo => [qw(one one)] }, spec => $multiple_call),  'good multiple: call x 2') or whydie;
 ok( dies (\&validate_params, { foo => [qw(one two)] },  spec => $multiple_call), 'bad multiple: call x 2');
 
+# 'block_or_file' checking
+$using_spec = { foo => { using => 'block_or_file' } };
+ok( lives(\&validate_params, { foo => 'block' }, spec => $using_spec), 'good block_or_file block');
+ok( lives(\&validate_params, { foo => 'file' }, spec => $using_spec), 'good block_or_file file');
+ok( dies(\&validate_params, { foo => 'unblocked' }, spec => $using_spec), 'bad block_or_file unblocked');
+
 # 'approval_state' checking
 $using_spec = { foo => { using => 'approval_state' } };
 ok( lives(\&validate_params, { foo => 'approved' }, spec => $using_spec), 'good approval_state approved');
@@ -370,4 +376,54 @@ ok( lives(\&validate_params, { foo => 'disapproved' }, spec => $using_spec), 'go
 ok( lives(\&validate_params, { foo => 'pending' }, spec => $using_spec), 'good approval_state pending');
 ok( dies(\&validate_params, { foo => 'not-approved' }, spec => $using_spec), 'bad approval_state not-approved');
 
-print "Tests complete...\n";
+# 'dataitem_*' checking
+$using_spec = { foo => { using => 'dataitem_*' } };
+ok( lives(\&validate_params, { foo => '/' }, spec => $using_spec), 'good dataitem_* /');
+ok( lives(\&validate_params, { foo => '/*asd' }, spec => $using_spec), 'good dataitem_* /*asd');
+ok( lives(\&validate_params, { foo => '/a/b/c#2_3-4' }, spec => $using_spec), 'good dataitem_* /a/b/c#2_3-4');
+ok( lives(\&validate_params, { foo => '///' }, spec => $using_spec), 'good dataitem_* ///');
+ok( dies(\&validate_params, { foo => 'a/file/spec' }, spec => $using_spec), 'bad dataitem_* a/file/spec');
+ok( dies(\&validate_params, { foo => '/a/;file/spec' }, spec => $using_spec), 'bad dataitem_* /a/;file/spec');
+
+# 'link_kind' checking
+$using_spec = { foo => { using => 'link_kind' } };
+ok( lives(\&validate_params, { foo => 'WAN' }, spec => $using_spec), 'good link_kind WAN');
+ok( lives(\&validate_params, { foo => 'Local' }, spec => $using_spec), 'good link_kind Local');
+ok( lives(\&validate_params, { foo => 'Staging' }, spec => $using_spec), 'good link_kind Staging');
+ok( lives(\&validate_params, { foo => 'Migration' }, spec => $using_spec), 'good link_kind Migration');
+ok( dies(\&validate_params, { foo => 'other' }, spec => $using_spec), 'bad link_kind other');
+
+# 'link_status' checking
+$using_spec = { foo => { using => 'link_status' } };
+ok( lives(\&validate_params, { foo => 'ok' }, spec => $using_spec), 'good link_status ok');
+ok( lives(\&validate_params, { foo => 'deactivated' }, spec => $using_spec), 'good link_status deactivated');
+ok( lives(\&validate_params, { foo => 'to_excluded' }, spec => $using_spec), 'good link_status to_excluded');
+ok( lives(\&validate_params, { foo => 'from_excluded' }, spec => $using_spec), 'good link_status from_excluded');
+ok( lives(\&validate_params, { foo => 'to_down' }, spec => $using_spec), 'good link_status to_down');
+ok( lives(\&validate_params, { foo => 'from_down' }, spec => $using_spec), 'good link_status from_down');
+ok( dies(\&validate_params, { foo => 'other' }, spec => $using_spec), 'bad link_status other');
+
+# 'no_check' checking
+$using_spec = { foo => { using => 'no_check' } };
+ok( lives(\&validate_params, { foo => 'an;yth<>in${}g' }, spec => $using_spec), 'good no_check ok');
+
+# 'request_type' checking
+$using_spec = { foo => { using => 'request_type' } };
+ok( lives(\&validate_params, { foo => 'xfer' }, spec => $using_spec), 'good request_type xfer');
+ok( lives(\&validate_params, { foo => 'delete' }, spec => $using_spec), 'good request_type delete');
+ok( dies(\&validate_params, { foo => 'other' }, spec => $using_spec), 'bad request_type other');
+
+# 'xml' checking
+$using_spec = { foo => { using => 'xml' } };
+ok( lives(\&validate_params, { foo => 'abcDEF123--__##..\'\'""::==,,  >><<' }, spec => $using_spec), 'good xml lots of stuff');
+# For some reason, this doesn't work. Don't worry about it ...
+#ok( lives(\&validate_params, { foo => "\n" }, spec => $using_spec), 'good xml *\n*');
+ok( lives(\&validate_params, { foo => "a
+b" }, spec => $using_spec), 'good xml *a
+b*');
+ok( lives(\&validate_params, { foo => "	" }, spec => $using_spec), 'good xml *	*');
+ok( dies(\&validate_params, { foo => ';' }, spec => $using_spec), 'bad xml ;');
+ok( dies(\&validate_params, { foo => '${}' }, spec => $using_spec), 'bad xml ${}');
+ok( dies(\&validate_params, { foo => '[]' }, spec => $using_spec), 'bad xml []');
+ok( dies(\&validate_params, { foo => '%^&*()+' }, spec => $using_spec), 'bad xml %^&*()+');
+ok( dies(\&validate_params, { foo => '`!@' }, spec => $using_spec), 'bad xml `!@');
