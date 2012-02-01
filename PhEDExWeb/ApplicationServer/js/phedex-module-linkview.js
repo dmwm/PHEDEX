@@ -361,7 +361,6 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
           p = { call:'TransferQueueBlocks', obj:this , args:{}, opts:{}, data:{}, callback:this.callback_Treeview };
           p.args.from = h.from;
           p.args.to   = h.to;
-          p.args.binwidth = h.transfer[0].binwidth;
           p.opts.node = h[antidirection];
           p.opts.direction = this.direction_index(_direction);
           p.data.errors    = e.block;
@@ -402,20 +401,20 @@ PHEDEX.Module.LinkView=function(sandbox, string) {
         }
         log('Fetching data','info',this.me);
         this.dom.title.innerHTML = this.me+': fetching data...';
-        var args = {}, magic = _time+' '+_direction;
+        var args={}, args1={}, magic = _time+' '+_direction;
         if ( this._magic == magic ) {
           log('Already asked for this magic data: magic="'+magic+'"','warn',this.me);
           return;
         }
         this._magic = magic;
-        args[this.direction_key()] = node;
-        args.binwidth = _time*3600;
+        args[this.direction_key()] = args1[this.direction_key()] = node;
         this.data = {};
         this.truncateTree();
         this.tree.render();
         _sbx.notify( this.id, 'getData', { api:'TransferQueueStats', args:args, magic:magic } );
-        _sbx.notify( this.id, 'getData', { api:'TransferHistory',    args:args, magic:magic } );
         _sbx.notify( this.id, 'getData', { api:'ErrorLogSummary',    args:args, magic:magic } );
+        args1.binwidth = _time*3600;
+        _sbx.notify( this.id, 'getData', { api:'TransferHistory',    args:args1, magic:magic } );
       },
       gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
