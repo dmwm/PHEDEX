@@ -1,0 +1,68 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+// if we attempt to call startApp before the sandbox is loaded, it will cause an exception, which is trapped.
+  startApp();
+
+// Create a PhEDEx loader, then tell the loader to load the sandbox and call createCoreAll when it's done.
+  PxL  = new PHEDEX.Loader();
+  banner('Loading sandbox...');
+  PxL.load(createCoreApp,'sandbox');
+}
+
+function createCoreApp() {
+// This is called once the code is fully loaded. Now I can create the sandbox
+  banner('Now the modules are loaded, I can try again to start the application');
+  startApp();
+};
+
+function startApp() {
+// Create the sandbox. This cannot work unless the phedex-sandbox code is loaded. Wrap it in a try/catch to illustrate that.
+  banner('Create sandbox...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { /*banner('Could not create SANDBOX','error');*/ return; }
+  banner('Sandbox successfully created...');
+}
+</script>
+</body>
+</html>

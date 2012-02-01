@@ -1,0 +1,122 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <iframe id='yui-history-iframe' src='/phedex/datasvc/app/images/phedex-logo-small.gif' style='visibility:hidden'></iframe>
+ <input id='yui-history-field' type='hidden' style='visibility:hidden'>
+
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+
+<div><a id='page-link' href='#'>permalink</a> to this page configuration</div>
+ <div id="nav">
+   <ul>
+     <li><a href='#item=item-1;a=10'>item-1</a><span id='item-1' class='phedex-invisible'> You are in item 1</span></li>
+     <li><a href='#item=item-2;a=20'>item-2</a><span id='item-2' class='phedex-invisible'> You are in item 2</span></li>
+     <li><a href='#item=item-3;a=30'>item-3</a><span id='item-3' class='phedex-invisible'> You are in item 3</span></li>
+     <li><a href='#item=item-4;a=40'>item-4</a><span id='item-4' class='phedex-invisible'> You are in item 4</span></li>
+     <li><a href='#item=item-5;a=50'>item-5</a><span id='item-5' class='phedex-invisible'> You are in item 5</span></li>
+     <li><a href='#item=item-6;a=60;a=70'>item-6</a><span id='item-6' class='phedex-invisible'> You are in item 6</span></li>
+   </ul>
+ </div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+  PxL  = new PHEDEX.Loader();
+  banner('Loading sandbox...');
+  PxL.load(createCoreApp,'sandbox');
+}
+
+function createCoreApp() {
+  banner('Create sandbox...');
+  PxS = new PHEDEX.Sandbox();
+  banner('Sandbox successfully created...');
+
+// listen out for history events
+  PxS.listen('History',handler);
+  PxL.load(function() { new PHEDEX.History({ module:'state' }); },'phedex-history');
+}
+
+function handler(ev,arr) {
+  switch (arr[0]) {
+    case 'stateChange': {
+      loadSection(arr[1]);
+      break;
+    }
+    case 'initialiseApplication': {
+//    Process links. Attach a handler that talks to the history manager, and cancels the 'follow the link' default action
+      var anchors, i, len, anchor, href, section;
+      anchors = YAHOO.util.Dom.get('nav').getElementsByTagName('a');
+      for (i = 0, len = anchors.length; i < len; i++) {
+        anchor = anchors[i];
+        YAHOO.util.Event.addListener(anchor, 'click', function (evt) {
+          var href = this.getAttribute('href');
+          PxS.notify('History','navigate',href);
+          YAHOO.util.Event.preventDefault(evt); // prevent following the link!
+        });
+      }
+//    Don't forget to also set the application state!
+      loadSection(arr[1]);
+      break;
+    }
+    case 'permalink': { // separate handler for notifying me that the permalink has changed. I use this to set a link on the page
+      YAHOO.util.Dom.get('page-link').setAttribute('href',arr[1]);
+      break;
+    }
+    default: {
+      break;
+    }
+  }
+};
+
+var loadSection = function() {
+  var Dom = YAHOO.util.Dom,
+      defaultEl = currentEl = 'item-1';
+  return function(state) {
+    var item = state.item;
+    if ( !item ) { item = defaultEl; }
+    var el = Dom.get(item);
+    if ( currentEl && currentEl != el.id ) {
+      Dom.addClass(currentEl,'phedex-invisible');
+    }
+    Dom.removeClass(el,'phedex-invisible');
+    currentEl = el.id;
+  };
+}();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <iframe id="yui-history-iframe" src="/phedex/datasvc/app/images/phedex-logo-small.gif" style='visibility:hidden'></iframe>
+ <input id="yui-history-field" type="hidden" style='visibility:hidden'>
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+    <div id='phedex-controls' class='phedex-controls float-right'></div>
+ </div>
+ <div id='phedex-login'></div>
+ <div id='phedex-navigator'></div>
+ <div id='phedex-globalfilter'></div>
+ <div class='phedex-separator'></div>
+ <div id='phedex-profiler' class='phedex-logger'></div>
+ <div id='phedex-logger'   class='phedex-logger'>
+  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
+  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
+  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
+ </div>
+ <div id='phedex-main'></div>
+ <div id='phedex-history'></div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+// create a loader, use it to load a core, a sandbox, and a profiler at the same time.
+  log('initialising','info','app');
+  PxL  = new PHEDEX.Loader();
+  banner('Loading core application...');
+  PxL.load(createCoreApp,'core','sandbox','profiler');
+
+// some cosmetics in the banner
+  var phedex_app_version = document.getElementById('phedex-app-version'),
+      phedex_home = document.getElementById('phedex-link-home');
+  if ( phedex_app_version ) { phedex_app_version.innerHTML = PxW.Version; }
+  if ( phedex_home ) {
+    var uri = location.href;
+    phedex_home.href = uri.replace(/#.*$/g,'');
+  }
+}
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the core application and sandbox, and other stuff
+// use try/catch as a best practise...
+  banner('Create sandbox and core application...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { log(ex,'error',name); banner('Error creating sandbox!','error'); return; }
+  try {
+    PxC = new PHEDEX.Core(PxS,PxL);
+    PxC.create();
+  } catch(ex) { log(ex,'error',name); banner('Error creating Core application!','error'); return; }
+  banner('Core application is running, ready to create PhEDEx data-modules...');
+
+// Now the core and sandbox are loaded, I can use them, and the loader, to load and initialise other bits of code
+
+// this is a nice gizmo that uses the banner to tell the user to do something if they are too idle
+  PHEDEX.Util.bannerIdleTimer(PxL);
+
+// Now get flashy. Call the loader with an inline function that will create several auxilliary controls to manage things
+// like the logger and the profiler. These require the 'component-control' javascript code to be loaded.
+  PxL.load(function() {
+    var ctl;
+
+// create a control to show/hide the logger, and attach it to the phedex-controls DOM element
+    ctl = new PHEDEX.Component.Control(PxS,{
+        payload: {
+          text:'Show Logger',
+          title:'This shows the logger component, for debugging. For experts only',
+          target:'phedex-logger',
+          animate:false,
+          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        }
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+
+// create another control for the log2server controls, which many users won't want to play with all the time. This is attached
+// to the phedex-logger-controls DOM element, which is in turn hidden or revealed by the control above.
+    ctl = new PHEDEX.Component.Control(PxS,{
+        payload: {
+          text:'Show Log2Server controls',
+          title:'You can log messages to the proxy-server, if you are using one. This control gives you access to a configuration panel that allows you to set preferences via a cookie, so you can reload and keep the same logging configuration',
+          target:'phedex-logger-log2server',
+          animate:false,
+          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        }
+      }
+    );
+    document.getElementById('phedex-logger-controls').appendChild(ctl.el);
+
+// create another control to show or hide the profiler.
+    ctl = new PHEDEX.Component.Control(PxS,{
+        payload: {
+          text:'Show Profiler',
+          title:'This shows the profiler component, for debugging. For experts only',
+          target:'phedex-profiler',
+          animate:false,
+          className: 'float-right phedex-core-control-widget phedex-core-control-widget-inactive',
+        }
+      }
+    );
+    document.getElementById('phedex-controls').appendChild(ctl.el);
+
+// ...and all that depends on having the PHEDEX.Component.Control class loaded!
+  },'component-control');
+
+// Also use the sandbox to trigger loading of the PHEDEX.Logger. The logger will auto-instantiate on loading, so no callback is
+// needed. The sandbox will send a 'Load' event, which the core will pick up and act on. The logger knows where to build itself
+// in the DOM, and the controls above will govern if that element is visible or not.
+// Note that the loader will queue the multiple load requests (for phedex-controls and phedex-logger) and act on them in order.
+  PxS.notify('Load','logger');
+};
+</script>
+</body>
+</html>

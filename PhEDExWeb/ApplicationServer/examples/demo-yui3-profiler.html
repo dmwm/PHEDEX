@@ -1,0 +1,93 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+ <div id='phedex-profiler' class='phedex-logger'></div>
+ <div id='phedex-main'></div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+  log('initialising','info','app');
+  PxL  = new PHEDEX.Loader();
+  banner('Loading profiler...');
+  PxL.load(createCoreApp,'profiler');
+}
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the profiler, and use it
+  banner('Profiler is loaded, wait a few seconds for the results...');
+
+// create two objects...
+  var a = new MyObj(),
+      b = new MyObj();
+// ...register them with the profiler. YtP is a global shorthand for YAHOO.tool.Profiler
+  YtP.registerObject('Object_a',a);
+  YtP.registerObject('Object_b',b);
+  PHEDEX.Profiler.interval(6000); // update profile results every 6 seconds
+  PHEDEX.Profiler.threshold(3);   // show only functions taking over 3% of the CPU
+// start burning CPU with my two objects
+  beBusy(a,b);
+};
+
+// This is a class for an object that just burns CPU. It has two member functions, to show how they are profiled
+MyObj = function() {
+  return {
+    busy: function(arg) {
+      if ( !arg ) { return; }
+      var result=1, i;
+      for (i=2; i<arg; i++) { result = result*i; }
+      return result;
+    },
+    busier: function(arg) { // this is just a function that is 'busier' than 'busy'!
+      this.busy(arg);
+      this.busy(arg);
+      this.busy(arg);
+    }
+  };
+}
+
+// This is an infinite loop, using setTimeout to make it a little less hard on the browser
+beBusy = function(a,b) {
+  a.busy(70);
+  a.busier(70);
+  b.busy(50);
+  setTimeout(function() { beBusy(a,b); }, 100);
+}
+</script>
+</body>
+</html>

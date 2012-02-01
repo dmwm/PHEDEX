@@ -1,0 +1,90 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+ <div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+ <div id='phedex-logger'   class='phedex-logger'>
+  <div id='phedex-logger-controls'   class='phedex-logger-controls'></div>
+  <div id='phedex-logger-log2server' class='phedex-logger-log2server'></div>
+  <div id='phedex-logger-inner'      class='phedex-logger-inner'></div>
+ </div>
+
+<!-- <script src="http://yui.yahooapis.com/3.4.1/build/yui/yui-min.js"></script> -->
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+// the 'log' function implements the interface to the logger. It has the same semantics as YAHOO.log. It can be used
+// _before_ the logger exists, so the user doesn't need to worry about it
+  log('initialising','info','app');
+  PxL  = new PHEDEX.Loader();
+  banner('Loading core application...');
+  PxL.load(createCoreApp,'logger');
+}
+
+function createCoreApp() {
+// This is called once the logger is fully loaded. Now I can create the logger and start using it
+  PxLogger = new PHEDEX.Logger();
+  PxLogger.init();
+  banner('Now play around with the checkboxes and re-loading this page, while watching either the firebug console or the proxy-server output');
+
+// start logging messages...
+  logSomething();
+};
+
+// this bit of code logs something, and calls itself every 2 seconds.
+i=0;
+j=0;
+k=1;
+function logSomething() {
+  var levels = [ 'info', 'warn', 'error'],
+      groups = [ 'foo', 'bar', 'baz' ],
+      msg = 'this is message number ',
+      level, group;
+  i = (i+1)%3;
+  if ( i == 0 ) { j = (j+1)%3; }
+  level = levels[i];
+  group = groups[j];
+  msg = msg + k++;
+
+  log(msg,level,group);
+  while ( Math.random() > 0.8 ) {
+    log(msg,level,group);
+  }
+  setTimeout(logSomething,2000);
+}
+</script>
+</body>
+</html>
