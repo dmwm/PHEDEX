@@ -1,0 +1,91 @@
+<!DOCTYPE HTML PUBLIC “-//W3C//DTD HTML 4.01//EN” “http://www.w3.org/TR/html4/strict.dtd”>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-us" lang="en-us">
+<head>
+  <title>PhEDEx Web Application</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15" />
+<!--define basic CSS for the body here (fonts etc), so the page doesn't wobble when css files get loaded later.-->
+  <style type='text/css' id='phedex-body-style'>
+    body {
+      margin:           0;
+      margin-left:      1em;
+      padding:          0;
+      font-size:        80%;
+      font-family:      'Lucida Grande', verdana, helvetica, arial, sans-serif;
+      line-height:      1.6em;
+    }
+  </style>
+</head>
+
+<body class="yui-skin-sam">
+<div class='phedex-banner'>
+    <span id='phedex-banner-messages-outer' class='phedex-messages-outer'>
+      <span id='phedex-banner-messages-inner' class='phedex-messages-inner'>Loading, please be patient...</span>
+    </span>
+ </div>
+ <div id='phedex-main'></div>
+
+<script type="text/javascript" src="/phedex/datasvc/app/yui3/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/yui/build/yuiloader-dom-event/yuiloader-dom-event.js"></script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-base.js"></script>
+<script type="text/javascript">
+ PxW.ProductionMode = false;
+ PxW.combineRequests = false;
+</script>
+<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-loader.js"></script>
+<script type="text/javascript">
+// Create a YUI sandbox on your page.
+YUI().use('node', 'event', function (Y) {
+    // The Node and Event modules are loaded and ready to use.
+    // Your code goes here!
+  runDemo();
+});
+
+function runDemo() {
+  PxL  = new PHEDEX.Loader();
+  banner('Loading core application...');
+  PxL.load(createCoreApp,'core','sandbox','datasvc','module');
+}
+
+function createCoreApp() {
+// This is called once the core is fully loaded. Now I can create the core application and sandbox
+  banner('Create sandbox and core application...');
+  try {
+    PxS = new PHEDEX.Sandbox();
+  } catch(ex) { banner('Error creating sandbox!','error'); return; }
+  try {
+    PxC = new PHEDEX.Core(PxS,PxL);
+    PxC.create();
+  } catch(ex) { banner('Error creating Core application!','error'); return; }
+
+  banner('Core application is running, ready to create PhEDEx data-modules...');
+  PHEDEX.Util.bannerIdleTimer(PxL);
+
+// create a module, initialise it, and override the default (dummy) "gotData" function to do something useful
+  myModule = new PHEDEX.Module(PxS,'myModule');
+  myModule.init();
+  myModule.gotData = function(data,context,response) {
+    PHEDEX.Datasvc.throwIfError(data,response); // if there was an HTTP error, this will throw an error, and not return.
+    banner('Data-service returned OK...')
+// N.B. Use the try/catch to protect against failed calls, since the same callback is used for success or failure.
+    try {
+      this.dom.header.innerHTML = 'Found '+data.node.length+' items';
+      this.dom.body.innerHTML = "";
+
+// data.node holds the actual response from the API, so loop over that
+      for (var i in data.node) {
+        this.dom.body.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.node[i],2);
+      }
+    } catch(ex) {
+      banner('Error processing data','error');
+    }
+  };
+
+// prepare the api and argument object
+  var args = { api:'agents', args:{node:'T1_US_FNAL_Buffer'} };
+
+// tell the core to get data for me
+  PxS.notify(myModule.id,'getData',args);
+};
+</script>
+</body>
+</html>
