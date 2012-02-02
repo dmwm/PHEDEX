@@ -131,6 +131,17 @@ sub getRoles {
     $roles->{$name} = [] unless defined $roles->{$name};
     push @{$roles->{$name}}, $group;
   }
+## TW
+#if ( $self->getUsername() =~ m%wildish%i ) {
+#  warn "Found ",$self->getUsername(),"! Fake someone else...\n";
+#  $roles = {
+#    'phedex contact' => [ 't3-mx-cinvestav' ],
+#    'site admin' => [ 't3-mx-cinvestav' ],
+#    'site executive' => [ 't3-mx-cinvestav' ],
+#    'data manager' => [ 't3-mx-cinvestav', 'saturn' ]
+#  };
+#  warn "Faking Alberto's roles: " . Dumper( $roles );
+#}
   return $self->{ROLES} = $roles;
 }
 
@@ -228,6 +239,24 @@ sub reqAuthnPasswd {
   my $self = shift;
   return 1 if $self->isPasswdAuthenticated();
   die PHEDEX::Web::Util::http_error(401,"Password authentication required");
+}
+
+sub getUsersWithRoleForGroup {
+    my ($self, $role, $group) = @_;
+    my $sql = qq{ select c.id, c.surname, c.forename, c.email,
+		         c.username, c.dn, c.phone1, c.phone2
+		    from contact c
+		    join group_responsibility gr on gr.contact = c.id
+		    join role r on r.id = gr.role
+		    join user_group g on g.id = gr.user_group
+		   where r.title = ? and g.name = ? };
+    my $sth = $self->{DBHANDLE}->prepare($sql);
+    $sth->execute($role, $group);
+    my @users;
+    while (my $user = $sth->fetchrow_hashref()) {
+	push @users, $user;
+    }
+    return @users;
 }
 
 1;
