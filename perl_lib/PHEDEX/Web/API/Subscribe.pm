@@ -11,6 +11,7 @@ use PHEDEX::Web::Util;
 use PHEDEX::Core::Mail;
 use URI::Escape;
 
+use Data::Dumper;
 =pod
 
 =head1 NAME
@@ -93,7 +94,7 @@ sub subscribe
                 spec =>
                 {
                     node => { using => 'node', multiple => 1 },
-                    data => { using => 'dataitem_*' },
+                    data => { using => 'xml' },
                     level => { regex => qr/^BLOCK$|^DATASET$/ },
                     priority => { using => 'priority', multiple => 1 },
                     move => { using => 'yesno' },
@@ -104,13 +105,14 @@ sub subscribe
                     request_only => { using => 'yesno' },
                     no_mail => { using => 'yesno' },
                     comments => { using => 'text' },
-                    dummy => { using => 'text' }
+                    dummy => { using => 'text' },
+                    're-evaluate' => { using => 'yesno' },
                 }
         );
     };
     if ($@)
     {
-        PHEDEX::Web::Util::http_error(400,$@);
+        die PHEDEX::Web::Util::http_error(400,$@);
     }
                 
     die PHEDEX::Web::Util::http_error(400,"group $args{group} is forbidden") if ($args{group} =~ m/^deprecated-/);
@@ -138,7 +140,6 @@ sub subscribe
     } else {
       $auth = $core->getAuth();
     }
-
     # ok, now try to make the request and subscribe it
     my $nodes = [ arrayref_expand($args{node}) ];  
     my $now = &mytimeofday();
