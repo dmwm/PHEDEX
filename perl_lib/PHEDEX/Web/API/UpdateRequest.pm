@@ -50,7 +50,7 @@ sub updateRequest
   {
       %p = &validate_params(\%args,
               allow => [ qw( decision request node comments ) ],
-              required => [ qw( decision request node comments ) ],
+              required => [ qw( decision request node ) ],
               spec =>
               {
                   decision => { regex => qr/^approve$|^disapprove$/ },
@@ -65,9 +65,6 @@ sub updateRequest
       return PHEDEX::Web::Util::http_error(400,$@);
   }
 
-  # check values of options
-  die PHEDEX::Web::Util::http_error(400,"unknown decision, allowed values are 'approve' or 'disapprove'") 
-    unless $args{decision} =~ m%^(approve|disapprove)$%;
   $args{uc($args{decision})} = 1;
 
   # check authentication
