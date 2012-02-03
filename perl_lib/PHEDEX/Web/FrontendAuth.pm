@@ -117,31 +117,20 @@ sub getForename   { return (shift)->{USERFORENAME}; }
 sub getEmail      { return (shift)->{USEREMAIL}; }
 
 sub getRoles {
- my $self = shift;
+  my $self = shift;
 
- return $self->{ROLES} if $self->{ROLES};
+  return $self->{ROLES} if $self->{ROLES};
   my ($roles,$name,$group);
   foreach ( keys %{$self->{HEADER}} ) {
     next unless m%^cms-authz-(\S+)$%;
     $name = lc $1;
     $name =~ s%-% %g;
     $group = lc $self->{HEADER}{$_};
-    $group =~ s%^group:%%; # TW Slightly dodgy, mixing site and group namespaces
-    $group =~ s%^site:%%;  # TW ...but we're probably safe there!
+    $group =~ s%group:%%g; # TW Slightly dodgy, mixing site and group namespaces
+    $group =~ s%site:%%g;  # TW ...but we're probably safe there!
     $roles->{$name} = [] unless defined $roles->{$name};
-    push @{$roles->{$name}}, $group;
+    push @{$roles->{$name}}, split(' ',$group);
   }
-## TW
-#if ( $self->getUsername() =~ m%wildish%i ) {
-#  warn "Found ",$self->getUsername(),"! Fake someone else...\n";
-#  $roles = {
-#    'phedex contact' => [ 't3-mx-cinvestav' ],
-#    'site admin' => [ 't3-mx-cinvestav' ],
-#    'site executive' => [ 't3-mx-cinvestav' ],
-#    'data manager' => [ 't3-mx-cinvestav', 'saturn' ]
-#  };
-#  warn "Faking Alberto's roles: " . Dumper( $roles );
-#}
   return $self->{ROLES} = $roles;
 }
 
