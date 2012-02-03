@@ -81,7 +81,7 @@ sub to_delete
                 spec =>
                 {
                     node => { using => 'node', multiple => 1 },
-                    data => { using => 'dataitem_*' },
+                    data => { using => 'xml' },
                     level => { regex => qr/^BLOCK$|^DATASET$/ },
                     rm_subscriptions => { using => 'yesno' },
                     no_mail => { using => 'yesno' },
