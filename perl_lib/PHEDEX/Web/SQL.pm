@@ -2116,7 +2116,7 @@ sub getDataSubscriptionsQuery
     if ( $h{NODE} ) {
       if ( ref($h{NODE}) eq 'ARRAY' ) { $value = $h{NODE}[0]; }
       else { $value = $h{NODE}; }
-      if ( $value =~ m%^\d+$% ) { $node_field = 'n.id'; }
+      if ( $value && $value =~ m%^\d+$% ) { $node_field = 'n.id'; }
     }
     build_multi_filters($core, \$filters, \%p, \%h, ( 
                                                       SE => 'n.se_name',
