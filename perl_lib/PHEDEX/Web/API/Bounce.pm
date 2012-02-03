@@ -24,7 +24,7 @@ sub bounce
   my ($core,%args) = @_;
   
   if (exists $args{'die'} && $args{'die'}) {
-      die "error requested, dying\n";
+      die PHEDEX::Web::Util::http_error(400,"error requested, dying\n");
   }
   if (exists $args{'warn'} && $args{'warn'}) {
       warn "warning requested\n";
