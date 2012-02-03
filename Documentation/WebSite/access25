@@ -65,7 +65,9 @@ sub validate_all
     # value, and must take the default value instead. This is a bit of a hack, but there you go...
     if ( $self->{GRAPHS} )
     {
-      $params->{graph} = $self->{DEFAULT_GRAPH} if !$self->{GRAPHS}{$params->{graph}};
+      if ( !$params->{graph} || !$self->{GRAPHS}{$params->{graph}} ) {
+        $params->{graph} = $self->{DEFAULT_GRAPH};
+      }
     }
     # the following are allowed on any page and set by this application
     # FIXME:  avoid this if possible.  save into $self instead of push into param() ?
@@ -2657,7 +2659,6 @@ sub generate
     }
   }
   if ( $self->{REDIRECT} ) {
-    warn "Redirect to $self->{REDIRECT}";
     redirect(-status => $self->{REDIRECT_STATUS} || 301, Location => $self->{REDIRECT});
     return;
   }
