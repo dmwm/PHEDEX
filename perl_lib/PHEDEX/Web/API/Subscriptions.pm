@@ -177,8 +177,8 @@ sub subscriptions
                 allow => [ qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / ],
                 spec =>
                 {
-                    percent_max => { using => 'pos_int' },
-                    percent_min => { using => 'pos_int' },
+                    percent_max => { using => 'pos_float' },
+                    percent_min => { using => 'pos_float' },
                     dataset => { using => 'dataset', multiple => 1 },
                     block => { using => 'block_*', multiple => 1 },
                     node => { using => 'node', multiple => 1 },
