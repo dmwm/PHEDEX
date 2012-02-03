@@ -345,6 +345,17 @@ PHEDEX.Util.stdLoading = function(text) {
   return text+"<br/><img src='" + PxW.WebAppURL + "/images/barbers_pole_loading.gif'/>";
 }
 
+PHEDEX.Util.parseDataserviceError = function(str) {
+  var text = str.replace(/\n/g,'');
+  if ( text.match(/^<html>.*<body>.*<\/h1>(.*)<\/body>.*/) ) {
+    text = RegExp.$1;
+    text = text.replace(/^<p>/,'');
+    text = text.replace(/<\/p>$/,'');
+    text = text.replace(/\(.*\) to \(eval\) /,'');
+  }
+  return text;
+}
+
 PHEDEX.Util.protectMe = function(instance) {
   if ( !PxW.ProductionMode ) {
     for (var name in instance) {
