@@ -134,7 +134,7 @@ sub subscribe
     if ( $core->{SECMOD}->isPasswdAuthenticated() ) { $auth_method = 'PASSWORD'; }
     if ( $args{request_only} eq 'n' ) {
       $auth = $core->getAuth('datasvc_subscribe');
-      if ( $auth_method != 'CERTIFICATE' ) {
+      if ( $auth_method ne 'CERTIFICATE' ) {
         die PHEDEX::Web::Util::http_error(401,"You must be authenticated with a certificate to auto-approve requests");
       }
     } else {
