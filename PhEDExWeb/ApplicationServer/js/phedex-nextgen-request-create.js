@@ -554,6 +554,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
       },
       onAcceptFail: function(text) {
+        text = PxU.parseDataserviceError(text);
         var dom = this.dom;
         Dom.addClass(dom.preview,'phedex-invisible');
         Dom.removeClass(dom.results,'phedex-invisible');

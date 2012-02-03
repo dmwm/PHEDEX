@@ -267,6 +267,7 @@ PHEDEX.Nextgen.Data.BulkDelete = function(sandbox) {
       onAcceptFail: function(text,node) {
         var dn=dom;
         if ( node ) { dn = dom[node]; }
+        text = PxU.parseDataserviceError(text);
         Dom.addClass(dn.preview,'phedex-invisible');
         Dom.removeClass(dn.results,'phedex-invisible');
         Dom.addClass(dn.results,'phedex-box-red');
