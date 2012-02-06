@@ -97,9 +97,9 @@ create table t_dps_dataset
   (id			integer		not null,
    dbs			integer		not null,
    name			varchar (1000)	not null,
-   blocks		integer		not null,
-   files		integer		not null,
-   bytes		integer		not null,
+--   blocks		integer		not null,
+--   files		integer		not null,
+--   bytes		integer		not null,
    is_open		char (1)	not null,
    is_transient		char (1)	not null,
    time_create		float		not null,
@@ -199,8 +199,8 @@ create sequence seq_dps_block;
 
 create index ix_dps_block_name on t_dps_block (name);
 
-/* TODO: document! */
-/* Which directories blocks can be found */
+/* TODO: document!
+FUTURE/UNUSED Which directories blocks can be found
 create table t_dps_block_dir (
   block     integer      not null,
   dir       integer      not null,
@@ -218,6 +218,7 @@ create table t_dps_block_dir (
 );
 
 create index ix_dps_block_dir_dir on t_dps_block_dir (dir);
+*/
 
 /*
 =pod
@@ -450,7 +451,7 @@ create index ix_dps_block_replica_group on t_dps_block_replica (user_group);
 
 =head2 t_dps_dataset_replica
 
-A table containing statistics for datasets at (or destined to be at)
+FUTURE/UNUSED A table containing statistics for datasets at (or destined to be at)
 nodes. Monitored by L<BlockMonitor|PHEDEX::BlockMonitor::Agent>.
 
 =over
@@ -499,7 +500,7 @@ Number of bytes from this dataset currently being transferred to this node.
 
 =cut
 
-*/
+
 create table t_dps_dataset_replica
   (dataset		integer		not null,
    node			integer		not null,
@@ -526,7 +527,7 @@ create table t_dps_dataset_replica
      on delete cascade);
 
 create index ix_dps_dataset_replica_node on t_dps_dataset_replica (node);
-
+*/
 /* t_dps_block_dest.state states:
      0: Assigned but not yet active (= waiting for router to activate
         into t_xfer_request).
@@ -562,7 +563,11 @@ Whether or not the destination is to have custodial responsibility for
 this block.
 
 =item t_dps_block_dest.state
-
+  
+ -2: Assigned but not yet active (router could not activate into
+     t_xfer_request because there are no valid links to the destination)
+ -1: Assigned but not yet active (router could not activate into
+     t_xfer_request because the priority queue is full)
   0: Assigned but not yet active (= waiting for router to activate
      into t_xfer_request).
   1: Active (= routed has activated into t_xfer_request).
