@@ -4830,6 +4830,8 @@ sub output
 		    left join t_xfer_sink xsi
 		      on xsi.from_node = fn.id
 		     and xsi.to_node = tn.id
+		    where not fn.name like 'X%' and
+                          not tn.name like 'X%'
 	       };
     my $now = time();
     my $downtime = 5400 + 15*60;  # Hour and a half (real expiration) + 15 minutes grace time
@@ -6709,10 +6711,12 @@ sub output
 	    $$error{$log} =~ s/\s*$/\n/;
 	    my $lines = ($$error{$log} =~ tr/\n/\n/);
 	    $lines = 0 if $chars == 0;
-	   
+  
+	    my $logmsg = &escapeHTML($$error{$log});
+	    $logmsg = join('<br />',split("\n",$logmsg));
 	    print { $$self{CONTENT} }
 	    "<label>$$log_labels{$log}:<br/><span class='note'>($lines lines)<br/>($chars chars)$trunc</span></label>",
-	    "<div class='labeled logbox'>",&escapeHTML($$error{$log}),"</div><br/>";	    
+	    "<div class='labeled logbox'>$logmsg</div><br/>";	    
  	}
 	print { $$self{CONTENT} } "</div>";
     }
