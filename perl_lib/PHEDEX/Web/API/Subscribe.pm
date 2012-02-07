@@ -11,7 +11,6 @@ use PHEDEX::Web::Util;
 use PHEDEX::Core::Mail;
 use URI::Escape;
 
-use Data::Dumper;
 =pod
 
 =head1 NAME
