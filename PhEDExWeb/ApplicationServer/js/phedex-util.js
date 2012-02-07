@@ -351,8 +351,8 @@ PHEDEX.Util.parseDataserviceError = function(str) {
     text = RegExp.$1;
     text = text.replace(/^<p>/,'');
     text = text.replace(/<\/p>$/,'');
-    text = text.replace(/\(.*\) to \(eval\) /,'');
   }
+  text = text.replace(/\(.*\) to \(eval\) /,'');
   return text;
 }
 
