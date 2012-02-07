@@ -158,6 +158,7 @@ sub invoke { return update_subscription(@_); }
 sub update_subscription
 {
     my ($core, %h) = @_;
+    my $secmod = $core->{SECMOD};
     my %p;
 
     $h{block}   = uri_unescape($h{block})   if $h{block};
@@ -185,10 +186,35 @@ sub update_subscription
     }
 
     # check authentication
-    $core->{SECMOD}->reqAuthnCert();
+    $secmod->reqAuthnCert();
     my $auth = $core->getAuth('datasvc_subscribe');
     if (! $auth->{STATE} eq 'cert' ) {
         die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed\n");
+    }
+
+    my $msg = $secmod->getUsername() . ' (' . $secmod->getEmail() . ') ' .
+	      join(' ',map { "$_=$p{$_}" } sort keys %p);
+
+# Admins can do anything...
+    if ( $secmod->hasRole('Admin') && $secmod->isCertAuthenticated() ) {
+#     Deliberate fallthrough...
+    } else {
+#     Other roles can only act on their allowed nodes...
+#     Priority: requires datasvc_set_priority
+      if ( $p{PRIORITY} ) {
+        $auth = $core->getAuth('datasvc_set_priority');
+        if ( ! grep {/^$p{NODE}$/} keys %{$auth->{NODES}} ) {
+          warn "UpdateSubscription: Authentication failed for $msg\n";
+          die PHEDEX::Web::Util::http_error(401,"Authorisation failed\n");
+        }
+      } else {
+#     (Un/)Suspend or group change: requires datasvc_state
+        $auth = $core->getAuth('datasvc_state');
+        if ( ! grep {/^$p{NODE}$/} keys %{$auth->{NODES}} ) {
+          warn "UpdateSubscription: Authentication failed for $msg\n";
+          die PHEDEX::Web::Util::http_error(401,"Authorisation failed\n");
+        }
+      }
     }
 
     my $r = PHEDEX::Web::SQL::updateSubscription($core, %p);
