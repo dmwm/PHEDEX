@@ -1189,12 +1189,17 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           }
         }
         d[labelForm].onblur=function() {
-          if ( this.value == '' ) {
+          var tmp = this.value;
+          if ( tmp.match(/^\s*$/) ) {
             this.value = config.text;
             Dom.setStyle(this,'color',null);
             PxS.notify(obj.id,'unsetValueFor',filterTag);
           } else {
-            PxS.notify(obj.id,'setValueFor',filterTag,this.value);
+            tmp = tmp.replace(/^\s+/,'');
+            tmp = tmp.replace(/\s+$/,'');
+            tmp = tmp.replace(/\s\s+/g,' ');
+            this.value = tmp;
+            PxS.notify(obj.id,'setValueFor',filterTag,tmp);
           }
         }
         if ( config.initial_text ) {
