@@ -8,7 +8,7 @@ PHEDEX::Web::STH - DBI statement handle wrapper
 
 =head1 DESCRIPTION
 
-This is a wrapper for BDI statement handle object.
+This is a wrapper for DBI::st, BDI statement handle object.
 DBD::Oracle returns all data in string format,
 which causes problem for json conversion,
 resulting in numbers being rendered as strings.
@@ -32,7 +32,7 @@ If other methods are needed, they could be implemented in the same way.
 
 =head2 Usage
 
-  $sth = PHEDEX::Web::STH::new($sth);
+  $sth = PHEDEX::Web::STH->new($sth);
 
   The reset of the code should work the same
 
