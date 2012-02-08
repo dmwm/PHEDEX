@@ -61,7 +61,7 @@ blocktests?block=/WJetsToLNu_TuneZ2_7TeV-madgraph-tauola/Fall11-PU_S6_*_V14B-v1/
 
 # PHEDEX::Web::API::Bounce - simple data service debugging tool
 bounce?hello=world
--bounce?die=tomorrow 500
+-bounce?die=tomorrow 400
 
 # PHEDEX::Web::API::DashboardHistory - TransferHistory for the Dashboard
 dashboardhistory link
