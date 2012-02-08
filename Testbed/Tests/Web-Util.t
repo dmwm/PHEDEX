@@ -317,13 +317,13 @@ ok( lives(\&validate_params, { foo => 'a _ and a -' }, spec => $using_spec),    
 ok( lives(\&validate_params, { foo => 'an asterisk *' }, spec => $using_spec),      'good text: 6') or whydie;
 ok( lives(\&validate_params, { foo => ' ' }, spec => $using_spec),                  'good text: 7') or whydie;
 ok( lives(\&validate_params, { foo => '*' }, spec => $using_spec),                  'good text: 8') or whydie;
+ok( lives(\&validate_params, { foo => ';' }, spec => $using_spec),                  'good text: 9') or whydie;
+ok( lives(\&validate_params, { foo => '?' }, spec => $using_spec),                  'good text: 10') or whydie;
 ok( dies(\&validate_params, { foo => '<' }, spec => $using_spec),                   'dies text: 1') or whydie;
 ok( dies(\&validate_params, { foo => 'abc<def' }, spec => $using_spec),             'dies text: 2') or whydie;
 ok( dies(\&validate_params, { foo => '<script>' }, spec => $using_spec),            'dies text: 3') or whydie;
 ok( dies(\&validate_params, { foo => '"!@#$%^*()+=[]{}:' }, spec => $using_spec),   'dies text: 4') or whydie;
 ok( dies(\&validate_params, { foo => '!<' }, spec => $using_spec),                  'dies text: 5') or whydie;
-ok( dies(\&validate_params, { foo => ';' }, spec => $using_spec),                   'dies text: 6') or whydie;
-ok( dies(\&validate_params, { foo => '?' }, spec => $using_spec),                   'dies text: 7') or whydie;
 
 # 'view_level' checking
 $using_spec = { foo => { using => 'view_level' } };
