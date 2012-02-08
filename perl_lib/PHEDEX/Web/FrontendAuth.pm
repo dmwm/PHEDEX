@@ -122,7 +122,7 @@ sub getRoles {
   return $self->{ROLES} if $self->{ROLES};
   my ($roles,$name,$group);
   foreach ( keys %{$self->{HEADER}} ) {
-    next unless m%^cms-authz-(\S+)$%;
+    next unless m%^cms-authz-(.+)$%;
     $name = lc $1;
     $name =~ s%-% %g;
     $group = lc $self->{HEADER}{$_};
