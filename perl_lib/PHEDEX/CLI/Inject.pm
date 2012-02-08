@@ -77,7 +77,7 @@ sub Payload
   die __PACKAGE__," no datafiles given\n" unless $self->{DATAFILE};
   die __PACKAGE__," no node given\n" unless $self->{NODE};
 
-  foreach ( qw / NODE STRICT VERBOSE / ) { $payload->{lc $_} = $self->{$_}; }
+  foreach ( qw / NODE STRICT / ) { $payload->{lc $_} = $self->{$_}; }
   foreach ( @{$self->{DATAFILE}} )
   {
     open DATA, "<$_" or die "open: $_ $!\n";
