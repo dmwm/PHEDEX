@@ -4322,7 +4322,14 @@ sub disapprove
 	    decision => 'disapprove'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
-  PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  eval {
+    PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  };
+  if ( $@ ) {
+    my ($error,$message);
+    ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
+    die $message;
+  }
   return 1;
 }
 
@@ -4335,7 +4342,14 @@ sub approve
 	    decision => 'approve'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
-  PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  eval {
+    PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+  };
+  if ( $@ ) {
+    my ($error,$message);
+    ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
+    die $message;
+  }
   return 1;
 }
 
