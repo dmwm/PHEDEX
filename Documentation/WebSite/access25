@@ -4322,11 +4322,12 @@ sub disapprove
 	    decision => 'disapprove'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
+  my ($error,$message);
   eval {
-    PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+    $message = PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   };
-  if ( $@ ) {
-    my ($error,$message);
+  if ( $@ ) { $message = $@; }
+  if ( $message ) {
     ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
     die $message;
   }
@@ -4342,11 +4343,12 @@ sub approve
 	    decision => 'approve'
 	  );
   if ( $comments ) { $h{comments} = $comments; }
+  my ($error,$message);
   eval {
-    PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
+    $message = PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   };
-  if ( $@ ) {
-    my ($error,$message);
+  if ( $@ ) { $message = $@; }
+  if ( $message ) {
     ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
     die $message;
   }
