@@ -76,7 +76,7 @@ our %COMMON_VALIDATION =
  'loadtestp_id'	=> qr|^\d+:\d+:\d+$|,
  'create_dest'	=> qr/^(T\d[A-Za-z0-9_]*|-1|\d+)$/, # Name, ID, or -1. Ugh...
  'create_source'=> qr%^(-1|(/[^/\#]+){3}|\d+)$%, # name, ID, or -1. Blearg!
- 'text'         => qr|^[A-Za-z0-9_\-\., :/*'"#@=+?!^%;&]*$|,
+ 'text'         => qr|^[A-Za-z0-9_\-\., :/*'"#@=+?!^%;&\(\)\n]*$|,
  'priority'     => sub { $_[0] eq 'high' || $_[0] eq 'normal' || $_[0] eq 'low' ? 1 : 0 },
  'transfer_state' => sub { $_[0] eq 'assigned' || $_[0] eq 'exported' || $_[0] eq 'transferring' || $_[0] eq 'done' ? 1 : 0 },
  'view_level'   => sub { $_[0] eq 'dbs' || $_[0] eq 'dataset' || $_[0] eq 'block' || $_[0] eq 'file' ? 1 : 0 },
@@ -543,7 +543,7 @@ sub fetch_nodes
         my @to_check = map { lc $_ } split /\|\|/, $args{web_user_auth};
         my $roles_ok = 0;
         foreach my $role (@to_check) {
-            if (grep lc $role eq $_, keys %{$roles}) {
+            if (grep $role eq lc $_, keys %{$roles}) {
                 $roles_ok = 1;
             }
         }
@@ -660,7 +660,7 @@ sub decode_http_error
 {
     my $text = shift;
     my ($error,$message);
-    if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)| ) {
+    if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)$| ) {
       $error = $1;
       $message = $2;
     } else {
