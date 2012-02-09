@@ -1,3 +1,0 @@
-SRM.Endpoint="srm://srm-cms.cern.ch:8443/srm/managerv2" FTS.Endpoint="https://fts-t0-export.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer"
-SRM.Endpoint="DEFAULT" FTS.Endpoint="https://cclcgftsprod.in2p3.fr:8443/glite-data-transfer-fts/services/FileTransfer"
-# This mapfile is valid for CCIN2P3, replace DEFAULT FTS.Endpoint with the FTS endpoint at your T1
