@@ -713,8 +713,9 @@ sub addSubscriptionsForParamSet
          on (rd.destination = sb.destination   
              and (rd.block = sb.block))                                                                                               
          when matched then
-           update set sb.param = rd.param
+           update set sb.param = rd.param, sb.is_move = rd.is_move
 	    where rd.is_custodial=(select is_custodial from t_dps_subs_param where id=sb.param)
+	          and (sb.is_move = 'n' or sb.is_move = rd.is_move)
          when not matched then
 	   insert (destination, dataset, block, param, is_move, time_create)
            values (rd.destination, rd.dataset, rd.block, rd.param,   
@@ -735,8 +736,10 @@ sub addSubscriptionsForParamSet
          on (rd.destination = sd.destination  
              and (rd.dataset = sd.dataset)) 
          when matched then  
-           update set sd.param = rd.param , sd.time_fill_after = rd.time_fill_after
+           update set sd.param = rd.param , sd.time_fill_after = rd.time_fill_after,
+	              sd.is_move = rd.is_move
 	    where rd.is_custodial=(select is_custodial from t_dps_subs_param where id=sd.param)
+	          and (sd.is_move = 'n' or sd.is_move = rd.is_move)
          when not matched then    
            insert (destination, dataset, param, time_fill_after, is_move, time_create) 
            values (rd.destination, rd.dataset, rd.param,
