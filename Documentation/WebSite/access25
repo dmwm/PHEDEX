@@ -4327,7 +4327,7 @@ sub disapprove
     $message = PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   };
   if ( $@ ) { $message = $@; }
-  if ( $message ) {
+  if ( $message && ref($message) ne 'HASH' ) {
     ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
     die $message;
   }
@@ -4348,7 +4348,7 @@ sub approve
     $message = PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   };
   if ( $@ ) { $message = $@; }
-  if ( $message ) {
+  if ( $message && ref($message) ne 'HASH' ) {
     ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
     die $message;
   }
