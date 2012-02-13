@@ -112,21 +112,22 @@ sub mergeStatusBlockArrive
     ($q, $n) = execute_sql( $self, $sql, %p );
     push @r, $n;
     
-    # Estimate the arrival time for block destinations which are currently waiting for routing allocation (bd.state=0)
+    # Estimate the arrival time for block destinations which currently cannot be activated for routing (bd.state<0)
     # Possible reasons for this:
-    # 1) The destination node is dead (has no valid download link). In this case no estimate is possible.
-    # 2) The priority queue to the destination node is full. In this case the minimum possible arrival time is the time to enter the queue.
-    # 3) The block was recently subscribed and is still waiting for activation by BlockActivate or allocation by FileRouter.
-    # In this case, the minimum arrival time is the cycle time for these agents (10 minutes in the worst case).
-    # TODO: WHERE TO PUT THIS??? THE FILEROUTER IS THE MOST LOGICAL PLACE because it knows about 1 and 2...
+    # 1) bd.state=-2 The destination node is dead (has no valid download link). In this case no estimate is possible.
+    # 2) bd.state=-1 The priority queue to the destination node is full. In this case the minimum possible arrival time is the time to enter the queue.
 
     $sql = qq{
 	merge into t_status_block_arrive barr
 	    using ( select bd.destination, bd.block, b.files, b.bytes,
-		           bd.priority, 'ur' basis
+		           bd.priority,
+		           case
+		            when bd.state=-2 'nl'
+                            when bd.state=-1 'qf'
+		           end basis
 		      from t_dps_block_dest bd
 		      join t_dps_block b on b.id=bd.block
-		    where bd.state=0 ) bdest
+		    where bd.state<0 ) bdest
 	    on barr.block = bdest.block and barr.destination = bdest.destination
 	    when not matched then
 	      insert ( time_update, destination, block, files, bytes, priority, basis )
