@@ -170,16 +170,13 @@ sub getUsersWithRoleForSite {
 # @returns:  hash of site names pointing to array of phedex nodes
 sub getPhedexNodeToSiteMap {
   my $self = shift;
-  my $sql = qq { select n.name phedex_name, c.name cms_name
-                 from phedex_node n
-                 join site_cms_name_map sn on sn.site_id = n.site
-                 join cms_name c on c.id = sn.cms_name_id };
+  my $sql = qq { select n.name, s.name
+                     from phedex_node n
+                     join site s on s.id = n.site };
   my $sth = $self->{DBHANDLE}->prepare($sql);
   $sth->execute();
   my %map;
   while (my ($node, $site) = $sth->fetchrow()) {
-      $site = lc $site;
-      $site =~ s%[^a-z0-9]+%-%g;
       $map{$node} = $site;
   }
   return %map;
