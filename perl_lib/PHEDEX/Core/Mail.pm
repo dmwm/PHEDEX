@@ -215,12 +215,13 @@ sub _send_request_create_email
     # Get a list of the sites involved in this request
     my %node_sites = $$self{SECMOD}->getPhedexNodeToSiteMap();
     my (%sites);  # for unique list
+    my ($site,$node1);
     foreach my $sd (qw(DESTINATIONS MOVE_SOURCES NODES))
     {
-        foreach my $node1 (@{$$data{$sd}{'NODE'}})
+        foreach $node1 (@{$$data{$sd}{'NODE'}})
         {
             my $node = $$node1{'NAME'};
-            $sites{ $node_sites{ $node } } = 1 if exists $node_sites{ $node};
+            $sites{ $node_sites{ $node } } = 1 if exists $node_sites{$node};
         }
     }
 
@@ -252,7 +253,7 @@ sub _send_request_create_email
     # Get the list of Data Managers affected by this request
     my @data_managers;
     my $data_manager = "";
-    foreach my $site (keys %sites) {
+    foreach $site (keys %sites) {
         @_ = $$self{SECMOD}->getUsersWithRoleForSite('Data Manager', $site);
 	push @data_managers, @_;
         $data_manager .= "   $site:\n";
@@ -265,7 +266,7 @@ sub _send_request_create_email
     # Get the list of Site Admins affected by this request
     my @site_admins;
     my $site_admin = "";
-    foreach my $site (keys %sites) {
+    foreach $site (keys %sites) {
 	@_ = $$self{SECMOD}->getUsersWithRoleForSite('Site Admin', $site);
 	push @site_admins, @_;
         $site_admin .= "   $site:\n";
@@ -400,7 +401,7 @@ ENDEMAIL
         $$nodes_by_point{'Destination Node'} ||= [];
         push @{$$nodes_by_point{'Destination Node'}}, $$node1{'NAME'};
     }
-    foreach my $node1 (@{$$data{'MOVE_SOURCES'}{'NODE'}}, @{$$data{'NODES'}{'NODE'}})
+    foreach $node1 (@{$$data{'MOVE_SOURCES'}{'NODE'}}, @{$$data{'NODES'}{'NODE'}})
     {
         $$nodes_by_point{'Source Node'} ||= [];
         push @{$$nodes_by_point{'Source Node'}}, $$node1{'NAME'};
@@ -408,7 +409,7 @@ ENDEMAIL
     foreach my $point (sort keys %$nodes_by_point) {
 	$message .= "   ${point}s:\n";
 	foreach my $node (sort @{$$nodes_by_point{ $point }}) {
-	    my $site = $node_sites{$node} || 'unknown';
+	    $site = $node_sites{$node} || 'unknown';
 	    $message .= "     $node (Site:  $site)\n"
 	}
     }

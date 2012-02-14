@@ -367,6 +367,12 @@ sub initSecurity
   }
   $self->{SECMOD} = $secmod;
 
+# If we are testing, make sure the FrontendAuth module knows about it
+  if ( $self->{CONFIG}{TESTING_MODE} ) {
+    my @nodes = PHEDEX::Web::Util::fetch_nodes($self);
+    $self->{SECMOD}->setTestNodes(\@nodes);
+  }
+
   return 1;
 }
 
