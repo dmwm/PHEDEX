@@ -128,13 +128,11 @@ sub reloadConfig
   $self->createAgents();
 }
 
+
 sub createLimits
 {
   my $self = shift;
   delete $self->{_limits};
-  if ( ref($self->{LIMIT}) ne 'ARRAY' ) {
-    $self->{LIMIT} = ( $self->{LIMIT} );
-  }
   foreach ( @{$self->{LIMIT}} )
   {
     my ($re,$key,$val) = split(',',$_);
@@ -430,7 +428,7 @@ sub _udp_listen
   $message = '';
   $remote_address = recv($socket, $message, DATAGRAM_MAXLEN, 0);
 
-  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]:\s+(.*)$% )
+  if ( $message =~ m%^\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d: ([^[]+)\[(\d+)\]:(.*)$% )
   {
     $agent = $1;
     $pid = $2;

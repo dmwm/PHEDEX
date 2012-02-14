@@ -235,8 +235,8 @@ sub flush
     push @stats, ['stray requests added', $rows];
            
     # For every source/destination pair, make some (default 3) random
-    # invalid requests valid.  This ensures a kind of low-rate
-    # "heartbeat" of transfer attempts for very poor links.
+    # invalid paths valid, if they have not yet expired. This ensures
+    # a kind of low-rate "heartbeat" of transfer attempts for very poor links.
     ($stmt, $rows) = &dbexec($dbh, qq{
 	update t_xfer_path 
            set is_valid = 1
@@ -246,14 +246,15 @@ sub flush
                          rank() over (partition by xp.src_node, xp.destination 
                                       order by dbms_random.value) n
                     from t_xfer_path xp
-		   where xp.is_valid = 0)
-	  where n <= $N_SLOW_VALIDATE)});
+		   where xp.is_valid = 0 and xp.time_expire >= :now)
+	  where n <= $N_SLOW_VALIDATE)}, ":now" => $now);
     push @stats, ['invalid paths validated', $rows];
 
     # If transfers path are about to expire on links which have
     # reasonable recent transfer rate (better than the nominal rate,
-    # default 0.5 MB/s), and the caluclated latency is still within
-    # limits (better than the allowed latency, default 3 days), then
+    # default 0.5 MB/s), and the calculated latency is still within
+    # limits (better than the allowed latency, default 3 days),
+    # and the transfer request is still valid, then
     # give a bit more grace time.  Be sure to extend the entire path
     # from src_node to destination so that paths are not broken on
     # cleanup.  Ignore local links so that fast local links do not
@@ -263,6 +264,8 @@ sub flush
     my $qextend = &dbexec($dbh, qq{
 	select xp.fileid, xp.destination, xp.from_node, xp.to_node
 	from t_xfer_path xp
+	join t_xfer_request xq on xq.fileid = xp.fileid
+	                      and xq.destination = xp.destination
         join t_adm_link l on l.to_node = xp.to_node
                          and l.from_node = xp.from_node
         join t_adm_link_param lp on lp.to_node = l.to_node
@@ -270,6 +273,7 @@ sub flush
 	where xp.time_expire >= :now
 	  and xp.time_expire < :now + 2*3600
 	  and xp.is_valid = 1
+	  and xq.state = 0
           and l.is_local = 'n'
 	  and lp.xfer_rate >= $NOMINAL_RATE
 	  and lp.xfer_latency <= $LATENCY_THRESHOLD
@@ -416,6 +420,14 @@ sub route
     my %node_names = reverse %{$$self{NODES_ID}};
     my $active_node_list = join ' ', sort @node_names{@active_nodes};
 
+    my @inactive_nodes;
+    foreach ( keys %node_names ) {
+	push @inactive_nodes, $_ if not exists $active_nodes{$_};
+    }
+
+    # Set all block destinations to inactive for inactive nodes
+    $self->markInactive ($dbh, $_) for (@inactive_nodes);
+
     # Prepare new requests for all destination nodes
     $self->prepare ($dbh, $_) for (@active_nodes);
 
@@ -423,6 +435,27 @@ sub route
     $self->routeFiles ($dbh, $links, @active_nodes)
 	|| $self->Logmsg ("no files to route to $active_node_list");
 }
+
+# Phase 0: Set state = -2 for block destinations that will not be
+# activated for routing because there are no "alive" links to the destination
+# node. This is for monitoring only - on the next FileRouter cycle,
+# if the destination node is "alive", the block destinations will be routed
+# normally. Do this only for blocks that are still waiting for routing activation
+# (state <=0); if the block is already routed, it should stay in the queue.
+
+sub markInactive
+{
+    my ($self, $dbh, $node) = @_;
+    my $sql = qq{ update t_dps_block_dest
+		      set state = -2
+		      where state <= 0
+		      and destination = :node };
+    my @r = &dbexec($dbh, $sql, ":node" => $node);
+    $self->Warn("Unable to activate $r[1] blocks for routing to node $node: no active incoming links")
+	if $r[1] && $r[1]>0;
+}
+
+
 
 # Phase 1: Issue file requests for blocks requiring transfer.
 #
@@ -534,20 +567,25 @@ sub prepare
 	my $blocks_to_activate = &{ $$self{REQUEST_ALLOC_SUBREF} }($dbh, $node);
 
 	# Activate blocks up to the WINDOW_SIZE limit
+	# Activated blocks are set to state=1;
+	# blocks skipped due to WINDOW_SIZE limit are set to state=-1
 	my $u = &dbprep($dbh, qq{
 	    update t_dps_block_dest
-	       set state = 1, time_active = :now
+	       set state = :state, time_active = :now
 	     where block = :block 
                and destination = :node});
 	my @activated_blocks;
 	my $bytes_activ = 0;
+	my $state;
 	foreach my $b (@{ $blocks_to_activate })
 	{
-	    next if ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $WINDOW_SIZE;
+	    $state = ( ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $WINDOW_SIZE ) ? -1 : 1;
 	    &dbbindexec($u,
 			":block" => $$b{BLOCK},
 			":node" => $node,
-			":now" => $now);
+			":now" => $now,
+			":state" => $state);
+	    next if $state == -1;
 	    push(@activated_blocks, $b);
 	    $bytes_activ += $$b{BYTES};
 	}
@@ -612,7 +650,7 @@ sub getDestinedBlocks_ByAge
          from t_dps_block_dest bd
 	 join t_dps_block b on b.id = bd.block
         where bd.destination = :node
-          and bd.state = 0
+          and bd.state <= 0
           and exists (select 1 from t_dps_block_replica br
    		       where br.block = bd.block and br.is_active = 'y')
 	  order by bd.time_create asc},
@@ -640,7 +678,7 @@ sub getDestinedBlocks_DatasetBalance
 	  from t_dps_block_dest bd
 	  left join t_xfer_request xq on xq.inblock = bd.block and xq.destination = bd.destination
 	  left join t_xfer_file xf on xf.id = xq.fileid
-	 where bd.state in (0, 1) and bd.destination = :node
+	 where bd.state <= 1 and bd.destination = :node
          group by bd.dataset },
 		    ':node' => $node);
 
@@ -653,7 +691,7 @@ sub getDestinedBlocks_DatasetBalance
 	  from t_dps_block_dest bd
 	  join t_dps_block b on b.id = bd.block
          where bd.destination = :node
-           and bd.state = 0
+           and bd.state <= 0
            and exists (select 1 from t_dps_block_replica br
 		       where br.block = bd.block and br.is_active = 'y') },
 			     ":node" => $node);

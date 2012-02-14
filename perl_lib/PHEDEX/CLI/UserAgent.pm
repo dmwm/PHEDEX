@@ -167,22 +167,4 @@ sub path_info
   return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
 }
 
-sub get
-{
-  my ($self,$url,$h,$headers) = @_;
-  my $args='';
-  no strict 'vars';
-  foreach my $key ( keys %{$h} )
-  {
-    if ( $args ) { $args .= '&'; }
-    if ( ref($h->{$key}) eq 'ARRAY' ) {
-      $args .= join( '&', map { "$key=" . ( $_ || '') } @{$h->{$key}} );
-    } else {
-      $args .= $key . '=' . ( $h->{$key} || '');
-    }
-  }
-  if ( $args ) { $url .= '?' . $args; }
-  my $response = $self->SUPER::get($url,%{$headers});
-}
-
 1;

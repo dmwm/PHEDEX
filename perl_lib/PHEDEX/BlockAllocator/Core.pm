@@ -47,7 +47,8 @@ sub addBlockSubscriptions
 		     and n.dataset = o.dataset
 		     and n.block = o.block)
 	     when matched then update
-	      set n.param=o.param
+	      set n.param=o.param,
+	          n.is_move=decode(n.is_move,'y','y','n',o.is_move)
 	     when not matched then insert
 	     (destination, dataset, block, param, is_move,
 	      time_create, time_suspend_until)

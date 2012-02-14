@@ -1,11 +1,5 @@
 set scan off;
 
-/* Keep block file and byte totals current in the block record when
-   changing the files.  Supports the following:
-     - file added or removed bytes
-     - file inserted or deleted
-     - file moved from one block to another
- */
 create or replace trigger tr_dps_file_block
   after insert or update or delete on t_dps_file for each row declare
     unixtime integer := now();
@@ -35,47 +29,6 @@ create or replace trigger tr_dps_file_block
     end if;
   end;
 /
-show errors;
-
-/* Keep dataset block, file and byte totals current in the block
-   record when changing the blocks.  Supports the following:
-     - block added or removed files/bytes
-     - block inserted or deleted
-     - block moved from one dataset to another
- */
-create or replace trigger tr_dps_block_dataset
-  after insert or update or delete on t_dps_block for each row declare
-    unixtime integer := now();
-  begin
-    if (updating and :old.dataset = :new.dataset) then
-        update t_dps_dataset
-           set files = files - :old.files + :new.files,
-               bytes = bytes - :old.bytes + :new.bytes,
-               time_update = unixtime
-         where id = :new.dataset;
-	return;
-    end if;
-
-    if (inserting or updating) then
-      update t_dps_dataset
-      set blocks = blocks + 1,
-          files = files + :new.files,
-          bytes = bytes + :new.bytes,
-	  time_update = unixtime
-      where id = :new.dataset;
-    end if;
-
-    if (updating or deleting) then
-      update t_dps_dataset
-      set blocks = blocks - 1,
-          files = files - :old.files,
-          bytes = bytes - :old.bytes,
-	  time_update = unixtime
-      where id = :old.dataset;
-    end if;
-  end;
-/
-show errors;
 
 /* Insert new requests for new files in an already-active block
    destination.
@@ -93,7 +46,6 @@ create or replace trigger tr_xfer_file_insert
       from t_dps_block_dest bd where bd.block = :new.inblock and bd.state = 1;
   end;
 /
-show errors;
 
 /* Insert new requests for replicas deleted from an already-active
    block destination.  (to trigger a retransfer)
@@ -117,4 +69,5 @@ create or replace trigger tr_xfer_replica_delete
 	   where xq.fileid = f.id and xq.destination = bd.destination);
   end;
 /
-show errors;
+
+show errors

@@ -1034,6 +1034,104 @@ create table t_status_block_arrive
      on delete cascade
   );
 
+/*
+
+=pod
+
+=head2 t_status_block_request
+
+This status table contains file and byte counts for requests for
+transfer -- files allocated by the
+L<FileRouter|PHEDEX::Infrastructure::FileRouter::Agent> for routing.
+This data is aggregated by block and destination node from 
+L<t_xfer_request|Schema::OracleCoreTransfer/t_xfer_request>.
+
+=over
+
+=item t_status_block_request.time_update
+
+L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
+
+=item t_status_block_request.destination
+
+Destination node, FK to
+L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_block_request.block
+
+Block ID, FK to
+L<t_dps_block.id|Schema::OracleCoreTopo/t_adm_node.id>.
+
+=item t_status_block_request.priority
+
+Priority of the queue, see 
+L<Schema::Schema/priority (Node-level)>.
+
+=item t_status_block_request.is_custodial
+
+Whether the requests are for custodial copies of the data.
+
+=item t_status_block_request.state
+
+The request state, see
+L<t_xfer_request.state|Schema::OracleCoreTransfer/t_xfer_request.state>.
+
+=item t_status_block_request.request_files
+
+Number of files requested for transfer.
+
+=item t_status_block_request.request_bytes
+
+Number of bytes requested for transfer.
+
+=item t_status_block_request.xfer_attempts
+
+Total number of transfer attempts for all file requests for this block.
+
+=item t_status_block_request.time_request
+
+L<Time|Schema::Schema/Timestamp Columns> when the first request for a file
+in this block was created.
+
+=back
+
+=cut
+
+*/
+
+ create table t_status_block_request
+  (time_update		float		not null,
+   destination		integer		not null,
+   block		integer		not null,
+   priority		integer		not null,
+   is_custodial		char (1)	not null,
+   state		integer		not null,
+   request_files	integer		not null,
+   request_bytes	integer		not null,
+   xfer_attempts	integer		not null,
+   time_request		integer		not null,
+   --
+   constraint pk_status_block_request
+     primary key (destination, block, priority, is_custodial, state),
+   --
+   constraint fk_status_block_request_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_block_request_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
+   --
+   constraint ck_status_block_request_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+ create index ix_status_block_request_dest
+  on t_status_block_request (destination);
+
+ create index ix_status_block_request_block
+  on t_status_block_request (block);
+
 /* Statistics for blocks being routed . */
 create table t_status_block_path
   (time_update		float		not null,
