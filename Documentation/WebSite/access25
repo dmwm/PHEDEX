@@ -2302,7 +2302,7 @@ sub generate
   POSIX::sigaction(&POSIX::SIGALRM, $action, $oldaction );
   eval {
       alarm 10;
-      $$self{SECMOD}->init();
+      $$self{SECMOD}->init($self);
       alarm 0;
   };
   POSIX::sigaction(&POSIX::SIGALRM, $oldaction); # restore original
@@ -2560,6 +2560,13 @@ sub generate
 	return;
       }
     }
+
+#   If we are testing, make sure the FrontendAuth module knows about it
+    if ( $self->{CONFIG}{TESTING_MODE} ) {
+      my @nodes = $self->fetch_nodes();
+      $self->{SECMOD}->setTestNodes(\@nodes);
+    }
+
 
     # Detect the schema version and pass it into the page
     my ($major,$minor,$revision);
