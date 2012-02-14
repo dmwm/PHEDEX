@@ -3,6 +3,8 @@ use strict;
 use DBI;
 use Data::Dumper;
 
+my ($ExtraNodes,$UID);
+
 sub new {
   my $class = shift;
   my $options = shift;
@@ -66,6 +68,12 @@ sub init {
   $self->getUserInfoFromID($self->{USERID});
 
   return 1;
+}
+
+sub setTestNodes {
+  my ($self,$nodes) = @_;
+  $ExtraNodes = $nodes;
+  $UID = 1540;
 }
 
 sub isSecure {
@@ -179,6 +187,9 @@ sub getPhedexNodeToSiteMap {
   while (my ($node, $site) = $sth->fetchrow()) {
       $map{$node} = $site;
   }
+  foreach ( @{$ExtraNodes} ) {
+    ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%%;
+  }
   return %map;
 }
 
@@ -188,6 +199,9 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
+  if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
+    return $UID;
+  }
   my $sth = $self->{DBHANDLE}->prepare("SELECT id FROM contact WHERE dn = ?");
   $sth->execute($dn);
   if(my $row = $sth->fetchrow_arrayref()) {
