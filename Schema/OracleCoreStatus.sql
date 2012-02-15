@@ -1144,6 +1144,7 @@ create table t_status_block_path
    route_bytes		integer		not null, -- routed bytes
    xfer_attempts	integer		not null, -- xfer attempts of routed
    time_request		integer		not null, -- min (oldest) request time of routed
+   time_arrive		float		not null, -- max predicted arrival time estimated by router
    --
    constraint pk_status_block_path
      primary key (destination, src_node, block, priority, is_valid),
