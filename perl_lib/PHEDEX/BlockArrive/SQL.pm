@@ -92,53 +92,35 @@ sub mergeStatusBlockArrive
     push @r, $n;
 
     # Create the stats (files, bytes, priority) for incomplete block destinations
-    # Set basis to 'o'/'s'/'rs' for open/suspended/routersuspended blocks respectively for which no estimate can be done
+    # which are currently not activated for routing (bd.state!=1,bd.state!=3)
+    # and for open blocks for which no completion time esitimate is possible.
+    # States considered here:
+    # 1) bd.state=-2 The destination node is dead (has no valid download link). In this case no estimate is possible.
+    # 2) bd.state=-1 The priority queue to the destination node is full. In this case the minimum possible arrival time is the time to enter the queue.
+    # 3) bd.state=0  The block destination has not yet been considered for routing, it will be updated in the next FileRouter cycle - not monitored here.
+    # 4) bd.state=2  Subscription manually suspended
+    # 5) bd.state=4  Subscription automatically suspended by FileRouter for too many failures
+    # 6) b.is_open='y'
     # TODO: suspensions can expire - should we use this in estimate?
-    # Set basis to 'd' (dummy) for other blocks, to be updated later
 
     $sql = qq{
 	insert into t_status_block_arrive
 	    ( time_update, destination, block, files, bytes, priority, basis )
 	    select :now, bd.destination, bd.block, b.files, b.bytes, bd.priority,
 	            case
+		      when bd.state = -2 then 'l'
+		      when bd.state = -1 then 'q'
 	              when bd.state = 2 then 's'
-		      when bd.state = 4 then 'rs'
+		      when bd.state = 4 then 'u'
 	              when b.is_open = 'y' then 'o'
 		    end basis
 	        from t_dps_block_dest bd
 	        join t_dps_block b on b.id = bd.block
-	        where bd.state = 2 or bd.state = 4 or b.is_open = 'y' };
+	        where bd.state = -2 or bd.state = -1 or bd.state = 2 or bd.state = 4 or b.is_open = 'y' };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
     push @r, $n;
     
-    # Estimate the arrival time for block destinations which currently cannot be activated for routing (bd.state<0)
-    # Possible reasons for this:
-    # 1) bd.state=-2 The destination node is dead (has no valid download link). In this case no estimate is possible.
-    # 2) bd.state=-1 The priority queue to the destination node is full. In this case the minimum possible arrival time is the time to enter the queue.
-
-    $sql = qq{
-	merge into t_status_block_arrive barr
-	    using ( select bd.destination, bd.block, b.files, b.bytes,
-		           bd.priority,
-		           case
-		            when bd.state=-2 'nl'
-                            when bd.state=-1 'qf'
-		           end basis
-		      from t_dps_block_dest bd
-		      join t_dps_block b on b.id=bd.block
-		    where bd.state<0 ) bdest
-	    on barr.block = bdest.block and barr.destination = bdest.destination
-	    when not matched then
-	      insert ( time_update, destination, block, files, bytes, priority, basis )
-	      values ( :now, bdest.destination, bdest.block, bdest.files, bdest.bytes,
-		       bdest.priority, bdest.basis )
-	  };
-    
-    ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;    
-    
- 
     # Estimate the arrival time for block destinations which are currently activated for routing (bd.state=1)
     # but for which some of the files are currently unroutable (t_xfer_request.state!=0).
     # The FileRouter logs this information in the t_status_block_request table.
@@ -155,51 +137,53 @@ sub mergeStatusBlockArrive
     # THE POSSIBILITY TO PROVIDE A ROUTING ESTIMATE ANYMORE. WHAT SHOULD WE USE FOR THE ESTIMATE??? FILE LATENCY TABLES???
     
     $sql = qq{
-        merge into t_status_block_arrive barr
-            using ( select br.destination, br.block, b.files, b.bytes,
-		           br.priority, 
-		           case
-		           when max(br.state)=4 then 'nsr'
-		           when max(br.state)=3 then 'np'
-		           when max(br.state)=1 then 'co'
-		           end basis
-                      from t_status_block_request br
-		      join t_dps_block b on b.id=br.block
-                    where br.state = 4 or br.state = 3 or br.state =1
-		    group by br.destination, br.block, b.files, b.bytes,
-		          br.priority
-		    ) breq
-	    on barr.block = breq.block and barr.destination = breq.destination
-            when not matched then
-              insert ( time_update, destination, block, files, bytes, priority, basis )
-              values ( :now, bdest.destination, bdest.block, bdest.files, bdest.bytes,
-                       bdest.priority, bdest.basis )
-          };
+	merge into t_status_block_arrive barr
+	    using 
+	    ( select br.destination, br.block, b.files, b.bytes,
+	              br.priority, 
+	              case
+	               when max(br.state)=4 then 'n'
+	               when max(br.state)=3 then 'p'
+	               when max(br.state)=1 then 'f'
+	              end basis
+	       from t_status_block_request br
+	       join t_dps_block b on b.id=br.block
+	       where br.state = 4 or br.state = 3 or br.state =1
+	       group by br.destination, br.block, b.files, b.bytes,
+	                 br.priority
+	     ) breqs
+	     on ( barr.destination=breqs.destination
+	          and barr.block=breqs.block )
+	     when not matched then
+	      insert ( time_update, destination, block, files, bytes, priority, basis )
+	      values ( :now, breqs.destination, breqs.block, breqs.files, breqs.bytes,
+	             breqs.priority, breqs.basis )
+    };
     
     ($q, $n) = execute_sql( $self, $sql, %p );
     push @r, $n;
 
-    # What remains is the files with an active request - for these, the ETA is estimated by the router in the path cost.
-
+    # What remains is the files with an active request - for these, the ETA is estimated by the router in the path cost
+    # and aggregated in the t_status_block_path table by src_node,destination,block. Here we simply aggregate again.
     $sql = qq{
         merge into t_status_block_arrive barr
             using
-            ( select xp.destination, xf.inblock, decode(xp.is_local,'y',xp.priority/2,'n',(xp.priority-1)/2) priority,  
-	             'r' basis, :now + max(xp.total_cost) time_arrive
-	        from t_xfer_path xp
-	        join t_xfer_file xf on xp.fileid=xf.id
-	        where xp.is_valid = 1
-	        group by xp.destination, xf.inblock, priority
-	      ) blockstats
-	      on barr.block=bdest.block and barr.destination=bdest.destination                                                                                                                  
-	      when matched then                                                                                                                                                                 
-              update set barr.time_update = :now,                                                                                                                                             
-                         barr.files = bdest.files,                                                                                                                                            
-	  };      
-                                                                                                                                                                                              
-    ($q, $n) = execute_sql( $self, $sql, %p );                                                                                                                                                
-    push @r, $n;
+            ( select bp.destination, bp.block, b.files, b.bytes, bp.priority,
+	              'r' basis, max(bp.time_arrive) time_arrive
+	       from t_status_block_path bp
+	       join t_dps_block b on b.id=bp.block
+	       group by bp.destination, bp.block, b.files, b.bytes, bp.priority
+	      ) bpaths
+	      on ( barr.block=bpaths.block 
+		   and barr.destination=bpaths.destination )
+	      when not matched then
+	       insert ( time_update, destination, block, files, bytes, priority, basis, time_arrive )
+	       values ( :now, bpaths.destination, bpaths.block, bpaths.files, bpaths.bytes,
+			bpaths.priority, bpaths.basis, bpaths.time_arrive )
+	   };
 
+    ($q, $n) = execute_sql( $self, $sql, %p );
+    push @r, $n;
 
 }
 
