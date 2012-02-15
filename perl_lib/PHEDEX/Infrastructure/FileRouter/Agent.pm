@@ -1,5 +1,5 @@
 package PHEDEX::Infrastructure::FileRouter::Agent;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::BlockArrive::SQL';
 
 use strict;
 use warnings;
@@ -1271,14 +1271,18 @@ sub stats
     &dbexec($dbh, qq{
 	insert into t_status_block_path
 	(time_update, destination, src_node, block, priority, is_valid,
-	 route_files, route_bytes, xfer_attempts, time_request)
+	 route_files, route_bytes, xfer_attempts, time_request, time_arrive)
        select :now, path.destination, path.src_node, f.inblock, path.priority, path.is_valid,
-              count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create)
+              count(f.id), sum(f.filesize), sum(xq.attempt), min(xq.time_create), max(path.time_arrive)
          from (
 	  select distinct xp.destination, xp.src_node, xp.fileid,
 	   decode(xp.is_local, 1, xp.priority/2, 0, (xp.priority-1)/2) priority,
-	   xp.is_valid from t_xfer_path xp
-         ) path
+	   xp.is_valid, max(xp.time_confirm+xp.total_cost) time_arrive
+	  from t_xfer_path xp
+	  group by xp.destination, xp.src_node, xp.fileid,
+	   decode(xp.is_local, 1, xp.priority/2, 0, (xp.priority-1)/2),
+	   xp.is_valid
+	       ) path
          join t_xfer_request xq on xq.destination = path.destination and xq.fileid = path.fileid
          join t_xfer_file f on f.id = xq.fileid
          group by path.destination, path.src_node, f.inblock, path.priority, path.is_valid},
@@ -1295,6 +1299,10 @@ sub stats
 	join t_xfer_file f on f.id = xq.fileid
 	group by xq.destination, xq.inblock, xq.priority, xq.is_custodial, xq.state},
 	    ":now" => $now);
+    
+    # Block arrival time prediction
+    
+    $self->mergeStatusBlockArrive();
 
     $dbh->commit();
     $self->Logmsg("updated statistics");
