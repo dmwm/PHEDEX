@@ -199,6 +199,8 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
+  $dn =~ s%/CN=proxy%%g;
+
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
