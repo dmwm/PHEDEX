@@ -97,6 +97,15 @@ sub fetchAndSyncIdentity
 	die "fetchAndSyncIdentity requires AUTH_METHOD";
     }
     
+    if ( $h{CERTIFICATE} ) {
+      my $len = 4000;
+      my $clen = length($h{CERTIFICATE});
+      if ( $clen > $len ) {
+#     Truncate at $len characters, so it fits in the database field
+        warn "Certificate for $h{DN} too long, truncating ($clen > $len)\n";
+        $h{CERTIFICATE} = substr($h{DN},0,$len);
+      }
+    }
     my @to_sync;
     if ($h{AUTH_METHOD} eq 'CERTIFICATE') {
 	@to_sync = qw(SECMOD_ID NAME EMAIL DN CERTIFICATE);	
@@ -198,7 +207,11 @@ sub getIdentityFromSecMod
 
     my $id = {};
     $id->{SECMOD_ID} = $secmod->getID();
-    $id->{NAME} = $secmod->getForename() .' '. $secmod->getSurname();
+    my $forename = $secmod->getForename() || '';
+    my $surname  = $secmod->getSurname()  || '';
+    $id->{NAME}  = $forename . ' ' . $surname;
+    $id->{NAME}  =~ s%^ %%;
+    $id->{NAME}  =~ s% $%%;
     $id->{EMAIL} = $secmod->getEmail();
 
     if ($secmod->isCertAuthenticated()) {
