@@ -188,7 +188,7 @@ sub getPhedexNodeToSiteMap {
       $map{$node} = $site;
   }
   foreach ( @{$ExtraNodes} ) {
-    ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%%;
+    ($map{$_} = $_) =~ s%(_Buffer|_MSS)$%% unless $map{$_};
   }
   return %map;
 }
