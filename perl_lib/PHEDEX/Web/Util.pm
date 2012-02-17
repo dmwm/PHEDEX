@@ -49,12 +49,12 @@ sub process_args
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
- 'xml'		=> qr|^[A-Za-z0-9\-_\#\.\'\*"/:=,\n\r \t<>]*$|,
- 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.\*/]*$|,
+ 'xml'		=> qr|^[A-Za-z0-9\-_\#\.\'*%?"/:=,\n\r \t<>]*$|,
+ 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.*%?/]*$|,
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
  'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
  'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^[*%]$!,
- 'lfn'          => qr|^/[A-Za-z-_\d#\.\/\$\{\}]*$|,
+ 'lfn'          => qr|^/[A-Za-z-_\d#\.\/*%?]*$|,
  'wildcard'     => qr|[*%?]|,
  'node'         => qr/^(T[\d?][A-Za-z0-9_*%?]+|\d+)$/,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
