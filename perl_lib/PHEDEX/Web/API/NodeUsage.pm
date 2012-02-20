@@ -77,13 +77,13 @@ sub nodeUsage
 	# subscribed data: custodial categories
 	foreach my $c (qw(CUST NONCUST)) {
 	    foreach my $a (qw(NODE_FILES NODE_BYTES DEST_FILES DEST_BYTES)) {
-		$row->{ $c.'_'.$a } = $usage->{$node}->{ 'SUBS_'. $c }->{$a}  || 0;		
+		$row->{ $c.'_'.$a } = ($usage->{$node}->{ 'SUBS_'. $c }->{$a}  || 0) + 0;		
 	    }
 	}
 	# non-subscribed data: source categories
 	foreach my $s (qw(SRC NONSRC)) {
 	    foreach my $a (qw(NODE_FILES NODE_BYTES)) {
-		$row->{ $s.'_'.$a } = $usage->{$node}->{ 'NONSUBS_'.$s }->{$a} || 0;		
+		$row->{ $s.'_'.$a } = ($usage->{$node}->{ 'NONSUBS_'.$s }->{$a} || 0) + 0;		
 	    }
 	}
 	push @$result, $row;
