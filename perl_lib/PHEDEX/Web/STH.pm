@@ -40,6 +40,7 @@ If other methods are needed, they could be implemented in the same way.
 
 use warnings;
 use strict;
+use Carp;
 
 sub new
 {
@@ -57,16 +58,32 @@ sub new
 
     for (my $i = 0; $i < $self->{NUM_OF_FIELDS}; $i++)
     {
-        my $tn = $self->{Database}->type_info($self->{TYPE}[$i])->{TYPE_NAME};
-        if ($tn eq 'DECIMAL' || $tn eq 'DOUBLE PRECISION')
+        #my $tn = $self->{Database}->type_info($self->{TYPE}[$i])->{TYPE_NAME};
+        # DBD::Oracle does not provide all type names, such as CLOB
+        my $type = $self->{Database}->type_info($self->{TYPE}[$i]);
+        if (defined $type)
         {
-            push @{$self->{numberField}}, $self->{NAME}[$i];
-            push @{$self->{numberFieldID}}, $i;
+            if ($type->{TYPE_NAME} eq 'DECIMAL' || $type->{TYPE_NAME} eq 'DOUBLE PRECISION')
+            {
+                push @{$self->{numberField}}, $self->{NAME}[$i];
+                push @{$self->{numberFieldID}}, $i;
+            }
         }
     }
     bless $self, $proto;
     return $self;
 }
+
+# catch all
+sub AUTOLOAD
+{
+    my $self = shift;
+    my $attr = our $AUTOLOAD;
+    $attr =~ s/.*:://;
+    return $self->{sth}->$attr(@_);
+}
+
+# FIXME! does not do slice yet
 
 # fetchrow_hashref() -- $sth->fetchrow_hashref() with numification
 sub fetchrow_hashref
@@ -97,11 +114,43 @@ sub fetchrow_arrayref
     return $r;
 }
 
-# execute() -- just call $sth->execute()
-sub execute
+# fetchall_arrayref() -- $sth->fetchall_arrayref() with numification
+sub fetchall_arrayref
 {
-    my $self = shift;
-    return $self->{sth}->execute(@_);
+    my ($self, $slice, $max_rows) = @_;
+    my $r = $self->{sth}->fetchall_arrayref($slice, $max_rows) or return \[];
+    my $mode = ref($slice) || 'ARRAY';
+    if ($mode eq 'ARRAY')
+    {
+        foreach my $i (@{$r})
+        {
+            foreach (@{$self->{numberFieldID}})
+            {
+                # force it to be a number
+                $i->[$_] = $i->[$_] + 0;
+            }
+        }
+    }
+    elsif ($mode eq 'HASH')
+    {
+        foreach my $i (@{$r})
+        {
+            foreach (@{$self->{numberField}})
+            {
+                if (defined $i->{$_})
+                {
+                    # force it to be a number
+                    $i->{$_} = $i->{$_} + 0;
+                }
+            }
+        }
+    }
+    else
+    {
+        Carp::croak("fetchall_arrayref($mode) invalid");
+    }
+
+    return $r;
 }
 
 1;
