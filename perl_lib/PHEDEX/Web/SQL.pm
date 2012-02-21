@@ -722,6 +722,9 @@ sub getTransferHistory
     # take care of FROM/FROM_NODE and TO/TO_NODE
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
+    # need to take care of operators, too
+    $h{OPERATORS}->{TO_NODE} = delete $h{OPERATORS}->{TO} if $h{OPERATORS}->{TO};
+    $h{OPERATORS}->{FROM_NODE} = delete $h{OPERATORS}->{FROM} if $h{OPERATORS}->{FROM};
 
     my %param;
 
@@ -849,6 +852,9 @@ sub getTransferQueueHistory
     # take care of FROM/FROM_NODE and TO/TO_NODE
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
+    # need to take care of operators, too
+    $h{OPERATORS}->{TO_NODE} = delete $h{OPERATORS}->{TO} if $h{OPERATORS}->{TO};
+    $h{OPERATORS}->{FROM_NODE} = delete $h{OPERATORS}->{FROM} if $h{OPERATORS}->{FROM};
 
     my $sql = qq {
     select
@@ -1597,6 +1603,9 @@ sub getErrorLogSummary
     # take care of FROM/FROM_NODE and TO/TO_NODE
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
+    # need to take care of operators, too
+    $h{OPERATORS}->{TO_NODE} = delete $h{OPERATORS}->{TO} if $h{OPERATORS}->{TO};
+    $h{OPERATORS}->{FROM_NODE} = delete $h{OPERATORS}->{FROM} if $h{OPERATORS}->{FROM};
 
     my $sql = qq {
         select
@@ -1671,6 +1680,9 @@ sub getErrorLog
     # take care of FROM/FROM_NODE and TO/TO_NODE
     $h{FROM_NODE} = delete $h{FROM} if $h{FROM};
     $h{TO_NODE} = delete $h{TO} if $h{TO};
+    # need to take care of operators, too
+    $h{OPERATORS}->{TO_NODE} = delete $h{OPERATORS}->{TO} if $h{OPERATORS}->{TO};
+    $h{OPERATORS}->{FROM_NODE} = delete $h{OPERATORS}->{FROM} if $h{OPERATORS}->{FROM};
 
     my $sql = qq {
         select
