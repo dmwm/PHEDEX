@@ -9,6 +9,7 @@ use Data::Dumper;
 use PHEDEX::Core::Identity;
 use PHEDEX::Core::Timing;
 use PHEDEX::RequestAllocator::SQL;
+use PHEDEX::Web::STH;
 
 our @EXPORT = qw( );
 our (%params);
@@ -146,6 +147,7 @@ sub getBlockReplicas
 
     # return $q in spooling mode
     $q = execute_sql( $self, $sql, %p );
+    $q = PHEDEX::Web::STH->new($q);
     if ($h{'__spool__'})
     {
         return $q;
@@ -278,6 +280,7 @@ sub getFileReplicas
 
     $sql .= qq{ order by block_id };
     $q = execute_sql( $self, $sql, %p );
+    $q = PHEDEX::Web::STH->new($q);
 
     if ($h{'__spool__'})
     {
@@ -290,12 +293,13 @@ sub getFileReplicas
 }
 
 sub getDBS {
-   my ($self, %h) = @_;
-   my ($sql,$q,@r);
+    my ($self, %h) = @_;
+    my ($sql,$q,@r);
 
-   $sql = qq{ select name, id from t_dps_dbs };
+    $sql = qq{ select name, id from t_dps_dbs };
 
     $q = execute_sql( $self, $sql );
+    $q = PHEDEX::Web::STH->new($q);
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
    return \@r;
 }
@@ -326,6 +330,7 @@ sub getTFC {
    $p{':node'} = $h{node};
 
     $q = execute_sql( $self, $sql, %p );
+    $q = PHEDEX::Web::STH->new($q);
     # while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
     # remove empty fields
     while ( $_ = $q->fetchrow_hashref() )
@@ -386,7 +391,6 @@ sub SiteDataInfo
   my %requestor;
 # we arrange everything in a hash sorted by dataset id and then request id
   while (my $row = $sth->fetchrow_hashref()) {
-    #print Dumper($row) . "\n";
     $dataset{$row->{DATASET_ID}}{requestids}{$row->{ID}} = { requestorid => $row->{CREATED_BY},
 					       commentid => $row->{COMMENTS},
 					       time  => $row->{TIME_CREATE} };
@@ -614,7 +618,7 @@ sub getAgents
     };
 
     my @r;
-    my $q = execute_sql($core, $sql, %p);
+    my $q = PHEDEX::Web::STH->new(execute_sql($core, $sql, %p));
     while ( $_ = $q->fetchrow_hashref())
     {
         push @r, $_;
@@ -665,6 +669,7 @@ sub getTransferQueueStats
     $sql .= qq {\n        order by nd.name, ns.name, state};
 
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     my %link;
     while ( $_ = $q->fetchrow_hashref())
     {
@@ -812,7 +817,7 @@ sub getTransferHistory
     };
 
     # now execute the query
-    my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
+    my $q = PHEDEX::Web::STH->new(execute_sql( $core, $sql, %param ));
 
     if (exists $h{__spool__})
     {
@@ -920,7 +925,7 @@ sub getTransferQueueHistory
     $sql .= qq {\norder by 2, 3, 1 asc};
 
     # now execute the query
-    my $q = PHEDEX::Core::SQL::execute_sql( $core, $sql, %param );
+    my $q = PHEDEX::Web::STH->new(execute_sql( $core, $sql, %param ));
 
     if (exists $h{__spool__})
     {
@@ -950,7 +955,7 @@ sub getClientData
     my $identity = &PHEDEX::Core::Identity::getIdentityFromDB($self, $clientinfo->{IDENTITY});
     return {
         NAME => $identity->{NAME},
-        ID => $identity->{ID},
+        ID => $identity->{ID} + 0,
         DN => $identity->{DN},
         USERNAME => $identity->{USERNAME},
         EMAIL => $identity->{EMAIL},
@@ -1156,6 +1161,7 @@ sub getRequestData
         where rb.request = :request };
 
     my $q = &execute_sql($$self{DBH}, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($data = $q ->fetchrow_hashref())
     {
@@ -1169,16 +1175,16 @@ sub getRequestData
         {
             # take care of priority
             $$data{PRIORITY} = PHEDEX::Core::Util::priority($$data{PRIORITY});
-            $$data{DESTINATIONS}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd')->fetchall_arrayref({});
+            $$data{DESTINATIONS}->{NODE} = PHEDEX::Web::STH->new(&execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 'd'))->fetchall_arrayref({});
 	    @process_nodes = @{$$data{DESTINATIONS}->{NODE}};
 	    if ($$data{MOVE} eq 'y') {
-		$$data{MOVE_SOURCES}->{NODE} = &execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's')->fetchall_arrayref({});
+		$$data{MOVE_SOURCES}->{NODE} = PHEDEX::Web::STH->new(&execute_sql($$self{DBH}, $node_sql, ':request' => $$data{ID}, ':point' => 's'))->fetchall_arrayref({});
 		push @process_nodes, @{$$data{MOVE_SOURCES}->{NODE}};
 	    }
         }
         else
         {
-            $$data{NODES}->{NODE} = &execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID})->fetchall_arrayref({});
+            $$data{NODES}->{NODE} = PHEDEX::Web::STH->new(&execute_sql($$self{DBH}, $node_sql2, ':request' => $$data{ID}))->fetchall_arrayref({});
             @process_nodes = @{$$data{NODES}->{NODE}};
         }
 	foreach my $node (@process_nodes) 
@@ -1197,8 +1203,8 @@ sub getRequestData
         $$data{DATA}{USERTEXT}{'$T'} = delete $$data{USERTEXT};
 	$$data{REQUESTED_BY}{COMMENTS}{'$T'} = delete $$data{COMMENTS};
 
-        $$data{DATA}{DBS}{DATASET} = &execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID})->fetchall_arrayref({});
-        $$data{DATA}{DBS}{BLOCK} = &execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID})->fetchall_arrayref({});
+        $$data{DATA}{DBS}{DATASET} = PHEDEX::Web::STH->new(&execute_sql($$self{DBH}, $dataset_sql, ':request' => $$data{ID}))->fetchall_arrayref({});
+        $$data{DATA}{DBS}{BLOCK} = PHEDEX::Web::STH->new(&execute_sql($$self{DBH}, $block_sql, ':request' => $$data{ID}))->fetchall_arrayref({});
 
         my ($total_files, $total_bytes) = (0, 0);
 
@@ -1319,9 +1325,11 @@ sub getGroupUsage
 
     $sql .= " where ($filters) " if $filters;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     my %node;
 
-    while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+    #while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+    while ($_ = fetchrow_hashref($q)) {push @r, $_;}
 
     return \@r;
 }
@@ -1569,6 +1577,7 @@ sub getTransferQueue
     };
 
     $q = execute_sql( $self, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     if (exists $h{'__spool__'})
     {
@@ -1635,6 +1644,7 @@ sub getErrorLogSummary
         };
 
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     if (exists $h{'__spool__'})
     {
@@ -1720,6 +1730,7 @@ sub getErrorLog
         };
 
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     if (exists $h{'__spool__'})
     {
@@ -1816,6 +1827,7 @@ sub getBlockTestFiles
 
     $sql .= " order by v.time_reported ";
     $q = execute_sql( $core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
     return \@r;
@@ -1836,6 +1848,7 @@ sub getDataSubscriptions
     my ($sql,$q,$p,@r);
     ($sql,$p) = getDataSubscriptionsQuery($core, %h);
     $q = execute_sql($core, $sql, %{$p});
+    $q = PHEDEX::Web::STH->new($q);
     while ( $_ = $q->fetchrow_hashref() )
     {
         $_->{PRIORITY} = PHEDEX::Core::Util::priority($_ -> {'PRIORITY'}, 0);
@@ -2338,6 +2351,7 @@ sub getMissingFiles
     };
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     if (exists $h{'__spool__'})
     {
         return $q;
@@ -2396,6 +2410,7 @@ sub getLinks
     my $downtime = 5400 + 15*60;  # Hour and a half (real expiration) + 15 minutes grace time
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     my $links = $q->fetchall_arrayref();
     my %link_params;
     my (%from_nodes, %to_nodes);
@@ -2632,6 +2647,7 @@ sub getDeletions
     };
 
     $q = execute_sql( $core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     if ($h{'__spool__'})
     {
@@ -2690,6 +2706,7 @@ sub getRoutingInfo
     };
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($_ = $q->fetchrow_hashref())
     {
@@ -2768,6 +2785,7 @@ sub getRoutedBlocks
     };
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($_ = $q->fetchrow_hashref())
     {
@@ -2819,6 +2837,7 @@ sub getAgentHistory
     $sql .= " order by time_update ";
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     while ($_ = $q->fetchrow_hashref())
     {
         push @r, $_;
@@ -2884,6 +2903,7 @@ sub getAgentLogs
     $sql .= " order by n.name, l.time_update ";
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     if (exists $h{'__spool__'})
     {
         return $q;
@@ -2995,6 +3015,7 @@ sub getNodeUsageHistory
     }
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     # spooling?
     if (exists $h{'__spool__'})
@@ -3111,6 +3132,7 @@ sub getRouterHistory
     }
 
     $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     if (exists $h{'__spool__'})
     {
@@ -3477,6 +3499,7 @@ sub getRequestList
 
     $sql .= " order by r.id ";
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     my @r;
 
     while ($_ = $q->fetchrow_hashref())
@@ -3594,6 +3617,7 @@ sub getData
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
@@ -3687,6 +3711,7 @@ sub getLoadTestStreams
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
@@ -3871,7 +3896,7 @@ sub getBlockReplicaCompare
     # order by block
     $sql .= qq{ order by b.name };
     my @r;
-    my $q = execute_sql($core, $sql, %p);
+    my $q = PHEDEX::Web::STH->new(execute_sql($core, $sql, %p));
 
     # spooling
     if ($h{'__spool__'})
@@ -3923,6 +3948,7 @@ sub getBlockReplicaCompare_Neither
     $sql .= qq{ order by b.name };
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     # spooling
     if ($h{'__spool__'})
@@ -3967,6 +3993,7 @@ sub updateSubscription
         };
 
         my $q1 = execute_sql($core, $gsql, (':user_group' => $h{GROUP}));
+        $q1 = PHEDEX::Web::STH->new($q1);
         $_ = $q1->fetchrow_hashref();
         $gid = $_->{ID};
         die "group $h{GROUP} does not exist" if not $gid;
@@ -4008,6 +4035,7 @@ sub updateSubscription
     );
 
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     my $rparam = $q->fetchrow_hashref();
     die "subscription for $h{NODE} / $type = $h{BLOCK}$h{DATASET} does not exist" if not $rparam;
 
@@ -4150,6 +4178,7 @@ sub getDatasetInfo
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
 
     while ($_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
@@ -4319,6 +4348,7 @@ sub getBlockLatency
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     if ($h{'__spool__'})
     {
         return $q;
@@ -4495,6 +4525,7 @@ sub getBlockLatencyHistory
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     if ($h{'__spool__'})
     {
         return $q;
@@ -4607,6 +4638,7 @@ sub getFileLatencyHistory
 
     my @r;
     my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
     if ($h{'__spool__'})
     {
         return $q;
@@ -4620,6 +4652,33 @@ sub getFileLatencyHistory
     }
 
     return \@r;
+}
+
+# fetchrow_hashref($q) -- call $q->fetchrow_hashref() and numify fields
+sub fetchrow_hashref
+{
+    my $stmt = shift;
+    my $r = $stmt->fetchrow_hashref();
+    if (defined $r)
+    {
+        # find all numerical fields
+        my @num_fields;
+        for (my $i = 0; $i < $stmt->{NUM_OF_FIELDS}; $i++)
+        {
+            my $tn = $stmt->{Database}->type_info($stmt->{TYPE}[$i])->{TYPE_NAME};
+
+            if ($tn eq 'DECIMAL' || $tn eq 'DOUBLE PRECISION')
+            {
+                push @num_fields, $stmt->{NAME}[$i];
+            }
+        }
+
+        foreach (@num_fields)
+        {
+            $r->{$_} = $r->{$_}+0;
+        }
+    }
+    return $r;
 }
 
 1;
