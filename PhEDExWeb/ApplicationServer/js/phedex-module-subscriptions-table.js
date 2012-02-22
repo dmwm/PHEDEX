@@ -56,7 +56,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                 },
         maxRows:0,
         hide:['Select'], // hidden by default, requires positive authentication to enable it
-        sort:{ field:'Data Item' },
+        sort:{ field:'Time Create' },
         select:{},
       },
       _processData: function(data) {
