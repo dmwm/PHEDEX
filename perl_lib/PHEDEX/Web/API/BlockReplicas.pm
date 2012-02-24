@@ -136,18 +136,18 @@ my $map = {
     _KEY => 'BLOCK_ID',
     id => 'BLOCK_ID',
     name => 'BLOCK_NAME',
-    files => ['BLOCK_FILES', 'int'],
-    bytes => ['BLOCK_BYTES', 'int'],
+    files => 'BLOCK_FILES',
+    bytes => 'BLOCK_BYTES',
     is_open => 'IS_OPEN',
     replica => {
         _KEY => 'NODE_ID',
         node_id => 'NODE_ID',
         node => 'NODE_NAME',
         se => 'SE_NAME',
-        files => ['REPLICA_FILES', 'int'],
-        bytes => ['REPLICA_BYTES', 'int'],
-        time_create => ['REPLICA_CREATE', 'int'],
-        time_update => ['REPLICA_UPDATE', 'int'],
+        files => 'REPLICA_FILES',
+        bytes => 'REPLICA_BYTES',
+        time_create => 'REPLICA_CREATE',
+        time_update => 'REPLICA_UPDATE',
         complete => 'REPLICA_COMPLETE',
         subscribed => 'SUBSCRIBED',
         custodial => 'IS_CUSTODIAL',
@@ -164,18 +164,18 @@ my $map_d = {
         _KEY => 'BLOCK_ID',
         id => 'BLOCK_ID',
         name => 'BLOCK_NAME',
-        files => ['BLOCK_FILES', 'int'],
-        bytes => ['BLOCK_BYTES', 'int'],
+        files => 'BLOCK_FILES',
+        bytes => 'BLOCK_BYTES',
         is_open => 'IS_OPEN',
         replica => {
             _KEY => 'NODE_ID',
             node_id => 'NODE_ID',
             node => 'NODE_NAME',
             se => 'SE_NAME',
-            files => ['REPLICA_FILES', 'int'],
-            bytes => ['REPLICA_BYTES', 'int'],
-            time_create => ['REPLICA_CREATE', 'int'],
-            time_update => ['REPLICA_UPDATE', 'int'],
+            files => 'REPLICA_FILES',
+            bytes => 'REPLICA_BYTES',
+            time_create => 'REPLICA_CREATE',
+            time_update => 'REPLICA_UPDATE',
             complete => 'REPLICA_COMPLETE',
             subscribed => 'SUBSCRIBED',
             custodial => 'IS_CUSTODIAL',
@@ -301,6 +301,7 @@ sub spool
     my $r;
 
     $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockReplicas($core, %p), $limit, @keys) if !$sth;
+
     $r = $sth->spool();
     if ($r)
     {
