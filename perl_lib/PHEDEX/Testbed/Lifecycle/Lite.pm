@@ -1,7 +1,7 @@
 package PHEDEX::Testbed::Lifecycle::Lite;
 use strict;
 use warnings;
-use base 'PHEDEX::Testbed::Agent::Lite', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Testbed::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
 use Time::HiRes;
