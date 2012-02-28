@@ -528,4 +528,29 @@ sub mergeStatusBlockLatency
     return @r;
 }
 
+sub cleanLogFileLatency {
+    
+    my ($self, %h) = @_;
+    my ($sql,%p,$q,$n,@r);
+
+    my $now = $h{NOW} || &mytimeofday();
+    my $limit = 30*86400;
+    $limit = $h{LIMIT} if defined $h{LIMIT};
+
+    $p{':old'} = $now - $limit;
+
+    $sql = qq{
+	delete from t_log_file_latency
+	    where inblock in
+	    ( select block from t_log_block_latency
+	          where time_update < :old )
+	};
+    
+    ($q, $n) = execute_sql( $self, $sql, %p );
+    push @r, $n;
+
+    return @r;
+
+}
+
 1;

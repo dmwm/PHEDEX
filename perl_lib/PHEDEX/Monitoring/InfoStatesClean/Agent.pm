@@ -36,7 +36,6 @@ sub idle
 	&dbexec($dbh,qq{delete from t_agent_status where time_update < :old}, %old);
 	&dbexec($dbh,qq{delete from t_agent_log where time_update < :old},
 		":old" => &mytimeofday() - 30*86400);
-	$dbh->commit();
 
 	# Keep 100 most recent errors for every link
 	&dbexec($dbh, qq{
@@ -49,6 +48,11 @@ sub idle
 
 	# Archive completed block latency information
 	$self->mergeLogBlockLatency();
+	# Clean up file-level latency entries for blocks completed more than 30 days ago
+	$self->cleanLogFileLatency();
+
+	$dbh->commit();
+
     };
     do { chomp ($@); $self->Alert ("database error: $@");
 	 eval { $dbh->rollback() } if $dbh; } if $@;
