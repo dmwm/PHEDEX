@@ -6,11 +6,12 @@ use Getopt::Long;
 use T0::Logger::Sender;
 use T0::Util;
 use T0::FileWatcher;
-use PHEDEX::Testbed::Lifecycle;
+use PHEDEX::Testbed::Lifecycle::Lite;
 
 my ($help,$verbose,$debug,$quiet);
 my ($retry,$lifecycle,%args);
 
+$|=1;
 sub usage
 {
   die <<EOF;
@@ -53,7 +54,7 @@ my %sender_args = (
 			RetryInterval	=> $retry,
  			Name		=> 'Lifecycle::Sender',
 		  );
-$lifecycle = PHEDEX::Testbed::Lifecycle->new
+$lifecycle = PHEDEX::Testbed::Lifecycle::Lite->new
 			(
 			  %args, @ARGV,
 #			  SENDER_ARGS		=> \%sender_args,
