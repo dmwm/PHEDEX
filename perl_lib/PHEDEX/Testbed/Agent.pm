@@ -2,22 +2,19 @@ package PHEDEX::Testbed::Agent;
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Testbed::SQL', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Logging';
+use PHEDEX::Core::Agent;
 use PHEDEX::Core::Timing;
 use POE;
 use Data::Dumper;
 
 our %params =
 	(
-	  WAITTIME		=> 0,
 	  VERBOSE		=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG			=> $ENV{PHEDEX_DEBUG} || 0,
 	  ME			=> 'TestbedAgent',
 	  ConfigRefresh		=> 3,
 	);
-
-our @array_params = qw / /;
-our @hash_params  = qw / /;
 
 sub new
 {
@@ -26,12 +23,26 @@ sub new
   my $self = $class->SUPER::new(%params,@_);
   bless $self, $class;
 
-  my $sender_args = $self->{SENDER_ARGS};
-  if ( $sender_args )
-  {
-    my $sender = T0::Logger::Sender->new( %{$sender_args} );
-    $self->{SENDER} = $sender;
-  }
+#   Start a POE session for myself
+    POE::Session->create
+      (
+        object_states =>
+        [
+          $self =>
+          {
+            _preprocess         => '_preprocess',
+            _process_start      => '_process_start',
+            _process_stop       => '_process_stop',
+            _maybeStop          => '_maybeStop',
+            _make_stats         => '_make_stats',
+
+            _start   => '_start',
+            _stop    => '_stop',
+            _child   => '_child',
+            _default => '_default',
+          },
+        ],
+      );
 
   return $self;
 }
@@ -56,14 +67,7 @@ sub init
   my $self = shift;
 
 # base initialisation
-  $self->SUPER::init(@_);
-
-# Now my own specific values...
-  $self->SUPER::init
-	(
-	  ARRAYS => [ @array_params ],
-	  HASHES => [ @hash_params ],
-	);
+# $self->SUPER::init(@_);
 }
 
 sub idle { }
@@ -71,6 +75,21 @@ sub isInvalid { return 0; }
 sub stop { }
 sub processDrop { }
 sub process { }
+sub _process_start { }
+sub _process_stop { }
+sub _make_stats { }
+sub _preprocess { }
+sub _maybeStop { }
+
+sub _start { PHEDEX::Core::Agent::_start(@_); }
+sub _default {
+  my $self = shift;
+  if ( $self->can('poe_default') ) {
+    $self->poe_default(@_);
+    return;
+  }
+  PHEDEX::Core::Agent::_default(@_);
+}
 
 sub OnConnect
 {
