@@ -22,7 +22,7 @@ our %params =
 	  Incarnation		=> 1,
 	  Jitter		=> 0,
 	  CycleSpeedup		=> 1,
-	  GarbageCycle		=> 7200,
+	  GarbageCycle		=> 300,
 	  Sequence		=> 1,
 	  NJobs			=> 2,
 	);
@@ -36,7 +36,7 @@ sub new
 	NJOBS	=> $self->{NJobs},
 	VERBOSE => 0,
 	DEBUG	=> 0,
-	KEEPALIVE => 10);
+	KEEPALIVE => 5);
   bless $self, $class;
   return $self;
 }
@@ -148,12 +148,20 @@ sub FileChanged
   }
  
   $self->Logmsg("Beginning new cycle...");
-  my $workflow;
+  my ($workflow,$nWorkflows);
+  $nWorkflows = 0;
   foreach $workflow ( @{$self->{Workflows}} )
   {
     next if $workflow->{Suspend};
     $self->Logmsg("Beginning lifecycle for \"$workflow->{Name}...\"");
     $kernel->delay_set('lifecycle',0.01,$workflow);
+    $nWorkflows++;
+  }
+  $self->Logmsg("Started $nWorkflows workflows");
+  return if $nWorkflows;
+  if ( $self->{StopOnIdle} ) {
+    $kernel->yield('_stop');
+    $self->Logmsg("No workflows started, will now exit gracefully");
   }
 }
 
@@ -285,20 +293,20 @@ sub ReadConfig
 
 sub _stop
 {
-  my ( $self, $kernel, $force ) = @_[ OBJECT, KERNEL, ARG0 ];
-$DB::single=1;
+  my ( $self, $kernel, $session, $force ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
 
   $self->Logmsg('nothing left to do, may as well shoot myself');
   $self->{Watcher}->RemoveClient( $self->{ME} ) if defined($self->{Watcher});
-  $self->stats();
+  $kernel->call($session,'stats');
   $kernel->delay('stats');
+  $kernel->delay('garbage');
+  $self->{JOBMANAGER}{KEEPALIVE} = 0;
   if ( $self->{Debug} )
   {
     $self->Logmsg('Dumping final state to stdout or to logger');
     $self->Log( $self );
   }
-  $self->Logmsg('stopping now.');
-  $self->doStop();
+  $self->Logmsg("Wait for JobManager to become idle, then exit...");
 }
 
 sub stats
@@ -354,9 +362,14 @@ sub poe_default {
     };
     $self->Fatal('load module: ',$@) if $@;
     eval {
-      $object = $module->new($self);
+      $object = $module->new($self,$workflow);
     };
     $self->Fatal('create module: ',$@) if $@;
+
+#   Sanity check
+    if ( !$object->can($event) ) {
+      $self->Fatal("Cannot find a \"$event\" function in $module");
+    }
     $kernel->state( $event, $object );
     $self->Dbgmsg("yield $event") if $self->{Debug};
     $kernel->yield( $event, $payload );
