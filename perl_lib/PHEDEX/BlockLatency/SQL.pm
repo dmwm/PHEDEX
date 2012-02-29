@@ -541,8 +541,8 @@ sub cleanLogFileLatency {
 
     $sql = qq{
 	delete from t_log_file_latency
-	    where inblock in
-	    ( select block from t_log_block_latency
+	    where (time_subscription, destination, inblock) in
+	    ( select time_subscription, destination, block from t_log_block_latency
 	          where time_update < :old )
 	};
     
