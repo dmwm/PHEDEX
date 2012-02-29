@@ -27,11 +27,13 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my $self = { parent => shift };
+  my $workflow = shift;
 
-  my $package = __PACKAGE__;
-  $self->{ME} = $package;
+  my $package;
+  $self->{ME} = $package = __PACKAGE__;
+  $package =~ s%^$workflow->{Namespace}::%%;
 
-  my $p = $self->{parent}{$package};
+  my $p = $workflow->{$package};
   map { $self->{params}{uc $_} = $params{$_} } keys %params;
   map { $self->{params}{uc $_} = $p->{$_} } keys %{$p};
   map { $self->{$_} = $p->{$_} } keys %{$p};
@@ -71,6 +73,10 @@ sub Dbgmsg
   return unless $self->{parent}->{Debug};
   $self->{parent}->Dbgmsg(@_);
 }
+sub Logmsg{ (shift)->{parent}->Logmsg(@_); }
+sub Warn  { (shift)->{parent}->Warn(@_); }
+sub Alert { (shift)->{parent}->Alert(@_); }
+sub Fatal { (shift)->{parent}->Fatal(@_); }
 
 sub _start {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
@@ -87,9 +93,9 @@ sub slow {
 
 sub start_task {
   my ($self,$heap,$kernel,$job) = @_[ OBJECT, HEAP, KERNEL, ARG0 ];
-  my ($payload,$method,$target,$params,$callback,$priority,$q_id);
+  my ($payload,$workflow,$method,$target,$params,$callback,$priority,$q_id);
 
-  if ( $self->{_njobs} >= $self->{NJobs} ) {
+  if ( $self->{_njobs} >= $self->{parent}{NJobs} ) {
     $self->Dbgmsg("enqueued $job->{method}($job->{target},",Data::Dumper->Dump([$job->{params}]),")\n");
     $self->{QUEUE}->enqueue(1,$job);
     return;
@@ -101,29 +107,57 @@ sub start_task {
   }
   $self->{_njobs}++;
   $payload  = $job->{payload};
+  $workflow = $payload->{workflow};
   $method   = $job->{method};
   $target   = $job->{target};
   $params   = $job->{params};
   $callback = $job->{callback};
 
   $self->Dbgmsg("$method($target,",Data::Dumper->Dump([$params]),")\n");
+#  my $child = POE::Wheel::Run->new(
+#    Program => sub {
+#      my $ua = $self->{UA};
+#      my $response = $ua->$method($target,$params);
+#      my $content = $response->content();
+#      if ( $ua->response_ok($response) ) {
+#        print $content;
+#      } else {
+#        chomp $content;
+#        print "Bad response from server ",$response->code(),"(",$response->message(),"):\n$content\n";
+#        exit $response->code();
+#      }
+#    }, # TODO not thread-safe!
+#    StdoutEvent  => "on_child_stdout",
+#    StderrEvent  => "on_child_stderr",
+#    CloseEvent   => "on_child_close",
+#  );
+  my (@cmd,$cmd,$key,$args,$url);
+  $cmd = 'curl -f --insecure -o -';
+  $url = $target;
+  if ( $self->{params}{CERT} ) { $cmd .= ' --cert ' . $self->{params}{CERT}; }
+  foreach $key ( keys %{$params} )
+  {
+    if ( $args ) { $args .= '&'; }
+    if ( ref($params->{$key}) eq 'ARRAY' ) {
+      $args .= join( '&', map { "$key=" . ( defined($_) ? $_ : '' ) } @{$params->{$key}} );
+    } else {
+      $args .= $key . '=' . ( defined($params->{$key}) ? $params->{$key} : '');
+    }
+  }
+  if ( $method =~ m%post%i ) {
+    $cmd .= ' --data ' . $args;
+  } else {
+    if ( $args ) { $url .= '?' . $args; }
+  }
+  $cmd .= ' ' . $url;
+  $self->Dbgmsg("Run command: $cmd");
+  @cmd = split(' ',$cmd);
   my $child = POE::Wheel::Run->new(
-    Program => sub {
-      my $ua = $self->{UA};
-      my $response = $ua->$method($target,$params);
-      my $content = $response->content();
-      if ( $ua->response_ok($response) ) {
-        print $content;
-      } else {
-        chomp $content;
-        print "Bad response from server ",$response->code(),"(",$response->message(),"):\n$content\n";
-      }
-    }, # TODO not thread-safe!
-    StdoutEvent  => "on_child_stdout",
-    StderrEvent  => "on_child_stderr",
-    CloseEvent   => "on_child_close",
+    Program	=> \@cmd,
+    StdoutEvent	=> "on_child_stdout",
+    StderrEvent	=> "on_child_stderr",
+    CloseEvent	=> "on_child_close",
   );
-
   $kernel->sig_child($child->PID, "on_child_signal");
   $heap->{children_by_wid}{$child->ID} = $child;
   $heap->{children_by_pid}{$child->PID} = $child;
@@ -164,7 +198,8 @@ sub on_child_close {
 
 sub on_child_signal {
   my($self,$kernel,$heap,$sig,$pid,$rc) = @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1, ARG2 ];
-  my ($child,$status,$signal,$output,$event,$callback,$target,$params,$obj,$payload);
+  my ($child,$status,$signal,$output,$event,$callback,$target,$params,$obj);
+  my ($payload,$workflow,$p);
 
   $child = delete $_[HEAP]{children_by_pid}{$_[ARG1]};
 
@@ -173,22 +208,37 @@ sub on_child_signal {
   $status = $rc >> 8;
   $signal = $rc & 127;
   $self->Dbgmsg("pid $pid exited with status=$status, signal=$signal\n");
-  $output   = $heap->{state}{$pid}{stdout};
-  $event    = $heap->{state}{$pid}{event};
-  $callback = $heap->{state}{$pid}{callback};
-  $target   = $heap->{state}{$pid}{target};
-  $params   = $heap->{state}{$pid}{params};
-  $payload  = $heap->{state}{$pid}{payload};
+  $p = $heap->{state}{$pid};
+  $output   = $p->{stdout};
+  $payload  = $p->{payload};
+  $callback = $p->{callback};
+  $target   = $p->{target};
+  $params   = $p->{params};
+  $workflow = $payload->{workflow};
+  $event    = $workflow->{Event};
   delete $heap->{state}{$pid};
-  eval {
-    no strict 'vars';
-    $obj = eval($output);
-  };
-  die "Error evaluating $output\n" if $@;
-  $kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
+
+  if ( $status ) {
+#    $obj = {
+#      error  => $status,
+#      output => $output
+#    };
+    $self->Alert("target=$target params=",Dumper($params)," event=$event, status=$status, output=$output");
+  } else {
+    if ( $output ) {
+      eval {
+        no strict 'vars';
+        $obj = eval($output);
+      };
+      die "Error evaluating $output\n" if $@;
+    } else {
+      $self->Logmsg("No output for event=$event");
+    }
+    $kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
+  }
 
   $self->{_njobs}--;
-  if ( $self->{_njobs} < $self->{NJobs} ) {
+  if ( $self->{_njobs} < $self->{parent}{NJobs} ) {
     $kernel->yield('start_task');
   }
 }
@@ -218,35 +268,6 @@ sub getFromDatasvc
 				  params	=> $params,
 				  callback	=> $callback,
 				});
-}
-
-sub getNodes
-{
-  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
-  $self->getFromDatasvc($kernel,
-			$session,
-			$payload,
-			{
-			 api	  => 'nodes',
-			 callback => 'gotNodes'
-			}
-			);
-}
-
-sub gotNodes
-{
-  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
-  my ($nodes,$re,$tmp);
-
-  $self->Logmsg("got: Nodes($target,{})\n");
-  $nodes = $obj->{PHEDEX}{NODE};
-  $re = $payload->{workflow}{NodeFilter};
-  foreach (@{$nodes}) {
-    next if ( $re && !($_->{NAME} =~ m%$re%) );
-    $tmp = clone $payload;
-    $tmp->{workflow}{Node} = $_->{NAME};
-    $kernel->yield('nextEvent',$tmp);
-  }
 }
 
 sub getAgents
@@ -303,15 +324,84 @@ sub gotAuth
   $self->Logmsg("got: Auth($target,",Data::Dumper->Dump([$params]),")\n");
   $auth = $obj->{PHEDEX}{AUTH};
   $self->Logmsg("Auth=,",Data::Dumper->Dump([$auth]),")\n");
-#  foreach $agent (@{$agents}) {
-#    next if ( $agent->{AGENT}[0]{LABEL} =~ m%^mgmt-%  && $agent->{NODE} ne 'T0_CH_CERN_Export' );
-#    foreach ( @{$agent->{AGENT}} ) {
-#      $tmp = clone $payload;
-#      $tmp->{workflow}{Agent} = $_;
-#      foreach ( qw/ HOST NAME NODE / ) { $tmp->{workflow}{Agent}{$_} = $agent->{$_}; }
-#      $kernel->yield('nextEvent',$tmp);
-#    }
-#  }
-   $kernel->yield('nextEvent',$payload);
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub getNodes
+{
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api	  => 'nodes',
+			 callback => 'gotNodes'
+			}
+			);
+}
+
+sub gotNodes
+{
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+  my ($nodes,$re,$tmp);
+
+  $self->Logmsg("got: Nodes($target,{})\n");
+  $nodes = $obj->{PHEDEX}{NODE};
+  $re = $payload->{workflow}{NodeFilter};
+  foreach (@{$nodes}) {
+    next if ( $re && !($_->{NAME} =~ m%$re%) );
+    $tmp = clone $payload;
+    $tmp->{workflow}{Node} = $_->{NAME};
+    $kernel->yield('nextEvent',$tmp);
+  }
+}
+
+sub Inject
+{
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($params,$workflow);
+  $workflow = $payload->{workflow};
+  $params = {
+	node => $workflow->{InjectionSite},
+	strict => $workflow->{StrictInjection} || 0,
+  };
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api	  => 'inject',
+			 method   => 'post',
+			 callback => 'doneInject',
+			 params   => $params,
+			}
+			);
+}
+
+sub doneInject
+{
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+
+  $self->Logmsg("done: Inject($target,",Data::Dumper->Dump([$params]),") -> ",Data::Dumper->Dump([$obj]));
+}
+
+sub Template
+{
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api	  => 'inject',
+			 method   => 'post',
+			 callback => 'doneTemplate'
+			}
+			);
+}
+
+sub doneTemplate
+{
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+
+  $self->Logmsg("done: Template($target,",Data::Dumper->Dump([$params]),"\n");
 }
 1;
