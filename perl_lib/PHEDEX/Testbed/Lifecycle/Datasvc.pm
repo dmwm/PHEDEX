@@ -1,6 +1,7 @@
 package PHEDEX::Testbed::Lifecycle::Datasvc;
 use strict;
 use warnings;
+use base 'PHEDEX::Core::Logging';
 use POE qw( Queue::Array );
 use Clone qw(clone);
 use Data::Dumper;
@@ -17,6 +18,8 @@ our %params = (
 	  ca_file   => undef,
 	  ca_dir    => undef,
 	  nocert    => undef,
+	  Verbose   => undef,
+	  Debug     => undef,
 	);
 
 our $me;
@@ -40,6 +43,9 @@ sub new
   $self->{UA} = PHEDEX::CLI::UserAgent->new( %{$self->{params}} );
   $self->{_njobs} = 0;
   $self->{QUEUE} = POE::Queue::Array->new();
+
+  $self->{Verbose} = $self->{parent}->{Verbose};
+  $self->{Debug}   = $self->{parent}->{Debug};
   bless $self, $class;
 
   POE::Session->create(
@@ -57,26 +63,6 @@ sub new
   $me = $self;
   return $self;
 }
-
-sub Logmsg { (shift)->{parent}->Logmsg(@_); }
-
-sub Verbose
-{
-  my $self = shift;
-  return unless $self->{parent}->{Verbose};
-  $self->{parent}->Logmsg(@_);
-}
-
-sub Dbgmsg
-{
-  my $self = shift;
-  return unless $self->{parent}->{Debug};
-  $self->{parent}->Dbgmsg(@_);
-}
-sub Logmsg{ (shift)->{parent}->Logmsg(@_); }
-sub Warn  { (shift)->{parent}->Warn(@_); }
-sub Alert { (shift)->{parent}->Alert(@_); }
-sub Fatal { (shift)->{parent}->Fatal(@_); }
 
 sub _start {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
@@ -337,9 +323,20 @@ sub Inject
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($params,$workflow);
   $workflow = $payload->{workflow};
+
+#  my $ds = {};
+#  my $block = {};
+#  my $n;
+#  my $xmlfile;
+#  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
+#  return if $self->{Dummy};
+#  $self->makeXML($block,$xmlfile);
+   $self->Logmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
+
   $params = {
-	node => $workflow->{InjectionSite},
-	strict => $workflow->{StrictInjection} || 0,
+	node	=> $workflow->{InjectionSite},
+	strict	=> $workflow->{StrictInjection} || 0,
+	xml	=> $workflow->{XML},
   };
   $self->getFromDatasvc($kernel,
 			$session,
