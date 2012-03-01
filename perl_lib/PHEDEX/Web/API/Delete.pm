@@ -27,7 +27,6 @@ Makes deletion requests
  data             XML structure representing the data to be deleted. See PHEDEX::Core::XML
  level            deletion level, either 'dataset' or 'block'.  Default is 'dataset'
  rm_subscriptions 'y' or 'n', remove subscriptions, default is 'y'.
- no_mail          'y' or 'n' (default), if 'n', a email is sent to requestor, datamanagers, site admins, and global admins
  comments         other information to attach to this request, for whatever reason.
 
 =head2 Input
@@ -69,14 +68,13 @@ sub to_delete
     # defaults
     $h{rm_subscriptions} ||= 'y';
     $h{level} ||= 'DATASET'; $h{level} = uc $h{level};
-    $h{no_mail} ||= 'n';
 
     # validation only, no to-upper
     my %p;
     eval
     {
         %p = &validate_params(\%h,
-                allow => [ qw ( node data level rm_subscriptions no_mail comments ) ],
+                allow => [ qw ( node data level rm_subscriptions comments ) ],
                 required => [ qw (node data) ],
                 spec =>
                 {
@@ -84,7 +82,6 @@ sub to_delete
                     data => { using => 'xml' },
                     level => { regex => qr/^BLOCK$|^DATASET$/ },
                     rm_subscriptions => { using => 'yesno' },
-                    no_mail => { using => 'yesno' },
                     comments => { using => 'text' }
                 }
         );
@@ -150,11 +147,8 @@ sub to_delete
 
     $core->{DBH}->commit(); # Could be over committed, but who cares?
     # send out notification
-    if ($h{no_mail} eq 'n')
-    {
-      PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
-      PHEDEX::Core::Mail::send_request_create_email($core, $rid);
-    }
+    PHEDEX::Core::Mail::testing_mail($core->{CONFIG}{TESTING_MAIL});
+    PHEDEX::Core::Mail::send_request_create_email($core, $rid);
 
     return { request_created  => [ { id => $rid } ] };
 }
