@@ -19,7 +19,7 @@ our %params =
 	  LIFECYCLE_CONFIG	=> undef,
 	  LIFECYCLE_COMPONENT	=> 'Lifecycle::Lite',
 	  StatsFrequency	=> 60,
-	  Incarnation		=> 1,
+	  Incarnation		=> 0,
 	  Jitter		=> 0,
 	  CycleSpeedup		=> 1,
 	  GarbageCycle		=> 300,
@@ -339,7 +339,7 @@ $DB::single=1;
 }
 
 sub poe_default {
-  my ($self,$kernel,$event,$arg0) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+  my ($self,$kernel,$session,$event,$arg0) = @_[ OBJECT, KERNEL, SESSION, ARG0, ARG1 ];
   my ($payload,$workflow,$module,$namespace,$loader,$object);
   $payload = $arg0->[0];
   $workflow = $payload->{workflow};
@@ -371,7 +371,7 @@ sub poe_default {
       $self->Fatal("Cannot find a \"$event\" function in $module");
     }
     $kernel->state( $event, $object );
-    $self->Dbgmsg("yield $event") if $self->{Debug};
+    $self->Dbgmsg("call $event") if $self->{Debug};
     $kernel->yield( $event, $payload );
     return;
   }
