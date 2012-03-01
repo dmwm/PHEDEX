@@ -7,8 +7,8 @@ use Data::Dumper;
 use PHEDEX::CLI::UserAgent;
 
 our %params = (
-	  cert_file => $ENV{HOME} . '/.globus/usercert.pem',
-	  key_file  => $ENV{HOME} . '/.globus/userkey.pem',
+	  cert_file => undef,
+	  key_file  => undef,
 	  url       => 'https://cmsweb.cern.ch/phedex/datasvc',
 	  instance  => 'prod',
 	  format    => 'perl',
@@ -114,50 +114,24 @@ sub start_task {
   $callback = $job->{callback};
 
   $self->Dbgmsg("$method($target,",Data::Dumper->Dump([$params]),")\n");
-#  my $child = POE::Wheel::Run->new(
-#    Program => sub {
-#      my $ua = $self->{UA};
-#      my $response = $ua->$method($target,$params);
-#      my $content = $response->content();
-#      if ( $ua->response_ok($response) ) {
-#        print $content;
-#      } else {
-#        chomp $content;
-#        print "Bad response from server ",$response->code(),"(",$response->message(),"):\n$content\n";
-#        exit $response->code();
-#      }
-#    }, # TODO not thread-safe!
-#    StdoutEvent  => "on_child_stdout",
-#    StderrEvent  => "on_child_stderr",
-#    CloseEvent   => "on_child_close",
-#  );
-  my (@cmd,$cmd,$key,$args,$url);
-  $cmd = 'curl -f --insecure -o -';
-  $url = $target;
-  if ( $self->{params}{CERT} ) { $cmd .= ' --cert ' . $self->{params}{CERT}; }
-  foreach $key ( keys %{$params} )
-  {
-    if ( $args ) { $args .= '&'; }
-    if ( ref($params->{$key}) eq 'ARRAY' ) {
-      $args .= join( '&', map { "$key=" . ( defined($_) ? $_ : '' ) } @{$params->{$key}} );
-    } else {
-      $args .= $key . '=' . ( defined($params->{$key}) ? $params->{$key} : '');
-    }
-  }
-  if ( $method =~ m%post%i ) {
-    $cmd .= ' --data ' . $args;
-  } else {
-    if ( $args ) { $url .= '?' . $args; }
-  }
-  $cmd .= ' ' . $url;
-  $self->Dbgmsg("Run command: $cmd");
-  @cmd = split(' ',$cmd);
   my $child = POE::Wheel::Run->new(
-    Program	=> \@cmd,
-    StdoutEvent	=> "on_child_stdout",
-    StderrEvent	=> "on_child_stderr",
-    CloseEvent	=> "on_child_close",
+    Program => sub {
+      my $ua = $self->{UA};
+      my $response = $ua->$method($target,$params);
+      my $content = $response->content();
+      if ( $ua->response_ok($response) ) {
+        print $content;
+      } else {
+        chomp $content;
+        print "Bad response from server ",$response->code(),"(",$response->message(),"):\n$content\n";
+        exit $response->code();
+      }
+    }, # TODO not thread-safe!
+    StdoutEvent  => "on_child_stdout",
+    StderrEvent  => "on_child_stderr",
+    CloseEvent   => "on_child_close",
   );
+
   $kernel->sig_child($child->PID, "on_child_signal");
   $heap->{children_by_wid}{$child->ID} = $child;
   $heap->{children_by_pid}{$child->PID} = $child;
@@ -180,7 +154,7 @@ sub on_child_stdout {
 sub on_child_stderr {
   my ($heap,$stderr_line,$wheel_id) = @_[HEAP, ARG0, ARG1];
   my $child = $_[HEAP]{children_by_wid}{$wheel_id};
-  $heap->{state}{$child->PID}{sterr} .= $stderr_line;
+  $heap->{state}{$child->PID}{stderr} .= $stderr_line;
 }
 
 sub on_child_close {
@@ -198,8 +172,8 @@ sub on_child_close {
 
 sub on_child_signal {
   my($self,$kernel,$heap,$sig,$pid,$rc) = @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1, ARG2 ];
-  my ($child,$status,$signal,$output,$event,$callback,$target,$params,$obj);
-  my ($payload,$workflow,$p);
+  my ($child,$status,$signal,$event,$callback,$target,$params,$obj);
+  my ($payload,$workflow,$p,$stdout,$stderr);
 
   $child = delete $_[HEAP]{children_by_pid}{$_[ARG1]};
 
@@ -209,7 +183,8 @@ sub on_child_signal {
   $signal = $rc & 127;
   $self->Dbgmsg("pid $pid exited with status=$status, signal=$signal\n");
   $p = $heap->{state}{$pid};
-  $output   = $p->{stdout};
+  $stdout   = $p->{stdout} || '';
+  $stderr   = $p->{stderr} || '';
   $payload  = $p->{payload};
   $callback = $p->{callback};
   $target   = $p->{target};
@@ -221,16 +196,17 @@ sub on_child_signal {
   if ( $status ) {
 #    $obj = {
 #      error  => $status,
-#      output => $output
+#      stdout => $stdout,
+#      stderr => $stderr,
 #    };
-    $self->Alert("target=$target params=",Dumper($params)," event=$event, status=$status, output=$output");
+    $self->Alert("target=$target params=",Dumper($params)," event=$event, status=$status, stdout=\"$stdout\", stderr=\"$stderr\"");
   } else {
-    if ( $output ) {
+    if ( $stderr ) {
       eval {
         no strict 'vars';
-        $obj = eval($output);
+        $obj = eval($stderr);
       };
-      die "Error evaluating $output\n" if $@;
+      die "Error evaluating $stderr\n" if $@;
     } else {
       $self->Logmsg("No output for event=$event");
     }
