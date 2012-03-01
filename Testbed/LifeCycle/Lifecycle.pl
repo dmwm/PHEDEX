@@ -1,6 +1,11 @@
 #!/usr/bin/perl -w
 
 use strict;
+#sub POE::Kernel::TRACE_DEFAULT  () { 1 }
+#sub POE::Kernel::TRACE_EVENTS   () { 1 }
+#sub POE::Kernel::TRACE_SESSIONS () { 1 }
+#sub POE::Kernel::TRACE_DESTROY () { 1 }
+
 use POE;
 use Getopt::Long;
 use T0::Logger::Sender;
