@@ -73,9 +73,9 @@ sub usage
 	    command <command-options>
 
  where
- --proxy, --cert_file, and --key_file are used to define your certificate.
- if none of these options are specified, your usercert.pem and userkey.pem
- in ~/.globus are assumed. If you specify any of them then you must specify
+ --cert_file and --key_file are used to define your certificate. If neither
+ of these options are specified, your usercert.pem and userkey.pem in
+ ~/.globus are assumed. If you specify either of them then you must specify
  all that are needed, the defaults are only taken if none are set.
 
  --ca_file and --ca_dir specify locations for certificate-authority
@@ -84,6 +84,7 @@ sub usage
  If you don't want to use a certificate at all, use --nocert, and you had
  better specify a --url that doesn't connect to https as well.
 
+ --proxy	specifies a proxy server (untested)
  --method	'post' or 'get'. Don't set this unless you know why.
  --url		is the URL of the PhEDEx dataservice instance. The default is
 		$url
