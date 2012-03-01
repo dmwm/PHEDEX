@@ -31,8 +31,6 @@ our %params =
 
 	  PARANOID	=> 1,
 	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
-
-	  CLEAN_ENVIRONMENT	=> 1,
 	);
 
 sub new
@@ -80,7 +78,7 @@ sub init
 {
   my $self = shift;
 
-  if ( $self->{CLEAN_ENVIRONMENT} || $self->{NOCERT} )
+  if ( $self->{NOCERT} )
   {
     foreach ( map { "HTTPS_$_" } @env_keys ) { delete $ENV{$_} if $ENV{$_}; }
   }
