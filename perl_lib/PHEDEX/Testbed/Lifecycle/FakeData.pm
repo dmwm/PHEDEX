@@ -100,7 +100,6 @@ sub MakeBlock
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($h,$blockid,$now,$workflow);
   $workflow = $payload->{workflow};
-$self->Dbgmsg("MakeBlock: ",Data::Dumper->Dump([$workflow]));
 
 # do I need a new block, or can I re-use the one I have?
   if ( $h = $workflow->{_block} )
@@ -142,8 +141,7 @@ $self->Dbgmsg("MakeBlock: ",Data::Dumper->Dump([$workflow]));
     push @{$h->{files}}, $file_ref;
   };
   $workflow->{_block} = $h;
-$self->Dbgmsg("Block: ",Data::Dumper->Dump([$h]));
-  return $h;
+  $kernel->yield('nextEvent',$payload);
 }
 
 my $_file_number=0;
