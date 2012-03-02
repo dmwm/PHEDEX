@@ -123,6 +123,7 @@ sub nextEvent
     return;
   } 
 
+  $workflow->{Event} = $event;
   $delay = $workflow->{Intervals}{$event};
   my $txt = join(', ',@{$payload->{events}});
   if ( !$delay ) {
@@ -141,7 +142,10 @@ sub FileChanged
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
   $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
-  return if $self->{Suspend};
+  if ( $self->{Suspend} ) {
+    $self->Logmsg("I am suspended, will not start new workflows");
+    return;
+  }
 
   if ( $self->{JOBMANAGER}{NJOBS} != $self->{NJobs} ) {
     $self->{JOBMANAGER}{NJOBS} = $self->{NJobs};
@@ -343,7 +347,6 @@ sub poe_default {
   my ($payload,$workflow,$module,$namespace,$loader,$object);
   $payload = $arg0->[0];
   $workflow = $payload->{workflow};
-  $workflow->{Event} = $event;
 
   if ( $workflow->{Exec}{$event} ) {
     $kernel->state( $event, $self, 'exec' );
