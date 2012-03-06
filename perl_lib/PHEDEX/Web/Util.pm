@@ -472,11 +472,13 @@ sub auth_nodes
 	} elsif ($a->{SCOPE} eq 'site' &&
 		 exists $roles->{ $a->{ROLE} }) {
 	    push @auth_sites, @{ $roles->{ $a->{ROLE} } };
+#	    push @auth_sites, @{ $self->{SECMOD}->getSitesForUserRole($a->{ROLE}) };
 	} elsif (exists $roles->{ $a->{ROLE} } &&
 		 ($anygroup || grep $_ eq $a->{GROUP}, @{$roles->{ $a->{ROLE} }}) ) {
 	    push @auth_nodes, qr/$a->{SCOPE}/;
 	}
     }
+
 
     return unless $global_scope || @auth_sites || @auth_nodes; # quick exit if user has no auth
 
@@ -562,21 +564,17 @@ sub fetch_nodes
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
         if (!$global_admin) {
-            my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
             my %auth_sites;
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
-                    foreach my $site (@{$$roles{$role}}) {
-                        $auth_sites{lc $site} = 1;
+	            my $sites = $self->{SECMOD}->getSitesForUserRole($role);
+                    foreach my $site (@{$sites}) {
+                        $auth_sites{$site}++;
                     }
                 }
             }
-            foreach my $node (keys %node_map) {
-                foreach my $site (keys %auth_sites) {
-                    push @auth_nodes, $node if lc $node_map{$node} eq $site;
-                }
-            }
 #           If not a global admin and no authorised sites, quit
+	    @auth_nodes = keys %auth_sites;
             return unless @auth_nodes;
         }
     }
