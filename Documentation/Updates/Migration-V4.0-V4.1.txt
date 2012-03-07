@@ -76,54 +76,9 @@ BEGIN
 END;
 /
 
--- recreate t_log_block_latency table
+-- create new latency tables
 
-create table t_log_block_latency
-  (time_update		float		not null,
-   destination		integer		not null,
-   block		integer			, -- block id, can be null if block remvoed
-   files		integer	       not null, -- number of files
-   bytes		integer	    not null, -- block size in bytes
-   priority		integer	 not null, -- t_dps_block_dest priority
-   is_custodial		char (1)  not null, -- t_dps_block_dest custodial
-   time_subscription	float	       not null, -- time block was subscribed
-   block_create		float	    not null, -- time the block was created
-   block_close		float	      , -- time the block was closed
-   first_request	float		   , -- time block was first routed (t_xfer_request appeared)
-   first_replica	float		   , -- time the first file was replicated
-   latest_replica	float		, -- time when a file was most recently replicated
-   percent25_replica	float		   , -- time the 25th-percentile file was replicated
-   percent50_replica	float		  , -- time the 50th-percentile file was replicated
-   percent75_replica	float		    , -- time the 75th-percentile file was replicated
-   percent95_replica	float		   , -- time the 95th-percentile file was replicated
-   last_replica		float		 , -- time the last file was replicated
-   last_suspend		float		   , -- time the block was last observed suspended
-   partial_suspend_time	float		 , -- seconds the block was suspended since the creation of the latest replica
-   total_suspend_time	float		 , -- seconds the block was suspended since the start of the transfer
-   latency		float		 , -- current latency for this block
-   --
-   constraint fk_status_block_latency_dest
-     foreign key (destination) references t_adm_node (id),
-   --
-   constraint fk_status_block_latency_block
-     foreign key (block) references t_dps_block (id)
-     on delete set null,
-   --
-   constraint ck_status_block_latency_cust
-     check (is_custodial in ('y', 'n'))
-  );
-
-create index ix_log_block_latency_update
-  on t_log_block_latency (time_update);
-
-create index ix_log_block_latency_dest
-  on t_log_block_latency (destination);
-
-create index ix_log_block_latency_block
-  on t_log_block_latency (block);
-
-create index ix_log_block_latency_subs
-  on t_log_block_latency (time_subscription);
+@PHEDEX_CVS/Schema/OracleCorelatency
 
 -- fill old latency table into new table
 -- NOTE: the BlockLatency SQL was not updating files/bytes counts for blocks that were still open when the transfer started,
@@ -139,31 +94,157 @@ create index ix_log_block_latency_subs
 -- NOTE3: suspend_time is historically bugged and can cause negative latencies in special edge cases, but we don't attempt to correct
 -- NOTE3: the historical values because we don't have all information available.
 
+insert /*+ append */ into t_dps_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+  block_create, block_close, last_suspend, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0)), greatest(xl.bytes,nvl(b.bytes,0)),
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL), 
+   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block
+   where xl.last_replica is null;
+
+
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
-   block_create, block_close, first_request, first_replica, last_replica, last_suspend, total_suspend_time, latency)
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
 select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0)), greatest(xl.bytes,nvl(b.bytes,0)),
    xl.priority, xl.is_custodial, xl.time_subscription,
    xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL), xl.first_request, xl.first_replica, xl.last_replica,
-   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block;
+   xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block
+   where xl.last_replica is not null;
 
 commit;
 
 -- cross check old/new latency tables
 
+select count(*) from t_dps_block_latency;
 select count(*) from t_log_block_latency;
 select count(*) from xt_log_block_latency;
 
 -- These values are expected to be the same
+
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create),
+ sum(suspend_time),sum(latency) from xt_log_block_latency where last_replica is null;
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create),
+ sum(total_suspend_time),sum(latency) from t_log_block_latency where last_replica is null;
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create), sum(first_request),
- sum(first_replica),sum(last_replica),sum(suspend_time),sum(latency) from xt_log_block_latency;
+ sum(first_replica),sum(last_replica),sum(suspend_time),sum(latency) from xt_log_block_latency
+ where last_replica is not null;
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create), sum(first_request),
- sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency;
+ sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency
+ where last_replica is not null;
 -- These values are NOT expected to be the same
 select sum(block),sum(files) from xt_log_block_latency;
 select sum(block),sum(files) from t_log_block_latency;
+
+-- Drop old t_status_block_arrive table (never used)
+drop table t_status_block_arrive;
+
+-- Create new t_status_block_arrive table
+create table t_status_block_arrive
+  (time_update		float		not null,
+   destination		integer		not null,
+   block		integer		not null,
+   files		integer		not null, -- number of files in the block during this estimate
+   bytes		integer		not null, -- number of bytes in the block during this estimate
+   priority		integer		not null, -- t_dps_block_dest priority
+   basis		char(1)		not null, -- basis of estimate, see above
+   time_span	        float	                , -- historical vision used in estimate
+   pend_bytes	        float		        , -- queue size in bytes used in estimate
+   xfer_rate		float			, -- transfer rate used in estimate
+   time_arrive		float			, -- time predicted this block will arrive
+   --
+   constraint pk_status_block_arrive
+     primary key (destination, block),
+   --
+   constraint fk_status_block_arrive_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_block_arrive_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade
+  );
+
+-- create new table t_status_block_request
+
+create table t_status_block_request
+  (time_update		float		not null,
+   destination		integer		not null,
+   block		integer		not null,
+   priority		integer		not null,
+   is_custodial		char (1)	not null,
+   state		integer	        not null,
+   request_files	integer		not null,
+   request_bytes	integer		not null,
+   xfer_attempts	integer		not null,
+   time_request		integer		not null,
+   --
+   constraint pk_status_block_request
+     primary key (destination, block, priority, is_custodial, state),
+   --
+   constraint fk_status_block_request_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_block_request_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade,
+   --
+   constraint ck_status_block_request_cust
+     check (is_custodial in ('y', 'n'))
+  );
+
+ create index ix_status_block_request_dest
+  on t_status_block_request (destination);
+
+ create index ix_status_block_request_block
+  on t_status_block_request (block);
+
+-- Drop old t_status_block_path table (it is cleaned by FileRouter on every cycle anyway)
+
+drop table t_status_block_path;
+
+-- Create new t_status_block_path table
+
+create table t_status_block_path
+  (time_update		float		not null,
+   destination		integer		not null,
+   src_node		integer		not null,
+   block		integer		not null,
+   priority		integer		not null, -- t_xfer_path priority
+   is_valid		integer		not null, -- t_xfer_path is_valid
+   route_files		integer		not null, -- routed files
+   route_bytes		integer		not null, -- routed bytes
+   xfer_attempts	integer		not null, -- xfer attempts of routed
+   time_request		integer		not null, -- min (oldest) request time of routed
+   time_arrive		float		not null, -- max predicted arrival time estimated by router
+   --
+   constraint pk_status_block_path
+     primary key (destination, src_node, block, priority, is_valid),
+   --
+   constraint fk_status_block_path_dest
+     foreign key (destination) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_block_path_src
+     foreign key (src_node) references t_adm_node (id)
+     on delete cascade,
+   --
+   constraint fk_status_block_path_block
+     foreign key (block) references t_dps_block (id)
+     on delete cascade
+  );
+
+create index ix_status_block_path_src
+  on t_status_block_path (src_node);
+
+create index ix_status_block_path_block
+  on t_status_block_path (block);
 
 -- Increase the schema_version
 create or replace function schema_version return varchar is
