@@ -98,9 +98,9 @@ our %params =
 	  _DONTSTOPME		=> 0,
 	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
 	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
-          LOAD_DROPBOX => 1,
-          LOAD_CYCLE   => 1,
-          LOAD_DB      => 1, 
+          LOAD_DROPBOX => 1,                    # Load Dropbox module
+          LOAD_CYCLE   => 1,                    # Load Cycle module
+          LOAD_DB      => 1,                    # Load DB module 
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -219,6 +219,7 @@ sub new
 
 #   Announce myself...
     $self->Notify("label=$label");
+    $self->Dbgmsg("AgentLite was loaded DB=>$self->{LOAD_DB}, CYCLE=$self->{LOAD_CYCLE}, DROPBOX=$self->{LOAD_DROPBOX}") if $self->{DEBUG};
 
     bless $self, $class;
     return $self;
