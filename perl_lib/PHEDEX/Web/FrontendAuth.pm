@@ -256,7 +256,8 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
-return 1540;
+#return 3604;
+#return 1504;
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
