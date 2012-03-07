@@ -98,6 +98,9 @@ our %params =
 	  _DONTSTOPME		=> 0,
 	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
 	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
+          LOAD_DROPBOX => 1,
+          LOAD_CYCLE   => 1,
+          LOAD_DB      => 1, 
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
@@ -180,17 +183,19 @@ sub new
     { $self->{$k} = $v unless defined $self->{$k}; }
 
 #   Load the Dropbox modules
-    $self->{_Dropbox} = $agent_loader->Load('Dropbox')->new( _AL => $self );
+    if ( $self->{LOAD_DROPBOX} ) {
+      $self->{_Dropbox} = $agent_loader->Load('Dropbox')->new( _AL => $self );
 
-#   Basic validation: Explicitly call the base method to validate only the
-#   core agent. This will be called again in the 'process' method, on the
-#   derived agent. No harm in that!
+#     Basic validation: Explicitly call the base method to validate only the
+#     core agent. This will be called again in the 'process' method, on the
+#     derived agent. No harm in that!
 
-    die "$me: Failed validation, exiting\n" 
+      die "$me: Failed validation, exiting\n" 
 	if PHEDEX::Core::Agent::Dropbox::isInvalid($self->{_Dropbox});
 
-#   Clean PID and STOP flags
-    $self->cleanDropbox($me);
+#     Clean PID and STOP flags
+      $self->cleanDropbox($me);
+    }
 
 #    bless $self, $class;
 
@@ -198,7 +203,7 @@ sub new
     $self->daemon();
 
 #   Load the Cycle modules
-    $self->{_Cycle} = $agent_loader->Load('Cycle')->new( _AL => $self );
+    $self->{_Cycle} = $agent_loader->Load('Cycle')->new( _AL => $self ) if $self->{LOAD_CYCLE};
      
 #   Finally, start some self-monitoring...
     $self->{pmon} = PHEDEX::Monitoring::Process->new();
@@ -207,10 +212,10 @@ sub new
     $self->init();
 
 #   Load the DB modules
-    $self->{_DB} = $agent_loader->Load('DB')->new( _AL => $self );
+    $self->{_DB} = $agent_loader->Load('DB')->new( _AL => $self ) if $self->{LOAD_DB};
 
 #   Validate the object!
-    die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
+    die "Agent ",$self->{ME}," failed validation\n" if ($self->{LOAD_DROPBOX} && $self->isInvalid());
 
 #   Announce myself...
     $self->Notify("label=$label");
@@ -228,10 +233,10 @@ sub AUTOLOAD
   $attr =~ s/.*:://;
   return unless $attr =~ /[^A-Z]/;        # skip all-cap methods
 
-  if      ( $self->{_Dropbox}->can($attr) ) { $self->{_Dropbox}->$attr(@_);
-  } elsif ( $self->{_DB}->can($attr)      ) { $self->{_DB}->$attr(@_);
-  } elsif ( $self->{_Cycle}->can($attr)   ) { $self->{_Cycle}->$attr(@_);
-  } else  { $self->Alert("Unknown method for PHEDEX::Core::Agent"); 
+  if      ( $self->{LOAD_DROPBOX} && $self->{_Dropbox}->can($attr) ) { $self->{_Dropbox}->$attr(@_);
+  } elsif ( $self->{LOAD_DB}      && $self->{_DB}->can($attr)      ) { $self->{_DB}->$attr(@_);
+  } elsif ( $self->{LOAD_CYCLE}   && $self->{_Cycle}->can($attr)   ) { $self->{_Cycle}->$attr(@_);
+  } else  { $self->Alert("Unknown method $attr for PHEDEX::Core::Agent"); 
   }
 }
 
