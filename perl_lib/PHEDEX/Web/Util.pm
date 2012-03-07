@@ -437,7 +437,6 @@ sub checkRequired
 sub auth_nodes
 {
     my ($self, $authz, $ability, %args) = @_;
-
     return unless $authz;
 
     # Check that we know about the ability
@@ -472,13 +471,11 @@ sub auth_nodes
 	} elsif ($a->{SCOPE} eq 'site' &&
 		 exists $roles->{ $a->{ROLE} }) {
 	    push @auth_sites, @{ $roles->{ $a->{ROLE} } };
-#	    push @auth_sites, @{ $self->{SECMOD}->getSitesForUserRole($a->{ROLE}) };
 	} elsif (exists $roles->{ $a->{ROLE} } &&
 		 ($anygroup || grep $_ eq $a->{GROUP}, @{$roles->{ $a->{ROLE} }}) ) {
 	    push @auth_nodes, qr/$a->{SCOPE}/;
 	}
     }
-
 
     return unless $global_scope || @auth_sites || @auth_nodes; # quick exit if user has no auth
 
@@ -486,12 +483,7 @@ sub auth_nodes
     # scope role, then build a list of nodes to check for based on the
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
-	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	foreach my $node (keys %node_map) {
-	    foreach my $site (@auth_sites) {
-		push @auth_nodes, qr/^$node$/ if $node_map{$node} eq $site;
-	    }
-	}
+      @auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
     }
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes

@@ -73,7 +73,7 @@ sub init {
 sub setTestNodes {
   my ($self,$nodes) = @_;
   $ExtraNodes = $nodes;
-  $UID = 1540;
+  $UID = 3604;
 }
 
 sub isSecure {
@@ -128,18 +128,75 @@ sub getRoles {
   my $self = shift;
 
   return $self->{ROLES} if $self->{ROLES};
-  my ($roles,$name,$group);
-  foreach ( keys %{$self->{HEADER}} ) {
-    next unless m%^cms-authz-(.+)$%;
+  my ($roles,$name,$group,$key);
+  foreach $key ( keys %{$self->{HEADER}} ) {
+    next unless $key =~ m%^cms-authz-(.+)$%;
     $name = lc $1;
     $name =~ s%-% %g;
-    $group = lc $self->{HEADER}{$_};
-    $group =~ s%group:%%g; # TW Slightly dodgy, mixing site and group namespaces
-    $group =~ s%site:%%g;  # TW ...but we're probably safe there!
+    $group = lc $self->{HEADER}{$key};
+    $group =~ s%group:%:%g; # TW Slightly dodgy, mixing site & group namespaces
+    $group =~ s%site:%:%g;  # TW ...but we're probably safe there!
     $roles->{$name} = [] unless defined $roles->{$name};
-    push @{$roles->{$name}}, split(' ',$group);
+    foreach ( split(':',$group) ) {
+      s%^\s+%%;
+      s%\s+$%%;
+      next unless m%\S+%;
+      push @{$roles->{$name}}, $_;
+    }
   }
   return $self->{ROLES} = $roles;
+}
+
+sub getSitesForUserRole
+{
+  my ($self,$role) = @_;
+  my ($roles,%sites,@sites,$site,$sql,$sth);
+  $roles = $self->getRoles();
+  $sql = qq{ select pn.name
+               from contact c
+               join site_responsibility sr on sr.contact = c.id
+               join role r on r.id = sr.role
+               join site s on s.id = sr.site
+               join phedex_node pn on pn.site = s.id
+             where c.id = ? };
+  if ( $role ) {
+    $sql .= qq { and lower(r.title) = ? };
+  }
+  $sth = $self->{DBHANDLE}->prepare($sql);
+  if ( $role ) {
+    $sth->execute($self->{USERID},lc $role);
+  } else {
+    $sth->execute($self->{USERID});
+  }
+  while ($site = $sth->fetchrow_arrayref()) {
+    $sites{$site->[0]}++;
+  }
+  @sites = keys %sites;
+  return \@sites;
+}
+
+sub getSitesFromFrontendRoles
+{
+  my $self = shift;
+  my ($roles,$role,%sites,@sites,$site,$sql,$sth);
+  $roles = $self->getRoles();
+  $sql = qq{ select p.name
+               from cms_name c
+               join phedex_node_cms_name_map map on c.id = map.cms_name_id
+               join phedex_node p on map.node_id = p.id
+               where lower(c.name) = ? };
+  $sth = $self->{DBHANDLE}->prepare($sql);
+  foreach $role ( values %{$roles} ) {
+    foreach $site ( @{$role} ) {
+      $site =~ s%-%_%g;
+      $sth->execute($site);
+      while ($_ = $sth->fetchrow_arrayref()) {
+        $sites{$_->[0]}++;
+      }
+    }
+  }
+  @sites = keys %sites;
+  return \@sites;
 }
 
 sub DESTROY { }
@@ -199,6 +256,7 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
+return 1540;
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
