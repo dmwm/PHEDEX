@@ -49,12 +49,12 @@ sub process_args
 # PHEDEX/Testbed/Tests/Web-Util.t
 our %COMMON_VALIDATION = 
 (
- 'xml'		=> qr|^[A-Za-z0-9\-_\#\.\'\*"/:=,\n\r \t<>]*$|,
- 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.\*/]*$|,
+ 'xml'		=> qr|^[A-Za-z0-9\-_\#\.\'*%?"/:=,\n\r \t<>]*$|,
+ 'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.*%?/]*$|,
  'dataset'      => qr|^(/[^/\#<>]+){3}$|,
  'block'        => qr|^(/[^/\#<>]+){3}\#[^/\#<>]+$|,
  'block_*'      => qr!(^(/[^/\#<>]+){3}\#[^/\#<>]+$)|^[*%]$!,
- 'lfn'          => qr|^/[A-Za-z-_\d#\.\/\$\{\}]*$|,
+ 'lfn'          => qr|^/[A-Za-z-_\d#\.\/*%?]*$|,
  'wildcard'     => qr|[*%?]|,
  'node'         => qr/^(T[\d?][A-Za-z0-9_*%?]+|\d+)$/,
  'yesno'        => sub { $_[0] eq 'y' || $_[0] eq 'n' ? 1 : 0 },
@@ -437,7 +437,6 @@ sub checkRequired
 sub auth_nodes
 {
     my ($self, $authz, $ability, %args) = @_;
-
     return unless $authz;
 
     # Check that we know about the ability
@@ -484,12 +483,7 @@ sub auth_nodes
     # scope role, then build a list of nodes to check for based on the
     # site->node mapping in the SecurityModule
     if (!$global_scope && @auth_sites) {
-	my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
-	foreach my $node (keys %node_map) {
-	    foreach my $site (@auth_sites) {
-		push @auth_nodes, qr/^$node$/ if $node_map{$node} eq $site;
-	    }
-	}
+      @auth_nodes = @{ $self->{SECMOD}->getSitesFromFrontendRoles() };
     }
 
     # Get a list of nodes from the DB. 'X' nodes are obsolete nodes
@@ -562,21 +556,17 @@ sub fetch_nodes
         # nodes they are authorized for.  If they are a global admin
         # we continue below where all nodes will be returned.
         if (!$global_admin) {
-            my %node_map = $$self{SECMOD}->getPhedexNodeToSiteMap();
             my %auth_sites;
             foreach my $role (@to_check) {
                 if (exists $$roles{$role}) {
-                    foreach my $site (@{$$roles{$role}}) {
-                        $auth_sites{lc $site} = 1;
+	            my $sites = $self->{SECMOD}->getSitesForUserRole($role);
+                    foreach my $site (@{$sites}) {
+                        $auth_sites{$site}++;
                     }
                 }
             }
-            foreach my $node (keys %node_map) {
-                foreach my $site (keys %auth_sites) {
-                    push @auth_nodes, $node if lc $node_map{$node} eq $site;
-                }
-            }
 #           If not a global admin and no authorised sites, quit
+	    @auth_nodes = keys %auth_sites;
             return unless @auth_nodes;
         }
     }
