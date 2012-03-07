@@ -92,9 +92,6 @@ sub _start
     $kernel->state('_poe_init',$self->{_AL});
     $kernel->yield('_poe_init');
   }
-  else {
-      print "No poe_init found\n";
-  }
   $kernel->yield('_process_start');
   $kernel->yield('_maybeStop');
 
