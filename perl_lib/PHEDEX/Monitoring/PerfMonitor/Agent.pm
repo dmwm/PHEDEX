@@ -332,8 +332,9 @@ sub idle
 	# Part V: Update link parameters.
 	# For each of three time periods, 2 hours, 12 hours, and 2
 	# days, this massive query creates or updates link parameters
-	# based on recent history in that time period.  The following
-	# conditions apply:
+	# based on recent history in that time period. A 30 min offset is
+	# applied to give enough time to all relevant agents to update the stats
+	# The following conditions apply:
 	#
 	# If there is no link parameter information for a given link,
 	# the row is created with statistics from the time period:
@@ -355,6 +356,7 @@ sub idle
 	# for queued transfers, and not completed transfers.
        
 	&dbexec($dbh, qq{delete from t_adm_link_param});
+	my $offset = 1800;
         foreach my $span (2*3600, 12*3600, 2*86400)
 	{
 	    @rv = &dbexec($dbh, qq{
@@ -379,8 +381,8 @@ sub idle
                              and he.from_node = hs.from_node
                              and he.to_node = hs.to_node
                              and he.priority = hs.priority
-                         where (hs.timebin is not null and hs.timebin > :period and hs.timebin <= :now)
-                           or (he.timebin is not null and he.timebin > :period and he.timebin <= :now)
+                         where (hs.timebin is not null and hs.timebin > :period - :offset and hs.timebin <= :now - :offset)
+                           or (he.timebin is not null and he.timebin > :period - :offset and he.timebin <= :now - :offset)
 		         group by nvl(hs.from_node,he.from_node), nvl(hs.to_node,he.to_node),
 			   nvl(hs.timebin,he.timebin), nvl(hs.timewidth,he.timewidth)
                         ) group by from_node, to_node) n
@@ -398,7 +400,7 @@ sub idle
 			  p.try_bytes, p.time_span, p.time_update)
 		  values (n.from_node, n.to_node, n.pend_bytes, n.done_bytes,
 			  n.try_bytes, n.time_span, :now)},
-	        ":period" => $timebin - $span, ":now" => $timebin);
+	        ":period" => $timebin - $span, ":now" => $timebin, ":offset" => $offset);
 	    push @log, [$rv[1]+0, "link_param (span=$span)"];
 	}
 
