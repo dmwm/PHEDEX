@@ -109,6 +109,12 @@ VOName:         cms
 # unlink "$cache/$id";
 }
 
+if ( $cmd eq 'glite-transfer-cancel' )
+{
+# cancel a job...
+# Null action, nothing to do...
+}
+
 if ( $cmd eq 'glite-transfer-setpriority' )
 {
 # set job priority...
