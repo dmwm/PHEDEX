@@ -42,9 +42,10 @@ statement in the subroutine.
 =item mergeStatusBlockLatency(%args)
 
 Creates new entries in t_dps_block_latency and t_xfer_file_latency
-when a new block destination is created.
+when a new block destination is created, initializing file-level
+entries from t_xfer_replica for pre-existing files.
 Updates the t_dps_block_latency table using current data in
-t_dps_block_dest, t_xfer_request and t_xfer_file_latency.
+t_dps_block_dest and t_xfer_file_latency.
 Keeps track of latency up to the time the block is first completed, after
 which any changes to the block (e.g. file retransferred) are not
 accounted for.  Keeps track of block suspension time and subtracts
@@ -65,7 +66,8 @@ statement in the subroutine.
 Migrates latency entries for completed block destinations
 from t_xfer_file_latency to t_log_file_latency,
 and from t_dps_block_latency to t_log_block_latency
-respectively. Calculates the time markers for several steps
+respectively. Fills missing file-level events from t_xfer_replica.
+Calculates the time markers for several steps
 in the block completion history. Cleans up the archived entries
 from t_xfer_file_latency and t_dps_block_latency.
 
