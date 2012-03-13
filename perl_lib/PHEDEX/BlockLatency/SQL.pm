@@ -12,18 +12,40 @@ anything that needs its methods.
 
 =head1 DESCRIPTION
 
-SQL calls for interacting with t_log_block_latency, a table for
-logging the time it takes blocks to complete at a node
+SQL calls for interacting with t_dps_block_latency and t_xfer_file_latency,
+two tables to monitor the current progress of block completion at a node,
+and with t_log_file_latency and t_log_block_latency, two table for
+logging the historical record of the time it took for block completion at
+a node
 
 =head1 METHODS
 
 =over
 
+=item mergeXferFileLatency(%args)
+
+Updates the t_xfer_file_latency table using current data in
+t_xfer_task_* and t_xfer_path. Keeps track of number of file
+transfer attempts, source node for the first transfer attempt,
+and source node for the current transfer attempt. For multi-hop
+transfers, only the transfer tasks to the final destination are
+counted. For transfers to MSS destinations, only the WAN transfer
+tasks to the Buffer node are counted; but the time for migration
+to the MSS node is also recorded.
+This method needs to be run by the FilePump agent on every cycle
+when receiving "task done" events, because the agent immediately
+cleans up the entries in the t_xfer_task_* tables afterwards.
+
+Returns an array containing the number of rows updated by each
+statement in the subroutine.
+
 =item mergeStatusBlockLatency(%args)
 
+Creates new entries in t_dps_block_latency and t_xfer_file_latency
+when a new block destination is created.
 Updates the t_dps_block_latency table using current data in
-t_dps_block_dest, t_xfer_request and t_xfer_replica.  Keeps
-track of latency up to the time the block is first completed, after
+t_dps_block_dest, t_xfer_request and t_xfer_file_latency.
+Keeps track of latency up to the time the block is first completed, after
 which any changes to the block (e.g. file retransferred) are not
 accounted for.  Keeps track of block suspension time and subtracts
 that from the total latency.
@@ -34,6 +56,28 @@ is used to determine important events such as suspension and block
 completion.  On the other hand, if it is run slower than
 BlockAllocator it will miss events.  For this reason it is run after
 BlockAllocator completes.
+
+Returns an array containing the number of rows updated by each
+statement in the subroutine.
+
+=item mergeLogBlockLatency(%args)
+
+Migrates latency entries for completed block destinations
+from t_xfer_file_latency to t_log_file_latency,
+and from t_dps_block_latency to t_log_block_latency
+respectively. Calculates the time markers for several steps
+in the block completion history. Cleans up the archived entries
+from t_xfer_file_latency and t_dps_block_latency.
+
+Returns an array containing the number of rows updated by each
+statement in the subroutine.
+
+=item cleanLogFileLatency(%args)
+
+Cleans up old entries in the t_log_file_latency table.
+The default is to clean up file-level information for
+block destinations completed more than 30 days ago.
+Block-level information is kept indefinitely.
 
 Returns an array containing the number of rows updated by each
 statement in the subroutine.
@@ -299,8 +343,6 @@ sub mergeLogBlockLatency
     ($q, $n) = execute_sql( $self, $sql );
     push @r, $n;
 
-   
-
     # Merge latency information into history table for finished blocks
     $sql = qq{
 	merge into t_log_block_latency u
@@ -344,16 +386,17 @@ sub mergeLogBlockLatency
     push @r, $n;
 
     # Now clean up all we have archived (will also cascade deletion of file-level entries)
-$sql = qq {
-    delete from t_dps_block_latency where last_replica is not null
-};
+    $sql = qq {
+	delete from t_dps_block_latency where last_replica is not null
+	};
 
-($q, $n) = execute_sql( $self, $sql, %p );
-push @r, $n;
-
+    ($q, $n) = execute_sql( $self, $sql, %p );
+    push @r, $n;
+    
     return @r;
 }
 
+#----------------------------------------------------------------------------------------
 sub mergeStatusBlockLatency
 {
     my ($self,%h) = @_;
