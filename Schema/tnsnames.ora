@@ -29,6 +29,24 @@ devdb11=(
         )
 )
 
+devdb10_tunnel=(
+	DESCRIPTION=
+	(ADDRESS= (PROTOCOL=TCP) (HOST=localhost) (PORT=10520) )
+	(ENABLE=BROKEN)
+	(CONNECT_DATA=
+		(SID=D10)
+	)
+)
+# Oracle 11gR2
+devdb11_tunnel=(
+        DESCRIPTION=
+        (ADDRESS= (PROTOCOL=TCP) (HOST=localhost) (PORT=10121) )
+        (ENABLE=BROKEN)
+        (CONNECT_DATA=
+                (SID=DEVDB11)
+        )
+)
+
 #
 # OTHER DATABASES (not only managed by us)
 ###############################################
