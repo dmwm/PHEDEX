@@ -166,10 +166,12 @@ sub mergeXferFileLatency
                   where fl.time_at_destination is null and fl.time_on_buffer is null
                   when not matched then
                   insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request,
-			  original_from_node, time_route, time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_on_buffer)
+			  original_from_node, from_node, time_route, time_assign, time_export, attempts,
+			  time_first_attempt, time_latest_attempt, time_on_buffer)
                   values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize,
-                          new.priority, new.is_custodial, new.time_request, new.from_node, new.time_route, new.time_assign, new.time_export,
-                          1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
+                          new.priority, new.is_custodial, new.time_request, new.from_node, new.from_node,
+			  new.time_route, new.time_assign, new.time_export, 1,
+			  new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 	      };
 
     ($q, $n) = execute_sql( $self, $sql );
@@ -205,10 +207,12 @@ sub mergeXferFileLatency
 		  where fl.time_at_destination is null
 		  when not matched then
 		  insert (time_update, destination, fileid, inblock, filesize, priority, is_custodial, time_request, 
-			  original_from_node, time_route, time_assign, time_export, attempts, time_first_attempt, time_latest_attempt, time_at_destination)
+			  original_from_node, from_node, time_route, time_assign, time_export, attempts,
+			  time_first_attempt, time_latest_attempt, time_at_destination)
 		  values (new.time_update, new.to_node, new.fileid, new.inblock, new.filesize, 
-			  new.priority, new.is_custodial, new.time_request, new.from_node, new.time_route, new.time_assign, new.time_export,
-			  1, new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
+			  new.priority, new.is_custodial, new.time_request, new.from_node, new.from_node,
+			  new.time_route, new.time_assign, new.time_export, 1,
+			  new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 			  };
 
     ($q, $n) = execute_sql( $self, $sql );
