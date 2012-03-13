@@ -1,0 +1,4 @@
+sqlnet.expire_time = 15
+bequeath_detach = yes
+DIAG_ADR_ENABLED = FALSE
+DIAG_DDE_ENABLED = FALSE
