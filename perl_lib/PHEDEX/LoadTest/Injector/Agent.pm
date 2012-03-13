@@ -116,7 +116,8 @@ sub idle
 		}
 	    };
 	    if ($@) {
-		$self->Alert($@);
+		chomp ($@);
+		$self->Alert("database error: $@");
 		$$self{DBH}->rollback();
 	    }
 	}
