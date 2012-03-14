@@ -152,7 +152,7 @@ create table t_status_block_arrive
    files		integer		not null, -- number of files in the block during this estimate
    bytes		integer		not null, -- number of bytes in the block during this estimate
    priority		integer		not null, -- t_dps_block_dest priority
-   basis		char(1)		not null, -- basis of estimate, see above
+   basis		integer		not null, -- basis of estimate, see above
    time_span	        float	                , -- historical vision used in estimate
    pend_bytes	        float		        , -- queue size in bytes used in estimate
    xfer_rate		float			, -- transfer rate used in estimate
