@@ -945,16 +945,16 @@ create table t_status_dataset_arrive
 
 =head2 t_status_block_arrive
 
-B<WARNING: FUTURE/UNUSED!>  This status table contains a prediction of
+This status table contains a prediction of
 when a subscribed block will arrive at a node.
 
 =over
 
-=item t_statust_dataset_arrive.time_update
+=item t_status_block_arrive.time_update
 
 L<Time|Schema::Schema/Timestamp Columns> this data was gathered.
 
-=item t_statust_dataset_arrive.destination
+=item t_status_block_arrive.destination
 
 Node, FK to
 L<t_adm_node.id|Schema::OracleCoreTopo/t_adm_node.id>.
@@ -978,26 +978,36 @@ L<Priority|Schema::Schema/priority (Node-level)> of the subscription.
 
 =item t_status_block_arrive.basis
 
-The technique used to arrive at the estimate, values are:
+The technique used to arrive at the estimate. If no estimate can be given,
+or the block will never arrive, the reason for the missing estimate.
 
- s : suspended      - block is suspended, arrival time cannot be estimated
- n : nominal values - used when no historical information is available
- h : history values - used when no link parameter values are available
- p : link values    - used when no router values are available
- r : routing values - used when the block is activated for routing
+Negative values are for blocks which are not expected to complete without
+external intervention.
+Non-negative values are for blocks which are expected to complete.
+
+ -6 : at least one file in the block has no source replica remaining
+ -5 : for at least one file in the block, there is no path from source to destination
+ -4 : subscription was automatically suspended by router for too many failures
+ -3 : there is no active download link to the destination
+ -2 : subscription was manually suspended
+ -1 : block is still open
+  0 : all files in the block are currently routed. FileRouter estimate is used.
+  1 : the block is not yet routed because the destination queue is full.
+	Estimate will be calculated from queue statistics in t_history_dest
+  2 : at least one file in the block is currently not routed, because it recently failed to transfer.
 
 =item t_status_block_arrive.time_span
 
-Duration in seconds of the history period that was analyzed when
-making this estimate.
+B<WARNING: FUTURE/UNUSED!> Duration in seconds of the history period that was analyzed when
+making this estimate, for basis=1 blocks.
 
 =item t_status_block_arrive.pend_bytes
 
-Pending transfer queue in bytes used in this estimation.
+B<WARNING: FUTURE/UNUSED!> Pending transfer queue in bytes used in this estimation, for basis=1 blocks.
 
 =item t_status_block_arrive.xfer_rate
 
-Transfer rate used in this estimation.
+B<WARNING: FUTURE/UNUSED!> Transfer rate used in this estimation, for basis=1 blocks.
 
 =item t_status_block_arrive.time_arrive
 
@@ -1016,7 +1026,7 @@ create table t_status_block_arrive
    files		integer		not null, -- number of files in the block during this estimate
    bytes		integer		not null, -- number of bytes in the block during this estimate
    priority		integer		not null, -- t_dps_block_dest priority
-   basis		char(1)		not null, -- basis of estimate, see above
+   basis		integer		not null, -- basis of estimate, see above
    time_span		float		        , -- historical vision used in estimate
    pend_bytes		float		        , -- queue size in bytes used in estimate
    xfer_rate		float		        , -- transfer rate used in estimate
