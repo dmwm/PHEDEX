@@ -87,10 +87,15 @@ END;
 -- NOTE: the creation of the entry in the latency table. This might not be the actual number of files that were transferred
 -- NOTE: in the block at the time, if the block was updated after closure (invalidating some files, or reopening and injecting more files),
 -- NOTE: but it is correct or closer to the correct value in most cases
--- NOTE2: for block_close (the block closure time) our only estimate is the last block time_update, assuming that the block wasn't
+-- NOTE2: for block_close (the block closure time), for incomplete blocks our only estimate is the last block time_update, assuming that the block wasn't
 -- NOTE2: updated again after closure (invalidating some files, or reopening and injecting more files). We still use this estimate, because
 -- NOTE2: the block_close time isn't used in the latency calculation (it's only logged to find out how much time passed AFTER the transfer of the last replica
--- NOTE2: before the block was actually visible for the processing system)
+-- NOTE2: before the block was actually visible for the processing system).
+-- NOTE2: For completed blocks which still exist, we assume they are all closed, and use b.time_update as the block closure time estimate, because
+-- NOTE2: block destinations are not supposed to be marked as complete if the block is still open:
+-- NOTE2: in the production instance, there are actually 4 test blocks which were reopened after the transfer was completed, but we include them anyway.
+-- NOTE2: For completed blocks which don't exist anymore, for which we only have anonymous latency log entries, we simply have no way to estimate the
+-- NOTE2: block closure time - so we just set arbitrarily the block closure time equal to the arrival time of the last file replica
 -- NOTE3: suspend_time is historically bugged and can cause negative latencies in special edge cases, but we don't attempt to correct
 -- NOTE3: the historical values because we don't have all information available.
 
@@ -103,15 +108,23 @@ select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0
    xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block
    where xl.last_replica is null;
 
-
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
    block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
 select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0)), greatest(xl.bytes,nvl(b.bytes,0)),
    xl.priority, xl.is_custodial, xl.time_subscription,
-   xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL), xl.first_request, xl.first_replica, xl.last_replica,
-   xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block
+   xl.block_create, b.time_update, xl.first_request, xl.first_replica, xl.last_replica,
+   xl.suspend_time, xl.latency from xt_log_block_latency xl join t_dps_block b on b.id=xl.block
    where xl.last_replica is not null;
+
+insert /*+ append */ into t_log_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, xl.files, xl.bytes,
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, xl.last_replica, xl.first_request, xl.first_replica, xl.last_replica,
+   xl.suspend_time, xl.latency from xt_log_block_latency xl
+   where xl.last_replica is not null and xl.block is null;
 
 commit;
 
@@ -128,15 +141,14 @@ select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_
  sum(suspend_time),sum(latency) from xt_log_block_latency where last_replica is null;
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create),
- sum(total_suspend_time),sum(latency) from t_log_block_latency where last_replica is null;
+ sum(total_suspend_time),sum(latency) from t_dps_block_latency;
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create), sum(first_request),
  sum(first_replica),sum(last_replica),sum(suspend_time),sum(latency) from xt_log_block_latency
  where last_replica is not null;
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create), sum(first_request),
- sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency
- where last_replica is not null;
+ sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency;
 -- These values are NOT expected to be the same
 select sum(block),sum(files) from xt_log_block_latency;
 select sum(block),sum(files) from t_log_block_latency;
