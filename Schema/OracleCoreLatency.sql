@@ -107,7 +107,7 @@ create index ix_xfer_file_latency_file
 create table t_log_block_latency
   (time_update          float           not null,
    destination          integer         not null,
-   block                integer                 , -- block id, can be null if block remvoed
+   block                integer                 , -- block id, can be null if block removed
    files                integer         not null, -- number of files
    bytes                integer         not null, -- block size in bytes
    priority             integer         not null, -- t_dps_block_dest priority
@@ -122,11 +122,17 @@ create table t_log_block_latency
    percent75_replica    float                   , -- time the 75th-percentile file was replicated
    percent95_replica    float                   , -- time the 95th-percentile file was replicated
    last_replica         float                   , -- time the last file was replicated
+   primary_from_node	integer			, -- id of the node from which most of the files were transferred
+   primary_from_files	integer			, -- number of files transferred from primary_from_node
+   total_xfer_attempts	integer			, -- total number of transfer attempts for all files in the block
    total_suspend_time   float                   , -- seconds the block was suspended since the start of the transfer
    latency              float                   , -- current latency for this block
    --
    constraint fk_log_block_latency_dest
      foreign key (destination) references t_adm_node (id),
+   --
+   constraint fk_log_block_latency_from
+     foreign key (primary_from_node) references t_adm_node (id),
    --
    constraint fk_log_block_latency_block
      foreign key (block) references t_dps_block (id)
@@ -144,6 +150,9 @@ create index ix_log_block_latency_up
 
 create index ix_log_block_latency_dest
   on t_log_block_latency (destination);
+
+create index ix_log_block_latency_from
+  on t_log_block_latency (primary_from_node);
 
 create index ix_log_block_latency_block
   on t_log_block_latency (block);
