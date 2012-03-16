@@ -78,7 +78,7 @@ END;
 
 -- create new latency tables
 
-@PHEDEX_CVS/Schema/OracleCorelatency
+@PHEDEX_CVS/Schema/OracleCoreLatency
 
 -- fill old latency table into new table
 -- NOTE: the BlockLatency SQL was not updating files/bytes counts for blocks that were still open when the transfer started,
