@@ -362,9 +362,15 @@ sub mergeLogBlockLatency
 	       percentile_disc(0.50) within group (order by fl.time_at_destination asc) percent50_replica,
                percentile_disc(0.75) within group (order by fl.time_at_destination asc) percent75_replica,
                percentile_disc(0.95) within group (order by fl.time_at_destination asc) percent95_replica,
+	       sum(fl.attempts) total_xfer_attempts, stats_mode(fl.from_node) primary_from_node,
+	       max(fl.nfrom) primary_from_files,
 	       bl.last_replica, bl.total_suspend_time, bl.latency
 		from t_dps_block_latency bl
-	        left join t_xfer_file_latency fl on bl.destination=fl.destination and bl.block=fl.inblock
+	        left join (select destination, inblock, attempts, from_node,
+			     time_at_destination, time_request,
+			     count(*) over (partition by destination, inblock, from_node) nfrom
+			   from t_xfer_file_latency) fl 
+	        on bl.destination=fl.destination and bl.block=fl.inblock
 	   where bl.last_replica is not null
 	   group by bl.time_update, bl.time_subscription, bl.destination, bl.block,
 	    bl.files, bl.bytes, bl.priority,                                                                                      
@@ -378,13 +384,13 @@ sub mergeLogBlockLatency
 	insert
 	(u.time_update,u.destination,u.block,u.files,u.bytes,u.priority,u.is_custodial,u.time_subscription,
 	 u.block_create,u.block_close,u.first_request,u.first_replica,u.percent25_replica,
-	 u.percent50_replica,u.percent75_replica,u.percent95_replica,u.last_replica,u.total_suspend_time,
-	 u.latency)
+	 u.percent50_replica,u.percent75_replica,u.percent95_replica,u.last_replica,
+	 u.total_xfer_attempts,u.primary_from_node,u.primary_from_files,u.total_suspend_time,u.latency)
 	values
 	(d.time_update,d.destination,d.block,d.files,d.bytes,d.priority,d.is_custodial,d.time_subscription,              
          d.block_create,d.block_close,d.first_request,d.first_replica,d.percent25_replica,                 
-         d.percent50_replica,d.percent75_replica,d.percent95_replica,d.last_replica,d.total_suspend_time, 
-         d.latency) 
+         d.percent50_replica,d.percent75_replica,d.percent95_replica,d.last_replica,
+	 d.total_xfer_attempts,d.primary_from_node,d.primary_from_files,d.total_suspend_time,d.latency) 
 	
     };
 
