@@ -263,7 +263,7 @@ sub dbprep
       if ($@ =~ /$ORA_INVALID_REGEX/ || $@ =~ /TNS:listener/);
 
   &PHEDEX::Core::Logging::Fatal(undef, $@) if $@ =~ /$ORA_EXIT_REGEX/;
-  die $@;
+  die $@," (for $sql)";
 }
 
 # Simple utility to prepare, bind and execute a SQL statement.  In
