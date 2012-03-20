@@ -1,3 +1,67 @@
+Changes for PhEDEx 4.1.0
+
+Changes for Schema and DB Config
+  - New Latency monitoring tables: t_dps_block_latency for blocks currently in transfer,
+	t_xfer_file_latency for files currently in transfer,
+	t_log_block_latency for historical block records,
+	t_log_file_latency for historical file records
+	See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexCodeFests#Latency_codefest_August_2011 for details
+  - t_dps_block_dest: introduce new block destination state values for blocks that cannot be routed
+  - t_status_block_request: new table used to aggregate at block-level the file routing requests in t_xfer_request
+  - t_status_block_path: add column time_arrive for the predicted block arrival time, based on the file arrival
+	times calculated by FileRouter and recorded in t_xfer_path
+  - t_status_block_arrive: new table to record the predicted arrival time for blocks, or provide a reason for blocks that cannot complete
+  - Updates to tnsnames.ora and sqlnet.ora Oracle config files
+  
+Changes for Central Agents
+  - FilePump: populate new t_xfer_file_latency table
+  - BlockAllocator: populate new t_dps_block_latency table
+  - InfoStatesClean: migrate latency logs for completed blocks from t_dps_block_latency to t_log_block_latency
+	and from t_xfer_file_latency to t_log_file_latency. Clean up latency logs older than 30 days from t_log_file_latency.
+  - BlockAllocator: Change replica block subscriptions to move if dataset subscription is changed to move (fix for #91423)
+  - FilePump: Auto-export Buffer->MSS tasks, to solve the most common cause of FilePump alerts (fix for #79042)
+  - FilePump: Force file request deactivation when any task in the transfer path fails, to force re-routing also for transfers
+	to T1 MSS nodes (fix for #63923).
+  - FileRouter: populate new t_status_block_path.time_arrive column, new t_status_block_request table, new t_status_block_arrive table.
+  - FileRouter: set t_dps_block_dest.state=-2 for blocks that cannot be activated due to missing incoming links
+  - FileRouter: set t_dps_block_dest.state=-1 for blocks that cannot be activated because the destination queue is full
+  - FileRouter: Don't revalidate expired paths (fix for #85117)
+  - FileRouter: Don't extend expiration time for failed transfers (fix for #86943)
+  - FileRouter: Convert 6-level path priority back to 3-level subscription priority when populating t_status_block_path, to fix double-counting
+	and wrong priority assignment in Activity::Routing web page.
+  - InfoStatesClean: Commit at the end of the cycle, instead of the middle of the next cycle.
+  - PerfMonitor: add 30-minute offset to calculation of t_adm_link_param.rate/latency, to ensure that all agents have time to update stats. (fix for #92143)
+  - LoadTestInjector: report alerts to Watchdog agent properly
+	
+Changes for Site Agents
+  - FileDownload: do not override -batch-files with (-default)-link-active-files in job splitting if -batch-files is lower. (fix for #88176)
+  - FileDownload: Log (glite-transfer-)status command invocation errors (fix for #55491)
+  - FileDownload: properly set status of lost file transfers to "abandoned", to avoid accumulating lost transfers in the agent, eventually
+	blocking the queue (fix for #62173)
+  - FileDownload: 
+  - FileMSSMigrate: Do not auto-export Buffer->MSS tasks, now handled by central FilePump agent. NOTE: This update becomes MANDATORY for all T0/T1s
+	after the central FilePump agent is updated (fix for #79042).
+  - BlockDownloadVerify: report status to DB and Watchdog regularly, so that agent doesn't appear "DOWN" while executing long-running tests.
+  - BlockDownloadVerify: deprecate tmdb Namespace
+  - Watchdog: properly receive ping messages from agents
+  - Watchdog: properly support multiple limit settings in the configuration
+
+Changes for Operator Tools
+  - phedex CLI documentation fix
+  - phedex CLI: remove obsolete VERBOSE argument from inject command
+
+Core library changes
+  - PHEDEX::Core::Agent : fix crash in updateAgentStatus when node was not set.
+  - PHEDEX::Core::DB : print SQL statement in case of failure in dbprep
+  - PHEDEX::Core::Identity : truncate certificates longer than 4k characters to fit in the DB column.
+  - PHEDEX::Core::JobManager : make hearbeat interval configurable via the KEEPALIVE variable
+  - PHEDEX::Core::SQL : escape undescore characters in like clauses
+  - PHEDEX::Core::Util : allow specification of field type in flat2tree
+
+Changes for dependencies
+  - Update architecture to slc5_amd64_gcc461
+  - Update dependencies to HG1203h tag
+	
 Changes for PhEDEx 4.0.1
 
 Changes for Schema and DB config
