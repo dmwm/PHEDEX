@@ -131,7 +131,7 @@ sub nextEvent
     $kernel->yield($event,$payload);
     return;
   }
-  if ( $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
+  if ( $workflow->{Jitter} ) { $delay *= ( 1 + rand($workflow->{Jitter}) ); }
   if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
   $self->Dbgmsg("$msg $event $delay. $txt") if $self->{Debug};
   $kernel->delay_set($event,$delay,$payload);
@@ -157,16 +157,19 @@ sub FileChanged
   foreach $workflow ( @{$self->{Workflows}} )
   {
     next if $workflow->{Suspend};
+    next if ( $workflow->{Incarnations} &&
+	      $workflow->{Incarnations} < $workflow->{Incarnation} );
     $self->Logmsg("Beginning lifecycle for \"$workflow->{Name}...\"");
     $kernel->delay_set('lifecycle',0.01,$workflow);
     $nWorkflows++;
   }
   $self->Logmsg("Started $nWorkflows workflows");
   return if $nWorkflows;
-  if ( $self->{StopOnIdle} ) {
-    $kernel->yield('_stop');
-    $self->Logmsg("No workflows started, will now exit gracefully");
-  }
+# TW How do I stop myself?
+#  if ( $self->{StopOnIdle} ) {
+#    $kernel->yield('_stop');
+#    $self->Logmsg("No workflows started, will now exit gracefully");
+#  }
 }
 
 sub id
@@ -186,6 +189,7 @@ sub lifecycle
   {
 
     $self->Logmsg("Maximum number of cycles executed, stopping...");
+# TW Do I need this here?
     $self->{JOBMANAGER}{KEEPALIVE} = 0;
     $self->{Watcher}->RemoveClient( $self->{ME} ) if defined($self->{Watcher});
     return;
@@ -237,7 +241,8 @@ sub ReadConfig
   push @required, @{$self->{Required}} if $self->{Required};
   push @required, ('CycleTime','NCycles','Events','Name','Suspend','TmpDir',
                    'KeepInputs','KeepOutputs','KeepLogs',
-		   'KeepFailedInputs','KeepFailedOutputs','KeepFailedLogs');
+		   'KeepFailedInputs','KeepFailedOutputs','KeepFailedLogs',
+		   'Jitter');
 
 # Fill out the Templates, using the Defaults. This is mostly useful for actions
 # that are shared across several templates, to specify what script to call, or
