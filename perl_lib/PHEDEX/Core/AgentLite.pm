@@ -55,8 +55,7 @@ separately two arrays, @array_params and @hash_params, which hold the
 key-names of the array and hash parameters. When the object is initialised 
 (via the C<< init >> method, at the beginning of the C<< process >> method)
 the default C<< init >> method will check which parameters are required to be
-arrays or 
-hashes and either set them to null arrays/hashes if they are not defined 
+arrays or hashes and either set them to null arrays/hashes if they are not defined 
 or, if they have scalar values, will split the scalar on commas and set 
 them from that.
 
@@ -92,22 +91,22 @@ our %params =
 	  AGENT		=> undef,
 	  DEBUG         => $ENV{PHEDEX_DEBUG} || 0,
  	  VERBOSE       => $ENV{PHEDEX_VERBOSE} || 0,
-	  NOTIFICATION_HOST	=> undef,
-	  NOTIFICATION_PORT	=> undef,
-	  _DOINGSOMETHING	=> 0,
-	  _DONTSTOPME		=> 0,
-	  STATISTICS_INTERVAL	=> 3600,	# reporting frequency
-	  STATISTICS_DETAIL	=>    1,	# reporting level: 0, 1, or 2
-          LOAD_DROPBOX => 1,                    # Load Dropbox module
-          LOAD_CYCLE   => 1,                    # Load Cycle module
-          LOAD_DB      => 1,                    # Load DB module 
+	  NOTIFICATION_HOST   => undef,
+	  NOTIFICATION_PORT   => undef,
+	  _DOINGSOMETHING     => 0,
+	  _DONTSTOPME	      => 0,
+	  STATISTICS_INTERVAL => 3600,	# reporting frequency
+	  STATISTICS_DETAIL   => 1,	# reporting level: 0, 1, or 2
+          LOAD_DROPBOX        => 1,     # Load Dropbox module
+          LOAD_CYCLE          => 1,     # Load Cycle module
+          LOAD_DB             => 1,     # Load DB module
 	);
 
 our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
 our @hash_params  = qw / BAD JUNK /;
 our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
-our @writeable_files = qw / LOGFILE PIDFILE /;
+our @writeable_files = qw / LOGFILE PIDFILE /; #/
 
 sub new
 {
@@ -116,13 +115,14 @@ sub new
     my $self  = $class->SUPER::new(@_);
     my %p = %params;
 
-    $self->{_AL} = $self;
     my %args = (@_);
     my $me = $self->AgentType($args{ME});
 
-    my @agent_reject = ( qw / Template / );
-    my $agent_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Core::Agent',
-                                                  REJECT    => \@agent_reject );
+#   variable to hold plugin modules. Note they are local, we already have make sure that
+#   in case of a modules is loaded the given class is store 
+    my @agent_module_reject = ( qw / Template Agent AgentLite/ );
+    my $agent_module_loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Core::Agent',
+                                                         REJECT    => \@agent_module_reject );
 
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
@@ -183,26 +183,22 @@ sub new
     while (my ($k, $v) = each %args)
     { $self->{$k} = $v unless defined $self->{$k}; }
 
-#   Load the Dropbox modules
-    if ( $self->{LOAD_DROPBOX} ) {
-      $self->{_Dropbox} = $agent_loader->Load('Dropbox')->new( _AL => $self );
+#   Load the Dropbox modules. _Dropbox subclass is create and attach to self
+    my $dropbox_module = $agent_module_loader->Load('Dropbox')->new( $self ) if $self->{LOAD_DROPBOX};
 
-#     Basic validation: Explicitly call the base method to validate only the
-#     core agent. This will be called again in the 'process' method, on the
-#     derived agent. No harm in that!
+#   Basic validation: Explicitly call the base method to validate only the
+#   core agent. This will be called again in the 'process' method, on the
+#   derived agent. No harm in that!. This method is always defined.
+    die "$me: Failed validation, exiting\n" if PHEDEX::Core::AgentLite::isInvalid( $self ); 
 
-      die "$me: Failed validation, exiting\n" 
-	if PHEDEX::Core::Agent::Dropbox::isInvalid($self->{_Dropbox});
-
-#     Clean PID and STOP flags
-      $self->cleanDropbox($me);
-    }
+#   Clean PID and STOP flags. Thois method is always defined.
+    $self->cleanDropbox($me);
 
 #   If required, daemonise, write pid file and redirect output.
     $self->daemon();
 
-#   Load the Cycle modules
-    $self->{_Cycle} = $agent_loader->Load('Cycle')->new( _AL => $self ) if $self->{LOAD_CYCLE};
+#   Load the Cycle modules. _Cycle subclass is create and attach to self
+    my $cycle_module = $agent_module_loader->Load('Cycle')->new( $self ) if $self->{LOAD_CYCLE};
      
 #   Finally, start some self-monitoring...
     $self->{pmon} = PHEDEX::Monitoring::Process->new();
@@ -210,11 +206,11 @@ sub new
 #   Initialise subclass.
     $self->init();
 
-#   Load the DB modules
-    $self->{_DB} = $agent_loader->Load('DB')->new( _AL => $self ) if $self->{LOAD_DB};
+#   Load the DB modules. _DB subclass is create and attach to self
+    my $db_module = $agent_module_loader->Load('DB')->new( $self ) if $self->{LOAD_DB};
 
-#   Validate the object!
-    die "Agent ",$self->{ME}," failed validation\n" if ($self->{LOAD_DROPBOX} && $self->isInvalid());
+#   Validate the object!. This method is always defined.
+    die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
 
 #   Announce myself...
     $self->Notify("label=$label");
@@ -225,7 +221,7 @@ sub new
 }
 
 # Dummy functions for Dropbox module
-sub isInvalid {}
+sub isInvalid { print "isInvalid function not loaded, using fake function"; return 0; }
 sub cleanDropbox {}
 sub readInbox {}
 sub readPending {}
