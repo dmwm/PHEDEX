@@ -347,7 +347,6 @@ sub inspectDrop
     my ($self,$drop) = @_;
 
     print Dumper(" *** inspecDrop ->",$drop);
-
     if (! -d "$self->{_AL}->{WORKDIR}/$drop")
     {
 	$self->Alert("$drop is not a pending task");
