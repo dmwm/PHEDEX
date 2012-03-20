@@ -72,7 +72,11 @@ If you copy the Workflow entry in the configuration file and add a
 different InitialRequest string, you will end up driving two parallel 
 workflows, which will stress the system for longer.
 
-To run this for yourself:
+To run this for yourself, you have two choices. You can install from RPM,
+in which case you can skip steps 0 and 1 here. Or you can use the scripts
+here and install by hand. If you install from the RPM, you will need to
+ensure that the DBS_READER_URL variable is set in your environment.
+
 0) set up the environment:
 Use the LifeCycleAgentDBS3.sh script to install the DBS3 environment and
 software:
