@@ -5,6 +5,7 @@ use warnings;
 use POSIX;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use Data::Dumper;
 
 sub new
 {
@@ -15,7 +16,19 @@ sub new
   bless $self, $class;
 
   $self->{_AL} = $h{_AL};
-  
+
+  no warnings 'redefine'; 
+  *PHEDEX::Core::AgentLite::connectAgent = \&PHEDEX::Core::Agent::DB::connectAgent;
+  *PHEDEX::Core::AgentLite::disconnectAgent = \&PHEDEX::Core::Agent::DB::disconnectAgent;
+  *PHEDEX::Core::AgentLite::rollbackOnError = \&PHEDEX::Core::Agent::DB::rollbackOnError;
+  *PHEDEX::Core::AgentLite::checkNodes = \&PHEDEX::Core::Agent::DB::checkNodes;
+  *PHEDEX::Core::AgentLite::identifyAgent = \&PHEDEX::Core::Agent::DB::identifyAgent;
+  *PHEDEX::Core::AgentLite::updateAgentStatus = \&PHEDEX::Core::Agent::DB::updateAgentStatus;
+  *PHEDEX::Core::AgentLite::checkAgentMessages = \&PHEDEX::Core::Agent::DB::checkAgentMessages;
+  *PHEDEX::Core::AgentLite::expandNodes = \&PHEDEX::Core::Agent::DB::expandNodes;
+  *PHEDEX::Core::AgentLite::myNodeFilter = \&PHEDEX::Core::Agent::DB::myNodeFilter;
+  *PHEDEX::Core::AgentLite::otherNodeFilter = \&PHEDEX::Core::Agent::DB::otherNodeFilter;
+
   return $self;
 }   
     
@@ -29,6 +42,7 @@ sub AUTOLOAD
 
   # if $attr exits, catch the reference to it, note we will call something
   # only if belogs to the parent calling class.
+  print " up from DB $attr\n";
   if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
   else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::DB"); }
 }   
@@ -39,6 +53,7 @@ sub connectAgent
     my ($self, $identify) = @_;
     my $dbh;
 
+    print Dumper(" *** connectAgent -> identitify ",$identify);
     $dbh = &connectToDatabase($self->{_AL});
 
     # Make myself known if I have a name.  If this fails, the database
@@ -59,6 +74,7 @@ sub connectAgent
 sub disconnectAgent
 {
     my ($self, $force) = @_;
+    print Dumper(" *** disconnectAgent -> force", $force);
     return if ($self->{_AL}->{SHARED_DBH});
     &disconnectFromDatabase($self, $self->{_AL}->{DBH}, $force);
 }
@@ -69,6 +85,7 @@ sub disconnectAgent
 sub rollbackOnError
 {
     my ($self, $err) = @_;
+    print Dumper(" *** rollbackOnError -> err", $err);
     $err ||= $@;
     return 0 unless $err;
     chomp ($err);
@@ -489,6 +506,7 @@ sub checkAgentMessages
 sub expandNodes
 {
   my ($self, $require) = @_;
+  print Dumper(" *** expandNodes -> require",$require);
   my $dbh = $self->{_AL}->{DBH};
   my $now = &mytimeofday();
   my @result;
@@ -541,6 +559,7 @@ sub expandNodes
 sub myNodeFilter
 {
   my ($self, $idfield) = @_;
+  print Dumper(" *** myNodeFilter -> idfield", $idfield);
   my (@filter, %args);
   my $n = 1;
   foreach my $id (values %{$self->{_AL}->{NODES_ID}})
@@ -562,6 +581,7 @@ sub myNodeFilter
 sub otherNodeFilter
 {
   my ($self, $idfield) = @_;
+  print Dumper(" *** otherNodeFilter -> idfield", $idfield);
   my $now = &mytimeofday();
   if (($self->{_AL}->{IGNORE_NODES_IDS}{LAST_CHECK} || 0) < $now - 300)
   {
@@ -587,7 +607,6 @@ sub otherNodeFilter
         $self->{_AL}->{ACCEPT_NODES_IDS}{MAP}{++$index} = $id;
       }
     }
-
     $self->{_AL}->{IGNORE_NODES_IDS}{LAST_CHECK} = $now;
   }
 

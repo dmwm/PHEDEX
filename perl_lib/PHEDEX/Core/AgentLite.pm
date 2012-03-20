@@ -116,6 +116,7 @@ sub new
     my $self  = $class->SUPER::new(@_);
     my %p = %params;
 
+    $self->{_AL} = $self;
     my %args = (@_);
     my $me = $self->AgentType($args{ME});
 
@@ -197,8 +198,6 @@ sub new
       $self->cleanDropbox($me);
     }
 
-#    bless $self, $class;
-
 #   If required, daemonise, write pid file and redirect output.
     $self->daemon();
 
@@ -225,21 +224,56 @@ sub new
     return $self;
 }
 
-# Catch methods derivated from plugins: Dropbox, Cycle and  DB
+# Dummy functions for Dropbox module
+sub isInvalid {}
+sub cleanDropbox {}
+sub readInbox {}
+sub readPending {}
+sub readOutbox {}
+sub renameDrop {}
+sub relayDrop {}
+sub inspectDrop {}
+sub markBad {}
 
-sub AUTOLOAD
+# Dummy functions for DB module
+sub connectAgent {}
+sub disconnectAgent {}
+sub rollbackOnError {}
+sub checkNodes {}
+sub identifyAgent {}
+sub updateAgentStatus {}
+sub checkAgentMessages {}
+sub expandNodes {}
+sub myNodeFilter {}
+sub otherNodeFilter {}
+
+# Dummy functions for Cycle module
+sub preprocess {}
+sub _start {}
+sub _preprocess {}
+sub _process_start {}
+sub _process_stop {}
+sub _maybeStop {}
+sub _stop {}
+sub _make_stats {}
+sub _child {}
+sub _default {}
+
+# Check if the agent should stop.  If the stop flag is set, cleans up
+# and quits.  Otherwise returns.
+sub maybeStop
 {
-  my $self = shift;
-  my $attr = our $AUTOLOAD;
-  $attr =~ s/.*:://;
-  return unless $attr =~ /[^A-Z]/;        # skip all-cap methods
+    my $self = shift;
 
-  if      ( $self->{LOAD_DROPBOX} && $self->{_Dropbox}->can($attr) ) { $self->{_Dropbox}->$attr(@_);
-  } elsif ( $self->{LOAD_DB}      && $self->{_DB}->can($attr)      ) { $self->{_DB}->$attr(@_);
-  } elsif ( $self->{LOAD_CYCLE}   && $self->{_Cycle}->can($attr)   ) { $self->{_Cycle}->$attr(@_);
-  } else  { $self->Alert("Unknown method $attr for PHEDEX::Core::Agent"); 
-  }
+    # Check for the stop flag file.  If it exists, quit: remove the
+    # pidfile and the stop flag and exit.
+    return if ! -f $self->{STOPFLAG};
+    $self->Note("exiting from stop flag");
+    $self->Notify("exiting from stop flag");
+    $self->doStop();
 }
+
+sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 =head1 Running agents as daemons
 

@@ -35,6 +35,18 @@ sub new
       ],
      );
 
+  no warnings 'redefine';  
+  *PHEDEX::Core::AgentLite::preprocess = \&PHEDEX::Core::Agent::Cycle::preprocess;
+  *PHEDEX::Core::AgentLite::_start = \&PHEDEX::Core::Agent::Cycle::_start;
+  *PHEDEX::Core::AgentLite::_preprocess = \&PHEDEX::Core::Agent::Cycle::_preprocess;
+  *PHEDEX::Core::AgentLite::_process_start = \&PHEDEX::Core::Agent::Cycle::_process_start;
+  *PHEDEX::Core::AgentLite::_process_stop = \&PHEDEX::Core::Agent::Cycle::_process_stop;
+  *PHEDEX::Core::AgentLite::_maybeStop = \&PHEDEX::Core::Agent::Cycle::_maybeStop;
+  *PHEDEX::Core::AgentLite::_stop = \&PHEDEX::Core::Agent::Cycle::_stop;
+  *PHEDEX::Core::AgentLite::_make_stats = \&PHEDEX::Core::Agent::Cycle::_make_stats;
+  *PHEDEX::Core::AgentLite::_child = \&PHEDEX::Core::Agent::Cycle::_child;
+  *PHEDEX::Core::AgentLite::_default = \&PHEDEX::Core::Agent::Cycle::_default;
+
   return $self;
 }
 
@@ -48,25 +60,10 @@ sub AUTOLOAD
 
   # if $attr exits, catch the reference to it, note we will call something
   # only if belogs to the parent calling class.
+  print " *** up from Cycle $attr\n";
   if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
   else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::Cycle"); }     
 }
-
-# Check if the agent should stop.  If the stop flag is set, cleans up
-# and quits.  Otherwise returns.
-sub maybeStop
-{
-    my $self = shift;
-
-    # Check for the stop flag file.  If it exists, quit: remove the
-    # pidfile and the stop flag and exit.
-    return if ! -f $self->{_AL}->{STOPFLAG};
-    $self->Note("exiting from stop flag");
-    $self->Notify("exiting from stop flag");
-    $self->doStop();
-}
-
-sub doExit{ my ($self,$rc) = @_; exit($rc); }
 
 # Introduced for POE-based agents to allow process to become a true loop
 sub preprocess
@@ -76,8 +73,6 @@ sub preprocess
   # Restore signals.  Oracle apparently is in habit of blocking them.
   $SIG{INT} = $SIG{TERM} = $SIG{QUIT} = sub { $self->doStop() };
 }
-
-
 
 # Actual session methods below
 

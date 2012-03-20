@@ -6,6 +6,7 @@ use POSIX;
 use File::Path;
 use File::Basename;
 use PHEDEX::Core::Command;
+use Data::Dumper;
 
 our @required_params = qw / DROPDIR DBCONFIG /;
 our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
@@ -29,6 +30,17 @@ sub new
   $self->{_AL}->{STOPFLAG} = $self->{_AL}->{DROPDIR} . 'stop';
   $self->{_AL}->{WORKDIR}  = $self->{_AL}->{DROPDIR} . 'work';
 
+  no warnings 'redefine';
+  *PHEDEX::Core::AgentLite::isInvalid = \&PHEDEX::Core::Agent::Dropbox::isInvalid;
+  *PHEDEX::Core::AgentLite::cleanDropbox = \&PHEDEX::Core::Agent::Dropbox::cleanDropbox;
+  *PHEDEX::Core::AgentLite::readInbox = \&PHEDEX::Core::Agent::Dropbox::readInbox;
+  *PHEDEX::Core::AgentLite::readPending = \&PHEDEX::Core::Agent::Dropbox::readPending;
+  *PHEDEX::Core::AgentLite::readOutbox = \&PHEDEX::Core::Agent::Dropbox::readOutbox;
+  *PHEDEX::Core::AgentLite::renameDrop = \&PHEDEX::Core::Agent::Dropbox::renameDrop;
+  *PHEDEX::Core::AgentLite::relayDrop = \&PHEDEX::Core::Agent::Dropbox::relayDrop;
+  *PHEDEX::Core::AgentLite::inspectDrop = \&PHEDEX::Core::Agent::Dropbox::inspectDrop;
+  *PHEDEX::Core::AgentLite::markBad = \&PHEDEX::Core::Agent::Dropbox::markBad;
+
   return $self;
 }
 
@@ -42,6 +54,7 @@ sub AUTOLOAD
 
   # if $attr exits, catch the reference to it, note we will call something
   # only if belogs to the parent calling class.
+  print "up from Dropbox $attr\n";
   if ( $self->{_AL}->can($attr) ) { $self->{_AL}->$attr(@_); } 
   else { PHEDEX::Core::Logging::Alert($self,"Unknown method $attr for Agent::Dropbox"); }     
 }
@@ -50,6 +63,7 @@ sub isInvalid
 {
   my $self = shift;
   my %h = @_;
+  print Dumper(" *** isInvalid -> ",%h);
   @{$h{REQUIRED}} = @required_params unless $h{REQUIRED};
   @{$h{WRITEABLE_DIRS}}  = @writeable_dirs  unless $h{WRITEABLE_DIRS};
   @{$h{WRITEABLE_FILES}} = @writeable_files unless $h{WRITEABLE_FILES};
@@ -116,9 +130,9 @@ sub isInvalid
 # Make a basic cleanup
 sub cleanDropbox
 {
-    my $self = shift;
-    my $me = shift;
- 
+    my ($self,$me) = @_;
+    print Dumper(" *** cleanDropbox -> ",$me);
+
     foreach my $dir (@{$self->{_AL}->{NEXTDIR}}) {
         if ($dir =~ /^([a-z]+):/) {
             die "$me: fatal error: unrecognised bridge $1" if ($1 ne "scp" && $1 ne "rfio");
@@ -150,8 +164,9 @@ sub cleanDropbox
 # Look for pending drops in inbox.
 sub readInbox
 {
-    my ($self, $get_all) = @_;
+    my ($self,$get_all) = @_;
 
+    print Dumper(" *** readInbox -> ",$get_all);
     die "$self->{_AL}->{ME}: fatal error: no inbox directory given\n" if ! $self->{_AL}->{INBOX};
 
     # Scan the inbox.  If this fails, file an alert but keep going,
@@ -212,72 +227,19 @@ sub readOutbox
 # Rename a drop to a new name
 sub renameDrop
 {
-    my ($self, $drop, $newname) = @_;
+    my ($self,$drop, $newname) = @_;
+    print Dumper(" *** renameDrop -> ", $drop,$newname);
     &mv ("$self->{_AL}->{WORKDIR}/$drop", "$self->{_AL}->{WORKDIR}/$newname")
         || do { $self->Alert ("can't rename $drop to $newname"); return 0; };
-    return 1;
-}
-
-# Utility to undo from failed scp bridge operation
-sub scpBridgeFailed
-{
-    my ($self,$msg, $remote) = @_;
-    # &runcmd ("ssh", $host, "rm -fr $remote");
-    $self->Alert ($msg);
-    return 0;
-}
-
-sub scpBridgeDrop
-{
-    my ($self,$source, $target) = @_;
-
-    return $self->scpBridgeFailed ("failed to chmod $source", $target)
-        if ! chmod(0775, "$source");
-
-    return $self->scpBridgeFailed ("failed to copy $source", $target)
-        if &runcmd ("scp", "-rp", "$source", "$target");
-
-    return $self->scpBridgeFailed ("failed to copy /dev/null to $target/go", $target)
-        if &runcmd ("scp", "/dev/null", "$target/go"); # FIXME: go-pending?
-
-    return 1;
-}
-
-# Utility to undo from failed rfio bridge operation
-sub rfioBridgeFailed
-{
-    my ($self,$msg, $remote) = @_;
-    &rfrmall ($remote) if $remote;
-    $self->Alert ($msg);
-    return 0;
-}
-
-sub rfioBridgeDrop
-{
-    my ($self,$source, $target) = @_;
-    my @files = <$source/*>;
-    do { $self->Alert ("empty $source"); return 0; } if ! scalar @files;
-
-    return $self->rfioBridgeFailed ("failed to create $target")
-        if ! &rfmkpath ($target);
-
-    foreach my $file (@files)
-    {
-        return $self->rfioBridgeFailed ("failed to copy $file to $target", $target)
-            if ! &rfcp ("$source/$file", "$target/$file");
-    }
-
-    return $self->rfioBridgeFailed ("failed to copy /dev/null to $target", $target)
-        if ! &rfcp ("/dev/null", "$target/go");  # FIXME: go-pending?
-
     return 1;
 }
 
 # Transfer the drop to the next agent
 sub relayDrop
 {
-    my ($self, $drop) = @_;
+    my ($self,$drop) = @_;
 
+    print Dumper(" *** relayDrop -> ",$drop);
     # Move to output queue if not done yet
     if (-d "$self->{_AL}->{WORKDIR}/$drop")
     {
@@ -331,12 +293,9 @@ sub relayDrop
     {
         foreach my $dir (@{$self->{_AL}->{NEXTDIR}})
         {
-	    if ($dir =~ /^scp:/) {
-		$self->scpBridgeDrop ("$self->{_AL}->{OUTDIR}/$drop", "$dir/inbox/$drop");
-		next;
-	    } elsif ($dir =~ /^rfio:/) {
-		$self->rfioBridgeDrop ("$self->{_AL}->{OUTDIR}/$drop", "$dir/inbox/$drop");
-		next;
+	    if ($dir =~ /^scp:/ || $dir =~ /^rfio:/ ) {
+               $self->Alert("Fail, scp or rfio not supported anymore");
+               next;
 	    }
 
 	    # Local.  Create destination inbox if necessary.
@@ -385,7 +344,9 @@ sub relayDrop
 # processed by agent-specific code.
 sub inspectDrop
 {
-    my ($self, $drop) = @_;
+    my ($self,$drop) = @_;
+
+    print Dumper(" *** inspecDrop ->",$drop);
 
     if (! -d "$self->{_AL}->{WORKDIR}/$drop")
     {
@@ -418,7 +379,8 @@ sub inspectDrop
 # Mark a drop bad.
 sub markBad
 {
-    my ($self, $drop) = @_;
+    my ($self,$drop) = @_;
+    print Dumper(" *** markBad -> ",$drop);
     &touch("$self->{_AL}->{WORKDIR}/$drop/bad");
     $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{_AL}->{STARTTIME})]} failed");
 }
