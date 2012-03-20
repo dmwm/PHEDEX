@@ -113,7 +113,8 @@ sub test_certificate
   $response = $self->get($url);
   if ( !$self->response_ok($response) )
   {
-    print "Bad response from server: ",$response->content(),"\n";
+    print "Bad response from server: ",$response->status_line,"\n";
+    print "Server response: ",$response->content(),"\n";
     return;
   }
 
