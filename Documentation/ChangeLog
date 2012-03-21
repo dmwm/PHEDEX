@@ -14,6 +14,7 @@ Changes for Schema and DB Config
   - Updates to tnsnames.ora and sqlnet.ora Oracle config files
   
 Changes for Central Agents
+  - All central agents migrated to new AgentLite package
   - FilePump: populate new t_xfer_file_latency table
   - BlockAllocator: populate new t_dps_block_latency table
   - InfoStatesClean: migrate latency logs for completed blocks from t_dps_block_latency to t_log_block_latency
@@ -43,14 +44,16 @@ Changes for Site Agents
 	after the central FilePump agent is updated (fix for #79042).
   - BlockDownloadVerify: report status to DB and Watchdog regularly, so that agent doesn't appear "DOWN" while executing long-running tests.
   - BlockDownloadVerify: deprecate tmdb Namespace
+  - BlockDownloadVerify: add support for eos Namespace
   - Watchdog: properly receive ping messages from agents
-  - Watchdog: properly support multiple limit settings in the configuration
+  - Watchdog: properly support single limit settings in the configuration
 
 Changes for Operator Tools
   - phedex CLI documentation fix
   - phedex CLI: remove obsolete VERBOSE argument from inject command
 
 Core library changes
+  - PHEDEX::Core::AgentLite : new base package for PhEDEx Agents, with support for modular plugins
   - PHEDEX::Core::Agent : fix crash in updateAgentStatus when node was not set.
   - PHEDEX::Core::DB : print SQL statement in case of failure in dbprep
   - PHEDEX::Core::Identity : truncate certificates longer than 4k characters to fit in the DB column.
