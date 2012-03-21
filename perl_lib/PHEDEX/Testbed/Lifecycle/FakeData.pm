@@ -35,66 +35,6 @@ sub new
   return $self;
 }
 
-#sub inject
-#{
-#  my ( $self, $kernel, $payload ) = @_[ OBJECT, KERNEL, ARG0 ];
-#  my ($ds,$events);
-#  $ds     = $payload->{dataset};
-#  $events = $payload->{events};
-#
-#  return unless $ds->{Incarnation} == $self->{Incarnation};
-#
-#  my $block = $self->makeBlock($ds);
-#  $payload->{block} = $block;
-#  $self->doInject($ds,$block,$payload);
-#}
-#
-#our $sequence = 0;
-#sub doInject
-#{
-#  my ($self,$ds,$block,$payload,$xmlfile) = @_;
-#
-#  $xmlfile = $self->{DROPDIR} . 'injection-' . $sequence++ . '.xml' unless $xmlfile;
-#  my $n = scalar @{$block->{files}};
-#  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
-#  return if $self->{Dummy};
-#  $self->makeXML($block,$xmlfile);
-#
-#  my ($scripts,$dbparam,$env);
-#  $env = $self->{ENVIRONMENT};
-#  if ( ref($env) =~ m%^PHEDEX::.*Environment$% )
-#  {
-#    $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
-#    $dbparam = $env->getExpandedParameter('PHEDEX_DBPARAM');
-#  }
-#  $scripts ||= $ENV{PHEDEX_SCRIPTS};
-#  $dbparam ||= $ENV{PHEDEX_DBPARAM};
-#  $self->Fatal('Cannot determine PHEDEX_SCRIPTS') unless $scripts;
-#  $self->Fatal('Cannot determine PHEDEX_DBPARAM') unless $dbparam;
-#  
-#  my $cmd = $scripts . '/Toolkit/Request/TMDBInject -db ' . $dbparam;
-#  $cmd .= ' -nodes ' . $ds->{InjectionSite};
-#  $cmd .= ' -filedata ' . $xmlfile;
-#
-#  my @cmd = split(' ',$cmd);
-#  my $injection_postback = $self->{SESSION}->postback('injectionDone',$ds,$payload,$xmlfile);
-#  $self->{JOBMANAGER}->addJob( $injection_postback, {TIMEOUT=>999}, @cmd);
-#}
-#
-#sub injectionDone
-#{
-#  my ($self, $kernel, $arg0, $arg1) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-#  my ($ds,$payload,$xmlfile);
-#  ($ds,$payload,$xmlfile) = @{$arg0};
-#  $ds      = $arg0->[0];
-#  $payload = $arg0->[1];
-#  $xmlfile = $arg0->[2];
-#  unlink $xmlfile;
-#  $self->{NInjected}++;
-#  $self->{replicas}{$ds->{InjectionSite}}++;
-#  $kernel->yield( 'nextEvent', $payload );
-#}
-
 sub MakeBlock
 {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
@@ -282,7 +222,6 @@ sub algotable
     print "In algotable: \n";
     return profile_table($arg -> {min},$arg -> {max},$arg -> {step}, $arg -> {table});
 }
-
 
 sub bin_table
 {
