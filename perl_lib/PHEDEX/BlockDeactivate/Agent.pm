@@ -2,7 +2,7 @@ package PHEDEX::BlockDeactivate::Agent;
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::BlockDeactivate::SQL', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::AgentLite', 'PHEDEX::BlockDeactivate::SQL', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing qw / mytimeofday /;
 
 our %params =

@@ -1,5 +1,5 @@
 package PHEDEX::Infrastructure::FilePump::Agent;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging','PHEDEX::BlockLatency::SQL';
+use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging','PHEDEX::BlockLatency::SQL';
 
 use strict;
 use warnings;

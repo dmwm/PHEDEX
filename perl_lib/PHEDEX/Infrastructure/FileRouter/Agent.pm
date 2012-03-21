@@ -1,5 +1,5 @@
 package PHEDEX::Infrastructure::FileRouter::Agent;
-use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::BlockArrive::SQL';
+use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging', 'PHEDEX::BlockArrive::SQL';
 
 use strict;
 use warnings;
