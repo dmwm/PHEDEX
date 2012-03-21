@@ -13,6 +13,7 @@ YAHOO.util.Event.onDOMReady(function() {
 function createCoreApp() {
 // This is called once the core is fully loaded.
 
+  PHEDEX.namespace('Nextgen');
   var page=location.pathname, uri, params={}, substrs, i, ngoSuccess;
   if ( page.match(/([^/]*)(.html)$/) ) { page = RegExp.$1; }
   if ( page.match(/([^/]*)?$/) )       { page = RegExp.$1; }
@@ -71,12 +72,16 @@ function createCoreApp() {
     return function(item) {
 //    (try to) Create and run the page
       var cTor = PxU.getConstructor(p);
-      if ( !cTor ) { return; }
+      if ( !cTor ) {
+        params.el.innerHTML  = 'Error loading application!';
+        return;
+      }
       try {
         var obj = new cTor(PxS,p);
         obj.init(params);
       } catch(ex) {
         var _ex = ex;
+        params.el.innerHTML  = 'Error creating application module!';
       }
     };
   }(page);
