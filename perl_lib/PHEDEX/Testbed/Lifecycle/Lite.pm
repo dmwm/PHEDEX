@@ -230,7 +230,12 @@ sub ReadConfig
   $self->{Incarnation}++; # This is used to allow old stuff to die out
 # Set global default for the case it was missing in the configuration: 
   $self->{CycleTime} = 600 unless defined $self->{CycleTime};
-  $self->{TmpDir}    = '/tmp/' . (getpwuid($<))[0] . '/';
+  if ( defined($self->{TmpDir}) ) {
+    $self->{TmpDir} =~ s%/$%%;
+    $self->{TmpDir} .= '/';
+  } else {
+    $self->{TmpDir}    = '/tmp/' . (getpwuid($<))[0] . '/';
+  }
   foreach ( qw/ Suspend KeepLogs KeepInputs KeepOutputs / ) {
     $self->{$_} = 0 unless defined $self->{$_};
   }
@@ -239,10 +244,10 @@ sub ReadConfig
   }
 
   push @required, @{$self->{Required}} if $self->{Required};
-  push @required, ('CycleTime','NCycles','Events','Name','Suspend','TmpDir',
-                   'KeepInputs','KeepOutputs','KeepLogs',
-		   'KeepFailedInputs','KeepFailedOutputs','KeepFailedLogs',
-		   'Jitter');
+  push @required, qw / CycleTime NCycles Events Name Suspend TmpDir
+                   KeepInputs KeepOutputs KeepLogs
+		   KeepFailedInputs KeepFailedOutputs KeepFailedLogs
+		   Jitter TmpDir /;
 
 # Fill out the Templates, using the Defaults. This is mostly useful for actions
 # that are shared across several templates, to specify what script to call, or
