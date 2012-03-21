@@ -73,7 +73,7 @@ sub init {
 sub setTestNodes {
   my ($self,$nodes) = @_;
   $ExtraNodes = $nodes;
-  $UID = 3604;
+# $UID = 1540;
 }
 
 sub isSecure {
@@ -256,8 +256,6 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
-#return 3604;
-#return 1504;
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
