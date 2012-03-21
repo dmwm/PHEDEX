@@ -18,7 +18,7 @@ $out || die "No output file specified\n";
 open IN, "<$in" or die "open input $in: $!\n";
 
 $json = <IN>;
-close $in;
+close IN;
 $payload = decode_json($json);
 $workflow = $payload->{workflow};
 $event = $workflow->{Event};
