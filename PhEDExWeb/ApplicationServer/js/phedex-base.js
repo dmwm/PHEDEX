@@ -153,6 +153,7 @@ PHEDEX.Webapp = {
  * @public
  */
   combineRequests: function() {
+    return false;
     if ( location.href.match(/http(s)?:\/\/localhost/) )      { return false; }
     if ( location.href.match(/http(s)?:\/\/phedex-web-dev/) ) { return false; }
     if ( location.href.match(/phedex-debug.html/) )           { return false; }
