@@ -251,7 +251,7 @@ sub _process_start {}
 sub _process_stop {}
 sub _maybeStop {}
 sub _stop {}
-sub _make_stats {}
+sub _make_stats { my $self = shift; $self->make_stats(); }
 sub _child {}
 sub _default {}
 
@@ -541,6 +541,100 @@ sub AgentType
     $agent_type =~ s%::%%g;
   }
   return $self->{ME} = $agent_type;
+}
+
+# Print statistics
+sub make_stats
+{
+  my $self = shift;
+  my ($delay,$totalWall,$totalOnCPU,$totalOffCPU,$summary);
+  my ($pmon,$h,$onCPU,$offCPU,$count);
+
+  $totalWall = $totalOnCPU = $totalOffCPU = 0;
+  $pmon = $self->{pmon};
+  $summary = '';
+  $h = $self->{stats};
+  if ( exists($h->{maybeStop}) )
+  {
+    $summary .= ' maybeStop=' . $h->{maybeStop};
+    $self->{stats}{maybeStop}=0;
+  }
+
+  $onCPU = $offCPU = 0;
+  $delay = 0;
+  if ( exists($h->{process}) )
+  {
+    $count = $h->{process}{count} || 0;
+    $summary .= sprintf(" process_count=%d",$count);
+    my (@a,$max,$median);
+    if ( $h->{process}{onCPU} )
+    {
+      @a = sort { $a <=> $b } @{$h->{process}{onCPU}};
+      foreach ( @a ) { $onCPU += $_; }
+      $totalOnCPU += $onCPU;
+      $max = $a[-1];
+      $median = $a[int($count/2)];
+      $summary .= sprintf(" onCPU(wall=%.2f median=%.2f max=%.2f)",$onCPU,$median,$max);
+      if ( $self->{STATISTICS_DETAIL} > 1 )
+      {
+        $summary .= ' onCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+      }
+    }
+
+    if ( $h->{process}{offCPU} )
+    {
+      @a = sort { $a <=> $b } @{$h->{process}{offCPU}};
+      foreach ( @a ) { $offCPU += $_; }
+      $totalOffCPU += $offCPU;
+      $max = $a[-1];
+      $median = $a[int($count/2-0.9)];
+      my $waittime = $self->{WAITTIME} || 0;
+      if ( !defined($median) ) { print "median not defined\n"; }
+      if ( !defined($max   ) ) { print "max    not defined\n"; }
+      $summary .= sprintf(" offCPU(median=%.2f max=%.2f)",$median,$max);
+      if ( $waittime && $median )
+      {
+        $delay = $median / $waittime;
+        $summary .= sprintf(" delay_factor=%.2f",$delay);
+      }
+      if ( $self->{STATISTICS_DETAIL} > 1 )
+      {
+        $summary .= ' offCPU_details=(' . join(',',map { $_=int(1000*$_)/1000 } @a) . ')';
+      }
+    }
+
+    $self->{stats}{process} = undef;
+  }
+
+  if ( $summary )
+  {
+
+    $summary = 'AGENT_STATISTICS' . $summary;
+    $self->Logmsg($summary) if $self->{STATISTICS_DETAIL};
+    $self->Notify($summary);
+  }
+  my $now = time;
+  $totalWall = $now - $self->{stats}{START}+.00001;
+  my $busy= 100*$totalOnCPU/$totalWall;
+  $summary = 'AGENT_STATISTICS';
+  $summary=sprintf('TotalCPU=%.2f busy=%.2f%%',$totalOnCPU,$busy);
+  ($self->Logmsg($summary),$self->Notify($summary)) if $totalOnCPU;
+  $self->{stats}{START} = $now;
+
+  $summary = 'AGENT_STATISTICS ';
+  $summary .= $pmon->FormatStats($pmon->ReadProcessStats);
+
+# If the user explicitly loaded the Devel::Size module, report the size of this agent
+  my $size;
+  if ( $size = PHEDEX::Monitoring::Process::total_size($self) )
+  { $summary .= " Sizeof($self->{ME})=$size"; }
+  if ( $size = PHEDEX::Monitoring::Process::TotalSizes() )
+  { $summary .= " $size"; }
+  $summary .= "\n";
+
+  $self->Logmsg($summary);
+  $self->Notify($summary);
+  return $summary;
 }
 
 sub StartedDoingSomething
