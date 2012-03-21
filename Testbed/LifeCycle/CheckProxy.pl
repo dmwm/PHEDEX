@@ -39,7 +39,10 @@ if ( !$status ) {
   chomp $left;
 
   print "Time left on proxy: $left seconds\n";
-  if ( $left <= $gracePeriod ) {
+  if ( $left <= 0 ) {
+    print "Proxy has expired, this is fatal\n";
+    $payload->{report} = { status => 'fatal', 'reason' => 'Proxy expired' };
+  } elsif ( $left <= $gracePeriod ) {
     print "Proxy will expire in $left seconds, this is fatal\n";
     $payload->{report} = { status => 'fatal', 'reason' => 'Proxy about to expire' };
   }
