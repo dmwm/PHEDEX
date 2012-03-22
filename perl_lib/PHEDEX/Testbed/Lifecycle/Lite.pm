@@ -265,6 +265,7 @@ sub ReadConfig
 # Fill out the workflows, using the Templates and then the Defaults
   foreach $workflow ( @{$self->{Workflows}} ) {
     $workflow->{Incarnation} = $self->{Incarnation};
+    if ( !$workflow->{Template} ) { $workflow->{Template} = $workflow->{Name}; }
     push @{$workflow->{events}}, @{$self->{Templates}{$workflow->{Template}}{Events}};
 
 #   Workflow defaults fill in for undefined values
