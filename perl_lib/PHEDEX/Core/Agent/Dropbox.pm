@@ -28,6 +28,10 @@ sub new
   *PHEDEX::Core::AgentLite::relayDrop = \&PHEDEX::Core::Agent::Dropbox::relayDrop;
   *PHEDEX::Core::AgentLite::inspectDrop = \&PHEDEX::Core::Agent::Dropbox::inspectDrop;
   *PHEDEX::Core::AgentLite::markBad = \&PHEDEX::Core::Agent::Dropbox::markBad;
+  *PHEDEX::Core::AgentLite::processInbox = \&PHEDEX::Core::Agent::Dropbox::processInbox;
+  *PHEDEX::Core::AgentLite::processOutbox = \&PHEDEX::Core::Agent::Dropbox::processOutbox;
+  *PHEDEX::Core::AgentLite::processWork = \&PHEDEX::Core::Agent::Dropbox::processWork;
+  *PHEDEX::Core::AgentLite::processIdle = \&PHEDEX::Core::Agent::Dropbox::processIdle;
 
   bless $self, $class;
 
@@ -360,5 +364,82 @@ sub markBad
     &touch("$self->{WORKDIR}/$drop/bad");
     $self->Logmsg("stats: $drop @{[&formatElapsedTime($self->{STARTTIME})]} failed");
 }
+
+#Process Inbox
+sub processInbox
+{
+  my $self = shift;
+  my $pmon = $self->{pmon};
+  my $drop;
+
+  # Check for new inputs.  Move inputs to pending work queue.
+  $self->maybeStop();
+  $pmon->State('inbox','start');
+  foreach $drop ($self->readInbox ())
+  {
+    $self->maybeStop();
+    if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
+    {
+#     Warn and ignore it, it will be returned again next time around
+      $self->Alert("failed to move job '$drop' to pending queue: $!");
+    }
+  }
+  $pmon->State('inbox','stop');
+}
+
+#Process Work
+sub processWork
+{
+  my $self = shift;
+  my $pmon = $self->{pmon};
+  my $drop;
+
+  # Check for pending work to do.
+  $self->maybeStop();
+  $pmon->State('work','start');
+  my @pending = $self->readPending ();
+  my $npending = scalar (@pending);
+  foreach $drop (@pending)
+  {
+    $self->maybeStop();
+    $self->processDrop ($drop, --$npending);
+  }
+  $pmon->State('work','stop');
+  return @pending;
+}
+
+#Process Outbox
+sub processOutbox
+{
+  my $self = shift;
+  my $pmon = $self->{pmon};
+  my $drop;
+
+  # Check for drops waiting for transfer to the next agent.
+  $self->maybeStop();
+  $pmon->State('outbox','start');
+  foreach $drop ($self->readOutbox())
+  {
+    $self->maybeStop();
+    $self->relayDrop ($drop);
+  }
+  $pmon->State('outbox','stop');
+}
+
+#Process Idle
+sub processIdle
+{
+  my $self = shift;
+  my @pending = @_;
+  my $pmon = $self->{pmon};
+  my $drop;
+
+  # Wait a little while.
+  $self->maybeStop();
+  $pmon->State('idle','start');
+  $self->idle (@pending);
+  $pmon->State('idle','stop');
+}
+
 
 1;

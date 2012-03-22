@@ -230,6 +230,10 @@ sub renameDrop {}
 sub relayDrop {}
 sub inspectDrop {}
 sub markBad {}
+sub processInbox {}
+sub processOutbox {}
+sub processWork {}
+sub processIdle {}
 
 # Dummy functions for DB module
 sub connectAgent {}
@@ -439,52 +443,13 @@ sub process
 {
   my $self = shift;
   # Work.
-  my $drop;
+
   my $pmon = $self->{pmon};
-
-  # Check for new inputs.  Move inputs to pending work queue.
-  $self->maybeStop();
-  $pmon->State('inbox','start');
-  foreach $drop ($self->readInbox ())
-  {
-    $self->maybeStop();
-    if (! &mv ("$self->{INBOX}/$drop", "$self->{WORKDIR}/$drop"))
-    {
-#     Warn and ignore it, it will be returned again next time around
-      $self->Alert("failed to move job '$drop' to pending queue: $!");
-    }
-  }
-  $pmon->State('inbox','stop');
-
-  # Check for pending work to do.
-  $self->maybeStop();
-  $pmon->State('work','start');
-  my @pending = $self->readPending ();
-  my $npending = scalar (@pending);
-  foreach $drop (@pending)
-  {
-    $self->maybeStop();
-    $self->processDrop ($drop, --$npending);
-  }
-  $pmon->State('work','stop');
-
-  # Check for drops waiting for transfer to the next agent.
-  $self->maybeStop();
-  $pmon->State('outbox','start');
-  foreach $drop ($self->readOutbox())
-  {
-    $self->maybeStop();
-    $self->relayDrop ($drop);
-  }
-  $pmon->State('outbox','stop');
-
-  # Wait a little while.
-  $self->maybeStop();
-  $pmon->State('idle','start');
-  $self->idle (@pending);
-  $pmon->State('idle','stop');
+  $self->processInbox();
+  my @pending = $self->processWork();
+  $self->processOutbox();
+  $self->processIdle(@pending);
   $self->Dbgmsg($pmon->FormatStates) if $self->{DEBUG};
-
   # Check to see if the config-file should be reloaded
   $self->checkConfigFile();
 }
