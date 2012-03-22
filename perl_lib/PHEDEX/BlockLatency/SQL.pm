@@ -416,6 +416,18 @@ sub mergeStatusBlockLatency
 
     $p{':now'} = $h{NOW} || &mytimeofday();
 
+    # delete log of unfinished blocks which are no longer destined.
+    $sql = qq{
+	delete from t_dps_block_latency l
+	     where l.last_replica is null and 
+	      not exists
+	       ( select 1 from t_dps_block_dest bd
+		     where bd.destination = l.destination
+		 and bd.block = l.block ) };
+
+    ($q, $n) = execute_sql( $self, $sql );
+    push @r, $n;
+
     # Update statistics for existing block status latency entries:
     # update the suspension time since the latest replication 
     # as long as the block isn't complete at the destination.
