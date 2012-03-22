@@ -282,7 +282,7 @@ sub _send_request_create_email
     my @group_data_managers;
     if (defined $$data{'GROUP'})
     {
-        @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'}) || ();
+        @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $$data{'GROUP'});
         # @group_data_managers = () if ! defined @group_data_managers;
         foreach (@group_data_managers)
         {
@@ -348,7 +348,7 @@ sub _send_request_create_email
     my $comments = $$data{'REQUESTED_BY'}{'COMMENTS'}{'$T'} || '';
     my $host = $$data{'REQUESTED_BY'}{'HOST'} || 'n/a';
     my $agent = $$data{'REQUESTED_BY'}{'AGENT'} || 'n/a';
-	
+
     my $message =<<ENDEMAIL;
 Greetings PhEDEx Data Managers,
 
@@ -443,7 +443,6 @@ $$self{CONFIG}{FEEDBACK_MAIL} ||= 'cms-phedex-admins@cern.ch';
 	   message => $message,
            TESTING_MODE => $$self{CONFIG}{TESTING_MODE})
 or warn "sending request creation email failed\n";
-
 }
 
 # NOT CHECKED YET
