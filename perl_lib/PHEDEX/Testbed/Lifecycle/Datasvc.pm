@@ -8,18 +8,18 @@ use Data::Dumper;
 use PHEDEX::CLI::UserAgent;
 
 our %params = (
-	  cert_file => undef,
-	  key_file  => undef,
+#	  cert_file => undef,
+#	  key_file  => undef,
 	  url       => 'https://cmsweb.cern.ch/phedex/datasvc',
 	  instance  => 'prod',
 	  format    => 'perl',
 	  timeout   => 60,
-	  proxy     => undef,
-	  ca_file   => undef,
-	  ca_dir    => undef,
-	  nocert    => undef,
-	  Verbose   => undef,
-	  Debug     => undef,
+#	  proxy     => undef,
+#	  ca_file   => undef,
+#	  ca_dir    => undef,
+#	  nocert    => undef,
+#	  Verbose   => undef,
+#	  Debug     => undef,
 	);
 
 our $me;
@@ -336,7 +336,7 @@ sub Inject
   $params = {
 	node	=> $workflow->{InjectionSite},
 	strict	=> $workflow->{StrictInjection} || 0,
-	xml	=> $workflow->{XML},
+	data	=> $workflow->{XML},
   };
   $self->getFromDatasvc($kernel,
 			$session,
