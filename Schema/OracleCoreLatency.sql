@@ -121,12 +121,12 @@ create table t_log_block_latency
    percent50_replica    float                   , -- time the 50th-percentile file was replicated
    percent75_replica    float                   , -- time the 75th-percentile file was replicated
    percent95_replica    float                   , -- time the 95th-percentile file was replicated
-   last_replica         float                   , -- time the last file was replicated
+   last_replica         float           not null, -- time the last file was replicated
    primary_from_node	integer			, -- id of the node from which most of the files were transferred
    primary_from_files	integer			, -- number of files transferred from primary_from_node
    total_xfer_attempts	integer			, -- total number of transfer attempts for all files in the block
    total_suspend_time   float                   , -- seconds the block was suspended since the start of the transfer
-   latency              float                   , -- current latency for this block
+   latency              float           not null, -- final latency for this block
    --
    constraint fk_log_block_latency_dest
      foreign key (destination) references t_adm_node (id),
