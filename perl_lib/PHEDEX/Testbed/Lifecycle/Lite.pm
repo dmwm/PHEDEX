@@ -56,6 +56,8 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+sub Dbgmsg { my $self = shift; $self->SUPER::Dbgmsg(@_) if $self->{Debug}; }
+
 #-------------------------------------------------------------------------------
 sub _poe_init
 {
@@ -127,13 +129,13 @@ sub nextEvent
   $delay = $workflow->{Intervals}{$event};
   my $txt = join(', ',@{$payload->{events}});
   if ( !$delay ) {
-    $self->Dbgmsg("$msg $event (now) $txt") if $self->{Debug};
+    $self->Dbgmsg("$msg $event (now) $txt");
     $kernel->yield($event,$payload);
     return;
   }
   if ( $workflow->{Jitter} ) { $delay *= ( 1 + rand($workflow->{Jitter}) ); }
   if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
-  $self->Dbgmsg("$msg $event $delay. $txt") if $self->{Debug};
+  $self->Dbgmsg("$msg $event $delay. $txt");
   $kernel->delay_set($event,$delay,$payload);
 }
  
@@ -201,7 +203,7 @@ sub lifecycle
 		  'events'   => [@events],
 		  'id'       => $self->id(),
 		};
-  $self->Logmsg("lifecycle: yield nextEvent") if $self->{Debug};
+  $self->Logmsg("lifecycle: yield nextEvent");
   $kernel->yield('nextEvent',$payload);
 
   $event = $events[0];
@@ -210,8 +212,8 @@ sub lifecycle
   return unless $delay;
   if ( $self->{Jitter} ) { $delay *= ( 1 + rand($self->{Jitter}) ); }
   if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
-  $self->Dbgmsg("lifecycle: delay=$delay for next \"$workflow->{Name}\"") if $self->{Debug};
-  $self->Logmsg("lifecycle: delay($delay) lifecycle") if $self->{Debug};
+  $self->Dbgmsg("lifecycle: delay=$delay for next \"$workflow->{Name}\"");
+  $self->Logmsg("lifecycle: delay($delay) lifecycle");
   $kernel->delay_set('lifecycle',$delay,$workflow) if $delay;
 }
 
@@ -319,7 +321,7 @@ sub _stop
   if ( $self->{Debug} )
   {
     $self->Logmsg('Dumping final state to stdout or to logger');
-    $self->Log( $self );
+    $self->Logmsg( $self );
   }
   $self->Logmsg("Wait for JobManager to become idle, then exit...");
 }
@@ -345,7 +347,7 @@ $DB::single=1;
   {
     if ( $now - $self->{_states}{cycle_end}{$blockid} > $self->{GarbageCycle} )
     {
-      $self->Logmsg("garbage-collecting block $blockid") if $self->{Debug};
+      $self->Logmsg("garbage-collecting block $blockid");
       delete $self->{_states}{cycle_end}{$blockid};
       delete $self->{_states}{$blockid};
     }
@@ -361,7 +363,7 @@ sub poe_default {
 
   if ( $workflow->{Exec}{$event} ) {
     $kernel->state( $event, $self, 'exec' );
-    $self->Dbgmsg("yield $event") if $self->{Debug};
+    $self->Dbgmsg("yield $event");
     $kernel->yield( $event, $payload );
     return;
   }
@@ -385,7 +387,7 @@ sub poe_default {
       $self->Fatal("Cannot find a \"$event\" function in $module");
     }
     $kernel->state( $event, $object );
-    $self->Dbgmsg("call $event") if $self->{Debug};
+    $self->Dbgmsg("call $event");
     $kernel->yield( $event, $payload );
     return;
   }
@@ -522,12 +524,12 @@ sub reaper
     foreach $payload ( @{$result} ) {
       $payload->{parent_id} = $payload->{id};
       $payload->{id} = $self->id();
-      $self->Dbgmsg("yield nextEvent") if $self->{Debug};
+      $self->Dbgmsg("yield nextEvent");
       $kernel->delay_set('nextEvent',$delay,$payload);
       $delay += 0.05;
     }
   } else {
-    $self->Dbgmsg("yield nextEvent") if $self->{Debug};
+    $self->Dbgmsg("yield nextEvent");
     $kernel->yield('nextEvent',$result);
   }
 }

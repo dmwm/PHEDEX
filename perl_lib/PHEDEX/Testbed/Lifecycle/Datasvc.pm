@@ -64,6 +64,8 @@ sub new
   return $self;
 }
 
+sub Dbgmsg { my $self = shift; $self->SUPER::Dbgmsg(@_) if $self->{Debug}; }
+
 sub _start {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   $kernel->alias_set($self->{ME});
@@ -180,21 +182,22 @@ sub on_child_signal {
   delete $heap->{state}{$pid};
 
   if ( $status ) {
-#    $obj = {
-#      error  => $status,
-#      stdout => $stdout,
-#      stderr => $stderr,
-#    };
+    $obj = {
+      error  => $status,
+      stdout => $stdout,
+      stderr => $stderr,
+    };
     $self->Alert("target=$target params=",Dumper($params)," event=$event, status=$status, stdout=\"$stdout\", stderr=\"$stderr\"");
   } else {
-    if ( $stderr ) {
+    if ( $stdout ) {
       eval {
         no strict 'vars';
-        $obj = eval($stderr);
+        $obj = eval($stdout);
       };
-      die "Error evaluating $stderr\n" if $@;
+      die "Error evaluating $stdout\n" if $@;
     } else {
       $self->Logmsg("No output for event=$event");
+      $obj = { stderr => $stderr, };
     }
     $kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
   }
@@ -324,14 +327,9 @@ sub Inject
   my ($params,$workflow);
   $workflow = $payload->{workflow};
 
-#  my $ds = {};
-#  my $block = {};
-#  my $n;
-#  my $xmlfile;
 #  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
 #  return if $self->{Dummy};
-#  $self->makeXML($block,$xmlfile);
-   $self->Logmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
+   $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
 
   $params = {
 	node	=> $workflow->{InjectionSite},
@@ -354,7 +352,12 @@ sub doneInject
 {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
-  $self->Logmsg("done: Inject($target,",Data::Dumper->Dump([$params]),") -> ",Data::Dumper->Dump([$obj]));
+  my $p = $obj->{PHEDEX}{INJECTED}{STATS};
+  if ( $p ) {
+    $self->Logmsg("Injection: New data: $p->{NEW_DATASETS} datasets, $p->{NEW_BLOCKS} blocks, $p->{NEW_FILES} files. Closed: $p->{CLOSED_DATASETS} datasets, $p->{CLOSED_BLOCKS} blocks");
+  } else {
+    $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
+  }
 }
 
 sub Template
