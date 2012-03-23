@@ -326,7 +326,7 @@ sub Inject
 
 #  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
 #  return if $self->{Dummy};
-   $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
+  $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
 
   $params = {
 	node	=> $workflow->{InjectionSite},
@@ -352,6 +352,53 @@ sub doneInject
   my $p = $obj->{PHEDEX}{INJECTED}{STATS};
   if ( $p ) {
     $self->Logmsg("Injection: New data: $p->{NEW_DATASETS} datasets, $p->{NEW_BLOCKS} blocks, $p->{NEW_FILES} files. Closed: $p->{CLOSED_DATASETS} datasets, $p->{CLOSED_BLOCKS} blocks");
+  } else {
+    $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
+  }
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub T1Subscribe
+{
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($params,$workflow,$T1);
+  $workflow = $payload->{workflow};
+
+#  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
+#  return if $self->{Dummy};
+
+  foreach $T1 ( @{$workflow->{T1s}} ) {
+    $params = {
+	node	=> $T1,
+	data	=> $workflow->{XML},
+        group	=> $workflow->{Group},
+        priority=> $workflow->{Priority},
+        move	=> $workflow->{IsMove},
+        custodial=> $workflow->{IsCustodial},
+    };
+    $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
+    $self->getFromDatasvc($kernel,
+			  $session,
+			  $payload,
+			  {
+			   api      => 'subscribe',
+			   method   => 'post',
+			   callback => 'doneT1Subscribe',
+			   params   => $params,
+			  }
+			  );
+  }
+}
+
+sub doneT1Subscribe
+{
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+
+  my $p = $obj->{PHEDEX}{REQUEST_CREATED};
+  if ( $p ) {
+    foreach ( @{$p} ) {
+      $self->Logmsg("T1Subscribe: New request: $_->{ID}");
+    }
   } else {
     $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
   }
