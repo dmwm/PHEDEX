@@ -355,6 +355,7 @@ sub doneInject
   } else {
     $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
   }
+  $kernel->yield('nextEvent',$payload);
 }
 
 sub Template
@@ -376,5 +377,7 @@ sub doneTemplate
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
   $self->Logmsg("done: Template($target,",Data::Dumper->Dump([$params]),"\n");
+  $kernel->yield('nextEvent',$payload);
 }
+
 1;
