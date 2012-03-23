@@ -223,9 +223,6 @@ sub getFromDatasvc
   if ( $callback && ! $self->{_callbacks}{$callback}++ ) {
     $kernel->state($callback,$self);
   }
-  $self->Logmsg("$method($target,",
-		 join(', ',map { "$_=$params->{$_}" } sort keys %{$params}),
-		 ")\n");
   $kernel->post($self->{ME},'start_task',{
 				  payload	=> $payload,
 				  method	=> $method,
