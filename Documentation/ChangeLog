@@ -63,7 +63,8 @@ Core library changes
 
 Changes for dependencies
   - Update architecture to slc5_amd64_gcc461
-  - Update dependencies to HG1203h tag
+  - Update dependencies to HG1204f tag
+	- Includes update of Oracle client to 11.2.0.3 and of oracle-env
 	
 Changes for PhEDEx 4.0.1
 
