@@ -14,10 +14,10 @@ our %env_keys = map { $_ => 1 } @env_keys;
 our %params =
 	(
 	  URL		=> undef,
-    	  CERT_FILE	=> undef,
-	  KEY_FILE	=> undef,
-	  CA_FILE	=> undef,
-	  CA_DIR	=> undef,
+    	  CERT_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
+	  KEY_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
+	  CA_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
+	  CA_DIR	=> $ENV{X509_CERT_DIR},
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
 	  TIMEOUT	=> 5*60,
@@ -40,7 +40,7 @@ sub new
   my $self = $class->SUPER::new();
   map { $self->{$_} = $params{$_} } keys %params;
   my %h = @_;
-  map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
+  map { $self->{$_} = $h{$_}  if exists($h{$_}) } keys %h;
   bless $self, $class;
 
   $self->init();
@@ -78,15 +78,10 @@ sub init
 {
   my $self = shift;
 
-  if ( $self->{NOCERT} )
-  {
+  if ( $self->{NOCERT} ) {
     foreach ( map { "HTTPS_$_" } @env_keys ) { delete $ENV{$_} if $ENV{$_}; }
-  }
-
-  if ( !$self->{NOCERT} )
-  {
-    foreach ( @env_keys )
-    {
+  } else {
+    foreach ( @env_keys ) {
       $ENV{'HTTPS_' . $_} = $self->{$_} if $self->{$_};
     }
   }
