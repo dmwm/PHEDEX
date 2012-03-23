@@ -6,8 +6,8 @@ use Clone qw(clone);
 use Data::Dumper;
 
 my ($in,$out,$json,$workflow,$payload,$event,$id,$status);
-my ($tmp,$datasets,$blocks,$files,$generator);
-my ($datasetsFile,$blocksFile,$filesFile);
+my ($tmp,$datasets,$blocks,$files,$generator,$data,$xml,@xml,$dbs);
+my ($i,$j,$k,$dataset,$block,$file,$datasetsFile,$blocksFile,$filesFile);
 GetOptions(
                 'in=s'  => \$in,
                 'out=s' => \$out,
@@ -28,6 +28,7 @@ $datasets  = $workflow->{Datasets};
 $blocks    = $workflow->{Blocks};
 $files     = $workflow->{Files};
 $tmp       = $workflow->{TmpDir};
+$dbs       = $workflow->{DBS} || 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query';
 $generator = 'generator --system phedex';
 
 $datasetsFile	= $tmp . 'datasets-' . $id . '.json';
@@ -50,18 +51,42 @@ open GEN, "$generator --out $filesFile --in $blocksFile --action add_files --num
 while ( <GEN> ) { print; } close GEN or die "close $generator: $!\n";
 unlink $blocksFile;
 
+print "Read $filesFile\n";
 open JSON, "<$filesFile" or die "open $filesFile: $!\n";
 $json = <JSON>;
 close JSON;
 unlink $filesFile;
 eval {
-  $payload->{data} = decode_json($json);
+  $data = decode_json($json);
 };
 if ( $@ ) { warn $@; }
-print "Read $json\n";
 
-print Dumper($payload),"\n";
+# TW TODO: when I can pass the DBS to the generator, this can be cleaned up
+$dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
+@xml = (
+	 "<data version=\"2.0\">",
+	 "  <dbs name=\"$dbs\" dls=\"dbs\">"
+       );
+foreach $i ( @{$data} ) {
+  $dataset = $i->{dataset};
+  push @xml, "    <dataset name=\"$dataset->{name}\" is-open=\"$dataset->{'is-open'}\">";
+  foreach $j ( @{$dataset->{blocks}} ) {
+    $block = $j->{block};
+    push @xml, "      <block name=\"$block->{name}\" is-open=\"$block->{'is-open'}\">";
+    foreach $k ( @{$block->{files}} ) {
+      $file = $k->{file};
+      push @xml, "      <file name=\"$file->{name}\" bytes=\"$file->{bytes}\" checksum=\"$file->{checksum}\" />";
+    }
+    push @xml, "      </block>";
+  }
+  push @xml, "    </dataset>";
+} 
+push @xml, "  </dbs>";
+push @xml, "</data>";
+$xml = join("\n",@xml);
+$workflow->{XML} = $xml;
 
+print "Write $out\n";
 open  OUT, ">$out" or die "open output $out: $!\n";
 print OUT encode_json($payload);
 close OUT;
