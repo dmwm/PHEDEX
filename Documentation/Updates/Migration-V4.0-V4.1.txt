@@ -102,11 +102,36 @@ END;
 insert /*+ append */ into t_dps_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
   block_create, block_close, last_suspend, total_suspend_time, latency)
-select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0)), greatest(xl.bytes,nvl(b.bytes,0)),
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
    xl.priority, xl.is_custodial, xl.time_subscription,
    xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL), 
-   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl left join t_dps_block b on b.id=xl.block
-   where xl.last_replica is null;
+   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl
+   join t_dps_block b on b.id=xl.block
+   join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
+   where xl.last_replica is null and br.is_active='y';
+
+insert /*+ append */ into t_xfer_file_latency
+       (time_update, destination, fileid, inblock, filesize, time_on_buffer, time_at_destination)
+select xr.time_create, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_create, xr.time_create
+       from t_xfer_replica xr join t_xfer_file xf on xr.fileid=xf.id
+       join t_adm_node nd on xr.node=nd.id
+       left join t_adm_link ln on ln.to_node=nd.id and ln.is_local='y'
+       left join t_adm_node nbuf on nbuf.id=ln.from_node and nbuf.kind='Buffer'
+       left join t_xfer_replica xrb on xrb.node=nbuf.id and xrb.fileid=xf.id
+       join t_dps_block_latency bl on bl.destination=xr.node and bl.block=xf.inblock
+
+-- Add block latency entries for incomplete
+-- empty blocks (should not be present, but there are 3 in prod)
+
+insert /*+ append */ into t_dps_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+  block_create, block_close, last_suspend, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL),
+   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl
+   join t_dps_block b on b.id=xl.block
+   where xl.last_replica is null and b.files=0;
 
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
@@ -116,6 +141,23 @@ select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0
    xl.block_create, b.time_update, xl.first_request, xl.first_replica, xl.last_replica,
    xl.suspend_time, xl.latency from xt_log_block_latency xl join t_dps_block b on b.id=xl.block
    where xl.last_replica is not null;
+
+-- Note: some old completed block destinations can still have an incomplete block latency log due to
+-- Savannah #92899 - here we mark them as completed. Our best estimate for the latency is the time until block closure.
+
+insert /*+ append */ into t_log_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
+       xl.priority, xl.is_custodial, xl.time_subscription,
+       xl.block_create, b.time_update, xl.first_request, xl.first_replica, b.time_update,
+       xl.suspend_time,
+       b.time_update - greatest(xl.block_create,xl.time_subscription) - xl.suspend_time
+       from xt_log_block_latency xl
+       join t_dps_block b on b.id=xl.block
+       join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
+       where xl.last_replica is null
+       and br.is_active='n' and br.dest_files=br.node_files
 
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
