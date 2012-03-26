@@ -368,7 +368,7 @@ sub mergeLogBlockLatency
 		from t_dps_block_latency bl
 	        left join (select destination, inblock, attempts, from_node,
 			     time_at_destination, time_request,
-			     count(*) over (partition by destination, inblock, from_node) nfrom
+			     count(from_node) over (partition by destination, inblock, from_node) nfrom
 			   from t_xfer_file_latency) fl 
 	        on bl.destination=fl.destination and bl.block=fl.inblock
 	   where bl.last_replica is not null
