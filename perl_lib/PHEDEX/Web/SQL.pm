@@ -4693,4 +4693,50 @@ sub fetchrow_hashref
     return $r;
 }
 
+# getReplicaGroup() -- find the groups that are associated with the replicas
+sub getReplicaGroup
+{
+    my ($core, %h) = @_;
+
+    my %p;
+    my $filters = '';
+    build_multi_filters($core, \$filters, \%p, \%h,
+        (
+        BLOCK => 'b.name',
+        DATASET => 'd.name',
+        BLOCK_ID => 'b.id',
+        DATASET_ID => 'd.id'
+        )
+    );
+
+    if (!$filters)
+    {
+        return \[];
+    }
+
+    my $join_dataset = '';
+    if (defined $h{DATASET} || defined $h{DATASET_ID})
+    {
+        $join_dataset = 'join t_dps_dataset d on b.dataset = d.id';
+    }
+
+    my $sql = qq{
+        select
+            distinct g.name
+        from
+            t_dps_block_replica r
+            join t_dps_block b on r.block = b.id
+            join t_adm_group g on g.id = r.user_group
+            $join_dataset
+        where
+            $filters
+    };
+
+    my $q = execute_sql($core, $sql, %p);
+    my @r;
+
+    while ($_ = $q->fetchrow_hashref()) { push @r, $_->{NAME}; }
+    return \@r;
+}        
+
 1;
