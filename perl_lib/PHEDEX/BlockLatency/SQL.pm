@@ -147,7 +147,7 @@ sub mergeXferFileLatency
                      join t_xfer_task xt on xt.id = xth.task 
                      join t_xfer_task_export xte on xte.task = xt.id
                      join t_xfer_file xf on xf.id=xt.fileid
-                     join t_xfer_task_done xtd on xtd.task = xth.task
+                     join t_xfer_task_done xtd on xtd.task = xt.id
                      left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
                      join t_adm_link ln on ln.from_node=xt.from_node and ln.to_node=xt.to_node and ln.is_local='n'
 		     join t_adm_node nd on nd.id=xt.to_node and nd.kind='Buffer'
@@ -190,7 +190,7 @@ sub mergeXferFileLatency
 		     join t_xfer_task xt on xt.id = xth.task
 		     join t_xfer_task_export xte on xte.task = xt.id
 		     join t_xfer_file xf on xf.id=xt.fileid
-		     join t_xfer_task_done xtd on xtd.task = xth.task
+		     join t_xfer_task_done xtd on xtd.task = xt.id
 		     left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
 		     join t_adm_link ln on ln.from_node=xt.from_node and ln.to_node=xt.to_node
 		     join t_adm_node nd on ln.to_node=nd.id
