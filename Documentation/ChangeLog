@@ -65,6 +65,7 @@ Changes for dependencies
   - Update architecture to slc5_amd64_gcc461
   - Update dependencies to HG1204f tag
 	- Includes update of Oracle client to 11.2.0.3 and of oracle-env
+	- For full details see https://svnweb.cern.ch/trac/CMSDMWM/ticket/3331
 	
 Changes for PhEDEx 4.0.1
 
