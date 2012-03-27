@@ -288,6 +288,24 @@ PHEDEX.TreeView = function(sandbox,string) {
         return div;
       },
 
+      getContentHtml: function() { // Override for YAHOO.widget.TextNode.getContentHtml in YUI 2.9.0, because of the escaping
+        var Lang = YAHOO.lang, sb = [];
+        sb[sb.length] = this.href ? '<a' : '<span';
+        sb[sb.length] = ' id="' + Lang.escapeHTML(this.labelElId) + '"';
+        sb[sb.length] = ' class="' + Lang.escapeHTML(this.labelStyle)  + '"';
+        if (this.href) {
+            sb[sb.length] = ' href="' + Lang.escapeHTML(this.href) + '"';
+            sb[sb.length] = ' target="' + Lang.escapeHTML(this.target) + '"';
+        }
+        if (this.title) {
+            sb[sb.length] = ' title="' + Lang.escapeHTML(this.title) + '"';
+        }
+        sb[sb.length] = ' >';
+        sb[sb.length] = this.label; // Lang.escapeHTML(this.label); // this is what I changed
+        sb[sb.length] = this.href?'</a>':'</span>';
+        return sb.join("");
+      },
+
       addNode: function(spec,values,parent) {
         if ( !parent ) { parent = this.tree.getRoot(); }
         var isHeader = false,
@@ -340,6 +358,7 @@ PHEDEX.TreeView = function(sandbox,string) {
 
         el = this.makeNode(spec,values);
         tNode = new Yw.TextNode({label:el.innerHTML, expanded:false}, parent);
+        tNode.getContentHtml = this.getContentHtml;
         this._cfg.textNodeMap[tNode.contentElId] = tNode;
         if ( isHeader ) { this._cfg.headerNodeMap[tNode.contentElId] = tNode; }
         tNode.data.values = values;
@@ -443,6 +462,7 @@ PHEDEX.TreeView = function(sandbox,string) {
                 banner('error fetching data for tree-branch','error',_me);
                 log('Error in loadTreeNodeData_callback ('+err(ex)+')','error',_me);
                 tNode = new Yw.TextNode({label: 'Data-loading error, try again later...', expanded: false}, node);
+                tNode.getContentHtml = this.getContentHtml;
                 tNode.isLeaf = true;
               }
             }
