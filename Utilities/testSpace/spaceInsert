@@ -19,14 +19,14 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceInsert --dump DUMP --overwrite --strict --collName COLLNAME --depth LEVEL --url URL
+  spaceInsert --dump DUMP --strict --sitename SITENAME --depth LEVEL --url URL
               INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is depth of the directory structure you want to go, default is 6
-  COLLNAME is the name of collection where data is put, must exist
+  SITENAME is the name of site, must exist
   URL is the url for data service
-  overwrite,strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
+  strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
@@ -119,25 +119,24 @@ sub convertToUnixTime
   return $unixTime;
 }
 
-my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$collName,%payload,%topsizes);
-my ($strict, $overwrite);
+my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$sitename,%payload,%topsizes);
+my ($strict);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
 $level = 6;
 
 GetOptions(
            "dump=s"      => \$dump,
-           "collName=s"      => \$collName,
+           "sitename=s"      => \$sitename,
            "url=s"      => \$datasvcUrl,
            "level=s"      => \$level,
-           "strict"     => \$strict,
-           "overwrite"     => \$overwrite,
+           "strict=s"     => \$strict,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
           );
 
-if (!$dump || !$collName) {
+if (!$dump || !$sitename) {
    die "You must provide dump file and collection Name!\n";
 }
 $method   = 'post';
@@ -146,7 +145,7 @@ $pua = PHEDEX::CLI::UserAgent->new
     (
       URL        => $datasvcUrl,
       FORMAT    => 'perl',
-      INSTANCE    => 'debug',
+      INSTANCE    => 'zhangxm',
     );
 
 if ( $dump ) {
@@ -159,25 +158,17 @@ if ( $dump ) {
 #  print "DIRSIZE: $_: $dirsizes{$_} \n";
 #}
 
-if ($overwrite) {
-  $payload{overwrite}=1;
-}
-
-if ($strict){ 
-  $payload{overwrite}=0;
-}
+$payload{"strict"} = defined $strict  ? $strict  : 1;
  
-$payload{"collName"}=$collName;
+$payload{"sitename"}=$sitename;
+$payload{"timestamp"}=$timeFromXml;
 $payload{"totalsize"}=$totalsize;
 $payload{"totalfiles"}=$totalfiles;
 $payload{"totaldirs"}=$totaldirs;
-$payload{"_id"}=$timeFromXml;
 
 foreach  (keys %dirsizes) {
   $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_} + 0;
 }
-
-$payload{"rootdir"}=$rootdir;
 
 if ($debug) { print "dumping aggregated directory info......\n" };
 foreach ( keys %topsizes ) {
@@ -186,13 +177,19 @@ foreach ( keys %topsizes ) {
   }
   $payload{$_} = $topsizes{$_} + 0;
 }
+my $count = 0;
+foreach  (keys %payload) {
+  print "upload parameter: $_ ==> $payload{$_}\n";
+  $count = $count+1;
+}
+print "total number of records: $count\n";
 
 
 my ($j, $now, $past, $input);
 
 print "Begin to connect data service.....\n";
 $pua->timeout($timeout) if $timeout;
-$pua->CALL('mongo');
+$pua->CALL('storageinsert');
 $target = $pua->target;
 $response = $pua->$method($target,\%payload);
 
@@ -202,7 +199,8 @@ if ( $pua->response_ok($response) )
    # HTTP call returned correctly, print contents and quit...
    no strict 'vars';
    $content = eval($response->content());
-   $content = $content->{PHEDEX}{MONGO};
+   $content = $content->{PHEDEX}{STORAGEINSERT};
+   Data::Dumper->Dump([ $content ]);
    foreach $record ( @{$content} ) {
      print "Inserting Record:\n  ",join('  ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
    }
