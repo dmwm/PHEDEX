@@ -286,8 +286,8 @@ sub ReadConfig
 # Fill out the workflows, using the Templates and then the Defaults
   foreach $workflow ( @{$self->{Workflows}} ) {
     $workflow->{Incarnation} = $self->{Incarnation};
+    $self->Logmsg("Setting workflow defaults: \"$workflow->{Name}\"");
     if ( !$workflow->{Template} ) { $workflow->{Template} = $workflow->{Name}; }
-print "$workflow->{Template}\n";
     if ( ! defined($self->{Templates}{$workflow->{Template}}) ) {
       $self->Fatal("No Template for workflow \"$workflow->{Template}\"");
     }
