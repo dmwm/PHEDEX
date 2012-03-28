@@ -6,7 +6,6 @@ PHEDEX_LABEL=phedex_label_here;
 PHEDEX_SITE=phedex_site_here;
 PHEDEX_NODE=T0_Test_Buffer;
 PHEDEX_CONTEXT=Mgmt;
-X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # For the watchdog...
 PHEDEX_NOTIFICATION_PORT=25000;
