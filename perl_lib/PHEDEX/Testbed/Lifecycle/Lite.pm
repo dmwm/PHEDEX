@@ -158,7 +158,10 @@ sub FileChanged
   $nWorkflows = 0;
   foreach $workflow ( @{$self->{Workflows}} )
   {
-    next if $workflow->{Suspend};
+    if ( $workflow->{Suspend} ) {
+      $self->Logmsg("Skip lifecycle for \"$workflow->{Name}\" (suspended)");
+      next;
+    }
     next if ( $workflow->{Incarnations} &&
 	      $workflow->{Incarnations} < $workflow->{Incarnation} );
     $self->Logmsg("Beginning lifecycle for \"$workflow->{Name}...\"");
@@ -220,7 +223,7 @@ sub lifecycle
 sub ReadConfig
 {
   my $self = shift;
-  my ($workflow,@required,$file,$hash,$param,$template,$event);
+  my ($workflow,@required,$file,$hash,$param,$key,$template,$event);
   $file = shift || $self->{LIFECYCLE_CONFIG};
   $hash = $self->{LIFECYCLE_COMPONENT};
   return unless $file;
@@ -251,15 +254,31 @@ sub ReadConfig
 		   KeepFailedInputs KeepFailedOutputs KeepFailedLogs
 		   Jitter TmpDir /;
 
+# Fill out the Templates using global defaults, hard-coded. This is just an
+# easy way to save typing in the template.
+  foreach $key ( keys %{$self->{Templates}} ) {
+    $template = $self->{Templates}{$key};
+    if ( ! $template->{Events} ) {
+      $self->Logmsg("Set default Events $key\n");
+      $template->{Events} = [ $key ];
+    }
+  }
+
 # Fill out the Templates, using the Defaults. This is mostly useful for actions
 # that are shared across several templates, to specify what script to call, or
 # other parameters for them
-  foreach $param ( qw/ Intervals Exec Module / ) {
-    foreach $template ( values %{$self->{Templates}} ) {
+  foreach $template ( values %{$self->{Templates}} ) {
+    foreach $param ( qw/ Intervals Exec Module / ) {
       $template->{$param} = {}  unless defined $template->{$param};
       foreach $event ( @{$template->{Events}} ) {
         $template->{$param}{$event} = $self->{Defaults}{$param}{$event}
 		 unless defined $template->{$param}{$event};
+      }
+    }
+    foreach $event ( @{$template->{Events}} ) {
+      if ( !defined $template->{Module}{$event} &&
+           !defined $template->{Exec}{$event} ) {
+        $self->Fatal("Missing Module/Exec for $event\n");
       }
     }
   }
@@ -268,6 +287,10 @@ sub ReadConfig
   foreach $workflow ( @{$self->{Workflows}} ) {
     $workflow->{Incarnation} = $self->{Incarnation};
     if ( !$workflow->{Template} ) { $workflow->{Template} = $workflow->{Name}; }
+print "$workflow->{Template}\n";
+    if ( ! defined($self->{Templates}{$workflow->{Template}}) ) {
+      $self->Fatal("No Template for workflow \"$workflow->{Template}\"");
+    }
     push @{$workflow->{events}}, @{$self->{Templates}{$workflow->{Template}}{Events}};
 
 #   Workflow defaults fill in for undefined values
