@@ -22,6 +22,10 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
   bless $self, $class;
+  if ( $self->{DROPDIR} && $self->{LOGFILE} ) {
+    $self->{PIDFILE} = $self->{DROPDIR} . 'pid';
+    PHEDEX::Core::Agent::daemon($self);
+  }
 
 #   Start a POE session for myself
     POE::Session->create
