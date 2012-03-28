@@ -36,8 +36,17 @@ $blocksFile	= $tmp . 'blocks-'   . $id . '.json';
 $filesFile	= $tmp . 'files-'    . $id . '.json';
 print "Generate $datasets datasets\n";
 open GEN, "$generator --generate datasets --out $datasetsFile --num $datasets |" or
-	die "$generator: $!\n";
-while ( <GEN> ) { print; } close GEN or die "close $generator: $!\n";
+	do {
+  $payload->{report} = { status => 'fatal', reason => "$generator: $!" };
+  $status = -2;
+  goto COP_OUT;
+};
+while ( <GEN> ) { print; }
+if ( !close GEN ) {
+  $payload->{report} = { status => 'fatal', reason => "close $generator: $!" };
+  $status = -1;
+  goto COP_OUT;
+};
 
 print "Generate $blocks blocks\n";
 open GEN, "$generator --out $blocksFile --in $datasetsFile --action add_blocks --num $blocks |" or
@@ -86,6 +95,7 @@ push @xml, "</data>";
 $xml = join("\n",@xml);
 $workflow->{XML} = $xml;
 
+COP_OUT:
 print "Write $out\n";
 open  OUT, ">$out" or die "open output $out: $!\n";
 print OUT encode_json($payload);
