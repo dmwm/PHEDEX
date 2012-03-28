@@ -232,7 +232,7 @@ sub getFromDatasvc
 				});
 }
 
-sub getAgents
+sub Agents
 {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
@@ -264,7 +264,7 @@ sub gotAgents
   }
 }
 
-sub getAuth
+sub Auth
 {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
@@ -289,7 +289,7 @@ sub gotAuth
   $kernel->yield('nextEvent',$payload);
 }
 
-sub getNodes
+sub Nodes
 {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
@@ -367,14 +367,17 @@ sub T1Subscribe
 #  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
 #  return if $self->{Dummy};
 
-  foreach $T1 ( @{$workflow->{T1s}} ) {
+  $self->Fatal("No T1s defined for \"$workflow->{Name}\"")
+    unless defined $workflow->{T1s};
+# foreach $T1 ( @{$workflow->{T1s}} ) {
     $params = {
-	node	=> $T1,
-	data	=> $workflow->{XML},
-        group	=> $workflow->{Group},
-        priority=> $workflow->{Priority},
-        move	=> $workflow->{IsMove},
-        custodial=> $workflow->{IsCustodial},
+#	node	  => $T1,
+	node	  => $workflow->{T1s},
+	data	  => $workflow->{XML},
+        group	  => $workflow->{Group},
+        priority  => $workflow->{Priority},
+        move	  => $workflow->{IsMove},
+        custodial => $workflow->{IsCustodial},
     };
     $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
     $self->getFromDatasvc($kernel,
@@ -387,7 +390,7 @@ sub T1Subscribe
 			   params   => $params,
 			  }
 			  );
-  }
+# }
 }
 
 sub doneT1Subscribe
