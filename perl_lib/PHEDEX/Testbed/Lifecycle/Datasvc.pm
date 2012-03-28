@@ -358,49 +358,59 @@ sub doneInject
   $kernel->yield('nextEvent',$payload);
 }
 
-sub T1Subscribe
-{
+sub T1Subscribe {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
-  my ($params,$workflow,$T1);
-  $workflow = $payload->{workflow};
-
-#  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
-#  return if $self->{Dummy};
-
-  $self->Fatal("No T1s defined for \"$workflow->{Name}\"")
-    unless defined $workflow->{T1s};
-# foreach $T1 ( @{$workflow->{T1s}} ) {
-    $params = {
-#	node	  => $T1,
-	node	  => $workflow->{T1s},
-	data	  => $workflow->{XML},
-        group	  => $workflow->{Group},
-        priority  => $workflow->{Priority},
-        move	  => $workflow->{IsMove},
-        custodial => $workflow->{IsCustodial},
-    };
-    $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
-    $self->getFromDatasvc($kernel,
-			  $session,
-			  $payload,
-			  {
-			   api      => 'subscribe',
-			   method   => 'post',
-			   callback => 'doneT1Subscribe',
-			   params   => $params,
-			  }
-			  );
-# }
+  $self->Subscribe('T1',$kernel,$session,$payload);
 }
 
-sub doneT1Subscribe
+sub T2Subscribe {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  $self->Subscribe('T2',$kernel,$session,$payload);
+}
+
+sub Subscribe
+{
+  my ($self, $type, $kernel, $session, $payload) = @_;
+  my ($params,$workflow,%map);
+  $workflow = $payload->{workflow};
+
+#  $self->Fatal("No ${type}s defined for \"$workflow->{Name}\"")
+#  unless defined $workflow->{$type . 's'};
+  %map = (
+	node	  => 'Nodes',
+	data	  => 'XML',
+        group	  => 'Group',
+        priority  => 'Priority',
+        move	  => 'IsMove',
+        custodial => 'IsCustodial',
+  );
+  foreach ( keys %map ) {
+    $params->{$_} = $workflow->{$type.'Subscribe'}{$map{$_}} ||
+		     $workflow->{$map{$_}};
+    $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
+	 unless $params->{$_};
+  }
+  $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api      => 'subscribe',
+			 method   => 'post',
+			 callback => 'doneSubscribe',
+			 params   => $params,
+			}
+			);
+}
+
+sub doneSubscribe
 {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
   my $p = $obj->{PHEDEX}{REQUEST_CREATED};
   if ( $p ) {
     foreach ( @{$p} ) {
-      $self->Logmsg("T1Subscribe: New request: $_->{ID}");
+      $self->Logmsg("$payload->{workflow}{Event}: New request: $_->{ID}");
     }
   } else {
     $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
