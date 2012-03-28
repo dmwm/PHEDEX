@@ -293,9 +293,32 @@ sub _send_request_create_email
             $group_data_manager = qq {   (can not find data mangers for group "$$data{'GROUP'}")\n};
         }
     }
-    else
+    else # need to dig the group information
     {
-        $group_data_manager = "   (N/A)\n";
+        my %h;
+        @{$h{DATASET_ID}} = map {$_->{'ID'}} @{$data->{DATA}{DBS}{DATASET}} if scalar(@{$data->{DATA}{DBS}{DATASET}});
+        @{$h{BLOCK_ID}} = map {$->{'ID'}} @{$data->{DATA}{DBS}{BLOCK}} if scalar (@{$data->{DATA}{DBS}{BLOCK}});
+        my $group = PHEDEX::Web::SQL::getReplicaGroup($self, %h);
+        if (@{$group})
+        {
+            foreach (@{$group})
+            {
+                @group_data_managers = $$self{SECMOD}->getUsersWithRoleForGroup('Data Manager', $_);
+                # @group_data_managers = () if ! defined @group_data_managers;
+                foreach (@group_data_managers)
+                {
+                    $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} ) [ $_ ]\n";
+                }
+                if (!scalar(@group_data_managers))
+                {
+                    $group_data_manager .= qq {   (can not find data mangers for group "$_")\n};
+                }
+            }
+        }
+        else
+        {
+            $group_data_manager = "   (N/A)\n";
+        }
     }
 
     # global admins
