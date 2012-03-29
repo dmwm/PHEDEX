@@ -99,6 +99,8 @@ END;
 -- NOTE3: suspend_time is historically bugged and can cause negative latencies in special edge cases, but we don't attempt to correct
 -- NOTE3: the historical values because we don't have all information available.
 
+-- Add block latency entries for incomplete blocks
+
 insert /*+ append */ into t_dps_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
   block_create, block_close, last_suspend, total_suspend_time, latency)
@@ -110,6 +112,8 @@ select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), gre
    join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
    where xl.last_replica is null and br.is_active='y';
 
+-- Add file latency entries for files already at destination in incomplete blocks
+
 insert /*+ append */ into t_xfer_file_latency
        (time_update, destination, fileid, inblock, filesize, time_on_buffer, time_at_destination)
 select xr.time_create, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_create, xr.time_create
@@ -118,7 +122,7 @@ select xr.time_create, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_cre
        left join t_adm_link ln on ln.to_node=nd.id and ln.is_local='y'
        left join t_adm_node nbuf on nbuf.id=ln.from_node and nbuf.kind='Buffer'
        left join t_xfer_replica xrb on xrb.node=nbuf.id and xrb.fileid=xf.id
-       join t_dps_block_latency bl on bl.destination=xr.node and bl.block=xf.inblock
+       join t_dps_block_latency bl on bl.destination=xr.node and bl.block=xf.inblock;
 
 -- Add block latency entries for incomplete
 -- empty blocks (should not be present, but there are 3 in prod)
@@ -132,6 +136,8 @@ select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), gre
    xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl
    join t_dps_block b on b.id=xl.block
    where xl.last_replica is null and b.files=0;
+
+-- Add block latency entries for complete blocks
 
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
@@ -158,6 +164,8 @@ select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), gre
        join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
        where xl.last_replica is null
        and br.is_active='n' and br.dest_files=br.node_files
+
+-- Add anonymous block latency entries for completed blocks which no longer exist
 
 insert /*+ append */ into t_log_block_latency
 (time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
@@ -191,8 +199,11 @@ select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_
 select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
  sum(time_subscription), sum(block_create), sum(first_request),
  sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency;
--- These values are NOT expected to be the same
-select sum(block),sum(files) from xt_log_block_latency;
+select sum(block),sum(files) from xt_log_block_latency where last_replica is null;
+select sum(block),sum(files) from t_dps_block_latency;
+-- These values are NOT expected to be the same for complete blocks (due the bug with the number of files in the
+old table)
+select sum(block),sum(files) from xt_log_block_latency where last_replica is not null;
 select sum(block),sum(files) from t_log_block_latency;
 
 -- Drop old t_status_block_arrive table (never used)
