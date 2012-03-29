@@ -70,6 +70,8 @@ eval {
 };
 if ( $@ ) { warn $@; }
 
+$workflow->{data} = $data;
+
 # TW TODO: when I can pass the DBS to the generator, this can be cleaned up
 $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
 @xml = (
