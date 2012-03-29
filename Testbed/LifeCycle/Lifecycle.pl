@@ -8,7 +8,7 @@ use strict;
 
 use POE;
 use Getopt::Long;
-use T0::Logger::Sender;
+#use T0::Logger::Sender;
 use T0::Util;
 use T0::FileWatcher;
 use PHEDEX::Testbed::Lifecycle::Lite;
