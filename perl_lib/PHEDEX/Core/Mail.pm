@@ -460,7 +460,7 @@ Yours truly,
 ENDEMAIL
     
 $$self{CONFIG}{FEEDBACK_MAIL} ||= 'cms-phedex-admins@cern.ch';
-&send_email(subject => "PhEDEx $request_type ($instance instance)",
+&send_email(subject => "PhEDEx $request_type ($instance instance, RID $rid)",
 	   to => [ @to ],
 	   cc => [ @cc ],
 	   from => "PhEDEx Request Form <$$self{CONFIG}{FEEDBACK_MAIL}>",
