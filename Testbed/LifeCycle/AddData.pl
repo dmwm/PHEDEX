@@ -50,10 +50,10 @@ close JSON;
 $InjectionsThisBlock++;
 if ( $InjectionsThisBlock >= $InjectionsPerBlock ) {
   $BlocksThisDataset++;
-  if ( $BlocksThisDataset >= $BlocksPerDataset ) {
+  if ( $BlocksThisDataset > $BlocksPerDataset ) {
     print "All blocks are complete for this dataset, terminating.\n";
 #   break the chain
-    exit 0;
+    goto COP_OUT;
   }
   $InjectionsThisBlock = 0;
   print "Generate $blocks blocks\n";
@@ -106,8 +106,8 @@ push @xml, "</data>";
 $xml = join("\n",@xml);
 $workflow->{XML} = $xml;
 
-COP_OUT:
 push @{$payload->{events}}, ( 'Inject', $event );
+COP_OUT:
 $workflow->{InjectionsThisBlock} = $InjectionsThisBlock;
 $workflow->{BlocksThisDataset}   = $BlocksThisDataset;
 print "Write $out\n";
