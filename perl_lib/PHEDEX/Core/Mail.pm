@@ -297,7 +297,8 @@ sub _send_request_create_email
     {
         my %h;
         @{$h{DATASET_ID}} = map {$_->{'ID'}} @{$data->{DATA}{DBS}{DATASET}} if scalar(@{$data->{DATA}{DBS}{DATASET}});
-        @{$h{BLOCK_ID}} = map {$->{'ID'}} @{$data->{DATA}{DBS}{BLOCK}} if scalar (@{$data->{DATA}{DBS}{BLOCK}});
+        @{$h{BLOCK_ID}} = map {$_->{'ID'}} @{$data->{DATA}{DBS}{BLOCK}} if scalar (@{$data->{DATA}{DBS}{BLOCK}});
+        @{$h{NODE_ID}} = map {$_->{'ID'}} @{$data->{NODES}{NODE}} if scalar (@{$data->{NODES}{NODE}});
         my $group = PHEDEX::Web::SQL::getReplicaGroup($self, %h);
         if (@{$group})
         {
@@ -307,7 +308,7 @@ sub _send_request_create_email
                 # @group_data_managers = () if ! defined @group_data_managers;
                 foreach (@group_data_managers)
                 {
-                    $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} ) [ $_ ]\n";
+                    $group_data_manager .= "   $_->{FORENAME} $_->{SURNAME} ( $_->{EMAIL} )\n";
                 }
                 if (!scalar(@group_data_managers))
                 {
