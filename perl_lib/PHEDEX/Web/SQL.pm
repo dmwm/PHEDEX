@@ -4704,8 +4704,10 @@ sub getReplicaGroup
         (
         BLOCK => 'b.name',
         DATASET => 'd.name',
+        NODE => 'n.name',
         BLOCK_ID => 'b.id',
-        DATASET_ID => 'd.id'
+        DATASET_ID => 'd.id',
+        NODE_ID => 'n.id'
         )
     );
 
@@ -4720,6 +4722,11 @@ sub getReplicaGroup
         $join_dataset = 'join t_dps_dataset d on b.dataset = d.id';
     }
 
+    my $join_node = '';
+    if (defined $h{NODE} || defined $h{NODE_ID})
+    {
+        $join_node = 'join t_adm_node n on n.id = r.node' ;
+    }
     my $sql = qq{
         select
             distinct g.name
@@ -4728,6 +4735,7 @@ sub getReplicaGroup
             join t_dps_block b on r.block = b.id
             join t_adm_group g on g.id = r.user_group
             $join_dataset
+            $join_node
         where
             $filters
     };
