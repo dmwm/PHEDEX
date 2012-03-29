@@ -357,6 +357,7 @@ sub stats
   my ($stats,$event,$key,$value);
   $stats = $self->{stats};
   $self->Logmsg("Statistics: ",Dumper($stats));
+  $self->Dbgmsg("JobManager: Queued:",$self->{JOBMANAGER}->jobsQueued,", Running:",$self->{JOBMANAGER}->jobsRunning());
   return unless $kernel;
   $kernel->delay_set('stats',$self->{StatsFrequency});
 }
