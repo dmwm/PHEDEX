@@ -18,13 +18,15 @@ our %params =
 	  ME			=> 'Lifecycle',
 	  LIFECYCLE_CONFIG	=> undef,
 	  LIFECYCLE_COMPONENT	=> 'Lifecycle::Lite',
-	  StatsFrequency	=> 60,
-	  Incarnation		=> 0,
-	  Jitter		=> 0,
-	  CycleSpeedup		=> 1,
-	  GarbageCycle		=> 300,
-	  Sequence		=> 1,
-	  NJobs			=> 2,
+	  STATISTICS_INTERVAL	=> 3600,
+	  STATISTICS_DETAIL	=>    1,
+	  StatsFrequency	=>  600,
+	  Incarnation		=>    0,
+	  Jitter		=>    0,
+	  CycleSpeedup		=>    1,
+	  GarbageCycle		=>  300,
+	  Sequence		=>    1,
+	  NJobs			=>    2,
 	);
 
 sub new
