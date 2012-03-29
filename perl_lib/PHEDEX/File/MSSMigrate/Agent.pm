@@ -62,8 +62,10 @@ sub idle
 	# Put tasks from buffer to me into transfer.
 
 	my $q1 = &dbexec($dbh, qq{
-	    select xt.id, xt.from_node, xt.to_node, logical_name, is_custodial
-	     from t_xfer_task xt join t_dps_file f on xt.fileid = f.id
+	    select xt.id, xt.from_node, xt.to_node, f.logical_name, xt.is_custodial
+	     from t_xfer_task xt
+	      join t_xfer_task_export xte on xte.task=xt.id
+	      join t_xfer_file f on xt.fileid = f.id
 	    where $mynode
 	      and not exists
 	        (select 1 from t_xfer_task_inxfer xti where xti.task = xt.id)},
