@@ -1502,11 +1502,15 @@ sub _start
   $kernel->yield('_process_start');
   $kernel->yield('_maybeStop');
 
-  $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  if ( $self->{STATISTICS_INTERVAL} ) {
+    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  } else {
+    $self->Logmsg('STATISTICS: Not reporting, STATISTICS_INTERVAL not set');
+  }
   $self->{stats}{START} = time;
 # $self->{stats}{maybeStop} = 0;
 # $self->{stats}{process} = {};
- $kernel->yield('_make_stats');
+  $kernel->yield('_make_stats');
 
   $self->Logmsg("has successfully initialised");
 }
@@ -1695,7 +1699,8 @@ sub _make_stats
 
   $self->Logmsg($summary);
   $self->Notify($summary);
-  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
+  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL})
+	if $self->{STATISTICS_INTERVAL};
 }
 
 # Dummy handler in case it's needed. Let's _default catch the real errors
