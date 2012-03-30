@@ -125,7 +125,8 @@ for role in \
       T_XFER_PATH:* | \
       T_XFER_REQUEST:* | \
       T_XFER_TASK:* | \
-      T_XFER_TASK_HARVEST:* )
+      T_XFER_TASK_HARVEST:* | \
+      T_XFER_FILE_LATENCY:* )
         # Select only
         echo; echo "grant select on $table to $reader;"
         echo "grant select on $table to $writer;" ;;
