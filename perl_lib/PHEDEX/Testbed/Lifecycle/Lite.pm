@@ -1,7 +1,7 @@
 package PHEDEX::Testbed::Lifecycle::Lite;
 use strict;
 use warnings;
-use base 'PHEDEX::Testbed::Agent', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Testbed::Agent';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
 use Time::HiRes;
@@ -33,12 +33,16 @@ sub new
 {
   my $proto = shift;
   my $class = ref($proto) || $proto;
+
   my $self  = $class->SUPER::new(%params,@_);
   $self->{JOBMANAGER} = new PHEDEX::Core::JobManager(
 	NJOBS	=> $self->{NJobs},
 	VERBOSE => 0,
 	DEBUG	=> 0,
 	KEEPALIVE => 5);
+
+  $self->{_njobs} = 0; # for UA-based stuff
+
   bless $self, $class;
   return $self;
 }

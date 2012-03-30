@@ -1,7 +1,7 @@
 package PHEDEX::Testbed::Lifecycle::Datasvc;
 use strict;
 use warnings;
-use base 'PHEDEX::Testbed::Lifecycle::Command', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Testbed::Lifecycle::UA', 'PHEDEX::Core::Logging';
 use POE qw( Queue::Array );
 use Clone qw(clone);
 use Data::Dumper;
@@ -22,18 +22,14 @@ our %params = (
 #	  Debug     => undef,
 	);
 
-our $me;
-
 sub new
 {
-  return $me if $me; # I am idempotent!
   my $proto = shift;
   my $parent = shift;
   my $workflow = shift;
   my $class = ref($proto) || $proto;
-  my $self = {}; # parent => shift };
 
-  $self = $class->SUPER::new( $parent );
+  my $self = $class->SUPER::new( $parent );
 
   my $package = __PACKAGE__;
   $package =~ s%^$workflow->{Namespace}::%%;
@@ -46,7 +42,6 @@ sub new
 
   bless $self, $class;
 
-  $me = $self;
   return $self;
 }
 

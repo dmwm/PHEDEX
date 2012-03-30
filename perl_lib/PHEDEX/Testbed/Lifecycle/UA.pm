@@ -1,7 +1,7 @@
-package PHEDEX::Testbed::Lifecycle::Command;
+package PHEDEX::Testbed::Lifecycle::UA;
 #
-# Not a true class, simply a repository for shared code among Lifecycle
-# Agent perl plugins using external commands
+# A package to contain the functions needed to interact with a web
+# user-agent from a POE::Wheel session
 #
 use strict;
 use warnings;
@@ -10,21 +10,17 @@ use POE qw( Queue::Array );
 use Clone qw(clone);
 use Data::Dumper;
 
-our $me;
-
 sub new {
-  return $me if $me; # I am idempotent!
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my $self = { parent => shift };
+  my $parent = shift;
+  my $self = { parent => $parent };
 
   $self->{Alias} = __PACKAGE__;
 
-  $self->{_njobs} = 0;
+  $parent->{_njobs} = 0 unless defined $parent->{_njobs};
   $self->{QUEUE} = POE::Queue::Array->new();
 
-  $self->{Verbose} = $self->{parent}->{Verbose};
-  $self->{Debug}   = $self->{parent}->{Debug};
   bless $self, $class;
 
   POE::Session->create(
@@ -39,30 +35,36 @@ sub new {
       },
     ]
   );
-  $me = $self;
   return $self;
 }
 
-sub Dbgmsg { my $self = shift; $self->SUPER::Dbgmsg(@_) if $self->{Debug}; }
+sub AUTOLOAD
+{
+  my $self = shift;
+  my $attr = our $AUTOLOAD;
+  $attr =~ s/.*:://;
+  return unless $attr =~ /[^A-Z]/;  # skip DESTROY and all-cap methods
+  $self->{parent}->$attr(@_);
+}
+
+sub Dbgmsg {
+  my $parent = (shift)->{Debug};
+  $parent->Dbgmsg(@_) if $parent->{Debug};
+}
 
 sub _start {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
+
   $kernel->alias_set($self->{Alias});
   $self->{SESSION} = $session;
-}
-
-use POSIX;
-sub slow {
-  my $i = 3;
-  while ( $i-- ) { print "slow... $i\n"; sleep 1; }
-  POSIX::_exit(3);
 }
 
 sub start_task {
   my ($self,$heap,$kernel,$job) = @_[ OBJECT, HEAP, KERNEL, ARG0 ];
   my ($payload,$workflow,$method,$target,$params,$callback,$priority,$q_id);
+  my $parent = $self->{parent};
 
-  if ( $self->{_njobs} >= $self->{parent}{NJobs} ) {
+  if ( $parent->{_njobs} >= $parent->{NJobs} ) {
     $self->Dbgmsg("enqueued $job->{method}($job->{target},",Data::Dumper->Dump([$job->{params}]),")\n");
     $self->{QUEUE}->enqueue(1,$job);
     return;
@@ -72,7 +74,7 @@ sub start_task {
     ($priority,$q_id,$job) = $self->{QUEUE}->dequeue_next();
     return unless $job;
   }
-  $self->{_njobs}++;
+  $parent->{_njobs}++;
   $payload  = $job->{payload};
   $workflow = $payload->{workflow};
   $method   = $job->{method};
@@ -140,7 +142,7 @@ sub on_child_close {
 sub on_child_signal {
   my($self,$kernel,$heap,$sig,$pid,$rc) = @_[ OBJECT, KERNEL, HEAP, ARG0, ARG1, ARG2 ];
   my ($child,$status,$signal,$event,$callback,$target,$params,$obj);
-  my ($payload,$workflow,$p,$stdout,$stderr);
+  my ($payload,$workflow,$p,$stdout,$stderr,$parent);
 
   $child = delete $_[HEAP]{children_by_pid}{$_[ARG1]};
 
@@ -181,8 +183,9 @@ sub on_child_signal {
     $kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
   }
 
-  $self->{_njobs}--;
-  if ( $self->{_njobs} < $self->{parent}{NJobs} ) {
+  $parent = $self->{parent};
+  $parent->{_njobs}--;
+  if ( $parent->{_njobs} < $parent->{NJobs} ) {
     $kernel->yield('start_task');
   }
 }
