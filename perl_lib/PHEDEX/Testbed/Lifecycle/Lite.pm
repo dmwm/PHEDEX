@@ -7,7 +7,6 @@ use PHEDEX::Core::Loader;
 use Time::HiRes;
 use File::Path;
 use POE;
-use Clone qw(clone);
 use JSON::XS;
 use Carp;
 use Data::Dumper;
@@ -364,6 +363,13 @@ $DB::single=1;
   $kernel->delay_set('garbage',$self->{GarbageCycle});
 }
 
+sub register {
+  my ($self,$callback,$handler) = @_;
+  return if $self->{_registered}{$callback}++;
+  $handler = $callback unless $handler;
+  $poe_kernel->state($callback,$self,$handler);
+}
+
 sub poe_default {
   my ($self,$kernel,$session,$event,$arg0) = @_[ OBJECT, KERNEL, SESSION, ARG0, ARG1 ];
   my ($payload,$workflow,$module,$namespace,$loader,$object);
@@ -371,7 +377,7 @@ sub poe_default {
   $workflow = $payload->{workflow};
 
   if ( $workflow->{Exec}{$event} ) {
-    $kernel->state( $event, $self, 'exec' );
+    $self->register($event,'exec');
     $self->Dbgmsg("yield $event");
     $kernel->yield( $event, $payload );
     return;
