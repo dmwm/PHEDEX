@@ -26,7 +26,6 @@ sub new {
   $self->{ME} = $package;
 
   my $p = $workflow->{$package};
-$DB::single=1;
   map { $self->{$_} = $params{$_} } keys %params;
   map { $self->{$_} = $p->{$_} } keys %{$p};
 
@@ -72,6 +71,8 @@ sub generate {
     print IN $json;
     close IN;
   }
+
+  $self->register($args->{callback});
   $postback = $session->postback($args->{callback},$payload,$in,$out,$log,join(' ',@cmd));
   $timeout = $workflow->{Timeout} || 999;
   $self->{parent}{JOBMANAGER}->addJob( $postback, { TIMEOUT=>$timeout, KEEP_OUTPUT=>1, LOGFILE=>$log }, @cmd);
@@ -105,6 +106,7 @@ sub madeDataset {
   ($payload,$in,$out,$log) = @{$arg0};
   $workflow = $payload->{workflow};
 
+# TW Override the dataset name explicitly!
   if ( $workflow->{Dataset} ) {
     $result->[0]{dataset}{name} = $workflow->{Dataset};
   }
@@ -117,7 +119,6 @@ sub makeBlocks {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($cmd,$workflow);
 
-  $self->register('madeBlocks');
   $workflow = $payload->{workflow};
   $cmd  = $self->{GENERATOR} . ' --action add_blocks ';
   $cmd .= "--num $workflow->{Blocks} ";
@@ -126,27 +127,22 @@ sub makeBlocks {
 		  $session,
 		  $payload,
 		  {
-		   callback => 'madeBlocks',
+		   callback => 'standardCallback',
 		   cmd      => $cmd,
 		  }
 		  );
 }
 
-sub madeBlocks {
+sub standardCallback {
   my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
-  my ($payload,$workflow,$in,$out,$log,$result);
-
-  $result = $self->{parent}->post_exec($arg0,$arg1);
-  ($payload,$in,$out,$log) = @{$arg0};
-  $payload->{workflow}{data} = $result;
-  $kernel->yield('nextEvent',$payload);
+  $arg0->[0]->{workflow}{data} = $self->{parent}->post_exec($arg0,$arg1);
+  $kernel->yield('nextEvent',$arg0->[0]);
 }
 
 sub makeFiles {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($cmd,$workflow);
 
-  $self->register('madeFiles');
   $workflow = $payload->{workflow};
   $cmd  = $self->{GENERATOR} . ' --action add_files ';
   $cmd .= "--num $workflow->{Files} ";
@@ -155,21 +151,63 @@ sub makeFiles {
 		  $session,
 		  $payload,
 		  {
-		   callback => 'madeFiles',
+		   callback => 'standardCallback',
 		   cmd      => $cmd,
 		  }
 		  );
 }
 
-sub madeFiles {
-  my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
-  my ($payload,$workflow,$in,$out,$log,$result);
+#sub madeFiles {
+#  my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
+#  $arg0->[0]->{workflow}{data} = $self->{parent}->post_exec($arg0,$arg1);
+#  $kernel->yield('nextEvent',$payload);
+#}
 
-  $result = $self->{parent}->post_exec($arg0,$arg1);
-  ($payload,$in,$out,$log) = @{$arg0};
-  $payload->{workflow}{data} = $result;
-$self->Logmsg("Data structure is ",Dumper($result));
-  $kernel->yield('nextEvent',$payload);
+sub addData {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($cmd,$workflow,$event,$id,$datasets,$blocks,$files,$dataset,$dsname);
+
+  $workflow = $payload->{workflow};
+  $event    = $workflow->{Event};
+  $id       = $payload->{id};
+  $datasets = $workflow->{Datasets};
+  $blocks   = $workflow->{Blocks};
+  $files    = $workflow->{Files};
+  $dataset  = $workflow->{data}[0]{dataset};
+  $dsname   = $dataset->{name};
+  $workflow->{InjectionsThisBlock} ||= 0;
+  $workflow->{BlocksThisDataset}   ||= 1; # Assume it already has a block
+  $self->Dbgmsg("$workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
+
+  $workflow->{InjectionsThisBlock}++;
+  if ( $workflow->{InjectionsThisBlock} >= $workflow->{InjectionsPerBlock} ) {
+#   This block is full. Close it, and go on to the next block
+$DB::single=1;
+# TW TODO close the block!
+    foreach ( @{$dataset->{blocks}} ) {
+      $_->{block}{'is-open'} = 'n';
+    }
+    $self->Dbgmsg("addData ($dsname): close one or more blocks");
+    $workflow->{BlocksThisDataset}++;
+    if ( $workflow->{BlocksThisDataset} > $workflow->{BlocksPerDataset} ) {
+      $self->Logmsg("addData ($dsname): all blocks are complete, terminating.");
+      $kernel->yield('nextEvent',$payload);
+      return;
+    }
+
+#   Start a new block
+    $self->Dbgmsg("addData ($dsname): create one or more new blocks");
+    $workflow->{InjectionsThisBlock} = 0;
+    push @{$payload->{events}}, $event;
+    $kernel->call($session,'makeBlocks',$payload);
+    return;
+  }
+
+# Add files, be it to a new or an existing block
+  $self->Dbgmsg("addData ($dsname): add files to block(s)");
+  $kernel->call($session,'makeFiles',$payload);
+  push @{$payload->{events}}, $event; # TW TODO How to do this? ('Inject', $event);
+  return;
 }
 
 1;
