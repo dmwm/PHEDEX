@@ -125,6 +125,8 @@ sub idle
               xt.is_custodial, xt.time_assign,
 	      xt.from_node, xt.to_node
 	    from t_xfer_task xt
+	      join t_xfer_task_export xte on xte.task = xt.id
+	      join t_xfer_task_inxfer xti on xti.task = xt.id
 	      join t_xfer_file f on f.id = xt.fileid
 	    where $mynode
 	      and not exists
