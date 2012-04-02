@@ -181,9 +181,7 @@ sub addData {
 
   $workflow->{InjectionsThisBlock}++;
   if ( $workflow->{InjectionsThisBlock} >= $workflow->{InjectionsPerBlock} ) {
-#   This block is full. Close it, and go on to the next block
-$DB::single=1;
-# TW TODO close the block!
+#   These blocks are full. Close them, and go on to the next set
     foreach ( @{$dataset->{blocks}} ) {
       $_->{block}{'is-open'} = 'n';
     }
