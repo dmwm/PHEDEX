@@ -73,7 +73,11 @@ sub _start
   $kernel->yield('_process_start');
   $kernel->yield('_maybeStop');
 
-  $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  if ( $self->{STATISTICS_INTERVAL} ) {
+    $self->Logmsg('STATISTICS: Reporting every ',$self->{STATISTICS_INTERVAL},' seconds, detail=',$self->{STATISTICS_DETAIL});
+  } else {
+    $self->Logmsg('STATISTICS: Not reporting, STATISTICS_INTERVAL not set');
+  }
   $self->{stats}{START} = time;
   $kernel->yield('_make_stats');
   $self->Logmsg("has successfully initialised");
@@ -173,6 +177,7 @@ sub _stop
 sub _make_stats
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  return unless $self->{STATISTICS_INTERVAL};
   $self->make_stats();
   $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
