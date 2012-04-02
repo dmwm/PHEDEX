@@ -7,6 +7,7 @@ use PHEDEX::Core::Loader;
 use Time::HiRes;
 use File::Path;
 use POE;
+use Clone qw(clone);
 use JSON::XS;
 use Carp;
 use Data::Dumper;
@@ -29,8 +30,7 @@ our %params =
 	  NJobs			=>    2,
 	);
 
-sub new
-{
+sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
 
@@ -47,8 +47,7 @@ sub new
   return $self;
 }
 
-sub AUTOLOAD
-{
+sub AUTOLOAD {
   my $self = shift;
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
@@ -65,8 +64,7 @@ sub AUTOLOAD
 sub Dbgmsg { my $self = shift; $self->SUPER::Dbgmsg(@_) if $self->{Debug}; }
 
 #-------------------------------------------------------------------------------
-sub _poe_init
-{
+sub _poe_init {
 # This sets up the basic state-machinery.
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
@@ -104,19 +102,7 @@ sub stop { exit(0); }
 
 sub Config { return (shift)->{LIFECYCLE_CONFIG}; }
 
-sub deep_copy {
-  my $this = shift;
-  if (not ref $this) {
-    $this;
-  } elsif (ref $this eq "ARRAY") {
-    [map deep_copy($_), @$this];
-  } elsif (ref $this eq "HASH") {
-    +{map { $_ => deep_copy($this->{$_}) } keys %$this};
-  } else { die "what type is $_?" }
-}
-
-sub nextEvent
-{
+sub nextEvent {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($workflow,$cmd,$module,$event,$delay,$id,$msg);
 
@@ -145,8 +131,7 @@ sub nextEvent
   $kernel->delay_set($event,$delay,$payload);
 }
  
-sub FileChanged
-{
+sub FileChanged {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
   $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
@@ -183,14 +168,12 @@ sub FileChanged
 #  }
 }
 
-sub id
-{
+sub id {
   my $self = shift;
   return sprintf('%08x',$self->{Sequence}++);
 }
 
-sub lifecycle
-{
+sub lifecycle {
   my ($self,$kernel,$workflow) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($event,$delay,@events);
   return unless $self->{Incarnation} == $workflow->{Incarnation};
@@ -226,8 +209,7 @@ sub lifecycle
   $kernel->delay_set('lifecycle',$delay,$workflow) if $delay;
 }
 
-sub ReadConfig
-{
+sub ReadConfig {
   my $self = shift;
   my ($workflow,@required,$file,$hash,$param,$key,$template,$event);
   $file = shift || $self->{LIFECYCLE_CONFIG};
@@ -337,8 +319,7 @@ sub ReadConfig
   }
 }
 
-sub _stop
-{
+sub _stop {
   my ( $self, $kernel, $session, $force ) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
 
   $self->Logmsg('nothing left to do, may as well shoot myself');
@@ -355,8 +336,7 @@ sub _stop
   $self->Logmsg("Wait for JobManager to become idle, then exit...");
 }
 
-sub stats
-{
+sub stats {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
   my ($stats,$event,$key,$value);
   $stats = $self->{stats};
@@ -366,8 +346,7 @@ sub stats
   $kernel->delay_set('stats',$self->{StatsFrequency});
 }
 
-sub garbage
-{
+sub garbage {
 return;
 $DB::single=1;
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
@@ -451,18 +430,18 @@ sub exec {
   open IN, ">$in" or $self->Fatal("open $in: $!\n");
   print IN $json;
   close IN;
-  $postback = $session->postback('reaper',$workflow,$payload,$in,$out,$log);
+  $postback = $session->postback('reaper',$payload,$in,$out,$log);
   $timeout = $workflow->{Timeout} || 999;
   $self->{JOBMANAGER}->addJob( $postback, { TIMEOUT=>$timeout, KEEP_OUTPUT=>1, LOGFILE=>$log }, @cmd);
 }
 
-sub reaper
-{
-  my ($self, $kernel, $arg0, $arg1) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
+sub post_exec {
+  my ($self, $arg0, $arg1) = @_;
   my ($workflow,$payload,$in,$out,$log,$json,$result,$name,$id,$event);
   my ($job,$duration,$status,$delay,$report,$reason,$msg,$stats,$key,$value,$skey);
 
-  ($workflow,$payload,$in,$out,$log) = @{$arg0};
+  ($payload,$in,$out,$log) = @{$arg0};
+  $workflow = $payload->{workflow};
   $name  = $workflow->{Name};
   $event = $workflow->{Event};
   $id    = $payload->{id};
@@ -548,7 +527,19 @@ sub reaper
     }
     delete $result->{stats};
   }
+  return $result;
+}
 
+sub reaper {
+  my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
+  my ($workflow,$payload,$in,$out,$log,$result,$delay);
+
+  $result = $self->post_exec($arg0,$arg1);
+  ($payload,$in,$out,$log) = @{$arg0};
+  $workflow = $payload->{workflow};
+
+# Specific to the 'exec' handler...
+  $result = $payload unless $result;
   if ( ref($result) eq 'ARRAY' ) {
     $delay = 0;
     foreach $payload ( @{$result} ) {
