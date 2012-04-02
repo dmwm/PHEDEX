@@ -1612,6 +1612,7 @@ sub _stop
 sub _make_stats
 {
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
+  return unless $self->{STATISTICS_INTERVAL};
   my ($delay,$totalWall,$totalOnCPU,$totalOffCPU,$summary);
   my ($pmon,$h,$onCPU,$offCPU,$count);
 
@@ -1699,8 +1700,7 @@ sub _make_stats
 
   $self->Logmsg($summary);
   $self->Notify($summary);
-  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL})
-	if $self->{STATISTICS_INTERVAL};
+  $kernel->delay_set('_make_stats',$self->{STATISTICS_INTERVAL});
 }
 
 # Dummy handler in case it's needed. Let's _default catch the real errors
