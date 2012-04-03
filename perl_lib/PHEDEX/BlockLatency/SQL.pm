@@ -144,8 +144,8 @@ sub mergeXferFileLatency
                      xt.is_custodial, xp.time_request, xp.time_confirm time_route,
                      xt.time_assign, xte.time_update time_export, xtd.report_code
                      from t_xfer_task_harvest xth
-                     join t_xfer_task xt on xt.id = xth.task 
-                     join t_xfer_task_export xte on xte.task = xt.id
+                     join t_xfer_task xt on xt.id = xth.task
+		     left join t_xfer_task_export xte on xte.task = xt.id
                      join t_xfer_file xf on xf.id=xt.fileid
                      join t_xfer_task_done xtd on xtd.task = xt.id
                      left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
@@ -188,7 +188,7 @@ sub mergeXferFileLatency
 		     xt.time_assign, xte.time_update time_export, xtd.report_code
 		     from t_xfer_task_harvest xth
 		     join t_xfer_task xt on xt.id = xth.task
-		     join t_xfer_task_export xte on xte.task = xt.id
+		     left join t_xfer_task_export xte on xte.task = xt.id
 		     join t_xfer_file xf on xf.id=xt.fileid
 		     join t_xfer_task_done xtd on xtd.task = xt.id
 		     left join t_xfer_path xp on xp.fileid=xt.fileid and xp.from_node=xt.from_node and xp.to_node=xt.to_node
