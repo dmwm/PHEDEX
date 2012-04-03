@@ -185,6 +185,7 @@ sub addData {
   $files    = $workflow->{Files};
   $dataset  = $workflow->{data}[0]{dataset};
   $dsname   = $dataset->{name};
+
   $workflow->{InjectionsThisBlock} ||= 0;
   $workflow->{BlocksThisDataset}   ||= 1; # Assume it already has a block
   $self->Dbgmsg("$workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
@@ -214,8 +215,18 @@ sub addData {
 # Add files, be it to a new or an existing block
   $self->Dbgmsg("addData ($dsname): add files to block(s)");
   $kernel->call($session,'makeFiles',$payload);
-  push @{$payload->{events}}, $event; # TW TODO How to do this? ('Inject', $event);
+  $self->postPush('addData',$payload);
   return;
+}
+
+sub postPush {
+  my ($self,$event,$payload) = @_;
+  my ($post,@events);
+  return unless $post = $self->{$event};
+  return unless @events = @{$post->{addEvents}};
+  foreach ( @events ) {
+    push @{$payload->{events}}, $_; # TW TODO How to do this? ('Inject', $event);
+  }
 }
 
 1;
