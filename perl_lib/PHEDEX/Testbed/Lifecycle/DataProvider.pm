@@ -100,7 +100,7 @@ sub makeDataset {
 
 sub madeDataset {
   my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
-  my ($payload,$workflow,$in,$out,$log,$result);
+  my ($payload,$workflow,$in,$out,$log,$result,$name,$i);
 
   $result = $self->{parent}->post_exec($arg0,$arg1);
   ($payload,$in,$out,$log) = @{$arg0};
@@ -108,7 +108,17 @@ sub madeDataset {
 
 # TW Override the dataset name explicitly!
   if ( $workflow->{Dataset} ) {
-    $result->[0]{dataset}{name} = $workflow->{Dataset};
+    $i = 0;
+    foreach ( @{$result} ) {
+      $_->{dataset}{name} = sprintf($workflow->{Dataset},$i++);
+    }
+  }
+
+# TW Override the DBS name explicitly!
+  if ( $workflow->{DBS} ) {
+    foreach ( @{$result} ) {
+      $_->{dataset}{dbs_name} = $workflow->{DBS};
+    }
   }
 
   $workflow->{data} = $result;
