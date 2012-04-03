@@ -39,9 +39,10 @@ Changes for Site Agents
   - FileDownload: Log (glite-transfer-)status command invocation errors (fix for #55491)
   - FileDownload: properly set status of lost file transfers to "abandoned", to avoid accumulating lost transfers in the agent, eventually
 	blocking the queue (fix for #62173)
-  - FileDownload: 
   - FileMSSMigrate: Do not auto-export Buffer->MSS tasks, now handled by central FilePump agent. NOTE: This update becomes MANDATORY for all T0/T1s
 	after the central FilePump agent is updated (fix for #79042).
+  - FileMSSMigrate: Wait until tasks are set to states 'export' (by FilePump) and 'inxfer' (by FileMSSMigrate itself) before checking migration status.
+	This change has no effect on transfers themselves, but it ensures that all xfer worflow events are logged correctly also for Buffer->MSS transfers.
   - BlockDownloadVerify: report status to DB and Watchdog regularly, so that agent doesn't appear "DOWN" while executing long-running tests.
   - BlockDownloadVerify: deprecate tmdb Namespace
   - BlockDownloadVerify: add support for eos Namespace
@@ -55,6 +56,7 @@ Changes for Operator Tools
 Core library changes
   - PHEDEX::Core::AgentLite : new base package for PhEDEx Agents, with support for modular plugins
   - PHEDEX::Core::Agent : fix crash in updateAgentStatus when node was not set.
+  - PHEDEX::Core::Agent : cleanly suppress statistics printout if STATISTICS_INTERVAL is not set
   - PHEDEX::Core::DB : print SQL statement in case of failure in dbprep
   - PHEDEX::Core::Identity : truncate certificates longer than 4k characters to fit in the DB column.
   - PHEDEX::Core::JobManager : make hearbeat interval configurable via the KEEPALIVE variable
