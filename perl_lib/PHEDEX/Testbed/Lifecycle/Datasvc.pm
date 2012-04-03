@@ -22,8 +22,7 @@ our %params = (
 #	  Debug     => undef,
 	);
 
-sub new
-{
+sub new {
   my $proto = shift;
   my $parent = shift;
   my $workflow = shift;
@@ -45,8 +44,7 @@ sub new
   return $self;
 }
 
-sub getFromDatasvc
-{
+sub getFromDatasvc {
   my ($self,$kernel,$session,$payload,$args) = @_;
   my ($target,$workflow,$api,$callback,$params,$method);
   $self->{PARENT_SESSION} = $session unless $self->{PARENT_SESSION};
@@ -69,8 +67,36 @@ sub getFromDatasvc
 				});
 }
 
-sub Agents
-{
+sub makeXML {
+  my ($self,$data) = @_;
+  my (@xml,$dbs,$i,$j,$k,$dataset,$block,$file);
+
+  $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
+  @xml = (
+            "<data version=\"2.0\">",
+            "  <dbs name=\"$dbs\" dls=\"dbs\">"
+          );
+  foreach $i ( @{$data} ) {
+    $dataset = $i->{dataset};
+    push @xml, "    <dataset name=\"$dataset->{name}\" is-open=\"$dataset->{'is-open'}\">";
+    foreach $j ( @{$dataset->{blocks}} ) {
+      $block = $j->{block};
+      push @xml, "      <block name=\"$block->{name}\" is-open=\"$block->{'is-open'}\">";
+      foreach $k ( @{$block->{files}} ) {
+        $file = $k->{file};
+        push @xml, "      <file name=\"$file->{name}\" bytes=\"$file->{bytes}\" checksum=\"$file->{checksum}\" />";
+      }
+      push @xml, "      </block>";
+    }
+    push @xml, "    </dataset>";
+  } 
+  push @xml, "  </dbs>";
+  push @xml, "</data>";
+
+  return join("\n",@xml);
+}
+
+sub Agents {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
 			$session,
@@ -83,8 +109,7 @@ sub Agents
 			);
 }
 
-sub gotAgents
-{
+sub gotAgents {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
   my ($agents,$agent,$re,$tmp);
 
@@ -101,8 +126,7 @@ sub gotAgents
   }
 }
 
-sub Auth
-{
+sub Auth {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
 			$session,
@@ -115,8 +139,7 @@ sub Auth
 			);
 }
 
-sub gotAuth
-{
+sub gotAuth {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
   my ($auth,$node,$re,$tmp);
 
@@ -126,8 +149,7 @@ sub gotAuth
   $kernel->yield('nextEvent',$payload);
 }
 
-sub Nodes
-{
+sub Nodes {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
 			$session,
@@ -139,8 +161,7 @@ sub Nodes
 			);
 }
 
-sub gotNodes
-{
+sub gotNodes {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
   my ($nodes,$re,$tmp);
 
@@ -155,16 +176,16 @@ sub gotNodes
   }
 }
 
-sub Inject
-{
+sub Inject {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($params,$workflow);
   $workflow = $payload->{workflow};
-
+$DB::single=1;
 #  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
 #  return if $self->{Dummy};
   $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
 
+  $workflow->{XML} = $self->makeXML($workflow->{data});
   $params = {
 	node	=> $workflow->{InjectionSite},
 	strict	=> $workflow->{StrictInjection} || 0,
@@ -182,10 +203,10 @@ sub Inject
 			);
 }
 
-sub doneInject
-{
+sub doneInject {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
+  delete $payload->{workflow}{XML};
   my $p = $obj->{PHEDEX}{INJECTED}{STATS};
   if ( $p ) {
     $self->Logmsg("Injection: New data: $p->{NEW_DATASETS} datasets, $p->{NEW_BLOCKS} blocks, $p->{NEW_FILES} files. Closed: $p->{CLOSED_DATASETS} datasets, $p->{CLOSED_BLOCKS} blocks");
@@ -205,8 +226,7 @@ sub T2Subscribe {
   $self->Subscribe('T2',$kernel,$session,$payload);
 }
 
-sub Subscribe
-{
+sub Subscribe {
   my ($self, $type, $kernel, $session, $payload) = @_;
   my ($params,$workflow,%map);
   $workflow = $payload->{workflow};
@@ -240,8 +260,7 @@ sub Subscribe
 			);
 }
 
-sub doneSubscribe
-{
+sub doneSubscribe {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
   my $p = $obj->{PHEDEX}{REQUEST_CREATED};
@@ -255,8 +274,7 @@ sub doneSubscribe
   $kernel->yield('nextEvent',$payload);
 }
 
-sub Template
-{
+sub Template {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   $self->getFromDatasvc($kernel,
 			$session,
@@ -269,8 +287,7 @@ sub Template
 			);
 }
 
-sub doneTemplate
-{
+sub doneTemplate {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
 
   $self->Logmsg("done: Template($target,",Data::Dumper->Dump([$params]),"\n");
