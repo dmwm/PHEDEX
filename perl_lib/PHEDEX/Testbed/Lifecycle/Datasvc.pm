@@ -180,7 +180,7 @@ sub Inject {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($params,$workflow);
   $workflow = $payload->{workflow};
-$DB::single=1;
+
 #  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
 #  return if $self->{Dummy};
   $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
@@ -235,7 +235,7 @@ sub Subscribe {
 #  unless defined $workflow->{$type . 's'};
   %map = (
 	node	  => 'Nodes',
-	data	  => 'XML',
+	data	  => 'data',
         group	  => 'Group',
         priority  => 'Priority',
         move	  => 'IsMove',
@@ -247,6 +247,7 @@ sub Subscribe {
     $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
 	 unless $params->{$_};
   }
+  $params->{data} = $self->makeXML($workflow->{data});
   $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
   $self->getFromDatasvc($kernel,
 			$session,
