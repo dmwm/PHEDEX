@@ -1,0 +1,247 @@
+# Migration procedure applied to Dev instance **
+
+# This migration should be able to be performed while site agents and web services are still active
+# Central agents should be shut down for the instance, however.
+
+# cd to a directory where the PHEDEX directory exists and there is an
+# RPM installation
+
+cd /data/DevNodes
+
+# Source environment
+source sw/slc*/cms/PHEDEX-admin/PHEDEX_*/etc/profile.d/env.sh
+
+# Checkout the Schema revision for 4.0
+
+cvs co -d PHEDEX_CVS/Schema -r PHEDEX_4_0_1 COMP/PHEDEX/Schema
+
+# Set authentication for DB access
+export PHEDEX_INSTANCE=Dev;
+export PHEDEX_DB="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Admin";
+export PHEDEX_DB_R="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/Reader";
+export PHEDEX_DB_W="SITECONF/CH_CERN/PhEDEx/DBParam:${PHEDEX_INSTANCE}/CERN";
+export PHEDEX_CON=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB});
+export PHEDEX_CON_R=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_R});
+export PHEDEX_CON_W=$(PHEDEX/Utilities/OracleConnectId  -db ${PHEDEX_DB_W});
+export PHEDEX_SCHEMA=$(echo $PHEDEX_CON | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_R=$(echo $PHEDEX_CON_R | perl -p -e 's|/.*$||')
+export PHEDEX_SCHEMA_W=$(echo $PHEDEX_CON_W | perl -p -e 's|/.*$||')
+env | egrep 'PHEDEX_(DB|CON|SCHEMA)';
+
+# Connect to DB using SQLPlus
+sqlplus $PHEDEX_CON
+
+-- Deploying the schema over a 4.0 schema
+-- From SQLPLUS
+
+set serveroutput on size 100000;
+set timing on;
+spool migration.sqllog
+
+# Backup new t_log_block_latency table;
+rename t_log_block_latency to nt_log_block_latency;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name NOT LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND constraint_name LIKE '%_LOG_BLOCK_LATENCY%')
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+	  || ' rename constraint ' || o.name
+	  || ' to N' || substr (o.name, 1, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name NOT LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND index_name LIKE '%_LOG_BLOCK_LATENCY%')
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+	  || ' rename to N' || substr (o.name, 1, 29);
+   END LOOP;
+END;
+/
+
+-- restore old latency table
+
+rename xt_log_block_latency to t_log_block_latency;
+
+BEGIN
+   --------------------
+   -- Constraints
+   FOR o IN
+     (SELECT constraint_name name, table_name FROM user_constraints
+      WHERE constraint_name LIKE 'X%'
+        AND constraint_name NOT LIKE 'SYS%'
+        AND constraint_name LIKE '%_STATUS_BLOCK_LATENCY%')
+   LOOP
+      dbms_output.put_line ('Renaming constraint ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter table ' || o.table_name
+          || ' rename constraint ' || o.name
+          || ' to ' || substr (o.name, 2, 29);
+   END LOOP;
+
+   --------------------
+   -- Indices
+   FOR o IN
+     (SELECT index_name name, table_name FROM user_indexes
+      WHERE index_name LIKE 'X%'
+        AND index_name NOT LIKE 'SYS%'
+        AND index_name LIKE '%_LOG_BLOCK_LATENCY%')
+   LOOP
+      dbms_output.put_line ('Renaming index ' || o.name || ' [' || o.table_name || ']');
+      execute immediate
+          'alter index ' || o.name
+          || ' rename to ' || substr (o.name, 2, 29);
+   END LOOP;
+END;
+/                                                                               
+
+-- fill new latency table into new table
+-- do we want to do this???
+-- FIXME - SQL STATEMENTS NEED TO BE CHANGED!!!!
+
+-- Add block latency entries for incomplete blocks
+
+insert /*+ append */ into t_dps_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+  block_create, block_close, last_suspend, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL), 
+   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl
+   join t_dps_block b on b.id=xl.block
+   join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
+   where xl.last_replica is null and br.is_active='y';
+
+-- Add file latency entries for files already at destination in incomplete blocks
+
+insert /*+ append */ into t_xfer_file_latency
+       (time_update, destination, fileid, inblock, filesize, time_on_buffer, time_at_destination)
+select xr.time_create, xr.node, xr.fileid, xf.inblock, xf.filesize, xrb.time_create, xr.time_create
+       from t_xfer_replica xr join t_xfer_file xf on xr.fileid=xf.id
+       join t_adm_node nd on xr.node=nd.id
+       left join t_adm_link ln on ln.to_node=nd.id and ln.is_local='y'
+       left join t_adm_node nbuf on nbuf.id=ln.from_node and nbuf.kind='Buffer'
+       left join t_xfer_replica xrb on xrb.node=nbuf.id and xrb.fileid=xf.id
+       join t_dps_block_latency bl on bl.destination=xr.node and bl.block=xf.inblock;
+
+-- Add block latency entries for incomplete
+-- empty blocks (should not be present, but there are 3 in prod)
+
+insert /*+ append */ into t_dps_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+  block_create, block_close, last_suspend, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, decode(b.is_open,'n',b.time_update,'y',NULL),
+   xl.last_suspend, xl.suspend_time, xl.latency from xt_log_block_latency xl
+   join t_dps_block b on b.id=xl.block
+   where xl.last_replica is null and b.files=0;
+
+-- Add block latency entries for complete blocks
+
+insert /*+ append */ into t_log_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,nvl(b.files,0)), greatest(xl.bytes,nvl(b.bytes,0)),
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, b.time_update, xl.first_request, xl.first_replica, xl.last_replica,
+   xl.suspend_time, xl.latency from xt_log_block_latency xl join t_dps_block b on b.id=xl.block
+   where xl.last_replica is not null;
+
+-- Note: some old completed block destinations can still have an incomplete block latency log due to
+-- Savannah #92899 - here we mark them as completed. Our best estimate for the latency is the time until block closure.
+
+insert /*+ append */ into t_log_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, greatest(xl.files,b.files), greatest(xl.bytes,b.bytes),
+       xl.priority, xl.is_custodial, xl.time_subscription,
+       xl.block_create, b.time_update, xl.first_request, xl.first_replica, b.time_update,
+       xl.suspend_time,
+       b.time_update - greatest(xl.block_create,xl.time_subscription) - xl.suspend_time
+       from xt_log_block_latency xl
+       join t_dps_block b on b.id=xl.block
+       join t_dps_block_replica br on br.block=xl.block and br.node=xl.destination
+       where xl.last_replica is null
+       and br.is_active='n' and br.dest_files=br.node_files
+
+-- Add anonymous block latency entries for completed blocks which no longer exist
+
+insert /*+ append */ into t_log_block_latency
+(time_update, destination, block, files, bytes, priority, is_custodial, time_subscription,
+   block_create, block_close, first_request, first_replica, last_replica, total_suspend_time, latency)
+select xl.time_update, xl.destination, xl.block, xl.files, xl.bytes,
+   xl.priority, xl.is_custodial, xl.time_subscription,
+   xl.block_create, xl.last_replica, xl.first_request, xl.first_replica, xl.last_replica,
+   xl.suspend_time, xl.latency from xt_log_block_latency xl
+   where xl.last_replica is not null and xl.block is null;
+
+commit;
+
+-- cross check old/new latency tables
+
+select count(*) from t_dps_block_latency;
+select count(*) from t_log_block_latency;
+select count(*) from xt_log_block_latency;
+
+-- These values are expected to be the same
+
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create),
+ sum(suspend_time),sum(latency) from xt_log_block_latency where last_replica is null;
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create),
+ sum(total_suspend_time),sum(latency) from t_dps_block_latency;
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create), sum(first_request),
+ sum(first_replica),sum(last_replica),sum(suspend_time),sum(latency) from xt_log_block_latency
+ where last_replica is not null;
+select sum(time_update),sum(destination),sum(block),sum(priority),sum(decode(is_custodial,'y',1,'n',2,NULL,3)),
+ sum(time_subscription), sum(block_create), sum(first_request),
+ sum(first_replica),sum(last_replica),sum(total_suspend_time),sum(latency) from t_log_block_latency;
+select sum(block),sum(files) from xt_log_block_latency where last_replica is null;
+select sum(block),sum(files) from t_dps_block_latency;
+-- These values are NOT expected to be the same for complete blocks (due the bug with the number of files in the
+old table)
+select sum(block),sum(files) from xt_log_block_latency where last_replica is not null;
+select sum(block),sum(files) from t_log_block_latency;
+
+-- the rest of the 4.1.0 tables are compatible with the 4.0.1 schema and don't need to be rolled back
+
+-- Decrease the schema_version
+create or replace function schema_version return varchar is
+  result varchar(20);
+begin
+  return('4.0.1');
+end schema_version;
+/
+
+select schema_version from dual;
+
+quit;
+
+-- If you're running on Testbed, you're done here, otherwise remember to run
+-- the following scripts in a shell
+-- PHEDEX_SCHEMA,PHEDEX_SCHEMA_R,PHEDEX_SCHEMA_W : the Admin, Reader, Writer user name (DB instance name)
+-- PHEDEX_CON,PHEDEX_CON_R,PHEDEX_CON_W) : the Admin, Reader, Writer connection ID as returned by PHEDEX/Utilities/OracleConnectId
+
+-- Create synonmys
+PHEDEX_CVS/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_R
+PHEDEX_CVS/Schema/OracleSyns.sh $PHEDEX_SCHEMA $PHEDEX_CON $PHEDEX_CON_W
+
+-- Create privileges
+PHEDEX_CVS/Schema/OraclePrivs.sh $PHEDEX_CON $PHEDEX_SCHEMA_R $PHEDEX_SCHEMA_W
