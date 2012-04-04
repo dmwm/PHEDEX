@@ -92,7 +92,10 @@ sub start_task {
         print $content;
       } else {
         chomp $content;
-        print "Bad response from server ",$response->code(),"(",$response->message(),"):\n$content\n";
+        my $request = $response->request();
+        print "Bad response from server ",$response->code(),"(",$response->message(),")\n";
+        print "request=",Dumper($request),"\n";
+        print "content=$content\n";
         exit $response->code();
       }
     }, # TODO not thread-safe!
@@ -168,7 +171,10 @@ sub on_child_signal {
       stdout => $stdout,
       stderr => $stderr,
     };
-    $self->Alert("target=$target params=",Dumper($params)," event=$event, status=$status, stdout=\"$stdout\", stderr=\"$stderr\"");
+    $self->Alert("status=$status, event=$event, target=$target");
+    $self->Alert("params=",Dumper($params));
+    $self->Alert("stderr=\"$stderr\"");
+    $self->Alert("stdout=\"$stdout\"");
   } else {
     if ( $stdout ) {
       eval {
