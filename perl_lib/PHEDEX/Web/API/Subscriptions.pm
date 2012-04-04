@@ -183,6 +183,7 @@ sub subscriptions
                     block => { using => 'block_*', multiple => 1 },
                     node => { using => 'node', multiple => 1 },
                     se => { using => 'text', multiple => 1 },
+                    request => { using => 'pos_int', multiple => 1 },
                     create_since => { using => 'time' },
                     custodial => { using => 'yesno' },
                     group => { using => 'text', multiple => 1 },
