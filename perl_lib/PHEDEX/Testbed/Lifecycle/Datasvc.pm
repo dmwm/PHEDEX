@@ -279,15 +279,56 @@ sub doneSubscribe {
   $kernel->yield('nextEvent',$payload);
 }
 
+sub UpdateSubscription {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($params,$workflow);
+  $workflow = $payload->{workflow};
+
+  $params = shift @{$workflow->{UpdateSubscription}};
+  if ( !$params ) {
+    $kernel->yield('nextEvent',$payload);
+    return;
+  }
+  if ( ! $params->{dataset} ) {
+    $params->{dataset} = $workflow->{data}[0]{dataset}{name};
+  }
+  if ( ! $params->{node} ) {
+    $self->Fatal("UpdateSubscription: no 'node' specified");
+  }
+
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api	  => 'UpdateSubscription',
+			 method   => 'post',
+			 callback => 'doneUpdateSubscription',
+			 params   => $params,
+			}
+			);
+}
+
+sub doneUpdateSubscription {
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+
+  $self->Logmsg("done: UpdateSubscription($target,",Dumper($params),"\n",Dumper($obj->{PHEDEX}{DATASET}),"\n");
+# PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'UpdateSubscription',$payload);
+  unshift @{$payload->{events}}, 'UpdateSubscription';
+  $kernel->yield('nextEvent',$payload);
+}
+
 sub Template {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($params,$workflow);
+  $workflow = $payload->{workflow};
   $self->getFromDatasvc($kernel,
 			$session,
 			$payload,
 			{
 			 api	  => 'inject',
 			 method   => 'post',
-			 callback => 'doneTemplate'
+			 callback => 'doneTemplate',
+			 params   => $params,
 			}
 			);
 }
