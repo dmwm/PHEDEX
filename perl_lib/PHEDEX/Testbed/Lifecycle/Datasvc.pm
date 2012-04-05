@@ -69,7 +69,7 @@ sub getFromDatasvc {
 
 sub makeXML {
   my ($self,$data) = @_;
-  my (@xml,$dbs,$i,$j,$k,$dataset,$block,$file);
+  my (@xml,$dbs,$i,$j,$k,$dataset,$block,$file,%h);
 
   $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
   @xml = (
@@ -78,12 +78,15 @@ sub makeXML {
           );
   foreach $i ( @{$data} ) {
     $dataset = $i->{dataset};
+    $self->Alert("Duplicate dataset name $dataset->{name}") if $h{$dataset->{name}}++;
     push @xml, "    <dataset name=\"$dataset->{name}\" is-open=\"$dataset->{'is-open'}\">";
     foreach $j ( @{$dataset->{blocks}} ) {
       $block = $j->{block};
+      $self->Alert("Duplicate block name $block->{name}") if $h{$block->{name}}++;
       push @xml, "      <block name=\"$block->{name}\" is-open=\"$block->{'is-open'}\">";
       foreach $k ( @{$block->{files}} ) {
         $file = $k->{file};
+        $self->Alert("Duplicate file name $file->{name}") if $h{$file->{name}}++;
         push @xml, "      <file name=\"$file->{name}\" bytes=\"$file->{bytes}\" checksum=\"$file->{checksum}\" />";
       }
       push @xml, "      </block>";
@@ -181,8 +184,6 @@ sub Inject {
   my ($params,$workflow);
   $workflow = $payload->{workflow};
 
-#  $self->Logmsg("Inject $ds->{Name}($block->{block}, $n files) at $ds->{InjectionSite}") unless $self->{Quiet};
-#  return if $self->{Dummy};
   $self->Dbgmsg("Injecting: ",Data::Dumper->Dump([$workflow]));
 
   $workflow->{XML} = $self->makeXML($workflow->{data});
@@ -231,8 +232,11 @@ sub Subscribe {
   my ($params,$workflow,%map);
   $workflow = $payload->{workflow};
 
-#  $self->Fatal("No ${type}s defined for \"$workflow->{Name}\"")
-#  unless defined $workflow->{$type . 's'};
+  if ( ! defined $workflow->{$type . 'Subscribe'} ) {
+    $self->Alert("No \"${type}Subscribe\" defined for \"$workflow->{Name}\"");
+    $kernel->yield('nextEvent',$payload);
+    return;
+  }
   %map = (
 	node	  => 'Nodes',
 	data	  => 'data',
