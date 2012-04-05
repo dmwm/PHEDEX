@@ -209,18 +209,8 @@ sub addData {
 # Add files, be it to a new or an existing block
   $self->Dbgmsg("addData ($dsname): add files to block(s)");
   $kernel->call($session,'makeFiles',$payload);
-  $self->postPush('addData',$payload);
+  PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'addData',$payload);
   return;
-}
-
-sub postPush {
-  my ($self,$event,$payload) = @_;
-  my ($post,@events);
-  return unless $post = $self->{$event};
-  return unless @events = @{$post->{addEvents}};
-  foreach ( @events ) {
-    push @{$payload->{events}}, $_; # TW TODO How to do this? ('Inject', $event);
-  }
 }
 
 1;

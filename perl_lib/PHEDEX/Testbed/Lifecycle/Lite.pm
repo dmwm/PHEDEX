@@ -571,4 +571,14 @@ sub reaper {
   }
 }
 
+sub post_push {
+  my ($self,$event,$payload) = @_;
+  my ($post,@events);
+  return unless $post = $self->{$event};
+  return unless @events = @{$post->{addEvents}};
+  foreach ( @events ) {
+    push @{$payload->{events}}, $_;
+  }
+}
+
 1;
