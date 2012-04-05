@@ -9,7 +9,7 @@ use JSON::XS;
 use Data::Dumper;
 
 our %params = (
-	  GENERATOR => 'generator --system phedex',
+	  DATAPROVIDER => 'dataprovider --system phedex',
 	);
 
 sub new {
@@ -48,22 +48,15 @@ sub generate {
     mkpath($tmp) || $self->Fatal("Cannot mkdir $tmp: $!\n");
   }
 
-  $tmp .= sprintf('/Lifecycle-%s-%s-%s-%s.',
-		$self->{ME},
-                $workflow->{Name},
-                $workflow->{Event},
-                $payload->{id});
-  $tmp =~ s% %_%g;
-  $in  = $tmp . 'in';
-  $out = $tmp . 'out';
-  $log = $tmp . 'log';
+  $tmp = $self->{parent}->tmpFile($payload);
+  ($in,$out,$log) = map { $tmp . $_ } ( 'in', 'out', 'log' );
   @cmd = split(' ',$cmd);
   push @cmd, ('--in',$in) unless $args->{no_input};
   push @cmd, ('--out',$out);
 
 # TW
 # Should not need to protect for $no_input, and should pass $payload to the
-# JSON encoder, but the generator doesn't yet understand the full payload
+# JSON encoder, but the dataprovider doesn't yet understand the full payload
 # structure
   if ( ! $args->{no_input} ) {
     $json = encode_json($workflow->{data}); # TODO should be ($payload);
@@ -84,7 +77,7 @@ sub makeDataset {
 
   $self->register('madeDataset');
   $workflow = $payload->{workflow};
-  $cmd  = $self->{GENERATOR} . ' --generate datasets ';
+  $cmd  = $self->{DATAPROVIDER} . ' --generate datasets ';
   $cmd .= "--num $workflow->{Datasets} ";
   
   $self->generate($kernel,
@@ -130,7 +123,7 @@ sub makeBlocks {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
-  $cmd  = $self->{GENERATOR} . ' --action add_blocks ';
+  $cmd  = $self->{DATAPROVIDER} . ' --action add_blocks ';
   $cmd .= "--num $workflow->{Blocks} ";
   
   $self->generate($kernel,
@@ -154,7 +147,7 @@ sub makeFiles {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
-  $cmd  = $self->{GENERATOR} . ' --action add_files ';
+  $cmd  = $self->{DATAPROVIDER} . ' --action add_files ';
   $cmd .= "--num $workflow->{Files} ";
   
   $self->generate($kernel,
@@ -188,6 +181,7 @@ sub addData {
 
   $workflow->{InjectionsThisBlock} ||= 0;
   $workflow->{BlocksThisDataset}   ||= 1; # Assume it already has a block
+# TW N.B. Assume I have only one dataset!
   $self->Dbgmsg("$workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
 
   $workflow->{InjectionsThisBlock}++;
