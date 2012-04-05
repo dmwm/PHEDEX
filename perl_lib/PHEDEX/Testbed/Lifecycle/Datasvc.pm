@@ -310,9 +310,19 @@ sub UpdateSubscription {
 
 sub doneUpdateSubscription {
   my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+# TW Take the first dataset
+  my $result = $obj->{PHEDEX}{DATASET}[0];
+# TW and the first subscription
+  my $subscription = $result->{SUBSCRIPTION}[0];
 
-  $self->Logmsg("done: UpdateSubscription($target,",Dumper($params),"\n",Dumper($obj->{PHEDEX}{DATASET}),"\n");
+  $self->Logmsg("UpdateSubscription: ",Dumper($params));
 # PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'UpdateSubscription',$payload);
+  foreach ( qw / suspend_until group priority / ) {
+    next unless $params->{$_};
+    if ( $params->{$_} ne $subscription->{uc $_} ) {
+      $self->Fatal("UpdateSubscription: $_ should be ",$params->{$_}," but is ",$subscription->{uc $_}," instead!");
+    }
+  }
   unshift @{$payload->{events}}, 'UpdateSubscription';
   $kernel->yield('nextEvent',$payload);
 }
