@@ -24,7 +24,8 @@ our %params =
 	  Incarnation		=>    0,
 	  Jitter		=>    0,
 	  CycleSpeedup		=>    1,
-	  GarbageCycle		=>  300,
+	  GarbageCycle		=>    0,
+	  GarbageAge		=> 3600,
 	  Sequence		=>    1,
 	  NJobs			=>    2,
 	);
@@ -193,6 +194,7 @@ sub lifecycle {
 		  'workflow' => $workflow,
 		  'events'   => [@events],
 		  'id'       => $self->id(),
+		  'step'     => 0,
 		};
   $self->Logmsg("lifecycle: yield nextEvent");
   $kernel->yield('nextEvent',$payload);
@@ -346,18 +348,16 @@ sub stats {
 }
 
 sub garbage {
-return;
-$DB::single=1;
   my ( $self, $kernel ) = @_[ OBJECT, KERNEL ];
-  my ($now,$blockid);
-  $now = time;
-  foreach $blockid ( keys %{$self->{_states}{cycle_end}} )
-  {
-    if ( $now - $self->{_states}{cycle_end}{$blockid} > $self->{GarbageCycle} )
-    {
-      $self->Logmsg("garbage-collecting block $blockid");
-      delete $self->{_states}{cycle_end}{$blockid};
-      delete $self->{_states}{$blockid};
+  my ($age,$now,$tmp);
+  $now = time();
+  $tmp = $self->{TmpDir};
+  foreach ( glob("$tmp/*") ) {
+    print "Examine $_\n";
+    $age = $now - (stat($_))[9];
+    if ( $age > $self->{GarbageAge} ) {
+      print "$_ is garbage\n";
+      unlink $_;
     }
   }
   $kernel->delay_set('garbage',$self->{GarbageCycle});
@@ -410,6 +410,23 @@ sub poe_default {
   $self->Fatal("\"$workflow->{Name}\": no Module or Exec for \"$event\", cannot invoke!\n");
 }
 
+our $_uniqueCounter=0;
+sub tmpFile {
+  my ($self,$payload,$me) = @_;
+  my ($tmp,$workflow);
+  $workflow = $payload->{workflow};
+  $me = $self->{ME} unless $me;
+  $tmp = sprintf($workflow->{TmpDir} . '/Lifecycle-%02x-%s-%s-%s-%06x.',
+                $self->{Incarnation},
+                $workflow->{Name},
+                $workflow->{Event},
+                $payload->{id},
+                $_uniqueCounter++);
+  $tmp =~ s% %_%g;
+  $tmp =~ s%//+%/%g;
+  return $tmp;
+}
+
 sub exec {
   my ($self,$session,$kernel,$event,$payload) = @_[ OBJECT, SESSION, KERNEL, STATE, ARG0 ];
   my ($workflow,$cmd,@cmd,$json,$postback,$in,$out,$log,$tmp,$timeout);
@@ -421,15 +438,8 @@ sub exec {
   if ( ! -d $tmp ) {
     mkpath($tmp) || $self->Fatal("Cannot mkdir $tmp: $!\n");
   }
-  $tmp .= sprintf('/Lifecycle-%02x-%s-%s-%s.',
-		$self->{Incarnation},
-		$workflow->{Name},
-		$event,
-		$payload->{id});
-  $tmp =~ s% %_%g;
-  $in  = $tmp . 'in';
-  $out = $tmp . 'out';
-  $log = $tmp . 'log';
+  $tmp = $self->tmpFile($payload);
+  ($in,$out,$log) = map { $tmp . $_ } ( 'in', 'out', 'log' );
   @cmd = split(' ',$cmd);
   push @cmd, ('--in',$in,'--out',$out);
   $json = encode_json($payload);
