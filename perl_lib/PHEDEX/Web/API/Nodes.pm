@@ -36,7 +36,7 @@ A simple dump of PhEDEx nodes.
 
 =cut
 
-sub duration{ return 60 * 60; }
+sub duration{ return 12 * 3600; }
 sub invoke { return nodes(@_); }
 sub nodes
 {

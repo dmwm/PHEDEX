@@ -35,7 +35,7 @@ Return groups known to PhEDEx.
 use PHEDEX::Web::SQL;
 use PHEDEX::Web::Util;
 
-sub duration { return 60 * 60; }
+sub duration { return 12 * 3600; }
 sub invoke { return agents(@_); }
 
 sub agents

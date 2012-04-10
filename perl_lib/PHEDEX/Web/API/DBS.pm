@@ -15,7 +15,7 @@ Return a hash of DBS ids and names. Used in the next-gen website.
 
 =cut
 
-sub duration { return 60 * 60; }
+sub duration { return 12 * 3600; }
 sub invoke { return dbs(@_); }
 sub dbs
 {
