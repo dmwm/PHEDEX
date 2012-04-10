@@ -161,7 +161,7 @@ my $map2 = {
     }
 };
 
-sub duration { return 0; }
+sub duration { return 300; }
 sub invoke { return subscriptions(@_); }
 
 sub subscriptions
