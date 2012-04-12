@@ -216,6 +216,7 @@ sub ReadConfig {
   $file = shift || $self->{LIFECYCLE_CONFIG};
   $hash = $self->{LIFECYCLE_COMPONENT};
   return unless $file;
+  $self->{Name} = $hash unless $self->{Name};
   T0::Util::ReadConfig($self,$hash,$file);
 
 # Sanitise the object, setting defaults etc
