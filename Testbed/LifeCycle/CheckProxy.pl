@@ -37,6 +37,7 @@ if ( !$status ) {
     $payload->{report} = { status => 'fatal', 'reason' => "close voms-proxy-info: $!" };
     $status = -2;
   };
+  $left = 0 unless defined $left;
   chomp $left;
 
   print "Time left on proxy: $left seconds\n";
