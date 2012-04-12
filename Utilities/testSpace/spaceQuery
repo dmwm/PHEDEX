@@ -4,24 +4,15 @@ use Getopt::Long;
 use PHEDEX::CLI::UserAgent;
 use Data::Dumper;
 
-my ($datasvc_url, $response,$content,$method,$timeout,$se,$time_since,$time_until);
-my ($level,$temp,$pua,$target,%payload,$rootdir,$output,$debug);
+my ($response,$content,$method,$timeout,$site,$time_since,$time_until);
+my ($level,$temp,$pua,$target,%payload,$rootdir);
 $timeout = 500;
-$datasvc_url = 'https://pheSpaceMon.cern.ch/phedex/datasvc';
+
 sub usage {
   print <<EOF;
   Usage:
 
-  spaceQuery --se NAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR --output FILENAME
-  level is depth of the directory structure you want to go, default is 4
-  se is the name of collection where data is put(now we use se name for collection name), must exist
-  time_since&time_until is to specify the time scope
-  root is the sub directory you are insterested in
-  output is the file name you put output of query
-
-  Additional Options:
-   --url DATASVC     overrides the default data service url:
-                     $datasvc_url
+  spaceQuery --site SITENAME --time_since DATE --time_until DATE --level LEVEL --root ROOTDIR
 
 EOF
   exit 0;
@@ -30,49 +21,34 @@ EOF
 $time_since = -1;
 $time_until = -1;
 GetOptions(
-        'se=s'    => \$se,
+        'site=s'    => \$site,
         'time_since=i'    => \$time_since,
         'time_until=i'    => \$time_until,
-        'url=s'    => \$datasvc_url,
         'level=i'    => \$level,
-        'root=s'    => \$rootdir,
-        'output=s'    => \$output,
-        'debug'    => \$debug,
+        'root=i'    => \$rootdir,
         'help|h'         => sub { &usage() }
 
       );
-
-if(!$se) { die "You must specify collect name\n"; }
 $pua = PHEDEX::CLI::UserAgent->new
     (
-      URL        => $datasvc_url,
+      URL        => 'https://pheSpaceMon.cern.ch/phedex/datasvc',
       FORMAT    => 'perl',
-      INSTANCE    => 'debug',
+      INSTANCE    => 'zhangxm',
     );
 $pua->timeout($timeout) if $timeout;
 $pua->CALL('storageusage');
 $pua->Dump();
 $target = $pua->target;
-$payload{se} = $se;
-
+%payload = @ARGV;
+$payload{site} = $site;
 if($level) { $payload{level} = $level; }
 if($rootdir) {$payload{rootdir} = $rootdir; }
 if($time_since >= 0)  { $payload{time_since} = $time_since; }
 if($time_until >= 0)  { $payload{time_until} = $time_until; }
-
-if ($debug) {
-   print "You input the following parameter:\n";
-   foreach ( keys %payload ) {
-      print $_, " :: ", $payload{$_}, "\n";
-   }
-   print "Data Service url::   $datasvc_url\n";
+foreach ( keys %payload ) {
+  print $_, " ", $payload{$_}, "\n";
 }
 
-if ($output) {
-   open(SOURCE, "> $output") or die "Couldn't open $output for writing!\n";
-}
- 
-print "Begin to connect data service......\n";
 $response = $pua->get($target,\%payload);
 if ( $pua->response_ok($response) )
 {
@@ -80,15 +56,11 @@ if ( $pua->response_ok($response) )
   no strict 'vars';
   $content = eval($response->content());
   $content = $content->{PHEDEX}{NODES};
+  Data::Dumper->Dump([ $content ]);
   foreach $record ( @{$content} ) {
-    #print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
-    if ($output) {
-       print SOURCE Data::Dumper->Dump([$record]);
-    }
-    else {
-       print Data::Dumper->Dump([$record]), "\n";
-    }
+    print "Record:\n  ",join(', ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
   }
+  exit 0;
 }
 else
 {
@@ -98,6 +70,3 @@ else
         $response->content(),"\n";
   die "exiting after failure\n";
 }
-
-close SOURCE;
-exit 0;
