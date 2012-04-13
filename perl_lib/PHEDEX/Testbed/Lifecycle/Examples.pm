@@ -6,6 +6,7 @@ use base 'PHEDEX::Core::Logging';
 use Time::HiRes;
 use POE;
 use Carp;
+use Clone qw( clone );
 use Data::Dumper;
 
 our %params = (
@@ -38,8 +39,7 @@ sub new
 sub backoff
 {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($workflow);
-  $workflow = $payload->{workflow};
+  my $workflow = $payload->{workflow};
 
   push @{$workflow->{Events}}, 'backoff';
   $workflow->{Intervals}{backoff} ||= 0;
@@ -48,11 +48,47 @@ sub backoff
   $kernel->yield('nextEvent',$payload);
 }
 
+sub ping
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  push @{$payload->{workflow}{Events}}, 'pong';
+  $self->Logmsg('Ping...');
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub pong
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  push @{$payload->{workflow}{Events}}, 'ping';
+  $self->Logmsg('Pong...');
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub counter
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  $payload->{workflow}{counter}++;
+  $self->Logmsg('Counter: count=',$payload->{workflow}{counter});
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub fork_counter
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  my ($i,$p);
+  for $i ( 1000, 2000, 3000 ) {
+    $p = clone $payload;
+    $p->{workflow}{counter} = $i;
+    $p->{workflow}{Intervals}{counter} = 2 * int($i/1000);
+    $self->Logmsg("fork_counter: create new workflow with counter=$i");
+    $kernel->yield('nextEvent',$p);
+  }
+}
+
 sub template
 {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
-  my ($workflow);
-  $workflow = $payload->{workflow};
+  my $workflow = $payload->{workflow};
 
   $kernel->yield('nextEvent',$payload);
 }
