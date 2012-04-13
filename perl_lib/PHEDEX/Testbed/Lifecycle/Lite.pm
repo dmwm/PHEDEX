@@ -584,9 +584,21 @@ sub post_push {
   my ($self,$event,$payload) = @_;
   my ($post,@events);
   return unless $post = $self->{$event};
+  return unless $post->{addEvents};
   return unless @events = @{$post->{addEvents}};
   foreach ( @events ) {
     push @{$payload->{workflow}->{Events}}, $_;
+  }
+}
+
+sub post_unshift {
+  my ($self,$event,$payload) = @_;
+  my ($post,@events);
+  return unless $post = $self->{$event};
+  return unless $post->{prependEvents};
+  return unless @events = @{$post->{prependEvents}};
+  foreach ( @events ) {
+    unshift @{$payload->{workflow}->{Events}}, $_;
   }
 }
 
