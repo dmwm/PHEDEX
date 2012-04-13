@@ -47,8 +47,13 @@ sub AUTOLOAD
   $self->{parent}->$attr(@_);
 }
 
+sub Verbose {
+  my $parent = (shift)->{parent};
+  $parent->Logmsg(@_) if $parent->{Verbose};
+}
+
 sub Dbgmsg {
-  my $parent = (shift)->{Debug};
+  my $parent = (shift)->{parent};
   $parent->Dbgmsg(@_) if $parent->{Debug};
 }
 

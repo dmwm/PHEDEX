@@ -201,7 +201,7 @@ sub addData {
 #   Start a new block
     $self->Dbgmsg("addData ($dsname): create one or more new blocks");
     $workflow->{InjectionsThisBlock} = 0;
-    push @{$payload->{events}}, $event;
+    push @{$workflow->{Events}}, $event;
     $kernel->call($session,'makeBlocks',$payload);
     return;
   }

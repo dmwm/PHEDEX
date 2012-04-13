@@ -123,6 +123,7 @@ sub gotAgents {
     foreach ( @{$agent->{AGENT}} ) {
       $tmp = clone $payload;
       $tmp->{workflow}{Agent} = $_;
+      $self->Logmsg('Agent: ',$agent->{NAME},' for ',$agent->{NODE});
       foreach ( qw/ HOST NAME NODE / ) { $tmp->{workflow}{Agent}{$_} = $agent->{$_}; }
       $kernel->yield('nextEvent',$tmp);
     }
@@ -171,6 +172,7 @@ sub gotNodes {
   $self->Logmsg("got: Nodes($target,{})\n");
   $nodes = $obj->{PHEDEX}{NODE};
   $re = $payload->{workflow}{NodeFilter};
+  $self->Logmsg('Nodes: ',join(', ',sort map { $_->{NAME} } @{$nodes}));
   foreach (@{$nodes}) {
     next if ( $re && !($_->{NAME} =~ m%$re%) );
     $tmp = clone $payload;
@@ -323,7 +325,7 @@ sub doneUpdateSubscription {
       $self->Fatal("UpdateSubscription: $_ should be ",$params->{$_}," but is ",$subscription->{uc $_}," instead!");
     }
   }
-  unshift @{$payload->{events}}, 'UpdateSubscription';
+  unshift @{$payload->{workflow}{Events}}, 'UpdateSubscription';
   $kernel->yield('nextEvent',$payload);
 }
 

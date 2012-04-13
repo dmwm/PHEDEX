@@ -109,7 +109,7 @@ sub nextEvent {
   $workflow = $payload->{workflow};
   $msg = "nextEvent: $workflow->{Name}:";
   if ( $id = $payload->{id} ) { $msg .= ' ' . $id; }
-  $event = shift(@{$payload->{events}});
+  $event = shift(@{$payload->{workflow}->{Events}});
   if ( !$event )
   {
     $self->Logmsg("$msg cycle ends") if $self->{Verbose};
@@ -119,7 +119,7 @@ sub nextEvent {
 
   $workflow->{Event} = $event;
   $delay = $workflow->{Intervals}{$event};
-  my $txt = join(', ',@{$payload->{events}});
+  my $txt = join(', ',@{$payload->{workflow}->{Events}});
   if ( !$delay ) {
     $self->Dbgmsg("$msg $event (now) $txt");
     $kernel->yield($event,$payload);
@@ -178,7 +178,7 @@ sub lifecycle {
   my ($event,$delay,@events);
   return unless $self->{Incarnation} == $workflow->{Incarnation};
 
-  push @events, @{$workflow->{events}};
+  push @events, @{$workflow->{Events}};
   if ( !$workflow->{NCycles} )
   {
 
@@ -281,7 +281,7 @@ sub ReadConfig {
     if ( ! defined($self->{Templates}{$workflow->{Template}}) ) {
       $self->Fatal("No Template for workflow \"$workflow->{Template}\"");
     }
-    push @{$workflow->{events}}, @{$self->{Templates}{$workflow->{Template}}{Events}};
+#   push @{$workflow->{Events}}, @{$self->{Templates}{$workflow->{Template}}{Events}};
 
 #   Workflow defaults fill in for undefined values
     $template = $self->{Templates}{$workflow->{Template}};
@@ -578,7 +578,7 @@ sub post_push {
   return unless $post = $self->{$event};
   return unless @events = @{$post->{addEvents}};
   foreach ( @events ) {
-    push @{$payload->{events}}, $_;
+    push @{$payload->{workflow}->{Events}}, $_;
   }
 }
 
