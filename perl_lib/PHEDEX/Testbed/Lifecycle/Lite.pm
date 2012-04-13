@@ -9,6 +9,7 @@ use File::Path;
 use POE;
 use JSON::XS;
 use Carp;
+use Clone qw(clone);
 use Data::Dumper;
 
 our @EXPORT = qw( );
@@ -281,7 +282,6 @@ sub ReadConfig {
     if ( ! defined($self->{Templates}{$workflow->{Template}}) ) {
       $self->Fatal("No Template for workflow \"$workflow->{Template}\"");
     }
-#   push @{$workflow->{Events}}, @{$self->{Templates}{$workflow->{Template}}{Events}};
 
 #   Workflow defaults fill in for undefined values
     $template = $self->{Templates}{$workflow->{Template}};
@@ -289,7 +289,7 @@ sub ReadConfig {
       if ( !defined( $workflow->{$_} ) )
       {
         $self->Logmsg("Setting default for \"$workflow->{Name}($_)\"") if $self->{Verbose};
-        $workflow->{$_} = $template->{$_};
+        $workflow->{$_} = clone $template->{$_};
       }
     }
 
@@ -298,16 +298,15 @@ sub ReadConfig {
       if ( !defined( $workflow->{$_} ) )
       {
         $self->Logmsg("Setting default for \"$workflow->{Name}($_)\"") if $self->{Verbose};
-        $workflow->{$_} = $self->{Defaults}{$_};
+        $workflow->{$_} = clone $self->{Defaults}{$_};
       }
     }
-
 
 #   Fill in global defaults for undefined dataset defaults 
     foreach ( @required ) {
       if ( !defined( $workflow->{$_} ) )
       {
-        $workflow->{$_} = $self->{$_};
+        $workflow->{$_} = clone $self->{$_};
         $self->Fatal("\"$_\" is undefined for workflow \"$workflow->{Name}\", even at global scope\n") unless defined $workflow->{$_};
       }
     }
