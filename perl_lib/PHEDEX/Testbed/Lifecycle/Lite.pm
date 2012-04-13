@@ -370,10 +370,20 @@ sub register {
 }
 
 sub poe_default {
-  my ($self,$kernel,$session,$event,$arg0) = @_[ OBJECT, KERNEL, SESSION, ARG0, ARG1 ];
+  my ($self,$kernel,$session,$event,$arg1) = @_[ OBJECT, KERNEL, SESSION, ARG0, ARG1 ];
   my ($payload,$workflow,$module,$namespace,$loader,$object);
-  $payload = $arg0->[0];
+  $payload = $arg1->[0];
   $workflow = $payload->{workflow};
+
+  if ( !$workflow->{Exec}{$event}  &&
+       !$workflow->{Module}{$event} ) {
+    if ( $self->{Defaults}{Module}{$event} ) {
+      $workflow->{Module}{$event} = $self->{Defaults}{Module}{$event};
+    }
+    if ( $self->{Defaults}{Exec}{$event} ) {
+      $workflow->{Exec}{$event} = clone $self->{Defaults}{Exec}{$event};
+    }
+  }
 
   if ( $workflow->{Exec}{$event} ) {
     $self->register($event,'exec');
