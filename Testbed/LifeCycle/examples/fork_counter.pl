@@ -24,7 +24,7 @@ foreach $i (1000, 2000, 3000) {
   $p->{workflow}{counter} = $i;
   $p->{workflow}{Intervals}{counter} = 2 * int($i/1000);
   push @p,$p;
-  print 'fork_counter: create new workflow with counter=',$p->{workflow}{counter},"\n";
+  print "fork_counter: create new workflow with counter=$i\n";
 }
 
 open  OUT, ">$out" or die "open output $out: $!\n";
