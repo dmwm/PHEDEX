@@ -79,7 +79,8 @@ sub makeDataset {
   $workflow = $payload->{workflow};
   $cmd  = $self->{DATAPROVIDER} . ' --generate datasets ';
   $cmd .= "--num $workflow->{Datasets} ";
-  
+
+  $self->Logmsg('makeDataset: creating ',$workflow->{Datasets},' datasets');
   $self->generate($kernel,
 		  $session,
 		  $payload,
@@ -126,6 +127,7 @@ sub makeBlocks {
   $cmd  = $self->{DATAPROVIDER} . ' --action add_blocks ';
   $cmd .= "--num $workflow->{Blocks} ";
   
+  $self->Logmsg('makeBlocks: creating ',$workflow->{Blocks},' blocks per open dataset');
   $self->generate($kernel,
 		  $session,
 		  $payload,
@@ -150,6 +152,7 @@ sub makeFiles {
   $cmd  = $self->{DATAPROVIDER} . ' --action add_files ';
   $cmd .= "--num $workflow->{Files} ";
   
+  $self->Logmsg('makeFiles: creating ',$workflow->{Files},' files per open block');
   $self->generate($kernel,
 		  $session,
 		  $payload,
@@ -159,12 +162,6 @@ sub makeFiles {
 		  }
 		  );
 }
-
-#sub madeFiles {
-#  my ($self,$kernel,$session,$arg0,$arg1) = @_[OBJECT,KERNEL,SESSION,ARG0,ARG1];
-#  $arg0->[0]->{workflow}{data} = $self->{parent}->post_exec($arg0,$arg1);
-#  $kernel->yield('nextEvent',$payload);
-#}
 
 sub addData {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
@@ -182,7 +179,7 @@ sub addData {
   $workflow->{InjectionsThisBlock} ||= 0;
   $workflow->{BlocksThisDataset}   ||= 1; # Assume it already has a block
 # TW N.B. Assume I have only one dataset!
-  $self->Dbgmsg("$workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
+  $self->Logmsg("addData: $workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
 
   $workflow->{InjectionsThisBlock}++;
   if ( $workflow->{InjectionsThisBlock} >= $workflow->{InjectionsPerBlock} ) {
@@ -190,7 +187,7 @@ sub addData {
     foreach ( @{$dataset->{blocks}} ) {
       $_->{block}{'is-open'} = 'n';
     }
-    $self->Dbgmsg("addData ($dsname): close one or more blocks");
+    $self->Logmsg("addData ($dsname): close one or more blocks");
     $workflow->{BlocksThisDataset}++;
     if ( $workflow->{BlocksThisDataset} > $workflow->{BlocksPerDataset} ) {
       $self->Logmsg("addData ($dsname): all blocks are complete, terminating.");
@@ -199,18 +196,45 @@ sub addData {
     }
 
 #   Start a new block
-    $self->Dbgmsg("addData ($dsname): create one or more new blocks");
+    $self->Logmsg("addData ($dsname): create one or more new blocks");
     $workflow->{InjectionsThisBlock} = 0;
-    push @{$workflow->{Events}}, $event;
     $kernel->call($session,'makeBlocks',$payload);
+    PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'addData',$payload);
+    PHEDEX::Testbed::Lifecycle::Lite::post_unshift($self,'addData',$payload);
     return;
   }
 
 # Add files, be it to a new or an existing block
-  $self->Dbgmsg("addData ($dsname): add files to block(s)");
+  $self->Logmsg("addData ($dsname): add files to block(s)");
   $kernel->call($session,'makeFiles',$payload);
   PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'addData',$payload);
+  PHEDEX::Testbed::Lifecycle::Lite::post_unshift($self,'addData',$payload);
   return;
+}
+
+sub dumpData {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($i,$j,$k,$data,$dataset,$block,$file,$nDatasets,$nBlocks,$nFiles);
+
+  $nDatasets = $nBlocks = $nFiles = 0;
+  $data = $payload->{workflow}{data};
+  foreach $i ( @{$data} ) {
+    $dataset = $i->{dataset};
+    $nDatasets++;
+    print "dataset: name=\"$dataset->{name}\", is-open=\"$dataset->{'is-open'}\"\n";
+    foreach $j ( @{$dataset->{blocks}} ) {
+      $block = $j->{block};
+      $nBlocks++;
+      print "  block: name=\"$block->{name}\", is-open=\"$block->{'is-open'}\"\n";
+      foreach $k ( @{$block->{files}} ) {
+        $file = $k->{file};
+        $nFiles++;
+        print "    file: name=\"$file->{name}\" bytes=\"$file->{bytes}\" checksum=\"$file->{checksum}\"\n";
+      }
+    }
+  }
+  $self->Logmsg("dumpData: Total of $nDatasets datasets, $nBlocks blocks, and $nFiles files");
+  $kernel->yield('nextEvent',$payload);
 }
 
 1;
