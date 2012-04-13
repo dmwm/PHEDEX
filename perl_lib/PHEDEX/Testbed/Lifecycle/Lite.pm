@@ -193,7 +193,6 @@ sub lifecycle {
 
   my $payload = {
 		  'workflow' => $workflow,
-		  'events'   => [@events],
 		  'id'       => $self->id(),
 		  'step'     => 0,
 		};
