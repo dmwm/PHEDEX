@@ -176,13 +176,15 @@ sub addData {
   $dataset  = $workflow->{data}[0]{dataset};
   $dsname   = $dataset->{name};
 
-  $workflow->{InjectionsThisBlock} ||= 0;
-  $workflow->{BlocksThisDataset}   ||= 1; # Assume it already has a block
+# Take default block/file counts from the dataset. Take the last block for
+# the number of files. May not be correct, but good enough!
+  $workflow->{InjectionsThisBlock} ||= scalar @{$dataset->{blocks}[-1]{block}{files}};
+  $workflow->{BlocksThisDataset}   ||=  scalar @{$dataset->{blocks}};
 # TW N.B. Assume I have only one dataset!
-  $self->Logmsg("addData: $workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
+  $self->Logmsg("addData ($dsname): $workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
 
   $workflow->{InjectionsThisBlock}++;
-  if ( $workflow->{InjectionsThisBlock} >= $workflow->{InjectionsPerBlock} ) {
+  if ( $workflow->{InjectionsThisBlock} > $workflow->{InjectionsPerBlock} ) {
 #   These blocks are full. Close them, and go on to the next set
     foreach ( @{$dataset->{blocks}} ) {
       $_->{block}{'is-open'} = 'n';
@@ -212,6 +214,50 @@ sub addData {
   return;
 }
 
+sub closeBlocks {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($data,$dataset,$dsname);
+  my ($nDatasets,$nBlocks,$nOpenDatasets,$nBlocksClosed);
+
+  $nDatasets = $nBlocks = $nOpenDatasets = $nBlocksClosed = 0;
+  $data = $payload->{workflow}{data};
+  $dsname = $data->[0]{dataset}{name};
+
+  foreach $dataset ( @{$data} ) {
+    $nDatasets++;
+    next if ( $dataset->{dataset}{'is-open'} eq 'n' );
+    $nOpenDatasets++;
+    foreach ( @{$dataset->{dataset}{blocks}} ) {
+      $nBlocks++;
+      next if ( $_->{block}{'is-open'} eq 'n' );
+      $nBlocksClosed++;
+      $_->{block}{'is-open'} = 'n';
+    }
+  }
+  $self->Logmsg("closeBlocks ($dsname): Closed $nBlocksClosed blocks in $nOpenDatasets open datasets (out of $nBlocks blocks in $nDatasets datasets)");
+  $kernel->yield('nextEvent',$payload);
+}
+ 
+sub closeDatasets {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($data,$dataset,$dsname,$nDatasets,$nClosedDatasets);
+
+  $self->register('closeBlocks');
+  $kernel->call($session,'closeBlocks',$payload);
+  $nDatasets = $nClosedDatasets = 0;
+  $data   = $payload->{workflow}{data};
+  $dsname = $data->[0]{dataset}{name};
+
+  foreach $dataset ( @{$data} ) {
+    $nDatasets++;
+    next if ( $dataset->{dataset}{'is-open'} eq 'n' );
+    $nClosedDatasets++;
+    $dataset->{dataset}{'is-open'} = 'n';
+  }
+  $self->Logmsg("closeDatasets ($dsname): Closed $nClosedDatasets datasets out of $nDatasets total");
+  $kernel->yield('nextEvent',$payload);
+}
+ 
 sub dumpData {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($i,$j,$k,$data,$dataset,$block,$file,$nDatasets,$nBlocks,$nFiles);
