@@ -93,6 +93,12 @@ sub make_statistics
   push @{$payload->{workflow}{Events}}, 'make_statistics';
   $self->Logmsg("random_0_10 = ",$payload->{stats}{random_0_10},' ',
 		"random_6_12 = ",$payload->{stats}{random_6_12});
+  if ( rand() > 0.6 ) {
+    $payload->{report} = {
+      status => ('info','warn','error','fatal')[int(rand(4))],
+      reason => 'random error/warning/info/fatal message',
+    };
+  }
   $kernel->yield('nextEvent',$payload);
 }
 
