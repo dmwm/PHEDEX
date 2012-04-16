@@ -85,6 +85,17 @@ sub fork_counter
   }
 }
 
+sub make_statistics
+{
+  my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
+  $payload->{stats}{random_0_10} = rand(10);
+  $payload->{stats}{random_6_12} = 6+rand(6);
+  push @{$payload->{workflow}{Events}}, 'make_statistics';
+  $self->Logmsg("random_0_10 = ",$payload->{stats}{random_0_10},' ',
+		"random_6_12 = ",$payload->{stats}{random_6_12});
+  $kernel->yield('nextEvent',$payload);
+}
+
 sub template
 {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
