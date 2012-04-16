@@ -241,12 +241,15 @@ sub Subscribe {
     return;
   }
   %map = (
-	node	  => 'Nodes',
-	data	  => 'data',
-        group	  => 'Group',
-        priority  => 'Priority',
-        move	  => 'IsMove',
-        custodial => 'IsCustodial',
+        node	   => 'Nodes',
+        data	   => 'data',
+        group	   => 'Group',
+        priority   => 'Priority',
+        move	   => 'IsMove',
+        custodial  => 'IsCustodial',
+        static     => 'IsStatic',
+        time_start => 'TimeStart',
+        level      => 'Level',
   );
   foreach ( keys %map ) {
     $params->{$_} = $workflow->{$type.'Subscribe'}{$map{$_}} ||
