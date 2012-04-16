@@ -71,8 +71,8 @@ sub _poe_init {
 
   $kernel->alias_set( $self->{ME} );
 
-# Declare the injection and other states. Set the stats counter to fire, and
-# start watching my configuration file. Things don't actually get rolling until
+# Declare the injection and other states.
+# Start watching my configuration file. Things don't actually get rolling until
 # the configuration file is read, so yield to that at the end.
   $kernel->state('poe_default', $self);
   $kernel->state(  'nextEvent', $self );
@@ -80,7 +80,6 @@ sub _poe_init {
   $kernel->state(     'reaper', $self );
 
   $kernel->state(      'stats', $self );
-  $kernel->delay_set('stats',$self->{StatsFrequency});
 
   $kernel->state(    'garbage', $self );
   $kernel->delay_set('garbage', $self->{GarbageCycle}) if $self->{GarbageCycle};
@@ -106,8 +105,10 @@ sub Config { return (shift)->{LIFECYCLE_CONFIG}; }
 sub nextEvent {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($workflow,$cmd,$module,$event,$delay,$id,$msg);
-
   $workflow = $payload->{workflow};
+
+  $self->processStats($payload->{stats},$workflow->{Name});
+
   $msg = "nextEvent: $workflow->{Name}:";
   if ( $id = $payload->{id} ) { $msg .= ' ' . $id; }
   $event = shift(@{$payload->{workflow}->{Events}});
@@ -136,6 +137,10 @@ sub FileChanged {
   my ($self,$kernel) = @_[ OBJECT, KERNEL ];
   $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
+
+  $kernel->alarm_remove($self->{_stats_timer}) if $self->{_stats_timer};
+  $self->{_stats_timer} = $kernel->delay_set('stats',$self->{StatsFrequency});
+
   if ( $self->{Suspend} ) {
     $self->Logmsg("I am suspended, will not start new workflows");
     return;
@@ -419,7 +424,8 @@ sub poe_default {
   $self->Fatal("\"$workflow->{Name}\": no Module or Exec for \"$event\", cannot invoke!\n");
 }
 
-our $_uniqueCounter=0;
+our $_uniqueCounter = 0;
+our $_uniqueCounterMax = 16*16*16*16*16*16;
 sub tmpFile {
   my ($self,$payload,$me) = @_;
   my ($tmp,$workflow);
@@ -431,6 +437,7 @@ sub tmpFile {
                 $workflow->{Event},
                 $payload->{id},
                 $_uniqueCounter++);
+  $_uniqueCounter = 0 if $_uniqueCounter >= $_uniqueCounterMax;
   $tmp =~ s% %_%g;
   $tmp =~ s%//+%/%g;
   return $tmp;
@@ -463,7 +470,7 @@ sub exec {
 sub post_exec {
   my ($self, $arg0, $arg1) = @_;
   my ($workflow,$payload,$in,$out,$log,$json,$result,$name,$id,$event);
-  my ($job,$duration,$status,$delay,$report,$reason,$msg,$stats,$key,$value,$skey);
+  my ($job,$duration,$status,$delay,$report,$reason,$msg,$stats);
 
   ($payload,$in,$out,$log) = @{$arg0};
   $workflow = $payload->{workflow};
@@ -535,24 +542,29 @@ sub post_exec {
 
 # If there is a 'stats' section, act on the information it contains
   if ( ref($result) eq 'HASH' ) {
-    if ( $stats = $result->{stats} ) {
-      while ( ($key,$value) = each( %{$stats} ) ) {
-        if ( !$self->{stats}{$name}{$key} ) { $self->{stats}{$name}{$key} = {}; }
-        $skey = $self->{stats}{$name}{$key};
-        if ( ! $skey->{count} ) {
-          $skey->{count} = $skey->{total} = 0;
-          $skey->{min} = $skey->{max} = $value;
-        }
-        $skey->{total} += $value;
-        $skey->{count}++;
-        $skey->{mean} = $skey->{total} / $skey->{count};
-        if ( $skey->{min} > $value ) { $skey->{min} = $value; }
-        if ( $skey->{max} < $value ) { $skey->{max} = $value; }
-      }
-    }
-    delete $result->{stats};
+    $self->processStats($result->{stats},$name);
   }
-  return $result;
+  return $result
+}
+
+sub processStats {
+  my ($self,$stats,$name) = @_;
+  my ($key,$value,$skey);
+  return unless $stats;
+
+  while ( ($key,$value) = each( %{$stats} ) ) {
+    if ( !$self->{stats}{$name}{$key} ) { $self->{stats}{$name}{$key} = {}; }
+    $skey = $self->{stats}{$name}{$key};
+    if ( ! $skey->{count} ) {
+      $skey->{count} = $skey->{total} = 0;
+      $skey->{min} = $skey->{max} = $value;
+    }
+    $skey->{total} += $value;
+    $skey->{count}++;
+    $skey->{mean} = $skey->{total} / $skey->{count};
+    if ( $skey->{min} > $value ) { $skey->{min} = $value; }
+    if ( $skey->{max} < $value ) { $skey->{max} = $value; }
+  }
 }
 
 sub reaper {
