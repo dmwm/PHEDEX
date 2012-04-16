@@ -149,6 +149,7 @@ sub gotAuth {
 
   $self->Logmsg("got: Auth($target,",Data::Dumper->Dump([$params]),")\n");
   $auth = $obj->{PHEDEX}{AUTH};
+  $payload->{workflow}{auth} = $auth;
   $self->Logmsg("Auth=,",Data::Dumper->Dump([$auth]),")\n");
   $kernel->yield('nextEvent',$payload);
 }
