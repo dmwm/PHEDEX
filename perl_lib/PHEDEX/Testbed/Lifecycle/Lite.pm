@@ -107,7 +107,8 @@ sub nextEvent {
   my ($workflow,$cmd,$module,$event,$delay,$id,$msg);
   $workflow = $payload->{workflow};
 
-  $self->processStats($payload->{stats},$workflow->{Name});
+  $self->processStats($payload);
+  $self->processReport($payload);
 
   $msg = "nextEvent: $workflow->{Name}:";
   if ( $id = $payload->{id} ) { $msg .= ' ' . $id; }
@@ -470,7 +471,7 @@ sub exec {
 sub post_exec {
   my ($self, $arg0, $arg1) = @_;
   my ($workflow,$payload,$in,$out,$log,$json,$result,$name,$id,$event);
-  my ($job,$duration,$status,$delay,$report,$reason,$msg,$stats);
+  my ($job,$duration,$status,$delay,$report,$stats);
 
   ($payload,$in,$out,$log) = @{$arg0};
   $workflow = $payload->{workflow};
@@ -523,17 +524,7 @@ sub post_exec {
 
 # If there is a 'report' section, act on the information it contains
   if ( ref($result) eq 'HASH' ) {
-    if ( $report = $result->{report} ) {
-      $status = lc $report->{status};
-      $reason = $report->{reason} || 'none given';
-      $msg = "$name:$id status=$status, reason=$reason. Abandoning...\n";
-      if    ( $status eq 'fatal' ) { $self->Fatal($msg); }
-      elsif ( $status eq 'error' ) { $self->Alert($msg); }
-      elsif ( $status eq 'warn'  ) { $self->Warn($msg);  }
-      elsif ( $status eq 'info'  ) { $self->Logmsg($msg); }
-#     elsif ( $status eq 'OK'    ) { } # NOP!
-    }
-    delete $result->{report};
+    $self->processReport($result);
   }
 
 # Global statistics
@@ -542,16 +533,17 @@ sub post_exec {
 
 # If there is a 'stats' section, act on the information it contains
   if ( ref($result) eq 'HASH' ) {
-    $self->processStats($result->{stats},$name);
+    $self->processStats($result);
   }
   return $result
 }
 
 sub processStats {
-  my ($self,$stats,$name) = @_;
-  my ($key,$value,$skey);
-  return unless $stats;
+  my ($self,$payload) = @_;
+  my ($stats,$name,$key,$value,$skey);
+  return unless $stats = $payload->{stats};
 
+  $name = $payload->{workflow}{Name};
   while ( ($key,$value) = each( %{$stats} ) ) {
     if ( !$self->{stats}{$name}{$key} ) { $self->{stats}{$name}{$key} = {}; }
     $skey = $self->{stats}{$name}{$key};
@@ -565,6 +557,28 @@ sub processStats {
     if ( $skey->{min} > $value ) { $skey->{min} = $value; }
     if ( $skey->{max} < $value ) { $skey->{max} = $value; }
   }
+  delete $payload->{stats};
+}
+
+sub processReport {
+  my ($self,$payload) = @_;
+  my ($report,$name,$id,$status,$reason,$msg);
+  return unless $report = $payload->{report};
+
+  $name = $payload->{workflow}{Name};
+  $id   = $payload->{id};
+
+  if ( $report = $payload->{report} ) {
+    $status = lc $report->{status};
+    $reason = $report->{reason} || 'none given';
+    $msg = "$name:$id status=$status, reason=$reason";
+    if    ( $status eq 'fatal' ) { $self->Fatal($msg,', Abandoning...'); }
+    elsif ( $status eq 'error' ) { $self->Alert($msg); }
+    elsif ( $status eq 'warn'  ) { $self->Warn($msg);  }
+    elsif ( $status eq 'info'  ) { $self->Logmsg($msg); }
+#   elsif ( $status eq 'OK'    ) { } # NOP!
+  }
+  delete $payload->{report};
 }
 
 sub reaper {
