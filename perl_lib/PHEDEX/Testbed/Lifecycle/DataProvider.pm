@@ -77,6 +77,7 @@ sub makeDataset {
 
   $self->register('madeDataset');
   $workflow = $payload->{workflow};
+  $workflow->{Datasets} = 1 unless defined $workflow->{Datasets};
   $cmd  = $self->{DATAPROVIDER} . ' --generate datasets ';
   $cmd .= "--num $workflow->{Datasets} ";
 
@@ -124,6 +125,7 @@ sub makeBlocks {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
+  $workflow->{Blocks} = 1 unless defined $workflow->{Blocks};
   $cmd  = $self->{DATAPROVIDER} . ' --action add_blocks ';
   $cmd .= "--num $workflow->{Blocks} ";
   
@@ -149,6 +151,7 @@ sub makeFiles {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
+  $workflow->{Files} = 1 unless defined $workflow->{Files};
   $cmd  = $self->{DATAPROVIDER} . ' --action add_files ';
   $cmd .= "--num $workflow->{Files} ";
   
