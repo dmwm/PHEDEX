@@ -14,10 +14,10 @@ our %env_keys = map { $_ => 1 } @env_keys;
 our %params =
 	(
 	  URL		=> undef,
-    	  CERT_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
-	  KEY_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
-	  CA_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
-	  CA_DIR	=> $ENV{X509_CERT_DIR},
+    	  CERT_FILE	=> undef,
+	  KEY_FILE	=> undef,
+	  CA_FILE	=> undef,
+	  CA_DIR	=> undef,
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
 	  TIMEOUT	=> 5*60,
@@ -31,6 +31,8 @@ our %params =
 
 	  PARANOID	=> 1,
 	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
+
+	  CLEAN_ENVIRONMENT	=> 1,
 	);
 
 sub new
@@ -40,7 +42,7 @@ sub new
   my $self = $class->SUPER::new();
   map { $self->{$_} = $params{$_} } keys %params;
   my %h = @_;
-  map { $self->{$_} = $h{$_}  if exists($h{$_}) } keys %h;
+  map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
   bless $self, $class;
 
   $self->init();
@@ -78,10 +80,15 @@ sub init
 {
   my $self = shift;
 
-  if ( $self->{NOCERT} ) {
+  if ( $self->{CLEAN_ENVIRONMENT} || $self->{NOCERT} )
+  {
     foreach ( map { "HTTPS_$_" } @env_keys ) { delete $ENV{$_} if $ENV{$_}; }
-  } else {
-    foreach ( @env_keys ) {
+  }
+
+  if ( !$self->{NOCERT} )
+  {
+    foreach ( @env_keys )
+    {
       $ENV{'HTTPS_' . $_} = $self->{$_} if $self->{$_};
     }
   }
@@ -108,8 +115,7 @@ sub test_certificate
   $response = $self->get($url);
   if ( !$self->response_ok($response) )
   {
-    print "Bad response from server: ",$response->status_line,"\n";
-    print "Server response: ",$response->content(),"\n";
+    print "Bad response from server: ",$response->content(),"\n";
     return;
   }
 
@@ -159,24 +165,6 @@ sub path_info
   my $self = shift;
   return $self->{TARGET} if $self->{TARGET};
   return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
-}
-
-sub get
-{
-  my ($self,$url,$h,$headers) = @_;
-  my $args='';
-  no strict 'vars';
-  foreach my $key ( keys %{$h} )
-  {
-    if ( $args ) { $args .= '&'; }
-    if ( ref($h->{$key}) eq 'ARRAY' ) {
-      $args .= join( '&', map { "$key=" . ( $_ || '') } @{$h->{$key}} );
-    } else {
-      $args .= $key . '=' . ( $h->{$key} || '');
-    }
-  }
-  if ( $args ) { $url .= '?' . $args; }
-  my $response = $self->SUPER::get($url,%{$headers});
 }
 
 1;

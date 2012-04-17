@@ -165,12 +165,7 @@ sub total_size
   my $item = shift;
 # Check the Devel::Size module is loaded!
   return undef unless exists $INC{'Devel/Size.pm'};
-  my $size = Devel::Size::total_size($item);
-  my $unit = '';
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='kB'; }
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='MB'; }
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='GB'; }
-  return $size . $unit;
+  return Devel::Size::total_size($item);
 }
 
 1;

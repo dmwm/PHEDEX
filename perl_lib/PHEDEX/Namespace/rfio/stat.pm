@@ -15,7 +15,6 @@ sub new
              };
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';
-  print "*"x50 . "\nWARNING: the rfio  protocol is not supported!\n" . "*"x50 . "\n";
   return $self;
 }
 
