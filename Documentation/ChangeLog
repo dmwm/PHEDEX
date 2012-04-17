@@ -5,7 +5,7 @@ Changes for Schema and DB Config
 	t_xfer_file_latency for files currently in transfer,
 	t_log_block_latency for historical block records,
 	t_log_file_latency for historical file records
-	See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexCodeFests#Latency_codefest_August_2011 for details
+	See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjLatency for details
   - t_dps_block_dest: introduce new block destination state values for blocks that cannot be routed
   - t_status_block_request: new table used to aggregate at block-level the file routing requests in t_xfer_request
   - t_status_block_path: add column time_arrive for the predicted block arrival time, based on the file arrival
