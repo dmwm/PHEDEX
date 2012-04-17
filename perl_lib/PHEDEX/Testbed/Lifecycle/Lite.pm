@@ -32,6 +32,8 @@ our %params =
 	  NJobs			=>    2,
 	);
 
+our $pmon;
+
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
@@ -45,9 +47,10 @@ sub new {
 
   $self->{_njobs} = 0; # for UA-based stuff
 
-  $self->{pmon} = PHEDEX::Monitoring::Process->new();
+  $pmon = PHEDEX::Monitoring::Process->new();
 
   bless $self, $class;
+  $pmon->MonitorSize('Lifecycle',$self);
   return $self;
 }
 
@@ -350,7 +353,9 @@ sub stats {
   my ($stats,$event,$key,$value);
   $stats = $self->{stats};
   $self->Logmsg("Statistics: ",Dumper($stats));
-  $self->Logmsg("Memory/CPU use: ",$self->{pmon}->FormatStats($self->{pmon}->ReadProcessStats));
+  $self->Logmsg("Statistics: memory/CPU use: ",$pmon->FormatStats($pmon->ReadProcessStats));
+
+  $self->Logmsg("Statistics: agent & objects: ",$pmon->TotalSizes());
   $self->Dbgmsg("JobManager: Queued:",$self->{JOBMANAGER}->jobsQueued,", Running:",$self->{JOBMANAGER}->jobsRunning());
   return unless $kernel;
   $kernel->delay_set('stats',$self->{StatsFrequency});
