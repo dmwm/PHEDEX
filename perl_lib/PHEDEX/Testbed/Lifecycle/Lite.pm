@@ -4,6 +4,7 @@ use warnings;
 use base 'PHEDEX::Testbed::Agent';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
+use PHEDEX::Monitoring::Process;
 use Time::HiRes;
 use File::Path;
 use POE;
@@ -43,6 +44,8 @@ sub new {
 	KEEPALIVE => 5);
 
   $self->{_njobs} = 0; # for UA-based stuff
+
+  $self->{pmon} = PHEDEX::Monitoring::Process->new();
 
   bless $self, $class;
   return $self;
@@ -347,6 +350,7 @@ sub stats {
   my ($stats,$event,$key,$value);
   $stats = $self->{stats};
   $self->Logmsg("Statistics: ",Dumper($stats));
+  $self->Logmsg("Memory/CPU use: ",$self->{pmon}->FormatStats($self->{pmon}->ReadProcessStats));
   $self->Dbgmsg("JobManager: Queued:",$self->{JOBMANAGER}->jobsQueued,", Running:",$self->{JOBMANAGER}->jobsRunning());
   return unless $kernel;
   $kernel->delay_set('stats',$self->{StatsFrequency});
