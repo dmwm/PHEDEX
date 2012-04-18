@@ -21,9 +21,16 @@ sub usage
 {
   die <<EOF;
 
-  Usage $0 <options>
+ Usage $0 <options>
 
-  ...no detailed help yet, sorry...
+ where options include:
+ --config <name of config file> (obligatory)
+ --log    <name of log file> Causes agent to run as a daemon and write it's output to the
+          named logfile
+ --help   I guess you know what this one does by now :-)
+
+ See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjLifeCycleTestbed for detailed
+documentation on the Lifecycle agent.
 
 EOF
 }
