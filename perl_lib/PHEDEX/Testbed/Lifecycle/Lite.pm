@@ -30,6 +30,8 @@ our %params =
 	  GarbageAge		=> 3600,
 	  Sequence		=>    1,
 	  NJobs			=>    2,
+	  MonitorAgentSize	=>    0,
+	  MonitorPayloadSize	=>    0,
 	);
 
 our $pmon;
@@ -50,15 +52,6 @@ sub new {
   $pmon = PHEDEX::Monitoring::Process->new();
 
   bless $self, $class;
-  if ( $self->{MonitorAgentSize} || $self->{MonitorWorkflowSize} ) {
-    eval("require Devel::Size");
-    if ( $@ ) {
-      my $msg = $self->{MonitorAgentSize} ? 'MonitorAgentSize' : '';
-      $msg .= $self->{MonitorWorkflowSize} ? ( $msg ? ' and ' : '' ) . 'MonitorWorkflowSize' : '';
-      $self->Fatal("Failed to load Devel::Size. Either remove $msg from your configuration or adjust your PERL5LIB");
-    }
-  }
-  PHEDEX::Monitoring::Process::MonitorSize('Lifecycle',$self) if $self->{MonitorAgentSize};
   return $self;
 }
 
@@ -84,10 +77,6 @@ sub _poe_init {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
   $kernel->alias_set( $self->{ME} );
-  if ( $self->{MonitorAgentSize} ) {
-    PHEDEX::Monitoring::Process::MonitorSize('POE::Kernel',$kernel);
-    PHEDEX::Monitoring::Process::MonitorSize('Lifecycle session',$session);
-  }
 
 # Declare the injection and other states.
 # Start watching my configuration file. Things don't actually get rolling until
@@ -125,6 +114,7 @@ sub nextEvent {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($workflow,$cmd,$module,$event,$delay,$id,$msg);
   $workflow = $payload->{workflow};
+
   if ( $self->{MonitorWorkflowSize} ) {
     if ( ! $payload->{UUID} ) {
       $payload->{UUID} = $workflow->{Name} . ':' . $uuid++;
@@ -142,6 +132,7 @@ sub nextEvent {
   {
     $self->Logmsg("$msg cycle ends") if $self->{Verbose};
     $self->{_states}{cycle_end}{$id} = time;
+
     if ( $self->{MonitorWorkflowSize} ) {
       $self->Logmsg("Monitoring: final size of $payload->{UUID}: " .
 		    PHEDEX::Monitoring::Process::total_size($payload->{UUID}));
@@ -166,7 +157,7 @@ sub nextEvent {
 }
  
 sub FileChanged {
-  my ($self,$kernel) = @_[ OBJECT, KERNEL ];
+  my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
   $self->Logmsg("\"",$self->{LIFECYCLE_CONFIG},"\" has changed...");
   $self->ReadConfig();
 
@@ -182,6 +173,21 @@ sub FileChanged {
     $self->{JOBMANAGER}{NJOBS} = $self->{NJobs};
   }
  
+  if ( $self->{MonitorAgentSize} || $self->{MonitorWorkflowSize} ) {
+    eval("require Devel::Size");
+    if ( $@ ) {
+      my $msg = $self->{MonitorAgentSize} ? 'MonitorAgentSize' : '';
+      $msg .= $self->{MonitorWorkflowSize} ? ( $msg ? ' and ' : '' ) . 'MonitorWorkflowSize' : '';
+      $self->Fatal("Failed to load Devel::Size. Either remove $msg from your configuration or adjust your PERL5LIB");
+    }
+  }
+
+  if ( $self->{MonitorAgentSize} ) {
+    PHEDEX::Monitoring::Process::MonitorSize('Lifecycle',$self);
+    PHEDEX::Monitoring::Process::MonitorSize('POE::Kernel',$kernel);
+    PHEDEX::Monitoring::Process::MonitorSize('Lifecycle session',$session);
+  }
+
   $self->Logmsg("Beginning new cycle...");
   my ($workflow,$nWorkflows);
   $nWorkflows = 0;
@@ -630,6 +636,7 @@ sub reaper {
     foreach $payload ( @{$result} ) {
       $payload->{parent_id} = $payload->{id};
       $payload->{id} = $self->id();
+      delete $payload->{UUID};
       $self->Dbgmsg("yield nextEvent");
       $kernel->delay_set('nextEvent',$delay,$payload);
       $delay += 0.05;
