@@ -37,7 +37,8 @@ our %params =
 
           SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
           NOTIFY_PLUGIN         => 'logfile',   # plugin used for reporting 
-          REPORT_PLUGIN         => 'summary'    # plugin used to generate report
+          REPORT_PLUGIN         => 'summary',   # plugin used to generate report
+          WATCHDOG_NOTIFICATION_PORT => 9999,
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -458,6 +459,7 @@ sub _udp_listen
       $self->checkAgentLimits($label,$pid);
     }
   }
+  $self->watchdog_notify('ping');
   print $message;
 }
 
@@ -570,5 +572,12 @@ sub _do_summary {
   $kernel->delay_set('_do_summary',$self->{SUMMARY_INTERVAL});
 }
 
+sub watchdog_notify{
+  my $self = shift;
+  my $port = $self->{NOTIFICATION_PORT};
+  $self->{NOTIFICATION_PORT} = $self->{WATCHDOG_NOTIFICATION_PORT};
+  $self->Notify(@_);
+  $self->{NOTIFICATION_PORT} = $port;
+}
 1;
 
