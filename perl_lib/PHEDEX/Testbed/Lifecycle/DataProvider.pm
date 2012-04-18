@@ -1,10 +1,8 @@
 package PHEDEX::Testbed::Lifecycle::DataProvider;
-#
-# Interact with the lifecycle-dataprovider package
 use strict;
 use warnings;
 use base 'PHEDEX::Core::Logging';
-use POE qw( Queue::Array );
+use POE;
 use JSON::XS;
 use Data::Dumper;
 

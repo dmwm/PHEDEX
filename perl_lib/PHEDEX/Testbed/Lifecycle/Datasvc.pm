@@ -2,7 +2,7 @@ package PHEDEX::Testbed::Lifecycle::Datasvc;
 use strict;
 use warnings;
 use base 'PHEDEX::Testbed::Lifecycle::UA', 'PHEDEX::Core::Logging';
-use POE qw( Queue::Array );
+use POE;
 use Clone qw(clone);
 use Data::Dumper;
 use PHEDEX::CLI::UserAgent;
