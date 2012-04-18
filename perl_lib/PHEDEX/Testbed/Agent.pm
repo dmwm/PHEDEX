@@ -7,6 +7,7 @@ use PHEDEX::Core::Agent;
 use PHEDEX::Core::Timing;
 use POE;
 use Data::Dumper;
+use Cwd;
 
 our %params =
 	(
@@ -22,8 +23,13 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
   bless $self, $class;
-  if ( $self->{DROPDIR} && $self->{LOGFILE} ) {
+  if ( $self->{DROPDIR} ) {
     $self->{PIDFILE} = $self->{DROPDIR} . 'pid';
+  } else {
+    $self->{DROPDIR} = getcwd();
+  }
+  if ( $self->{LOGFILE} ) {
+    $self->{PIDFILE} ||= $self->{LOGFILE} . '.pid';
     PHEDEX::Core::Agent::daemon($self);
   }
 
