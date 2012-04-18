@@ -50,7 +50,15 @@ sub new {
   $pmon = PHEDEX::Monitoring::Process->new();
 
   bless $self, $class;
-  $pmon->MonitorSize('Lifecycle',$self);
+  if ( $self->{MonitorAgentSize} || $self->{MonitorWorkflowSize} ) {
+    eval("require Devel::Size");
+    if ( $@ ) {
+      my $msg = $self->{MonitorAgentSize} ? 'MonitorAgentSize' : '';
+      $msg .= $self->{MonitorWorkflowSize} ? ( $msg ? ' and ' : '' ) . 'MonitorWorkflowSize' : '';
+      $self->Fatal("Failed to load Devel::Size. Either remove $msg from your configuration or adjust your PERL5LIB");
+    }
+  }
+  PHEDEX::Monitoring::Process::MonitorSize('Lifecycle',$self) if $self->{MonitorAgentSize};
   return $self;
 }
 
@@ -76,6 +84,10 @@ sub _poe_init {
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
   $kernel->alias_set( $self->{ME} );
+  if ( $self->{MonitorAgentSize} ) {
+    PHEDEX::Monitoring::Process::MonitorSize('POE::Kernel',$kernel);
+    PHEDEX::Monitoring::Process::MonitorSize('Lifecycle session',$session);
+  }
 
 # Declare the injection and other states.
 # Start watching my configuration file. Things don't actually get rolling until
@@ -108,10 +120,17 @@ sub stop { exit(0); }
 
 sub Config { return (shift)->{LIFECYCLE_CONFIG}; }
 
+our $uuid=0;
 sub nextEvent {
   my ($self,$kernel,$payload) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($workflow,$cmd,$module,$event,$delay,$id,$msg);
   $workflow = $payload->{workflow};
+  if ( $self->{MonitorWorkflowSize} ) {
+    if ( ! $payload->{UUID} ) {
+      $payload->{UUID} = $workflow->{Name} . ':' . $uuid++;
+      PHEDEX::Monitoring::Process::MonitorSize($payload->{UUID},$payload);
+    }
+  }
 
   $self->processStats($payload);
   $self->processReport($payload);
@@ -123,6 +142,12 @@ sub nextEvent {
   {
     $self->Logmsg("$msg cycle ends") if $self->{Verbose};
     $self->{_states}{cycle_end}{$id} = time;
+    if ( $self->{MonitorWorkflowSize} ) {
+      $self->Logmsg("Monitoring: final size of $payload->{UUID}: " .
+		    PHEDEX::Monitoring::Process::total_size($payload->{UUID}));
+      PHEDEX::Monitoring::Process::MonitorSize($payload->{UUID});
+    }
+    undef $payload;
     return;
   } 
 
