@@ -4225,20 +4225,14 @@ sub getBlockLatency
             l.time_subscription,
             l.block_create,
             l.block_close,
-            l.first_request,
-            l.first_replica,
             l.latest_replica,
-            l.percent25_replica,
-            l.percent50_replica,
-            l.percent75_replica,
-            l.percent95_replica,
             l.last_replica,
             l.last_suspend,
             l.partial_suspend_time,
             l.total_suspend_time,
             l.latency
         from
-            t_log_block_latency l
+            t_dps_block_latency l
             left join t_dps_block b on l.block = b.id
             left join t_dps_dataset d on b.dataset = d.id
             join t_adm_node n on l.destination = n.id
@@ -4287,19 +4281,6 @@ sub getBlockLatency
             $filters =  ' l.time_subscription >= :time_subscription ';
         }
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
-    }
-
-    if (exists $h{FIRST_REQUEST_SINCE})
-    {
-        if ($filters)
-        {
-            $filters .= ' and l.first_request >= :first_request ';
-        }
-        else
-        {
-            $filters = ' l.first_request >= :first_request ';
-        }
-        $p{':first_request'} = $h{FIRST_REQUEST_SINCE};
     }
 
     if (exists $h{LATENCY_GREATER_THAN})
@@ -4397,6 +4378,9 @@ sub getBlockLatencyHistory
             n.name as destination,
             n.id as destination_id,
             n.se_name as destination_se,
+	    ns.name as primary_from_node,
+	    ns.id as primary_from_id,
+	    ns.se_name as primary_from_se,
             l.time_update as ltime_update,
             l.files as lfiles,
             l.bytes as lbytes,
@@ -4411,14 +4395,17 @@ sub getBlockLatencyHistory
             l.percent50_replica,
             l.percent75_replica,
             l.percent95_replica,
+	    l.primary_from_files,
+	    l.total_xfer_attempts,
             l.last_replica,
             l.total_suspend_time,
             l.latency
         from
-            t_history_block_latency l
+            t_log_block_latency l
             left join t_dps_block b on l.block = b.id
             left join t_dps_dataset d on b.dataset = d.id
             join t_adm_node n on l.destination = n.id
+	    left join t_adm_node ns on l.primary_from_node = ns.id
     };
 
     build_multi_filters($core, \$filters, \%p, \%h, (
@@ -4553,8 +4540,8 @@ sub getBlockLatencyHistory
     return \@r;
 }
 
-# getFileLatencyHistory
-sub getFileLatencyHistory
+# getFileLatency
+sub getFileLatency
 {
     my $core = shift;
     my %h = @_;
@@ -4572,7 +4559,8 @@ sub getFileLatencyHistory
         f.id as file_id,
         f.logical_name as lfn,
         f.filesize,
-        h.time_subscription,
+	f.checksum,
+	bl.time_subscription,
         h.time_update,
         h.priority,
         h.is_custodial,
@@ -4586,13 +4574,18 @@ sub getFileLatencyHistory
         h.time_on_buffer,
         h.time_at_destination,
         n.name destination,
+	nf.name from_node,
+	nof.name original_from_node,
         d.name as dataset
       from
-        t_history_file_arrive h
+        t_xfer_file_latency h
+	join t_dps_block_latency bl on bl.destination=h.destination and bl.block=h.inblock
         join t_dps_file f on h.fileid = f.id
         join t_dps_block b on f.inblock = b.id
         join t_dps_dataset d on d.id = b.dataset
         join t_adm_node n on n.id = h.destination
+	join t_adm_node nf on nf.id = h.from_node
+	join t_adm_node nof on nof.id= h.original_from_node
     };
 
     build_multi_filters($core, \$filters, \%p, \%h, (
