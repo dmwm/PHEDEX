@@ -2439,7 +2439,9 @@ sub getLinks
                                FROM_KIND => $from_kind,
                                TO_KIND => $to_kind,
                                FROM_AGENT_PROTOCOLS => $xso_protos,
-                               TO_AGENT_PROTOCOLS => $xsi_protos
+                               TO_AGENT_PROTOCOLS => $xsi_protos,
+                               FROM_AGENT_AGE => &age($now - $xso_update),
+                               TO_AGENT_AGE => &age($now - $xsi_update)
                                };
 
 	# Explain why links are valid or invalid.  For now we benefit
@@ -2461,11 +2463,9 @@ sub getLinks
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{STATUS} = 'mi_down';
-		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    } else {
 		$link_params{$key}{VALID} = 1;
 		$link_params{$key}{STATUS} = 'ok';
-		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    }
 	} else { # WAN or Local link
             if ($is_local eq 'y')
@@ -2483,19 +2483,15 @@ sub getLinks
 	    } elsif ($xso_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{STATUS} = 'from_down';
-		$link_params{$key}{FROM_AGENT_AGE} = &age($now - $xso_update);
 	    } elsif (!$xsi_update) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{STATUS} = 'to_excluded';
 	    } elsif ($xsi_update <= ($now - $downtime)) {
 		$link_params{$key}{VALID} = 0;
 		$link_params{$key}{STATUS} = 'to_down';
-		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    } else {
 		$link_params{$key}{VALID} = 1;
 		$link_params{$key}{STATUS} = 'ok';
-		$link_params{$key}{FROM_AGENT_AGE} = &age($now - $xso_update);
-		$link_params{$key}{TO_AGENT_AGE} = &age($now - $xsi_update);
 	    }
 	}
 
