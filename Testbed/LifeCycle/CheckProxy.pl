@@ -5,7 +5,7 @@ use Getopt::Long;
 use Clone qw(clone);
 
 my ($in,$out,$json,$workflow,$payload,$interval,$status,$gracePeriod,$event);
-my ($minGrace,$left);
+my ($minGrace,$left,$proxy,$cmd);
 $payload = {};
 $minGrace = 60;
 $gracePeriod = $status = 0;
@@ -25,9 +25,12 @@ if ( $in ) {
   $interval = $workflow->{Intervals}{$event};
   $gracePeriod = $workflow->{GracePeriod} || $minGrace;
   if ( $gracePeriod < $minGrace ) { $gracePeriod = $minGrace; }
+  $proxy = $workflow->{Proxy};
 }
 
-open VPINFO, 'voms-proxy-info --actimeleft |' or do {
+$cmd = 'voms-proxy-info --timeleft ';
+$cmd .= "--file $proxy " if $proxy;
+open VPINFO, "$cmd |" or do {
   $payload->{report} = { status => 'fatal', 'reason' => "voms-proxy-info: $!" };
   $status = -1;
 };
@@ -39,8 +42,12 @@ if ( !$status ) {
   };
   $left = 0 unless defined $left;
   chomp $left;
-
-  print "Time left on proxy: $left seconds\n";
+  if ( $proxy ) {
+    $proxy = " ($proxy)";
+  } else {
+    $proxy = '';
+  }
+  print "Time left on proxy$proxy: $left seconds\n";
   if ( $left <= 0 ) {
     print "Proxy has expired, this is fatal\n";
     $payload->{report} = { status => 'fatal', 'reason' => 'Proxy expired' };
@@ -60,7 +67,7 @@ if ( !$status ) {
 if ( $out ) {
   $workflow->{Jitter} = 0;
   $workflow->{Intervals}{$event} = int($interval);
-  $payload->{events} = [ $event ];
+  push @{$workflow->{Events}}, $event;
   open  OUT, ">$out" or die "open output $out: $!\n";
   print OUT encode_json($payload);
   close OUT;
