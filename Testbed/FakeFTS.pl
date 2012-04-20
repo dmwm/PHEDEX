@@ -89,13 +89,15 @@ VOName:         cms
   {
     print "$status\n";
   }
-  my $n = 0;
-  foreach my $s ( sort keys %{$files} )
+  if ( $args[0] && $args[0] eq '-l' )
   {
-    my $d = $files->{$s};
-    my $state = $n < $ndone ? "Done" : "Active";
-    print "\n" unless $n == 0;
-    print
+    my $n = 0;
+    foreach my $s ( sort keys %{$files} )
+    {
+      my $d = $files->{$s};
+      my $state = $n < $ndone ? "Done" : "Active";
+      print "\n" unless $n == 0;
+      print
 "  Source:       $s
   Destination:  $d
   State:        $state
@@ -103,8 +105,9 @@ VOName:         cms
   Reason:       error during  phase: [] 
   Duration:     0
 ";
-    $n++;
-    
+      $n++;
+     
+    }
   }
 # unlink "$cache/$id";
 }
@@ -141,3 +144,4 @@ if ( $cmd eq 'glite-transfer-submit' )
 }
 
 exit 0;
+
