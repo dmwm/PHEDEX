@@ -191,8 +191,9 @@ sub FileChanged {
   $self->Logmsg("Beginning new cycle...");
   my ($workflow,$nWorkflows);
   $nWorkflows = 0;
-  foreach $workflow ( @{$self->{Workflows}} )
+  foreach ( @{$self->{Workflows}} )
   {
+    $workflow = clone($_);
     if ( $workflow->{Suspend} ) {
       $self->Logmsg("Skip lifecycle for \"$workflow->{Name}\" (suspended)");
       next;
@@ -222,7 +223,6 @@ sub lifecycle {
   my ($event,$delay,@events);
   return unless $self->{Incarnation} == $workflow->{Incarnation};
 
-  push @events, @{$workflow->{Events}};
   if ( !$workflow->{NCycles} )
   {
 
@@ -242,7 +242,7 @@ sub lifecycle {
   $self->Dbgmsg("lifecycle: yield nextEvent: ",$workflow->{Name},':',$payload->{id});
   $kernel->yield('nextEvent',$payload);
 
-  $event = $events[0];
+  $event = $workflow->{Events}->[0];
   return unless $event;
   $delay = $workflow->{CycleTime};
   return unless $delay;
@@ -250,7 +250,7 @@ sub lifecycle {
   if ( $self->{CycleSpeedup} ) { $delay /= $self->{CycleSpeedup}; }
   $self->Dbgmsg("lifecycle: delay=$delay for next \"$workflow->{Name}\"");
   $self->Logmsg("lifecycle: delay($delay) lifecycle");
-  $kernel->delay_set('lifecycle',$delay,$workflow) if $delay;
+  $kernel->delay_set('lifecycle',$delay,clone($workflow)) if $delay;
 }
 
 sub ReadConfig {
