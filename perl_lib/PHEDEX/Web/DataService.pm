@@ -137,10 +137,24 @@ sub invoke
 
   # create the core
   my $config = $self->{CONFIG};
-  my $core;
+  my ($core,$map,$newDB);
 
   if ( ! $config->{INSTANCES}->{$db} ) {
-    return [404,"Invalid instance: The instance you requested is not known to this installation of the data-service\n"];
+    $map = {
+      testbed   => 'tbedi',
+      testbed2  => 'tbedii',
+      dev       => 'test',
+      tbedi     => 'testbed',
+      tbedii    => 'testbed2',
+      test      => 'dev',
+    };
+    if ( $newDB = $map->{lc $db} ) {
+      $config->{INSTANCES}{$db} = $config->{INSTANCES}{$newDB};
+      $config->{INSTANCES}{$db}{ID} = $db;
+    }
+    if ( ! $config->{INSTANCES}->{$db} ) {
+      return [404,"Invalid instance: The instance you requested is not known to this installation of the data-service\n"];
+    }
   }
 
   eval {
