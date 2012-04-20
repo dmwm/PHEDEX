@@ -239,7 +239,7 @@ sub lifecycle {
 		  'id'       => $self->id(),
 		  'step'     => 0,
 		};
-  $self->Logmsg("lifecycle: yield nextEvent");
+  $self->Dbgmsg("lifecycle: yield nextEvent: ",$workflow->{Name},':',$payload->{id});
   $kernel->yield('nextEvent',$payload);
 
   $event = $events[0];
@@ -523,10 +523,10 @@ sub post_exec {
   $duration = $job->{DURATION};
   $status   = $job->{STATUS_CODE};
   foreach ( split("\n",$job->{STDOUT}) ) {
-    $self->Logmsg("$name:$id:STDOUT $_\n");
+    $self->Logmsg("$name:$event:$id:STDOUT $_\n");
   }
   foreach ( split("\n",$job->{STDERR}) ) {
-    $self->Logmsg("$name:$id:STDERR $_\n");
+    $self->Logmsg("$name:$event:$id:STDERR $_\n");
   }
 
 # Harvest the output before cleaning it!
@@ -637,12 +637,12 @@ sub reaper {
       $payload->{parent_id} = $payload->{id};
       $payload->{id} = $self->id();
       delete $payload->{UUID};
-      $self->Dbgmsg("yield nextEvent");
+      $self->Dbgmsg("lifecycle: yield nextEvent: ",$workflow->{Name},':',$payload->{id});
       $kernel->delay_set('nextEvent',$delay,$payload);
       $delay += 0.05;
     }
   } else {
-    $self->Dbgmsg("yield nextEvent");
+    $self->Dbgmsg("lifecycle: yield nextEvent: ",$workflow->{Name},':',$payload->{id});
     $kernel->yield('nextEvent',$result);
   }
 }
