@@ -142,7 +142,7 @@ sub nextEvent {
     undef $payload;
 
     $self->{nWorkflows}--;
-    $self->Logmsg("$self->{nWorkflows} remaining workflows");
+    $self->Dbgmsg("$self->{nWorkflows} remaining workflows");
     return;
   } 
 
@@ -246,6 +246,7 @@ sub lifecycle {
 		};
   $self->Dbgmsg("lifecycle: yield nextEvent: ",$workflow->{Name},':',$payload->{id});
   $kernel->yield('nextEvent',$payload);
+  $self->{nWorkflows}++;
 
   $event = $workflow->{Events}->[0];
   return unless $event;
