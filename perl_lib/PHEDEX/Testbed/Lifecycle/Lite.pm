@@ -48,6 +48,7 @@ sub new {
 	KEEPALIVE => 5);
 
   $self->{_njobs} = 0; # for UA-based stuff
+  $self->{nWorkflows} = 0;
 
   $pmon = PHEDEX::Monitoring::Process->new();
 
@@ -139,6 +140,9 @@ sub nextEvent {
       PHEDEX::Monitoring::Process::MonitorSize($payload->{UUID});
     }
     undef $payload;
+
+    $self->{nWorkflows}--;
+    $self->Logmsg("$self->{nWorkflows} remaining workflows");
     return;
   } 
 
@@ -204,13 +208,14 @@ sub FileChanged {
     $kernel->delay_set('lifecycle',0.01,$workflow);
     $nWorkflows++;
   }
-  $self->Logmsg("Started $nWorkflows workflows");
-  return if $nWorkflows;
+  $self->{nWorkflows} += $nWorkflows;
+  $self->Logmsg("Started $nWorkflows workflows ($self->{nWorkflows} now running)");
+
 # TW How do I stop myself?
-#  if ( $self->{StopOnIdle} ) {
-#    $kernel->yield('_stop');
-#    $self->Logmsg("No workflows started, will now exit gracefully");
-#  }
+  if ( !$self->{nWorkflows} && $self->{StopOnIdle} ) {
+    $kernel->yield('_stop');
+    $self->Logmsg("No workflows running, will now exit gracefully");
+  }
 }
 
 sub id {
