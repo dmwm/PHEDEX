@@ -142,7 +142,7 @@ sub nextEvent {
     undef $payload;
 
     $self->{nWorkflows}--;
-    $self->Dbgmsg("$self->{nWorkflows} remaining workflows");
+    $self->Logmsg("$self->{nWorkflows} remaining workflows");
     return;
   } 
 
@@ -231,10 +231,10 @@ sub lifecycle {
   if ( !$workflow->{NCycles} )
   {
 
-    $self->Logmsg("Maximum number of cycles executed, stopping...");
+    $self->Logmsg("Reached maximum number of cycles for ",$workflow->{Name},", will not start another cycle...");
 # TW Do I need this here?
-    $self->{JOBMANAGER}{KEEPALIVE} = 0;
-    $self->{Watcher}->RemoveClient( $self->{ME} ) if defined($self->{Watcher});
+#    $self->{JOBMANAGER}{KEEPALIVE} = 0;
+#    $self->{Watcher}->RemoveClient( $self->{ME} ) if defined($self->{Watcher});
     return;
   }
   $workflow->{NCycles}-- if $workflow->{NCycles} > 0;
