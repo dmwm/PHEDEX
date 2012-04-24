@@ -3,6 +3,7 @@ use strict;
 use JSON::XS;
 use Getopt::Long;
 use Clone qw(clone);
+use Data::Dumper;
 
 my ($in,$out,$json,$workflow,$payload,$interval,$status,$gracePeriod,$event);
 my ($minGrace,$left,$proxy,$cmd);
@@ -10,8 +11,9 @@ $payload = {};
 $minGrace = 60;
 $gracePeriod = $status = 0;
 GetOptions(
-                'in=s'  => \$in,
-                'out=s' => \$out,
+                'in=s'    => \$in,
+                'out=s'   => \$out,
+		'proxy=s' => \$proxy,
           );
 
 if ( $in ) {
@@ -66,6 +68,7 @@ if ( !$status ) {
 }
 if ( $out ) {
   $workflow->{Jitter} = 0;
+  print "Set interval=",int($interval),"\n";
   $workflow->{Intervals}{$event} = int($interval);
   push @{$workflow->{Events}}, $event;
   open  OUT, ">$out" or die "open output $out: $!\n";
