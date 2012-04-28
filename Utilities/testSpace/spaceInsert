@@ -145,7 +145,7 @@ $pua = PHEDEX::CLI::UserAgent->new
     (
       URL        => $datasvcUrl,
       FORMAT    => 'perl',
-      INSTANCE    => 'zhangxm',
+      INSTANCE    => 'dmwm_insert',
     );
 
 if ( $dump ) {
