@@ -33,7 +33,7 @@ $pua = PHEDEX::CLI::UserAgent->new
     (
       URL        => 'https://pheSpaceMon.cern.ch/phedex/datasvc',
       FORMAT    => 'perl',
-      INSTANCE    => 'zhangxm',
+      INSTANCE    => 'dmwm_query',
     );
 $pua->timeout($timeout) if $timeout;
 $pua->CALL('storageusage');
