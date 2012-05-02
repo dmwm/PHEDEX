@@ -120,7 +120,7 @@ sub processIdle
       print Dumper($self->{AGENTS}{$agent});
       undef $pid;
       $pid = $self->{AGENTS}{$agent}{pid};
-      if ( $pid && (kill 0 => $pid) {
+      if ( $pid && (kill 0 => $pid)) {
 
         if ( !$self->{AGENTS}{$agent}{last_seen} ) { $self->{AGENTS}{$agent}{last_seen} = $now; }
         $last_seen = $now - $self->{AGENTS}{$agent}{last_seen};
