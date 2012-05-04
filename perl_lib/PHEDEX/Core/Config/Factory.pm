@@ -239,6 +239,7 @@ sub idle
           };
      $self->rollbackOnError();
      $self->{last_db_connect} = $now;
+     $self->watchdog_notify('ping');
   };
   $Config = $self->{CONFIGURATION};
 
