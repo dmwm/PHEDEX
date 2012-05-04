@@ -77,9 +77,13 @@ sub createAgents
 
   foreach $agent ( @{$self->{AGENT_LIST}} )
   {
-    $agent = $agent;
     $self->Logmsg("Lookup agent \"$agent\"");
-    $Agents{lc($agent)}{cmd} = 1; 
+
+    my $env = $self->{ENVIRONMENT};
+    my $scripts = $env->getExpandedParameter('PHEDEX_SCRIPTS');
+    my $Master = $scripts . '/Utilities/Master';
+    my @cmd = ($Master,'--nocheckdb','--config',$self->{CONFIG_FILE},'start',$agent);
+    $Agents{lc($agent)}{cmd} = \@cmd;
   }
 
 # Monitor myself too!
@@ -115,8 +119,7 @@ sub processIdle
     next if lc($self->ME()) eq $agent;
     if ( $self->{AGENTS}{$agent}{cmd} )
     {
-#     This one was started externally, so check the PID and time since we last heard from it
-      #$Agent = $Config->select_agents( $agent );
+#     Check the PID and time since we last heard from it
       print Dumper($self->{AGENTS}{$agent});
       undef $pid;
       $pid = $self->{AGENTS}{$agent}{pid};
@@ -134,28 +137,14 @@ sub processIdle
 	  $self->Warn("Agent=$agent, PID=$pid, no news for $last_seen seconds");
         }
         next;
-      }
-
-#     Agent is down and should not be. Create a jobmanager if I don't have one, and restart the agent
-#     Remove records of restarts that are too old to be of interest
-      my @starts;
-      @starts = sort { $b <=> $a } keys %{$self->{AGENTS}{$agent}{start}};
-      foreach ( keys %{$self->{AGENTS}{$agent}{start}} )
+      } 
+      elsif ( $pid ) 
       {
-        if ( $now - $_ > $self->{RETRY_BACKOFF_INTERVAL} ) { delete $self->{AGENTS}{$agent}{start}{$_}; }
+#     Agent is down and should not be.reset count so we should be able to get the new pid
+        $self->Alert("Agent=$agent, PID=$pid, is dead, trying to restart it ...");
+        $self->{TimesIdle} = -1;
+        $self->startAgent($agent);
       }
-      if ( scalar @starts >= $self->{RETRY_BACKOFF_COUNT} )
-      {
-#	I have reached the backoff-count-limit, and within the window. Do not retry again yet, but let the user know
-        if ( !$self->{AGENTS}{$agent}{backoff_reported} )
-	{
-          my $since = time() - $starts[0];
-	  $self->Logmsg("$agent: $self->{RETRY_BACKOFF_COUNT} retries in the last $since seconds. Backing off for $self->{RETRY_BACKOFF_INTERVAL} seconds");
-        $self->{AGENTS}{$agent}{backoff_reported}=1;
-	}
-	next;
-      }
-  #    $self->startAgent($agent);
     }
     else
     {
@@ -166,12 +155,33 @@ sub processIdle
   }
 }
 
+sub startAgent
+{
+  my ($self,$agent) = @_;
+  $self->Logmsg("Agent=$agent is down. Starting...");
+  my $cmd = $self->{AGENTS}{$agent}{cmd};
+  if ( !$self->{JOBMANAGER} )
+  {
+    $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
+                NJOBS     => $self->{NJOBS},
+                VERBOSE   => 0,
+                DEBUG     => 0,
+                KEEPALIVE => 0,
+        );
+    $self->{JOBMANAGER}->whenQueueDrained( sub { delete $self->{JOBMANAGER}; } );
+  }
+  $self->{JOBMANAGER}->addJob(
+                sub { $self->handleJob($agent) },
+                { TIMEOUT => 300 },
+                @{$cmd}
+        );
+}
+
+
 sub handleJob
 {
   my ($self,$agent) = @_;
   $self->Logmsg("$agent started, hopefully...");
-  $self->{AGENTS}{$agent}{start}{time()}=1;
-  $self->{AGENTS}{$agent}{backoff_reported}=0;
 }
 
 sub _poe_init
