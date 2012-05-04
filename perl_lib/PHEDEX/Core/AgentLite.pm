@@ -221,7 +221,7 @@ sub new
 }
 
 # Dummy functions for Dropbox module
-sub isInvalid { print "isInvalid function not loaded, using fake function"; return 0; }
+sub isInvalid { return 0; }
 sub cleanDropbox {}
 sub readInbox {}
 sub readPending {}
