@@ -66,11 +66,13 @@ sub insertSpace {
    $p_site{':sitename'} = $h{site};
    $q = execute_sql( $self, $sql , %p_site);
    $site_id = $q->fetchrow_hashref(); 
-   if (!$site_id) {
+   if (!$site_id) { 
+     $p_site{':site_id'}=$site_id;
      $sql = qq{insert into t_sites values (:sitename, t_sites_sequence.nextval) returning id into :site_id};
+     $p_site{':site_id'}=\$temp_id;
      $q = execute_sql( $self, $sql , %p_site);
      #$self->{DBH}->commit();
-     $p_site{':site_id'}=\$site_id;
+     $site_id->{ID} = $temp_id + 0;
    }
    #warn "dumping site_id in SQL.pm",Data::Dumper->Dump([ $site_id ]);
 
@@ -130,12 +132,13 @@ sub insertDirectory {
 
 sub querySpace {
    my ($self, %h) = @_;
-   my ($sql,$q,$row,%p,%p_d,$time,@r);
+   my ($sql,$q,$row,%p,%p_d,$time,%warn,@r);
  
    if(!(exists $h{time_since}) && !(exists $h{time_until})) {
       # return latest one
-      $sql = qq{ select max(timestamp) from t_space_usage };
-      $q = execute_sql($self, $sql);
+      $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_sites where sitename=:site) };
+      $p{':site'} = $h{site};
+      $q = execute_sql($self, $sql, %p);
       $time = $q->fetchrow_hashref();
       $h{time_since} = $time->{'MAX(TIMESTAMP)'};
       $h{time_until} = $time->{'MAX(TIMESTAMP)'};
@@ -144,7 +147,7 @@ sub querySpace {
    elsif(!$h{time_since}) {
       $h{time_since} = 0;
    }
-   elsif (!$h{time_until}) {
+   elsif(!$h{time_until}) {
       $h{time_until} = 10000000000;
    }
    else {
@@ -152,27 +155,32 @@ sub querySpace {
       $h{time_until} = $h{time_until} + 0;
    }
 
-   warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
+   #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
-   if($h{site}!='*') { 
-      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces 
+   if($h{site} =~ m/^\*$/) { 
+      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
               join t_sites sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_sites where sitename=:site) };
-      $p{':site'} = $h{site};
+              where timestamp >= :time_since and timestamp <= :time_until order by timestamp};
    }
    else {
-      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces 
+      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
               join t_sites sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until };
+              where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_sites where sitename=:site) 
+              order by timestamp};
+      $p{':site'} = $h{site};
    }
    $p{':time_since'} = $h{time_since};
    $p{':time_until'} = $h{time_until};
    $q = execute_sql( $self, $sql, %p );
-   while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-   #warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
-
+   if ($q->fetchrow_hashref()) {
+      while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
+      #warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
+   }
+   else {
+      die "No records are available for the site $h{site} during the period from $h{time_since} to $h{time_until}\n"; 
+   }
    return \@r;
 }
 
