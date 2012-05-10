@@ -192,7 +192,7 @@ sub new
     die "$me: Failed validation, exiting\n" if PHEDEX::Core::AgentLite::isInvalid( $self ); 
 
 #   Clean PID and STOP flags. Thois method is always defined.
-    $self->cleanDropbox($me);
+    $self->_cleanDropbox($me);
 
 #   If required, daemonise, write pid file and redirect output.
     $self->daemon();
@@ -222,7 +222,14 @@ sub new
 
 # Dummy functions for Dropbox module
 sub isInvalid { return 0; }
-sub cleanDropbox {}
+sub _cleanDropbox { 
+  my $self = shift; 
+  $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
+  $self->{PIDFILE}  = $self->{DROPDIR} . 'pid';
+  $self->{STOPFLAG} = $self->{DROPDIR} . 'stop';
+  $self->CleanDropbox(@_); 
+}
+
 sub readInbox {}
 sub readPending {}
 sub readOutbox {}
@@ -258,6 +265,30 @@ sub _stop {}
 sub _make_stats { my $self = shift; $self->make_stats(); }
 sub _child {}
 sub _default {}
+
+# Basic Clean up
+
+sub CleanDropbox {
+  my ($self,$me) = @_;
+
+  if (-f $self->{PIDFILE})
+  {
+     if (my $oldpid = &input($self->{PIDFILE}))
+     {
+        chomp ($oldpid);
+        die "$me: pid $oldpid already running in $self->{DROPDIR}\n"
+        if kill(0, $oldpid);
+        print "$me: pid $oldpid dead in $self->{DROPDIR}, overwriting\n";
+        unlink ($self->{PIDFILE});
+     }
+  }
+
+  if (-f $self->{STOPFLAG})
+  {
+     print "$me: removing old stop flag $self->{STOPFLAG}\n";
+     unlink ($self->{STOPFLAG});
+  }
+}
 
 # Check if the agent should stop.  If the stop flag is set, cleans up
 # and quits.  Otherwise returns.
@@ -413,6 +444,7 @@ sub doStop
 
     # Remove stop flag and pidfile
     unlink($self->{PIDFILE});
+    #unlink($self->{STOPFLAG});
 
     POE::Kernel->alarm_remove_all();
     $self->doExit(0);

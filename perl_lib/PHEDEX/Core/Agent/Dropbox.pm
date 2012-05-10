@@ -20,7 +20,7 @@ sub new
 
   no warnings 'redefine';
   *PHEDEX::Core::AgentLite::isInvalid = \&PHEDEX::Core::Agent::Dropbox::isInvalid;
-  *PHEDEX::Core::AgentLite::cleanDropbox = \&PHEDEX::Core::Agent::Dropbox::cleanDropbox;
+  *PHEDEX::Core::AgentLite::_cleanDropbox = \&PHEDEX::Core::Agent::Dropbox::_cleanDropbox;
   *PHEDEX::Core::AgentLite::readInbox = \&PHEDEX::Core::Agent::Dropbox::readInbox;
   *PHEDEX::Core::AgentLite::readPending = \&PHEDEX::Core::Agent::Dropbox::readPending;
   *PHEDEX::Core::AgentLite::readOutbox = \&PHEDEX::Core::Agent::Dropbox::readOutbox;
@@ -115,7 +115,7 @@ sub isInvalid
 }
 
 # Make a basic cleanup
-sub cleanDropbox
+sub _cleanDropbox
 {
     my ($self,$me) = @_;
 
@@ -126,24 +126,7 @@ sub cleanDropbox
             die "$me: fatal error: no downstream drop box\n" if ! -d $dir;
         }
     }
-
-    if (-f $self->{PIDFILE})
-    {
-        if (my $oldpid = &input($self->{PIDFILE}))
-        {
-            chomp ($oldpid);
-            die "$me: pid $oldpid already running in $self->{DROPDIR}\n"
-                if kill(0, $oldpid);
-            print "$me: pid $oldpid dead in $self->{DROPDIR}, overwriting\n";
-            unlink ($self->{PIDFILE});
-        }
-    }
-
-    if (-f $self->{STOPFLAG})
-    {
-        print "$me: removing old stop flag $self->{STOPFLAG}\n";
-        unlink ($self->{STOPFLAG});
-    }
+    $self->CleanDropbox($me);
 
 }
 
