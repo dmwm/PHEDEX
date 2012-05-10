@@ -211,6 +211,7 @@ sub createAgents
          $self->connectAgent(); 
        };
   $self->rollbackOnError();
+  $self->watchdog_notify('ping');
   return ($self->{AGENTS} = \%Agents);
 }
 
