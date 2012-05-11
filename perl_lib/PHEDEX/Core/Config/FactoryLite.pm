@@ -9,7 +9,6 @@ use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
 use IO::Socket::INET;
 use constant DATAGRAM_MAXLEN => 1024*1024;
-use Data::Dumper;
 
 our %params =
 	(
@@ -19,8 +18,8 @@ our %params =
           WAITTIME	        => 75 + rand(15), # This agent cycle time
 	  NODAEMON	        => 1,		  # Don't daemonise by default!
 	  REALLY_NODAEMON       => 0,		  # Do daemonise eventually!
-	  LAST_SEEN_ALERT	=> 60*10,	  # 60*120 send alerts & restart after this much inactivity
-	  LAST_SEEN_WARNING	=> 60*7,	  # 60*75 send warnings after this much inactivity
+	  LAST_SEEN_ALERT	=> 60*120,	  # 60*120 send alerts & restart after this much inactivity
+	  LAST_SEEN_WARNING	=> 60*75,	  # 60*75 send warnings after this much inactivity
 	  TIMEOUT		=> 11,		  # interval between signals
 	  STATISTICS_INTERVAL	=> 3600*12,	  # My own reporting frequency
 	  STATISTICS_DETAIL	=> 0,	          # reporting level: 0, 1, or 2
