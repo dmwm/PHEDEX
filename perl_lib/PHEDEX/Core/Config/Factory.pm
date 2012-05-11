@@ -38,7 +38,7 @@ our %params =
           SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
           NOTIFY_PLUGIN         => 'logfile',   # plugin used for reporting 
           REPORT_PLUGIN         => 'summary',   # plugin used to generate report
-          WATCHDOG_NOTIFICATION_PORT => 9999,
+          WATCHDOG_NOTIFICATION_PORT => $ENV{PHEDEX_WATCHDOG_NOTIFICATION_PORT} || 9999,   # Port to listen
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -211,7 +211,6 @@ sub createAgents
          $self->connectAgent(); 
        };
   $self->rollbackOnError();
-  $self->watchdog_notify('ping');
   return ($self->{AGENTS} = \%Agents);
 }
 
@@ -223,6 +222,7 @@ sub really_daemon
   my $self = shift;
   $self->{NODAEMON} = $self->{REALLY_NODAEMON} || 0;
   my $pid = $self->SUPER::daemon( $self->{ME} );
+  $self->watchdog_notify('ping');
   $self->Logmsg('I have successfully become a daemon');
 }
 
