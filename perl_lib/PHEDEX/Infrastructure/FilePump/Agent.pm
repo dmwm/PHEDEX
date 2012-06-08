@@ -335,7 +335,9 @@ sub receive
 	":now" => $now);
 
     # Record file-level latency information
-    $self->mergeXferFileLatency();
+    my @fileLatencyStats=$self->mergeXferFileLatency();
+    $self->Dbgmsg("Merged file-level latency information: "
+		  .join(', ', map { $_->[1] + 0 .' '.$_->[0] } @fileLatencyStats));
 
     # Finally remove all we've processed.
     &dbexec($dbh, qq{
