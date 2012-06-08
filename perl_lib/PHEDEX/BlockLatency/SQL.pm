@@ -36,8 +36,8 @@ This method needs to be run by the FilePump agent on every cycle
 when receiving "task done" events, because the agent immediately
 cleans up the entries in the t_xfer_task_* tables afterwards.
 
-Returns an array containing the number of rows updated by each
-statement in the subroutine.
+Returns a statistics array containing ('stats name', number of rows
+updated) for each statement in the subroutine.
 
 =item mergeStatusBlockLatency(%args)
 
@@ -133,7 +133,11 @@ sub AUTOLOAD
 sub mergeXferFileLatency
 {
     my ($self,%h) = @_;
-    my ($sql,$q,$n,@r);
+    my $sql;
+    
+    my %stats;
+    my @stats_order = ('transfers to buffer','transfers to final destination');
+    $stats{$_} = 0 foreach @stats_order;
 
     # SPECIAL-case: Merge tasks to Buffer nodes before recording taks to final destination
 
@@ -174,8 +178,8 @@ sub mergeXferFileLatency
 			  new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 	      };
 
-    ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
+    my @rv = execute_sql( $self, $sql );
+    $stats{'transfers to buffer'} = @rv[1] || 0;
 
     # Merge transfers to final destination
     # NOTE: don't increment attempts count for Buffer-->MSS transfers, so that 'attempts' is only the number of WAN attempts
@@ -215,10 +219,11 @@ sub mergeXferFileLatency
 			  new.time_update, new.time_update, decode(new.report_code,0,new.time_update,NULL))
 			  };
 
-    ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
+    my @rv2 = execute_sql( $self, $sql );
+    $stats{'transfers to final destination'} = @rv[1] || 0;
     
-    return @r;
+    # Return statistics                                                                                                                                                                       
+    return map { [$_, $stats{$_}] } @stats_order;
 }
 
 #-------------------------------------------------------------------------------
