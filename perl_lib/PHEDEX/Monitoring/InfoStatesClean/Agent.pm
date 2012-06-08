@@ -47,10 +47,14 @@ sub idle
 	      where rank <= 100)});
 
 	# Archive completed block latency information
-	$self->mergeLogBlockLatency();
+	my @mergeLogStats=$self->mergeLogBlockLatency();
+	$self->Dbgmsg("Merged block-level latency logs: "
+                  .join(', ', map { $_->[1] + 0 .' '.$_->[0] } @mergeLogStats));
 	# Clean up file-level latency entries for blocks completed more than 30 days ago
-	$self->cleanLogFileLatency();
-
+	my @cleanLogStats=$self->cleanLogFileLatency();
+	$self->Dbgmsg("Cleaned file-level latency logs: "
+                  .join(', ', map { $_->[1] + 0 .' '.$_->[0] } @cleanLogStats));
+	
 	$dbh->commit();
 
     };
