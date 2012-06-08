@@ -71,8 +71,8 @@ Calculates the time markers for several steps
 in the block completion history. Cleans up the archived entries
 from t_xfer_file_latency and t_dps_block_latency.
 
-Returns an array containing the number of rows updated by each
-statement in the subroutine.
+Returns a statistics array containing ('stats name', number of rows
+updated) for each statement in the subroutine.
 
 =item cleanLogFileLatency(%args)
 
@@ -81,8 +81,8 @@ The default is to clean up file-level information for
 block destinations completed more than 30 days ago.
 Block-level information is kept indefinitely.
 
-Returns an array containing the number of rows updated by each
-statement in the subroutine.
+Returns a statistics array containing ('stats name', number of rows
+updated) for each statement in the subroutine.
 
 =back
 
@@ -222,7 +222,7 @@ sub mergeXferFileLatency
     my @rv2 = execute_sql( $self, $sql );
     $stats{'transfers to final destination'} = $rv[1] || 0;
     
-    # Return statistics                                                                                                                                                                       
+    # Return statistics
     return map { [$_, $stats{$_}] } @stats_order;
 }
 
@@ -230,8 +230,15 @@ sub mergeXferFileLatency
 sub mergeLogBlockLatency
 {
     my ($self,%h) = @_;
-    my ($sql,%p,$q,$n,@r);
+    my ($sql,%p,$q,$n);
 
+    my %stats;
+    my @stats_order = ('files merged','file replicas merged',
+		       'anonymous files merged','blocks merged',
+		       'block logs deleted');
+    
+    $stats{$_} = 0 foreach @stats_order;
+    
     # Merge file latency information into history table for finished blocks
     $sql = qq {
 	merge into t_log_file_latency u
@@ -287,7 +294,7 @@ sub mergeLogBlockLatency
 	   };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'files merged'} = $n || 0;
 
 # Merge file replica information into history table for finished blocks for files with no latency info (already at destination, or missed events)
     $sql = qq {
@@ -322,8 +329,8 @@ sub mergeLogBlockLatency
 	   };
 
     ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
-
+    $stats{'file replicas merged'} = $n || 0 ;
+    
     # Add anonymous file statistics for completed blocks (invalidated files)
     $sql = qq {
 	insert into t_log_file_latency d
@@ -352,7 +359,7 @@ sub mergeLogBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
+    $stats{'anonymous files merged'} = $n || 0;
 
     # Merge latency information into history table for finished blocks
     $sql = qq{
@@ -400,7 +407,7 @@ sub mergeLogBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'blocks merged'} = $n || 0;
 
     # Now clean up all we have archived (will also cascade deletion of file-level entries)
     $sql = qq {
@@ -408,9 +415,9 @@ sub mergeLogBlockLatency
 	};
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'block logs deleted'} = $n || 0;
     
-    return @r;
+    return map { [$_, $stats{$_}] } @stats_order;
 }
 
 #----------------------------------------------------------------------------------------
@@ -613,7 +620,10 @@ sub mergeStatusBlockLatency
 sub cleanLogFileLatency {
     
     my ($self, %h) = @_;
-    my ($sql,%p,$q,$n,@r);
+    my ($sql,%p,$q,$n);
+    my %stats;
+    my @stats_order = ('file logs deleted');
+    $stats{$_} = 0 foreach @stats_order;
 
     my $now = $h{NOW} || &mytimeofday();
     my $limit = 30*86400;
@@ -629,9 +639,9 @@ sub cleanLogFileLatency {
 	};
     
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'file logs deleted'} = $n || 0;
 
-    return @r;
+    return map { [$_, $stats{$_}] } @stats_order;
 
 }
 
