@@ -58,8 +58,8 @@ completion.  On the other hand, if it is run slower than
 BlockAllocator it will miss events.  For this reason it is run after
 BlockAllocator completes.
 
-Returns an array containing the number of rows updated by each
-statement in the subroutine.
+Returns a statistics array containing ('stats name', number of rows
+updated) for each statement in the subroutine.
 
 =item mergeLogBlockLatency(%args)
 
@@ -179,7 +179,7 @@ sub mergeXferFileLatency
 	      };
 
     my @rv = execute_sql( $self, $sql );
-    $stats{'transfers to buffer'} = @rv[1] || 0;
+    $stats{'transfers to buffer'} = $rv[1] || 0;
 
     # Merge transfers to final destination
     # NOTE: don't increment attempts count for Buffer-->MSS transfers, so that 'attempts' is only the number of WAN attempts
@@ -220,7 +220,7 @@ sub mergeXferFileLatency
 			  };
 
     my @rv2 = execute_sql( $self, $sql );
-    $stats{'transfers to final destination'} = @rv[1] || 0;
+    $stats{'transfers to final destination'} = $rv[1] || 0;
     
     # Return statistics                                                                                                                                                                       
     return map { [$_, $stats{$_}] } @stats_order;
@@ -417,7 +417,14 @@ sub mergeLogBlockLatency
 sub mergeStatusBlockLatency
 {
     my ($self,%h) = @_;
-    my ($sql,%p,$q,$n,@r);
+    my ($sql,%p,$q,$n);
+    
+    my %stats;
+    my @stats_order = ('unfinished blocks deleted','block stats updated',
+		       'new blocks found', 'new blocks added', 'new files added',
+		       'latest replica updated','finished blocks updated',
+		       'unfinished blocks updated');
+    $stats{$_} = 0 foreach @stats_order;
 
     $p{':now'} = $h{NOW} || &mytimeofday();
 
@@ -431,7 +438,7 @@ sub mergeStatusBlockLatency
 		 and bd.block = l.block ) };
 
     ($q, $n) = execute_sql( $self, $sql );
-    push @r, $n;
+    $stats{'unfinished blocks deleted'} = $n || 0;
 
     # Update statistics for existing block status latency entries:
     # update the suspension time since the latest replication 
@@ -460,9 +467,8 @@ sub mergeStatusBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'block stats updated'} = $n || 0;
     
-
     # Get new block destinations which don't have a block latency status entry yet
     # Only consider active blocks, because for inactive blocks we don't have file-level information anymore
 
@@ -477,7 +483,7 @@ sub mergeStatusBlockLatency
 	  };
 
     ($q,$n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'new blocks found'} = $n || 0;
 
     my $blocksql = qq{
 	insert into t_dps_block_latency 
@@ -504,18 +510,18 @@ sub mergeStatusBlockLatency
 
     my $brow;
     while ($brow = $q->fetchrow_hashref()) {
-	my $n = 1;
-	push(@{$bargs{$n++}}, $p{':now'});
-	push(@{$bargs{$n++}}, $brow->{DESTINATION});
-	push(@{$bargs{$n++}}, $brow->{BLOCK});
-	push(@{$bargs{$n++}}, $brow->{FILES});
-	push(@{$bargs{$n++}}, $brow->{BYTES});
-	push(@{$bargs{$n++}}, $brow->{BLOCK_CREATE});
-	push(@{$bargs{$n++}}, $brow->{BLOCK_CLOSE});
-	push(@{$bargs{$n++}}, $brow->{PRIORITY});
-	push(@{$bargs{$n++}}, $brow->{IS_CUSTODIAL});
-	push(@{$bargs{$n++}}, $brow->{TIME_SUBSCRIPTION});
-	push(@{$bargs{$n++}}, $brow->{LAST_SUSPEND});
+	my $nb = 1;
+	push(@{$bargs{$nb++}}, $p{':now'});
+	push(@{$bargs{$nb++}}, $brow->{DESTINATION});
+	push(@{$bargs{$nb++}}, $brow->{BLOCK});
+	push(@{$bargs{$nb++}}, $brow->{FILES});
+	push(@{$bargs{$nb++}}, $brow->{BYTES});
+	push(@{$bargs{$nb++}}, $brow->{BLOCK_CREATE});
+	push(@{$bargs{$nb++}}, $brow->{BLOCK_CLOSE});
+	push(@{$bargs{$nb++}}, $brow->{PRIORITY});
+	push(@{$bargs{$nb++}}, $brow->{IS_CUSTODIAL});
+	push(@{$bargs{$nb++}}, $brow->{TIME_SUBSCRIPTION});
+	push(@{$bargs{$nb++}}, $brow->{LAST_SUSPEND});
 	my $nf = 1;
 	push(@{$fargs{$nf++}}, $p{':now'});
         push(@{$fargs{$nf++}}, $brow->{DESTINATION});
@@ -523,7 +529,10 @@ sub mergeStatusBlockLatency
     }
 
     my @rv = &dbexec($self->{DBH}, $blocksql, %bargs) if %bargs;
+    $stats{'new blocks added'} = $rv[1] || 0;
+
     my @rv2 = &dbexec($self->{DBH}, $filesql, %fargs) if %fargs;
+    $stats{'new files added'} = $rv2[1] || 0;                                                                                                                                     
   
     # Update most recent replica if the block record is not complete; if a new replica was created
     # since the previous update, add the partial suspension time since the latest replica to the total suspension time
@@ -548,7 +557,7 @@ sub mergeStatusBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'latest replica updated'} = $n || 0;
    
     # Update last replica and latency total for finished blocks
     # The formula is t_last_replica - t_soonest_possible_start - t_suspended
@@ -581,7 +590,7 @@ sub mergeStatusBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'finished blocks updated'} = $n || 0;
 
     # Update current latency totals for unfinished blocks
     # The formula is now - t_soonest_possible_start - t_suspended
@@ -595,9 +604,10 @@ sub mergeStatusBlockLatency
     };
 
     ($q, $n) = execute_sql( $self, $sql, %p );
-    push @r, $n;
+    $stats{'unfinished blocks updated'} = $n || 0;
 
-    return @r;
+    return map { [$_, $stats{$_}] } @stats_order;
+
 }
 
 sub cleanLogFileLatency {
