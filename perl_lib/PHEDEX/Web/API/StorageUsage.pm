@@ -2,17 +2,61 @@ package PHEDEX::Web::API::StorageUsage;
 use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
+use PHEDEX::Core::Inject;
 use Data::Dumper;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::StorageUsage - simple interface to query 
+PHEDEX::Web::API::StorageUsage - Query storage info 
 
-=head2 DESCRIPTION
+=head1 DESCRIPTION
 
-GET data from storage usage db
+Query storage info with options from oracle backend
+
+=head2 Options
+
+ required inputs: node 
+ optional inputs: (as filters) level, rootdir, time_since, time_until 
+
+  node             node name, could be multiple, all(*). 
+  level            the depth of directories, should be less than or equal to 6 (<=6), the default is 4
+  rootdir          the path to be queried
+  time_since       former time range, since this time, if not specified, time_since=0
+  time_until       later time range, until this time, if not specified, time_until=10000000000
+                   if both time_since and time_until are not specified, the latest record will be selected
+
+=head2 Output
+
+'NODES' => [
+
+              {
+               'TIMEBINS' => [
+                            {
+                             'LEVELS' => [
+                                          {
+                                           'DATA' => [
+                                                      {
+                                                       'SIZE' => '793386224316',
+                                                       'DIR' => '/store'
+                                                      },
+                                                      ......
+                                                     ],
+                                          'LEVEL' => 1
+                                          },
+                                          ......
+                                         ],
+                             'TIMESTAMP' => '1335755155'
+                            },
+                            ......
+                           ],
+              'SUBDIR' => '/',
+              'NODE' => 'T1_DE_KIT'
+             },
+             ........
+
+            ]
 
 =cut
 
@@ -24,7 +68,7 @@ sub storageusage
 {
   my ($core, %args) = @_;
   warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
-  my ($method,$site,$result,@inputSitelist,@records);
+  my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
 
   $method = $core->{REQUEST_METHOD};
 
@@ -41,35 +85,55 @@ sub storageusage
      $args{level} = 4;
   }
 
-  if (!$args{site}) {
+  if (!$args{node}) {
     die PHEDEX::Web::Util::http_error(400,"no nodes are specified");
   }
 
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
   } 
-  
-  if ($args{site} =~ m/^\*$/) {
-     push @inputSitelist, "*";
+ 
+   
+  if ($args{node} =~ m/^\*$/) {
+     $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+     $last = @{$result}[0]->{SITENAME};
+     my $dirstemp = ();
+     foreach $data (@{$result}) {
+       my $dirtemp = {};
+       $dirtemp->{DIR} = $data->{DIR};
+       $dirtemp->{SPACE} = $data->{SPACE};
+       $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
+       $dirtemp->{SITENAME} = $data->{SITENAME};
+       push @$dirstemp, $dirtemp;
+       warn "dumping dirtemp ",Data::Dumper->Dump([ $dirtemp ]);
+       if ($last !~ m/$data->{SITENAME}/) {
+          my $node = {};
+          $node->{subdir} = $args{rootdir};
+          $node->{node} = $last;
+          warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
+          $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
+          push @records, $node;
+          $dirstemp = ();
+          $last = $data->{SITENAME};
+       }
+    }
   } 
   else {
-     @inputSitelist = split(",", $args{site});
+     @inputnodes = split(",", $args{node});
+     foreach $inputnode (@inputnodes) {
+        my $node = {};
+        $args{node} = $inputnode;
+        $node->{subdir} = $args{rootdir};
+        $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+        $node->{node} = @{$result}[0]->{SITENAME};
+        $node->{timebins} = getNodeInfo($core, $result, %args); 
+        #warn "dumping node ",Data::Dumper->Dump([ $node ]);
+        push @records, $node;
+     }
   }
-
-  foreach $site (@inputSitelist) {
-     my $node = {};
-     $args{site} = $site;
-     $node->{subdir} = $args{rootdir};
-     $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-     $node->{node} = @{$result}[0]->{SITENAME};
-     $node->{timebins} = getNodeInfo($core, $result, %args); 
-     warn "dumping node ",Data::Dumper->Dump([ $node ]);
-     push @records, $node;
-  }
-  warn "dumping records ",Data::Dumper->Dump([ \@records ]);
+  #warn "dumping records ",Data::Dumper->Dump([ \@records ]);
   return { nodes => \@records };
   #return { storageusage => @records };
-
 }
 
 sub getNodeInfo 
@@ -88,8 +152,8 @@ sub getNodeInfo
   # classify data by timestamp
   $timetemp = {};
   $last = @{$result}[0]->{TIMESTAMP};
-  warn "dumping last ",Data::Dumper->Dump([ $last ]);
-  $dirtemp = ();
+  #warn "dumping last ",Data::Dumper->Dump([ $last ]);
+  $dirstemp = ();
   foreach $data (@{$result}) {
     #warn "dumping data from db ", Data::Dumper->Dump([ \$data ]);
     $dirtemp = {};
@@ -129,10 +193,12 @@ sub getNodeInfo
        if ($count==0) { $level = $i; }
 
        #warn "dump dirarray ", Data::Dumper->Dump([ $dirarray ]);
-       $levelhash->{level} = $i;
-       $levelhash->{data} = $dirarray;
-       #warn "dump levelhash ", Data::Dumper->Dump([ $levelhash ]);
-       push @$levelarray, $levelhash;
+       if ($dirarray) {
+          $levelhash->{level} = $i;
+          $levelhash->{data} = $dirarray;
+          #warn "dump levelhash ", Data::Dumper->Dump([ $levelhash ]);
+          push @$levelarray, $levelhash;
+       }
     }
     #warn "dump levelarray ", Data::Dumper->Dump([ $levelarray ]);
     $timebin->{levels} = $levelarray;
