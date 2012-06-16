@@ -6,7 +6,9 @@ use base 'PHEDEX::Core::SQL';
 use Carp;
 use POSIX;
 use Data::Dumper;
+use PHEDEX::Core::Identity;
 use PHEDEX::Core::Timing;
+use PHEDEX::RequestAllocator::SQL;
 
 our @EXPORT = qw( );
 our (%params);
@@ -59,9 +61,9 @@ sub insertSpace {
    
    #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]);
    $strict  = defined $h{strict}  ? $h{strict}  : 1;
-
+  
    $sql = qq{ select id from t_sites where sitename=:sitename };
-   $p_site{':sitename'} = $h{site};
+   $p_site{':sitename'} = $h{node};
    $q = execute_sql( $self, $sql , %p_site);
    $site_id = $q->fetchrow_hashref(); 
    if (!$site_id) { 
@@ -108,6 +110,7 @@ sub insertSpace {
       $p_s{':space'} = $h{size};
    }
    $q = execute_sql( $self, $sql ,%p_s);
+   warn "dumping insert result in SQL.pm",Data::Dumper->Dump([ \$q ]);
    $self->{DBH}->commit();
    return $q;
 }
@@ -132,20 +135,27 @@ sub querySpace {
    my ($self, %h) = @_;
    my ($sql,$q,$row,%p,%p_d,$time,%warn,@r);
  
+   warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]); 
    if(!(exists $h{time_since}) && !(exists $h{time_until})) {
-      # return latest one
-      $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_sites where sitename=:site) };
-      $p{':site'} = $h{site};
-      $q = execute_sql($self, $sql, %p);
+      # return latest one 
+      if ($h{node} =~ m/^\*$/) {
+         $sql = qq{ select max(timestamp) from t_space_usage };
+         $q = execute_sql($self, $sql);
+      }
+      else {
+         $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_sites where sitename=:site) };
+         $p{':site'} = $h{node};
+         $q = execute_sql($self, $sql, %p);
+      }
       $time = $q->fetchrow_hashref();
       $h{time_since} = $time->{'MAX(TIMESTAMP)'};
       $h{time_until} = $time->{'MAX(TIMESTAMP)'};
       warn "dumping timestamp in SQL.pm",Data::Dumper->Dump([ \$time ]);
    }
-   elsif(!$h{time_since}) {
+   elsif(!(exists $h{time_since})) {
       $h{time_since} = 0;
    }
-   elsif(!$h{time_until}) {
+   elsif(!(exists $h{time_until})) {
       $h{time_until} = 10000000000;
    }
    else {
@@ -153,13 +163,13 @@ sub querySpace {
       $h{time_until} = $h{time_until} + 0;
    }
 
-   #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
+   warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
-   if($h{site} =~ m/^\*$/) { 
+   if($h{node} =~ m/^\*$/) { 
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
               join t_sites sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until order by timestamp};
+              where timestamp >= :time_since and timestamp <= :time_until order by sitename,timestamp};
    }
    else {
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
@@ -167,17 +177,22 @@ sub querySpace {
               join t_sites sites on sites.id = spaces.site_id
               where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_sites where sitename=:site) 
               order by timestamp};
-      $p{':site'} = $h{site};
+      $p{':site'} = $h{node};
    }
    $p{':time_since'} = $h{time_since};
    $p{':time_until'} = $h{time_until};
    $q = execute_sql( $self, $sql, %p );
    if ($q->fetchrow_hashref()) {
       while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-      #warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
+      warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
    }
    else {
-      die "No records are available for the site $h{site} during the period from $h{time_since} to $h{time_until}\n"; 
+      if ((!$h{time_since})&&(!$h{time_until})) {
+         die "No records are available for the site $h{node}\n"; 
+      }
+      else {
+         die "No records are available for the site $h{node} during the period from $h{time_since} to $h{time_until}\n";
+      }
    }
    return \@r;
 }
