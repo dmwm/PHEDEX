@@ -19,12 +19,12 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceInsert --dump DUMP --strict --sitename SITENAME --depth LEVEL --url URL
+  spaceInsert --dump DUMP --strict --node NODES --depth LEVEL --url URL
               INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is depth of the directory structure you want to go, default is 6
-  SITENAME is the name of site, must exist
+  NODES is the name of node, must exist
   URL is the url for data service
   strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
  
@@ -119,7 +119,7 @@ sub convertToUnixTime
   return $unixTime;
 }
 
-my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$sitename,%payload,%topsizes);
+my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
 my ($strict);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
@@ -127,7 +127,7 @@ $level = 6;
 
 GetOptions(
            "dump=s"      => \$dump,
-           "sitename=s"      => \$sitename,
+           "node=s"      => \$node,
            "url=s"      => \$datasvcUrl,
            "level=s"      => \$level,
            "strict=s"     => \$strict,
@@ -136,7 +136,7 @@ GetOptions(
            "help|h"         => sub { &usage() }
           );
 
-if (!$dump || !$sitename) {
+if (!$dump || !$node) {
    die "You must provide dump file and collection Name!\n";
 }
 $method   = 'post';
@@ -160,7 +160,7 @@ if ( $dump ) {
 
 $payload{"strict"} = defined $strict  ? $strict  : 1;
  
-$payload{"sitename"}=$sitename;
+$payload{"node"}=$node;
 $payload{"timestamp"}=$timeFromXml;
 $payload{"totalsize"}=$totalsize;
 $payload{"totalfiles"}=$totalfiles;
