@@ -428,7 +428,7 @@ sub mergeStatusBlockLatency
     
     my %stats;
     my @stats_order = ('unfinished blocks deleted','block stats updated',
-		       'new blocks found', 'new blocks added', 'new files added',
+		       'new blocks added', 'new blocks with files added',
 		       'latest replica updated','finished blocks updated',
 		       'unfinished blocks updated');
     $stats{$_} = 0 foreach @stats_order;
@@ -490,8 +490,7 @@ sub mergeStatusBlockLatency
 	  };
 
     ($q,$n) = execute_sql( $self, $sql, %p );
-    $stats{'new blocks found'} = $n || 0;
-
+    
     my $blocksql = qq{
 	insert into t_dps_block_latency 
 	    (time_update, destination, block, files, bytes, block_create, block_close,
@@ -539,7 +538,7 @@ sub mergeStatusBlockLatency
     $stats{'new blocks added'} = $rv[1] || 0;
 
     my @rv2 = &dbexec($self->{DBH}, $filesql, %fargs) if %fargs;
-    $stats{'new files added'} = $rv2[1] || 0;                                                                                                                                     
+    $stats{'new blocks with files added'} = $rv2[1] || 0;
   
     # Update most recent replica if the block record is not complete; if a new replica was created
     # since the previous update, add the partial suspension time since the latest replica to the total suspension time
