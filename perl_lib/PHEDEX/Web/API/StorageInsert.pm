@@ -26,6 +26,13 @@ insert node storage info into Oracle for later query
   dirinfo          the directory and its size, could be multiple, the format:
                    "/store/mc"=1000000000
 
+=head2 Output
+
+If successful:
+  Insert records successfully!
+If failed with overwrite and strict=1:
+  The record already exists
+
 =cut
 
 sub methods_allowed { return ('POST'); }
@@ -40,6 +47,7 @@ sub storageinsert
   my ($strict, $find, $nospecify, $status);
 
   $method = $core->{REQUEST_METHOD};
+
   $strict  = defined $args{strict}  ? $args{strict}  : 1;
 
   $node = $args{node};
