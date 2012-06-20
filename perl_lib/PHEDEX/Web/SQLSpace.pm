@@ -110,7 +110,7 @@ sub insertSpace {
       $p_s{':space'} = $h{size};
    }
    $q = execute_sql( $self, $sql ,%p_s);
-   warn "dumping insert result in SQL.pm",Data::Dumper->Dump([ \$q ]);
+   #warn "dumping insert result in SQL.pm",Data::Dumper->Dump([ \$q ]);
    $self->{DBH}->commit();
    return $q;
 }
@@ -125,7 +125,7 @@ sub insertDirectory {
    $p_d{':dir'} = $h{dir};
    $q = execute_sql( $self, $sql, %p_d );
    $dir_id = $q->fetchrow_hashref();
-   warn "dumping dir_id in SQL.pm",Data::Dumper->Dump([ \$dir_id ]);
+   #warn "dumping dir_id in SQL.pm",Data::Dumper->Dump([ \$dir_id ]);
 
 
    return $q;
@@ -135,7 +135,7 @@ sub querySpace {
    my ($self, %h) = @_;
    my ($sql,$q,$row,%p,%p_d,$time,%warn,@r);
  
-   warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]); 
+   #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]); 
    if(!(exists $h{time_since}) && !(exists $h{time_until})) {
       # return latest one 
       if ($h{node} =~ m/^\*$/) {
@@ -150,7 +150,7 @@ sub querySpace {
       $time = $q->fetchrow_hashref();
       $h{time_since} = $time->{'MAX(TIMESTAMP)'};
       $h{time_until} = $time->{'MAX(TIMESTAMP)'};
-      warn "dumping timestamp in SQL.pm",Data::Dumper->Dump([ \$time ]);
+      #warn "dumping timestamp in SQL.pm",Data::Dumper->Dump([ \$time ]);
    }
    elsif(!(exists $h{time_since})) {
       $h{time_since} = 0;
@@ -163,7 +163,7 @@ sub querySpace {
       $h{time_until} = $h{time_until} + 0;
    }
 
-   warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
+   #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
    if($h{node} =~ m/^\*$/) { 
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
@@ -184,7 +184,7 @@ sub querySpace {
    $q = execute_sql( $self, $sql, %p );
    if ($q->fetchrow_hashref()) {
       while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-      warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
+      #warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
    }
    else {
       if ((!$h{time_since})&&(!$h{time_until})) {
