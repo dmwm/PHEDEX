@@ -2,6 +2,7 @@ package PHEDEX::Web::API::StorageUsage;
 use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
+use PHEDEX::Web::Util;
 use PHEDEX::Core::Inject;
 use Data::Dumper;
 
@@ -29,34 +30,34 @@ Query storage info with options from oracle backend
 
 =head2 Output
 
-'NODES' => [
+  <nodes>
+    <timebins>
+      <levels>
+        <data/>
+      </levels>
+       ....
+    </timebins>
+    ....
+  </nodes>
+  ....
 
-              {
-               'TIMEBINS' => [
-                            {
-                             'LEVELS' => [
-                                          {
-                                           'DATA' => [
-                                                      {
-                                                       'SIZE' => '793386224316',
-                                                       'DIR' => '/store'
-                                                      },
-                                                      ......
-                                                     ],
-                                          'LEVEL' => 1
-                                          },
-                                          ......
-                                         ],
-                             'TIMESTAMP' => '1335755155'
-                            },
-                            ......
-                           ],
-              'SUBDIR' => '/',
-              'NODE' => 'T1_DE_KIT'
-             },
-             ........
+=head3 <nodes> elements
 
-            ]
+  subdir             the path searched
+  node               node name
+
+=head3 <timebins> elements
+
+  timestamp          time for the directory info
+
+=head3 <levels> elements
+
+  level              the directory depth
+
+=head3 <data> elements
+
+  size               the size of the directory
+  dir                the directory name
 
 =cut
 
@@ -66,15 +67,34 @@ sub invoke { return storageusage(@_); }
 
 sub storageusage 
 {
-  my ($core, %args) = @_;
-  warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
+  my ($core, %h) = @_;
+  #warn "dumping arguments ",Data::Dumper->Dump([ \%h ]);
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
 
   $method = $core->{REQUEST_METHOD};
+  my %args;
+  eval {
+        %args = &validate_params(\%h,
+                allow => [ qw ( node level rootdir time_since time_until ) ],
+                required => [ qw ( node ) ],
+                uc_keys => 1,
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    level => { using => 'pos_int' },
+                    rootdir => { using => 'dataitem_*' },
+                    time_since => { using => 'time' },
+                    time_until => { using => 'time' }
+                });
+        };
+  if ( $@ )
+  {
+        return PHEDEX::Web::Util::http_error(400, $@);
+  } 
 
-  foreach ( keys %args ) {
-     $args{lc($_)} = $args{$_};
-  }
+  #foreach ( keys %args ) {
+  #   $args{lc($_)} = $args{$_};
+  #}
  
   if ($args{level}) {
      if ($args{level} > 6) {
@@ -83,10 +103,6 @@ sub storageusage
   }
   else {
      $args{level} = 4;
-  }
-
-  if (!$args{node}) {
-    die PHEDEX::Web::Util::http_error(400,"no nodes are specified");
   }
 
   if (!$args{rootdir}) {
@@ -105,12 +121,12 @@ sub storageusage
        $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
        $dirtemp->{SITENAME} = $data->{SITENAME};
        push @$dirstemp, $dirtemp;
-       warn "dumping dirtemp ",Data::Dumper->Dump([ $dirtemp ]);
+       #warn "dumping dirtemp ",Data::Dumper->Dump([ $dirtemp ]);
        if ($last !~ m/$data->{SITENAME}/) {
           my $node = {};
           $node->{subdir} = $args{rootdir};
           $node->{node} = $last;
-          warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
+          #warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
           $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
           push @records, $node;
           $dirstemp = ();
@@ -139,7 +155,7 @@ sub storageusage
 sub getNodeInfo 
 {
   my ($core, $result, %args) = @_;
-  warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
+  #warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
   my ($level,$rootdir,%dir, $dirs, $data);
   my ($dirtemp, $timetemp, $dirstemp, $last, $time);
   my ($dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
