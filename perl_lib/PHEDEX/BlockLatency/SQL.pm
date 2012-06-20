@@ -220,7 +220,7 @@ sub mergeXferFileLatency
 			  };
 
     my @rv2 = execute_sql( $self, $sql );
-    $stats{'transfers to final destination'} = $rv[1] || 0;
+    $stats{'transfers to final destination'} = $rv2[1] || 0;
     
     # Return statistics
     return map { [$_, $stats{$_}] } @stats_order;
