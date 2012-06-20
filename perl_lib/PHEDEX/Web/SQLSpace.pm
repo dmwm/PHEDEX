@@ -6,9 +6,7 @@ use base 'PHEDEX::Core::SQL';
 use Carp;
 use POSIX;
 use Data::Dumper;
-use PHEDEX::Core::Identity;
 use PHEDEX::Core::Timing;
-use PHEDEX::RequestAllocator::SQL;
 
 our @EXPORT = qw( );
 our (%params);

@@ -3,7 +3,6 @@ use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
 use PHEDEX::Web::Util;
-use PHEDEX::Core::Inject;
 use Data::Dumper;
 
 =pod
