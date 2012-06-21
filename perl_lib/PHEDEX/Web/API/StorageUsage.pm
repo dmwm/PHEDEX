@@ -145,8 +145,13 @@ sub storageusage
     }
   } 
   else {
-     #@inputnodes = split(",", $args{node});
-     foreach $inputnode (@{$args{node}}) {
+     if (ref $args{node} eq 'ARRAY') {
+        @inputnodes = @{$args{node}};
+     }
+     else {
+        @inputnodes = $args{node};
+     }
+     foreach $inputnode (@inputnodes) {
         my $node = {};
         $args{node} = $inputnode;
         $node->{subdir} = $args{rootdir};
