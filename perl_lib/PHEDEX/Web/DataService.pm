@@ -90,7 +90,7 @@ sub parse_path {
   my ($format,$db,$call,$path,$package); # = ("xml", "prod", undef);
   $package = lc $ENV{PHEDEX_PACKAGE_NAME} || 'phedex';
 
-  $path = lc $self->{PATH_INFO} || "xml/prod";
+  $path = lc $self->{PATH_INFO}; # || "xml/prod";
   if ( $package eq 'phedex' ) {
     $format = $1 if ($path =~ m!\G/([^/]+)!g);
     $db =     $1 if ($path =~ m!\G/([^/]+)!g);
@@ -101,7 +101,9 @@ sub parse_path {
     if ( $call eq 'storageinsert' ) {
       $db = 'write';
     }
-    if ( $call eq 'storageusage' ) {
+    if ( $call eq 'storageusage' ||
+         $call eq 'auth' ||
+         $call eq 'bounce' ) {
       $db = 'read';
     }
   }
