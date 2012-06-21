@@ -20,15 +20,25 @@ create sequence t_directories_sequence
 ----------------------------------------------------------------------
 -- Create tables
 
-create table t_sites (
-    sitename    varchar(50)        not null,
+create table t_adm_node (
+    name    varchar(50)        not null,
     id          integer            not null,
   --
-  constraint pk_sites
+  constraint pk_adm_node
     primary key (id),
-  constraint unique_sitename
-    unique (sitename)
+  constraint unique_adm_node__name
+    unique (name)
 );
+
+-- create table t_sites (
+--     sitename    varchar(50)        not null,
+--     id          integer            not null,
+--   --
+--   constraint pk_sites
+--     primary key (id),
+--   constraint unique_sitename
+--     unique (sitename)
+-- );
 
 create table t_directories (
     dir       varchar(1000)        not null,
