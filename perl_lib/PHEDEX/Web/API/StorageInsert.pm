@@ -2,7 +2,9 @@ package PHEDEX::Web::API::StorageInsert;
 use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
+use PHEDEX::Core::Inject;
 use Data::Dumper;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -43,19 +45,49 @@ sub storageinsert
   #warn "dumping arguments ",Data::Dumper->Dump([ \%args ]);
 
   my ($timestamp,$method,@records,%test,$node,%word,%input);
-  my ($strict, $find, $nospecify, $status);
+  my ($strict, $find, $nospecify, $status, %h, $k, $v);
 
   $method = $core->{REQUEST_METHOD};
 
-  $strict  = defined $args{strict}  ? $args{strict}  : 1;
-
-  $node = $args{node};
-
-  $timestamp = $args{timestamp};
-  foreach ( qw / totalsize totaldirs totalfiles node timestamp strict/ )
+  foreach ( qw / node timestamp strict/ )
   {
+       $h{$_} = $args{$_};
        delete($args{$_});
   }
+
+  my %args_former;
+  eval {
+        %args_former= &validate_params(\%h,
+                allow => [ qw ( node timestamp strict ) ],
+                required => [ qw ( node timestamp ) ],
+                uc_keys => 1,
+                spec =>
+                {
+                    node => { using => 'node' },
+                    timestamp => { using => 'pos_int' },
+                    strict => { using => 'pos_int' },
+                });
+        };
+  if ( $@ )
+  {
+        return PHEDEX::Web::Util::http_error(400, $@);
+  }
+
+  foreach ( keys %args_former ) {
+     $args_former{lc($_)} = $args_former{$_};
+  }
+
+  $strict  = defined $args_former{strict}  ? $args_former{strict}  : 1;
+
+  $node = $args_former{node};
+
+  $timestamp = $args_former{timestamp};
+
+  while ( ($k,$v) = each %args ) {
+    #warn "dumping k ",Data::Dumper->Dump([ $k ]);
+    $k =~ m%^/[A-Za-z0-9_.\-/]*$% || return PHEDEX::Web::Util::http_error(400,'directory name not allowed');
+    $v =~ m%^\d+$%              || return PHEDEX::Web::Util::http_error(400,'directory size not numerical');
+  } 
 
   $status = 0 ;
   foreach  (keys %args) {

@@ -136,7 +136,7 @@ sub querySpace {
    #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]); 
    if(!(exists $h{time_since}) && !(exists $h{time_until})) {
       # return latest one 
-      if ($h{node} =~ m/^\*$/) {
+      if ($h{node} =~ m/^T\*$/) {
          $sql = qq{ select max(timestamp) from t_space_usage };
          $q = execute_sql($self, $sql);
       }
@@ -163,7 +163,7 @@ sub querySpace {
 
    #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
-   if($h{node} =~ m/^\*$/) { 
+   if($h{node} =~ m/^T\*$/) { 
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
               join t_sites sites on sites.id = spaces.site_id
@@ -186,10 +186,10 @@ sub querySpace {
    }
    else {
       if ((!$h{time_since})&&(!$h{time_until})) {
-         die "No records are available for the site $h{node}\n"; 
+         die "No records are available for the site you specified\n"; 
       }
       else {
-         die "No records are available for the site $h{node} during the period from $h{time_since} to $h{time_until}\n";
+         die "No records are available for the site or the period you specified\n";
       }
    }
    return \@r;

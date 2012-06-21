@@ -3,6 +3,7 @@ use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
 use PHEDEX::Web::Util;
+use PHEDEX::Core::Inject;
 use Data::Dumper;
 
 =pod
@@ -20,7 +21,7 @@ Query storage info with options from oracle backend
  required inputs: node 
  optional inputs: (as filters) level, rootdir, time_since, time_until 
 
-  node             node name, could be multiple, all(*). 
+  node             node name, could be multiple, all(T*). 
   level            the depth of directories, should be less than or equal to 6 (<=6), the default is 4
   rootdir          the path to be queried
   time_since       former time range, since this time, if not specified, time_since=0
@@ -69,6 +70,7 @@ sub storageusage
   my ($core, %h) = @_;
   #warn "dumping arguments ",Data::Dumper->Dump([ \%h ]);
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
+  my ($dirtemp,$dirstemp,$node);
 
   $method = $core->{REQUEST_METHOD};
   my %args;
@@ -91,9 +93,11 @@ sub storageusage
         return PHEDEX::Web::Util::http_error(400, $@);
   } 
 
-  #foreach ( keys %args ) {
-  #   $args{lc($_)} = $args{$_};
-  #}
+
+  #warn "dumping arguments after validate ",Data::Dumper->Dump([ \%args ]);
+  foreach ( keys %args ) {
+     $args{lc($_)} = $args{$_};
+  }
  
   if ($args{level}) {
      if ($args{level} > 6) {
@@ -109,12 +113,12 @@ sub storageusage
   } 
  
    
-  if ($args{node} =~ m/^\*$/) {
+  if ($args{node} =~ m/^T\*$/) {
      $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
      $last = @{$result}[0]->{SITENAME};
-     my $dirstemp = ();
+     $dirstemp = ();
      foreach $data (@{$result}) {
-       my $dirtemp = {};
+       $dirtemp = {};
        $dirtemp->{DIR} = $data->{DIR};
        $dirtemp->{SPACE} = $data->{SPACE};
        $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
@@ -122,7 +126,7 @@ sub storageusage
        push @$dirstemp, $dirtemp;
        #warn "dumping dirtemp ",Data::Dumper->Dump([ $dirtemp ]);
        if ($last !~ m/$data->{SITENAME}/) {
-          my $node = {};
+          $node = {};
           $node->{subdir} = $args{rootdir};
           $node->{node} = $last;
           #warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
@@ -132,10 +136,18 @@ sub storageusage
           $last = $data->{SITENAME};
        }
     }
+    if ($last =~ m/@{$result}[0]->{SITENAME}/) {
+       $node = {};
+       $node->{subdir} = $args{rootdir};
+       $node->{node} = $last;
+       #warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
+       $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
+       push @records, $node;
+    }
   } 
   else {
-     @inputnodes = split(",", $args{node});
-     foreach $inputnode (@inputnodes) {
+     #@inputnodes = split(",", $args{node});
+     foreach $inputnode (@{$args{node}}) {
         my $node = {};
         $args{node} = $inputnode;
         $node->{subdir} = $args{rootdir};
@@ -229,7 +241,7 @@ sub dirlevel {
   my $path=shift;
   my $depth=shift;
   my @tmp=();
-  if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
+  if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash";}
   $path = $path."/";
   @tmp = split ('/', $path, $depth+2);
   pop @tmp;
