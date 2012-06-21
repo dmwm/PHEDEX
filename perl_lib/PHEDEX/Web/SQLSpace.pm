@@ -45,7 +45,7 @@ sub getSite {
    my ($self, %h) = @_;
    my ($sql,$q,@r);
 
-   $sql = qq{ select sitename, id from t_sites };
+   $sql = qq{ select name, id from t_adm_node };
 
    $q = execute_sql( $self, $sql );
    while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
@@ -60,13 +60,13 @@ sub insertSpace {
    #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]);
    $strict  = defined $h{strict}  ? $h{strict}  : 1;
   
-   $sql = qq{ select id from t_sites where sitename=:sitename };
-   $p_site{':sitename'} = $h{node};
+   $sql = qq{ select id from t_adm_node where name=:name };
+   $p_site{':name'} = $h{node};
    $q = execute_sql( $self, $sql , %p_site);
    $site_id = $q->fetchrow_hashref(); 
    if (!$site_id) { 
      $p_site{':site_id'}=$site_id;
-     $sql = qq{insert into t_sites values (:sitename, t_sites_sequence.nextval) returning id into :site_id};
+     $sql = qq{insert into t_adm_node values (:name, t_adm_node.nextval) returning id into :site_id};
      $p_site{':site_id'}=\$temp_id;
      $q = execute_sql( $self, $sql , %p_site);
      #$self->{DBH}->commit();
@@ -141,7 +141,7 @@ sub querySpace {
          $q = execute_sql($self, $sql);
       }
       else {
-         $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_sites where sitename=:site) };
+         $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_adm_node where name=:site) };
          $p{':site'} = $h{node};
          $q = execute_sql($self, $sql, %p);
       }
@@ -164,16 +164,16 @@ sub querySpace {
    #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
    if($h{node} =~ m/^T\*$/) { 
-      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
+      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.name from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
-              join t_sites sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until order by sitename,timestamp};
+              join t_adm_node sites on sites.id = spaces.site_id
+              where timestamp >= :time_since and timestamp <= :time_until order by name,timestamp};
    }
    else {
-      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.sitename from t_space_usage spaces
+      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.name from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
-              join t_sites sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_sites where sitename=:site) 
+              join t_adm_node sites on sites.id = spaces.site_id
+              where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_adm_node where name=:site) 
               order by timestamp};
       $p{':site'} = $h{node};
    }
