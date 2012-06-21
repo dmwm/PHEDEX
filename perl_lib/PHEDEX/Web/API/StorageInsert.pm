@@ -2,7 +2,6 @@ package PHEDEX::Web::API::StorageInsert;
 use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
-use PHEDEX::Core::Inject;
 use Data::Dumper;
 use PHEDEX::Web::Util;
 
