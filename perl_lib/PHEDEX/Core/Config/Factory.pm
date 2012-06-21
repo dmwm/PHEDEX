@@ -38,7 +38,7 @@ our %params =
           SUMMARY_INTERVAL      => 3600*24,     # Frequency for all agents report status, once everyday
           NOTIFY_PLUGIN         => 'logfile',   # plugin used for reporting 
           REPORT_PLUGIN         => 'summary',   # plugin used to generate report
-          WATCHDOG_NOTIFICATION_PORT => $ENV{PHEDEX_WATCHDOG_NOTIFICATION_PORT} || 9999,   # Port to listen
+          WATCHDOG_NOTIFICATION_PORT => 9999,   # Port to listen
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -55,6 +55,11 @@ sub new
 	$ENV{PHEDEX_NOTIFICATION_PORT};
   die "'PHEDEX_NOTIFICATION_PORT' not set correctly in your configuration file, giving up...\n" unless $self->{_NOTIFICATION_PORT};
   undef $self->{NOTIFICATION_PORT}; # So I don't talk to myself via the logger
+
+  $self->{WATCHDOG_PORT} =
+        $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_WATCHDOG_NOTIFICATION_PORT') ||
+        $ENV{PHEDEX_WATCHDOG_NOTIFICATION_PORT} || $self->{WATCHDOG_NOTIFICATION_PORT};
+  $self->{WATCHDOG_NOTIFICATION_PORT} = $self->{WATCHDOG_PORT};
 
 # Just prove that I can read the config file safely, before daemonising, so I
 # can spit the dummy if the user has screwed up somehow.

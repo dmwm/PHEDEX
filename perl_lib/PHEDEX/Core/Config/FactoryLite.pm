@@ -27,7 +27,7 @@ our %params =
           LOAD_CYCLE            => 1,             # Load Cycle module
           LOAD_DB               => 0,             # Do not load DB module
 
-          WATCHDOG_NOTIFICATION_PORT => $ENV{PHEDEX_WATCHDOG_NOTIFICATION_PORT} || 9999,   # Port to listen
+          WATCHDOG_NOTIFICATION_PORT => 9999,     # Port to listen
 	);
 
 our @array_params = qw / AGENT_NAMES /;
@@ -39,7 +39,10 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(%params,@_);
 
-  $self->{NOTIFICATION_PORT} = $self->{WATCHDOG_NOTIFICATION_PORT};
+  $self->{NOTIFICATION_PORT} =
+        $self->{ENVIRONMENT}->getExpandedParameter('PHEDEX_WATCHDOG_NOTIFICATION_PORT') ||
+        $ENV{PHEDEX_WATCHDOG_NOTIFICATION_PORT} || $self->{WATCHDOG_NOTIFICATION_PORT};
+  $self->{WATCHDOG_NOTIFICATION_PORT} = $self->{NOTIFICATION_PORT};
 
   bless $self, $class;
   return $self;
