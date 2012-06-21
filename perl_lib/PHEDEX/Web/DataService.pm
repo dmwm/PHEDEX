@@ -98,13 +98,15 @@ sub parse_path {
   } elsif ( $package eq 'dmwmmon' ) {
     $format = $1 if ($path =~ m!\G/([^/]+)!g);
     $call =   $1 if ($path =~ m!\G/(.+)$!g);
-    if ( $call eq 'storageinsert' ) {
-      $db = 'write';
-    }
-    if ( $call eq 'storageusage' ||
-         $call eq 'auth' ||
-         $call eq 'bounce' ) {
-      $db = 'read';
+    if ( $call ) {
+      if ( $call eq 'storageinsert' ) {
+        $db = 'write';
+      }
+      if ( $call eq 'storageusage' ||
+           $call eq 'auth' ||
+           $call eq 'bounce' ) {
+        $db = 'read';
+      }
     }
   }
 
@@ -118,10 +120,6 @@ sub invoke
   # Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
 
   my ($format, $db, $call) = $self->parse_path();
-  return [400,"No DB defined for this API"] unless $db;
-#  $format = $1 if ($path =~ m!\G/([^/]+)!g);
-#  $db =     $1 if ($path =~ m!\G/([^/]+)!g);
-#  $call =   $1 if ($path =~ m!\G/(.+)$!g);
 
   # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
@@ -143,9 +141,16 @@ sub invoke
   }
 
   if (!$call) {
-      &error($format, "API call was not defined.  Correct URL format is /FORMAT/INSTANCE/CALL?OPTIONS");
+# TW TODO This is another hack for DMWMMON
+      my $package = lc $ENV{PHEDEX_PACKAGE_NAME} || 'phedex';
+      my $msg = 'API call was not defined.  Correct URL format is /FORMAT/';
+      if ( $package eq 'phedex' ) { $msg .= 'INSTANCE/'; }
+      $msg .= 'CALL?OPTIONS';
+      &error($format,$msg);
       return;
   }
+
+  return [400,"No DB defined for this API"] unless $db;
 
   my $http_now = &formatTime(&mytimeofday(), 'http');
 
@@ -315,12 +320,12 @@ sub print_doc
 	}
 
 #       Massage PHEDEX::Web::Core output into DMWMMON or something else...
-        next if $line =~ m%^\s*instance\s+%i && $package == 'DMWMMON'; # TW TODO Yeuck!
+        next if $line =~ m%^\s*instance\s+%i && $package eq 'DMWMMON'; # TW TODO Yeuck!
         $line =~ s%PHEDEX%$package%g;
         $line =~ s%PhEDEx%$package%g;
         if ( $line =~ m%/phedex/datasvc% ) {
           $line =~ s%/phedex/datasvc%/$package_lc/datasvc%;
-          if ( $package == 'DMWMMON' ) { # TW TODO This is ugly!
+          if ( $package eq 'DMWMMON' ) { # TW TODO This is ugly!
             $line =~ s%xml/prod/foobar%xml/foobar%;
             $line =~ s%FORMAT/INSTANCE/CALL%FORMAT/CALL%;
           }
