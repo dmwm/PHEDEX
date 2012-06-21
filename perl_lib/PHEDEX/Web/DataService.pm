@@ -11,6 +11,7 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::Loader;
 use PHEDEX::Web::Format;
 use PHEDEX::Web::Util;
+use Data::Dumper;
 
 our ($TESTING, $TESTING_MAIL);
 
@@ -84,17 +85,41 @@ sub handler
     return $error;
 }
 
+sub parse_path {
+  my $self = shift;
+  my ($format,$db,$call,$path,$package); # = ("xml", "prod", undef);
+  $package = lc $ENV{PHEDEX_PACKAGE_NAME} || 'phedex';
+
+  $path = lc $self->{PATH_INFO} || "xml/prod";
+  if ( $package eq 'phedex' ) {
+    $format = $1 if ($path =~ m!\G/([^/]+)!g);
+    $db =     $1 if ($path =~ m!\G/([^/]+)!g);
+    $call =   $1 if ($path =~ m!\G/(.+)$!g);
+  } elsif ( $package eq 'dmwmmon' ) {
+    $format = $1 if ($path =~ m!\G/([^/]+)!g);
+    $call =   $1 if ($path =~ m!\G/(.+)$!g);
+    if ( $call eq 'storageinsert' ) {
+      $db = 'write';
+    }
+    if ( $call eq 'storageusage' ) {
+      $db = 'read';
+    }
+  }
+
+  return ($format,$db,$call);
+}
+
 sub invoke
 {
   my $self = shift;
 
   # Interpret the trailing path suffix: /FORMAT/DB/API?QUERY
-  my $path = $self->{PATH_INFO} || "xml/prod";
 
-  my ($format, $db, $call) = ("xml", "prod", undef);
-  $format = $1 if ($path =~ m!\G/([^/]+)!g);
-  $db =     $1 if ($path =~ m!\G/([^/]+)!g);
-  $call =   $1 if ($path =~ m!\G/(.+)$!g);
+  my ($format, $db, $call) = $self->parse_path();
+  return [400,"No DB defined for this API"] unless $db;
+#  $format = $1 if ($path =~ m!\G/([^/]+)!g);
+#  $db =     $1 if ($path =~ m!\G/([^/]+)!g);
+#  $call =   $1 if ($path =~ m!\G/(.+)$!g);
 
   # Print documentation and exit if we have the "doc" path
   if ($format eq 'doc') {
@@ -177,7 +202,7 @@ sub invoke
 				    );
   };
   if ($@) {
-      my $msg = $@;
+      warn "$@\n";
       return [404,"failed to initialize data service API '$call': error loading/compiling module"];
   }
 
@@ -262,26 +287,44 @@ sub print_doc
     $module_name = $loader->ModuleName($call);
     $module = $module_name || 'PHEDEX::Web::Core';
 
+    my $package = $ENV{PHEDEX_PACKAGE_NAME};
+    my $package_lc = lc $package || 'phedex';
+
     # This bit is ugly. I want to add a section for the commands known in this installation,
     # but that can only be done dynamically. So I have to capture the output of the pod2html
     # command and print it, but intercept it and add extra stuff at the appropriate point.
     # I also need to check that I am setting the correct relative link for the modules.
     @lines = `perldoc -m $module |
-                pod2html --header -css /phedex/datasvc/static/phedex_pod.css`;
+                pod2html --header -css /$package_lc/datasvc/static/phedex_pod.css`;
 
     my ($commands,$count,$version);
     $version = $self->{CONFIG}{VERSION} || '';
     $version = '&nbsp;(v.' . $version . ')' if $version;
     $count = 0;
     foreach $line ( @lines ) {
+        next if $line =~ m%<hr />%;
         if ( $line =~ m%^</head>% ) {
           my $meta_tag = '<meta name="PhEDEx-tag" content="PhEDEx-datasvc ' . $self->{CONFIG}{VERSION} . '" />';
+          $meta_tag =~ s%PhEDEx%$package%g;
           print $meta_tag,"\n";
         }
-        next if $line =~ m%<hr />%;
 	if ( $line =~ m%<span class="block">% ) {
 	  $line =~ s%</span>%$version</span>%;
 	}
+
+#       Massage PHEDEX::Web::Core output into DMWMMON or something else...
+        next if $line =~ m%^\s*instance\s+%i && $package == 'DMWMMON'; # TW TODO Yeuck!
+        $line =~ s%PHEDEX%$package%g;
+        $line =~ s%PhEDEx%$package%g;
+        if ( $line =~ m%/phedex/datasvc% ) {
+          $line =~ s%/phedex/datasvc%/$package_lc/datasvc%;
+          if ( $package == 'DMWMMON' ) { # TW TODO This is ugly!
+            $line =~ s%xml/prod/foobar%xml/foobar%;
+            $line =~ s%FORMAT/INSTANCE/CALL%FORMAT/CALL%;
+          }
+        }
+        $line =~ s%phedex%$package_lc%g;
+
         if ( $line =~ m%^<table% ) {
 	    $count++;
 	    if ( $count != 2 ) { print $line; next; }
@@ -297,6 +340,7 @@ sub print_doc
 	    $commands = $loader->Commands();
 	    foreach ( sort keys %{$commands} ) {
 		$module = $loader->ModuleName($_);
+                $module =~ s%PHEDEX%$package%g;
 		print qq{
 		     <tr>
   		     <td><strong>$_</strong></td>
