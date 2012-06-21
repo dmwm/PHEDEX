@@ -137,7 +137,7 @@ GetOptions(
           );
 
 if (!$dump || !$node) {
-   die "You must provide dump file and collection Name!\n";
+   die "You must provide dump file and node name!\n";
 }
 $method   = 'post';
 $timeout  = 500;
@@ -162,9 +162,9 @@ $payload{"strict"} = defined $strict  ? $strict  : 1;
  
 $payload{"node"}=$node;
 $payload{"timestamp"}=$timeFromXml;
-$payload{"totalsize"}=$totalsize;
-$payload{"totalfiles"}=$totalfiles;
-$payload{"totaldirs"}=$totaldirs;
+#$payload{"totalsize"}=$totalsize;
+#$payload{"totalfiles"}=$totalfiles;
+#$payload{"totaldirs"}=$totaldirs;
 
 foreach  (keys %dirsizes) {
   $topsizes{ dirlevel($_,$level)}+=$dirsizes{$_} + 0;
