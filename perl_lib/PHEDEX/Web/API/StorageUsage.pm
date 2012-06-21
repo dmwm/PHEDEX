@@ -77,7 +77,6 @@ sub storageusage
         %args = &validate_params(\%h,
                 allow => [ qw ( node level rootdir time_since time_until ) ],
                 required => [ qw ( node ) ],
-                uc_keys => 1,
                 spec =>
                 {
                     node => { using => 'node', multiple => 1 },
@@ -95,7 +94,7 @@ sub storageusage
 
   #warn "dumping arguments after validate ",Data::Dumper->Dump([ \%args ]);
   foreach ( keys %args ) {
-     $args{lc($_)} = $args{$_};
+     $args{lc($_)} = delete $args{$_};
   }
  
   if ($args{level}) {

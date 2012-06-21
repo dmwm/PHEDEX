@@ -59,7 +59,6 @@ sub storageinsert
         %args_former= &validate_params(\%h,
                 allow => [ qw ( node timestamp strict ) ],
                 required => [ qw ( node timestamp ) ],
-                uc_keys => 1,
                 spec =>
                 {
                     node => { using => 'node' },
@@ -73,7 +72,7 @@ sub storageinsert
   }
 
   foreach ( keys %args_former ) {
-     $args_former{lc($_)} = $args_former{$_};
+     $args_former{lc($_)} = delete $args_former{$_};
   }
 
   $strict  = defined $args_former{strict}  ? $args_former{strict}  : 1;
