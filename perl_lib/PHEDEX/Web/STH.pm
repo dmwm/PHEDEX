@@ -127,7 +127,7 @@ sub fetchall_arrayref
             foreach (@{$self->{numberFieldID}})
             {
                 # force it to be a number
-                $i->[$_] = $i->[$_] + 0;
+                $i->[$_] = $i->[$_] + 0 if defined $i->[$_];
             }
         }
     }
