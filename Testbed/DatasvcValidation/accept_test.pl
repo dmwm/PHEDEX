@@ -22,26 +22,27 @@ my $xml = new XML::Simple;
 my $debug = 0;
 my $verbose = 0;
 my $test_file;
-my $output_dir;
+my $output;
 my $help;
 my ($use_cert,$cert_file,$key_file,$use_perl,$use_json,$use_xml);
+my ($save_file);
 
 $use_cert = 0;
 $use_perl = $use_json = $use_xml = 1;
 GetOptions(
-    "verbose!"	  => \$verbose,
-    "webserver=s" => \$web_server,
-    "path=s"	  => \$url_path,
-    "debug!"	  => \$debug,
-    "file=s"	  => \$test_file,
-    "output|O=s"  => \$output_dir,
-    "help"	  => \$help,
-    'use-cert!'   => \$use_cert,
-    'cert_file=s' => \$cert_file,
-    'key_file=s'  => \$key_file,
-    'xml!'	  => \$use_xml,
-    'json!'	  => \$use_json,
-    'perl!'	  => \$use_perl,
+    "verbose!"	    => \$verbose,
+    "webserver=s"   => \$web_server,
+    "path=s"	    => \$url_path,
+    "debug!"	    => \$debug,
+    "file=s"	    => \$test_file,
+    "output|O=s"    => \$output,
+    "help"	    => \$help,
+    'use-cert!'     => \$use_cert,
+    'cert_file=s'   => \$cert_file,
+    'key_file=s'    => \$key_file,
+    'xml!'	    => \$use_xml,
+    'json!'	    => \$use_json,
+    'perl!'	    => \$use_perl,
 );
 
 if ( $use_cert )
@@ -65,7 +66,10 @@ Usage: $0 [--verbose] [--debug] [--webserver <web_host>] [--path <path>] [--file
                         default: "/phedex/datasvc"
 --file <file>           file that contains test command
                         without --file, the commands are read from stdin
---ouptut <dir>          save data service output to files in this directory
+--ouptut <path>         save data service output to files using this as a template. Add
+                        NNN.FMT, where NNN is the test number and FMT is the format of the
+                        requested data. E.g --output /tmp/aa. -> files /tmp/aa.123.perl etc
+                        Only failures are saved.
 --debug                 turn on debugging mode
 
 --use_cert		use a certificate for the requests. The default is not
@@ -99,7 +103,7 @@ sub verify
     my ($pua,$status,$response,$data,$content,$len,$call_time,$elapsed);
     my ($t0,$result,$tee);
     $result = "OK";
-    $tee = $output_dir ? sprintf("tee $output_dir/%03s.${format}|", $n) : '';
+#   $tee = $output ? sprintf("tee $output/%03s.${format}|", $n) : '';
     $t0 = [gettimeofday];
 
     $pua = PHEDEX::CLI::UserAgent->new
@@ -128,12 +132,28 @@ sub verify
 	  eval {
 	    { local $/ = undef; $data = eval ($content)->{'PHEDEX'} }
 	  };
-	  if ( $@ ) { print "Failed to eval result, illegal Perl object\n"; }
+	  if ( $@ ) {
+	    print "Failed to eval result, illegal Perl object (".$@,")\n";
+            if ( $output ) {
+              my $save_file = sprintf("$output%03s.${format}", $n);
+              open OUT, ">$save_file" or die "open $save_file: $!\n";
+              print OUT $content;
+              close OUT;
+            }
+          }
       }
       elsif ($format eq 'json')
       {
 	  eval { $data = &decode_json($content)->{'phedex'}; };
-	  do { $result = "ERROR"; $n++; print "decode_json error: $@\n" } if $@;
+	  if ( $@ ) {
+            $result = "ERROR"; $n++; print "decode_json error: $@\n";
+            if ( $output ) {
+              my $save_file = sprintf("$output%03s.${format}", $n);
+              open OUT, ">$save_file" or die "open $save_file: $!\n";
+              print OUT $content;
+              close OUT;
+            }
+          }
       }
       else #ERROR
       {
