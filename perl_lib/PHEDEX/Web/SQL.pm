@@ -2393,9 +2393,9 @@ sub getLinks
             l.distance,
             fn.kind from_kind,
             tn.kind to_kind,
-            xso.time_update source_update,
+            NVL(xso.time_update,0) source_update,
             xso.protocols source_protos,
-            xsi.time_update sink_update,
+            NVL(xsi.time_update,0) sink_update,
             xsi.protocols sink_protos
         from
             t_adm_link l
