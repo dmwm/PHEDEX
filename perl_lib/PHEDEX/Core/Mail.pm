@@ -385,14 +385,12 @@ You may wish to take note of the following new request:
    Host: $host
    Agent: $agent
 
-* Data Managers:
-$data_manager
-* Site Admins:
-$site_admin
-* Group Data Managers:
-$group_data_manager
-* Global Admins:
-$global_admin
+* Comments:
+   "$comments"
+
+Go to
+  $admin_url
+to handle this request.
 
 ENDEMAIL
 
@@ -443,17 +441,21 @@ ENDEMAIL
      $files files, $bytes
    Start time:
      $start_time
-   Comments:
-     "$comments"
 
 $special_message
  
 This mail has also been sent to the requestor, the PhEDEx global
 admins, and the site admins of the relevant sites.
 
-Go to
-  $admin_url
-to handle this request.
+* Data Managers:
+$data_manager
+* Site Admins:
+$site_admin
+* Group Data Managers:
+$group_data_manager
+* Global Admins:
+$global_admin
+
 
 Yours truly,
   PhEDEx Transfer Request Web Form
