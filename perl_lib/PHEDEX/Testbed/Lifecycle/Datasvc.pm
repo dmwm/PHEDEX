@@ -255,7 +255,7 @@ sub Subscribe {
     $params->{$_} = $workflow->{$type.'Subscribe'}{$map{$_}} ||
 		     $workflow->{$map{$_}};
     $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
-	 unless $params->{$_};
+	 unless defined $params->{$_};
   }
   $params->{data} = $self->makeXML($workflow->{data});
   $self->Dbgmsg("Subscribing: ",Data::Dumper->Dump([$params]));
