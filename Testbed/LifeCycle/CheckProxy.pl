@@ -68,7 +68,7 @@ if ( !$status ) {
 }
 if ( $out ) {
   $workflow->{Jitter} = 0;
-  print "Set interval=",int($interval),"\n";
+  $workflow->{Verbose} && print "Set interval=",int($interval),"\n";
   $workflow->{Intervals}{$event} = int($interval);
   push @{$workflow->{Events}}, $event;
   open  OUT, ">$out" or die "open output $out: $!\n";
