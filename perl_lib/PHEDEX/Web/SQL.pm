@@ -4580,8 +4580,8 @@ sub getFileLatency
         join t_dps_block b on f.inblock = b.id
         join t_dps_dataset d on d.id = b.dataset
         join t_adm_node n on n.id = h.destination
-	join t_adm_node nf on nf.id = h.from_node
-	join t_adm_node nof on nof.id= h.original_from_node
+	left join t_adm_node nf on nf.id = h.from_node
+	left join t_adm_node nof on nof.id= h.original_from_node
     };
 
     build_multi_filters($core, \$filters, \%p, \%h, (
