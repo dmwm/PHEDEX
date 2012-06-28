@@ -4576,12 +4576,155 @@ sub getFileLatency
       from
         t_xfer_file_latency h
 	join t_dps_block_latency bl on bl.destination=h.destination and bl.block=h.inblock
-        join t_dps_file f on h.fileid = f.id
+        left join t_dps_file f on h.fileid = f.id
         join t_dps_block b on f.inblock = b.id
         join t_dps_dataset d on d.id = b.dataset
         join t_adm_node n on n.id = h.destination
 	left join t_adm_node nf on nf.id = h.from_node
 	left join t_adm_node nof on nof.id= h.original_from_node
+    };
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        ID => 'b.id',
+        BLOCK => 'b.name',
+        TO_NODE => 'n.name',
+        CUSTODIAL => 'h.is_custodial',
+        DATASET => 'd.name',
+        LFN => 'f.logical_name'
+    ));
+
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= ' and h.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+        else
+        {
+            $filters = ' h.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and h.time_update >= '.$h{UPDATE_SINCE};
+        }
+        else
+        {
+            $filters = ' h.time_update >= '.$h{UPDATE_SINCE};
+        }
+    }
+
+    if (exists $h{SUBSCRIBE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and h.time_subscription >= :time_subscription ';
+        }
+        else
+        {
+            $filters =  ' h.time_subscription >= :time_subscription ';
+        }
+        $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
+    }
+
+    if ($filters)
+    {
+        $sql .= "where  $filters ";
+    }
+
+    $sql .= " order by b.id ";
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
+    while ($_ = $q->fetchrow_hashref() )
+    {
+        # take care of priority
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_->{PRIORITY}, 0);
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
+# getFileLatencyHistory
+sub getFileLatencyHistory
+{
+    my $core = shift;
+    my %h = @_;
+    my $filters = '';
+    my %p;
+
+    my $sql = qq{
+      select
+            b.id,
+            b.name,
+            b.files,
+            b.bytes,
+            d.name as dataset,
+            b.time_create,
+            b.time_update,
+            n.name as destination,
+            n.id as destination_id,
+            n.se_name as destination_se,
+	    ns.name as primary_from_node,
+	    ns.id as primary_from_id,
+	    ns.se_name as primary_from_se,
+            l.time_update as ltime_update,
+            l.files as lfiles,
+            l.bytes as lbytes,
+            l.priority,
+            l.is_custodial,
+            l.time_subscription,
+            l.block_create,
+            l.block_close,
+            l.first_request,
+            l.first_replica,
+            l.percent25_replica,
+            l.percent50_replica,
+            l.percent75_replica,
+            l.percent95_replica,
+	    l.primary_from_files,
+	    l.total_xfer_attempts,
+            l.last_replica,
+            l.total_suspend_time,
+            l.latency,
+	    f.id as file_id,
+	    f.logical_name as lfn,
+	    f.filesize,
+	    f.checksum,
+	    h.time_update,
+	    h.priority,
+	    h.is_custodial,
+	    h.time_request,
+	    h.time_route,
+	    h.time_assign,
+	    h.time_export,
+	    h.attempts,
+	    h.time_first_attempt,
+	    h.time_on_buffer,
+	    h.time_at_destination,
+	    nf.name from_node,
+	    nof.name original_from_node
+        from
+            t_log_block_latency l
+            left join t_dps_block b on l.block = b.id
+            left join t_dps_dataset d on b.dataset = d.id
+            join t_adm_node n on l.destination = n.id
+	    left join t_adm_node ns on l.primary_from_node = ns.id
+	    join t_log_file_latency h on l.time_subscription=h.time_subscription
+	      and l.destination=h.destination and l.block=h.inblock
+	    left join t_dps_file f on h.fileid = f.id
+	    left join t_adm_node nf on nf.id = h.from_node
+	    left join t_adm_node nof on nof.id= h.original_from_node
     };
 
     build_multi_filters($core, \$filters, \%p, \%h, (
