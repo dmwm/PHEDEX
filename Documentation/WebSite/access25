@@ -32,7 +32,7 @@ our @EXPORT = qw(allparams validate_all urlencode dblink toclink pagelink
 		 timeSeries formatTime timegm sizeValue
 		 auth_help_msg auth_help_warning auth_help_popup
 		 fetch_nodes fetch_groups fetch_dbses fetch_identity
-                 send_email dn_to_human_name
+                 send_email
 		 yesno striplabels
 		 dump_params dump_var
 		 parse_userdata dbs_lookup resolve_data fetch_replicas
@@ -721,19 +721,6 @@ sub send_email
  	or do { return 0; };
     
     return %args;
-}
-
-sub dn_to_human_name
-{
-    my $dn = shift @_;
-    return undef unless $dn;
-    my @names = ($dn =~ m:/CN=([^/]+?)[\s\d]*(/|$):g);
-    my $name = $names[0];
-    foreach (@names) {
-      $name = $_ if length $_ > length $name;
-    }
-    $name =~ s/\b(\w)/\U$1/g;
-    return $name;
 }
 
 sub yesno 
@@ -2285,7 +2272,6 @@ sub myurl
   return $url;
 }
 
-use Data::Dumper; # TW
 sub generate
 {
   my ($self) = @_;
