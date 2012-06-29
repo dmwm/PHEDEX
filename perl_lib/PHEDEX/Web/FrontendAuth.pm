@@ -52,20 +52,26 @@ sub init {
     }
   }
 
-  my $connstr = "DBI:Oracle:" . $self->{DBNAME};
+  $self->{BASIC} = 1; # Say I don't have access to SiteDB itself!
+  if ( $self->{DBUSER} ) {
+    my $connstr = "DBI:Oracle:" . $self->{DBNAME};
 
-  eval {
+    eval {
       $self->{DBHANDLE} = DBI->connect($connstr, $self->{DBUSER}, $self->{DBPASS},
                                        {'AutoCommit' => 0,
                                         'RaiseError' => 1,
                                         'PrintError' => 0});
-  };
-  die  "Could not connect to SiteDB" if $@;
+    };
+    die  "Could not connect to SiteDB" if $@;
+    $self->{BASIC} = 0;
+  }
 
   $self->{ROLES}=$self->getRoles();
   $self->{USERNAME}=$self->{HEADER}{'cms-authn-login'};
-  $self->{USERID} = $self->getIDfromDN($self->getDN());
-  $self->getUserInfoFromID($self->{USERID});
+  if ( !$self->{BASIC} ) {
+    $self->{USERID} = $self->getIDfromDN($self->getDN());
+    $self->getUserInfoFromID($self->{USERID});
+  }
 
   return 1;
 }
@@ -120,8 +126,6 @@ sub getDN         { return (shift)->{HEADER}{'cms-authn-dn'}; }
 sub getBrowserDN  { return (shift)->{HEADER}{ssl_client_s_dn}; }
 sub getCert       { return (shift)->{HEADER}{ssl_client_cert}; }
 sub getUsername   { return (shift)->{HEADER}{'cms-authn-name'}; }
-sub getSurname    { return (shift)->{USERSURNAME}; }
-sub getForename   { return (shift)->{USERFORENAME}; }
 sub getEmail      { return (shift)->{USEREMAIL}; }
 
 sub getRoles {
@@ -151,6 +155,7 @@ sub getSitesForUserRole
 {
   my ($self,$role) = @_;
   my ($roles,%sites,@sites,$site,$sql,$sth);
+  return if $self->{BASIC};
   $roles = $self->getRoles();
   $sql = qq{ select pn.name
                from contact c
@@ -179,6 +184,7 @@ sub getSitesFromFrontendRoles
 {
   my $self = shift;
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
+  return if $self->{BASIC};
   $roles = $self->getRoles();
   $sql = qq{ select p.name
                from cms_name c
@@ -214,27 +220,29 @@ sub urldecode {
 # @params:  a role and a site
 # @return:  list of usernames
 sub getUsersWithRoleForSite {
-    my ($self, $role, $site) = @_;
-    my $sql = qq{ select c.id, c.surname, c.forename, c.email,
+  my ($self, $role, $site) = @_;
+  return if $self->{BASIC};
+  my $sql = qq{ select c.id, c.surname, c.forename, c.email,
                          c.username, c.dn
                     from contact c
                     join site_responsibility sr on sr.contact = c.id
                     join role r on r.id = sr.role
                     join site s on s.id = sr.site
                    where r.title = ? and s.name = ? };
-    my $sth = $self->{DBHANDLE}->prepare($sql);
-    $sth->execute($role,$site);
-    my @users;
-    while (my $user = $sth->fetchrow_hashref()) {
-        push @users, $user;
-    }
-    return @users;
+  my $sth = $self->{DBHANDLE}->prepare($sql);
+  $sth->execute($role,$site);
+  my @users;
+  while (my $user = $sth->fetchrow_hashref()) {
+    push @users, $user;
+  }
+  return @users;
 }
 
 # @params:  none
 # @returns:  hash of site names pointing to array of phedex nodes
 sub getPhedexNodeToSiteMap {
   my $self = shift;
+  return if $self->{BASIC};
   my $sql = qq { select n.name, s.name
                      from phedex_node n
                      join site s on s.id = n.site };
@@ -256,6 +264,7 @@ sub getIDfromDN {
   my $self = shift;
   my $dn = shift;
 
+  return if $self->{BASIC};
   if ( $dn && $dn =~ m%(Data|Site)_T(0|1)$% && $UID ) {
     return $UID;
   }
@@ -277,6 +286,7 @@ sub getUserInfoFromID {
   my $self = shift;
   my $id = shift;
 
+  return if $self->{BASIC};
   return 0 if ! defined $id;
   my $sth = $self->{DBHANDLE}->prepare("SELECT surname,forename,email FROM contact WHERE id = ?");
   $sth->execute($id);
@@ -302,21 +312,22 @@ sub reqAuthnPasswd {
 }
 
 sub getUsersWithRoleForGroup {
-    my ($self, $role, $group) = @_;
-    my $sql = qq{ select c.id, c.surname, c.forename, c.email,
+  my ($self, $role, $group) = @_;
+  return if $self->{BASIC};
+  my $sql = qq{ select c.id, c.surname, c.forename, c.email,
 		         c.username, c.dn, c.phone1, c.phone2
 		    from contact c
 		    join group_responsibility gr on gr.contact = c.id
 		    join role r on r.id = gr.role
 		    join user_group g on g.id = gr.user_group
 		   where r.title = ? and g.name = ? };
-    my $sth = $self->{DBHANDLE}->prepare($sql);
-    $sth->execute($role, $group);
-    my @users;
-    while (my $user = $sth->fetchrow_hashref()) {
-	push @users, $user;
-    }
-    return @users;
+  my $sth = $self->{DBHANDLE}->prepare($sql);
+  $sth->execute($role, $group);
+  my @users;
+  while (my $user = $sth->fetchrow_hashref()) {
+    push @users, $user;
+  }
+  return @users;
 }
 
 1;
