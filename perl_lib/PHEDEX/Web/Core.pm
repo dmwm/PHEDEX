@@ -352,9 +352,11 @@ sub initSecurity
 	  &parseDatabaseInfo($dbparam);
       };
       if ($@ || !$dbparam) {
-	  die "no way to initialize SecurityModule:  either configure secmod-config ",
+        if ( $@ !~ m/database parameters not found/ ) {
+ 	  die "no way to initialize SecurityModule:  either configure secmod-config ",
 	  "or provide SecurityModule section in the DBParam file",
 	  ($@ ? ": parse error: $@" : ""), "\n";
+        }
       }
       $args{DBNAME} = $dbparam->{DBH_DBNAME};
       $args{DBUSER} = $dbparam->{DBH_DBUSER};
