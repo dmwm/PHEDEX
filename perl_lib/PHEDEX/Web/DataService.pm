@@ -104,9 +104,14 @@ sub parse_path {
       }
       if ( $call eq 'storageusage' ||
            $call eq 'auth' ||
+           $call eq 'secmod' ||
            $call eq 'bounce' ) {
         $db = 'read';
       }
+    }
+    if ( ! $db ) {
+      warn "Using default DB access for '$call' API\n";
+      $db = 'read';
     }
   }
 
