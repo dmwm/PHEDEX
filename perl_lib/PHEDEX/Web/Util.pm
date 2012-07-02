@@ -649,7 +649,7 @@ sub http_error
 sub decode_http_error
 {
     my $text = shift;
-$text =~ s%\n%\\n%mg;
+    $text =~ s%\n%\\n%mg;
     my ($error,$message);
     if ( $text =~ m|^%HTTP-ERROR%#(\d+)#(.*)$| ) {
       $error = $1;
