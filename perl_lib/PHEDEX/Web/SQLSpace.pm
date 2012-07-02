@@ -132,53 +132,27 @@ sub insertDirectory {
 sub querySpace {
    my ($self, %h) = @_;
    my ($sql,$q,$row,%p,%p_d,$time,%warn,@r);
+   my ($filter);
  
-   #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]); 
-   if(!(exists $h{time_since}) && !(exists $h{time_until})) {
-      # return latest one 
-      if ($h{node} =~ m/^T\*$/) {
-         $sql = qq{ select max(timestamp) from t_space_usage };
-         $q = execute_sql($self, $sql);
-      }
-      else {
-         $sql = qq{ select max(timestamp) from t_space_usage where site_id = (select id from t_adm_node where name=:site) };
-         $p{':site'} = $h{node};
-         $q = execute_sql($self, $sql, %p);
-      }
-      $time = $q->fetchrow_hashref();
-      $h{time_since} = $time->{'MAX(TIMESTAMP)'};
-      $h{time_until} = $time->{'MAX(TIMESTAMP)'};
-      #warn "dumping timestamp in SQL.pm",Data::Dumper->Dump([ \$time ]);
+   build_multi_filters($self,\$filter,\%p,\%h, (
+	node => 'sites.name',
+      ));
+   if ( exists $h{time_since} ) {
+      $filter .= ' and spaces.timestamp >= :time_since';
+      $p{':time_since'} = $h{time_since};
    }
-   elsif(!(exists $h{time_since})) {
-      $h{time_since} = 0;
+   if ( exists $h{time_until} ) {
+      $filter .= ' and spaces.timestamp <= :time_until';
+      $p{':time_until'} = $h{time_until};
    }
-   elsif(!(exists $h{time_until})) {
-      $h{time_until} = 10000000000;
-   }
-   else {
-      $h{time_since} = $h{time_since} + 0;
-      $h{time_until} = $h{time_until} + 0;
-   }
-
    #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
-   if($h{node} =~ m/^T\*$/) { 
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.name from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
               join t_adm_node sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until order by name,timestamp};
-   }
-   else {
-      $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.name from t_space_usage spaces
-              join t_directories dirs on dirs.id = spaces.dir_id
-              join t_adm_node sites on sites.id = spaces.site_id
-              where timestamp >= :time_since and timestamp <= :time_until and site_id = (select id from t_adm_node where name=:site) 
+              where $filter 
               order by timestamp};
-      $p{':site'} = $h{node};
-   }
-   $p{':time_since'} = $h{time_since};
-   $p{':time_until'} = $h{time_until};
+
    $q = execute_sql( $self, $sql, %p );
    if ($q->fetchrow_hashref()) {
       while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
@@ -192,6 +166,7 @@ sub querySpace {
          die "No records are available for the site or the period you specified\n";
       }
    }
+
    return \@r;
 }
 
