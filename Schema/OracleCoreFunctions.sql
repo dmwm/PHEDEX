@@ -26,6 +26,6 @@ end now;
 create or replace function schema_version return varchar is
   result varchar(20);
 begin
-  return('4.0.0');
+  return('4.1.0');
 end schema_version;
 /
