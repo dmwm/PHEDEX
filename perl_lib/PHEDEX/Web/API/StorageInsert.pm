@@ -95,7 +95,12 @@ sub storageinsert
     $input{dir} = $_;
     $input{strict} = $strict;
     #warn "dumping converted arguments ",Data::Dumper->Dump([ \%input ]);
-    $status = PHEDEX::Web::SQLSpace::insertSpace($core, %input);
+    eval {
+      $status = PHEDEX::Web::SQLSpace::insertSpace($core, %input);
+    };
+    if ( $@ ) {
+      die PHEDEX::Web::Util::http_error(400,$@);
+    }
     #$status = PHEDEX::Web::SQLSpace::insertDirectory($core, %input);
   }
   if ($status) {

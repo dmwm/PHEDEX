@@ -112,7 +112,12 @@ sub storageusage
  
    
   if ($args{node} =~ m/^T\*$/) {
-     $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+     eval {
+        $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+     };
+     if ( $@ ) {
+       die PHEDEX::Web::Util::http_error(400,$@);
+     }
      $last = @{$result}[0]->{SITENAME};
      $dirstemp = ();
      foreach $data (@{$result}) {
@@ -154,8 +159,13 @@ sub storageusage
         my $node = {};
         $args{node} = $inputnode;
         $node->{subdir} = $args{rootdir};
-        $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-        $node->{node} = @{$result}[0]->{SITENAME};
+        eval {
+          $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+        };
+        if ( $@ ) {
+          die PHEDEX::Web::Util::http_error(400,$@);
+        }
+        $node->{node} = @{$result}[0]->{NAME};
         $node->{timebins} = getNodeInfo($core, $result, %args); 
         #warn "dumping node ",Data::Dumper->Dump([ $node ]);
         push @records, $node;
