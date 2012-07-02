@@ -137,6 +137,14 @@ sub querySpace {
    build_multi_filters($self,\$filter,\%p,\%h, (
 	node => 'sites.name',
       ));
+   if ( !exists $h{time_since} && !exists $h{time_until} ) {
+      $sql = qq { select max(timestamp) max_timestamp
+                  from t_space_usage spaces
+		  join t_adm_node sites on spaces.site_id = sites.id
+		   where $filter };
+      $q = execute_sql($self,$sql,%p)->fetchrow_hashref();
+      $h{time_since} = $q->{MAX_TIMESTAMP};
+   }
    if ( exists $h{time_since} ) {
       $filter .= ' and spaces.timestamp >= :time_since';
       $p{':time_since'} = $h{time_since};
@@ -145,7 +153,6 @@ sub querySpace {
       $filter .= ' and spaces.timestamp <= :time_until';
       $p{':time_until'} = $h{time_until};
    }
-   #warn "dumping args in SQL.pm",Data::Dumper->Dump([ \%h ]);
  
       $sql = qq{ select dirs.dir, spaces.timestamp, spaces.space, sites.name from t_space_usage spaces
               join t_directories dirs on dirs.id = spaces.dir_id
