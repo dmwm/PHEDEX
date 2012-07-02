@@ -134,7 +134,7 @@ PHEDEX.Login = function(sandbox) {
       log('The user login is validated. User credentials are ' + bsucceed, 'info', 'login');
       if (bsucceed) { //Authentication succeeded
         _authData = data.auth[0]; //The user data is saved for further use
-        _username = _authData.human_name; //Get the user name
+        _username = _authData.username; //Get the user name
         _logincomp.username.innerHTML = _username;
         if (_authData.state == 'cert') { //Authentication done using certificate
           _logincomp.username.title = ' logged in via certificate';
