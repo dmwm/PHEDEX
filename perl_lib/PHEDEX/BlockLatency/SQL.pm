@@ -477,16 +477,16 @@ sub mergeStatusBlockLatency
     $stats{'block stats updated'} = $n || 0;
     
     # Get new block destinations which don't have a block latency status entry yet
-    # Only consider active blocks, because for inactive blocks we don't have file-level information anymore
+    # Don't wait for block activation because the block will be reactivated anyway
+    # if the block destination is incomplete.
 
     $sql = qq{ 
 	select bd.destination, b.id block, b.files, b.bytes, b.time_create block_create, decode(b.is_open,'n',b.time_update,'y',NULL) block_close,
                   bd.priority, bd.is_custodial, bd.time_subscription, nvl2(bd.time_suspend_until, :now, NULL) last_suspend
               from t_dps_block_dest bd
               join t_dps_block b on b.id = bd.block
-              join t_dps_block_replica br on br.block = bd.block and br.node = bd.destination
               left join t_dps_block_latency bl on bl.destination=br.node and bl.block=br.block
-              where br.is_active = 'y' and bl.block is null and bd.time_complete is null 
+              where bl.block is null and bd.time_complete is null
 	  };
 
     ($q,$n) = execute_sql( $self, $sql, %p );
