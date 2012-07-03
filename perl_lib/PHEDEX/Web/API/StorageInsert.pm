@@ -3,7 +3,13 @@ use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
 use Data::Dumper;
+use URI::Escape;
 use PHEDEX::Web::Util;
+use PHEDEX::Core::XML;
+use PHEDEX::Core::Timing;
+use PHEDEX::Core::Identity;
+use PHEDEX::Core::Util;
+
 
 =pod
 
@@ -37,6 +43,7 @@ If failed with overwrite and strict=1:
 
 sub methods_allowed { return ('POST'); }
 sub duration { return 0; }
+sub need_auth { return 1; }
 sub invoke { return storageinsert(@_); }
 sub storageinsert 
 {
@@ -86,6 +93,19 @@ sub storageinsert
     $k =~ m%^/[A-Za-z0-9_.\-/]*$% || return PHEDEX::Web::Util::http_error(400,'directory name not allowed');
     $v =~ m%^\d+$%              || return PHEDEX::Web::Util::http_error(400,'directory size not numerical');
   } 
+
+  die PHEDEX::Web::Util::http_error(401,"Certificate authentication failed") unless $core->{SECMOD}->isCertAuthenticated();
+
+  my $isAuthorised = 0;
+  if ( $core->{SECMOD}->hasRole('Developer','phedex') || $core->{SECMOD}->hasRole('Admin','phedex')) {
+    $isAuthorised = 1;
+  } else {
+    # user has no developer or admin role, die if they are not a site-admin for $node
+    my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($core, web_user_auth => 'Site Admin', with_ids => 1); # get hash of nodes the user is a Site Admin for...
+    die PHEDEX::Web::Util::http_error(400,"You are not authorised to approve data to node $node") unless $auth_nodes{$node}; # compare to the $node they are inserting data for...
+  }
+    die PHEDEX::Web::Util::http_error(400,"You need to be a PhEDEx Admin, or a Site Admin for this site, to use this API") unless $isAuthorised;
+
 
   $status = 0 ;
   foreach  (keys %args) {
