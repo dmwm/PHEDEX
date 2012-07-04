@@ -55,7 +55,6 @@ sub storageinsert
        $h{$_} = $args{$_};
        delete($args{$_});
   }
-  $h{strict} = 'y' unless defined $h{strict};
 
   my %args_former;
   eval {
@@ -66,7 +65,7 @@ sub storageinsert
                 {
                     node => { using => 'node' },
                     timestamp => { using => 'time' },
-                    strict => { using => 'yesno' },
+                    strict => { regex => qr/^[01]$/ },
                 });
         };
   if ( $@ )
@@ -78,7 +77,7 @@ sub storageinsert
      $args_former{lc($_)} = delete $args_former{$_};
   }
 
-  $strict  = $args_former{strict};
+  $strict  = defined $args_former{strict}  ? $args_former{strict}  : 1;
 
   $node = $args_former{node};
 
