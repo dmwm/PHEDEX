@@ -56,7 +56,7 @@ sub nodes
         return PHEDEX::Web::Util::http_error(400, $@);
     }
 
-    return { node => PHEDEX::Web::SQL::getNodes($core,%p) };
+    return { node => PHEDEX::Core::SQL::getNodes($core,%p) };
 }
 
 1;
