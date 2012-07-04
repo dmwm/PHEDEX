@@ -4,8 +4,6 @@ use strict;
 use PHEDEX::Web::SQLSpace;
 use Data::Dumper;
 use URI::Escape;
-use PHEDEX::Web::Util;
-use PHEDEX::Core::XML;
 
 =pod
 
