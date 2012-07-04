@@ -1,7 +1,7 @@
 package PHEDEX::Web::API::Nodes;
 use warnings;
 use strict;
-use PHEDEX::Web::SQL;
+use PHEDEX::Core::SQL;
 use PHEDEX::Web::Util;
 
 =pod
