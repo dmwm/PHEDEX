@@ -4,6 +4,7 @@ use strict;
 use PHEDEX::Web::SQLSpace;
 use Data::Dumper;
 use URI::Escape;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -54,6 +55,7 @@ sub storageinsert
        $h{$_} = $args{$_};
        delete($args{$_});
   }
+  $h{strict} = 'y' unless defined $h{strict};
 
   my %args_former;
   eval {
@@ -63,8 +65,8 @@ sub storageinsert
                 spec =>
                 {
                     node => { using => 'node' },
-                    timestamp => { using => 'pos_int' },
-                    strict => { using => 'pos_int' },
+                    timestamp => { using => 'time' },
+                    strict => { using => 'yesno' },
                 });
         };
   if ( $@ )
@@ -76,11 +78,11 @@ sub storageinsert
      $args_former{lc($_)} = delete $args_former{$_};
   }
 
-  $strict  = defined $args_former{strict}  ? $args_former{strict}  : 1;
+  $strict  = $args_former{strict};
 
   $node = $args_former{node};
 
-  $timestamp = $args_former{timestamp};
+  $timestamp = PHEDEX::Core::Timing::str2time($args_former{timestamp});
 
   while ( ($k,$v) = each %args ) {
     #warn "dumping k ",Data::Dumper->Dump([ $k ]);
@@ -97,9 +99,9 @@ sub storageinsert
     # user has no developer or admin role, die if they are not a site-admin for $node
     my %auth_nodes = PHEDEX::Web::Util::fetch_nodes($core, web_user_auth => 'Site Admin', with_ids => 1); # get hash of nodes the user is a Site Admin for...
     die PHEDEX::Web::Util::http_error(400,"You are not authorised to approve data to node $node") unless $auth_nodes{$node}; # compare to the $node they are inserting data for...
+    $isAuthorised = 1;
   }
-    die PHEDEX::Web::Util::http_error(400,"You need to be a PhEDEx Admin, or a Site Admin for this site, to use this API") unless $isAuthorised;
-
+  die PHEDEX::Web::Util::http_error(400,"You need to be a PhEDEx Admin, or a Site Admin for this site, to use this API") unless $isAuthorised;
 
   $status = 0 ;
   foreach  (keys %args) {
