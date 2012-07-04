@@ -6,10 +6,6 @@ use Data::Dumper;
 use URI::Escape;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::XML;
-use PHEDEX::Core::Timing;
-use PHEDEX::Core::Identity;
-use PHEDEX::Core::Util;
-
 
 =pod
 
