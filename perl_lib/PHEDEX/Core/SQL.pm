@@ -845,7 +845,16 @@ sub getNodes
 	$sql .= qq{ and exists (select 1 from t_dps_block_replica br where br.node = n.id and node_files != 0) };
     }
 
-    $q = execute_sql( $self, $sql, %p );
+#   This allows the getNodes call, and therefore the Nodes API, to be used both by PhEDEx and DMWMMON
+#   DMWMMON has a t_adm_node table, but it does not have the kind, se, or technology fields. This will
+#   cause an ORA-00904 for the unmodified query, which we trap, and then substitute a simpler query.
+#   Not the prettiest solution, but clean enough.
+    eval { $q = execute_sql( $self, $sql, %p ); };
+    if ( $@ && $@ =~ m%ORA-00904% ) {
+      $sql = qq { select n.name, n.id from t_adm_node n where not n.name like 'X%' };
+      $sql .= " and ($filters)" if $filters;
+      $q = execute_sql( $self, $sql, %p );
+    }
     while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
 
     return \@r;
