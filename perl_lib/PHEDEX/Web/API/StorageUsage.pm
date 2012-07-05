@@ -109,8 +109,13 @@ sub storageusage
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
   } 
- 
-   
+  if ( $args{time_since} ) {
+    $args{time_since} = PHEDEX::Core::Timing::str2time($args{time_since});
+  }
+  if ( $args{time_until} ) {
+    $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
+  }
+
   if ($args{node} =~ m/^T\*$/) {
      eval {
         $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
