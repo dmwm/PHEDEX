@@ -584,7 +584,7 @@ sub fetch_identity
 	if (! $$self{SECMOD}->isAuthenticated() || !$$self{SECMOD}->isKnownUser() ) { return; }
 
 	$$id{SECMOD_ID} = $$self{SECMOD}->getID();
-	$$id{NAME} = $$self{SECMOD}->getForename() .' '. $$self{SECMOD}->getSurname();
+	$$id{NAME} = $$self{SECMOD}->getUsername();
 	$$id{EMAIL} = $$self{SECMOD}->getEmail();
 
 	if ($$self{SECMOD}->isCertAuthenticated()) {
@@ -2322,7 +2322,7 @@ sub generate
   {
     my $name_display = '';
     if ($$self{SECMOD}->isKnownUser()) {
-        $$self{USER_NAME} = $$self{SECMOD}->getForename()." ".$$self{SECMOD}->getSurname();
+        $$self{USER_NAME} = $$self{SECMOD}->getUsername();
 	$name_display = &escapeHTML($$self{USER_NAME});
 	my $signout = '';
         $signout = " | <a href='$signout_url'>Sign out</a>" if $$self{SECMOD}->isPasswdAuthenticated();
