@@ -4340,7 +4340,7 @@ sub approve
   eval {
     $message = PHEDEX::Web::API::UpdateRequest::invoke($self,%h);
   };
-  if ( $@ ) { $message = $@; }
+  if ( $@ ) { $message = $@; warn "UpdateRequest: $@\n"; }
   if ( $message && ref($message) ne 'HASH' ) {
     ($error,$message) = PHEDEX::Web::Util::decode_http_error($@);
     die $message;
@@ -5449,7 +5449,11 @@ sub output
 	      'upto' => $upto, 'starttime' => $start, 'endtime' => $end);
   
   my $imgsrc = $self->imgsrc($graph, %args);
-  print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
+  if ( defined($imgsrc) ) {
+    print {$$self{CONTENT}} "<p><img src='$imgsrc' /></p>";
+  } else {
+    print {$$self{CONTENT}} "<p>Sorry, something went wrong. Please try again later.</p>";
+  }
 }
 
 1;
@@ -6480,7 +6484,7 @@ sub output
     my %params = $self->validate_all
 	(
 	 allow => [qw(page_num fileid tofilter fromfilter report_code xfer_code 
-		      from_pfn to_pfn log_detail log_validate)],
+		      from_pfn to_pfn log_detail log_validate andor)],
 	 spec  => 
 	 {
 	     page_num     => { using => 'pos_int'},
@@ -6493,6 +6497,7 @@ sub output
 	     to_pfn       => { using => 'regex', default => '.*' },
 	     log_detail   => { using => 'regex', default => '.*' },
 	     log_validate => { using => 'regex', default => '.*' },
+	     andor	  => { using 'andor' },
 	 }
 	 );
 # Explicit checking of arguments
