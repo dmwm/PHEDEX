@@ -158,11 +158,11 @@ sub getSitesForUserRole
   return if $self->{BASIC};
   $roles = $self->getRoles();
   $sql = qq{ select pn.name
-               from cms_sitedb_writer.contact c
-               join cms_sitedb_writer.site_responsibility sr on sr.contact = c.id
-               join cms_sitedb_writer.role r on r.id = sr.role
-               join cms_sitedb_writer.site s on s.id = sr.site
-               join cms_sitedb_writer.phedex_node pn on pn.site = s.id
+               from contact c
+               join site_responsibility sr on sr.contact = c.id
+               join role r on r.id = sr.role
+               join site s on s.id = sr.site
+               join phedex_node pn on pn.site = s.id
              where c.id = ? };
   if ( $role ) {
     $sql .= qq { and lower(r.title) = ? };
@@ -186,10 +186,15 @@ sub getSitesFromFrontendRoles
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
   return if $self->{BASIC};
   $roles = $self->getRoles();
-  $sql = qq{ select p.name
-               from cms_sitedb_writer.cms_name c
-               join cms_sitedb_writer.phedex_node_cms_name_map map on c.id = map.cms_name_id
-               join cms_sitedb_writer.phedex_node p on map.node_id = p.id
+#  $sql = qq{ select p.name
+#               from cms_name c
+#               join phedex_node_cms_name_map map on c.id = map.cms_name_id
+#               join phedex_node p on map.node_id = p.id
+#               where lower(c.name) = ? };
+  $sql = qq{ select p.name phedex from phedex_node p
+               join site s on p.site = s.id
+               join site_cms_name_map cmap on cmap.site_id = s.id
+               join cms_name c on c.id = cmap.cms_name_id 
                where lower(c.name) = ? };
   $sth = $self->{DBHANDLE}->prepare($sql);
   foreach $role ( values %{$roles} ) {
@@ -224,10 +229,10 @@ sub getUsersWithRoleForSite {
   return if $self->{BASIC};
   my $sql = qq{ select c.id, c.surname, c.forename, c.email,
                          c.username, c.dn
-                    from cms_sitedb_writer.contact c
-                    join cms_sitedb_writer.site_responsibility sr on sr.contact = c.id
-                    join cms_sitedb_writer.role r on r.id = sr.role
-                    join cms_sitedb_writer.site s on s.id = sr.site
+                    from contact c
+                    join site_responsibility sr on sr.contact = c.id
+                    join role r on r.id = sr.role
+                    join site s on s.id = sr.site
                    where r.title = ? and s.name = ? };
   my $sth = $self->{DBHANDLE}->prepare($sql);
   $sth->execute($role,$site);
@@ -244,8 +249,8 @@ sub getPhedexNodeToSiteMap {
   my $self = shift;
   return if $self->{BASIC};
   my $sql = qq { select n.name, s.name
-                     from cms_sitedb_writer.phedex_node n
-                     join cms_sitedb_writer.site s on s.id = n.site };
+                     from phedex_node n
+                     join site s on s.id = n.site };
   my $sth = $self->{DBHANDLE}->prepare($sql);
   $sth->execute();
   my %map;
@@ -271,7 +276,7 @@ sub getIDfromDN {
 
   $dn =~ s%/CN=proxy%%g if $dn;
 
-  my $sth = $self->{DBHANDLE}->prepare("SELECT id FROM cms_sitedb_writer.contact WHERE dn = ?");
+  my $sth = $self->{DBHANDLE}->prepare("SELECT id FROM contact WHERE dn = ?");
   $sth->execute($dn);
   if(my $row = $sth->fetchrow_arrayref()) {
     return $row->[0];
@@ -288,7 +293,7 @@ sub getUserInfoFromID {
 
   return if $self->{BASIC};
   return 0 if ! defined $id;
-  my $sth = $self->{DBHANDLE}->prepare("SELECT surname,forename,email FROM cms_sitedb_writer.contact WHERE id = ?");
+  my $sth = $self->{DBHANDLE}->prepare("SELECT surname,forename,email FROM contact WHERE id = ?");
   $sth->execute($id);
   if(my $row = $sth->fetchrow_arrayref()) {
     $self->{USERSURNAME} = $row->[0];
@@ -316,10 +321,10 @@ sub getUsersWithRoleForGroup {
   return if $self->{BASIC};
   my $sql = qq{ select c.id, c.surname, c.forename, c.email,
 		         c.username, c.dn, c.phone1, c.phone2
-		    from cms_sitedb_writer.contact c
-		    join cms_sitedb_writer.group_responsibility gr on gr.contact = c.id
-		    join cms_sitedb_writer.role r on r.id = gr.role
-		    join cms_sitedb_writer.user_group g on g.id = gr.user_group
+		    from contact c
+		    join group_responsibility gr on gr.contact = c.id
+		    join role r on r.id = gr.role
+		    join user_group g on g.id = gr.user_group
 		   where r.title = ? and g.name = ? };
   my $sth = $self->{DBHANDLE}->prepare($sql);
   $sth->execute($role, $group);
