@@ -11,7 +11,7 @@ use Getopt::Long;
 #use T0::Logger::Sender;
 use T0::Util;
 use T0::FileWatcher;
-use PHEDEX::Testbed::Lifecycle::Lite;
+use PHEDEX::Testbed::Lifecycle::Agent;
 
 my ($help,$verbose,$debug,$quiet);
 my ($retry,$lifecycle,%args);
@@ -27,6 +27,8 @@ sub usage
  --config <name of config file> (obligatory)
  --log    <name of log file> Causes agent to run as a daemon and write it's output to the
           named logfile
+ --state  <name of directory> write a PID file to this directory if running as a daemon.
+          defaults to the same name as the logfile with s/log$/pid$/.
  --help   I guess you know what this one does by now :-)
 
  See https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjLifeCycleTestbed for detailed
@@ -37,16 +39,14 @@ EOF
 
 $help = $verbose = $debug = 0;
 $retry = 3;
-GetOptions(     "help"     => \$help,
-                "verbose"  => \$verbose,
-                "quiet"    => \$quiet,
-                "debug"    => \$debug,
-                "retry"    => \$retry,
-                "state=s"  => \$args{DROPDIR},
-                "log=s"    => \$args{LOGFILE},
-                "db=s"     => \$args{DBCONFIG},
-                "node=s"   => \$args{MYNODE},
-                "config=s" => \$args{LIFECYCLE_CONFIG},
+GetOptions(     "help"      => \$help,
+                "verbose"   => \$verbose,
+                "quiet"     => \$quiet,
+                "debug"     => \$debug,
+#                "retry"    => \$retry,
+                "state=s"   => \$args{DROPDIR},
+                "logfile=s" => \$args{LOGFILE},
+                "config=s"  => \$args{LIFECYCLE_CONFIG},
           );
 $help && usage;
 if ( !defined $args{LIFECYCLE_CONFIG} )
@@ -66,7 +66,7 @@ my %sender_args = (
 			RetryInterval	=> $retry,
  			Name		=> 'Lifecycle::Sender',
 		  );
-$lifecycle = PHEDEX::Testbed::Lifecycle::Lite->new
+$lifecycle = PHEDEX::Testbed::Lifecycle::Agent->new
 			(
 			  %args, @ARGV,
 #			  SENDER_ARGS		=> \%sender_args,
