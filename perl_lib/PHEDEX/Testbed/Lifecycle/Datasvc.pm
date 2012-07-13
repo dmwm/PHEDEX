@@ -322,7 +322,7 @@ sub doneUpdateSubscription {
   my $subscription = $result->{SUBSCRIPTION}[0];
 
   $self->Logmsg("UpdateSubscription: ",Dumper($params));
-# PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'UpdateSubscription',$payload);
+# PHEDEX::Testbed::Lifecycle::Agent::post_push($self,'UpdateSubscription',$payload);
   foreach ( qw / suspend_until group priority / ) {
     next unless $params->{$_};
     if ( $params->{$_} ne $subscription->{uc $_} ) {

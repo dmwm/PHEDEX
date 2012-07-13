@@ -1,7 +1,8 @@
-package PHEDEX::Testbed::Lifecycle::Lite;
+package PHEDEX::Testbed::Lifecycle::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Testbed::Agent';
+#use base 'PHEDEX::Testbed::Agent';
+use base 'PHEDEX::Core::AgentLite';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
 use PHEDEX::Monitoring::Process;
@@ -32,6 +33,11 @@ our %params =
 	  NJobs			=>    2,
 	  MonitorAgentSize	=>    0,
 	  MonitorPayloadSize	=>    0,
+	  ConfigRefresh		=>    3,
+# don't touch these...
+	  LOAD_DROPBOX		=> 0,
+	  LOAD_DB		=> 0,
+	  LOAD_CYCLE		=> 0,
 	);
 
 our $pmon;
@@ -39,8 +45,25 @@ our $pmon;
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
+  my %args = @_;
 
-  my $self  = $class->SUPER::new(%params,@_);
+  if ( $args{LOGFILE} ) {
+    if ( !$args{DROPDIR} ) {
+      ( $params{DROPDIR} = $args{LOGFILE} ) =~ s%/[^/*]$%/%;
+      $params{LOAD_DROPBOX} = 1;
+    }
+  } else {
+    $params{NODAEMON} = 1;
+  }
+  if ( $args{DROPDIR} ) {
+    $params{LOAD_DROPBOX} = 1;
+  } else {
+    $params{LOAD_DROPBOX} = 0;
+    $params{PIDFILE} = 'lifecycle.pid'   unless $args{PIDFILE};
+    $params{STOPFILE} = 'lifecycle.stop' unless $args{STOPFILE};
+  }
+
+  my $self  = $class->SUPER::new(%params,%args);
   $self->{JOBMANAGER} = new PHEDEX::Core::JobManager(
 	NJOBS	=> $self->{NJobs},
 	VERBOSE => 0,
@@ -49,6 +72,23 @@ sub new {
 
   $self->{_njobs} = 0; # for UA-based stuff
   $self->{nWorkflows} = 0;
+
+# Start a POE session for myself
+
+  POE::Session->create (
+    object_states =>
+    [
+      $self =>
+      {
+        _make_stats         => '_make_stats',
+
+        _start   => '_start',
+        _stop    => '_stop',
+        _child   => '_child',
+        _default => '_default',
+      },
+    ],
+  );
 
   $pmon = PHEDEX::Monitoring::Process->new();
 
@@ -72,8 +112,47 @@ sub AUTOLOAD {
 
 sub Dbgmsg { my $self = shift; $self->SUPER::Dbgmsg(@_) if $self->{Debug}; }
 
+sub OnConnect
+{
+  my ( $self, $heap, $kernel ) = @_[ OBJECT, HEAP, KERNEL ];
+
+# Only start the timer first time round, or there will be one timer per time
+# the receiver is restarted
+  return 0 if $heap->{count};
+  print "OnConnect: self=$self, heap=$heap\n";
+
+  return 0;
+}
+
+sub _default {
+  my $self = shift;
+
+  if ( $self->can('poe_default') ) {
+    $self->poe_default(@_);
+    return;
+  }
+  PHEDEX::Core::AgentLite::_default(@_);
+}
+
 #-------------------------------------------------------------------------------
-sub _poe_init {
+sub Log
+{
+  my $self = shift;
+  my $sender = $self->{SENDER};
+  if ( $sender ) { $sender->Send(@_); }
+  else
+  {
+    $Data::Dumper::Terse=1;
+    $Data::Dumper::Indent=0;
+    my $a = Data::Dumper->Dump([\@_]);
+    $a =~ s%\n%%g;
+    $a =~ s%\s\s+% %g;
+    $self->Logmsg($a);
+  }
+}
+
+#-------------------------------------------------------------------------------
+sub _start {
 # This sets up the basic state-machinery.
   my ($self,$kernel,$session) = @_[ OBJECT, KERNEL, SESSION ];
 
@@ -226,6 +305,7 @@ sub id {
 sub lifecycle {
   my ($self,$kernel,$workflow) = @_[ OBJECT, KERNEL, ARG0 ];
   my ($event,$delay,@events);
+
   return unless $self->{Incarnation} == $workflow->{Incarnation};
 
   if ( !$workflow->{NCycles} )

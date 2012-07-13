@@ -32,7 +32,7 @@ sub new {
   return $self;
 }
 
-sub register { PHEDEX::Testbed::Lifecycle::Lite::register(@_); }
+sub register { PHEDEX::Testbed::Lifecycle::Agent::register(@_); }
 
 sub generate {
   my ($self,$kernel,$session,$payload,$args) = @_;
@@ -202,16 +202,16 @@ sub addData {
     $self->Logmsg("addData ($dsname): create one or more new blocks");
     $workflow->{InjectionsThisBlock} = 0;
     $kernel->call($session,'makeBlocks',$payload);
-    PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'addData',$payload);
-    PHEDEX::Testbed::Lifecycle::Lite::post_unshift($self,'addData',$payload);
+    PHEDEX::Testbed::Lifecycle::Agent::post_push($self,'addData',$payload);
+    PHEDEX::Testbed::Lifecycle::Agent::post_unshift($self,'addData',$payload);
     return;
   }
 
 # Add files, be it to a new or an existing block
   $self->Logmsg("addData ($dsname): add files to block(s)");
   $kernel->call($session,'makeFiles',$payload);
-  PHEDEX::Testbed::Lifecycle::Lite::post_push($self,'addData',$payload);
-  PHEDEX::Testbed::Lifecycle::Lite::post_unshift($self,'addData',$payload);
+  PHEDEX::Testbed::Lifecycle::Agent::post_push($self,'addData',$payload);
+  PHEDEX::Testbed::Lifecycle::Agent::post_unshift($self,'addData',$payload);
   return;
 }
 
