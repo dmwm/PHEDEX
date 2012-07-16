@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [ -z $LIFECYCLE ]; then
+  echo "LIFECYCLE not set, are you sure you sourced the environment?"
+  exit 0
+fi
 if [ -z $PHEDEX_ROOT ]; then
   echo "PHEDEX_ROOT not set, are you sure you sourced the environment?"
   exit 0
@@ -9,16 +13,15 @@ if [ -z $PHEDEX_DBPARAM ]; then
   exit 0
 fi
 
-export LIFECYCLE=$PHEDEX_ROOT/Testbed/LifeCycle
-
 PHEDEX_SQLPLUS="sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
-  echo "Connection attempted as: $PHEDEX_SQLPLUS"
+PHEDEX_SQLPLUS_CLEAN=`echo $PHEDEX_SQLPLUS | sed -e's%/.*@%/password-here@%'`
+  echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
 i=`echo 'select sysdate from dual;' | $PHEDEX_SQLPLUS 2>/dev/null | grep -c SYSDATE`
 if [ $i -gt 0 ]; then
   echo "Your database connection is good..."
 else
   echo "Cannot connect to your database (status=$i)"
-  echo "Connection attempted as: $PHEDEX_SQLPLUS"
+  echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
   echo "(your TNS_ADMIN is $TNS_ADMIN, in case that matters)"
   echo "(Oh, and your sqlplus is in `which sqlplus`)"
   exit 0

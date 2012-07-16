@@ -30,6 +30,10 @@ if [ -z $TESTBED_ROOT ]; then
   echo "TESTBED_ROOT not set, are you sure you sourced the environment?"
   exit 0
 fi
+if [ -z $LIFECYCLE ]; then
+  echo "LIFECYCLE not set, are you sure you sourced the environment?"
+  exit 0
+fi
 if [ -z $PHEDEX_ROOT ]; then
   echo "PHEDEX_ROOT not set, are you sure you sourced the environment?"
   exit 0
@@ -40,8 +44,8 @@ if [ -z $PHEDEX_DBPARAM ]; then
 fi
 
 export PHEDEX=$PHEDEX_ROOT
-export LIFECYCLE=$PHEDEX/Testbed/LifeCycle
 PHEDEX_SQLPLUS="sqlplus $($PHEDEX/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
+PHEDEX_SQLPLUS_CLEAN=`echo $PHEDEX_SQLPLUS | sed -e's%/.*@%/password-here@%'`
 # Minimal sanity-check on the DBPARAM and contents:
 if [ `echo $PHEDEX_DBPARAM | egrep -ic 'prod|dev|debug|admin'` -gt 0 ]; then
   echo "Your DBParam appears to be unsafe?"
@@ -54,13 +58,13 @@ if [ `echo $PHEDEX_SQLPLUS | egrep -ic 'devdb'` -eq 0 ]; then
   exit 0
 fi
 
-echo "Connection attempted as: $PHEDEX_SQLPLUS"
+echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
 i=`echo 'select sysdate from dual;' | $PHEDEX_SQLPLUS 2>/dev/null | grep -c SYSDATE`
 if [ $i -gt 0 ]; then
   echo "Your database connection is good..."
 else
   echo "Cannot connect to your database (status=$i)"
-  echo "Connection attempted as: $PHEDEX_SQLPLUS"
+  echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
   echo "(your TNS_ADMIN is $TNS_ADMIN, in case that matters)"
   echo "(Oh, and your sqlplus is in `which sqlplus`)"
   exit 0
@@ -68,23 +72,23 @@ fi
 
 # Create nodes / links
 # T0 node (for central agents to run)
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
+$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
+$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
 # Create one T1_Test nodes
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
+$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
 			-technology Other -se-name srm-test0.nowhere.cern.ch
-$PHEDEX/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
+$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
 			-technology Other -se-name srm-test0.nowhere.cern.ch
 
 # T1_Test node links
 echo T1_Test1_Buffer to T0_Buffer
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
+$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
 echo T1_Test1_Buffer to T1_Test1_MSS
-$PHEDEX/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
+$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
 
 i=1
 echo -n "Inserting groups: "
@@ -96,6 +100,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE
-$LIFECYCLE/getNodesGroups.sh
+cd $LIFECYCLE/Testbed/LifeCycle
+./getNodesGroups.sh
 echo 2-node setup completed
