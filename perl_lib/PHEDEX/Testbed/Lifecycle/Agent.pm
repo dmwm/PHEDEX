@@ -1,7 +1,6 @@
 package PHEDEX::Testbed::Lifecycle::Agent;
 use strict;
 use warnings;
-#use base 'PHEDEX::Testbed::Agent';
 use base 'PHEDEX::Core::AgentLite';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
@@ -36,6 +35,7 @@ our %params =
 	  ConfigRefresh		=>    3,
 # don't touch these...
 	  LOAD_DROPBOX		=> 0,
+	  LOAD_DROPBOX_WORKDIRS	=> 0,
 	  LOAD_DB		=> 0,
 	  LOAD_CYCLE		=> 0,
 	);
@@ -46,23 +46,6 @@ sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %args = @_;
-
-  if ( $args{LOGFILE} ) {
-    if ( !$args{DROPDIR} ) {
-      ( $params{DROPDIR} = $args{LOGFILE} ) =~ s%/[^/*]$%/%;
-      $params{LOAD_DROPBOX} = 1;
-    }
-  } else {
-    $params{NODAEMON} = 1;
-  }
-  if ( $args{DROPDIR} ) {
-    $params{LOAD_DROPBOX} = 1;
-  } else {
-    $params{LOAD_DROPBOX} = 0;
-    $params{PIDFILE} = 'lifecycle.pid'   unless $args{PIDFILE};
-    $params{STOPFILE} = 'lifecycle.stop' unless $args{STOPFILE};
-  }
-
   my $self  = $class->SUPER::new(%params,%args);
   $self->{JOBMANAGER} = new PHEDEX::Core::JobManager(
 	NJOBS	=> $self->{NJobs},
