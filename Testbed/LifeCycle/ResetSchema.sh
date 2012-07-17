@@ -13,9 +13,12 @@ if [ -z $PHEDEX_DBPARAM ]; then
   echo "PHEDEX_DBPARAM not set, are you sure you sourced the environment?"
   exit 0
 fi
+if [ -z $SCHEMA_ROOT ]; then
+  echo "SCHEMA_ROOT not set, are you sure you sourced the environment?"
+  exit 0
+fi
 
-export PHEDEX=$PHEDEX_ROOT
-PHEDEX_SQLPLUS="sqlplus $($PHEDEX/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
+PHEDEX_SQLPLUS="sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
 PHEDEX_SQLPLUS_CLEAN=`echo $PHEDEX_SQLPLUS | sed -e's%/.*@%/password-here@%'`
 # Minimal sanity-check on the DBPARAM and contents:
 if [ `echo $PHEDEX_DBPARAM | egrep -ic 'prod|dev|debug|admin'` -gt 0 ]; then
@@ -41,10 +44,9 @@ else
   exit 0
 fi
 
-exit 0
 # Initialize schema
-$PHEDEX_SQLPLUS @$PHEDEX/Schema/OracleResetAll.sql < /dev/null
-$PHEDEX_SQLPLUS @$PHEDEX/Schema/OracleInit.sql < /dev/null
+$PHEDEX_SQLPLUS @$SCHEMA_ROOT/Schema/OracleResetAll.sql < /dev/null
+$PHEDEX_SQLPLUS @$SCHEMA_ROOT/Schema/OracleInit.sql < /dev/null
 
 echo "insert into t_dps_dbs values (1, 'test',        'unknown', now());" | $PHEDEX_SQLPLUS
 echo "insert into t_dps_dbs values (2, 'other',       'unknown', now());" | $PHEDEX_SQLPLUS
