@@ -11,7 +11,7 @@ PHEDEX_CONTEXT=T0;
 PHEDEX_NOTIFICATION_PORT=22000;
 export PHEDEX_NOTIFICATION_PORT;
 
-PHEDEX_MAP=${PHEDEX_ROOT}/Testbed/LifeCycle/tfc.xml;
+PHEDEX_MAP=${LIFECYCLE}/Testbed/LifeCycle/tfc.xml;
 export PHEDEX_MAP;
 ### IMPORT ConfigPart.Testbed
 

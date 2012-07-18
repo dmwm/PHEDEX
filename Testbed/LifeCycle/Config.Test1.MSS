@@ -15,10 +15,10 @@ export PHEDEX_NOTIFICATION_PORT;
 TIER1_FTS_SERVER=https://fts-t1-import.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer;
 export TIER1_FTS_SERVER;
 
-PHEDEX_MAP=${PHEDEX_ROOT}/Testbed/LifeCycle/tfc.xml;
+PHEDEX_MAP=${LIFECYCLE}/Testbed/LifeCycle/tfc.xml;
 export PHEDEX_MAP;
 
-PHEDEX_GLITE_WRAPPER=${PHEDEX_ROOT}/Testbed/FakeFTS.pl;
+PHEDEX_GLITE_WRAPPER=${LIFECYCLE}/Testbed/FakeFTS.pl;
 export PHEDEX_GLITE_WRAPPER;
 
 ### IMPORT ConfigPart.Testbed
