@@ -4,12 +4,13 @@ use strict;
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Command;
+use File::Path;
 my ($cmd,@args) = @ARGV;
 my ($me,$cache,$rate,$size,$debug);
 
 # set these environment variables in the configuration to alter the behavior of this script
 # default rate settings will make the "job" last 20 seconds per file
-$cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || "/tmp/phedex";
+$cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || '/tmp/' . (getpwuid($<))[0] . '/';
 $rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 100 * (1024**2); # 100 MB/s
 $size  = $ENV{PHEDEX_FAKEFTS_SIZE} ||   2 * (1024**3); # 2 GB
 $me = PHEDEX::Core::Logging->new();
@@ -17,6 +18,8 @@ $me->{ME} = 'FakeFTS';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};
 $me->{NOTIFICATION_HOST} = $ENV{NOTIFICATION_HOST};
 $debug = $ENV{PHEDEX_GLITE_DEBUG} || 0;
+
+-d $cache || mkpath([$cache]) || die "Cannot find or create $cache directory\n";
 sleep(2); # just for fun...
 
 sub getFiles
@@ -109,7 +112,7 @@ VOName:         cms
      
     }
   }
-# unlink "$cache/$id";
+  unlink "$cache/$id";
 }
 
 if ( $cmd eq 'glite-transfer-cancel' )
