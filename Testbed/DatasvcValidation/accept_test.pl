@@ -124,7 +124,18 @@ sub verify
 
       if ($format eq 'xml')
       {
-        $data = $xml->XMLin($content, ForceArray=>1);
+        eval {
+          $data = $xml->XMLin($content, ForceArray=>1);
+        };
+	if ( $@ ) {
+	  print "Failed to eval result, illegal XML object (".$@,")\n";
+          if ( $output ) {
+            my $save_file = sprintf("$output%03s.${format}", $n);
+            open OUT, ">$save_file" or die "open $save_file: $!\n";
+            print OUT $content;
+            close OUT;
+          }
+        }
       }
       elsif ($format eq 'perl')
       {
