@@ -53,7 +53,7 @@ for role in \
     echo "revoke all on $table from $role;"
 
     case $table:$role in
-      T_*:*_CERN_* )
+      T_*:*_CENTRAL_* )
         # Select, update, insert, delete and flashback
         echo; echo "grant select on $table to $reader;"
 	echo "grant select on $table to $writer;"
