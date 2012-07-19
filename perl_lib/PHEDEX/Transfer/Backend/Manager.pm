@@ -363,15 +363,14 @@ sub file_state
   $old_state = $arg1->[1];
   $details   = $arg1->[2];
 
-  if ( ! ref($file) )
-  {
-    $DB::single=1;
-  }
+#  if ( ! ref($file) )
+#  {
+#    $DB::single=1;
+#  }
 
   my $exit_states = $file->ExitStates || \%PHEDEX::Transfer::Backend::File::exit_states;
   if ( $exit_states->{$file->State} == 2 )
   {
-$DB::single=1;
     if ( $file->Retry )
     {
       print $self->Hdr,"Requeue ",$file->Source,"\n";
