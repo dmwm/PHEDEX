@@ -245,7 +245,6 @@ sub idle
           };
      $self->rollbackOnError();
      $self->{last_db_connect} = $now;
-     $self->watchdog_notify('ping');
   };
   $Config = $self->{CONFIGURATION};
 
@@ -260,32 +259,32 @@ sub idle
       $pidfile = $env->getExpandedString($Agent->PIDFILE());
       $stopfile = $env->getExpandedString($Agent->DROPDIR) . 'stop';
       undef $pid;
-      if ( $self->{TimesIdle} > 1 ) {
-#       We try to catch a missing $pidfile
-        if ( -f $pidfile ) {
-          if ( open PID, "<$pidfile" ) { 
-            $pid = <PID>;
-            close PID;
-            chomp $pid;
-          }
-#       then look for the correct pid in AGENT_PID hash, once found, kill agent before something else 
-        } else {
-          unless ( -f $stopfile ) {
-            $self->Alert("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
-            foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
-            if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
-              $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
-              POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
-            }
-            }
+      if ( -f $pidfile ) {
+        if ( open PID, "<$pidfile" ) { 
+          $pid = <PID>;
+          close PID;
+          chomp $pid;
+        }
+      }
+      if ( ! $pid && ! -f $stopfile ) {
+#       No PID and no stopfile. Look for the correct pid in AGENT_PID hash.
+#       Once found, kill agent before re-starting it, to be safe
+        $self->Logmsg("Agent=$agent, pid file = $pidfile is gone, looking for pid by other means");
+        foreach my $kpid ( keys %{$self->{AGENT_PID}} ) {
+          if ( $self->{AGENT_PID}{$kpid} eq $Agent->LABEL ) {
+            $self->Alert("Agent=$agent, pid found -> $kpid, killing Agent ...");
+            POE::Kernel->post($self->{SESSION_ID},'killAgent',{ AGENT => $agent, PID => $kpid });
           }
         }
       }
 
-      if ( $pid && (kill 0 => $pid) )
-      {
+      if ( $pid && (kill 0 => $pid) ) {
+#       There is a process, and it still responds. Consider it 'seen'
         if ( !$self->{AGENT_PID}{$pid} ) { $self->{AGENT_PID}{$pid} = $Agent->LABEL; }
-        if ( !$self->{AGENTS}{$agent}{last_seen} ) { $self->{AGENTS}{$agent}{last_seen} = $now; }
+        if ( !$self->{AGENTS}{$agent}{last_seen} ) {
+          $self->Logmsg("Agent=$agent, process found, considered alive");
+          $self->{AGENTS}{$agent}{last_seen} = $now; 
+        }
         $last_seen = $self->{AGENTS}{$agent}{last_seen};
         $last_seen = $now - $last_seen;
         if ( $last_seen > $self->{LAST_SEEN_ALERT} )
