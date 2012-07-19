@@ -16,7 +16,6 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = $class->SUPER::new(@_);
 
     my %params = (DBCONFIG => undef,		# Database configuration file
 	  	  NODES    => undef,		# Node names to run this agent for
@@ -29,13 +28,15 @@ sub new
 		  JOBS	=> 1,			# Max parallel delete jobs
 		  TIMEOUT => 30,                # Timout for deletion jobs
 		  RETRY => 1,			# Retry failed attempts, forever!
+		  LOAD_DROPBOX_WORKDIRS => 1,	# Need the full state directory machinery
 		  );
     
     my %args = (@_);
     foreach ( keys %params )
     {
-      $self->{$_} = defined($args{$_}) ? $args{$_} : $params{$_};
+      $args{$_} = defined($args{$_}) ? $args{$_} : $params{$_};
     }
+    my $self = $class->SUPER::new(%args);
 
     # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
