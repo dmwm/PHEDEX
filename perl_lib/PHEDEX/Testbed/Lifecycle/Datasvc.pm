@@ -232,14 +232,16 @@ sub T2Subscribe {
 
 sub Subscribe {
   my ($self, $type, $kernel, $session, $payload) = @_;
-  my ($params,$workflow,%map);
+  my ($params,$workflow,%map,$subscribe);
   $workflow = $payload->{workflow};
 
-  if ( ! defined $workflow->{$type . 'Subscribe'} ) {
-    $self->Alert("No \"${type}Subscribe\" defined for \"$workflow->{Name}\"");
+  $subscribe = $type . 'Subscribe';
+  if ( ! defined $workflow->{$subscribe} ) {
+    $self->Alert("No \"$subscribe\" defined for \"$workflow->{Name}\"");
     $kernel->yield('nextEvent',$payload);
     return;
   }
+
   %map = (
         node	   => 'Nodes',
         data	   => 'data',
@@ -251,9 +253,16 @@ sub Subscribe {
         time_start => 'TimeStart',
         level      => 'Level',
   );
+  $workflow->{$subscribe}{TimeStart}   ||=  0;
+  $workflow->{$subscribe}{IsStatic}    ||= 'n';
+  $workflow->{$subscribe}{IsMove}      ||= 'n';
+  $workflow->{$subscribe}{IsCustodial} ||= 'n';
+  $workflow->{$subscribe}{Priority}    ||= 'normal';
+  $workflow->{$subscribe}{Level}       ||= 'dataset';
   foreach ( keys %map ) {
-    $params->{$_} = $workflow->{$type.'Subscribe'}{$map{$_}} ||
-		     $workflow->{$map{$_}};
+$self->Log("Subscribe $_($subscribe): ",$map{$_},', ',$workflow->{$subscribe}{$map{$_}},', ',$workflow->{$map{$_}});
+    $params->{$_} = $workflow->{$subscribe}{$map{$_}};
+    $params->{$_} = $workflow->{$map{$_}} unless defined $params->{$_};
     $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
 	 unless defined $params->{$_};
   }
