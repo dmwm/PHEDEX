@@ -3,7 +3,7 @@ package PHEDEX::RequestAllocator::Agent;
 use strict;
 use warnings;
 
-use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging', 
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 
     'PHEDEX::RequestAllocator::Core', 'PHEDEX::RequestAllocator::SQL';
 
 use PHEDEX::Core::Timing;

@@ -1,7 +1,7 @@
 package PHEDEX::Monitoring::InfoStatesClean::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging', 'PHEDEX::BlockLatency::SQL';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging', 'PHEDEX::BlockLatency::SQL';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 

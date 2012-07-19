@@ -1,7 +1,7 @@
 package PHEDEX::LoadTest::Injector::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
 

@@ -1,7 +1,7 @@
 package PHEDEX::Infrastructure::FileIssue::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use List::Util qw(max);
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Timing;
