@@ -1,7 +1,7 @@
 package PHEDEX::Testbed::Lifecycle::Agent;
 use strict;
 use warnings;
-use base 'PHEDEX::Core::AgentLite';
+use base 'PHEDEX::Core::Agent';
 use PHEDEX::Core::JobManager;
 use PHEDEX::Core::Loader;
 use PHEDEX::Monitoring::Process;
@@ -114,7 +114,7 @@ sub _default {
     $self->poe_default(@_);
     return;
   }
-  PHEDEX::Core::AgentLite::_default(@_);
+  PHEDEX::Core::Agent::_default(@_);
 }
 
 #-------------------------------------------------------------------------------

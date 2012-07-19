@@ -2,7 +2,7 @@ package PHEDEX::Core::Config::FactoryLite;
 
 use strict;
 use warnings;
-use base 'PHEDEX::Core::AgentLite', 'PHEDEX::Core::Logging';
+use base 'PHEDEX::Core::Agent', 'PHEDEX::Core::Logging';
 use POE;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::JobManager;
