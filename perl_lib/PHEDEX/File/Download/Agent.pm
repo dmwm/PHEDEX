@@ -20,7 +20,6 @@ sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = $class->SUPER::new(@_);
     my %params = (DBCONFIG => undef,		# Database configuration file
 		  NODES => undef,		# Nodes to operate for
 	  	  IGNORE_NODES => [],		# TMDB nodes to ignore
@@ -38,8 +37,8 @@ sub new
 		  BACKEND_TYPE => undef,	# Backend type
 
 		  TASKS => {},                  # Tasks in memory
-		  TASKDIR => "$$self{DROPDIR}/tasks",      # Tasks to do
-		  ARCHIVEDIR => "$$self{DROPDIR}/archive", # Jobs done
+		  TASKDIR => undef,             # Tasks to do. Value set in Agent::Dropbox
+		  ARCHIVEDIR => undef,          # Jobs done. Value set in Agent::Dropbox
 		  STATS => [],			# Historical stats.
 		  MAX_TASKS => 15000,            # Max number of local tasks
 
@@ -49,10 +48,12 @@ sub new
 		  DBH_LAST_USE => 0,		# Last use of the database
 
 		  BOOTTIME => time(),		# Time this agent started
+		  LOAD_DROPBOX_WORKDIRS	=> 1,	# This agent requires the working directories
 		);
     my %args = (@_);
 #   use 'defined' instead of testing on value to allow for arguments which are set to zero.
-    map { $$self{$_} = defined($args{$_}) ? $args{$_} : $params{$_} } keys %params;
+    map { $args{$_} = defined($args{$_}) ? $args{$_} : $params{$_} } keys %params;
+    my $self = $class->SUPER::new(%args);
 
     # Create a JobManager
     $self->{JOBMANAGER} = PHEDEX::Core::JobManager->new (
