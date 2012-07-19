@@ -207,9 +207,7 @@ sub getIdentityFromSecMod
 
     my $id = {};
     $id->{SECMOD_ID} = $secmod->getID();
-    my $forename = $secmod->getForename() || '';
-    my $surname  = $secmod->getSurname()  || '';
-    $id->{NAME}  = $forename . ' ' . $surname;
+    $id->{NAME}  = $secmod->getUsername() || '';
     $id->{NAME}  =~ s%^ %%;
     $id->{NAME}  =~ s% $%%;
     $id->{EMAIL} = $secmod->getEmail();
