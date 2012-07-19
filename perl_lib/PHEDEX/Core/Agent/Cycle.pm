@@ -12,16 +12,16 @@ sub new
   my $self = {};
 
   no warnings 'redefine';
-  *PHEDEX::Core::AgentLite::preprocess = \&PHEDEX::Core::Agent::Cycle::preprocess;
-  *PHEDEX::Core::AgentLite::_start = \&PHEDEX::Core::Agent::Cycle::_start;
-  *PHEDEX::Core::AgentLite::_preprocess = \&PHEDEX::Core::Agent::Cycle::_preprocess;
-  *PHEDEX::Core::AgentLite::_process_start = \&PHEDEX::Core::Agent::Cycle::_process_start;
-  *PHEDEX::Core::AgentLite::_process_stop = \&PHEDEX::Core::Agent::Cycle::_process_stop;
-  *PHEDEX::Core::AgentLite::_maybeStop = \&PHEDEX::Core::Agent::Cycle::_maybeStop;
-  *PHEDEX::Core::AgentLite::_stop = \&PHEDEX::Core::Agent::Cycle::_stop;
-  *PHEDEX::Core::AgentLite::_make_stats = \&PHEDEX::Core::Agent::Cycle::_make_stats;
-  *PHEDEX::Core::AgentLite::_child = \&PHEDEX::Core::Agent::Cycle::_child;
-  *PHEDEX::Core::AgentLite::_default = \&PHEDEX::Core::Agent::Cycle::_default;
+  *PHEDEX::Core::Agent::preprocess = \&PHEDEX::Core::Agent::Cycle::preprocess;
+  *PHEDEX::Core::Agent::_start = \&PHEDEX::Core::Agent::Cycle::_start;
+  *PHEDEX::Core::Agent::_preprocess = \&PHEDEX::Core::Agent::Cycle::_preprocess;
+  *PHEDEX::Core::Agent::_process_start = \&PHEDEX::Core::Agent::Cycle::_process_start;
+  *PHEDEX::Core::Agent::_process_stop = \&PHEDEX::Core::Agent::Cycle::_process_stop;
+  *PHEDEX::Core::Agent::_maybeStop = \&PHEDEX::Core::Agent::Cycle::_maybeStop;
+  *PHEDEX::Core::Agent::_stop = \&PHEDEX::Core::Agent::Cycle::_stop;
+  *PHEDEX::Core::Agent::_make_stats = \&PHEDEX::Core::Agent::Cycle::_make_stats;
+  *PHEDEX::Core::Agent::_child = \&PHEDEX::Core::Agent::Cycle::_child;
+  *PHEDEX::Core::Agent::_default = \&PHEDEX::Core::Agent::Cycle::_default;
 
   bless $self, $class;
 

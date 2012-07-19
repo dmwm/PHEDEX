@@ -14,16 +14,19 @@ sub new
   my $self = {};
 
   no warnings 'redefine'; 
-  *PHEDEX::Core::AgentLite::connectAgent = \&PHEDEX::Core::Agent::DB::connectAgent;
-  *PHEDEX::Core::AgentLite::disconnectAgent = \&PHEDEX::Core::Agent::DB::disconnectAgent;
-  *PHEDEX::Core::AgentLite::rollbackOnError = \&PHEDEX::Core::Agent::DB::rollbackOnError;
-  *PHEDEX::Core::AgentLite::checkNodes = \&PHEDEX::Core::Agent::DB::checkNodes;
-  *PHEDEX::Core::AgentLite::identifyAgent = \&PHEDEX::Core::Agent::DB::identifyAgent;
-  *PHEDEX::Core::AgentLite::updateAgentStatus = \&PHEDEX::Core::Agent::DB::updateAgentStatus;
-  *PHEDEX::Core::AgentLite::checkAgentMessages = \&PHEDEX::Core::Agent::DB::checkAgentMessages;
-  *PHEDEX::Core::AgentLite::expandNodes = \&PHEDEX::Core::Agent::DB::expandNodes;
-  *PHEDEX::Core::AgentLite::myNodeFilter = \&PHEDEX::Core::Agent::DB::myNodeFilter;
-  *PHEDEX::Core::AgentLite::otherNodeFilter = \&PHEDEX::Core::Agent::DB::otherNodeFilter;
+  *PHEDEX::Core::Agent::connectAgent = \&PHEDEX::Core::Agent::DB::connectAgent;
+  *PHEDEX::Core::Agent::disconnectAgent = \&PHEDEX::Core::Agent::DB::disconnectAgent;
+  *PHEDEX::Core::Agent::rollbackOnError = \&PHEDEX::Core::Agent::DB::rollbackOnError;
+  *PHEDEX::Core::Agent::checkNodes = \&PHEDEX::Core::Agent::DB::checkNodes;
+  *PHEDEX::Core::Agent::identifyAgent = \&PHEDEX::Core::Agent::DB::identifyAgent;
+  *PHEDEX::Core::Agent::updateAgentStatus = \&PHEDEX::Core::Agent::DB::updateAgentStatus;
+  *PHEDEX::Core::Agent::checkAgentMessages = \&PHEDEX::Core::Agent::DB::checkAgentMessages;
+  *PHEDEX::Core::Agent::expandNodes = \&PHEDEX::Core::Agent::DB::expandNodes;
+  *PHEDEX::Core::Agent::myNodeFilter = \&PHEDEX::Core::Agent::DB::myNodeFilter;
+  *PHEDEX::Core::Agent::otherNodeFilter = \&PHEDEX::Core::Agent::DB::otherNodeFilter;
+
+  push @PHEDEX::Core::Agent::required_params, qw / DBCONFIG /;
+  push @PHEDEX::Core::Agent::array_params, qw / NODES IGNORE_NODES ACCEPT_NODES /;
 
   bless $self, $class;
   $agentLite->{_DB} = $self;
@@ -294,23 +297,27 @@ sub updateAgentStatus
   my $wid = ($self->{DROPDIR} =~ /worker-(\d+)$/ ? "W$1" : "M");
   my $fqdn = $self->{DBH_ID_HOST};
   my $pid = $$;
+  my $dirtmp;
 
-  my $dirtmp = $self->{INBOX};
-  foreach my $d (<$dirtmp/*>) {
-    $ninbox++;
-    $nreceived++ if -f "$d/go";
+  if ( $dirtmp = $self->{INBOX} ) {
+    foreach my $d (<$dirtmp/*>) {
+      $ninbox++;
+      $nreceived++ if -f "$d/go";
+    }
   }
 
-  $dirtmp = $self->{WORKDIR};
-  foreach my $d (<$dirtmp/*>) {
-    $npending++;
-    $nbad++ if -f "$d/bad";
-    $ndone++ if -f "$d/done";
+  if ( $dirtmp = $self->{WORKDIR} ) {
+    foreach my $d (<$dirtmp/*>) {
+      $npending++;
+      $nbad++ if -f "$d/bad";
+      $ndone++ if -f "$d/done";
+    }
   }
 
-  $dirtmp = $self->{OUTDIR};
-  foreach my $d (<$dirtmp/*>) {
-    $noutbox++;
+  if ( $dirtmp = $self->{OUTBOX} ) {
+    foreach my $d (<$dirtmp/*>) {
+      $noutbox++;
+    }
   }
 
   &dbexec($dbh, qq{
