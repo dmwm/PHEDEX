@@ -1,4 +1,4 @@
-package PHEDEX::Core::AgentLite;
+package PHEDEX::Core::Agent;
 
 =head1 NAME
 
@@ -13,10 +13,8 @@ use POSIX;
 use File::Path;
 use File::Basename;
 use Time::HiRes qw / time /;
-#use POE;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
-#use PHEDEX::Core::RFIO;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Config;                                                       
 use PHEDEX::Monitoring::Process;
@@ -72,7 +70,7 @@ our %params =
 	  INBOX		=> undef,
 	  WORKDIR	=> undef,
 	  OUTDIR	=> undef,
-	  STOPFLAG	=> undef,
+	  STOPFILE	=> undef,
 	  PIDFILE	=> undef,
 	  LOGFILE	=> undef,
 	  NODES		=> undef,
@@ -97,17 +95,15 @@ our %params =
 	  _DONTSTOPME	      => 0,
 	  STATISTICS_INTERVAL => 3600,	# reporting frequency
 	  STATISTICS_DETAIL   => 1,	# reporting level: 0, 1, or 2
-          LOAD_DROPBOX        => 1,     # Load Dropbox module
+          LOAD_DROPBOX        => 1,     # Load Dropbox module...
+          LOAD_DROPBOX_WORKDIRS => 0,   # ...but not all the directories...
           LOAD_CYCLE          => 1,     # Load Cycle module
           LOAD_DB             => 1,     # Load DB module
 	);
 
-our @array_params = qw / STARTTIME NODES IGNORE_NODES ACCEPT_NODES /;
-our @hash_params  = qw / BAD JUNK /;
-our @required_params = qw / DROPDIR DBCONFIG /;
-our @writeable_dirs  = qw / DROPDIR INBOX WORKDIR OUTDIR /;
-our @writeable_files = qw / LOGFILE PIDFILE /; #/
-
+our (@array_params,@hash_params,@required_params,@writeable_dirs,@writeable_files);
+@array_params = qw / STARTTIME /;
+@hash_params  = qw / BAD JUNK /;
 sub new
 {
     my $proto = shift;
@@ -127,7 +123,7 @@ sub new
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
     $config = $args{CONFIG_FILE} || $p{CONFIG_FILE};
-    $label  = $args{LABEL}       || $p{LABEL};
+    $label  = $args{LABEL}       || $p{LABEL} || $me;
     if ( $config && $label )
     {
       $cfg = PHEDEX::Core::Config->new();
@@ -183,16 +179,35 @@ sub new
     while (my ($k, $v) = each %args)
     { $self->{$k} = $v unless defined $self->{$k}; }
 
+#   ensure parameters (PIDFILE, DROPDIR, LOGFILE, NODAEMON) are coherent
+    if ( $args{LOGFILE} ) {
+      push @writeable_files,'LOGFILE';
+    } else {
+      $self->{NODAEMON} = 1;
+    }
+    if ( $args{DROPDIR} ) {
+      $self->{LOAD_DROPBOX} = 1;
+      $self->{PIDFILE}  = $args{DROPDIR} . '/pid'  unless $args{PIDFILE};
+      $self->{STOPFILE} = $args{DROPDIR} . '/stop' unless $args{STOPFILE};
+    } else {
+      $self->{LOAD_DROPBOX} = 0;
+      $self->{PIDFILE}  = 'lifecycle.pid'  unless $args{PIDFILE};
+      $self->{STOPFILE} = 'lifecycle.stop' unless $args{STOPFILE};
+    }
+    push @writeable_files,'PIDFILE';
+
 #   Load the Dropbox modules. _Dropbox subclass is create and attach to self
-    my $dropbox_module = $agent_module_loader->Load('Dropbox')->new( $self ) if $self->{LOAD_DROPBOX};
+    if ( $self->{LOAD_DROPBOX} ) {
+      my $dropbox_module = $agent_module_loader->Load('Dropbox')->new( $self );
+    }
 
 #   Basic validation: Explicitly call the base method to validate only the
-#   core agent. This will be called again in the 'process' method, on the
-#   derived agent. No harm in that!. This method is always defined.
-    die "$me: Failed validation, exiting\n" if PHEDEX::Core::AgentLite::isInvalid( $self ); 
+#   core agent. This may be called again in the derived agent, to validate
+#   other parameters. No harm in that!
+    die "$me: Failed validation, exiting\n" if $self->isInvalid();
 
-#   Clean PID and STOP flags. Thois method is always defined.
-    $self->_cleanDropbox($me);
+#   Clean PID and STOP flags. This method is always defined.
+    $self->cleanDropbox($me);
 
 #   If required, daemonise, write pid file and redirect output.
     $self->daemon();
@@ -207,29 +222,90 @@ sub new
     $self->init();
 
 #   Load the DB modules. _DB subclass is create and attach to self
-    my $db_module = $agent_module_loader->Load('DB')->new( $self ) if $self->{LOAD_DB};
+    if ( $self->{LOAD_DB} ) {
+      my $db_module = $agent_module_loader->Load('DB')->new( $self );
+    }
 
 #   Validate the object!. This method is always defined.
     die "Agent ",$self->{ME}," failed validation\n" if $self->isInvalid();
 
 #   Announce myself...
     $self->Notify("label=$label");
-    $self->Dbgmsg("AgentLite was loaded DB=>$self->{LOAD_DB}, CYCLE=$self->{LOAD_CYCLE}, DROPBOX=$self->{LOAD_DROPBOX}") if $self->{DEBUG};
+    $self->Dbgmsg("Agent was loaded DB=>$self->{LOAD_DB}, CYCLE=$self->{LOAD_CYCLE}, DROPBOX=$self->{LOAD_DROPBOX}") if $self->{DEBUG};
 
     bless $self, $class;
     return $self;
 }
 
-# Dummy functions for Dropbox module
-sub isInvalid { return 0; }
-sub _cleanDropbox { 
-  my $self = shift; 
-  $self->{DROPDIR} .= '/' unless $self->{DROPDIR} =~ m%\/$%;
-  $self->{PIDFILE}  = $self->{DROPDIR} . 'pid';
-  $self->{STOPFLAG} = $self->{DROPDIR} . 'stop';
-  $self->CleanDropbox(@_); 
+sub isInvalid {
+  my $self = shift;
+  my %h = @_;
+  @{$h{REQUIRED}} = @required_params unless $h{REQUIRED};
+  @{$h{WRITEABLE_DIRS}}  = @writeable_dirs  unless $h{WRITEABLE_DIRS};
+  @{$h{WRITEABLE_FILES}} = @writeable_files unless $h{WRITEABLE_FILES};
+
+  my $errors = 0;
+  foreach ( @{$h{REQUIRED}} )
+  {
+   next if defined $self->{$_};
+    $errors++;
+    $self->Warn("Required parameter \"$_\" not defined!\n");
+  }
+
+# Some parameters must be writeable directories
+  foreach my $key ( @{$h{WRITEABLE_DIRS}} )
+  {
+    $_ = $self->{$key};
+    while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+
+#   If the directory doesn't exist, attempt to create it...
+    eval { mkpath $_ } unless -e;
+    $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+    $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+    $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+  }
+
+# Some parameters must be writeable files if they exist, or the parent
+# directory must be writeable. Non-definition is tacitly allowed
+$DB::single=1;
+  foreach my $key ( @{$h{WRITEABLE_FILES}} )
+  {
+$DB::single=1;
+    if ( defined($_=$self->{$key}) )
+    {
+      while ( my $x = readlink($_) ) { $_ = $x; } # Follow symlinks!
+      if ( -e $_ )
+      {
+#       If it exists, it better be a writeable file
+        $self->Fatal("PERL_FATAL: $key exists but is not a file") unless -f;
+        $self->Fatal("PERL_FATAL: $key file $_ is not writeable") unless -w;
+      }
+      else
+      {
+#       If it doesn't exist, the parent must be a writeable directory
+#       If that parent directory doesn't exist, attempt to create it...
+        if ( ! -e )
+        {
+          $_ = dirname($_);
+          eval { mkpath $_ } unless -e;
+        }
+        $self->Fatal("PERL_FATAL: $key directory $_ does not exist")   unless -e;
+        $self->Fatal("PERL_FATAL: $key exists but is not a directory") unless -d;
+        $self->Fatal("PERL_FATAL: $key directory $_ is not writeable") unless -w;
+      }
+    }
+  }
+
+  if ( !defined($self->{LOGFILE}) && !$self->{NODAEMON} )
+  {
+#   LOGFILE not defined is fatal unless NODAEMON is set!
+    $self->Fatal("PERL_FATAL: LOGFILE not set but process will run as a daemon");
+  }
+
+  return $errors;
 }
 
+# Dummy functions for Dropbox module
 sub readInbox {}
 sub readPending {}
 sub readOutbox {}
@@ -241,6 +317,7 @@ sub processInbox {}
 sub processOutbox {}
 sub processWork {}
 sub processIdle {}
+sub cleanDropbox { }
 
 # Dummy functions for DB module
 sub connectAgent {}
@@ -266,30 +343,6 @@ sub _make_stats { my $self = shift; $self->make_stats(); }
 sub _child {}
 sub _default {}
 
-# Basic Clean up
-
-sub CleanDropbox {
-  my ($self,$me) = @_;
-
-  if (-f $self->{PIDFILE})
-  {
-     if (my $oldpid = &input($self->{PIDFILE}))
-     {
-        chomp ($oldpid);
-        die "$me: pid $oldpid already running in $self->{DROPDIR}\n"
-        if kill(0, $oldpid);
-        print "$me: pid $oldpid dead in $self->{DROPDIR}, overwriting\n";
-        unlink ($self->{PIDFILE});
-     }
-  }
-
-  if (-f $self->{STOPFLAG})
-  {
-     print "$me: removing old stop flag $self->{STOPFLAG}\n";
-     unlink ($self->{STOPFLAG});
-  }
-}
-
 # Check if the agent should stop.  If the stop flag is set, cleans up
 # and quits.  Otherwise returns.
 sub maybeStop
@@ -298,7 +351,7 @@ sub maybeStop
 
     # Check for the stop flag file.  If it exists, quit: remove the
     # pidfile and the stop flag and exit.
-    return if ! -f $self->{STOPFLAG};
+    return if ! -f $self->{STOPFILE};
     $self->Note("exiting from stop flag");
     $self->Notify("exiting from stop flag");
     $self->doStop();
@@ -324,14 +377,14 @@ sub daemon
 
     # Open the pid file.
     open(PIDFILE, "> $self->{PIDFILE}")
-	|| die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
+	|| die "$me: fatal error: cannot write to PID file ($self->{PIDFILE}): $!\n";
     $me = $self->{ME} unless $me;
     if ( $self->{NODAEMON} )
     {
 #     I may not be a daemon, but I still have to write the PIDFILE, or the
 #     watchdog may start another incarnation of me!
       ((print PIDFILE "$$\n") && close(PIDFILE))
-	or die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
+	or die "$me: fatal error: cannot write to PID file ($self->{PIDFILE}): $!\n";
       close PIDFILE;
       return;
     }
@@ -360,7 +413,7 @@ sub daemon
 	or die "$me: fatal error: cannot write to $self->{PIDFILE}: $!\n";
 
     # Indicate we've started
-    print "$me: pid $$ started in $self->{DROPDIR}\n";
+    print "$me: pid $$", ( $self->{DROPDIR} ? " started in $self->{DROPDIR}" : '' ), "\n";
 
     # Close/redirect file descriptors
     $self->{LOGFILE} = "/dev/null" if ! defined $self->{LOGFILE};
@@ -444,7 +497,7 @@ sub doStop
 
     # Remove stop flag and pidfile
     unlink($self->{PIDFILE});
-    #unlink($self->{STOPFLAG});
+    #unlink($self->{STOPFILE});
 
     POE::Kernel->alarm_remove_all();
     $self->doExit(0);
