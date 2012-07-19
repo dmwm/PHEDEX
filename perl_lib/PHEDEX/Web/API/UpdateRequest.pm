@@ -113,7 +113,7 @@ sub updateRequest
 						        "Remote host" => $core->{REMOTE_HOST},
 						        "User agent"  => $core->{USER_AGENT} );
   };
-  die ("Error evaluating client identity") if $@;
+  die PHEDEX::Web::Util::http_error(400,"Error evaluating client identity") if $@;
 
   my $now = time();
   eval {
@@ -271,7 +271,8 @@ sub updateRequest
   if ( $@ )
   {
     $core->{DBH}->rollback(); # Processes seem to hang without this!
-    die $@;
+    warn "UpdateRequest: Some bizarre error: $@\n";
+    die PHEDEX::Web::Util::http_error(500,"An error occurred. That happens sometimes...");
   }
 
   # determine if we commit
