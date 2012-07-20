@@ -11,6 +11,7 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::JobManager;
+use File::Path qw(rmtree);
 
 sub new
 {
@@ -334,8 +335,10 @@ sub report_work_done
 
 	# We are done with these drops
 	$self->Dbgmsg("deleting drop $dropdir for lfn=$file->{LFN}") if $self->{DEBUG};
-	&touch ("$dropdir/done");
-	$self->relayDrop ($drop);
+# TW
+        &rmtree($dropdir);
+#	&touch ("$dropdir/done");
+#	$self->relayDrop ($drop);
 	$ndone++;
     }
 
@@ -360,7 +363,7 @@ sub reloadConfig
   my ($self,$Config) = @_;
   my $config = $Config->select_agents($self->{LABEL});
   my $val;
-  foreach ( qw / LIMIT VERBOSE DEBUG WAITTIME / )
+  foreach ( qw / LIMIT VERBOSE DEBUG WAITTIME SYNCTIME CMD_RM / )
   {
     next unless defined ($val = $config->{OPTIONS}{$_});
     $self->Logmsg("reloadConfig: set $_=$val");
