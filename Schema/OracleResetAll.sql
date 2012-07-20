@@ -32,5 +32,11 @@ BEGIN
       dbms_output.put_line ('Dropping synonym ' || o.name);
       execute immediate 'drop synonym ' || o.name;
    END LOOP;
+
+   -- Views
+   FOR o IN (SELECT view_name name FROM user_views) LOOP
+      dbms_output.put_line ('Dropping view ' || o.name);
+      execute immediate 'drop view ' || o.name;
+   END LOOP;
 END;
 /
