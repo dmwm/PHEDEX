@@ -28,10 +28,10 @@ export PHEDEX_GLITE_WRAPPER;
  -db         ${PHEDEX_DBPARAM}
  -config     ${PHEDEX_CONFIG_FILE}
  -agent_list exp-pfn
-# -agent_list exp-pfn-mss
+ -agent_list exp-pfn-mss
  -agent_list download-fts
-# -agent_list download-migrate
-# -agent_list remove
+ -agent_list download-migrate
+ -agent_list remove
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
@@ -58,11 +58,11 @@ export PHEDEX_GLITE_WRAPPER;
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           ${PHEDEX_NODE},${PHEDEX_MSS}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
- -limit		  150
- -jobs		  11
+ -limit		  1000
+ -jobs		  10
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
   -db          ${PHEDEX_DBPARAM}

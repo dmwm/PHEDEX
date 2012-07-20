@@ -19,10 +19,10 @@ export PHEDEX_MAP;
  -db         ${PHEDEX_DBPARAM}
  -config     ${PHEDEX_CONFIG_FILE}
  -agent_list exp-pfn
-# -agent_list exp-pfn-mss
+ -agent_list exp-pfn-mss
  -agent_list download
-# -agent_list download-migrate
-# -agent_list remove
+ -agent_list download-migrate
+ -agent_list remove
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
@@ -49,11 +49,11 @@ export PHEDEX_MAP;
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE}
+ -nodes           ${PHEDEX_NODE},${PHEDEX_MSS}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
- -limit		  150
- -jobs		  5
+ -limit		  1000
+ -jobs		  10
  -no-retry
 
 ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
