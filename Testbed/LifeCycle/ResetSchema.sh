@@ -45,10 +45,11 @@ else
 fi
 
 # Initialize schema
-$PHEDEX_SQLPLUS @$SCHEMA_ROOT/Schema/OracleResetAll.sql < /dev/null
-$PHEDEX_SQLPLUS @$SCHEMA_ROOT/Schema/OracleInit.sql < /dev/null
+$PHEDEX_SQLPLUS @$SCHEMA_ROOT/OracleResetAll.sql < /dev/null
+$PHEDEX_SQLPLUS @$SCHEMA_ROOT/OracleInit.sql < /dev/null
 
 echo "insert into t_dps_dbs values (1, 'test',        'unknown', now());" | $PHEDEX_SQLPLUS
 echo "insert into t_dps_dbs values (2, 'other',       'unknown', now());" | $PHEDEX_SQLPLUS
 echo "insert into t_dps_dbs values (3, 'yet-another', 'unknown', now());" | $PHEDEX_SQLPLUS
+echo "insert into t_dps_dbs values (4, 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query', 'unknown', now());" | $PHEDEX_SQLPLUS
 echo "Schema successfully reset!"
