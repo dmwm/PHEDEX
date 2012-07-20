@@ -308,7 +308,6 @@ sub readInbox {}
 sub readPending {}
 sub readOutbox {}
 sub renameDrop {}
-sub relayDrop {}
 sub inspectDrop {}
 sub markBad {}
 sub processInbox {}
