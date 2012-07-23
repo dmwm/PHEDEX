@@ -26,3 +26,9 @@ PHEDEX_VERBOSE=0; export PHEDEX_VERBOSE;
 
 # Purely for debugging purposes, use it only if you know what you are doing...
 PHEDEX_DEBUGGER="rlwrap perl -MPHEDEX::Debug -d"; export PHEDEX_DEBUGGER
+
+### ENVIRON phedex
+. $TESTBED_ROOT/env-phedex.sh;
+
+### ENVIRON lifecycle
+. $TESTBED_ROOT/env-lifecycle.sh

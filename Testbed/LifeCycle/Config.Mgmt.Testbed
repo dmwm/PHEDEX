@@ -20,7 +20,7 @@ export LIFECYCLE_CONFIG;
 ### IMPORT ConfigPart.Testbed
 ### IMPORT ConfigPart.Management
 
-### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
+### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl ENVIRON=phedex
  -db         ${PHEDEX_DBPARAM}
  -config     ${PHEDEX_CONFIG_FILE}
  -agent_list mgmt-lifecycle
