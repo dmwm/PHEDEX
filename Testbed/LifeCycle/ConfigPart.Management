@@ -62,8 +62,6 @@
  -node      ${PHEDEX_NODE}
 
 ### AGENT LABEL=mgmt-lifecycle PROGRAM=Testbed/LifeCycle/Lifecycle.pl ENVIRON=lifecycle
- -db        ${PHEDEX_DBPARAM}
- -node      ${PHEDEX_NODE}
  -config   ${LIFECYCLE_CONFIG}
 
 ### AGENT LABEL=exp-stage PROGRAM=Toolkit/Transfer/FileFakeStager ENVIRON=phedex
