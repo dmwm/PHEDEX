@@ -15,7 +15,7 @@ export PHEDEX_NOTIFICATION_PORT;
 PHEDEX_GLITE_ENV=/afs/cern.ch/project/gd/LCG-share/current/etc/profile.d/grid_env.sh;
 GLITE_SD_PLUGIN=bdii;
 
-LIFECYCLE_CONFIG=${LIFECYCLE}/Testbed/LifeCycle/2NodeLifecycle.conf;
+LIFECYCLE_CONFIG=${LIFECYCLE}/2NodeLifecycle.conf;
 export LIFECYCLE_CONFIG;
 ### IMPORT ConfigPart.Testbed
 ### IMPORT ConfigPart.Management

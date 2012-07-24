@@ -72,23 +72,23 @@ fi
 
 # Create nodes / links
 # T0 node (for central agents to run)
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
 # Create one T1_Test nodes
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
 			-technology Other -se-name srm-test0.nowhere.cern.ch
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
 			-technology Other -se-name srm-test0.nowhere.cern.ch
 
 # T1_Test node links
 echo T1_Test1_Buffer to T0_Buffer
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
 echo T1_Test1_Buffer to T1_Test1_MSS
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
 
 i=1
 echo -n "Inserting groups: "
@@ -100,6 +100,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE/Testbed/LifeCycle
+cd $LIFECYCLE
 ./getNodesGroups.sh
 echo 2-node setup completed

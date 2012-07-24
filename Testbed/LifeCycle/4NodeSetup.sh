@@ -73,29 +73,29 @@ fi
 
 # Create nodes / links
 # T0 node (for central agents to run)
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
                          -technology Castor -se-name srm.cern.ch
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
                          -technology Castor -se-name srm.cern.ch
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
 # Create four T1_Test nodes
 for ((i=1;i<=4;i+=1)); do
-  $LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Buffer \
+  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Buffer \
 	-kind Buffer -technology Other -se-name srm.test${i}.ch
-  $LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_MSS \
+  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_MSS \
 	-kind MSS -technology Other -se-name srm.test${i}.ch
 done
 
 # T1_Test node links
 for ((i=1;i<=4;i+=1)); do
   echo T1_Test${i}_Buffer to T0_Buffer
-  $LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/2
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/2
   echo T1_Test${i}_Buffer to T1_Test${i}_MSS
-  $LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${i}_MSS:L/1
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${i}_MSS:L/1
   for ((j=$i+1;j<=4;j+=1)); do
     echo T1_Test${i}_Buffer to T1_Test${j}_Buffer
-    $LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/2
+    $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/2
   done
 done
 
@@ -109,6 +109,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE/Testbed/LifeCycle
+cd $LIFECYCLE
 ./getNodesGroups.sh
 echo 4-node setup completed

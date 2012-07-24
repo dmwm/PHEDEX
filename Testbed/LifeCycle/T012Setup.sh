@@ -73,24 +73,24 @@ fi
 
 # Create nodes / links
 # T0 node (for central agents to run)
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
                          -technology Castor -se-name srm.cern.ch
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
                          -technology Castor -se-name srm.cern.ch
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
 
 # a T1 node
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer \
 	-kind Buffer -technology Other -se-name srm.test.ch
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS \
 	-kind MSS -technology Other -se-name srm.test1.ch
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_MSS T1_Test1_Buffer:L/1 
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_MSS T1_Test1_Buffer:L/1 
 
 # a T2 node
-$LIFECYCLE/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T2_Test1_Buffer \
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T2_Test1_Buffer \
         -kind Buffer -technology Other -se-name srm.test2.ch
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer  T2_Test1_Buffer:R/2
-$LIFECYCLE/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T2_Test1_Buffer:R/2
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer  T2_Test1_Buffer:R/2
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T2_Test1_Buffer:R/2
 
 i=1
 echo -n "Inserting groups: "
@@ -102,6 +102,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE/Testbed/LifeCycle
+cd $LIFECYCLE
 ./getNodesGroups.sh
 echo T012-node setup completed
