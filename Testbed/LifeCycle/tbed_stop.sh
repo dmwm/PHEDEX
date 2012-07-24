@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Master=$PHEDEX_ROOT/Utilities/Master
-Config=$PHEDEX_ROOT/Testbed/LifeCycle
+Config=$LIFECYCLE
 eval `$Master -config $Config/Config.Mgmt.Testbed environ`
 
 node="T0_Test_Buffer"
@@ -19,4 +19,4 @@ done
 echo "Stopping Mgmt agents"
 $Master --config $Config/Config.Mgmt.Testbed stop
 echo removing stop-files
-rm $PHEDEX_ROOT/DEVDB10_*/state/*/stop
+rm $TESTBED_ROOT/DEVDB*/state/*/stop

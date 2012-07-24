@@ -1,7 +1,7 @@
 #!/bin/bash
 
 Master=$PHEDEX_ROOT/Utilities/Master
-Config=$PHEDEX_ROOT/Testbed/LifeCycle
+Config=$LIFECYCLE
 eval `$Master -config $Config/Config.Mgmt.Testbed environ`
 
 not_first=0

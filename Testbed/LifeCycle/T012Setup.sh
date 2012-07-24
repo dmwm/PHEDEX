@@ -85,6 +85,7 @@ $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer \
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS \
 	-kind MSS -technology Other -se-name srm.test1.ch
 $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_MSS T1_Test1_Buffer:L/1 
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer  T1_Test1_Buffer:R/2
 
 # a T2 node
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T2_Test1_Buffer \
