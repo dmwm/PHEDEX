@@ -219,9 +219,12 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
         }
       },
       checkboxSelect: function(elList,value) {
-        var el, record, text, values;
+        var el, record, text, values, renderLater=false;
         if ( typeof(elList) == 'string' ) {
           elList = [ Dom.get(elList) ];
+        }
+        if ( elList.length > 10 ) {
+          renderLater = true;
         }
         for ( i in elList ) {
           el = elList[i];
@@ -234,10 +237,10 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
           } else {
             text = text.replace(/checked='yes' /,'');
           }
-          this.dataTable.updateCell(record,'select',text,true);
+          this.dataTable.updateCell(record,'select',text,renderLater);
           _sbx.notify(this.id,'checkbox-select',el.id,value,{ level:values.level, item:values.item, node:values.node });
         }
-        if ( elList.length > 10 ) {
+        if ( renderLater ) {
           this.dataTable.render();
         }
       },
