@@ -157,7 +157,6 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         for ( i in roles ) {
           role = roles[i];
           if ( ( role.name == 'admin' && role.group == 'phedex' ) ||
-               ( role.name == 'pada admin'   ) ||
                ( role.name == 'data manager' ) ||
                ( role.name == 'site admin'   ) ) {
             auth.can.push('suspend');
@@ -194,7 +193,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                   "<p><strong>Privileged Activities:</strong></p>" +
                   NUtil.authHelpMessage(
                     { to:'change priorities of subscriptions and manage groups', need:'cert', role:['Data Manager', 'Admin'] },
-                    { to:'suspend/unsuspend subscriptions',                      need:'any',  role:['Data Manager', 'Site Admin', 'PADA Admin', 'Admin'] }
+                    { to:'suspend/unsuspend subscriptions',                      need:'any',  role:['Data Manager', 'Site Admin', 'Admin'] }
                   ),
             el:el,
             close:'close-anchor-'+id,
