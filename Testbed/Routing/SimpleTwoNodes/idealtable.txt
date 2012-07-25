@@ -1,2 +1,0 @@
-Tim-B Tim-A Tim-A 1
-Tim-A Tim-B Tim-B 1
