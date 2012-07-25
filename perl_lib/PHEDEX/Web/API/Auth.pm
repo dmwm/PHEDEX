@@ -63,13 +63,11 @@ sub auth
   $core->{SECMOD}->reqAuthnCert() if $args{require_cert};  
   $core->{SECMOD}->reqAuthnPasswd() if $args{require_passwd};  
   my $auth = $core->getAuth($args{ability});
-# TW  my $human_name = $core->{SECMOD}->getUsername();
-    
+ 
   # make XML-able data structure from our data
   my $obj = { 'state' => $auth->{STATE},
 	      'dn' => $auth->{DN},
 	      'ability' => $args{ability},
-# TW              'human_name' => $human_name
 	  };
 
   $obj->{'username'} = $core->{SECMOD}->getUsername();
