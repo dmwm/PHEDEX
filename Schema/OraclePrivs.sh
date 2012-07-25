@@ -116,7 +116,7 @@ for role in \
       T_DPS_DATASET:* | \
       T_DPS_FILE:* | \
       T_DPS_DBS:* | \
-      T_XFER_FILE:* \
+      T_XFER_FILE:* | \
       T_XFER_REPLICA:* )
         # Select, update and insert
         echo; echo "grant select on $table to $reader;"
