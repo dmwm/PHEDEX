@@ -133,8 +133,8 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
           }
           if ( Row.comment ) {
             showComment = true;
-            if (Row.comment.match(/Wrong DBS \("[^"]+"\)/) ) {
-              wrongDBS[RegExp.$1] = 1;
+            if (Row.comment.match(/Wrong DBS \("([^"]+)"\)/) ) {
+              wrongDBS[Row.dbs] = 1;
               wrongDBSCount++
             }
           }
@@ -209,7 +209,7 @@ PHEDEX.Module.PreviewRequestData = function(sandbox,string) {
         if ( wrongDBSCount ) {
           if ( text ) { text += '<br/>'; }
           if ( wrongDBS.length > 1 || wrongDBSCount < known ) {
-            text += Icon.Error+'Items are in different DBS instances. You can only delete items in the same DBS in a single request';
+            text += Icon.Error+'Items are in different DBS instances.';
           } else {
             for (tmp in wrongDBS) { // there is only one entry in wrongDBS!
               text += Icon.Error+"All items are in a different DBS ('"+tmp+"'). <a href='#' onclick=\"PxS.notify('"+this.id+"','setDBS','"+tmp+"')\">Correct my DBS choice for me</a>";
