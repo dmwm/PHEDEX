@@ -410,11 +410,12 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         var status='OK',
             nResponse = this.nResponse,
             nSelected = this.meta.nSelected,
-            sum, msg, row, now, etc;
+            sum, msg, row, now, etc, why;
         this.queued--;
         _sbx.notify(this.id,'dispatchUpdate');
         if ( response ) {
           nResponse.fail++;
+          why = response.responseText;
         } else {
           nResponse.OK++;
           _sbx.notify(this.subscriptionsId,'updateRow',cbox,data.dataset[0]);
@@ -431,7 +432,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
             msg = 'Finished with '+msg;
           }
           _sbx.notify(this.id,'setApplyChangesState');
-          _sbx.notify(obj.id,'setUIIdle');
+          _sbx.notify(obj.id,'setUIIdle',why);
         } else {
           if ( total > 20 && sum > 10 ) {
             now = new Date().getTime()/1000;
@@ -482,7 +483,8 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         }(this), timeout * 1000);
       },
       setValueFor: function(label,value) {
-        value = value.replace(/\n|,/g,' ');
+        value = value.replace(/\n/g,' ');
+        value = value.replace(/\s\s+/g,' ');
         if ( value.match(/^ *$/) ) {
           this._filter[label] = [];
         } else {
@@ -630,7 +632,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
                 if ( obj.changedRows ) {
                   obj.setSummary('OK',obj.changedRows+' subscription'+(obj.changedRows==1?' was':'s were')+' changed');
                 } else {
-                  obj.setSummary('error','Nothing was changed!');
+                  var msg = 'Nothing was changed.';
+                  if ( arr[1] ) {
+                    msg += ' (reason: ' + arr[1].replace(/\\n/,'') + ')';
+                  }
+                  obj.setSummary('error',msg);
                 }
                 break;
               }
@@ -1006,7 +1012,11 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _f.request = [];
         if ( state.reqfilter ) { state.request = state.reqfilter; delete state.reqfilter; }
         if ( state.request ) {
-          tmp = state.request.split(/(\s*,*\s+|\s*,+\s*)/);
+          if ( Ylang.isArray(state.request) ) {
+            tmp = state.request;
+          } else {
+            tmp = state.request.split(/(\s*,*\s+|\s*,+\s*)/);
+          }
           for ( i in tmp ) {
             if ( tmp[i].match(/^\d+$/) ) { // only accept numeric IDs.
               _f.request.push(tmp[i]);
@@ -1046,7 +1056,9 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
         _f.data_items = [];
         if ( state.filter ) { state.data_items = state.filter; delete state.filter; }
         if ( state.data_items ) {
-          tmp = state.data_items.split(/(\s*,*\s+|\s*,+\s*)/);
+          tmp = state.data_items.replace(/,/g,' ');
+          tmp = tmp.replace(/ +/g,' ');
+          tmp = tmp.split(/ /)
           state.data_items  = [];
           for ( i in tmp ) {
             state.data_items.push(tmp[i]);
@@ -1196,6 +1208,7 @@ PHEDEX.Nextgen.Data.Subscriptions = function(sandbox) {
           } else {
             tmp = tmp.replace(/^\s+/,'');
             tmp = tmp.replace(/\s+$/,'');
+            tmp = tmp.replace(/,/g,'');
             tmp = tmp.replace(/\s\s+/g,' ');
             this.value = tmp;
             PxS.notify(obj.id,'setValueFor',filterTag,tmp);

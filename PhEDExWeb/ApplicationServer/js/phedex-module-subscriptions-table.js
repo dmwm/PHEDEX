@@ -198,7 +198,7 @@ PHEDEX.Module.Subscriptions.Table = function(sandbox,string) {
                    nodeBytes:s.node_bytes,
                    pctFiles:s.percent_files,
                    pctBytes:s.percent_bytes,
-                   replicaMove:( s.move == 'y' ? 'replica' : 'move' ),
+                   replicaMove:( s.move == 'n' ? 'replica' : 'move' ),
                    suspended:s.suspended,
                    open:data.is_open,
                    timeCreate:s.time_create,
