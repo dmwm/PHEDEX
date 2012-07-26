@@ -3976,11 +3976,11 @@ sub updateSubscription
     my %h = @_;
 
     # only one block or dataset is allowed
-    die "either block or dataset, not both" if defined($h{BLOCK}) && defined($h{DATASET});
+    die "only one of 'BLOCK' or 'DATASET' may be given, not both" if defined($h{BLOCK}) && defined($h{DATASET});
     my $type;
     $type = 'block' if $h{BLOCK};
     $type = 'dataset' if $h{DATASET};
-    die "block or dataset is required" if not defined $type;
+    die "either 'BLOCK' or 'DATASET' is required" if not defined $type;
 
     # at least one of GROUP, PRIORITY, or SUSPEND_UNTIL is required
     die "at least one of 'GROUP', 'PRIORITY', or 'SUSPEND_UNTIL' is required" if not ($h{GROUP}||$h{PRIORITY}||exists($h{SUSPEND_UNTIL}));
@@ -3990,7 +3990,7 @@ sub updateSubscription
     if ($h{GROUP})
     {
         # deprecated-undefined is a forbidden group
-        die "group $h{GROUP} is forbidden" if ($h{GROUP} =~ m/^deprecated-/);
+        die "group 'deprecated-*' is forbidden" if ($h{GROUP} =~ m/^deprecated-/);
         my $gsql = qq{
             select
                 id
@@ -4004,7 +4004,7 @@ sub updateSubscription
         $q1 = PHEDEX::Web::STH->new($q1);
         $_ = $q1->fetchrow_hashref();
         $gid = $_->{ID};
-        die "group $h{GROUP} does not exist" if not $gid;
+        die "group does not exist" if not $gid;
     }
 
     # check priority
@@ -4045,7 +4045,7 @@ sub updateSubscription
     my $q = execute_sql($core, $sql, %p);
     $q = PHEDEX::Web::STH->new($q);
     my $rparam = $q->fetchrow_hashref();
-    die "subscription for $h{NODE} / $type = $h{BLOCK}$h{DATASET} does not exist" if not $rparam;
+    die "subscription parameters not found" if not $rparam;
 
     # $dbchanged for early exit -- if commit or rollback is needed
     my $dbchanged = 0;
@@ -4092,7 +4092,7 @@ sub updateSubscription
     if (not $newparam) # clean up
     {
         $core->{DBH}->rollback();
-        die "update failed";
+        die "Could not create subscription parameters";
     }
 
     $dbchanged = 1;
