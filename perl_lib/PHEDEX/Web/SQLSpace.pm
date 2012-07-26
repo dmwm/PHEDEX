@@ -56,7 +56,6 @@ sub insertSpace {
    my ($self, %h) = @_;
    my ($sql,%p, %p_d,%p_site,%p_s,$q,$dir_id,$site_id,$strict,$space);
    my ($temp_id);
-   
    #warn "dumping arguments in SQL.pm",Data::Dumper->Dump([ \%h ]);
    $strict  = defined $h{strict}  ? $h{strict}  : 1;
   
@@ -65,12 +64,13 @@ sub insertSpace {
    $q = execute_sql( $self, $sql , %p_site);
    $site_id = $q->fetchrow_hashref(); 
    if (!$site_id) { 
-     $p_site{':site_id'}=$site_id;
-     $sql = qq{insert into t_adm_node values (:name, t_adm_node.nextval) returning id into :site_id};
-     $p_site{':site_id'}=\$temp_id;
-     $q = execute_sql( $self, $sql , %p_site);
-     #$self->{DBH}->commit();
-     $site_id->{ID} = $temp_id + 0;
+      die PHEDEX::Web::Util::http_error(400,'Unknown node');
+#     $p_site{':site_id'}=$site_id;
+#     $sql = qq{insert into t_adm_node values (:name, t_adm_node.nextval) returning id into :site_id};
+#     $p_site{':site_id'}=\$temp_id;
+#     $q = execute_sql( $self, $sql , %p_site);
+#     #$self->{DBH}->commit();
+#     $site_id->{ID} = $temp_id + 0;
    }
    #warn "dumping site_id in SQL.pm",Data::Dumper->Dump([ $site_id ]);
 
