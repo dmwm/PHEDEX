@@ -2136,19 +2136,32 @@ sub getDataSubscriptionsQuery
     };
 
     my $filters = '';
-    my $node_field = 'n.name';
-    my $value;
+    my (@nIDs,@nNames);
     if ( $h{NODE} ) {
-      if ( ref($h{NODE}) eq 'ARRAY' ) { $value = $h{NODE}[0]; }
-      else { $value = $h{NODE}; }
-      if ( $value && $value =~ m%^\d+$% ) { $node_field = 'n.id'; }
+      if ( ref($h{NODE}) eq 'ARRAY' ) {
+        foreach ( @{$h{NODE}} ) {
+          if ( m%^\d+$% ) { push @nIDs, $_; }
+          else            { push @nNames, $_; }
+        }
+      } else {
+        if ( $h{NODE} =~ m%^\d+$% ) { push @nIDs, $h{NODE}; }
+        else                        { push @nNames, $h{NODE}; }
+      }
     }
     build_multi_filters($core, \$filters, \%p, \%h, ( 
                                                       SE => 'n.se_name',
                                                       REQUEST => 'sp.request',
                                                       GROUP => 'g.name',
-                                                      NODE => $node_field,
 						      ));
+    my $filterIDs = PHEDEX::Core::SQL::build_filter ($core,'or',undef,undef,\%p,'n.id',\@nIDs);
+    my $filterNames = PHEDEX::Core::SQL::build_filter ($core,'or',undef,undef,\%p,'n.name',\@nNames);
+    if ( $filterIDs && $filterNames ) {
+      if ( $filters ) { $filters .= " and "; }
+      $filters .= "( $filterIDs or $filterNames ) ";
+    } else {
+      if ( $filterIDs   ) { $filters .= " ( $filterIDs ) "; }
+      if ( $filterNames ) { $filters .= " ( $filterNames ) "; }
+    }
 
     if (exists $h{SUSPENDED})
     {
