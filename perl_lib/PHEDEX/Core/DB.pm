@@ -163,7 +163,7 @@ sub connectToDatabase
     if ($self->{DBH_DBROLE})
     {
       eval { $dbh->do ("set role $self->{DBH_DBROLE} identified by"
-		             . " $self->{DBH_DBROLE_PASS}") };
+		             . " \"$self->{DBH_DBROLE_PASS}\"") };
       die "failed to authenticate to $self->{DBH_DBNAME} as"
         . " $self->{DBH_DBUSER} using role $self->{DBH_DBROLE}\n"
 	if $@;
