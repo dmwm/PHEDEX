@@ -6497,7 +6497,7 @@ sub output
 	     to_pfn       => { using => 'regex', default => '.*' },
 	     log_detail   => { using => 'regex', default => '.*' },
 	     log_validate => { using => 'regex', default => '.*' },
-	     andor	  => { using 'andor' },
+	     andor	  => { using => 'andor' },
 	 }
 	 );
 # Explicit checking of arguments
