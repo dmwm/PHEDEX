@@ -109,7 +109,7 @@ sub parse_path {
         $db = 'read';
       }
     }
-    if ( ! $db ) {
+    if ( $call && !$db ) {
       warn "Using default DB access for '$call' API\n";
       $db = 'read';
     }
