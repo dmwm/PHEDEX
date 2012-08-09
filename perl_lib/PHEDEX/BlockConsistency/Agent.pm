@@ -247,7 +247,9 @@ sub doNSCheck
 	  next; 
       }
       $t1 = Time::HiRes::time();
-      my $adler = hex($ns->$cmd($pfn,$lfn,$mapping,$node));
+      my $adler = $ns->$cmd($pfn,$lfn,$mapping,$node);
+      if ( defined($adler) ) { $adler = hex($adler) }
+      else                   { $adler = 'undefined'; }
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($adler) &&  $adler eq $chksum_value ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; $were_fail++;
