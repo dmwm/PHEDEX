@@ -158,7 +158,9 @@ sub path_info
 {
   my $self = shift;
   return $self->{TARGET} if $self->{TARGET};
-  return '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
+  my $path = '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
+  $path =~ s%//+%/%g;
+  return $path;
 }
 
 sub get
