@@ -491,13 +491,41 @@ sub auth_nodes
     my $sql = qq{select name, id from t_adm_node where name not like 'X%'};
     my $q = &PHEDEX::Core::DB::dbexec($$self{DBH}, $sql);
     
-    my %nodes;
+    my (%nodes,%all_nodes);
     while (my ($node, $node_id) = $q->fetchrow()) {
 	# Filter by auth_nodes if there are any
+	$all_nodes{$node} = $node_id;
 	if ($global_scope || grep $node =~ $_, @auth_nodes) {
 	    $nodes{$node} = $node_id;
 	}
     }
+
+    # Special case for development:
+    # If there are no auth_nodes, and
+    # the user is a PhEDEx developer, and
+    # the instance is not the production instance, and
+    # the desired site name matches /test/i, then
+    # pick names from PhEDEx that start with the desired name, and allow them.
+    my ($role,$node,$nodeRaw);
+    if ( ! scalar @auth_nodes ) {
+      if ( $self->{INSTANCE} ne 'prod' ) {
+        foreach $role ( @{$roles->{developer}} ) {
+          if ( $role eq 'phedex' ) {
+            foreach $nodeRaw ( keys %all_nodes ) {
+              $node = lc $nodeRaw;
+              $node =~ s%_%-%g;
+              foreach ( @auth_sites ) {
+                next unless m%test%i;
+                if ( $node =~ m%^$_% ) {
+                  $nodes{$node} = $all_nodes{$nodeRaw};
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (exists $args{with_ids} && $args{with_ids}) {
 	return \%nodes;
     } else {
