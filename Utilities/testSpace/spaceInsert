@@ -11,7 +11,7 @@ use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
 my ($loader,$module,$interface,$ns,$timeFromXml);
 my ($verbose,$debug,$terse);
-my (@pfn,$dump,$level,$result,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
+my (@pfn,$dump,$level,$result,$datasvcUrl,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
 my %dirsizes = ();
 $totalsize = 0;
 
@@ -23,10 +23,10 @@ sub usage {
               INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
-  LEVEL is depth of the directory structure you want to go, default is 6
+  LEVEL is depth of the directory structure you want to go, default is $level
   NODES is the name of node, must exist
-  URL is the url for data service
-  strict is to specify if you need to overwrite the entity with the same timestamp.default is to overwrite with warning message
+  URL is the url for data service, default is $datasvcUrl
+  strict is to specify if you need to overwrite the entity with the same timestamp, default is to overwrite with warning message
  
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
@@ -119,7 +119,7 @@ sub convertToUnixTime
   return $unixTime;
 }
 
-my ($datasvcUrl, $response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
+my ($response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
 my ($strict);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
@@ -192,7 +192,6 @@ $pua->timeout($timeout) if $timeout;
 $pua->CALL('storageinsert');
 $target = $pua->target;
 $response = $pua->$method($target,\%payload);
-
 
 if ( $pua->response_ok($response) )
 {
