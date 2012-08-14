@@ -10,7 +10,7 @@ use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Util ( qw / str_hash / );
 my ($loader,$module,$interface,$ns,$timeFromXml);
-my ($verbose,$debug,$terse);
+my ($verbose,$debug,$terse,$force);
 my (@pfn,$dump,$level,$result,$datasvcUrl,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
 my %dirsizes = ();
 $totalsize = 0;
@@ -19,26 +19,25 @@ sub usage {
   print <<EOF;
   Usage:
 
-  spaceInsert --dump DUMP --strict --node NODES --depth LEVEL --url URL
+  spaceInsert --dump DUMP --node NODES --depth LEVEL --url URL
               INTERFACE {OPTIONS}
  
   DUMP  is a storage dump file, must exist
   LEVEL is depth of the directory structure you want to go, default is $level
   NODES is the name of node, must exist
   URL is the url for data service, default is $datasvcUrl
-  strict is to specify if you need to overwrite the entity with the same timestamp, default is to overwrite with warning message
- 
   INTERFACE is the protocol for accessing the SE (should know how to parse the DUMP)
 
   OPTIONS are:  --verbose, --debug, --help, and anything else that the
   interface might support. Use --help per interface to find out more.
+
+  --force      allows to overwrite the entity with the same timestamp, which would otherwise fail
 
   Known interface protocols in this installation are:
 EOF
   #print " '",join("', '", grep (!/\//,sort keys %{$loader->Commands})),"'\n\n";
   exit 0;
 }
-
 
 sub dirlevel {
   my ($pathSimple,$temp1);
@@ -120,7 +119,6 @@ sub convertToUnixTime
 }
 
 my ($response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
-my ($strict);
 
 $datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
 $level = 6;
@@ -130,7 +128,7 @@ GetOptions(
            "node=s"      => \$node,
            "url=s"      => \$datasvcUrl,
            "level=s"      => \$level,
-           "strict=s"     => \$strict,
+           "force"     => \$force,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
            "help|h"         => sub { &usage() }
@@ -145,7 +143,7 @@ $pua = PHEDEX::CLI::UserAgent->new
     (
       URL        => $datasvcUrl,
       FORMAT    => 'perl',
-      INSTANCE    => 'dmwm_insert',
+      INSTANCE    => '',
     );
 
 if ( $dump ) {
@@ -158,8 +156,7 @@ if ( $dump ) {
 #  print "DIRSIZE: $_: $dirsizes{$_} \n";
 #}
 
-$payload{"strict"} = defined $strict  ? $strict  : 1;
- 
+$payload{"strict"} = defined $force ? 0 : 1;
 $payload{"node"}=$node;
 $payload{"timestamp"}=$timeFromXml;
 #$payload{"totalsize"}=$totalsize;
@@ -190,7 +187,9 @@ my ($j, $now, $past, $input);
 print "Begin to connect data service.....\n";
 $pua->timeout($timeout) if $timeout;
 $pua->CALL('storageinsert');
+#$pua->CALL('auth'); # for testing authentication without writing into the database.
 $target = $pua->target;
+print "[DEBUG] User agent target=$target\n" if ($debug);
 $response = $pua->$method($target,\%payload);
 
 if ( $pua->response_ok($response) )
@@ -207,12 +206,12 @@ if ( $pua->response_ok($response) )
 else
 {
    # Something went wrong...
-   chomp $content;
    print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
          $response->content(),"\n";
+   print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($debug);
+
    die "exiting after failure\n";
 }
 
 print  "Done!\n";
 exit 0;
-
