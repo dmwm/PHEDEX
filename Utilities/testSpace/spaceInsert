@@ -119,8 +119,7 @@ sub convertToUnixTime
 }
 
 my ($response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
-
-$datasvcUrl='https://pheSpaceMon.cern.ch/phedex/datasvc';
+$datasvcUrl='https://cmsweb-testbed.cern.ch/dmwmmon/datasvc';
 $level = 6;
 
 GetOptions(
