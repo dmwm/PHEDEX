@@ -150,18 +150,20 @@ sub mergeStatusBlockArrive
     $sql = qq{
 	merge into t_status_block_arrive barr
 	    using 
-	    ( select br.destination, br.block, b.files, b.bytes,
-	              br.priority, 
+	    ( select distinct bd.destination, bd.block, b.files, b.bytes,
+	              bd.priority,
 	              case
 	               when max(br.state)=4 then -6
 	               when max(br.state)=3 then -5
 	               when max(br.state)=1 then 2
 	              end basis
-	       from t_status_block_request br
-	       join t_dps_block b on b.id=br.block
-	       where br.state = 4 or br.state = 3 or br.state =1
-	       group by br.destination, br.block, b.files, b.bytes,
-	                 br.priority
+	        from t_dps_block_dest bd
+                join t_dps_block b on b.id=bd.block
+	        join t_status_block_request br
+	          on br.block=bd.block and br.destination=bd.destination
+	        where br.state = 4 or br.state = 3 or br.state =1
+	        group by bd.destination, bd.block, b.files, b.bytes,
+	                 bd.priority
 	     ) breqs
 	     on ( barr.destination=breqs.destination
 	          and barr.block=breqs.block )
@@ -181,11 +183,13 @@ sub mergeStatusBlockArrive
     $sql = qq{
         merge into t_status_block_arrive barr
             using
-            ( select bp.destination, bp.block, b.files, b.bytes, bp.priority,
+            ( select distinct bd.destination, bd.block, b.files, b.bytes, bd.priority,
 	              0 basis, max(bp.time_arrive) time_arrive
-	       from t_status_block_path bp
-	       join t_dps_block b on b.id=bp.block
-	       group by bp.destination, bp.block, b.files, b.bytes, bp.priority
+	       from t_dps_block_dest bd
+	       join t_dps_block b on b.id=bd.block
+	       join t_status_block_path bp
+	         on bp.block=bd.block and bp.destination=bd.destination
+	       group by bd.destination, bd.block, b.files, b.bytes, bd.priority
 	      ) bpaths
 	      on ( barr.block=bpaths.block 
 		   and barr.destination=bpaths.destination )
