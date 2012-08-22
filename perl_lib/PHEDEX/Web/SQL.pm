@@ -3007,7 +3007,11 @@ sub getNodeUsageHistory
             trunc(nvl(avg(d.dest_files - d.cust_dest_files), 0)) as noncust_dest_files,
             trunc(nvl(avg(d.dest_bytes - d.cust_dest_bytes), 0)) as noncust_dest_bytes,
             trunc(nvl(avg(d.src_files), 0)) as src_node_files,
-            trunc(nvl(avg(d.src_bytes), 0)) as src_node_bytes
+            trunc(nvl(avg(d.src_bytes), 0)) as src_node_bytes,
+            trunc(nvl(avg(d.request_files), 0)) as request_files,
+            trunc(nvl(avg(d.request_bytes), 0)) as request_bytes,
+            trunc(nvl(avg(d.idle_files), 0)) as idle_files,
+            trunc(nvl(avg(d.idle_bytes), 0)) as idle_bytes
         from
             t_history_dest d,
             t_adm_node n
@@ -3119,7 +3123,9 @@ sub getRouterHistory
             trunc(nvl(avg(hd.request_files),0)) request_files,
             trunc(nvl(avg(hd.request_bytes),0)) request_bytes,
             trunc(nvl(avg(hd.idle_files),0)) idle_files,
-            trunc(nvl(avg(hd.idle_bytes),0)) idle_bytes
+            trunc(nvl(avg(hd.idle_bytes),0)) idle_bytes,
+            trunc(nvl(avg(hs.pend_files), 0)) pend_files,
+            trunc(nvl(avg(hs.pend_bytes), 0)) pend_bytes
         from
             t_history_link_stats hs
             full join t_history_dest hd
