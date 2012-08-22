@@ -61,6 +61,8 @@ Show history of file routing statistics.
   request_bytes     number of bytes actively requested for routing to destination
   idle_files        number of files waiting for re-routing to destination
   idle_bytes        number of files waiting for re-routing to destination
+  pend_files        number of files queued
+  pend_bytes        number of bytes queued
 
 =cut
 
@@ -86,7 +88,9 @@ my $map = {
         request_files => 'REQUEST_FILES',
         request_bytes => 'REQUEST_BYTES',
         idle_files => 'IDLE_FILES',
-        idle_bytes => 'IDLE_BYTES'
+        idle_bytes => 'IDLE_BYTES',
+        pend_files => 'PEND_FILES',
+        pend_bytes => 'PEND_BYTES'
     }
 };
 
