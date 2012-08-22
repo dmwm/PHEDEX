@@ -63,6 +63,10 @@ Show how space is being used at a node
   noncust_dest_bytes number of bytes subscribed to non-custodial storage
   src_node_files     number of files generated at this node
   src_node_bytes     number of bytes generated at this node
+  request_files      number of files requested
+  request_bytes      number of bytes requested
+  idle_files         number of files that are idle
+  idle_bytes         number of bytes that are idle
 
 =cut
 
@@ -91,7 +95,11 @@ my $map = {
         noncust_dest_files => 'NONCUST_DEST_FILES',
         noncust_dest_bytes => 'NONCUST_DEST_BYTES',
         src_node_files => 'SRC_NODE_FILES',
-        src_node_bytes => 'SRC_NODE_BYTES'
+        src_node_bytes => 'SRC_NODE_BYTES',
+        request_files => 'REQUEST_FILES',
+        request_bytes => 'REQUEST_BYTES',
+        idle_files => 'IDLE_FILES',
+        idle_bytes => 'IDLE_BYTES'
     }
 };
 
