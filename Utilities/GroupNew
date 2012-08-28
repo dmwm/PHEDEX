@@ -31,18 +31,18 @@ my $self = { DBCONFIG => $args{DBCONFIG} };
 my $dbh = &connectToDatabase ($self);
 
 my $now = &mytimeofday();
-my $group = shift(@ARGV);
+my $usergroup = shift(@ARGV);
 my ($groupid) = &dbexec($dbh, qq{
-  select id from t_adm_group where name = :group},
-  ":group" => $group)->fetchrow();
-die "Group $group already exists!\n" if defined $groupid;
+  select id from t_adm_group where name = :usergroup},
+  ":usergroup" => $usergroup)->fetchrow();
+die "Group $usergroup already exists!\n" if defined $groupid;
 
 # Add group
 &dbexec($dbh, qq{
     insert into t_adm_group
     (id, name)
-    values (seq_adm_group.nextval, :group)},
-    ":group" => $group);
+    values (seq_adm_group.nextval, :usergroup)},
+    ":usergroup" => $usergroup);
 
 $dbh->commit();
 &disconnectFromDatabase($self, $dbh, 1);
