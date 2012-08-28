@@ -1,0 +1,48 @@
+#!/usr/bin/env perl
+
+##H Create a new user group
+##H
+##H Usage:
+##H   GroupNew -db DBCONFIG GROUP
+##H
+##H Example:
+##H   GroupNew -db Schema/DBParam:Foo CompOps
+##H
+##H GROUP is the name of the user group to create.
+##H   Note: if you want to assign Data Managers
+##H         to the group, the name should match with SiteDB
+##H         https://cmsweb.cern.ch/sitedb/data/prod/groups
+
+# Process command line arguments.
+use Getopt::Long;
+use PHEDEX::Core::Help;
+use PHEDEX::Core::DB;
+use PHEDEX::Core::Timing;
+&GetOptions ("db=s"        => \$args{DBCONFIG},
+	     "help|h"      => sub { &usage() });
+
+# Check arguments.
+if (scalar @ARGV < 1 || !$args{DBCONFIG})
+{
+  die "Insufficient parameters, use -h for help.\n";
+}
+
+my $self = { DBCONFIG => $args{DBCONFIG} };
+my $dbh = &connectToDatabase ($self);
+
+my $now = &mytimeofday();
+my $group = shift(@ARGV);
+my ($groupid) = &dbexec($dbh, qq{
+  select id from t_adm_group where name = :group},
+  ":group" => $group)->fetchrow();
+die "Group $group already exists!\n" if defined $groupid;
+
+# Add group
+&dbexec($dbh, qq{
+    insert into t_adm_group
+    (id, name)
+    values (seq_adm_group.nextval, :group)},
+    ":group" => $group);
+
+$dbh->commit();
+&disconnectFromDatabase($self, $dbh, 1);
