@@ -32,6 +32,7 @@ my $dbh = &connectToDatabase ($self);
 
 my $now = &mytimeofday();
 my $usergroup = shift(@ARGV);
+die "Invalid user group name! User group name can only contain alphanumeric characters, spaces and hyphens\n" unless $usergroup =~ qr/^[a-zA-Z0-9\- ]+$/;
 my ($groupid) = &dbexec($dbh, qq{
   select id from t_adm_group where name = :usergroup},
   ":usergroup" => $usergroup)->fetchrow();
