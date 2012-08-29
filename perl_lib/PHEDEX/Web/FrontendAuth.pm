@@ -2,6 +2,7 @@ package PHEDEX::Web::FrontendAuth;
 use strict;
 use DBI;
 use Data::Dumper;
+use Text::Unaccent;
 
 my ($ExtraNodes,$UID);
 
@@ -35,7 +36,7 @@ sub init {
   }
   foreach ( %{$headers} ) {
     m%^cms%i or m%^ssl_client_%i or next;
-    $self->{HEADER}{lc $_} = $headers->{$_};
+    $self->{HEADER}{lc $_} = unac_string('utf-8',$headers->{$_});
   }
 
   $self->{AUTHNSTATE} = 'failed';
@@ -186,11 +187,6 @@ sub getSitesFromFrontendRoles
   my ($roles,$role,%sites,@sites,$site,$sql,$sth);
   return if $self->{BASIC};
   $roles = $self->getRoles();
-#  $sql = qq{ select p.name
-#               from cms_name c
-#               join phedex_node_cms_name_map map on c.id = map.cms_name_id
-#               join phedex_node p on map.node_id = p.id
-#               where lower(c.name) = ? };
   $sql = qq{ select p.name phedex from phedex_node p
                join site s on p.site = s.id
                join site_cms_name_map cmap on cmap.site_id = s.id
