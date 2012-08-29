@@ -123,7 +123,7 @@ sub new
 #   Retrieve the agent environment, if I can.
     my ($config,$cfg,$label,$key,$val);
     $config = $args{CONFIG_FILE} || $p{CONFIG_FILE};
-    $label  = $args{LABEL}       || $p{LABEL} || $me;
+    $label = $self->{LABEL} = $args{LABEL} || $p{LABEL} || $me;
     if ( $config && $label )
     {
       $cfg = PHEDEX::Core::Config->new();
