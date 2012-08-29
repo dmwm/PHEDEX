@@ -1,4 +1,5 @@
 package PHEDEX::Core::Identity;
+use Data::Dumper;
 
 =head1 NAME
 
@@ -92,18 +93,26 @@ passed.
 sub fetchAndSyncIdentity
 {
     my ($self, %h) = @_;
+    my ($len,$clen);
+
+    $self->{RECURSION_DEPTH} = 0 unless defined $self->{RECURSION_DEPTH};
+    $self->{RECURSION_DEPTH}++;
+    if ( $self->{RECURSION_DEPTH}++ > 10 ) {
+      warn "fetchAndSyncIdentity: Abandoning after excessive recursion for: ",Dumper(\%h),"\n";
+      die "Cannot sync identity for user with secmod-id ",$h{SECMOD_ID},"\n";
+    }
 
     unless ($h{AUTH_METHOD}) {
 	die "fetchAndSyncIdentity requires AUTH_METHOD";
     }
     
     if ( $h{CERTIFICATE} ) {
-      my $len = 4000;
-      my $clen = length($h{CERTIFICATE});
+      $len = 4000;
+      $clen = length($h{CERTIFICATE});
       if ( $clen > $len ) {
 #     Truncate at $len characters, so it fits in the database field
         warn "Certificate for $h{DN} too long, truncating ($clen > $len)\n";
-        $h{CERTIFICATE} = substr($h{DN},0,$len);
+        $h{CERTIFICATE} = substr($h{CERTIFICATE},0,$len);
       }
     }
     my @to_sync;
