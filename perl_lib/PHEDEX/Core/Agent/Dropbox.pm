@@ -26,7 +26,6 @@ sub new
     *PHEDEX::Core::Agent::readPending = \&PHEDEX::Core::Agent::Dropbox::readPending;
     *PHEDEX::Core::Agent::readOutbox = \&PHEDEX::Core::Agent::Dropbox::readOutbox;
     *PHEDEX::Core::Agent::renameDrop = \&PHEDEX::Core::Agent::Dropbox::renameDrop;
-    *PHEDEX::Core::Agent::relayDrop = \&PHEDEX::Core::Agent::Dropbox::relayDrop;
     *PHEDEX::Core::Agent::inspectDrop = \&PHEDEX::Core::Agent::Dropbox::inspectDrop;
     *PHEDEX::Core::Agent::markBad = \&PHEDEX::Core::Agent::Dropbox::markBad;
     *PHEDEX::Core::Agent::processInbox = \&PHEDEX::Core::Agent::Dropbox::processInbox;
@@ -166,111 +165,6 @@ sub renameDrop
     return 1;
 }
 
-# Transfer the drop to the next agent
-sub relayDrop
-{
-    my ($self,$drop) = @_;
-die "Someone really wants to use relayDrop???\n";
-#    # Move to output queue if not done yet
-#    if (-d "$self->{WORKDIR}/$drop")
-#    {
-#        &mv ("$self->{WORKDIR}/$drop", "$self->{OUTBOX}/$drop") || return;
-#    }
-#
-#    # Check if we've already successfully copied this one downstream.
-#    # If so, just nuke it; manual recovery is required to kick the
-#    # downstream ones forward.
-#    if (-f "$self->{OUTBOX}/$drop/gone") {
-#	&rmtree ("$self->{OUTBOX}/$drop");
-#	return;
-#    }
-#
-#    # Clean up our markers
-#    &rmtree("$self->{OUTBOX}/$drop/go");
-#    &rmtree("$self->{OUTBOX}/$drop/gone");
-#    &rmtree("$self->{OUTBOX}/$drop/bad");
-#    &rmtree("$self->{OUTBOX}/$drop/done");
-#
-#    # Copy to the next ones.  We want to be careful with the ordering
-#    # here -- we want to copy the directory exactly once, ever.  So
-#    # execute in an order that is safe even if we get interrupted.
-#    if (scalar @{$self->{NEXTDIR}} == 0)
-#    {
-#	&rmtree ("$self->{OUTBOX}/$drop");
-#    }
-#    elsif (scalar @{$self->{NEXTDIR}} == 1 && $self->{_Al}->{NEXTDIR}[0] !~ /^([a-z]+):/)
-#    {
-#	-d "$self->{NEXTDIR}[0]/inbox"
-#	    || mkdir "$self->{NEXTDIR}[0]/inbox"
-#	    || -d "$self->{NEXTDIR}[0]/inbox"
-#	    || return $self->Alert("cannot create $self->{NEXTDIR}[0]/inbox: $!");
-#
-#	# Make sure the destination doesn't exist yet.  If it does but
-#	# looks like a failed copy, nuke it; otherwise complain and give up.
-#	if (-d "$self->{NEXTDIR}[0]/inbox/$drop"
-#	    && -f "$self->{NEXTDIR}[0]/inbox/$drop/go-pending"
-#	    && ! -f "$self->{NEXTDIR}[0]/inbox/$drop/go") {
-#	    &rmtree ("$self->{NEXTDIR}[0]/inbox/$drop")
-#        } elsif (-d "$self->{NEXTDIR}[0]/inbox/$drop") {
-#	    return $self->Alert("$self->{NEXTDIR}[0]/inbox/$drop already exists!");
-#	}
-#
-#	&mv ("$self->{OUTBOX}/$drop", "$self->{NEXTDIR}[0]/inbox/$drop")
-#	    || return $self->Alert("failed to copy $drop to $self->{NEXTDIR}[0]/$drop: $!");
-#	&touch ("$self->{NEXTDIR}[0]/inbox/$drop/go")
-#	    || $self->Alert ("failed to make $self->{NEXTDIR}[0]/inbox/$drop go");
-#    }
-#    else
-#    {
-#        foreach my $dir (@{$self->{NEXTDIR}})
-#        {
-#	    if ($dir =~ /^scp:/ || $dir =~ /^rfio:/ ) {
-#               $self->Alert("Fail, scp or rfio not supported anymore");
-#               next;
-#	    }
-#
-#	    # Local.  Create destination inbox if necessary.
-#	    -d "$dir/inbox"
-#	        || mkdir "$dir/inbox"
-#	        || -d "$dir/inbox"
-#	        || return $self->Alert("cannot create $dir/inbox: $!");
-#
-#	    # Make sure the destination doesn't exist yet.  If it does but
-#	    # looks like a failed copy, nuke it; otherwise complain and give up.
-#	    if (-d "$dir/inbox/$drop"
-#	        && -f "$dir/inbox/$drop/go-pending"
-#	        && ! -f "$dir/inbox/$drop/go") {
-#	        &rmtree ("$dir/inbox/$drop")
-#            } elsif (-d "$dir/inbox/$drop") {
-#	        return $self->Alert("$dir/inbox/$drop already exists!");
-#	    }
-#
-#	    # Copy to the next stage, preserving everything
-#	    my $status = &runcmd  ("cp", "-Rp", "$self->{OUTBOX}/$drop", "$dir/inbox/$drop");
-#	    return $self->Alert ("can't copy $drop to $dir/inbox: $status") if $status;
-#
-#	    # Mark it almost ready to go
-#	    &touch("$dir/inbox/$drop/go-pending");
-#        }
-#
-#        # Now mark myself gone downstream so we won't try copying again
-#        # (FIXME: error checking?)
-#        &touch ("$self->{OUTBOX}/$drop/gone");
-#
-#        # All downstream versions copied safely now.  Now really let them
-#        # go onwards.  If this fails, it's not fatal because someone can
-#        # still manually fix them to be in ready state.  We haven't lost
-#        # anything.  (FIXME: avoidable?)
-#        foreach my $dir (@{$self->{NEXTDIR}}) {
-#	    next if $dir =~ /^([a-z]+):/; # FIXME: also handle here?
-#	    &mv("$dir/inbox/$drop/go-pending", "$dir/inbox/$drop/go");
-#        }
-#
-#        # Now junk it here
-#        &rmtree("$self->{OUTBOX}/$drop");
-#    }
-}
-
 # Check what state the drop is in and indicate if it should be
 # processed by agent-specific code.
 sub inspectDrop
@@ -293,12 +187,6 @@ sub inspectDrop
     if (! -f "$self->{WORKDIR}/$drop/go")
     {
 	$self->Alert("$drop is incomplete!");
-	return 0;
-    }
-
-    if (-f "$self->{WORKDIR}/$drop/done")
-    {
-	&relayDrop ($self, $drop);
 	return 0;
     }
 
@@ -369,7 +257,6 @@ sub processOutbox
   foreach $drop ($self->readOutbox())
   {
     $self->maybeStop();
-    $self->relayDrop ($drop);
   }
   $pmon->State('outbox','stop');
 }
