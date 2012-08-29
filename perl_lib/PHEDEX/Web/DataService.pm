@@ -317,7 +317,7 @@ sub print_doc
         next if $line =~ m%<hr />%;
         if ( $line =~ m%^</head>% ) {
           my $meta_tag = '<meta name="PhEDEx-tag" content="PhEDEx-datasvc ' . $self->{CONFIG}{VERSION} . '" />';
-          $meta_tag =~ s%PhEDEx%$package%g;
+          $meta_tag =~ s%PhEDEx%$package%g if $package;
           print $meta_tag,"\n";
         }
 	if ( $line =~ m%<span class="block">% ) {
@@ -326,8 +326,8 @@ sub print_doc
 
 #       Massage PHEDEX::Web::Core output into DMWMMON or something else...
         next if $line =~ m%^\s*instance\s+%i && $package eq 'DMWMMON'; # TW TODO Yeuck!
-        $line =~ s%PHEDEX%$package%g;
-        $line =~ s%PhEDEx%$package%g;
+        $line =~ s%PHEDEX%$package%g if $package;
+        $line =~ s%PhEDEx%$package%g if $package;
         if ( $line =~ m%/phedex/datasvc% ) {
           $line =~ s%/phedex/datasvc%/$package_lc/datasvc%;
           if ( $package eq 'DMWMMON' ) { # TW TODO This is ugly!
@@ -352,7 +352,7 @@ sub print_doc
 	    $commands = $loader->Commands();
 	    foreach ( sort keys %{$commands} ) {
 		$module = $loader->ModuleName($_);
-                $module =~ s%PHEDEX%$package%g;
+                $module =~ s%PHEDEX%$package%g if $package;
 		print qq{
 		     <tr>
   		     <td><strong>$_</strong></td>
