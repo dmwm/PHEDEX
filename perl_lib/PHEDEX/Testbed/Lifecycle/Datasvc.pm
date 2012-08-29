@@ -260,7 +260,6 @@ sub Subscribe {
   $workflow->{$subscribe}{Priority}    ||= 'normal';
   $workflow->{$subscribe}{Level}       ||= 'dataset';
   foreach ( keys %map ) {
-$self->Log("Subscribe $_($subscribe): ",$map{$_},', ',$workflow->{$subscribe}{$map{$_}},', ',$workflow->{$map{$_}});
     $params->{$_} = $workflow->{$subscribe}{$map{$_}};
     $params->{$_} = $workflow->{$map{$_}} unless defined $params->{$_};
     $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
