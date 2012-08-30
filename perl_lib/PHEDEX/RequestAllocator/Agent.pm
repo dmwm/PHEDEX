@@ -108,7 +108,9 @@ sub idle
 	}
 
 	$stats{request}++;
-	my $dest_nodes = [ keys %{ $xreq->{NODES} } ];
+	# Filter only destination nodes where the request has been approved
+	my $dest_nodes = [ grep {$xreq->{NODES}->{$_}->{DECISION} &&
+				     $xreq->{NODES}->{$_}->{DECISION} eq 'y'} keys %{ $xreq->{NODES} } ];
 	my ($datasets, $blocks) = $self->expandDataClob( $xreq->{DBS_ID}, $xreq->{DATA} );
 
 	# Find all the data we need to skip
@@ -134,37 +136,36 @@ sub idle
 	
 	# everything left in $datasets, $blocks is new data items
 	# for approved requests, distribute these among the nodes
-	if ($xreq->{DECISION} && $xreq->{DECISION} eq 'y') {
-	    my $subscribe = $self->distributeData( NODES => $dest_nodes,
-						   DATASETS => $datasets,
-						   BLOCKS => $blocks );
+	my $subscribe = $self->distributeData( NODES => $dest_nodes,
+					       DATASETS => $datasets,
+					       BLOCKS => $blocks );
 
-	    foreach my $subn ( @$subscribe ) {
-		my ($type, $node, $id) = @$subn;
-
-		$self->Logmsg("adding subscription parameter set from request=$xreq->{ID}");                                                  
-		# Create new original parameter set, or retrieve old one if existing
-		my $rparam = $self->createSubscriptionParam (
-							     REQUEST => $xreq->{ID},
-							     PRIORITY => $xreq->{PRIORITY},
-							     IS_CUSTODIAL => $xreq->{IS_CUSTODIAL},
-							     USER_GROUP => $xreq->{USER_GROUP},
-							     ORIGINAL => 1,
-							     TIME_CREATE => $now
-							     );
-		$self->Logmsg("adding subscription ",lc $type, "=$id for node=$node from request=$xreq->{ID}");
-		my $n_subs = $self->createSubscription( $type => $id,
-							DESTINATION => $node, 
-							IS_MOVE => $xreq->{IS_MOVE},
-							TIME_START => $xreq->{TIME_START},
-							TIME_CREATE => $now,
-							SKIP_DUPLICATES => 1,
-							PARAM => $rparam
-							);
-		$stats{lc $type} += $n_subs if $n_subs;
-		
-	    }
+	foreach my $subn ( @$subscribe ) {
+	    my ($type, $node, $id) = @$subn;
+	    
+	    $self->Logmsg("adding subscription parameter set from request=$xreq->{ID}");                                                  
+	    # Create new original parameter set, or retrieve old one if existing
+	    my $rparam = $self->createSubscriptionParam (
+							 REQUEST => $xreq->{ID},
+							 PRIORITY => $xreq->{PRIORITY},
+							 IS_CUSTODIAL => $xreq->{IS_CUSTODIAL},
+							 USER_GROUP => $xreq->{USER_GROUP},
+							 ORIGINAL => 1,
+							 TIME_CREATE => $now
+							 );
+	    $self->Logmsg("adding subscription ",lc $type, "=$id for node=$node from request=$xreq->{ID}");
+	    my $n_subs = $self->createSubscription( $type => $id,
+						    DESTINATION => $node, 
+						    IS_MOVE => $xreq->{IS_MOVE},
+						    TIME_START => $xreq->{TIME_START},
+						    TIME_CREATE => $now,
+						    SKIP_DUPLICATES => 1,
+						    PARAM => $rparam
+						    );
+	    $stats{lc $type} += $n_subs if $n_subs;
+	    
 	}
+	
 	$self->execute_commit();
 	delete $xfer_reqs->{ $xreq->{ID} }; # free some memory
 	$self->maybeStop();
