@@ -12,6 +12,7 @@ sub new
   my ($help,%params,%options);
   %params = (
 	       NODE	   => undef,
+	       DATASET	   => undef,
 	       BLOCK	   => undef,
 	       SE	   => undef,
 	       UPDATE_SINCE => undef,
@@ -22,6 +23,7 @@ sub new
 	    );
   %options = (
 	       'node=s@'	=> \$params{NODE},
+	       'dataset=s@'	=> \$params{DATASET},
 	       'block=s@'	=> \$params{BLOCK},
 	       'se=s@'		=> \$params{SE},
 	       'update_since=i'	=> \$params{UPDATE_SINCE},
@@ -67,6 +69,7 @@ sub Help
 
   --node=s		(repeatable) node name
   --block=s		(repeatable) block name
+  --dataset=s		(repeatable) dataset name
   --se=s		(repeatable) storage element name
   --update_since	unix epoch time for last update to blocks
   --create_since	unix epoch time for creation of blocks
@@ -82,7 +85,7 @@ sub Payload
 {
   my $self = shift;
   my $payload = { };
-  foreach ( qw / NODE BLOCK SE UPDATE_SINCE CREATE_SINCE COMPLETE / )
+  foreach ( qw / NODE DATASET BLOCK SE UPDATE_SINCE CREATE_SINCE COMPLETE / )
   { $payload->{$_} = $self->{$_}; }
 
   print __PACKAGE__," created payload\n" if $self->{VERBOSE};
