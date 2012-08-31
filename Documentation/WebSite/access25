@@ -4497,13 +4497,13 @@ sub new
 sub output
 {
   my ($self) = @_;
-  my %offline_thresholds = ( 'FileDownload' => 60*45,
-			     'FileExport'   => 60*90,
-			     'InfoFileSize' => 60*30,
-			     'LoadTestInjector' => 60*20,
-			     'LoadTestCleanup' => 60*60,
-			     'BlockDownloadVerifyInjector' => 60*60,
-			     'OTHER'        => 60*30 );
+  my %offline_thresholds = ( 'FileDownload' => 60*140,
+			     'FileExport'   => 60*140,
+			     'InfoFileSize' => 60*140,
+			     'LoadTestInjector' => 60*140,
+			     'LoadTestCleanup' => 60*140,
+			     'BlockDownloadVerifyInjector' => 60*140,
+			     'OTHER'        => 60*140 );
   
   
   my $now = time ();
