@@ -483,6 +483,14 @@ sub checkAgentMessages
   }
 }
 
+# Sleep for a time, checking stop flag every once in a while.
+sub nap
+{
+    my ($self, $time) = @_;
+    my $target = &mytimeofday () + $time;
+    do { $self->maybeStop(); sleep (1); } while (&mytimeofday() < $target);
+}
+
 ######################################################################
 # Expand a list of node patterns into node names.  This function is
 # called when we don't yet know our "node identity."  Also runs the

@@ -558,14 +558,6 @@ sub checkConfigFile
 # now, the work is done in the 'idle' routine :-(
 sub idle { }
 
-# Sleep for a time, checking stop flag every once in a while.
-sub nap
-{
-    my ($self, $time) = @_;
-    my $target = &mytimeofday () + $time;
-    do { $self->maybeStop(); sleep (1); } while (&mytimeofday() < $target);
-}
-
 =head2 reloadConfig
 
 Declare this in an agent subclass to reload the configuration after the
