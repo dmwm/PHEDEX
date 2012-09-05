@@ -70,6 +70,8 @@ is sufficient.
   fail_bytes      number of bytes in failed transfers
   expire_files    number of files expired in this timebin, binwidth
   expire_bytes    number of bytes expired in this timebin, binwidth
+  try_files       number of files tried
+  try_bytes       number of bytes tried
   rate            sum(done_bytes)/binwidth
   quality         done_files / (done_files + fail_files)
 
@@ -103,6 +105,8 @@ my $map = {
         expire_bytes => 'EXPIRE_BYTES',
         fail_files => 'FAIL_FILES',
         fail_bytes => 'FAIL_BYTES',
+        try_files => 'TRY_FILES',
+        try_bytes => 'TRY_BYTES',
         rate => 'RATE',
         quality => 'QUALITY'
     }
