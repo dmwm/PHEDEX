@@ -783,6 +783,8 @@ sub getTransferHistory
         nvl(sum(fail_bytes), 0) as fail_bytes,
         nvl(sum(expire_files), 0) as expire_files,
         nvl(sum(expire_bytes), 0) as expire_bytes,
+        nvl(sum(try_files), 0) as try_files,
+        nvl(sum(try_bytes), 0) as try_bytes,
         cast((nvl(sum(done_bytes), 0) / :BINWIDTH) as number(20, 2)) as rate
     from
         t_history_link_events,
