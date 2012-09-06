@@ -7,6 +7,8 @@ use warnings;
 use List::Util qw(max);
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::DB;
+use POE;
+use Data::Dumper;
 
 use constant TERABYTE => 1024**4;
 use constant GIGABYTE => 1024**3;
@@ -47,6 +49,9 @@ sub new
 		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
 		  NOMINAL_RATE => 0.5,          # Rate assumed for links with unknown performance.
 		  N_SLOW_VALIDATE => 3,         # Number of invalid paths to validate in the slow flush.
+                  EXTERNAL_RATE_FILE => 'none', # External source for rate estimate in routeCost
+                  EXTERNAL_RATE_WAIT => 60,     # Freq. for updating rate from external source
+                  EXTERNAL_RATE_DATA => undef,  # Actual external rate data container
 		  ME	=> 'FileRouter',
 		  );
     my %args = (@_);
@@ -74,6 +79,8 @@ sub new
     $NOMINAL_RATE      = $$self{NOMINAL_RATE} * MEGABYTE;
     $N_SLOW_VALIDATE   = $$self{N_SLOW_VALIDATE};
 
+    $self->{EXTERNAL_RATE_AGE} = -1;
+ 
     bless $self, $class;
     return $self;
 }
@@ -1066,6 +1073,7 @@ sub routeCost
 	    # Remove from list of nodes to do.
 	    delete $todo{$from};
 
+            #print Dumper($links);
 	    # Compute cost at each neighbour.
 	    foreach my $to (keys %{$$links{$from}})
 	    {
@@ -1078,11 +1086,17 @@ sub routeCost
 		# failed routing, use the nominal rate.  Otherwise use
 		# an "infinite" rate that will be cut-off by later
 		# route validation.
+
+                my $old_rate = $$links{$from}{$to}{XFER_RATE};
+                my $new_rate = $self->get_xfer_rate($to,$from,$old_rate);
+ 
 		my $nominal = $NOMINAL_RATE / $$links{$from}{$to}{HOPS};
 		my $latency = ($probe ? 0 : ($$links{$from}{$to}{XFER_LATENCY} || 0));
-		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
-			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
-			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
+                my $rate = ((! defined $new_rate || ($probe && $new_rate < $nominal)) ? $nominal : $new_rate);
+
+#		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
+#			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
+#			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 
@@ -1306,6 +1320,60 @@ sub stats
 
     $dbh->commit();
     $self->Logmsg("updated statistics");
+}
+
+# Event to read external source for rate calculations
+# Initialize all POE events this object handles
+sub _poe_init
+{
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
+  $kernel->state('load_external_source_rate', $self);
+  $kernel->yield('load_external_source_rate'); # start event
+}
+
+# Load external source for rate calculation
+sub load_external_source_rate 
+{
+  my ($self, $kernel) = @_[ OBJECT, KERNEL ];
+  my ($age_file,$fh,$data);
+  my $filename = $self->{EXTERNAL_RATE_FILE};
+  $^T = time();   #making sure delta times are accurate
+
+  $kernel->delay_set('load_external_source_rate', $self->{EXTERNAL_RATE_WAIT});  #come back again
+
+  if ( -e $filename  && -r $filename ) {
+     #$self->Logmsg("Looking for external source for rate calculations in $filename");
+     $age_file = -M $filename;
+     if ( $self->{EXTERNAL_RATE_AGE} < 0 || $age_file < $self->{EXTERNAL_RATE_AGE} ) { 
+       $self->Logmsg("Loading external source file for rate calculations");
+       open $fh, '<', $filename  or die "error opening $filename: $!";
+       $self->{EXTERNAL_RATE_DATA} = eval do { local $/; <$fh> };
+       print($@) if $@;        
+       print Dumper($self->{EXTERNAL_RATE_DATA});
+     } else {
+       $self->Logmsg("External source file for rate calculations has not changed, age of file $age_file");
+     }
+     $self->{EXTERNAL_RATE_AGE} = $age_file; 
+  } else {
+     $self->Alert("File $filename does not exist. Un-pluging external source for rate calculations") 
+     if ( $self->{EXTERNAL_RATE_AGE} > -2 );
+     $self->{EXTERNAL_RATE_AGE} = -2;
+  }
+
+}
+
+sub get_xfer_rate
+{
+    my $self = shift;
+    my ($to,$from,$link_rate) = @_;
+    my $ext_rate = $self->{EXTERNAL_RATE_DATA}{$from}{$to}{XFER_RATE};
+    my $avg_rate = (defined $ext_rate) ? ( (defined $link_rate) ? (($ext_rate+$link_rate)/2) : $ext_rate ) : $link_rate;    
+
+    $Data::Dumper::Indent = 0; 
+    print Dumper([$from,$to,$link_rate,$ext_rate,$avg_rate]), "\n";
+    $Data::Dumper::Indent = 3;
+ 
+    return $avg_rate;
 }
 
 1;
