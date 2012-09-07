@@ -1065,6 +1065,7 @@ sub routeCost
 	REMOTE_HOPS => 0
     };
 
+    # print Dumper($links);
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
     while (%todo)
     {
@@ -1073,7 +1074,6 @@ sub routeCost
 	    # Remove from list of nodes to do.
 	    delete $todo{$from};
 
-            #print Dumper($links);
 	    # Compute cost at each neighbour.
 	    foreach my $to (keys %{$$links{$from}})
 	    {
@@ -1355,6 +1355,7 @@ sub load_external_source_rate
      }
      $self->{EXTERNAL_RATE_AGE} = $age_file; 
   } else {
+     $self->{EXTERNAL_RATE_DATA} = undef;
      $self->Alert("File $filename does not exist. Un-pluging external source for rate calculations") 
      if ( $self->{EXTERNAL_RATE_AGE} > -2 );
      $self->{EXTERNAL_RATE_AGE} = -2;
