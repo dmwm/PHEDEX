@@ -15,25 +15,18 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
-  my ($help,%params,%options);
+  my (%params,%options);
 
 # Params and options are module-specific
   %params = (
-		VERBOSE		=> 0,
-		DEBUG		=> 0,
-		VERSION		=> $default_protocol_version,
 		PROXY_MARGIN	=> $default_proxy_margin,
-		CACHE		=> undef,
-		NOCACHE		=> 0,
             );
   %options = (
-		'help'		=> \$help,
-		'verbose!'	=> \$params{VERBOSE},
 		'version=s'	=> \$params{VERSION},
 		'proxy_margin=i'=> \$params{PROXY_MARGIN},
-		'debug+'	=> \$params{DEBUG},
-		'nocache'	=> \$params{NOCACHE},
              );
+  PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
+
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
@@ -45,7 +38,7 @@ sub new
   $self->SUPER::_init_commands;
   $self->proxy_check if $self->{DEBUG};
 
-  $self->Help if $help;
+  $self->Help if $params{HELP};
   return $self;
 }
 

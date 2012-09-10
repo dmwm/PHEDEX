@@ -12,27 +12,20 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
-  my ($help,%params,%options);
+  my (%params,%options);
 
 # Params and options are interface-specific. If you need to set an environment
 # variable or something, that parameter should be declared in %params, accepted
 # as an input argument in %options, and used where necessary in the package.
   %params = (
-		VERBOSE => 0,
-		DEBUG   => 0,
-                CACHE   => undef,
-                NOCACHE => 0,
 		PRELOAD	=> '',
                 INPUT_FILE => undef,
             );
   %options = (
-		'help'		=> \$help,
-		'verbose!'	=> \$params{VERBOSE},
-		'debug+'	=> \$params{DEBUG},
-                'nocache'       => \$params{NOCACHE},
 		'preload=s'	=> \$params{PRELOAD},
                 'chimera_dump_file=s'  => \$params{INPUT_FILE},
              );
+  PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
@@ -52,7 +45,7 @@ sub new
 # can pick out the parameters you define above.
   $self->SUPER::_init_commands;
   print Dumper($self) if $self->{DEBUG};
-  $self->Help if $help;
+  $self->Help if $params{HELP};
   return $self;
 }
 

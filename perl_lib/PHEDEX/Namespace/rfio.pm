@@ -13,23 +13,17 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
-  my ($help,%params,%options);
+  my (%params,%options);
 
 # Params and options are module-specific
   %params = (
-		VERBOSE	 => 0,
-		DEBUG	 => 0,
-		CACHE	 => undef,
-		NOCACHE	 => 0,
 		RFIO_USE_CASTOR_V2 => 'YES',
             );
   %options = (
-		'help'		=> \$help,
-		'verbose!'	=> \$params{VERBOSE},
-		'debug+'	=> \$params{DEBUG},
-		'nocache'	=> \$params{NOCACHE},
 		'rfio_use_castor_v2' => \$params{RFIO_USE_CASTOR_V2},
              );
+  PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
+
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
@@ -39,7 +33,7 @@ sub new
   $self->{ENV} = "RFIO_USE_CASTOR_V2=" . ($self->{RFIO_USE_CASTOR_V2} || '');
   $self->SUPER::_init_commands;
 
-  $self->Help if $help;
+  $self->Help if $params{HELP};
   return $self;
 }
 

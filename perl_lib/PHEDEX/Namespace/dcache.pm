@@ -6,6 +6,9 @@ use base 'PHEDEX::Namespace::Common'; # All interface packages must do this
 use PHEDEX::Core::Loader;
 use Data::Dumper;
 use Getopt::Long;
+use PHEDEX::Namespace::SpaceCount   qw /spacecount_params spacecount_options/ ;
+my $common_params = &spacecount_params();
+my %common_options = &spacecount_options($common_params);
 
 sub new
 {
@@ -17,22 +20,33 @@ sub new
 # Params and options are interface-specific. If you need to set an environment
 # variable or something, that parameter should be declared in %params, accepted
 # as an input argument in %options, and used where necessary in the package.
-  %params = (
-		VERBOSE => 0,
-		DEBUG   => 0,
-                CACHE   => undef,
-                NOCACHE => 0,
-		PRELOAD	=> '',
-                INPUT_FILE => undef,
+  %params = ( % {$common_params},
+              VERBOSE => 0,
+              DEBUG   => 0,
+              CACHE   => undef,
+              NOCACHE => 0,
+              PRELOAD	=> '',
+              INPUT_FILE => undef,
+              DATASVC_URL => "https://cmsweb-testbed.cern.ch/dmwmmon/datasvc",
+              STORAGE_DUMP => undef,
+              NODE => undef,
+              LEVEL => 6,
+              FORCE => 0,
             );
   %options = (
-		'help'		=> \$help,
-		'verbose!'	=> \$params{VERBOSE},
-		'debug+'	=> \$params{DEBUG},
-                'nocache'       => \$params{NOCACHE},
-		'preload=s'	=> \$params{PRELOAD},
-                'chimera_dump_file=s'  => \$params{INPUT_FILE},
+              'help'		=> \$help,
+              'verbose!'	=> \$params{VERBOSE},
+              'debug+'	=> \$params{DEBUG},
+              'nocache'       => \$params{NOCACHE},
+              'preload=s'	=> \$params{PRELOAD},
+              'chimera_dump_file=s'  => \$params{INPUT_FILE},
+              'url=s'      => \$params{DATASVC_URL},
+              'dump=s'      => \$params{STORAGE_DUMP},
+              'node=s'      => \$params{NODE},
+              'level=s'      => \$params{LEVEL},
+              'force'    => \$params{FORCE},
              );
+
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);

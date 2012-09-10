@@ -13,27 +13,21 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
-  my ($help,%params,%options);
+  my (%params,%options);
 
 # Params and options are module-specific
   %params = (
-		VERBOSE	 => 0,
-		DEBUG	 => 0,
-		CACHE	 => undef,
-		NOCACHE	 => 0,
 		STAGE_HOST	   => $ENV{STAGE_HOST},
 		STAGE_SVCCLASS	   => $ENV{STAGE_SVCCLASS},
 		RFIO_USE_CASTOR_V2 => $ENV{RFIO_USE_CASTOR_V2},
             );
   %options = (
-		'help'		=> \$help,
-		'verbose!'	=> \$params{VERBOSE},
-		'debug+'	=> \$params{DEBUG},
-		'nocache'	=> \$params{NOCACHE},
 		'stage_host=s'	=> \$params{STAGE_HOST},
 		'stage_svcclass=s'	=> \$params{STAGE_SVCCLASS},
 		'rfio_use_castor_v2=s'	=> \$params{RFIO_USE_CASTOR_V2},
              );
+  PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
+
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
@@ -46,7 +40,7 @@ sub new
 
   $self->SUPER::_init_commands;
 
-  $self->Help if $help;
+  $self->Help if $params{HELP};
   return $self;
 }
 

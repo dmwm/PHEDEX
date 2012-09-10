@@ -12,23 +12,17 @@ sub new
   my $proto = shift;
   my $class = ref($proto) || $proto;
   my %h = @_;
-  my ($help,%params,%options);
+  my (%params,%options);
 
 # Params and options are module-specific
   %params = (
-                VERBOSE  => 0,
-                DEBUG    => 0,
-                CACHE    => undef,
-                NOCACHE  => 0,
                 INPUT_FILE => undef,
             );
   %options = (
-                'help'          => \$help,
-                'verbose!'      => \$params{VERBOSE},
-                'debug+'        => \$params{DEBUG},
-                'nocache'       => \$params{NOCACHE},
                 'pnfs_dump_file=s'  => \$params{INPUT_FILE},
             );
+  PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
+
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
@@ -41,7 +35,7 @@ sub new
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
   $self->SUPER::_init_commands;
   print Dumper($self) if $self->{DEBUG};
-  $self->Help if $help;
+  $self->Help if $params{HELP};
   return $self;
 }
 
