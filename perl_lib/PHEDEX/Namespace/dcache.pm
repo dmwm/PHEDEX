@@ -6,7 +6,7 @@ use base 'PHEDEX::Namespace::Common'; # All interface packages must do this
 use PHEDEX::Core::Loader;
 use Data::Dumper;
 use Getopt::Long;
-use PHEDEX::Namespace::SpaceCount;
+use PHEDEX::Namespace::SpaceCountCommon;
 
 sub new
 {
