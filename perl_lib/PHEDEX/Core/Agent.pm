@@ -547,7 +547,7 @@ sub checkConfigFile
   if ( $mtime > $self->{CONFIGURATION}{_readTime} )
   {
     $self->Logmsg("Config file has changed, re-reading...");
-    $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
+    $Config = PHEDEX::Core::Config->new();
     $Config->readConfig( $self->{CONFIG_FILE} );
     $self->{CONFIGURATION} = $Config;
     $self->reloadConfig($Config);

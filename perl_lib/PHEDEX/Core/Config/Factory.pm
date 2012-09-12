@@ -63,7 +63,7 @@ sub new
 
 # Just prove that I can read the config file safely, before daemonising, so I
 # can spit the dummy if the user has screwed up somehow.
-  my $Config = PHEDEX::Core::Config->new( PARANOID => 1 );
+  my $Config = PHEDEX::Core::Config->new();
   $Config->readConfig( $self->{CONFIG_FILE} );
 
   bless $self, $class;
