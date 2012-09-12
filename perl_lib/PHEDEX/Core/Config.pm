@@ -161,7 +161,7 @@ our %params = (
 		ENVIRONMENTS => undef,
 		DUMMY	     => 0,
 		USE_DEBUGGER => 0,
-		PARANOID     => 0,
+		PARANOID     => 1,
 	      );
 
 our %commands =
