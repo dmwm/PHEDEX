@@ -174,7 +174,7 @@ sub validate_params
     my ($params_in, %h) = @_;
     %h = %{ Clone::clone(\%h) }; # do not clobber the input spec
     map { $h{spec}{lc $_} = delete $h{spec}{$_} } keys %{$h{spec}};
-    my $params;
+    my $params = {};
     map { $params->{lc $_} = $params_in->{$_} } keys %{$params_in};
 
     &validate_with(params => [$params], spec => [{ type => HASHREF, optional => 0 }]);
