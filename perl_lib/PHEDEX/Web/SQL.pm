@@ -2158,128 +2158,72 @@ sub getDataSubscriptionsQuery
     my $filterIDs = PHEDEX::Core::SQL::build_filter ($core,'or',undef,undef,\%p,'n.id',\@nIDs);
     my $filterNames = PHEDEX::Core::SQL::build_filter ($core,'or',undef,undef,\%p,'n.name',\@nNames);
     if ( $filterIDs && $filterNames ) {
-      if ( $filters ) { $filters .= " and "; }
-      $filters .= "( $filterIDs or $filterNames ) ";
+      filterAdd(\$filters,"( $filterIDs or $filterNames ) ");
     } else {
-      if ( $filterIDs   ) { $filters .= " ( $filterIDs ) "; }
-      if ( $filterNames ) { $filters .= " ( $filterNames ) "; }
+      filterAdd(\$filters,"( $filterIDs )")   if $filterIDs;
+      filterAdd(\$filters,"( $filterNames )") if $filterNames;
     }
 
     if (exists $h{SUSPENDED})
     {
         if ($h{SUSPENDED} eq 'y')
         {
-            if ($filters)
-            {
-                $filters .= qq { and nvl(ds.time_suspend_until, -1) > :now };
-            }
-            else
-            {
-                $filters = qq { nvl(ds.time_suspend_until, -1) > :now };
-            }
+            filterAdd(\$filters,qq { nvl(ds.time_suspend_until, -1) > :now });
         }
         elsif ($h{SUSPENDED} eq 'n')
         {
-            if ($filters)
-            {
-                $filters .= qq { and nvl(ds.time_suspend_until, -1) <= :now };
-            }
-            else
-            {
-               $filters = qq { nvl(ds.time_suspend_until, -1) <= :now };
-            }
+            filterAdd(\$filters,qq { nvl(ds.time_suspend_until, -1) <= :now });
         }
     }
 
     if (exists $h{CREATE_SINCE})
     {
-        if ($filters)
-        {
-            $filters .= " and ds.time_create >= :create_since ";
-        }
-        else
-        {
-            $filters = " ds.time_create >= :create_since ";
-        }
+        filterAdd(\$filters,'ds.time_create >= :create_since');
         $p{':create_since'} = &str2time($h{CREATE_SINCE});
     }
 
     if (exists $h{PRIORITY})
     {
-        if ($filters)
-        {
-            $filters .= " and sp.priority = :priority ";
-        }
-        else
-        {
-            $filters = " sp.priority = :priority ";
-        }
+        filterAdd(\$filters,'sp.priority = :priority');
         $p{':priority'} = PHEDEX::Core::Util::priority_num($h{PRIORITY}, 0);
     }
 
     if (exists $h{MOVE})
     {
-        if ($filters)
-        {
-            $filters .= " and ds.is_move = :move ";
-        }
-        else
-        {
-            $filters = " ds.is_move = :move ";
-        }
+        filterAdd(\$filters,'ds.is_move = :move');
         $p{':move'} = $h{MOVE};
     }
 
     if (exists $h{CUSTODIAL})
     {
-        if ($filters)
-        {
-            $filters .= " and sp.is_custodial = :custodial";
-        }
-        else
-        {
-            $filters = " sp.is_custodial = :custodial";
-        }
+        filterAdd(\$filters,'sp.is_custodial = :custodial');
         $p{':custodial'} = $h{CUSTODIAL};
     }
 
     my $both_pcts = exists($h{PERCENT_MIN}) && exists($h{PERCENT_MAX});
-    if ( $both_pcts ) { $filters .= " and ( "; }
+    my $pct_filter = '';
+    my $pct_join = '';
     if (exists $h{PERCENT_MAX})
     {
-        if ($filters)
-        {
-	    if (!$both_pcts) { $filters .= " and"; }
-            $filters .= " ds.percent_files <= :percent_max";
-        }
-        else
-        {
-            $filters = " ds.percent_files <= :percent_max";
-        }
+        filterAdd(\$pct_filter,'ds.percent_files <= :percent_max');
         $p{':percent_max'} = $h{PERCENT_MAX};
     }
 
     if (exists $h{PERCENT_MIN})
     {
-        if ($filters)
-        {
-	    if ($both_pcts && ($h{PERCENT_MAX} < $h{PERCENT_MIN}) )
-	    {
-		$filters .= " or"
-	    }
-	    else
-	    {
-		$filters .= " and"
-	    }
-            $filters .= " ds.percent_files >= :percent_min";
-        }
-        else
-        {
-            $filters = " ds.percent_files >= :percent_min";
-        }
+	if ($both_pcts && ($h{PERCENT_MAX} < $h{PERCENT_MIN}) )
+	{
+	    $pct_join .= 'or';
+	}
+	else
+	{
+	    $pct_join .= 'and';
+	}
+        filterAdd(\$pct_filter,'ds.percent_files >= :percent_min',$pct_join);
         $p{':percent_min'} = $h{PERCENT_MIN};
     }
-    if ( $both_pcts ) { $filters .= " ) "; }
+    if ( $both_pcts ) { $pct_filter = "( $pct_filter )"; }
+    filterAdd(\$filters,$pct_filter);
 
     $sql .= "where ($filters) " if ($filters);
     $sql .= qq {
@@ -2291,6 +2235,19 @@ sub getDataSubscriptionsQuery
     };
 
     return ($sql,\%p);
+}
+sub filterAdd {
+# auxiliary function to append to a filter, with an 'and' in the way if
+# so required. Should make the filter management for the data subscriptions
+# query somewhat simpler!
+  my ($filter,$appendix,$join);
+  ($filter,$appendix,$join) = @_;
+  $join = 'and' unless $join;
+  return unless $appendix;
+  if ( $$filter ) { $$filter .= " $join"; }
+  else { $$filter = ''; }
+  $$filter .= " $appendix ";
+  return;
 }
 
 # getMissingFiles
