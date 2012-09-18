@@ -49,7 +49,7 @@ sub new
 		  DEACTIV_TIME => 30,           # Minimum age (days) of requests before a block is deactivated
 		  NOMINAL_RATE => 0.5,          # Rate assumed for links with unknown performance.
 		  N_SLOW_VALIDATE => 3,         # Number of invalid paths to validate in the slow flush.
-                  EXTERNAL_RATE_FILE => 'none', # External source for rate estimate in routeCost
+                  EXTERNAL_RATE_FILE => undef,  # External source for rate estimate in routeCost
                   EXTERNAL_RATE_WAIT => 60,     # Freq. for updating rate from external source
                   EXTERNAL_RATE_DATA => undef,  # Actual external rate data container
 		  ME	=> 'FileRouter',
@@ -79,8 +79,8 @@ sub new
     $NOMINAL_RATE      = $$self{NOMINAL_RATE} * MEGABYTE;
     $N_SLOW_VALIDATE   = $$self{N_SLOW_VALIDATE};
 
-    $self->{EXTERNAL_RATE_AGE} = -1;
- 
+    map { $self->{EXTERNAL_RATE_AGE}{$_} = -1 } @{$self->{EXTERNAL_RATE_FILE}};
+
     bless $self, $class;
     return $self;
 }
@@ -1065,7 +1065,6 @@ sub routeCost
 	REMOTE_HOPS => 0
     };
 
-    # print Dumper($links);
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
     while (%todo)
     {
@@ -1335,30 +1334,31 @@ sub _poe_init
 sub load_external_source_rate 
 {
   my ($self, $kernel) = @_[ OBJECT, KERNEL ];
-  my ($age_file,$fh,$data);
-  my $filename = $self->{EXTERNAL_RATE_FILE};
+  my ($age_file,$fh,$filename);
   $^T = time();   #making sure delta times are accurate
 
   $kernel->delay_set('load_external_source_rate', $self->{EXTERNAL_RATE_WAIT});  #come back again
 
-  if ( -e $filename  && -r $filename ) {
-     #$self->Logmsg("Looking for external source for rate calculations in $filename");
-     $age_file = -M $filename;
-     if ( $self->{EXTERNAL_RATE_AGE} < 0 || $age_file < $self->{EXTERNAL_RATE_AGE} ) { 
-       $self->Logmsg("Loading external source file for rate calculations");
-       open $fh, '<', $filename  or die "error opening $filename: $!";
-       $self->{EXTERNAL_RATE_DATA} = eval do { local $/; <$fh> };
-       print($@) if $@;        
-       print Dumper($self->{EXTERNAL_RATE_DATA});
-     } else {
-       $self->Logmsg("External source file for rate calculations has not changed, age of file $age_file");
-     }
-     $self->{EXTERNAL_RATE_AGE} = $age_file; 
-  } else {
-     $self->{EXTERNAL_RATE_DATA} = undef;
-     $self->Alert("File $filename does not exist. Un-pluging external source for rate calculations") 
-     if ( $self->{EXTERNAL_RATE_AGE} > -2 );
-     $self->{EXTERNAL_RATE_AGE} = -2;
+  foreach $filename ( @{$self->{EXTERNAL_RATE_FILE}})
+  { 
+    if ( -e $filename  && -r $filename ) {
+      $age_file = -M $filename;
+      if ( $self->{EXTERNAL_RATE_AGE}{$filename} < 0 || $age_file < $self->{EXTERNAL_RATE_AGE}{$filename} ) { 
+        $self->Logmsg("Loading external source file $filename");
+        open $fh, '<', $filename  or die "error opening $filename: $!";
+        $self->{EXTERNAL_RATE_DATA}{$filename} = eval do { local $/; <$fh> };
+        print($@) if $@;        
+        #print Dumper($self->{EXTERNAL_RATE_DATA}{$filename});
+      } else {
+        $self->Logmsg("External source file $filename has not changed, age of file $age_file");
+      }
+      $self->{EXTERNAL_RATE_AGE}{$filename} = $age_file; 
+    } else {
+      $self->{EXTERNAL_RATE_DATA}{$filename} = undef;
+      $self->Alert("File $filename does not exist. Un-pluging external source for rate calculations") 
+      if ( $self->{EXTERNAL_RATE_AGE}{$filename} > -2 );
+      $self->{EXTERNAL_RATE_AGE}{$filename} = -2;
+    }
   }
 
 }
@@ -1367,11 +1367,23 @@ sub get_xfer_rate
 {
     my $self = shift;
     my ($to,$from,$link_rate) = @_;
-    my $ext_rate = $self->{EXTERNAL_RATE_DATA}{$from}{$to}{XFER_RATE};
-    my $avg_rate = (defined $ext_rate) ? ( (defined $link_rate) ? (($ext_rate+$link_rate)/2) : $ext_rate ) : $link_rate;    
+
+    my $avg_ext = 0;
+    my $n_ext   = 0;
+
+    foreach my $filename ( @{$self->{EXTERNAL_RATE_FILE}} )
+    {
+      my $ext_rate = $self->{EXTERNAL_RATE_DATA}{$filename}{$from}{$to}{XFER_RATE};
+      if (defined $ext_rate) {
+        $avg_ext += $ext_rate;
+        $n_ext++; 
+      }
+    }
+ 
+    my $avg_rate = ($n_ext > 0) ? ( (defined $link_rate) ? (($avg_ext+$link_rate)/($n_ext+1)) : $avg_ext/$n_ext ) : $link_rate;    
 
     $Data::Dumper::Indent = 0; 
-    print Dumper([$from,$to,$link_rate,$ext_rate,$avg_rate]), "\n";
+    print Dumper([$from,$to,$link_rate,$avg_ext,$avg_rate]), "\n";
     $Data::Dumper::Indent = 3;
  
     return $avg_rate;
