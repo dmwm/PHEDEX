@@ -113,7 +113,7 @@ if __name__ == "__main__":
             knownsurls.append(surl)
             explanation = file['explanation']
             status = file['status']
-            if surl in gfalreq['surls'] and surl in reqsurls and status == 1:
+            if surl in gfalreq['surls'] and surl in reqsurls and status == 0:
                 print surl
 
 # Check if some input surl is not in any request
