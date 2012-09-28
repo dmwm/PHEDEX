@@ -26,7 +26,7 @@ sub process_args
 	delete $h->{$arg} unless defined $h->{$arg} && $h->{$arg} ne '';
     }
 
-    # multiply occuring option operators go to operators
+    # multiply occuring option operators go to OPERATORS
     if (exists $h->{op}) {
 	my %ops;
 	my @ops = arrayref_expand($h->{op});
@@ -38,7 +38,7 @@ sub process_args
 	    $ops{uc $name} = $value;
 	}
 	
-	$h->{operators} = \%ops;
+	$h->{OPERATORS} = \%ops;
     }
     
 }
@@ -197,7 +197,7 @@ sub validate_params
     # FIXME:  remove nocache from params when it is needed, before it goes to APIs
     my $nocache = delete $params->{nocache} || 0;
 
-    # deal with operators
+    # deal with OPERATORS
     my $operators = delete $params->{operators} || undef;
 
     # get a pre-defined spec, or create an empty one
@@ -399,7 +399,7 @@ sub validate_params
     # operators?
     if ($operators)
     {
-        $good_params{operators} = $operators;
+        $good_params{OPERATORS} = $operators;
     }
 
     # put negation back
