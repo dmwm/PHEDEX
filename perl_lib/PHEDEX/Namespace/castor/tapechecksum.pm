@@ -19,8 +19,7 @@ sub new
   return $self;
 }
 
-sub execute { my ($self,$ns,$pfn) = @_[0..2];
-	      $self->SUPER::execute($ns,$pfn,'tapechecksum'); }
+sub execute { (shift)->SUPER::execute(@_,'tapechecksum'); }
 
 sub parse
 {
