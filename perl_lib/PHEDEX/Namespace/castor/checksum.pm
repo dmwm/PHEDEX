@@ -3,6 +3,7 @@ package PHEDEX::Namespace::castor::checksum;
 use strict;
 use warnings;
 use base 'PHEDEX::Namespace::castor::Common';
+use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 use File::Basename;
 
 our @fields = qw / checksum_type checksum_value /;
@@ -20,10 +21,12 @@ sub new
   return $self;
 }
 
-sub execute { my ($self,$ns,$pfn) = @_[0..2];
-	      my $result = $ns->{CACHE}->fetch('checksum',$pfn);
+sub execute { my ($self,$ns,$file,$tfc) = @_[0..3];
+             my $pfn = $tfc->lfn2pfn($file,$ns->Protocol());
+             my $result = $ns->{CACHE}->fetch('checksum',$pfn);
 	      return $result if defined $result;
-	      $self->SUPER::execute($ns,$pfn,'checksum'); }
+              (shift)->SUPER::execute(@_,'checksum');
+            }
 
 sub parse
 {
