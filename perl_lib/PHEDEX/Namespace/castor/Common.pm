@@ -1,6 +1,7 @@
 package PHEDEX::Namespace::castor::Common;
 # Factor out some common functionality, specifically, the 'execute' routine
 use File::Basename;
+use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 
 sub new
 {
@@ -14,14 +15,16 @@ sub execute
 # 'execute' will use the common 'Command' function to do the work, but on the
 # base directory, not on the file itself. This lets it cache the results for
 # an entire directory instead of having to go back to the SE for every file 
-  my ($self,$ns,$file,$call) = @_;
+  my ($self,$ns,$file,$tfc,$call) = @_;
   my ($dir,$result);
-  return $ns->Command($call,$file) if $ns->{NOCACHE};
 
-  $dir = dirname $file;
+  my $pfn = $tfc->lfn2pfn($file,$ns->Protocol());
+  return $ns->Command($call,$pfn) if $ns->{NOCACHE};
+
+  $dir = dirname $pfn;
   $ns->Command($call,$dir);
 # Explicitly pull the right value from the cache
-  return $ns->{CACHE}->fetch($call,$file);
+  return $ns->{CACHE}->fetch($call,$pfn);
 }
 
 1;
