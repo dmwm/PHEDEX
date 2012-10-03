@@ -13,15 +13,18 @@ use strict;
 ##H   Usage:
 ##H
 ##H   BlockConsistencyCheck -db DBCONFIG -buffer BUFFER -tfc TFC
+##H                         -namespace NAMESPACE
 ##H                        [-dataset DATASET] [-block BLOCK] [-lfnlist LFNLIST]
 ##H                        [-tfcprotocol TFCPROTOCOL]
-##H                        [-mssprotocol MSSPROTOCOL]
 ##H                        [-verbose]
 ##H                        [-dumpstats DUMPFILE]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
 ##H   TFC is the path to your trivial file catalogue
+##H
+##H   NAMESPACE is the namespace plugin to use to access the storage.
+##H   It should be a valid plugin defined in PHEDEX/perl_lib/PHEDEX/Namespace
 ##H
 ##H   BUFFER is the name of one or more buffers that you wish to verify.
 ##H   If you specify more than one buffer, they should support access by
@@ -44,15 +47,9 @@ use strict;
 ##H   You can use the DATASET, BLOCK, and LFNLIST options together, in
 ##H   which case the script will take both into account.
 ##H
-##H   TFCPROTOCOL is the protocol by which LFNs are converted to PFNs. By
-##H   default, 'direct' is used, and the namespace-check is then done using
-##H   the 'technology' registered for your buffers in TMDB (so a castor site
-##H   will use nsls, for example). Currently the only alternative that I know
-##H   works is 'srm', DPM and dCache-related alternatives are untested.
-##H
-##H   MSSPROTOCOL is the protocol by which your SE should be accessed.
-##H   Normally this should be deducible from your entry in TMDB, so you
-##H   shouldn't need to worry about it.
+##H   MSSPROTOCOL is the protocol by which LFNs are converted to PFNs. By
+##H   default, the default protocol defined by your namespace plugin is used,
+##H   usually 'direct'.
 ##H
 ##H   The dumpstats option will perform all the TMDB magic, then instead of
 ##H   analysing the results and printing the summary, it will dump them to the
@@ -84,8 +81,8 @@ use File::Basename;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Catalogue;
+use PHEDEX::Core::Loader;
 use PHEDEX::BlockConsistency::SQL;
-use PHEDEX::Namespace;
 
 my ($dbh);
 my ($verbose,$debug,$terse);
@@ -95,21 +92,20 @@ my (@DATASET,@BLOCK,@LFN,@BUFFER);
 my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
 my ($data,$lfn,$lfnlist,$wide);
-my ($tfcprotocol,$mssprotocol,$destination,$tfc,$ns);
+my ($tfcprotocol,$mssprotocol,$destination,$tfc,$namespace,$module,$loader,$ns);
 my ($SQL,$incomplete_blocks,$preload);
 my $debug_me = 1;
 
 %check = (
 		'size'		=> 1,
  		'migration'	=> 0,
-	        'ondisk'        => 0,
+#	        'ondisk'        => 0,
 #		'cksum'		=> 0,
 #		'dbs'		=> 0,
 	 );
 
 $verbose = $debug = $terse = $autoBlock = 0;
 $tfcprotocol = 'direct';
-$mssprotocol = '';
 $destination = 'any';
 $callouton   = '';
 %calloutonAllowed = ( failure => 1, success => 1, all => 1);
@@ -122,7 +118,7 @@ GetOptions("db=s"           => \$DBCONFIG,
            "lfnlist=s"      => \$lfnlist,
 	   "buffer=s@"	    => \@BUFFER,
 	   "tfc=s"	    => \$tfc,
-	   "tfcprotocol=s"  => \$tfcprotocol,
+	   "namespace=s"    => \$namespace,
 	   "mssprotocol=s"  => \$mssprotocol,
 
 	   "check=s@"	    => \@check,
@@ -145,12 +141,22 @@ GetOptions("db=s"           => \$DBCONFIG,
            "help|h"         => sub { &usage() }
 	  );
 
-$ns = PHEDEX::Namespace->new(	VERBOSE	=> $verbose,
-				DEBUG	=> $debug,
-				PRELOAD	=> $preload,
-			    );
-$mssprotocol = 'srm' if $tfcprotocol eq 'srm';
-$ns->protocol( $mssprotocol ) if $mssprotocol;
+
+die "NAMESPACE argument must be specified\n" unless $namespace;
+
+$loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
+				     REJECT    => [ qw / common namespace spacecountcommon / ] );
+
+$module = $loader->Load($namespace);
+
+$ns = $module->new(	VERBOSE	=> $verbose,
+			DEBUG	=> $debug,
+			PRELOAD	=> $preload,
+			);
+
+$tfcprotocol = $ns->Protocol();
+
+if ( $mssprotocol ) { $tfcprotocol = $mssprotocol; }
 
 if ( $callouton && ! exists($calloutonAllowed{$callouton}) )
 {
@@ -249,12 +255,6 @@ foreach my $buffer ( @buffer )
 $debug && exists($h{Buffers}{ID}) && print "done getting buffers!\n";
 @bufferIDs = sort keys %{$h{Buffers}{ID}};
 @bufferIDs or die "No buffers found matching \"@BUFFER\", typo perhaps?\n";
-
-# Check the technologies!
-my %t;
-map { $t{$h{Buffers}{ID}{$_}{TECHNOLOGY}}++ } @bufferIDs;
-die "Woah, too many technologies! (",join(',', keys %t),")\n" if ( scalar keys %t > 1 );
-$ns->technology( (keys %t)[0] ) unless $mssprotocol;
 
 #-------------------------------------------------------------------------------
 # Datasets next...
@@ -407,11 +407,10 @@ if ( $check{size} || $check{migration} || $check{ondisk} )
     my $pfn = $h{LFN}{$lfn}{PFN};
     $h{SE}{$lfn} = {};
 
-    my $sesize = $ns->statsize($h{LFN}{$lfn}{PFN});
+    my $sesize = $ns->size($h{LFN}{$lfn}{PFN});
     if ( defined($h{SE}{$lfn}{size} = $sesize) )
     {
-      $h{SE}{$lfn}{migration} = $ns->statmode($h{LFN}{$lfn}{PFN});
-      $h{SE}{$lfn}{ondisk}    = $ns->statondisk($h{LFN}{$lfn}{PFN});
+      $h{SE}{$lfn}{migration} = $ns->is_migrated($h{LFN}{$lfn}{PFN});
     }
   }
 }
