@@ -1,3 +1,56 @@
+Changes for PhEDEx 4.1.1
+
+Changes for Schema and DB Config
+  - Add PHEDEX/Schema/OracleDropRole.sh script to drop obsolete roles
+  - Revoke delete privileges on t_xfer_replica for site roles (Sav #95710)
+  - Rename central agent roles from CERN to CENTRAL
+  - Also drop views when resetting DB schema
+
+Changes for central agents
+  - BlockAllocator, FileFump, InfoStatesClean: print debug statistics for latency SQLs
+  - FileRouter: fix alert in BlockArrive SQL preventing update of routing stats tables (Sav #96911)
+  - BlockAllocator: Don't wait for block replica creation and activation before creating
+	block latency entry (to fix skipping file transfers in latency records form some blocks)
+  - RequestAllocator: fix missing subscriptions for re-evaluated requests (Sav #97148)
+
+Changes for site agents
+  - Update all site agents to use the new Agent core library
+  - WatchdogLite: new agent to monitor the health of the Watchdog. Doesn't connect to the DB,
+	to make sure that it will continue to run in almost any situation.
+  - Watchdog: send notifications to new WatchdogLite agent
+  - Watchdog: fix minor bug where it fails to pick up contact with an agent that was already running when the watchdog starts
+  - FileRemove: enable creation of dropbox directories, allow update of config file on a reload
+  - FileDownload: remove debugging hooks from transfer Manager
+  - BlockDownloadVerify: fix warning for undefined checksum value
+
+Changes for Namespace framework
+  - Framework: pass LFN as argument instead of PFN in all namespace plugins, performing
+	lfn2pfn conversion internally. Update namespaces accordingly.
+  - Framework: move all common options (VERBOSE etc.) from plugins to base class,
+	providing functions to set/get the options in the plugins. Update namespaces accordingly.
+  - Framework: Remove obsolete Namespace.pm
+  - dcache Namespace: add storage accounting functions to dcache namespace
+
+Changes for operator tools
+  - Add PHEDEX/Utilities/GroupNew to create new user_groups
+  - Updated PHEDEX/Utilities/setool and PHEDEX/Utilities/BlockConsistencyCheck to changes in Namespace framework
+
+Changes for core libraries
+  - Replace old Agent.pm and AgentLite.pm in all agents with new modular PHEDEX::Core::Agent library
+	- PHEDEX::Core::Agent::Dropbox - deprecate relayDrop function
+	- PHEDEX::Core::Agent::Dropbox - allow skipping workdir creation (LOAD_DROPBOX_WORKDIRS=0)
+	- PHEDEX::Core::Agent::Dropbox - Change OUTDIR to OUTBOX, create TASKDIR and ARCHIVEDIR
+  - PHEDEX::Core::Config - by default, reject agents not found in config file
+  - PHEDEX::Core::Catalogue - provide uniform access to TFC from database or local file
+  - PHEDEX::Core::DB - escape characters in role passwords
+  - PHEDEX::Core::Identity - Fix bug where DN was recorded instead of CERTIFICATE when certificate is too long.
+  - PHEDEX::Core::SQL - Modify getNodes to work also with DMWMMON schema
+
+Changes for custom templates
+  - Update FTS mapfile template
+  - Update PHEDEX/Custom/Template/gfal_prestage-status.py to adapt to the change of gfal request status codes
+	introduced in recent versions of the UI	
+		
 Changes for PhEDEx 4.1.0
 
 Changes for Schema and DB Config
