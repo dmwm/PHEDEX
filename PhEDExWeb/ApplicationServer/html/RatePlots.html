@@ -1,0 +1,275 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>Rate Plot</title>
+		<!-- NEED TO FIGURE OUT THE PATH -->
+		<script type="text/javascript" src="/phedex/datasvc/app/js/jquery.js"></script>
+		<script type="text/javascript" src="/phedex/datasvc/app/js/jquery.url.js"></script>
+		<script type="text/javascript" src="/phedex/datasvc/app/js/phedex-graph-datasvc.js"></script>
+		<script type="text/javascript">
+var url = "/phedex/datasvc/json/prod/transferhistory";
+
+// default
+var graph = 'rate';
+var by = 'dst';
+var source;
+var destination;
+var hide_mss = 'y';
+var start = '-96h';
+var end;
+
+$(function () {
+    $(document).ready(function() {
+        set_params();
+        set_options();
+        rate_plot(graph, by, source, destination, hide_mss, start, end);
+    });
+    
+});
+
+function set_params()
+{
+        var param = $.url().param();
+        if (param['start'] != null)
+        {
+            start = param['start'];
+        }
+        if (param['end'] != null)
+        {
+            end = param['end'];
+        }
+        if (param['graph'] != null)
+        {
+            graph = param['graph'];
+        }
+        if (param['by'] != null)
+        {
+            by = param['by'];
+        }
+        if (param['source'] != null)
+        {
+            source = param['source'];
+        }
+        if (param['destination'] != null)
+        {
+            destination = param['destination'];
+        }
+        if (param['hide_mss'] != null)
+        {
+            hide_mss = param['hide_mss'];
+        }
+}
+
+function set_options()
+{
+    if (graph != null)
+    {
+        document.getElementById('graph').value = graph;
+    }
+    if (source != null)
+    {
+        document.getElementById('source').value = source;
+    }
+    if (end != null)
+    {
+        document.getElementById('end').value = end;
+    }
+    if (destination != null)
+    {
+        document.getElementById('destination').value = destination;
+    }
+    document.getElementById('by').value = by;
+    document.getElementById('hide_mss').value = hide_mss;
+    document.getElementById('period').value = start;
+}
+
+function rate_plot(graph, by, source, destination, hide_mss, start, end)
+{
+      var param = '';
+      if (start != null)
+      {
+          param = param + "starttime=" + start;
+      }
+      if (end != null)
+      {
+          param = param + "&endtime=" + end;
+      }
+      if (source != null)
+      {
+          param = param + "&from=" + source;
+      }
+      if (destination != null)
+      {
+          param = param + "&to=" + destination;
+      }
+
+      jQuery.getJSON(url+'?'+param, function(d)
+      {
+        var data = transferhistory(d, graph, by, hide_mss);
+        var chart = new Highcharts.Chart({
+            chart: {
+                renderTo: 'container',
+                type: 'column',
+                marginRight: 400,
+                marginTop: 60
+            },
+            colors: colors,
+            credits: {
+                enabled: false
+            },      
+
+            title: {
+                text: '<b>CMS PhEDEx - '+data.title+'</b><br>'+subtitle(start)
+            },
+            xAxis: {
+                categories: data.xcat,
+                labels: {
+                    align: "left",
+                    rotation: 90,
+                    formatter: function () {
+                        var date = new Date(this.value * 1000)
+                        return Highcharts.dateFormat('%m-%d %H:%M', date);
+                    },
+                }
+            },
+            yAxis: {
+                min: 0,
+                title: {
+                    text: data.ylabel
+                },
+                stackLabels: {
+                    enabled: false,
+                    style: {
+                        fontWeight: 'bold',
+                        color: (Highcharts.theme && Highcharts.theme.textColor) || 'gray'
+                    }
+                },
+                labels: {
+                    formatter: function() {
+                        // return (this.value / 1000000000);
+                        return (this.value / data.yfactor);
+                    }
+                }
+            },
+            legend: {
+                layout: 'vertical',
+                align: 'right',
+                x: 0,
+                verticalAlign: 'top',
+                y: 50,
+                floating: true,
+                backgroundColor: (Highcharts.theme && Highcharts.theme.legendBackgroundColorSolid) || 'white',
+                borderColor: '#CCC',
+                borderWidth: 1,
+                itemWidth: 300,
+                shadow: false
+            },
+            tooltip: {
+                formatter: function() {
+                    var date = new Date(this.x * 1000);
+                    return '<b>'+ Highcharts.dateFormat('%m-%d %H:%M', date ) +'</b><br/>'+
+                        this.series.name +': '+ (this.y/data.yfactor).toFixed(2)+data.yunit +'<br/>'+
+                        'Total: '+ (this.point.stackTotal/data.yfactor).toFixed(2)+data.yunit;
+                }
+            },
+            plotOptions: {
+                column: {
+                    stacking: 'normal',
+                    borderColor: '#000000',
+                    borderWidth: 1,
+                    groupPadding: 0.05,
+                    shadow: false,
+                    dataLabels: {
+                        enabled: false,
+                        color: (Highcharts.theme && Highcharts.theme.dataLabelsColor) || 'white'
+                    }
+                }
+            },
+            series: data.series
+        });
+      });
+}
+
+function update()
+{
+    var url = $.url();
+    var url2 = url.attr('protocol')+'://'+url.attr('host');
+    if (url.attr('port') != null)
+    {
+        url2 += ":"+url.attr('port');
+    }
+    url2 += url.attr('path')+'?';
+    url2 += "graph="+document.getElementById('graph').value;
+    url2 += "&start="+document.getElementById('period').value;
+    url2 += "&by="+document.getElementById('by').value;
+    url2 += "&hide_mss="+document.getElementById('hide_mss').value;
+    if (document.getElementById('source').value)
+    {
+        url2 += "&source="+document.getElementById('source').value;
+    }
+    if (document.getElementById('destination').value)
+    {
+        url2 += "&destination="+document.getElementById('destination').value;
+    }
+    window.location = url2;
+}
+
+		</script>
+	</head>
+	<body>
+<!-- NEED TO FIGURE OUT THE PATH -->
+<!-- GRAPH is only a symlink to HighCharts-2.2.4 -->
+<script src="/GRAPH/js/highcharts.js"></script>
+<script src="/GRAPH/js/modules/exporting.js"></script>
+
+<div id="control">
+    Graph:
+    <select id="graph">
+        <option value="rate">Transfer Rate</option>
+        <option value="volume">Transfer Volume</option>
+        <option value="acc_volume">Cumulative Volume</option>
+    </select>
+    period:
+    <select id="period">
+        <option value="-12h">Last 12 Hours</option>
+        <option value="-24h">Last 24 Hours</option>
+        <option value="-36h">Last 36 Hours</option>
+        <option value="-48h">Last 48 Hours</option>
+        <option value="-72h">Last 72 Hours</option>
+        <option value="-96h" selected="selected">Last 96 Hours</option>
+        <option value="-120h">Last 120 Hours</option>
+        <option value="-132h">Last 132 Hours</option>
+        <option value="-7d">Last 7 Days</option>
+        <option value="-30d">Last 30 Days</option>
+    </select>
+    up to:
+    <input type="text" id="end"/>
+    by:
+    <select id="by">
+        <option value="src">Source</option>
+        <option value="dst">Destination</option>
+        <option value="link">Link</option>
+    </select>
+    &nbsp;&nbsp;
+    source:
+    <input type="text" id="source"/>
+    &nbsp;&nbsp;
+    destination:
+    <input type="text" id="destination"/>
+    &nbsp;&nbsp;
+    <select id="hide_mss">
+        <option value="y">hide MSS nodes</option>
+        <option value="n">show MSS nodes</option>
+    </select>
+    &nbsp;&nbsp;
+    <input id="update" type="button" value="Update" onClick="update();"/>
+</div>
+
+<div id="container" style="min-width: 400px; min-height: 768px; margin: 0 auto">
+<p><p><p><p>
+<font size=7 color=#ff0000><center><blink>working ...</blink></center></font>
+</div>
+
+	</body>
+</html>
