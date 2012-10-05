@@ -21,12 +21,7 @@ sub new
   return $self;
 }
 
-sub execute { my ($self,$ns,$file,$tfc) = @_[0..3];
-             my $pfn = $tfc->lfn2pfn($file,$ns->Protocol());
-             my $result = $ns->{CACHE}->fetch('checksum',$pfn);
-	      return $result if defined $result;
-              (shift)->SUPER::execute(@_,'checksum');
-            }
+sub execute { (shift)->SUPER::execute(@_,'checksum'); }
 
 sub parse
 {

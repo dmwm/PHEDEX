@@ -32,7 +32,8 @@ sub new
   my $self = \%params;
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__,
+		       CATALOGUE => $h{CATALOGUE} );
   $self->{ENV} = join(' ',
 			map { "$_=" . ( $self->{$_} || '' ) }
 			( qw / STAGE_HOST STAGE_SVCCLASS RFIO_USE_CASTOR_V2 / )
@@ -41,6 +42,7 @@ sub new
   $self->SUPER::_init_commands;
 
   $self->Help if $params{HELP};
+  
   return $self;
 }
 
