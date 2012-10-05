@@ -1,6 +1,5 @@
 PHEDEX.namespace('Nextgen.Activity');
 PHEDEX.Nextgen.Activity.RatePlots = function(sandbox) {
-debugger;
   var string = 'nextgen-activity-rateplots';
   Yla(this,new PHEDEX.Module(sandbox,string));
 
