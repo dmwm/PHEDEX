@@ -17,6 +17,7 @@ use strict;
 use warnings;
 no strict 'refs';
 use PHEDEX::Core::Loader;
+use PHEDEX::Core::Catalogue;
 use Data::Dumper;
 use Getopt::Long;
 
@@ -97,6 +98,9 @@ sub _init
   {
     $self->{CACHE} = bless( {}, 'PHEDEX::Namespace::Null::Cache' );
   }
+
+  $self->{CATALOGUE} = $h{CATALOGUE} || PHEDEX::Core::Catalogue->new();
+  
 }
 
 sub _init_commands
@@ -171,7 +175,16 @@ sub Command
   my ($self,$call,$file) = @_;
   my ($h,$r,@opts,$env,$cmd);
   return unless $h = $self->{COMMANDS}{$call};
-  @opts = ( @{$h->{opts}}, $file );
+  my $protocol;
+  if ( $self->{COMMANDS}{$call}->can('Protocol') ) {
+      $protocol = $self->{COMMANDS}{$call}->Protocol()
+  }
+  else
+  {
+      $protocol =  $self->Protocol();
+  }
+  my $pfn = $self->{CATALOGUE}->lfn2pfn($file,$protocol);
+  @opts = ( @{$h->{opts}}, $pfn );
   $env = $self->{ENV} || '';
   $cmd = "$env $h->{cmd} @opts";
   print "Prepare to execute $cmd\n" if $self->{DEBUG};
