@@ -82,7 +82,7 @@ PHEDEX.Loader = function(opts) {
 
 // old website override modules
     'phedex-graph-datasvc':              { requires:[] },
-    'phedex-nextgen-activity-rateplots': { requires:['phedex-module','phedex-graph-datasvc'] },
+    'phedex-nextgen-activity-rateplots': { requires:['phedex-module','phedex-graph-datasvc','button','menu'] },
     'phedex-nextgen-activity-latency':   { requires:['phedex-module', 'phedex-nextgen-util','button','phedex-datatable','protovis'] },
     'phedex-nextgen-util':               { requires:['phedex-util'] },
     'phedex-nextgen-data-subscriptions': { requires:['phedex-module-subscriptions-table','phedex-datatable','phedex-history','phedex-nextgen-util','button','animation','tabview','resize'] },
