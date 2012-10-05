@@ -5502,6 +5502,12 @@ sub imgsrc
   return $imgsrc;
 }
 
+sub output
+{
+  my ($self) = @_;
+  print {$$self{CONTENT}} "<div id='Activity::RatePlots'></div>";
+}
+
 1;
 
 ######################################################################
