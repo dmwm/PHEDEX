@@ -24,14 +24,7 @@ sub new
   return $self;
 }
 
-sub execute
-{
-# 'execute' will use the common 'Command' function to do the work, here we 
-# replace lfn with corresponding srmurl.  
-  my ($self,$ns,$file,$tfc) = @_;
-  my $pfn = $tfc->lfn2pfn($file,'srmv2');
-  return $ns->Command('checksum',$pfn);
-}
+sub Protocol { return 'srmv2'; }
 
 sub parse
 {
@@ -44,7 +37,6 @@ sub parse
   my $result = {};
   foreach ( @{$r->{STDOUT}} )
   {
-    #print "NRDEBUG parsing line:" .$_;
     my $x;
     chomp;
     m%.*Checksum: ([\dabcdef]+) \((\S+)\)%;
