@@ -93,11 +93,11 @@ $interface = shift;
 die "INTERFACE argument must be specified\n" unless $interface;
 
 $module = $loader->Load($interface);
-$ns = $module->new();
+$mapping = PHEDEX::Core::Catalogue -> new($catalogue, $node);
+$ns = $module->new("CATALOGUE", $mapping);
 
 if ($input)
 {
-  $mapping = PHEDEX::Core::Catalogue -> new($catalogue, $node);
   if ( $input =~ m%.gz$% )
   { open LFN, "cat $input | gzip -d - |" or die "open: $input: $!\n"; }
   elsif ( $input =~ m%.bz2$% )
@@ -118,7 +118,7 @@ while ( $command = shift @ARGV )
 {
   foreach my $f ( @entries )
   {
-    $result = $ns->$command($f, $mapping);
+    $result = $ns->$command($f);
     print "$f $command = ",str_hash($result),"\n";
   }
 }
