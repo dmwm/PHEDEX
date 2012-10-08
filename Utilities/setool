@@ -54,7 +54,7 @@ EOF
 }
 
 $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
-				     REJECT    => [ qw / common namespace spacecountcommon chimera_dump pnfs  rfio / ] );
+				     REJECT    => [ qw / common namespace spacecountcommon chimera_dump pnfs  rfio cache/ ] );
 
 GetOptions(
            "lfnlist|l=s"    => \$lfnlist,
