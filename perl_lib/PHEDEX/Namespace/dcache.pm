@@ -39,7 +39,9 @@ sub new
       if ( exists($self->{AGENT}->{$_}) ) { $self->{$_} = $self->{AGENT}->{$_}; }
     }
   }
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ ,
+		       CATALOGUE => $h{CATALOGUE}
+		     );
   if ( $self->{PRELOAD} ) {
     $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
   }
