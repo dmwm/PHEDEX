@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Getopt::Long qw /:config pass_through require_order /;
-use PHEDEX::Core::DB;
+#use PHEDEX::Core::DB;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
@@ -12,7 +12,7 @@ use PHEDEX::Namespace::SpaceCountCommon ( ) ;
 my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
 my (@entries,$lfnlist,$pfnlist,$input,$catalogue,$result,$command);
-my ($db,$node);
+my ($node);
 sub usage
 {
   my $default_url= $PHEDEX::Namespace::SpaceCountCommon::options{"url=s"};
@@ -21,18 +21,11 @@ sub usage
 
   Usage:
 
-  spacecount  INTERFACE {OPTIONS} [COMMAND]
+  spacecount  INTERFACE {OPTIONS}
 
   INTERFACE specifies the parsing method
 
-  OPTIONS are --verbose, --debug, --help, and anything else that the
-  interface might support. Use --help per interface to find out more.
-
-  COMMAND is an operation the INTERFACE supports,
-  The --help option for the interface will list all available commands.
-
-  Following interface protocols in this installation 
-  provide support for spacecount:
+   Available interfaces are:
 EOF
   my $out = join("', '", grep (/\/spacecount/,sort keys %{$loader->Commands}));
   $out =~ s/\/spacecount//g;
@@ -57,7 +50,6 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
 
 GetOptions(
-           "db=s"   => \$db,
            "node=s"  => \$node,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
@@ -69,13 +61,11 @@ die "WARNING: INTERFACE argument must be specified\n" unless $interface;
 
 $module = $loader->Load($interface);
 $ns = $module->new();
-$ns-> {NOCACHE} = 1;
+$ns-> {NOCACHE} = 1;  # does it really work? 
 
-
-while ( $command = shift @ARGV )
-{
+# Command must be implemented in the corresponding Namespace interface:
+$command = "spacecount";
 # For common options parameter name should correspond to the options name:
-  my $f = $ns->{DUMP};
-  $result = $ns->$command ($f);
-  print "$f $command = ",str_hash($result),"\n";
-}
+my $f = $ns->{DUMP};
+$result = $ns->$command ($f);
+
