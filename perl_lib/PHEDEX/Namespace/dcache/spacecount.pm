@@ -3,8 +3,6 @@ package PHEDEX::Namespace::dcache::spacecount;
 use strict;
 use warnings;
 
-#my ($level,$datasvcUrl);
-
 # Code from Utilities/testSpace/spaceInsert   <<<<<
 
 use Time::Local;
@@ -14,8 +12,7 @@ use PHEDEX::CLI::UserAgent;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Namespace::SpaceCountCommon;
-
-
+use Data::Dumper;
 
 my (@pfn,$dump,$level,$result,$datasvcUrl,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
 my ($timeFromXml);
@@ -24,9 +21,6 @@ my %dirsizes = ();
 $totalsize = 0;
 my ($response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
 
-$datasvcUrl='https://cmsweb-testbed.cern.ch/dmwmmon/datasvc';
-$level = 5;
-
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / timestamp usagerecord /;
 
@@ -34,7 +28,6 @@ sub new
 {
   my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-# $self is an empty hashref because there is no external command to call
   my $self = {};
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';
@@ -45,11 +38,11 @@ sub execute
 {
   my ($self,$ns,$dumpfile) = @_;
   print " NRTEST:  here the parse of the dump file $dumpfile will go\n";
-  # Code from Utilities/testSpace/spaceInsert
 
   if ( $dumpfile ) {
     print "Begin to dump.....\n";
     parse_chimera_dump($dumpfile);
+    &createRecord(\%dirsizes);
   }
 }
 
@@ -63,7 +56,6 @@ sub parse_chimera_dump {
   $totalfiles    = 0;
   $totaldirs     = 0;
   my ($line,$time);
-  #my (@pfn,$dump,$level,$result,$datasvcUrl,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
   if ( $file_dump =~ m%.gz$% )
     { open DUMP, "cat $file_dump | gzip -d - |" or die "Could not open: $file_dump\n"; }
   elsif ( $file_dump =~ m%.bz2$% )
@@ -76,8 +68,7 @@ sub parse_chimera_dump {
 	if ($line =~ m/^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$/) {
 	   $file = $1;
 	   $size = $2;
-	   #$debug and print "$file:$size\n"; # print unconditionally
-	   print "$file:$size\n";
+	   $debug and print "$file:$size\n";
 	   $totalfiles++;
 	   my $dir = dirname $file;
 	   $dirsizes{$dir}+=$size;
@@ -89,7 +80,6 @@ sub parse_chimera_dump {
   }
   close DUMP;
   $timeFromXml = convertToUnixTime($time);
-  
   $totaldirs = keys %dirsizes;
  # if ($debug) {   # print unconditionally
      print "total files: ", $totalfiles,"\n";
