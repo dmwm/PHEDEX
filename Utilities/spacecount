@@ -6,6 +6,8 @@ use PHEDEX::Core::DB;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
+use Data::Dumper;
+use PHEDEX::Namespace::SpaceCountCommon ( ) ;
 
 my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
@@ -13,13 +15,15 @@ my (@entries,$lfnlist,$pfnlist,$input,$catalogue,$result,$command);
 my ($db,$node);
 sub usage
 {
+  my $default_url= $PHEDEX::Namespace::SpaceCountCommon::options{"url=s"};
+  my $default_level= $PHEDEX::Namespace::SpaceCountCommon::options{"level=i"};
   print <<EOF;
 
   Usage:
 
   spacecount  INTERFACE {OPTIONS} [COMMAND]
 
-  INTERFACE specifies the parsing method 
+  INTERFACE specifies the parsing method
 
   OPTIONS are --verbose, --debug, --help, and anything else that the
   interface might support. Use --help per interface to find out more.
@@ -31,6 +35,19 @@ sub usage
   provide support for spacecount:
 EOF
   print " '",join("', '", grep (/\/spacecount/,sort keys %{$loader->Commands})),"'\n\n";
+  print<<EOF;
+Options and arguments:
+
+   --dump <file>  - input storage dump file, must exist
+   --node <name>  - node name in the database, for all names see:
+                    $default_url/perl/nodes
+   --level <int>  - depth of the directory structure you want to go,
+                    default: $default_level
+   --url <url>    - data service url,
+                    default: $default_url
+   --force        - overwrite existing entry with the same timestamp,
+                    by default this would fail
+EOF
   exit 0;
 }
 
@@ -38,9 +55,6 @@ $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
 
 GetOptions(
-           "lfnlist|l=s"    => \$lfnlist,
-           "pfnlist|p=s"    => \$pfnlist,
-           "catalogue|c=s"  => \$catalogue,
            "db=s"   => \$db,
            "node=s"  => \$node,
            "verbose|v+"     => \$verbose,
