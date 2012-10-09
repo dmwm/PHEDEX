@@ -4,6 +4,7 @@ our @EXPORT = qw (dirlevel convertToUnixTime );
 
 use Time::Local;
 use Time::localtime;
+use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
 
 # Note the structure: instead of the value being a variable that will hold
 # the parsed value, we provide the default. Later, when the user wants to
@@ -19,7 +20,6 @@ our %options = (
              );
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
-
 sub dirlevel {
   my ($pathSimple,$temp1);
   my $path=shift;
