@@ -34,7 +34,9 @@ sub usage
   Following interface protocols in this installation 
   provide support for spacecount:
 EOF
-  print " '",join("', '", grep (/\/spacecount/,sort keys %{$loader->Commands})),"'\n\n";
+  my $out = join("', '", grep (/\/spacecount/,sort keys %{$loader->Commands}));
+  $out =~ s/\/spacecount//g;
+  print " '", $out, "'\n\n";
   print<<EOF;
 Options and arguments:
 
@@ -73,7 +75,7 @@ $ns-> {NOCACHE} = 1;
 while ( $command = shift @ARGV )
 {
 # For common options parameter name should correspond to the options name:
-  my $f = $ns->{DUMP}; 
+  my $f = $ns->{DUMP};
   $result = $ns->$command ($f);
   print "$f $command = ",str_hash($result),"\n";
 }
