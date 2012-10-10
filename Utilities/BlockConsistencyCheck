@@ -144,6 +144,8 @@ GetOptions("db=s"           => \$DBCONFIG,
 
 die "NAMESPACE argument must be specified\n" unless $namespace;
 
+my $catalogue = PHEDEX::Core::Catalogue->new($tfc);
+
 $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace spacecountcommon / ] );
 
@@ -152,6 +154,7 @@ $module = $loader->Load($namespace);
 $ns = $module->new(	VERBOSE	=> $verbose,
 			DEBUG	=> $debug,
 			PRELOAD	=> $preload,
+			CATALOGUE => $catalogue,
 			);
 
 $tfcprotocol = $ns->Protocol();
@@ -368,12 +371,6 @@ my %args = (
              DESTINATION => 'any',
              CATALOGUE   => '/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml'
            );
-foreach $lfn ( keys %{$h{LFNs}} )
-{
-  my $pfn = pfnLookup($lfn, $tfcprotocol, $destination, $tfc );
-  $h{LFN}{$lfn}{PFN} = $pfn;
-}
-
 #-------------------------------------------------------------------------------
 # Get the information needed for checking...
 
@@ -404,13 +401,12 @@ if ( $check{size} || $check{migration} || $check{ondisk} )
       print STDERR "\r";
     }
 
-    my $pfn = $h{LFN}{$lfn}{PFN};
     $h{SE}{$lfn} = {};
 
-    my $sesize = $ns->size($h{LFN}{$lfn}{PFN});
+    my $sesize = $ns->size($lfn);
     if ( defined($h{SE}{$lfn}{size} = $sesize) )
     {
-      $h{SE}{$lfn}{migration} = $ns->is_migrated($h{LFN}{$lfn}{PFN});
+      $h{SE}{$lfn}{migration} = $ns->is_migrated($lfn);
     }
   }
 }
@@ -579,10 +575,6 @@ elsif ( $verbose )
       {
         print "     LFN=$lfn ";
         print join(' ', sort keys %{$h{Detail}{$dataset}{$block}{$lfn}} ),"\n";
-        if ( $verbose >= 2 )
-        {
-          print $ns->Raw($h{LFN}{$lfn}{PFN});
-        }
       }
     }
   }
