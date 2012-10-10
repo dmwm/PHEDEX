@@ -3,7 +3,6 @@ package PHEDEX::Namespace::castor::checksum;
 use strict;
 use warnings;
 use base 'PHEDEX::Namespace::castor::Common';
-use PHEDEX::Core::Catalogue ( qw / lfn2pfn / );
 use File::Basename;
 
 our @fields = qw / checksum_type checksum_value /;
