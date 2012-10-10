@@ -20,12 +20,7 @@ sub new
   return $self;
 }
 
-sub execute { 
-    my ($self,$ns,$file) = @_;
-    my @dummy=split('=',$file);
-    $file=$dummy[1] if(defined($dummy[1]));
-    $self->SUPER::execute($ns,$file,'stat'); 
-}
+sub execute { (shift)->SUPER::execute(@_,'stat'); }
 
 sub parse
 {

@@ -22,6 +22,7 @@ sub new
     return $self;
 }
 
+sub Protocol { return 'srmv2'; }
 
 sub execute
 {
