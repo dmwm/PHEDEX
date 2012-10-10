@@ -12,47 +12,40 @@ use PHEDEX::CLI::UserAgent;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Namespace::SpaceCountCommon;
+use PHEDEX::Namespace::Common;
 use Data::Dumper;
 
-my (@pfn,$dump,$level,$result,$datasvcUrl,$command,$rootdir,$totalsize,$totalfiles,$totaldirs);
-my ($timeFromXml);
-my ($verbose,$debug,$terse,$force);
+my ($totalfiles,$totaldirs,$timestamp);
+my $totalsize = 0;
 my %dirsizes = ();
-$totalsize = 0;
-my ($response,$content,$method,$timeout,$pua,$target,$node,%payload,%topsizes);
 
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / timestamp usagerecord /;
 
-sub new
-{
+sub new {
   my ($proto,$h) = @_;
   my $class = ref($proto) || $proto;
-  my $self = {};
+  my $self = { @_ };
   bless($self, $class);
   $self->{ENV} = $h->{ENV} || '';
   return $self;
 }
 
-sub execute
-{
+sub execute {
   my ($self,$ns,$dumpfile) = @_;
-  print " NRTEST:  here the parse of the dump file $dumpfile will go\n";
-
   if ( $dumpfile ) {
-    print "Begin to dump.....\n";
-    parse_chimera_dump($dumpfile);
-    &createRecord(\%dirsizes);
+    print "[INFO] Parsing storage dump in $dumpfile ... \n" if $ns->{VERBOSE};
+    parse_chimera_dump($dumpfile,$ns);
+    print "[INFO] Creating database record using aggregation level = $ns->{LEVEL} ... \n" if $ns->{VERBOSE};
+    createRecord(\%dirsizes, $ns);
   }
 }
-
 
 ######################### for test only ########################
 # Functions from Utilities/testSpace/spaceInsert:
 
-
 sub parse_chimera_dump {
-  my ($file_dump) = @_;
+  my ($file_dump, $ns) = @_;
   $totalfiles    = 0;
   $totaldirs     = 0;
   my ($line,$time);
@@ -61,35 +54,33 @@ sub parse_chimera_dump {
   elsif ( $file_dump =~ m%.bz2$% )
     { open DUMP, "cat $file_dump | bzip2 -cd - |" or die "Could not open: $file_dump\n"; }
   else
-    { open(DUMP, "cat $file_dump |") or die  "Could not open: $file_dump\n"; }
-  while ($line = <DUMP>){
-	my ($size,$file);
-	#chomp;
-	if ($line =~ m/^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$/) {
-	   $file = $1;
-	   $size = $2;
-	   $debug and print "$file:$size\n";
-	   $totalfiles++;
-	   my $dir = dirname $file;
-	   $dirsizes{$dir}+=$size;
-	   $totalsize+=$size;
+    { open(DUMP, "cat $file_dump |") or die  "Could not open: $file_dump\n" 
+    }
+  while ($line = <DUMP>) 
+    {
+      my ($size,$file);
+      if ($line =~ m/^\S+\s\S+\"(\S+)\"\S+\>(\d+)\<\S+$/) 
+        {
+          $file = $1;
+          $size = $2;
+          print "$file:$size\n" if $ns->{DEBUG}>1;
+          $totalfiles++;
+          my $dir = dirname $file;
+          $dirsizes{$dir}+=$size;
+          $totalsize+=$size;
         }
-        if ($line =~ m/^<dump recorded=\"(\S+)\">$/) {
-           $time = $1;
-        }
-  }
+      if ($line =~ m/^<dump recorded=\"(\S+)\">$/) {$time = $1}
+    }
   close DUMP;
-  $timeFromXml = convertToUnixTime($time);
+  $timestamp= convertToUnixTime($time);
   $totaldirs = keys %dirsizes;
- # if ($debug) {   # print unconditionally
-     print "total files: ", $totalfiles,"\n";
-     print "total dirs:  ", $totaldirs, "\n";
-     print "total size:  ", $totalsize, "\n";
-     print "timestamp:  ", $timeFromXml, "\n";
- # }
+  if ($ns->{VERBOSE}) {
+    print "total files: ", $totalfiles,"\n";
+    print "total dirs:  ", $totaldirs, "\n";
+    print "total size:  ", $totalsize, "\n";
+    print "timestamp:  ", $timestamp, "\n";
+  }
 }
-
-
 
 ###############################################
 
