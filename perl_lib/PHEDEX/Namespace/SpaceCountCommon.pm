@@ -1,6 +1,6 @@
 package PHEDEX::Namespace::SpaceCountCommon;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (dirlevel convertToUnixTime );
+our @EXPORT = qw (dirlevel convertToUnixTime createRecord);
 
 use Time::Local;
 use Time::localtime;
@@ -20,44 +20,61 @@ our %options = (
              );
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
+
 sub dirlevel {
-  my ($pathSimple,$temp1);
+  print "NRDEBUG in dirlevel\n";
   my $path=shift;
   my $depth=shift;
-  my @tmp=();
   if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
-  if  ( $path = ~ /^(\S+\/cms)(\/\S+)$/) {
-      $temp1 = $1;
-      $pathSimple = $2;
-  }      
-  #$rootdir = $temp1;  # rootdir not used anywhere, but causes trouble as it is defined in outer scope.
-  @tmp = split ('/', $pathSimple, $depth+2);
-  pop @tmp;
-  if (scalar(@tmp) > 2) {
-     return join ("/", @tmp);
-  }
-  else {
-     return $pathSimple;
+  my @tmp = split ('/', $path);
+  my $topdir;
+  if (@tmp <= $depth) {
+    return $path;
+  } else {
+    $topdir = join ( '/', @tmp[0..$depth]);
+    return $topdir;
   }
 }
 
-sub convertToUnixTime
-{
+sub convertToUnixTime {
   my ($time) = @_;
   my ($unixTime, $localtime, $mon, $year, $d, $t, @d, @t);
   if ($time =~ m/^(\S+)T(\S+)Z$/)
-  {
-    $d = $1;
-    @d = split /-/, $1;
-    $t = $2;
-    @t = split /:/, $2;
-  }
-
+    {
+      $d = $1;
+      @d = split /-/, $1;
+      $t = $2;
+      @t = split /:/, $2;
+    }
   $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1]-1, $d[0]-1900);
   #$localtime = localtime($unixTime);
   #print "the localtime:", $localtime->mon+1,"  ", $localtime->year+1900, "\n";
-
   return $unixTime;
+}
+
+sub createRecord {
+  my $hashref = shift;  # Pass %dirsizes by reference
+  my ($ns, $timestamp) = @_;
+  my (%payload,%topsizes);
+  $payload{"strict"} = defined $ns->{FORCE} ? 0 : 1;
+  $payload{"node"}=$ns->{NODE};
+  $payload{"timestamp"}=$timestamp;
+  foreach  (keys %{$hashref}) {
+    #$topsizes{ dirlevel($_, $ns->{LEVEL})}+=${$hashref}{$_} + 0; # for  leaves only
+    for (my $p=1; $p <= $ns->{LEVEL}; $p += 1) {
+      $topsizes{dirlevel($_,$p)}+=${$hashref}{$_};
+    }
+  }
+  if ($debug) { print "dumping aggregated directory info......\n" };
+  foreach ( keys %topsizes ) {
+    $payload{$_} = $topsizes{$_} + 0;
+  }
+  my $count = 0;
+  foreach  (keys %payload) {
+    print "upload parameter: $_ ==> $payload{$_}\n";
+    $count = $count+1;
+  }
+  print "total number of records: $count\n";
 }
 
 1;
