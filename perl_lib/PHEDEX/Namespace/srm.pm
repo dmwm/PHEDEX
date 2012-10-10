@@ -32,7 +32,8 @@ sub new
   bless($self, $class);
   $self->{PROXY_CHECK} = 0;
   map { $self->{$_} = $h{$_} } keys %h;
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION} );
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION},
+		       CATALOGUE => $h{CATALOGUE} );
   $self->{ENV} = '';
 
   $self->SUPER::_init_commands;
