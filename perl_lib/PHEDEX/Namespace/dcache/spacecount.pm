@@ -15,9 +15,10 @@ use PHEDEX::Namespace::SpaceCountCommon;
 use PHEDEX::Namespace::Common;
 use Data::Dumper;
 
-my ($totalfiles,$totaldirs,$timestamp);
+my ($totalfiles,$totaldirs,$timestamp,$level);
 my $totalsize = 0;
 my %dirsizes = ();
+my $pattern = "/store/";  # will search for this directory and count levels starting from the depth where it is found
 
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / timestamp usagerecord /;
@@ -36,8 +37,19 @@ sub execute {
   if ( $dumpfile ) {
     print "[INFO] Parsing storage dump in $dumpfile ... \n" if $ns->{VERBOSE};
     parse_chimera_dump($dumpfile,$ns);
-    print "[INFO] Creating database record using aggregation level = $ns->{LEVEL} ... \n" if $ns->{VERBOSE};
-    createRecord(\%dirsizes, $ns);
+    my $storeDepth = findLevel(\%dirsizes, $pattern);
+    $level = $ns->{LEVEL};
+    if ($storeDepth >0 ) {
+      $level = $level + $storeDepth -1; # Subtract 1: if  /store/ is found on the first level, we do not want  $level to change.
+      print "Add $storeDepth levels preceeding $pattern\n";
+    };
+    print "[INFO] Creating database record using aggregation level = $level ... \n" if $ns->{VERBOSE};
+    if ($ns->{DEBUG}) {
+      print "DEBUG: here is the record which would be uploaded:\n";
+      print Dumper (createRecord(\%dirsizes, $ns, $timestamp, $level));
+    } else {
+      uploadRecord($ns->{URL}, createRecord(\%dirsizes, $ns, $timestamp, $level));
+    }
   }
 }
 
