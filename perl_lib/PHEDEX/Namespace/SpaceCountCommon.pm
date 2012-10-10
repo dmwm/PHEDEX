@@ -1,6 +1,6 @@
 package PHEDEX::Namespace::SpaceCountCommon;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (dirlevel convertToUnixTime createRecord);
+our @EXPORT = qw (dirlevel findLevel convertToUnixTime createRecord uploadRecord);
 
 use Time::Local;
 use Time::localtime;
@@ -22,7 +22,6 @@ our %options = (
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
 
 sub dirlevel {
-  print "NRDEBUG in dirlevel\n";
   my $path=shift;
   my $depth=shift;
   if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash:  \"$path\"";}
@@ -34,6 +33,18 @@ sub dirlevel {
     $topdir = join ( '/', @tmp[0..$depth]);
     return $topdir;
   }
+}
+
+sub findLevel {
+  # returns the depth of directory structure above the matching pattern
+  my ($hashref, $pattern) = @_;  # pass reference to dirsizes hash and a pattern to match
+  if ( grep {$match=index( $_, $pattern); if ($match>0) {
+    print "Match for $pattern found in $_ \n";
+    return split ( '/', substr $_, 0, $match);
+  }
+           } keys  %{$hashref}){
+  }
+  return -1;
 }
 
 sub convertToUnixTime {
@@ -54,14 +65,14 @@ sub convertToUnixTime {
 
 sub createRecord {
   my $hashref = shift;  # Pass %dirsizes by reference
-  my ($ns, $timestamp) = @_;
+  my ($ns, $timestamp, $level) = @_;
   my (%payload,%topsizes);
   $payload{"strict"} = defined $ns->{FORCE} ? 0 : 1;
   $payload{"node"}=$ns->{NODE};
   $payload{"timestamp"}=$timestamp;
   foreach  (keys %{$hashref}) {
-    #$topsizes{ dirlevel($_, $ns->{LEVEL})}+=${$hashref}{$_} + 0; # for  leaves only
-    for (my $p=1; $p <= $ns->{LEVEL}; $p += 1) {
+    #$topsizes{ dirlevel($_, $level)}+=${$hashref}{$_} + 0; # for  leaves only
+    for (my $p=1; $p <= $level; $p += 1) {
       $topsizes{dirlevel($_,$p)}+=${$hashref}{$_};
     }
   }
@@ -75,6 +86,48 @@ sub createRecord {
     $count = $count+1;
   }
   print "total number of records: $count\n";
+  return \%payload;
+}
+
+sub uploadRecord{
+  # Code from Utilities/testSpace/spaceInsert   <<<
+  my $url = shift;
+  my $hashref = shift; # pass %payload by reference
+  my $method   = 'post';
+  my $timeout  = 500;
+  my $pua = PHEDEX::CLI::UserAgent->new (
+                                      URL        => $url,
+                                      FORMAT    => 'perl',
+                                      INSTANCE    => '',
+                                     );
+  my ($response,$content,$target);
+  print "Begin to connect data service.....\n" if $debug;
+  $pua->timeout($timeout) if $timeout;
+  $pua->CALL('storageinsert');
+  #$pua->CALL('auth'); # for testing authentication without writing into the database.
+  $target = $pua->target;
+  print "[DEBUG] User agent target=$target\n" if ($debug);
+  $response = $pua->$method($target,$hashref);
+  if ( $pua->response_ok($response) )
+    {
+      # HTTP call returned correctly, print contents and quit...
+      no strict 'vars';
+      $content = eval($response->content());
+      $content = $content->{PHEDEX}{STORAGEINSERT};
+      Data::Dumper->Dump([ $content ]);
+      foreach $record ( @{$content} ) {
+        print "Inserting Record:\n  ",join('  ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
+      }
+    }
+  else
+    {
+      # Something went wrong...
+      print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
+        $response->content(),"\n";
+      print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($debug); 
+      die "exiting after failure\n";
+    }
+  print  "Done!\n";
 }
 
 1;
