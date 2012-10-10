@@ -1065,6 +1065,7 @@ sub routeCost
 	REMOTE_HOPS => 0
     };
 
+    # print Dumper($links);
     # Now use Dijkstra's algorithm to compute minimum spanning tree.
     while (%todo)
     {
@@ -1088,14 +1089,15 @@ sub routeCost
 
                 my $old_rate = $$links{$from}{$to}{XFER_RATE};
                 my $new_rate = $self->get_xfer_rate($to,$from,$old_rate);
+                $$links{$from}{$to}{XFER_RATE} = $new_rate; 
  
 		my $nominal = $NOMINAL_RATE / $$links{$from}{$to}{HOPS};
 		my $latency = ($probe ? 0 : ($$links{$from}{$to}{XFER_LATENCY} || 0));
-                my $rate = ((! defined $new_rate || ($probe && $new_rate < $nominal)) ? $nominal : $new_rate);
+                #my $rate = ((! defined $new_rate || ($probe && $new_rate < $nominal)) ? $nominal : $new_rate);
 
-#		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
-#			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
-#			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
+		my $rate = ((! defined $$links{$from}{$to}{XFER_RATE}
+			     || ($probe && $$links{$from}{$to}{XFER_RATE} < $nominal))
+			    ? $nominal : $$links{$from}{$to}{XFER_RATE});
 		my $xfer = ($rate ? $sizebin / $rate : 7*86400);
 		my $total = $$paths{$from}{TOTAL_LATENCY} + $latency + $xfer;
 
@@ -1375,12 +1377,13 @@ sub get_xfer_rate
     {
       my $ext_rate = $self->{EXTERNAL_RATE_DATA}{$filename}{$from}{$to}{XFER_RATE};
       if (defined $ext_rate) {
+        $self->{EXTERNAL_RATE_DATA}{$filename}{$from}{$to}{XFER_RATE} = undef;
         $avg_ext += $ext_rate;
         $n_ext++; 
       }
     }
  
-    my $avg_rate = ($n_ext > 0) ? ( (defined $link_rate) ? (($avg_ext+$link_rate)/($n_ext+1)) : $avg_ext/$n_ext ) : $link_rate;    
+    my $avg_rate = ($n_ext > 0) ?  $avg_ext/$n_ext : $link_rate;    
 
     $Data::Dumper::Indent = 0; 
     print Dumper([$from,$to,$link_rate,$avg_ext,$avg_rate]), "\n";
