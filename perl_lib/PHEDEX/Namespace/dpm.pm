@@ -21,7 +21,8 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ );
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__,
+		       CATALOGUE => $h{CATALOGUE} );
   map { $self->{$_} = $h{$_} } keys %h;
 
 # This is where the interface-specific modules are loaded. The modules are
