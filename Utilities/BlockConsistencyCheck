@@ -47,7 +47,7 @@ use strict;
 ##H   You can use the DATASET, BLOCK, and LFNLIST options together, in
 ##H   which case the script will take both into account.
 ##H
-##H   MSSPROTOCOL is the protocol by which LFNs are converted to PFNs. By
+##H   TFCPROTOCOL is the protocol by which LFNs are converted to PFNs. By
 ##H   default, the default protocol defined by your namespace plugin is used,
 ##H   usually 'direct'.
 ##H
@@ -92,7 +92,7 @@ my (@DATASET,@BLOCK,@LFN,@BUFFER);
 my (@dataset,@block,@lfn,@buffer,@bufferIDs);
 my ($callout,$callouton,%calloutonAllowed);
 my ($data,$lfn,$lfnlist,$wide);
-my ($tfcprotocol,$mssprotocol,$destination,$tfc,$namespace,$module,$loader,$ns);
+my ($tfcprotocol,$tfc,$namespace,$module,$loader,$ns);
 my ($SQL,$incomplete_blocks,$preload);
 my $debug_me = 1;
 
@@ -105,8 +105,6 @@ my $debug_me = 1;
 	 );
 
 $verbose = $debug = $terse = $autoBlock = 0;
-$tfcprotocol = 'direct';
-$destination = 'any';
 $callouton   = '';
 %calloutonAllowed = ( failure => 1, success => 1, all => 1);
 $incomplete_blocks = 0;
@@ -119,7 +117,7 @@ GetOptions("db=s"           => \$DBCONFIG,
 	   "buffer=s@"	    => \@BUFFER,
 	   "tfc=s"	    => \$tfc,
 	   "namespace=s"    => \$namespace,
-	   "mssprotocol=s"  => \$mssprotocol,
+	   "tfcprotocol=s"  => \$tfcprotocol,
 
 	   "check=s@"	    => \@check,
 
@@ -155,11 +153,8 @@ $ns = $module->new(	VERBOSE	=> $verbose,
 			DEBUG	=> $debug,
 			PRELOAD	=> $preload,
 			CATALOGUE => $catalogue,
+			PROTOCOL => $tfcprotocol,
 			);
-
-$tfcprotocol = $ns->Protocol();
-
-if ( $mssprotocol ) { $tfcprotocol = $mssprotocol; }
 
 if ( $callouton && ! exists($calloutonAllowed{$callouton}) )
 {
@@ -366,11 +361,6 @@ foreach my $lfn ( keys %{$h{LFNs}} )
 # All TMDB lookups are done, from here on I compare with storage
 $dbh->disconnect();
 
-my %args = (
-             PROTOCOL    => 'direct',
-             DESTINATION => 'any',
-             CATALOGUE   => '/afs/cern.ch/user/w/wildish/public/COMP/SITECONF/CERN/PhEDEx/storage.xml'
-           );
 #-------------------------------------------------------------------------------
 # Get the information needed for checking...
 
