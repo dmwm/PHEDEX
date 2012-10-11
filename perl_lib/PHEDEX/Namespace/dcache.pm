@@ -40,8 +40,8 @@ sub new
     }
   }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ ,
-		       CATALOGUE => $h{CATALOGUE}
-		     );
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $h{PROTOCOL} );
   if ( $self->{PRELOAD} ) {
     $self->{ENV} = 'LD_PRELOAD=' . $self->{PRELOAD};
   }

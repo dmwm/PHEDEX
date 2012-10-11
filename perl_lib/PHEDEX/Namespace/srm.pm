@@ -33,8 +33,16 @@ sub new
   bless($self, $class);
   $self->{PROXY_CHECK} = 0;
   map { $self->{$_} = $h{$_} } keys %h;
+
+  # do not use 'direct' protocol to look up in tfc for srm requests!
+  my $protocol;
+  if ( $h{PROTOCOL} ) { $protocol =  $h{PROTOCOL}; }
+  elsif ( $self->{VERSION} != 2 ) { $protocol = 'srm'; }
+  else { $protocol = 'srmv2'; }
+  
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION},
-		       CATALOGUE => $h{CATALOGUE} );
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $protocol );
   $self->{ENV} = '';
 
   $self->SUPER::_init_commands;
@@ -42,14 +50,6 @@ sub new
 
   $self->Help if $params{HELP};
   return $self;
-}
-
-# do not use 'direct' protocol to look up in tfc for srm requests!
-sub Protocol
-{
-  my $self = shift;
-  if ( $self->{VERSION} != 2 ) { return 'srm'; }
-  return 'srmv2';
 }
 
 sub Help

@@ -33,7 +33,8 @@ sub new
     if ( exists($self->{AGENT}->{DEBUG}) )      { $self->{DEBUG}      = $self->{AGENT}->{DEBUG}; }
   }
   $self->SUPER::_init( NAMESPACE => __PACKAGE__,
-		       CATALOGUE => $h{CATALOGUE});
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $h{PROTOCOL} );
   $self->SUPER::_init_commands;
   print Dumper($self) if $self->{DEBUG};
   $self->Help if $params{HELP};

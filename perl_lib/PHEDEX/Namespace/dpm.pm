@@ -22,7 +22,8 @@ sub new
   my $self = \%params;
   bless($self, $class);
   $self->SUPER::_init( NAMESPACE => __PACKAGE__,
-		       CATALOGUE => $h{CATALOGUE} );
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $h{PROTOCOL} );
   map { $self->{$_} = $h{$_} } keys %h;
 
 # This is where the interface-specific modules are loaded. The modules are

@@ -23,8 +23,8 @@ sub new
   bless($self, $class);
   map { $self->{$_} = $h{$_} } keys %h;
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ ,
-                     CATALOGUE => $h{CATALOGUE}
-                     );
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $h{PROTOCOL} );
 
 # This is where the interface-specific modules are loaded. The modules are
 # passed a reference to this object when they are loaded/created, so they

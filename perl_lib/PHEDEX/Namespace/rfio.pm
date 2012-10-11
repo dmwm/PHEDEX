@@ -28,7 +28,8 @@ sub new
   my $self = \%params;
   bless($self, $class);
   $self->SUPER::_init( NAMESPACE => __PACKAGE__,
-		       CATALOGUE => $h{CATALOGUE});
+		       CATALOGUE => $h{CATALOGUE},
+		       PROTOCOL => $h{PROTOCOL} );
   map { $self->{$_} = $h{$_} } keys %h;
 
   $self->{ENV} = "RFIO_USE_CASTOR_V2=" . ($self->{RFIO_USE_CASTOR_V2} || '');

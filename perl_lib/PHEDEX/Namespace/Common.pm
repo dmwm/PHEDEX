@@ -100,7 +100,7 @@ sub _init
   }
 
   $self->{CATALOGUE} = $h{CATALOGUE} || PHEDEX::Core::Catalogue->new();
-  
+  $self->{PROTOCOL} = $h{PROTOCOL} || 'direct';
 }
 
 sub _init_commands
@@ -200,7 +200,11 @@ sub Command
 
 # Define the protocol to be used in looking up PFNs in the TFC. Most interfaces
 # will not need to change this, but the SRM protocol does!
-sub Protocol { return 'direct'; }
+sub Protocol
+{ 
+  my $self = shift;
+  return $self->{PROTOCOL};
+}
 
 sub _help
 {
