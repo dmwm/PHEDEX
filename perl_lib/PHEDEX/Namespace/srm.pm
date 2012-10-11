@@ -19,6 +19,7 @@ sub new
 
 # Params and options are module-specific
   %params = (
+	        VERSION         => $default_protocol_version,
 		PROXY_MARGIN	=> $default_proxy_margin,
             );
   %options = (
