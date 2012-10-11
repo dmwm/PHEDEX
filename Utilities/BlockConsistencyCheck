@@ -396,7 +396,10 @@ if ( $check{size} || $check{migration} || $check{ondisk} )
     my $sesize = $ns->size($lfn);
     if ( defined($h{SE}{$lfn}{size} = $sesize) )
     {
-      $h{SE}{$lfn}{migration} = $ns->is_migrated($lfn);
+	if ($ns->{MAP}->{is_migrated})
+	{
+	    $h{SE}{$lfn}{migration} = $ns->is_migrated($lfn);
+	}
     }
   }
 }
