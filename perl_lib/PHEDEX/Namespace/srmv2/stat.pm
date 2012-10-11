@@ -40,7 +40,7 @@ sub parse
     {
       my $size = $1;
       my $surl = $2;
-      $r->{size} = $size if $dir =~ m%$surl%;
+      $r->{size} = $size if $surl =~ m%$dir%;
       next;
     }
     if ( m%space token\(s\) :(.+)\s*$% )
