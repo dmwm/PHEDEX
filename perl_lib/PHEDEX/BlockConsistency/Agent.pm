@@ -10,7 +10,7 @@ use Cwd;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Formats;
-use PHEDEX::Core::Catalogue ( qw / dbStorageRules applyStorageRules / );
+use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::Core;
 use PHEDEX::Core::Loader;
@@ -150,23 +150,23 @@ sub doNSCheck
 {
   my ($self, $request) = @_;
   my $n_files = 0;
-  my ($ns,$loader,$cmd,$mapping);
-  my @nodes = ();
-
+  my ($ns,$loader,$cmd);
+  
+  my $node = $self->{NODES}[0];                                                                                                                                                             
+  
   $self->Dbgmsg("doNSCheck: starting") if ( $self->{DEBUG} );
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  my $cats;
-  my $nodeID = $self->{NODES_ID}{$self->{NODES}[0]};
-  $mapping = dbStorageRules( $self->{DBH}, $cats, $nodeID );
-
+  my $catalogue = PHEDEX::Core::Catalogue->new( $self->{DBH} , $node );
+  
   my $tfcprotocol = 'direct';
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
-    $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self );
+    $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self,
+						  CATALOGUE => $catalogue );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum_value'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
@@ -196,21 +196,18 @@ sub doNSCheck
   foreach my $r ( @{$request->{LFNs}} )
   {
     no strict 'refs';
-    my $pfn;
-    my $node = $self->{NODES}[0];
     my $lfn = $r->{LOGICAL_NAME};
  
-    $pfn = &applyStorageRules($mapping,$tfcprotocol,$node,'pre',$lfn,'n');
     $were_tested++;
 
-    push(@{$self->{AGENT_CACHE_LOCAL}->{entries}{$agent_reqid}}, $pfn);   # store the file that will go into cache
+    push(@{$self->{AGENT_CACHE_LOCAL}->{entries}{$agent_reqid}}, $lfn);   # store the file that will go into cache
     $self->{AGENT_CACHE_LOCAL}->{size} ++;                                # increase the local counter
 
 
     if ( $request->{TEST} eq 'size' )
     {
       $t1 = Time::HiRes::time();
-      my $size = $ns->$cmd($pfn);
+      my $size = $ns->$cmd($lfn);
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($size) && $size == $r->{FILESIZE} ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; $were_fail++;}
@@ -218,7 +215,7 @@ sub doNSCheck
     elsif ( $request->{TEST} eq 'migration' ||
 	    $request->{TEST} eq 'is_migrated' )
     {
-      my $mode = $ns->$cmd($pfn);
+      my $mode = $ns->$cmd($lfn);
       if ( defined($mode) && $mode ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; $were_fail++;}
     }
@@ -229,7 +226,7 @@ sub doNSCheck
       eval {$checksum_map=PHEDEX::Core::Formats::parseChecksums($r->{CHECKSUM});};
       if ($@) 
       { 
-	  $self->Alert("File $pfn: ",$@);
+	  $self->Alert("File $lfn: ",$@);
       }
       else
       {
@@ -243,17 +240,17 @@ sub doNSCheck
       else
       { 
 	  $r->{STATUS} = 'Indeterminate'; 
-	  $self->Dbgmsg("$pfn : no adler32 checksum in TMDB") if ( $self->{DEBUG} );
+	  $self->Dbgmsg("$lfn : no adler32 checksum in TMDB") if ( $self->{DEBUG} );
 	  next; 
       }
       $t1 = Time::HiRes::time();
-      my $adler = $ns->$cmd($pfn,$lfn,$mapping,$node);
+      my $adler = $ns->$cmd($lfn);
       if ( defined($adler) ) { $adler = hex($adler) }
       else                   { $adler = 'undefined'; }
       $dt1 += Time::HiRes::time() - $t1;
       if ( defined($adler) &&  $adler eq $chksum_value ) { $r->{STATUS} = 'OK'; $were_ok++;}
       else { $r->{STATUS} = 'Fail'; $were_fail++;
-             $self->Dbgmsg("$pfn : $chksum_value  <>  $adler") if ( $self->{DEBUG} );
+             $self->Dbgmsg("$lfn : $chksum_value  <>  $adler") if ( $self->{DEBUG} );
            }
     }
     $r->{TIME_REPORTED} = time();
@@ -338,9 +335,9 @@ sub delete_from_cache
  $self->Dbgmsg("delete_from_cache: Flush block $blockName from the cache, remove $nfiles_in_block  files") if $self->{DEBUG};
  $self->{AGENT_CACHE_LOCAL}->{size} -= $nfiles_in_block;
 
- foreach my $pfn_in_cache ( @{$self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}} )
+ foreach my $lfn_in_cache ( @{$self->{AGENT_CACHE_LOCAL}->{entries}{$blockName}} )
  {
-   if (exists ($self->{AGENT_CACHE_NAMESPACE}->{$pfn_in_cache}) ) { delete $self->{AGENT_CACHE_NAMESPACE}->{$pfn_in_cache}; }
+   if (exists ($self->{AGENT_CACHE_NAMESPACE}->{$lfn_in_cache}) ) { delete $self->{AGENT_CACHE_NAMESPACE}->{$lfn_in_cache}; }
  }
 
  delete $self->{AGENT_CACHE_LOCAL}->{entries}{$blockName};
