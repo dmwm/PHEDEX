@@ -161,23 +161,21 @@ sub doNSCheck
 
   my $catalogue = PHEDEX::Core::Catalogue->new( $self->{DBH} , $node );
   
-  my $tfcprotocol = 'direct';
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self,
-						  CATALOGUE => $catalogue );
+						  CATALOGUE => $catalogue,
+						  PROTOCOL => $self->{PROTOCOL} );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum_value'; }
     if ( $request->{TEST} eq 'migration' ) { $cmd = 'is_migrated'; }
-    $tfcprotocol = $ns->Protocol();
   }
   else
   {
     die "No Namespace provided\n"; 
   }
-  if ( $self->{PROTOCOL} ) { $tfcprotocol = $self->{PROTOCOL}; }
-
+  
   $self->Dbgmsg("doNSCheck: Request ",$request->{ID}) if ( $self->{DEBUG} );
   $n_files = $request->{N_FILES};
   my $t = time;
