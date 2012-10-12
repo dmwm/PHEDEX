@@ -48,7 +48,7 @@ sub lfn2pfn {
     my ( $self, $input, $protocol, $dest, $custodial) = @_; # Do we need custodiality here? 
     if (exists $self->{'DUMMY'}) {return $input};
     if (exists $self->{'DBH'}) {
-	my $cats = {};
+	my $cats = $self->{'CATS'} || {};
 	my $mapping = &dbStorageRules( $self->{'DBH'}, $cats, $self->{'NODE_ID'});
 	return &applyStorageRules($mapping,$protocol,$dest,'pre',$input,$custodial);
     }
