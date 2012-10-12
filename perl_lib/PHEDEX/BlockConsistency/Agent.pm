@@ -50,6 +50,7 @@ sub new
 
   $self->{NAMESPACE} =~ s%['"]%%g if $self->{NAMESPACE};
 
+ 
 # Don't set this below 5 minutes, since it is the time interval you will be accessing the DB 
   if ( $self->{WAITTIME} < 300 ) { $self->{WAITTIME} = 300 + rand(15); }
   $self->{TIME_QUEUE_FETCH} = 0;
@@ -152,20 +153,21 @@ sub doNSCheck
   my $n_files = 0;
   my ($ns,$loader,$cmd);
   
-  my $node = $self->{NODES}[0];                                                                                                                                                             
-  
   $self->Dbgmsg("doNSCheck: starting") if ( $self->{DEBUG} );
 
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  my $catalogue = PHEDEX::Core::Catalogue->new( $self->{DBH} , $node );
+  # Load the catalogue only on the first execution
+  # Note - if the agent is running for multiple nodes, it will use only the catalogue of the first one
+  $self->{CATALOGUE} = PHEDEX::Core::Catalogue->new( $self->{DBH} , $self->{NODES}[0] )
+      unless $self->{CATALOGUE};
   
   if ( $self->{NAMESPACE} )
   {
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace' );
     $ns = $loader->Load($self->{NAMESPACE})->new( AGENT => $self,
-						  CATALOGUE => $catalogue,
+						  CATALOGUE => $self->{CATALOGUE},
 						  PROTOCOL => $self->{PROTOCOL} );
     if ( $request->{TEST} eq 'size' )      { $cmd = 'size'; }
     if ( $request->{TEST} eq 'cksum' )     { $cmd = 'checksum_value'; }
@@ -693,7 +695,6 @@ sub setRequestState
 # Change the state of a request in the database
   my ($self, $request, $state) = @_;
   my ($sql,%p,$q);
-  my (@nodes);
   return unless defined $request->{ID};
 
   $self->Logmsg("Request=$request->{ID}, state=$state");
