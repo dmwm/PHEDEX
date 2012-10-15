@@ -44,7 +44,7 @@ sub parse
       my $size = $5;
       $r->{locality} = $6;
       my $surl = $7;
-      $r->{size} = $size if $dir =~ m%$surl%;
+      $r->{size} = $size if $surl =~ m%$dir%;
       next;
     }
     if ( m%^[\s\*]*Checksum:\s+(\S+)\s+\((\S+)\)\s*$% )
