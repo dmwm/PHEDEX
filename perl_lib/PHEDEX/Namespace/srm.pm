@@ -37,7 +37,7 @@ sub new
   # do not use 'direct' protocol to look up in tfc for srm requests!
   my $protocol;
   if ( $h{PROTOCOL} ) { $protocol =  $h{PROTOCOL}; }
-  elsif ( $self->{VERSION} != 2 ) { $protocol = 'srm'; }
+  elsif ( $self->{VERSION} !~ /2/ ) { $protocol = 'srm'; }
   else { $protocol = 'srmv2'; }
   
   $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION},
