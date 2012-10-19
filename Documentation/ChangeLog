@@ -9,6 +9,7 @@ Changes for Schema and DB Config
 Changes for central agents
   - BlockAllocator, FileFump, InfoStatesClean: print debug statistics for latency SQLs
   - FileRouter: fix alert in BlockArrive SQL preventing update of routing stats tables (Sav #96911)
+  - FileRouter: add support for reading link performance stats from external sources
   - BlockAllocator: Don't wait for block replica creation and activation before creating
 	block latency entry (to fix skipping file transfers in latency records form some blocks)
   - RequestAllocator: fix missing subscriptions for re-evaluated requests (Sav #97148)
@@ -22,6 +23,8 @@ Changes for site agents
   - FileRemove: enable creation of dropbox directories, allow update of config file on a reload
   - FileDownload: remove debugging hooks from transfer Manager
   - BlockDownloadVerify: fix warning for undefined checksum value
+  - BlockDownloadVerify: keep TFC rules from DB in cache
+  - DropTMDBPublisher: DEPRECATED
 
 Changes for Namespace framework
   - Framework: pass LFN as argument instead of PFN in all namespace plugins, performing
@@ -29,7 +32,11 @@ Changes for Namespace framework
   - Framework: move all common options (VERBOSE etc.) from plugins to base class,
 	providing functions to set/get the options in the plugins. Update namespaces accordingly.
   - Framework: Remove obsolete Namespace.pm
+  - Framework: add base Cache.pm class
+  - Framework: pass CATALOGUE and PROTOCOL to plugins in constructor
   - dcache Namespace: add storage accounting functions to dcache namespace
+  - srm Namespace: fix unrecognized permissions
+  - srm Namespace: add support for lcg-util backend, activated with --use_lcgutil
 
 Changes for operator tools
   - Add PHEDEX/Utilities/GroupNew to create new user_groups
