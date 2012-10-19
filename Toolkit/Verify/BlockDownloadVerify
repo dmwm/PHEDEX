@@ -10,7 +10,7 @@ sub usage
     my $interface=shift;
     # Load Namespace module to access information about plugins:
     $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
-					 REJECT    => [ qw / common namespace / ] );
+					 REJECT    => [ qw / common namespace cache spacecountcommon / ] );
     if ($interface) {
 	$loader->ModuleHelp($interface);
     }else{
@@ -61,6 +61,7 @@ EOF
              "accept=s"     => sub { push(@{$args{ACCEPT_NODES}}, split(/,/, $_[1])) },
 	     "help|h"	    => \$help,
 	     "use_srm"      => \$args{USE_SRM},
+	     "use_lcgutil!" => \$args{USE_LCGUTIL},
 	     "use_rfdir"    => \$args{RFIO_USES_RFDIR},
 	     "preload=s"    => \$args{PRELOAD},
 	     "queue_length=i" => \$args{QUEUE_LENGTH},
