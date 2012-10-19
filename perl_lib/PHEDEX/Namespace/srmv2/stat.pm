@@ -31,7 +31,7 @@ sub parse
 # Parse the stat output. Each file is cached as it is seen. Returns the last
 # file cached, which is only useful in NOCACHE mode!
   my ($self,$ns,$r,$dir) = @_;
-  
+ 
   foreach ( @{$r->{STDOUT}} )
   {
     my (@t,%h,$M,$d,$y,$h,$m,$s);
@@ -62,6 +62,8 @@ sub parse
       if    ( $perm eq   '' ) { $r->{access} = '---'; }
       elsif ( $perm eq  'R' ) { $r->{access} = 'r--'; }
       elsif ( $perm eq 'RW' ) { $r->{access} = 'rw-'; }
+      elsif ( $perm eq 'RX' ) { $r->{access} = 'r-x'; }
+      elsif ( $perm eq 'RWX') { $r->{access} = 'rwx'; }
       else { die "Don't understand user-permission $perm\n"; }
       next;
     }
@@ -72,6 +74,8 @@ sub parse
       if    ( $perm eq   '' ) { $r->{access} .= '---'; }
       elsif ( $perm eq  'R' ) { $r->{access} .= 'r--'; }
       elsif ( $perm eq 'RW' ) { $r->{access} .= 'rw-'; }
+      elsif ( $perm eq 'RX' ) { $r->{access} .= 'r-x'; } 
+      elsif ( $perm eq 'RWX') { $r->{access} .= 'rwx'; }
       else { die "Don't understand group-permission $perm\n"; }
       next;
     }
@@ -81,6 +85,8 @@ sub parse
       if    ( $perm eq   '' ) { $r->{access} .= '---'; }
       elsif ( $perm eq  'R' ) { $r->{access} .= 'r--'; }
       elsif ( $perm eq 'RW' ) { $r->{access} .= 'rw-'; }
+      elsif ( $perm eq 'RX' ) { $r->{access} .= 'r-x'; }
+      elsif ( $perm eq 'RWX') { $r->{access} .= 'rwx'; }
       else { die "Don't understand world-permission $perm\n"; }
       next;
     }
