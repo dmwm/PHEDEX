@@ -24,7 +24,7 @@ sub new
             );
   %options = (
 		'version=s'	=> \$params{VERSION},
- 	        'use_lcgutil'   => \$params{USE_LCGUTIL},
+ 	        'use_lcgutil!'  => \$params{USE_LCGUTIL},
 		'proxy_margin=i'=> \$params{PROXY_MARGIN},
              );
   PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
