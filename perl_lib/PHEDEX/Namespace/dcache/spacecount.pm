@@ -8,7 +8,6 @@ use warnings;
 use Time::Local;
 use Time::localtime;
 use File::Basename;
-use PHEDEX::CLI::UserAgent;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Namespace::SpaceCountCommon;

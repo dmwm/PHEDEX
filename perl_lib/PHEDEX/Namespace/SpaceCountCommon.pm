@@ -1,6 +1,6 @@
 package PHEDEX::Namespace::SpaceCountCommon;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (dirlevel findLevel convertToUnixTime createRecord uploadRecord);
+our @EXPORT = qw (dirlevel findLevel convertToUnixTime createRecord);
 
 use Time::Local;
 use Time::localtime;
@@ -14,7 +14,6 @@ use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
 our %options = (
               "dump=s" => undef,
               "node=s" => undef,
-              "url=s"  => 'https://cmsweb-testbed.cern.ch/dmwmmon/datasvc',
               "level=i" => 6,
               "force"   => 0,
              );
@@ -87,47 +86,6 @@ sub createRecord {
   }
   print "total number of records: $count\n";
   return \%payload;
-}
-
-sub uploadRecord{
-  # Code from Utilities/testSpace/spaceInsert   <<<
-  my $url = shift;
-  my $hashref = shift; # pass %payload by reference
-  my $method   = 'post';
-  my $timeout  = 500;
-  my $pua = PHEDEX::CLI::UserAgent->new (
-                                      URL        => $url,
-                                      FORMAT    => 'perl',
-                                      INSTANCE    => '',
-                                     );
-  my ($response,$content,$target);
-  print "Begin to connect data service.....\n" if $debug;
-  $pua->timeout($timeout) if $timeout;
-  $pua->CALL('storageinsert');
-  #$pua->CALL('auth'); # for testing authentication without writing into the database.
-  $target = $pua->target;
-  print "[DEBUG] User agent target=$target\n" if ($debug);
-  $response = $pua->$method($target,$hashref);
-  if ( $pua->response_ok($response) )
-    {
-      # HTTP call returned correctly, print contents and quit...
-      no strict 'vars';
-      $content = eval($response->content());
-      $content = $content->{PHEDEX}{STORAGEINSERT};
-      Data::Dumper->Dump([ $content ]);
-      foreach $record ( @{$content} ) {
-        print "Inserting Record:\n  ",join('  ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
-      }
-    }
-  else
-    {
-      # Something went wrong...
-      print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
-        $response->content(),"\n";
-      print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($debug); 
-      die "exiting after failure\n";
-    }
-  print  "Done!\n";
 }
 
 1;
