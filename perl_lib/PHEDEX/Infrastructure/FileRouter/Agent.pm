@@ -1385,9 +1385,9 @@ sub get_xfer_rate
  
     my $avg_rate = ($n_ext > 0) ?  $avg_ext/$n_ext : $link_rate;    
 
-    $Data::Dumper::Indent = 0; 
-    print Dumper([$from,$to,$link_rate,$avg_ext,$avg_rate]), "\n";
-    $Data::Dumper::Indent = 3;
+    #$Data::Dumper::Indent = 0; 
+    #print Dumper([$from,$to,$link_rate,$avg_ext,$avg_rate]), "\n";
+    #$Data::Dumper::Indent = 3;
  
     return $avg_rate;
 }
