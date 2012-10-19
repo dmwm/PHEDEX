@@ -24,6 +24,7 @@ sub new
             );
   %options = (
 		'version=s'	=> \$params{VERSION},
+ 	        'use_lcgutil'   => \$params{USE_LCGUTIL},
 		'proxy_margin=i'=> \$params{PROXY_MARGIN},
              );
   PHEDEX::Namespace::Common::getCommonOptions(\%options,\%params);
@@ -33,14 +34,21 @@ sub new
   bless($self, $class);
   $self->{PROXY_CHECK} = 0;
   map { $self->{$_} = $h{$_} } keys %h;
-
+  if ( exists($self->{AGENT})) {
+      if ( exists($self->{AGENT}->{USE_LCGUTIL})) {
+	  $self->{USE_LCGUTIL} = $self->{AGENT}->{USE_LCGUTIL};
+      }
+  }
+	   
   # do not use 'direct' protocol to look up in tfc for srm requests!
   my $protocol;
   if ( $h{PROTOCOL} ) { $protocol =  $h{PROTOCOL}; }
   elsif ( $self->{VERSION} !~ /2/ ) { $protocol = 'srm'; }
   else { $protocol = 'srmv2'; }
-  
-  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION},
+
+  my $uselcg=( ($self->{USE_LCGUTIL}) ? 'lcg' : '' );
+
+  $self->SUPER::_init( NAMESPACE => __PACKAGE__ . 'v' . $self->{VERSION} . $uselcg,
 		       CATALOGUE => $h{CATALOGUE},
 		       PROTOCOL => $protocol );
   $self->{ENV} = '';
@@ -64,6 +72,7 @@ sub Help
  as well as these:
  --nocache      to disable the caching mechanism
  --version      specifies the protocol version. Default='$default_protocol_version'
+ --use_lcgutil  use lcg-util client instead of srmclient (default is no)
  --proxy_margin require a proxy to be valid for at least this long or die.
 	        Default=$default_proxy_margin
 
