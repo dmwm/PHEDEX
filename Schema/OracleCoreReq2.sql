@@ -237,7 +237,7 @@ create index ix_req2_permission_domain
 
 insert into t_req2_permission (id, rule, role, domain)
   select seq_req2_permission.nextval, rr.id, ar.id, ad.id
-	from t_req2_rule rr, t_adm2_role ar, t_adm2_domain ad
+	from t_adm2_role ar, t_adm2_domain ad, t_req2_rule rr
 	join t_req2_transition rt on rt.id=rr.transition
 	join t_req2_type rtp on rtp.id=rr.type
 	join t_req2_state rtf on rt.from_state=rtf.id
