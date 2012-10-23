@@ -238,3 +238,34 @@ insert into t_req2_permission (id, rule, role)
 	where rtp.name='xfer' and
 	rtf.name='created' and rtt.name='approved'
 	and ar.role='Data Manager' and ar.domain='group';
+
+/* Request state change action log */
+
+create sequence seq_req2_decision;
+
+create table t_req2_decision
+  (id			integer		not null,
+   request		integer		not null,
+   to_state		integer		not null, -- new request state
+   decided_by		integer		not null, -- who decided
+   time_decided		float		not null,
+   --
+   constraint pk_req2_decision
+     primary key (id),
+   --
+   constraint fk_req2_request
+     foreign key (request) references t_req2_request (id),
+   --
+   constraint fk_req2_decision
+     foreign key (to_state) references t_req2_state (id),
+   --
+   constraint fk_req2_decision_by
+     foreign key (decided_by) references t_adm_client (id),
+);
+
+create index ix_req2_decision_request
+  on t_req2_decision (request);
+create index ix_req2_decision_state
+  on t_req2_decision (state);
+create index ix_req2_decision_by
+  on t_req2_decision (decided_by);
