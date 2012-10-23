@@ -206,22 +206,18 @@ create table t_req2_permission
   (id			integer		not null,
    rule			integer		not null,
    role			integer		not null,
-   domain		integer		not null,
    --
    constraint pk_req2_permission
      primary key (id),
    --
    constraint uk_req2_permission
-     unique (rule, role, domain),
+     unique (rule, role),
    --
    constraint fk_req2_permission_rule
      foreign key (rule) references t_req2_rule (id),
    --
    constraint fk_req2_permission_role
-     foreign key (role) references t_adm2_role (id),
-   --
-   constraint fk_req2_permission_domain
-     foreign key (domain) references t_adm2_domain (id)
+     foreign key (role) references t_adm2_role (id)
 );   
 
 create index ix_req2_permission_rule
@@ -230,18 +226,15 @@ create index ix_req2_permission_rule
 create index ix_req2_permission_role
   on t_req2_permission (role);
 
-create index ix_req2_permission_domain
-  on t_req2_permission (domain);
-
 /* Add some transition rules */
 
-insert into t_req2_permission (id, rule, role, domain)
-  select seq_req2_permission.nextval, rr.id, ar.id, ad.id
-	from t_adm2_role ar, t_adm2_domain ad, t_req2_rule rr
+insert into t_req2_permission (id, rule, role)
+  select seq_req2_permission.nextval, rr.id, ar.id
+	from t_adm2_role ar, t_req2_rule rr
 	join t_req2_transition rt on rt.id=rr.transition
 	join t_req2_type rtp on rtp.id=rr.type
 	join t_req2_state rtf on rt.from_state=rtf.id
 	join t_req2_state rtt on rt.to_state=rtt.id
 	where rtp.name='xfer' and
 	rtf.name='created' and rtt.name='approved'
-	and ar.name='Data Manager' and ad.name='phedex';
+	and ar.role='Data Manager' and ar.domain='group';
