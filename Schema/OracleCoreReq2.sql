@@ -24,6 +24,39 @@ insert into t_req2_type (id, name)
 insert into t_req2_type (id, name)
    values (seq_req2_type.nextval, 'consistency');
 
+
+-- 
+/* Table t_req2_state of states in the request state machine */
+
+create sequence seq_req2_state;
+
+create table t_req2_state
+  (id			integer		not null,
+   name			varchar(100)	not null,
+   --
+   constraint pk_req2_state
+     primary key (id),
+   --
+   constraint uk_req2_state_name
+     unique (name)
+);
+
+/* Fixed data for states */
+insert into t_req2_state (id, name)
+  values (seq_req2_state.nextval, 'created');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'suspended');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'partiallyapproved');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'approved');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'denied');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'cancelled');
+insert into t_req2_state (id, name)
+   values (seq_req2_state.nextval, 'done');
+
 /* Main request table */
 
 create sequence seq_req2_request;
@@ -57,38 +90,6 @@ create index ix_req2_request_type
 
 create index ix_req2_request_state
   on t_req2_request (state);
-
--- 
-/* Table t_req2_state of states in the request state machine */
-
-create sequence seq_req2_state;
-
-create table t_req2_state
-  (id			integer		not null,
-   name			varchar(100)	not null,
-   --
-   constraint pk_req2_state
-     primary key (id),
-   --
-   constraint uk_req2_state_name
-     unique (name)
-);
-
-/* Fixed data for states */
-insert into t_req2_state (id, name)
-  values (seq_req2_state.nextval, 'created');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'suspended');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'partiallyapproved');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'approved');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'denied');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'cancelled');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'done');
 
 --
 
@@ -220,7 +221,7 @@ create table t_req2_permission
      foreign key (role) references t_adm2_role (id),
    --
    constraint fk_req2_permission_domain
-     foreign key (domain) references t_adm2_domain (id),
+     foreign key (domain) references t_adm2_domain (id)
 );   
 
 create index ix_req2_permission_rule
@@ -236,8 +237,7 @@ create index ix_req2_permission_domain
 
 insert into t_req2_permission (id, rule, role, domain)
   select seq_req2_permission.nextval, rr.id, ar.id, ad.id
-	from t_req2_rule rr, t_adm2_role ar,
-	     t_adm2_domain ad
+	from t_req2_rule rr, t_adm2_role ar, t_adm2_domain ad
 	join t_req2_transition rt on rt.id=rr.transition
 	join t_req2_type rtp on rtp.id=rr.type
 	join t_req2_state rtf on rt.from_state=rtf.id
