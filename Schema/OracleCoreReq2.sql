@@ -1,5 +1,5 @@
 ----------------------------------------------------------------------
--- Prototype of new request schema for Oct2011 CodeFest
+-- Prototype of new request schema for Oct2012 CodeFest
 
 create sequence seq_req2_type;
 
@@ -26,6 +26,48 @@ insert into t_req2_type (id, name)
 
 
 -- 
+/* Table t_req2_actions of possible user actions on the requests 
+   The code should trigger transitions to the desired_state if appropriate
+   NOTE: for 'suspend', 'deny', 'cancel' the appropriate transition is
+	 triggered immediately, while for 'approve' actions the transition
+	 is triggered only if all persons in the approval list have also approved
+*/
+
+create sequence seq_req2_action;
+
+create table t_req2_action
+  (id			integer		not null,
+   name			varchar(100)	not null,
+   desired_state	integer		not null,
+   --
+   constraint pk_req2_action
+     primary key (id),
+   --
+   constraint fk_req2_action state
+     foreign key (desired_state) references t_req2_state (id),
+   --
+   constraint uk_req2_action_name
+     unique (name)
+);
+
+create index ix_req2_action_state
+  on t_req2_action (desired_state);
+
+/* Fixed data for actions */
+insert into t_req2_action (id, name, desired_state)
+   select (seq_req2_action.nextval, 'suspend',
+	   id from t_req2_state where name='suspended');
+insert into t_req2_action (id, name, desired_state)
+   select (seq_req2_action.nextval, 'approve',
+	   id from t_req2_state where name='approved');
+insert into t_req2_action (id, name, desired_state)
+   select (seq_req2_action.nextval, 'suspend',
+	   id from t_req2_state where name='suspended');
+insert into t_req2_action (id, name, desired_state)
+   select (seq_req2_action.nextval, 'deny',
+	   id from t_req2_state where name='denied');
+
+-- 
 /* Table t_req2_state of states in the request state machine */
 
 create sequence seq_req2_state;
@@ -46,8 +88,6 @@ insert into t_req2_state (id, name)
   values (seq_req2_state.nextval, 'created');
 insert into t_req2_state (id, name)
    values (seq_req2_state.nextval, 'suspended');
-insert into t_req2_state (id, name)
-   values (seq_req2_state.nextval, 'partiallyapproved');
 insert into t_req2_state (id, name)
    values (seq_req2_state.nextval, 'approved');
 insert into t_req2_state (id, name)
