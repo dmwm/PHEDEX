@@ -299,7 +299,7 @@ create table t_req2_comments
      foreign key (request) references t_req_request (id)
      on delete cascade,
    --
-   constraint fk_req_comments_by
+   constraint fk_req2_comments_by
      foreign key (comments_by) references t_adm_client (id)
 );
 
