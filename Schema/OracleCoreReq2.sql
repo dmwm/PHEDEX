@@ -1,5 +1,6 @@
 ----------------------------------------------------------------------
 -- Prototype of new request schema for Oct2012 CodeFest
+-- FIXME EVERYWHERE: REVIEW ON DELETE TRIGGERS FOR FOREIGN KEYS
 
 create sequence seq_req2_type;
 
@@ -96,42 +97,7 @@ insert into t_req2_action (id, name, desired_state)
    select seq_req2_action.nextval, 'deny',
 	   id from t_req2_state where name='denied';
 
-/* Main request table */
-
-create sequence seq_req2_request;
-
-create table t_req2_request
-  (id			integer		not null,
-   type			integer		not null,
-   state		integer		not null,
-   created_by		integer		not null,  -- who created the request
-   time_create		float		not null,
-   time_end		float			,  -- time when the request reached a terminal state, after which the request can be cleaned up
-   --
-   constraint pk_req2_request
-     primary key (id),
-   --
-   constraint fk_req2_request_type
-     foreign key (type) references t_req2_type (id),
-   --
-   constraint fk_req2_request_state
-     foreign key (state) references t_req2_state (id),
-   --
-   constraint fk_req2_request_created_by
-     foreign key (created_by) references t_adm_client (id)
-);
-
-create index ix_req2_request_by
-  on t_req2_request (created_by);
-
-create index ix_req2_request_type
-  on t_req2_request (type);
-
-create index ix_req2_request_state
-  on t_req2_request (state);
-
---
-
+---------------------------------------------------------
 /* t_req2_transition table of allowed state changes in the
    request finite state machine */
 
@@ -244,39 +210,75 @@ create sequence seq_req2_permission;
 create table t_req2_permission
   (id			integer		not null,
    rule			integer		not null,
-   role			integer		not null,
+   ability		integer		not null,
    --
    constraint pk_req2_permission
      primary key (id),
    --
    constraint uk_req2_permission
-     unique (rule, role),
+     unique (rule, ability),
    --
    constraint fk_req2_permission_rule
      foreign key (rule) references t_req2_rule (id),
    --
    constraint fk_req2_permission_role
-     foreign key (role) references t_adm2_role (id)
+     foreign key (ability) references t_adm2_ability (id)
 );   
 
 create index ix_req2_permission_rule
   on t_req2_permission (rule);
 
-create index ix_req2_permission_role
-  on t_req2_permission (role);
+create index ix_req2_permission_ability
+  on t_req2_permission (ability);
 
 /* Add some transition rules */
 
-insert into t_req2_permission (id, rule, role)
-  select seq_req2_permission.nextval, rr.id, ar.id
-	from t_adm2_role ar, t_req2_rule rr
+insert into t_req2_permission (id, rule, ability)
+  select seq_req2_permission.nextval, rr.id, ab.id
+	from t_adm2_ability ab, t_req2_rule rr
 	join t_req2_transition rt on rt.id=rr.transition
 	join t_req2_type rtp on rtp.id=rr.type
 	join t_req2_state rtf on rt.from_state=rtf.id
 	join t_req2_state rtt on rt.to_state=rtt.id
 	where rtp.name='xfer' and
 	rtf.name='created' and rtt.name='approved'
-	and ar.role='Data Manager' and ar.domain='group';
+	and ab.name='subscribe';
+
+---------------------------------------------------------
+
+/* Main request table */
+
+create sequence seq_req2_request;
+
+create table t_req2_request
+  (id			integer		not null,
+   type			integer		not null,
+   state		integer		not null,
+   created_by		integer		not null,  -- who created the request
+   time_create		float		not null,
+   time_end		float			,  -- time when the request reached a terminal state, after which the request can be cleaned up
+   --
+   constraint pk_req2_request
+     primary key (id),
+   --
+   constraint fk_req2_request_type
+     foreign key (type) references t_req2_type (id),
+   --
+   constraint fk_req2_request_state
+     foreign key (state) references t_req2_state (id),
+   --
+   constraint fk_req2_request_created_by
+     foreign key (created_by) references t_adm_client (id)
+);
+
+create index ix_req2_request_by
+  on t_req2_request (created_by);
+
+create index ix_req2_request_type
+  on t_req2_request (type);
+
+create index ix_req2_request_state
+  on t_req2_request (state);
 
 -------------------------------------------------------
 /* Table to log arbitrary comments by users */
@@ -361,3 +363,9 @@ create index ix_req2_action_log_transition
 create index ix_req2_action_log_comments
   on t_req2_action_log (comments);
 
+----------------------------------------------------------
+/* Table with the list of roles who are required to approve the
+request before we trigger the transtion to the 'approved' state
+The code should check the entries for the request in t_req2_action_log
+and only trigger the transtion to 'approved' if each and every role in 
+t_req2_approver belongs to at least one person */
