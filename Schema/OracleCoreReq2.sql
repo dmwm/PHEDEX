@@ -364,8 +364,73 @@ create index ix_req2_action_log_comments
   on t_req2_action_log (comments);
 
 ----------------------------------------------------------
-/* Table with the list of roles who are required to approve the
-request before we trigger the transtion to the 'approved' state
-The code should check the entries for the request in t_req2_action_log
-and only trigger the transtion to 'approved' if each and every role in 
-t_req2_approver belongs to at least one person */
+/* Table with the template map of abilities which are required to approve a
+certain request type before we trigger the transtion to the 'approved' state */
+
+create sequence seq_req2_approval_map;
+
+create table t_req2_approval_map
+  (id			integer		not null,
+   request_type		integer		not null,
+   ability		integer		not null,
+   --
+   constraint pk_req2_approval_map
+     primary key (id),
+   --
+   constraint fk_req2_approval_map_type
+     foreign key (request_type) references t_req2_type (id),
+   --
+   constraint fk_req2_approval_map_ab
+     foreign key (ability) references t_adm2_ability (id),
+   --
+   constraint uk_req2_approval_map_type_ab
+     unique (request_type, ability)
+);
+
+create index ix_req2_approval_map_type
+  on t_req2_approval_map (request_type);
+
+create index ix_req2_approval_map_ab
+  on t_req2_approval_map (ability);
+
+----------------------------------------------------------
+/* Table with the map of abilities which are required to approve a
+specific instance of a request type, with the link to the approval
+action log. This map may be dynamically increased,
+adding additional abilities to the base template map if we want to
+involve more people in the approval process.
+When all 
+request before we trigger the transtion to the 'approved' state */
+
+create sequence seq_req2_approval_map_instance;
+
+create table t_req2_approval_map_instance
+  (id			integer		not null,
+   request		integer		not null, -- the request ID
+   ability		integer		not null,
+   approval_log		integer			,
+   --
+   constraint pk_req2_approval_map_instance
+     primary key (id),
+   --
+   constraint fk_req2_approval_map_inst_req
+     foreign key (request) references t_req2_request (id),
+   --
+   constraint fk_req2_approval_map_inst_ab
+     foreign key (ability) references t_adm2_ability (id),
+   --
+   constraint fk_req2_approval_map_inst_log
+     foreign key (approval_log) references t_req2_action_log (id),
+   --
+   constraint uk_req2_approval_map_inst
+     unique (request, ability)
+);
+
+create index ix_req2_approval_map_inst_req
+  on t_req2_approval_map_instance (request);
+
+create index ix_req2_approval_map_inst_ab
+  on t_req2_approval_map_instance (ability);
+
+create index ix_req2_approval_map_inst_log
+  on t_req2_approval_map_instance (approval_log);
