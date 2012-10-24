@@ -278,33 +278,54 @@ insert into t_req2_permission (id, rule, role)
 	rtf.name='created' and rtt.name='approved'
 	and ar.role='Data Manager' and ar.domain='group';
 
-/* Request state change action log */
+/* Request state change action log
+   The code should trigger transitions to the desired_state if appropriate
+   NOTE: for 'suspended', 'denied', 'cancelled' desired_state, the appropriate transition is
+	 triggered immediately, while for the 'approved' desired_state the transition
+	 is triggered if and only if all persons in the approval list have approved
+   FIXME: need to create comments table before defining column here...
+*/
 
-create sequence seq_req2_decision;
 
-create table t_req2_decision
+create sequence seq_req2_action_log;
+
+create table t_req2_action_log
   (id			integer		not null,
    request		integer		not null,
-   to_state		integer		not null, -- new request state
+   desired_state	integer		not null, -- new desired state for the request
+   transition		integer			, -- transition triggered by the action, if any. See notes for details.
    decided_by		integer		not null, -- who decided
    time_decided		float		not null,
+   comments		integer			, -- link to the comments logged at action time, if any
    --
-   constraint pk_req2_decision
+   constraint pk_req2_action_log
      primary key (id),
    --
-   constraint fk_req2_request
+   constraint fk_req2_action_log_request
      foreign key (request) references t_req2_request (id),
    --
-   constraint fk_req2_decision
-     foreign key (to_state) references t_req2_state (id),
+   constraint fk_req2_action_log_state
+     foreign key (desired_state) references t_req2_state (id),
    --
-   constraint fk_req2_decision_by
-     foreign key (decided_by) references t_adm_client (id),
+   constraint fk_req2_action_log_transition
+     foreign key (transition) references t_req2_transition (id),
+   --
+   constraint fk_req2_action_log_by
+     foreign key (decided_by) references t_adm_client (id)/*,
+   --
+   constraint fk_req2_action_log_comments
+     foreign key (comments) references t_req2_comments (id)*/
 );
 
-create index ix_req2_decision_request
-  on t_req2_decision (request);
-create index ix_req2_decision_state
-  on t_req2_decision (state);
-create index ix_req2_decision_by
-  on t_req2_decision (decided_by);
+create index ix_req2_action_log_request
+  on t_req2_action_log (request);
+create index ix_req2_action_log_state
+  on t_req2_action_log (desired_state);
+create index ix_req2_action_log_transition
+  on t_req2_action_log (transition);
+create index ix_req2_action_log_by
+  on t_req2_action_log (decided_by);
+/*
+create index ix_req2_action_log_comments
+  on t_req2_action_log (comments);
+*/
