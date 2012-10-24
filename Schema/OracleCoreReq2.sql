@@ -278,6 +278,38 @@ insert into t_req2_permission (id, rule, role)
 	rtf.name='created' and rtt.name='approved'
 	and ar.role='Data Manager' and ar.domain='group';
 
+-------------------------------------------------------
+/* Table to log arbitrary comments by users */
+/* Note "comment" is an Oracle reserved word */
+
+
+create sequence seq_req2_comments;
+
+create table t_req2_comments
+  (id			integer		not null,
+   request		integer		not null,
+   comments_by		integer		not null,
+   comments		varchar (4000)	not null,
+   time_comments	integer		not null,
+   --
+   constraint pk_req2_comments
+     primary key (id),
+   --
+   constraint fk_req2_comments_request
+     foreign key (request) references t_req_request (id)
+     on delete cascade,
+   --
+   constraint fk_req_comments_by
+     foreign key (comments_by) references t_adm_client (id)
+);
+
+create index ix_req2_comments_request
+  on t_req2_comments (request);
+create index ix_req2_comments_by
+  on t_req2_comments (comments_by);
+
+--------------------------------------------------------
+
 /* Request state change action log
    The code should trigger transitions to the desired_state if appropriate
    NOTE: for 'suspended', 'denied', 'cancelled' desired_state, the appropriate transition is
@@ -293,9 +325,9 @@ create table t_req2_action_log
   (id			integer		not null,
    request		integer		not null,
    desired_state	integer		not null, -- new desired state for the request
-   transition		integer			, -- transition triggered by the action, if any. See notes for details.
    decided_by		integer		not null, -- who decided
    time_decided		float		not null,
+   transition		integer			, -- transition triggered by the action, if any. See notes for details.
    comments		integer			, -- link to the comments logged at action time, if any
    --
    constraint pk_req2_action_log
@@ -307,25 +339,25 @@ create table t_req2_action_log
    constraint fk_req2_action_log_state
      foreign key (desired_state) references t_req2_state (id),
    --
+   constraint fk_req2_action_log_by
+     foreign key (decided_by) references t_adm_client (id),
+   --
    constraint fk_req2_action_log_transition
      foreign key (transition) references t_req2_transition (id),
    --
-   constraint fk_req2_action_log_by
-     foreign key (decided_by) references t_adm_client (id)/*,
-   --
    constraint fk_req2_action_log_comments
-     foreign key (comments) references t_req2_comments (id)*/
+     foreign key (comments) references t_req2_comments (id)
+     on delete set null
 );
 
 create index ix_req2_action_log_request
   on t_req2_action_log (request);
 create index ix_req2_action_log_state
   on t_req2_action_log (desired_state);
-create index ix_req2_action_log_transition
-  on t_req2_action_log (transition);
 create index ix_req2_action_log_by
   on t_req2_action_log (decided_by);
-/*
+create index ix_req2_action_log_transition
+  on t_req2_action_log (transition);
 create index ix_req2_action_log_comments
   on t_req2_action_log (comments);
-*/
+
