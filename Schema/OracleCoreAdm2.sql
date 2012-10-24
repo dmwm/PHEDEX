@@ -5,7 +5,6 @@
  */
 
 create sequence seq_adm2_role;
-create sequence seq_adm2_domain;
 
 create table t_adm2_role
   (id			integer		not null, -- ID for PhEDEx use
