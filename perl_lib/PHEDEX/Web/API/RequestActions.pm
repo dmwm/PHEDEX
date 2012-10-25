@@ -59,6 +59,7 @@ Returns a list of possible actions that can be done to a request according to th
   to_state         transition to state
   role             role name
   domain           domain for this role
+  ability          ability
 
 =cut
 
@@ -131,6 +132,32 @@ my $map = {
     }
 };
 
+my $map = {
+    _KEY => 'REQUEST_ID',
+    id => 'REQUEST_ID',
+    type => 'TYPE',
+    state => 'STATE',
+    requested_by => 'REQUESTED_BY',
+    time_created => 'TIME_CREATE',
+    node => {
+        _KEY => 'NODE_ID',
+        id => 'NODE_ID',
+        name => 'NODE_NAME',
+        se => 'SE_NAME',
+        decision => 'DECISION',
+        decided_by => 'DECIDED_BY',
+        time_decided => 'TIME_DECIDED',
+        action => {
+            _KEY => 'ACTION',
+            name => 'ACTION',
+            from_state => 'FROM_STATE',
+            to_state => 'TO_STATE',
+            domain => 'DOMAIN',
+            role => 'ROLE',
+            ability => 'ABILITY'
+        }
+    }
+};
 
 sub duration { return 60 * 60; }
 sub invoke { return requestaction(@_); }
@@ -170,7 +197,8 @@ my $hide = qq {
         push @r, $_;
     }
 
-    return { node => \@r };
+    my $r1 = PHEDEX::Core::Util::flat2tree($map, \@r);
+    return { request => $r1};
 }
 
 1;
