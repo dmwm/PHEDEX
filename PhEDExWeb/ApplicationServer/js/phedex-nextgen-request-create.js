@@ -63,12 +63,16 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         } else if ( !this.type ) {
           var l = location, href = location.href;
           var e = document.createElement('div');
-          e.innerHTML = '<h1>Choose a request type</h1>' +
-                      '<ul>' +
-                        "<li><a href='" + location.pathname + "?type=xfer'>Transfer Request</a></li>" +
-                        "<li><a href='" + location.pathname + "?type=delete'>Deletion Request</a></li>" +
-                        "<li>If you want to transfer private data, you need to <a  href='https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookGroupActivities'>use the StoreResults service</a> to promote your data to the global DBS, then come back here</li>" +
+          var e_html = '<h1>Choose a request type</h1>' +
+                     '<ul>' +
+                       "<li><a href='" + location.pathname + "?type=xfer'>Transfer Request</a></li>" +
+                       "<li><a href='" + location.pathname + "?type=delete'>Deletion Request</a></li>";
+          if ( PhedexPage.TestingMode ) {
+            e_html += "<li><a href='" + location.pathname + "?type=fileinvalidate'>File Invalidation Request</a></li>";
+          }
+          e_html += "<li>If you want to transfer private data, you need to <a  href='https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookGroupActivities'>use the StoreResults service</a> to promote your data to the global DBS, then come back here</li>" +
                       '</ul>';
+          e.innerHTML = e_html;
           params.el.innerHTML='';
           params.el.appendChild(e);
           return;
