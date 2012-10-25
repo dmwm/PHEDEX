@@ -71,7 +71,7 @@ sub makeXML {
   my ($self,$data) = @_;
   my (@xml,$dbs,$i,$j,$k,$dataset,$block,$file,%h);
 
-  $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
+  $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->[0]{dbs_name} || $dbs;
   @xml = (
             "<data version=\"2.0\">",
             "  <dbs name=\"$dbs\" dls=\"dbs\">"
@@ -260,7 +260,6 @@ sub Subscribe {
   $workflow->{$subscribe}{Priority}    ||= 'normal';
   $workflow->{$subscribe}{Level}       ||= 'dataset';
   foreach ( keys %map ) {
-$self->Log("Subscribe $_($subscribe): ",$map{$_},', ',$workflow->{$subscribe}{$map{$_}},', ',$workflow->{$map{$_}});
     $params->{$_} = $workflow->{$subscribe}{$map{$_}};
     $params->{$_} = $workflow->{$map{$_}} unless defined $params->{$_};
     $self->Fatal("No $map{$_} defined for $type in \"$workflow->{Name}\"")
