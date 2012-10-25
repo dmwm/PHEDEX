@@ -71,7 +71,7 @@ sub makeXML {
   my ($self,$data) = @_;
   my (@xml,$dbs,$i,$j,$k,$dataset,$block,$file,%h);
 
-  $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->{dbs_name} || $dbs;
+  $dbs = $dbs || $data->[0]{dataset}{dbs_name} || $data->[0]{dbs_name} || $dbs;
   @xml = (
             "<data version=\"2.0\">",
             "  <dbs name=\"$dbs\" dls=\"dbs\">"
