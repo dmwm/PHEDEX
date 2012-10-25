@@ -60,6 +60,8 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
           Yla(this,new PHEDEX.Nextgen.Request.Xfer(_sbx,params), true);
         } else if ( params.type == 'delete' ) {
           Yla(this,new PHEDEX.Nextgen.Request.Delete(_sbx,params), true);
+        } else if ( params.type == 'fileinvalidate' ) {
+          Yla(this,new PHEDEX.Nextgen.Request.FileInvalidate(_sbx,params), true);
         } else if ( !this.type ) {
           var l = location, href = location.href;
           var e = document.createElement('div');
@@ -1436,6 +1438,29 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // Results
       this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
+    }
+  }
+}
+
+PHEDEX.Nextgen.Request.FileInvalidate = function(_sbx,args) {
+  var Dom   = YAHOO.util.Dom,
+      Event = YAHOO.util.Event;
+  return {
+    type:'fileinvalidate',
+    initSub: function() {
+      var d  = this.dom,
+          mb = d.main_block,
+          hd = d.hd,
+          params = this.params,
+          form, elList, el;
+      hd.innerHTML = 'Invalidate Files';
+
+      form = document.createElement('form');
+      form.id   = 'invalidate_files';
+      form.name = 'invalidate_files';
+      mb.appendChild(form);
+
+      form.innerHTML = '<div>your form goes here</div>';
     }
   }
 }
