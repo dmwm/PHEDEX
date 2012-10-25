@@ -2563,6 +2563,7 @@ sub generate
       $replacements->{SCHEMA_VERSION} =
 "<script type='text/javascript'>
  PhedexPage = {
+   TestingMode: $self->{CONFIG}{TESTING_MODE},
    SchemaVersion: { major:$major, minor:$minor, revision:$revision },
    DBInstance: '$self->{DBID}',
    Instances: [\n";
@@ -5137,7 +5138,7 @@ sub output
     "<label for='errors'>Include links with nothing but errors</label> ",
     "<input type='submit' value='Update'></p>\n",
     "<p>\n",
-    "<div id='xActivity::Rate'>\n",
+    ( $self->{CONFIG}{TESTING_MODE} ? "<div id='Activity::Rate'>\n" : ''),
     "<table class='striped'>",
 #    "<thead>\n",
 
