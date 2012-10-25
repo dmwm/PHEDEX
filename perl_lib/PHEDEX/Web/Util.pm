@@ -521,7 +521,7 @@ sub auth_nodes
               foreach ( @auth_sites ) {
                 next unless m%test%i;
                 if ( $node =~ m%^$_% ) {
-                  $nodes{$node} = $all_nodes{$nodeRaw};
+                  $nodes{$nodeRaw} = $all_nodes{$nodeRaw};
                 }
               }
             }
