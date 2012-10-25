@@ -75,7 +75,7 @@ select
     r.id as "request_id",
     rt.name as "type",
     r.time_create,
-    r.state,
+    rs3.name as "state",
     i.name as "request_by",
     n.id as "node_id",
     n.name as "node_name",
@@ -107,29 +107,8 @@ from
     join t_adm2_role ar on ar.id = am.role
     join t_req2_state rs1 on rs1.id = t.from_state
     join t_req2_state rs2 on rs2.id = t.to_state
+    join t_req2_state rs3 on rs3.id = r.state
     join t_req2_action ra on ra.desired_state = t.to_state
-};
-
-my $sql2 = qq {
-select
-    *
-from
-    t_adm_node
-};
-
-my $map = {
-    _KEY => 'NAME+HOST+NODE+PID',
-    node => 'NODE',
-    name => 'NAME',
-    host => 'HOST',
-    agent => {
-        _KEY => 'PID',
-        label => 'LABEL',
-        state_dir => 'STATE_DIR',
-        version => 'VERSION',
-        pid => 'PID',
-        time_update => 'TIME_UPDATE'
-    }
 };
 
 my $map = {
