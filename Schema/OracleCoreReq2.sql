@@ -298,7 +298,7 @@ create table t_req2_comments
      primary key (id),
    --
    constraint fk_req2_comments_request
-     foreign key (request) references t_req_request (id)
+     foreign key (request) references t_req2_request (id)
      on delete cascade,
    --
    constraint fk_req2_comments_by
@@ -434,3 +434,107 @@ create index ix_req2_approval_map_inst_ab
 
 create index ix_req2_approval_map_inst_log
   on t_req2_approval_map_instance (approval_log);
+
+
+/* Invalidation request info.  type 'invalidation' 
+ *  No parameters, only data items
+ */
+create table t_req2_invalidate
+  (request		integer		not null,
+   data			clob			, -- user data clob
+   --
+   constraint pk_req2_invalidate
+     primary key (request),
+   --
+   constraint fk_req2_invalidate_req
+     foreign key (request) references t_req2_request (id)
+     on delete cascade
+);
+
+/* Consistency check request info.  type 'consistency' 
+ *  Parameters: consistency test type, target node
+ */
+create table t_req2_consistency
+  (request		integer		not null,
+   test			integer		not null,
+   node			integer		not null,
+   data			clob			, -- user data clob
+   --
+   constraint pk_req2_consistency
+     primary key (request),
+   --
+   constraint fk_req2_consistency_req
+     foreign key (request) references t_req2_request (id)
+     on delete cascade,
+   --
+   constraint fk_req2_consistency_test
+     foreign key (test) references t_dvs_test (id),
+   --
+   constraint fk_req2_consistency_node
+     foreign key (node) references t_adm_node (id)
+);
+
+
+/* Dataset info */
+create table t_req2_dataset
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   dataset_id		integer			,
+   --
+   constraint pk_req2_dataset
+     primary key (request, name),
+   --
+   constraint fk_req2_dataset_req
+     foreign key (request) references t_req2_request (id)
+     on delete cascade,
+   constraint fk_req2_dataset_ds_id
+     foreign key (dataset_id) references t_dps_dataset (id)
+     on delete set null);
+
+create index ix_req2_dataset_name
+  on t_req2_dataset (name);
+create index ix_req2_dataset_dataset
+  on t_req2_dataset (dataset_id);
+
+/* Block info */
+create table t_req2_block
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   block_id		integer			,
+   --
+   constraint pk_req2_block
+     primary key (request, name),
+   --
+   constraint fk_req2_block_req
+     foreign key (request) references t_req2_request (id)
+     on delete cascade,
+   constraint fk_req2_block_b_id
+     foreign key (block_id) references t_dps_block (id)
+     on delete set null);
+
+create index ix_req2_block_name
+  on t_req2_block (name);
+create index ix_req2_block_block
+  on t_req2_block (block_id);
+
+
+/* File info */
+create table t_req2_file
+  (request		integer		not null,
+   name			varchar (1000)	not null,
+   file_id		integer			,
+   --
+   constraint pk_req2_file
+     primary key (request, name),
+   --
+   constraint fk_req2_file_req
+     foreign key (request) references t_req2_request (id)
+     on delete cascade,
+   constraint fk_req2_file_f_id
+     foreign key (file_id) references t_dps_file (id)
+     on delete set null);
+
+create index ix_req2_file_name
+  on t_req2_file (name);
+create index ix_req2_file_file
+  on t_req2_file (file_id);
