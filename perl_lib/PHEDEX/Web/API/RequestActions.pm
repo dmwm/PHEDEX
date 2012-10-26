@@ -154,14 +154,14 @@ sub requestaction
         ra.name as "action"
     from
         t_req2_request r
-        join t_req_node rn on rn.request = r.id
-        join t_adm_node n on n.id = rn.node
+        left join t_req_node rn on rn.request = r.id
+        left join t_adm_node n on n.id = rn.node
         join t_adm_client c on c.id = r.created_by
         join t_adm_identity i on i.id = c.identity
         left join t_req_decision rd on rd.node = rn.node and rd.request = r.id
         left join t_adm_client c2 on c2.id = rd.decided_by
         left join t_adm_identity i2 on i2.id = c2.identity
-        join t_req_type rt on rt.id = r.type
+        join t_req2_type rt on rt.id = r.type
         join t_req2_rule rr on rr.type = r.type
         join t_req2_transition t on t.id = rr.transition
         join t_req2_permission p on rr.id = p.rule
