@@ -68,48 +68,8 @@ use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 use PHEDEX::Web::Util;
 use PHEDEX::Core::SQL;
+use PHEDEX::Core::Timing;
 use Data::Dumper;
-
-my $sql = qq {
-select
-    r.id as "request_id",
-    rt.name as "type",
-    r.time_create,
-    rs3.name as "state",
-    i.name as "request_by",
-    n.id as "node_id",
-    n.name as "node_name",
-    n.se_name,
-    rd.decision,
-    i2.name as "decided_by",
-    rd.time_decided,
-    rs1.name as "from_state",
-    rs2.name as "to_state",
-    ar.role,
-    ar.domain,
-    a.name as "ability",
-    ra.name as "action"
-from
-    t_req2_request r
-    join t_req_node rn on rn.request = r.id
-    join t_adm_node n on n.id = rn.node
-    join t_adm_client c on c.id = r.created_by
-    join t_adm_identity i on i.id = c.identity
-    left join t_req_decision rd on rd.node = rn.node and rd.request = r.id
-    left join t_adm_client c2 on c2.id = rd.decided_by
-    left join t_adm_identity i2 on i2.id = c2.identity
-    join t_req_type rt on rt.id = r.type
-    join t_req2_rule rr on rr.type = r.type
-    join t_req2_transition t on t.id = rr.transition
-    join t_req2_permission p on rr.id = p.rule
-    join t_adm2_ability_map am on am.id = p.ability
-    join t_adm2_ability a on a.id = am.ability
-    join t_adm2_role ar on ar.id = am.role
-    join t_req2_state rs1 on rs1.id = t.from_state
-    join t_req2_state rs2 on rs2.id = t.to_state
-    join t_req2_state rs3 on rs3.id = r.state
-    join t_req2_action ra on ra.desired_state = t.to_state
-};
 
 my $map = {
     _KEY => 'REQUEST_ID',
@@ -146,18 +106,16 @@ sub requestaction
     my ($core, %h) = @_;
     my %p;
 
-my $hide = qq {
     eval {
         %p = &validate_params(\%h,
                 uc_keys => 1,
-                allow => [qw(node se agent version detail update_since)],
+                allow => [qw(request node se create_since decided_since)],
                 spec => {
+                    request => { using => 'pos_int', nultiple => 1 },
                     node => { using => 'node', multiple => 1 },
                     se   => { using => 'text' , multiple => 1 },
-                    agent => { using => 'text' , multiple => 1 },
-                    version => { using => 'text' },
-                    detail => { using => 'yesno' },
-                    update_since => { using => 'time' }
+                    create_since => { using => 'time' },
+                    decided_since => { using => 'time' }
                 }
         );
     };
@@ -165,10 +123,79 @@ my $hide = qq {
     {
         return PHEDEX::Web::Util::http_error(400,$@);
     }
-};
 
+    my $filters = '';
+    my %params;
 
-    my $q = PHEDEX::Core::SQL::execute_sql($core, $sql);
+    PHEDEX::Core::SQL::build_multi_filters($core, \$filters, \%params, \%p, (
+        NODE => 'n.name',
+        REQUEST => 'r.id',
+        SE => 'n.se_name'));
+        
+
+    my $sql = qq {
+    select
+        r.id as "request_id",
+        rt.name as "type",
+        r.time_create,
+        rs3.name as "state",
+        i.name as "request_by",
+        n.id as "node_id",
+        n.name as "node_name",
+        n.se_name,
+        rd.decision,
+        i2.name as "decided_by",
+        rd.time_decided,
+        rs1.name as "from_state",
+        rs2.name as "to_state",
+        ar.role,
+        ar.domain,
+        a.name as "ability",
+        ra.name as "action"
+    from
+        t_req2_request r
+        join t_req_node rn on rn.request = r.id
+        join t_adm_node n on n.id = rn.node
+        join t_adm_client c on c.id = r.created_by
+        join t_adm_identity i on i.id = c.identity
+        left join t_req_decision rd on rd.node = rn.node and rd.request = r.id
+        left join t_adm_client c2 on c2.id = rd.decided_by
+        left join t_adm_identity i2 on i2.id = c2.identity
+        join t_req_type rt on rt.id = r.type
+        join t_req2_rule rr on rr.type = r.type
+        join t_req2_transition t on t.id = rr.transition
+        join t_req2_permission p on rr.id = p.rule
+        join t_adm2_ability_map am on am.id = p.ability
+        join t_adm2_ability a on a.id = am.ability
+        join t_adm2_role ar on ar.id = am.role
+        join t_req2_state rs1 on rs1.id = t.from_state
+        join t_req2_state rs2 on rs2.id = t.to_state
+        join t_req2_state rs3 on rs3.id = r.state
+        join t_req2_action ra on ra.desired_state = t.to_state
+    };
+
+    if ($filters)
+    {
+        $sql .= qq {
+    where
+        $filters
+    };
+    }
+
+    if (exists $p{CREATE_SINCE})
+    {
+        if (not $filters)
+        {
+            $sql .= qq {
+        where
+            };
+        }
+        $sql .= qq {
+        and time_create >= :create_since };
+        $params{':create_since'} = &str2time($p{CREATE_SINCE});
+    }
+
+    my $q = PHEDEX::Core::SQL::execute_sql($core, $sql, %params);
 
     my @r;
     while ($_ = $q->fetchrow_hashref())
