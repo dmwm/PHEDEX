@@ -25,12 +25,10 @@ Returns a list of possible actions that can be done to a request according to th
 =head2 Output
 
   <request>
-      <node>
-          <action/>
+      <action>
+          <node/>
           ...
-      <node>
-          <action/>
-          ...
+      </action>
       ...
   ...
 
@@ -43,15 +41,6 @@ Returns a list of possible actions that can be done to a request according to th
   time_created     creation timestamp
 
 
-=head3 <node> attributes
-
-  id               node id
-  name             node name
-  se               node se name
-  decision         decision at the node
-  decided_by       the human name of the person who made the decision
-  time_decided     timestamp when the decision was made
-
 =head3 <action> attributes 
 
   name             action name
@@ -60,6 +49,15 @@ Returns a list of possible actions that can be done to a request according to th
   role             role name
   domain           domain for this role
   ability          ability
+
+=head3 <node> attributes
+
+  id               node id
+  name             node name
+  se               node se name
+  decision         decision at the node
+  decided_by       the human name of the person who made the decision
+  time_decided     timestamp when the decision was made
 
 =cut
 
@@ -78,22 +76,22 @@ my $map = {
     state => 'STATE',
     requested_by => 'REQUESTED_BY',
     time_created => 'TIME_CREATE',
-    node => {
-        _KEY => 'NODE_ID',
-        id => 'NODE_ID',
-        name => 'NODE_NAME',
-        se => 'SE_NAME',
-        decision => 'DECISION',
-        decided_by => 'DECIDED_BY',
-        time_decided => 'TIME_DECIDED',
-        action => {
-            _KEY => 'ACTION',
-            name => 'ACTION',
-            from_state => 'FROM_STATE',
-            to_state => 'TO_STATE',
-            domain => 'DOMAIN',
-            role => 'ROLE',
-            ability => 'ABILITY'
+    action => {
+        _KEY => 'ACTION',
+        name => 'ACTION',
+        from_state => 'FROM_STATE',
+        to_state => 'TO_STATE',
+        domain => 'DOMAIN',
+        role => 'ROLE',
+        ability => 'ABILITY',
+        node => {
+            _KEY => 'NODE_ID',
+            id => 'NODE_ID',
+            name => 'NODE_NAME',
+            se => 'SE_NAME',
+            decision => 'DECISION',
+            decided_by => 'DECIDED_BY',
+            time_decided => 'TIME_DECIDED'
         }
     }
 };
