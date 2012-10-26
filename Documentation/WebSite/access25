@@ -2107,6 +2107,8 @@ function select_all(form_id, name, value) {
 
 --></script>
 
+  @HIGHCHARTS@
+  @JQUERY@
   <title>@DBTITLE@ @PAGETITLE@ - CMS PhEDEx</title>
 
   <!-- Page-specific head elements -->
@@ -2486,6 +2488,8 @@ sub generate
     'MYPAGE' => "<div>$$self{VIEW_MESSAGE}</div>",
     'VERSION' => "$$self{CONFIG}{VERSION}",
     'SCHEMA_VERSION' => '',
+    'HIGHCHARTS' => '',
+    'JQUERY' => '',
   };
 
   # Hide these things on the password page
@@ -2498,6 +2502,11 @@ sub generate
       $$replacements{THIS_IS_A_TEST} = '';
   }
 
+   if ( $self->{CONFIG}{TESTING_MODE} ) {
+     $replacements->{JQUERY} = "<script src='http://ajax.googleapis.com/ajax/libs/jquery/1.5/jquery.min.js'></script>\n";
+     $replacements->{HIGHCHARTS} = "<script src='http://code.highcharts.com/highcharts.js'></script>\n" .
+                                 "  <script src='http://code.highcharts.com/modules/exporting.js'></script>\n";
+   }
   # Execute the desired page.  We save old STDOUT to print to it
   # later, then redirect the page routine's output to CONTENT.
   my ($output, $options, $head) = ("", "", "");
