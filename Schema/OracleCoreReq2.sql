@@ -144,6 +144,22 @@ insert into t_req2_transition (id, from_state, to_state)
 insert into t_req2_transition (id, from_state, to_state)
   select seq_req2_transition.nextval, rf.id, rt.id
 	from t_req2_state rf, t_req2_state rt
+	where rf.name='created' and rt.name='cancelled';
+insert into t_req2_transition (id, from_state, to_state)
+  select seq_req2_transition.nextval, rf.id, rt.id
+	from t_req2_state rf, t_req2_state rt
+	where rf.name='suspended' and rt.name='approved';
+insert into t_req2_transition (id, from_state, to_state)
+  select seq_req2_transition.nextval, rf.id, rt.id
+	from t_req2_state rf, t_req2_state rt
+	where rf.name='suspended' and rt.name='denied';
+insert into t_req2_transition (id, from_state, to_state)
+  select seq_req2_transition.nextval, rf.id, rt.id
+	from t_req2_state rf, t_req2_state rt
+	where rf.name='suspended' and rt.name='cancelled';
+insert into t_req2_transition (id, from_state, to_state)
+  select seq_req2_transition.nextval, rf.id, rt.id
+	from t_req2_state rf, t_req2_state rt
 	where rf.name='approved' and rt.name='cancelled';
 insert into t_req2_transition (id, from_state, to_state)
   select seq_req2_transition.nextval, rf.id, rt.id
