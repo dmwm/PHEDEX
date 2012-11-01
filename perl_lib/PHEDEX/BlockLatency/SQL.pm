@@ -485,7 +485,7 @@ sub mergeStatusBlockLatency
                   bd.priority, bd.is_custodial, bd.time_subscription, nvl2(bd.time_suspend_until, :now, NULL) last_suspend
               from t_dps_block_dest bd
               join t_dps_block b on b.id = bd.block
-              left join t_dps_block_latency bl on bl.destination=br.node and bl.block=br.block
+              left join t_dps_block_latency bl on bl.destination=bd.destination and bl.block=bd.block
               where bl.block is null and bd.time_complete is null
 	  };
 
