@@ -184,6 +184,10 @@ sub Command
       $protocol =  $self->Protocol();
   }
   my $pfn = $self->{CATALOGUE}->lfn2pfn($file,$protocol);
+  if ( not defined $pfn ) {
+      print "lfn2pfn failed for lfn $file with protocol $protocol\n" if $self->{DEBUG};
+      return;
+  }
   @opts = ( @{$h->{opts}}, $pfn );
   $env = $self->{ENV} || '';
   $cmd = "$env $h->{cmd} @opts";
