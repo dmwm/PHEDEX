@@ -27,10 +27,10 @@ sub new
   GetOptions(%options);
   my $self = \%params;
   bless($self, $class);
+  map { $self->{$_} = $h{$_} } keys %h;
   $self->SUPER::_init( NAMESPACE => __PACKAGE__,
 		       CATALOGUE => $h{CATALOGUE},
 		       PROTOCOL => $h{PROTOCOL} );
-  map { $self->{$_} = $h{$_} } keys %h;
 
   $self->{ENV} = "RFIO_USE_CASTOR_V2=" . ($self->{RFIO_USE_CASTOR_V2} || '');
   $self->SUPER::_init_commands;
