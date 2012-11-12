@@ -13,6 +13,8 @@ begin
 end gmtime;
 /
 
+grant execute on gmtime to public;
+
 -- returns the current time as a unix timestamp
 create or replace function now return number is
   result number;
@@ -22,6 +24,8 @@ return(result);
 end now;
 /
 
+grant execute on now to public;
+
 -- returns the schema version
 create or replace function schema_version return varchar is
   result varchar(20);
@@ -29,3 +33,5 @@ begin
   return('4.1.0');
 end schema_version;
 /
+
+grant execute on schema_version to public;
