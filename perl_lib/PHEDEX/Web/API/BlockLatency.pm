@@ -11,7 +11,7 @@ PHEDEX::Web::API::BlockLatency - all about block latency
 
 =head1 DESCRIPTION
 
-Evenrything we want to know about block latency
+Everything we want to know about block latency
 
 =head2 Options
 
@@ -22,7 +22,6 @@ Evenrything we want to know about block latency
   custodial             y or n, default either
   subscribe_since       subscribed since this time
   update_since          updated since this time
-  first_request_since   first requested since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
   ever_suspended        y or n, default neither
@@ -66,13 +65,7 @@ Evenrything we want to know about block latency
   time_update           time when status was updated
   block_create          time when the block was created
   block_close           time when the block was closed
-  first_request         time when the first file is routed
-  first_replica         time when the first replica is done
   latest_replica        time when a file was most recently replicated
-  percent25_replica     time when 25% of the files were replicated
-  percent50_replica     time when 50% of the files were replicated
-  percent75_replica     time when 75% of the files were replicated
-  percent95_replica     time when 95% of the files were replicated
   last_replica          time when last file was replicated
   last_suspend          time the block was last observed suspended
   partial_suspend_time  seconds the block was suspended since the creation of the latest replica
@@ -109,13 +102,7 @@ my $map = {
             time_update => 'LTIME_UPDATE',
             block_create => 'BLOCK_CREATE',
             block_close => 'BLOCK_CLOSE',
-            first_request => 'FIRST_REQUEST',
-            first_replica => 'FIRST_REPLICA',
             latest_replica => 'LATEST_REPLICA',
-            percent25_replica => 'PERCENT25_REPLICA',
-            percent50_replica => 'PERCENT50_REPLICA',
-            percent75_replica => 'PERCENT75_REPLICA',
-            percent95_replica => 'PERCENT95_REPLICA',
             last_replica => 'LAST_REPLICA',
             last_suspend => 'LAST_SUSPEND',
             partial_suspend_time => 'PARTIAL_SUSPEND_TIME',
@@ -132,7 +119,7 @@ sub blockLatency
     my ($core,%h) = @_;
 
     # take care of time
-    foreach ( qw / subscribe_since first_request_since update_since / )
+    foreach ( qw / subscribe_since update_since / )
     {
         if ($h{$_})
         {
@@ -143,7 +130,7 @@ sub blockLatency
 
     # convert parameter keys to upper case
 
-    foreach ( qw / id block to_node priority custodial subscribe_since first_request_since update_since latency_greater_than latency_less_than ever_suspended / )
+    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
@@ -160,7 +147,7 @@ sub spool
     my ($core,%h) = @_;
 
     # take care of time
-    foreach ( qw / subscribe_since first_request_since update_since / )
+    foreach ( qw / subscribe_since update_since / )
     {
         if ($h{$_})
         {
@@ -171,7 +158,7 @@ sub spool
 
     # convert parameter keys to upper case
 
-    foreach ( qw / id block to_node priority custodial subscribe_since first_request_since update_since latency_greater_than latency_less_than ever_suspended / )
+    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
