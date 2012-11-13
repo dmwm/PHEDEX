@@ -135,6 +135,12 @@ sub blockLatency
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
+    # if there is no block/dataset argument, set default "since" to 24 hours ago
+    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
+    {
+	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
+    }
+
     return { block => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockLatency($core,%h)) };
 }
 
@@ -161,6 +167,12 @@ sub spool
     foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
+    }
+
+    # if there is no block/dataset argument, set default "since" to 24 hours ago
+    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
+    {
+	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
     }
 
     $h{'__spool__'} = 1;
