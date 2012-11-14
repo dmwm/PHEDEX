@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Time::Local;
 use File::Basename;
+use base 'PHEDEX::Namespace::eos::Common';
 
 # @fields defines the actual set of attributes to be returned
 our @fields = qw / size checksum_type checksum_value /;
@@ -21,13 +22,7 @@ sub new
   return $self;
 }
 
-sub execute
-{
-  my ($self,$ns,$file) = @_;
-  my $nfiles = 0;
-  my $call   = 'find';
-  return $ns->Command($call,$file)
-}
+sub execute { (shift)->SUPER::execute(@_,'find'); }
 
 sub parse
 {
@@ -38,6 +33,7 @@ sub parse
 
   my ($self,$ns,$r,$dir) = @_;
   my $result;
+  my $file;
 # return an empty hashref instead of undef if nothing is found, so it can
 # still be dereferenced safely.
   $r = {} unless defined $r;
@@ -47,9 +43,13 @@ sub parse
     chomp;
     m%^path=(\S+) size=(\d+) checksum=(\S+)$%
         or next;
+    $file = basename $1;
     $x->{size} = $2;
     $x->{checksum_type} = "adler32";
     $x->{checksum_value} = $3;
+
+    $ns->{CACHE}->store('find',"$dir/$file",$x);
+
     $result = $x;
   }
   return $result;
