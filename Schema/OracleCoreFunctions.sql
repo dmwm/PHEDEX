@@ -80,3 +80,81 @@ create or replace procedure proc_delete_node(node varchar2) AS
   end;
 /
 
+drop type t_table_used_space;
+drop type r_table_used_space;
+drop type t_tablespace_used_space;
+drop type r_tablespace_used_space;
+
+create type r_table_used_space as object (
+  segment_type     varchar2(18),
+  segment_name     varchar2(81),
+  tablespace_name  varchar2(30),
+  sum_bytes        integer,
+  sum_blocks       integer,
+  count_extent_id  integer
+);
+/
+
+create type t_table_used_space as table of r_table_used_space;
+/
+
+create type r_tablespace_used_space as object (
+  tablespace_name varchar2(30),
+  used_bytes      integer,
+  used_blocks     integer,
+  free_bytes      integer,
+  free_blocks     integer
+);
+/
+
+create type t_tablespace_used_space as table of r_tablespace_used_space;
+/
+
+create or replace function func_table_used_space
+  return t_table_used_space as
+  r t_table_used_space := t_table_used_space();
+begin
+
+  select cast(multiset(
+        select
+            segment_type,
+            segment_name,
+            tablespace_name,
+            sum(bytes),
+            sum(blocks),
+            count(extent_id)
+        from user_extents
+        group by segment_name, segment_type, tablespace_name
+        order by sum(bytes) desc, segment_type desc, segment_name
+                       ) as t_table_used_space
+                       ) into r from dual;
+
+  return r;
+end;
+/
+
+create or replace function func_tablespace_used_space
+  return t_tablespace_used_space as
+  r t_tablespace_used_space := t_tablespace_used_space();
+begin
+
+  select cast(multiset(
+        select
+            used.tablespace_name,
+            used.bytes, used.blocks,
+            free.bytes, free.blocks
+        from (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
+              from user_extents group by tablespace_name) used
+        join (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
+              from user_free_space group by tablespace_name) free
+          on used.tablespace_name = free.tablespace_name
+        order by free.bytes asc, used.bytes desc
+                       ) as t_tablespace_used_space
+                       ) into r from dual;
+
+  return r;
+end;
+/
+
+grant execute on func_tablespace_used_space to public;
+grant execute on func_table_used_space to public;
