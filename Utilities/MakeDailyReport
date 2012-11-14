@@ -69,17 +69,8 @@ print sprintf ("%-8s %-31s %-31s %10s %10s %10s\n",
 print "-" x 8, " ", "-" x 31, " ", "-" x 31, " ",
       "-" x 10, " ", "-" x 10, " ", "-" x 10, "\n";
 
-my $qtables = &dbexec($dbh, qq{
-	select
-            segment_type,
-            segment_name,
-            tablespace_name,
-            sum(bytes),
-            sum(blocks),
-            count(extent_id)
-        from user_extents
-        group by segment_name, segment_type, tablespace_name
-        order by sum(bytes) desc, segment_type desc, segment_name});
+my $qtables = PHEDEX::Core::DB::dbexec($dbh, qq{
+  select * from table(func_table_used_space()) });
 while (my ($type, $object, $tspace, $bytes, $blocks, $extents) = $qtables->fetchrow())
 {
     print sprintf ("%-8s %-31s %-31s %10.2f %10d %10d\n",
@@ -99,17 +90,8 @@ print sprintf ("%-31s %15s %15s %15s %15s %-6s\n", "TABLESPACE", "USED_MEGABYTES
 	       "USED_BLOCKS", "FREE_MEGABYTES", "FREE_BLOCKS", "STATUS");
 print "-" x 31, " ", "-" x 15, " ", "-" x 15, " ", "-" x 15, " ", "-" x 15, " ", "-" x 6, "\n";
 
-my $qtspace = &dbexec($dbh, qq{
-	select
-	    used.tablespace_name,
-	    used.bytes, used.blocks,
-	    free.bytes, free.blocks
-	from (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
-	      from user_extents group by tablespace_name) used
-	join (select tablespace_name, sum(bytes) bytes, sum(blocks) blocks
-	      from user_free_space group by tablespace_name) free
-	  on used.tablespace_name = free.tablespace_name
-	order by free.bytes asc, used.bytes desc});
+my $qtspace = PHEDEX::Core::DB::dbexec($dbh, qq{
+  select * from table(func_tablespace_used_space()) });
 while (my ($tspace, $bytes_used, $blocks_used,
 	   $bytes_free, $blocks_free) = $qtspace->fetchrow())
 {
