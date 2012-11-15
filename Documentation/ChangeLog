@@ -5,7 +5,10 @@ Changes for Schema and DB Config
   - Revoke delete privileges on t_xfer_replica for site roles (Sav #95710)
   - Rename central agent roles from CERN to CENTRAL
   - Also drop views when resetting DB schema
-
+  - Add new func_tablespace_used_space and func_table_used_space functions to generate reports
+  - Add new procedures proc_add_node and proc_delete_node to manage nodes and the corresponding partitions
+  - Grant public execution privileges on NOW, GMTIME, VERSION functions
+	
 Changes for central agents
   - BlockAllocator, FileFump, InfoStatesClean: print debug statistics for latency SQLs
   - FileRouter: fix alert in BlockArrive SQL preventing update of routing stats tables (Sav #96911)
@@ -37,11 +40,14 @@ Changes for Namespace framework
   - dcache Namespace: add storage accounting functions to dcache namespace
   - srm Namespace: fix unrecognized permissions
   - srm Namespace: add support for lcg-util backend, activated with --use_lcgutil
+  - eos Namespace: add support for directory caching
 
 Changes for operator tools
   - Add PHEDEX/Utilities/GroupNew to create new user_groups
   - Updated PHEDEX/Utilities/setool and PHEDEX/Utilities/BlockConsistencyCheck to changes in Namespace framework
-
+  - Update MakeDailyReport to use new func_tablespace_used_space and func_table_used_space DB functions,
+	so that the script can run with Reader privileges
+	
 Changes for core libraries
   - Replace old Agent.pm and AgentLite.pm in all agents with new modular PHEDEX::Core::Agent library
 	- PHEDEX::Core::Agent::Dropbox - deprecate relayDrop function
