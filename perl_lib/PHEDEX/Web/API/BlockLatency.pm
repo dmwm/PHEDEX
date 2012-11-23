@@ -2,6 +2,7 @@ package PHEDEX::Web::API::BlockLatency;
 use warnings;
 use strict;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 =pod
 
@@ -11,16 +12,17 @@ PHEDEX::Web::API::BlockLatency - all about block latency
 
 =head1 DESCRIPTION
 
-Everything we want to know about block latency
+Return latency statistics for blocks currently in transfer
 
 =head2 Options
 
   id                    block id
   block                 block name, could be multiple, could have wildcard
+  dataset               dataset name, could be multiple, could have wildcard
   to_node               destination node, could be multiple, could have wildcard
-  priority              priority, could be nultiple
+  priority              priority, could be multiple
   custodial             y or n, default either
-  subscribe_since       subscribed since this time
+  subscribe_since       subscribed since this time, defaults to 24h ago if neither block/dataset nor to_node are set
   update_since          updated since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
@@ -113,71 +115,97 @@ my $map = {
 };
 
 sub duration{ return 60 * 60; }
-sub invoke { return blockLatency(@_); }
-sub blockLatency
-{
-    my ($core,%h) = @_;
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
 
-    # take care of time
-    foreach ( qw / subscribe_since update_since / )
-    {
-        if ($h{$_})
-        {
-            $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
-        }
-    }
-
-    # convert parameter keys to upper case
-
-    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
-    {
-	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
-    }
-
-    return { block => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockLatency($core,%h)) };
-}
+#sub invoke { return blockLatency(@_); }
+#sub blockLatency
+#{
+#    my ($core,%h) = @_;
+#
+#    # take care of time
+#    foreach ( qw / subscribe_since update_since / )
+#    {
+#        if ($h{$_})
+#        {
+#            $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
+#            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
+#        }
+#    }
+#
+#    # convert parameter keys to upper case
+#
+#    foreach ( qw / id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
+#    {
+#        $h{uc $_} = delete $h{$_} if $h{$_};
+#    }
+#
+#    # if there is no block/dataset argument, set default "since" to 24 hours ago
+#    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
+#    {
+#	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
+#    }
+#
+#    return { block => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockLatency($core,%h)) };
+#}
 
 my $sth;
 my $limit = 1000;
 my @keys = ('ID');
+my %p;
 
 sub spool
 {
     my ($core,%h) = @_;
 
-    # take care of time
-    foreach ( qw / subscribe_since update_since / )
+    if (!$sth) 
+
     {
-        if ($h{$_})
-        {
-            $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
-        }
+	eval {
+            %p = &validate_params(\%h,
+				  uc_keys => 1,
+				  allow => [qw(id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended )],
+				  spec => {
+				      id => { using => 'pos_int', multiple => 1 },
+				      block => { using => 'block_*', multiple => 1 },
+				      dataset => { using => 'dataset', multiple => 1 },
+				      to_node => { using => 'node', multiple => 1 },
+				      priority => { using => 'priority', multiple =>1 },
+				      custodial => { using => 'yesno' },
+				      subscribe_since => { using => 'time' },
+				      update_since => { using => 'time' },
+				      latency_greater_than => { using => 'pos_float' },
+				      latency_less_than => { using => 'pos_float' },
+				      ever_suspended => { using => 'yesno' }
+				  }
+				  );
+        };
+	
+	if ($@)
+	{
+	    return PHEDEX::Web::Util::http_error(400,$@);
+	}
+	
+	# take care of time
+	foreach ( qw / SUBSCRIBE_SINCE UPDATE_SINCE / )
+	{
+	    if ($p{$_})
+	    {
+		$p{$_} = PHEDEX::Core::Timing::str2time($p{$_});
+		die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $p{$_};
+	    }
+	}
+	
+	# if there is no block/dataset argument, set default "since" to 24 hours ago
+	if ((not $p{BLOCK}) && (not $p{DATASET}) && (not $p{TO_NODE}) && (not $p{SUBSCRIBE_SINCE}))
+	{
+	    $p{SUBSCRIBE_SINCE} = time() - 3600*24;;
+	}
+	
+	$p{'__spool__'} = 1;
+	
     }
-
-    # convert parameter keys to upper case
-
-    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
-    {
-	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
-    }
-
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockLatency($core,%h), $limit, @keys) if !$sth;
+    
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockLatency($core,%p), $limit, @keys) if !$sth;
     my $r = $sth->spool();
 
     if ($r)
