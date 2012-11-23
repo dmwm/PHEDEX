@@ -11,16 +11,17 @@ PHEDEX::Web::API::BlockLatency - all about block latency
 
 =head1 DESCRIPTION
 
-Everything we want to know about block latency
+Return latency statistics for blocks currently in transfer
 
 =head2 Options
 
   id                    block id
   block                 block name, could be multiple, could have wildcard
+  dataset               dataset name, could be multiple, could have wildcard
   to_node               destination node, could be multiple, could have wildcard
-  priority              priority, could be nultiple
+  priority              priority, could be multiple
   custodial             y or n, default either
-  subscribe_since       subscribed since this time
+  subscribe_since       subscribed since this time, defaults to 24h ago if neither block/dataset nor to_node are set
   update_since          updated since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
@@ -130,13 +131,13 @@ sub blockLatency
 
     # convert parameter keys to upper case
 
-    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
+    foreach ( qw / id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
+    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
     {
 	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
     }
@@ -164,13 +165,13 @@ sub spool
 
     # convert parameter keys to upper case
 
-    foreach ( qw / id block to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
+    foreach ( qw / id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended / )
     {
         $h{uc $_} = delete $h{$_} if $h{$_};
     }
 
     # if there is no block/dataset argument, set default "since" to 24 hours ago
-    if ((not $h{BLOCK}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
+    if ((not $h{BLOCK}) && (not $h{DATASET}) && (not $h{TO_NODE}) && (not $h{SUBSCRIBE_SINCE}))
     {
 	$h{SUBSCRIBE_SINCE} = time() - 3600*24;;
     }
