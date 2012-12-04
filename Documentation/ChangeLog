@@ -63,7 +63,11 @@ Changes for custom templates
   - Update FTS mapfile template
   - Update PHEDEX/Custom/Template/gfal_prestage-status.py to adapt to the change of gfal request status codes
 	introduced in recent versions of the UI	
-		
+
+Changes for dependencies
+	- Update dependencies to HG1210d tag
+	- For full details see https://svnweb.cern.ch/trac/CMSDMWM/ticket/3991
+
 Changes for PhEDEx 4.1.0
 
 Changes for Schema and DB Config
