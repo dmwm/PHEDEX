@@ -51,10 +51,29 @@ if (!$args{DBCONFIG} || !$args{NAME} || !$args{KIND}
 
 my $self = { DBCONFIG => $args{DBCONFIG} };
 my $dbh = &connectToDatabase ($self);
+my $now = &mytimeofday();
 print "Creating node $args{NAME}, kind $args{KIND}\n";
 
-my $sql = 'begin proc_add_node(' .
-	   join(',',map { "'$args{$_}'" } qw{ NAME KIND TECHNOLOGY SE_NAME }) .
-	  '); end;';
-PHEDEX::Core::DB::dbexec($dbh,$sql);
+my $id = undef;
+&dbexec($dbh, qq{
+  insert into t_adm_node (id, name, kind, technology, se_name, capacity, bandwidth_cap)
+  values (seq_adm_node.nextval, :node, :kind, :tech, :sename, :capacity, :cap)
+  returning id into :id},
+  ":node" => $args{NAME},
+  ":kind" => $args{KIND},
+  ":tech" => $args{TECHNOLOGY},
+  ":sename" => $args{SE_NAME},
+  ":capacity" => $args{CAPACITY},
+  ":cap" => (defined $args{RATE} ? $args{RATE} * 1024*1024 : undef),
+  ":id" => \$id);
+$dbh->commit();
+
+my $suffix = lc($args{NAME});
+&dbexec($dbh, qq{
+  alter table t_xfer_replica add partition node_$suffix values ($id)});
+&dbexec($dbh, qq{
+  alter table t_xfer_request add partition dest_$suffix values ($id)});
+&dbexec($dbh, qq{
+  alter table t_xfer_task    add partition to_$suffix   values ($id)});
+$dbh->commit();
 &disconnectFromDatabase($self, $dbh, 1);
