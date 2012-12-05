@@ -15,15 +15,15 @@ requesting client, the approving clients, and the request options.
 
 =head2 Options
 
-  request          request number
-  node             name of the destination node
-  group            name of the group
+  request          request number, may be multiple
+  node             name of the destination node, may be multiple
+  group            name of the group, may be multiple
   limit            maximal number of records returned
   create_since     created after this time
 
   approval         approval state: approved, disapproved, pending or mixed
-                   default is all
-  requested_by *   human name of the requestor
+                   default is all, may be multiple
+  requested_by *   human name of the requestor, may be multiple
 
    * requested_by only works with approval option
   ** without any input, the default "create_since" is set to 24 hours ago
