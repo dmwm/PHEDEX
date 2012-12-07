@@ -1,28 +1,30 @@
-package PHEDEX::Web::API::BlockLatencyHistory;
+package PHEDEX::Web::API::BlockLatencyLog;
 use warnings;
 use strict;
 use PHEDEX::Web::SQL;
+use PHEDEX::Web::Util;
 
 =pod
 
 =head1 NAME
 
-PHEDEX::Web::API::BlockLatencyHistory - all about historical block latency
+PHEDEX::Web::API::BlockLatencyLog - all about historical block latency
 
 =head1 DESCRIPTION
 
-Evenrything we want to know about historical block latency
+Return latency statistics for completed block transfers
 
 =head2 Options
 
   id                    block id
   block                 block name, could be multiple, could have wildcard
+  dataset               dataset name, could be multiple, could have wildcard
   to_node               destination node, could be multiple, could have wildcard
-  priority              priority, could be nultiple
+  priority              priority, could be multiple
   custodial             y or n, default either
-  subscribe_since       subscribed since this time
+  subscribe_since       subscribed since this time, defaults to 24h ago
+  subscribe_before      subscribed before this time, defaults to 24h after subscribe_since
   update_since          updated since this time
-  first_request_since   first requested since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
   ever_suspended        y or n, default neither
@@ -66,13 +68,17 @@ Evenrything we want to know about historical block latency
   time_update           time when status was updated
   block_create          time when the block was created
   block_close           time when the block was closed
-  first_request         time when the first file is routed
-  first_replica         time when the first replica is done
+  first_request         time when the first file was routed
+  first_replica         time when the first replica was done
   percent25_replica     time when 25% of the files were replicated
   percent50_replica     time when 50% of the files were replicated
   percent75_replica     time when 75% of the files were replicated
   percent95_replica     time when 95% of the files were replicated
   last_replica          time when last file was replicated
+  primary_from_node     name of the node from which most of the files were transferred
+  primary_from_id       id of the node from which most of the files were transferred
+  primary_from_files    number of files transferred from primary_from_node
+  total_xfer_attempts   total number of transfer attempts for all files in the block
   total_suspend_time    seconds the block was suspended since the start of the transfer
   latency               latency
 
@@ -113,6 +119,10 @@ my $map = {
             percent75_replica => 'PERCENT75_REPLICA',
             percent95_replica => 'PERCENT95_REPLICA',
             last_replica => 'LAST_REPLICA',
+	    primary_from_node => 'PRIMARY_FROM_NODE',
+	    primary_from_id => 'PRIMARY_FROM_ID',
+	    primary_from_files => 'PRIMARY_FROM_FILES',
+	    total_xfer_attempts => 'TOTAL_XFER_ATTEMPTS',
             total_suspend_time => 'TOTAL_SUSPEND_TIME',
             latency => 'LATENCY'
         }
@@ -120,59 +130,73 @@ my $map = {
 };
 
 sub duration{ return 60 * 60; }
-sub invoke { return blockLatencyHistory(@_); }
-sub blockLatencyHistory
-{
-    my ($core,%h) = @_;
-
-    # take care of time
-    foreach ( qw / subscribe_since first_request_since update_since / )
-    {
-        if ($h{$_})
-        {
-            $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
-        }
-    }
-
-    # convert parameter keys to upper case
-
-    foreach ( qw / id block to_node priority custodial subscribe_since first_request_since update_since latency_greater_than latency_less_than ever_suspended / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    return { block => PHEDEX::Core::Util::flat2tree($map, PHEDEX::Web::SQL::getBlockLatencyHistory($core,%h)) };
-}
+sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
 
 my $sth;
 my $limit = 1000;
 my @keys = ('ID');
+my %p;
 
 sub spool
 {
     my ($core,%h) = @_;
 
-    # take care of time
-    foreach ( qw / subscribe_since first_request_since update_since / )
+    if (!$sth)
+
     {
-        if ($h{$_})
+        eval {
+            %p = &validate_params(\%h,
+                                  uc_keys => 1,
+                                  allow => [qw(id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended )],
+                                  spec => {
+                                      id => { using => 'pos_int', multiple => 1 },
+                                      block => { using => 'block_*', multiple => 1 },
+                                      dataset => { using => 'dataset', multiple => 1 },
+                                      to_node => { using => 'node', multiple => 1 },
+                                      priority => { using => 'priority', multiple =>1 },
+                                      custodial => { using => 'yesno' },
+				      subscribe_since => { using => 'time' },
+				      subscribe_before => { using => 'time' },
+				      update_since => { using => 'time' },
+                                      latency_greater_than => { using => 'pos_float' },
+                                      latency_less_than => { using => 'pos_float' },
+                                      ever_suspended => { using => 'yesno' }
+                                  }
+                                  );
+        };
+
+        if ($@)
         {
-            $h{$_} = PHEDEX::Core::Timing::str2time($h{$_});
-            die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $h{$_};
+            return PHEDEX::Web::Util::http_error(400,$@);
         }
+	
+	# take care of time
+	foreach ( qw / SUBSCRIBE_SINCE SUBSCRIBE_BEFORE UPDATE_SINCE / )
+	{
+	    if ($p{$_})
+	    {
+		$p{$_} = PHEDEX::Core::Timing::str2time($p{$_});
+		die PHEDEX::Web::Util::http_error(400,"invalid $_ value") if not defined $p{$_};
+	    }
+	}
+	
+	# set default "since" to 24 hours ago
+	if (not $p{SUBSCRIBE_SINCE})
+	{
+	    $p{SUBSCRIBE_SINCE} = time() - 3600*24;
+	}
+
+	# set default "before" to 24h after "since"
+        if (not $p{SUBSCRIBE_BEFORE})
+        {
+	    $p{SUBSCRIBE_BEFORE} = $p{SUBSCRIBE_SINCE} + 3600*24;
+	}
+    
+	$p{'__spool__'} = 1;
+
     }
 
-    # convert parameter keys to upper case
-
-    foreach ( qw / id block to_node priority custodial subscribe_since first_request_since update_since latency_greater_than latency_less_than ever_suspended / )
-    {
-        $h{uc $_} = delete $h{$_} if $h{$_};
-    }
-
-    $h{'__spool__'} = 1;
-
-    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockLatencyHistory($core,%h), $limit, @keys) if !$sth;
+    $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getBlockLatencyLog($core,%p), $limit, @keys) if !$sth;
     my $r = $sth->spool();
 
     if ($r)
