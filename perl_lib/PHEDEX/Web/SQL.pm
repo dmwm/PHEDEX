@@ -4332,8 +4332,8 @@ sub getBlockLatency
 }
 
 
-# getBlockLatencyHistory
-sub getBlockLatencyHistory
+# getBlockLatencyLog
+sub getBlockLatencyLog
 {
     my $core = shift;
     my %h = @_;
@@ -4427,17 +4427,17 @@ sub getBlockLatencyHistory
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
     }
 
-    if (exists $h{FIRST_REQUEST_SINCE})
+    if (exists $h{SUBSCRIBE_BEFORE})
     {
         if ($filters)
         {
-            $filters .= ' and l.first_request >= :first_request ';
+            $filters .=  ' and l.time_subscription < :time_subscription_max ';
         }
         else
         {
-            $filters = ' l.first_request >= :first_request ';
+            $filters =  ' l.time_subscription < :time_subscription_max ';
         }
-        $p{':first_request'} = $h{FIRST_REQUEST_SINCE};
+        $p{':time_subscription_max'} = $h{SUBSCRIBE_BEFORE};
     }
 
     if (exists $h{LATENCY_GREATER_THAN})
