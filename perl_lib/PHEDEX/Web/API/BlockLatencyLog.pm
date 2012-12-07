@@ -22,8 +22,8 @@ Return latency statistics for completed block transfers
   to_node               destination node, could be multiple, could have wildcard
   priority              priority, could be multiple
   custodial             y or n, default either
-  subscribe_since       subscribed since this time, defaults to 24h ago
-  subscribe_before      subscribed before this time, defaults to 24h after subscribe_since
+  subscribe_since       subscribed since this time, defaults to 24h ago if block/dataset is not set
+  subscribe_before      subscribed before this time, defaults to 24h after subscribe_since if block/dataset is not set
   update_since          updated since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
@@ -180,14 +180,14 @@ sub spool
 	    }
 	}
 	
-	# set default "since" to 24 hours ago
-	if (not $p{SUBSCRIBE_SINCE})
+	# set default "since" to 24 hours ago if block/dataset is not set
+	if ((not $p{SUBSCRIBE_SINCE}) && (not $p{DATASET}) && (not $p{BLOCK}))
 	{
 	    $p{SUBSCRIBE_SINCE} = time() - 3600*24;
 	}
 
-	# set default "before" to 24h after "since"
-        if (not $p{SUBSCRIBE_BEFORE})
+	# set default "before" to 24h after "since" if block/dataset is not set
+        if ((not $p{SUBSCRIBE_BEFORE}) && (not $p{DATASET}) && (not $p{BLOCK}))
         {
 	    $p{SUBSCRIBE_BEFORE} = $p{SUBSCRIBE_SINCE} + 3600*24;
 	}
