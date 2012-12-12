@@ -537,6 +537,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         dom.results_label.innerHTML = '';
         dom.results_text.innerHTML = '';
         Dom.removeClass(dom.results,'phedex-box-yellow');
+        alert("Datasvc call returned:\n"+YAHOO.lang.dump(data));
         if ( response ) { // indicative of failure
           msg = response.responseText;
           this.onAcceptFail(msg);
@@ -589,7 +590,7 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
             menu, menu_items,
             data={}, args={}, tmp, value, block, dataset,
             elList, el, i, panel, api;
-
+       
         this.formFail = false;
 // Data Items: Several layers of checks:
 // 1. If the string is empty, or matches the inline help, abort
@@ -704,21 +705,18 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         this.Accept.set('disabled',true);
 
 // Subscription level is hardwired for now.
-
-        args = this.checkRequestParameters();
+        args = this.checkRequestParameters();     
         if ( args.node.length == 0 ) {
           this.onAcceptFail('No Destination nodes specified');
         }
         if ( this.user_group && !args.group ) {
           this.onAcceptFail('No User-Group specified');
         }
-
 // If there were errors, I can give up now!
         if ( this.formFail ) {
           this.set('disabled',true);
           return;
         }
-
 // Now build the XML!
         data = args.data;
         xml = '<data version="2.0"><dbs name="' + dbs.value.innerHTML + '">';
@@ -731,13 +729,13 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         }
         xml += '</dbs></data>';
         args.data = xml;
-
         Dom.removeClass(dom.results,'phedex-invisible');
         Dom.addClass(dom.results,'phedex-box-yellow');
         dom.results_label.innerHTML = 'Status:';
         dom.results_text.innerHTML  = PxU.stdLoading('Submitting request (please wait)');
         if ( this.type == 'xfer'   ) { api = 'subscribe'; }
         if ( this.type == 'delete' ) { api = 'delete'; }
+        if ( this.type == 'fileinvalidate' ) { alert ('Performing fileinvalidation request with:\n '+YAHOO.lang.dump(args)); api = 'bounce'; }
         PHEDEX.Datasvc.Call({
                               api:api,
                               method:'post',
@@ -1442,6 +1440,7 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
   }
 }
 
+
 PHEDEX.Nextgen.Request.FileInvalidate = function(_sbx,args) {
   var Dom   = YAHOO.util.Dom,
       Event = YAHOO.util.Event;
@@ -1455,12 +1454,109 @@ PHEDEX.Nextgen.Request.FileInvalidate = function(_sbx,args) {
           form, elList, el;
       hd.innerHTML = 'Invalidate Files';
 
+      this.meta.synchronise = {
+      	Preview: { data_items:false, destination:false},
+      	Accept:  { data_items:false, destination:false, auth:false }
+      };
+
       form = document.createElement('form');
       form.id   = 'invalidate_files';
       form.name = 'invalidate_files';
       mb.appendChild(form);
 
-      form.innerHTML = '<div>your form goes here</div>';
+// Data Items
+      this.data_items = {
+        text:'enter one or more file names, separated by white-space or commas.',
+        help_text:"Probably for this test we need blocks and/or data-set",
+        label:'Data Items'
+      };
+      if ( params.data ) {
+        if ( typeof(params.data) == 'string' ) { this.data_items.initial_text = params.data; }
+        else                                   { this.data_items.initial_text = params.data.join("\n"); }
+      }
+      this.makeControlTextbox(this.data_items,form);
+
+// DBS
+      this.dbs = {
+        instanceDefault:{
+         prod:'none',
+         test:'none',
+        debug:'none',
+         },
+         label:'DBS'
+      };
+      this.makeControlDBS(this.dbs,form);  
+
+// Destination
+      this.destination = {
+        label:'Destination'
+      };
+      this.makeControlDestination(this.destination,form);      
+      
+// Email
+      el = document.createElement('div');
+      Dom.addClass(el,'phedex-nextgen-form');
+// TODO take away phedex-invisible if we really need this, or suppress this field entirely if we don't
+      el.innerHTML = "<div class='phedex-nextgen-form-element'>" +
+                        "<div class='phedex-nextgen-label'>Email</div>" +
+                        "<div class='phedex-nextgen-control'>" +
+                          "<div id='email_selector'>" +
+                            "<span id='email_value'></span>" +
+                            "<span>&nbsp;</span>" +
+                            "<a id='change_email' class='phedex-nextgen-form-link phedex-invisible' href='#'>change</a>" +
+                          "</div>" +
+                          "<div><input type='text' id='email_input' name='email' class='phedex-nextgen-text phedex-invisible' value='' /></div>" +
+                        "</div>" +
+                      "</div>";
+
+      form.appendChild(el);
+      this.email = { _default:'(unknown)' };
+      var email = this.email, onEmailInput, kl;
+      email.selector = Dom.get('email_selector');
+      email.input    = Dom.get('email_input');
+      email.value    = Dom.get('email_value');
+      Dom.setStyle(email.input,'width','170px')
+      Dom.setStyle(email.input,'color','black');
+      Dom.setStyle(email.value,'color','grey');
+
+      onChangeEmailClick = function(obj) {
+        return function() {
+          Dom.addClass(   email.selector,'phedex-invisible');
+          Dom.removeClass(email.input,   'phedex-invisible');
+          email.input.focus();
+        };
+      }(this);
+      Event.on(Dom.get('change_email'),'click',onChangeEmailClick);
+
+      onEmailInput = function(obj) {
+        return function() {
+          Dom.removeClass(email.selector,'phedex-invisible');
+          Dom.addClass(   email.input,   'phedex-invisible');
+          email.value.innerHTML = email.input.value;
+        }
+      }(this);
+      email.input.onblur = onEmailInput;
+
+      kl = new YAHOO.util.KeyListener(email.input,
+                               { keys:13 }, // TODO '13' is the enter key, seems there's no mnemonic for this?
+                               { fn:function(obj){ return function() { onEmailInput(); } }(this),
+                               scope:this, correctScope:true } );
+      kl.enable();
+      PHEDEX.Datasvc.Call({ method:'post', api:'auth', callback:this.gotAuthData })     
+      
+// Comments
+      this.comments = {
+        text:'enter any additional comments here',
+        label:'Comments',
+        initial_text:params.comments
+      };
+      this.makeControlTextbox(this.comments,form);
+
+// Preview
+      this.makeControlPreview(form);
+      
+// Results
+      this.makeControlOutputbox({label:'Results', className:'phedex-invisible'},form);
     }
   }
 }
