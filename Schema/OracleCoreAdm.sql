@@ -81,19 +81,19 @@ create table t_adm_client
      foreign key (contact) references t_adm_contact (id));
 
 /* Map of identity to node for web page user preferences */
--- create table t_adm_my_node
---   (identity		integer		not null,
---    node			integer		not null,
---    --
---    constraint pk_adm_my_node
---      primary key (identity, node),
---    --
---    constraint fk_adm_my_node_identity
---      foreign key (identity) references t_adm_identity (id)
---      on delete cascade,
---    constraint fk_adm_my_node_node
---      foreign key (node) references t_adm_node (id)
---      on delete cascade);
+create table t_adm_my_node
+  (identity		integer		not null,
+   node			integer		not null,
+   --
+   constraint pk_adm_my_node
+     primary key (identity, node),
+   --
+   constraint fk_adm_my_node_identity
+     foreign key (identity) references t_adm_identity (id)
+     on delete cascade,
+   constraint fk_adm_my_node_node
+     foreign key (node) references t_adm_node (id)
+     on delete cascade);
 
 ----------------------------------------------------------------------
 -- Create indices

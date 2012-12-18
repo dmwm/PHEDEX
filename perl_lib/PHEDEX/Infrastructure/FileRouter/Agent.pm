@@ -208,22 +208,14 @@ sub flush
     do { $dbh->commit(); $ndel = 0 } if (($ndel += $rows) >= 10_000);
 
     # Update priority on existing requests.
-    #
-    # This used to be a 'update where (select...) statement, but that does not
-    # work with restricted column access. You can only use that syntax if you
-    # have full update rights on the tables in the 'select' clause.
-    #
-    # Using a 'merge into' like this gets round that problem.
     ($stmt, $rows) = &dbexec ($dbh, qq{
-      merge into t_xfer_request xr using
-        (select xq.rowid id,
-                bd.priority cur_priority
-           from t_xfer_request xq
-           join t_dps_block_dest bd
-             on bd.block = xq.inblock and bd.destination = xq.destination
-          where xq.priority != bd.priority) src
-             on (xr.rowid = src.id)
-           when matched then update set xr.priority = src.cur_priority});
+	update (select xq.priority req_priority, bd.priority cur_priority
+		from t_xfer_request xq
+		  join t_dps_block_dest bd
+		    on bd.block = xq.inblock
+		    and bd.destination = xq.destination
+		where xq.priority != bd.priority)
+	set req_priority = cur_priority});
     push @stats, ['request priority updated', $rows];
 
     # Create file requests for any active blocks where one does not
