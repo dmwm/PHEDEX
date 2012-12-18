@@ -158,10 +158,14 @@ sub doNSCheck
   $self->{bcc}->Checks($request->{TEST}) or
     die "Test $request->{TEST} not known to ",ref($self),"!\n";
 
-  # Load the catalogue only on the first execution
+  # Load the catalogue only on the first execution; afterwards just update its DB connection
   # Note - if the agent is running for multiple nodes, it will use only the catalogue of the first one
-  $self->{CATALOGUE} = PHEDEX::Core::Catalogue->new( $self->{DBH} , $self->{NODES}[0] )
-      unless $self->{CATALOGUE};
+  if ( $self->{CATALOGUE} ) {
+      $self->{CATALOGUE}->{DBH} = $self->{DBH};
+  }
+  else {
+      $self->{CATALOGUE} = PHEDEX::Core::Catalogue->new( $self->{DBH} , $self->{NODES}[0] );
+  }
   
   if ( $self->{NAMESPACE} )
   {
