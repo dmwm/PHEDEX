@@ -1,3 +1,9 @@
+Changes for PhEDEx 4.1.2
+
+Changes for site agents
+  - Fix for #99534: update DBH of Catalogue object before every test (to avoid
+	using an expired DB connection)
+
 Changes for PhEDEx 4.1.1
 
 Changes for Schema and DB Config
