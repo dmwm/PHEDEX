@@ -103,7 +103,9 @@ sub madeDataset {
   if ( $workflow->{Dataset} ) {
     $i = 0;
     foreach ( @{$result} ) {
-      $_->{dataset}{name} = sprintf($workflow->{Dataset},$i++);
+      $name = $workflow->{Dataset};
+      $name =~ s|%Sequence|$payload->{id}|;
+      $_->{dataset}{name} = sprintf($name,$i++);
     }
   }
 
@@ -177,10 +179,8 @@ sub addData {
   $dataset  = $workflow->{data}[0]{dataset};
   $dsname   = $dataset->{name};
 
-# Take default block/file counts from the dataset. Take the last block for
-# the number of files. May not be correct, but good enough!
-  $workflow->{InjectionsThisBlock} ||= scalar @{$dataset->{blocks}[-1]{block}{files}};
-  $workflow->{BlocksThisDataset}   ||=  scalar @{$dataset->{blocks}};
+  $workflow->{InjectionsThisBlock} ||= 1;
+  $workflow->{BlocksThisDataset}   ||= 1;
 # TW N.B. Assume I have only one dataset!
   $self->Logmsg("addData ($dsname): $workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
 
