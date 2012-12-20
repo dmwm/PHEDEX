@@ -613,13 +613,13 @@ sub post_exec {
     $self->Alert("$name:$id status=$status, abandoning...\n");
     if ( -f $in && !$workflow->{KeepFailedInputs} ) {
       unlink $in or $self->Fatal("Could not unlink $in: $!\n");
-    }
+    } else { $result->{in} = $in; }
     if ( -f $log && !$workflow->{KeepFailedLogs} ) {
       unlink $log or $self->Fatal("Could not unlink $log: $!\n");
-    }
+    } else { $result->{log} = $log; }
     if ( -f $out && !$workflow->{KeepFailedOutputs} ) {
       unlink $out or $self->Fatal("Could not unlink $out: $!\n");
-    }
+    } else { $result->{out} = $out; }
   }
   if ( -f $in && !$workflow->{KeepInputs} ) {
     unlink $in or $self->Fatal("Could not unlink $in: $!\n");
@@ -671,7 +671,7 @@ sub processStats {
 
 sub processReport {
   my ($self,$payload) = @_;
-  my ($report,$name,$id,$status,$reason,$msg);
+  my ($report,$name,$id,$status,$reason,$msg,$msgExtra);
   return unless $report = $payload->{report};
 
   $name = $payload->{workflow}{Name};
@@ -681,6 +681,20 @@ sub processReport {
     $status = lc $report->{status};
     $reason = $report->{reason} || 'none given';
     $msg = "$name:$id status=$status, reason=$reason";
+    if ( $report->{in} ) {
+      $msgExtra = "in=$report->{in}";
+    }
+    if ( $report->{out} ) {
+      $msgExtra .= ', ' if $msgExtra;
+      $msgExtra .= "out=$report->{out}";
+    }
+    if ( $report->{log} ) {
+      $msgExtra .= ', ' if $msgExtra;
+      $msgExtra .= "log=$report->{log}";
+    }
+    if ( $msgExtra ) {
+      $msg .= ' (' . $msgExtra . ' )';
+    }
     if    ( $status eq 'fatal' ) { $self->Fatal($msg,', Abandoning...'); }
     elsif ( $status eq 'error' ) { $self->Alert($msg); }
     elsif ( $status eq 'warn'  ) { $self->Warn($msg);  }
