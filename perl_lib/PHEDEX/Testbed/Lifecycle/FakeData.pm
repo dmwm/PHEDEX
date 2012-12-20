@@ -98,8 +98,8 @@ $suffix = "";
       ($RN < $ds->{StuckFileFraction}) && ($suffix = "-stuckfile");
     }
     $lfn  = $ds->{Dataset} . "/${blockid}/${n_file}" . $suffix;
-    $mean = $ds->{FileSizeMean} || 2.0;
-    $sdev = $ds->{FileSizeStdDev} || 0.2;
+    $mean = defined( $ds->{FileSizeMean} )   ? $ds->{FileSizeMean}   : 2.0;
+    $sdev = defined( $ds->{FileSizeStdDev} ) ? $ds->{FileSizeStdDev} : 0.2;
     $size = int(gaussian_rand($mean, $sdev) * (1024**3)); 
     $cksum = 'cksum:'. int(rand() * (10**10));
     $self->Dbgmsg("lfn => $lfn, size => $size, cksum => $cksum");
