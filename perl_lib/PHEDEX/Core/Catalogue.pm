@@ -48,7 +48,7 @@ sub lfn2pfn {
     my ( $self, $input, $protocol, $dest, $custodial) = @_; # Do we need custodiality here? 
     if (exists $self->{'DUMMY'}) {return $input};
     if (exists $self->{'DBH'}) {
-	my $cats = $self->{'CATS'} || {};
+	my $cats = {};
 	my $mapping = &dbStorageRules( $self->{'DBH'}, $cats, $self->{'NODE_ID'});
 	return &applyStorageRules($mapping,$protocol,$dest,'pre',$input,$custodial);
     }
@@ -354,7 +354,7 @@ sub applyStorageRules
 # file or a database handle
 sub dbStorageRules
 {
-    my ($dbh, $cats, $node) = @_;
+    my ($dbh, $cats, $node, $direction) = @_;
     my $now = &mytimeofday();
 
     # check if cached rules are old if we haven't checked within the last 5 minutes
@@ -371,12 +371,23 @@ sub dbStorageRules
     {
         $$cats{$node} = {};
 
-        my $q = &dbexec($dbh, qq{
-	    select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token, time_update
-	    from t_xfer_catalogue
-	    where node = :node and rule_type = 'lfn-to-pfn'
-	    order by rule_index asc},
-	    ":node" => $node);
+        my $q;
+        if (defined $direction) {
+           $q = &dbexec($dbh, qq{
+	      select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token, time_update
+	      from t_xfer_catalogue
+	      where node = :node and rule_type = 'pfn-to-lfn'
+	      order by rule_index asc},
+	      ":node" => $node);
+        } else {
+           $q = &dbexec($dbh, qq{
+              select protocol, chain, destination_match, path_match, result_expr, is_custodial, space_token, time_update
+              from t_xfer_catalogue
+              where node = :node and rule_type = 'lfn-to-pfn'
+              order by rule_index asc},
+              ":node" => $node);
+        }
+
 
         while (my ($proto, $chain, $dest, $path, $result, $custodial, $space_token, $time_update) = $q->fetchrow())
         {
