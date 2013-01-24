@@ -52,6 +52,19 @@ sub output
     } elsif ( $format eq 'json' ) {
 	PHEDEX::Web::Util::lc_keys($obj); # force keys to be lowercase
 	print { $file } encode_json($obj);
+    } elsif ( $format eq 'cjson' ) {
+        PHEDEX::Web::Util::lc_keys($obj); # force keys to be lowercase
+        #print { $file } Dumper($obj->{'phedex'});
+        my ($cobj,$k, $v, $temp);
+        $temp = compress($file, $obj->{'phedex'});
+        while (($k, $v) = each (%{$obj->{'phedex'}}))
+        {
+            $cobj->{'phedex'}->{$k} = $v;
+            if (ref($v) eq "ARRAY") {
+                $cobj->{'phedex'}->{$k} = $temp;
+            }
+        }
+        print { $file } encode_json($cobj);
     } elsif ( $format eq 'perl' ) {
 	# FIXME: this shouldn't be necessary.  Ensure all APIs return
 	# uppercase key data structures by default then remove this
@@ -70,6 +83,39 @@ sub error
     
     $message =~ s% at /\S+/perl_lib/PHEDEX/\S+pm line \d+%%;
     &PHEDEX::Web::Format::output($file, $format, { error => $message });
+}
+
+sub compress
+{
+    my ($file, $h) = @_;
+    my ($k, $v, $sub, $k2, $a);
+    my %ch;
+
+    #print { $file } Dumper($h);
+    while (($k, $v) = each (%$h))
+    {
+       if (ref($v) eq "ARRAY") {
+          #print { $file } Dumper($v->[0]);
+          foreach $k2 (keys %{$v->[0]}) {
+            push @{$ch{'column'}}, $k2;
+          }
+          foreach $a (@$v) {
+            $sub = [];
+            foreach $k2 (keys %$a)
+            {
+              if (ref($a->{$k2}) eq "ARRAY")
+              {
+                #print { $file } Dumper($a->{$k2});
+                $a->{$k2} = compress($file, $a);
+              }
+              push @$sub, $a->{$k2};
+            }
+            #print { $file } Dumper($sub);
+            push @{$ch{'values'}}, $sub; 
+         }
+       }
+    }
+    return \%ch;
 }
 
 sub gather
