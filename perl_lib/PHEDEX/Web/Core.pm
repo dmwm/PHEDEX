@@ -17,7 +17,7 @@ Calls to the PhEDEx data service should be made using the following URL format:
 
 C<http://host.cern.ch/phedex/datasvc/FORMAT/INSTANCE/CALL?OPTIONS>
 
- FORMAT    the desired output format (e.g. xml, json, or perl)
+ FORMAT    the desired output format (e.g. xml, json, cjson, or perl)
  INSTANCE  the PhEDEx database instance from which to fetch the data
            (e.g. prod, debug, dev)
  CALL      the API call to make (see below)
@@ -200,7 +200,7 @@ sub call
     no strict 'refs';
 
     # check the format argument then remove it
-    if (!grep $_ eq $format, qw( xml json perl )) {
+    if (!grep $_ eq $format, qw( xml json cjson perl )) {
         &PHEDEX::Web::Format::error(*STDOUT, 'xml', "Return format requested is unknown or undefined");
 	return;
     }

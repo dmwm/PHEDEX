@@ -139,6 +139,7 @@ sub invoke
   my $type;
   if    ($format eq 'xml')  { $type = 'text/xml'; }
   elsif ($format eq 'json') { $type = 'text/javascript'; }
+  elsif ($format eq 'cjson') { $type = 'text/javascript'; }
   elsif ($format eq 'perl') { $type = 'text/plain'; }
   else {
       &error($format, "Unsupported format '$format'");
@@ -263,6 +264,7 @@ sub error
     my $type;
     if    ($format eq 'xml')  { $type = 'text/xml'; }
     elsif ($format eq 'json') { $type = 'text/javascript'; }
+    elsif ($format eq 'cjson') { $type = 'text/javascript'; }
     elsif ($format eq 'perl') { $type = 'text/plain'; }
     else # catch all
     {
