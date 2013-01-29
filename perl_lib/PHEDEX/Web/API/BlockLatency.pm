@@ -173,8 +173,8 @@ sub spool
 				      custodial => { using => 'yesno' },
 				      subscribe_since => { using => 'time' },
 				      update_since => { using => 'time' },
-				      latency_greater_than => { using => 'pos_float' },
-				      latency_less_than => { using => 'pos_float' },
+				      latency_greater_than => { using => 'float' },
+				      latency_less_than => { using => 'float' },
 				      ever_suspended => { using => 'yesno' }
 				  }
 				  );
