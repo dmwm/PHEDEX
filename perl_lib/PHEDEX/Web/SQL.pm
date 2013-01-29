@@ -4171,6 +4171,125 @@ sub getDatasetInfo
     return \@r;
 }
 
+# getBlockArrive
+sub getBlockArrive
+{
+    my $core = shift;
+    my %h = @_;
+    my $filters = '';
+    my %p;
+
+    my $sql = qq{
+        select
+            b.id,
+            b.name,
+            b.files,
+            b.bytes,
+            d.name as dataset,
+            b.time_create,
+            b.time_update,
+            n.name as destination,
+            n.id as destination_id,
+            n.se_name as destination_se,
+            a.time_update as atime_update,
+            a.files as afiles,
+            a.bytes as abytes,
+            a.priority,
+            a.basis,
+            a.time_span,
+	    a.pend_bytes,
+	    a.xfer_rate,
+	    a.time_arrive
+        from
+            t_status_block_arrive a
+            join t_dps_block b on a.block = b.id
+            join t_dps_dataset d on b.dataset = d.id
+            join t_adm_node n on a.destination = n.id
+    };
+
+    build_multi_filters($core, \$filters, \%p, \%h, (
+        ID => 'a.block',
+        BLOCK => 'b.name',
+        TO_NODE => 'n.name',
+        DATASET => 'd.name',
+        BASIS => 'a.basis'
+    ));
+
+    if (exists $h{PRIORITY})
+    {
+        if ($filters)
+        {
+            $filters .= ' and a.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+        else
+        {
+            $filters = ' a.priority = ' . PHEDEX::Core::Util::priority_num($h{PRIORITY});
+        }
+    }
+
+    if (exists $h{UPDATE_SINCE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and a.time_update >= '.$h{UPDATE_SINCE};
+        }
+        else
+        {
+            $filters = ' a.time_update >= '.$h{UPDATE_SINCE};
+        }
+    }
+
+    if (exists $h{ARRIVE_AFTER})
+    {
+        if ($filters)
+        {
+            $filters .= ' and a.time_arrive >= :tamin ';
+        }
+        else
+        {
+            $filters = ' a.time_arrive >= :tamin ';
+        }
+        $p{':tamin'} = $h{ARRIVE_AFTER};
+    }
+
+    if (exists $h{ARRIVE_BEFORE})
+    {
+        if ($filters)
+        {
+            $filters .= ' and a.time_arrive < :tamax ';
+        }
+        else
+        {
+            $filters = ' a.time_arrive < :tamax ';
+        }
+        $p{':tamin'} = $h{ARRIVE_BEFORE};
+    }
+
+    if ($filters)
+    {
+        $sql .= "where  $filters ";
+    }
+
+    $sql .= " order by b.id ";
+
+    my @r;
+    my $q = execute_sql($core, $sql, %p);
+    $q = PHEDEX::Web::STH->new($q);
+    if ($h{'__spool__'})
+    {
+        return $q;
+    }
+
+    while ($_ = $q->fetchrow_hashref() )
+    {
+        # take care of priority
+        $_->{PRIORITY} = PHEDEX::Core::Util::priority($_->{PRIORITY}, 0);
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
 # getBlockLatency
 sub getBlockLatency
 {
