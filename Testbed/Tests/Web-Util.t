@@ -248,6 +248,22 @@ ok( dies(\&validate_params, { foo => -1.1 }, spec => $using_spec),              
 ok( dies(\&validate_params, { foo => '1.1e3' }, spec => $using_spec),               'bad pos_float 1.1e3');
 ok( dies(\&validate_params, { foo => '2MB/s' }, spec => $using_spec),               'bad pos_float 2MB/s');
 
+# 'int' checking
+$using_spec = { foo => { using => 'int' } };
+ok( lives(\&validate_params, { foo => 1 }, spec => $using_spec),                    'good int: 1') or whydie;
+ok( lives(\&validate_params, { foo => -2 }, spec => $using_spec),                   'good int: -2') or whydie;
+ok( dies (\&validate_params, { foo => 1.1 }, spec => $using_spec),                  'bad int: 1.1');
+ok( dies (\&validate_params, { foo => 'hello' }, spec => $using_spec),              'bad int: hello');
+
+# 'float' checking
+$using_spec = { foo => { using => 'float' } };
+ok( lives(\&validate_params, { foo => 1.1 }, spec => $using_spec),                  'good float 1.1');
+ok( lives(\&validate_params, { foo => 1. }, spec => $using_spec),                   'good float 1.');
+ok( lives(\&validate_params, { foo => -1.1 }, spec => $using_spec),                 'good float -1.1');
+ok( dies(\&validate_params, { foo => '.1' }, spec => $using_spec),                  'bad float .1');
+ok( dies(\&validate_params, { foo => '1.1e3' }, spec => $using_spec),               'bad float 1.1e3');
+ok( dies(\&validate_params, { foo => '2MB/s' }, spec => $using_spec),               'bad float 2MB/s');
+
 # 'hostname' checking
 $using_spec = { foo => { using => 'hostname' } };
 ok( lives(\&validate_params, { foo => 'www.cern.ch' }, spec => $using_spec),        'good hostname www.cern.ch');
