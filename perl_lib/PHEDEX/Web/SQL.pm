@@ -4653,10 +4653,24 @@ sub getFileLatency
         f.logical_name as lfn,
         f.filesize,
 	f.checksum,
-	bl.time_subscription,
-        h.time_update,
-        h.priority,
-        h.is_custodial,
+        f.time_create ftime_create,
+	bl.time_subscription btime_subscription,
+	bl.files bfiles,
+	bl.bytes bbytes,
+	bl.priority bpriority,
+	bl.is_custodial BIS_CUSTODIAL,
+	bl.time_update BTIME_UPDATE,                                                                                                                                                    
+        bl.block_create BLOCK_CREATE,                                                                                                                                                   
+        bl.block_close BLOCK_CLOSE,                                                                                                                                                     
+        bl.latest_replica LATEST_REPLICA,                                                                                                                                               
+        bl.last_replica LAST_REPLICA,                                                                                                                                                   
+        bl.last_suspend LAST_SUSPEND,                                                                                                                                                   
+        bl.partial_suspend_time PARTIAL_SUSPEND_TIME,                                                                                                                                   
+        bl.total_suspend_time TOTAL_SUSPEND_TIME,
+        bl.latency LATENCY,
+        h.time_update ftime_update,
+        h.priority fpriority,
+        h.is_custodial fis_custodial,
         h.time_request,
         h.time_route,
         h.time_assign,
@@ -4667,8 +4681,12 @@ sub getFileLatency
         h.time_on_buffer,
         h.time_at_destination,
         n.name destination,
+	n.id destination_id,
+	n.se_name destination_se,
 	nf.name from_node,
+	nf.id from_node_id,
 	nof.name original_from_node,
+        nof.id original_from_node_id,
         d.name as dataset
       from
         t_xfer_file_latency h
@@ -4676,7 +4694,7 @@ sub getFileLatency
         left join t_dps_file f on h.fileid = f.id
         join t_dps_block b on f.inblock = b.id
         join t_dps_dataset d on d.id = b.dataset
-        join t_adm_node n on n.id = h.destination
+        join t_adm_node n on n.id = bl.destination
 	left join t_adm_node nf on nf.id = h.from_node
 	left join t_adm_node nof on nof.id= h.original_from_node
     };
@@ -4687,8 +4705,8 @@ sub getFileLatency
         TO_NODE => 'n.name',
         CUSTODIAL => 'h.is_custodial',
         DATASET => 'd.name',
-        LFN => 'f.logical_name'
-    ));
+	LFN => 'f.logical_name'
+     ));
 
     if (exists $h{PRIORITY})
     {
@@ -4725,6 +4743,68 @@ sub getFileLatency
             $filters =  ' h.time_subscription >= :time_subscription ';
         }
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
+    }
+
+    if (exists $h{SUBSCRIBE_BEFORE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and l.time_subscription < :time_subscription_max ';
+        }
+        else
+        {
+            $filters =  ' l.time_subscription < :time_subscription_max ';
+        }
+        $p{':time_subscription_max'} = $h{SUBSCRIBE_BEFORE};
+    }
+
+    if (exists $h{LATENCY_GREATER_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency >= :lmin ';
+        }
+        else
+        {
+            $filters = ' l.latency >= :lmin ';
+        }
+        $p{':lmin'} = $h{LATENCY_GREATER_THAN};
+    }
+
+    if (exists $h{LATENCY_LESS_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency <= :lmax ';
+        }
+        else
+        {
+            $filters = ' l.latency <= :lmax ';
+        }
+        $p{':lmax'} = $h{LATENCY_LESS_THAN};
+    }
+
+    if (exists $h{EVER_SUSPENDED})
+    {
+        my $suspend_sql;
+
+        if ($h{EVER_SUSPENDED} eq 'y')
+        {
+            $suspend_sql = 'l.total_suspend_time > 0 ';
+        }
+        elsif ($h{EVER_SUSPENDED} eq 'n')
+        {
+            $suspend_sql = 'l.total_suspend_time = 0 ';
+        }
+        
+        if ($filters)
+        {
+            $filters .= " and $suspend_sql ";
+        }
+        else
+        {
+            $filters .= " $suspend_sql ";
+        }
     }
 
     if ($filters)
