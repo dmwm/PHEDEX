@@ -4474,6 +4474,7 @@ sub getBlockLatencyLog
 	    ns.name as primary_from_node,
 	    ns.id as primary_from_id,
 	    ns.se_name as primary_from_se,
+	    l.rowid lrowid,
             l.time_update as ltime_update,
             l.files as lfiles,
             l.bytes as lbytes,

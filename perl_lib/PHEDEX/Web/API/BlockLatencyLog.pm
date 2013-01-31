@@ -89,7 +89,7 @@ use PHEDEX::Core::Timing;
 use PHEDEX::Web::Spooler;
 
 my $map = {
-    _KEY => 'ID',
+    _KEY => 'LROWID',
     id => 'ID',
     name => 'NAME',
     dataset => 'DATASET',
