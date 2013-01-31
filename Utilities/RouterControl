@@ -1,0 +1,95 @@
+#! /usr/bin/env perl
+use strict;
+use warnings;
+use Getopt::Long;
+use Data::Dumper;
+$Data::Dumper::Terse = 1;
+
+sub usage
+{
+  print "$0 --source <site 1> --dest <site 2> --rate <#> --file <filename to write>\n";
+  exit 0;
+}
+
+# Using external script, get the name-id mapping for all nodes
+sub load_node_ids
+{
+  my $nodes = undef;
+  my $phedex = $ENV{'PHEDEX_ROOT'};
+  open my $fh, "$phedex/Utilities/GetNodeIds |" or die "error when executing GetNodeIds $!";
+  $nodes = eval do { local $/; <$fh> };
+  close $fh;
+  print ($@) if $@;
+  return $nodes;
+}
+
+# If the given file exists, read its content, we just will update it.
+sub load_file
+{
+  my ($filename) = @_;
+  my $data = undef;
+  if ( -e $filename && -r $filename ) {
+    open my $fh, '<', $filename  or die "error opening $filename: $!";
+    $data = eval do { local $/; <$fh> };
+    close $fh;
+    print($@) if $@;
+  }
+  return $data;
+}
+
+#Dump data content to file
+sub write_file
+{
+  my ($filename,$data) = @_;
+  open (OFILE,"> $filename") or die "error when trying to write $filename: $!";
+  print OFILE Dumper($data);
+  close OFILE;
+}
+
+my %args;
+&GetOptions (
+             "source=s"	=> \$args{SOURCE},
+	     "dest=s" 	=> sub { push(@{$args{DEST}},$_[1]) },
+	     "rate=s"	=> \$args{RATE},
+             "file=s"	=> \$args{FILE},
+             "help|h"	=> sub { &usage() });
+
+# if not rate, purge matching entries
+my $clean_file = (defined $args{RATE}) ? 0 : 1;
+
+# output filename is mandatory
+die "Insufficient parameters, use -h for help.\n" unless (defined $args{FILE});
+
+# translate nodes to ids
+my $nodes  = load_node_ids();
+my $source = $nodes->{$args{SOURCE}} || -1;
+if ( $source < 0 ) {
+   die "source $args{SOURCE} not found \n";
+}
+my @dests;
+foreach my $dest (@{$args{DEST}}) {
+   my $dd = $nodes->{$dest} || -1;
+   if ( $dd > 0 ) { push (@dests, $dd); }
+   else { print "dest $dest not found\n"; }
+}
+
+# get any existent data
+my $data = load_file($args{FILE});
+
+# purge or update data
+foreach my $dest (@dests) {
+  if ( $clean_file ) { delete $data->{$source}{$dest}; }  
+  else {  $data->{$source}{$dest}{XFER_RATE} = $args{RATE}; }
+}
+delete $data->{$source} unless keys(%{$data->{$source}});
+
+# write data to file if any
+if ( keys(%{$data}) ) {  
+   &write_file($args{FILE},$data); 
+   print Dumper($data);
+}  else { 
+   print "No DATA wrote to file $args{FILE}\n";
+   unlink $args{FILE};
+}
+
+1;
