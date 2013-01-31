@@ -38,9 +38,10 @@ Return file-level details on latency statistics for incomplete block transfers
 
   <block>
       <destination>
-        <blocklatency/>
+        <blocklatency>
            <filelatency/>
            ...
+        </blocklatency>
       </destination>
       ...
   </block>
@@ -136,31 +137,31 @@ my $map = {
 	    last_suspend => 'LAST_SUSPEND',
 	    partial_suspend_time => 'PARTIAL_SUSPEND_TIME',
 	    total_suspend_time => 'TOTAL_SUSPEND_TIME',
-	    latency => 'LATENCY'
-	    },
-	filelatency => {
-            _KEY => "FILE_ID",
-            id => "FILE_ID",
-            lfn => "LFN",
-            size => "FILESIZE",
-	    time_create => 'FTIME_CREATE',
-	    time_update => 'FTIME_UPDATE',
-	    priority => 'FPRIORITY',
-	    is_custodial => 'FIS_CUSTODIAL',
-	    time_request => 'TIME_REQUEST',
-	    original_from_node_id => 'ORIGINAL_FROM_NODE_ID',
-	    original_from_node => 'ORIGINAL_FROM_NODE',
-	    from_node_id => 'FROM_NODE_ID',
-	    from_node => 'FROM_NODE',
-	    time_route => 'TIME_ROUTE',
-	    time_assign => 'TIME_ASSIGN',
-	    time_export => 'TIME_EXPORT',
-	    attempts => 'ATTEMPTS',
-	    time_first_attempt => 'TIME_FIRST_ATTEMPT',
-	    time_latest_attempt => 'TIME_LATEST_ATTEMPT',
-	    time_on_buffer => 'TIME_ON_BUFFER',
-	    time_at_destination => 'TIME_AT_DESTINATION'
-            }
+	    latency => 'LATENCY',
+	    filelatency => {
+		_KEY => "FROWID",
+		id => "FILE_ID",
+		lfn => "LFN",
+		size => "FILESIZE",
+		time_create => 'FTIME_CREATE',
+		time_update => 'FTIME_UPDATE',
+		priority => 'FPRIORITY',
+		is_custodial => 'FIS_CUSTODIAL',
+		time_request => 'TIME_REQUEST',
+		original_from_node_id => 'ORIGINAL_FROM_NODE_ID',
+		original_from_node => 'ORIGINAL_FROM_NODE',
+		from_node_id => 'FROM_NODE_ID',
+		from_node => 'FROM_NODE',
+		time_route => 'TIME_ROUTE',
+		time_assign => 'TIME_ASSIGN',
+		time_export => 'TIME_EXPORT',
+		attempts => 'ATTEMPTS',
+		time_first_attempt => 'TIME_FIRST_ATTEMPT',
+		time_latest_attempt => 'TIME_LATEST_ATTEMPT',
+		time_on_buffer => 'TIME_ON_BUFFER',
+		time_at_destination => 'TIME_AT_DESTINATION'
+		}
+	}
     }
 };
 

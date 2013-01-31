@@ -4651,8 +4651,6 @@ sub getFileLatency
         b.time_update as block_time_update,
         f.id as file_id,
         f.logical_name as lfn,
-        f.filesize,
-	f.checksum,
         f.time_create ftime_create,
 	bl.time_subscription btime_subscription,
 	bl.files bfiles,
@@ -4668,8 +4666,10 @@ sub getFileLatency
         bl.partial_suspend_time PARTIAL_SUSPEND_TIME,                                                                                                                                   
         bl.total_suspend_time TOTAL_SUSPEND_TIME,
         bl.latency LATENCY,
+        h.rowid frowid,
         h.time_update ftime_update,
-        h.priority fpriority,
+	h.filesize,
+	h.priority fpriority,
         h.is_custodial fis_custodial,
         h.time_request,
         h.time_route,
@@ -4692,7 +4692,7 @@ sub getFileLatency
         t_xfer_file_latency h
 	join t_dps_block_latency bl on bl.destination=h.destination and bl.block=h.inblock
         left join t_dps_file f on h.fileid = f.id
-        join t_dps_block b on f.inblock = b.id
+        join t_dps_block b on h.inblock = b.id
         join t_dps_dataset d on d.id = b.dataset
         join t_adm_node n on n.id = bl.destination
 	left join t_adm_node nf on nf.id = h.from_node
