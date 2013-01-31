@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# This script should get name-id mapping for all nodes
+
+PHEDEX_SQLPLUS="sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
+
+echo "{"
+echo "select name, id from t_adm_node order by id;" | $PHEDEX_SQLPLUS | \
+	egrep '^T' | awk '{ print "    "$1" => "$2"," }'
+echo "}"
