@@ -4833,8 +4833,8 @@ sub getFileLatency
     return \@r;
 }
 
-# getFileLatencyHistory
-sub getFileLatencyHistory
+# getFileLatencyLog
+sub getFileLatencyLog
 {
     my $core = shift;
     my %h = @_;
@@ -4843,25 +4843,25 @@ sub getFileLatencyHistory
 
     my $sql = qq{
       select
-            b.id,
-            b.name,
+            b.id block_id,
+            b.name block,
             b.files,
             b.bytes,
             d.name as dataset,
-            b.time_create,
-            b.time_update,
+            b.time_create block_time_create,
+            b.time_update block_time_update,
             n.name as destination,
             n.id as destination_id,
             n.se_name as destination_se,
 	    ns.name as primary_from_node,
 	    ns.id as primary_from_id,
 	    ns.se_name as primary_from_se,
-            l.time_update as ltime_update,
-            l.files as lfiles,
-            l.bytes as lbytes,
-            l.priority,
-            l.is_custodial,
-            l.time_subscription,
+            l.time_update as btime_update,
+            l.files as bfiles,
+            l.bytes as bbytes,
+            l.priority bpriority,
+            l.is_custodial bis_custodial,
+            l.time_subscription btime_subscription,
             l.block_create,
             l.block_close,
             l.first_request,
@@ -4877,11 +4877,12 @@ sub getFileLatencyHistory
             l.latency,
 	    f.id as file_id,
 	    f.logical_name as lfn,
-	    f.filesize,
-	    f.checksum,
-	    h.time_update,
-	    h.priority,
-	    h.is_custodial,
+	    f.time_create as ftime_create,
+	    h.rowid frowid,
+	    h.filesize,
+	    h.time_update as ftime_update,
+	    h.priority as fpriority,
+	    h.is_custodial as fis_custodial,
 	    h.time_request,
 	    h.time_route,
 	    h.time_assign,
@@ -4891,11 +4892,13 @@ sub getFileLatencyHistory
 	    h.time_on_buffer,
 	    h.time_at_destination,
 	    nf.name from_node,
-	    nof.name original_from_node
+	    nf.id from_id,
+	    nof.name original_from_node,
+	    nof.id original_from_id
         from
             t_log_block_latency l
-            left join t_dps_block b on l.block = b.id
-            left join t_dps_dataset d on b.dataset = d.id
+            join t_dps_block b on l.block = b.id
+            join t_dps_dataset d on b.dataset = d.id
             join t_adm_node n on l.destination = n.id
 	    left join t_adm_node ns on l.primary_from_node = ns.id
 	    join t_log_file_latency h on l.time_subscription=h.time_subscription
