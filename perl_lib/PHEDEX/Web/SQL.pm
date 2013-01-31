@@ -4725,11 +4725,11 @@ sub getFileLatency
     {
         if ($filters)
         {
-            $filters .= ' and h.time_update >= '.$h{UPDATE_SINCE};
+            $filters .= ' and bl.time_update >= '.$h{UPDATE_SINCE};
         }
         else
         {
-            $filters = ' h.time_update >= '.$h{UPDATE_SINCE};
+            $filters = ' bl.time_update >= '.$h{UPDATE_SINCE};
         }
     }
 
@@ -4737,11 +4737,11 @@ sub getFileLatency
     {
         if ($filters)
         {
-            $filters .=  ' and h.time_subscription >= :time_subscription ';
+            $filters .=  ' and bl.time_subscription >= :time_subscription ';
         }
         else
         {
-            $filters =  ' h.time_subscription >= :time_subscription ';
+            $filters =  ' bl.time_subscription >= :time_subscription ';
         }
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
     }
@@ -4750,11 +4750,11 @@ sub getFileLatency
     {
         if ($filters)
         {
-            $filters .=  ' and l.time_subscription < :time_subscription_max ';
+            $filters .=  ' and bl.time_subscription < :time_subscription_max ';
         }
         else
         {
-            $filters =  ' l.time_subscription < :time_subscription_max ';
+            $filters =  ' bl.time_subscription < :time_subscription_max ';
         }
         $p{':time_subscription_max'} = $h{SUBSCRIBE_BEFORE};
     }
@@ -4763,11 +4763,11 @@ sub getFileLatency
     {
         if ($filters)
         {
-            $filters .= ' and l.latency >= :lmin ';
+            $filters .= ' and bl.latency >= :lmin ';
         }
         else
         {
-            $filters = ' l.latency >= :lmin ';
+            $filters = ' bl.latency >= :lmin ';
         }
         $p{':lmin'} = $h{LATENCY_GREATER_THAN};
     }
@@ -4776,11 +4776,11 @@ sub getFileLatency
     {
         if ($filters)
         {
-            $filters .= ' and l.latency <= :lmax ';
+            $filters .= ' and bl.latency <= :lmax ';
         }
         else
         {
-            $filters = ' l.latency <= :lmax ';
+            $filters = ' bl.latency <= :lmax ';
         }
         $p{':lmax'} = $h{LATENCY_LESS_THAN};
     }
@@ -4791,11 +4791,11 @@ sub getFileLatency
 
         if ($h{EVER_SUSPENDED} eq 'y')
         {
-            $suspend_sql = 'l.total_suspend_time > 0 ';
+            $suspend_sql = 'bl.total_suspend_time > 0 ';
         }
         elsif ($h{EVER_SUSPENDED} eq 'n')
         {
-            $suspend_sql = 'l.total_suspend_time = 0 ';
+            $suspend_sql = 'bl.total_suspend_time = 0 ';
         }
         
         if ($filters)
@@ -4933,11 +4933,11 @@ sub getFileLatencyLog
     {
         if ($filters)
         {
-            $filters .= ' and h.time_update >= '.$h{UPDATE_SINCE};
+            $filters .= ' and l.time_update >= '.$h{UPDATE_SINCE};
         }
         else
         {
-            $filters = ' h.time_update >= '.$h{UPDATE_SINCE};
+            $filters = ' l.time_update >= '.$h{UPDATE_SINCE};
         }
     }
 
@@ -4945,11 +4945,11 @@ sub getFileLatencyLog
     {
         if ($filters)
         {
-            $filters .=  ' and h.time_subscription >= :time_subscription ';
+            $filters .=  ' and l.time_subscription >= :time_subscription ';
         }
         else
         {
-            $filters =  ' h.time_subscription >= :time_subscription ';
+            $filters =  ' l.time_subscription >= :time_subscription ';
         }
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
     }
