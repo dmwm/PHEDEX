@@ -23,6 +23,7 @@ Return latency statistics for blocks currently in transfer
   priority              priority, could be multiple
   custodial             y or n, default either
   subscribe_since       subscribed since this time, defaults to 24h ago if neither block/dataset nor to_node are set
+  subscribe_before      subscribed before this time, defaults to 24h after subscribe_since if neither block/dataset nor to_node are set
   update_since          updated since this time
   latency_greater_than  only show latency that is greater than this
   latency_less_than     only show latency that is less than this
@@ -163,7 +164,7 @@ sub spool
 	eval {
             %p = &validate_params(\%h,
 				  uc_keys => 1,
-				  allow => [qw(id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended )],
+				  allow => [qw(id block dataset to_node priority custodial subscribe_since subscribe_before update_since latency_greater_than latency_less_than ever_suspended )],
 				  spec => {
 				      id => { using => 'pos_int', multiple => 1 },
 				      block => { using => 'block_*', multiple => 1 },
@@ -172,6 +173,7 @@ sub spool
 				      priority => { using => 'priority', multiple =>1 },
 				      custodial => { using => 'yesno' },
 				      subscribe_since => { using => 'time' },
+				      subscribe_before => { using => 'time' },
 				      update_since => { using => 'time' },
 				      latency_greater_than => { using => 'float' },
 				      latency_less_than => { using => 'float' },
@@ -186,7 +188,7 @@ sub spool
 	}
 	
 	# take care of time
-	foreach ( qw / SUBSCRIBE_SINCE UPDATE_SINCE / )
+	foreach ( qw / SUBSCRIBE_SINCE SUBSCRIBE_BEFORE UPDATE_SINCE / )
 	{
 	    if ($p{$_})
 	    {
@@ -201,6 +203,12 @@ sub spool
 	    $p{SUBSCRIBE_SINCE} = time() - 3600*24;;
 	}
 	
+	# set default "before" to 24h after "since" if block/dataset is not set
+        if ((not $p{SUBSCRIBE_BEFORE}) && (not $p{DATASET}) && (not $p{BLOCK}) && (not $p{TO_NODE}))
+        {
+	    $p{SUBSCRIBE_BEFORE} = $p{SUBSCRIBE_SINCE} + 3600*24;
+	}
+
 	$p{'__spool__'} = 1;
 	
     }

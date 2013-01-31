@@ -147,7 +147,7 @@ sub spool
         eval {
             %p = &validate_params(\%h,
                                   uc_keys => 1,
-                                  allow => [qw(id block dataset to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended )],
+                                  allow => [qw(id block dataset to_node priority custodial subscribe_since subscribe_before update_since latency_greater_than latency_less_than ever_suspended )],
                                   spec => {
                                       id => { using => 'pos_int', multiple => 1 },
                                       block => { using => 'block_*', multiple => 1 },
