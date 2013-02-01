@@ -201,7 +201,7 @@ sub spool
 	eval {
             %p = &validate_params(\%h,
 				    uc_keys => 1,
-				    allow => [qw(id block dataset lfn to_node priority custodial subscribe_since update_since latency_greater_than latency_less_than ever_suspended )],
+				    allow => [qw(id block dataset lfn to_node priority custodial subscribe_since subscribe_before update_since latency_greater_than latency_less_than ever_suspended )],
 				    require_one_of => [ qw(block dataset lfn) ],
 				    spec => {
 				      id => { using => 'pos_int', multiple => 1 },
@@ -212,6 +212,7 @@ sub spool
 				      priority => { using => 'priority', multiple =>1 },
 				      custodial => { using => 'yesno' },
 				      subscribe_since => { using => 'time' },
+				      subscribe_before => { using => 'time' },
 				      update_since => { using => 'time' },
 				      latency_greater_than => { using => 'float' },
 				      latency_less_than => { using => 'float' },
@@ -226,7 +227,7 @@ sub spool
 	}
 	
 	# take care of time
-	foreach ( qw / SUBSCRIBE_SINCE UPDATE_SINCE / )
+	foreach ( qw / SUBSCRIBE_SINCE SUBSCRIBE_BEFORE UPDATE_SINCE / )
 	{
 	    if ($p{$_})
 	    {
