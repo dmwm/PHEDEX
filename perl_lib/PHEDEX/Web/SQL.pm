@@ -4376,6 +4376,19 @@ sub getBlockLatency
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
     }
 
+    if (exists $h{SUBSCRIBE_BEFORE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and l.time_subscription < :time_subscription_max ';
+        }
+        else
+        {
+            $filters =  ' l.time_subscription < :time_subscription_max ';
+        }
+        $p{':time_subscription_max'} = $h{SUBSCRIBE_BEFORE};
+    }
+
     if (exists $h{LATENCY_GREATER_THAN})
     {
         if ($filters)
