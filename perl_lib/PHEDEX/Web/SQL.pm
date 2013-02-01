@@ -4967,6 +4967,68 @@ sub getFileLatencyLog
         $p{':time_subscription'} = $h{SUBSCRIBE_SINCE};
     }
 
+    if (exists $h{SUBSCRIBE_BEFORE})
+    {
+        if ($filters)
+        {
+            $filters .=  ' and l.time_subscription < :time_subscription_max ';
+        }
+        else
+        {
+            $filters =  ' l.time_subscription < :time_subscription_max ';
+        }
+        $p{':time_subscription_max'} = $h{SUBSCRIBE_BEFORE};
+    }
+
+    if (exists $h{LATENCY_GREATER_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency >= :lmin ';
+        }
+        else
+        {
+            $filters = ' l.latency >= :lmin ';
+        }
+        $p{':lmin'} = $h{LATENCY_GREATER_THAN};
+    }
+
+    if (exists $h{LATENCY_LESS_THAN})
+    {
+        if ($filters)
+        {
+            $filters .= ' and l.latency <= :lmax ';
+        }
+        else
+        {
+            $filters = ' l.latency <= :lmax ';
+        }
+        $p{':lmax'} = $h{LATENCY_LESS_THAN};
+    }
+
+    if (exists $h{EVER_SUSPENDED})
+    {
+        my $suspend_sql;
+
+        if ($h{EVER_SUSPENDED} eq 'y')
+        {
+            $suspend_sql = 'l.total_suspend_time > 0 ';
+        }
+        elsif ($h{EVER_SUSPENDED} eq 'n')
+        {
+            $suspend_sql = 'l.total_suspend_time = 0 ';
+        }
+        
+        if ($filters)
+        {
+            $filters .= " and $suspend_sql ";
+        }
+        else
+        {
+            $filters .= " $suspend_sql ";
+        }
+    }
+
     if ($filters)
     {
         $sql .= "where  $filters ";
