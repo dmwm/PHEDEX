@@ -844,6 +844,31 @@ sub getTransferHistory
     return \@r;
 }
 
+sub getTransferHistorySummary
+{
+
+    my ($core, %h) = @_;
+
+    my $sql = qq { select * from t_history_link_summary  };
+
+    # now execute the query
+    my $q = PHEDEX::Web::STH->new(execute_sql( $core, $sql));
+
+    if (exists $h{__spool__})
+    {
+        return $q;
+    }
+
+    my @r;
+    while ( $_ = $q->fetchrow_hashref() )
+    {
+        push @r, $_;
+    }
+
+    return \@r;
+}
+
+
 sub getTransferQueueHistory
 {
     # optional inputs are:
