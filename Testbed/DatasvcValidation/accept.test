@@ -219,3 +219,55 @@ transferqueuestats?from=T1_US_FNAL_Buffer&to=T1_US_FNAL_MSS link
 transferrequests request >0
 transferrequests?node=T1_US_FNAL_MSS&limit=2 request =2
 -transferrequests?node=NoWhere 400
+
+# PHEDEX::Web::API::BlockLatency - latency of current block transfers
+blocklatency block
+blocklatency?to_node=T1_UK_RAL_MSS block
+blocklatency?to_node=T1_UK_RAL_MSS;subscribe_since=last_7days block
+blocklatency?to_node=T1_UK_RAL_MSS;subscribe_since=last_7days;subscribe_before=last_day block
+blocklatency?to_node=T1_UK_RAL_MSS;update_since=last_7days block
+blocklatency?to_node=T1_UK_RAL_MSS;latency_greater_than=1 block
+blocklatency?to_node=T1_UK_RAL_MSS;latency_less_than=10000000 block
+blocklatency?custodial=n block
+blocklatency?custodial=y block
+blocklatency?ever_suspended=n block
+blocklatency?ever_suspended=y block
+
+# PHEDEX::Web::API::BlockLatencyLog - latency of completed block transfers
+blocklatencylog block
+blocklatencylog?to_node=T1_UK_RAL_MSS block
+blocklatencylog?to_node=T1_UK_RAL_MSS;subscribe_since=last_7days block
+blocklatencylog?to_node=T1_UK_RAL_MSS;subscribe_since=last_7days;subscribe_before=last_day block
+blocklatencylog?to_node=T1_UK_RAL_MSS;update_since=last_7days block
+blocklatencylog?to_node=T1_UK_RAL_MSS;latency_greater_than=1 block
+blocklatencylog?to_node=T1_UK_RAL_MSS;latency_less_than=10000000 block
+blocklatencylog?custodial=n block
+blocklatencylog?custodial=y block
+blocklatencylog?ever_suspended=n block
+blocklatencylog?ever_suspended=y block
+
+# PHEDEX::Web::API::FileLatency - latency of current file transfers
+-filelatency 400
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;subscribe_since=last_7days block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;subscribe_since=last_7days;subscribe_before=last_day block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;update_since=last_7days block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;latency_greater_than=1 block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;latency_less_than=10000000 block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;custodial=n block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;custodial=y block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;ever_suspended=n block
+filelatency?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;ever_suspended=y block
+
+# PHEDEX::Web::API::FileLatencyLog - latency of completed file transfers
+-filelatencylog 400
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;subscribe_since=last_7days block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;subscribe_since=last_7days;subscribe_before=last_day block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;update_since=last_7days block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;latency_greater_than=1 block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;to_node=T1_UK_RAL_MSS;latency_less_than=10000000 block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;custodial=n block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;custodial=y block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;ever_suspended=n block
+filelatencylog?dataset=/TauParked/Run2012C-LogError-22Jan2013-v1/RAW-RECO;ever_suspended=y block
