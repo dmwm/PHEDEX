@@ -23,7 +23,7 @@ select distinct b.name block_name,
    and dbs.name = 'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet'
 ;
 
-create or replace materialized view t_history_link_summary 
+create materialized view t_history_link_summary 
   refresh start with sysdate
   next sysdate+1 as 
 select substr(gmtime(timebin), 0, 7) as timebin,
