@@ -199,7 +199,7 @@ sub Summary
   foreach my $dsid (sort {$dataset{$a}{order} <=> $dataset{$b}{order}} keys %dataset) {
     print "*** Dataset: $dataset{$dsid}{name} ***\n";
     if($self->{STATS}) {
-      printf("      %d GB  %d blocks, %d files\n", $dataset{$dsid}{bytes}/1024/1024/1024,$dataset{$dsid}{blocks},
+      printf("      %d GB  %d blocks, %d files\n", $dataset{$dsid}{bytes}/1000/1000/1000,$dataset{$dsid}{blocks},
 	     $dataset{$dsid}{files});
     }
     foreach my $reqid ( sort {$a <=> $b} keys %{$dataset{$dsid}{requestids}}) {

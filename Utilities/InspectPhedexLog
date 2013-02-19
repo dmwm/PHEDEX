@@ -7,7 +7,7 @@
 #
 # initial CVS checkin by metson
 # XML support added by Artem Trunov
-# Version info: $Id: InspectPhedexLog,v 1.34 2009/01/27 08:57:22 dfeichti Exp $:
+# Version info: $Id: InspectPhedexLog,v 1.35 2009/01/27 14:59:21 dfeichti Exp $:
 ###############################################################################
 
 #TODO: Make InspectPhedexLogs use the PHEDEX::Error::Classify library
@@ -357,14 +357,14 @@ foreach my $log (@logfiles) {
 	   $ttransfer = $tdone_old - $txfer_old;
 	   die "ERROR: ttransfer=0 ?????? in line:\n $line\n" if $ttransfer == 0;
 	   $MbperS=$bunchsize*8/$ttransfer/1e6;
-	   $MBperS=$bunchsize/1024/1024/$ttransfer;
+	   $MBperS=$bunchsize/1000/1000/$ttransfer;
 	   printf("   *** Bunch:  succ. files: $bunchfiles  size=%.2f GB  transfer_time=%.1f s (%.1f MB/s = %.1f Mb/s)\n"
-		  ,$bunchsize/1024/1024/1024,$ttransfer,$MBperS,$MbperS) if $flag_debug && $flag_bunchDetect;
+		  ,$bunchsize/1000/1000/1000,$ttransfer,$MBperS,$MbperS) if $flag_debug && $flag_bunchDetect;
 
 	   $bunchfiles = 1;
 	   $bunchsize = $size;
 	 }
-	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1024/1024/1024)  if $flag_debug;
+	 printf("$statstr $from  $fname  size=%.2f GB $date\n",$size/1000/1000/1000)  if $flag_debug;
 
    }  #while line=<LOG>
 
@@ -548,7 +548,7 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
     
     if ( exists $ss->{"ttransfer"} && $ss->{"ttransfer"}>0) {
 	$MbperS=$size*8/$ss->{"ttransfer"}/1e6;
-	$MBperS=$ss->{"size"}/1024/1024/$ss->{"ttransfer"};
+	$MBperS=$ss->{"size"}/1000/1000/$ss->{"ttransfer"};
 	printf("   avg. rate: %.1f MB/s = %.1f Mb/s",$MBperS,$MbperS) if $flag_bunchDetect;
     }
     print "\n";
@@ -556,16 +556,16 @@ foreach my $site (sort {$a cmp $b} keys %sitestat) {
 
 # Calculate total throughput from first to last used log entry
 if($deltat>0) {
-    $MbperS=$totalsize/(1024*1024)*8/$deltat;
-    $MBperS=$totalsize/(1024*1024)/$deltat;
-    my $GBperDay=$MBperS/1024*3600*24;
+    $MbperS=$totalsize/(1000*1000)*8/$deltat;
+    $MBperS=$totalsize/(1000*1000)/$deltat;
+    my $GBperDay=$MBperS/1000*3600*24;
     
     print "\nTOTAL SUMMARY:\n";
     print "==================\n";
     printf("                         first entry: %s      last entry: %s\n",
 	   strftime("%Y-%m-%d %H:%M:%S",localtime($datestart)),
 	   strftime("%Y-%m-%d %H:%M:%S",localtime($dateend)));
-    printf("total transferred: %.1f GB  in %.1f hours\n",$totalsize/(1024*1024*1024),
+    printf("total transferred: %.1f GB  in %.1f hours\n",$totalsize/(1000*1000*1000),
 	   $deltat/3600);
     printf("avg. total rate: %.1f MB/s = %.1f Mb/s  = %.1f GB/day\n",$MBperS,$MbperS,$GBperDay);
 }

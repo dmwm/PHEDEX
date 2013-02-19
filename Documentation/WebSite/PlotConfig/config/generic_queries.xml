@@ -227,8 +227,8 @@
           regexp_like( d.name, :dataset ) AND
           r.src_files = 0 AND
           b.is_open='n' AND
-          b.bytes / (1024*1024*1024) > :min_blocksize AND
-          b.bytes / (1024*1024*1024) &lt;= :max_blocksize
+          b.bytes / (1000*1000*1000) > :min_blocksize AND
+          b.bytes / (1000*1000*1000) &lt;= :max_blocksize
         GROUP BY <slot name="group" />
       </sql>
       <results module="graphtool.database.query_handler" function="simple_results_parser" />

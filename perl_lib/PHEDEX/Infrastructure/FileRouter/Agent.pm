@@ -10,10 +10,10 @@ use PHEDEX::Core::DB;
 use POE;
 use Data::Dumper;
 
-use constant TERABYTE => 1024**4;
-use constant GIGABYTE => 1024**3;
-use constant MEGABYTE => 1024**2;
-use constant KILOBYTE => 1024;
+use constant TERABYTE => 1000**4;
+use constant GIGABYTE => 1000**3;
+use constant MEGABYTE => 1000**2;
+use constant KILOBYTE => 1000;
 use constant BYTE     => 1;
 
 # package globals to avoid using $$self{X} so often

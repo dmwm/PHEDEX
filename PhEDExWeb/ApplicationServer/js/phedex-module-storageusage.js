@@ -156,7 +156,7 @@ PHEDEX.Module.StorageUsage = function(sandbox, string) {
               var size;
               timestamp = Math.round(1316228745/(3600*12) +x);
               item = tmp[timestamp][j];
-              size = (item.size)/(1024*1024*1024*1024*1024);
+              size = (item.size)/(1000*1000*1000*1000*1000);
               return {x: x, y: size};
             });
         });

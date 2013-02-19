@@ -254,9 +254,9 @@ sub makeData
 	$lfn =~ s/\#/-/;  $lfn .= '-'. &makeGUID();
 	my $filesize;
 	if ($sdev_size == 0) {
-	    $filesize = int($mean_size * (1024**3));
+	    $filesize = int($mean_size * (1000**3));
 	} else {
-	    $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1024**3));
+	    $filesize = int(gaussian_rand($mean_size, $sdev_size) *  (1000**3));
 	}
 	my $cksum = 'cksum:'. int(rand() * (10**10));
 	push @xml, qq{        <file name="$lfn" bytes="$filesize" checksum="$cksum"/>\n};

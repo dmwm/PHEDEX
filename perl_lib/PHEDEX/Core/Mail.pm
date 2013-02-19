@@ -662,8 +662,8 @@ sub format_size {
       $minscale =~ s/=//; $onescale = 1;
   }
 
-  my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
-		[ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+  my @bounds = ([ 10**3,  'k' ], [ 10**6,  'M' ], [ 10**9,  'G' ],
+		[ 10**12, 'T' ], [ 10**15, 'P' ], [ 10**18, 'E' ]);
   my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
   do { $val = -$val; $bytes = -$bytes; } if $minus;
   while (@bounds && ($bytes >= $bounds [0][0] || defined $minscale))

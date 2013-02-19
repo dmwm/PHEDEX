@@ -54,7 +54,7 @@ if ($args{BLOCK}) {
 if (!$args{UNSUSPEND}) {
     my $n = 0;
     my $q = &dbexec($dbh, qq{
-       select n.name node, b.name block, b.files, b.bytes / power(1024,3) size_gb,
+       select n.name node, b.name block, b.files, b.bytes / power(1000,3) size_gb,
               bd.time_subscription, bd.time_active, bd.time_suspend_until 
          from t_dps_block_dest bd 
          join t_adm_node n 

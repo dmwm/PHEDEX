@@ -23,12 +23,12 @@ BEGIN
 
       dbms_output.put_line(
         rpad(user_tables_rec.table_name, 30)
-        || rpad (' UF=' || to_char(unf) || '/' || to_char(unfb/1024), 20)
-        || rpad (' Q1=' || to_char(fs1) || '/' || to_char(fs1b/1024), 20)
-        || rpad (' Q2=' || to_char(fs2) || '/' || to_char(fs2b/1024), 20)
-        || rpad (' Q3=' || to_char(fs3) || '/' || to_char(fs3b/1024), 20)
-        || rpad (' Q4=' || to_char(fs4) || '/' || to_char(fs4b/1024), 20)
-        || rpad (' FL=' || to_char(full) || '/' || to_char(fullb/1024), 20));
+        || rpad (' UF=' || to_char(unf) || '/' || to_char(unfb/1000), 20)
+        || rpad (' Q1=' || to_char(fs1) || '/' || to_char(fs1b/1000), 20)
+        || rpad (' Q2=' || to_char(fs2) || '/' || to_char(fs2b/1000), 20)
+        || rpad (' Q3=' || to_char(fs3) || '/' || to_char(fs3b/1000), 20)
+        || rpad (' Q4=' || to_char(fs4) || '/' || to_char(fs4b/1000), 20)
+        || rpad (' FL=' || to_char(full) || '/' || to_char(fullb/1000), 20));
    END LOOP;
 END;
 /

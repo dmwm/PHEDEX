@@ -60,12 +60,12 @@ PHEDEX.Util.makeChild = function(parent, kind, args) {
 PHEDEX.Util.format={
   bytes:function(raw) {
     var f = parseFloat(raw), bounds, bounds_length, i;
-    bounds = [ [ Math.pow(1024,6), 'E' ],
-               [ Math.pow(1024,5), 'P' ],
-               [ Math.pow(1024,4), 'T' ],
-               [ Math.pow(1024,3), 'G' ],
-               [ Math.pow(1024,2), 'M' ],
-               [          1024,    'K' ] ];
+    bounds = [ [ Math.pow(1000,6), 'E' ],
+               [ Math.pow(1000,5), 'P' ],
+               [ Math.pow(1000,4), 'T' ],
+               [ Math.pow(1000,3), 'G' ],
+               [ Math.pow(1000,2), 'M' ],
+               [          1000,    'K' ] ];
     bounds_length = bounds.length;
     for (i=0; i<bounds_length; i++) {
       if ( f>bounds[i][0] ) { return (f/bounds[i][0]).toFixed(1)+' '+bounds[i][1]+'iB'; }

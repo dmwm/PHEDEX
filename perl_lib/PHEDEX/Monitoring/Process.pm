@@ -52,8 +52,8 @@ sub ReadProcessStats
   $_ = <PROC>;
   close PROC or die "Error closing /proc/$pid/statm: $!\n";
   @a = split(' ',$_);
-  $h{VSize} = $a[0] * $pagesize / 1024 / 1024; # in MB
-  $h{RSS}   = $a[1] * $pagesize / 1024 / 1024;
+  $h{VSize} = $a[0] * $pagesize / 1000 / 1000; # in MB
+  $h{RSS}   = $a[1] * $pagesize / 1000 / 1000;
 
   open PROC, "</proc/$pid/stat" or do { warn "/proc/$pid: $!\n"; next; };
   $_ = <PROC>;
@@ -167,9 +167,9 @@ sub total_size
   return undef unless exists $INC{'Devel/Size.pm'};
   my $size = Devel::Size::total_size($item);
   my $unit = '';
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='kB'; }
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='MB'; }
-  if ( $size > 10240 ) { $size = int($size*10/1024)/10; $unit='GB'; }
+  if ( $size > 10000 ) { $size = int($size*10/1000)/10; $unit='kB'; }
+  if ( $size > 10000 ) { $size = int($size*10/1000)/10; $unit='MB'; }
+  if ( $size > 10000 ) { $size = int($size*10/1000)/10; $unit='GB'; }
   return $size . $unit;
 }
 

@@ -75,7 +75,7 @@ while (my ($type, $object, $tspace, $bytes, $blocks, $extents) = $qtables->fetch
 {
     print sprintf ("%-8s %-31s %-31s %10.2f %10d %10d\n",
 	    	   $type, $object, $tspace,
-		   $bytes/(1024**2), $blocks, $extents);
+		   $bytes/(1000**2), $blocks, $extents);
 }
 $qtables->finish();
 
@@ -96,9 +96,9 @@ while (my ($tspace, $bytes_used, $blocks_used,
 	   $bytes_free, $blocks_free) = $qtspace->fetchrow())
 {
     print sprintf ("%-31s %15.2f %15d %15.2f %15d %-6s\n",
-	    	   $tspace, $bytes_used/(1024**2), $blocks_used,
-		   $bytes_free/(1024**2), $blocks_free,
-	   	   $bytes_free < 100*(1024**2) ? "FULL!" : "OK");
+	    	   $tspace, $bytes_used/(1000**2), $blocks_used,
+		   $bytes_free/(1000**2), $blocks_free,
+	   	   $bytes_free < 100*(1000**2) ? "FULL!" : "OK");
 }
 $qtspace->finish();
 
@@ -297,7 +297,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 	        $hourly{$hour} ||= 0;
 		$hourly{$hour} += $v[XFER_BYTES];
 
-		$stats{XFER_GB_TOT} += $v[XFER_BYTES] / (1024**3);
+		$stats{XFER_GB_TOT} += $v[XFER_BYTES] / (1000**3);
 		$stats{XFER_F_TOT} += $v[XFER_FILES];
 	    }
 	}
@@ -309,10 +309,10 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 			: undef);
 	my %xfer_hours = map { (int($_/3600) => 1) } keys %hourly;
 	my %xfer_days = map { (int($_/86400) => 1) } keys %hourly;
-        $stats{XFER_MBPS_HRMIN} = ($xfer_min || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRMAX} = ($xfer_max || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_HRAVG} = ($xfer_avg || 0) / (1024**2) / 3600;
-        $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1024 / $timespan;
+        $stats{XFER_MBPS_HRMIN} = ($xfer_min || 0) / (1000**2) / 3600;
+        $stats{XFER_MBPS_HRMAX} = ($xfer_max || 0) / (1000**2) / 3600;
+        $stats{XFER_MBPS_HRAVG} = ($xfer_avg || 0) / (1000**2) / 3600;
+        $stats{XFER_MBPS_TOT} = $stats{XFER_GB_TOT} * 1000 / $timespan;
 	$stats{XFER_HRS} = scalar keys %xfer_hours;
 	$stats{XFER_DAYS} = scalar keys %xfer_days;
 
@@ -336,13 +336,13 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
         my $pendmin = $pendtimes[0];
         my $pendmax = $timemax;
 
-        $stats{WAIT_GB_MIN} = ($$pend_min{BYTES} || 0) / (1024**3);
-        $stats{WAIT_GB_MAX} = ($$pend_max{BYTES} || 0) / (1024**3);
-        $stats{WAIT_GB_AVG} = ($pend_avg || 0) / (1024**3);
-        $stats{WAIT_GB_FIN} = ($hourly{$pendmax}{BYTES} || 0) / (1024**3);
+        $stats{WAIT_GB_MIN} = ($$pend_min{BYTES} || 0) / (1000**3);
+        $stats{WAIT_GB_MAX} = ($$pend_max{BYTES} || 0) / (1000**3);
+        $stats{WAIT_GB_AVG} = ($pend_avg || 0) / (1000**3);
+        $stats{WAIT_GB_FIN} = ($hourly{$pendmax}{BYTES} || 0) / (1000**3);
         $stats{WAIT_F_FIN}  = ($hourly{$pendmin}{FILES} || 0);
         $stats{WAIT_GB_CHNG} = (($hourly{$pendmax}{BYTES} || 0)
-			        - ($hourly{$pendmin}{BYTES} || 0)) / (1024**3);
+			        - ($hourly{$pendmin}{BYTES} || 0)) / (1000**3);
 
 	# Print out results
         print sprintf ("%-25s"
@@ -361,7 +361,7 @@ foreach my $prevdays (1, 7, 14, 30, 90, 365)
 		       $stats{WAIT_GB_CHNG}, $stats{WAIT_GB_FIN}, $stats{WAIT_F_FIN},
 		       $stats{WAIT_GB_MIN}, $stats{WAIT_GB_MAX}, $stats{WAIT_GB_AVG},
 	   	       ($stats{XFER_MBPS_TOT} && $stats{WAIT_GB_FIN}
-		        ? sprintf ("%15.3f", $stats{WAIT_GB_FIN} / ($stats{XFER_MBPS_TOT}*86400/1024))
+		        ? sprintf ("%15.3f", $stats{WAIT_GB_FIN} / ($stats{XFER_MBPS_TOT}*86400/1000))
 	   	        : !$stats{WAIT_GB_FIN} ? sprintf ("%15.3f", 0)
 		        : sprintf ("%15s", "N/A")));
     }
@@ -396,7 +396,7 @@ my $qblocks = &dbexec($dbh, qq{
 while (my ($node, $blocks, $files, $bytes) = $qblocks->fetchrow())
 {
     print sprintf ("%-20s %15d %15d %15.2f\n",
-	           $node, $blocks, $files, $bytes/(1024**3));
+	           $node, $blocks, $files, $bytes/(1000**3));
 }
 
 print "\n\n";

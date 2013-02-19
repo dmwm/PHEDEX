@@ -293,8 +293,8 @@ sub format_size {
       $minscale =~ s/=//; $onescale = 1;
   }
 
-  my @bounds = ([ 2**10, 'k' ], [ 2**20, 'M' ], [ 2**30, 'G' ],
-		[ 2**40, 'T' ], [ 2**50, 'P' ], [ 2**60, 'E' ]);
+  my @bounds = ([  10**3, 'k' ], [  10**6, 'M' ], [  10**9, 'G' ],
+		[ 10**12, 'T' ], [ 10**15, 'P' ], [ 10**18, 'E' ]);
   my ($val, $unit, $minus) = ($bytes, '', $bytes < 0 ? "-" : "");
   do { $val = -$val; $bytes = -$bytes; } if $minus;
   while (@bounds && ($bytes >= $bounds [0][0] || defined $minscale))
@@ -310,7 +310,7 @@ sub format_size {
 
   $precision = "1" if ! defined $precision;
   return $bytes || $nodash
-    ? sprintf("%s%.${precision}f %siB", $minus, $val, $unit)
+    ? sprintf("%s%.${precision}f %sB", $minus, $val, $unit)
     : '&#8211;';
 }
 
@@ -858,8 +858,8 @@ sub sizeValue
   my ($value) = @_;
   if ($value =~ /^([-+\d.Ee]+)([kMGTPE])$/)
   {
-    my %scale = ('k' => 2**10, 'M' => 2**20, 'G' => 2**30,
-		 'T' => 2**40, 'P' => 2**50, 'E' => 2**60);
+    my %scale = ('k' => 10**3,  'M' => 10**6,  'G' => 10**9,
+		 'T' => 10**12, 'P' => 10**15, 'E' => 10**18);
     $value = $1 * $scale{$2};
   }
   return $value * 1.0;
@@ -8255,7 +8255,7 @@ sub update_injections
     
     my %all_nodes = reverse $self->fetch_nodes(with_ids => 1); # just a hash of id => name
 
-    my $u_rate = &dbprep($$self{DBH}, qq{ update t_loadtest_param set rate = :rate * power(1024, 2), time_update = :now
+    my $u_rate = &dbprep($$self{DBH}, qq{ update t_loadtest_param set rate = :rate * power(1000, 2), time_update = :now
 					   where src_dataset = :src_dataset
                                              and dest_dataset = :dest_dataset
 					     and dest_node = :dest_node });
@@ -8439,7 +8439,7 @@ sub create_injection
 	    values
 	    (:src_ds, :dest_ds, :dest_node, 'y',
 	     NULL, 'n', 100, 'y',
-	     :rate * power(1024,2), 0, :throttle_node,
+	     :rate * power(1000,2), 0, :throttle_node,
 	     :time_create, :time_update)
 	}, ':src_ds' => $$source{SRC_DATASET},
 		      ':dest_ds' => $dest_ds,

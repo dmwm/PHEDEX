@@ -540,7 +540,7 @@ foreach $k ( qw / LFNs Blocks Dataset / )
         {
           next unless $verbose;
           my $n = $h{Checks}{$check}{$k}{$l}{$m};
-          $n = int($n*100/1024/1024/1024)/100;
+          $n = int($n*100/1000/1000/1000)/100;
           $h{Checks}{$check}{$k}{$l}{$m} = "$n GB";
         }
         print " $m=",$h{Checks}{$check}{$k}{$l}{$m};

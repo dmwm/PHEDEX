@@ -49,11 +49,11 @@ sub idle
 			(select
 			   :now,
 			   binsize,
-			   10 * 1024 * 1024,
+			   10 * 1000 * 1000,
 			   count(binsize),
 			   sum(realsize)
 			 from (select
-			         trunc(filesize/(10 * 1024 * 1024)) as binsize,
+			         trunc(filesize/(10 * 1000 * 1000)) as binsize,
 				 filesize as realsize
 			       from t_dps_file)
 			 group by binsize)},

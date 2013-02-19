@@ -13,7 +13,7 @@ sub sizeValue
     my ($value) = @_;
     if ($value =~ /^(\d+)([kMGT])$/)
     {
-        my %scale = ('k' => 1024, 'M' => 1024**2, 'G' => 1024**3, 'T' => 1024**4);
+        my %scale = ('k' => 1000, 'M' => 1000**2, 'G' => 1000**3, 'T' => 1000**4, 'P' => 1000**5);
         $value = $1 * $scale{$2};
     }
     return $value;

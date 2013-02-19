@@ -114,7 +114,7 @@ sub _shift_requestedqueued
   $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,\%params,\%h);
   $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested($core,\%params,\%h);
 
-  $mindata = $h{MINDATA} || 1024*1024*1024*1024;
+  $mindata = $h{MINDATA} || 1000*1000*1000*1000;
 
   $unique = 0;
   foreach $node ( keys %{$q} )

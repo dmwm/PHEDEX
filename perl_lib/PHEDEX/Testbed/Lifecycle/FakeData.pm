@@ -100,7 +100,7 @@ $suffix = "";
     $lfn  = $ds->{Dataset} . "/${blockid}/${n_file}" . $suffix;
     $mean = defined( $ds->{FileSizeMean} )   ? $ds->{FileSizeMean}   : 2.0;
     $sdev = defined( $ds->{FileSizeStdDev} ) ? $ds->{FileSizeStdDev} : 0.2;
-    $size = int(gaussian_rand($mean, $sdev) * (1024**3)); 
+    $size = int(gaussian_rand($mean, $sdev) * (1000**3)); 
     $cksum = 'cksum:'. int(rand() * (10**10));
     $self->Dbgmsg("lfn => $lfn, size => $size, cksum => $cksum");
     return { lfn => $lfn, size => $size, cksum => $cksum};
@@ -113,7 +113,7 @@ $suffix = "";
     {
       next if m%^#%;
       ($lfn,$size,$cksum) = split(' ',$_);
-      $size = int(gaussian_rand($mean, $sdev) * (1024**3)) unless $size;
+      $size = int(gaussian_rand($mean, $sdev) * (1000**3)) unless $size;
 
 
       $cksum = 'cksum:'. int(rand() * (10**10)) unless $cksum;
