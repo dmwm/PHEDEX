@@ -40,43 +40,12 @@ is sufficient.
 =cut 
 
 use PHEDEX::Web::SQL;
-use PHEDEX::Web::Util;
-use PHEDEX::Core::Util;
-use PHEDEX::Web::Spooler;
 
 sub duration { return 60 * 60; }
-sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method instead\n"; }
-#sub invoke { return transferhistory(@_); }
-
-my $map = {
-   _KEY => 'TIMEBIN+SUM_DONE_BYTES',
-   timebin => 'TIMEBIN',
-   done_bytes => 'SUM_DONE_BYTES',
-};
-my $sth;
-my %p;
-
-sub spool
-{
-    my ($core, %h) = @_;
-
-    if (!$sth)
-    {
-        if ($@)
-        {
-            return PHEDEX::Web::Util::http_error(400,$@);
-        }
-
-        $p{'__spool__'} = 1;
-        $sth = PHEDEX::Web::Spooler->new(PHEDEX::Web::SQL::getTransferHistorySummary($core, %p));
-    }
-
-    my $r;
-    $r = $sth->spool();
-
-    #return { transfer => PHEDEX::Core::Util::flat2tree($map, $r) };
-    #return {transfer => $r}; to be fixed
-    return $r;
+sub invoke { return transferhistorysummary(@_); }
+sub transferhistorysummary {
+  my ($core, %h) = @_;
+  return {transferhistorysummary => PHEDEX::Web::SQL::getTransferHistorySummary($core) }
 }
 
 1;
