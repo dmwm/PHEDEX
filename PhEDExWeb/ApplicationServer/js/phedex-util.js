@@ -68,7 +68,7 @@ PHEDEX.Util.format={
                [          1000,    'K' ] ];
     bounds_length = bounds.length;
     for (i=0; i<bounds_length; i++) {
-      if ( f>bounds[i][0] ) { return (f/bounds[i][0]).toFixed(1)+' '+bounds[i][1]+'iB'; }
+      if ( f>bounds[i][0] ) { return (f/bounds[i][0]).toFixed(1)+' '+bounds[i][1]+'B'; }
     }
     if ( f ) { return f; }
     return '-';
