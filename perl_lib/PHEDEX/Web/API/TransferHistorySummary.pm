@@ -35,7 +35,7 @@ is sufficient.
 =head3 <transfer> elements
 
   timebin             the end point of each timebin, aligned with binwidth
-  sum_done_bytes      number of bytes in successful transfers
+  sum_gigabytes       number of GB (1000**4 bytes) in successful transfers
 
 =cut 
 
