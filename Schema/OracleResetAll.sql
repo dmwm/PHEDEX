@@ -27,6 +27,20 @@ BEGIN
       execute immediate 'drop function ' || o.object_name;
   END LOOP;
 
+  -- Procedures
+  FOR o IN (SELECT object_name FROM user_objects WHERE object_type = 'PROCEDURE') LOOP
+      dbms_output.put_line ('Dropping procedure ' || o.object_name);
+      execute immediate 'drop procedure ' || o.object_name;
+  END LOOP;
+
+  -- Types
+  FOR o IN (SELECT object_name FROM user_objects WHERE object_type = 'TYPE') LOOP
+      dbms_output.put_line ('Dropping type ' || o.object_name);
+-- N.B. To force the drop, add the 'force' option
+--    execute immediate 'drop type ' || o.object_name || ' force';
+      execute immediate 'drop type ' || o.object_name;
+  END LOOP;
+
    -- Synonyms
    FOR o IN (SELECT synonym_name name FROM user_synonyms) LOOP
       dbms_output.put_line ('Dropping synonym ' || o.name);

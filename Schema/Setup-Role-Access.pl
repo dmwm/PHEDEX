@@ -2,14 +2,14 @@
 use warnings;
 use strict;
 use PHEDEX::Core::DB;
+use PHEDEX::Core::SQLPLUS;
 use Getopt::Long;
 my ($master,$dbparam,$scriptAdmin,$scriptUser,$self,$dbh,$type);
-my ($help,$verbose,$print,$sql,$sth,@h,%objects);
+my ($help,$verbose,$sql,$sth,@h,%objects,$saveAdminScript);
 
-$scriptAdmin = $scriptUser = 'initialise_role_access';
-$print = 1;
+$scriptUser = 'initialise_role_access';
 GetOptions(
-	    'admin-script=s'	=> \$scriptAdmin,
+	    'save-admin-script'	=> \$saveAdminScript,
 	    'user-script=s'	=> \$scriptUser,
 	    'db=s'		=> \$dbparam,
 	    'help'		=> \$help,
@@ -25,11 +25,7 @@ sub usage {
  --db {string}		 the DBParam specification for the connection to the
 			 database for the master schema
  --user-script {string}	 (optional) name of output file to write user SQL
-			 commands to. Use '-' for stdout;
-			 Default is '$scriptUser-\$master-user.sql'.
- --admin-script {string} (optional) name of output file to write admin SQL
-			 commands to. Use '-' for stdout;
-			 Default is to feed them directly to SQL*PLUS.
+			 commands to. Default is '$scriptUser-\$master-user.sql'.
 
  This script will read all table-names, sequence-names, etc from the account
 specified in the --db argument, and write a sql script which will create
@@ -48,41 +44,31 @@ $dbh = &connectToDatabase($self);
 
 # Validate arguments
 $master = lc $self->{DBH_DBUSER};
-$print && print "Using '$master' account as template\n";
+$verbose && print "Using '$master' account as template\n";
 
-if ( $scriptAdmin eq '-' ) {
-  *ADMIN = *STDOUT;
-  $print = 0;
-} else {
-  $scriptAdmin .= '-' . lc $master . '-admin.sql';
-  open ADMIN, ">$scriptAdmin" or die "open $scriptAdmin: $!\n";
-}
+open ADMIN, ">", \$scriptAdmin or die "open $scriptAdmin: $!\n";
 
-if ( $scriptUser eq '-' ) {
-  *USER = *STDOUT;
-  $print = 0;
-} else {
-  $scriptUser .= '-' . lc $master . '-user.sql';
-  open USER, ">$scriptUser" or die "open $scriptUser: $!\n";
-}
+$saveAdminScript = "initialise_role_access-$master-admin.sql" if $saveAdminScript;
+$scriptUser .= '-' . $master . '-user.sql';
+open USER, ">$scriptUser" or die "open $scriptUser: $!\n";
 $master = uc($master);
 
 # Build the map of objects
 $sql = qq{ select object_name, object_type from user_objects
-	     where object_type in ('TABLE','SEQUENCE','FUNCTION','PROCEDURE')
+	     where object_type in ('TABLE','SEQUENCE','FUNCTION','PROCEDURE','VIEW')
 	     order by object_name };
 $sth = PHEDEX::Core::DB::dbexec($dbh,$sql);
 while ( @h = $sth->fetchrow_array() ) {
   if ( $h[1] ne 'FUNCTION' ) {
-    next unless $h[0] =~ m%^(T|SEQ|IX|FK|PK|UQ|SCHEMA|PROC|FUNC)_[A-Z0-9_]+%;
+    next unless $h[0] =~ m%^(T|SEQ|IX|FK|PK|UQ|SCHEMA|PROC|FUNC|V)_[A-Z0-9_]+%;
   }
   $objects{$h[1]}{$h[0]}++;
 }
 # Add the functions that are created here, they may not yet be known
-foreach ( qw / proc_abort_if_admin 
-	       proc_grant_basic_read_access / ) {
+foreach ( qw / proc_abort_if_admin / ) {
   $objects{PROCEDURE}{uc $_}++;
 }
+
 
 print ADMIN <<EOPLSQL;
 set serveroutput on;
@@ -114,7 +100,7 @@ EOPLSQL2
 foreach $type ( qw / TABLE SEQUENCE FUNCTION PROCEDURE / ) {
   print ADMIN "  dbms_output.put_line('Grant access to ",lc $type,"s');\n";
   foreach ( sort keys %{$objects{$type}} ) {
-#   print ADMIN "  dbms_output.put_line('  $_');\n";
+    print ADMIN "  dbms_output.put_line('  $_');\n";
     if ( $type eq 'FUNCTION' or $type eq 'PROCEDURE' ) {
       print ADMIN "  execute immediate 'grant execute on $_ to ' || user;\n";
     } else {
@@ -122,6 +108,7 @@ foreach $type ( qw / TABLE SEQUENCE FUNCTION PROCEDURE / ) {
     }
   }
 }
+
 print ADMIN <<EOPLSQL3;
 end;
 /
@@ -135,9 +122,6 @@ begin
     execute immediate 'drop procedure proc_abort_if_admin';
     execute immediate 'drop procedure proc_grant_basic_read_access';
     dbms_output.put_line('...procedures deleted, you do not need them here');
-  else
-    dbms_output.put_line('granting execute on proc_abort_admin to public');    
-    execute immediate 'grant execute on proc_abort_if_admin to public';
   end if;
 end;
 /
@@ -145,7 +129,9 @@ end;
 EOPLSQL3
 
 print USER <<EOPLSQL4;
-create or replace procedure proc_drop_synonyms as
+set serveroutput on;
+
+declare
   cursor synonym_cur is
     select synonym_name from user_synonyms where table_owner = '$master';
   total number;
@@ -164,13 +150,19 @@ end;
 declare
   total number;
 begin
-  proc_drop_synonyms;
 EOPLSQL4
 
-foreach $type ( qw / TABLE SEQUENCE FUNCTION PROCEDURE / ) {
+# Remove the functions that are created here, the user does not need them
+foreach ( qw / proc_abort_if_admin 
+	       proc_drop_synonyms
+	       proc_create_synonyms
+	       proc_grant_basic_read_access / ) {
+  delete $objects{PROCEDURE}{uc $_};
+}
+foreach $type ( qw / TABLE SEQUENCE FUNCTION PROCEDURE VIEW / ) {
   print USER "  dbms_output.put_line('Create synonyms for ",lc $type,"s');\n";
   foreach ( sort keys %{$objects{$type}} ) {
-#   print USER "  dbms_output.put_line('  $_');\n";
+    print USER "  dbms_output.put_line('$_');\n";
     print USER "  execute immediate 'create synonym $_ for $master.$_';\n";
   }
 }
@@ -184,5 +176,16 @@ end;
 EOPLSQL5
 
 close USER;
+print "User script saved to '$scriptUser'\n";
 close ADMIN;
-$print && print "All done\n";
+
+if ( $saveAdminScript ) {
+  open OUT, ">$saveAdminScript" or die "open $saveAdminScript: $!\n";
+  print OUT $scriptAdmin;
+  close OUT;
+  print "Admin script saved to '$saveAdminScript'\n";
+} else {
+  print STDOUT "About to execute Admin script\n";
+  PHEDEX::Core::SQLPLUS::run( DBCONFIG => $dbparam, VERBOSE => 1, SCRIPT => $scriptAdmin );
+}
+$verbose && print "All done\n";

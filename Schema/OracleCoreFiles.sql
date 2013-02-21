@@ -47,27 +47,27 @@ create table t_xfer_file
    constraint fk_xfer_file_inblock
      foreign key (inblock) references t_dps_block (id));
 
-/* Heirachical table to store a file path */
-create table t_dps_dir (
-  parent     	       integer			,
-  id		       integer		not null,
-  pos		       integer		not null,
-  name		       varchar(1000)	not null,
-  time_create          float		not null,
-  --
-  constraint pk_dps_dir
-    primary key (id),
-  --
-  constraint uq_dps_dir_name
-    unique (parent, name),
-  --
-  constraint fk_dps_dir_parent
-    foreign key (parent) references t_dps_block_dir (id)
-    on delete cascade
-);
-
-create index ix_dps_dir_name 
-  on t_dps_dir (name);
+-- /* Heirachical table to store a file path */
+-- create table t_dps_dir (
+--   parent     	       integer			,
+--   id		       integer		not null,
+--   pos		       integer		not null,
+--   name		       varchar(1000)	not null,
+--   time_create          float		not null,
+--   --
+--   constraint pk_dps_dir
+--     primary key (id),
+--   --
+--   constraint uq_dps_dir_name
+--     unique (parent, name),
+--   --
+--   constraint fk_dps_dir_parent
+--     foreign key (parent) references t_dps_block_dir (id)
+--     on delete cascade
+-- );
+-- 
+-- create index ix_dps_dir_name 
+--   on t_dps_dir (name);
 
 ----------------------------------------------------------------------
 -- Create indices
