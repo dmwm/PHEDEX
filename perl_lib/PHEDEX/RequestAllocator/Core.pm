@@ -405,8 +405,8 @@ sub validateRequest
 	    }
 	}
 	if ($h{IS_MOVE} eq 'y') {
-	    if (grep $_ !~ /^T1_.*_MSS$/, @$nodes) {                                                    
-		die "cannot request move:  moves to non-T1 destinations are not allowed\n";
+	    if (grep $_ !~ /^T[01]_.*_MSS$/, @$nodes) {
+		die "cannot request move:  moves to non-T0, non-T1 destinations are not allowed\n";
 	    }
 	    # Exclude T0/T1 nodes from list of source nodes that will receive deletion request for move
 	    delete @sources{grep /^(T1|T0)/, keys %sources};
