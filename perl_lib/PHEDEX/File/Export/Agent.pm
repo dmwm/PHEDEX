@@ -43,6 +43,10 @@ sub checkCatalogueChange
     my $stamp = (stat(_))[9] if $exists;
     return 0 if (defined $stamp && $$self{LAST_UPDATE} == $stamp);
 
+    # see http://savannah.cern.ch/support/?136269. Force timestamp to be
+    # 'now' on first cycle, to force clients to update their caches
+    $stamp = $now if $self->{LAST_UPDATE} <= 0;
+
     # By default changed
     $$self{LAST_UPDATE} = $stamp if defined $stamp;
     return $stamp;
