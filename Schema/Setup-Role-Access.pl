@@ -149,7 +149,13 @@ end;
 
 declare
   total number;
+  other_owner number;
 begin
+  select count(*) into other_owner from user_synonyms where table_owner != '$master';
+  if other_owner > 0 then
+    dbms_output.put_line('you have synonyms to other schemas. Aborting for safety');
+    raise_application_error(-20002,'Will not create synonyms since synonyms to other schemas already exist');
+  end if;
 EOPLSQL4
 
 # Remove the functions that are created here, the user does not need them
