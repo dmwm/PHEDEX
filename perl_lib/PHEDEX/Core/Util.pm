@@ -94,12 +94,11 @@ sub priority_num
 
 =head1 NAME
 
-PHEDEX::Core::Util::flat2tree -- turn a list of flat hashes into a list of hierachical ones
+PHEDEX::Core::Util::flat2tree -- turn a list of flat hashes into a list of hierarchical ones
 
 =head1 DESCRIPTION
 
-Turn SQL result in a flat hash into hierachical structure defined by
-the mapping
+Turn SQL result in a flat hash into hierarchical structure defined by the mapping
 
 =head2 Syntax
 
@@ -113,25 +112,30 @@ the mapping
 
 =head3 mapping:
 
-          MAP ::= { _KEY => KEY, ELEMENT_LIST }
+          MAP ::= { _KEY => KEY1, ELEMENT_LIST }
+         KEY1 ::= identifier | identifier+KEY1
  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
       ELEMENT ::= KEY => VALUE
-          KEY ::= identifier | identifier+KEY
-        VALUE ::= string | number | MAP | [ string, TYPE ]
-         TYPE ::= know_type | code_reference
+          KEY ::= string
+        VALUE ::= identifier | number | MAP | [ TYPE_FUNC, PARAMS ]
+    TYPE_FUNC ::= KNOWN_TYPE | code_reference
+   KNOWN_TYPE ::= string
+       PARAMS ::= PARAM | PARAMS , PARAM
+        PARAM ::= identifier
 
- * KEY could be a compound key made from multiple elements in above input
+ * KEY1 could be a compound key made from multiple elements in above input
+ * identifier is a string of an element key in the input
 
 =head3 output:
 
- OUTPUT ::= [ ELEMENT_LIST ]
- ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
- ELEMENT ::= HASH
- HASH ::= { HASH_ELEMENT_LIST }
+            OUTPUT ::= [ ELEMENT_LIST ]
+      ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
+           ELEMENT ::= HASH
+              HASH ::= { HASH_ELEMENT_LIST }
  HASH_ELEMENT_LIST ::= HASH_ELEMENT | HASH_ELEMENT_LIST , HASH_ELEMENT
- HASH_ELEMENT ::= KEY => VALUE
- KEY ::= identifier
- VALUE ::= string | number | OUTPUT
+      HASH_ELEMENT ::= KEY => VALUE
+               KEY ::= string
+             VALUE ::= string | number | OUTPUT
 
 =cut
 
@@ -148,22 +152,26 @@ the mapping
 #  mapping:
 # 
 #           MAP ::= { _KEY => KEY, ELEMENT_LIST }
+#          KEY1 ::= identifier | identifier+KEY1
 #  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT
 #       ELEMENT ::= KEY => VALUE
-#           KEY ::= identifier | identifier+KEY
-#         VALUE ::= string | number | MAP | [ string, TYPE ]
-#          TYPE ::= known_types | code_reference
+#           KEY ::= string
+#         VALUE ::= identifier | number | MAP | [ TYPE_FUNC, PARAMS ]
+#     TYPE_FUNC ::= KNOWN_TYPE | code_reference
+#    KNOWN_TYPE ::= string
+#        PARAMS ::= PARAM | PARAMS , PARAM
+#         PARAM ::= identifier
 # 
 #  output:
 # 
-#  OUTPUT ::= [ ELEMENT_LIST ]
-#  ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
-#  ELEMENT ::= HASH
-#  HASH ::= { HASH_ELEMENT_LIST }
+#             OUTPUT ::= [ ELEMENT_LIST ]
+#       ELEMENT_LIST ::= ELEMENT | ELEMENT_LIST , ELEMENT 
+#            ELEMENT ::= HASH
+#               HASH ::= { HASH_ELEMENT_LIST }
 #  HASH_ELEMENT_LIST ::= HASH_ELEMENT | HASH_ELEMENT_LIST , HASH_ELEMENT
-#  HASH_ELEMENT ::= KEY => VALUE
-#  KEY ::= identifier
-#  VALUE ::= string | number | OUTPUT
+#       HASH_ELEMENT ::= KEY => VALUE
+#                KEY ::= string
+#              VALUE ::= string | number | OUTPUT
 # 
 sub build_hash
 {
@@ -266,15 +274,16 @@ sub flat2tree
 
 # _get_value -- get value from $input->{$field} according to $field definition
 # allow map definition to include type conversion information
+# type function is able to take more than one parameters
 sub _get_value
 {
     my ($input, $field) = @_;
 
     if (ref($field) eq 'ARRAY')
     {
-        my $type = $field->[1];
-        $field = $field->[0];
-        return _format($input->{$field}, $type);
+        my @param = @{$field};
+        my $type = shift @param;
+        return _format($type, map {$input->{$_}} @param);
     }
     else
     {
@@ -285,15 +294,18 @@ sub _get_value
 # _format -- format according to $type
 sub _format
 {
-    my ($value, $type) = @_;
+    my $type = shift @_;
 
     if (ref($type) eq 'CODE')
     {
-        return &{$type}($value);
+        return &{$type}(@_);
     }
-    elsif ($type eq 'int')
+
+    my $value = shift @_;
+
+    if ($type eq 'int')
     {
-        return int($value);
+        return int($value)
     }
     else
     {
