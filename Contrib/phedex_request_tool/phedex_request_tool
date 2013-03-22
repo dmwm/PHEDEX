@@ -1,0 +1,366 @@
+#!/usr/bin/env python
+# phedex request tool
+# by Fred Stober (stober@cern.ch)
+
+import os, sys, time, logging
+
+log = logging.getLogger('phedex_request_tool')
+#logging.getLogger().setLevel(logging.DEBUG)
+#logging.getLogger().addHandler(logging.StreamHandler())
+
+# This script identifies as: KIT - Ultimate Phedex Script 0.2
+import toolKIT.webservice_api
+toolKIT.webservice_api.user_agent('KIT-UPS/0.2')
+
+from toolKIT.phedex import query_phedex
+from toolKIT.utils import sec2str, byte2str, unixdate2str, nice_json, red, green, yellow, blue
+
+def parse_options():
+	from optparse import OptionParser, OptionGroup
+	parser = OptionParser()
+	parser_req = OptionGroup(parser,'Options concerning the selection of requests')
+	parser_req.add_option('-q', '--query',    action='store_true', dest='req_query',    default = False,
+		help='query pending requests')
+	parser_req.add_option('-a', '--approved', action='store_true', dest='req_approved', default = False,
+		help='enable processing of already approved requests')
+	parser_req.add_option('-r', '--request',  action='append',     dest='req_list',     default = [],
+		help='request to process')
+	parser.add_option_group(parser_req)
+
+	parser_app = OptionGroup(parser,'Options concerning the approval of requests')
+	parser_app.add_option('-C', '--commit', action='store_true', dest='req_approve', default = False,
+		help='commit approval decision by user')
+	parser_app.add_option('-A', '--auto', action='store_true', dest='req_auto', default = False,
+		help='follow recommended approval decision')
+	parser_app.add_option('-P', '--proxy', dest='grid_proxy', default = os.environ.get('X509_USER_PROXY'),
+		help='select grid proxy (default: %s)' % os.environ.get('X509_USER_PROXY'))
+	parser.add_option_group(parser_app)
+
+	parser.add_option('-i', '--instance', dest='instance', default = 'prod',
+		help='select phedex instance (all, prod, debug, dev)')
+	parser.add_option('-S', '--site', dest='site', default = 'T1_DE_KIT',
+		help='select phedex node')
+	parser.add_option('-c', '--comments', action='store_true', dest='show_comments', default = False,
+		help='show comments')
+	parser.add_option('-s', '--skip-details', action='store_true', dest='skip_details', default = False,
+		help='skip collection of dataset details')
+
+	parser.add_option('-v', '--verbose', action='store_true', dest='verbose', help='verbose output')
+	opts, args = parser.parse_args()
+	return (opts, args)
+
+
+# Collect request ids
+def collect_requests(opts):
+	log.info('Collecting requests from database / user')
+	# Query and filter request ids
+	def query_requests(filter_dict):
+		log.debug('Retieving list of requests matching %r' % filter_dict)
+		request_list = query_phedex('requestlist', filter_dict, instance = opts.instance)['request']
+		for request in request_list:
+			for node in request['node']:
+				if node['name'].startswith(opts.site):
+					if opts.req_approved or (node['decision'] == 'pending'):
+						yield (request['id'], request['type'])
+
+	result = []
+	if opts.req_query: # Automatically added requests
+		result.extend(query_requests({'node': opts.site + '*', 'approval': 'pending'}))
+		result.extend(query_requests({'node': opts.site + '*', 'approval': 'mixed'}))
+	if opts.req_list: # Manually added requests
+		result.extend(query_requests({'request': opts.req_list}))
+	return sorted(result)
+
+
+# Get request information in compressed format
+def get_compressed_details(request, request_type):
+	log.info('Retrieving details for %s request %s' % (request_type, request))
+	if request_type == 'xfer':
+		request_details = query_phedex('transferrequests', {'request': request}, instance = opts.instance)
+	elif request_type == 'delete':
+		request_details = query_phedex('deleterequests', {'request': request}, instance = opts.instance)
+	else:
+		raise 'Unknown request type: %s' % request_type
+	if len(request_details['request']) != 1:
+		raise 'Invalid request details' % request_details['request']
+
+	# Compress information
+	request_details = request_details['request'][0]
+#	print nice_json(request_details)
+	request_details['data'].pop('usertext')
+	# > reduce personal information
+	def compress_person(src):
+		return {'person': '%s (%s)' % (src['name'], src['email'].lower()), 'person_short': src['name'],
+			'comment': str.join('\n', map(str.strip, filter(lambda x: x, src.get('comments', {}).values())))}
+	request_details['requested_by'] = compress_person(request_details['requested_by'])
+	# > reduce node information
+	for (key, key_out) in [('nodes', 'nodes'), ('destinations', 'nodes'), ('move_sources', 'sources')]:
+		if key not in request_details:
+			continue
+		node_info_list = {}
+		for node in request_details[key]['node']:
+			tmp = {'person': None, 'person_short': None, 'comment': '', 'decision': None}
+			if 'decided_by' in node:
+				tmp.update(compress_person(node['decided_by']))
+				tmp['decision'] = (node['decided_by']['decision'] == 'y')
+			node_info_list[node['name']] = tmp
+		request_details.pop(key)
+		request_details[key_out] = node_info_list
+	# > reduce dataset information
+	request_datasets = []
+	for key in ['dataset', 'block']:
+		for tmp in request_details['data']['dbs'][key]:
+			ds_info = {'name': tmp['name'], 'num_files': 0, 'num_bytes': 0, 'num_bytes_needed': 0}
+			if tmp['files']:
+				ds_info['num_files'] = tmp['files']
+			if tmp['bytes']:
+				ds_info['num_bytes'] = tmp['bytes']
+				ds_info['num_bytes_needed'] = tmp['bytes']
+			request_datasets.append(ds_info)
+	request_details['data'] = request_datasets
+	request_details['num_files'] = sum(filter(lambda x: x, map(lambda x: x['num_files'], request_details['data'])))
+	request_details['num_bytes'] = sum(filter(lambda x: x, map(lambda x: x['num_bytes'], request_details['data'])))
+
+	return request_details
+
+
+# Collect tape family informations
+def collect_tape_family_infos(ds_info, request_type, request_details):
+	dataset = ds_info['name']
+	log.info('Retrieving information for %s' % dataset)
+	return # the following tape family logic is specific to T1_DE_KIT
+	from toolKIT.lfntools import get_tag_directory, lfn2pfn
+	from toolKIT.datamgr import get_allowed_tape_families, get_needed_space
+	from toolKIT.dCache import get_tape_family, get_tape_family_parents, dcache_free_space
+	from toolKIT.interfaces import CMS_Interface
+	interface = CMS_Interface() # Cached access to dataset infos and files via phedex / DAS
+	files = interface.get_files(dataset)
+	if len(files) == 0:
+		return
+	tag_dir = get_tag_directory(dataset, files)
+	tf_current = get_tape_family(lfn2pfn(tag_dir), no_raise = True)
+	ds_info['tf_path'] = tag_dir
+	ds_info['tf_current'] = tf_current
+	# find out allowed tape families for this dataset
+	if request_type == 'xfer':
+		custodial = (request_details['custodial'] == 'y')
+		ds_info['tf_allowed'] = get_allowed_tape_families(dataset, interface, custodial)
+	# look into parent directories to find tape families (eg. for nonexistant directories)
+	if tf_current == None:
+		tf_current = get_tape_family_parents(lfn2pfn(tag_dir))
+		ds_info['tf_parent'] = tf_current
+	# replicated storage groups need more free space
+	ds_info['num_bytes_needed'] = get_needed_space(ds_info['num_bytes'], tf_current)
+	# TODO: Check free space for each storage group used by dataset paths separately
+	ds_info['storage_group_free'] = dcache_free_space(lfn2pfn('/store'))
+
+
+# Display all information for deletion and transfer requests
+def display_request(opts, req, request_type):
+	# Display general information
+	req_display = {'xfer': green(request_type), 'delete': red(request_type)}[request_type]
+	if request_type == 'xfer':
+		prio_fmt = {'low': green, 'normal': yellow, 'high': red}[req['priority']]
+		req_display = '%s priority %s' % (prio_fmt(req['priority']), req_display)
+	print 'Request %s (%s)' % (yellow(req['id']), req_display)
+	print '\tby %s for %s' % (req['requested_by']['person'], req.get('group', 'CMS'))
+	print '\tcreated at %s UTC (%s ago)' % (unixdate2str(req['time_create']), sec2str(time.time() - req['time_create']))
+	if opts.show_comments and req['requested_by']['comment']:
+		print '\t\t| ' + str.join('\n\t\t| ', req['requested_by']['comment'].splitlines())
+	# Display nodes
+	def display_nodes(node, node_info):
+		decision = node_info['decision']
+		if decision == True:
+			decision = green(str(decision).ljust(5))
+		elif decision == False:
+			decision = red(str(decision).ljust(5))
+		else:
+			decision = str(decision).ljust(5)
+		if node.startswith(opts.site):
+			print '\t\t%s (Approved: %s, %s)' % (yellow(node.ljust(20)), decision, node_info['person_short'])
+			if node_info['comment']:
+				print '\t\t\t| ' + str.join('\n\t\t\t| ', node_info['comment'].splitlines())
+		elif opts.show_comments:
+			if node_info['comment'] and (node_info['decision'] != True or opts.verbose):
+				print '\t\t%s (Approved: %s, %s)' % (node.ljust(20), decision, node_info['person_short'])
+				print '\t\t\t| ' + str.join('\n\t\t\t| ', node_info['comment'].splitlines())
+	# Display destination approval decisions
+	decision_dict = {True: [], False: [], None: []}
+	for node in req['nodes']:
+		node_info = req['nodes'][node]
+		decision_dict[node_info['decision']].append(node)
+	print '\tStatus: approved by %d sites, disapproved by %d sites, pending at %d sites' % \
+		(len(decision_dict[True]), len(decision_dict[False]), len(decision_dict[None]))
+	for node in sorted(req['nodes']):
+		display_nodes(node, req['nodes'][node])
+	# Display sources
+	if len(req.get('sources', [])) > 0:
+		print '\tSources:', '(Move: %s)' % (req['move'] == 'y')
+		for node in sorted(req['sources']):
+			display_nodes(node, req['sources'][node])
+	else:
+		print '\tSource:', blue('Local dataset assignment')
+	# Display dataset information
+	ov_needed = ''
+	if req['num_bytes'] != req['num_bytes_needed']:
+		ov_needed = ', needed: %s' % byte2str(req['num_bytes_needed'])
+	print '\tOverview: %d datasets, %d files, %s%s' % \
+		(len(req['data']), req['num_files'], byte2str(req['num_bytes']), ov_needed)
+	for ds_info in req['data']:
+		print '\t\t%s' % ds_info['name']
+		tf_cur = ds_info.get('tf_current', 'unknown')
+		if tf_cur == None:
+			tf_cur = red('not set') + ' (parent: %s)' % yellow(ds_info['tf_parent'])
+		elif ds_info.get('tf_allowed', []) and (tf_cur in ds_info.get('tf_allowed', [])):
+			tf_cur = green(tf_cur)
+		elif ds_info.get('tf_allowed', []) and (tf_cur not in ds_info.get('tf_allowed', [])):
+			tf_cur = red(tf_cur)
+		else:
+			tf_cur = yellow(tf_cur)
+		ds_needed = ''
+		if ds_info['num_bytes'] != ds_info['num_bytes_needed']:
+			ds_needed = ', needed: %s' % byte2str(ds_info['num_bytes_needed'])
+		print '\t\t\t%s files, %s%s, tape family: %s' % \
+			(ds_info['num_files'], byte2str(ds_info.get('num_bytes', 0)), ds_needed, tf_cur)
+		if 'tf_path' in ds_info:
+			print '\t\t\tpath: %s' % ds_info['tf_path']
+
+
+# Check if request should be approved
+def check_request(opts, request_details, request_type):
+	def already_subscribed(): # needs to be done here to catch just approved datasets
+		for node in request_details['nodes']:
+			if node.startswith(opts.site):
+				for ds_info in request_details['data']:
+					query = {'node': node}
+					if '#' in ds_info['name']:
+						query['block'] = ds_info['name']
+					else:
+						query['dataset'] = ds_info['name']
+					sub_info = query_phedex('subscriptions', query, instance = opts.instance)
+					if len(sub_info['dataset']) != 0:
+						return (False, 'already subscribed (%s at %s)' % (ds_info['name'], node))
+
+	def no_backfill():
+		for ds_info in request_details['data']:
+			if 'backfill' in ds_info['name'].lower():
+				return (False, 'contains backfill datasets')
+
+	def correct_tape_family():
+		for ds_info in request_details['data']:
+			if ('tf_current' not in ds_info) or ('tf_allowed' not in ds_info):
+				return (None, 'unknown tape family')
+			if ds_info['tf_current'] not in ds_info['tf_allowed']:
+				return (False, 'incorrect tape family (%s not in %r)' % (ds_info['tf_current'], ds_info['tf_allowed']))
+		return (True, 'correct tape family')
+
+	def all_GEN():
+		tiers = list(set(map(lambda ds_info: ds_info['name'].split('/')[-1], request_details['data'])))
+		if tiers == ['GEN']:
+			return (True, 'all GEN')
+
+	def free_space():
+		for ds_info in request_details['data']:
+			if 'storage_group_free' not in ds_info:
+				return
+		free = min(map(lambda ds_info: ds_info.get('storage_group_free', 0), request_details['data']))
+		if request_details['num_bytes_needed'] > free:
+			return (False, 'insufficient space')
+		elif request_details['num_bytes_needed'] > 0.1 * free:
+			return (False, 'request needs more than 10%% of available space!')
+
+	# Define rules for different request types
+	if request_type == 'xfer':
+		rules = [ already_subscribed, no_backfill, correct_tape_family, all_GEN, free_space ]
+	elif request_type == 'delete':
+		rules = []
+
+	advice = None
+	reason = None
+
+	# iterate though rules as long as they are undecided (None) or positive (True)
+	# stop iteration if a rule does not approve of this request
+	# yield reason given by the last positive / negative rule
+	for rule in rules:
+		result = rule()
+		if result != None:
+			advice = result[0]
+			reason = result[1]
+			if reason == False:
+				break
+
+	request_details['advice'] = advice
+	request_details['reason'] = reason
+	if advice == True:
+		advice = green('approve')
+	elif advice == False:
+		advice = red('do not approve')
+	else:
+		advice = yellow('unknown')
+	print '\tAdvice: %s' % advice,
+	if reason:
+		print '- %s' % reason,
+	print
+
+
+# Approve request via phedex api
+def approve_request(opts, request, request_type, request_details):
+	# for non-interactive mode: use request_details['advice'] instead of evaluating raw_input
+	nodes = filter(lambda node: node.startswith(opts.site), request_details['nodes'])
+	def update_request(decision, node):
+		if opts.req_auto and (decision == 'approve') and (request_details['advice'] == True):
+			confirm = 'y'
+		else:
+			confirm = raw_input('%s request %s at %s? [y/n] ' % (decision.title(), request, node)).lower()
+
+		if confirm == 'y':
+			print 'processing... %s' % node
+			query = {'decision': decision, 'request': request, 'node': node}
+			try:
+				ret = query_phedex('updaterequest', query, instance = opts.instance, cert = opts.grid_proxy)
+				return True
+			except:
+				print 'Error while performing update of request', request
+				return False
+	# Iterate over selected nodes and first try to approve, then disapprove
+	for node in nodes:
+		if not update_request('approve', node):
+			update_request('disapprove', node)
+
+
+def main(opts):
+	request_list = collect_requests(opts)
+	request_detail_list = []
+
+	# First collect all information before showing everything to the user
+	for (request, request_type) in request_list:
+		request_details = get_compressed_details(request, request_type)
+		for ds_info in request_details['data']:
+			if not opts.skip_details:
+				collect_tape_family_infos(ds_info, request_type, request_details)
+		# collect_tape_family_infos might change num_bytes_needed (eg. because of replication)
+		request_details['num_bytes_needed'] = sum(filter(lambda x: x, map(lambda x: x['num_bytes_needed'], request_details['data'])))
+		request_detail_list.append((request, request_type, request_details))
+
+	print
+	# Show request info / approval recommendation to user - and approve if selected
+	for (request, request_type, request_details) in request_detail_list:
+		display_request(opts, request_details, request_type)
+		check_request(opts, request_details, request_type)
+		if opts.req_approve:
+			if opts.grid_proxy:
+				approve_request(opts, request, request_type, request_details)
+			else:
+				print 'Unable to approve requests without valid proxy!'
+		print
+
+if __name__ == '__main__':
+	(opts, args) = parse_options()
+	print 'Use --help for usage information'
+	if opts.instance == 'all':
+		for instance in ['prod', 'debug', 'dev']:
+			opts.instance = instance
+			main(opts)
+	else:
+			main(opts)
+sys.exit(0)

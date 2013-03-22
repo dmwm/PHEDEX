@@ -1,0 +1,41 @@
+phedex_request_tool is a tool to automate phedex request approval
+at T1_DE_KIT, using a set of rules to give advice to data managers
+whether to approve the request or not.
+
+--- General information
+
+The phedex requests which need to be processes can be queried
+from phedex (--query) or read from the command line
+(using multiple --request options). 
+For each request, the script retrieves the phedex information about
+the request and the datasets specified in it.
+The default instance / site for which queries are performed is
+the production instance of T1_DE_KIT, but other sites (--site)
+and instances (--instance) can be specified as well.
+
+By default, phedex_request_tool just displays detailed information
+about the request. With --commit, it is possible to either
+ask the user on the command line wether to approve the request
+or perform the approval automatically (--auto), based on the
+recommendation given by a set of rules.
+
+In order to approve phedex requests, a valid grid proxy / certificate
+is necessary. By default, the path to file is taken from the
+environment variable X509_USER_PROXY. However it can also be specified
+by hand (--proxy) if needed.
+
+--- Details
+
+In the implementation provided here, the whole tape family checking
+logic is always skipped (in the function collect_tape_family_infos),
+since this is assumed to be highly specific to each site.
+
+The rules operating on the request are defined in the function
+(check_request), and can be adapted to the needs of each site.
+The common use case of approving all 'GEN' datasets is already
+implemented.
+
+Packaged with this script is a subset of libraries (toolKIT) used
+by T1_DE_KIT for various site admin tasks. For the basic running
+of the script only the following files are really needed:
+  toolKIT/phedex.py, toolKIT/utils.py and toolKIT/webservice_api.py
