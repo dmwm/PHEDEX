@@ -11,6 +11,7 @@ PHEDEX::Core::Util - basic utility functions that may be useful in any module
 use warnings;
 use strict;
 use Data::Dumper;
+use List::Util qw(max min sum);
 
 our @ISA = qw(Exporter);
 our @EXPORT = qw (); # export nothing by default
@@ -137,6 +138,13 @@ Turn SQL result in a flat hash into hierarchical structure defined by the mappin
                KEY ::= string
              VALUE ::= string | number | OUTPUT
 
+=head3 aggregation functions:
+
+     sum()
+     count()
+     max()
+     min()
+
 =cut
 
 # build_hash -- according to the map, build a structure out of input
@@ -190,37 +198,29 @@ sub build_hash
             return;
         }
 
-        if (exists $output->{$key})
+        if (! exists $output->{$key})
         {
-            foreach $k (keys %{$map})
+            $output->{$key} = {};
+        }
+
+        foreach $k (keys %{$map})
+        {
+            if ($k ne "_KEY")
             {
                 if (ref($map->{$k}) eq "HASH")
                 {
-                    # take care of non-existing $output->{$key}->{$k}
-                    $output->{$key}->{$k} = {} if (! exists $output->{$key}->{$k});
-                    build_hash($map->{$k}, $input, $output->{$key}->{$k});
-                }
-            }
-        }
-        else
-        {
-            $output->{$key} = {};
-            foreach $k (keys %{$map})
-            {
-                if ($k ne "_KEY")
-                {
-                    if (ref($map->{$k}) eq "HASH")
+                    if (not exists $output->{$key}->{$k})
                     {
                         $output->{$key}->{$k} = {};
-                        build_hash($map->{$k}, $input, $output->{$key}->{$k});
                     }
-                    else
-                    {
-                        $output->{$key}->{$k} = _get_value($input, $map->{$k});
-                    }
+                    build_hash($map->{$k}, $input, $output->{$key}->{$k});
+                }
+                else
+                {
+                    # supply $output->{$key}->{$k} for aggregation function
+                    $output->{$key}->{$k} = _get_value($input, $map->{$k}, $output->{$key}->{$k});
                 }
             }
-
         }
     }
     else
@@ -275,42 +275,70 @@ sub flat2tree
 # _get_value -- get value from $input->{$field} according to $field definition
 # allow map definition to include type conversion information
 # type function is able to take more than one parameters
+# $acc_val is carried for aggregation functions but it could be anything
 sub _get_value
 {
-    my ($input, $field) = @_;
+    my ($input, $field, $acc_val) = @_;
 
     if (ref($field) eq 'ARRAY')
     {
         my @param = @{$field};
         my $type = shift @param;
-        return _format($type, map {$input->{$_}} @param);
+        if (ref($type) eq 'CODE')
+        {
+            return &{$type}(map {$input->{$_}} @param);
+        }
+
+        # predefined functions
+        if ($type eq 'int')
+        {
+            return int(shift @param);
+        }
+        elsif ($type eq 'sum')
+        {
+            if (defined $acc_val)
+            {
+                return ($input->{shift @param}) + $acc_val;
+            }
+            else
+            {
+                return ($input->{shift @param});
+            }
+        }
+        elsif ($type eq 'count')
+        {
+            if (defined $acc_val)
+            {
+                return $acc_val + 1;
+            }
+            else
+            {
+                return 1;
+            }
+        }
+        elsif ($type eq 'max')
+        {
+            my @param2 = map {$input->{$_}} @param;
+            if (defined $acc_val)
+            {
+                push @param2, $acc_val;
+            }
+            return max(@param2);
+        }
+        elsif ($type eq 'min')
+        {
+            my @param2 = map {$input->{$_}} @param;
+            if (defined $acc_val)
+            {
+                push @param2, $acc_val;
+            }
+            return min(@param2);
+        }
     }
     else
     {
         return $input->{$field};
     }
 }
-
-# _format -- format according to $type
-sub _format
-{
-    my $type = shift @_;
-
-    if (ref($type) eq 'CODE')
-    {
-        return &{$type}(@_);
-    }
-
-    my $value = shift @_;
-
-    if ($type eq 'int')
-    {
-        return int($value)
-    }
-    else
-    {
-        return $value;
-    }
-};
 
 1;
