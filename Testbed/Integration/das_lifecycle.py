@@ -270,7 +270,7 @@ def phedex_queries(dashost, phedex):
             query = 'file block=%s' % block['name']
             print "query", query
             das_data = das_query(dashost, query)
-            print "result", das_data 
+ #           print "result", das_data 
             yield das_data
 
 def dbs_queries(dashost, dbslist, dbsinst):
@@ -281,7 +281,7 @@ def dbs_queries(dashost, dbslist, dbsinst):
         query = "file dataset=%s instance=%s" % (dbs_dataset['dataset'], dbsinst)
         print "query", query
         das_data = das_query(dashost, query)
-        print "result", das_data 
+#        print "result", das_data 
         yield das_data
 #        if  das_data['status'] == 'ok':
 #            if  not das_data['nresults']:
