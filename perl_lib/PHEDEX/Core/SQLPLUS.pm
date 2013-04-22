@@ -8,6 +8,8 @@ use vars qw(@ISA @EXPORT);
 @ISA = qw(Exporter);
 # Deliberately export sqlplus to make one-line scripts easier. E.g:
 # perl -MPHEDEX::Core::SQLPLUS -e 'sqlplus("/path/to/DBParam:Section","select sysdate from dual;",1);'
+# or even...
+# echo 'select sysdate from dual;' | perl -MPHEDEX::Core::SQLPLUS -e 'sqlplus("/path/to/DBParam:Section",undef,1);'
 @EXPORT = qw / sqlplus /;
 
 sub new
@@ -91,7 +93,7 @@ sub get_stdin {
 
 sub got_child_stdout {
   my ($self,$stdout) = @_[OBJECT,ARG0];
-  print "SQLPlus: $stdout\n" if $self->{VERBOSE};
+  print "$stdout\n" if $self->{VERBOSE};
 }
 
 sub got_child_stderr {
@@ -128,6 +130,9 @@ sub sqlplus {
   $h{DBCONFIG} = shift;
   $h{SCRIPT}   = shift;
   $h{VERBOSE}  = shift;
+  if ( !$h{SCRIPT} ) {
+    $h{SCRIPT} = <STDIN>;
+  }
   PHEDEX::Core::SQLPLUS::run( %h );
 }
 
