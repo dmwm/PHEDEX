@@ -21,6 +21,8 @@
 #  DML-operation is one or more of 'select', 'insert', 'delete' or 'update', concatenated with a comma.
 #    If it's 'update', it is followed by a comma-separated list of column names, enclosed in
 #    parentheses. E.g. update(id,time,name)
+#  DML-operation can also be 'execute', for functions or procedures, which are not all public by default
+#    There are other esoteric possibilities, 'flashback', 'add_partition' and 'drop_partition', needed only for a few special cases.
 #  role-group is the group that this access is used by. E.g, 'Web', 'Data_Manager' etc. Spaces
 #    must be replaced with underscores, and multiple role-groups can be concatenated with commas.
 #    The role-group may be omitted if there is a default supplied at the package-name level
@@ -70,7 +72,6 @@ PHEDEX::BlockLatency Central_Agent
 PHEDEX::BlockMonitor Central_Agent
   t_dps_block_replica insert,delete,update(is_custodial,user_group,time_update,src_files,src_bytes,dest_files,dest_bytes,node_files,node_bytes,xfer_files,xfer_bytes)
   t_tmp_br_active,t_tmp_br_src,t_tmp_br_dest,t_tmp_br_node,t_tmp_br_xfer,t_tmp_br_flag insert
-
   t_dps_block,t_dps_file,t_dps_block_replica,t_dps_subs_block,t_dps_subs_param,t_xfer_file,t_xfer_replica,t_xfer_task flashback
 
 PHEDEX::Core::Catalogue Site_Agent
@@ -178,11 +179,13 @@ Utilities/LinkNew,Utilities/LinkRemove
   t_adm_link insert,delete Link_topology_manager
 
 Utilities/NodeNew Network_topology_manager
-  t_adm_node insert,delete
-  t_xfer_replica,t_xfer_request,t_xfer_task add_partition
+# t_adm_node insert,delete
+# t_xfer_replica,t_xfer_request,t_xfer_task add_partition
+  proc_add_node execute
+  t_adm_node update(name) # rename an obsolete node
 
 Utilities/NodeRemove Network_topology_manager
-  t_dps_file,t_dps_dataset delete
+# t_dps_file,t_dps_dataset delete
   t_xfer_replica,t_xfer_request,t_xfer_task drop_partition
 
 Utilities/RouterSuspend
