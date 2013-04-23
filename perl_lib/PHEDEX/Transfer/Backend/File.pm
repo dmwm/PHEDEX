@@ -39,6 +39,7 @@ our %ro_params =
 	(
 	  SOURCE	=> undef,	# Source URL
 	  DESTINATION	=> undef,	# Destination URL
+	  FILESIZE      => undef,       # Filesize in TMDB
 	  CHECKSUM_TYPE => undef,       # Checksum type in TMDB
  	  CHECKSUM_VAL  => undef,       # Checksum value in TMDB
 	  TASKID        => undef,       # PhEDEx Task ID
