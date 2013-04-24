@@ -8,12 +8,13 @@ my ($master,$dbparam,$scriptAdmin,$scriptUser,$self,$dbh,$type);
 my ($help,$verbose,$sql,$sth,@h,%objects,$saveAdminScript);
 
 $scriptUser = 'initialise_role_access';
+Getopt::Long::Configure( 'pass_through' );
 GetOptions(
-	    'save-admin-script'	=> \$saveAdminScript,
-	    'user-script=s'	=> \$scriptUser,
-	    'db=s'		=> \$dbparam,
-	    'help'		=> \$help,
-	    'verbose'		=> \$verbose,
+	    'save-admin-script=s' => \$saveAdminScript,
+	    'user-script=s'	  => \$scriptUser,
+	    'db=s'		  => \$dbparam,
+	    'help'		  => \$help,
+	    'verbose'		  => \$verbose,
 	  );
 
 sub usage {
@@ -34,6 +35,11 @@ synonyms for them in a target account.
  You then log into that target account and run this script manually.
 
 EOF
+  exit 0;
+}
+if ( @ARGV ) {
+  warn "Unrecognised arguments: ",join(', ',@ARGV),"\n";
+  warn "Use '--help' for help\n";
   exit 0;
 }
 $help && usage();
@@ -126,6 +132,7 @@ begin
 end;
 /
 
+quit;
 EOPLSQL3
 
 print USER <<EOPLSQL4;
@@ -151,6 +158,7 @@ declare
   total number;
   other_owner number;
 begin
+  $master.proc_abort_if_admin;
   select count(*) into other_owner from user_synonyms where table_owner != '$master';
   if other_owner > 0 then
     dbms_output.put_line('you have synonyms to other schemas. Aborting for safety');
@@ -158,13 +166,14 @@ begin
   end if;
 EOPLSQL4
 
-# Remove the functions that are created here, the user does not need them
-foreach ( qw / proc_abort_if_admin 
-	       proc_drop_synonyms
-	       proc_create_synonyms
-	       proc_grant_basic_read_access / ) {
-  delete $objects{PROCEDURE}{uc $_};
-}
+# Remove functions/procedures that the user does not need a synonym for
+#foreach ( qw / proc_abort_if_admin 
+#	       proc_grant_basic_read_access / ) {
+#  delete $objects{PROCEDURE}{uc $_};
+#}
+delete $objects{PROCEDURE}{PROC_GRANT_BASIC_READ_ACCESS};
+
+# now create the synonyms
 foreach $type ( qw / TABLE SEQUENCE FUNCTION PROCEDURE VIEW / ) {
   print USER "  dbms_output.put_line('Create synonyms for ",lc $type,"s');\n";
   foreach ( sort keys %{$objects{$type}} ) {
@@ -179,6 +188,7 @@ print USER <<EOPLSQL5;
 end;
 /
 
+quit;
 EOPLSQL5
 
 close USER;
