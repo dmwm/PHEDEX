@@ -301,8 +301,8 @@ sub print_doc
     $module_name = $loader->ModuleName($call);
     $module = $module_name || 'PHEDEX::Web::Core';
 
-    my $package = $ENV{PHEDEX_PACKAGE_NAME};
-    my $package_lc = lc $package || 'phedex';
+    my $package = $ENV{PHEDEX_PACKAGE_NAME} || 'phedex';
+    my $package_lc = lc $package;
 
     # This bit is ugly. I want to add a section for the commands known in this installation,
     # but that can only be done dynamically. So I have to capture the output of the pod2html
