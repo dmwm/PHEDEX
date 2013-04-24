@@ -335,10 +335,7 @@ sub report_work_done
 
 	# We are done with these drops
 	$self->Dbgmsg("deleting drop $dropdir for lfn=$file->{LFN}") if $self->{DEBUG};
-# TW
         &rmtree($dropdir);
-#	&touch ("$dropdir/done");
-#	$self->relayDrop ($drop);
 	$ndone++;
     }
 
