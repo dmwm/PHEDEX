@@ -59,6 +59,8 @@ N.B. Data for T1 sites, which have a Buffer and an MSS node, are aggregated unde
 =head3 <nesteddata> attributes
 
   quality          quality of transfers in the current timebin
+  failed           number of failed transfer
+  done             number of done transfer
   pend_bytes       number of bytes queued for transfer in the current timebin
   timebin          Unix epoch time of start of current timebin
 
