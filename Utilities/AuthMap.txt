@@ -1,0 +1,35 @@
+# This file contains the map of DB Roles to Schema-authorisations.
+# The schema-authorisations are declared in RoleMap.txt, where they are
+# mapped to schema-entities.
+#
+# AuthMapper.pl takes this file and compares it with the DB roles which
+# have been granted access to a given database account and checks that
+# no roles have been missed out. This makes sure we correctly specify
+# database access rights for all database roles that have been granted
+# access to the parent schema.
+#
+# There is a complication: we grant rights to the *_reader and *_writer
+# accounts, but then we attach roles to those accounts, not to the
+# parent admin account. This is all taken care of automatically, as if
+# by magic...
+#
+# Syntax:
+#
+# Admin <name of admin account> <DBParam section name> # only one!
+#
+# Reader <name of reader account> <DBParam section name>
+# 'Reader' may be repeated, one account per line
+#
+# Role <db role> <cms role>
+# 'cms role' may be repeated, comma-separated
+#
+# all text is case-insensitive, apart from DBParam section names
+#
+
+# E.g. here's a table for my private testbed
+Admin phedex_wildish_admin PrivateTestbed
+
+Reader phedex_wildish_reader Tony/Reader
+
+Role Mgmt/Writer central_agent,all_agents
+Role T0_Test/Writer site_agent
