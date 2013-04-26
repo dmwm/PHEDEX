@@ -2,11 +2,8 @@
 use strict;
 use Getopt::Long;
 use Data::Dumper;
-use PHEDEX::Schema::Map;
+use PHEDEX::Schema::RoleMap;
 
-#my ($roleMap,$schema,%schemas,$s,$packages,$p,$tables,$t,$dml,$d,$columns,@columns,$c,$roles,$role,$r);
-#my ($help,$verbose,$debug,$dumpRoleMap,$listRoles,$listSchemas,$allRoles,$grantee,%rights,%dmlMap);
-#my ($Roles,$Role,$Schema,@comments,%default,%knownTables,$sql,$dbparam,$script);
 my ($roleMap,$schema,$roles);
 my ($help,$verbose,$debug,$dumpRoleMap,$listRoles,$listSchemas,$grantee,$allRoles);
 my ($Schema,$dbparam);
@@ -66,7 +63,7 @@ if ( @ARGV ) {
 }
 $help && usage();
 
-my $roleMapper = PHEDEX::Schema::Map->new(
+my $roleMapper = PHEDEX::Schema::RoleMap->new(
 		  MAP     => $roleMap,
 		  DBPARAM => $dbparam,
 		  GRANTEE => $grantee,
@@ -97,6 +94,6 @@ print "Using role-set: ",join(', ',@{$roles}),"\n";
 $roleMapper->openScript();
 $roleMapper->revokeRights();
 $roleMapper->grantAccessToSequences();
-$roleMapper->grantAccessToTables();
+$roleMapper->grantAccessToObjects();
 $roleMapper->closeScript();
 exit 0;
