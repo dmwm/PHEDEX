@@ -1,14 +1,9 @@
-package PHEDEX::Schema::Map;
+package PHEDEX::Schema::RoleMap;
 use strict;
 use warnings;
 use PHEDEX::Core::SQLPLUS;
 use Data::Dumper;
 use Clone qw / clone /;
-
-#my ($help,$dumpRoleMap,$listRoles,$listSchemas,$allRoles,$grantee,%rights,%dmlMap);
-#my ($Roles,$Role,$Schema,@comments,%default,$sql,$dbparam,$script);
-my (%rights,%dmlMap);
-my ($Roles,$Schema,@comments,$sql,$script);
 
 our (%params,$OUT);
 %params = (
@@ -51,7 +46,6 @@ die "Not supported yet, sorry!\n";
     open $OUT, '>',\$self->{SCRIPT};
   } else {
     $self->{SCRIPT} = 'grant-' . $self->{GRANTEE} . '.sql';
-#   print "Writing output to $self->{SCRIPT}\n";
     open $OUT, ">$self->{SCRIPT}" or die "open: $!\n";
     print $OUT 
 	"set linesize 1000;\n",
@@ -73,7 +67,7 @@ sub closeScript {
 
 sub readRoleMap() {
   my $self = shift;
-  my ($inSchema,$line,@packages);
+  my ($inSchema,$line,@packages,@comments);
   my ($schema,$s,$packages,$p,$tables,$t,$dml,$d,$columns,@columns,$c,@roles,$role,$r);
   $inSchema = 0;
   open RM, "<$self->{MAP}" or die "$self->{MAP}: $!\n";
@@ -338,10 +332,10 @@ end;
 EOF
 }
 
-sub grantAccessToTables {
+sub grantAccessToObjects {
   my $self = shift;
   my $grantee = $self->{GRANTEE};
-  my (%rights,$d,$r,$s,$t,@columns);
+  my (%rights,$d,$r,$s,$t,@columns,$sql,%dmlMap);
 
   $grantee && print $OUT <<EOF;
 declare
@@ -378,17 +372,5 @@ EOF
 
   print $OUT "end;\n\n";
 }
-
-##################################
-#sub dummy {
-#  my $self = shift;
-#  my ($d,$r,$s,$t,@columns);
-#
-## assign $s to the default schema, or to all schemas. This is needed to handle dumpRoleMap correctly,
-## i.e. the case that the Schema is specified or not.
-#$s = $self->{SCHEMAS};
-#if ( $Schema ) { $s = $s->{$Schema}; }
-
-#print $OUT "end;\n/\n\n";
 
 1;
