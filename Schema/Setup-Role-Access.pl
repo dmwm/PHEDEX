@@ -10,11 +10,11 @@ my ($help,$verbose,$sql,$sth,@h,%objects,$saveAdminScript);
 $scriptUser = 'initialise_role_access';
 Getopt::Long::Configure( 'pass_through' );
 GetOptions(
-	    'save-admin-script=s' => \$saveAdminScript,
-	    'user-script=s'	  => \$scriptUser,
-	    'db=s'		  => \$dbparam,
-	    'help'		  => \$help,
-	    'verbose'		  => \$verbose,
+	    'save-admin-script' => \$saveAdminScript,
+	    'user-script=s'	=> \$scriptUser,
+	    'db=s'		=> \$dbparam,
+	    'help'		=> \$help,
+	    'verbose'		=> \$verbose,
 	  );
 
 sub usage {
