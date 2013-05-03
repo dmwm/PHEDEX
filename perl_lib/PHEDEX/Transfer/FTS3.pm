@@ -478,9 +478,18 @@ sub start_transfer_job
 						CA_FILE => $ENV{X509_USER_PROXY},
 						CA_DIR => $ENV{X509_CERT_DIR},
 						);
-    my $target = $useragent->target;
 
-    my $response = $useragent->post($target,$jsoncopyjob);
+    # Build request, setting "Content-Type: application/json;" needed for FTS3 REST API
+    
+    my $req = HTTP::Request->new(POST => $useragent->target);
+    $req->content_type('application/json');
+    $req->content($jsoncopyjob);
+
+    # POST the request
+
+    my $response = $useragent->request($req);
+
+    $self->Dbgmsg("FTS3 REST API response: \n".$response->content) if $self->{DEBUG};
 
     # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
 
