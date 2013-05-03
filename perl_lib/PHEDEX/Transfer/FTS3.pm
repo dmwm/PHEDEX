@@ -473,8 +473,9 @@ sub start_transfer_job
     my $useragent = PHEDEX::CLI::UserAgent->new(
 						URL => $service,
 						TARGET => '/jobs',
-						CERT_FILE => $ENV{X509_USER_PROXY}, # FIXME: useragent doesn't seem to work with proxies, only with certs
-						KEY_FILE => $ENV{X509_USER_PROXY},  # FIXME: useragent doesn't seem to work with proxies, only with certs
+						CERT_FILE => $ENV{X509_USER_PROXY},
+						KEY_FILE => $ENV{X509_USER_PROXY},
+						CA_FILE => $ENV{X509_USER_PROXY},
 						CA_DIR => $ENV{X509_CERT_DIR},
 						);
     my $target = $useragent->target;
