@@ -26,10 +26,20 @@ each of the last 12 hours, with timebins aligned on the hour.
 If data was queued in a given hour, and for four hours following that hour 
 one of the following is true
  1) quality is below 50%; 2) no blocks appear, nothing was attempted;
-Then the node is likely to have a problem, and put into error status
-If quality is below 80%, the node is put into warning status
+Then the node is likely to have a problem, and put into error status.
+If quality is below 80%, the node is put into warning status.
+If quality is 0, it means the node is trying and failing permanently 
+If quality is undef, it means the node is not trying at all
 
-N.B. Data for T1 sites, which have a Buffer and an MSS node, are aggregated under the name of the MSS node. 
+If four or more consecutive timebins are failed, the queue is declared to
+be failed. If four or more consecutive timebins are in a warning state, the
+entire queue is considered to be in a warning state. If three or more
+consecutive timebins are OK after the queue has been declared failed, the
+'ERROR' state is downgraded to a warning state, since the queue may have
+recently recovered.
+
+
+N.B. Data for T1 sites, only Buffer node is taken into account. 
 
 
 =head2 Options
@@ -90,7 +100,9 @@ sub _shift_queuedquality
   $node  = 'T%';
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
   %paramsq = ( ':starttime' => $start, ':endtime' => $end );
-
+  
+  # don't need aggregation for T1 Buffer and MSS here
+  $h->{NOAGGREGATE} = 1;
   map { $h{uc $_} = uc delete $h{$_} } keys %h;
   $queue = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,\%params,\%h);
   $quality = PHEDEX::Web::API::Shift::Quality::getShiftQuality($core,\%paramsq,\%h);
@@ -175,6 +187,11 @@ sub _shift_queuedquality
         $s{$node}{STATUS} = 2;
         $s{$node}{REASON} = 'nothing was attempted';
       }
+      if ( $nConsecOK >= 3 && $s{$node}{STATUS} )
+      {
+        $s{$node}{STATUS} = 1;
+        $s{$node}{REASON} = 'queue may fail';
+      }
       delete $e->{NODE};
       push @{$s{$node}{NESTEDDATA}},$e;
     }
@@ -187,6 +204,8 @@ sub _shift_queuedquality
     $s{$node}{STATUS_TEXT} = $status_map->{$s{$node}{STATUS}};
     $s{$node}{STATUS} += 0; # numification :-(
     delete $s{$node}{TIMEBINS};
+    # don't need to take T1 MSS into account
+    delete $s{$node} if ( $node =~ m%^T1_(.*)_MSS$% );
     delete $s{$node} if ( !$s{$node}{STATUS} && !$h{FULL} );
   }
 
