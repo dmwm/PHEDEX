@@ -42,6 +42,7 @@ use strict;
 # Process command line arguments.
 use Getopt::Long;
 use File::Basename;
+use File::Spec;
 use PHEDEX::Core::Help;
 use PHEDEX::Core::DB;
 use PHEDEX::BlockConsistency::SQL;
@@ -103,6 +104,7 @@ while ( <LFN> )
   $debug && print "Read: $_\n";;
   s%^.*/store%/store%;
   s%\s.*$%%;
+  $_ = File::Spec->canonpath($_);
   $h{LFN}{$_}++;
   $_ = dirname $_;
   $_ =~ s%/\d+$%%;
