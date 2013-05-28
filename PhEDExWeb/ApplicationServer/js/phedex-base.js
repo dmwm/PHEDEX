@@ -142,6 +142,7 @@ PHEDEX.Webapp = {
   ProductionMode: function() {
     if ( location.href.match(/http(s)?:\/\/localhost/) ) { return false; }
     if ( location.href.match(/http(s)?:\/\/phedex/) )    { return false; }
+    if ( location.href.match(/http(s)?:\/\/vm/) )        { return false; }
     if ( location.href.match(/phedex-debug.html/) )      { return false; }
     return true;
   }(),
