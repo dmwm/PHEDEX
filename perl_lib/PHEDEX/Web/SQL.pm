@@ -44,7 +44,7 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
-sub getComponentStatus
+sub getComponentsStatus
 {
    my ($self, %h) = @_;
    my ($sql,$q,%p,@r);
