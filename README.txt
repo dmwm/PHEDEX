@@ -29,5 +29,5 @@ Discussion forum:
 Discussion mailing list:
   hn-cms-phedex at cern dot ch
 
-Software repository st GitHub:
+Software repository at GitHub:
   https://github.com/dmwm/PHEDEX
