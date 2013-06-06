@@ -18,23 +18,23 @@ Return status known to PhEDEx.
 
 =head2 Output
 
-  <infraestructure/>
+  <infraestructure>
   ...
 
 =head3 <infraestructure> elements
 
-  node             node name
-    agent            agent name
-    uptime           agent uptime 
+  node                node name
+    agent             agent name
+      label = uptime  label uptime
+  ...
 
 =cut
 
 
 use PHEDEX::Web::SQL;
 use PHEDEX::Web::Util;
-use Data::Dumper;
 
-sub duration { return 1 * 10; }
+sub duration { return 1 * 60; }
 sub invoke { return componentsstatus(@_); }
 
 sub componentsstatus
@@ -42,8 +42,7 @@ sub componentsstatus
     my ($core, %h) = @_;
     my $rows = PHEDEX::Web::SQL::getComponentsStatus($core);
     my (%agents, %status,%r);
-    foreach my $row (@$rows)
-    {   
+    foreach my $row (@$rows) {   
        my $node   = $$row{'NODE_NAME'};
        my $agent  = $$row{'AGENT_NAME'};
        my $label  = $$row{'LABEL'};
@@ -57,47 +56,37 @@ sub componentsstatus
     my @support        = grep exists $agents{$_},qw(BlockDownloadVerifyInjector InfoFileSize InfoStatesClean InvariantMonitor PerfMonitor LoadTestInjector LoadTestCleanup);
     my @site           = grep exists $agents{$_},qw(FileDownload FileExport FileStager FileRemove BlockDownloadVerify Watchdog AgentFactory);
     my @other;
-
     foreach my $agent (keys %agents) {
        push @other, $agent unless grep $agent eq $_, @infrastructure, @workflow, @support, @site;
     }
 
-    foreach my $item ([ "Infrastructure", @infrastructure ],
-		    [ "Workflow", @workflow ], ["Support", @support],
-		    [ "Site", @site ], ["Other", @other])
-    {
+    foreach my $item ( [ "Infrastructure", @infrastructure ], [ "Workflow", @workflow ], ["Support", @support],
+		       [ "Site", @site ], ["Other", @other] ) {
        my ($type, @agents) = @{$item};
        next unless @agents;
 
        my @nodes;
        if ($type =~ /(Site|Other)/) { @nodes = sort keys %status; } 
        else { push @nodes, 'PhEDEx Central'; }
-
-       foreach my $node (@nodes)
-       { 
+       foreach my $node (@nodes) { 
 	  next if $type =~ /(Site|Other)/ && ! grep (defined $status{$node}{$_}, @agents);
-	  foreach my $agent (@agents)
-          {
-	      my $check_node;
-	      if ($node eq 'PhEDEx Central') {
-		  my @running_for;
-		  foreach my $n (sort keys %status) {
-		      push @running_for, $n if exists $status{$n}{$agent};
-		  }
-		  $check_node = shift @running_for;
-	      } else {
-		  $check_node = $node;
-	      }
-	      my @labels = keys %{$status{$check_node}{$agent}};
-	      foreach my $label (@labels) {
-		  my $contact = $status{$check_node}{$agent}{$label};
-                  $r{$type}{$check_node}{$agent}{$label} = $status{$check_node}{$agent}{$label};
-	      }
+
+	  foreach my $agent (@agents) {
+	     my $check_node;
+	     if ($node eq 'PhEDEx Central') {
+	        my @running_for;
+		foreach my $n (sort keys %status) {
+		   push @running_for, $n if exists $status{$n}{$agent};
+		}
+		$check_node = shift @running_for;
+	     } else { $check_node = $node; }
+
+	     foreach my $label ( keys %{$status{$check_node}{$agent}} ) { 
+                $r{$type}{$node}{$agent}{$label} = $status{$check_node}{$agent}{$label}; 
+             }
           }
         }
     }
-
-    warn Dumper(\%r);
     return { componentsstatus => \%r };
 }
 
