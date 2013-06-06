@@ -49,7 +49,6 @@ sub componentsstatus
        my $label  = $$row{'LABEL'};
        my $uptime = $$row{'TIME_UPDATE'};
        $status{$node}{$agent}{$label} = $uptime;
-       $r{$node}{$agent} = $uptime; 
        $agents{$agent} = 1;
     }
 
@@ -63,24 +62,43 @@ sub componentsstatus
        push @other, $agent unless grep $agent eq $_, @infrastructure, @workflow, @support, @site;
     }
 
+    foreach my $item ([ "Infrastructure", @infrastructure ],
+		    [ "Workflow", @workflow ], ["Support", @support],
+		    [ "Site", @site ], ["Other", @other])
+    {
+       my ($type, @agents) = @{$item};
+       next unless @agents;
+
+       my @nodes;
+       if ($type =~ /(Site|Other)/) { @nodes = sort keys %status; } 
+       else { push @nodes, 'PhEDEx Central'; }
+
+       foreach my $node (@nodes)
+       { 
+	  next if $type =~ /(Site|Other)/ && ! grep (defined $status{$node}{$_}, @agents);
+	  foreach my $agent (@agents)
+          {
+	      my $check_node;
+	      if ($node eq 'PhEDEx Central') {
+		  my @running_for;
+		  foreach my $n (sort keys %status) {
+		      push @running_for, $n if exists $status{$n}{$agent};
+		  }
+		  $check_node = shift @running_for;
+	      } else {
+		  $check_node = $node;
+	      }
+	      my @labels = keys %{$status{$check_node}{$agent}};
+	      foreach my $label (@labels) {
+		  my $contact = $status{$check_node}{$agent}{$label};
+                  $r{$type}{$check_node}{$agent}{$label} = $status{$check_node}{$agent}{$label};
+	      }
+          }
+        }
+    }
+
     warn Dumper(\%r);
     return { componentsstatus => \%r };
-
-
-#    return { componentsstatus => {
-#                                    Infraestructure => { 
-#                                                         'PhEDEx Central' => {
-#                                                                               FileRouter => 100,
-#                                                                               FileIssue => 100,
-#                                                                             },
-#                                                       },
-#                                    Site => { 
-#                                              'T3_MX_Cinvestav' => { 
-#                                                                     'FileDownload' => 100,
-#                                                                    }
-#                                            },
-#                                 }
-#           };
 }
 
 1;
