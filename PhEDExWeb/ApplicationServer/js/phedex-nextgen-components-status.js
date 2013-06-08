@@ -1,5 +1,5 @@
-PHEDEX.namespace('Nextgen.Activity');
-PHEDEX.Nextgen.Activity.RatePlots = function(sandbox) {
+PHEDEX.namespace('Nextgen.Components');
+PHEDEX.Nextgen.Components.Status = function(sandbox) {
   var string = 'nextgen-components-status';
   Yla(this,new PHEDEX.Module(sandbox,string));
 
