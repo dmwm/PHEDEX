@@ -44,6 +44,25 @@ sub AUTOLOAD
   $self->$parent(@_);
 }
 
+sub getComponentsStatus
+{
+   my ($self, %h) = @_;
+   my ($sql,$q,%p,@r);
+
+   $sql = qq{
+       select n.name node_name, a.name agent_name, ast.label, ast.time_update
+              from t_agent_status ast
+              join t_adm_node n on n.id = ast.node
+              join t_agent a on a.id = ast.agent
+       };
+
+   $q = execute_sql( $self, $sql, %p );
+   $q = PHEDEX::Web::STH->new($q);
+
+   while ( $_ = $q->fetchrow_hashref() ) { push @r, $_; }
+   return \@r;
+}
+
 sub getBlockReplicas
 {
     my ($self, %h) = @_;
