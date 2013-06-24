@@ -89,6 +89,7 @@ PHEDEX.Loader = function(opts) {
     'phedex-nextgen-data-bulkdelete':    { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','animation'] },
     'phedex-nextgen-request-create':     { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':       { requires:['phedex-module','phedex-nextgen-util','button'] },
+    'phedex-nextgen-components-status':  { requires:['phedex-module','phedex-nextgen-util','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }
