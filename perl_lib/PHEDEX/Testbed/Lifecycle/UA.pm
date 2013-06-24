@@ -152,6 +152,7 @@ sub on_child_signal {
   my ($child,$status,$signal,$event,$callback,$target,$params,$obj);
   my ($payload,$workflow,$p,$stdout,$stderr,$parent);
 
+  $parent = $self->{parent};
   $child = delete $_[HEAP]{children_by_pid}{$_[ARG1]};
 
   delete $_[HEAP]{children_by_wid}{$child->ID} if defined $child;
@@ -177,9 +178,13 @@ sub on_child_signal {
       stderr => $stderr,
     };
     $self->Alert("status=$status, event=$event, target=$target");
-    $self->Alert("params=",Dumper($params));
-    $self->Alert("stderr=\"$stderr\"");
-    $self->Alert("stdout=\"$stdout\"");
+    if ( $parent->{Debug} ) {
+      $self->Alert("params=",Dumper($params));
+      $self->Alert("stderr=\"$stderr\"");
+      $self->Alert("stdout=\"$stdout\"");
+    }
+# TW Try this and see if it bites us...
+$kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
   } else {
     if ( $stdout ) {
       eval {
@@ -194,7 +199,6 @@ sub on_child_signal {
     $kernel->post($self->{PARENT_SESSION},$callback,$payload,$obj,$target,$params);
   }
 
-  $parent = $self->{parent};
   $parent->{_njobs}--;
   if ( $parent->{_njobs} < $parent->{NJobs} ) {
     $kernel->yield('start_task');
