@@ -59,9 +59,25 @@ function createCoreApp() {
       var el = document.getElementById('phedex-main');
       el.innerHTML = "";
 
-// data.node holds the actual response from the API, so loop over that
-      el.innerHTML += YAHOO.lang.dump(data);
+// data.componentsstatus holds the actual response from the API, so loop over that
+      el.innerHTML += '<center>Infrastructure Agents</center>';
+      for (var i in data.componentsstatus.infrastructure) {
+          el.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.componentsstatus.infrastructure[i],0);
+      }
+      el.innerHTML += '<br><center>Workflow Agents</center>';
+      for (var i in data.componentsstatus.workflow) {
+          el.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.componentsstatus.workflow[i],0);
+      }
+      el.innerHTML += '<br><center>Support Agents</center>';
+      for (var i in data.componentsstatus.support) {
+          el.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.componentsstatus.support[i],0);
+      }
+      el.innerHTML += '<br><center>Site Agents</center>';
+      for (var i in data.componentsstatus.site) {
+          el.innerHTML += '<br/>'+i+': '+YAHOO.lang.dump(data.componentsstatus.site[i],0);
+      }
 
+    //el.innerHTML += YAHOO.lang.dump( data );
     } catch(ex) {
       banner('Error processing data','error');
     }
