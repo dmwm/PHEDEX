@@ -11,9 +11,9 @@ close D;
 # Strip newlines
 chomp @w;
 
-# Generate password letters of at least 10 characeters.
-($f .= $w[rand $#w]) until length($f) > 10;
-$f = substr($f, 0, 10);
+# Generate password letters of at least 20 characeters.
+($f .= $w[rand $#w]) until length($f) > 20;
+$f = substr($f, 0, 20);
 
 # Randomly lower/uppercase characters
 $f =~ s/(\w)/a($1)/ge;
@@ -21,9 +21,9 @@ $f =~ s/(\w)/a($1)/ge;
 # Switch hyphens to underscore
 $f =~ s/-/_/g;
 
-# Replace at least three characters with digits, but not
+# Replace several characters with digits, but not
 # in the beginning of the string.
-while ($c < 2)
+while ($c < 7)
 {
   my $s = rand(length($f)-1)+1;
   $f = substr($f,0,$s) . b() . substr($f,$s,length($f));
