@@ -4576,13 +4576,18 @@ sub output
 	  print { $$self{CONTENT} } "<tr>\n", " <td>$node</td>\n";
 	  foreach my $agent (@agents)
 	  {
-	      my $check_node;
+	      my ($check_node,$check_time);
 	      if ($node eq 'PhEDEx Central') {
-		  my @running_for;
+                  my $check_time_max = 0;
 		  foreach my $n (sort keys %status) {
-		      push @running_for, $n if exists $status{$n}{$agent};
+		      if ( exists $status{$n}{$agent} ) {
+                        $check_time = (sort { $a <=> $b } values %{$status{$n}{$agent}})[0];
+                        if ( $check_time > $check_time_max ) {
+                          $check_time_max = $check_time;
+                          $check_node = $n;
+                        }
+                      }
 		  }
-		  $check_node = shift @running_for;
 	      } else {
 		  $check_node = $node;
 	      }
