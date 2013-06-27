@@ -4,6 +4,7 @@ use warnings;
 use base 'PHEDEX::Core::Logging';
 use POE;
 use JSON::XS;
+use File::Path;
 use Data::Dumper;
 
 our %params = (
@@ -103,9 +104,7 @@ sub madeDataset {
   if ( $workflow->{Dataset} ) {
     $i = 0;
     foreach ( @{$result} ) {
-      $name = $workflow->{Dataset};
-      $name =~ s|%Sequence|$payload->{id}|;
-      $_->{dataset}{name} = sprintf($name,$i++);
+      $_->{dataset}{name} = sprintf($workflow->{Dataset},$i++);
     }
   }
 
@@ -168,7 +167,7 @@ sub makeFiles {
 
 sub addData {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
-  my ($cmd,$workflow,$event,$id,$datasets,$blocks,$files,$dataset,$dsname);
+  my ($cmd,$workflow,$event,$id,$datasets,$blocks,$files,$dataset,$dsname,$nClosed,@active);
 
   $workflow = $payload->{workflow};
   $event    = $workflow->{Event};
@@ -179,8 +178,26 @@ sub addData {
   $dataset  = $workflow->{data}[0]{dataset};
   $dsname   = $dataset->{name};
 
-  $workflow->{InjectionsThisBlock} ||= 1;
-  $workflow->{BlocksThisDataset}   ||= 1;
+# Delete closed blocks from the data-structure to limit growth, if so required.
+  if ( $workflow->{DropClosedBlocks} ) {
+    $nClosed = 0;
+    foreach ( @{$dataset->{blocks}} ) {
+      if ( $_->{block}{'is-open'} eq 'n' ) {
+        $nClosed++;
+      } else {
+        push @active, $_;
+      }
+    }
+    if ( $nClosed ) {
+      $self->Logmsg("addData ($dsname): drop $nClosed closed blocks");
+      $dataset->{blocks} = \@active;
+    }
+  }
+
+# Take default block/file counts from the dataset. Take the last block for
+# the number of files. May not be correct, but good enough!
+  $workflow->{InjectionsThisBlock} ||= int(scalar @{$dataset->{blocks}[-1]{block}{files}}/$files);
+  $workflow->{BlocksThisDataset}   ||=  scalar @{$dataset->{blocks}};
 # TW N.B. Assume I have only one dataset!
   $self->Logmsg("addData ($dsname): $workflow->{BlocksThisDataset} blocks, $workflow->{InjectionsThisBlock} injections this block, $workflow->{BlocksPerDataset} blocks/dataset, $workflow->{InjectionsPerBlock} injections/block");
 

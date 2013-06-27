@@ -186,6 +186,7 @@ while (@ARGV)
   }
 
   my $module = $loader->Load($command);
+  $LWP::DEBUG = $ENV{HTTPS_DEBUG} = 1 if $debug;
   my $cli = $module->new();
   print "created new $module object\n" if $debug;
   print $cli->Dump() if $debug;
