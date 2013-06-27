@@ -1,0 +1,22 @@
+
+#### Site Monitoring agents 
+# The Watchdog Agent can be used to start and monitor other agents.
+# The WatchdogLite agent monitors Watchdog agent. 
+# -db and -node parameters are standard as in other agent configurations,
+# -agent_list is the actual list of agent to watch.
+# For more details and additional options please refer to documentation at 
+# https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjSiteMonitoring
+
+### AGENT LABEL=Watchdog PROGRAM=Utilities/AgentFactory.pl
+          -db     ${PHEDEX_DBPARAM}
+          -node   ${PHEDEX_NODE}
+          -agent_list download-t1
+          -agent_list download-t2
+          -agent_list download-remove
+          -agent_list blockverify
+          -limit blockverify,vsize,1024
+
+
+### AGENT LABEL=WatchdogLite PROGRAM=Utilities/AgentFactoryLite.pl
+          -node   ${PHEDEX_NODE}
+          -agent_list watchdog

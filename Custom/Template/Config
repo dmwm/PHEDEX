@@ -5,23 +5,23 @@
 #										    #
 # PHEDEX_INSTANCE:	Choose the DB instance your agents will run against;	    #
 #			this is marked in the authentication info you received,	    #
-# 			and should be either "Dev", "SC4" or "Production".	    #
+# 			and should be either "Dev", "Debug" or "Production".	    #
 #										    #
 # PHEDEX_LABEL:		Authentication label for DB access; this is usually your    #
 # 			site's name and can be found in the first line of the	    #
 #			authentication info you received			    #
 #										    #
-# PHEDEX_SITE:		Your CMS site name as in $PHEDEX_BASE/SITECONF		    #
+# PHEDEX_SITE:		Your CMS site name as in $PHEDEX_BASE/siteconf		    #
 #										    #
 # PHEDEX_NODE:		Name of your Buffer node; For T2s and T3s this is           #
 #                       equivilent to $PHEDEX_SITE.  For T1s there can be multiple  #
-#                       nodes to represent buffer and mass storage areas.  The      #
-#                       usual convention is ${PHEDEX_SITE}_Buffer and               #
-#                       ${PHEDEX_SITE}_MSS                                          #
+#                       nodes to represent disk, buffer and mass storage areas.     #
+#                       The usual convention is ${PHEDEX_SITE}_Disk,                #
+#                       ${PHEDEX_SITE}_Buffer and ${PHEDEX_SITE}_MSS                #
 #										    #
 # PHEDEX_VERSION:	The PhEDEx version you are running			    #
 #                                                                                   #
-# PHEDEX_OS_VERSION:	OS version of machine PhEDEx runs on. Typically SL3 or SL4  #
+# PHEDEX_OS_VERSION:	OS version of machine PhEDEx runs on. Typically SL5 or SL6  #
 #										    #
 # X509_USER_PROXY:	Location of your Grid proxy; you want to make sure, that    #
 #			only the user running your PhEDEx agents can read it	    #
@@ -44,8 +44,8 @@ PHEDEX_INSTANCE=Dev;
 PHEDEX_LABEL=ATLANTIS;
 PHEDEX_SITE=T2_CX_Atlantis;
 PHEDEX_NODE=$PHEDEX_SITE
-PHEDEX_VERSION=3_1_0
-PHEDEX_OS_VERSION=slc4_ia32_gcc345;
+PHEDEX_VERSION=4_1_2
+PHEDEX_OS_VERSION=slc5_amd64_gcc461;
 PHEDEX_X509_USER_PROXY=$PHEDEX_BASE/gridcert/proxy.cert;
 
 # FTS specific part
@@ -58,7 +58,7 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # Load the sub-configuration files #
 ####################################
 
-# The following 4 files steer, which PhEDEx services will be
+# The following 6 files steer, which PhEDEx services will be
 # running at your site. They are all active by default and
 # can be deactivated by adding another '#' sign. We distinguish
 # between the following services:
@@ -67,6 +67,8 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 # Export:   Needed for exporting files to other sites.
 # MSS:      Needed for storage systems with tape backend
 # Download: Download agents to perform file replication.
+# Verify:   service to verify consistency of the downloaded data
+# Watchdog: service to monitor and restart site agents
 #
 # T1 typically run all of the above.
 # T2 and smaller sites typically don't need MSS.
@@ -81,3 +83,5 @@ TIER1_FTS_SERVICE=Atlantis-FTS;
 
 ### IMPORT ConfigPart.FTSDownload
 ### IMPORT ConfigPart.MSS
+### IMPORT ConfigPart.Verify
+### IMPORT ConfigPart.Watchdog
