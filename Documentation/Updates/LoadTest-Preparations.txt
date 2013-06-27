@@ -1,8 +1,0 @@
-1. Create Load Nodes in production system. Use "LoadTestCreateNodes"
-   to generate the SQL for that task and cut&paste it to the SQLClient
-   of your choice.
-
-LoadTestCreateNodes -nodenew ../../Utilities/NodeNew -nodes T1_ASGC_Load,T1_CERN_Load,T1_CNAF_Load,T1_FZK_Load,T1_IN2P3_Load,T1_PIC_Load,T1_RAL_Load
-
-
-2. 
