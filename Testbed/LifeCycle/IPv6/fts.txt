@@ -1,0 +1,1 @@
+glite-transfer-channel-list -v -s https://seipersei-v4.mi.infn.it:8443/glite-data-transfer-fts/services/ChannelManagement

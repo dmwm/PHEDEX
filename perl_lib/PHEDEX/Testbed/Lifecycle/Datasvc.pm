@@ -215,7 +215,15 @@ sub doneInject {
   if ( $p ) {
     $self->Logmsg("Injection: New data: $p->{NEW_DATASETS} datasets, $p->{NEW_BLOCKS} blocks, $p->{NEW_FILES} files. Closed: $p->{CLOSED_DATASETS} datasets, $p->{CLOSED_BLOCKS} blocks");
   } else {
-    $self->Fatal("Injected: cannot understand output: ",Dumper($obj));
+    if ( $self->{Debug} ) {
+      $self->Alert("Injected: cannot understand output: ",Dumper($obj));
+    } else {
+      $self->Alert("Injected: cannot understand output.");
+    }
+    $payload->{report} = {
+      status => 'error',
+      reason => 'not recorded',
+    };
   }
   $kernel->yield('nextEvent',$payload);
 }
@@ -338,6 +346,62 @@ sub doneUpdateSubscription {
     }
   }
   unshift @{$payload->{workflow}{Events}}, 'UpdateSubscription';
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub TransferQueueStats {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($params,$workflow);
+  $workflow = $payload->{workflow};
+  $self->getFromDatasvc($kernel,
+			$session,
+			$payload,
+			{
+			 api	  => 'transferqueuestats',
+			 method   => 'get',
+			 callback => 'doneTransferQueueStats',
+			 params   => $params,
+			}
+			);
+}
+
+sub doneTransferQueueStats {
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+
+  $self->Logmsg("done: TransferQueueStats($target,",Data::Dumper->Dump([$params]),"\n");
+  my ($workflow,$TransferQueueStats,$h,$i,$j,$q,$units);
+  $TransferQueueStats = $obj->{PHEDEX}{LINK};
+  if ( $workflow->{Debug} ) {
+    $self->Logmsg("TransferQueueStats=,",Data::Dumper->Dump([$TransferQueueStats]),")\n");
+  }
+
+  $workflow = $payload->{workflow};
+  $workflow->{transferqueuestats} = $TransferQueueStats;
+  foreach $i ( @{$TransferQueueStats} ) {
+    $h->{$i->{TO}} = 0;
+    foreach $j ( @{$i->{TRANSFER_QUEUE}} ) {
+      if ( $j->{STATE} eq 'assigned' ||
+           $j->{STATE} eq 'exported' ||
+           $j->{STATE} eq 'transferring' ) {
+        $h->{$i->{TO}} += $j->{BYTES};
+      }
+    }
+  }
+  $Lifecycle::Lite{TransferQueueStats} = $h;
+  if ( $workflow->{Verbose} ) {
+    foreach ( sort keys %{$h} ) {
+      $q = $h->{$_};
+      if ( $q > 1024 ) { $q /= 1024; $units = 'kB'; }
+      if ( $q > 1024 ) { $q /= 1024; $units = 'MB'; }
+      if ( $q > 1024 ) { $q /= 1024; $units = 'GB'; }
+      if ( $q > 1024 ) { $q /= 1024; $units = 'TB'; }
+      if ( $q > 1024 ) { $q /= 1024; $units = 'PB'; }
+      if ( $q > 1024 ) { $q /= 1024; $units = 'EB'; }
+      $q = int(100*$q)/100;
+      $self->Logmsg("TransferQueueStats: $_ -> $q $units");
+    }
+  }
+
   $kernel->yield('nextEvent',$payload);
 }
 
