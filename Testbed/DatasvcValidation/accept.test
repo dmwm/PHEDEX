@@ -144,7 +144,7 @@ nodes node >0
 nodes?noempty=y node >0
 nodes?node=T1_US_FNAL_MSS node =1
 nodes?node=T1_US_FNAL_MSS&node=T1_US_FNAL_Buffer node =2
-nodes?node=T1_%_FN?L_* node =2
+nodes?node=T1_%_FN?L_* node =3
 -nodes?node=S1_% 400
 
 # PHEDEX::Web::API::NodeUsage
