@@ -537,7 +537,9 @@ PHEDEX.Nextgen.Request.Create = function(sandbox) {
         dom.results_label.innerHTML = '';
         dom.results_text.innerHTML = '';
         Dom.removeClass(dom.results,'phedex-box-yellow');
-        alert("Datasvc call returned:\n"+YAHOO.lang.dump(data));
+        if ( PhedexPage.TestingMode ) {
+          alert("Datasvc call returned:\n"+YAHOO.lang.dump(data));
+        }
         if ( response ) { // indicative of failure
           msg = response.responseText;
           this.onAcceptFail(msg);
