@@ -272,6 +272,10 @@ sub updateRequest
   {
     $core->{DBH}->rollback(); # Processes seem to hang without this!
     warn "UpdateRequest: Some bizarre error: $@\n";
+    if ( $@ =~ m%^cannot request% ) {
+#     Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest
+      die PHEDEX::Web::Util::http_error(400,$@);
+    }
     die PHEDEX::Web::Util::http_error(500,"An error occurred. That happens sometimes...");
   }
 
@@ -280,8 +284,8 @@ sub updateRequest
   if (%$requests) {
     $commit = 1;
   } else {
-    die PHEDEX::Web::Util::http_error(400,"no requests were created");
     $core->{DBH}->rollback();
+    die PHEDEX::Web::Util::http_error(400,"no requests were created");
   }
   $commit = 0 if $args{dummy};
   $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();
