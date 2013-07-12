@@ -38,6 +38,9 @@ To list tables:
 
 SQL> select * from cat;
 
+And to list all objects: 
+SQL> select * from USER_OBJECTS;
 
+If for some reason the table needs to  be deleted, do
 
 
