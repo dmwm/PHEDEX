@@ -1,0 +1,43 @@
+This directory  is a working area for PhEDEX mini-codefest 2013
+held at Fermilab July 11-12, participating Alberto and Natalia. 
+
+We worked on  schema enhancements for the Space Monitoring project.
+See disucssion on 
+https://twiki.cern.ch/twiki/bin/view/CMS/PHEDEXStorageSpaceAccounting 
+
+Code is put on DMWMMON branch in dmwm repository. To get the code: 
+ 
+1) Make sure ssh keys are available, if needed, copy from lxplus.cern.ch:
+ ~/.ssh/id_rsa
+ ~/.ssh/id_rsa.pub
+
+2) Run the command:
+$ git clone -b DMWMMON git@github.com:dmwm/PHEDEX.git
+
+
+Tests are executed on vocms205. It does not currently have git installed, 
+therefore check out code on one of lxplus nodes into a shared area, e.g.: 
+  /afs/cern.ch/user/r/ratnik/work/GIT/PHEDEX
+
+To set the runtime environment:
+$ . /afs/cern.ch/user/r/ratnik/work/GIT/PHEDEX/Utilities/codefest2013/env.sh
+
+To connect to a database: 
+
+$ sqlplus $(OracleConnectId -db $DBPARAM)
+
+New schema initialization script is: 
+   PHEDEX/Schema/OracleSpacemon3.sql
+
+To create the new schema, connect to the database and execute the script from 
+the interactive db interface:
+
+SQL> @ /afs/cern.ch/user/r/ratnik/work/GIT/PHEDEX/Schema/OracleSpacemon3.sql
+
+To list tables: 
+
+SQL> select * from cat;
+
+
+
+
