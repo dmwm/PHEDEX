@@ -33,11 +33,14 @@ create table t_adm_node_3 (
 create table t_directories_3 (
     dir       varchar(1000)        not null,
     id          integer            not null,
+    tag_id      integer            not null,
   --
   constraint pk_directories_3
     primary key (id),
   constraint unique_dir_3
     unique (dir),
+  constraint unique_tag_id_3
+    unique (tag_id),
   --
   constraint fk_directories_tag_id_3
     foreign key (tag_id) references t_data_tags_3 (id)
