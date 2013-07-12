@@ -22,12 +22,26 @@ create sequence t_directories_sequence_3
 
 create table t_adm_node_3 (
     name    varchar(50)        not null,
-    id          integer            not null,
+    id          integer        not null,
   --
   constraint pk_adm_node_3
     primary key (id),
   constraint unique_adm_node_name_3
     unique (name)
+);
+
+create table t_data_tags_3 (
+    name       varchar(50)        not null,
+    id          integer           not null,
+    lfn_path    varchar(500)      not null,
+    depth       integer           not null,
+  --
+  constraint pk_data_tag_3
+    primary key (id),
+  constraint unique_tag_name_3
+    unique (name),
+  constraint unique_tag_lfn_path_3
+    unique (lfn_path)
 );
 
 create table t_directories_3 (
@@ -44,16 +58,6 @@ create table t_directories_3 (
   --
   constraint fk_directories_tag_id_3
     foreign key (tag_id) references t_data_tags_3 (id)
-);
-
-create table t_data_tags_3 (
-    name       varchar(50)        not null,
-    id          integer           not null,
-  --
-  constraint pk_data_tag_3
-    primary key (id),
-  constraint unique_tag_name_3
-    unique (name)
 );
 
 create table t_space_usage_3 (
