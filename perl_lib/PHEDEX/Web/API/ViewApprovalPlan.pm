@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::viewApprovalPlan;
+package PHEDEX::Web::API::ViewApprovalPlan;
 use warnings;
 use strict;
 use Data::Dumper;
@@ -8,7 +8,7 @@ use Data::Dumper;
 
 =head1 NAME
 
-PHEDEX::Web::API::viewApprovalPlan -  present the current state of the approval plan, especially the decisions
+PHEDEX::Web::API::ViewApprovalPlan -  present the current state of the approval plan, especially the decisions
 
 =head1 DESCRIPTION
 
@@ -28,6 +28,10 @@ create
   id               request id
   request_type     request type, 'xfer' or 'delete'
   approval_type    approval type, one of 'all', 'any','single'
+  parent
+  default_decision
+  role
+  decision          
 
 =cut
 
@@ -59,6 +63,8 @@ sub viewApprovalPlan
     {
         return PHEDEX::Web::Util::http_error(400,$@);
     }
+    
+    #warn "dump request_id ", Data::Dumper->Dump([ \%p ]);
 
 
     $r = PHEDEX::Web::SQLRequest::viewApprovalPlan($core, %p);
