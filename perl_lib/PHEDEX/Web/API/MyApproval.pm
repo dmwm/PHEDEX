@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::ViewApprovalPlan;
+package PHEDEX::Web::API::MyApproval;
 use warnings;
 use strict;
 use Data::Dumper;
@@ -8,7 +8,7 @@ use Data::Dumper;
 
 =head1 NAME
 
-PHEDEX::Web::API::ViewApprovalPlan -  present the current state of the approval plan, especially the decisions
+PHEDEX::Web::API::MyApproval - show to a person all required/optional actions he/she needs/can performed on a request 
 
 =head1 DESCRIPTION
 
@@ -17,6 +17,7 @@ create
 =head2 Options
 
   request_id             request id 
+  person_id              person id
 
 =head2 Output
 
@@ -26,13 +27,11 @@ create
 =head3 <request> attributes
 
   id               request id
-  request_type     request type, 'xfer' or 'delete'
-  approval_type    approval type, one of 'all', 'any','single'
-  parent
-  default_decision
-  role
-  decision          
-
+  action name      
+  role 
+  request type 
+  state name
+ 
 =cut
 
 
@@ -42,9 +41,9 @@ use PHEDEX::Core::Util;
 use PHEDEX::Web::Util;
 
 sub duration { return 60 * 60; }
-sub invoke { return viewApprovalPlan(@_); }
+sub invoke { return myapproval(@_); }
 
-sub viewApprovalPlan 
+sub myapproval 
 {
     my ($core, %h) = @_;
     my (%p,$r);
@@ -63,11 +62,9 @@ sub viewApprovalPlan
     {
         return PHEDEX::Web::Util::http_error(400,$@);
     }
-    
-    #warn "dump request_id ", Data::Dumper->Dump([ \%p ]);
 
 
-    $r = PHEDEX::Web::SQLRequest::viewApprovalPlan($core, %p);
+    $r = PHEDEX::Web::SQLRequest::myapproval($core, %p);
             
     return { template => $r };
 }
