@@ -42,7 +42,7 @@ T1 sites are aggregated by _Buffer and _MSS.
 
 =head3 <$timebin> attributes
 
-  idle_bytes    number of bytes idled for transfer in the current timebin
+  idle_bytes       number of bytes idled for transfer in the current timebin
   timebin          Unix epoch time of start of current timebin
 
   N.B. The $timebin elements are named for the actual timebin value, not 'timebin', the string. This break with convention is permitted in the 'shift' modules, for tighter integration with the next-gen website.
@@ -97,7 +97,7 @@ sub getShiftIdled
     delete $row->{NODE};
   }
 
-# Aggregate MSS+Buffer nodes, and merge the Queued and Idled data.
+# Aggregate MSS+Buffer nodes, and merge the Idled data.
   if ( !$h->{NOAGGREGATE} )
   {
     foreach $i ( keys %{$r} )

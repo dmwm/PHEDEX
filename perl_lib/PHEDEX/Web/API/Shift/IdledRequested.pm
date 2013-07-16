@@ -80,7 +80,7 @@ it are welcomed!
 
   request_bytes    number of bytes requested for transfer in the current timebin
   idle_bytes       number of bytes idled for transfer in the current timebin
-  ratio            ratio of requested/idled bytes
+  ratio            ratio of idled/requested bytes
   timebin          Unix epoch time of start of current timebin
 
 =cut
@@ -182,12 +182,12 @@ sub _shift_idledrequested
       if ( $nConsecWarn >= 4 )
       {
         $s{$node}{STATUS} = 1;
-        $s{$node}{REASON} = 'Idled is 20% larger than Requested';
+        $s{$node}{REASON} = 'Idled is 20% of Requested';
       }
       if ( $nConsecFail >= 4 )
       {
         $s{$node}{STATUS} = 2;
-        $s{$node}{REASON} = 'Idled is 50% larger than Requested';
+        $s{$node}{REASON} = 'Idled is 50% of Requested';
       }
       if ( $nConsecOK >= 3 && $s{$node}{STATUS} )
       {
