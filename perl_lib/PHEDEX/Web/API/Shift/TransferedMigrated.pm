@@ -24,8 +24,15 @@ It gets the number of bytes transfered and migrated for each T2 node for
 each of the last 12 hours, with timebins aligned on the hour.
 If data was transfered in a given hour, and for four hours following that hour 
 no migration appear, nothing was attempted,then the node is likely to have a problem, and put into error status.
-If Migrated/Transferred < 30% AND Transferred > 50 GB when summed over the last four hours,
+If Migrated/Transfered < 30% AND Transfered > 50 GB when summed over the last four hours,
 then the node is considered to migrate too slow, and put into warning status.
+
+If four or more consecutive timebins are failed, the queue is declared to
+be failed. If four or more consecutive timebins are in a warning state, the
+entire queue is considered to be in a warning state. If three or more
+consecutive timebins are OK after the queue has been declared failed, the
+'ERROR' state is downgraded to a warning state, since the queue may have
+recently recovered.
 
 
 N.B. Only T1 sitess are taken into account. 
@@ -71,7 +78,7 @@ sub _shift_transferedmigrated
 {
   my ($core, %h) = @_;
   my ($epochHours,$start,$end,$node,$nodeMSS,%params,$transfer,$mindata);
-  my ($h,$noblocks,$ratio);
+  my ($h,$noblocks,$ratio,$nConsecFail,$nConsecOK,$nConsecWarn);
   my (%s,$bin,$unique,$e,$eMSS,$buffer,$i,$j,$k,$status_map,$transfered,$migrated,$sum_transfered,$sum_migrated);
 
   $status_map = {
@@ -120,7 +127,8 @@ sub _shift_transferedmigrated
 
   foreach $node ( keys %s )
   {
-    $noblocks = 0;
+    $nConsecFail  = $nConsecOK = $noblocks = 0;
+    #$transfered = $migrated = 0;
     $i=0;
     $ratio = 1;
     foreach $bin ( sort { $a <=> $b } keys %{$s{$node}{TIMEBINS}} )
@@ -134,6 +142,7 @@ sub _shift_transferedmigrated
 
         $s{$node}{CUR_DONE_BYTES}    = $e->{DONE_BYTES};
 
+        #if (( ! $e->{DONE} )&& ( ! $e->{FAILED} )) { $nConsecFail = 0; }
  
         $sum_transfered = $transfered->[$i] =  $e->{DONE_BYTES}; 
         $sum_migrated = $migrated->[$i] = $eMSS->{DONE_BYTES};
