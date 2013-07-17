@@ -24,7 +24,7 @@ It gets the number of bytes transfered and migrated for each T2 node for
 each of the last 12 hours, with timebins aligned on the hour.
 If data was transfered in a given hour, and for four hours following that hour 
 no migration appear, nothing was attempted,then the node is likely to have a problem, and put into error status.
-If Migrated/Transferred < 30% AND Transferred > 50 GB when summed over the last four hours,
+If Migrated/Transfered < 30% AND Transfered > 50 GB when summed over the last four hours,
 then the node is considered to migrate too slow, and put into warning status.
 
 
