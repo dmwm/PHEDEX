@@ -34,7 +34,9 @@ echo "Extract NODES into $LIFECYCLE_NODES"
   echo '{'
   echo '# This is for convenience. Make sure it corresponds to t_adm_nodes!'
   echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
-  echo "select name, id from t_adm_node order by id;" | $PHEDEX_SQLPLUS | \
+  echo "
+        set linesize 132;
+        select name, id from t_adm_node order by id;" | $PHEDEX_SQLPLUS | \
 	egrep '^T' | awk '{ print "    "$1" => "$2"," }'
   echo '};'
   echo ' '
@@ -48,8 +50,10 @@ echo "Extract GROUPS into $LIFECYCLE_GROUPS"
   echo '{'
   echo '# This is for convenience. Make sure it corresponds to t_adm_group!'
   echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
-  echo "select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
-         egrep '^\s*[0-9]+\s[A-Za-z]+$' | awk '{ print "    "$2" => "$1"," }'
+  echo "
+        set linesize 132;
+        select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
+         egrep '^\s*[0-9]+\s*[A-Za-z0-9]+$' | awk '{ print "    "$2" => "$1"," }'
   echo '};'
   echo ' '
   echo '1;'
