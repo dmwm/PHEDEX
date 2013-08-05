@@ -304,9 +304,9 @@ sub resolve_data
 	$level = ($userglob =~ m/\#/ ? 'BLOCK' : 'DATASET');
 
 	$re = $like = $userglob;
-	$re =~ s:\*+:[^/\#]*:g;                              # simple glob to regex, only * is supported
-	$like =~ s:\*+:%:g;                                  # glob to sql like, only * is supported
-	if ( $static && $level eq 'DATASET' ) {              # turn dataset match into block match if static
+	$re =~ s:(\.)*\*+:.*:g;                 # simple glob to regex, only * is supported
+	$like =~ s:(\.)*\*+:%:g;                # glob to sql like, only * is supported
+	if ( $static && $level eq 'DATASET' ) { # turn dataset match into block match if static
 	  $re .= '#[^/\#]+';
           $level = 'BLOCK';
           if ( $like !~ m/#/ ) {
