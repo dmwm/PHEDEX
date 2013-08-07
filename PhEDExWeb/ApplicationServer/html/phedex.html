@@ -154,9 +154,10 @@ function createCoreApp() {
     PxS.notify('Registry', 'add', 'phedex-module-groupusage',        'group',   'Show Group Usage',        {context_item:true});
     PxS.notify('Registry', 'add', 'phedex-module-pendingrequests',   'group',   'Show Pending Requests',   {context_item:true});
 
+    PxS.notify('Registry', 'add', 'phedex-module-shift-idlerequested',       'none', 'Shift: Idle vs. Requested data', {context_item:false});
+    PxS.notify('Registry', 'add', 'phedex-module-shift-queuedquality',       'none', 'Shift: Quality vs. Queued data', {context_item:false});
     PxS.notify('Registry', 'add', 'phedex-module-shift-requestedqueued',     'none', 'Shift: Requested vs. Queued data', {context_item:false});
     PxS.notify('Registry', 'add', 'phedex-module-shift-transferredmigrated', 'none', 'Shift: Transferred vs. Migrated data', {context_item:false});
-    PxS.notify('Registry', 'add', 'phedex-module-shift-idlerequested',       'none', 'Shift: Idle vs. Requested data', {context_item:false});
   }
 
   PxU.bannerIdleTimer(PxL);

@@ -87,7 +87,7 @@ PHEDEX.Module.Shift.IdleRequested = function(sandbox, string) {
           ]
         },
         sort:{field:'Node'},
-        hide:['Status', 'Reason' ],
+        hide:['Status' ],
         filter: {
           'Idle-Requested attributes':{
             map: { to:'TM' },

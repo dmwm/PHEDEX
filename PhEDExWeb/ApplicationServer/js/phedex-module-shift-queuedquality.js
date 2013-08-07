@@ -7,7 +7,7 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.namespace('Module.Shift');
-PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
+PHEDEX.Module.Shift.QueuedQuality = function(sandbox, string) {
   Yla(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox, node;
@@ -72,21 +72,24 @@ PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
         table: {
           columns: [
             {key:'node',           label:'Node'},
-            {key:'status_text',    label:'Status',                    className:'align-left'},
-            {key:'reason',         label:'Reason',                    className:'align-left'},
-            {key:'max_done_bytes', label:'Max. Transferred Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_done_bytes', label:'Current Transferred Bytes', className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'status_text',    label:'Status',               className:'align-left'},
+            {key:'reason',         label:'Reason',               className:'align-left'},
+            {key:'max_pend_bytes', label:'Max. Queued Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_pend_bytes', label:'Current Queued Bytes', className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_quality',    label:'Current Quality (%)',  className:'align-right', parser:'number' },
           ],
           nestedColumns:[
-            {key:'timebin',        label:'Timebin',  formatter:'UnixEpochToUTC' },
-            {key:'migrated_bytes', label:'Migrated',    className:'align-right', parser:'number', formatter:'customBytes' },
-            {key:'done_bytes',     label:'Transferred', className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'timebin',    label:'Timebin',  formatter:'UnixEpochToUTC' },
+            {key:'pend_bytes', label:'Queued',      className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'failed',     label:'Failed',      className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'done',       label:'Done',        className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'quality',    label:'Quality (%)', className:'align-right', parser:'number' },
           ]
         },
         sort:{field:'Node'},
         hide:['Status' ],
         filter: {
-          'Transferred-Migrated attributes':{
+          'Queued-Quality attributes':{
             map: { to:'TM' },
             fields: {
               'Node'            :{type:'regex',  text:'Node-name',             tip:'javascript regular expression' },
@@ -101,7 +104,7 @@ PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
         }
       },
 
-      modeFull:1,
+      modeFull:0,
 
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
@@ -139,19 +142,19 @@ PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/transferredmigrated', args:{full:this.modeFull} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/queuedquality', args:{full:this.modeFull} } );
       },
       gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
-        this.data = data.transferredmigrated;
+        this.data = data.queuedquality;
         if ( !this.data ) {
           throw new Error('data incomplete for '+context.api);
         }
        this.needProcess = true;
        this.fillDataSource(this.data);
-        var nOK=0, nNotOK=0, tm = data.transferredmigrated;
+        var nOK=0, nNotOK=0, tm = data.queuedquality;
         this.dom.extra.innerHTML = 'No stuck nodes:';
         this.stuck = [];
         for (var i in tm) {
@@ -220,7 +223,7 @@ PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
 //             handler: 'fillInfo',
             attributes: {
               target:     'phedex_datasvc_doc',
-              href:       PxW.DataserviceBaseURL + 'doc/shift/transferredmigrated',
+              href:       PxW.DataserviceBaseURL + 'doc/shift/queuedquality',
               innerHTML:  '&nbsp;<em>i</em>&nbsp;',
               className:  'phedex-link',
               title:      'Information about the algorithm used in this module, from the dataservice documentation.'
@@ -235,10 +238,10 @@ PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
         PxL.get(PxW.WebAppURL+'/images/icon-circle-red.png',
                 PxW.WebAppURL+'/images/icon-circle-yellow.png',
                 PxW.WebAppURL+'/images/icon-circle-green.png');
-      }
+      },
     };
   };
   Yla(this,_construct(this),true);
   return this;
 };
-log('loaded...','info','transferredmigrated');
+log('loaded...','info','queuedquality');
