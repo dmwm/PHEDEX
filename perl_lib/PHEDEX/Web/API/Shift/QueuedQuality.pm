@@ -119,7 +119,7 @@ sub _shift_queuedquality
       $queue->{$node}{$bin}{FAILED} = $quality->{$node}{$bin}{FAILED};
       if ( $queue->{$node}{$bin}{DONE} || $queue->{$node}{$bin}{FAILED} )
       {
-         $queue->{$node}{$bin}{QUALITY} = $quality->{$node}{$bin}{QUALITY};
+         $queue->{$node}{$bin}{QUALITY} = int(1000*$quality->{$node}{$bin}{QUALITY})/10;
       }
     }
   }
