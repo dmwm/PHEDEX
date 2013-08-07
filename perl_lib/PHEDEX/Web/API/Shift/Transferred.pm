@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::Shift::Transfered;
+package PHEDEX::Web::API::Shift::Transferred;
 use PHEDEX::Core::DB;
 use Data::Dumper;
 
@@ -10,11 +10,11 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Shift::Transfered - Transfered data summary
+PHEDEX::Web::API::Shift::Transferred - Transferred data summary
 
 =head1 DESCRIPTION
 
-Returns information about the data Transfered for each node in hourly 
+Returns information about the data Transferred for each node in hourly 
 timebins over the last 12 hours. Timebins are aligned to the start of the 
 hour, not on the current time, so the latest timebin may vary in size from 
 0 to 3600 seconds.
@@ -45,7 +45,7 @@ hour, not on the current time, so the latest timebin may vary in size from
 
 =head3 <$timebin> attributes
 
-  done_bytes    number of bytes transfered in the current timebin
+  done_bytes    number of bytes transferred in the current timebin
   timebin       Unix epoch time of start of current timebin
 
   N.B. The $timebin elements are named for the actual timebin value, not 'timebin', the string. This break with convention is permitted in the 'shift' modules, for tighter integration with the next-gen website.
@@ -55,9 +55,9 @@ hour, not on the current time, so the latest timebin may vary in size from
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 sub duration { return 600; }
-sub invoke { return _shift_transfered(@_); }
+sub invoke { return _shift_transferred(@_); }
 
-sub _shift_transfered
+sub _shift_transferred
 {
   my ($core, %h) = @_;
 
@@ -67,11 +67,11 @@ sub _shift_transfered
   my $node  = $h{NODE} || 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
-  my $p = getShiftTransfered($core,\%params,\%h);
-  return { transfered => $p };
+  my $p = getShiftTransferred($core,\%params,\%h);
+  return { transferred => $p };
 }
 
-sub getShiftTransfered
+sub getShiftTransferred
 {
   my ($core,$params,$h) = @_;
   my ($r,$sql,$span,$q,$row);
@@ -99,7 +99,7 @@ sub getShiftTransfered
     delete $row->{NODE};
   }
 
-# Aggregate MSS+Buffer nodes, and merge the transfered data.
+# Aggregate MSS+Buffer nodes, and merge the transferred data.
   if ( !$h->{NOAGGREGATE} )
   {
     foreach $i ( keys %{$r} )

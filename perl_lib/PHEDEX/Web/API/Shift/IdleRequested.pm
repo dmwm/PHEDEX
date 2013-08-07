@@ -1,7 +1,7 @@
-package PHEDEX::Web::API::Shift::IdledRequested;
+package PHEDEX::Web::API::Shift::IdleRequested;
 use PHEDEX::Core::DB;
 use PHEDEX::Web::API::Shift::Requested;
-use PHEDEX::Web::API::Shift::Idled;
+use PHEDEX::Web::API::Shift::Idle;
 
 use warnings;
 use strict;
@@ -10,7 +10,7 @@ use strict;
 
 =head1 NAME
 
-PHEDEX::Web::API::Shift::IdledRequested - Idled vs. Requested data analysis for shift personnel.
+PHEDEX::Web::API::Shift::IdleRequested - Idle vs. Requested data analysis for shift personnel.
 
 =head1 DESCRIPTION
 
@@ -21,10 +21,10 @@ that data is moving properly.
 The code implements a check if the large amounts of idle requests 
 existed for that node. The check takes several things into account.
 
-First, it gets the number of bytes idled and requested for each node for 
+First, it gets the number of bytes idle and requested for each node for 
 each of the last 12 hours, with timebins aligned on the hour. Then it 
-checks the ratio of bytes idled to bytes requested in each timebin, and 
-attempts to deduce if the idled data is too much comparing to the requested data.
+checks the ratio of bytes idle to bytes requested in each timebin, and 
+attempts to deduce if the idle data is too much comparing to the requested data.
 
 If no data is requested in any timebin, the queue is declared to be OK, 
 and no further analysis is performed.
@@ -33,17 +33,17 @@ If some data is requested, but it is less than a preset minimum amount,
 the queue is also declared to be OK. Currently, that minimum is set at 1 
 TB. Again, no further analysis is performed.
 
-Next, each bin is checked. The ratio of idled to requested data is 
+Next, each bin is checked. The ratio of idle to requested data is 
 calculated. If the ratio is larger than 50%, the queue is considered to be 
-idled for that timebin. If the ratio is less than 0.2, the queue is 
+idle for that timebin. If the ratio is less than 0.2, the queue is 
 considered to be OK for that timebin. If the ratio is between 0.2 and 0.5, the 
 timebin is considered to be in a warning state. 
 
-If four or more consecutive timebins are idled, the queue is declared to 
-be idled. If four or more consecutive timebins are in a warning state, the 
+If four or more consecutive timebins are idle, the queue is declared to 
+be idle. If four or more consecutive timebins are in a warning state, the 
 entire queue is considered to be in a warning state. If three or more 
-consecutive timebins are OK after the queue has been declared idled, the 
-'idled' state is downgraded to a warning state, since the queue may have 
+consecutive timebins are OK after the queue has been declared idle, the 
+'idle' state is downgraded to a warning state, since the queue may have 
 recently recovered.
 
 N.B. Data for T1 sites, which have a Buffer and an MSS node, are aggregated under the name of the MSS node. 
@@ -60,27 +60,27 @@ it are welcomed!
 
 =head2 Output
 
-  <idledrequested>
+  <idlerequested>
     <nesteddata/>
-  </idledrequested>
+  </idlerequested>
   ...
 
-=head3 <idledrequested> attributes
+=head3 <idlerequested> attributes
 
   status             status-code (numeric). 0 => OK, 1 => possible problem, 2 => problem
   status_text        textual representation of the status ('OK', 'Warn', 'Error')
   reason             reason for the assigned status
   node               node-name
-  max_idle_bytes  Max. number of bytes idled for transfer in the interval under examination
+  max_idle_bytes  Max. number of bytes idle for transfer in the interval under examination
   max_request_bytes     Max. number of bytes requested for transfer in the interval under examination
   cur_request_bytes  Number of bytes currently requested for transfer
-  cur_idle_bytes     Number of bytes currently idled for transfer
+  cur_idle_bytes     Number of bytes currently idle for transfer
 
 =head3 <nesteddata> attributes
 
   request_bytes    number of bytes requested for transfer in the current timebin
-  idle_bytes       number of bytes idled for transfer in the current timebin
-  ratio            ratio of idled/requested bytes
+  idle_bytes       number of bytes idle for transfer in the current timebin
+  ratio            ratio of idle/requested bytes
   timebin          Unix epoch time of start of current timebin
 
 =cut
@@ -88,9 +88,9 @@ it are welcomed!
 use PHEDEX::Web::SQL;
 use PHEDEX::Core::Util;
 sub duration { return 3600 - time%3600 + 60; } # Just after the top of the hour
-sub invoke { return _shift_idledrequested(@_); }
+sub invoke { return _shift_idlerequested(@_); }
 
-sub _shift_idledrequested
+sub _shift_idlerequested
 {
   my ($core, %h) = @_;
   my ($epochHours,$start,$end,$node,%params,$p,$q,$mindata);
@@ -110,7 +110,7 @@ sub _shift_idledrequested
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
   map { $h{uc $_} = uc delete $h{$_} } keys %h;
-  $p = PHEDEX::Web::API::Shift::Idled::getShiftIdled($core,\%params,\%h);
+  $p = PHEDEX::Web::API::Shift::Idle::getShiftIdle($core,\%params,\%h);
   $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested($core,\%params,\%h);
 
   $mindata = $h{MINDATA} || 1024*1024*1024*1024;
@@ -152,7 +152,7 @@ sub _shift_idledrequested
   foreach $node ( keys %s )
   {
 #   Declare a problem is there are four consecutive bins where data is
-#   idled larger than 50% of that data is requested.
+#   idle larger than 50% of that data is requested.
     $nConsecFail  = $nConsecOK = 0;
     foreach $bin ( sort { $a <=> $b } keys %{$s{$node}{TIMEBINS}} )
     {
@@ -182,17 +182,17 @@ sub _shift_idledrequested
       if ( $nConsecWarn >= 4 )
       {
         $s{$node}{STATUS} = 1;
-        $s{$node}{REASON} = 'Idled is 20% of Requested';
+        $s{$node}{REASON} = 'Idle is >= 20% of Requested';
       }
       if ( $nConsecFail >= 4 )
       {
         $s{$node}{STATUS} = 2;
-        $s{$node}{REASON} = 'Idled is 50% of Requested';
+        $s{$node}{REASON} = 'Idle is >= 50% of Requested';
       }
       if ( $nConsecOK >= 3 && $s{$node}{STATUS} )
       {
         $s{$node}{STATUS} = 1;
-        $s{$node}{REASON} = 'The queued may be idled';
+        $s{$node}{REASON} = 'The queued may be idle';
       }
       delete $e->{NODE};
       if ( $e->{IDLE_BYTES} )
@@ -227,7 +227,7 @@ sub _shift_idledrequested
   }
 
   my @r = values %s;
-  return { idledrequested => \@r };
+  return { idlerequested => \@r };
 }
 
 1;
