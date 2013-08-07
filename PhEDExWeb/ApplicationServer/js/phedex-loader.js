@@ -78,7 +78,10 @@ PHEDEX.Loader = function(opts) {
     'phedex-module-protovis-latency':       { requires:['phedex-protovis'] },
 
 // a few custom-modules for shifters
-    'phedex-module-shift-requestedqueued':  { requires:['phedex-datatable'] },
+    'phedex-module-shift-requestedqueued':     { requires:['phedex-datatable'] },
+    'phedex-module-shift-transferredmigrated': { requires:['phedex-datatable'] },
+    'phedex-module-shift-idlerequested':       { requires:['phedex-datatable'] },
+    'phedex-module-shift-queuedquality':       { requires:['phedex-datatable'] },
 
 // old website override modules
     'phedex-graph-datasvc':              { requires:[] },
@@ -89,7 +92,6 @@ PHEDEX.Loader = function(opts) {
     'phedex-nextgen-data-bulkdelete':    { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','animation'] },
     'phedex-nextgen-request-create':     { requires:['phedex-module-previewrequestdata','phedex-nextgen-util','button','calendar'] },
     'phedex-nextgen-request-view':       { requires:['phedex-module','phedex-nextgen-util','button'] },
-    'phedex-nextgen-components-status':  { requires:['phedex-module','phedex-nextgen-util','button'] },
 
     'phedex-module-dummy':          { requires:['phedex-module'] },
     'phedex-module-dummy-treeview': { requires:['phedex-treeview'] }

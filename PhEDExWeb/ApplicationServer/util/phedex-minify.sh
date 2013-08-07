@@ -76,12 +76,17 @@ echo "Command is:"
 echo java -jar $yuicompressor_path input_file -o output_file
 cd $phedex_js_path
 for file in `dir -d *.js` ; do
-echo "Converting $file"
-java -jar $yuicompressor_path $file -o $phedex_min_js_path/${file/.js/-min.js}
-status=$?
-if [ $status -ne 0 ]; then
-  echo "compress $file: status $status"
-  exit $status
+echo -n "Converting $file "
+if [ -f $phedex_min_js_path/${file/.js/-min.js} ]; then
+  echo '...already there'
+else
+  echo ' '
+  java -jar $yuicompressor_path $file -o $phedex_min_js_path/${file/.js/-min.js}
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo "compress $file: status $status"
+    exit $status
+  fi
 fi
 cp $file $phedex_min_js_path/$file # for the debug-version
 done
@@ -91,12 +96,17 @@ echo "========================================================"
 
 cd $phedex_css_path
 for file in `dir -d *.css` ; do
-echo "Converting $file"
-java -jar $yuicompressor_path $file -o $phedex_min_css_path/${file/.css/-min.css}
-status=$?
-if [ $status -ne 0 ]; then
-  echo "compress $file: status $status"
-  exit $status
+echo -n "Converting $file "
+if [ -f $phedex_min_css_path/${file/.css/-min.css} ]; then
+  echo '...already there'
+else
+  echo ' '
+  java -jar $yuicompressor_path $file -o $phedex_min_css_path/${file/.css/-min.css}
+  status=$?
+  if [ $status -ne 0 ]; then
+    echo "compress $file: status $status"
+    exit $status
+  fi
 fi
 cp $file $phedex_min_css_path/$file # for the debug-version
 done
