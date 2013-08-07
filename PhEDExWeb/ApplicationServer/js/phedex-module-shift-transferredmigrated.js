@@ -7,7 +7,7 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.namespace('Module.Shift');
-PHEDEX.Module.Shift.TransferedMigrated = function(sandbox, string) {
+PHEDEX.Module.Shift.TransferredMigrated = function(sandbox, string) {
   Yla(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox, node;
@@ -86,22 +86,22 @@ PHEDEX.Module.Shift.TransferedMigrated = function(sandbox, string) {
         sort:{field:'Node'},
         hide:['Status', 'Reason' ],
         filter: {
-          'Transfered-Migrated attributes':{
+          'Transferred-Migrated attributes':{
             map: { to:'TM' },
             fields: {
               'Node'            :{type:'regex',  text:'Node-name',             tip:'javascript regular expression' },
               'Status'          :{type:'regex',  text:'Status',                tip:'javascript regular expression' },
               'Reason'          :{type:'regex',  text:'Reason',                tip:'javascript regular expression' },
-              'Max. Transfered' :{type:'minmax', text:'Max. Transferred Data', tip:'integer range (bytes)' },
+              'Max. Transferred':{type:'minmax', text:'Max. Transferred Data', tip:'integer range (bytes)' },
               'Max. Migrated'   :{type:'minmax', text:'Max. Migrated Data',    tip:'integer range (bytes)' },
-              'Transfered'      :{type:'minmax', text:'Transfered Data',       tip:'integer range (bytes)' },
+              'Transferred'     :{type:'minmax', text:'Transferred Data',       tip:'integer range (bytes)' },
               'Migrated'        :{type:'minmax', text:'Migrated Data',         tip:'integer range (bytes)' }
             }
           }
         }
       },
 
-      modeFull:1,
+      modeFull:0,
 
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
@@ -139,19 +139,19 @@ PHEDEX.Module.Shift.TransferedMigrated = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/transferedmigrated', args:{full:this.modeFull} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/transferredmigrated', args:{full:this.modeFull} } );
       },
       gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
-        this.data = data.transferedmigrated;
+        this.data = data.transferredmigrated;
         if ( !this.data ) {
           throw new Error('data incomplete for '+context.api);
         }
        this.needProcess = true;
        this.fillDataSource(this.data);
-        var nOK=0, nNotOK=0, tm = data.transferedmigrated;
+        var nOK=0, nNotOK=0, tm = data.transferredmigrated;
         this.dom.extra.innerHTML = 'No stuck nodes:';
         this.stuck = [];
         for (var i in tm) {
@@ -220,7 +220,7 @@ PHEDEX.Module.Shift.TransferedMigrated = function(sandbox, string) {
 //             handler: 'fillInfo',
             attributes: {
               target:     'phedex_datasvc_doc',
-              href:       PxW.DataserviceBaseURL + 'doc/shift/transferedmigrated',
+              href:       PxW.DataserviceBaseURL + 'doc/shift/transferredmigrated',
               innerHTML:  '&nbsp;<em>i</em>&nbsp;',
               className:  'phedex-link',
               title:      'Information about the algorithm used in this module, from the dataservice documentation.'
@@ -241,4 +241,4 @@ PHEDEX.Module.Shift.TransferedMigrated = function(sandbox, string) {
   Yla(this,_construct(this),true);
   return this;
 };
-log('loaded...','info','transferedmigrated');
+log('loaded...','info','transferredmigrated');

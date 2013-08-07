@@ -72,15 +72,18 @@ PHEDEX.Module.Shift.IdleRequested = function(sandbox, string) {
         table: {
           columns: [
             {key:'node',           label:'Node'},
-            {key:'status_text',    label:'Status',                    className:'align-left'},
-            {key:'reason',         label:'Reason',                    className:'align-left'},
-            {key:'max_done_bytes', label:'Max. Transferred Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_done_bytes', label:'Current Transferred Bytes', className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'status_text',    label:'Status',                     className:'align-left'},
+            {key:'reason',         label:'Reason',                     className:'align-left'},
+            {key:'max_idle_bytes', label:'Max. Idle Bytes',            className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'max_request_bytes', label:'Max. Requested Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_idle_bytes',      label:'Current Idle Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_request_bytes', label:'Current Requested Bytes', className:'align-right', parser:'number', formatter:'customBytes'},
           ],
           nestedColumns:[
-            {key:'timebin',        label:'Timebin',  formatter:'UnixEpochToUTC' },
-            {key:'migrated_bytes', label:'Migrated',    className:'align-right', parser:'number', formatter:'customBytes' },
-            {key:'done_bytes',     label:'Transferred', className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'timebin',         label:'Timebin',  formatter:'UnixEpochToUTC' },
+            {key:'request_bytes', label:'Requested', className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'idle_bytes',    label:'Idle',      className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'ratio',         label:'Ratio',     className:'align-right', parser:'number' }
           ]
         },
         sort:{field:'Node'},
@@ -92,16 +95,18 @@ PHEDEX.Module.Shift.IdleRequested = function(sandbox, string) {
               'Node'            :{type:'regex',  text:'Node-name',             tip:'javascript regular expression' },
               'Status'          :{type:'regex',  text:'Status',                tip:'javascript regular expression' },
               'Reason'          :{type:'regex',  text:'Reason',                tip:'javascript regular expression' },
-              'Max. Transfered' :{type:'minmax', text:'Max. Transferred Data', tip:'integer range (bytes)' },
-              'Max. Migrated'   :{type:'minmax', text:'Max. Migrated Data',    tip:'integer range (bytes)' },
-              'Transfered'      :{type:'minmax', text:'Transfered Data',       tip:'integer range (bytes)' },
-              'Migrated'        :{type:'minmax', text:'Migrated Data',         tip:'integer range (bytes)' }
+              'Max. Requested'    :{type:'minmax', text:'Max. Requested Data',    tip:'integer range (bytes)' },
+              'Max. Idle'         :{type:'minmax', text:'Max. Idle Data',         tip:'integer range (bytes)' },
+              'Current Requested' :{type:'minmax', text:'Current Requested Data', tip:'integer range (bytes)' },
+              'Current Idle'      :{type:'minmax', text:'Current Idle Data',      tip:'integer range (bytes)' },
+              'Requested'         :{type:'minmax', text:'Requested Data',         tip:'integer range (bytes)' },
+              'Idle'              :{type:'minmax', text:'Idle Data',              tip:'integer range (bytes)' }
             }
           }
         }
       },
 
-      modeFull:1,
+      modeFull:0,
 
       /**
       * Processes i.e flatten the response data so as to create a YAHOO.util.DataSource and display it on-screen.
