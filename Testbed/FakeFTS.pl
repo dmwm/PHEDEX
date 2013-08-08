@@ -61,7 +61,7 @@ if ( $cmd eq 'glite-transfer-status' )
   my $ndone = int(($rate*$duration)/$size);
   $ndone = $nfiles if $ndone >= $nfiles;
   my $nactive = $nfiles - $ndone;
-  my $status = $ndone == $nfiles ? "Finished" : "Active";
+  my $status = $nactive ? "Active" : "Finished";
 
   if ( $args[1] && $args[1] eq '--verbose' )
   {
@@ -112,7 +112,37 @@ VOName:         cms
      
     }
   }
-  unlink "$cache/$id";
+# unlink "$cache/$id";
+  if ( !$nactive ) {
+    my ($dead,$sentinel,$h,$old,$age,$candidate);
+    $sentinel = "$cache/dead.sentinel";
+    $dead     = "$cache/dead.jobs";
+    $old      = time - 7200; # hard-code two hour timeout
+    while ( -f $sentinel ) { sleep 1; }
+    open SENTINEL, ">$sentinel";
+    open DEAD, "<$dead" and do {
+      while ( <DEAD> ) {
+        chomp;
+        m%^(\S+)\s+(\d+)$% or next;
+        $candidate = $1;
+        $age = $2;
+        if ( $age > $old ) {
+          $h->{$candidate} = $age;
+        } else {
+          unlink $candidate;
+        }
+      }
+    };
+    $h->{$id} = time();
+    open DEAD, ">$dead" and do {
+      foreach ( keys %{$h} ) {
+        print DEAD $_,' ',$h->{$_},"\n";
+      }
+      close DEAD;
+    };
+    close SENTINEL;
+    unlink $sentinel;
+  }
 }
 
 if ( $cmd eq 'glite-transfer-cancel' )
