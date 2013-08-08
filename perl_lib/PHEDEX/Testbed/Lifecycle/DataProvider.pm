@@ -5,6 +5,7 @@ use base 'PHEDEX::Core::Logging';
 use POE;
 use JSON::XS;
 use File::Path;
+use File::Basename;
 use Data::Dumper;
 
 our %params = (
@@ -124,7 +125,8 @@ sub makeBlocks {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
-  $workflow->{Blocks} = 1 unless defined $workflow->{Blocks};
+  $workflow->{blockCounter} = 0 unless defined $workflow->{blockCounter};
+  $workflow->{Blocks}       = 1 unless defined $workflow->{Blocks};
   $cmd  = $self->{DATAPROVIDER} . ' --action add_blocks ';
   $cmd .= "--num $workflow->{Blocks} ";
   
@@ -206,6 +208,7 @@ sub addData {
 #   These blocks are full. Close them, and go on to the next set
     foreach ( @{$dataset->{blocks}} ) {
       $_->{block}{'is-open'} = 'n';
+      $workflow->{blockCounter}++;
     }
     $self->Logmsg("addData ($dsname): close one or more blocks");
     $workflow->{BlocksThisDataset}++;
@@ -273,6 +276,47 @@ sub closeDatasets {
     $dataset->{dataset}{'is-open'} = 'n';
   }
   $self->Logmsg("closeDatasets ($dsname): Closed $nClosedDatasets datasets out of $nDatasets total");
+  $kernel->yield('nextEvent',$payload);
+}
+ 
+sub makeLinks {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
+  my ($d,$f,$i,$j,$k,$l);
+  my ($data,$dataset,$block,$file,$srcFile,$linkDir,$style,$workflow);
+
+  $workflow = $payload->{workflow};
+  $srcFile = $workflow->{makeLinks}{SrcFile};
+  $linkDir = $workflow->{makeLinks}{LinkDir};
+  $style   = $workflow->{makeLinks}{LinkStyle};
+  $data    = $workflow->{data};
+  -f $srcFile->{Name} ||
+  -l $srcFile->{Name} or
+     $self->Fatal("SrcFile '$srcFile->{Name}' not a file or symlink");
+
+  $l = sprintf("%09s",$workflow->{blockCounter});
+  foreach $i ( @{$data} ) {
+    $dataset = $i->{dataset};
+    foreach $j ( @{$dataset->{blocks}} ) {
+      $block = $j->{block};
+      foreach $k ( @{$block->{files}} ) {
+        $file = $k->{file};
+        $file->{name} =~ s%/000000000/%/$l/%;
+        $f = $linkDir . $file->{name};
+        next if -e $f;
+        $d = dirname($f);
+        -d $d || mkpath $d;
+        if ( $style eq 'soft' ) {
+          symlink $srcFile->{Name}, $f;
+        } elsif ( $style eq 'hard' ) {
+          link $srcFile->{Name}, $f;
+        } else {
+          $self->Fatal("LinkStyle parameter must be 'hard' or 'soft'");
+        }
+        $file->{bytes}    = $srcFile->{Size} if defined $srcFile->{Size};
+        $file->{checksum} = $srcFile->{Checksum} if defined $srcFile->{Checksum};
+      }
+    }
+  }
   $kernel->yield('nextEvent',$payload);
 }
  
