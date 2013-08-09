@@ -11,7 +11,7 @@ my ($me,$cache,$rate,$size,$debug);
 # set these environment variables in the configuration to alter the behavior of this script
 # default rate settings will make the "job" last 20 seconds per file
 $cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || '/tmp/' . (getpwuid($<))[0] . '/';
-$rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 100 * (1024**2); # 100 MB/s
+$rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 100 * (1024**2); # MB/s
 $size  = $ENV{PHEDEX_FAKEFTS_SIZE} ||   2 * (1024**3); # 2 GB
 $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS';
@@ -20,7 +20,6 @@ $me->{NOTIFICATION_HOST} = $ENV{NOTIFICATION_HOST};
 $debug = $ENV{PHEDEX_GLITE_DEBUG} || 0;
 
 -d $cache || mkpath([$cache]) || die "Cannot find or create $cache directory\n";
-sleep(2); # just for fun...
 
 sub getFiles
 {
@@ -114,12 +113,15 @@ VOName:         cms
   }
 # unlink "$cache/$id";
   if ( !$nactive ) {
+    open LOG, ">>$cache/log.$id"; $|=1;
     my ($dead,$sentinel,$h,$old,$age,$candidate);
     $sentinel = "$cache/dead.sentinel";
     $dead     = "$cache/dead.jobs";
     $old      = time - 7200; # hard-code two hour timeout
-    while ( -f $sentinel ) { sleep 1; }
+    print LOG "old age at $old\n";
+    while ( -f $sentinel ) { print LOG "Waiting for sentinel file...\n"; sleep 1; }
     open SENTINEL, ">$sentinel";
+    print LOG "Opened $sentinel at ",time(),"\n";
     open DEAD, "<$dead" and do {
       while ( <DEAD> ) {
         chomp;
@@ -127,13 +129,17 @@ VOName:         cms
         $candidate = $1;
         $age = $2;
         if ( $age > $old ) {
+          print LOG "$candidate too young ($age > $old)\n";
           $h->{$candidate} = $age;
         } else {
-          unlink $candidate;
+          print LOG "unlink $candidate\n";
+          unlink "$cache/$candidate"       if -f "$cache/$candidate";
+          unlink "$cache/$candidate.start" if -f "$cache/$candidate.start";
+          unlink "$cache/log.$candidate"   if -f "$cache/log.$candidate";
         }
       }
     };
-    $h->{$id} = time();
+    $h->{$id} = time() unless defined $h->{$id};;
     open DEAD, ">$dead" and do {
       foreach ( keys %{$h} ) {
         print DEAD $_,' ',$h->{$_},"\n";
@@ -142,6 +148,7 @@ VOName:         cms
     };
     close SENTINEL;
     unlink $sentinel;
+    print LOG "unlinked $sentinel\n";
   }
 }
 
