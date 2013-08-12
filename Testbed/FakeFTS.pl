@@ -139,7 +139,7 @@ VOName:         cms
         }
       }
     };
-    $h->{$id} = time() unless defined $h->{$id};;
+    $h->{$id} = time() unless defined $h->{$id};
     open DEAD, ">$dead" and do {
       foreach ( keys %{$h} ) {
         print DEAD $_,' ',$h->{$_},"\n";
