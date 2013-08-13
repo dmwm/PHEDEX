@@ -111,17 +111,20 @@ VOName:         cms
      
     }
   }
-# unlink "$cache/$id";
+
   if ( !$nactive ) {
-    open LOG, ">>$cache/log.$id"; $|=1;
+#   open LOG, ">>$cache/log.$id"; $|=1;
     my ($dead,$sentinel,$h,$old,$age,$candidate);
     $sentinel = "$cache/dead.sentinel";
     $dead     = "$cache/dead.jobs";
     $old      = time - 7200; # hard-code two hour timeout
-    print LOG "old age at $old\n";
-    while ( -f $sentinel ) { print LOG "Waiting for sentinel file...\n"; sleep 1; }
+#   print LOG "old age at $old\n";
+    while ( -f $sentinel ) {
+#     print LOG "Waiting for sentinel file...\n";
+      sleep 1;
+    }
     open SENTINEL, ">$sentinel";
-    print LOG "Opened $sentinel at ",time(),"\n";
+#   print LOG "Opened $sentinel at ",time(),"\n";
     open DEAD, "<$dead" and do {
       while ( <DEAD> ) {
         chomp;
@@ -129,10 +132,10 @@ VOName:         cms
         $candidate = $1;
         $age = $2;
         if ( $age > $old ) {
-          print LOG "$candidate too young ($age > $old)\n";
+#         print LOG "$candidate too young ($age > $old)\n";
           $h->{$candidate} = $age;
         } else {
-          print LOG "unlink $candidate\n";
+#         print LOG "unlink $candidate\n";
           unlink "$cache/$candidate"       if -f "$cache/$candidate";
           unlink "$cache/$candidate.start" if -f "$cache/$candidate.start";
           unlink "$cache/log.$candidate"   if -f "$cache/log.$candidate";
@@ -148,7 +151,8 @@ VOName:         cms
     };
     close SENTINEL;
     unlink $sentinel;
-    print LOG "unlinked $sentinel\n";
+#   print LOG "unlinked $sentinel\n";
+#   close LOG;
   }
 }
 
