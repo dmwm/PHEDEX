@@ -15,7 +15,7 @@ fi
 
 PHEDEX_SQLPLUS="sqlplus $($PHEDEX_ROOT/Utilities/OracleConnectId -db $PHEDEX_DBPARAM)"
 PHEDEX_SQLPLUS_CLEAN=`echo $PHEDEX_SQLPLUS | sed -e's%/.*@%/password-here@%'`
-  echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
+echo "Connection attempted as: $PHEDEX_SQLPLUS_CLEAN"
 i=`echo 'select sysdate from dual;' | $PHEDEX_SQLPLUS 2>/dev/null | grep -c SYSDATE`
 if [ $i -gt 0 ]; then
   echo "Your database connection is good..."
@@ -50,10 +50,8 @@ echo "Extract GROUPS into $LIFECYCLE_GROUPS"
   echo '{'
   echo '# This is for convenience. Make sure it corresponds to t_adm_group!'
   echo '# Prefer to cache this here for debugging purposes, when not updating TMDB'
-  echo "
-        set linesize 132;
-        select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
-         egrep '^\s*[0-9]+\s*[A-Za-z0-9]+$' | awk '{ print "    "$2" => "$1"," }'
+  echo "select id, name from t_adm_group order by id;" | $PHEDEX_SQLPLUS | \
+         egrep '^\s*[0-9]+\s*[A-Za-z0-9]*$' | awk '{ print "    "$2" => "$1"," }'
   echo '};'
   echo ' '
   echo '1;'
