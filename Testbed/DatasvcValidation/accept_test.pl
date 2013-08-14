@@ -24,11 +24,11 @@ my $verbose = 0;
 my $test_file;
 my $output;
 my $help;
-my ($use_cert,$cert_file,$key_file,$use_perl,$use_json,$use_xml);
+my ($use_cert,$cert_file,$key_file,$use_perl,$use_json,$use_cjson,$use_xml);
 my ($save_file);
 
 $use_cert = 0;
-$use_perl = $use_json = $use_xml = 1;
+$use_perl = $use_json = $use_cjson = $use_xml = 1;
 GetOptions(
     "verbose!"	    => \$verbose,
     "webserver=s"   => \$web_server,
@@ -42,6 +42,7 @@ GetOptions(
     'key_file=s'    => \$key_file,
     'xml!'	    => \$use_xml,
     'json!'	    => \$use_json,
+    'cjson!'	    => \$use_cjson,
     'perl!'	    => \$use_perl,
 );
 
@@ -77,7 +78,7 @@ Usage: $0 [--verbose] [--debug] [--webserver <web_host>] [--path <path>] [--file
 --cert_file <file>	your public certificate. Default is ~/.globus/usercert.pem
 --key_file <file>	your private key. Default is ~/.globus/userkey.pem
 
---no-(xml|perl|json)	disable checking the xml/perl/json formats indivually.
+--no-(xml|perl|json|cjson)	disable checking the xml/perl/json/cjson formats indivually.
                         Useful for a faster pass through the suite while developing
 
 EOF
@@ -153,7 +154,7 @@ sub verify
             }
           }
       }
-      elsif ($format eq 'json')
+      elsif ($format eq 'json' or $format eq 'cjson')
       {
 	  eval { $data = &decode_json($content)->{'phedex'}; };
 	  if ( $@ ) {
@@ -316,7 +317,8 @@ while(<$inf>)
             $call = substr($call, 1);
     }
     #verify("$root_url/$call", $expect);
-    $use_xml  && verify("${url_prefix}${url_path}", "xml", $call, $expect, $key, $count);
-    $use_perl && verify("${url_prefix}${url_path}", "perl", $call, $expect, $key, $count);
-    $use_json && verify("${url_prefix}${url_path}", "json", $call, $expect, $key, $count);
+    $use_xml   && verify("${url_prefix}${url_path}",   "xml", $call, $expect, $key, $count);
+    $use_perl  && verify("${url_prefix}${url_path}",  "perl", $call, $expect, $key, $count);
+    $use_json  && verify("${url_prefix}${url_path}",  "json", $call, $expect, $key, $count);
+    $use_cjson && verify("${url_prefix}${url_path}", "cjson", $call, $expect, $key, $count);
 }
