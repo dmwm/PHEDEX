@@ -595,6 +595,10 @@ sub prepare
 	foreach my $b (@{ $blocks_to_activate })
 	{
 	    $state = ( ($priority_windows{$$b{PRIORITY}} += $$b{BYTES}) > $WINDOW_SIZE ) ? -1 : 1;
+	    if ( $b->{BYTES} > $WINDOW_SIZE ) {
+		$self->Alert("Block $b->{BLOCK} exceeds window allocation! ($b->{BYTES} > $WINDOW_SIZE)\n");
+		$state = 1;
+	    }
 	    &dbbindexec($u,
 			":block" => $$b{BLOCK},
 			":node" => $node,
