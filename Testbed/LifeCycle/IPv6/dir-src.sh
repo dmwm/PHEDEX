@@ -30,11 +30,11 @@ echo gridka
 echo /var/tmp/hepix_ipv6/wildish
 echo dir /var/tmp/hepix_ipv6/wildish/src | uberftp hepix01-v4.gridka.de
 
-#echo ' '
-#echo ' '
-#echo cern
-#echo /home/ipv6user/wildish/
-#echo dir /home/ipv6user/wildish/src | uberftp v6hepix.cern.ch
+echo ' '
+echo ' '
+echo cern
+echo /home/ipv6user/wildish/
+echo dir /home/ipv6user/wildish/src | uberftp v6hepix.cern.ch
 
 #echo ' '
 #echo ' '
@@ -53,6 +53,10 @@ echo ' '
 echo imperial
 echo dir /srv/localstage/ipv6test/wildish/src | uberftp hepix00.grid.hep.ph.ic.ac.uk
 
+echo ' '
+echo ' '
+echo ihep
+echo dir /home/ipv6user/wildish/src | uberftp ui01-hepix-v4.ihep.ac.cn | grep ipv6test
 echo ' '
 echo ' '
 echo pic

@@ -36,11 +36,11 @@ echo gridka
 echo /var/tmp/hepix_ipv6/wildish
 echo dir /var/tmp/hepix_ipv6/wildish | uberftp hepix01-v4.gridka.de | grep ipv6user
 
-#echo ' '
-#echo ' '
-#echo cern
-#echo /home/ipv6user/wildish/
-#echo dir /home/ipv6user/wildish | uberftp v6hepix.cern.ch | grep ipv6user
+echo ' '
+echo ' '
+echo cern
+echo /home/ipv6user/wildish/
+echo dir /home/ipv6user/wildish | uberftp v6hepix.cern.ch | grep ipv6user
 
 #echo ' '
 #echo ' '
@@ -53,6 +53,11 @@ echo ' '
 echo fzu
 echo /tmp/wildish
 echo dir /tmp/wildish | uberftp ui.ipv6.farm.particle.cz | grep ipv6user
+
+echo ' '
+echo ' '
+echo ihep
+echo dir /home/ipv6user/wildish | uberftp ui01-hepix-v4.ihep.ac.cn | grep ipv6test
 
 echo ' '
 echo ' '
