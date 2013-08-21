@@ -1,6 +1,3 @@
-/*
- * FIXME: sorting the nested table by ratio sorts by string, not value
- */
 /**
  * This is the base class for all PhEDEx data-related modules. It provides the basic interaction needed for the core to be able to control it.
  * @namespace PHEDEX.Module
@@ -10,7 +7,7 @@
  * @param string {string} a string to use as the base-name of the <strong>Id</strong> for this module
  */
 PHEDEX.namespace('Module.Shift');
-PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
+PHEDEX.Module.Shift.IdleRequested = function(sandbox, string) {
   Yla(this,new PHEDEX.DataTable(sandbox,string));
 
   var _sbx = sandbox, node;
@@ -74,34 +71,36 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
         ctxArgs: { Node:'node' },
         table: {
           columns: [
-            {key:'node',              label:'Node'},
-            {key:'status_text',       label:'Status',              className:'align-left'},
-            {key:'reason',            label:'Reason',              className:'align-left'},
-            {key:'max_pend_bytes',    label:'Max. Queued',         className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'max_request_bytes', label:'Max. Requested',      className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_pend_bytes',    label:'Currently Queued',    className:'align-right', parser:'number', formatter:'customBytes'},
-            {key:'cur_request_bytes', label:'Currently Requested', className:'align-right', parser:'number', formatter:'customBytes'}
+            {key:'node',           label:'Node'},
+            {key:'status_text',    label:'Status',                     className:'align-left'},
+            {key:'reason',         label:'Reason',                     className:'align-left'},
+            {key:'max_idle_bytes', label:'Max. Idle Bytes',            className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'max_request_bytes', label:'Max. Requested Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_idle_bytes',      label:'Current Idle Bytes',    className:'align-right', parser:'number', formatter:'customBytes'},
+            {key:'cur_request_bytes', label:'Current Requested Bytes', className:'align-right', parser:'number', formatter:'customBytes'},
           ],
           nestedColumns:[
-            {key:'timebin',       label:'Timebin',   formatter:'UnixEpochToUTC' },
-            {key:'pend_bytes',    label:'Queued',    className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'timebin',         label:'Timebin',  formatter:'UnixEpochToUTC' },
             {key:'request_bytes', label:'Requested', className:'align-right', parser:'number', formatter:'customBytes' },
+            {key:'idle_bytes',    label:'Idle',      className:'align-right', parser:'number', formatter:'customBytes' },
             {key:'ratio',         label:'Ratio',     className:'align-right', parser:'number' }
           ]
         },
         sort:{field:'Node'},
-        hide:['Status','Max. Requested','Max. Queued'],
+        hide:['Status' ],
         filter: {
-          'Requested-Queued attributes':{
-            map: { to:'RQ' },
+          'Idle-Requested attributes':{
+            map: { to:'TM' },
             fields: {
-              'Node'           :{type:'regex',  text:'Node-name',           tip:'javascript regular expression' },
-              'Status'         :{type:'regex',  text:'Status',              tip:'javascript regular expression' },
-              'Reason'         :{type:'regex',  text:'Reason',              tip:'javascript regular expression' },
-              'Max. Queued'    :{type:'minmax', text:'Max. Queued Data',    tip:'integer range (bytes)' },
-              'Max. Requested' :{type:'minmax', text:'Max. Requested Data', tip:'integer range (bytes)' },
-              'Queued'         :{type:'minmax', text:'Queued Data',         tip:'integer range (bytes)' },
-              'Requested'      :{type:'minmax', text:'Requested Data',      tip:'integer range (bytes)' }
+              'Node'            :{type:'regex',  text:'Node-name',             tip:'javascript regular expression' },
+              'Status'          :{type:'regex',  text:'Status',                tip:'javascript regular expression' },
+              'Reason'          :{type:'regex',  text:'Reason',                tip:'javascript regular expression' },
+              'Max. Requested'    :{type:'minmax', text:'Max. Requested Data',    tip:'integer range (bytes)' },
+              'Max. Idle'         :{type:'minmax', text:'Max. Idle Data',         tip:'integer range (bytes)' },
+              'Current Requested' :{type:'minmax', text:'Current Requested Data', tip:'integer range (bytes)' },
+              'Current Idle'      :{type:'minmax', text:'Current Idle Data',      tip:'integer range (bytes)' },
+              'Requested'         :{type:'minmax', text:'Requested Data',         tip:'integer range (bytes)' },
+              'Idle'              :{type:'minmax', text:'Idle Data',              tip:'integer range (bytes)' }
             }
           }
         }
@@ -145,24 +144,24 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
       getData: function() {
         this.dom.title.innerHTML = 'fetching data...';
         log('Fetching data','info',this.me);
-        _sbx.notify( this.id, 'getData', { api:'shift/requestedqueued', args:{full:this.modeFull} } );
+        _sbx.notify( this.id, 'getData', { api:'shift/idlerequested', args:{full:this.modeFull} } );
       },
       gotData: function(data,context,response) {
         PHEDEX.Datasvc.throwIfError(data,response);
         log('Got new data','info',this.me);
         this.dom.title.innerHTML = 'Parsing data';
-        this.data = data.requestedqueued;
+        this.data = data.idlerequested;
         if ( !this.data ) {
           throw new Error('data incomplete for '+context.api);
         }
        this.needProcess = true;
        this.fillDataSource(this.data);
-        var nOK=0, nNotOK=0, rq = data.requestedqueued;
+        var nOK=0, nNotOK=0, tm = data.idlerequested;
         this.dom.extra.innerHTML = 'No stuck nodes:';
         this.stuck = [];
-        for (var i in rq) {
-          if ( !rq[i].status ) { nOK++; }
-          else                 { nNotOK++; this.stuck.push(rq[i].node); }
+        for (var i in tm) {
+          if ( !tm[i].status ) { nOK++; }
+          else                 { nNotOK++; this.stuck.push(tm[i].node); }
         }
         this.dom.title.innerHTML = nNotOK+' nodes not OK';
         if ( this.modeFull ) {
@@ -226,7 +225,7 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
 //             handler: 'fillInfo',
             attributes: {
               target:     'phedex_datasvc_doc',
-              href:       PxW.DataserviceBaseURL + 'doc/shift/requestedqueued',
+              href:       PxW.DataserviceBaseURL + 'doc/shift/idlerequested',
               innerHTML:  '&nbsp;<em>i</em>&nbsp;',
               className:  'phedex-link',
               title:      'Information about the algorithm used in this module, from the dataservice documentation.'
@@ -247,4 +246,4 @@ PHEDEX.Module.Shift.RequestedQueued = function(sandbox, string) {
   Yla(this,_construct(this),true);
   return this;
 };
-log('loaded...','info','requestedqueued');
+log('loaded...','info','idlerequested');
