@@ -152,7 +152,7 @@ VOName:         cms
     close SENTINEL;
     unlink $sentinel;
 #   print LOG "unlinked $sentinel\n";
-#   close LOG
+#   close LOG;
   }
 }
 
