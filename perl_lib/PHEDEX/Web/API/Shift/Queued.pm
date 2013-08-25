@@ -22,8 +22,10 @@ T1 sites are aggregated by _Buffer and _MSS.
 =head2 Options
 
  required inputs: none
- optional inputs: 
+ option inputs:
     NOAGGREGATE  T1 Buffer and MSS info need aggregation, or not
+    NODE   Node name, eg T1_US_FNAL_Buffer(not T1_US_FNAL_BUFFER), T1_US_FNAL_MSS
+
 
 =head2 Output
 
@@ -60,10 +62,10 @@ sub _shift_queued
 {
   my ($core, %h) = @_;
 
-  map { $h{uc $_} = uc delete $h{$_} } keys %h;
   my $epochHours = int(($h{ENDTIME} || time)/3600);
   my $start = ($epochHours-($h{NBINS}||12)) * 3600;
   my $end   =  $epochHours     * 3600;
+  map { $h{uc $_} = $h{$_} } keys %h;
   my $node  = $h{NODE} || 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
