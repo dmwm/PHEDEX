@@ -22,8 +22,9 @@ T1 sites are aggregated by _Buffer and _MSS.
 =head2 Options
 
  required inputs: none
- optional inputs: 
-    NOAGGREGATE   T1 Buffer and MSS info need aggregation, or not  
+ option inputs:
+    NOAGGREGATE  T1 Buffer and MSS info need aggregation, or not
+
 
 =head2 Output
 

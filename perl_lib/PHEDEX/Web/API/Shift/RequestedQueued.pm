@@ -57,7 +57,8 @@ it are welcomed!
  required inputs: none
  optional inputs: (as filters) node
 
-  full             show information about all nodes, not just those with a problem
+  FULL             show information about all nodes, not just those with a problem
+  NODE             node name, the format for T1 should be like T1_xx%, eg. T1_US_FNAL% to include Buffer and MSS node
 
 =head2 Output
 
@@ -107,10 +108,11 @@ sub _shift_requestedqueued
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
   $end   =  $epochHours     * 3600;
-  $node  = 'T%';
+
+  $node  = $h{NODE} || 'T%';
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
-  map { $h{uc $_} = uc delete $h{$_} } keys %h;
+  map { $h{uc $_} = delete $h{$_} } keys %h;
   $p = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,\%params,\%h);
   $q = PHEDEX::Web::API::Shift::Requested::getShiftRequested($core,\%params,\%h);
 
