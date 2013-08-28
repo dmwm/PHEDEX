@@ -25,6 +25,7 @@ hour, not on the current time, so the latest timebin may vary in size from
  required inputs: none
  optional inputs: 
     NOAGGREGATE  T1 Buffer and MSS info need aggregation, or not
+    NODE   Node name, eg T1_US_FNAL_Buffer(not T1_US_FNAL_BUFFER), T1_US_FNAL_MSS
 
 =head2 Output
 
@@ -64,6 +65,7 @@ sub _shift_transferred
   my $epochHours = int(($h{ENDTIME} || time)/3600);
   my $start = ($epochHours-($h{NBINS}||12)) * 3600;
   my $end   =  $epochHours     * 3600;
+  map { $h{uc $_} = delete $h{$_} } keys %h;
   my $node  = $h{NODE} || 'T%';
   my %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
 
@@ -75,15 +77,15 @@ sub getShiftTransferred
 {
   my ($core,$params,$h) = @_;
   my ($r,$sql,$span,$q,$row);
-  my ($i,$node,$bin);
-  map { $h->{uc $_} = uc delete $h->{$_} } keys %$h;
+  my ($i,$node,$bin,$timebin);
+  map { $h->{uc $_} = delete $h->{$_} } keys %$h;
   $span = $h->{SPAN} || 3600;
 
   $sql = qq{
     select
       t.name node,
       trunc(h.timebin/$span)*$span timebin,
-      nvl(sum(h.done_bytes), 0) done_bytes
+      nvl(sum(h.done_bytes) keep (dense_rank last order by timebin asc),0) done_bytes
     from t_history_link_events h
       join t_adm_node t on t.id = h.to_node
     where timebin >= :starttime
@@ -97,6 +99,23 @@ sub getShiftTransferred
   {
     $r->{$row->{NODE}}{$row->{TIMEBIN}} = $row;
     delete $row->{NODE};
+  }
+
+# fill with zero if there are no records in db
+  my $start = $params->{":starttime"};
+  my $end = $params->{":endtime"};
+
+  foreach $i ( keys %{$r} )
+  {
+     for ($timebin = $start; $timebin < $end; )
+     {
+         if ( !$r->{$i}{$timebin})
+         {
+           $r->{$i}{$timebin}{TIMEBIN} = $timebin;
+           $r->{$i}{$timebin}{DONE_BYTES} = 0;
+         }
+         $timebin += 3600;
+     }
   }
 
 # Aggregate MSS+Buffer nodes, and merge the transferred data.

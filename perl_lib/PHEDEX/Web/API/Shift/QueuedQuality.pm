@@ -47,7 +47,8 @@ N.B. Data for T1 sites, only Buffer node is taken into account.
  required inputs: none
  optional inputs: (as filters) node
 
-  full             show information about all nodes, not just those with a problem
+  FULL             show information about all nodes, not just those with a problem
+  NODE             node name, eg. T1_US_FNAL_Buffer, for T1 sites, only Buffer node makes sense since only Buffer node is taken into account
 
 =head2 Output
 
@@ -97,16 +98,17 @@ sub _shift_queuedquality
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
   $end   =  $epochHours     * 3600;
-  $node  = 'T%';
+  $node  = $h{NODE} || 'T%';
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
   %paramsq = ( ':starttime' => $start, ':endtime' => $end );
   
   # don't need aggregation for T1 Buffer and MSS here
-  $h->{NOAGGREGATE} = 1;
+  $h{NOAGGREGATE} = 1;
   map { $h{uc $_} = uc delete $h{$_} } keys %h;
   $queue = PHEDEX::Web::API::Shift::Queued::getShiftPending($core,\%params,\%h);
   $quality = PHEDEX::Web::API::Shift::Quality::getShiftQuality($core,\%paramsq,\%h);
-
+  #warn "dump qualtiy ", Data::Dumper->Dump([ $quality ]);
+  #warn "dump queue ", Data::Dumper->Dump([ $queue ]);
   $mindata = $h{MINDATA} || 1024*1024*1024*1024;
 
   $unique = 0;
@@ -126,9 +128,10 @@ sub _shift_queuedquality
 
   foreach $node ( keys %{$queue} )
   {
-    if ( ! $s{$node} )
-    {
-      $s{$node} = {
+    if ($node !~ m%^T1_(.*)_MSS$%) {
+       if ( !$s{$node} )
+       {
+          $s{$node} = {
 			 NODE			=> $node,
 			 MAX_PEND_BYTES		=> 0,
 			 CUR_PEND_BYTES		=> 0,
@@ -138,9 +141,10 @@ sub _shift_queuedquality
 			 REASON			=> 'OK',
 			 NESTEDDATA		=> [],
 			 UNIQUEID		=> $unique++,
-		  };
+		      };
+       }
+       $s{$node}{TIMEBINS} = $queue->{$node};
     }
-    $s{$node}{TIMEBINS} = $queue->{$node};
   }
 
   foreach $node ( keys %s )

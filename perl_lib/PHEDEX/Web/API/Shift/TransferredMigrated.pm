@@ -27,7 +27,6 @@ no migration appear, nothing was attempted,then the node is likely to have a pro
 If Migrated/Transferred < 30% AND Transferred > 50 GB when summed over the last four hours,
 then the node is considered to migrate too slow, and put into warning status.
 
-
 N.B. Only T1 sitess are taken into account. 
 
 
@@ -36,7 +35,8 @@ N.B. Only T1 sitess are taken into account.
  required inputs: none
  optional inputs: (as filters) node
 
- full            show information about all nodes, not just those with a problem
+ FULL            show information about all nodes, not just those with a problem
+ NODE            node name, the format for T1 should be like T1_xx%, eg. T1_US_FNAL% to include Buffer and MSS node
 
 =head2 Output
 
@@ -83,14 +83,13 @@ sub _shift_transferredmigrated
   $epochHours = int(time/3600);
   $start = ($epochHours-12) * 3600;
   $end   =  $epochHours     * 3600;
-  $node  = 'T%';
+  map { $h{uc $_} = $h{$_} } keys %h;
+  $node  = $h{NODE} || 'T%';
   %params = ( ':starttime' => $start, ':endtime' => $end, ':node' => $node );
   
   # don't need aggregation for T1 Buffer and MSS here
   $h{NOAGGREGATE} = 1;
-  map { $h{uc $_} = uc delete $h{$_} } keys %h;
   $transfer = PHEDEX::Web::API::Shift::Transferred::getShiftTransferred($core,\%params,\%h);
-
   $mindata = $h{MINDATA} || 1024*1024*1024*1024;
 
   $unique = 0;
@@ -123,6 +122,8 @@ sub _shift_transferredmigrated
     $noblocks = 0;
     $i=0;
     $ratio = 1;
+    $sum_transferred = 0;
+    $sum_migrated = 0;
     foreach $bin ( sort { $a <=> $b } keys %{$s{$node}{TIMEBINS}} )
     {   
         $e = $s{$node}{TIMEBINS}{$bin};
@@ -134,25 +135,39 @@ sub _shift_transferredmigrated
 
         $s{$node}{CUR_DONE_BYTES}    = $e->{DONE_BYTES};
 
- 
-        $sum_transferred = $transferred->[$i] =  $e->{DONE_BYTES}; 
-        $sum_migrated = $migrated->[$i] = $eMSS->{DONE_BYTES};
+        $transferred->[$i] =  $e->{DONE_BYTES}; 
+        $migrated->[$i] = $eMSS->{DONE_BYTES};
+        $sum_transferred = 0;
+        $sum_migrated =0;
        
 
-        if ( $i>=3 ) {
-           $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2] + $transferred->[$i-3] + $transferred->[$i];
-           $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2] + $migrated->[$i-3] + $migrated->[$i];
+        if ( $i>=4 ) {
+           $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2] + $transferred->[$i-3] + $transferred->[$i-4];
+           $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2] + $migrated->[$i-3] + $migrated->[$i-4];
         }
+        elsif ($i<=3) {
+           $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2] + $transferred->[$i-3];
+           $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2] + $migrated->[$i-3];
+        }
+        elsif ($i<=2) {
+           $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2];
+           $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2];
+        }
+        else {
+           $sum_transferred =  $transferred->[$i-1];
+           $sum_migrated =   $migrated->[$i-1];
+        }
+        
         if ( $sum_transferred ) {
            $ratio = $sum_migrated/$sum_transferred; 
         }
 
-        if ( $eMSS->{DONE_BYTES} )
+        if ($eMSS->{DONE_BYTES} || (!$sum_transferred))
         {
            $noblocks = 0;
         }
         else {
-           $noblocks++;
+           $noblocks++;   
         }
 
         if (( $sum_transferred > 50*1024*1024*1024 ) && ( $ratio < 0.3 )) 
@@ -164,7 +179,9 @@ sub _shift_transferredmigrated
            $s{$node}{STATUS} = 2;
            $s{$node}{REASON} = 'nothing was attempted';
         }
-       delete $e->{NODE};
+       #delete $e->{NODE};
+       #warn "dump e ", Data::Dumper->Dump([ $e ]);
+
        push @{$s{$node}{NESTEDDATA}},$e;
        $i++;
     }
