@@ -107,6 +107,15 @@ my $map = {
 sub duration { return 60 * 60; }
 sub invoke { return loadteststreams(@_); }
 
+our $spec = {
+    node         => { using => 'node', multiple => 1 },
+    se           => { using => 'text', multiple => 1 },
+    from_dataset => { using => 'dataset', multiple => 1 },
+    to_dataset   => { using => 'dataset', multiple => 1 },
+    create_since => { using => 'time' },
+    update_since => { using => 'time' },
+    inject_since => { using => 'time' }
+};
 sub loadteststreams
 {
     my ($core, %h) = @_;
@@ -116,16 +125,7 @@ sub loadteststreams
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / node se from_dataset to_dataset create_since update_since inject_since / ],
-                spec =>
-                {
-                     node         => { using => 'node', multiple => 1 },
-                     se           => { using => 'text', multiple => 1 },
-                     from_dataset => { using => 'dataset', multiple => 1 },
-                     to_dataset   => { using => 'dataset', multiple => 1 },
-                     create_since => { using => 'time' },
-                     update_since => { using => 'time' },
-                     inject_since => { using => 'time' }
-                }
+		$spec,
         );
     };
     if ($@)

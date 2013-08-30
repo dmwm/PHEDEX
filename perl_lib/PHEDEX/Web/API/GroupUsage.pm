@@ -69,6 +69,11 @@ my $map = {
 
 sub duration { return 60 * 60; }
 sub invoke { return groupusage(@_); }
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    group => { using => 'text', multiple => 1 },
+    se => { using => 'text', multiple => 1 },
+};
 
 sub groupusage
 {
@@ -79,12 +84,7 @@ sub groupusage
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw( node group se ) ],
-                spec =>
-                {
-                    node => { using => 'node', multiple => 1 },
-                    group => { using => 'text', multiple => 1 },
-                    se => { using => 'text', multiple => 1 },
-                }
+		$spec,
         );
     };
     if ($@)

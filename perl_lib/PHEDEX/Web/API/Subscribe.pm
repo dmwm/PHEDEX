@@ -71,6 +71,24 @@ sub duration { return 0; }
 sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return subscribe(@_); }
+
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    data => { using => 'xml' },
+    level => { using => 'level' },
+    priority => { using => 'priority', multiple => 1 },
+    move => { using => 'yesno' },
+    static => { using => 'yesno' },
+    custodial => { using => 'yesno' },
+    group => { using => 'text' },
+    time_start => { using => 'time' },
+    request_only => { using => 'yesno' },
+    no_mail => { using => 'yesno' },
+    comments => { using => 'text' },
+    dummy => { using => 'text' },
+    're-evaluate' => { using => 'yesno' },
+};
+
 sub subscribe
 {
     my ($core, %args) = @_;
@@ -90,23 +108,7 @@ sub subscribe
         %p = &validate_params(\%args,
                 allow => [ qw ( node data level priority move static custodial group time_start request_only no_mail comments ) ],
                 required => [ qw ( data node group ) ],
-                spec =>
-                {
-                    node => { using => 'node', multiple => 1 },
-                    data => { using => 'xml' },
-                    level => { regex => qr/^BLOCK$|^DATASET$/ },
-                    priority => { using => 'priority', multiple => 1 },
-                    move => { using => 'yesno' },
-                    static => { using => 'yesno' },
-                    custodial => { using => 'yesno' },
-                    group => { using => 'text' },
-                    time_start => { using => 'time' },
-                    request_only => { using => 'yesno' },
-                    no_mail => { using => 'yesno' },
-                    comments => { using => 'text' },
-                    dummy => { using => 'text' },
-                    're-evaluate' => { using => 'yesno' },
-                }
+                $spec,
         );
     };
     if ($@)

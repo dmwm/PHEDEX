@@ -6,6 +6,7 @@ use strict;
 use PHEDEX::Core::DB;
 use PHEDEX::Core::Util qw( arrayref_expand);
 use PHEDEX::Core::Timing;
+use PHEDEX::Web::ArgsValidation;
 
 use HTML::Entities; # for encoding XML
 use Params::Validate qw(:all);
@@ -47,7 +48,16 @@ sub process_args
 # *compiled* regex or a function which returns true if $_[0] is valid
 # NOTE:  Do not add anything here without making a test case for it in
 # PHEDEX/Testbed/Tests/Web-Util.t
-our %COMMON_VALIDATION = 
+our %COMMON_VALIDATION;
+
+BEGIN{
+    while ( (my $key, my $value) = each %PHEDEX::Web::ArgsValidation::ARG_DEFS){
+	$COMMON_VALIDATION{$key} = $PHEDEX::Web::ArgsValidation::ARG_DEFS{$key}->{'coderef'};
+    }
+}
+
+
+our %COMMON_VALIDATION2 = 
 (
  'xml'		=> qr|^[A-Za-z0-9\-_\#\.\'*%?"/:=,\n\r \t<>]*$|,
  'dataitem_*'	=> qr|^/[A-Za-z0-9\-_\#\.*%?/]*$|,

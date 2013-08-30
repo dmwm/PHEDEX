@@ -120,6 +120,19 @@ my $limit = 1000;
 my @keys = ('ID');
 my %p;
 
+our $spec = {
+    id => { using => 'pos_int', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    to_node => { using => 'node', multiple => 1 },
+    priority => { using => 'priority', multiple =>1 },
+    update_since => { using => 'time' },
+    basis => { using => 'int' },
+    arrive_before => { using => 'time' },
+    arrive_after => { using => 'time' },
+};
+
+
 sub spool
 {
     my ($core,%h) = @_;
@@ -131,17 +144,7 @@ sub spool
             %p = &validate_params(\%h,
 				  uc_keys => 1,
 				  allow => [qw(id block dataset to_node priority update_since arrive_before arrive_after )],
-				  spec => {
-				      id => { using => 'pos_int', multiple => 1 },
-				      block => { using => 'block_*', multiple => 1 },
-				      dataset => { using => 'dataset', multiple => 1 },
-				      to_node => { using => 'node', multiple => 1 },
-				      priority => { using => 'priority', multiple =>1 },
-				      update_since => { using => 'time' },
-				      basis => { using => 'int' },
-				      arrive_before => { using => 'time' },
-				      arrive_after => { using => 'time' },
-				  }
+				  $spec,
 				  );
         };
 	

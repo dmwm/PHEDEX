@@ -38,6 +38,12 @@ A simple dump of PhEDEx nodes.
 
 sub duration{ return 12 * 3600; }
 sub invoke { return nodes(@_); }
+
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    noempty => { using => 'yesno' }
+};
+
 sub nodes
 {
     my ($core,%h) = @_;
@@ -46,10 +52,8 @@ sub nodes
         %p = &validate_params(\%h,
             uc_keys => 1,
             allow => [ qw/ node noempty / ],
-            spec => {
-                node => { using => 'node', multiple => 1 },
-                noempty => { using => 'yesno' }
-            });
+            $spec,
+	    );
     };
     if ( $@ )
     {

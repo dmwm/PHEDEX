@@ -136,6 +136,20 @@ my $sth;
 my $limit = 1000;
 my @keys = ('ID');
 my %p;
+our $spec = {
+    id => { using => 'pos_int', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    to_node => { using => 'node', multiple => 1 },
+    priority => { using => 'priority', multiple =>1 },
+    custodial => { using => 'yesno' },
+    subscribe_since => { using => 'time' },
+    subscribe_before => { using => 'time' },
+    update_since => { using => 'time' },
+    latency_greater_than => { using => 'float' },
+    latency_less_than => { using => 'float' },
+    ever_suspended => { using => 'yesno' }
+};
 
 sub spool
 {
@@ -148,20 +162,7 @@ sub spool
             %p = &validate_params(\%h,
                                   uc_keys => 1,
                                   allow => [qw(id block dataset to_node priority custodial subscribe_since subscribe_before update_since latency_greater_than latency_less_than ever_suspended )],
-                                  spec => {
-                                      id => { using => 'pos_int', multiple => 1 },
-                                      block => { using => 'block_*', multiple => 1 },
-                                      dataset => { using => 'dataset', multiple => 1 },
-                                      to_node => { using => 'node', multiple => 1 },
-                                      priority => { using => 'priority', multiple =>1 },
-                                      custodial => { using => 'yesno' },
-				      subscribe_since => { using => 'time' },
-				      subscribe_before => { using => 'time' },
-				      update_since => { using => 'time' },
-                                      latency_greater_than => { using => 'float' },
-                                      latency_less_than => { using => 'float' },
-                                      ever_suspended => { using => 'yesno' }
-                                  }
+
                                   );
         };
 

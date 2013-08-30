@@ -155,6 +155,13 @@ my $sth;
 our $limit = 200;
 my @keys = ('FROM', 'TO');
 my %p;
+our $spec = {
+    from    => { using => 'node', multiple => 1 },
+    to      => { using => 'node', multiple => 1 },
+    block   => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    lfn     => { using => 'lfn', multiple => 1 }
+};
 
 sub spool
 {
@@ -168,14 +175,7 @@ sub spool
                     uc_keys => 1,
                     allow => [ qw / from to block dataset lfn / ],
                     require_one_of => [ qw / from to block lfn / ],
-                    spec =>
-                    {
-                        from    => { using => 'node', multiple => 1 },
-                        to      => { using => 'node', multiple => 1 },
-                        block   => { using => 'block_*', multiple => 1 },
-                        dataset => { using => 'dataset', multiple => 1 },
-                        lfn     => { using => 'lfn', multiple => 1 }
-                    }
+		    $spec,
             );
         };
         if ($@)

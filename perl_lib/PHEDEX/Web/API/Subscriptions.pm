@@ -164,6 +164,23 @@ my $map2 = {
 sub duration { return 300; }
 sub invoke { return subscriptions(@_); }
 
+our $spec = {
+    percent_max => { using => 'pos_float' },
+    percent_min => { using => 'pos_float' },
+    dataset => { using => 'dataset', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    se => { using => 'text', multiple => 1 },
+    request => { using => 'pos_int', multiple => 1 },
+    create_since => { using => 'time' },
+    custodial => { using => 'yesno' },
+    group => { using => 'text', multiple => 1 },
+    move => { using => 'yesno' },
+    priority => { using => 'priority', multiple => 1 },
+    suspended => { using => 'yesno' },
+    collapse => { using => 'yesno' },
+};
+
 sub subscriptions
 {
     my ($core, %h) = @_;
@@ -175,23 +192,7 @@ sub subscriptions
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / percent_max percent_min dataset block node se create_since request custodial group move priority suspended collapse / ],
-                spec =>
-                {
-                    percent_max => { using => 'pos_float' },
-                    percent_min => { using => 'pos_float' },
-                    dataset => { using => 'dataset', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    se => { using => 'text', multiple => 1 },
-                    request => { using => 'pos_int', multiple => 1 },
-                    create_since => { using => 'time' },
-                    custodial => { using => 'yesno' },
-                    group => { using => 'text', multiple => 1 },
-                    move => { using => 'yesno' },
-                    priority => { using => 'priority', multiple => 1 },
-                    suspended => { using => 'yesno' },
-                    collapse => { using => 'yesno' },
-                }
+		$spec,
         );
     };
     if ($@)

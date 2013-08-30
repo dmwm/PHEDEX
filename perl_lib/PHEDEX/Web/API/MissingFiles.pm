@@ -131,6 +131,16 @@ my $sth;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
 my %p;
+our $spec = {
+    block => { using => 'block_*', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    se => { using => 'text', multiple => 1 },
+    subscribed => { using => 'yesno' },
+    custodial => { using => 'yesno' },
+    group => { using => 'text', multiple => 1 },
+    lfn => { using => 'lfn', multiple => 1 }
+};
+
 sub spool
 {
     my ($core, %h) = @_;
@@ -143,16 +153,7 @@ sub spool
                     uc_keys => 1,
                     allow => [ qw / block node se subscribed custodial group lfn / ],
                     require_one_of => [ qw( block lfn ) ],
-                    spec =>
-                    {
-                        block => { using => 'block_*', multiple => 1 },
-                        node => { using => 'node', multiple => 1 },
-                        se => { using => 'text', multiple => 1 },
-                        subscribed => { using => 'yesno' },
-                        custodial => { using => 'yesno' },
-                        group => { using => 'text', multiple => 1 },
-                        lfn => { using => 'lfn', multiple => 1 }
-                    }
+		    $spec,
             );
         };
         if ($@)

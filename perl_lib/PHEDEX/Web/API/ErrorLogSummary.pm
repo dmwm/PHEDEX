@@ -114,6 +114,13 @@ my $sth;
 our $limit = 1000;
 my @keys = ('FROM', 'TO');
 my %p;
+our $spec = {
+    from    => { using => 'node', multiple => 1 },
+    to      => { using => 'node', multiple => 1 },
+    block   => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    lfn     => { using => 'lfn', multiple => 1 }
+};
 
 sub spool
 {
@@ -126,14 +133,7 @@ sub spool
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [ qw / from to block dataset lfn / ],
-                    spec =>
-                    {
-                        from    => { using => 'node', multiple => 1 },
-                        to      => { using => 'node', multiple => 1 },
-                        block   => { using => 'block_*', multiple => 1 },
-                        dataset => { using => 'dataset', multiple => 1 },
-                        lfn     => { using => 'lfn', multiple => 1 }
-                    }
+                    $spec,
             );
         };
         if ($@)

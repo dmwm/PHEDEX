@@ -53,6 +53,13 @@ use PHEDEX::Web::Util;
 sub duration { return 60 * 60; }
 sub invoke { return links(@_); }
 
+
+our $spec = {
+    from   => { using => 'node', multiple => 1 },
+    to     => { using => 'node', multiple => 1 },
+    status => { using => 'link_status', multiple => 1 },
+    kind   => { using => 'link_kind', multiple => 1 }
+};
 sub links
 {
     my ($core, %h) = @_;
@@ -62,13 +69,7 @@ sub links
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / from to status kind / ],
-                spec =>
-                {
-                    from   => { using => 'node', multiple => 1 },
-                    to     => { using => 'node', multiple => 1 },
-                    status => { using => 'link_status', multiple => 1 },
-                    kind   => { using => 'link_kind', multiple => 1 }
-                }
+		$spec,
         );
     };
     if ( $@ )

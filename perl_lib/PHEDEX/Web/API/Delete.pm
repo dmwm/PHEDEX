@@ -61,6 +61,14 @@ sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return to_delete(@_); }
 
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    data => { using => 'xml' },
+    level => { using => 'level'},
+    rm_subscriptions => { using => 'yesno' },
+    comments => { using => 'text' }
+};
+
 sub to_delete
 {
     my ($core, %h) = @_;
@@ -76,14 +84,7 @@ sub to_delete
         %p = &validate_params(\%h,
                 allow => [ qw ( node data level rm_subscriptions comments ) ],
                 required => [ qw (node data) ],
-                spec =>
-                {
-                    node => { using => 'node', multiple => 1 },
-                    data => { using => 'xml' },
-                    level => { regex => qr/^BLOCK$|^DATASET$/ },
-                    rm_subscriptions => { using => 'yesno' },
-                    comments => { using => 'text' }
-                }
+		$spec,
         );
     };
     if ($@)

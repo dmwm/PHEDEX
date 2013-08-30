@@ -49,16 +49,16 @@ sub nodeUsage
 {
     my ($core, %h) = @_;
     my %p;
+    our $spec = {
+	node => { using => 'node', multiple => 1 }
+    };
 
     eval
     {
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ 'node' ],
-                spec =>
-                {
-                    node => { using => 'node', multiple => 1 }
-                }
+	        $spec,
         );
     };
     if ($@)

@@ -83,6 +83,23 @@ my $map = {
 sub duration { return 60 * 60; }
 sub invoke { return request_list(@_); }
 
+our $spec = {
+    request => { using => 'pos_int', multiple => 1 },
+    group => { using => 'text', multiple => 1 },
+    type => { using => 'request_type' },
+    approval => { using => 'approval_state', multiple => 1 },
+    requested_by => { using => 'text', multiple => 1 },
+    decided_by => { using => 'text', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    decision => { using => 'approval_state', multiple => 1 },
+    create_since => { using => 'time' },
+    create_until => { using => 'time' },
+    decide_since => { using => 'time' },
+    decide_until => { using => 'time' },
+    dataset => { using => 'dataset', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+};
+
 sub request_list
 {
     my ($core, %h) = @_;
@@ -92,23 +109,7 @@ sub request_list
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / request group type approval requested_by node decision create_since create_until decide_since decide_until dataset block decided_by / ],
-                spec =>
-                {
-                    request => { using => 'pos_int', multiple => 1 },
-                    group => { using => 'text', multiple => 1 },
-                    type => { using => 'request_type' },
-                    approval => { using => 'approval_state', multiple => 1 },
-                    requested_by => { using => 'text', multiple => 1 },
-                    decided_by => { using => 'text', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    decision => { using => 'approval_state', multiple => 1 },
-                    create_since => { using => 'time' },
-                    create_until => { using => 'time' },
-                    decide_since => { using => 'time' },
-                    decide_until => { using => 'time' },
-                    dataset => { using => 'dataset', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                }
+		$spec,
         );
     };
     if ( $@ )

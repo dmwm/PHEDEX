@@ -166,6 +166,14 @@ my $sth;
 my %p;
 our $limit = 1000;
 my @keys = ('BLOCK');
+our $spec = {
+    a => { using => 'node' },
+    b => { using => 'node' },
+    show => { using => 'show'},
+    value => { using => 'value'},
+    dataset => { using => 'dataset', multiple => 1 },
+    block => { using => 'block', multiple => 1 }
+};
 
 sub spool
 {
@@ -179,15 +187,7 @@ sub spool
                     uc_keys => 1,
                     allow => [qw( a b show value dataset block )],
                     required => [qw( a b )],
-                    spec =>
-                    {
-                        a => { using => 'node' },
-                        b => { using => 'node' },
-                        show => { regex => qr/^match$|^diff$|^neither$/ },
-                        value => { regex => qr/^files$|^bytes$|^subscribed$|^group$|^custodial$/ },
-                        dataset => { using => 'dataset', nultiple => 1 },
-                        block => { using => 'block', multiple => 1 }
-                    }
+		    $spec,
             );
         };
         if ($@)
