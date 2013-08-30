@@ -31,7 +31,7 @@ This API accepts POST'ed XML with the key name 'data' in the following
 format:
 
   <data version="2.0">
-    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query" dls="dbs">
+    <dbs name="https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet" dls="dbs">
       <dataset name="/sample/dataset" is-open="y">
         <block name="/sample/dataset#1" is-open="y">
           <file name="file1" bytes="10" checksum="cksum:1234,adler32:5678"/>
@@ -59,7 +59,9 @@ C<version> is 2.0.
 
 The C<< <dbs> >> element must have an attribute C<name>, which is the
 canonical name of the dataset bookkeeping system which owns the
-files.  Usually this should be the contact address of the DBS.
+files. Usually this should be the global DBS
+(https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet),
+check with experts before putting a different value here.
 
 The C<< <dataset> >> element must have an attribute C<name>, the name
 of the dataset in the DBS, and the attribute C<is-open> which must
