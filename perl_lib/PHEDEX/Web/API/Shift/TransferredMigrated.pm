@@ -145,11 +145,11 @@ sub _shift_transferredmigrated
            $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2] + $transferred->[$i-3] + $transferred->[$i-4];
            $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2] + $migrated->[$i-3] + $migrated->[$i-4];
         }
-        elsif ($i<=3) {
+        elsif ($i==3) {
            $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2] + $transferred->[$i-3];
            $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2] + $migrated->[$i-3];
         }
-        elsif ($i<=2) {
+        elsif ($i==2) {
            $sum_transferred = $transferred->[$i-1] + $transferred->[$i-2];
            $sum_migrated = $migrated->[$i-1] + $migrated->[$i-2];
         }
