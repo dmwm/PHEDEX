@@ -42,6 +42,13 @@ sub duration { return 0; }
 sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return updateRequest(@_); }
+
+our $spec = {
+    decision => { using => 'decision' },
+    request => { using => 'pos_int' },
+    node => { using => 'node', multiple => 1 },
+    comments => { using => 'text' }
+};
 sub updateRequest
 {
   my ($core, %args) = @_;
@@ -51,13 +58,7 @@ sub updateRequest
       %p = &validate_params(\%args,
               allow => [ qw( decision request node comments ) ],
               required => [ qw( decision request node ) ],
-              spec =>
-              {
-                  decision => { regex => qr/^approve$|^disapprove$/ },
-                  request => { using => 'pos_int' },
-                  node => { using => 'node', multiple => 1 },
-                  comments => { using => 'text' }
-              }
+              $spec,
       );
   };
   if ($@)
@@ -273,9 +274,9 @@ sub updateRequest
     $core->{DBH}->rollback(); # Processes seem to hang without this!
     warn "UpdateRequest: Some bizarre error: $@\n";
     if ( $@ =~ m%^cannot request% ) {
-#     Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest
+  #   Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest 
       die PHEDEX::Web::Util::http_error(400,$@);
-    }
+    } 
     die PHEDEX::Web::Util::http_error(500,"An error occurred. That happens sometimes...");
   }
 
@@ -284,8 +285,8 @@ sub updateRequest
   if (%$requests) {
     $commit = 1;
   } else {
-    $core->{DBH}->rollback();
     die PHEDEX::Web::Util::http_error(400,"no requests were created");
+    $core->{DBH}->rollback();
   }
   $commit = 0 if $args{dummy};
   $commit ? $core->{DBH}->commit() : $core->{DBH}->rollback();

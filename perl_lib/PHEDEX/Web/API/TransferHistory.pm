@@ -149,7 +149,14 @@ my $sth;
 our $limit = 1000;
 my @keys = ('FROM', 'TO');
 my %p;
-
+our $spec = {
+    from => { using => 'node', multiple => 1 },
+    to   => { using => 'node', multiple => 1 },
+    starttime => { using => 'time' },
+    endtime => { using => 'time' },
+    binwidth => { using => 'pos_int' },
+    ctime => { using => 'yesno' }
+};
 sub spool
 {
     my ($core, %h) = @_;
@@ -161,15 +168,7 @@ sub spool
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [ qw / from to starttime endtime binwidth ctime / ],
-                    spec =>
-                    {
-                        from => { using => 'node', multiple => 1 },
-                        to   => { using => 'node', multiple => 1 },
-                        starttime => { using => 'time' },
-                        endtime => { using => 'time' },
-                        binwidth => { using => 'pos_int' },
-                        ctime => { using => 'yesno' }
-                    }
+		    $spec,
             );
         };
         if ($@)

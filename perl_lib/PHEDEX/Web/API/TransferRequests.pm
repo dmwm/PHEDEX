@@ -157,6 +157,16 @@ use PHEDEX::Web::Util;
 sub duration { return 60 * 60; }
 sub invoke { return xfer_request(@_); }
 
+our $spec = {
+    request => { using => 'pos_int', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    group => { using => 'text', multiple => 1 },
+    limit => { using => 'pos_int' },
+    create_since => { using => 'time' },
+    approval => { using => 'approval_state', multiple => 1 },
+    requested_by => { using => 'text', multiple => 1 }
+};
+  
 sub xfer_request
 {
     my ($core, %h) = @_;
@@ -166,16 +176,7 @@ sub xfer_request
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / request limit group node create_since approval requested_by / ],
-                spec =>
-                {
-                    request => { using => 'pos_int', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    group => { using => 'text', multiple => 1 },
-                    limit => { using => 'pos_int' },
-                    create_since => { using => 'time' },
-                    approval => { using => 'approval_state', multiple => 1 },
-                    requested_by => { using => 'text', multiple => 1 }
-                }
+		$spec,
         );
     };
     if ($@)

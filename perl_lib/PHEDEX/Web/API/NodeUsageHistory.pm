@@ -125,6 +125,12 @@ my $sth;
 our $limit = 1000;
 my @keys = ('NODE_NAME');
 my %p;
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    starttime => { using => 'time' },
+    endtime => { using => 'time' },
+    binwidth => { using => 'pos_int' },
+};
 
 sub spool
 {
@@ -137,13 +143,7 @@ sub spool
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [ qw / node starttime endtime binwidth / ],
-                    spec =>
-                    {
-                        node => { using => 'node', multiple => 1 },
-                        starttime => { using => 'time' },
-                        endtime => { using => 'time' },
-                        binwidth => { using => 'pos_int' },
-                    }
+		    $spec,
             );
         };
         if ($@)

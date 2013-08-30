@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::Agents;
+package PHEDEX::Web::API::Test;
 use warnings;
 use strict;
 
@@ -115,26 +115,26 @@ sub duration { return 60 * 60; }
 sub invoke { return agents(@_); }
 
 our $spec = {
-    node => { using => 'node', multiple => 1 },
-    se   => { using => 'text' , multiple => 1 },
-    agent => { using => 'text' , multiple => 1 },
-    version => { using => 'text' },
-    detail => { using => 'yesno' },
-    update_since => { using => 'time' }
-};
+                   node => { using => 'node', multiple => 1 },
+                    se   => { using => 'text' , multiple => 1 },
+                    agent => { using => 'text' , multiple => 1 },
+                    version => { using => 'text' },
+                    detail => { using => 'yesno' },
+                    update_since => { using => 'time' }
+	      };
+
 
 sub agents
 {
     my ($core, %h) = @_;
-    my (%p);
+    my %p;
 
     eval {
         %p = &validate_params(\%h,
-			      uc_keys => 1,
-			      allow => [qw(node se agent version detail update_since)],
-			      $spec,
+                uc_keys => 1,
+                allow => [qw(node se agent version detail update_since)],
+	        $spec,
 			      );
-	
     };
     if ($@)
     {

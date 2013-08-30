@@ -142,6 +142,14 @@ my $sth = undef;
 our $limit = 1000;
 my @keys = ('HOST','USER','PID');
 
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    host => { using => 'hostname' },
+    pid => { using => 'pos_int' },
+    agent => { using => 'text' },
+    update_since => { using => 'time' }
+};
+
 sub spool
 {
     my ($core, %h) = @_;
@@ -154,13 +162,7 @@ sub spool
                     uc_keys => 1,
                     allow => [qw(node host user pid agent update_since)],
                     require_one_of => [qw(node host user pid agent update_since)],
-                    spec => {
-                        node => { using => 'node', multiple => 1 },
-                        host => { using => 'hostname' },
-                        pid => { using => 'pos_int' },
-                        agent => { using => 'text' },
-                        update_since => { using => 'time' }
-                    }
+                    $spec,
              );
         };
         if ($@)
