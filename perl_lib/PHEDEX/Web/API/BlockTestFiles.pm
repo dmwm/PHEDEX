@@ -112,6 +112,16 @@ my $map = {
 
 sub duration{ return 60 * 60; }
 sub invoke { return blocktestfiles(@_); }
+
+our $spec = {
+    test => { using => 'pos_int', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    kind => { using => 'kind', multiple => 1 },
+    status => { using => 'status', multiple => 1},
+    test_since => { using => 'time' },
+};
+
 sub blocktestfiles
 {
     my ($core,%h) = @_;
@@ -122,15 +132,7 @@ sub blocktestfiles
                 uc_keys => 1,
                 allow => [ qw/ node block kind status test_since test / ],
                 require_one_of => [ qw/ test block / ],
-                spec =>
-                {
-                    test => { using => 'pos_int', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                    kind => { regex => qr/^cksum$|^size$|^dbs$|^migration$/, multiple => 1 },
-                    status => { regex => qr/^OK$|^Fail$|^Queued$|^Active$|^Timeout$|^Expired$|^Suspended$|^Error$/, multiple => 1 },
-                    test_since => { using => 'time' },
-                 }
+		$spec,
         );
     };
     if ($@)

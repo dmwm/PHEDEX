@@ -31,6 +31,11 @@ See TFC documentation.
 
 sub duration { return 15 * 60; }
 sub invoke { return tfc(@_); }
+
+
+our $spec = {
+    node => { using => 'node' }
+};
 sub tfc
 {
     my ($core,%h) = @_;
@@ -40,9 +45,7 @@ sub tfc
                 uc_keys => 1,
                 allow => [ 'node' ],
                 required => [ 'node' ],
-                spec => {
-                    node => { using => 'node' }
-                }
+		$spec,
         )
     };
     if ($@)

@@ -155,6 +155,14 @@ sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return update_subscription(@_); }
 
+our $spec = {
+    dataset => { using => 'dataset' },
+    block => { using => 'block_*' },
+    node => { using => 'node' },
+    group => { using => 'text' },
+    priority => { using => 'priority' },
+    suspend_until => { using => 'time' }
+};
 sub update_subscription
 {
     my ($core, %h) = @_;
@@ -169,15 +177,7 @@ sub update_subscription
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / dataset block node group priority suspend_until / ],
-                spec =>
-                {
-                    dataset => { using => 'dataset' },
-                    block => { using => 'block_*' },
-                    node => { using => 'node' },
-                    group => { using => 'text' },
-                    priority => { using => 'priority' },
-                    suspend_until => { using => 'time' }
-                }
+                $spec,
         );
     };
     if ($@)

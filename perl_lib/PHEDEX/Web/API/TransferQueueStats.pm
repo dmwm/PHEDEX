@@ -51,6 +51,11 @@ use PHEDEX::Web::Util;
 sub duration { return 60 * 60; }
 sub invoke { return agent(@_); }
 
+our $spec = {
+    from => { using => 'node', multiple => 1 },
+    to   => { using => 'node', multiple => 1 },
+};
+
 sub agent
 {
     my ($core, %h) = @_;
@@ -61,11 +66,7 @@ sub agent
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [qw(from to)],
-                spec =>
-                {
-                    from => { using => 'node', multiple => 1 },
-                    to   => { using => 'node', multiple => 1 },
-                }
+                $spec,
          );
     };
     if ($@)

@@ -252,6 +252,20 @@ my $sth;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
 my %p;
+our $spec = {
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    se => { using => 'text', multiple => 1 },
+    create_since => { using => 'time' },
+    update_since => { using => 'time' },
+    complete => { using => 'yesno' },
+    dis_complete => { using => 'yesno' },
+    custodial => { using => 'yesno' },
+    subscribed => { using => 'yesno' },
+    group => { using => 'text' },
+    show_dataset => { using => 'yesno' }
+};
 
 sub spool
 {
@@ -262,21 +276,8 @@ sub spool
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [qw(block dataset node se create_since update_since complete dist_complete custodial subscribed group show_dataset)],
-                    spec => {
-                        block => { using => 'block_*', multiple => 1 },
-                        dataset => { using => 'dataset', multiple => 1 },
-                        node => { using => 'node', multiple => 1 },
-                        se => { using => 'text', multiple => 1 },
-                        create_since => { using => 'time' },
-                        update_since => { using => 'time' },
-                        complete => { using => 'yesno' },
-                        dis_complete => { using => 'yesno' },
-                        custodial => { using => 'yesno' },
-                        subscribed => { using => 'yesno' },
-                        group => { using => 'text' },
-                        show_dataset => { using => 'yesno' }
-                    }
-            );
+		    $spec,
+          );
         };
 
         if ($@)

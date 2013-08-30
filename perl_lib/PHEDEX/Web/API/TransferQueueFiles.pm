@@ -178,6 +178,14 @@ my $sth;
 our $limit = 1000;
 my @keys = ('FROM_ID', 'TO_ID');
 my %p;
+our $spec = {
+    from => { using => 'node', multiple => 1 },
+    to   => { using => 'node', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    priority => { using => 'priority' },
+    state => { using => 'transfer_state' }
+};
 
 sub spool{ 
     my ($core, %h) = @_;
@@ -189,15 +197,7 @@ sub spool{
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [ qw / from to state priority block dataset / ],
-                    spec =>
-                    {
-                        from => { using => 'node', multiple => 1 },
-                        to   => { using => 'node', multiple => 1 },
-                        block => { using => 'block_*', multiple => 1 },
-                        dataset => { using => 'dataset', multiple => 1 },
-                        priority => { using => 'priority' },
-                        state => { using => 'transfer_state' }
-                    }
+                    $spec,
             );
         };
         if ($@)

@@ -126,7 +126,20 @@ sub invoke { die "'invoke' is deprecated for this API. Use the 'spool' method in
 my $sth;
 our $limit = 1000;
 my @keys = ('BLOCK_ID');
-
+our $spec = {
+    block         => { using => 'block_*', multiple => 1 },
+    dataset       => { using => 'dataset' },
+    complete      => { using => 'yesno' },
+    dist_complete => { using => 'yesno' },
+    subscribed    => { using => 'yesno' },
+    custodial     => { using => 'yesno' },
+    create_since  => { using => 'time'  },
+    lfn           => { using => 'lfn', multiple => 1 },
+    node          => { using => 'node', multiple => 1 },
+    se            => { using => 'text'   },
+    group         => { using => 'text'   },
+};
+    
 sub spool
 {
     my ($core,%h) = @_;
@@ -140,19 +153,8 @@ sub spool
 			   allow => [qw(block node se update_since create_since
 					complete dist_complete subscribed custodial group lfn)],
 			   require_one_of => [ qw(block lfn dataset) ],
-			   spec => {
-			       block         => { using => 'block_*', multiple => 1 },
-			       dataset       => { using => 'dataset' },
-			       complete      => { using => 'yesno' },
-			       dist_complete => { using => 'yesno' },
-			       subscribed    => { using => 'yesno' },
-			       custodial     => { using => 'yesno' },
-                               create_since  => { using => 'time'  },
-                               lfn           => { using => 'lfn', multiple => 1 },
-                               node          => { using => 'node', multiple => 1 },
-                               se            => { using => 'text'   },
-                               group         => { using => 'text'   },
-			   });
+			   $spec,   
+			   );
       };
       if ( $@ ) {
         die PHEDEX::Web::Util::http_error(400,$@);

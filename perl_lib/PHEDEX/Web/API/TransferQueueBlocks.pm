@@ -96,6 +96,14 @@ my $map = {
 sub duration { return 60 * 60; }
 sub invoke { return transferqueueblocks(@_); }
 
+our $spec = {
+    from => { using => 'node', multiple => 1 },
+    to   => { using => 'node', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    priority => { using => 'priority' },
+    state => { using => 'transfer_state' }
+};
 sub transferqueueblocks
 {
     my ($core, %h) = @_;
@@ -105,15 +113,7 @@ sub transferqueueblocks
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / from to state priority block dataset / ],
-                spec =>
-                {
-                    from => { using => 'node', multiple => 1 },
-                    to   => { using => 'node', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                    dataset => { using => 'dataset', multiple => 1 },
-                    priority => { using => 'priority' },
-                    state => { using => 'transfer_state' }
-                }
+                $spec,
         );
     };
     if ($@)

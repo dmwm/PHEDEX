@@ -109,6 +109,14 @@ my $map = {
 sub duration { return  5 * 60; }
 sub invoke { return data(@_); }
 
+our $spec = {
+    create_sinc => { using => 'time' },
+    dataset => { using => 'dataset', multiple => 1 },
+    block => { using => 'block_*', multiple => 1},
+    file => { using => 'lfn', multiple => 1 },
+    level => { using => 'block_or_file' }
+};
+
 sub data
 {
     my ($core, %h) = @_;
@@ -119,14 +127,7 @@ sub data
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / create_since dataset block file level / ],
-                spec =>
-                {
-                     create_sinc => { using => 'time' },
-                     dataset => { using => 'dataset', multiple => 1 },
-                     block => { using => 'block_*', multiple => 1},
-                     file => { using => 'lfn', multiple => 1 },
-                     level => { using => 'block_or_file' }
-                }
+		$spec,
         );
     };
     if ( $@ )

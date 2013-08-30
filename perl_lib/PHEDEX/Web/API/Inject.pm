@@ -114,6 +114,14 @@ sub need_auth { return 1; }
 sub methods_allowed { return 'POST'; }
 sub invoke { return inject(@_); }
 use URI::Escape;
+
+our $spec = {
+    node => { using => 'node' },
+    data => { using => 'xml' },
+    strict => { using => 'strict'},
+    dummy => { using => 'text' }
+};
+
 sub inject
 {
   my ($core,%args) = @_;
@@ -121,16 +129,10 @@ sub inject
   eval
   {
       %p = &validate_params(\%args,
-              allow => [ qw( node data strict ) ],
-              required => [ qw( data node ) ],
-              spec =>
-              {
-                  node => { using => 'node' },
-                  data => { using => 'xml' },
-                  strict => { regex => qr/^[01]$/ },
-                  dummy => { using => 'text' }
-              }
-      );
+			    allow => [ qw( node data strict ) ],
+			    required => [ qw( data node ) ],
+			    $spec,
+    );
   };
   if ($@)
   {

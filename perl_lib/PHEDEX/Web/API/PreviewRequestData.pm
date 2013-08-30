@@ -95,6 +95,17 @@ problem is something that will definitely cause the request to fail.
 
 sub duration { return 0; }
 sub invoke { return previewrequestdata(@_); }
+
+our $spec = {
+    data => { using => 'dataitem_*', multiple => 1 },
+    type => { using => 'request_type' },
+    node => { using => 'node', multiple => 1 },
+    static => { using => 'yesno' },
+    move => { using => 'yesno' },
+    custodial => { using => 'yesno' },
+    time_start => { using => 'time' },
+    dbs => { using => 'text' }
+};
 sub previewrequestdata {
   my ($core,%params_in) = @_;
   my ($type,$response,%p,%params);
@@ -109,17 +120,7 @@ sub previewrequestdata {
       %p = &validate_params(\%params,
               allow => [ qw( data type node static move custodial time_start dbs ) ],
               required => [ qw( data type ) ],
-              spec =>
-              {
-                  data => { using => 'dataitem_*', multiple => 1 },
-                  type => { using => 'request_type' },
-                  node => { using => 'node', multiple => 1 },
-                  static => { using => 'yesno' },
-                  move => { using => 'yesno' },
-                  custodial => { using => 'yesno' },
-                  time_start => { using => 'time' },
-                  dbs => { using => 'text' }
-              }
+	      $spec,
       );
   };
   if ($@)

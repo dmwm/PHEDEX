@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::LFN2PFN;
+package PHEDEX::Web::API::PFN2LFN;
 use warnings;
 use strict;
 use PHEDEX::Web::Util;
@@ -10,22 +10,21 @@ use PHEDEX::Web::SQL;
 
 =head1 NAME
 
-PHEDEX::Web::API::LFN2PFN - LFN to PFN conversion
+PHEDEX::Web::API::PFN2LFN - PFN to LFN conversion
 
 =head1 DESCRIPTION
 
-Translate LFNs to PFNs using the TFC published to TMDB.
+Translate PFNs to LFNs using the TFC published to TMDB.
 
 =head2 Options
 
  node          PhEDex node names, can be multiple (*), required
- lfn           Logical file name, can be multiple (+), required
+ pfn           Physical file name, can be multiple, required
  protocol      Transfer protocol, required
  destination   Destination node
  custodial     y or n, whether or not the dest is custodial.  default is n.
  
  (*) See the rules of multi-value filters in the Core module
- (+) Do not need to be registered LFNs
 
 =head2 Output
 
@@ -45,26 +44,25 @@ Translate LFNs to PFNs using the TFC published to TMDB.
 =cut
 
 sub duration{ return 15 * 60; }
-# _lfn2pfn to avoid clash with PHEDEX::Core::Catalogue, which exports lfn2pfn
-sub invoke { return _lfn2pfn(@_); }
-
+# _pfn2lfn to be consistent with _lfn2pfn 
+sub invoke { return _pfn2lfn(@_); }
 our $spec = {
     node => { using => 'node', multiple => 1 },
-    lfn => { using => 'lfn', multiple => 1 },
+    pfn => { using => 'pfn', multiple => 1 },
     protocol => { using => 'text', multiple => 1 },
     destination => { using => 'node', multiple => 1 },
     custodial => { using => 'yesno', multiple => 1 },
 };
 
-sub _lfn2pfn
+sub _pfn2lfn
 {
     my ($core,%h) = @_;
     my %p;
     eval
     {
         %p = &validate_params(\%h,
-                allow => [ qw ( node lfn protocol destination custodial ) ],
-                required => [ qw ( node lfn protocol )],
+                allow => [ qw ( node pfn protocol destination custodial ) ],
+                required => [ qw ( node pfn protocol )],
 		$spec,
         );
     };
@@ -84,14 +82,14 @@ sub _lfn2pfn
     my $mapping = [];
 
     foreach my $node (@$nodes) {
-	my $cat = &dbStorageRules($core->{DBH}, $catcache, $node->{ID});
+	my $cat = &dbStorageRules($core->{DBH}, $catcache, $node->{ID}, 'pfn-to-lfn');
 	if (!$cat) {
 	    die "could not retrieve catalogue for node $node->{NAME}\n";
 	}
 
 	my @args = ($cat, $p{protocol}, $p{destination}, 'pre');
-	foreach my $lfn ( &PHEDEX::Core::SQL::arrayref_expand($p{lfn}) ) {
-	    my ($spt, $pfn) = &applyStorageRules(@args, $lfn, $p{custodial});
+	foreach my $pfn ( &PHEDEX::Core::SQL::arrayref_expand($p{pfn}) ) {
+	    my ($spt, $lfn) = &applyStorageRules(@args, $pfn, $p{custodial});
 	    push @$mapping, { node => $node->{NAME},
 			      protocol => $p{protocol},
 			      destination => $p{destination},

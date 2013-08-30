@@ -88,6 +88,14 @@ my $map = {
     }
 };
         
+our $spec = {
+    from    => { using => 'node', multiple => 1 },
+    to      => { using => 'node', multiple => 1 },
+    block   => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    valid   => { using => 'yesno' }
+};
+
 sub routedblocks
 {
     my ($core, %h) = @_;
@@ -97,14 +105,7 @@ sub routedblocks
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw/ from to valid block dataset / ],
-                spec =>
-                {
-                    from    => { using => 'node', multiple => 1 },
-                    to      => { using => 'node', multiple => 1 },
-                    block   => { using => 'block_*', multiple => 1 },
-                    dataset => { using => 'dataset', multiple => 1 },
-                    valid   => { using => 'yesno' }
-                }
+                $spec,
         );
     };
     if ($@)

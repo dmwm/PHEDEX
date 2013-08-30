@@ -131,6 +131,17 @@ my $sth;
 our $limit = 1000;
 my @keys = ('DATASET_ID');
 my %p;
+our $spec = {
+    node => { using => 'node', multiple => 1 },
+    se   => { using => 'text', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    dataset => { using => 'dataset', multiple => 1 },
+    id => { using => 'pos_int', multiple => 1 },
+    request => { using => 'pos_int', multiple => 1 },
+    request_since => { using => 'time' },
+    complete_since => { using => 'time' },
+    complete => { using => 'yesno' }
+};
 
 sub spool
 {
@@ -143,18 +154,7 @@ sub spool
             %p = &validate_params(\%h,
                     uc_keys => 1,
                     allow => [ qw / node se block dataset id request request_since complete complete_since / ],
-                    spec =>
-                    {
-                        node => { using => 'node', multiple => 1 },
-                        se   => { using => 'text', multiple => 1 },
-                        block => { using => 'block_*', multiple => 1 },
-                        dataset => { using => 'dataset', multiple => 1 },
-                        id => { using => 'pos_int', multiple => 1 },
-                        request => { using => 'pos_int', multiple => 1 },
-                        request_since => { using => 'time' },
-                        complete_since => { using => 'time' },
-                        complete => { using => 'yesno' }
-                    }
+		    $spec,
             );
         };
         if ($@)

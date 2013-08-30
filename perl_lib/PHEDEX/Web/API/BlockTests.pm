@@ -93,6 +93,15 @@ my $map = {
 sub duration { return 5 * 60; } # 5 minutes
 sub invoke { return blocktests(@_); }
 
+our $spec = {
+    test => { using => 'pos_int', multiple => 1 },
+    node => { using => 'node', multiple => 1 },
+    block => { using => 'block_*', multiple => 1 },
+    kind => { using => 'kind', multiple => 1 },
+    status => { using => 'status', multiple => 1 },
+    test_since => { using => 'time' },
+};
+
 sub blocktests
 {
     my ($core, %h) = @_;
@@ -102,16 +111,8 @@ sub blocktests
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ qw / node block kind status test_since test / ],
-                spec =>
-                {
-                    test => { using => 'pos_int', multiple => 1 },
-                    node => { using => 'node', multiple => 1 },
-                    block => { using => 'block_*', multiple => 1 },
-                    kind => { regex => qr/^cksum$|^size$|^dbs$|^migration$/, multiple => 1 },
-                    status => { regex => qr/^OK$|^Fail$|^Queued$|^Active$|^Timeout$|^Expired$|^Suspended$|^Error$/, multiple => 1 },
-                    test_since => { using => 'time' },
-                 }
-        );
+		$spec,
+	      );
     };
     if ($@)
     {

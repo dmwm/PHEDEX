@@ -38,6 +38,10 @@ use PHEDEX::Web::Util;
 sub duration { return 12 * 3600; }
 sub invoke { return agents(@_); }
 
+our $spec = {
+    group => { using => 'text', multiple => 1 }
+};
+
 sub agents
 {
     my ($core, %h) = @_;
@@ -48,10 +52,7 @@ sub agents
         %p = &validate_params(\%h,
                 uc_keys => 1,
                 allow => [ 'group' ],
-                spec =>
-                {
-                    group => { using => 'text', multiple => 1 }
-                }
+                $spec,
         );
     };
     if ($@)
