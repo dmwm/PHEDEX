@@ -6,7 +6,6 @@ use POE;
 use Clone qw(clone);
 use Data::Dumper;
 use PHEDEX::CLI::UserAgent;
-use POSIX qw(strftime);
 
 our %params = (
 #	  cert_file => undef,
@@ -233,7 +232,7 @@ sub doneInject {
     if ( $self->{Debug} ) {
       $self->Alert("Injected: cannot understand output: ",Dumper($obj));
     } else {
-      $self->Alert("Injected: cannot understand output.",);
+      $self->Alert("Injected: cannot understand output.");
     }
     $payload->{report} = {
       status => 'error',
