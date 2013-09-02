@@ -38,7 +38,7 @@ sub new {
   map { $self->{params}{uc $_} = $p->{$_} } keys %{$p};
   map { $self->{$_} = $p->{$_} } keys %{$p};
   $self->{UA} = PHEDEX::CLI::UserAgent->new( %{$self->{params}} );
-
+  
   bless $self, $class;
 
   return $self;
@@ -51,13 +51,25 @@ sub getFromDatasvc {
   $method = $args->{method} || 'get';
   $params = $args->{params} || {};
   $callback = $args->{callback};
-
   $workflow = $payload->{workflow};
+
+  # Setting the user agent instance to default value
+  $self->{UA}->INSTANCE($self->{params}->{INSTANCE});
+  
+  # If an override instance has been specified, use that one
+  if (my $instanceOverride = $args->{instance}) {
+      $self->Logmsg("Overriding instance specified: $instanceOverride");      
+      $self->{UA}->INSTANCE($instanceOverride);
+  }
+  
   $self->{UA}->CALL($args->{api});
-  $target = $self->{UA}->target;
   if ( $callback && ! $self->{_callbacks}{$callback}++ ) {
     $kernel->state($callback,$self);
   }
+  
+  $target = $self->{UA}->target;
+  
+  $self->Logmsg("Calling: $target\n");
   $kernel->post($self->{Alias},'start_task',{
 				  payload	=> $payload,
 				  method	=> $method,
@@ -195,16 +207,18 @@ sub Inject {
 	strict	=> $workflow->{StrictInjection} || 0,
 	data	=> $workflow->{XML},
   };
+  
+  $self->Logmsg("Attempting to inject at site $params->{node}");
   $self->getFromDatasvc($kernel,
-			$session,
-			$payload,
-			{
-			 api	  => 'inject',
-			 method   => 'post',
-			 callback => 'doneInject',
-			 params   => $params,
-			}
-			);
+                        $session,
+               	        $payload,
+			  {
+			   api	  => 'inject',
+			   method   => 'post',
+			   callback => 'doneInject',
+			   params   => $params,
+			  }
+		         );
 }
 
 sub doneInject {
@@ -346,6 +360,143 @@ sub doneUpdateSubscription {
     }
   }
   unshift @{$payload->{workflow}{Events}}, 'UpdateSubscription';
+  $kernel->yield('nextEvent',$payload);
+}
+
+# Calls the dataservice API and asks (nicely) for the RouterHistory
+# Needs to have "RouterHistoryInstances" specified in the workflow
+sub RouterHistory {
+  my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0];
+  my ($params, $workflow, $rhInstances, $rhInstance);
+  $workflow = $payload->{workflow};
+  $rhInstances = $workflow->{RouterHistoryInstances};
+
+  # No instances defined, no business sticking around    
+  if (! defined($rhInstances)) {
+    $kernel->yield('nextEvent',$payload);
+  }
+  
+  if ($rhInstance = shift @$rhInstances) {
+    # Get instance from the array and call the data service API
+    # while using the appropiate instance
+    $self->Logmsg("Getting router history for instance: $rhInstance\n"); 
+    $self->getFromDatasvc($kernel,
+	                  $session,
+	                  $payload,
+                        	{
+				instance => $rhInstance,  # override default instance
+                        	api      => 'routerhistory',                          
+                        	method   => 'get',
+                        	callback => 'gotRouterHistory',
+                        	params   => $params,
+                        	}
+                          );
+  } 
+}
+
+# Adds the data received from the API call to the $payload 
+# Also checks to see if other instances remain to be checked
+# - if yes, also re-add the RouterHistory event to the WF
+sub gotRouterHistory {
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+  my ($workflow, $phedex, $links);  
+  $self->Logmsg("Got router history\n");
+  $workflow = $payload->{workflow};
+  $phedex = $obj->{PHEDEX};
+  
+  if ($phedex) {
+    # Routing information that we got from the instance
+    $links = {
+        date			=> 		$phedex->{REQUEST_DATE},
+	timestamp		=> 		$phedex->{REQUEST_TIMESTAMP},	
+	source			=>		$phedex->{INSTANCE},
+	linkData		=>		$phedex->{LINK},	
+    };
+
+    if (!defined($payload->{RoutingHistory})) {
+	$payload->{RoutingHistory} = [];
+    }      
+
+    # Add link definitions to routing history
+    push (@{$payload->{RoutingHistory}}, $links);    
+  } else {
+    $self->Logmsg("API call didn\'t go according to plan: ",Data::Dumper->Dump([$obj]),"\n");
+  }
+  
+  # If there are remaining instances to be checked,
+  # then put the RoutingHistory event back in the queue and check that instance as well
+  if (scalar @{$workflow->{RouterHistoryInstances}}) {
+    unshift @{$workflow->{Events}}, 'RouterHistory';  
+  }
+  
+  $kernel->yield('nextEvent',$payload);
+}
+
+sub DumpHistory {
+  my ($self,$kernel,$payload,$obj,$target,$params) = @_[ OBJECT, KERNEL, ARG0, ARG1, ARG2, ARG3 ];
+  my ($workflow, $rhOutput, $externalRates, $history, $openedHistory, $openedExternal); 
+  $workflow = $payload->{workflow};
+  $rhOutput = $workflow->{RouterHistoryOutputFile}; # Output routing history file
+  $externalRates = $workflow->{ExternalRatesFile}; # Output a file that could be read by FileRouter
+  $history = $payload->{RoutingHistory};
+  $openedHistory = open RHISTORY, ">$rhOutput";
+  $openedExternal = open EXTERNAL, ">$externalRates";
+
+  # Let others do work if bad stuff happened
+  # We don't really care (but we could) about the external rates file
+  if (!defined($history) || !$openedHistory) {
+    $kernel->yield('nextEvent',$payload);
+  }
+  
+  
+  my $externalData = {}; # Data in a suitable format for FileRouter
+  my $linkKeys = {}; # String(FROM-TO) -> array [FROM, TO]
+  my $allLinkData = {}; # String(FROM-TO) -> Route information
+  
+  # Go through all the history for every instance
+  foreach my $routerEvent (@$history) {
+    # For each instance go through all the link infos that they provided
+    foreach my $link (@{$routerEvent->{linkData}}) {
+
+	my $strKey = $link->{FROM}."-".$link->{TO};
+	my $key = [$link->{FROM}, $link->{TO}];
+	
+        if (!exists($allLinkData->{$strKey})) {
+            $self->Logmsg("Setting set of nodes $strKey");
+	    $allLinkData->{$strKey} = $link->{ROUTE}->[0];
+	    $linkKeys->{$strKey} = $key;
+	} else {
+	    $self->Logmsg("Duplicate set of nodes found - merging stats");
+	    
+	    my $oldRoute = $allLinkData->{$strKey};
+	    my $route = $link->{ROUTE}->[0];
+	    	    
+	    foreach ( qw / IDLE_BYTES IDLE_FILES PEND_BYTES PEND_FILES
+	                   REQUEST_BYTES REQUEST_FILES ROUTE_BYTES ROUTE_FILES LATENCY RATE / ) {
+	                 $oldRoute->{$_} += $route->{$_};
+	    }
+	}
+    }	
+  }  
+  
+  $Data::Dumper::Terse = 1;
+  $Data::Dumper::Indent = 2;
+  
+  print RHISTORY Dumper($allLinkData);    
+  close RHISTORY;
+
+  # Also print out a file compatible for the FileRouter
+  # For now the names of the nodes (instead of the DB IDs) are used
+  if (defined($externalRates) && $openedExternal) {
+    while ((my $key, my $value) = each %$allLinkData) {
+	my ($from, $to) = ($linkKeys->{$key}->[0],$linkKeys->{$key}->[1]);
+        $externalData->{$from}->{$to}->{"XFER_RATE"} = $value->{RATE};
+    }
+ 
+    print EXTERNAL Dumper($externalData);  
+    close EXTERNAL;
+  }
+   
   $kernel->yield('nextEvent',$payload);
 }
 
