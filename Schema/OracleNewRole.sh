@@ -20,6 +20,9 @@ if [ $# -ne 3 ]; then
 fi
 
 (echo "set feedback off;"
- echo "drop role $2;"
+ echo "drop role $2;") |
+ sqlplus -S "$1"
+
+(echo "set feedback off;"
  echo "create role $2 identified by $3;") |
  sqlplus -S "$1"
