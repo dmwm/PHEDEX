@@ -97,7 +97,7 @@ sub updateRequest
   my $nodes = [ arrayref_expand($args{node}) ];
   foreach my $node (@{$nodes}) {
     my $nodeid = $auth->{NODES}->{$node} || 0;
-    die PHEDEX::Web::Util::http_error(400,"You are not authorised to approve data to node $node") unless $nodeid;
+    die PHEDEX::Web::Util::http_error(403,"You are not authorised to approve transfer or deletion requests for node $node") unless $nodeid;
   }
 
   # ok, now try to act on the request
