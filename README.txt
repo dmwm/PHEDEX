@@ -21,7 +21,7 @@ Admin mailing list:
   cms-phedex-admins at cern dot ch
 
 Bug tracker:
-  https://savannah.cern.ch/bugs/?group=phedex
+  https://github.com/dmwm/PHEDEX/issues
 
 Discussion forum:
   https://hypernews.cern.ch/HyperNews/CMS/get/phedex.html
