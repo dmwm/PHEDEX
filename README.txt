@@ -1,6 +1,6 @@
 			    PhEDEx README
 				   
-PhEDEx stands for Physics Expiriment Data Export.  It consists of:
+PhEDEx stands for Physics Experiment Data Export.  It consists of:
 
  * A distributed agent-based transfer management workflow engine
  * A central database containing workflow state and monitoring data
