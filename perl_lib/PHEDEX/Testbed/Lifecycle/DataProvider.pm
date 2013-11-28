@@ -152,10 +152,25 @@ sub makeFiles {
   my ($cmd,$workflow);
 
   $workflow = $payload->{workflow};
+  
+  my $numberOfFiles = 0;
+  if (ref($workflow->{Files}) eq "HASH") {
+    my $tagInfo = $workflow->{Files};
+    $workflow->{data}[0]->{dataset}{tags} = $tagInfo;
+    $self->Logmsg("makeFiles: Overriding tags:", Data::Dumper->Dump([$tagInfo]));
+    foreach my $keyTag (keys %{$tagInfo}) {
+	$numberOfFiles += $tagInfo->{$keyTag};
+    }
+  }
+
   $workflow->{Files} = 1 unless defined $workflow->{Files};
+  if ($numberOfFiles > 0) {
+    $workflow->{Files} = $numberOfFiles;
+  }
+
   $cmd  = $self->{DATAPROVIDER} . ' --action add_files ';
   $cmd .= "--num $workflow->{Files} ";
-  
+
   $self->Logmsg('makeFiles: creating ',$workflow->{Files},' files per open block');
   $self->generate($kernel,
 		  $session,
@@ -278,42 +293,93 @@ sub closeDatasets {
   $self->Logmsg("closeDatasets ($dsname): Closed $nClosedDatasets datasets out of $nDatasets total");
   $kernel->yield('nextEvent',$payload);
 }
- 
+
 sub makeLinks {
   my ($self, $kernel, $session, $payload) = @_[ OBJECT, KERNEL, SESSION, ARG0 ];
   my ($d,$f,$i,$j,$k,$l);
-  my ($data,$dataset,$block,$file,$srcFile,$linkDir,$style,$workflow);
+  my ($data,$dataset,$block,$file,$srcFiles,$linkDir,$style,$workflow);
 
   $workflow = $payload->{workflow};
-  $srcFile = $workflow->{makeLinks}{SrcFile};
+
+  $srcFiles = $workflow->{makeLinks}{SrcFiles}; 
   $linkDir = $workflow->{makeLinks}{LinkDir};
   $style   = $workflow->{makeLinks}{LinkStyle};
   $data    = $workflow->{data};
-  -f $srcFile->{Name} ||
-  -l $srcFile->{Name} or
-     $self->Fatal("SrcFile '$srcFile->{Name}' not a file or symlink");
+
+  my (@pfnArray, $pfnIndex);
+
+  if (ref($srcFiles) eq "ARRAY") {
+    @pfnArray = @{$srcFiles};
+  }
+
+  if (ref($srcFiles) eq "HASH") {
+    @pfnArray = values %$srcFiles;
+  }
+
+  foreach $i (@pfnArray) {
+    -f $i->{Name} || -l $i->{Name} or $self->Fatal("makeLinks: SrcFiles $i not a file or symlink");
+  }
 
   $l = sprintf("%09s",$workflow->{blockCounter});
   foreach $i ( @{$data} ) {
     $dataset = $i->{dataset};
     foreach $j ( @{$dataset->{blocks}} ) {
+      my $fileCounter = 0;
       $block = $j->{block};
       foreach $k ( @{$block->{files}} ) {
+        my ($lfnTag, $pfnLink);
+
         $file = $k->{file};
         $file->{name} =~ s%/000000000/%/$l/%;
+
+        # Check if tag is present in the LFN
+        # For now tags are appended to the LFN in the form of xxxxxxxxxx-yyyyyyyy-tag.root
+        # If it's modified in the data_provider (python) should be updated here
+        $file->{name} =~ /-([a-zA-Z0-9]*).root/;
+        $lfnTag = $1;
+
+        # SrcFiles is a hash
+	if (ref($srcFiles) eq "HASH" && defined $srcFiles->{$lfnTag}) {
+	    # A tag was found in LFN and that tag exists in SrcFiles
+	    $pfnLink = $srcFiles->{$lfnTag};
+	} else {
+	    $pfnLink = $pfnArray[$pfnIndex++];
+	    $pfnIndex %= @pfnArray;
+	}
+	
         $f = $linkDir . $file->{name};
+
+        # Don't spam, only print a few files
+        if ( $fileCounter <= 10) {
+            $self->Logmsg("makeFiles: $f linked to $pfnLink->{Name}");
+        }
+
         next if -e $f;
         $d = dirname($f);
         -d $d || mkpath $d;
         if ( $style eq 'soft' ) {
-          symlink $srcFile->{Name}, $f;
+          symlink $pfnLink->{Name}, $f;
         } elsif ( $style eq 'hard' ) {
-          link $srcFile->{Name}, $f;
+          link  $pfnLink->{Name}, $f;
         } else {
           $self->Fatal("LinkStyle parameter must be 'hard' or 'soft'");
         }
-        $file->{bytes}    = $srcFile->{Size} if defined $srcFile->{Size};
-        $file->{checksum} = $srcFile->{Checksum} if defined $srcFile->{Checksum};
+
+        # Check for size
+        if (defined $pfnLink->{Size}) {
+	    $file->{bytes} = $pfnLink->{Size};
+        } else {
+	    $file->{bytes} = -s $pfnLink->{Name};
+        }
+
+	# Check for checksum
+	if (defined $pfnLink->{Checksum}) {
+	    $file->{checksum} = $pfnLink->{Checksum};
+	} else {
+	    $file->{checksum} = 'cksum:0';
+	}
+
+	$fileCounter++;
       }
     }
   }
