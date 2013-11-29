@@ -8,7 +8,7 @@ use strict;
 ##H
 ##H   Usage:
 ##H
-##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-se_name SE_NAME] [-injected] [-verbose]
+##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-node NODE_NAME] [-injected] [-verbose]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
@@ -21,8 +21,8 @@ use strict;
 ##H
 ##H   The output is a list of files known to the storage element (i.e. in the
 ##H   input list) but not known to TMDB if the option inject is used. 
-##H   If the option -se_name is used, the output is the difference of files in 
-##H   TMDB and at the SE_NAME specified.
+##H   If the option -node is used, the output is the difference of files in 
+##H   TMDB and at the NODE_NAME specified.
 ##H   After that the same list is summarised by directory, where purely numerical 
 ##H   subdirectories are grouped (i.e. /path/001 and /path/002 are grouped as /path).
 ##H
@@ -33,10 +33,10 @@ use strict;
 ##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
 ##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -injected
 ##H   
-##H   Compare your list of files with the files that should be in SE_NAME
+##H   Compare your list of files with the files that should be in NODE
 ##H
 ##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
-##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -se_name 'castorsrm.cr.cnaf.infn.it'
+##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -node 'T1_DE_KIT_Disk'
 ##H
 
 # Process command line arguments.
@@ -51,13 +51,13 @@ my ($dbh);
 my ($injected,$verbose,$debug,$terse);
 my (%h,$conn);
 my ($DBCONFIG,%lfn);
-my ($lfnlist,$se_name);
+my ($lfnlist,$node_name);
 my $debug_me = 1;
 
 $verbose = $debug = $terse = 0;
 GetOptions("db=s"           => \$DBCONFIG,
            "lfnlist=s"      => \$lfnlist,
-           "se_name=s"      => \$se_name,
+           "node=s"      => \$node_name,
 
            "injected|i+"     => \$injected,
            "verbose|v+"     => \$verbose,
@@ -75,14 +75,14 @@ if( !$DBCONFIG )
   die "Insufficient parameters, use -h for help.\n";
 }
 
-if( !$injected && !$se_name )
+if( !$injected && !$node_name )
 {
-  die "-injected or -se_name parameter not found. Use -h for help.\n";
+  die "-injected or -node parameter not found. Use -h for help.\n";
 }
 
-if( $injected && $se_name )
+if( $injected && $node_name )
 {
-  die "-injected and -se_name are mutually exclusive. Use -h for help.\n";
+  die "-injected and -node are mutually exclusive. Use -h for help.\n";
 }
 
 #-------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ if ( $injected ){
   }
 }
 else {
-  my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicas( $dbh, $se_name );
+  my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name );
 
   foreach ( @{$tmp} )
   {
