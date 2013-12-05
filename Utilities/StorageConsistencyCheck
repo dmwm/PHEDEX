@@ -4,11 +4,11 @@ use strict;
 ##H
 ##H  Find orphan files in storage w.r.t. TMDB or DBS.
 ##H  If -injected option is given it will compare with all the files injected into TMDB
-##H  If not, it will compare the lfnlist only with the replicas of the SE_NAME   
+##H  If not, it will compare the lfnlist only with the replicas of the SE_NAME or NODE_NAME
 ##H
 ##H   Usage:
 ##H
-##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-node NODE_NAME] [-injected] [-verbose]
+##H   StorageConsistencyCheck -db DBCONFIG [-lfnlist LFNLIST] [-node NODE_NAME] [-se_name SE_NAME] [-injected] [-verbose]
 ##H 
 ##H   DBCONFIG is the usual PhEDEx DB contact file.
 ##H
@@ -21,8 +21,8 @@ use strict;
 ##H
 ##H   The output is a list of files known to the storage element (i.e. in the
 ##H   input list) but not known to TMDB if the option inject is used. 
-##H   If the option -node is used, the output is the difference of files in 
-##H   TMDB and at the NODE_NAME specified.
+##H   If the option -se_name (-node) is used, the output is the difference of files in 
+##H   TMDB and at the SE_NAME (NODE_NAME) specified.
 ##H   After that the same list is summarised by directory, where purely numerical 
 ##H   subdirectories are grouped (i.e. /path/001 and /path/002 are grouped as /path).
 ##H
@@ -33,7 +33,12 @@ use strict;
 ##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
 ##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -injected
 ##H   
-##H   Compare your list of files with the files that should be in NODE
+##H   Compare your list of files with the files that should be in SE_NAME
+##H
+##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
+##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -se_name 'castorsrm.cr.cnaf.infn.it'
+##H
+##H   Compare your list of files with the files that should be in NODE_NAME
 ##H
 ##H   StorageConsistencyCheck -db ~/private/DBParam:Prod/Reader
 ##H      -lfnlist /afs/cern.ch/user/w/wildish/public/castor.store.merged.txt -node 'T1_DE_KIT_Disk'
@@ -57,8 +62,8 @@ my $debug_me = 1;
 $verbose = $debug = $terse = 0;
 GetOptions("db=s"           => \$DBCONFIG,
            "lfnlist=s"      => \$lfnlist,
-           "node=s"      => \$node_name,
-
+           "node=s"         => \$node_name,
+           "se_name=s"      => \$se_name,
            "injected|i+"     => \$injected,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
@@ -75,14 +80,14 @@ if( !$DBCONFIG )
   die "Insufficient parameters, use -h for help.\n";
 }
 
-if( !$injected && !$node_name )
+if( !$injected && !$node_name && !$se_name )
 {
-  die "-injected or -node parameter not found. Use -h for help.\n";
+  die "-injected or -node or -se_name parameter not found. Use -h for help.\n";
 }
 
-if( $injected && $node_name )
+if( ($injected && ( $node_name || $se_name)) || ($node_name && $se_name) )
 {
-  die "-injected and -node are mutually exclusive. Use -h for help.\n";
+  die "-injected, -node, and -se_name are mutually exclusive. Use -h for help.\n";
 }
 
 #-------------------------------------------------------------------------------
@@ -141,7 +146,8 @@ if ( $injected ){
   }
 }
 else {
-  my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name );
+  if ( $se_name ) { my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $se_name ); }
+  else { my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name ); }
 
   foreach ( @{$tmp} )
   {
