@@ -572,14 +572,17 @@ sub getSiteReplicas
 sub getSiteReplicasByName
 {
   my $self = shift;
-  my %p = ( ':name' => @_ );
-  my $sql = "select distinct f.logical_name from t_dps_file f
-              join t_dps_block b               on b.id = f.inblock
-              left join t_dps_block_replica br on br.block = b.id and br.node_files = b.files
-              left join t_xfer_replica xr      on xr.fileid = f.id
-              join t_adm_node n                on n.id = br.node or n.id = xr.node
-             where n.name = :name
-             order by 1";
+  my %p = ( ':node' => @_ );
+  my $sql = "select f.logical_name from t_dps_block b
+              join t_dps_dataset d        on b.dataset = d.id
+              join t_dps_file f           on f.inblock = b.id
+              join t_adm_node ns          on ns.id = f.node
+              join t_dps_block_replica br on br.block = b.id
+              left join t_xfer_replica xr on xr.node = br.node and xr.fileid = f.id 
+              left join t_adm_node n      on ((br.is_active = 'y' and n.id = xr.node)
+              or (br.is_active = 'n'      and n.id = br.node))
+              where (br.node_files != 0 or br.dest_files != 0)
+              and n.name = :node";
 
   my $r = select_single ( $self, $sql, %p );
   return $r;
