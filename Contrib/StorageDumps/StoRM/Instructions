@@ -1,0 +1,25 @@
+#Technology:          
+    StoRM/GPFS
+
+#Reference Site:     
+T2_ES_IFCA (Iban Cabrillo)
+
+#Command:            
+
+StoRMStorageDump.py 
+
+#Usage example:
+
+#Comments:  
+This script look for these values, "file size (bytes), "file creation date" (epoch s) and "checksum" stored as extra attribute, if one or more of these vales are not found, the script then calc it and store. This values are accesible using the getfattr -d "pfn"
+
+
+#More details:
+https://savannah.cern.ch/support/index.php?126352
+
+
+
+
+
+
+

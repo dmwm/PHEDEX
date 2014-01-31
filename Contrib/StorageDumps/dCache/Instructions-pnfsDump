@@ -1,0 +1,32 @@
+#Technology:          
+dCache
+
+#Reference Site:     
+T2_IT_Pisa  (Simone, Tommaso)    
+
+#Command:
+/opt/pnfs/tools/pnfsDump -o syncat /data/pnfs-dump/pnfs_t -s -k -c 
+
+For dCache installations without chimera one can use pnfsDump tool,  which  can be download from: 
+http://www.dcache.org/downloads/pnfs/index.shtml
+#Recommended Version:  
+    pnfs-dump-1.0.23 or higher 
+
+Example of usage: 
+    /opt/pnfs/tools/pnfsDump -o syncat /data/pnfs-dump/pnfs_test_new -s -k -c 
+
+For detailed help and options description see e.g.:
+http://svn.dcache.org/pnfs/tags/pnfsDump-1.2/docs/README.pnfsDump
+
+#Comments: 
+
+Storage technology at Pisa site has migrated away from dCache.  
+
+#More details:          
+https://savannah.cern.ch/support/index.php?126348
+
+
+
+
+
+

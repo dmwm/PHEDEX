@@ -1,0 +1,21 @@
+#Technology:          
+    Lustre
+
+#Reference Site:     
+    T2_US_Florida (Bockjoo)
+
+#Command:
+    find 
+
+size and file date info came from the command 'ls --full-time <file>' command. 
+# Example:
+
+ Lustre_dump_sample.txt
+
+#More details:
+https://savannah.cern.ch/support/index.php?126346
+
+
+
+
+

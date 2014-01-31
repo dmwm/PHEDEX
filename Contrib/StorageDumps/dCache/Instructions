@@ -1,0 +1,26 @@
+#Technology:          
+dCache
+
+#Reference Site:     
+T2_ES_CIEMAT  (Antonio, Jose)
+
+#Command:            
+
+For chimera based dCache installations chimeraDump one can  use chimeraDump tool provided with dCache: 
+http://trac.dcache.org/wiki/contributed/chimeraDump
+
+Recommended Version:  0.9.1 
+
+For  example of usage see generate_dump.sh script. 
+
+#Comments:  
+
+#More details:          
+https://savannah.cern.ch/support/index.php?126353
+
+
+
+
+
+
+
