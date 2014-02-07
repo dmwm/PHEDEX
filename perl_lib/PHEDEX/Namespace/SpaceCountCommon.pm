@@ -16,6 +16,7 @@ our %options = (
               "node=s" => undef,
               "level=i" => 6,
               "force"   => 0,
+              "url=s"   => 'https://cmsweb.cern.ch/dmwmmon/datasvc',
              );
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
