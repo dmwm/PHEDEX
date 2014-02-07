@@ -1,10 +1,11 @@
-package DMWMMON::SpaceAccounting::Core;
+package DMWMMON::StorageAccounting::Core;
 our @ISA = qw(Exporter);
 our @EXPORT = qw (uploadRecord);
 
 use Time::Local;
 use Time::localtime;
 use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
+use PHEDEX::CLI::UserAgent;
 
 # Note the structure: instead of the value being a variable that will hold
 # the parsed value, we provide the default. Later, when the user wants to
@@ -27,6 +28,7 @@ sub uploadRecord{
                                       URL        => $url,
                                       FORMAT    => 'perl',
                                       INSTANCE    => '',
+                                      CA_DIR    => '/etc/grid-security/certificates',
                                      );
   my ($response,$content,$target);
   print "Begin to connect data service.....\n" if $debug;
