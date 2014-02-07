@@ -11,6 +11,7 @@ use File::Basename;
 use Getopt::Long qw /:config pass_through require_order /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Namespace::SpaceCountCommon;
+use DMWMMON::StorageAccounting::Core;
 use PHEDEX::Namespace::Common;
 use Data::Dumper;
 
