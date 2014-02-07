@@ -8,6 +8,7 @@ use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
 use Data::Dumper;
 use PHEDEX::Namespace::SpaceCountCommon ( ) ;
+use DMWMMON::StorageAccounting::Core;
 
 my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
@@ -68,4 +69,5 @@ $command = "spacecount";
 # For common options parameter name should correspond to the options name:
 my $f = $ns->{DUMP};
 $result = $ns->$command ($f);
+uploadRecord($ns->{URL}, $result);
 
