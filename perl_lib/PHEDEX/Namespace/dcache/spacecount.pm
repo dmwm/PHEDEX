@@ -44,12 +44,7 @@ sub execute {
       print "Add $storeDepth levels preceeding $pattern\n";
     };
     print "[INFO] Creating database record using aggregation level = $level ... \n" if $ns->{VERBOSE};
-    if ($ns->{DEBUG}) {
-      print "DEBUG: here is the record which would be uploaded:\n";
-      print Dumper (createRecord(\%dirsizes, $ns, $timestamp, $level));
-    } else {
-      uploadRecord($ns->{URL}, createRecord(\%dirsizes, $ns, $timestamp, $level));
-    }
+    return createRecord(\%dirsizes, $ns, $timestamp, $level);   
   }
 }
 
