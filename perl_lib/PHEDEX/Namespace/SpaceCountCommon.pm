@@ -48,16 +48,13 @@ sub findLevel {
 }
 
 sub convertToUnixTime {
+# parses time formats like "2012-02-27T12:33:23.902495" or "2012-02-20T14:46:39Z" 
+# and returns unix time or -1 if not parsable.
   my ($time) = @_;
+  my $unixTime = -1;
   my ($unixTime, $localtime, $mon, $year, $d, $t, @d, @t);
-  if ($time =~ m/^(\S+)T(\S+)Z$/)
-    {
-      $d = $1;
-      @d = split /-/, $1;
-      $t = $2;
-      @t = split /:/, $2;
-    }
-  $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1]-1, $d[0]-1900);
+  if ($time =~ m/^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)\D+/)
+    {$unixTime = timelocal($6, $5, $4, $3, $2-1, $1-1900)}
   #$localtime = localtime($unixTime);
   #print "the localtime:", $localtime->mon+1,"  ", $localtime->year+1900, "\n";
   return $unixTime;
