@@ -1,6 +1,10 @@
 package PHEDEX::Namespace::SpaceCountCommon;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (dirlevel findLevel convertToUnixTime createRecord doEverything lookupFileSizeXml lookupTimeStampXml);
+our @EXPORT;
+
+push (@EXPORT, qw (lookupFileSizeXml lookupTimeStampXml )); 
+push (@EXPORT, qw (lookupFileSizeTxt lookupTimeStampTxt )); 
+push (@EXPORT, qw (dirlevel findLevel convertToUnixTime createRecord doEverything ));
 
 use Time::Local;
 use Time::localtime;
@@ -21,6 +25,12 @@ our %options = (
              );
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
+
+
+sub lookupFileSizeTxt{$_=shift; my ($file, $size, $rest) = split /\|/; if ($file) {return ($file, $size)} else {return 0 } }
+sub lookupFileSizeXml{$_=shift; if (m/\S+\sname=\"(\S+)\"\>\<size\>(\d+)\<\S+$/)  {return ($1, $2)} else {return 0}}
+sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
+sub lookupTimeStampTxt{$_=shift; print; my @ar= split /\./; return $ar[-2]} # pass filename as argument
 
 sub dirlevel {
   my $path=shift;
@@ -87,11 +97,6 @@ sub createRecord {
   return \%payload;
 }
 
-sub lookupFileSizeXml{$_=shift; if (m/\S+\sname=\"(\S+)\"\>\<size\>(\d+)\<\S+$/)  {return ($1, $2)} else {return 0}}
-
-sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
-
-
 sub doEverything {
   my ($ns, $dumpfile, $lookupFileSize, $lookupTimeStamp) = @_;
   my $timestamp   = -1; # invalid
@@ -101,15 +106,17 @@ sub doEverything {
   my $totaldirs   = 0;
   my %dirsizes    = ();
   # we search for this directory and count levels starting from the depth where it is found:
-  my $pattern = "/store/";  
-
-  if ( $dumpfile =~ m%.gz$% )
-    { open DUMP, "cat $dumpfile | gzip -d - |" or die "Could not open: $dumpfile\n"; }
-  elsif ( $dumpfile =~ m%.bz2$% )
-    { open DUMP, "cat $dumpfile | bzip2 -cd - |" or die "Could not open: $dumpfile\n"; }
-  else
-    { open(DUMP, "cat $dumpfile |") or die  "Could not open: $dumpfile\n" 
-    }
+  my $pattern = "/store/";
+  my $filebasename = $dumpfile;
+  if ( $dumpfile =~ m%.gz$% ) { 	
+      $filebasename = substr($dumpfile, 0, -3) . "\n";
+      open DUMP, "cat $dumpfile | gzip -d - |" or die "Could not open: $dumpfile\n"; 
+  } elsif ( $dumpfile =~ m%.bz2$% ) { 
+      $filebasename = substr($dumpfile, 0, -4) . "\n";
+      open DUMP, "cat $dumpfile | bzip2 -cd - |" or die "Could not open: $dumpfile\n"; 
+  } else { 
+      open(DUMP, "cat $dumpfile |") or die  "Could not open: $dumpfile\n" 
+  }
 
   my ($line,$time,$size,$file);
   while ($line = <DUMP>) { 
@@ -131,6 +138,12 @@ sub doEverything {
     print "total dirs:  ", $totaldirs, "\n";
     print "total size:  ", $totalsize, "\n";
     print "timestamp:  ", $timestamp, "\n";
+  }
+  # Try to get timestamp from the dumpfile name: 
+  if ($timestamp < 0)
+  {
+      print "timestamp: $timestamp\nfilebasename=$filebasename\n";
+      $timestamp = lookupTimeStampTxt($filebasename);
   }
   my $storeDepth = findLevel(\%dirsizes, $pattern);
   $level = $ns->{LEVEL};
