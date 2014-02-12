@@ -30,7 +30,7 @@ PHEDEX::Namespace::Common::setCommonOptions( \%options );
 sub lookupFileSizeTxt{$_=shift; my ($file, $size, $rest) = split /\|/; if ($file) {return ($file, $size)} else {return 0 } }
 sub lookupFileSizeXml{$_=shift; if (m/\S+\sname=\"(\S+)\"\>\<size\>(\d+)\<\S+$/)  {return ($1, $2)} else {return 0}}
 sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
-sub lookupTimeStampTxt{$_=shift; print; my @ar= split /\./; return $ar[-2]} # pass filename as argument
+sub lookupTimeStampTxt{$_=shift; my @ar= split /\./; return $ar[-2]} # pass filename as argument
 
 sub dirlevel {
   my $path=shift;
@@ -50,7 +50,7 @@ sub findLevel {
   # returns the depth of directory structure above the matching pattern
   my ($hashref, $pattern) = @_;  # pass reference to dirsizes hash and a pattern to match
   if ( grep {$match=index( $_, $pattern); if ($match>0) {
-    print "Match for $pattern found in $_ \n";
+    #print "Match for $pattern found in $_ \n";
     return split ( '/', substr $_, 0, $match);
   }
            } keys  %{$hashref}){
@@ -142,7 +142,6 @@ sub doEverything {
   # Try to get timestamp from the dumpfile name: 
   if ($timestamp < 0)
   {
-      print "timestamp: $timestamp\nfilebasename=$filebasename\n";
       $timestamp = lookupTimeStampTxt($filebasename);
   }
   my $storeDepth = findLevel(\%dirsizes, $pattern);
