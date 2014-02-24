@@ -1,9 +1,1 @@
-Collection of code and instructions for producing storage dumps
-by the site admins at CMS Sites. 
-This repository is intended to aid in Tier-2 campaign for
-consistency checking  and storage accounting. 
-Once validated by the sites, this code will be migrated to the
-IT-ES-VOS repository for general use.
-
- 
-
+This code has moved to https://github.com/dmwm/DMWMMON/tree/master/SiteInfoProviders.
