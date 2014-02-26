@@ -1,5 +1,5 @@
-package PHEDEX::Namespace::eos::spacecount;
-# Implements space accounting for EOS storage system.
+package PHEDEX::Namespace::posix::spacecount;
+# Implements space accounting for standard Disk storage technologies
 use strict;
 use warnings;
 
