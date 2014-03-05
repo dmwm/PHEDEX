@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::dcache::spacecount;
+package PHEDEX::Namespace::dpm::spacecount;
 # Implements space accounting for dpm
 use strict;
 use warnings;

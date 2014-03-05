@@ -1,5 +1,5 @@
-package PHEDEX::Namespace::dcache::spacecount;
-# Implements space accounting for dpm
+package PHEDEX::Namespace::posix::spacecount;
+# Implements space accounting for standard Disk storage technologies
 use strict;
 use warnings;
 
@@ -10,8 +10,8 @@ use Data::Dumper;
 
 # ================= Technology Specific code =====================
 # Use this syntax if you choose common parsing methods available in SpaceCountCommon:
-my $lookupFileSize = \&lookupFileSizeXml;
-my $lookupTimeStamp = \&lookupTimeStampXml;
+my $lookupFileSize = \&lookupFileSizeTxt;
+my $lookupTimeStamp = \&lookupTimeStampTxt;
  
 # Use this syntax if you need a customized regex: 
 #my $lookupFileSize  = sub {$_=shift; if (m/^\S+\s(\/\S+)\s(\d+)$/) {return ($1, $2)} else {return 0}};

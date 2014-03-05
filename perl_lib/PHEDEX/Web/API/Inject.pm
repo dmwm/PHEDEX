@@ -31,7 +31,7 @@ This API accepts POST'ed XML with the key name 'data' in the following
 format:
 
   <data version="2.0">
-    <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query" dls="dbs">
+    <dbs name="https://cmsweb.cern.ch/dbs/prod/global/DBSReader" dls="dbs">
       <dataset name="/sample/dataset" is-open="y">
         <block name="/sample/dataset#1" is-open="y">
           <file name="file1" bytes="10" checksum="cksum:1234,adler32:5678"/>

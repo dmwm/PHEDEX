@@ -1,9 +1,14 @@
 package PHEDEX::Namespace::SpaceCountCommon;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (dirlevel findLevel convertToUnixTime createRecord);
+our @EXPORT;
+
+push (@EXPORT, qw (lookupFileSizeXml lookupTimeStampXml )); 
+push (@EXPORT, qw (lookupFileSizeTxt lookupTimeStampTxt )); 
+push (@EXPORT, qw (dirlevel findLevel convertToUnixTime createRecord doEverything ));
 
 use Time::Local;
 use Time::localtime;
+use File::Basename;
 use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
 
 # Note the structure: instead of the value being a variable that will hold
@@ -16,9 +21,16 @@ our %options = (
               "node=s" => undef,
               "level=i" => 6,
               "force"   => 0,
+              "url=s"   => 'https://cmsweb.cern.ch/dmwmmon/datasvc',
              );
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
+
+
+sub lookupFileSizeTxt{$_=shift; my ($file, $size, $rest) = split /\|/; if ($file) {return ($file, $size)} else {return 0 } }
+sub lookupFileSizeXml{$_=shift; if (m/\S+\sname=\"(\S+)\"\>\<size\>(\d+)\<\S+$/)  {return ($1, $2)} else {return 0}}
+sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
+sub lookupTimeStampTxt{$_=shift; my @ar= split /\./; return $ar[-2]} # pass filename as argument
 
 sub dirlevel {
   my $path=shift;
@@ -38,7 +50,7 @@ sub findLevel {
   # returns the depth of directory structure above the matching pattern
   my ($hashref, $pattern) = @_;  # pass reference to dirsizes hash and a pattern to match
   if ( grep {$match=index( $_, $pattern); if ($match>0) {
-    print "Match for $pattern found in $_ \n";
+    #print "Match for $pattern found in $_ \n";
     return split ( '/', substr $_, 0, $match);
   }
            } keys  %{$hashref}){
@@ -47,16 +59,13 @@ sub findLevel {
 }
 
 sub convertToUnixTime {
+# parses time formats like "2012-02-27T12:33:23.902495" or "2012-02-20T14:46:39Z" 
+# and returns unix time or -1 if not parsable.
   my ($time) = @_;
+  my $unixTime = -1;
   my ($unixTime, $localtime, $mon, $year, $d, $t, @d, @t);
-  if ($time =~ m/^(\S+)T(\S+)Z$/)
-    {
-      $d = $1;
-      @d = split /-/, $1;
-      $t = $2;
-      @t = split /:/, $2;
-    }
-  $unixTime = timelocal($t[2], $t[1], $t[0], $d[2], $d[1]-1, $d[0]-1900);
+  if ($time =~ m/^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)\D+/)
+    {$unixTime = timelocal($6, $5, $4, $3, $2-1, $1-1900)}
   #$localtime = localtime($unixTime);
   #print "the localtime:", $localtime->mon+1,"  ", $localtime->year+1900, "\n";
   return $unixTime;
@@ -86,6 +95,64 @@ sub createRecord {
   }
   print "total number of records: $count\n";
   return \%payload;
+}
+
+sub doEverything {
+  my ($ns, $dumpfile, $lookupFileSize, $lookupTimeStamp) = @_;
+  my $timestamp   = -1; # invalid
+  my $level       = $ns->{LEVEL};
+  my $totalsize   = 0;
+  my $totalfiles  = 0;
+  my $totaldirs   = 0;
+  my %dirsizes    = ();
+  # we search for this directory and count levels starting from the depth where it is found:
+  my $pattern = "/store/";
+  my $filebasename = $dumpfile;
+  if ( $dumpfile =~ m%.gz$% ) { 	
+      $filebasename = substr($dumpfile, 0, -3) . "\n";
+      open DUMP, "cat $dumpfile | gzip -d - |" or die "Could not open: $dumpfile\n"; 
+  } elsif ( $dumpfile =~ m%.bz2$% ) { 
+      $filebasename = substr($dumpfile, 0, -4) . "\n";
+      open DUMP, "cat $dumpfile | bzip2 -cd - |" or die "Could not open: $dumpfile\n"; 
+  } else { 
+      open(DUMP, "cat $dumpfile |") or die  "Could not open: $dumpfile\n" 
+  }
+
+  my ($line,$time,$size,$file);
+  while ($line = <DUMP>) { 
+      ($file, $size) = $lookupFileSize->($line);
+      if ($file) {
+	  $totalfiles++;
+	  my $dir = dirname $file;
+	  $dirsizes{$dir}+=$size;
+	  $totalsize+=$size;
+      } else {
+	  $time = $lookupTimeStamp->($line);
+	  if ($time) {$timestamp=convertToUnixTime($time)};
+      }
+  }
+  close DUMP;
+  $totaldirs = keys %dirsizes;
+  if ($ns->{VERBOSE}) {
+    print "total files: ", $totalfiles,"\n";
+    print "total dirs:  ", $totaldirs, "\n";
+    print "total size:  ", $totalsize, "\n";
+    print "timestamp:  ", $timestamp, "\n";
+  }
+  # Try to get timestamp from the dumpfile name: 
+  if ($timestamp < 0)
+  {
+      $timestamp = lookupTimeStampTxt($filebasename);
+  }
+  my $storeDepth = findLevel(\%dirsizes, $pattern);
+  $level = $ns->{LEVEL};
+  if ($storeDepth >0 ) {
+      $level = $level + $storeDepth -1; # Subtract 1: if  /store/ is found on the first level, we do not want  $level to change.
+      print "Add $storeDepth levels preceeding $pattern\n";
+  };
+  print "[INFO] Creating database record using aggregation level = $level ... \n" if $ns->{VERBOSE};
+  $record=createRecord(\%dirsizes, $ns, $timestamp, $level);
+  return $record;
 }
 
 1;
