@@ -286,7 +286,7 @@ sub idle
 	    my @pfns = map { "$$_{PFN}" } @slice;
 	    $self->Logmsg ("Executing with timeout $$self{TIMEOUT} @{$$self{STAGE_CMD}} @pfns");
 	    my $rc = &runcmd (&timeout_cmd($$self{TIMEOUT}, @{$$self{STAGE_CMD}}, @pfns)); 
-	    $self->Alert ("$$self{STAGE_CMD} failed: @{[&runerror($rc)]}") if ($rc);
+	    $self->Alert ("@{$$self{STAGE_CMD}} failed: @{[&runerror($rc)]}") if ($rc);
 	    
 	    # Mark these files as pending now in the cache
             map { $$self{STAGE_CACHE}{$$_{PFN}} = {TIME=>time(), VALUE=>"STAGEIN"} } @slice;
