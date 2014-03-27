@@ -226,7 +226,7 @@ Hopefully there will be a test module at some point...
 If you find one, please check first on the PhEDEx wiki
 (L<https://twiki.cern.ch/twiki/bin/view/CMS/PhedexProjects>) and if it's
 not covered there, report it on the PhEDEx Savannah, at
-L<https://savannah.cern.ch/projects/phedex/>
+L<https://github.com/dmwm/PHEDEX/issues>
 
 =cut
 
