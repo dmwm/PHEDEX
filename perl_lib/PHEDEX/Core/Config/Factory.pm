@@ -479,6 +479,10 @@ sub checkAgentLimits
     {
       foreach $key ( keys %{$self->{_limits}{$re}} )
       {
+        if ( !defined($self->{AGENTS}{$agent}{resources}{$key}) ) {
+          $self->Alert("Agent=$agent, no resources allocated so far ...");
+          return;
+        }
         if ( $self->{_limits}{$re}{$key} < $self->{AGENTS}{$agent}{resources}{$key} )
         {
           $self->Alert("Agent=$agent, PID=$pid, resource-use too high ($key=$self->{AGENTS}{$agent}{resources}{$key}), killing...");
