@@ -1,0 +1,311 @@
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession <init>
+INFO:
+
+[ AgentSession ] inited with:
+
+ localURNIdx 0
+ localAgentINFO: FDTAgentInfo [agentID=AgentID [id=a5e4baf9-5c96-3ab8-9b2b-2693b551a4b7], agentName=caltech, publicIP=131.215.207.71, serverPort=8885]
+ remoteURNIdx: 0
+ remoteAgentINFO: FDTAgentInfo [agentID=AgentID [id=0607a940-8d46-3da7-945d-61eb501df5bf], agentName=umich, publicIP=192.12.80.86, serverPort=8885]
+ saving state!
+
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession startSession
+INFO: Local session is up AgentSessionID [id=89bf64d2-3052-37ea-bbd0-0817aeb39add]
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession startSession
+INFO: Trying to contact remote agent ...
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionManager registerSession
+INFO: TODO - [ FINE ] [ SessionManager ] new session: fdt.agent.session.AgentSession@40b7e5c8 registered.
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession handleNewSessionResp
+INFO: Checking local data network interface: p3p1
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession handleNewSessionResp
+INFO: Local data network interface: p3p1 is UP.
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession handleNewSessionResp
+INFO: Checking remote data interface and requesting remote IP address pre-allocation...
+May 08, 2014 1:33:04 PM fdt.agent.session.AgentSession handleReserveIPResp
+INFO:
+
+ [ IPResponse ] Remote reserved IP: 10.54.32.5 Local IP: 10.51.64.5
+
+
+May 08, 2014 1:33:04 PM fdt.agent.session.CreateCircuitTask run
+INFO: [ CreateCircuitTask ] requesting circuit to IDC
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils configure
+INFO:
+
+ CreateRequestParams  srctagged true
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils configure
+INFO:
+
+ CreateRequestParams  dsttagged true
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils configure
+INFO:
+
+ CreateRequestParams  srctagged 2true
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils configure
+INFO:
+
+ CreateRequestParams  dsttagged 2true
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils parseTimes
+INFO: [parseTimes] duration passed endTime: 1399599184 now= 1399555984 end_time = +12:00
+May 08, 2014 1:33:04 PM fdt.agent.session.SessionUtils formRequest
+INFO:
+ [ formRequest ]
+
+ Reservation details Layer2
+
+
+src=urn:ogf:network:domain=caltech.edu:node=DynesOF4810:port=Te+0/0:link=*
+dst=urn:ogf:network:domain=oess.dcn.umnet.umich.edu:node=f10-dynes.oess.dcn.umnet.umich.edu:port=Te+0/20:link=*
+srcVlan=any
+src tagged=true
+dstVlan=any
+dst tagged=true
+ [ END form Request ]
+May 08, 2014 1:33:04 PM fdt.agent.session.CreateCircuitTask run
+INFO: Requesting circuit to OSCARS/IDC WebService interface. Reservation Parameters:
+
+gri=
+src=urn:ogf:network:domain=caltech.edu:node=DynesOF4810:port=Te+0/0:link=*
+dst=urn:ogf:network:domain=oess.dcn.umnet.umich.edu:node=f10-dynes.oess.dcn.umnet.umich.edu:port=Te+0/20:link=*
+pathSetupMode=timer-automatic
+srcVlan=any
+dstVlan=any
+srcTagged=true
+dstTagged=true
+layer=2
+bandwidth=100
+description=Dynes Circuit by FDTAgent with SessionID: 89bf64d2-3052-37ea-bbd0-0817aeb39add
+path=[]
+startTime=1399555984 (Thu May 08 13:33:04 GMT 2014)
+endTime=1399599184 (Fri May 09 01:33:04 GMT 2014)
+
+
+May 08, 2014 1:33:04 PM fdt.agent.session.CreateCircuitTask run
+INFO: The WebService request to OSCARS/IDC @ https://idc-v6.hep.caltech.edu:9001/OSCARS05 may take a few moments...
+
+May 08, 2014 1:33:05 PM fdt.agent.session.CreateCircuitTask run
+INFO:
+
+ --> OSCARS/IDC Global Reservation ID (GRI): caltech.edu-2335 <--
+
+
+May 08, 2014 1:33:05 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Polling IDC for reservation GRI: 'caltech.edu-2335'. First poll in 10 seconds. Deadline for circuit creation: 20 minutes
+May 08, 2014 1:33:20 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 54 seconds
+May 08, 2014 1:33:31 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 44 seconds
+May 08, 2014 1:33:42 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 33 seconds
+May 08, 2014 1:33:52 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 22 seconds
+May 08, 2014 1:34:03 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 12 seconds
+May 08, 2014 1:34:13 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 19 minutes 1 second
+May 08, 2014 1:34:24 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 18 minutes 50 seconds
+May 08, 2014 1:34:35 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 18 minutes 40 seconds
+May 08, 2014 1:34:45 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 18 minutes 29 seconds
+May 08, 2014 1:34:56 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 18 minutes 19 seconds
+May 08, 2014 1:35:07 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 18 minutes 8 seconds
+May 08, 2014 1:35:17 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 57 seconds
+May 08, 2014 1:35:28 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 47 seconds
+May 08, 2014 1:35:38 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 36 seconds
+May 08, 2014 1:35:49 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 26 seconds
+May 08, 2014 1:36:00 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 15 seconds
+May 08, 2014 1:36:10 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 17 minutes 4 seconds
+May 08, 2014 1:36:21 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 54 seconds
+May 08, 2014 1:36:31 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 43 seconds
+May 08, 2014 1:36:42 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 33 seconds
+May 08, 2014 1:36:52 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 22 seconds
+May 08, 2014 1:37:03 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 11 seconds
+May 08, 2014 1:37:14 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 16 minutes 1 second
+May 08, 2014 1:37:24 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 15 minutes 50 seconds
+May 08, 2014 1:37:35 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 15 minutes 40 seconds
+May 08, 2014 1:37:45 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 15 minutes 29 seconds
+May 08, 2014 1:37:56 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 15 minutes 18 seconds
+May 08, 2014 1:38:07 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 15 minutes 8 seconds
+May 08, 2014 1:38:17 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 57 seconds
+May 08, 2014 1:38:28 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 47 seconds
+May 08, 2014 1:38:38 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 36 seconds
+May 08, 2014 1:38:49 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 26 seconds
+May 08, 2014 1:38:59 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 15 seconds
+May 08, 2014 1:39:10 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 14 minutes 4 seconds
+May 08, 2014 1:39:21 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 54 seconds
+May 08, 2014 1:39:31 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 43 seconds
+May 08, 2014 1:39:42 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 33 seconds
+May 08, 2014 1:39:52 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 22 seconds
+May 08, 2014 1:40:03 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 12 seconds
+May 08, 2014 1:40:13 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 13 minutes 1 second
+May 08, 2014 1:40:24 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 12 minutes 50 seconds
+May 08, 2014 1:40:35 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 12 minutes 40 seconds
+May 08, 2014 1:40:45 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 12 minutes 29 seconds
+May 08, 2014 1:40:56 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 12 minutes 19 seconds
+May 08, 2014 1:41:06 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 12 minutes 8 seconds
+May 08, 2014 1:41:17 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 58 seconds
+May 08, 2014 1:41:28 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 47 seconds
+May 08, 2014 1:41:38 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 36 seconds
+May 08, 2014 1:41:49 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 26 seconds
+May 08, 2014 1:41:59 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 15 seconds
+May 08, 2014 1:42:10 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 11 minutes 5 seconds
+May 08, 2014 1:42:20 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 54 seconds
+May 08, 2014 1:42:31 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 44 seconds
+May 08, 2014 1:42:41 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 33 seconds
+May 08, 2014 1:42:52 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 22 seconds
+May 08, 2014 1:43:03 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 12 seconds
+May 08, 2014 1:43:13 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 10 minutes 1 second
+May 08, 2014 1:43:24 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 9 minutes 51 seconds
+May 08, 2014 1:43:34 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 9 minutes 40 seconds
+May 08, 2014 1:43:45 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 9 minutes 30 seconds
+May 08, 2014 1:43:55 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 9 minutes 19 seconds
+May 08, 2014 1:44:06 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 9 minutes 9 seconds
+May 08, 2014 1:44:17 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 58 seconds
+May 08, 2014 1:44:27 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 47 seconds
+May 08, 2014 1:44:38 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 37 seconds
+May 08, 2014 1:44:48 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 26 seconds
+May 08, 2014 1:44:59 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 16 seconds
+May 08, 2014 1:45:09 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 8 minutes 5 seconds
+May 08, 2014 1:45:20 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 54 seconds
+May 08, 2014 1:45:31 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 44 seconds
+May 08, 2014 1:45:41 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 33 seconds
+May 08, 2014 1:45:52 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 23 seconds
+May 08, 2014 1:46:02 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 12 seconds
+May 08, 2014 1:46:13 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 7 minutes 2 seconds
+May 08, 2014 1:46:24 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 6 minutes 51 seconds
+May 08, 2014 1:46:34 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 6 minutes 40 seconds
+May 08, 2014 1:46:45 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 6 minutes 30 seconds
+May 08, 2014 1:46:55 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 6 minutes 19 seconds
+May 08, 2014 1:47:06 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 6 minutes 9 seconds
+May 08, 2014 1:47:16 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 58 seconds
+May 08, 2014 1:47:27 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 48 seconds
+May 08, 2014 1:47:37 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 37 seconds
+May 08, 2014 1:47:48 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 27 seconds
+May 08, 2014 1:47:59 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 16 seconds
+May 08, 2014 1:48:09 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+INFO: Waiting for reservation caltech.edu-2335 -- Current OSCARS/IDC status: INPATHCALCULATION; Deadline in: 5 minutes 5 seconds
+May 08, 2014 1:48:14 PM fdt.agent.session.CreateCircuitTask waitForIDCCreate
+WARNING: Network circuit creation for reservation caltech.edu-2335 FAILED! -- Current IDC Status: FAILED; Deadline for circuit creation: 5 minutes 0 seconds
+May 08, 2014 1:48:14 PM fdt.agent.session.CreateCircuitTask run
+WARNING: OSCARS/IDC status 'FAILED' to be notified to agent session
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession circuitCreationFinished
+WARNING: Circuit creation failed. Shutting down the session. Circuit Status: FAILED
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: Shutdown AgentSession [AgentSessionID [id=89bf64d2-3052-37ea-bbd0-0817aeb39add]] finished with err: fdt.agent.FDTAgentException: 14001 : FAILED to create the circuit : Reservation caltech.edu-2335 FAILED -- Current OSCARS/IDC status: FAILED
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: AgentSession (AgentSessionID [id=89bf64d2-3052-37ea-bbd0-0817aeb39add]) finished with errors. Deatils:
+
+Cause:
+fdt.agent.FDTAgentException: fdt.agent.FDTAgentException: 14001 : FAILED to create the circuit : Reservation caltech.edu-2335 FAILED -- Current OSCARS/IDC status: FAILED
+	at fdt.agent.session.CreateCircuitTask.waitForIDCCreate(CreateCircuitTask.java:230)
+	at fdt.agent.session.CreateCircuitTask.run(CreateCircuitTask.java:462)
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:471)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:262)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:615)
+	at java.lang.Thread.run(Thread.java:744)
+
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO:  IP : 10.51.64.5 returned to pool
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO:
+ [ releaseLocalResources ] No virtual interface defined
+
+
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO: [AgentSession] [ releaseLocalResources ] START IDC circuit CANCELING
+May 08, 2014 1:48:14 PM fdt.agent.session.CancelCircuitTask run
+INFO: [ CancelCircuitTask ] Task started to cancel IDC circuit
+May 08, 2014 1:48:14 PM fdt.agent.session.CancelCircuitTask run
+INFO: [ CancelCircuitTask ] Circuit reservation FAILED - no cancel is needed ...
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession circuitCancelingFinished
+INFO: [ circuitCancelingFinished ] Circuit was canceled: caltech.edu-2335
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO: [AgentSession] releaseLocalResources FINISHED DT 0 seconds
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] shutting down remote session: AgentSessionID [id=89bf64d2-3052-37ea-bbd0-0817aeb39add]
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Detaching remote logger ...
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Notifying remote attached clients ...
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession detachClientSession
+INFO: Detaching ClientSession: ClientSessionID [id=d66bc022-7559-4fc6-b2de-4f95053d7625] from agentSession: AgentSessionID [id=89bf64d2-3052-37ea-bbd0-0817aeb39add] found in map =true; New total in map=0
+May 08, 2014 1:48:14 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Detaching session logger ...

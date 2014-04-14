@@ -1,0 +1,55 @@
+May 13, 2014 11:13:06 PM fdt.agent.session.AgentSession <init>
+INFO:
+
+[ AgentSession ] inited with:
+
+ localURNIdx 0
+ localAgentINFO: FDTAgentInfo [agentID=AgentID [id=a5e4baf9-5c96-3ab8-9b2b-2693b551a4b7], agentName=caltech, publicIP=131.215.207.71, serverPort=8885]
+ remoteURNIdx: 0
+ remoteAgentINFO: FDTAgentInfo [agentID=AgentID [id=0607a940-8d46-3da7-945d-61eb501df5bf], agentName=umich, publicIP=192.12.80.86, serverPort=8885]
+ saving state!
+
+May 13, 2014 11:13:06 PM fdt.agent.session.SessionManager registerSession
+INFO: TODO - [ FINE ] [ SessionManager ] new session: fdt.agent.session.AgentSession@18b35dc6 registered.
+May 13, 2014 11:13:07 PM fdt.agent.session.AgentSession handleReserveIPReq
+INFO:
+
+ [ IPRequest ] Remote reserved IP: 10.54.32.5 Local IP: 10.51.64.5
+
+
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession handleShutdownReq
+INFO: [handleShutdownReq] Remote SHUTDOWN request: SessionMsg [agentSessionID=AgentSessionID [id=10eb2aa5-99e0-31cf-9c31-2c33178db831], srcAgent=umich, dstAgent=caltech, exceptionCode=0, exceptionDescription=null, type=REQUEST, params=null] calling session shutdown
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: Shutdown AgentSession [AgentSessionID [id=10eb2aa5-99e0-31cf-9c31-2c33178db831]] finished with err: fdt.agent.FDTAgentException: 7006 : Remote agent error
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: AgentSession (AgentSessionID [id=10eb2aa5-99e0-31cf-9c31-2c33178db831]) finished with errors. Deatils:
+
+Cause:
+fdt.agent.FDTAgentException: fdt.agent.FDTAgentException: 7006 : Remote agent error
+	at fdt.agent.session.AgentSession.handleShutdownReq(AgentSession.java:2030)
+	at fdt.agent.session.AgentSession.handleRequest(AgentSession.java:1794)
+	at fdt.agent.session.AgentSession.notifyRemoteSessionMsg(AgentSession.java:2220)
+	at fdt.agent.session.SessionManager$SessionNotifierTask.run(SessionManager.java:60)
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:471)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:262)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:615)
+	at java.lang.Thread.run(Thread.java:744)
+
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO:  IP : 10.51.64.5 returned to pool
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO:
+ [ releaseLocalResources ] No virtual interface defined
+
+
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession releaseLocalResources
+INFO: [AgentSession] releaseLocalResources FINISHED DT 0 seconds
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] shutting down remote session: AgentSessionID [id=10eb2aa5-99e0-31cf-9c31-2c33178db831]
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Detaching remote logger ...
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Notifying remote attached clients ...
+May 13, 2014 11:13:44 PM fdt.agent.session.AgentSession shutdown
+INFO: [ Shutdown ] Detaching session logger ...
