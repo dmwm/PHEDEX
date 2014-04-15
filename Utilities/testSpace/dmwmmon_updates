@@ -1,0 +1,89 @@
+#!/usr/bin/env perl
+use strict;
+use Getopt::Long;
+use PHEDEX::CLI::UserAgent;
+use Data::Dumper;
+
+my ($response,$nodes,$method,$timeout,$node,$time_since,$time_until);
+my ($level,$temp,$pua,$target,%payload,$rootdir);
+my ($date, $debug, $quiet, $url);
+$timeout = 500;
+$url = 'https://cmsweb.cern.ch/dmwmmon/datasvc';
+
+sub usage {
+  print <<EOF;
+ storageusage_updates 
+   - prints out a list of nodes in dmwmmon database each with a date 
+     of the last storage usage record.
+
+ Options:
+   --url [url]   - override default datasvc server url: 
+                      $url
+   --quiet       - skip the nodes that have zero records 
+   --date        - print date YYYY-MM-DD instead of unix time format
+
+EOF
+  exit 0;
+}
+
+GetOptions(
+        'date|d'         => \$date,
+        'url=s'          => \$url,
+        'debug|g'          => \$debug,
+        'quiet|q'        => \$quiet,
+        'help|h'         => sub { &usage() }
+      );
+$pua = PHEDEX::CLI::UserAgent->new
+    (
+      URL      => $url ,
+      INSTANCE => '.' ,
+      FORMAT   => 'perl',
+      CA_DIR   => '/etc/grid-security/certificates',
+    );
+$pua->timeout($timeout) if $timeout;
+$pua->CALL('nodes'); # Defines DataSvc API
+print $pua->Dump() if $debug; 
+$target = $pua-> target; 
+print "DEBUG: now getting the nodes list \n" if $debug;
+%payload = {};
+$response = $pua->get($target, \%payload);
+print Dumper($response) if $debug;
+print  "\n";
+if ( $pua->response_ok($response) )# HTTP call returned correctly
+{
+  no strict 'vars';
+  $nodes = eval($response->content());
+  $nodes = $nodes->{PHEDEX}{NODE};
+  #print Data::Dumper->Dump([ $nodes ]) if $debug;
+  foreach ( @{$nodes} ) {    
+    $node=$_->{'NAME'};
+    #$node="T2_Test_Buffer"; # for debugging only, uncomment exit 1 below
+    # get last space usage record, reusing pua with a new payload:
+    $payload{node} = $node;
+    $pua->timeout($timeout) if $timeout;
+    $pua->CALL('storageusage');
+    $target = $pua->target;
+    print "DEBUG: now getting last record for $node\n" if $debug;    
+    $response = $pua->get($target, \%payload);
+    print Dumper($response) if $debug;
+    if ($pua->response_ok($response)){
+	$record = eval($response->content());
+	print Data::Dumper->Dump([ $record ]) if $debug;
+	$entry= $record->{PHEDEX}{NODES}[0];
+	$timestamp = $entry->{'TIMEBINS'}[0]->{'TIMESTAMP'};
+	if ($date) {
+	    my ($S,$M,$H,$d,$m,$Y) = localtime($timestamp);
+	    $m += 1;
+	    $Y += 1900;
+	    #my $dt = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $Y,$m,$d, $H,$M,$S);
+	    print sprintf("%s : %04d-%02d-%02d\n", $node, $Y,$m,$d);
+	}else{
+	    print "$node : $timestamp\n";
+	}
+    }else{
+	    print "$node : no records\n" unless $quiet;
+    }
+    #exit 1;
+  }
+  exit 0;
+}
