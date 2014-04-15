@@ -33,7 +33,8 @@ Makes deletion requests
 
 This API call takes POST'ed XML in the following format:
 
-   <dbs name="http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query">
+  <data version="2.0">
+   <dbs name="https://cmsweb.cern.ch/dbs/prod/global/DBSReader">
      <dataset name="/sample/dataset" is-open="y" is-transient="n">
        <block name="/sample/dataset#1" is-open="y">
          <file name="file1" bytes="10" checksum="cksum:1234"/>
@@ -48,6 +49,7 @@ This API call takes POST'ed XML in the following format:
        <block name="/sample/dataset2#2" is-open="n"/>
      </dataset>
    </dbs>
+  </data>
 
 =head3 Output
 

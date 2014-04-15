@@ -21,7 +21,7 @@ Admin mailing list:
   cms-phedex-admins@cern.ch
 
 Bug tracker:
-  https://savannah.cern.ch/bugs/?group=phedex
+  https://github.com/dmwm/PHEDEX/issues
 
 Discussion forum:
   https://hypernews.cern.ch/HyperNews/CMS/get/phedex.html
@@ -32,10 +32,8 @@ Discussion mailing list:
 Software repository:
   http://cmsrep.cern.ch/cmssw/cms
 
-Anonymous CVS:
-  export CVSROOT=:pserver:anonymous@cmscvs.cern.ch:/cvs_server/repositories/CMSSW 
-  cvs login   # for anonymous user: pwd='98passwd'
-  cvs co [-r VERSION_TAG] PHEDEX
+Anonymous clone:
+  git clone https://github.com/dmwm/PHEDEX.git
 
-Web CVS:
-  http://cmssw.cvs.cern.ch/cgi-bin/cmssw.cgi/COMP/PHEDEX/
+Web GitHub repository:
+  https://github.com/dmwm/PHEDEX
