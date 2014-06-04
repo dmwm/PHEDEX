@@ -129,9 +129,9 @@ sub job_queued
     $wheelid = $self->{_child}->run(@{$job->{CMD}});
   };
   if ( !$wheelid || $@ ) {
-    $self->Log('Component::Child::Run: WheelID is not defined') unless $wheelid;
-    $self->Log('Component::Child::Run: $@') if $@;
-    $self->Log( Data::Dumper->Dump([$job]));
+    $self->Logmsg('Component::Child::Run: WheelID is not defined') unless $wheelid;
+    $self->Logmsg('Component::Child::Run: $@') if $@;
+    $self->Logmsg( Data::Dumper->Dump([$job]));
     return;
   }
   $job->{PID} = $self->{_child}->wheel($wheelid)->PID;
