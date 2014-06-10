@@ -3,7 +3,8 @@ use strict;
 use Getopt::Long;
 use PHEDEX::CLI::UserAgent;
 use Data::Dumper;
-
+use File::Basename;
+my $me = basename($0);
 my ($response,$nodes,$method,$timeout,$node,$time_since,$time_until);
 my ($level,$temp,$pua,$target,%payload,$rootdir);
 my ($date, $debug, $quiet, $url);
@@ -12,7 +13,7 @@ $url = 'https://cmsweb.cern.ch/dmwmmon/datasvc';
 
 sub usage {
   print <<EOF;
- storageusage_updates 
+ $me :
    - prints out a list of nodes in dmwmmon database each with a date 
      of the last storage usage record.
 
