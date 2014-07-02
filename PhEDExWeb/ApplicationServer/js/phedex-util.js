@@ -302,10 +302,10 @@ PHEDEX.Util.UserAgent = function() {
 }
 
 PHEDEX.Util.DBSDefaults = {
-  prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+  prod:'https://cmsweb.cern.ch/dbs/prod/global/DBSReader',
   test:'LoadTest',
   debug:'LoadTest',
-  tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
+  tbedi:'https://cmsweb.cern.ch/dbs/prod/global/DBSReader',
   tbedii:'test',
   tony:'test'
 }

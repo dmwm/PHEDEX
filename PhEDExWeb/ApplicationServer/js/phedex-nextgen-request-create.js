@@ -1346,14 +1346,15 @@ PHEDEX.Nextgen.Request.Delete = function(_sbx,args) {
 
 // DBS
       this.dbs = {
-        instanceDefault:{
-          prod:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          test:'LoadTest',
-          debug:'LoadTest',
-          tbedi:'https://cmsdbsprod.cern.ch:8443/cms_dbs_prod_global_writer/servlet/DBSServlet',
-          tbedii:'test',
-          tony:'test'
-        },
+        instanceDefault: PHEDEX.Util.DBSDefaults,
+//        instanceDefault:{
+//          prod:'https://cmsweb.cern.ch/dbs/prod/global/DBSReader',
+//          test:'LoadTest',
+//          debug:'LoadTest',
+//          tbedi:'https://cmsweb.cern.ch/dbs/prod/global/DBSReader',
+//          tbedii:'test',
+//          tony:'test'
+//        },
         label:'DBS'
       };
       this.makeControlDBS(this.dbs,form);
