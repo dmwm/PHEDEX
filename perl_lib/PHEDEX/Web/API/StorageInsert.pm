@@ -86,7 +86,7 @@ sub storageinsert
 
   while ( ($k,$v) = each %args ) {
     #warn "dumping k ",Data::Dumper->Dump([ $k ]);
-    $k =~ m%^/[A-Za-z0-9_.\-/]*$% || return PHEDEX::Web::Util::http_error(400,'directory name not allowed');
+    $k =~ m%^/.*$% || return PHEDEX::Web::Util::http_error(400,'directory full pathname should start with slash');
     $v =~ m%^\d+$%              || return PHEDEX::Web::Util::http_error(400,'directory size not numerical');
   } 
 
