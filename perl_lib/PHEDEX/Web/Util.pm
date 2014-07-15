@@ -70,6 +70,7 @@ our %COMMON_VALIDATION =
 			 }
 			 return 1; },
  'pos_float'	=> qr|^\d+\.?\d*$|,
+ 'protocol'     => qr|^[A-Za-z][A-Za-z0-9]*$|,
  'int'          => qr/^-?\d+$/,
  'float'        => qr|^-?\d+\.?\d*$|,
  'hostname'	=> qr!^([a-zA-Z*%?][a-zA-Z0-9_.?*%]+|[%*])\.[a-zA-Z0-9_?%*]+\.[a-zA-Z0-9_?%*]+$!,
