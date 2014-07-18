@@ -11,7 +11,7 @@ case $context in
    ;; # ignore, only delete if we have a real error
   post )
    exec srm-advisory-delete -x509_user_proxy=${X509_USER_PROXY} -retry_num=0 "$pfn";
-   exit 255;;
+   # Check deletion status and exit here with non-zero if you want PhEDEx to retry the deletion.
   * ) echo "unrecognised context to remove $pfn: $context" 1>&2; exit 1;;
 esac
 
