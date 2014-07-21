@@ -50,9 +50,13 @@ sub senames {
     )
   };
   if ($@) {
-    return PHEDEX::Web::Util::http_error(400,'Blardghle! ' . $@);
+    return PHEDEX::Web::Util::http_error(400,$@);
   }
   $tfc = PHEDEX::Web::SQL::getTFC($core, %p);
+
+  # No TFC implies no node with the given name publishing one. Distinguish this case
+  if ( ! scalar(@{$tfc}) ) { return { 'senames' => undef }; }
+
   foreach ( @{$tfc} ) {
     if ( $_->{ELEMENT_NAME} eq 'lfn-to-pfn' ) {
       next if ( $p{PROTOCOL} && $p{PROTOCOL} ne $_->{PROTOCOL} );
@@ -67,6 +71,11 @@ sub senames {
     foreach $protocol ( keys %{$u{$sename}} ) {
       push @r, { protocol => $protocol, sename => $sename };
     }
+  }
+
+# No results for a given protocol is distinguished separately
+  if ( $p{PROTOCOL} && !scalar(@r) ) {
+    push @r, { protocol => $p{PROTOCOL}, sename => 'undef' };
   }
 
   return { 'senames' => \@r };
