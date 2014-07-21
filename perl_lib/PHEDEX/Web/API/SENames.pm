@@ -37,7 +37,7 @@ sub duration { return 15 * 60; }
 sub invoke { return senames(@_); }
 sub senames {
   my ($core,%h) = @_;
-  my (%p,$tfc,$r,$sename);
+  my (%p,$tfc,@r,%u,$sename,$protocol);
   eval {
     %p = &validate_params(\%h,
         uc_keys => 1,
@@ -60,11 +60,16 @@ sub senames {
       next unless $sename =~ m%^[A-Za-z0-9]+://([^/]+)%;
       $sename = $1;
       $sename =~ s%:\d+$%%;
-      push @{$r}, { protocol => $_->{PROTOCOL}, sename => $sename };
+      $u{$sename}{$_->{PROTOCOL}}++;
+    }
+  }
+  foreach $sename ( keys %u ) {
+    foreach $protocol ( keys %{$u{$sename}} ) {
+      push @r, { protocol => $protocol, sename => $sename };
     }
   }
 
-  return { 'senames' => $r };
+  return { 'senames' => \@r };
 }
 
 1;
