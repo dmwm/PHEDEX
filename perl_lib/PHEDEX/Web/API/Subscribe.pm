@@ -42,25 +42,7 @@ Makes and approves a transfer request, creating data subscriptions.
 
 =head2 Input
 
-This API call takes POST'ed XML in the following format:
-
-  <data version="2.0">
-   <dbs name="https://cmsweb.cern.ch/dbs/prod/global/DBSReader">
-     <dataset name="/sample/dataset" is-open="y" is-transient="n">
-       <block name="/sample/dataset#1" is-open="y">
-         <file name="file1" size="10" checksum="cksum:1234"/>
-         <file name="file2" size="22" checksum="cksum:456"/>
-       </block>
-       <block name="/sample/dataset#2" is-open="y">
-         <file name="file3" size="1" checksum="cksum:2"/>
-       </block>
-     </dataset>
-     <dataset name="/sample/dataset2" is-open="n" is-transient="n">
-       <block name="/sample/dataset2#1" is-open="n"/>
-       <block name="/sample/dataset2#2" is-open="n"/>
-     </dataset>
-   </dbs>
-  </data>
+This API call takes POST'ed XML in the same format as the 'Inject' API, check the documentation there for details.
 
 =head3 Output
 
