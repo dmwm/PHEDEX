@@ -17,7 +17,7 @@ our %params =
     	  CERT_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  KEY_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  CA_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
-	  CA_DIR	=> $ENV{X509_CERT_DIR},
+	  CA_DIR	=> $ENV{X509_CERT_DIR} || "/etc/grid-security/certificates",
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
 	  TIMEOUT	=> 5*60,
@@ -40,7 +40,7 @@ sub new
   my $self = $class->SUPER::new();
   map { $self->{$_} = $params{$_} } keys %params;
   my %h = @_;
-  map { $self->{$_} = $h{$_}  if exists($h{$_}) } keys %h;
+  map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
   bless $self, $class;
 
   $self->init();
