@@ -28,7 +28,7 @@ PHEDEX.Component.Subscribe = function(sandbox,args) {
             handler: 'dbsSelected'
           }
         },
-      defaultDBS = 'http://cmsdoc.cern.ch/cms/aprom/DBS/CGIServer/query',
+      defaultDBS = 'https://cmsweb.cern.ch/dbs/prod/global/DBSReader',
       _fieldSize = 60;
 
   if ( !args ) { args={}; }
