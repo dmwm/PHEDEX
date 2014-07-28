@@ -3184,6 +3184,7 @@ sub formatClientData
 sub getRequestData
 {
     my ($self, $rid) = @_;
+    $$self{DBH}->{LongReadLen} = 1_000_000;
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $data = {};
@@ -6661,7 +6662,8 @@ sub output
 		order by time_done desc
 	    };
 
-    my $max_log_length = $$self{DBH}->{LongReadLen};
+    my $max_log_length = 100_000;
+    $$self{DBH}->{LongReadLen} = $max_log_length;
     $$self{DBH}->{LongTruncOk} = 1;
 
     my $pager = new Web25::QueryPager;
