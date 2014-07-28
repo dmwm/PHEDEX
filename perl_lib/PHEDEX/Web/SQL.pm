@@ -909,12 +909,8 @@ sub getClientData
 sub getRequestData
 {
     my ($self, %h) = @_;
-
-    # save LongReadLen & LongTruncOk
-    my $LongReadLen = $$self{DBH}->{LongReadLen};
     my $LongTruncOk = $$self{DBH}->{LongTruncOk};
 
-    $$self{DBH}->{LongReadLen} = 10_000;
     $$self{DBH}->{LongTruncOk} = 1;
 
     # if $h{REQUEST} is specified, get its type from database
@@ -1152,11 +1148,7 @@ sub getRequestData
         push @r, $data;
     }
 
-    # restore LongReadLen & LongTruncOk
-
-    $$self{DBH}->{LongReadLen} = $LongReadLen;
     $$self{DBH}->{LongTruncOk} = $LongTruncOk;
-
     return \@r;
 }
 
@@ -1596,12 +1588,7 @@ sub getErrorLogSummary
 sub getErrorLog
 {
     my ($core, %h) = @_;
-
-    # save LongReadLen & LongTruncOk
-    my $LongReadLen = $$core{DBH}->{LongReadLen};
     my $LongTruncOk = $$core{DBH}->{LongTruncOk};
-
-    $$core{DBH}->{LongReadLen} = 10_000;
     $$core{DBH}->{LongTruncOk} = 1;
 
     # take care of FROM/FROM_NODE and TO/TO_NODE
@@ -1684,11 +1671,7 @@ sub getErrorLog
         push @r, $_;
     }
 
-    # restore LongReadLen & LongTruncOk
-
-    $$core{DBH}->{LongReadLen} = $LongReadLen;
     $$core{DBH}->{LongTruncOk} = $LongTruncOk;
-
     return \@r;
 }
 
@@ -2755,11 +2738,7 @@ sub getAgentLogs
 {
     my ($core, %h) = @_;
 
-    # save LongReadLen & LongTruncOk
-    my $LongReadLen = $$core{DBH}->{LongReadLen};
     my $LongTruncOk = $$core{DBH}->{LongTruncOk};
-
-    $$core{DBH}->{LongReadLen} = 10_000;
     $$core{DBH}->{LongTruncOk} = 1;
 
     my ($sql, $q, %p, @r);
@@ -2820,9 +2799,7 @@ sub getAgentLogs
         push @r, $_;
     }
 
-    $$core{DBH}->{LongReadLen} = $LongReadLen;
     $$core{DBH}->{LongTruncOk} = $LongTruncOk;
-
     return \@r;
 }
 

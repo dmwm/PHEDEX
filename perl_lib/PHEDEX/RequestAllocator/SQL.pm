@@ -148,7 +148,6 @@ sub getTransferRequests
       order by r.id
  };
 
-    $self->{DBH}->{LongReadLen} = 10_000;
     $self->{DBH}->{LongTruncOk} = 1;
 
     my $q = &dbexec($self->{DBH}, $sql, %p);
@@ -247,7 +246,6 @@ sub getDeleteRequests
       order by r.id
  };
 
-    $self->{DBH}->{LongReadLen} = 10_000;
     $self->{DBH}->{LongTruncOk} = 1;
 
     my $q = &dbexec($self->{DBH}, $sql, %p);
