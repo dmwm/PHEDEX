@@ -1,3 +1,37 @@
+Changes for 4.1.4
+
+Changes for all Agents / Tools
+ - Schema/OraclePrivs.sh
+allow update on certain fields to enable by-hand fixes for operators
+
+ - perl_lib/PHEDEX/Core/Config/Factory.pm
+LIMIT field correctly turned into an array ref if it was a string
+correct handling of limits when they have not yet been calculated
+
+ - perl_lib/PHEDEX/Core/JobManager.pm
+fix bug: use of $self->Log instead of $self->Logmsg
+
+Changes for Site Agents / Tools
+ - Custom/Template/FileDownloadDelete
+correct example for exit code
+
+ - Toolkit/LoadTest/LoadTestFileInfoToInjectXML
+Enable creation of LoadTestSource datasets for T1_*_Disk endpoints (#942)
+
+ - Utilities/StorageConsistencyCheck
+allow user to give site-name or node-name (#948)
+
+ - perl_lib/PHEDEX/File/Stager/Agent.pm
+fix reporting of stager command in case of failure
+
+Changes for Central Agents
+ - perl_lib/PHEDEX/BlockDelete/Agent.pm
+delete from _Disk when making moves elsewhere (#958, #931)
+
+ - perl_lib/PHEDEX/RequestAllocator/SQL.pm
+set LongReadLen to 1 million, not 10K
+
+
 Changes for 4.1.3
  - Initial release for SLC5 and SLC6. The SLC6 release is not supported yet,
 use at your own risk. File any bug-reports or issues at
