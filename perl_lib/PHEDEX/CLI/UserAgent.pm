@@ -2,7 +2,7 @@ package PHEDEX::CLI::UserAgent;
 
 use strict;
 use warnings;
-use base 'LWP::UserAgent';
+use base 'LWP::UserAgent', "PHEDEX::Core::Logging";
 use PHEDEX::Core::Timing;
 use Data::Dumper;
 use Getopt::Long;
@@ -179,6 +179,17 @@ sub get
   }
   if ( $args ) { $url .= '?' . $args; }
   my $response = $self->SUPER::get($url,%{$headers});
+}
+
+sub get_auth_options
+{
+  Getopt::Long::Configure('pass_through');
+  my $optname;
+  foreach ('CA_DIR', 'KEY_FILE', 'CERT_FILE', 'CA_FILE')
+  {
+    $optname = lc $_ ;
+    GetOptions ( $optname . "=s" => \$params{$_});
+  }
 }
 
 1;
