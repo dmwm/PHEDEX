@@ -2,7 +2,7 @@ package PHEDEX::CLI::UserAgent;
 
 use strict;
 use warnings;
-use base 'LWP::UserAgent';
+use base 'LWP::UserAgent', "PHEDEX::Core::Logging";
 use PHEDEX::Core::Timing;
 use Data::Dumper;
 use Getopt::Long;
@@ -17,7 +17,7 @@ our %params =
     	  CERT_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  KEY_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  CA_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
-	  CA_DIR	=> $ENV{X509_CERT_DIR},
+	  CA_DIR	=> $ENV{X509_CERT_DIR} || "/etc/grid-security/certificates",
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
 	  TIMEOUT	=> 5*60,
@@ -40,7 +40,7 @@ sub new
   my $self = $class->SUPER::new();
   map { $self->{$_} = $params{$_} } keys %params;
   my %h = @_;
-  map { $self->{$_} = $h{$_}  if exists($h{$_}) } keys %h;
+  map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
   bless $self, $class;
 
   $self->init();
@@ -179,6 +179,17 @@ sub get
   }
   if ( $args ) { $url .= '?' . $args; }
   my $response = $self->SUPER::get($url,%{$headers});
+}
+
+sub get_auth_options
+{
+  Getopt::Long::Configure('pass_through');
+  my $optname;
+  foreach ('CA_DIR', 'KEY_FILE', 'CERT_FILE', 'CA_FILE')
+  {
+    $optname = lc $_ ;
+    GetOptions ( $optname . "=s" => \$params{$_});
+  }
 }
 
 1;
