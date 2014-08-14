@@ -10,6 +10,7 @@ use Time::Local;
 use Time::localtime;
 use File::Basename;
 use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
+use DMWMMON::StorageAccounting::Core ( qw /openDump/ );
 
 # Note the structure: instead of the value being a variable that will hold
 # the parsed value, we provide the default. Later, when the user wants to
@@ -95,25 +96,6 @@ sub createRecord {
   }
   print "total number of records: $count\n";
   return \%payload;
-}
-
-
-sub openDump {
-  my $dumpfile = shift;
-  my $filebasename = $dumpfile;
-  my $fh;
-  if ( $dumpfile =~ m%.gz$% ) {
-      $filebasename = substr($dumpfile, 0, -3) . "\n";
-      open $fh , "cat $dumpfile | gzip -d - |" or die "open: $dumpfile: $!\n"; 
-  } elsif ( $dumpfile =~ m%.bz2$% ) { 
-      $filebasename = substr($dumpfile, 0, -4) . "\n";
-      open $fh, "cat $dumpfile | bzip2 -d - |" or die "open: $dumpfile: $!\n";
-  } else { 
-      open $fh, "<$dumpfile" or die "open: $dumpfile: $!\n";
-  }
-
-  if ( eof $fh ){die "ERROR processing input in $dumpfile no data found\n"}
-  return $fh;
 }
 
 sub doEverything {
