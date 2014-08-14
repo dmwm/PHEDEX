@@ -97,6 +97,25 @@ sub createRecord {
   return \%payload;
 }
 
+
+sub openDump {
+  my $dumpfile = shift;
+  my $filebasename = $dumpfile;
+  my $fh;
+  if ( $dumpfile =~ m%.gz$% ) {
+      $filebasename = substr($dumpfile, 0, -3) . "\n";
+      open $fh , "cat $dumpfile | gzip -d - |" or die "open: $dumpfile: $!\n"; 
+  } elsif ( $dumpfile =~ m%.bz2$% ) { 
+      $filebasename = substr($dumpfile, 0, -4) . "\n";
+      open $fh, "cat $dumpfile | bzip2 -d - |" or die "open: $dumpfile: $!\n";
+  } else { 
+      open $fh, "<$dumpfile" or die "open: $dumpfile: $!\n";
+  }
+
+  if ( eof $fh ){die "ERROR processing input in $dumpfile no data found\n"}
+  return $fh;
+}
+
 sub doEverything {
   my ($ns, $dumpfile, $lookupFileSize, $lookupTimeStamp) = @_;
   my $timestamp   = -1; # invalid
@@ -107,19 +126,9 @@ sub doEverything {
   my %dirsizes    = ();
   # we search for this directory and count levels starting from the depth where it is found:
   my $pattern = "/store/";
-  my $filebasename = $dumpfile;
-  if ( $dumpfile =~ m%.gz$% ) { 	
-      $filebasename = substr($dumpfile, 0, -3) . "\n";
-      open DUMP, "cat $dumpfile | gzip -d - |" or die "Could not open: $dumpfile\n"; 
-  } elsif ( $dumpfile =~ m%.bz2$% ) { 
-      $filebasename = substr($dumpfile, 0, -4) . "\n";
-      open DUMP, "cat $dumpfile | bzip2 -cd - |" or die "Could not open: $dumpfile\n"; 
-  } else { 
-      open(DUMP, "cat $dumpfile |") or die  "Could not open: $dumpfile\n" 
-  }
-
   my ($line,$time,$size,$file);
-  while ($line = <DUMP>) { 
+  my $dump = openDump($dumpfile);
+  while ($line = <$dump>) { 
       ($file, $size) = $lookupFileSize->($line);
       if ($file) {
 	  $totalfiles++;
@@ -131,7 +140,7 @@ sub doEverything {
 	  if ($time) {$timestamp=convertToUnixTime($time)};
       }
   }
-  close DUMP;
+  close $dump;
   $totaldirs = keys %dirsizes;
   if ($ns->{VERBOSE}) {
     print "total files: ", $totalfiles,"\n";
