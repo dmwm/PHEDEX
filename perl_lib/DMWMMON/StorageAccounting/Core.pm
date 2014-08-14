@@ -1,6 +1,6 @@
 package DMWMMON::StorageAccounting::Core;
 our @ISA = qw(Exporter);
-our @EXPORT = qw (uploadRecord);
+our @EXPORT = qw (uploadRecord openDump);
 
 use Time::Local;
 use Time::localtime;
@@ -17,6 +17,23 @@ our %options = (
 		);
 
 PHEDEX::Namespace::Common::setCommonOptions( \%options );
+
+sub openDump {
+  my $dumpfile = shift;
+  my $filebasename = $dumpfile;
+  my $fh;
+  if ( $dumpfile =~ m%.gz$% ) {
+      $filebasename = substr($dumpfile, 0, -3) . "\n";
+      open $fh , "cat $dumpfile | gzip -d - |" or die "open: $dumpfile: $!\n"; 
+  } elsif ( $dumpfile =~ m%.bz2$% ) { 
+      $filebasename = substr($dumpfile, 0, -4) . "\n";
+      open $fh, "cat $dumpfile | bzip2 -d - |" or die "open: $dumpfile: $!\n";
+  } else { 
+      open $fh, "<$dumpfile" or die "open: $dumpfile: $!\n";
+  }
+  if ( eof $fh ){die "ERROR processing input in $dumpfile no data found\n"}
+  return $fh;
+}
 
 sub uploadRecord{
   # Code from Utilities/testSpace/spaceInsert   <<<

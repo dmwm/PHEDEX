@@ -10,6 +10,7 @@ use Time::Local;
 use Time::localtime;
 use File::Basename;
 use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
+use DMWMMON::StorageAccounting::Core ( qw /openDump/ );
 
 # Note the structure: instead of the value being a variable that will hold
 # the parsed value, we provide the default. Later, when the user wants to
@@ -107,19 +108,9 @@ sub doEverything {
   my %dirsizes    = ();
   # we search for this directory and count levels starting from the depth where it is found:
   my $pattern = "/store/";
-  my $filebasename = $dumpfile;
-  if ( $dumpfile =~ m%.gz$% ) { 	
-      $filebasename = substr($dumpfile, 0, -3) . "\n";
-      open DUMP, "cat $dumpfile | gzip -d - |" or die "Could not open: $dumpfile\n"; 
-  } elsif ( $dumpfile =~ m%.bz2$% ) { 
-      $filebasename = substr($dumpfile, 0, -4) . "\n";
-      open DUMP, "cat $dumpfile | bzip2 -cd - |" or die "Could not open: $dumpfile\n"; 
-  } else { 
-      open(DUMP, "cat $dumpfile |") or die  "Could not open: $dumpfile\n" 
-  }
-
   my ($line,$time,$size,$file);
-  while ($line = <DUMP>) { 
+  my $dump = openDump($dumpfile);
+  while ($line = <$dump>) { 
       ($file, $size) = $lookupFileSize->($line);
       if ($file) {
 	  $totalfiles++;
@@ -131,7 +122,7 @@ sub doEverything {
 	  if ($time) {$timestamp=convertToUnixTime($time)};
       }
   }
-  close DUMP;
+  close $dump;
   $totaldirs = keys %dirsizes;
   if ($ns->{VERBOSE}) {
     print "total files: ", $totalfiles,"\n";
