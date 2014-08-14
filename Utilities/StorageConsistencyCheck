@@ -56,7 +56,7 @@ my ($dbh);
 my ($injected,$verbose,$debug,$terse);
 my (%h,$conn);
 my ($DBCONFIG,%lfn);
-my ($lfnlist,$node_name);
+my ($lfnlist,$node_name,$se_name);
 my $debug_me = 1;
 
 $verbose = $debug = $terse = 0;
@@ -146,8 +146,9 @@ if ( $injected ){
   }
 }
 else {
-  if ( $se_name ) { my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $se_name ); }
-  else { my $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name ); }
+  my $tmp;
+  if ( $se_name ) { $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $se_name ); }
+  else { $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name ); }
 
   foreach ( @{$tmp} )
   {
