@@ -2,13 +2,13 @@
 use strict;
 use warnings;
 use Getopt::Long qw /:config pass_through require_order /;
-#use PHEDEX::Core::DB;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
 use Data::Dumper;
 use PHEDEX::Namespace::SpaceCountCommon ( ) ;
 use DMWMMON::StorageAccounting::Core;
+use PHEDEX::CLI::UserAgent;
 
 my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
@@ -44,6 +44,7 @@ Options and arguments:
    --force        - overwrite existing entry with the same timestamp,
                     by default this would fail
 EOF
+  &PHEDEX::CLI::UserAgent::auth_usage();
   exit 0;
 }
 
@@ -57,6 +58,7 @@ GetOptions(
            "help|h"         => sub { &usage() }
 	  );
 
+&PHEDEX::CLI::UserAgent::auth_getoptions();
 $interface = shift;
 die "WARNING: INTERFACE argument must be specified\n" unless $interface;
 

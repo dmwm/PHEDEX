@@ -181,7 +181,7 @@ sub get
   my $response = $self->SUPER::get($url,%{$headers});
 }
 
-sub get_auth_options
+sub auth_getoptions
 {
   Getopt::Long::Configure('pass_through');
   my $optname;
@@ -190,6 +190,20 @@ sub get_auth_options
     $optname = lc $_ ;
     GetOptions ( $optname . "=s" => \$params{$_});
   }
+}
+
+sub auth_usage
+{
+  print <<EOF;
+
+User authentication options: 
+   --cert_file and --key_file are used to define user certificate. 
+   These options must be set together, they may also point to the 
+   user certificate proxy file. 
+
+   --ca_file and --ca_dir specify locations for the certificate 
+   authority.
+EOF
 }
 
 1;
