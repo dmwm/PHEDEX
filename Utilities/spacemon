@@ -1,0 +1,46 @@
+#!/usr/bin/env perl
+#
+# spacemon - client side utility for CMS Space Monitoring
+# 
+# Intended functionality: 
+#  * Parces and aggregates storage dump file 
+#  * Creates a record object for space monitoring 
+#  * Downloads TFC and CMS namespace conventions
+#  * Maps directories to CMS data types 
+#  * Uploads record to dmwmmon database, or saves to a local file
+#
+#
+# See project page for details:
+#            https://twiki.cern.ch/twiki/bin/view/CMSPublic/CompProjSpaceMon
+#
+############################################################################
+
+use strict;
+use warnings;
+use DMWMMON::SpaceMon::Core; 
+use Getopt::Long;
+
+GetOptions ( 'help|h' => sub { &usage });
+
+sub usage
+{ 
+    my $ver = DMWMMON::SpaceMon::Core::version();
+    print <<EOF;
+  spacemon-collector - client side utility for CMS Space Monitoring. 
+  Version:  $ver    
+	
+      Usage:    
+	spacemon-collector [-help|-h] 
+	spacemon-collector [OPTIONS] DUMP
+
+EOF
+;
+    openDumpUsage('DUMP');
+    exit 0;
+}
+
+my $dumpfile = shift;
+
+my $dump = openDump($dumpfile);
+sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
+sub lookupTimeStampTxt{$_=shift; my @ar= split /\./; return $ar[-2]} # pass filename as argument
