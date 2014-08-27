@@ -19,19 +19,26 @@ use strict;
 use warnings;
 use DMWMMON::SpaceMon::Core; 
 use Getopt::Long;
+use File::Basename;
+my $me = basename($0);
 
-GetOptions ( 'help|h' => sub { &usage });
+GetOptions ( 'help|h' => sub { &usage },
+	     'version'=> sub { print "$me version: " . 
+				   DMWMMON::SpaceMon::Core::version()."\n";
+			       exit;}
+	     );
 
 sub usage
 { 
     my $ver = DMWMMON::SpaceMon::Core::version();
     print <<EOF;
-  spacemon-collector - client side utility for CMS Space Monitoring. 
+  $me - client side utility for CMS Space Monitoring. 
   Version:  $ver    
 	
       Usage:    
-	spacemon-collector [-help|-h] 
-	spacemon-collector [OPTIONS] DUMP
+	$me [--help|-h] 
+	$me --version
+	$me [OPTIONS] DUMP
 
 EOF
 ;
