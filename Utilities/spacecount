@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Getopt::Long qw /:config pass_through require_order /;
+#use Getopt::Long qw /:config pass_through /;
 use PHEDEX::Core::Loader;
 use PHEDEX::Core::Catalogue;
 use PHEDEX::Core::Util ( qw / str_hash / );
@@ -14,6 +15,14 @@ my ($loader,$module,$interface,$ns);
 my ($verbose,$debug,$terse);
 my (@entries,$lfnlist,$pfnlist,$input,$catalogue,$result,$command);
 my ($node);
+
+sub process { 
+    print "NRDEBUG in sub process with sub arguments: " ;
+    print Dumper (@_);
+    print "AND ARGV:";
+    print Dumper (@ARGV);
+}
+
 sub usage
 {
   my $default_url= $PHEDEX::Namespace::SpaceCountCommon::options{"url=s"};
@@ -48,20 +57,32 @@ EOF
   exit 0;
 }
 
+# Get list of available interfaces for help printout :
 $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
+
+
+# Always require "Interface" as the first argument, except for help option.
+
+if ((@ARGV < 1 ) || ($ARGV[0] =~ '^-.*')) {
+  GetOptions("help|h" => sub {&usage()},  '<>' => \&process); # prints help and exits
+  die "ERROR: first argument must be an INTERFACE, or -help|-h option for usage help\n";
+}
+$interface = shift;
+
+# Check if interface is supported: 
+unless (grep ( /$interface\/spacecount/, grep (/\/spacecount/,sort keys %{$loader->Commands})))
+{
+    die "ERROR: interface \"$interface\" is not supported\n";
+}
 
 GetOptions(
            "node=s"  => \$node,
            "verbose|v+"     => \$verbose,
            "debug+"         => \$debug,
-           "help|h"         => sub { &usage() }
 	  );
 
 &PHEDEX::CLI::UserAgent::auth_getoptions();
-$interface = shift;
-die "WARNING: INTERFACE argument must be specified\n" unless $interface;
-
 $module = $loader->Load($interface);
 $ns = $module->new();
 $ns-> {NOCACHE} = 1;  # does it really work? 
