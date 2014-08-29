@@ -61,6 +61,7 @@ EOF
 $loader = PHEDEX::Core::Loader->new( NAMESPACE => 'PHEDEX::Namespace',
 				     REJECT    => [ qw / common namespace / ] );
 
+GetOptions("deps|d" => sub {print Dumper(%INC); exit;}); # print dependencies and exit
 
 # Always require "Interface" as the first argument, except for help option.
 
