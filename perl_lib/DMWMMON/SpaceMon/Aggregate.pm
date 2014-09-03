@@ -7,6 +7,7 @@ sub new
 {
 my $proto = shift;
 my $class = ref($proto) || $proto;
+my $self = {};
 my %params = (
 	      DEBUG => 1,
 	      VERBOSE => 1,

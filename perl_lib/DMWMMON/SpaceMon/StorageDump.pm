@@ -11,13 +11,12 @@ my $self = {};
 my %params = (
 	      DEBUG => 1,
 	      VERBOSE => 1,
+	      DUMPFILE => undef,
 );
 my %args = (@_);
-map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
 print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
 bless $self, $class;
-# FR: validate record parameters
-
 return $self;
 }
 
