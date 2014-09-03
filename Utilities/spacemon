@@ -31,7 +31,9 @@ use DMWMMON::SpaceMon::Core;
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
 my ($upload, $save, $debug, $verbose);
-$upload = $save = $debug = $verbose = 0;
+#$debug = $verbose = 0; # use these to override class defaults. 
+
+my ($dump, $parser);
 
 sub vPrint{
     my $text = shift;
@@ -75,16 +77,18 @@ if (defined $dumpfile ) {
     die "$argname is not specified. See $me --help for usage help";
 }
 
-if ( $dumpfile =~ /txt$/) {
-    use DMWMMON::SpaceMon::StorageDumpTXT;
-    vPrint "detected txt in file name: handle as  TXT format";
-    my $dump = DMWMMON::SpaceMon::StorageDumpTXT-> new($dumpfile);
-    
-}elsif ( $dumpfile =~ /xml$/){
-    use DMWMMON::SpaceMon::StorageDumpXML;
-    vPrint "detected xml in file name: handle as  XML format";
-    my $dump = DMWMMON::SpaceMon::StorageDumpXML-> new($dumpfile);
-}else{
-    croak "Unrecognized file name: $dumpfile\nSupported formats: *.txt, *.xml.\n";
-}
+use DMWMMON::SpaceMon::StorageDump;
+vPrint "detected txt in file name: handle as  TXT format";
+$dump = DMWMMON::SpaceMon::StorageDump->new(
+					    DEBUG => $debug,
+					    VERBOSE => $verbose,
+					    DUMPFILE => $dumpfile,
+					    );
+print $dump->Dump();
 
+$parser =  DMWMMON::SpaceMon::StorageDump->new(
+					    DEBUG => $debug,
+					    VERBOSE => $verbose,
+					    DUMPFILE => $dump,
+					    );
+print $parser->Dump();
