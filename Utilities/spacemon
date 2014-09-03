@@ -8,7 +8,7 @@
 #  * Downloads TFC and CMS namespace conventions
 #  * Maps directories to CMS data types 
 #  * Uploads record to dmwmmon database, or saves to a local file
-#
+#    (default: print to stdout)
 #
 # See project page for details:
 #            https://twiki.cern.ch/twiki/bin/view/CMSPublic/CompProjSpaceMon
@@ -17,15 +17,37 @@
 
 use strict;
 use warnings;
-use DMWMMON::SpaceMon::Core; 
-use Getopt::Long;
+use Carp;
+use Data::Dumper;
 use File::Basename;
+use Getopt::Long qw /:config pass_through /;
+
+
+use DMWMMON::SpaceMon::StorageDumpTXT;
+use DMWMMON::SpaceMon::Aggregate;
+use DMWMMON::SpaceMon::RecordIO;
+use DMWMMON::SpaceMon::Core;
+
 my $me = basename($0);
+my $argname='STORAGE_DUMP';
+my ($upload, $save, $debug, $verbose);
+$upload = $save = $debug = $verbose = 0;
+
+sub vPrint{
+    my $text = shift;
+    $verbose && print "$me: " . $text . "\n"; 
+}
+
+GetOptions("deps|d" => sub {print Dumper(%INC); exit;}); # print dependencies and exit
 
 GetOptions ( 'help|h' => sub { &usage },
 	     'version'=> sub { print "$me version: " . 
 				   DMWMMON::SpaceMon::Core::version()."\n";
-			       exit;}
+			       exit;},
+	     'upload-record' => \$upload,
+	     'save-record'   => \$save,
+	     'debug!' => \$debug,  # enables --nodebug option
+	     'verbose!' => \$verbose,
 	     );
 
 sub usage
@@ -36,18 +58,33 @@ sub usage
   Version:  $ver    
 	
       Usage:    
-	$me [--help|-h] 
+	$me --help|-h
 	$me --version
-	$me [OPTIONS] DUMP
-
+	$me [OPTIONS] $argname
 EOF
 ;
-    openDumpUsage('DUMP');
+    openDumpUsage($argname);
     exit 0;
 }
 
 my $dumpfile = shift;
 
-my $dump = openDump($dumpfile);
-sub lookupTimeStampXml{$_=shift; if (m/<dump recorded=\"(\S+)\">/) {return ($1)} else {return 0}}
-sub lookupTimeStampTxt{$_=shift; my @ar= split /\./; return $ar[-2]} # pass filename as argument
+if (defined $dumpfile ) {
+    vPrint("processing $argname = $dumpfile");
+}else{
+    die "$argname is not specified. See $me --help for usage help";
+}
+
+if ( $dumpfile =~ /txt$/) {
+    use DMWMMON::SpaceMon::StorageDumpTXT;
+    vPrint "detected txt in file name: handle as  TXT format";
+    my $dump = DMWMMON::SpaceMon::StorageDumpTXT-> new($dumpfile);
+    
+}elsif ( $dumpfile =~ /xml$/){
+    use DMWMMON::SpaceMon::StorageDumpXML;
+    vPrint "detected xml in file name: handle as  XML format";
+    my $dump = DMWMMON::SpaceMon::StorageDumpXML-> new($dumpfile);
+}else{
+    croak "Unrecognized file name: $dumpfile\nSupported formats: *.txt, *.xml.\n";
+}
+
