@@ -23,3 +23,7 @@ Class Aggregate (algorithm):
 spacemon
  - read storage dump, creates Record, and uploads to cerntral DB/local file. 
 
+Core (module):
+ - provides package version info 
+ - common options???
+
