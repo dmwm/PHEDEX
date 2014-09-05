@@ -21,6 +21,6 @@ bless $self, $class;
 return $self;
 }
 
-sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
+sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 1;

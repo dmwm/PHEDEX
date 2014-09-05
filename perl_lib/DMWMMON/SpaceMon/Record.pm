@@ -19,11 +19,19 @@ my %args = (@_);
 map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
 print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
 bless $self, $class;
-# FR: validate record parameters
-
 return $self;
 }
 
-sub Dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
+sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
+
+sub matches 
+{
+    my $self = shift;
+    my $replica = shift;
+    # assume they match:
+    return 1;
+}
+
+
 
 1;

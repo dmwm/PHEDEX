@@ -84,11 +84,32 @@ $dump = DMWMMON::SpaceMon::StorageDump->new(
 					    VERBOSE => $verbose,
 					    DUMPFILE => $dumpfile,
 					    );
-print $dump->Dump();
+$verbose && print $dump->dump();
+$verbose && print "VALIDATING DUMP $dumpfile\n";
+$dump->validate();
 
-$parser =  DMWMMON::SpaceMon::StorageDump->new(
-					    DEBUG => $debug,
-					    VERBOSE => $verbose,
-					    DUMPFILE => $dump,
-					    );
-print $parser->Dump();
+$parser =  DMWMMON::SpaceMon::Aggregate->new(
+					     DEBUG => $debug,
+					     VERBOSE => $verbose,
+					     );
+
+$verbose && print $parser->dump();
+
+my $record = $parser->createRecord($dump);
+$verbose && print $record->dump();
+
+my $rio = DMWMMON::SpaceMon::RecordIO->new(
+					   DEBUG => $debug,
+					   VERBOSE => $verbose,
+					   );
+my $tmprecfile='/tmp/record.save-in-file-test';
+
+$rio->writeToFile($record, $tmprecfile);
+
+my $rec_from_file = $rio->readFromFile($tmprecfile);
+
+$verbose && print $rec_from_file->dump();
+
+$rio->upload($record) if ($rec_from_file->matches($record));
+
+$rio->show($record);
