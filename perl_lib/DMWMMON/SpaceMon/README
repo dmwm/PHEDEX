@@ -27,3 +27,19 @@ Core (module):
  - provides package version info 
  - common options???
 
+
+
+##########
+
+Debug and Verbose guidelines:
+
+- with noverbose and nodebug options no output should be produced, except for errors/warnings
+- verbose ON should print out workflow info to give an idea of what it is doing, especially for operations that may require long time, intended for users running in interactive mode
+- debug ON should dump the objects information and anything else useful for development.
+
+
+All object related output must come from the class methods.
+
+Unrecognized options should be reported: 
+ - GetOpts is called multiple times to filter out various API specific options
+ - we may need to run it again at the end re-configured for strict output
