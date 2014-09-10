@@ -23,17 +23,17 @@ use File::Basename;
 use Getopt::Long qw /:config pass_through /;
 
 
-use DMWMMON::SpaceMon::StorageDumpTXT;
+use DMWMMON::SpaceMon::Core;
+use DMWMMON::SpaceMon::StorageDump;
 use DMWMMON::SpaceMon::Aggregate;
 use DMWMMON::SpaceMon::RecordIO;
-use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
 my ($upload, $save, $debug, $verbose);
 #$debug = $verbose = 0; # use these to override class defaults. 
 
-my ($dump, $parser);
+my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file);
 
 sub vPrint{
     my $text = shift;
@@ -69,44 +69,37 @@ EOF
     exit 0;
 }
 
-my $dumpfile = shift;
+$input = shift;
 
-if (defined $dumpfile ) {
-    vPrint("processing $argname = $dumpfile");
-}else{
-    die "$argname is not specified. See $me --help for usage help";
-}
+$dumpfile = DMWMMON::SpaceMon::StorageDump->new(
+						DEBUG => $debug,
+						VERBOSE => $verbose,
+						DUMPFILE => $input,
+						);
 
-use DMWMMON::SpaceMon::StorageDump;
-vPrint "detected txt in file name: handle as  TXT format";
-$dump = DMWMMON::SpaceMon::StorageDump->new(
-					    DEBUG => $debug,
-					    VERBOSE => $verbose,
-					    DUMPFILE => $dumpfile,
-					    );
-$verbose && print $dump->dump();
-$verbose && print "VALIDATING DUMP $dumpfile\n";
-$dump->validate();
+#print $dumpfile->dump();
+#my $fh = $dumpfile->openDump();
+#while ( <$fh> ) { print $_; }
+#croak "stop here";
 
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     DEBUG => $debug,
 					     VERBOSE => $verbose,
 					     );
 
-$verbose && print $parser->dump();
 
-my $record = $parser->createRecord($dump);
-$verbose && print $record->dump();
+$record = $parser->createRecord($dumpfile);
 
-my $rio = DMWMMON::SpaceMon::RecordIO->new(
-					   DEBUG => $debug,
-					   VERBOSE => $verbose,
-					   );
-my $tmprecfile='/tmp/record.save-in-file-test';
+$rio = DMWMMON::SpaceMon::RecordIO->new(
+					DEBUG => $debug,
+					VERBOSE => $verbose,
+					);
 
-$rio->writeToFile($record, $tmprecfile);
+$tmp_rec_file='/tmp/record.save-in-file-test';
 
-my $rec_from_file = $rio->readFromFile($tmprecfile);
+$rio->writeToFile($record, $tmp_rec_file);
+
+$rec_from_file = $rio->readFromFile($tmp_rec_file);
 
 $verbose && print $rec_from_file->dump();
 

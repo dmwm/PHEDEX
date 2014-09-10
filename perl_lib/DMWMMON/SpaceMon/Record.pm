@@ -17,7 +17,6 @@ my %params = (
 );
 my %args = (@_);
 map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
-print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
 bless $self, $class;
 return $self;
 }
@@ -31,7 +30,5 @@ sub matches
     # assume they match:
     return 1;
 }
-
-
 
 1;

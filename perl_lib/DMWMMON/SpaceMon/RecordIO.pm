@@ -27,7 +27,7 @@ sub readFromFile
 {
     my $self = shift;
     my ($file,) = (@_);
-    print "(dummy) Reading data from file: $file\n";
+    print "RecordIO reading from file: $file\n";
     return DMWMMON::SpaceMon::Record->new();
     
 }
@@ -36,7 +36,8 @@ sub writeToFile
     my $self = shift;
     my ($what, $where) = (@_);
     print "I am in ",__PACKAGE__,"->writeToFile()\n" if $self->{VERBOSE};
-    print "(dummy) Writing to file $where:\n", $what->dump();
+    print "RecordIO writing to file: $where\n";
+    $self->{VERBOSE} && print "Wrote a record:", $what->dump();
 }
 
 sub upload
