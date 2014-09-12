@@ -1,6 +1,7 @@
 package DMWMMON::SpaceMon::StorageDump;
 use strict;
 use warnings;
+use Carp;
 use File::Basename;
 use Data::Dumper;
 
@@ -26,6 +27,7 @@ sub new
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     validate($self);
     $self->{TIMESTAMP} = lookupTimeStamp($self);
+    &openDump($self);
     bless $self, $class;
     return $self;
 }
@@ -61,9 +63,24 @@ sub openDump {
     print "I am in ",__PACKAGE__,"->openDump()\n" if $self->{VERBOSE};
     my $fullname = $self -> {DUMPFILE};
     my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
-    open ( my $fh, "cat $fullname $extractor{$suffix} |" ) or die "open: $fullname: $!\n";
+    open ( my $fh, ($suffix) ? "cat $fullname $extractor{$suffix} |" : "<$fullname")
+	or die "open: $fullname: $!\n";
     if ( eof $fh ){die "ERROR processing storage dump in $fullname: no data found\n"}
     $self->{FH} = $fh;
+}
+
+# Reads first line or N lines, if N is passed as an argument:
+sub readDumpHead {
+    my $self = shift;
+    my $n = (@_) ? shift : 1;
+    print "I am in ",__PACKAGE__,"->readDumpHead($n)\n" if $self->{VERBOSE};
+    my $fullname = $self -> {DUMPFILE};
+    my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
+    open ( HEAD, ($suffix) ? "head -$n $fullname $extractor{$suffix} |" : " head -$n $fullname | ") 
+	or die "open: $fullname: $!\n";
+    my @headlines = <HEAD>;
+    close HEAD;
+    return @headlines;
 }
 
 sub lookupTimeStamp{
@@ -92,6 +109,31 @@ sub lookupTimeStamp{
 	    scalar gmtime $timestamp, "\n";
 	$self->{TIMESTAMP} = $timestamp;
     }
+}
+
+sub lookupTimeStampXML{
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->lookupTimeStampXML()\n" if $self->{VERBOSE};
+}
+
+sub looksLikeXML{
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->looksLikeXML\n" if $self->{VERBOSE};
+    my ($firstline) = $self->readDumpHead();
+    if ($firstline !~ /^</ ) {
+	return 0;
+    }
+    return 1;
+}
+
+sub looksLikeTXT{
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->looksLikeTXT\n" if $self->{VERBOSE};
+    my ($firstline) = $self->readDumpHead();
+    if ($firstline !~ /^\// ) {
+	return 0;
+    }
+    return 1;
 }
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
