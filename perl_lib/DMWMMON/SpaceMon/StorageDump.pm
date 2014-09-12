@@ -50,23 +50,14 @@ sub file_exists {
     return 2;
 }
 
-
 sub openDump {
-    # adopted from 
     my $self = shift;
-    my $dumpfile=$self->{DUMPFILE};
-    my $filebasename = $dumpfile;
-    my $fh;
-    if ( $dumpfile =~ m%.gz$% ) {
-	$filebasename = substr($dumpfile, 0, -3) . "\n";
-	open $fh , "cat $dumpfile | gzip -d - |" or die "open: $dumpfile: $!\n";
-    } elsif ( $dumpfile =~ m%.bz2$% ) {
-	$filebasename = substr($dumpfile, 0, -4) . "\n";
-	open $fh, "cat $dumpfile | bzip2 -d - |" or die "open: $dumpfile: $!\n";
-    } else {
-	open $fh, "<$dumpfile" or die "open: $dumpfile: $!\n";
-    }
-    if ( eof $fh ){die "ERROR processing input in $dumpfile no data found\n"}
+    print "I am in ",__PACKAGE__,"->openDump()\n" if $self->{VERBOSE};
+    my %extractor = ( gz => "| gzip -d - ", bz2 =>  "| bzip2 -d - " );
+    my $fullname = $self -> {DUMPFILE};
+    my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
+    open ( my $fh, "cat $fullname $extractor{$suffix} |" ) or die "open: $fullname: $!\n";
+    if ( eof $fh ){die "ERROR processing storage dump in $fullname: no data found\n"}
     $self->{FH} = $fh;
 }
 
