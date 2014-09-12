@@ -4,6 +4,12 @@ use warnings;
 use File::Basename;
 use Data::Dumper;
 
+# Allow g and b2 zipped files to uncompress on the fly: 
+my %extractor = ( ".gz" => "| gzip -d - ", ".bz2" =>  "| bzip2 -d - " );
+
+# Mapping for file suffices: 
+my %format = ( ".txt" => "TEXT", ".xml" => "XML" );
+
 sub new
 {
     my $proto = shift;
@@ -53,7 +59,6 @@ sub file_exists {
 sub openDump {
     my $self = shift;
     print "I am in ",__PACKAGE__,"->openDump()\n" if $self->{VERBOSE};
-    my %extractor = ( gz => "| gzip -d - ", bz2 =>  "| bzip2 -d - " );
     my $fullname = $self -> {DUMPFILE};
     my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
     open ( my $fh, "cat $fullname $extractor{$suffix} |" ) or die "open: $fullname: $!\n";
@@ -62,26 +67,31 @@ sub openDump {
 }
 
 sub lookupTimeStamp{
-    my $self = shift; 
-    my $timestamp = 0; # if not found
-    my $now = time;
+    my $self = shift;
     print "I am in ",__PACKAGE__,"->lookupTimeStamp()\n" if $self->{VERBOSE};
-    foreach ( split /\./, $self->{DUMPFILE}) {
-	print "NRDEBUG: $_\n";
-	if ( $_ =~ /^[0-9.]/ ) {
-	    print "NRDEBUG: matches numeric value: $_  !!!\n";
-	    my $human_readable = scalar gmtime ($_);
-	    if ($_ >=  $now) {
-		warn "Detected timestamp $_ represents date in the future: $human_readable\n ";
-	    }
-	    if (substr($human_readable, -5, -2) ne " 20"){
-		warn "Detected timestamp $_ represent date not in current century: $human_readable\n";
-	    }
-	    $timestamp = $_;
-	    $self->{VERBOSE} && print "Detected timestamp: $_ corresponding to the date: $human_readable\n";
-	} 		
+    my $timestamp;
+    my $basename = $self->{DUMPFILE};
+    # Discard all known suffices first:
+    my @suffices;
+    push (@suffices, keys %extractor);
+    push (@suffices, keys %format);
+    my ($name, $path, $suffix) = fileparse( $basename, @suffices);
+    while ( $suffix ) {
+	$basename = $path . $name;
+	($name, $path, $suffix) = fileparse( $basename, @suffices);
     }
-    return $timestamp;
+    # Look for timestamp with 10 digits: covers years 2001-2286
+    if ($basename =~ /\.([0-9]{10})$/){ 
+	$timestamp = $1;
+	if ($timestamp >= time) {
+	    die "ERROR: time stamp $timestamp represents date in the future:\n", 
+	    scalar gmtime $timestamp, "\n";
+	}
+	$self->{VERBOSE} && 
+	    print "Detected time stamp: $timestamp corresponding to the date:\n", 
+	    scalar gmtime $timestamp, "\n";
+	$self->{TIMESTAMP} = $timestamp;
+    }
 }
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
