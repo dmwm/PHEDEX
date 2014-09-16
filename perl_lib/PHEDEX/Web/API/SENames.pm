@@ -16,11 +16,9 @@ Get the SE names listed in the TFC for a given site
 
 =head2 Options
 
-  node      PhEDEx node name.
-  sename    SE name.
-  protocol  A protocol name (e.g. 'srmv2', 'xrootd'...). Optional
-
-  Either the node name or the sename may be given, but not both, that's an error
+  node      PhEDEx node name (wildcards supported)
+  sename    SE name (no wildcards)
+  protocol  A protocol name (e.g. 'srmv2', 'xrootd'...). Optional, no wildcards
 
 =head2 Output
 
@@ -32,6 +30,14 @@ Get the SE names listed in the TFC for a given site
   protocol  The protocol used for contacting this SE
   sename    The hostname of the SE
   node      The PhEDEx Node Name of the site
+
+If a node, a protocol or an sename is given an illegal value, that field in the return value
+is undefined. This is correct for an invalid node, but needs care
+if both the protocol and sename are given. If they are both specified, there is no way to tell
+which "doesn't match TMDB", since neither is a primary key.
+
+I.e. the API will return undefined for the first field in which it detects the discrepancy,
+but you should check other fields for correctness too, the error may be there instead.
 =cut
 
 use Data::Dumper;
@@ -56,25 +62,27 @@ sub senames {
   if ($@) {
     return PHEDEX::Web::Util::http_error(400,$@);
   }
-  # if ( $p{NODE} && $p{SENAME} ) {
-  #   return PHEDEX::Web::Util::http_error(400,'Either node or sename may be given, but not both');
-  # }
-  # if ( !$p{NODE} && !$p{SENAME} ) {
-  #   return PHEDEX::Web::Util::http_error(400,'Either node or sename must be given');
-  # }
 
+  my %params;
+  $sql = qq{ select name from t_adm_node where name like :node };
   if ( $p{NODE} ) {
-    push @nodes, $p{NODE};
+    $p{NODE} =~ s/\*/%/g; # TW This is a kludge!
+    $params{':node'} = $p{NODE};
   } else {
-    $sql = qq{ select name from t_adm_node where name like 'T%' };
-    $q = PHEDEX::Web::SQL::execute_sql( $core, $sql, () );
-    @nodes = map {$$_[0]} @{$q->fetchall_arrayref()};
+    $params{':node'} = 'T%';
+  }
+  $q = PHEDEX::Web::SQL::execute_sql( $core, $sql, %params );
+  @nodes = map {$$_[0]} @{$q->fetchall_arrayref()};
+# No @nodes is an error
+  if ( ! scalar(@nodes) ) {
+    @r = { node => undef };
+    if ( $p{PROTOCOL} ) { $r[0]{'protocol'} = $p{PROTOCOL}; }
+    if ( $p{SENAME} )   { $r[0]{'senames'}  = $p{SENAME}; }
+    return { 'senames' => \@r };
   }
 
   foreach $node ( @nodes ) {
     $tfc = PHEDEX::Web::SQL::getTFC($core, ( 'node', $node ) );
-#   No TFC for a user-specified node implies no node with the given name, which is an error
-    if ( ! scalar(@{$tfc}) && $p{NODE} ) { return { 'senames' => undef }; }
 
     foreach ( @{$tfc} ) {
       if ( $_->{ELEMENT_NAME} eq 'lfn-to-pfn' ) {
@@ -89,6 +97,14 @@ sub senames {
     }    
   }
 
+# No sename is an error if the sename was given, even though it may be due to the protocol
+  if ( $p{SENAME} && !scalar(keys %tmp) ) {
+    @r = { sename => undef };
+    if ( $p{PROTOCOL} ) { $r[0]{'protocol'} = $p{PROTOCOL}; }
+    if ( $p{NODE} )     { $r[0]{'node'}     = $p{NODE}; }
+    return { 'senames' => \@r };
+  }
+
   foreach $sename ( keys %tmp ) {
     foreach $node ( keys %{$tmp{$sename}} ) {
       foreach $protocol ( keys %{$tmp{$sename}{$node}} ) {
@@ -99,7 +115,10 @@ sub senames {
 
 # No results for a given protocol is distinguished separately
   if ( $p{PROTOCOL} && !scalar(@r) ) {
-    push @r, { protocol => $p{PROTOCOL}, 'sename' => 'undef', 'node' => undef };
+    @r = { protocol => undef };
+    if ( $p{SENAME} ) { $r[0]{'sename'} = $p{SENAME}; }
+    if ( $p{NODE} )   { $r[0]{'node'}   = $p{NODE}; }
+    return { 'senames' => \@r };
   }
 
   return { 'senames' => \@r };
