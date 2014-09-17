@@ -64,10 +64,8 @@ sub methods_allowed { return ('GET'); }
 sub duration { return 0; }
 sub invoke { return storageusage(@_); }
 
-sub storageusage 
-{
+sub storageusage  {
   my ($core, %h) = @_;
-  #warn "dumping arguments ",Data::Dumper->Dump([ \%h ]);
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
   my ($dirtemp,$dirstemp,$node);
 
@@ -86,13 +84,11 @@ sub storageusage
                     time_until => { using => 'time' }
                 });
         };
-  if ( $@ )
-  {
+  if ( $@ ) {
         return PHEDEX::Web::Util::http_error(400, $@);
   } 
 
 
-  #warn "dumping arguments after validate ",Data::Dumper->Dump([ \%args ]);
   foreach ( keys %args ) {
      $args{lc($_)} = delete $args{$_};
   }
@@ -123,32 +119,29 @@ sub storageusage
      if ( $@ ) {
        die PHEDEX::Web::Util::http_error(400,$@);
      }
-     $last = @{$result}[0]->{SITENAME};
+     $last = @{$result}[0]->{NAME};
      $dirstemp = ();
      foreach $data (@{$result}) {
        $dirtemp = {};
        $dirtemp->{DIR} = $data->{DIR};
        $dirtemp->{SPACE} = $data->{SPACE};
        $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
-       $dirtemp->{SITENAME} = $data->{SITENAME};
+       $dirtemp->{NAME} = $data->{NAME};
        push @$dirstemp, $dirtemp;
-       #warn "dumping dirtemp ",Data::Dumper->Dump([ $dirtemp ]);
-       if ($last !~ m/$data->{SITENAME}/) {
+       if ($last !~ m/$data->{NAME}/) {
           $node = {};
           $node->{subdir} = $args{rootdir};
           $node->{node} = $last;
-          #warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
           $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
           push @records, $node;
           $dirstemp = ();
-          $last = $data->{SITENAME};
+          $last = $data->{NAME};
        }
     }
-    if ($last =~ m/@{$result}[0]->{SITENAME}/) {
+    if ($last =~ m/@{$result}[0]->{NAME}/) {
        $node = {};
        $node->{subdir} = $args{rootdir};
        $node->{node} = $last;
-       #warn "dumping node1 ",Data::Dumper->Dump([ $node ]);
        $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
        push @records, $node;
     }
@@ -172,19 +165,15 @@ sub storageusage
         }
         $node->{node} = @{$result}[0]->{NAME};
         $node->{timebins} = getNodeInfo($core, $result, %args); 
-        #warn "dumping node ",Data::Dumper->Dump([ $node ]);
         push @records, $node;
      }
   }
-  #warn "dumping records ",Data::Dumper->Dump([ \@records ]);
+
   return { nodes => \@records };
-  #return { storageusage => @records };
 }
 
-sub getNodeInfo 
-{
+sub getNodeInfo {
   my ($core, $result, %args) = @_;
-  #warn "dumping arguments for getNodeInfo",Data::Dumper->Dump([ \%args ]);
   my ($level,$rootdir,%dir, $dirs, $data);
   my ($dirtemp, $timetemp, $dirstemp, $last, $time);
   my ($dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
@@ -200,7 +189,6 @@ sub getNodeInfo
   #warn "dumping last ",Data::Dumper->Dump([ $last ]);
   $dirstemp = ();
   foreach $data (@{$result}) {
-    #warn "dumping data from db ", Data::Dumper->Dump([ \$data ]);
     $dirtemp = {};
     $dirtemp->{dir} = $data->{DIR};
     $dirtemp->{space} = $data->{SPACE};
@@ -211,7 +199,6 @@ sub getNodeInfo
        $last = $data->{TIMESTAMP};
     }
   }
-  #warn "dumping timetemp ",Data::Dumper->Dump([ $timetemp ]);
 
   foreach $time ( keys %{$timetemp} ) {
     $timebin = {};
@@ -237,21 +224,16 @@ sub getNodeInfo
 
        if ($count==0) { $level = $i; }
 
-       #warn "dump dirarray ", Data::Dumper->Dump([ $dirarray ]);
        if ($dirarray) {
           $levelhash->{level} = $i;
           $levelhash->{data} = $dirarray;
-          #warn "dump levelhash ", Data::Dumper->Dump([ $levelhash ]);
           push @$levelarray, $levelhash;
        }
     }
-    #warn "dump levelarray ", Data::Dumper->Dump([ $levelarray ]);
     $timebin->{levels} = $levelarray;
-    #warn "dump timebin ", Data::Dumper->Dump([ $timebin ]);
     push @$timebins, $timebin;
   }
     
-  #warn "dumping timebins ",Data::Dumper->Dump([ $timebins ]);
   return $timebins;
 }
 
