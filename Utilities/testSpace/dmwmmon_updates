@@ -6,7 +6,7 @@ use Data::Dumper;
 use File::Basename;
 my $me = basename($0);
 my ($response,$nodes,$method,$timeout,$node,$time_since,$time_until);
-my ($level,$temp,$pua,$target,%payload,$rootdir);
+my ($level,$temp,$pua_for_nodes,$pua,$target,%payload,$rootdir);
 my ($date, $debug, $quiet, $url);
 $timeout = 500;
 $url = 'https://cmsweb.cern.ch/dmwmmon/datasvc';
@@ -34,6 +34,13 @@ GetOptions(
         'quiet|q'        => \$quiet,
         'help|h'         => sub { &usage() }
       );
+$pua_for_nodes = PHEDEX::CLI::UserAgent->new
+    (
+      URL      => 'https://cmsweb.cern.ch/phedex/datasvc' ,
+      INSTANCE => 'prod' ,
+      FORMAT   => 'perl',
+      CA_DIR   => '/etc/grid-security/certificates',
+    );
 $pua = PHEDEX::CLI::UserAgent->new
     (
       URL      => $url ,
@@ -42,20 +49,20 @@ $pua = PHEDEX::CLI::UserAgent->new
       CA_DIR   => '/etc/grid-security/certificates',
     );
 $pua->timeout($timeout) if $timeout;
-$pua->CALL('nodes'); # Defines DataSvc API
-print $pua->Dump() if $debug; 
-$target = $pua-> target; 
+$pua_for_nodes->CALL('nodes'); # Defines DataSvc API
+print $pua_for_nodes->Dump() if $debug; 
+$target = $pua_for_nodes-> target; 
 print "DEBUG: now getting the nodes list \n" if $debug;
 %payload = {};
-$response = $pua->get($target, \%payload);
+$response = $pua_for_nodes->get($target, \%payload);
 print Dumper($response) if $debug;
 print  "\n";
-if ( $pua->response_ok($response) )# HTTP call returned correctly
+if ( $pua_for_nodes->response_ok($response) )# HTTP call returned correctly
 {
   no strict 'vars';
   $nodes = eval($response->content());
   $nodes = $nodes->{PHEDEX}{NODE};
-  #print Data::Dumper->Dump([ $nodes ]) if $debug;
+  print Data::Dumper->Dump([ $nodes ]) if $debug;
   foreach ( @{$nodes} ) {    
     $node=$_->{'NAME'};
     #$node="T2_Test_Buffer"; # for debugging only, uncomment exit 1 below
