@@ -169,7 +169,7 @@ sub updateRequest
       };
       if ( $@ ) {
         if ( $@ =~ m%ORA-00001: unique constraint% ) { die PHEDEX::Web::Util::http_error(400,"Request $rid has already been decided at node $node->{NODE}"); }
-        die PHEDEX::Web::Util::http_error(400,$@);
+        die PHEDEX::Web::Util::http_error(400,"Dying with error: " . $@);
       }
     }
   }
@@ -223,7 +223,7 @@ sub updateRequest
 			 	@validate_args
 				);
             };
-            die PHEDEX::Web::Util::http_error(400,$@) if $@;
+            die PHEDEX::Web::Util::http_error(400,"Argument validation failed: " . $@) if $@;
           }
         }
       }
@@ -274,7 +274,7 @@ sub updateRequest
     warn "UpdateRequest: Some bizarre error: $@\n";
     if ( $@ =~ m%^cannot request% ) {
 #     Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest
-      die PHEDEX::Web::Util::http_error(400,$@);
+      die PHEDEX::Web::Util::http_error(400,"Error from RequestAllocator: " . $@);
     }
     die PHEDEX::Web::Util::http_error(500,"An error occurred. That happens sometimes...");
   }
