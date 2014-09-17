@@ -134,9 +134,7 @@ sub querySpace {
    my ($sql,$q,$row,%p,%p_d,$time,%warn,@r);
    my ($filter);
  
-   build_multi_filters($self,\$filter,\%p,\%h, (
-	node => 'sites.name',
-      ));
+   build_multi_filters($self,\$filter,\%p,\%h, ( node => 'sites.name', ));
    if ( !exists $h{time_since} && !exists $h{time_until} ) {
       $sql = qq { select max(timestamp) max_timestamp
                   from t_space_usage spaces
@@ -161,11 +159,8 @@ sub querySpace {
               order by timestamp};
 
    $q = execute_sql( $self, $sql, %p );
-   if ($q->fetchrow_hashref()) {
-      while ($_ = $q->fetchrow_hashref()) {push @r, $_;}
-      #warn "dumping space query in SQL.pm",Data::Dumper->Dump([ \@r ]);
-   }
-   else {
+   while ($_ = $q->fetchrow_hashref()) { push @r, $_; }
+   if ( !scalar(@r) ) {
       if ((!$h{time_since})&&(!$h{time_until})) {
          die "No records are available for the site you specified\n"; 
       }
