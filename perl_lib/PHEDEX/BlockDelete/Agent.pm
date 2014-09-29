@@ -35,7 +35,7 @@ sub idle
 	# We trigger for blocks at nodes which:
 	#   1. Have a block replica
 	#   2. Do not have a subscription
-        #   3. Are not a T1 node
+        #   3. Are not a T1 Buffer or MSS node (i.e. allow deletions at Disk nodes)
         #   4. Are not a Buffer node
 	#
 	# Note: there is a race condition present here: suppose site X
