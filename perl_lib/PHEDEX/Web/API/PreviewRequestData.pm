@@ -195,7 +195,7 @@ sub previewrequestdata {
         if ($params{move} eq 'y') {
           my @subsc_t1s;
           foreach my $s (grep $$_{IS_SUBSCRIBED}, values %$src_info) {
-            if ($$s{NODE} =~ /^T1_(Buffer|MSS)/ && !grep $_ eq $$s{NODE}, @nodes) {
+            if ($$s{NODE} =~ /^T1_.*_(Buffer|MSS)/ && !grep $_ eq $$s{NODE}, @nodes) {
               # A T1 is already subscribed that is not in this request
               push @subsc_t1s, $s;
             } elsif ($$s{NODE} =~ /^T1/) {
