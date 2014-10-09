@@ -1,4 +1,5 @@
 package PHEDEX::Namespace::SpaceCountCommon;
+use strict;
 our @ISA = qw(Exporter);
 our @EXPORT;
 
@@ -49,7 +50,7 @@ sub dirlevel {
 sub findLevel {
   # returns the depth of directory structure above the matching pattern
   my ($hashref, $pattern) = @_;  # pass reference to dirsizes hash and a pattern to match
-  if ( grep {$match=index( $_, $pattern); if ($match>0) {
+  if ( grep {my $match=index( $_, $pattern); if ($match>0) {
     #print "Match for $pattern found in $_ \n";
     return split ( '/', substr $_, 0, $match);
   }
@@ -84,7 +85,6 @@ sub createRecord {
       $topsizes{dirlevel($_,$p)}+=${$hashref}{$_};
     }
   }
-  if ($debug) { print "dumping aggregated directory info......\n" };
   foreach ( keys %topsizes ) {
     $payload{$_} = $topsizes{$_} + 0;
   }
@@ -113,7 +113,7 @@ sub openDump {
   }
 
   if ( eof $fh ){die "ERROR processing input in $dumpfile no data found\n"}
-  return $fh;
+  return ($fh, $filebasename);
 }
 
 sub doEverything {
@@ -127,7 +127,7 @@ sub doEverything {
   # we search for this directory and count levels starting from the depth where it is found:
   my $pattern = "/store/";
   my ($line,$time,$size,$file);
-  my $dump = openDump($dumpfile);
+  my ($dump, $filebasename) = openDump($dumpfile);
   while ($line = <$dump>) { 
       ($file, $size) = $lookupFileSize->($line);
       if ($file) {
@@ -160,7 +160,7 @@ sub doEverything {
       print "Add $storeDepth levels preceeding $pattern\n";
   };
   print "[INFO] Creating database record using aggregation level = $level ... \n" if $ns->{VERBOSE};
-  $record=createRecord(\%dirsizes, $ns, $timestamp, $level);
+  my $record=createRecord(\%dirsizes, $ns, $timestamp, $level);
   return $record;
 }
 
