@@ -1,0 +1,16 @@
+
+
+echo -e "\n******* Executing spacemon 2>&1: " 
+spacemon  2>&1
+
+echo -e "\n******* Executing spacemon -h  2>&1: " 
+spacemon -h  2>&1
+
+echo -e "\n******* Executing spacemon --version  2>&1: "
+spacemon --version  2>&1
+ 
+#echo -e  "\n******* Executing: spacecount dcache --dump ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1"
+#spacecount dcache --dump ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1
+echo -e  "\n******* Executing: spacemon ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1"
+
+spacemon ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml 2>&1
