@@ -1,5 +1,4 @@
 
-
 echo -e "\n******* Executing spacemon 2>&1: " 
 spacemon  2>&1
 
@@ -8,9 +7,16 @@ spacemon -h  2>&1
 
 echo -e "\n******* Executing spacemon --version  2>&1: "
 spacemon --version  2>&1
- 
-#echo -e  "\n******* Executing: spacecount dcache --dump ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1"
-#spacecount dcache --dump ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1
-echo -e  "\n******* Executing: spacemon ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml  --node T2_Test_Buffer 2>&1"
 
-spacemon ~/SpaceMon-phase1/DMWMMON/SiteInfoProviders/DCache/examples/dCache_dump_sample.xml 2>&1
+mkdir -p /tmp/spacemon-tests
+
+dummydump=/tmp/spacemon-tests/example.`date +%s`.txt
+touch $dummydump
+
+echo "/store/CSA07/2007/10/30/CSA07-CSA07JetMET-Tier0-A2-Stew/0046/CAB1B2FD-1288-DC11-8547-003048562842.root|3719230435|1331650563.42|4e18657" >>  $dummydump
+
+echo "/store/CSA07/2007/10/30/CSA07-CSA07JetMET-Tier0-A2-Stew/0047/0E30D3EB-8288-DC11-B153-00304855D49C.root|4168290793|1331650576.56|e45742b2" >>  $dummydump
+
+
+spacemon $dummydump 2>&1
+
