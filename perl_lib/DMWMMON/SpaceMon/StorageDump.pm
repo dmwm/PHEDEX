@@ -100,7 +100,7 @@ sub lookupTimeStamp{
     # Look for timestamp with 10 digits: covers years 2001-2286
     if ($basename =~ /\.([0-9]{10})$/){ 
 	$timestamp = $1;
-	if ($timestamp >= time) {
+	if ($timestamp > time) {
 	    die "ERROR: time stamp $timestamp represents date in the future:\n", 
 	    scalar gmtime $timestamp, "\n";
 	}
