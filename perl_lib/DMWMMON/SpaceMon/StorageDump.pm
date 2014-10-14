@@ -27,22 +27,20 @@ sub instantiate
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in a base class ",__PACKAGE__,"->instantiate()\n" if $self->{VERBOSE};
     validate($self);
-
     my $format = undef;
-    #if ($self->looksLikeTXT()) {
-    if (looksLikeTXT(\%params)) {
+    if (looksLikeTXT($self)) {
 	print "Looks like TXT file\n";
 	$format = "TXT";
     } else {
-	print "Does not look like TXT file\n";    
+	print "Does not look like TXT file\n";
     }
     if ( not defined $format)
     {
-	if ($self->looksLikeXML()) {
+	if (looksLikeXML($self)) {
 	    print "Looks like XML file\n";
 	    $format = "XML";
 	} else {
-	    print "Does not look like XML file\n";    
+	    print "Does not look like XML file\n";
 	}
     }
     
@@ -144,7 +142,7 @@ sub lookupTimeStampXML{
 sub looksLikeXML{
     my $self = shift;
     print "I am in ",__PACKAGE__,"->looksLikeXML\n" if $self->{VERBOSE};
-    my ($firstline) = $self->readDumpHead();
+    my ($firstline) = readDumpHead($self);
     if ($firstline !~ /^</ ) {
 	return 0;
     }
@@ -152,13 +150,13 @@ sub looksLikeXML{
 }
 
 sub looksLikeTXT{
-    #my $self = shift;
-    #print "I am in ",__PACKAGE__,"->looksLikeTXT\n" if $self->{VERBOSE};
-    print "I am in ",__PACKAGE__,"->looksLikeTXT\n";
-    #my ($firstline) = $self->readDumpHead();
-    #if ($firstline !~ /^\// ) {
-#	return 0;
- #   }
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->looksLikeTXT\n" if $self->{VERBOSE};
+    print Dumper (@_);
+    my ($firstline) = readDumpHead($self);
+    if ($firstline !~ /^\// ) {
+	return 0;
+    }
     return 1;
 }
 
