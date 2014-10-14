@@ -9,6 +9,9 @@ echo -e "\n******* Executing spacemon --version  2>&1: "
 spacemon --version  2>&1
 
 mkdir -p /tmp/spacemon-tests
+
+echo "******* Testing TXT format: " 
+
 dummydump=/tmp/spacemon-tests/example.`date +%s`.txt
 touch $dummydump
 echo -e "\n******* Created file $dummydump "
@@ -18,3 +21,16 @@ echo "/store/CSA07/2007/10/30/CSA07-CSA07JetMET-Tier0-A2-Stew/0047/0E30D3EB-8288
 echo -e "\n******* Executing spacemon $dummydump  2>&1: "
 spacemon $dummydump 2>&1
 
+
+echo "******* Testing XML format: " 
+dummydump=/tmp/spacemon-tests/example.xml
+touch $dummydump
+echo -e "\n******* Created file $dummydump "
+echo '<?xml version="1.0" encoding="iso-8859-1"?><dump recorded="2012-02-27T12:33:23.902495"><for>vo:cms</for>' >> $dummydump
+echo '<entry-set>' >> $dummydump
+echo '<entry name="/dpm/in2p3.fr/home/cms/trivcat/store/mc/JobRobot/RelValProdTTbar/GEN-SIM-DIGI-RECO/MC_3XY_V24_JobRobot-v1/0000/001606D5-FC2B-DF11-9FD5-0030487C6A66.root"><size>1139273384</size><ctime>1296671817</ctime><checksum>AD:ca793d51</checksum></entry>' >> $dummydump
+echo '<entry name="/dpm/in2p3.fr/home/cms/trivcat/store/mc/JobRobot/RelValProdTTbar/GEN-SIM-DIGI-RECO/MC_3XY_V24_JobRobot-v1/0000/0068DD7E-3D2C-DF11-AE3E-0030487C778E.root"><size>1062056867</size><ctime>1296707321</ctime><checksum>AD:9fa5feec</checksum></entry>' >> $dummydump
+echo '</entry-set></dump>' >> $dummydump
+
+echo -e "\n******* Executing spacemon $dummydump  2>&1: "
+spacemon $dummydump 2>&1
