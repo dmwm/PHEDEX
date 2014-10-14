@@ -9,14 +9,12 @@ echo -e "\n******* Executing spacemon --version  2>&1: "
 spacemon --version  2>&1
 
 mkdir -p /tmp/spacemon-tests
-
 dummydump=/tmp/spacemon-tests/example.`date +%s`.txt
 touch $dummydump
-
+echo -e "\n******* Created file $dummydump "
 echo "/store/CSA07/2007/10/30/CSA07-CSA07JetMET-Tier0-A2-Stew/0046/CAB1B2FD-1288-DC11-8547-003048562842.root|3719230435|1331650563.42|4e18657" >>  $dummydump
-
 echo "/store/CSA07/2007/10/30/CSA07-CSA07JetMET-Tier0-A2-Stew/0047/0E30D3EB-8288-DC11-B153-00304855D49C.root|4168290793|1331650576.56|e45742b2" >>  $dummydump
 
-
+echo -e "\n******* Executing spacemon $dummydump  2>&1: "
 spacemon $dummydump 2>&1
 
