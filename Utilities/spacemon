@@ -71,23 +71,14 @@ EOF
 
 $input = shift;
 
-$dumpfile = DMWMMON::SpaceMon::StorageDump->new(
+$dumpfile = DMWMMON::SpaceMon::StorageDump->instantiate(
 						DEBUG => $debug,
 						VERBOSE => $verbose,
 						DUMPFILE => $input,
 						);
 
-#print $dumpfile->dump();
-#my $fh = $dumpfile->openDump();
-#while ( <$fh> ) { print $_; }
-#croak "stop here";
-
-#if ($dumpfile->looksLikeXML()) {
-#    print "Looks like XML file\n";
-#} else {
-#    print "Does not look like XML file\n";    
-#}
-
+print $dumpfile->dump();
+$dumpfile->formattingHelp();
 
 
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
