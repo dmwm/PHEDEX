@@ -4,7 +4,6 @@ our @EXPORT = qw (uploadRecord openDump openDumpUsage);
 
 use Time::Local;
 use Time::localtime;
-use PHEDEX::Namespace::Common  ( qw / setCommonOptions / );
 use PHEDEX::CLI::UserAgent;
 
 sub version(){
