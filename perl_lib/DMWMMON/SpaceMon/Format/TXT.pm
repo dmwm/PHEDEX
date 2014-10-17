@@ -1,4 +1,4 @@
-package DMWMMON::SpaceMon::StorageDump::TXT;
+package DMWMMON::SpaceMon::Format::TXT;
 use strict;
 use warnings;
 use Data::Dumper;
