@@ -4,11 +4,11 @@ Class Record (container):
 Class StorageDump(base class container):
  - machine representation of storage dump info
 
-Class StorageDumpXML(container):
- - machine representation of storage dump info in XML format
+Class Format::XML(algorithm):
+ - rules for parsing dump in XML format
 
-Class StorageDumpTXT(container):
- - machine representati on of storage dump info in TXT format
+Class Foramt::TXT(algorithm):
+ - rules for parsing dump in TXT format
 
 Class RecordIO (algorithm): 
  - reads/writes Record from/to file 
