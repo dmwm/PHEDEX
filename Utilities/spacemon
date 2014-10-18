@@ -30,7 +30,7 @@ use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
-my ($upload, $save, $debug, $verbose);
+my ($upload, $save, $debug, $verbose, $format);
 #$debug = $verbose = 0; # use these to override class defaults. 
 
 my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file);
@@ -49,6 +49,7 @@ GetOptions ( 'help|h' => sub { &usage },
 			       exit;},
 	     'upload-record' => \$upload,
 	     'save-record'   => \$save,
+	     'format:s'   => \$format,
 	     'debug!' => \$debug,  # enables --nodebug option
 	     'verbose!' => \$verbose,
 	     );
@@ -72,11 +73,12 @@ EOF
 
 $input = shift;
 
-$dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate("TXT",
-						DEBUG => $debug,
-						VERBOSE => $verbose,
-						DUMPFILE => $input,
-						);
+$dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
+							  FORMAT => $format,
+							  DEBUG => $debug,
+							  VERBOSE => $verbose,
+							  DUMPFILE => $input,
+							  );
 print $dumpfile->dump();
 $dumpfile->formattingHelp();
 

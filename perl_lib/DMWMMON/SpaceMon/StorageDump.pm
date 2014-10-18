@@ -23,6 +23,7 @@ sub new
                   VERBOSE => 1,
                   DUMPFILE => undef,
                   TIMESTAMP => undef,
+		  FORMAT => undef,
                   );
     my %args = (@_);
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
