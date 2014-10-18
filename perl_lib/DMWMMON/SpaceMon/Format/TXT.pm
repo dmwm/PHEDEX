@@ -3,25 +3,23 @@ use strict;
 use warnings;
 use Data::Dumper;
 use base 'DMWMMON::SpaceMon::StorageDump';
- 
+
 sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
-    my $self = {};
-    my %args = (@_);
-    map { $self->{$_} = $args{$_} } keys %args;
+    my $self = $class->SUPER::new(@_);
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
-    print Dumper ($self);
     return $self;
 }
 
-sub lookupFileSize 
+sub lookupFileSize
 {
     $_ = shift;
-    if (m/^\S+\s(\/\S+)\s(\d+)$/) {
-	return ($1, $2);
+    my ($file, $size, $rest) = split /\|/;
+    if ($file) {
+	return ($file, $size);
     } else {
 	return 0;
     }
