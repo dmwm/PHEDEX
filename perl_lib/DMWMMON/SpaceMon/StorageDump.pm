@@ -12,48 +12,27 @@ my %extractor = ( ".gz" => "| gzip -d - ", ".bz2" =>  "| bzip2 -d - " );
 # Mapping for file suffices: 
 my %formats = ( ".txt" => "TXT", ".xml" => "XML" );
 
-sub instantiate
+sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {};
+    # Default parameters: 
     my %params = (
-		  DEBUG => 1,
-		  VERBOSE => 1,
-		  DUMPFILE => undef,		  
-		  TIMESTAMP => undef,
-		  );
+                  DEBUG => 1,
+                  VERBOSE => 1,
+                  DUMPFILE => undef,
+                  TIMESTAMP => undef,
+                  );
     my %args = (@_);
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
-    print "I am in a base class ",__PACKAGE__,"->instantiate()\n" if $self->{VERBOSE};
+    print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     validate($self);
-    my $format = undef;
-    if (looksLikeTXT($self)) {
-	print "Looks like TXT file\n";
-	$format = "TXT";
-    } else {
-	print "Does not look like TXT file\n";
-    }
-    if ( not defined $format)
-    {
-	if (looksLikeXML($self)) {
-	    print "Looks like XML file\n";
-	    $format = "XML";
-	} else {
-	    print "Does not look like XML file\n";
-	}
-    }
-    
-    $class = join "::" , (__PACKAGE__ , $format);
-    my $plugin = catfile (split "::", $class) . ".pm";
-    print " require $plugin \n";
-    require $plugin;
-    #$self->{TIMESTAMP} = lookupTimeStamp($self);
-    #&openDump($self);
-    #bless $self, $class;
-    #return $self;
-    return  $class->new(@_);
+    $self->{TIMESTAMP} = lookupTimeStamp($self);
+    bless $self, $class;
+    return $self;
 }
+
 
 sub validate {
     my $self = shift;
