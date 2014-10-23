@@ -80,7 +80,7 @@ $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
 							  DUMPFILE => $input,
 							  );
 print $dumpfile->dump();
-$dumpfile->formattingHelp();
+#$dumpfile->formattingHelp();
 
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     DEBUG => $debug,
