@@ -27,7 +27,12 @@ sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 sub setTimeStamp
 {
     my $self = shift;
-    $self->{TIMESTAMP}=shift;    
+    $self->{TIMESTAMP}=shift;
+}
+sub setNodeName
+{
+    my $self = shift;
+    $self->{NODE}=shift;
 }
 
 sub addDir
