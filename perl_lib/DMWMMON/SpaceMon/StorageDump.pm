@@ -80,8 +80,8 @@ sub openDump {
     my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
     open ( my $fh, ($suffix) ? "cat $fullname $extractor{$suffix} |" : "<$fullname")
 	or die "open: $fullname: $!\n";
-    if ( eof $fh ){die "ERROR: no data found in $fullname:\n"}
-    $self->{FH} = $fh;
+    if ( eof $fh ){die "ERROR: no data found in $fullname:\n"}    
+    return $fh;
 }
 
 sub lookupTimeStamp{
