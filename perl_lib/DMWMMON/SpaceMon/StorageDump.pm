@@ -51,24 +51,23 @@ sub looksLikeTXT{
 # Class methods: 
 ####################
 
-
 sub new
 {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {};
-    # Default parameters: 
     my %params = (
                   DEBUG => 1,
                   VERBOSE => 1,
                   DUMPFILE => undef,
                   TIMESTAMP => undef,
-		  FORMAT => undef,
+		  DUMPFORMAT => undef,
                   );
     my %args = (@_);
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     $self->{TIMESTAMP} = lookupTimeStamp($self);
+    $self->{DIRS} = [];
     bless $self, $class;
     return $self;
 }
@@ -83,6 +82,16 @@ sub openDump {
     if ( eof $fh ){die "ERROR: no data found in $fullname:\n"}    
     return $fh;
 }
+
+sub addDir
+{
+    my $self = shift;
+    my ($pfn, $size) = @_;
+    # We could add checks here, or rely on parsing algorithm to validate the input:
+    push @{$self->{DIRS}}, ($pfn, $size);
+    print "Added dir: $pfn ==> $size \n" if $self-> {VERBOSE};
+}
+
 
 sub lookupTimeStamp{
     my $self = shift;
