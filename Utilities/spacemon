@@ -87,7 +87,7 @@ $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     VERBOSE => $verbose,
 					     );
 
-
+$parser->countSpace($dumpfile);
 $record = $parser->createRecord($dumpfile);
 
 $rio = DMWMMON::SpaceMon::RecordIO->new(
