@@ -19,36 +19,34 @@ sub instantiate
 	die "ERROR: storage dump file name was not defined\n"; 
 	# TODO: give a recipe how to define dumpfile.
     }
-
     if ( not -f $h->{DUMPFILE} ){
 	die "ERROR: file does not exist: $h->{DUMPFILE}\n";
     }
-
     # and format:
-    if (defined $h->{FORMAT}){
-	print "Already defined format: $h->{FORMAT}\n" if $h->{VERBOSE};	
+    if (defined $h->{DUMPFORMAT}){
+	print "Already defined format: $h->{DUMPFORMAT}\n" if $h->{VERBOSE};	
     } else {
-	$h->{FORMAT} = "UNKNOWN";
+	$h->{DUMPFORMAT} = "UNKNOWN";
 	print  "Checking format of file: $h->{DUMPFILE}\n" if $h->{VERBOSE};
 	if (&DMWMMON::SpaceMon::StorageDump::looksLikeTXT($h->{DUMPFILE})) {
 	    print "Looks like TXT file\n" if $h->{VERBOSE};
-	    $h->{FORMAT} = "TXT";
+	    $h->{DUMPFORMAT} = "TXT";
 	} else {
 	    print "Does not look like TXT file\n";
 	}
 	if (&DMWMMON::SpaceMon::StorageDump::looksLikeXML($h->{DUMPFILE})) {
 	    print "Looks like XML file\n" if $h->{VERBOSE};
-	    $h->{FORMAT} = "XML";
+	    $h->{DUMPFORMAT} = "XML";
 	} else {
 	    print "Does not look like XML file\n";
 	}
     }
     
-    if ( ! grep /$h->{FORMAT}/, values %DMWMMON::SpaceMon::StorageDump::formats) {	
-	die "ERROR: unknown format $h->{FORMAT}\n";
+    if ( ! grep /$h->{DUMPFORMAT}/, values %DMWMMON::SpaceMon::StorageDump::formats) {	
+	die "ERROR: unknown format $h->{DUMPFORMAT}\n";
     }
-    my $location       = "DMWMMON/SpaceMon/Format/" . $h->{FORMAT} . ".pm";
-    $class             = "DMWMMON::SpaceMon::Format::" . $h->{FORMAT};
+    my $location       = "DMWMMON/SpaceMon/Format/" . $h->{DUMPFORMAT} . ".pm";
+    $class             = "DMWMMON::SpaceMon::Format::" . $h->{DUMPFORMAT};
     require $location;
     return $class->new(%{$h});
 }
