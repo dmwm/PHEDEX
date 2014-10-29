@@ -51,12 +51,12 @@ prompt Loading block latency
 @@OracleCoreLatency.sql
 
 prompt
-prompt Loading views
-@@OracleCoreViews.sql
-
-prompt
 prompt Loading helper functions
 @@OracleCoreFunctions.sql
+
+prompt
+prompt Loading views
+@@OracleCoreViews.sql
 
 prompt Loading transfer triggers
 @@OracleCoreTriggers.sql
