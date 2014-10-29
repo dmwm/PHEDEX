@@ -91,8 +91,8 @@ create table t_req_block
      on delete set null);
 
 
-# WARNING: FUTURE/UNUSED. I have no idea why this is here, it's not referenced
-# anywhere in the code. TW
+-- WARNING: FUTURE/UNUSED. I have no idea why this is here, it's not referenced
+-- anywhere in the code. TW
 /* File info */
 create table t_req_file
   (request		integer		not null,
