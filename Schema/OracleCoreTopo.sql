@@ -75,7 +75,8 @@ create table t_adm_node
    technology		varchar (20)	not null,
    se_name		varchar (80),
    capacity		integer,
---   bandwidth_cap	integer,
+-- TW bandwidtt_cap is obsolete
+   bandwidth_cap	integer,
    --
    constraint pk_adm_node
      primary key (id),
@@ -155,8 +156,9 @@ create table t_adm_link
    distance		integer		not null,
    is_local		char (1)	not null,
    is_active		char (1)	not null,
---   is_preferred		char (1)	not null,
---   bandwidth_cap	integer,
+-- TW is_preferred and bandwidth_cap are obsolete
+   is_preferred		char (1)	not null,
+   bandwidth_cap	integer,
    --
    constraint pk_adm_link
      primary key (id),
