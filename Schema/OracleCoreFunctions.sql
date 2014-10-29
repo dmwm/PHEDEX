@@ -38,7 +38,7 @@ grant execute on schema_version to public;
 
 -- adds a node and creates the required partitions in the xfer tables
 -- access to this function should be strictly controlled, not public
-create or replace procedure proc_add_node(name varchar2,
+create or replace procedure proc_add_node(node varchar2,
                                      kind varchar2,
                                      technology varchar2,
                                      se_name varchar2
@@ -48,10 +48,10 @@ create or replace procedure proc_add_node(name varchar2,
   node_id number;
   begin
     insert into t_adm_node (id,name,kind,technology,se_name,capacity,bandwidth_cap)
-                    values (seq_adm_node.nextval,name,kind,technology,se_name,1000,1000)
+                    values (seq_adm_node.nextval,node,kind,technology,se_name,1000,1000)
                     returning id into node_id;
-    dbms_output.put_line('Inserted node ' || name || ' with id = ' || node_id);
-    partition_name := 'node_' || lower(name);
+    dbms_output.put_line('Inserted node ' || node || ' with id = ' || node_id);
+    partition_name := 'node_' || lower(node);
     dml := ' add partition ' || partition_name || ' values (' || node_id || ')';
     execute immediate 'alter table t_xfer_replica' || dml;
     execute immediate 'alter table t_xfer_request' || dml;
@@ -66,17 +66,18 @@ create or replace procedure proc_add_node(name varchar2,
 create or replace procedure proc_delete_node(node varchar2) AUTHID definer AS
   p_name varchar(100);
   begin
-    delete from t_adm_node where name = node;
-    dbms_output.put_line('Deleted node ' || node);
-    p_name := 'NODE_' || upper(node);
-    for p in (select table_name from user_tab_partitions
-                      where partition_name = p_name
-                      and table_name not like 'BIN$%') loop
-      dbms_output.put_line('drop partition ' || p_name || ' from ' || p.table_name);
-      execute immediate('alter table ' || p.table_name || ' drop partition ' || p_name);
-    end loop;
-    commit;
-    dbms_output.put_line('Deleted partitions and committed transaction');
+    dbms_output.put_line('This is obsolete. Rename the node to have an "X" at the front, it will then be ignored');
+--    delete from t_adm_node where name = node;
+--    dbms_output.put_line('Deleted node ' || node);
+--    p_name := 'NODE_' || upper(node);
+--    for p in (select table_name from user_tab_partitions
+--                      where partition_name = p_name
+--                      and table_name not like 'BIN$%') loop
+--      dbms_output.put_line('drop partition ' || p_name || ' from ' || p.table_name);
+--      execute immediate('alter table ' || p.table_name || ' drop partition ' || p_name);
+--    end loop;
+--    commit;
+--    dbms_output.put_line('Deleted partitions and committed transaction');
   end;
 /
 
@@ -108,7 +109,7 @@ create type r_table_used_space authid definer as object (
 );
 /
 
-create type t_table_used_space authid definer as table of r_table_used_space;
+create type t_table_used_space as table of r_table_used_space;
 /
 
 create type r_tablespace_used_space authid definer as object (
@@ -120,7 +121,7 @@ create type r_tablespace_used_space authid definer as object (
 );
 /
 
-create type t_tablespace_used_space authid definer as table of r_tablespace_used_space;
+create type t_tablespace_used_space as table of r_tablespace_used_space;
 /
 
 create or replace function func_table_used_space
