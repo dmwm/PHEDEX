@@ -43,39 +43,40 @@ show errors;
      - block inserted or deleted
      - block moved from one dataset to another
  */
-create or replace trigger tr_dps_block_dataset
-  after insert or update or delete on t_dps_block for each row declare
-    unixtime integer := now();
-  begin
-    if (updating and :old.dataset = :new.dataset) then
-        update t_dps_dataset
-           set files = files - :old.files + :new.files,
-               bytes = bytes - :old.bytes + :new.bytes,
-               time_update = unixtime
-         where id = :new.dataset;
-	return;
-    end if;
+-- This doesn't seem to compile, I get ORA-904 (invalid identifier) for "bytes"
+-- create or replace trigger tr_dps_block_dataset
+--   after insert or update or delete on t_dps_block for each row declare
+--     unixtime integer := now();
+--   begin
+--     if (updating and :old.dataset = :new.dataset) then
+--         update t_dps_dataset
+--            set files = files - :old.files + :new.files,
+--                bytes = bytes - :old.bytes + :new.bytes,
+--                time_update = unixtime
+--          where id = :new.dataset;
+-- 	return;
+--      end if;
 
-    if (inserting or updating) then
-      update t_dps_dataset
-      set blocks = blocks + 1,
-          files = files + :new.files,
-          bytes = bytes + :new.bytes,
-	  time_update = unixtime
-      where id = :new.dataset;
-    end if;
+--     if (inserting or updating) then
+--       update t_dps_dataset
+--       set blocks = blocks + 1,
+--           files = files + :new.files,
+--           bytes = bytes + :new.bytes,
+-- 	  time_update = unixtime
+--       where id = :new.dataset;
+--     end if;
 
-    if (updating or deleting) then
-      update t_dps_dataset
-      set blocks = blocks - 1,
-          files = files - :old.files,
-          bytes = bytes - :old.bytes,
-	  time_update = unixtime
-      where id = :old.dataset;
-    end if;
-  end;
-/
-show errors;
+--     if (updating or deleting) then
+--       update t_dps_dataset
+--       set blocks = blocks - 1,
+--           files = files - :old.files,
+--           bytes = bytes - :old.bytes,
+-- 	  time_update = unixtime
+--       where id = :old.dataset;
+--     end if;
+--   end;
+-- /
+-- show errors;
 
 /* Insert new requests for new files in an already-active block
    destination.
