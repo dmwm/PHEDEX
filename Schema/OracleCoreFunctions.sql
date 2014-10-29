@@ -5,30 +5,30 @@
 set scan off;
 
 -- returns a human-readable date if given a unix timestamp
-create or replace function gmtime(unixtimestamp in integer) return varchar is
- result varchar(19);
+create or replace function gmtime(unixtimestamp in integer) return varchar authid definer is
+ gmt varchar(19);
 begin
- result := TO_CHAR(TO_DATE('1970-01-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS') + numtodsinterval(unixtimestamp, 'SECOND'), 'YYYY-MM-DD HH24:MI:SS');
- return(result);
+ gmt := TO_CHAR(TO_DATE('1970-01-01 00-00-00', 'YYYY-MM-DD HH24-MI-SS') + numtodsinterval(unixtimestamp, 'SECOND'), 'YYYY-MM-DD HH24-MI-SS');
+ return(gmt);
 end gmtime;
 /
 
 grant execute on gmtime to public;
 
 -- returns the current time as a unix timestamp
-create or replace function now return number is
-  result number;
+create or replace function now return number authid definer is
+  epoch number;
 begin
-  result := (CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS DATE) - TO_DATE('1970-01-01 00:00:00', 'YYYY-MM-DD HH24:MI:SS')) * 24 *3600;
-return(result);
+  epoch := (CAST(SYS_EXTRACT_UTC(SYSTIMESTAMP) AS DATE) - TO_DATE('1970-01-01 00-00-00', 'YYYY-MM-DD HH24-MI-SS')) * 24 *3600;
+return(epoch);
 end now;
 /
 
 grant execute on now to public;
 
 -- returns the schema version
-create or replace function schema_version return varchar is
-  result varchar(20);
+create or replace function schema_version return varchar authid definer is
+  vsn varchar(20);
 begin
   return('4.1.0');
 end schema_version;
@@ -42,7 +42,7 @@ create or replace procedure proc_add_node(name varchar2,
                                      kind varchar2,
                                      technology varchar2,
                                      se_name varchar2
-                                     ) AS
+                                     ) AUTHID definer AS
   dml varchar(200);
   partition_name varchar(100);
   node_id number;
@@ -63,7 +63,7 @@ create or replace procedure proc_add_node(name varchar2,
 
 -- delete a node and the corresponding partitions
 -- access to this function should be strictly controlled, not public
-create or replace procedure proc_delete_node(node varchar2) AS
+create or replace procedure proc_delete_node(node varchar2) AUTHID definer AS
   p_name varchar(100);
   begin
     delete from t_adm_node where name = node;
@@ -80,12 +80,25 @@ create or replace procedure proc_delete_node(node varchar2) AS
   end;
 /
 
-drop type t_table_used_space;
-drop type r_table_used_space;
-drop type t_tablespace_used_space;
-drop type r_tablespace_used_space;
+BEGIN
+  EXECUTE IMMEDIATE 'DROP TYPE t_table_used_space';
+  EXECUTE IMMEDIATE 'DROP TYPE r_table_used_space';
+  EXECUTE IMMEDIATE 'DROP TYPE t_tablespace_used_space';
+  EXECUTE IMMEDIATE 'DROP TYPE r_tablespace_used_space';
+EXCEPTION
+  WHEN OTHERS THEN
+    IF SQLCODE != -4043 THEN
+      RAISE;
+    END IF;
+END;
+/
 
-create type r_table_used_space as object (
+-- drop type t_table_used_space;
+-- drop type r_table_used_space;
+-- drop type t_tablespace_used_space;
+-- drop type r_tablespace_used_space;
+
+create type r_table_used_space authid definer as object (
   segment_type     varchar2(18),
   segment_name     varchar2(81),
   tablespace_name  varchar2(30),
@@ -95,10 +108,10 @@ create type r_table_used_space as object (
 );
 /
 
-create type t_table_used_space as table of r_table_used_space;
+create type t_table_used_space authid definer as table of r_table_used_space;
 /
 
-create type r_tablespace_used_space as object (
+create type r_tablespace_used_space authid definer as object (
   tablespace_name varchar2(30),
   used_bytes      integer,
   used_blocks     integer,
@@ -107,11 +120,11 @@ create type r_tablespace_used_space as object (
 );
 /
 
-create type t_tablespace_used_space as table of r_tablespace_used_space;
+create type t_tablespace_used_space authid definer as table of r_tablespace_used_space;
 /
 
 create or replace function func_table_used_space
-  return t_table_used_space as
+  return t_table_used_space authid definer as
   r t_table_used_space := t_table_used_space();
 begin
 
@@ -134,7 +147,7 @@ end;
 /
 
 create or replace function func_tablespace_used_space
-  return t_tablespace_used_space as
+  return t_tablespace_used_space authid definer as
   r t_tablespace_used_space := t_tablespace_used_space();
 begin
 

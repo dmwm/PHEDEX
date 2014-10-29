@@ -3,6 +3,18 @@
 
 set serveroutput on size 100000
 BEGIN
+   -- Materialized Views
+   FOR o IN (SELECT object_name name FROM user_objects where object_type = 'MATERIALIZED VIEW') LOOP
+      dbms_output.put_line ('Dropping materialized view ' || o.name);
+      execute immediate 'drop materialized view ' || o.name;
+   END LOOP;
+
+   -- Views
+   FOR o IN (SELECT view_name name FROM user_views) LOOP
+      dbms_output.put_line ('Dropping view ' || o.name);
+      execute immediate 'drop view ' || o.name;
+   END LOOP;
+
    -- Tables
    FOR o IN (SELECT table_name name FROM user_tables) LOOP
       dbms_output.put_line ('Dropping table ' || o.name || ' with dependencies');
@@ -45,12 +57,6 @@ BEGIN
    FOR o IN (SELECT synonym_name name FROM user_synonyms) LOOP
       dbms_output.put_line ('Dropping synonym ' || o.name);
       execute immediate 'drop synonym ' || o.name;
-   END LOOP;
-
-   -- Views
-   FOR o IN (SELECT view_name name FROM user_views) LOOP
-      dbms_output.put_line ('Dropping view ' || o.name);
-      execute immediate 'drop view ' || o.name;
    END LOOP;
 END;
 /
