@@ -71,7 +71,7 @@ sub idle
                 join t_adm_node n on n.id = br.node
                where s.is_move = 'y'
 	         and bd.state = 3
-	         and not regexp_like(n.name,'^T0_|^T1_.*_Buffer$|^T1_.*_MSS$')
+	         and not regexp_like(n.name,'^T0_|^T1_.*_Buffer\$|^T1_.*_MSS\$')
                  and n.kind != 'Buffer'
 	         and br.dest_files = 0
            ) q
