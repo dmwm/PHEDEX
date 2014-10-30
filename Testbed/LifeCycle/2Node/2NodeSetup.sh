@@ -100,6 +100,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE
-./getNodesGroups.sh
+cd $LIFECYCLE/2Node/
+../getNodesGroups.sh
 echo 2-node setup completed

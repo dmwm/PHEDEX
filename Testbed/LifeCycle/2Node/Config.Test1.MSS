@@ -2,9 +2,10 @@
 ### ENVIRON common
 
 # Common part
-PHEDEX_SITE=Test1;
-PHEDEX_NODE=T1_${PHEDEX_SITE}_Buffer;
-PHEDEX_MSS=T1_${PHEDEX_SITE}_MSS;
+PHEDEX_SITE=T1_Test1;
+PHEDEX_NODE=${PHEDEX_SITE}_Buffer;
+PHEDEX_MSS=${PHEDEX_SITE}_MSS;
+PHEDEX_DISK=${PHEDEX_SITE}_Disk;
 PHEDEX_CONTEXT=${PHEDEX_SITE};
 
 # For the watchdog...
@@ -15,7 +16,7 @@ export PHEDEX_NOTIFICATION_PORT;
 TIER1_FTS_SERVER=https://fts-t1-import.cern.ch:8443/glite-data-transfer-fts/services/FileTransfer;
 export TIER1_FTS_SERVER;
 
-PHEDEX_MAP=${LIFECYCLE}/tfc.xml;
+PHEDEX_MAP=${PHEDEX_CONFIG}/tfc.xml;
 export PHEDEX_MAP;
 
 PHEDEX_GLITE_WRAPPER=${LIFECYCLE_ROOT}/Testbed/FakeFTS.pl;
