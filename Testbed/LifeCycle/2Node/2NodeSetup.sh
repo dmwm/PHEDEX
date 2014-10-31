@@ -89,11 +89,11 @@ $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T0_Test_Buffer:L
 
 # Create one T1_Test node
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
-			-technology Other -se-name TAPE.srm-test0.nowhere.cern.ch
+			-technology Other -se-name TAPE.srm-test1.nowhere.cern.ch
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
-			-technology Other -se-name TAPE.srm-test0.nowhere.cern.ch
+			-technology Other -se-name TAPE.srm-test1.nowhere.cern.ch
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Disk -kind Disk \
-                         -technology Other -se-name srm-t1.nowhere.cern.ch
+                         -technology Other -se-name srm-test1.nowhere.cern.ch
 
 # T1_Test1 node links
 echo T1_Test1_MSS to T1_Test1_Buffer
