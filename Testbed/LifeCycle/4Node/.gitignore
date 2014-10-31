@@ -1,3 +1,6 @@
 LifecycleGroups.pl
 LifecycleNodes.pl
 sqlnet.log
+Config.*.MSS
+Config.Mgmt.Testbed
+ConfigPart.*
