@@ -26,7 +26,6 @@
 # /LoadTestSink/LoadTestSink/$node datasets to each other at a fake
 # rate of 100 MB/s for as long as these agents are running.
 
-# Declare a couple of environment variables for steering
 if [ -z $TESTBED_ROOT ]; then
   echo "TESTBED_ROOT not set, are you sure you sourced the environment?"
   exit 0
@@ -74,28 +73,50 @@ fi
 # Create nodes / links
 # T0 node (for central agents to run)
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
-                         -technology Castor -se-name srm.cern.ch
+                         -technology Castor -se-name TAPE.srm-t0.nowhere.cern.ch
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
-                         -technology Castor -se-name srm.cern.ch
-$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+                         -technology Castor -se-name TAPE.srm-t0.nowhere.cern.ch
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Disk -kind Disk \
+                         -technology Castor -se-name srm-t0.nowhere.cern.ch
 
-# Create four T1_Test nodes
+# T0_Test node links
+echo T0_Test_MSS to T0_Test_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1
+# N.B. This next line sets priorities both ways to L/1. It should really be
+# L/1 from Buffer to Disk and L/4 from Disk to Buffer
+echo T0_Test_Disk to T0_Test_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T0_Test_Buffer:L/1
+
+
+# Create four T1_Test nodes and their internal links
 for ((i=1;i<=4;i+=1)); do
-  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Buffer \
-	-kind Buffer -technology Other -se-name srm.test${i}.ch
-  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_MSS \
-	-kind MSS -technology Other -se-name srm.test${i}.ch
+  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_MSS -kind MSS\
+                          -technology Other -se-name TAPE.srm-test${i}.nowhere.cern.ch
+  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Buffer -kind Buffer \
+                          -technology Other -se-name TAPE.srm-test${i}.nowhere.cern.ch
+  $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test${i}_Disk -kind Disk \
+                           -technology Other -se-name srm-test${i}.nowhere.cern.ch
 done
 
 # T1_Test node links
 for ((i=1;i<=4;i+=1)); do
+  echo T1_Test${i}_MSS to T1_Test${i}_Buffer
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_MSS T1_Test${i}_Buffer:L/1
+# N.B. This next line sets priorities both ways to L/1. It should really be
+# L/1 from Buffer to Disk and L/4 from Disk to Buffer
+  echo T1_Test${i}_Disk to T1_Test${i}_Buffer
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Disk T1_Test${i}_Buffer:L/1
+
   echo T1_Test${i}_Buffer to T0_Buffer
-  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/2
-  echo T1_Test${i}_Buffer to T1_Test${i}_MSS
-  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${i}_MSS:L/1
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/4
+  echo T1_Test${i}_Disk to T0_Disk
+  $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T1_Test${i}_Disk:R/1
+ 
   for ((j=$i+1;j<=4;j+=1)); do
     echo T1_Test${i}_Buffer to T1_Test${j}_Buffer
-    $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/2
+    $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/4
+    echo T1_Test${i}_Disk to T1_Test${j}_Disk
+    $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Disk T1_Test${j}_Disk:R/1
   done
 done
 
@@ -109,6 +130,6 @@ do
 done
 echo "groups inserted"
 
-cd $LIFECYCLE
-./getNodesGroups.sh
+cd $LIFECYCLE/4Node/
+../getNodesGroups.sh
 echo 4-node setup completed
