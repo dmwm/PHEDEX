@@ -73,22 +73,48 @@ fi
 # Create nodes / links
 # T0 node (for central agents to run)
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_MSS -kind MSS \
-                         -technology Castor -se-name srm-t0.nowhere.cern.ch
+                         -technology Castor -se-name TAPE.srm-t0.nowhere.cern.ch
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Buffer -kind Buffer \
+                         -technology Castor -se-name TAPE.srm-t0.nowhere.cern.ch
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T0_Test_Disk -kind Disk \
                          -technology Castor -se-name srm-t0.nowhere.cern.ch
+
+# T0_Test node links
+echo T0_Test_MSS to T0_Test_Buffer
 $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_MSS T0_Test_Buffer:L/1 
+# N.B. This next line sets priorities both ways to L/1. It should really be
+# L/1 from Buffer to Disk and L/4 from Disk to Buffer
+echo T0_Test_Disk to T0_Test_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T0_Test_Buffer:L/1 
 
-# Create one T1_Test nodes
+# Create one T1_Test node
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_MSS -kind MSS\
-			-technology Other -se-name srm-test0.nowhere.cern.ch
+			-technology Other -se-name TAPE.srm-test0.nowhere.cern.ch
 $PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Buffer -kind Buffer \
-			-technology Other -se-name srm-test0.nowhere.cern.ch
+			-technology Other -se-name TAPE.srm-test0.nowhere.cern.ch
+$PHEDEX_ROOT/Utilities/NodeNew -db $PHEDEX_DBPARAM -name T1_Test1_Disk -kind Disk \
+                         -technology Other -se-name srm-t1.nowhere.cern.ch
 
-# T1_Test node links
-echo T1_Test1_Buffer to T0_Buffer
-$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/2
-echo T1_Test1_Buffer to T1_Test1_MSS
-$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Buffer T1_Test1_MSS:L/1
+# T1_Test1 node links
+echo T1_Test1_MSS to T1_Test1_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_MSS T1_Test1_Buffer:L/1 
+# N.B. This next line sets priorities both ways to L/1. It should really be
+# L/1 from Buffer to Disk and L/4 from Disk to Buffer
+echo T1_Test1_Disk to T1_Test1_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test1_Disk T1_Test1_Buffer:L/1 
+
+# T1_Test1 to T0_Test links
+echo T1_Test1_Buffer to T0_Test_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Buffer:R/4
+echo T1_Test1_Disk to T0_Test_Disk
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T1_Test1_Disk:R/1
+
+# N.B. This next line sets priorities both ways to L/1. It should really be
+# L/1 from Buffer to Disk and L/4 from Disk to Buffer
+echo T1_Test1_Disk to T0_Test_Buffer
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test1_Disk:R/1
+echo T1_Test1_Buffer to T0_Test_Disk
+$PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T1_Test1_Buffer:R/1
 
 i=1
 echo -n "Inserting groups: "

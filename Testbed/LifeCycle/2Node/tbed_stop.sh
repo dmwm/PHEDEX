@@ -19,4 +19,4 @@ done
 echo "Stopping Mgmt agents"
 $Master --config $Config/Config.Mgmt.Testbed stop
 echo removing stop-files
-rm $TESTBED_ROOT/2Node*/state/*/stop
+rm $TESTBED_ROOT/2Node/*/state/*/stop

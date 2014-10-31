@@ -27,7 +27,7 @@ export PHEDEX_MAP;
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}
+ -nodes       ${PHEDEX_NODE},${PHEDEX_DISK}
  -protocols   'srm','direct'
  -storagemap  ${PHEDEX_MAP}
 
@@ -42,7 +42,7 @@ export PHEDEX_MAP;
  -verbose
  -db              ${PHEDEX_DBPARAM}
  -accept	  '%Test%'
- -nodes           ${PHEDEX_NODE}
+ -nodes           ${PHEDEX_NODE},${PHEDEX_DISK}
  -validate        ${PHEDEX_CONFIG}/fake-validate.pl
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -backend         Null
@@ -50,20 +50,20 @@ export PHEDEX_MAP;
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE},${PHEDEX_MSS}
+ -nodes           ${PHEDEX_NODE},${PHEDEX_DISK},${PHEDEX_MSS}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
  -limit		  1000
  -jobs		  10
  -no-retry
 
-### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
- -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}
+# ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
+#  -db          ${PHEDEX_DBPARAM}
+#  -nodes       ${PHEDEX_NODE}
 
-### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
- -db          ${PHEDEX_DBPARAM}
- -node        ${PHEDEX_NODE}
+# ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
+#  -db          ${PHEDEX_DBPARAM}
+#  -node        ${PHEDEX_NODE}
 
 ### AGENT LABEL=download-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate
  -db          ${PHEDEX_DBPARAM}

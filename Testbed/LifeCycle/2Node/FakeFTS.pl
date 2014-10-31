@@ -11,8 +11,8 @@ my ($me,$cache,$rate,$size,$debug);
 # set these environment variables in the configuration to alter the behavior of this script
 # default rate settings will make the "job" last 20 seconds per file
 $cache = $ENV{PHEDEX_FAKEFTS_CACHEDIR} || '/tmp/' . (getpwuid($<))[0] . '/';
-$rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 100 * (1024**2); # MB/s
-$size  = $ENV{PHEDEX_FAKEFTS_SIZE} ||   2 * (1024**3); # 2 GB
+$rate  = $ENV{PHEDEX_FAKEFTS_RATE} || 12.5 * (1024**3); # bytes/s
+$size  = $ENV{PHEDEX_FAKEFTS_SIZE} ||    2 * (1024**3); # bytes
 $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};

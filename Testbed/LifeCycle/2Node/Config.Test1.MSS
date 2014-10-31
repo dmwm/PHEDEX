@@ -19,7 +19,7 @@ export TIER1_FTS_SERVER;
 PHEDEX_MAP=${PHEDEX_CONFIG}/tfc.xml;
 export PHEDEX_MAP;
 
-PHEDEX_GLITE_WRAPPER=${LIFECYCLE_ROOT}/Testbed/FakeFTS.pl;
+PHEDEX_GLITE_WRAPPER=${LIFECYCLE}/2Node/FakeFTS.pl;
 export PHEDEX_GLITE_WRAPPER;
 
 ### IMPORT ConfigPart.Testbed
@@ -36,7 +36,7 @@ export PHEDEX_GLITE_WRAPPER;
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
- -nodes       ${PHEDEX_NODE}
+ -nodes       ${PHEDEX_NODE},${PHEDEX_DISK}
  -storagemap  ${PHEDEX_MAP}
  -protocols   'srm','direct'
 
@@ -47,32 +47,32 @@ export PHEDEX_GLITE_WRAPPER;
  -storagemap  ${PHEDEX_MAP}
  -protocols   'direct'
 
-### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
- -verbose
- -db              ${PHEDEX_DBPARAM}
- -accept	  '%Test%'
- -nodes           ${PHEDEX_NODE}
- -validate        ${PHEDEX_CONFIG}/fake-validate.pl
- -delete          ${PHEDEX_CONFIG}/fake-delete.pl
- -backend         Null
- -jobs            10
+# ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+#  -verbose
+#  -db              ${PHEDEX_DBPARAM}
+#  -accept	  '%Test%'
+#  -nodes           ${PHEDEX_NODE},${PHEDEX_DISK}
+#  -validate        ${PHEDEX_CONFIG}/fake-validate.pl
+#  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
+#  -backend         Null
+#  -jobs            10
 
 ### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
  -db              ${PHEDEX_DBPARAM}
- -nodes           ${PHEDEX_NODE},${PHEDEX_MSS}
+ -nodes           ${PHEDEX_NODE},${PHEDEX_DISK},${PHEDEX_MSS}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
  -limit		  1000
  -jobs		  10
 
-### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
-  -db          ${PHEDEX_DBPARAM}
-  -nodes       ${PHEDEX_NODE}
-  -namespace   castor
+# ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
+#   -db          ${PHEDEX_DBPARAM}
+#   -nodes       ${PHEDEX_NODE},${PHEDEX_DISK}
+#   -namespace   castor
 
-### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
- -db          ${PHEDEX_DBPARAM}
- -node        ${PHEDEX_NODE}
+# ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
+#  -db          ${PHEDEX_DBPARAM}
+#  -node        ${PHEDEX_NODE},${PHEDEX_DISK}
 
 ### AGENT LABEL=download-migrate PROGRAM=Toolkit/Transfer/FileMSSMigrate
  -db          ${PHEDEX_DBPARAM}
@@ -82,7 +82,7 @@ export PHEDEX_GLITE_WRAPPER;
 
 ### AGENT LABEL=download-fts PROGRAM=Toolkit/Transfer/FileDownload
  -db                    ${PHEDEX_DBPARAM}
- -nodes                 ${PHEDEX_NODE}
+ -nodes                 ${PHEDEX_NODE},${PHEDEX_DISK}
  -accept                '%'
  -validate              ${PHEDEX_CONFIG}/fake-validate.pl
  -backend               FTS
