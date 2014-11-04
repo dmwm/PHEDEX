@@ -133,3 +133,8 @@ echo "groups inserted"
 cd $LIFECYCLE/4Node/
 ../getNodesGroups.sh
 echo 4-node setup completed
+
+cp ../2Node/CheckProxy.pl .
+cp ../2Node/FakeFTS.pl .
+cp ../2Node/fake-validate.pl .
+cp ../2Node/fake-delete.pl .

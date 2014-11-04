@@ -1,9 +1,10 @@
 ### ENVIRON common
 PHEDEX_INSTANCE=2Node;
+export PHEDEX_INSTANCE;
 
-[ -z "$PHEDEX_SITE" ] && { echo '$PHEDEX_SITE not set' 1>&2; exit 1; };
-[ -z "$PHEDEX_INSTANCE" ] && { echo '$PHEDEX_INSTANCE not set' 1>&2; exit 1; };
-[ -z "$PHEDEX_CONTEXT" ] && { echo '$PHEDEX_CONTEXT not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_SITE" ] && { echo 'PHEDEX_SITE not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_INSTANCE" ] && { echo 'PHEDEX_INSTANCE not set' 1>&2; exit 1; };
+[ -z "$PHEDEX_CONTEXT" ] && { echo 'PHEDEX_CONTEXT not set' 1>&2; exit 1; };
 
 PHEDEX_CONFIG=${LIFECYCLE}/${PHEDEX_INSTANCE}; export PHEDEX_CONFIG
 PHEDEX_STATE=${TESTBED_ROOT}/${PHEDEX_INSTANCE}/${PHEDEX_CONTEXT}/state;

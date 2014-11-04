@@ -1,6 +1,12 @@
 LifecycleGroups.pl
 LifecycleNodes.pl
 sqlnet.log
+# These are assumed ignored because they're cloned from the 2Node directory
 Config.*.MSS
 Config.Mgmt.Testbed
 ConfigPart.*
+CheckProxy.pl
+FakeFTS.pl
+fake-validate.pl
+fake-delete.pl
+tfc.xml
