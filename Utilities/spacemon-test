@@ -22,7 +22,7 @@ echo -e "\n******* Executing spacemon $dummydump  2>&1: "
 spacemon $dummydump 2>&1
 
 
-echo "******* Testing XML format: " 
+echo "******* Testing XML format and compressed input file: " 
 dummydump=/tmp/spacemon-tests/example.xml
 touch $dummydump
 echo -e "\n******* Created file $dummydump "
@@ -32,5 +32,6 @@ echo '<entry name="/dpm/in2p3.fr/home/cms/trivcat/store/mc/JobRobot/RelValProdTT
 echo '<entry name="/dpm/in2p3.fr/home/cms/trivcat/store/mc/JobRobot/RelValProdTTbar/GEN-SIM-DIGI-RECO/MC_3XY_V24_JobRobot-v1/0000/0068DD7E-3D2C-DF11-AE3E-0030487C778E.root"><size>1062056867</size><ctime>1296707321</ctime><checksum>AD:9fa5feec</checksum></entry>' >> $dummydump
 echo '</entry-set></dump>' >> $dummydump
 
-echo -e "\n******* Executing spacemon $dummydump  2>&1: "
-spacemon $dummydump 2>&1
+gzip $dummydump
+echo -e "\n******* Executing spacemon $dummydump.gz  2>&1: "
+spacemon $dummydump.gz 2>&1
