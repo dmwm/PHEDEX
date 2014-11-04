@@ -74,7 +74,7 @@ EOF
 $input = shift;
 
 $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
-							  FORMAT => $format,
+							  DUMPFORMAT => $format,
 							  DEBUG => $debug,
 							  VERBOSE => $verbose,
 							  DUMPFILE => $input,
