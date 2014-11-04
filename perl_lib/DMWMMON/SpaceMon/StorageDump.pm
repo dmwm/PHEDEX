@@ -21,7 +21,7 @@ sub readDumpHead {
     my $fullname = shift;
     my $n = (@_) ? shift : 1;
     my ($name,$path,$suffix) = fileparse($fullname, keys %extractor);
-    open ( HEAD, ($suffix) ? "head -$n $fullname $extractor{$suffix} |" : " head -$n $fullname | ") 
+    open ( HEAD, ($suffix) ? " dd if=$fullname count=$n $extractor{$suffix} | head -$n |" : " head -$n $fullname | ") 
 	or die "open: $fullname: $!\n";
     my @headlines = <HEAD>;
     close HEAD;
