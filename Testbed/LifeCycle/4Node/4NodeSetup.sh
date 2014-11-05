@@ -111,12 +111,16 @@ for ((i=1;i<=4;i+=1)); do
   $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Buffer T1_Test${i}_Buffer:R/4
   echo T1_Test${i}_Disk to T0_Disk
   $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T0_Test_Disk T1_Test${i}_Disk:R/1
+   echo T1_Test${i}_Disk to T0_Buffer
+   $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Disk T0_Test_Buffer:R/1
  
   for ((j=$i+1;j<=4;j+=1)); do
     echo T1_Test${i}_Buffer to T1_Test${j}_Buffer
     $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Buffer T1_Test${j}_Buffer:R/4
     echo T1_Test${i}_Disk to T1_Test${j}_Disk
     $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Disk T1_Test${j}_Disk:R/1
+    echo T1_Test${i}_Disk to T1_Test${j}_Buffer
+    $PHEDEX_ROOT/Utilities/LinkNew -db $PHEDEX_DBPARAM T1_Test${i}_Disk T1_Test${j}_Buffer:R/1
   done
 done
 
