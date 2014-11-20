@@ -33,8 +33,8 @@ export LIFECYCLE_CONFIG;
  -agent_list mgmt-blockactiv
  -agent_list mgmt-blockdeact
  -agent_list mgmt-blockdelete
- -agent_list info-pm
- -agent_list info-invariant
- -agent_list info-tc
- -agent_list info-fs
+# -agent_list info-pm
+# -agent_list info-invariant
+# -agent_list info-tc
+# -agent_list info-fs
  -agent_list exp-stage

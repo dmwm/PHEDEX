@@ -3,18 +3,26 @@
 ### AGENT LABEL=mgmt-blockmon PROGRAM=Toolkit/Workflow/BlockMonitor ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
+ --
+ WAITTIME	15 # 120-150
 
 ### AGENT LABEL=mgmt-reqalloc PROGRAM=Toolkit/Workflow/RequestAllocator ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
+ --
+ WAITTIME	15 # 900
 
 ### AGENT LABEL=mgmt-blockalloc PROGRAM=Toolkit/Workflow/BlockAllocator ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
+ --
+ WAITTIME	15 # i300
 
 ### AGENT LABEL=mgmt-blockactiv PROGRAM=Toolkit/Workflow/BlockActivate ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
  -node      ${PHEDEX_NODE}
+ --
+ WAITTIME	15 # 600-700
 
 ### AGENT LABEL=mgmt-blockdeact PROGRAM=Toolkit/Workflow/BlockDeactivate ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
@@ -35,12 +43,18 @@
 ### AGENT LABEL=mgmt-router PROGRAM=Toolkit/Infrastructure/FileRouter ENVIRON=phedex
  -db             ${PHEDEX_DBPARAM}
  -request-alloc  BY_AGE
+ --
+ WAITTIME	10 # 60-70
 
 ### AGENT LABEL=mgmt-pump PROGRAM=Toolkit/Infrastructure/FilePump ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
+ --
+ WAITTIME	10 # 15-20
 
 ### AGENT LABEL=mgmt-issue PROGRAM=Toolkit/Infrastructure/FileIssue ENVIRON=phedex
  -db        ${PHEDEX_DBPARAM}
+ --
+ WAITTIME	15 # 60-70
 
 ### AGENT LABEL=mgmt-blockverifyinjector PROGRAM=Toolkit/Verify/BlockDownloadVerifyInjector DEFAULT=off ENVIRON=phedex
   -db       ${PHEDEX_DBPARAM}

@@ -19,11 +19,10 @@ export TIER1_FTS_SERVER;
 PHEDEX_MAP=${PHEDEX_CONFIG}/tfc.xml;
 export PHEDEX_MAP;
 
-PHEDEX_GLITE_WRAPPER=${LIFECYCLE}/2Node/FakeFTS.pl;
+PHEDEX_GLITE_WRAPPER=${LIFECYCLE}/${PHEDEX_INSTANCE}/FakeFTS.pl;
 export PHEDEX_GLITE_WRAPPER;
 
 ### IMPORT ConfigPart.Testbed
-
 
 ### AGENT LABEL=watchdog PROGRAM=Utilities/AgentFactory.pl
  -db         ${PHEDEX_DBPARAM}
@@ -32,13 +31,13 @@ export PHEDEX_GLITE_WRAPPER;
  -agent_list exp-pfn-mss
  -agent_list download-fts
  -agent_list download-migrate
- -agent_list remove
+# -agent_list remove
 
 ### AGENT LABEL=exp-pfn PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
  -nodes       ${PHEDEX_NODE},${PHEDEX_DISK}
- -storagemap  ${PHEDEX_MAP}
  -protocols   'srm','direct'
+ -storagemap  ${PHEDEX_MAP}
 
 ### AGENT LABEL=exp-pfn-mss PROGRAM=Toolkit/Transfer/FileExport
  -db          ${PHEDEX_DBPARAM}
@@ -47,28 +46,27 @@ export PHEDEX_GLITE_WRAPPER;
  -storagemap  ${PHEDEX_MAP}
  -protocols   'direct'
 
-# ### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
+### AGENT LABEL=download PROGRAM=Toolkit/Transfer/FileDownload DEFAULT=off
 #  -verbose
 #  -db              ${PHEDEX_DBPARAM}
-#  -accept	  '%Test%'
+#  -accept	    '%'
 #  -nodes           ${PHEDEX_NODE},${PHEDEX_DISK}
 #  -validate        ${PHEDEX_CONFIG}/fake-validate.pl
 #  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
 #  -backend         Null
 #  -jobs            10
 
-### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove
+### AGENT LABEL=remove PROGRAM=Toolkit/Transfer/FileRemove DEFAULT=off
  -db              ${PHEDEX_DBPARAM}
  -nodes           ${PHEDEX_NODE},${PHEDEX_DISK},${PHEDEX_MSS}
  -delete          ${PHEDEX_CONFIG}/fake-delete.pl
  -protocol        'direct'
- -limit		  1000
  -jobs		  10
+ -no-retry
 
 # ### AGENT LABEL=blockverify PROGRAM=Toolkit/Verify/BlockDownloadVerify DEFAULT=off
 #   -db          ${PHEDEX_DBPARAM}
 #   -nodes       ${PHEDEX_NODE},${PHEDEX_DISK}
-#   -namespace   castor
 
 # ### AGENT LABEL=drop-publish PROGRAM=Toolkit/DropBox/DropTMDBPublisher DEFAULT=off
 #  -db          ${PHEDEX_DBPARAM}
