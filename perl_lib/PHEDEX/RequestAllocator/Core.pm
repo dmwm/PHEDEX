@@ -409,11 +409,11 @@ sub validateRequest
 		die "cannot request move:  moves to non-T0, non-T1 destinations are not allowed\n";
 	    }
 	    # Exclude T0/T1 nodes from list of source nodes that will receive deletion request for move
-	    delete @sources{grep /^(T1.*(Buffer|MSS)|T0)/, keys %sources};
+	    delete @sources{grep /^(T1.*(Buffer|MSS)|T0.*(Export|MSS))/, keys %sources};
 	    # Should not be possible given the previous step, but reject move request if it still contains
 	    # T0/T1 nodes as source points
 	    die "cannot request move:  moves of data subscribed to T0 or T1 are not allowed\n"
-		if grep /^(T1.*(Buffer|MSS)|T0)/, keys %sources;
+		if grep /^(T1.*(Buffer|MSS)|T0.*(Export|MSS))/, keys %sources;
 	    push @node_pairs, map { [ 's', $nodemap{$_} ] } keys %sources;
 	}
 
