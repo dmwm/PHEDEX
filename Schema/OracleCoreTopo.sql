@@ -75,7 +75,7 @@ create table t_adm_node
    technology		varchar (20)	not null,
    se_name		varchar (80),
    capacity		integer,
--- TW bandwidtt_cap is obsolete
+-- TW bandwidth_cap is obsolete
    bandwidth_cap	integer,
    --
    constraint pk_adm_node
