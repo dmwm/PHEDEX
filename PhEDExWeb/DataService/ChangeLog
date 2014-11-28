@@ -1,3 +1,13 @@
+* Changes for 2.3.20
+ Seems I've not been keeping up to date with the changelog, oops!
+
+ The difference between 2.3.20 and 2.3.19 is in the stuff needed for the move requests
+ with  _Disk nodes. There are minor bugfixes to the PreviewRequest API, and to the
+ RequestAllocator Core.pm, to fix a couple of regular expressions.
+
+ The RequestAllocator::Core fixes are cosmetic, but the PreviewRequest API won't work for
+ moves with _Disk nodes for previous versions.
+
 * Changes for 2.0.x
 
  Now following the convention that this ChangeLog tracks only the first two
