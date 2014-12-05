@@ -7,11 +7,12 @@ Class StorageDump(base class container):
 Class Format::XML(algorithm):
  - rules for parsing dump in XML format
 
-Class Foramt::TXT(algorithm):
+Class Format::TXT(algorithm):
  - rules for parsing dump in TXT format
 
 Class RecordIO (algorithm): 
  - reads/writes Record from/to file 
+ - uploads/downloads Record to/from central database via a data service. 
  - closure test : write record to a file, read it back and compare. 
 
 Class Aggregate (algorithm): 
@@ -21,7 +22,7 @@ Class Aggregate (algorithm):
 #Class SpaceMon (module):
 ## For now this is done in the main executable:
 spacemon
- - read storage dump, creates Record, and uploads to cerntral DB/local file. 
+ - read storage dump, creates Record, and uploads to central DB/local file. 
 
 Core (module):
  - provides package version info 
