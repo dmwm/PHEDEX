@@ -7,7 +7,7 @@
 #  * Creates a record object for space monitoring 
 #  * Downloads TFC and CMS namespace conventions
 #  * Maps directories to CMS data types 
-#  * Uploads record to dmwmmon database, or saves to a local file
+#  * Uploads record to dmwmmon database, or saves to a local file for later upload
 #    (default: print to stdout)
 #
 # See project page for details:
@@ -87,8 +87,9 @@ $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     VERBOSE => $verbose,
 					     );
 
-$parser->countSpace($dumpfile);
+print "Using parsing algorithm: \n", $parser->dump() if $debug;
 $record = $parser->createRecord($dumpfile);
+print "Dump record returned by a parser: ", $record->dump(), "\n" if $debug;
 
 $rio = DMWMMON::SpaceMon::RecordIO->new(
 					DEBUG => $debug,
