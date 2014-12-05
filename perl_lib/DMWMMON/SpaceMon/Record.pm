@@ -13,11 +13,14 @@ sub new
 		  VERBOSE => 1,
 		  NODE => undef,
 		  TIMESTAMP => undef,
-		  DIRS => [],
+		  DIRS => {},
 		  );
     my %args = (@_);
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     map { $self->{$_} = $args{$_} || $params{$_} } keys %params;
+    $self->{totalsize} = 0;
+    $self->{totalfiles} = 0;
+    $self->{totaldirs} = 0;
     bless $self, $class;
     return $self;
 }
