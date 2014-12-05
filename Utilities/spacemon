@@ -30,7 +30,7 @@ use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
-my ($upload, $save, $debug, $verbose, $format);
+my ($upload, $save, $debug, $verbose, $level, $format);
 #$debug = $verbose = 0; # use these to override class defaults. 
 
 my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file);
@@ -52,6 +52,7 @@ GetOptions ( 'help|h' => sub { &usage },
 	     'format:s'   => \$format,
 	     'debug!' => \$debug,  # enables --nodebug option
 	     'verbose!' => \$verbose,
+	     'level:i' => \$level,
 	     );
 
 sub usage
@@ -85,6 +86,7 @@ print $dumpfile->dump();
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     DEBUG => $debug,
 					     VERBOSE => $verbose,
+					     LEVEL => $level,
 					     );
 
 print "Using parsing algorithm: \n", $parser->dump() if $debug;
