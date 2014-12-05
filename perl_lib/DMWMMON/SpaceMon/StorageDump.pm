@@ -67,10 +67,8 @@ sub new
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     $self->{TIMESTAMP} = lookupTimeStamp($self);
-    $self->{DIRS} = {};
-    $self->{totalsize} = 0;
-    $self->{totalfiles} = 0;
-    $self->{totaldirs} = 0;
+    # NRDEBUG: Just for testing: 
+    $self-> {mytest} = 'MYTEST';
     bless $self, $class;
     return $self;
 }
@@ -86,14 +84,6 @@ sub openDump {
     return $fh;
 }
 
-sub addDir
-{
-    my $self = shift;
-    my ($pfn, $size) = @_;
-    # We could add checks here, or rely on validation during parsing
-    push @{$self->{DIRS}}, ($pfn, $size);
-    print "Added dir: $pfn ==> $size \n" if $self-> {VERBOSE};
-}
 
 sub lookupTimeStamp{
     my $self = shift;
