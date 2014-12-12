@@ -28,8 +28,15 @@ sub readFromFile
     my $self = shift;
     my ($file,) = (@_);
     print "RecordIO reading from file: $file\n";
-    return DMWMMON::SpaceMon::Record->new();
-    
+    my $data = do {
+	if( open my $fh, '<', $file ) 
+	{ local $/; <$fh> }
+	else { undef }
+    };    
+    my $record;
+    eval $data;    
+    $self->{VERBOSE} && print "Record read from $file:\n", $record->dump();
+    return $record;
 }
 
 sub writeToFile
@@ -44,7 +51,8 @@ sub writeToFile
 			       [ qw(record) ]
 			       );
     print $fh $dd->Dump();
-    $self->{VERBOSE} && print "Wrote a record:", $dd->Dump();
+    # NR: it looks like Dump above empties the dumped object, so I can't 
+    # print it again into stdout
     close $fh;
 }
 
