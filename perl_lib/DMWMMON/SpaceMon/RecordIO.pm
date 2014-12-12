@@ -31,13 +31,21 @@ sub readFromFile
     return DMWMMON::SpaceMon::Record->new();
     
 }
+
 sub writeToFile
 {
     my $self = shift;
-    my ($what, $where) = (@_);
+    my ($record, $where) = (@_);
     print "I am in ",__PACKAGE__,"->writeToFile()\n" if $self->{VERBOSE};
     print "RecordIO writing to file: $where\n";
-    $self->{VERBOSE} && print "Wrote a record:", $what->dump();
+    open (my $fh, '>', $where) or die "Could not open file '$where' $!";
+    my $dd = Data::Dumper->new(
+			       [ $record ],
+			       [ qw(record) ]
+			       );
+    print $fh $dd->Dump();
+    $self->{VERBOSE} && print "Wrote a record:", $dd->Dump();
+    close $fh;
 }
 
 sub upload
