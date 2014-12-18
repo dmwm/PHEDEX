@@ -2,6 +2,7 @@ package DMWMMON::SpaceMon::Record;
 use strict;
 use warnings;
 use Data::Dumper;
+use Test::More;
 
 sub new
 {
@@ -51,8 +52,7 @@ sub matches
 {
     my $self = shift;
     my $replica = shift;
-    # assume they match:
-    return 1;
+    return is_deeply($self, $replica, 'Record matches');
 }
 
 1;
