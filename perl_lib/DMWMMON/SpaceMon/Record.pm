@@ -52,7 +52,9 @@ sub matches
 {
     my $self = shift;
     my $replica = shift;
-    return is_deeply($self, $replica, 'Record matches');
+    my $result = is_deeply($self, $replica, 'Record matches');
+    done_testing();
+    return $result;
 }
 
 1;
