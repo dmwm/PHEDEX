@@ -272,11 +272,12 @@ sub updateRequest
   {
     $core->{DBH}->rollback(); # Processes seem to hang without this!
     warn "UpdateRequest: Some bizarre error: $@\n";
-    if ( $@ =~ m%^cannot request% ) {
+    if ( $@ =~ m%(cannot request.*$)% ) {
 #     Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest
-      die PHEDEX::Web::Util::http_error(400,"Error from RequestAllocator: " . $@);
+      my $msg = $1;
+      die PHEDEX::Web::Util::http_error(400,"Error from RequestAllocator: " . $msg
     }
-    die PHEDEX::Web::Util::http_error(500,"An error occurred. That happens sometimes...");
+    die PHEDEX::Web::Util::http_error(500,"An unexpected error occurred. That happens sometimes...");
   }
 
   # determine if we commit
