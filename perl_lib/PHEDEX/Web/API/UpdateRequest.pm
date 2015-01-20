@@ -275,7 +275,7 @@ sub updateRequest
     if ( $@ =~ m%(cannot request.*$)% ) {
 #     Allow specific errors from PHEDEX::RequestAllocator::Core::validateRequest
       my $msg = $1;
-      die PHEDEX::Web::Util::http_error(400,"Error from RequestAllocator: " . $msg
+      die PHEDEX::Web::Util::http_error(400,"Error from RequestAllocator: " . $msg);
     }
     die PHEDEX::Web::Util::http_error(500,"An unexpected error occurred. That happens sometimes...");
   }
