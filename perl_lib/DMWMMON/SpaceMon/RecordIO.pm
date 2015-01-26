@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use DMWMMON::SpaceMon::Record;
+use DMWMMON::StorageAccounting::Core;
 
 sub new
 {
@@ -59,9 +60,13 @@ sub writeToFile
 sub upload
 {    
     my $self = shift;
+    my ($url, $record) = (@_);
+    $url='https://cmsweb.cern.ch/dmwmmon/datasvc' unless  (defined $url);
+
     print "I am in ",__PACKAGE__,"->upload()\n" if $self->{VERBOSE};
-    print "Dummy upload: here goes all Datasvc/UA stuff.\n";
-    return 1;
+    print "In RecordIO::upload: testing upload from StorageAccounting::Core.\n Record=\n", Dumper($record);
+    my $result= uploadRecord($url, $ {$record} {'DIRS'});
+    return $result;
 }
 
 sub show
