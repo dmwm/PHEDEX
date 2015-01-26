@@ -30,7 +30,7 @@ use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
-my ($upload, $save, $debug, $verbose, $level, $format);
+my ($upload, $save, $debug, $verbose, $level, $format, $url);
 #$debug = $verbose = 0; # use these to override class defaults. 
 
 my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file);
@@ -53,6 +53,7 @@ GetOptions ( 'help|h' => sub { &usage },
 	     'debug!' => \$debug,  # enables --nodebug option
 	     'verbose!' => \$verbose,
 	     'level:i' => \$level,
+	     'url:s' => \$url,
 	     );
 
 sub usage
@@ -66,6 +67,8 @@ sub usage
 	$me --help|-h
 	$me --version
 	$me [OPTIONS] $argname
+  Options: 
+	--url  -verrides upload url
 EOF
 ;
     #openDumpUsage($argname);
@@ -80,7 +83,7 @@ $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
 							  VERBOSE => $verbose,
 							  DUMPFILE => $input,
 							  );
-print $dumpfile->dump();
+print $dumpfile->dump() if $debug;
 #$dumpfile->formattingHelp();
 
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
@@ -106,6 +109,6 @@ $rec_from_file = $rio->readFromFile($tmp_rec_file);
 
 $verbose && print $rec_from_file->dump();
 
-$rio->upload($record) if ($rec_from_file->matches($record));
+$rio->upload($url, $record) if ($rec_from_file->matches($record));
 
-$rio->show($record);
+$rio->show($rec_from_file);
