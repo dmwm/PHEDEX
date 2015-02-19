@@ -297,8 +297,7 @@ sub getFileReplicas
 	$p{':update_since'} = &str2time($h{UPDATE_SINCE});
     }
 
-#   Suppress this because it can cause the use of excessive temporary space
-#   $sql .= qq{ order by block_id };
+    $sql .= qq{ order by block_id };
     $q = execute_sql( $self, $sql, %p );
     $q = PHEDEX::Web::STH->new($q);
 
