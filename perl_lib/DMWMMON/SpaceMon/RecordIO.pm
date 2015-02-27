@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use DMWMMON::SpaceMon::Record;
-use DMWMMON::StorageAccounting::Core;
+use PHEDEX::CLI::UserAgent;
 
 sub new
 {
@@ -65,14 +65,69 @@ sub upload
 
     print "I am in ",__PACKAGE__,"->upload()\n" if $self->{VERBOSE};
     print "In RecordIO::upload: testing upload from StorageAccounting::Core.\n Record=\n", Dumper($record);
-    my $result= uploadRecord($url, $ {$record} {'DIRS'});
+    my $result= uploadRecord($url, $self->{VERBOSE},  $self->{DEBUG}, $ {$record} {'DIRS'});
     return $result;
 }
+
+sub uploadRecord{
+  # Code from Utilities/testSpace/spaceInsert   <<<
+  my $url = shift;
+  my $verbose=shift;
+  my $debug=shift;
+  my $hashref = shift; # pass %payload by reference
+  my $method   = 'post';
+  my $timeout  = 500;
+  my $pua = PHEDEX::CLI::UserAgent->new (
+                                      URL        => $url,
+                                      FORMAT    => 'perl',
+                                      INSTANCE    => '',
+                                      CA_DIR    => '/etc/grid-security/certificates',
+                                     );
+  my ($response,$content,$target);
+  print "Begin to connect data service.....\n" if $debug;
+  $pua->timeout($timeout) if $timeout;
+  $pua->CALL('storageinsert');
+  #$pua->CALL('auth'); # for testing authentication without writing into the database.
+  $target = $pua->target;
+  print "[DEBUG] User agent target=$target\n" if ($debug);
+  $response = $pua->$method($target,$hashref);
+  if ( $pua->response_ok($response) )
+    {
+      # HTTP call returned correctly, print contents and quit...
+      no strict 'vars';
+      $content = eval($response->content());
+      $content = $content->{PHEDEX}{STORAGEINSERT};
+      Data::Dumper->Dump([ $content ]);
+      foreach $record ( @{$content} ) {
+        print "Inserting Record:\n  ",join('  ',map { "$_:$record->{$_}" } sort keys %{$record}),"\n";
+      }
+    }
+  else
+    {
+      # Something went wrong...
+      print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
+        $response->content(),"\n";
+      print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($debug); 
+      die "exiting after failure\n";
+    }
+  print  "Done!\n";
+}
+
 
 sub show
 {
     my $self = shift;
     print "I am in ",__PACKAGE__,"->show()\n" if $self->{VERBOSE};
+}
+
+sub uploadToDatasvc
+{ # Upload without dependency on PhEDEx - either curl or LWA/UserAgent based
+    return;
+}
+
+sub uploadRecordAsFile
+{ # Upload record as a file to some Grid enabled storage. 
+    return;
 }
 
 1;
