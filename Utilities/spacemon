@@ -68,7 +68,8 @@ sub usage
 	$me --version
 	$me [OPTIONS] $argname
   Options: 
-	--url  -verrides upload url
+	--url           - overrides upload url
+	--upload-record - upload record to central data store
 EOF
 ;
     #openDumpUsage($argname);
@@ -108,7 +109,14 @@ $rio->writeToFile($record, $tmp_rec_file);
 $rec_from_file = $rio->readFromFile($tmp_rec_file);
 
 $verbose && print $rec_from_file->dump();
+if ( ! $rec_from_file->matches($record)) {    
+    $upload = 0;
+    print "WARNING: the Record failed validation. Will not upload!\n";
+    print "DETAILS: the Record read from the file does not match the original Record.\n";
+}
 
-$rio->upload($url, $record) if ($rec_from_file->matches($record));
+if ($upload) {
+    $rio->upload($url, $record);
+}
 
 $rio->show($rec_from_file);
