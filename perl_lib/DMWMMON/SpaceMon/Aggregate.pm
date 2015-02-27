@@ -33,7 +33,7 @@ sub createRecord {
     my $dumpfile = shift;
     my ($size, $file, $dir);
     print "I am in ",__PACKAGE__,"->createRecord()\n" if $self->{VERBOSE};
-    my $record= DMWMMON::SpaceMon::Record->new();
+    my $record = DMWMMON::SpaceMon::Record->new();
     print "Record initialized:\n", $record->dump() if $self->{DEBUG};
     print "Processing file $dumpfile->{DUMPFILE}\n" if $self->{VERBOSE};
     print $dumpfile->dump() if $self->{DEBUG};
