@@ -50,6 +50,7 @@ sub createRecord {
     }
     close $fh;
     $record->{totaldirs} = keys %{$record->{DIRS}};
+    $record->setTimeStamp($dumpfile->{'TIMESTAMP'});
     return $record;
 }
 # $record->addDir('/some/other/pfn', 9876543); # example
