@@ -62,19 +62,27 @@ sub upload
     my $self = shift;
     my ($url, $record) = (@_);
     $url='https://cmsweb.cern.ch/dmwmmon/datasvc' unless  (defined $url);
-
     print "I am in ",__PACKAGE__,"->upload()\n" if $self->{VERBOSE};
     print "In RecordIO::upload: testing upload from StorageAccounting::Core.\n Record=\n", Dumper($record);
-    my $result= uploadRecord($url, $self->{VERBOSE},  $self->{DEBUG}, $ {$record} {'DIRS'});
+    my $result= uploadRecord($url, $self->{VERBOSE}, $self->{DEBUG}, $ {$record} {'TIMESTAMP'}, $ {$record} {'NODE'}, $ {$record} {'DIRS'});
     return $result;
 }
 
 sub uploadRecord{
   # Code from Utilities/testSpace/spaceInsert   <<<
   my $url = shift;
-  my $verbose=shift;
-  my $debug=shift;
+  my $verbose = shift;
+  my $debug = shift;
+  my $timestamp = shift;
+  my $node = shift;
   my $hashref = shift; # pass %payload by reference
+  # Adding timestamp and node parameters to upload hash:
+  $hashref->{'timestamp'} = $timestamp;
+  $hashref->{'node'} = $node;
+  #print payload: 
+  while( my ($k, $v) = each %$hashref ) {
+      print "key: $k, value: $v.\n";
+  }
   my $method   = 'post';
   my $timeout  = 500;
   my $pua = PHEDEX::CLI::UserAgent->new (
@@ -113,20 +121,17 @@ sub uploadRecord{
   print  "Done!\n";
 }
 
-
 sub show
 {
     my $self = shift;
     print "I am in ",__PACKAGE__,"->show()\n" if $self->{VERBOSE};
 }
 
-sub uploadToDatasvc
-{ # Upload without dependency on PhEDEx - either curl or LWA/UserAgent based
-    return;
-}
-
-sub uploadRecordAsFile
+sub uploadRecordFile
 { # Upload record as a file to some Grid enabled storage. 
+    my $self = shift;
+    my ($url, $record) = (@_);
+    print "I am in ",__PACKAGE__,"->uploadRecordFile()\n" if $self->{VERBOSE};
     return;
 }
 
