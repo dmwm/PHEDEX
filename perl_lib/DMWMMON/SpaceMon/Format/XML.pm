@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use base 'DMWMMON::SpaceMon::StorageDump';
+use Time::Local;
 
 # class methods:
 sub formattingHelp
@@ -30,6 +31,7 @@ sub new
     my $self = $class->SUPER::new(@_);
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
+    $self->{TIMESTAMP} = lookupTimeStamp($self);
     return $self;
 }
 
@@ -43,6 +45,30 @@ sub lookupFileSize
     } else {
 	return ();
     }
+}
+
+sub lookupTimeStamp{
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->lookupTimeStamp()\n" if $self->{VERBOSE};
+    # Read first three lines of the dump
+    foreach (DMWMMON::SpaceMon::StorageDump::readDumpHead($self->{DUMPFILE})) {
+	print "XML FILE line: " . $_;
+	if (m/<dump recorded=\"(\S+)\">/) {return convertToUnixTime($1)};
+    }
+    return undef;
+}
+
+sub convertToUnixTime {
+# parses time formats like "2012-02-27T12:33:23.902495" or "2012-02-20T14:46:39Z" 
+# and returns unix time or undef if not parsable.
+  my ($time) = shift;
+  my $unixTime = undef;
+  my ($unixTime, $localtime, $mon, $year, $d, $t, @d, @t);
+  if ($time =~ m/^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)\D+/)
+    {$unixTime = timelocal($6, $5, $4, $3, $2-1, $1-1900)}
+  #$localtime = localtime($unixTime);
+  #print "the localtime:", $localtime->mon+1,"  ", $localtime->year+1900, "\n";
+  return $unixTime;
 }
 
 1;
