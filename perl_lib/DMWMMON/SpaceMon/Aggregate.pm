@@ -50,7 +50,11 @@ sub createRecord {
     }
     close $fh;
     $record->{totaldirs} = keys %{$record->{DIRS}};
-    $record->setTimeStamp($dumpfile->{'TIMESTAMP'});
+    if ($dumpfile->{'TIMESTAMP'}) {
+	$record->setTimeStamp($dumpfile->{'TIMESTAMP'});
+    } else {
+	die "ERROR: Storage Dump time stamp is missing.\n ";
+    }
     return $record;
 }
 # $record->addDir('/some/other/pfn', 9876543); # example
