@@ -13,6 +13,7 @@ sub new
     my %params = (
 		  DEBUG => 1,
 		  VERBOSE => 1,
+		  DATASVC => 'https://cmsweb.cern.ch/dmwmmon/datasvc',
 		  );
     my %args = (@_);
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;        
@@ -60,23 +61,20 @@ sub writeToFile
 sub upload
 {    
     my $self = shift;
-    my ($url, $record) = (@_);
-    $url='https://cmsweb.cern.ch/dmwmmon/datasvc' unless  (defined $url);
+    my ($record) = (@_);
     print "I am in ",__PACKAGE__,"->upload()\n" if $self->{VERBOSE};
     print "In RecordIO::upload: testing upload from StorageAccounting::Core.\n Record=\n", Dumper($record);
-    my $result= uploadRecord($url, $self->{VERBOSE}, $self->{DEBUG}, $ {$record} {'TIMESTAMP'}, $ {$record} {'NODE'}, $ {$record} {'DIRS'});
+    my $result = $self->uploadRecord($ {$record} {'TIMESTAMP'}, $ {$record} {'NODE'}, $ {$record} {'DIRS'});
     return $result;
 }
 
 sub uploadRecord{
   # Code from Utilities/testSpace/spaceInsert   <<<
-  my $url = shift;
-  my $verbose = shift;
-  my $debug = shift;
+  my $self = shift;
   my $timestamp = shift;
   my $node = shift;
   my $hashref = shift; # pass %payload by reference
-  # Adding timestamp and node parameters to upload hash:
+  # Adding timestamp and node parameters to the upload hash:
   $hashref->{'timestamp'} = $timestamp;
   $hashref->{'node'} = $node;
   #print payload: 
@@ -86,18 +84,18 @@ sub uploadRecord{
   my $method   = 'post';
   my $timeout  = 500;
   my $pua = PHEDEX::CLI::UserAgent->new (
-                                      URL        => $url,
+                                      URL        => $self->{'DATASVC'},
                                       FORMAT    => 'perl',
                                       INSTANCE    => '',
                                       CA_DIR    => '/etc/grid-security/certificates',
                                      );
   my ($response,$content,$target);
-  print "Begin to connect data service.....\n" if $debug;
+  print "Begin to connect data service.....\n" if ($self->{'DEBUG'});
   $pua->timeout($timeout) if $timeout;
   $pua->CALL('storageinsert');
   #$pua->CALL('auth'); # for testing authentication without writing into the database.
   $target = $pua->target;
-  print "[DEBUG] User agent target=$target\n" if ($debug);
+  print "[DEBUG] User agent target=$target\n" if ($self->{'DEBUG'});
   $response = $pua->$method($target,$hashref);
   if ( $pua->response_ok($response) )
     {
@@ -115,7 +113,7 @@ sub uploadRecord{
       # Something went wrong...
       print "Error from server ",$response->code(),"(",$response->message(),"), output below:\n",
         $response->content(),"\n";
-      print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($debug); 
+      print "[DEBUG] Web user agent parameters:\n" . Data::Dumper->Dump([ $pua]) if ($self->{'DEBUG'}); 
       die "exiting after failure\n";
     }
   print  "Done!\n";
@@ -130,7 +128,7 @@ sub show
 sub uploadRecordFile
 { # Upload record as a file to some Grid enabled storage. 
     my $self = shift;
-    my ($url, $record) = (@_);
+    my ($record) = (@_);
     print "I am in ",__PACKAGE__,"->uploadRecordFile()\n" if $self->{VERBOSE};
     return;
 }

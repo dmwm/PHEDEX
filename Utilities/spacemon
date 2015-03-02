@@ -70,7 +70,7 @@ sub usage
 	$me [OPTIONS] $argname
 
       Upload options: 
-	--url           - overrides upload url
+	--url           - overrides data service url
 	--upload-record - upload record to central data store
 	--node          - node (usually a site name) to upload data for
 EOF
@@ -104,6 +104,7 @@ print "Dump record returned by a parser: ", $record->dump(), "\n" if $debug;
 $rio = DMWMMON::SpaceMon::RecordIO->new(
 					DEBUG => $debug,
 					VERBOSE => $verbose,
+					DATASVC => $url,
 					);
 
 $tmp_rec_file='/tmp/record.save-in-file-test';
@@ -120,7 +121,7 @@ if ( ! $rec_from_file->matches($record)) {
 }
 
 if ($upload) {
-    $rio->upload($url, $record);
+    $rio->upload($record);
 }
 
 $rio->show($rec_from_file);
