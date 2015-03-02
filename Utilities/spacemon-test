@@ -35,3 +35,6 @@ echo '</entry-set></dump>' >> $dummydump
 gzip $dummydump
 echo -e "\n******* Executing spacemon $dummydump.gz  2>&1: "
 spacemon $dummydump.gz 2>&1
+
+echo -e "\n******* Executing spacemon $dummydump.gz  --upload --node T2_Test_Buffer 2>&1: "
+spacemon $dummydump.gz  --upload --node T2_Test_Buffer 2>&1
