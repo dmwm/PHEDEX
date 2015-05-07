@@ -2,11 +2,12 @@
 # For now just a few commands to run at the site
 # and send the log back for debugging.  
  
-echo -e "======================= \n Testing phedex authentication \n ======================="
+echo -e "======================= \n Checking basic environemnt \n ======================="
 echo Date: `date`
 echo Host: `hostname`
 echo Proxy tools: `which  grid-proxy-init` 
 rpm -qif ` which grid-proxy-init`
+rpm -qi perl-Crypt-SSLeay
 
 echo -e '\n "======================= Creating proxy \n'
 
