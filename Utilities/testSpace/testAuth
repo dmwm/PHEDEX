@@ -1,0 +1,26 @@
+# Test suite for phedex authentication 
+# For now just a few commands to run at the site
+# and send the log back for debugging.  
+ 
+echo -e "======================= \n Testing phedex authentication \n ======================="
+echo Date: `date`
+echo Host: `hostname`
+echo Proxy tools: `which  grid-proxy-init` 
+rpm -qif ` which grid-proxy-init`
+
+echo -e '\n "======================= Creating proxy \n'
+
+echo -e " Executing: \n grid-proxy-init -rfc -bits 1024"
+grid-proxy-init -rfc -bits 1024
+myproxy=`grid-proxy-info -path`
+echo myproxy=$myproxy
+echo 
+echo -e " Executing: \n grid-proxy-info"
+grid-proxy-info
+
+echo -e '\n "======================= Checking PhEDEx authentication \n'
+
+echo Executing: 
+echo phedex --debug --cert_file=$myproxy --key_file=$myproxy --instance=prod --format=perl --ca_file=$myproxy  --ca_dir=/etc/grid-security/certificates  auth
+
+phedex --debug --cert_file=$myproxy --key_file=$myproxy --instance=prod --format=perl --ca_file=$myproxy  --ca_dir=/etc/grid-security/certificates  auth
