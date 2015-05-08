@@ -41,6 +41,41 @@ sub readFromFile
     return $record;
 }
 
+sub readFromDatasvc
+{
+    my $self = shift;
+    my $node = shift;
+    my $timeout = 500;  # do we need this to be an option? 
+    my %payload = (); # input to data server call
+    my ($date, $datasvc_record, $entry,$response, $target, $timestamp);
+    print "RecordIO reading $node record from $self->{'DATASVC'}\n";
+    # Get data from the server: 
+    my $pua = PHEDEX::CLI::UserAgent->new 
+	( CA_DIR   => '/etc/grid-security/certificates', URL => $self->{'DATASVC'}, INSTANCE => '.', FORMAT   => 'perl', );
+    $pua->timeout ($timeout) if $timeout;
+    $pua->Dump() if ($self->{'DEBUG'});
+    $pua->CALL('storageusage');
+    $payload{node} = $node if $node;
+    $target = $pua->target;
+    print "DEBUG: now getting last record for $node\n" if ($self->{'DEBUG'});
+    $response = $pua->get($target, \%payload);
+    #print Dumper($response) if ($self->{'DEBUG'});
+    if ($pua->response_ok($response)){
+	# Create empty record object to save server data into:
+	$datasvc_record = DMWMMON::SpaceMon::Record-> new (NODE => $node,);
+	#print $response->content();
+	#print $datasvc_record;
+	#print Data::Dumper->Dump([ $datasvc_record ]) if ($self->{'DEBUG'});
+	#$entry= $datasvc_record->{PHEDEX}{NODES}[0];
+	#$timestamp = $entry->{'TIMEBINS'}[0]->{'TIMESTAMP'};
+	$self->{VERBOSE} && print "Record:  $datasvc_record->dump()";
+	return $datasvc_record;
+    }else{
+	print "$node : no records\n";
+	return undef;
+    }
+}
+
 sub writeToFile
 {
     my $self = shift;
