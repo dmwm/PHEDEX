@@ -108,6 +108,7 @@ while ( <LFN> )
   chomp;
   $debug && print "Read: $_\n";;
   s%^.*/store%/store%;
+  s%\|.*%%;
   s%\s.*$%%;
   $_ = File::Spec->canonpath($_);
   $h{LFN}{$_}++;
