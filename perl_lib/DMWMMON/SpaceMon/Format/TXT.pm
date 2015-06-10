@@ -45,12 +45,16 @@ sub lookupFileSize
 {
     my $self = shift;
     $_ = shift;
-    my ($file, $size, $rest) = split /\|/;
-    if ($file) {
-	#print "Found match for file: $file and size: $size \n" if $self->{VERBOSE};
+    #my ($file, $size, $rest) = split /\|/;
+    my ($file, $size, $rest) = m"(.*?)\|(\d*)\|(.*)";
+#    if ($file) {
+    if ($size) {
+	print "Found match for file: $file and size: $size \n" if $self->{VERBOSE};
 	return ($file, $size);
     } else {
-	return ();
+	chomp;
+	die  "The following entry in the dump file does not match the format <file name>|<size in bytes>:\n$_\n";
+	#return ();
     }
 }
 
