@@ -43,7 +43,7 @@ sub new
 		  MAX_TASKS => 15000,            # Max number of local tasks
 
 		  LAST_CONNECT => 0,		# Last time connected and made known
-		  LAST_WORK => time(),		# Last time we saw work
+		  LAST_WORK => 0,     		# Last time we saw work
 		  LAST_COMPLETED => 0,		# Last completed a task
 		  DBH_LAST_USE => 0,		# Last use of the database
 
