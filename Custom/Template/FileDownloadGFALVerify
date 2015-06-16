@@ -1,0 +1,126 @@
+#!/bin/sh
+set -o nounset
+
+##H Usage: FileDownloadGFALVerify [-c] [-d] [-f] STATUS PFN SIZE CHECKSUM
+##H
+##H arguments automatically provided by calling agent:
+##H    STATUS:        exit code of the transfer process 
+##H                   (or "pre" for pre-transfer valiation check)
+##H    PFN:           PFN of transfered file to verify
+##H    SIZE:          reference size of transfered file
+##H    CHECKSUM:      reference checksum of transfered file
+##H
+##H Verifies that the PFN has been successfully transferred.  The exit
+##H code from the transfer program (STATUS) is ignored since the value
+##H ends to be unreliable.  Makes sure that size of the transferred
+##H file on disk is the same as the one recorded in TMDB (SIZE).  With
+##H "-c" option also validates file CHECKSUM if the reference is adler32;
+##H otherwise the checksum is ignored if the file size is correct.
+##H Finally with "-d" option also always removes the downloaded file
+##H after all the checks have been made; this is meaningful only
+##H for transfer tests.
+##H And as a special goodie hack, with "-f" the return value is forced
+##H to be zero (success) -- after all normal checks have been made.
+
+getsize () {
+  local path=$1
+  fields=($(gfal-stat "$path" 2>/dev/null | grep 'Size:'))
+  echo ${fields[1]}
+}
+
+parseDBChecksum () {
+  local dbchecksum=$1
+
+  adler=
+
+  IFS=',' eval 'checksums=($dbchecksum)'
+  for chk in "${checksums[@]}"
+  do
+      if [ $(echo ${chk} | cut -d ':' -f1) = 'adler32' ]; then
+	  adler=$(echo ${chk} | cut -d ':' -f2)
+      fi  
+  done
+
+  echo $adler
+
+}
+
+getChecksum ()
+{
+  local pfn=$1
+
+  local disksum=
+  local disksumtype=$2
+
+  disksum=$(gfal-sum "$pfn" "$disksumtype" | grep "$pfn" | cut -d ' ' -f2)
+
+  echo $disksum
+
+}
+
+# Process command line arguments
+
+do_checksum=false do_delete=false do_force=false
+while [ $# -ge 1 ]; do
+  case $1 in
+    -c ) do_checksum=true; shift ;;
+    -d ) do_delete=true; shift ;;
+    -f ) do_force=true; shift ;;
+    *  ) break ;;
+  esac
+done
+
+# Pick up arguments
+status="$1" pfn="$2" size="$3" checksum="$4"
+validity=0
+
+# If status was claimed ok, accept it
+#[ X"$status" = X0 ] && exit 0
+
+# If status is "pre" then we are doing a pre-transfer validation Here
+# we just return 1 (failure) and bypass this feature.  If we actually
+# want to do pre-transfer valiation, the exit codes have the following
+# meaning: 
+# 0 : Success.  File exists and is valid.  No transfer should
+#     be attempted and the task should be marked successful.
+# 86: Veto. Storage area not prepared to receive this transfer.  
+#     Transfer will not be attempted and the task is marked as a 
+#     failure.
+# other non-zero: Failure.  The file sould be transferred and 
+#                 validated afterwards.
+if [ X"$status" = "Xpre" ]; then
+  exit 1
+fi
+
+# Check file size and mark file invalid on mismatch.
+if [ $validity = 0 ]; then
+    disksize=$(getsize $pfn)
+    [ X"$disksize" = X ] && echo "file $pfn doesn't seem to exist" && validity=1
+    [ $validity = 0 ] && [ X"$disksize" != X"$size" ] && echo "size mismatch disk=$disksize db=$size pfn=$pfn" && validity=2
+fi
+
+# Check checksum if requested, mark file invalid on mismatch
+if $do_checksum && [ $validity = 0 ]; then
+    disksumtype="ADLER32"
+    dbAdler=$(parseDBChecksum $checksum)
+    if [ $dbAdler ]; then
+	disksum=$(getChecksum $pfn $disksumtype)
+	[ X"$disksum" != X"$dbAdler" ] && echo "checksum mismatch disk=$disksum db=$dbAdler diskalgo=$disksumtype" && validity=3
+    else
+	echo "DB adler32 checksum missing, skipping checksum verification"
+    fi
+fi
+
+# Inform if exit code of transfer tool claimed status=0 and we found out something different
+[ $validity != 0 ] && [ X"$status" = X0 ] && echo "transfer tool claimed exit code 0 although transfer failed validation!"
+
+# If file deletion was requested, delete the file.
+if $do_delete; then
+    gfal-rm "$pfn"
+fi
+
+# If we are forcing true return value, lie about it all
+$do_force && validity=0
+
+# Return file validity
+exit $validity
