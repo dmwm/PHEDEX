@@ -1,0 +1,26 @@
+#!/bin/sh
+
+context="$1"  # the context of the deletion, either "pre" or "post" transfer
+pfn="$2"     # PFN to delete
+
+# Handle removal.  We only remove the file on post-transfer error to
+# avoid the overhead on every transfer, most of which don't need
+# the file deletion.
+case $context in
+  pre )
+   exit 0;; # ignore, only delete if we have a real error
+  post )
+   gfal-rm "$pfn";
+   # Check if file still exists after the deletion
+   filestatus=$(gfal-ls "$pfn" 2>&1);
+   if [ "$filestatus" = 'gfal-ls: error: No such file or directory' ]; then
+       echo "file no longer exists, deletion successful";
+       exit 0;
+   else
+       echo "file still exists"; 
+       #exit non-zero to let PhEDEx retry the deletion.
+       exit 1;
+   fi;;
+  * ) echo "unrecognised context to remove $pfn: $context" 1>&2; exit 1;;
+esac
+
