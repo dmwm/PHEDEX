@@ -10,4 +10,4 @@
  -delete          ${PHEDEX_CONFIG}/FileDownloadDelete
  -validate        ${PHEDEX_CONFIG}/FileDownloadSRMVerify
  -backend         SRM
- -command         srmcp,-x509_user_proxy=${X509_USER_PROXY},-debug=true,-retry_num=2
+ -command         srmcp,-x509_user_proxy=${X509_USER_PROXY},-delegate=true,-debug=true,-retry_num=2
