@@ -33,10 +33,22 @@ sub setTimeStamp
     my $self = shift;
     $self->{TIMESTAMP}=shift;
 }
+
+sub getTimeStamp
+{
+    my $self = shift;
+    return $self->{TIMESTAMP};
+}
+
 sub setNodeName
 {
     my $self = shift;
     $self->{NODE}=shift;
+}
+sub getNodeName
+{
+    my $self = shift;
+    return $self->{NODE};
 }
 
 sub addDir
