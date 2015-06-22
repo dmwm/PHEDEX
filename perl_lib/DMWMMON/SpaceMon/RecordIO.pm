@@ -59,9 +59,11 @@ sub readFromDatasvc
     $target = $pua->target;
     print "DEBUG: now getting last record for $node\n" if ($self->{'DEBUG'});
     $response = $pua->get($target, \%payload);
-    #print Dumper($response) if ($self->{'DEBUG'});
+    print Dumper($response) if ($self->{'DEBUG'});
     if ($pua->response_ok($response)){
-	# Create empty record object to save server data into:
+	# Create empty record object to save server data into. 
+	# For multiple nodes/timebins we will need multiple records. 
+	# Currently it is only the latest upload for the specified node:
 	$datasvc_record = DMWMMON::SpaceMon::Record-> new (NODE => $node,);
 	#print $response->content();
 	#print $datasvc_record;
@@ -156,8 +158,12 @@ sub uploadRecord{
 
 sub show
 {
+    # Print record time stamp and dir sizes in a human readable format up  to a certain level of depth. 
     my $self = shift;
     print "I am in ",__PACKAGE__,"->show()\n" if $self->{VERBOSE};
+    
+
+
 }
 
 sub uploadRecordFile
