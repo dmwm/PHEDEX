@@ -5,24 +5,7 @@ use Data::Dumper;
 use base 'DMWMMON::SpaceMon::StorageDump';
 use Time::Local;
 
-# class methods:
-sub formattingHelp
-{
-    my $message = <<'EOF';
-======== Formatting help =========
-XML formatting recommendations: 
-
-XML format has been agreed with dCache sites, as they can produce the dump using 
-the pnfs-dump or the chimera-dump tools, that support XML output format. 
-
-More details here: http://www.desy.de/~paul/SynCat/syncat-1.0.tar.gz
-
-Similar tools exist for DPM storage. 
-===================================
-EOF
-    print $message;
-}
-# Object methods:
+# Required methods: 
 
 sub new
 {
@@ -32,20 +15,53 @@ sub new
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
     $self->{TIMESTAMP} = lookupTimeStamp($self);
+    $self->{ENTRYSET} = 0;
     return $self;
 }
+
+sub formattingHelp
+{
+    print "=" x 80 . "\n";
+    print __PACKAGE__ . " formatting recommendations \n";
+    print "=" x 80 . "\n";
+    my $message = <<'EOF';
+
+spacemon XML parser follows syncat format, defined at:
+    http://www.desy.de/~paul/SynCat/syncat-1.0.tar.gz
+
+Tools for producing storage dumps in syncat are available for dCache and DPM
+
+Example of syntax accepted in current implementation:  
+
+<?xml version="1.0" encoding="iso-8859-1"?><dump recorded="2012-02-27T12:33:23.902495"><for>vo:cms</for>
+<entry-set>
+<entry name="/dpm/site/home/cms/store/file1"><size>1139273384</size><ctime>1296671817</ctime><checksum>AD:ca793d51</checksum></entry>
+<entry name="/dpm/site/home/cms/store/file2"><size>1062056867</size><ctime>1296707321</ctime><checksum>AD:9fa5feec</checksum></entry>
+</entry-set></dump>
+EOF
+    print $message;
+    print "=" x 80 . "\n";
+}
+
 
 sub lookupFileSize 
 {
     my $self = shift;
     $_ = shift;
     if (m/\S+\sname=\"(\S+)\"\>\<size\>(\d+)\<\S+$/) {
-	#print "Found match for file: $1 and size: $2 \n" if $self->{VERBOSE};
+	print "Found match for file: $1 and size: $2 \n" if $self->{VERBOSE};
 	return ($1, $2);
     } else {
-	return ();
+	# Because XML cnotains tags other than  file entries, we skip non matching lines without dying.
+	# Sites can verify their dump format using syncat validation parser. 
+	return (); 
+	## Use this if if you want to implement format checking and it does not match:
+	#&formattingHelp();
+	#die "\nERROR: formatting error in " . __PACKAGE__ . " for line: \n$_" ;
     }
 }
+
+# Additional format specific methods: 
 
 sub lookupTimeStamp{
     my $self = shift;
@@ -63,7 +79,7 @@ sub convertToUnixTime {
 # and returns unix time or undef if not parsable.
   my ($time) = shift;
   my $unixTime = undef;
-  my ($unixTime, $localtime, $mon, $year, $d, $t, @d, @t);
+  my ($localtime, $mon, $year, $d, $t, @d, @t);
   if ($time =~ m/^(\d+)-(\d+)-(\d+)T(\d+):(\d+):(\d+)\D+/)
     {$unixTime = timelocal($6, $5, $4, $3, $2-1, $1-1900)}
   #$localtime = localtime($unixTime);

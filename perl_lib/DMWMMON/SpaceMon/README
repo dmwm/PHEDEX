@@ -60,7 +60,8 @@ Core (module):
  - choose a proper name for a new format, here we call it MYFORMAT
  - create a module Format::MYFORMAT and implement the following functions: 
 	new, formattingHelp, and lookupFileSize (see XML, TXT formats)
+ - include examples of recognized syntaxes in formattingHelp 
  - lookupFileSize returns a tuple: ($pfn, $size)
- - if fail to parse the line, call formattingHelp and exit with formatting error 
- - the verification of the values is done at the higher level in the Aggregate 
-   class, so that it does not need to be implemented for every format 
+ - if fail to parse the line, call formattingHelp and die with formatting error
+ - the verification of the $pfn and $size values doesn't need to be implemented
+   for each format; it happens at the higher level in the Aggregate class
