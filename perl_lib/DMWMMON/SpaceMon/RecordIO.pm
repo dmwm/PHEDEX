@@ -16,8 +16,7 @@ sub new
 		  DATASVC => 'https://cmsweb.cern.ch/dmwmmon/datasvc',
 		  );
     my %args = (@_);
-    map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;        
-    
+    map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;    
     return $self;
