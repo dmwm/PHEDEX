@@ -18,7 +18,7 @@ sub new
     my %args = (@_);
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
-    bless $self, $class;    
+    bless $self, $class;
     return $self;
 }
 
@@ -30,7 +30,7 @@ sub readFromFile
     my ($file,) = (@_);
     print "RecordIO reading from file: $file\n";
     my $data = do {
-	if( open my $fh, '<', $file ) 
+	if( open my $fh, '<', $file )
 	{ local $/; <$fh> }
 	else { undef }
     };    
@@ -44,12 +44,12 @@ sub readFromDatasvc
 {
     my $self = shift;
     my $node = shift;
-    my $timeout = 500;  # do we need this to be an option? 
+    my $timeout = 500;  # do we need this to be an option?
     my %payload = (); # input to data server call
     my ($date, $datasvc_record, $entry,$response, $target, $timestamp);
     print "RecordIO reading $node record from $self->{'DATASVC'}\n";
-    # Get data from the server: 
-    my $pua = PHEDEX::CLI::UserAgent->new 
+    # Get data from the server:
+    my $pua = PHEDEX::CLI::UserAgent->new
 	( CA_DIR   => '/etc/grid-security/certificates', URL => $self->{'DATASVC'}, INSTANCE => '.', FORMAT   => 'perl', );
     $pua->timeout ($timeout) if $timeout;
     $pua->Dump() if ($self->{'DEBUG'});
@@ -60,8 +60,8 @@ sub readFromDatasvc
     $response = $pua->get($target, \%payload);
     print Dumper($response) if ($self->{'DEBUG'});
     if ($pua->response_ok($response)){
-	# Create empty record object to save server data into. 
-	# For multiple nodes/timebins we will need multiple records. 
+	# Create empty record object to save server data into.
+	# For multiple nodes/timebins we will need multiple records.
 	# Currently it is only the latest upload for the specified node:
 	$datasvc_record = DMWMMON::SpaceMon::Record-> new (NODE => $node,);
 	#print $response->content();
@@ -89,7 +89,7 @@ sub writeToFile
 			       [ qw(record) ]
 			       );
     print $fh $dd->Dump();
-    # NR: it looks like Dump above empties the dumped object, so I can't 
+    # NR: it looks like Dump above empties the dumped object, so I can't
     # print it again into stdout
     close $fh;
 }
@@ -157,12 +157,9 @@ sub uploadRecord{
 
 sub show
 {
-    # Print record time stamp and dir sizes in a human readable format up  to a certain level of depth. 
+    # Print record time stamp and dir sizes in a human readable format up to a certain level of depth. 
     my $self = shift;
     print "I am in ",__PACKAGE__,"->show()\n" if $self->{VERBOSE};
-    
-
-
 }
 
 sub uploadRecordFile
