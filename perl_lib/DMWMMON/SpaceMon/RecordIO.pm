@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use DMWMMON::SpaceMon::Record;
-use PHEDEX::CLI::UserAgent;
+use DMWMMON::SpaceMon::UserAgent;
 
 sub new
 {
@@ -49,7 +49,7 @@ sub readFromDatasvc
     my ($date, $datasvc_record, $entry,$response, $target, $timestamp);
     print "RecordIO reading $node record from $self->{'DATASVC'}\n";
     # Get data from the server:
-    my $pua = PHEDEX::CLI::UserAgent->new
+    my $pua = DMWMMON::SpaceMon::UserAgent->new
 	( CA_DIR   => '/etc/grid-security/certificates', URL => $self->{'DATASVC'}, INSTANCE => '.', FORMAT   => 'perl', );
     $pua->timeout ($timeout) if $timeout;
     $pua->Dump() if ($self->{'DEBUG'});
@@ -119,7 +119,7 @@ sub uploadRecord{
   }
   my $method   = 'post';
   my $timeout  = 500;
-  my $pua = PHEDEX::CLI::UserAgent->new (
+  my $pua = DMWMMON::SpaceMon::UserAgent->new (
                                       URL        => $self->{'DATASVC'},
                                       FORMAT    => 'perl',
                                       INSTANCE    => '',
