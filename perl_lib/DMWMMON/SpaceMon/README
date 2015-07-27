@@ -17,6 +17,9 @@ Class RecordIO (algorithm):
 
 Class Aggregate (algorithm): 
  - converts StorageDump object into Record object
+ 
+Class UserAgent.pm
+ - SpaceMon specific wrapper around 'LWP::UserAgent' module that implements http interface to data service. 
 
 ## This is an optional class if in future we want multiple scenarios to be 
 ## handled in one script:
