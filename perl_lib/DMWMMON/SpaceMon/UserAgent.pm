@@ -1,15 +1,13 @@
-package PHEDEX::CLI::UserAgent;
-
+package DMWMMON::SpaceMon::UserAgent;
 use strict;
 use warnings;
 use base 'LWP::UserAgent';
 use Data::Dumper;
 use Getopt::Long;
 
-our $VERSION = '1.0';
 our @env_keys = ( qw / PROXY DEBUG CERT_FILE KEY_FILE CA_FILE CA_DIR / );
 our %env_keys = map { $_ => 1 } @env_keys;
-
+our $VERSION = '1.0';
 our %params =
 	(
 	  URL		=> undef,
@@ -20,14 +18,11 @@ our %params =
 	  NOCERT	=> undef,
 	  PROXY		=> undef,
 	  TIMEOUT	=> 5*60,
-
 	  VERBOSE	=> $ENV{PHEDEX_VERBOSE} || 0,
 	  DEBUG		=> $ENV{PHEDEX_DEBUG}   || 0,
 	  FORMAT	=> undef,
-	  INSTANCE	=> undef,
 	  CALL		=> undef,
 	  TARGET	=> undef,
-
 	  PARANOID	=> 1,
 	  ME	 	=> __PACKAGE__ . '/' . $VERSION,
 	);
@@ -41,7 +36,6 @@ sub new
   my %h = @_;
   map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
   bless $self, $class;
-
   $self->init();
   $self->CMSAgent($self->{ME});
   return $self;
@@ -157,7 +151,7 @@ sub path_info
 {
   my $self = shift;
   return $self->{TARGET} if $self->{TARGET};
-  my $path = '/' . join('/',$self->{FORMAT},$self->{INSTANCE},$self->{CALL});
+  my $path = '/' . join('/',$self->{FORMAT},$self->{CALL});
   $path =~ s%//+%/%g;
   return $path;
 }
@@ -194,12 +188,10 @@ sub auth_getoptions
 sub auth_usage
 {
   print <<EOF;
-
 User authentication options: 
    --cert_file and --key_file are used to define user certificate. 
    These options must be set together, they may also point to the 
    user certificate proxy file. 
-
    --ca_file and --ca_dir specify locations for the certificate 
    authority.
 EOF

@@ -94,7 +94,7 @@ sub storageusage  {
   }
  
   if ($args{level}) {
-     if ($args{level} > 6) {
+     if ($args{level} > 12) {
         die PHEDEX::Web::Util::http_error(400,"the level required is too deep");
      }
   }

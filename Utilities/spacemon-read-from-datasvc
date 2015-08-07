@@ -1,0 +1,105 @@
+#!/usr/bin/env perl
+#
+# spacemon-read-from-datasvc - test utility for visualization 
+# 
+# Intended functionality: 
+#  * Gets last record object by a given date from dmwmmon db using dataservice
+#  * Converts record into format foreseen for dashboard visualization and saves as a file 
+#    (default: print to stdout)
+#  * Other options:
+#	- print out a list of nodes in dmwmmon db 
+#	- print out an authentication information based on proxy certificate. 
+#	- get all upload dates with total sizes for a given  node
+#
+#  This can be implemented via a  separate utility per use case, or as one utility 
+#  supporting different  'command' arguments. 
+# 
+# See project page for details:
+#            https://twiki.cern.ch/twiki/bin/view/CMSPublic/CompProjSpaceMon
+#
+############################################################################
+
+use strict;
+use warnings;
+use Carp;
+use Data::Dumper;
+use File::Basename;
+use Getopt::Long qw /:config pass_through /;
+
+use DMWMMON::SpaceMon::RecordIO;
+use DMWMMON::SpaceMon::Core;
+
+my $me = basename($0);
+my ($debug, $verbose, $level, $url, $node, $date, $writetofile);
+#$debug = $verbose = 0; # use these to override class defaults. 
+
+my ($rec_from_datasvc, $rec_from_file, $rio, $tmp_rec_file);
+
+sub vPrint{
+    my $text = shift;
+    $verbose && print "$me: " . $text . "\n"; 
+}
+
+# Check useful for packaging. Print dependencies and exit:
+GetOptions("deps|d" => sub {print Dumper(%INC); exit;}); 
+
+GetOptions ( 'help|h' => sub { &usage },
+	     'version'=> sub { print "$me version: " . 
+				   DMWMMON::SpaceMon::Core::version()."\n";
+			       exit;},
+	     'write-to-file:s'   => \$writetofile,
+	     'debug!' => \$debug,  # enables --nodebug option
+	     'verbose!' => \$verbose,	     
+	     'level:i' => \$level,
+	     'url:s' => \$url,
+	     'node:s' => \$node,
+  	     'date:i' => \$date,  # default - current time
+	     );
+
+sub usage
+{ 
+    my $ver = DMWMMON::SpaceMon::Core::version();
+    print <<EOF;
+  $me - client side utility for CMS Space Monitoring. 
+  Version:  $ver    
+	
+      Usage:    
+	$me --help|-h
+	$me --version
+	$me [OPTIONS] 
+
+      Options: 
+	--url           - overrides data service url
+	--upload-date   - upload record to central data store
+	--node          - node to get data for (required)
+	--date          - get last upload by this date (in sec since epoch)
+	
+
+EOF
+;
+    exit 0;
+}
+
+$rio = DMWMMON::SpaceMon::RecordIO->new(
+					DEBUG => $debug,
+					VERBOSE => $verbose,
+					DATASVC => $url,
+					);
+
+
+
+if (defined $node) {
+    $rec_from_datasvc = $rio->readFromDatasvc ($node);
+} else {
+    die "Please specify node parameter! \n";
+}
+
+$tmp_rec_file='/tmp/record.save-datasvc-record';
+
+$rio->writeToFile($rec_from_datasvc, $tmp_rec_file);
+
+$rec_from_file = $rio->readFromFile($tmp_rec_file);
+
+$verbose && print $rec_from_file->dump();
+
+$rio->show($rec_from_file);
