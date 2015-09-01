@@ -59,7 +59,24 @@ sub connectAgent
 sub disconnectAgent
 {
     my ($self, $force) = @_;
+    if ( $self->{SHARED_DBH} ) { print "Sharing a DBH, not disconnecting!\n"; }
     return if ($self->{SHARED_DBH});
+
+#
+#   Force a disconnect if the time between calls to 'idle' (i.e. the WAITTIME)
+#   is greater than the time the DB handle should be kept active.
+#
+#   Do this here because it's almost certain this is called only from the end
+#   of the agent cycle, so it's a good time to do it. Besides, it's the only
+#   guaranteed safe time, since I wouldn't be here if the agent weren't willing
+#   to lose their connection!
+#
+    if ( $self->{DBH} && !$force ) {
+      if ( $self->{DBH}{private_phedex_life} < $self->{WAITTIME} ) {
+        $force = 1;
+      }
+    }
+
     &disconnectFromDatabase($self, $self->{DBH}, $force);
 }
 

@@ -80,11 +80,11 @@ for role in \
         echo "grant select on $table to $writer;"
 	echo "grant select, update, delete on $table to $role;" ;;   
 
-      T_DPS_DATASET:*_OPS*_* \
+      T_DPS_DATASET:*_OPS*_* )
         # update on is_open, to allow by-hand fixes
         echo "grant update(is_open) on $table to $role;" ;;
 
-      T_DPS_SUBS_PARAM:*_OPS*_* \
+      T_DPS_SUBS_PARAM:*_OPS*_* )
         # update on custodiality, to allow by-hand fixes
         echo "grant update(is_custodial) on $table to $role;" ;;
 

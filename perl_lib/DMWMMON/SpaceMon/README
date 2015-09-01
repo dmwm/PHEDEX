@@ -1,0 +1,70 @@
+Class Record (container):
+ - holds aggregated node space usage info 
+
+Class StorageDump(base class container):
+ - machine representation of storage dump info
+
+Class Format::XML(algorithm):
+ - rules for parsing dump in XML format
+
+Class Format::TXT(algorithm):
+ - rules for parsing dump in TXT format
+
+Class RecordIO (algorithm): 
+ - reads/writes Record from/to file 
+ - uploads/downloads Record to/from central database via a data service. 
+ - closure test : write record to a file, read it back and compare. 
+
+Class Aggregate (algorithm): 
+ - converts StorageDump object into Record object
+ 
+Class UserAgent.pm
+ - SpaceMon specific wrapper around 'LWP::UserAgent' module that implements http interface to data service. 
+
+## This is an optional class if in future we want multiple scenarios to be 
+## handled in one script:
+#Class SpaceMon (module):
+## For now this is done in the main executable:
+
+spacemon
+ - read storage dump, creates Record, and uploads to central DB/local file. 
+
+spacemon-test
+ - a simple test suite in bash 
+
+
+Core (module):
+ - provides package version info 
+ - common options???
+
+
+##########
+
+* Debug and Verbose guidelines:
+
+ - with -no-verbose and -no-debug options no output should be produced, except 
+   for errors/warnings
+ - verbose ON should print out workflow info to give an idea of what it is 
+   doing, especially for operations that may require long time, intended for 
+   users running in interactive mode
+ - debug ON should dump the objects information and anything else useful for 
+   development.
+
+
+* All object related output must come from the class methods
+
+* Unrecognized options should be reported: 
+
+ - GetOpts is called multiple times to filter out various API specific options
+ - we may need to run it again at the end re-configured for strict output
+
+* Guidelines for developing plugins for storage dump formats:
+
+ - choose a proper name for a new format, here we call it MYFORMAT
+ - create a module Format::MYFORMAT and implement the following functions: 
+	new, formattingHelp, and lookupFileSize (see XML, TXT formats)
+ - include examples of recognized syntaxes in formattingHelp 
+ - lookupFileSize returns a tuple: ($pfn, $size)
+ - if fail to parse the line, call formattingHelp and die with formatting error
+ - the verification of the $pfn and $size values doesn't need to be implemented
+   for each format; it happens at the higher level in the Aggregate class
