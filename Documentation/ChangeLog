@@ -19,6 +19,9 @@ first cycle the agent will think it hasn't done anything. Otherwise it
 waits 4 hours before finally disconnecting from the database. This has
 no effect at all on the agent behaviour, but is kinder to the DB.
 
+ - Added FileDownloadGFALVerify and FileDownloadGFALDelete template
+scripts using gfal2 libraries
+	
 Changes for 4.1.4
 
 Changes to Schema and Schema-related tools
