@@ -21,7 +21,10 @@ no effect at all on the agent behaviour, but is kinder to the DB.
 
  - Added FileDownloadGFALVerify and FileDownloadGFALDelete template
 scripts using gfal2 libraries
-	
+
+- Removed obsolete DBS2 consistency/invalidation scripts, and dropped
+dependency on DBS2 client in PHEDEX-micro toolkit
+
 Changes for 4.1.4
 
 Changes to Schema and Schema-related tools
