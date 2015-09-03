@@ -73,9 +73,11 @@ sub usage
 	--url           - overrides data service url
 	--upload-record - upload record to central data store
 	--node          - node (usually a site name) to upload data for
+
 EOF
 ;
     #openDumpUsage($argname);
+    &DMWMMON::SpaceMon::UserAgent::auth_usage();
     exit 0;
 }
 
