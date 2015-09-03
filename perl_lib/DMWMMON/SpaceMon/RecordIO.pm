@@ -50,7 +50,7 @@ sub readFromDatasvc
     print "RecordIO reading $node record from $self->{'DATASVC'}\n";
     # Get data from the server:
     my $pua = DMWMMON::SpaceMon::UserAgent->new
-	( CA_DIR   => '/etc/grid-security/certificates', URL => $self->{'DATASVC'}, INSTANCE => '.', FORMAT   => 'perl', );
+	( CA_DIR   => '/etc/grid-security/certificates', URL => $self->{'DATASVC'}, FORMAT   => 'perl', );
     $pua->timeout ($timeout) if $timeout;
     $pua->Dump() if ($self->{'DEBUG'});
     $pua->CALL('storageusage');
@@ -122,7 +122,6 @@ sub uploadRecord{
   my $pua = DMWMMON::SpaceMon::UserAgent->new (
                                       URL        => $self->{'DATASVC'},
                                       FORMAT    => 'perl',
-                                      INSTANCE    => '',
                                       CA_DIR    => '/etc/grid-security/certificates',
                                      );
   my ($response,$content,$target);
