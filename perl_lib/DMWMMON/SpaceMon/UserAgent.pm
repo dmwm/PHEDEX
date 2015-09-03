@@ -37,14 +37,14 @@ sub new
   map { $self->{$_} = $h{$_}  if defined($h{$_}) } keys %h;
   bless $self, $class;
   $self->init();
-  $self->CMSAgent($self->{ME});
+  $self->SpaceMonAgent($self->{ME});
   return $self;
 }
 
-sub CMSAgent
+sub SpaceMonAgent
 {
   my ($self,$string) = @_;
-  $self->agent($string . ' (CMS) ' . $self->_agent);
+  $self->agent($string . ' (SpaceMon) ' . $self->_agent);
 }
 
 sub AUTOLOAD
@@ -188,12 +188,12 @@ sub auth_getoptions
 sub auth_usage
 {
   print <<EOF;
-User authentication options: 
-   --cert_file and --key_file are used to define user certificate. 
-   These options must be set together, they may also point to the 
-   user certificate proxy file. 
-   --ca_file and --ca_dir specify locations for the certificate 
-   authority.
+      User authentication options: 
+         --cert_file and --key_file are used to define user certificate. 
+         These options must be set together, they may also point to the 
+         user certificate proxy file. 
+         --ca_file and --ca_dir specify locations for the certificate 
+         authority.
 EOF
 }
 
