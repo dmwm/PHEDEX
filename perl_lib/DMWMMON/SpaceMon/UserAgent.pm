@@ -10,7 +10,7 @@ our %env_keys = map { $_ => 1 } @env_keys;
 our $VERSION = '1.0';
 our %params =
 	(
-	  URL		=> undef,
+	  URL		=> 'https://cmsweb.cern.ch/dmwmmon/datasvc',
     	  CERT_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  KEY_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
 	  CA_FILE	=> $ENV{X509_USER_PROXY} || "/tmp/x509up_u$<",
@@ -195,6 +195,19 @@ sub auth_usage
         --ca_file and --ca_dir specify locations for the certificate 
         authority.
 EOF
+}
+
+sub readAuthFromDatasvc
+{
+    my $self = shift;
+    my %payload = (); # input to data server call
+    my ($date, $datasvc_record, $entry,$response, $target);
+    $self->Dump() if ($self->{'DEBUG'});
+    print " $self->{ME}: reading authentication info from $self->{'URL'}\n";
+    $self->CALL('auth');
+    $target = $self->target;
+    $response = $self->get($target, \%payload);
+    print Dumper($response->content()); # if ($self->{'DEBUG'});
 }
 
 1;
