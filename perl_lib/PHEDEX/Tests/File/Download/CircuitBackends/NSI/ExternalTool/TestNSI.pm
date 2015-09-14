@@ -43,7 +43,7 @@ sub setupSession {
     return $session;
 }
 
-my $nsiBackend = PHEDEX::File::Download::Circuits::Backend::NSI::ExternalTool::NSI->new();
+my $nsiBackend = PHEDEX::File::Download::Circuits::Backend::NSI::NSI->new();
 my $session = setupSession($nsiBackend);
 
 ### Run POE

@@ -41,7 +41,7 @@ sub runGetMethodTests {
     # Test error handling
     $userAgent->httpRequest("GET", "http://this.site.does.not.exist.com/", undef, $session->postback("validateHttpRequest", undef, 500));# Site doesn't exist
     $userAgent->httpRequest("GET", "http://www.google.com/", undef, $session->postback("validateHttpRequest", undef, 302));              # Site replies with "Found" (considered as error)
-    $userAgent->httpRequest("GET", "http://www.youtube.com/", undef, $session->postback("validateHttpRequest", undef, 415));             # Site replies with something, but it's not JSON
+    $userAgent->httpRequest("GET", "http://www.youtube.com/", undef, $session->postback("validateHttpRequest", undef, 301));             # Site replies with something, but it's not JSON
 
     # Test with sources providing valid json objects
     $userAgent->httpRequest("GET", "http://ip.jsontest.com/", undef, $session->postback("validateHttpRequest"));
