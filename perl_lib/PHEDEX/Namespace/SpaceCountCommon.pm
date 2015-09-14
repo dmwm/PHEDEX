@@ -79,9 +79,11 @@ sub createRecord {
   $payload{"strict"} = defined $ns->{FORCE} ? 0 : 1;
   $payload{"node"}=$ns->{NODE};
   $payload{"timestamp"}=$timestamp;
+  my ($len);
   foreach  (keys %{$hashref}) {
     #$topsizes{ dirlevel($_, $level)}+=${$hashref}{$_} + 0; # for  leaves only
-    for (my $p=1; $p <= $level; $p += 1) {
+    $len = split "/", $_; $len--;
+    for (my $p=1; $p <= ( $len <= $level ? $len : $level); $p += 1) {
       $topsizes{dirlevel($_,$p)}+=${$hashref}{$_};
     }
   }
@@ -96,7 +98,6 @@ sub createRecord {
   print "total number of records: $count\n";
   return \%payload;
 }
-
 
 sub openDump {
   my $dumpfile = shift;
