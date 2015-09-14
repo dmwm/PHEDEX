@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export TESTBED_ROOT=/data/TESTBED_ROOT
+export PERL5LIB=$TESTBED_ROOT/sw/slc6_amd64_gcc461/cms/PHEDEX-lifecycle/1.2.1/T0/perl_lib:$TESTBED_ROOT/sw/slc6_amd64_gcc461/cms/PHEDEX-lifecycle/1.2.1/perl_lib:$TESTBED_ROOT/sw/slc6_amd64_gcc461/external/mod_perl2/2.0.7-comp2/lib/perl5:$TESTBED_ROOT/sw/slc6_
+
+find $TESTBED_ROOT/phedex/perl_lib/PHEDEX/Tests/ -name '*.pm' -exec perl {} +
