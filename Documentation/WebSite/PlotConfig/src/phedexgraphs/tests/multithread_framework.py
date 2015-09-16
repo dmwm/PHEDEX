@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import threading, time, sys
 
@@ -26,7 +27,7 @@ def multithread(job_list, threads=10, spin=.1):
                     break
             time.sleep(spin)
         except (KeyboardInterrupt, SystemExit):
-            print "Exiting due to external interrupt."
+            print("Exiting due to external interrupt.")
             sys.exit(3)
 
     return result_list

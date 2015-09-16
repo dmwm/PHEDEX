@@ -1,3 +1,4 @@
+from __future__ import print_function
 from reportlab.platypus import Paragraph
 from reportlab.pdfgen.canvas import Canvas
 
@@ -117,7 +118,7 @@ class HypenatedParagraph(Paragraph):
             words = []
             for w in _getFragWords(frags):
                 spaceWidth = stringWidth(' ',w[-1][0].fontName, w[-1][0].fontSize)
-                print '133', w
+                print('133', w)
                 if n==0:
                     currentWidth = -spaceWidth   # hack to get around extra space for word 1
                     maxSize = 0
