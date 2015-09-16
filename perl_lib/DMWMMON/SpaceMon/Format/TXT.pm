@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use base 'DMWMMON::SpaceMon::StorageDump';
+use Scalar::Util qw(looks_like_number);
 
 # Required methods: 
 
@@ -26,7 +27,7 @@ Storage dump file contains one line per each file with the following structure:
 
 LFN (or PFN) | file size (bytes) | file creation date (epoch s) | checksum
 
-Examples of syntax accepted in current implementation: 
+Only two first fields are required. Examples of accepted formats:
 
 /full/path/to/the/file|12345678
 /full/path/to/the/file | 12345678 
@@ -44,8 +45,9 @@ sub lookupFileSize
     my $self = shift;
     $_ = shift;
     my ($file, $size, $rest) = split /\|/;
-    if ($size) {
-	print "Found match for file: $file and size: $size \n" if $self->{VERBOSE};
+    if (looks_like_number($size)) {
+	$size+=0;
+	print "Processing line: $_     file=$file\n     size=$size\n" if $self->{VERBOSE};
 	return ($file, $size);
     } else {
 	&formattingHelp();
