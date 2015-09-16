@@ -22,7 +22,7 @@ class PhedexGraph( DBGraph ):
     is_link = self.metadata['given_kw']['link'].lower() == 'link'
     keys = self.sort_keys( results )
     for link in keys:
-      if is_link and type(link) == types.TupleType:
+      if is_link and isinstance(link, types.TupleType):
       #if type(link) == types.TupleType:
         labels.append(str(link[0]) + ' to ' + str(link[1]))
       else:

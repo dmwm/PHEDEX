@@ -15,7 +15,7 @@ class HypenatedParagraph(Paragraph):
         Paragraph.__init__(self, text, style, bulletText = None, frags=None, caseSensitive=1, encoding='utf8')
 
     def breakLines(self, width):
-        if type(width) != ListType: maxWidths = [width]
+        if not isinstance(width, ListType): maxWidths = [width]
         else: maxWidths = width
         
         lines = []
