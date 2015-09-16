@@ -49,7 +49,7 @@ def processing_thread(job_lock, job_list, result_lock, result_list):
             counter += 1
             #print "%s has finished %03i units of work; %i remaining" % \
             #    (t.getName(), counter, len(job_list))
-        except Exception, e:
+        except Exception as e:
             #print "%s has encountered the following exception: `%s`.  " \
             #    "Ignoring." % (t.getName(), str(e)) 
             job_lock.acquire()
