@@ -3,6 +3,7 @@
 """
 test_trivial.py Demonstrates how to use the threading framework.
 """
+from __future__ import print_function
 
 import time
 from phedexgraphs.tests.multithread_framework import multithread
@@ -20,6 +21,6 @@ if __name__ == '__main__':
     work_time = -time.time()
     results = multithread(list(work), threads=10)
     work_time += time.time()
-    print "Total work time: %.2f; %.2f events / second" % (work_time, \
-        len(work) / work_time)
+    print("Total work time: %.2f; %.2f events / second" % (work_time, \
+        len(work) / work_time))
 

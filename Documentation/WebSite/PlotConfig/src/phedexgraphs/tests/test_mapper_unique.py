@@ -3,6 +3,7 @@
 """
 test_mapper_unique.py Records the amount of time needed for a unique mapping.
 """
+from __future__ import print_function
 
 import time, urllib2
 
@@ -19,7 +20,7 @@ if __name__ == '__main__':
     work_time = -time.time()
     results = multithread(list(work), threads=10)
     work_time += time.time()
-    print "Total work time: %.2f; %.2f events / second" % (work_time, \
-        len(work) / work_time)
+    print("Total work time: %.2f; %.2f events / second" % (work_time, \
+        len(work) / work_time))
 
 

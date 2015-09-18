@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 import threading, time, sys
 
@@ -26,7 +27,7 @@ def multithread(job_list, threads=10, spin=.1):
                     break
             time.sleep(spin)
         except (KeyboardInterrupt, SystemExit):
-            print "Exiting due to external interrupt."
+            print("Exiting due to external interrupt.")
             sys.exit(3)
 
     return result_list
@@ -49,7 +50,7 @@ def processing_thread(job_lock, job_list, result_lock, result_list):
             counter += 1
             #print "%s has finished %03i units of work; %i remaining" % \
             #    (t.getName(), counter, len(job_list))
-        except Exception, e:
+        except Exception as e:
             #print "%s has encountered the following exception: `%s`.  " \
             #    "Ignoring." % (t.getName(), str(e)) 
             job_lock.acquire()
