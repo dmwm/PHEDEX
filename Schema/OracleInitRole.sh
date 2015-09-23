@@ -87,7 +87,7 @@ mkdir -p Details
  echo "AuthDBPassword     $(echo $ora_writer | sed 's|.*/||; s|@.*||')"
  echo "AuthRole           $role_name_lc"
  echo "AuthRolePassword   $role_passwd"
- echo "ConnectionLife     86400"
+ echo "ConnectionLife     600"
  echo "LogConnection      on"
  echo "LogSQL             off") \
   > Details/$role_name_lc
