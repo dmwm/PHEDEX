@@ -38,6 +38,7 @@ sub new {
         RESERVATIONS        => undef,       # Hash of ConnectionID -> Reservation
 
         # NSI Tool defaults
+        # This has to be changed during RPM creation
         NSI_TOOL_LOCATION   => '/data/NSI/CLI',
         NSI_TOOL            => 'nsi-cli-1.2.1-one-jar.jar',
         NSI_JAVA_FLAGS      =>  '-Xmx256m -Djava.net.preferIPv4Stack=true '.

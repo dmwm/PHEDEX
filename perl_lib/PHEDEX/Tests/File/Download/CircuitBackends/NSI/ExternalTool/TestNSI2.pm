@@ -23,7 +23,8 @@ our ($allStates, $pid1);
 
 sub _start {
     my ($kernel, $session) = @_[KERNEL, SESSION];
-    
+
+    # NSI_TOOL_LOCATION has to be changed during RPM creation
     my $params = {
         NSI_TOOL_LOCATION   => '/data/NSI/CLI',
         NSI_TOOL            => 'nsi-cli-1.2.1-one-jar.jar',
