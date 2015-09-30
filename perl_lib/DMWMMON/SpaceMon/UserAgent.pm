@@ -207,7 +207,7 @@ sub readAuthFromDatasvc
     $self->CALL('auth');
     $target = $self->target;
     $response = $self->get($target, \%payload);
-    print Dumper($response->content()); # if ($self->{'DEBUG'});
+    print $response->content(); # if ($self->{'DEBUG'});
 }
 
 1;
