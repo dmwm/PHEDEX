@@ -48,6 +48,7 @@ GetOptions ( 'help|h' => sub { &usage },
 				   DMWMMON::SpaceMon::Core::version()."\n";
 			       exit;},
 	     'upload-record' => \$upload,
+	     'check-auth' => sub { &check_auth },
 	     'save-record'   => \$save,
 	     'format:s'   => \$format,
 	     'debug!' => \$debug,  # enables --nodebug option
@@ -65,9 +66,10 @@ sub usage
   Version:  $ver    
 	
       Usage:    
+	$me [OPTIONS] $argname
 	$me --help|-h
 	$me --version
-	$me [OPTIONS] $argname
+	$me --check-auth
 
       Upload options: 
 	--url           - overrides data service url
@@ -80,6 +82,21 @@ EOF
     &DMWMMON::SpaceMon::UserAgent::auth_usage();
     exit 0;
 }
+
+sub check_auth 
+{
+    # Check  Authentication: 
+    print "$me: Checking authentication\n" if $verbose;
+    my $smua = DMWMMON::SpaceMon::UserAgent->new (
+	URL      => $url,
+	FORMAT   => 'perl',
+        DEBUG    => $debug,
+        VERBOSE  => $verbose,
+                                     );
+    $smua->readAuthFromDatasvc();
+    exit;
+}
+
 
 $input = shift;
 
