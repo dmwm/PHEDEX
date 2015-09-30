@@ -1,3 +1,30 @@
+Changes for 4.1.5
+
+Changes for all Agents
+
+ - DB disconnection code enhanced to pro-actively disconnect from the
+DB at the end of a cycle if the Connection Life (specified in the
+DBParam) is shorter than the time to the next cycle. This should solve
+the issue with too many handles being kept open to the database
+
+Changes for Central Agents
+
+ - BlockAllocator: fix for #946, "Don't remove move flag from block-level
+ subscriptions if there are still unsubscribed T1_Disk replicas left"
+
+Changes for Site Agents
+
+ - FileDownload agent: set LAST_WORK to zero instead of 'now', so on the
+first cycle the agent will think it hasn't done anything. Otherwise it
+waits 4 hours before finally disconnecting from the database. This has
+no effect at all on the agent behaviour, but is kinder to the DB.
+
+ - Added FileDownloadGFALVerify and FileDownloadGFALDelete template
+scripts using gfal2 libraries
+
+- Removed obsolete DBS2 consistency/invalidation scripts, and dropped
+dependency on DBS2 client in PHEDEX-micro toolkit
+
 Changes for 4.1.4
 
 Changes to Schema and Schema-related tools

@@ -13,7 +13,7 @@ class PhedexConnectionManager( ConnectionManager ):
     def parse_DBParam( self, filename ):
         try:
             file = open( filename, 'r' )
-        except Exception, e:
+        except Exception as e:
             raise Exception( "Unable to open specified DBParam file %s\nCheck the path and the permissions.  \nInitial exception: %s" % (filename,str(e)) )
         rlines = file.readlines()
         info = {}
