@@ -42,7 +42,7 @@ sub vPrint{
 
 # Check useful for packaging. Print dependencies and exit:
 GetOptions("deps|d" => sub {print Dumper(%INC); exit;}); 
-
+&DMWMMON::SpaceMon::UserAgent::auth_getoptions();
 GetOptions ( 'help|h' => sub { &usage },
 	     'version'=> sub { print "$me version: " . 
 				   DMWMMON::SpaceMon::Core::version()."\n";
