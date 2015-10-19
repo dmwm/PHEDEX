@@ -215,7 +215,7 @@ eval
        {
 	   # Truncate transfer logs longer than 100k characters,
 	   # reporting only the initial and final part of the log
-	   
+	
 	   my $xferlog = $$tasks{$task}{LOG_XFER};
 	   if (length($xferlog) > 100_000) {
 	       substr($xferlog,49_950,length($xferlog)-2*49_950)="\n[omitted ".(length($xferlog)-2*49_950)." characters from transfer log]\n";
@@ -394,7 +394,7 @@ eval
 	       %iargs = ();
 	   }
     }
-   
+
    if (%iargs)
    {
        &dbbindexec($i, %iargs);
@@ -403,7 +403,7 @@ eval
            $self->Logmsg("set status to inxfer for task=$t") if $$self{VERBOSE};
        }
    }
-   
+
     # report error summary
     foreach my $err (keys %errors) {
 	$self->Alert ("'$err' occurred for $errors{$err} tasks" );
@@ -599,17 +599,16 @@ sub fill_backend
     return if $$self{BACKEND}->isBusy();
 
     # Determine links with pending transfers.
-    foreach my $t (values %$tasks)
-    {
-	# Do not conisder tasks which have started or have finished
-	next if $t->{STARTED} || $t->{FINISHED};
-
-	my $to = $$t{TO_NODE};
-	my $from = $$t{FROM_NODE};
-
-	# Consider this task.
-	$nlinks++ if ! exists $todo{$to}{$from};
-	push(@{$todo{$to}{$from}}, $t);
+    foreach my $t (values %$tasks) {
+        # Do not conisder tasks which have started or have finished
+        next if $t->{STARTED} || $t->{FINISHED};
+    
+        my $to = $$t{TO_NODE};
+        my $from = $$t{FROM_NODE};
+    
+        # Consider this task.
+        $nlinks++ if ! exists $todo{$to}{$from};
+        push(@{$todo{$to}{$from}}, $t);
     }
 
     # Another quick exit if we have nothing to do.
@@ -619,109 +618,95 @@ sub fill_backend
 
     # Determine link probability from recent usage.
     my $goodlinks = 0;
-    foreach my $slot (@{$$self{STATS}})
-    {
-	foreach my $to (keys %{$$slot{LINKS}})
-	{
-	    foreach my $from (keys %{$$slot{LINKS}{$to}})
-	    {
-		my $s = $$slot{LINKS}{$to}{$from};
-		# Add statistics based on link usage.
-		$stats{$to}{$from} ||= { USED => 0, DONE => 0, ERRORS => 0 };
-		$stats{$to}{$from}{DONE} += ($$s{DONE} || 0);
-		$stats{$to}{$from}{USED} += ($$s{USED} || 0);
-		$stats{$to}{$from}{ERRORS} += ($$s{ERRORS} || 0);
-
-		# Count the "good" links: if something was accomplished and there weren't 100 errors
-		if ($stats{$to}{$from}{DONE} && $stats{$to}{$from}{ERRORS} < 100) {
-		    $goodlinks++;
-		}
-	    }
-	}
+    foreach my $slot (@{$$self{STATS}}) {
+        foreach my $to (keys %{$$slot{LINKS}}) {
+            foreach my $from (keys %{$$slot{LINKS}{$to}}) {
+                my $s = $$slot{LINKS}{$to}{$from};
+                # Add statistics based on link usage.
+                $stats{$to}{$from} ||= { USED => 0, DONE => 0, ERRORS => 0 };
+                $stats{$to}{$from}{DONE} += ($$s{DONE} || 0);
+                $stats{$to}{$from}{USED} += ($$s{USED} || 0);
+                $stats{$to}{$from}{ERRORS} += ($$s{ERRORS} || 0);
+                
+                # Count the "good" links: if something was accomplished and there weren't 100 errors
+                if ($stats{$to}{$from}{DONE} && $stats{$to}{$from}{ERRORS} < 100) {
+                    $goodlinks++;
+                }
+            }
+        }
     }
 
     my ($W, $wmin) = (0, 0.02 * $nlinks);
     my ($skippedlinks, $errlinks, $busylinks) = (0, 0, 0);
-    foreach my $to (keys %todo)
-    {
-	foreach my $from (keys %{$todo{$to}})
-	{
-	    my $entry = $stats{$to}{$from} ||= {};
+    
+    foreach my $to (keys %todo) {
+        foreach my $from (keys %{$todo{$to}}) {
+            my $entry = $stats{$to}{$from} ||= {};
 
-	    # Pass links with too many errors.
-	    if (($$entry{ERRORS} || 0) > 100)
-	    {
-		$self->Logmsg("too many ($$entry{ERRORS}) recent errors on ",
-			      "link $from -> $to, not allocating transfers")
-		    if $$self{VERBOSE};
-		delete $todo{$to}{$from};
-		$skippedlinks++; $errlinks++;
-		next;
-	    }
+            # Pass links with too many errors.
+            if (($$entry{ERRORS} || 0) > 100) {
+                $self->Logmsg("too many ($$entry{ERRORS}) recent errors on link $from -> $to, not allocating transfers")
+                    if $$self{VERBOSE};
+                delete $todo{$to}{$from};
+                $skippedlinks++; $errlinks++;
+                next;
+            }
 
-	    # Pass links which are busy
-	    if ( $$self{BACKEND}->isBusy ($from, $to) ) {
-		$self->Logmsg("link $from -> $to is busy at the moment, ",
-			      "not allocating transfers")
-		    if $$self{VERBOSE};
-		delete $todo{$to}{$from};
-		$skippedlinks++; $busylinks++;
-		next;
-	    }
+            # Pass links which are busy
+            if ( $$self{BACKEND}->isBusy ($from, $to) ) {
+                $self->Logmsg("link $from -> $to is busy at the moment, not allocating transfers")
+                    if $$self{VERBOSE};
+                delete $todo{$to}{$from};
+                $skippedlinks++; $busylinks++;
+                next;
+            }
 
-	    # Give links the weight of one if they have not been used.
-	    if (! $$entry{USED})
-	    {
-		$$entry{W} = 1.0;
-	    }
+            # Give links the weight of one if they have not been used.
+            if (! $$entry{USED}) {
+                $$entry{W} = 1.0;
+            # Otherwise the weight is DONE/USED.
+            } else {    
+                $$entry{W} = (1.0 * $$entry{DONE} / $$entry{USED});
+            }
 
-	    # Otherwise the weight is DONE/USED.
-	    else
-	    {
-	        $$entry{W} = (1.0 * $$entry{DONE} / $$entry{USED});
-	    }
-
-	    # But if the weight is smaller than ~5 files/hour, clamp
-	    # to that limit to guarantee minimum probability value.
-	    $$entry{W} = $wmin if $$entry{W} < $wmin;
-
-	    # Update total weight.
-	    $W += $$entry{W};
-	}
+            # But if the weight is smaller than ~5 files/hour, clamp
+            # to that limit to guarantee minimum probability value.
+            $$entry{W} = $wmin if $$entry{W} < $wmin;
+        
+            # Update total weight.
+            $W += $$entry{W};
+        }
     }
 
     if ($skippedlinks == $nlinks) {
-	# If we have nothing to do because all the links have too many
-	# errors, then check if there were any recent transfers on
-	# good links, and sync faster if there was
-	if ($errlinks == $nlinks && $goodlinks 
-	    && $self->next_event_time('sync_tasks') - $now > 300) {
-	    $self->delay_max($kernel, 'sync_tasks', 300);
-	    $self->Logmsg("all links were skipped due to errors, scheduling ",
-			  "next synchronisation in five minutes")
-		if $$self{VERBOSE};
-	}
-	return; # Nothing to do.
+        # If we have nothing to do because all the links have too many
+        # errors, then check if there were any recent transfers on
+        # good links, and sync faster if there was
+        if ($errlinks == $nlinks && $goodlinks
+            && $self->next_event_time('sync_tasks') - $now > 300) {
+            $self->delay_max($kernel, 'sync_tasks', 300);
+            $self->Logmsg("all links were skipped due to errors, scheduling next synchronisation in five minutes")
+                if $$self{VERBOSE};
+        }
+        return; # Nothing to do.
     }
 
     my @P;
-    foreach my $to (sort keys %todo)
-    {
-	foreach my $from (sort keys %{$todo{$to}})
-	{
-	    # Compute final link probablity function.
-	    my $low = (@P ? $P[$#P]{HIGH} : 0);
-	    my $high = $low + $stats{$to}{$from}{W}/$W;
-	    push(@P, { LOW => $low, HIGH => $high, TO => $to, FROM => $from });
-
+    foreach my $to (sort keys %todo) {
+        foreach my $from (sort keys %{$todo{$to}}) {
+            # Compute final link probablity function.
+            my $low = (@P ? $P[$#P]{HIGH} : 0);
+            my $high = $low + $stats{$to}{$from}{W}/$W;
+            push(@P, { LOW => $low, HIGH => $high, TO => $to, FROM => $from });
+            
             $self->Logmsg("link parameters for $from -> $to:"
-		    . sprintf(' P=[%0.3f, %0.3f),', $P[$#P]{LOW}, $P[$#P]{HIGH})
-		    . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
-		    . " USED=@{[$stats{$to}{$from}{USED} || 0]},"
-		    . " DONE=@{[$stats{$to}{$from}{DONE} || 0]},"
-		    . " ERRORS=@{[$stats{$to}{$from}{ERRORS} || 0]}")
+            . sprintf(' P=[%0.3f, %0.3f),', $P[$#P]{LOW}, $P[$#P]{HIGH})
+            . sprintf(' W=%0.3f,', $stats{$to}{$from}{W})
+            . " USED=@{[$stats{$to}{$from}{USED} || 0]},"
+            . " DONE=@{[$stats{$to}{$from}{DONE} || 0]},"
+            . " ERRORS=@{[$stats{$to}{$from}{ERRORS} || 0]}")
                 if $$self{VERBOSE};
-	}
+        }
     }
 
     # For each available job slot, determine which link should have
@@ -738,28 +723,30 @@ sub fill_backend
     # Sort the tasks according to priority.  Older tasks first, lower
     # rank first.
     # FIXME:  Sort when fetching tasks, not every fill_backend call
-    $todo{$to}{$from} =
-	[ sort { $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN}
-		 || $$a{RANK} <=> $$b{RANK} }
-	  @{$todo{$to}{$from}} ];
+    $todo{$to}{$from} = [ 
+                sort { 
+                    $$a{TIME_ASSIGN} <=> $$b{TIME_ASSIGN} || 
+                    $$a{RANK} <=> $$b{RANK} 
+                } @{$todo{$to}{$from}} 
+            ];
 
     # Send files to transfer.
     # Note we use synchronous calls here in order to avoid race conditions with this function.
     my ($jobid, $jobdir, $jobtasks) = $kernel->call($session, 'start_batch', $todo{$to}{$from});
 
     if ($jobid) {
-	foreach my $task ( values %$jobtasks ) {
-	    $kernel->call($session, 'start_task', $task->{TASKID}, { JOBID => $jobid, JOBDIR => $jobdir });
-	}
+        foreach my $task ( values %$jobtasks ) {
+            $kernel->call($session, 'start_task', $task->{TASKID}, { JOBID => $jobid, JOBDIR => $jobdir });
+        }
 
-	$self->Logmsg("copy job $jobid assigned to link $from -> $to with "
-		      . scalar(keys %$jobtasks) . " tasks and "
-		      . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
-		      . scalar(@{$todo{$to}{$from}})
-		      . " tasks in queue")
-	    if $$self{VERBOSE};
-	
-	$self->Dbgmsg("copy job $jobid tasks: ", join(' ', sort keys %$jobtasks)) if $self->{DEBUG};
+        $self->Logmsg("copy job $jobid assigned to link $from -> $to with "
+              . scalar(keys %$jobtasks) . " tasks and "
+              . sprintf('p=%0.3f and W=%0.3f and ', $p, $stats{$to}{$from}{W})
+              . scalar(@{$todo{$to}{$from}})
+              . " tasks in queue")
+            if $$self{VERBOSE};
+    
+        $self->Dbgmsg("copy job $jobid tasks: ", join(' ', sort keys %$jobtasks)) if $self->{DEBUG};
     }
 
     my $linkexhausted = @{$todo{$to}{$from}} ? 0 : 1;
@@ -772,18 +759,14 @@ sub fill_backend
     # tasks on all links, synchronise immediately.  This applies only
     # on transition from having tasks to not having them (only), so we
     # are not forcing continuous unnecessary reconnects.
-    if ( $nlinks - $linkexhausted == 0)
-    {
-	$self->delay_max($kernel, 'sync_tasks', 0);
-	$self->Logmsg("ran out of tasks, scheduling immediate synchronisation")
-	    if $$self{VERBOSE};
-    }
-    elsif ($linkexhausted && $self->next_event_time('sync_tasks') - $now > 300)
-    {
-	$self->delay_max($kernel, 'sync_tasks', 300);
-	$self->Logmsg("ran out of tasks on link $from -> $to, scheduling"
-		. " next synchronisation in five minutes")
-	    if $$self{VERBOSE};
+    if ( $nlinks - $linkexhausted == 0) {
+        $self->delay_max($kernel, 'sync_tasks', 0);
+        $self->Logmsg("ran out of tasks, scheduling immediate synchronisation")
+            if $$self{VERBOSE};
+    } elsif ($linkexhausted && $self->next_event_time('sync_tasks') - $now > 300) {
+        $self->delay_max($kernel, 'sync_tasks', 300);
+        $self->Logmsg("ran out of tasks on link $from -> $to, scheduling next synchronisation in five minutes")
+            if $$self{VERBOSE};
     }
 }
 
@@ -905,7 +888,7 @@ sub transfer_task
 sub transfer_done
 {
     my ( $self, $kernel, $taskid, $xferinfo ) = @_[ OBJECT, KERNEL, ARG0, ARG1 ];
-    
+
     my $task = $self->getTask($taskid) || $self->forgetTask($taskid) && return;
 
     # copy results into the task
@@ -957,8 +940,8 @@ sub postvalidate_done
     # We move the "converted" validation status codes to be less than
     # -255 to distinguish them from PhEDEx-generated errors, which are
     # in the [-255,-1] range.
-    my $reportcode = ((defined $$task{XFER_CODE} && $$task{XFER_CODE} >= 0) 
-		      || $statcode <= 0) ? $statcode 
+    my $reportcode = ((defined $$task{XFER_CODE} && $$task{XFER_CODE} >= 0)
+		      || $statcode <= 0) ? $statcode
 		                         : -255 - $statcode;
 
     # Set task parameters
@@ -1270,7 +1253,7 @@ sub statsNewPeriod
     }
 }
 
-# Check if a task is expired.  If it is expired, set 
+# Check if a task is expired.  If it is expired, set
 sub check_task_expire
 {
     my ( $self, $taskid ) = @_;
@@ -1279,7 +1262,7 @@ sub check_task_expire
     my $now = &mytimeofday();
 
     # Do not expire tasks which have started or have finished
-    return 0 if $$task{STARTED} || $$task{FINISHED}; 
+    return 0 if $$task{STARTED} || $$task{FINISHED};
 
     # If it has already expired, just remove it.
     my $prettyhours = sprintf "%0.1fh ", ($now - $$task{TIME_ASSIGN})/3600;
@@ -1302,7 +1285,7 @@ sub check_task_expire
 	$$task{STARTED}      = -1;  # prevent this task from being started
 	return 1;
     }
-    
+
     # OK, it's not expired
     return 0;
 }
