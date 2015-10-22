@@ -1,3 +1,10 @@
+Changes for 4.1.7
+
+Changes for Site Agents
+
+ - BlockDownloadVerify agent: use cache of TrivialFileCatalogue rules
+to avoid going back to the DB on every test - fix for #1006
+
 Changes for 4.1.5
 
 Changes for all Agents
