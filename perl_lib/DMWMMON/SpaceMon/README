@@ -17,6 +17,11 @@ Class RecordIO (algorithm):
 
 Class Aggregate (algorithm): 
  - converts StorageDump object into Record object
+
+Class NamespaceConfig (algorithm): 
+ - reads configuration from file 
+ - does LFN -> PFN conversion via local TFC file or database
+ - provides aggregation parameters to the Aggregate algorythm.
  
 Class UserAgent.pm
  - SpaceMon specific wrapper around 'LWP::UserAgent' module that implements http interface to data service. 
