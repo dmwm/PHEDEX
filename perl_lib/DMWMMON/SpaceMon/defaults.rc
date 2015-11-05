@@ -1,0 +1,26 @@
+=head1 NAME
+
+.spacemonrc - configuration file for CMS Space Monitoring 
+
+=head1 DESCRIPTION
+
+Namespace rules hash defines how many directory levels under the specified path are monitored.
+To validate the configuration paramteres run: spacemon validate -config <file>
+
+=head1 EXAMPLE
+
+=over 5
+
+ 0 - total size of the directory is monitored, the contents are concealed
+ 1 - the directory and immediate subdirectories are monitored
+ 2 - two levels of subdirectories are monitored, 
+     and so on
+-1 - (negative int) exclude directory from the monitoring record
+
+=cut
+
+%rules = (
+    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir1' => 0,
+    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir2' => 1,
+    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir3' => 2,
+);
