@@ -30,10 +30,10 @@ use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
-my ($upload, $save, $debug, $verbose, $level, $format, $url, $node);
+my ($upload, $save, $debug, $verbose, $level, $format, $url, $node, $configfile);
 #$debug = $verbose = 0; # use these to override class defaults. 
 
-my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file);
+my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file, $config);
 
 sub vPrint{
     my $text = shift;
@@ -56,6 +56,7 @@ GetOptions ( 'help|h' => sub { &usage },
 	     'level:i' => \$level,
 	     'url:s' => \$url,
 	     'node:s' => \$node,
+	     'config:s' => \$configfile,
 	     );
 
 sub usage
@@ -97,7 +98,6 @@ sub check_auth
     exit;
 }
 
-
 $input = shift;
 
 $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
@@ -107,12 +107,24 @@ $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
 							  DUMPFILE => $input,
 							  );
 print $dumpfile->dump() if $debug;
+$config =  DMWMMON::SpaceMon::NamespaceConfig->new(
+					     DEBUG => $debug,
+					     VERBOSE => $verbose,
+					     );
+
+
+if ( $configfile ) {
+    $config->setConfigFile($configfile);
+    $config->readNamespaceConfigFromFile(); # override default configuration. 
+}
+
 #$dumpfile->formattingHelp();
 
 $parser =  DMWMMON::SpaceMon::Aggregate->new(
-					     DEBUG => $debug,
+					     DEBUG   => $debug,
 					     VERBOSE => $verbose,
-					     LEVEL => $level,
+					     LEVEL   => $level,
+					     CONFIG  => $config,
 					     );
 
 print "Using parsing algorithm: \n", $parser->dump() if $debug;
