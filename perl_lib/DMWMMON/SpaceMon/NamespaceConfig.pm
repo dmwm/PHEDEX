@@ -11,6 +11,7 @@ my $levels_ref = {
 
 our %params = ( DEBUG => 1,
 		VERBOSE => 1,
+		CONFIGFILE => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
     );
 
 sub new
@@ -19,7 +20,6 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     my %args = (@_);
-    
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
@@ -28,10 +28,26 @@ sub new
 }
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
-sub readConfigFromFile {
-    my $self = shift;    
-    print "I am in ",__PACKAGE__,"->readConfigFromFile()\n" if $self->{VERBOSE};
+
+sub setConfigFile {
+    my $self = shift;
+    my $file = shift;
+    if ( -f $file) {
+	$self->{CONFIGFILE} = $file;
+    } else {
+	die "Configuration file does not exist: $file";
+    }
+    print "I am in ",__PACKAGE__,"->setConfigFile() and file is: " . $file . "\n" 
+	if $self->{VERBOSE};
 }
+
+sub readNamespaceConfigFromFile {
+    my $self = shift;
+    print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file=" 
+	. $self->{CONFIGFILE} . "\n" 
+	if $self->{VERBOSE};
+}
+
 sub lfn2pfn {
     my $self = shift;
     print "I am in ",__PACKAGE__,"->lfn2pfn()\n" if $self->{VERBOSE};
