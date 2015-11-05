@@ -4,14 +4,17 @@ use warnings;
 use Data::Dumper;
 use File::Basename;
 
-# Default configuration for the aggregation levels: 
-my $levels_ref = {
-    "/store" => 6,
-};
+=head1 NAME
+
+DMWMMON::SpaceMon::NamespaceConfig - defines aggregation rules for space monitoring
+
+=cut
 
 our %params = ( DEBUG => 1,
 		VERBOSE => 1,
-		CONFIGFILE => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
+		DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
+		USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
+		RULES => undef,
     );
 
 sub new
@@ -23,6 +26,19 @@ sub new
     map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
+    # Read default configuration rules:
+    our %rules;
+    my $return;
+    unless ($return = do $self->{DEFAULTS}) {
+	warn "couldn't parse $self->{DEFAULTS}: $@" if $@;
+	warn "couldn't do $self->{DEFAULTS}: $!"    unless defined $return;
+	warn "couldn't run $self->{DEFAULTS}"       unless $return;
+    }
+    print "Namespace default rules:\n";
+    foreach (sort keys %rules) {
+	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n";
+    }
+    $self->{RULES} = \%rules;
     print $self->dump() if $self->{DEBUG};
     return $self;
 }
@@ -33,7 +49,7 @@ sub setConfigFile {
     my $self = shift;
     my $file = shift;
     if ( -f $file) {
-	$self->{CONFIGFILE} = $file;
+	$self->{USERCONF} = $file;
     } else {
 	die "Configuration file does not exist: $file";
     }
@@ -43,9 +59,21 @@ sub setConfigFile {
 
 sub readNamespaceConfigFromFile {
     my $self = shift;
-    print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file=" 
-	. $self->{CONFIGFILE} . "\n" 
+    our %USERCFG;
+    print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file="
+	. $self->{USERCONF} . "\n"
 	if $self->{VERBOSE};
+    unless (my $return = do $self->{USERCONF}) {
+	warn "couldn't parse $self->{USERCONF}: $@" if $@;
+	warn "couldn't do $self->{USERCONF}: $!"    unless defined $return;
+	warn "couldn't run $self->{USERCONF}"       unless $return;
+    }
+    foreach (sort keys %USERCFG) {
+	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n";
+	$self->{RULES}{$_} = $USERCFG{$_};
+    }
+    print "WARNING: user settings will override default rules. UPDATED CONFIGURATION: \n";
+    print $self->dump();
 }
 
 sub lfn2pfn {
