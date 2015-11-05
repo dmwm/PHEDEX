@@ -21,7 +21,7 @@ Class Aggregate (algorithm):
 Class NamespaceConfig (algorithm): 
  - reads configuration from file 
  - does LFN -> PFN conversion via local TFC file or database
- - provides aggregation parameters to the Aggregate algorythm.
+ - provides aggregation parameters to the Aggregate algorithm.
  
 Class UserAgent.pm
  - SpaceMon specific wrapper around 'LWP::UserAgent' module that implements http interface to data service. 
