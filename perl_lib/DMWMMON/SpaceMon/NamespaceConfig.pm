@@ -6,15 +6,16 @@ use File::Basename;
 
 =head1 NAME
 
-DMWMMON::SpaceMon::NamespaceConfig - defines aggregation rules for space monitoring
+    DMWMMON::SpaceMon::NamespaceConfig - defines aggregation rules
 
 =cut
 
-our %params = ( DEBUG => 1,
-		VERBOSE => 1,
-		DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
-		USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
-		RULES => undef,
+our %params = ( 
+    DEBUG => 1,
+    VERBOSE => 1,
+    DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
+    USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
+    RULES => undef,
     );
 
 sub new
@@ -23,7 +24,8 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     my %args = (@_);
-    map { if (defined $args{$_}) {$self->{$_} = $args{$_}} else { $self->{$_} = $params{$_}} } keys %params;
+    map { if (defined $args{$_}) {$self->{$_} = $args{$_}} 
+	  else { $self->{$_} = $params{$_}} } keys %params;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
     # Read default configuration rules:
@@ -72,7 +74,8 @@ sub readNamespaceConfigFromFile {
 	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n";
 	$self->{RULES}{$_} = $USERCFG{$_};
     }
-    print "WARNING: user settings will override default rules. UPDATED CONFIGURATION: \n";
+    print "WARNING: user settings override default rules.\n" 
+	if  $self->{VERBOSE};
     print $self->dump();
 }
 
