@@ -119,7 +119,7 @@ sub Command {
 		return;
 	}
 
-	if ( $file =~ 'gsiftp://' ) {
+	if ( $pfn =~ 'gsiftp://' ) {
 		# drop the xattr option as it is not supported for GridFTP protocol
 		@opts = ( $h->{opts}[0], $pfn );
 	}

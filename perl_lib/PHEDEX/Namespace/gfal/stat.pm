@@ -19,7 +19,7 @@ sub new {
 	# is just an example.
 	my $self = {
 		cmd  => 'gfal-ls',
-		opts => [ '-l'],#'--xattr user.status' ],
+		opts => ['-l', '--xattr user.status'],
 	};
 	bless( $self, $class );
 	$self->{ENV} = $h->{ENV} || '';
