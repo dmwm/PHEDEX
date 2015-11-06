@@ -8,7 +8,7 @@ use Time::Local;
 
 # @fields defines the actual set of attributes to be returned
 our @fields =
-  qw / access uid gid size mtime checksum_type checksum_value lifetime_left locality space_token retention_policy_info type /;
+  qw / access uid gid size mtime lifetime_left locality space_token retention_policy_info type /;
 
 sub new {
 	my ( $proto, $h ) = @_;
@@ -81,22 +81,6 @@ sub parse {
 	$r->{lifetime_left} = '-1';
 	$r->{space_token}   = '';
 	$r->{type}          = 'FILE';
-
-	return $r;
-}
-
-sub parse_cksum {
-	my ( $self, $ns, $r, $dir ) = @_;
-
-	# gfal-sum returns only one line
-	my $c = $r->{STDOUT_CKSUM}[0];
-
-	# remove \n
-	chomp($c);
-
-	# return value is of the form "<file> <cksum>"
-	$r->{checksum_value} = ( split( ' ', $c ) )[1];
-	$r->{checksum_type} = 'adler32';
 
 	return $r;
 }

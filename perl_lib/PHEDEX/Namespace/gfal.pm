@@ -119,33 +119,28 @@ sub Command {
 		return;
 	}
 
-	if ( $pfn =~ 'gsiftp://' ) {
+	if ( $call eq 'stat' and $pfn =~ 'gsiftp://' ) {
 		# drop the xattr option as it is not supported for GridFTP protocol
-		@opts = ( $h->{opts}[0], $pfn );
+		@opts = ( $h->{opts}[0] );
 	}
 	else {
-		@opts = ( @{ $h->{opts} }, $pfn );
+		@opts = ( @{ $h->{opts} } );
 	}
+
 	$env = $self->{ENV} || '';
-	$cmd = "$env $h->{cmd} @opts";
+	$cmd = "$env $h->{cmd} @opts $pfn";
+	
+	if ( $call eq 'checksum' ) {
+	    $cmd = $cmd . " adler32";
+	}
+
 	print "Prepare to execute $cmd\n" if $self->{DEBUG};
 	open CMD, "$cmd |" or die "$cmd: $!\n";
 	@{ $r->{STDOUT} } = <CMD>;
 	close CMD or return;
 
-	my $cksum_cmd = "$env gfal-sum $pfn adler32";
-	print "Prepare to execute $cksum_cmd\n" if $self->{DEBUG};
-	open CMD, "$cksum_cmd |" or die "$cksum_cmd: $!\n";
-
-	@{ $r->{STDOUT_CKSUM} } = <CMD>;
-	close CMD or return;
-
 	if ( $self->{COMMANDS}{$call}->can('parse') ) {
 		$r = $self->{COMMANDS}{$call}->parse( $self, $r, $file );
-	}
-
-	if ( $self->{COMMANDS}{$call}->can('parse_cksum') ) {
-		$r = $self->{COMMANDS}{$call}->parse_cksum( $self, $r, $file );
 	}
 
 	return $r;
