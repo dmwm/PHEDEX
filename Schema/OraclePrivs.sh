@@ -45,8 +45,9 @@ for role in \
 
   for table in \
     $((echo "select table_name from user_tables;"
-       echo "select sequence_name from user_sequences;") |
-      sqlplus -S "$connect" | awk '/^(T|SEQ)_[A-Z0-9_]+/ { print $1 } {}'); do
+       echo "select sequence_name from user_sequences;"
+       echo "select object_name from user_procedures;") |
+      sqlplus -S "$connect" | awk '/^(T|SEQ|PROC)_[A-Z0-9_]+/ { print $1 } {}'); do
 
     echo "revoke all on $table from $reader;"
     echo "revoke all on $table from $writer;"
@@ -89,6 +90,10 @@ for role in \
         echo; echo "grant select on $table to $reader;"
 	echo "grant select on $table to $writer;"
 	echo "grant delete, insert, select, update on $table to $role;" ;;
+
+      PROC_ADD_NODE:*_OPS*_* )
+	# Execute procedure to create new nodes
+	echo; echo "grant execute on $table to $role;" ;;
 
       T_DVS_BLOCK:*_WEBSITE_* | \
       T_REQ_*:*_WEBSITE_* | \
