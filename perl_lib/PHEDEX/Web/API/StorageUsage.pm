@@ -64,13 +64,19 @@ sub methods_allowed { return ('GET'); }
 sub duration { return 0; }
 sub invoke { return storageusage(@_); }
 
+sub nrdebug {
+    my $message = shift;
+    open(my $fh, '>>', '/tmp/nrdebug_report.txt');
+    print $fh $message . "\n";
+    close $fh;
+}
 sub storageusage  {
   my ($core, %h) = @_;
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
   my ($dirtemp,$dirstemp,$node);
-
   $method = $core->{REQUEST_METHOD};
   my %args;
+  &nrdebug ('trace0 in storageusage');
   eval {
         %args = &validate_params(\%h,
                 allow => [ qw ( node level rootdir time_since time_until ) ],
@@ -178,6 +184,8 @@ sub getNodeInfo {
   my ($dirtemp, $timetemp, $dirstemp, $last, $time);
   my ($dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
   my %temp;
+  # New vars: 
+  my ($reldepth, $levelshash, $dirsize, $depth);
 
   $timebins = ();
   $rootdir = $args{rootdir};
@@ -185,72 +193,75 @@ sub getNodeInfo {
 
   # classify data by timestamp
   $timetemp = {};
-  $last = @{$result}[0]->{TIMESTAMP};
-  #warn "dumping last ",Data::Dumper->Dump([ $last ]);
+  my $current = undef;
   $dirstemp = ();
   foreach $data (@{$result}) {
+      if (!$current || ( $data->{TIMESTAMP} != $current ) ) {
+	  if ( $dirstemp ) {
+	      $timetemp->{$current} = $dirstemp;
+	      $dirstemp = ();
+	  }
+	  $current = $data->{TIMESTAMP};
+      }
     $dirtemp = {};
     $dirtemp->{dir} = $data->{DIR};
     $dirtemp->{space} = $data->{SPACE};
     push @$dirstemp, $dirtemp;
-    $timetemp->{$data->{TIMESTAMP}} = $dirstemp;
-    if ($last != $data->{TIMESTAMP}) {
-       $dirstemp = ();
-       $last = $data->{TIMESTAMP};
-    }
+  }
+  if ( $dirstemp ) {
+      $timetemp->{$current} = $dirstemp;
   }
 
   foreach $time ( keys %{$timetemp} ) {
-    $timebin = {};
-    $timebin->{timestamp} = $time;
-    $levelarray = ();
-    for (my $i = 1; $i<= $level; $i++) {
-       $dirhash = {};
-       $dirarray = ();
-       $levelhash = {};
-       foreach $dirs ( @{$timetemp->{$time}} ) {
-         if (!$rootdir || (index($dirs->{dir},dirlevel($rootdir,$i)) == 0)) {
-            $dirhash->{dirlevel($dirs->{dir}, $i)} += $dirs->{space};
-         }
-       }
-       my $count = 0;
-       foreach ( keys %{$dirhash} ) {
-         $dirhashSep = {};
-         $dirhashSep->{dir} = $_;
-         $dirhashSep->{size} = $dirhash->{$_};
-         push @$dirarray, $dirhashSep;
-         $count = $count + 1;
-       }
-
-       if ($count==0) { $level = $i; }
-
-       if ($dirarray) {
-          $levelhash->{level} = $i;
-          $levelhash->{data} = $dirarray;
-          push @$levelarray, $levelhash;
-       }
-    }
-    $timebin->{levels} = $levelarray;
-    push @$timebins, $timebin;
+      #$levelarray = ();
+      $levelshash = {};
+      for (my $i = 1; $i<= $level; $i++) {		
+	  $levelshash->{$i}=();
+      }
+      foreach $dirsize ( @{$timetemp->{$time}} ) {
+	  open(my $fh, '>>', '/tmp/nrdebug_report.txt');
+	  $dirhash = {};
+	  $dirhash->{space} = $dirsize->{space};
+	  $dirhash->{dir} = $dirsize->{dir};
+	  $reldepth = checklevel ( $rootdir, $dirsize->{dir} );
+	  print $fh "Dirsize: \n", Dumper ($dirhash), "\n";
+	  print $fh "reldepth: $reldepth\n";
+	  print $fh "rootdir: $rootdir\n";
+	  if ($reldepth) {
+	      for (my $i = $reldepth; $i<= $level; $i++) {		
+		  print "=========  $i \n";
+		  print $fh "levelshash before push: \n", Dumper ($levelshash), "\n";
+		  push @$levelshash->{$i}, $dirhash;
+		  print $fh "levelshash after push: \n", Dumper ($levelshash), "\n";
+	      }
+	  }
+	  close $fh;
+      }
+      $timebin = {
+	  timestamp => $time,
+	  levels => $levelshash,
+      };
+      push @$timebins, $timebin;
   }
-    
   return $timebins;
 }
 
-sub dirlevel {
-  my $path=shift;
-  my $depth=shift;
-  my @tmp=();
-  if  ( not $path =~ /^\//){ die "ERROR: path does not start with a slash";}
-  $path = $path."/";
-  @tmp = split ('/', $path, $depth+2);
-  pop @tmp;
-  if (scalar(@tmp) >= 2) {
-     return join ("/", @tmp);
-  }
-  else {
-     return $path;
-  }
+sub checklevel {
+    my ($rootdir,$path)=@_;
+    my @p = split "/", $path;
+    my @r = split "/", $rootdir;
+    return -1 if (@p < @r);
+    my $result=1;
+    for (my $i=1; $i < @p; $i += 1) {
+	if ( ! $r[$i]){
+	    $result += 1;
+	    next;
+	}
+	if ( ($p[$i] ne $r[$i] )){
+	    return -1;
+	} 	
+    }
+    return $result;
 }
 
 1;
