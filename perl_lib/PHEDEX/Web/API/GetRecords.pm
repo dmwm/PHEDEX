@@ -79,14 +79,11 @@ sub getrecords  {
   &nrdebug ('trace0 in storageusage');
   eval {
         %args = &validate_params(\%h,
-                allow => [ qw ( node level rootdir time_since time_until ) ],
+                allow => [ qw ( node time_until ) ],
                 required => [ qw ( node ) ],
                 spec =>
                 {
-                    node => { using => 'node', multiple => 1 },
-                    level => { using => 'pos_int' },
-                    rootdir => { using => 'dataitem_*' },
-                    time_since => { using => 'time' },
+                    node => { using => 'node', multiple => 0 },
                     time_until => { using => 'time' }
                 });
         };
@@ -99,21 +96,6 @@ sub getrecords  {
      $args{lc($_)} = delete $args{$_};
   }
  
-  if ($args{level}) {
-     if ($args{level} > 12) {
-        die PHEDEX::Web::Util::http_error(400,"the level required is too deep");
-     }
-  }
-  else {
-     $args{level} = 4;
-  }
-
-  if (!$args{rootdir}) {
-    $args{rootdir} = "/";
-  } 
-  if ( $args{time_since} ) {
-    $args{time_since} = PHEDEX::Core::Timing::str2time($args{time_since});
-  }
   if ( $args{time_until} ) {
     $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
   }
@@ -123,7 +105,7 @@ sub getrecords  {
         $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
      };
      if ( $@ ) {
-       die PHEDEX::Web::Util::http_error(400,$@);
+	 die PHEDEX::Web::Util::http_error(400,$@);
      }
      $last = @{$result}[0]->{NAME};
      $dirstemp = ();
@@ -175,7 +157,7 @@ sub getrecords  {
      }
   }
 
-  return { nodes => \@records };
+  return { records => \@records };
 }
 
 sub getNodeInfo {
@@ -204,8 +186,8 @@ sub getNodeInfo {
 	  $current = $data->{TIMESTAMP};
       }
     $dirtemp = {};
+    $dirtemp->{size} = $data->{SPACE};
     $dirtemp->{dir} = $data->{DIR};
-    $dirtemp->{space} = $data->{SPACE};
     push @$dirstemp, $dirtemp;
   }
   if ( $dirstemp ) {
