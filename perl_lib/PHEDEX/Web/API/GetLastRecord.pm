@@ -9,7 +9,7 @@ use Data::Dumper;
 
 =head1 NAME
 
-PHEDEX::Web::API::GetLastRecord - retrieve last space usage record for a node
+PHEDEX::Web::API::GetLastRecord 
 
 =head1 DESCRIPTION
 
@@ -17,22 +17,22 @@ retrieve last space usage record for a node
 
 =head2 Options
 
- required inputs: node 
-  node             node name
+  node             node name (requred)
 
 =head2 Output
 
-  <record timestamp=[timestamp] node=[node] > 
-    <dirs>
-      <dir=[dir] size=[size]>
-       ...
-    </dirs>
+  <record timestamp=[timestamp] node=[node]> 
+      <dirs dir=[dir] size=[size]/>
+      ...
   </record>
 
-  node               node name
-  timestamp          the timestamp for the record 
-  size               the size of the directory
-  dir                the directory name
+  Result is a record element containing a list of dirs elements. 
+  record  attributes:
+    node         - node name
+    timestamp    - the timestamp for the record 
+  dirs attributes:
+    dir          - path to the directory on storage
+    size         - space occupied by files and subdirectories in this path 
 
 =cut
 

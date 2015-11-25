@@ -89,9 +89,9 @@ sub poll_queue
   $jobs = $self->{Q_MANAGER}->ListQueue;
 # print map { $_,': ',$jobs->{$_},"\n" } keys %{$jobs};
 
-  foreach $job ( @jobs )
+  foreach $job ( values %{$jobs} )
   {
-    $priority = $self->{Q_MANAGER}->StatePriority($jobs->{STATE});
+    $priority = $self->{Q_MANAGER}->StatePriority($job->{STATE});
     if ( ! $priority )
     {
 #     I can forget about these jobs...
