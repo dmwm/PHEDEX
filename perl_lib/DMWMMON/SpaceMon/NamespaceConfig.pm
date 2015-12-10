@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use File::Basename;
+use Tree::DAG_Node;
 
 =head1 NAME
 
@@ -41,6 +42,7 @@ sub new
 	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n";
     }
     $self->{RULES} = \%rules;
+    $self->convertRulesToTree();
     print $self->dump() if $self->{DEBUG};
     return $self;
 }
@@ -77,6 +79,34 @@ sub readNamespaceConfigFromFile {
     print "WARNING: user settings override default rules.\n" 
 	if  $self->{VERBOSE};
     print $self->dump();
+}
+
+=head2 NAME
+
+ convertRulesToTree - translates aggregation rules into Namespace tree
+
+=head2 Description
+
+ Each rule is represented as a Tree::DAG_Node object, named as the directory path.
+ The depth attribute defines how many subdirectory levels under this path are monitored.
+ The depth value is absolute, i.e. counted from the root dir.
+ If depth is undefined, all subdirectories are monitored. 
+
+=cut
+
+sub convertRulesToTree {
+    my $self = shift;
+    my ($NSRulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });
+    print "Dereference Rules: \n";
+    #print Data::Dumper::Dumper %$self->{RULES};
+    foreach ( keys %{$self->{RULES}}) {
+	print "RULE: " . $_ . " ==>>" . $self->{RULES}->{$_} . "\n";  
+    }
+#$root -> add_daughter(Tree::DAG_Node -> new({name => 'one', attributes => {uid => 1} }) );
+#$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
+#$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
+
+#print Data::Dumper::Dumper ($root);
 }
 
 sub lfn2pfn {
