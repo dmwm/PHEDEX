@@ -44,31 +44,23 @@ sub new
     $self->{RULES} = \%rules;
     $self->convertRulesToTree();
     print $self->dump() if $self->{DEBUG};
-    #die "STOP";
+    #die "STOP"; # for testing rules convertion to a Tree
     return $self;
 }
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
-sub setConfigFile {
-    my $self = shift;
-    my $file = shift;
-    if ( -f $file) {
-	$self->{USERCONF} = $file;
-    } else {
-	die "Configuration file does not exist: $file";
-    }
-    print "I am in ",__PACKAGE__,"->setConfigFile() and file is: " . $file . "\n" 
-	if $self->{VERBOSE};
-}
-
 sub readNamespaceConfigFromFile {
     my $self = shift;
-    my $configfile = shift;
-    
-
+    my $configfile = shift; 
     if ( $configfile ) {
-	$self->setConfigFile($configfile);
+	if ( -f $configfile) {
+	    $self->{USERCONF} = $configfile;
+	    warn "WARNING: user settings in $configfile will override default rules." 
+		if  $self->{VERBOSE};
+	} else {
+	    die "Configuration file does not exist: $configfile";
+	}
     }
     our %USERCFG;
     print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file="
