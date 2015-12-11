@@ -14,6 +14,7 @@ use Tree::DAG_Node;
 our %params = ( 
     DEBUG => 1,
     VERBOSE => 1,
+    STRICT => 1,
     DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
     USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
     RULES => undef,
@@ -42,7 +43,6 @@ sub new
 	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n";
     }
     $self->{RULES} = \%rules;
-    $self->convertRulesToTree();
     print $self->dump() if $self->{DEBUG};
     #die "STOP"; # for testing rules convertion to a Tree
     return $self;
@@ -50,9 +50,29 @@ sub new
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
+
+# Default rules coming with the client are applied during initialization.
+# The rules found in the user's config file will override the defaults.
+# The resulting set of rules is reorganized into a tree resolving conflicts
+# in permissive or restrictive way depending on the STRICT flag value.
+
+=head2 NAME
+
+ readNamespaceConfigFromFile - reads user defined aggregation rules and converts
+ into Namespace tree
+
+=head2 Description
+
+ Each rule is represented as a Tree::DAG_Node object, named as the directory path.
+ The depth attribute defines how many subdirectory levels under this path are monitored.
+ The depth value is absolute, i.e. counted from the root dir.
+ If depth is undefined, all subdirectories are monitored. 
+
+=cut
+
 sub readNamespaceConfigFromFile {
     my $self = shift;
-    my $configfile = shift; 
+    my $configfile = shift;
     if ( $configfile ) {
 	if ( -f $configfile) {
 	    $self->{USERCONF} = $configfile;
@@ -72,29 +92,13 @@ sub readNamespaceConfigFromFile {
 	warn "couldn't run $self->{USERCONF}"       unless $return;
     }
     foreach (sort keys %USERCFG) {
+	print "WARNING: user settings override default rules:\n" 
+	    if  $self->{VERBOSE};
 	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n";
 	$self->{RULES}{$_} = $USERCFG{$_};
     }
-    print "WARNING: user settings override default rules.\n" 
-	if  $self->{VERBOSE};
     print $self->dump();
-}
 
-=head2 NAME
-
- convertRulesToTree - translates aggregation rules into Namespace tree
-
-=head2 Description
-
- Each rule is represented as a Tree::DAG_Node object, named as the directory path.
- The depth attribute defines how many subdirectory levels under this path are monitored.
- The depth value is absolute, i.e. counted from the root dir.
- If depth is undefined, all subdirectories are monitored. 
-
-=cut
-
-sub convertRulesToTree {
-    my $self = shift;
     my ($NSRulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });
     print "Converting rules to Tree: \n";
     #print Data::Dumper::Dumper %$self->{RULES};
