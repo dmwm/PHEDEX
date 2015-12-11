@@ -108,16 +108,12 @@ $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
 							  DUMPFILE => $input,
 							  );
 print $dumpfile->dump() if $debug;
-$config =  DMWMMON::SpaceMon::NamespaceConfig->new(
+$config =  DMWMMON::SpaceMon::NamespaceConfig -> new(
 					     DEBUG => $debug,
 					     VERBOSE => $verbose,
 					     );
 
-
-if ( $configfile ) {
-    $config->setConfigFile($configfile);
-    $config->readNamespaceConfigFromFile(); # override default configuration. 
-}
+$config->readNamespaceConfigFromFile($configfile); # override default configuration. 
 
 #$dumpfile->formattingHelp();
 

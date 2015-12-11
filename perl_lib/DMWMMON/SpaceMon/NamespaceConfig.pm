@@ -44,6 +44,7 @@ sub new
     $self->{RULES} = \%rules;
     $self->convertRulesToTree();
     print $self->dump() if $self->{DEBUG};
+    #die "STOP";
     return $self;
 }
 
@@ -63,6 +64,12 @@ sub setConfigFile {
 
 sub readNamespaceConfigFromFile {
     my $self = shift;
+    my $configfile = shift;
+    
+
+    if ( $configfile ) {
+	$self->setConfigFile($configfile);
+    }
     our %USERCFG;
     print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file="
 	. $self->{USERCONF} . "\n"
@@ -97,11 +104,13 @@ sub readNamespaceConfigFromFile {
 sub convertRulesToTree {
     my $self = shift;
     my ($NSRulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });
-    print "Dereference Rules: \n";
+    print "Converting rules to Tree: \n";
     #print Data::Dumper::Dumper %$self->{RULES};
     foreach ( keys %{$self->{RULES}}) {
-	print "RULE: " . $_ . " ==>>" . $self->{RULES}->{$_} . "\n";  
+	print "Processing rule for " . $_ . " and level = " . $self->{RULES}->{$_} . "\n";  
+	foreach (split "/") { print $_ . "\n";};
     }
+
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'one', attributes => {uid => 1} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
@@ -109,19 +118,27 @@ sub convertRulesToTree {
 #print Data::Dumper::Dumper ($root);
 }
 
+sub find_top_parents {
+    my $self = shift;
+    my $path = shift;
+    my @topparents = ();
+    my @all_dirs = split "/", $path;
+    # calculate based on STARTPATH and LEVEL parameters.
+    my @levels = split "/", $path; 
+    my $depth = @levels;
+    $depth--;
+    print "NRDEBUG 000: path = $path\n      Top parents:\n";
+	foreach (@topparents) {
+	    print "           " . $_ . "\n";
+	}
+    return @topparents;
+}
+
+
 sub lfn2pfn {
     my $self = shift;
     print "I am in ",__PACKAGE__,"->lfn2pfn()\n" if $self->{VERBOSE};
     
-}
-sub setLevels {
-    my $self = shift;
-    print "I am in ",__PACKAGE__,"->setLevels()\n" if $self->{VERBOSE};
-    
-}
-sub getLevels {
-    my $self = shift;
-    print "I am in ",__PACKAGE__,"->getLevels()\n" if $self->{VERBOSE};
 }
 
 1;
