@@ -129,7 +129,7 @@ $parser =  DMWMMON::SpaceMon::Aggregate->new(
 					     );
 
 print "Using parsing algorithm: \n", $parser->dump() if $debug;
-$record = $parser->createRecord($dumpfile);
+$record = $parser->createRecord($config, $dumpfile);
 $node && $record->setNodeName($node);
 print "Dump record returned by a parser: ", $record->dump(), "\n" if $debug;
 
