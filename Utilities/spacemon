@@ -101,28 +101,31 @@ sub check_auth
 
 $input = shift;
 
-$dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate(
-							  DUMPFORMAT => $format,
-							  DEBUG => $debug,
-							  VERBOSE => $verbose,
-							  DUMPFILE => $input,
-							  );
+$config = DMWMMON::SpaceMon::NamespaceConfig->new
+    ( 
+      DEBUG => $debug,
+      VERBOSE => $verbose,
+      USERCONF => $configfile,
+    );
+
+$dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate
+(
+ DUMPFORMAT => $format,
+ DEBUG => $debug,
+ VERBOSE => $verbose,
+ DUMPFILE => $input,
+);
+
 print $dumpfile->dump() if $debug;
-$config =  DMWMMON::SpaceMon::NamespaceConfig -> new(
-					     DEBUG => $debug,
-					     VERBOSE => $verbose,
-					     );
-
-$config->readNamespaceConfigFromFile($configfile); # override default configuration. 
-
 #$dumpfile->formattingHelp();
 
-$parser =  DMWMMON::SpaceMon::Aggregate->new(
-					     DEBUG   => $debug,
-					     VERBOSE => $verbose,
-					     LEVEL   => $level,
-					     CONFIG  => $config,
-					     );
+$parser = DMWMMON::SpaceMon::Aggregate->new
+    (
+     DEBUG   => $debug,
+     VERBOSE => $verbose,
+     LEVEL   => $level,
+     CONFIG  => $config,
+    );
 
 print "Using parsing algorithm: \n", $parser->dump() if $debug;
 $record = $parser->createRecord($config, $dumpfile);
@@ -130,10 +133,10 @@ $node && $record->setNodeName($node);
 print "Dump record returned by a parser: ", $record->dump(), "\n" if $debug;
 
 $rio = DMWMMON::SpaceMon::RecordIO->new(
-					DEBUG => $debug,
-					VERBOSE => $verbose,
-					DATASVC => $url,
-					);
+    DEBUG => $debug,
+    VERBOSE => $verbose,
+    DATASVC => $url,
+    );
 
 $tmp_rec_file='/tmp/record.save-in-file-test';
 

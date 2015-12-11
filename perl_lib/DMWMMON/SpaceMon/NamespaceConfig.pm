@@ -44,7 +44,8 @@ sub new
     }
     $self->{RULES} = \%rules;
     print $self->dump() if $self->{DEBUG};
-    #die "STOP"; # for testing rules convertion to a Tree
+    $self->readNamespaceConfigFromFile();
+    die "STOP"; # for testing rules convertion to a Tree
     return $self;
 }
 
@@ -72,15 +73,11 @@ sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 sub readNamespaceConfigFromFile {
     my $self = shift;
-    my $configfile = shift;
-    if ( $configfile ) {
-	if ( -f $configfile) {
-	    $self->{USERCONF} = $configfile;
-	    warn "WARNING: user settings in $configfile will override default rules." 
-		if  $self->{VERBOSE};
-	} else {
-	    die "Configuration file does not exist: $configfile";
-	}
+    if ( -f $self->{USERCONF}) {
+	warn "WARNING: user settings in " . $self->{USERCONF} . 
+	    "will override the default rules." if  $self->{VERBOSE};
+    } else {
+	die "Configuration file does not exist: " . $self->{USERCONF};
     }
     our %USERCFG;
     print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file="
@@ -111,7 +108,7 @@ sub readNamespaceConfigFromFile {
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
 
-#print Data::Dumper::Dumper ($root);
+    print Data::Dumper::Dumper ($NSRulesTree);
 }
 
 sub find_top_parents {
@@ -132,6 +129,7 @@ sub find_top_parents {
 
 
 sub lfn2pfn {
+    # If we ever need to do this conversion, it should go here. 
     my $self = shift;
     print "I am in ",__PACKAGE__,"->lfn2pfn()\n" if $self->{VERBOSE};
     
