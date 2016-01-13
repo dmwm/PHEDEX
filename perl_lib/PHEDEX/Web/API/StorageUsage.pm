@@ -98,7 +98,8 @@ sub storageusage  {
   foreach ( keys %args ) {
      $args{lc($_)} = delete $args{$_};
   }
- 
+
+  # TODO: replace this with a smart check based on the topdir (/store/). 
   if ($args{level}) {
      if ($args{level} > 12) {
         die PHEDEX::Web::Util::http_error(400,"the level required is too deep");
@@ -107,6 +108,8 @@ sub storageusage  {
   else {
      $args{level} = 4;
   }
+
+  &nrdebug ('trace1 in storageusage: level = ' . $args{level});
 
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
@@ -118,7 +121,9 @@ sub storageusage  {
     $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
   }
 
+  &nrdebug ('trace2 in storageusage node arg = ' . $args{node});
   if ($args{node} =~ m/^T\*$/) {
+     &nrdebug ('trace3 in storageusage node matches');
      eval {
         $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
      };
@@ -126,6 +131,7 @@ sub storageusage  {
        die PHEDEX::Web::Util::http_error(400,$@);
      }
      $last = @{$result}[0]->{NAME};
+     &nrdebug ('trace2 in storageusage: last = ' . $last);
      $dirstemp = ();
      foreach $data (@{$result}) {
        $dirtemp = {};
@@ -153,6 +159,7 @@ sub storageusage  {
     }
   } 
   else {
+     &nrdebug ('trace4 in storageusage node does not match');
      if (ref $args{node} eq 'ARRAY') {
         @inputnodes = @{$args{node}};
      }
@@ -213,10 +220,9 @@ sub getNodeInfo {
   }
 
   foreach $time ( keys %{$timetemp} ) {
-      #$levelarray = ();
-      $levelshash = {};
+      $levelarray = ();
       for (my $i = 1; $i<= $level; $i++) {		
-	  $levelshash->{$i}=();
+	  $levelarray->[$i-1]={level => $i, data => ()};
       }
       foreach $dirsize ( @{$timetemp->{$time}} ) {
 	  open(my $fh, '>>', '/tmp/nrdebug_report.txt');
@@ -224,15 +230,17 @@ sub getNodeInfo {
 	  $dirhash->{space} = $dirsize->{space};
 	  $dirhash->{dir} = $dirsize->{dir};
 	  $reldepth = checklevel ( $rootdir, $dirsize->{dir} );
-	  print $fh "Dirsize: \n", Dumper ($dirhash), "\n";
+	  print $fh "Dirhash(1): \n", Dumper ($dirhash), "\n";
 	  print $fh "reldepth: $reldepth\n";
 	  print $fh "rootdir: $rootdir\n";
 	  if ($reldepth) {
 	      for (my $i = $reldepth; $i<= $level; $i++) {		
-		  print "=========  $i \n";
-		  print $fh "levelshash before push: \n", Dumper ($levelshash), "\n";
-		  push @$levelshash->{$i}, $dirhash;
-		  print $fh "levelshash after push: \n", Dumper ($levelshash), "\n";
+		  print $fh "=========  $i \n";
+		  print $fh "levelarray before push: \n", Dumper ($levelarray), "\n";
+		  print $fh "Dirhash(2): \n", Dumper ($dirhash), "\n";
+		  push @{$$levelarray[$i-1]->{data}}, $dirhash;
+		  #push @{$levelarray->[$i-1]->{data}}, $dirhash;
+		  print $fh "levelarray after push: \n", Dumper ($levelarray), "\n";
 	      }
 	  }
 	  close $fh;
@@ -261,6 +269,7 @@ sub checklevel {
 	    return -1;
 	} 	
     }
+    ( $rootdir eq "/" ) && ($result-=1);
     return $result;
 }
 
