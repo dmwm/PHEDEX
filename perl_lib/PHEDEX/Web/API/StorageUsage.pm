@@ -193,10 +193,11 @@ sub getNodeInfo {
   my %temp;
   # New vars: 
   my ($reldepth, $levelshash, $dirsize, $depth);
-
-  $timebins = ();
   $rootdir = $args{rootdir};
   $level = $args{level};
+  &nrdebug ('trace5 in getNodeInfo, rootdir = ' . $rootdir . '; level = ' . $level . '; node = ' . $args{node});
+
+  $timebins = ();
 
   # classify data by timestamp
   $timetemp = {};
