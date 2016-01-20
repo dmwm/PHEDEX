@@ -154,14 +154,32 @@ foreach my $data (@{$VAR1->{PHEDEX}->{QUERYSPACE}}) {
 };
 # Processing all nodes:
 foreach my $nodename (keys %$node_names) { 
-    print "Processing node:  $nodename\n"; 
+    print "*** Processing node:  $nodename\n"; 
     my $node_element = {};
     $node_element->{'NODE'} = $nodename;
     $node_element->{'SUBDIR'} = $paramhash{rootdir};
-    my @debug = grep {
-	($_->{NAME} eq $nodename ) and ( print $_->{TIMESTAMP} . "\n")
-    } @{$VAR1->{PHEDEX}->{QUERYSPACE}};
-    $node_element->{'TIMEBINS'} = \@debug;
+    # Find all timestamps for this node:
+    my $timestamps = {};
+    foreach my $data (@{$VAR1->{PHEDEX}->{QUERYSPACE}}) {
+	$timestamps->{$data->{TIMESTAMP}}=1;
+    };
+    my @timebins; # Array for node aggregated data per timestamp
+    my $debug_count = 0;
+    foreach my $timestamp (keys %$timestamps) { 
+	$debug_count++;
+	my $timebin_element = {timestamp => $timestamp};
+	print "  *** Aggregating data from " . gmtime ($timestamp) . " GMT ($timestamp), to level=$paramhash{level}\n"; 
+	# Pre-initialize data for all levels:
+	my $levelsarray = ();
+	#for (my $i = 1; $i<= $paramhash{level}; $i++) {
+	#    $levelsarray->[$i-1]={level => $i, data => ()};
+	#}
+	$timebin_element->{levels} = $levelsarray;
+	push @timebins, $timebin_element;
+    }    
+    $node_element->{'TIMEBINS'} = \@timebins;
+    #my @debug = grep {
+    #	($_->{NAME} eq $nodename ) and ( print $_->{TIMESTAMP} . "\n")
+    #} @{$VAR1->{PHEDEX}->{QUERYSPACE}};
     print Data::Dumper::Dumper ($node_element);
 };
-
