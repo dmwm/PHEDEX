@@ -2,8 +2,7 @@
 use strict;
 use warnings;
 use Data::Dumper;
-our $VAR1;
-$VAR1 = {
+my $INPUT = {
           'PHEDEX' => {
                         'REQUEST_DATE' => '2016-01-15 23:41:22 UTC',
                         'REQUEST_CALL' => 'dumpquery',
@@ -149,7 +148,7 @@ my %paramhash = (
 
 # Find all node names
 my $node_names = {};
-foreach my $data (@{$VAR1->{PHEDEX}->{QUERYSPACE}}) {
+foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
     $node_names->{$data->{NAME}}=1;
 };
 # Processing all nodes:
@@ -160,7 +159,7 @@ foreach my $nodename (keys %$node_names) {
     $node_element->{'SUBDIR'} = $paramhash{rootdir};
     # Find all timestamps for this node:
     my $timestamps = {};
-    foreach my $data (@{$VAR1->{PHEDEX}->{QUERYSPACE}}) {
+    foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
 	$timestamps->{$data->{TIMESTAMP}}=1;
     };
     my @timebins; # Array for node aggregated data per timestamp
@@ -171,15 +170,17 @@ foreach my $nodename (keys %$node_names) {
 	print "  *** Aggregating data from " . gmtime ($timestamp) . " GMT ($timestamp), to level=$paramhash{level}\n"; 
 	# Pre-initialize data for all levels:
 	my @levelsarray;
+	# Filter out all data for a given node and timestamp from SQL output:
+	my @currentdata = grep {
+	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
+	} @{$INPUT->{PHEDEX}->{QUERYSPACE}};
+	# Aggregate by levels: 
 	for (my $i = 1; $i<= $paramhash{level}; $i++) {
-	    push @levelsarray, {level => $i, data => ()};
+	    push @levelsarray, {LEVEL => $i, DATA => ()};
 	};
-	$timebin_element->{levels} = \@levelsarray;
+	$timebin_element->{LEVELS} = \@levelsarray;
 	push @timebins, $timebin_element;
     };
     $node_element->{'TIMEBINS'} = \@timebins;
-    #my @debug = grep {
-    #	($_->{NAME} eq $nodename ) and ( print $_->{TIMESTAMP} . "\n")
-    #} @{$VAR1->{PHEDEX}->{QUERYSPACE}};
     print Data::Dumper::Dumper ($node_element);
 };
