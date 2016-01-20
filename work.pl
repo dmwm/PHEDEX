@@ -170,13 +170,13 @@ foreach my $nodename (keys %$node_names) {
 	my $timebin_element = {timestamp => $timestamp};
 	print "  *** Aggregating data from " . gmtime ($timestamp) . " GMT ($timestamp), to level=$paramhash{level}\n"; 
 	# Pre-initialize data for all levels:
-	my $levelsarray = ();
-	#for (my $i = 1; $i<= $paramhash{level}; $i++) {
-	#    $levelsarray->[$i-1]={level => $i, data => ()};
-	#}
-	$timebin_element->{levels} = $levelsarray;
+	my @levelsarray;
+	for (my $i = 1; $i<= $paramhash{level}; $i++) {
+	    push @levelsarray, {level => $i, data => ()};
+	};
+	$timebin_element->{levels} = \@levelsarray;
 	push @timebins, $timebin_element;
-    }    
+    };
     $node_element->{'TIMEBINS'} = \@timebins;
     #my @debug = grep {
     #	($_->{NAME} eq $nodename ) and ( print $_->{TIMESTAMP} . "\n")
