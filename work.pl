@@ -176,7 +176,7 @@ foreach my $nodename (keys %$node_names) {
 	} @{$INPUT->{PHEDEX}->{QUERYSPACE}};
 	# Aggregate by levels: 
 	for (my $i = 1; $i<= $paramhash{level}; $i++) {
-	    push @levelsarray, {LEVEL => $i, DATA => ()};
+	    push @levelsarray, {LEVEL => $i, DATA => []};
 	};
 	$timebin_element->{LEVELS} = \@levelsarray;
 	push @timebins, $timebin_element;
