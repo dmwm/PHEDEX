@@ -134,8 +134,10 @@ my $INPUT = {
 
 # Input parameters (API arguments): 
 my %paramhash = ( 
-    level       => 4, #      the depth of directories, should be less than or equal to 6 (<=6), the default is 4
-    rootdir     => '/', #     the path to be queried
+    level       => 2, #      the depth of directories, should be less than or equal to 6 (<=6), the default is 4
+    #rootdir     => '/', #     the path to be queried
+    rootdir     => '/storage/', #     the path to be queried
+    #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/', #     the path to be queried
     #node        => 'T2_Test_Buffer', #       node name, could be multiple, all(T*). 
     #time_since  => '0', #    former time range, since this time, if not specified, time_since=0
     #time_until  => 10000000000, #     later time range, until this time, if not specified, time_until=10000000000
@@ -167,20 +169,54 @@ foreach my $nodename (keys %$node_names) {
     foreach my $timestamp (keys %$timestamps) { 
 	$debug_count++;
 	my $timebin_element = {timestamp => $timestamp};
-	print "  *** Aggregating data from " . gmtime ($timestamp) . " GMT ($timestamp), to level=$paramhash{level}\n"; 
+	print "  *** Aggregating data from " . gmtime ($timestamp) . 
+	    " GMT ($timestamp), to level=$paramhash{level}\n"; 
 	# Pre-initialize data for all levels:
 	my @levelsarray;
+	for (my $i = 1; $i<= $paramhash{level}; $i++) {
+	    push @levelsarray, {DATA => [], LEVEL => $i};
+	};
 	# Filter out all data for a given node and timestamp from SQL output:
 	my @currentdata = grep {
 	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
 	} @{$INPUT->{PHEDEX}->{QUERYSPACE}};
 	# Aggregate by levels: 
+	my ($cur, $reldepth);
 	for (my $i = 1; $i<= $paramhash{level}; $i++) {
-	    push @levelsarray, {LEVEL => $i, DATA => []};
+	    print "***  Getting data for LEVEL $i\n";
+
+
+	    while (@currentdata) {
+		$cur = shift @currentdata;
+		print "dir: " . $cur->{DIR} . "\n";
+		print "relative depth: " . checklevel($paramhash{rootdir}, $cur->{DIR}) . "\n";
+		$reldepth = checklevel($paramhash{rootdir}, $cur->{DIR});
+		# update data 		
+		$levelsarray[$i]->{DATA} = {SIZE => $cur->{SPACE}, DIR => $cur->{DIR}};
+	    }
 	};
 	$timebin_element->{LEVELS} = \@levelsarray;
 	push @timebins, $timebin_element;
     };
     $node_element->{'TIMEBINS'} = \@timebins;
     print Data::Dumper::Dumper ($node_element);
+};
+
+sub checklevel {
+    my ($rootdir,$path)=@_;
+    my @p = split "/", $path;
+    my @r = split "/", $rootdir;
+    return -1 if (@p < @r);
+    my $result=1;
+    for (my $i=1; $i < @p; $i += 1) {
+	if ( ! $r[$i]){
+	    $result += 1;
+	    next;
+	}
+	if ( ($p[$i] ne $r[$i] )){
+	    return -1;
+	} 	
+    }
+    ( $rootdir eq "/" ) && ($result-=1);
+    return $result;
 };
