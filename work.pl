@@ -11,15 +11,15 @@ my $INPUT = {
                         'REQUEST_VERSION' => '1.0.3-comp2',
                         'QUERYSPACE' => [
                                           {
-                                            'SPACE' => '6',
-                                            'NAME' => 'T2_Test_Buffer',
-                                            'DIR' => '/storage',
-                                            'TIMESTAMP' => '1446500998'
-                                          },
-                                          {
                                             'SPACE' => '1',
                                             'NAME' => 'T2_Test_Buffer',
                                             'DIR' => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir3/a/b',
+                                            'TIMESTAMP' => '1446500998'
+                                          },
+                                          {
+                                            'SPACE' => '6',
+                                            'NAME' => 'T2_Test_Buffer',
+                                            'DIR' => '/storage',
                                             'TIMESTAMP' => '1446500998'
                                           },
                                           {
@@ -110,7 +110,7 @@ my $INPUT = {
                                             'SPACE' => '6',
                                             'NAME' => 'T2_Test_Buffer',
                                             'DIR' => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG',
-                                            'TIMESTAMP' => '1446500998000'
+                                            'TIMESTAMP' => '1446500998'
                                           },
                                           {
                                             'SPACE' => '2',
@@ -134,9 +134,9 @@ my $INPUT = {
 
 # Input parameters (API arguments): 
 my %paramhash = ( 
-    level       => 2, #      the depth of directories, should be less than or equal to 6 (<=6), the default is 4
-    #rootdir     => '/', #     the path to be queried
-    rootdir     => '/storage/', #     the path to be queried
+    level       => 4, #      the depth of directories, should be less than or equal to 6 (<=6), the default is 4
+    rootdir     => '/', #     the path to be queried
+    #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data', #     the path to be queried
     #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/', #     the path to be queried
     #node        => 'T2_Test_Buffer', #       node name, could be multiple, all(T*). 
     #time_since  => '0', #    former time range, since this time, if not specified, time_since=0
@@ -147,7 +147,8 @@ my %paramhash = (
 # node name and time parameters are used in SQL query to filter out the desired entries
 # (since we work on SQL output here we do not need them)
 # level and rootdir parameters are used in the aggregation algorithm below
-
+my $level = $paramhash{level};
+my $root = $paramhash{rootdir};
 # Find all node names
 my $node_names = {};
 foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
@@ -158,7 +159,7 @@ foreach my $nodename (keys %$node_names) {
     print "*** Processing node:  $nodename\n"; 
     my $node_element = {};
     $node_element->{'NODE'} = $nodename;
-    $node_element->{'SUBDIR'} = $paramhash{rootdir};
+    $node_element->{'SUBDIR'} = $root;
     # Find all timestamps for this node:
     my $timestamps = {};
     foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
@@ -170,30 +171,36 @@ foreach my $nodename (keys %$node_names) {
 	$debug_count++;
 	my $timebin_element = {timestamp => $timestamp};
 	print "  *** Aggregating data from " . gmtime ($timestamp) . 
-	    " GMT ($timestamp), to level=$paramhash{level}\n"; 
+	    " GMT ($timestamp), to level=$level\n"; 
 	# Pre-initialize data for all levels:
 	my @levelsarray;
-	for (my $i = 1; $i<= $paramhash{level}; $i++) {
+	for (my $i = 1; $i<= $level; $i++) {
 	    push @levelsarray, {DATA => [], LEVEL => $i};
 	};
 	# Filter out all data for a given node and timestamp from SQL output:
 	my @currentdata = grep {
 	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
 	} @{$INPUT->{PHEDEX}->{QUERYSPACE}};
-	# Aggregate by levels: 
 	my ($cur, $reldepth);
-	for (my $i = 1; $i<= $paramhash{level}; $i++) {
-	    print "***  Getting data for LEVEL $i\n";
-
-
-	    while (@currentdata) {
-		$cur = shift @currentdata;
-		print "dir: " . $cur->{DIR} . "\n";
-		print "relative depth: " . checklevel($paramhash{rootdir}, $cur->{DIR}) . "\n";
-		$reldepth = checklevel($paramhash{rootdir}, $cur->{DIR});
-		# update data 		
-		$levelsarray[$i]->{DATA} = {SIZE => $cur->{SPACE}, DIR => $cur->{DIR}};
-	    }
+	while (@currentdata) {
+	    $cur = shift @currentdata;
+	    print "dir: " . $cur->{DIR} . "\n";
+	    $reldepth = checklevel($root, $cur->{DIR});
+	    print "Relative depth to rootdir $root = $reldepth\n";
+	    # Aggregate by levels: 
+	    for ( my $i = 1; $i <= $level; $i++ ) 
+	    {
+		print "*** Initializing data for LEVEL $i\n";
+		#$levelsarray[$i-1]->{DATA} = [];		
+		# update data
+		#if ( $reldepth <= $level ) {
+		if ( $reldepth <= $i ) {
+		    push @{$levelsarray[$i-1]->{DATA}},{
+			SIZE=>$cur->{SPACE}, 
+			DIR=>$cur->{DIR}
+		    };
+		};
+	    };
 	};
 	$timebin_element->{LEVELS} = \@levelsarray;
 	push @timebins, $timebin_element;
