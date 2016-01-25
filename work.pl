@@ -134,10 +134,9 @@ my $INPUT = {
 
 # Input parameters (API arguments): 
 my %paramhash = ( 
-    level       => 4, #      the depth of directories, should be less than or equal to 6 (<=6), the default is 4
+    level       => 15, #      the depth of directories, should be less than or equal to 12, the default is 4
     rootdir     => '/', #     the path to be queried
-    #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data', #     the path to be queried
-    #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/', #     the path to be queried
+    rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir2/a',
     #node        => 'T2_Test_Buffer', #       node name, could be multiple, all(T*). 
     #time_since  => '0', #    former time range, since this time, if not specified, time_since=0
     #time_until  => 10000000000, #     later time range, until this time, if not specified, time_until=10000000000
