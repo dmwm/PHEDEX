@@ -1,3 +1,16 @@
+Changes for 4.2.0
+
+Changes for Site Agents
+
+ - FileDownload agent: add support for Circuit awareness
+ - BlockDownloadVerify agent: add gfal Namespace (using gfal2-utils)
+
+Changes for Schema
+ - Fixes in privilege granting script
+
+Changes in core libraries
+ - Add Tests module and corresponding scripts directory
+
 Changes for 4.1.7
 
 Changes for Site Agents

@@ -5457,7 +5457,7 @@ sub output
   # Need to provide a more reasonable range.  PhEDEx started taking data in Sep 2004.
   $start = timegm(0, 0, 0, 1, 9, 2004-1900) if $start == 0;  
 
-  my $conn = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{CONNECTION};
+  my $conn = $$self{CONFIG}{INSTANCES}{$$self{DBID}}{GRAPH_CONNECTION};
 
   my %args = ('conn' => $conn, 'unit' => $unit, 'span' => $span{$unit}, 'by' => $entity, 'last' => $last,
               'src_filter' => $src_filter, 'dest_filter' => $dest_filter, 'no_mss' => $no_mss,
@@ -9359,7 +9359,7 @@ sub read_config
         $$info{$name} = $value;
       }
 
-      my @required = qw(ID TITLE CONNECTION);
+      my @required = qw(ID TITLE CONNECTION GRAPH_CONNECTION);
       my @missing = map { s/_/-/g; lc; } grep(! exists $$info{$_}, @required);
       die "$config_file: instance is missing parameters '@missing'\n" if @missing;
       my $dbparam_config = &parseDatabaseInfo($$config{DBPARAM}, $$info{CONNECTION});
