@@ -64,19 +64,13 @@ sub methods_allowed { return ('GET'); }
 sub duration { return 0; }
 sub invoke { return storageusage(@_); }
 
-sub nrdebug {
-    my $message = shift;
-    open(my $fh, '>>', '/tmp/nrdebug_report.txt');
-    print $fh $message . "\n";
-    close $fh;
-}
 sub storageusage  {
   my ($core, %h) = @_;
   my ($method,$inputnode,$result,@inputnodes,@records, $last, $data);
   my ($dirtemp,$dirstemp,$node);
   $method = $core->{REQUEST_METHOD};
   my %args;
-  &nrdebug ('trace0 in storageusage');
+  # validate input parameters and set defaults: 
   eval {
         %args = &validate_params(\%h,
                 allow => [ qw ( node level rootdir time_since time_until ) ],
@@ -92,8 +86,7 @@ sub storageusage  {
         };
   if ( $@ ) {
         return PHEDEX::Web::Util::http_error(400, $@);
-  } 
-
+  }
 
   foreach ( keys %args ) {
      $args{lc($_)} = delete $args{$_};
@@ -109,8 +102,6 @@ sub storageusage  {
      $args{level} = 4;
   }
 
-  &nrdebug ('trace1 in storageusage: level = ' . $args{level});
-
   if (!$args{rootdir}) {
     $args{rootdir} = "/";
   } 
@@ -121,9 +112,9 @@ sub storageusage  {
     $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
   }
 
-  &nrdebug ('trace2 in storageusage node arg = ' . $args{node});
+# Query the database:
+
   if ($args{node} =~ m/^T\*$/) {
-     &nrdebug ('trace3 in storageusage node matches');
      eval {
         $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
      };
@@ -131,7 +122,6 @@ sub storageusage  {
        die PHEDEX::Web::Util::http_error(400,$@);
      }
      $last = @{$result}[0]->{NAME};
-     &nrdebug ('trace2 in storageusage: last = ' . $last);
      $dirstemp = ();
      foreach $data (@{$result}) {
        $dirtemp = {};
@@ -159,7 +149,6 @@ sub storageusage  {
     }
   } 
   else {
-     &nrdebug ('trace4 in storageusage node does not match');
      if (ref $args{node} eq 'ARRAY') {
         @inputnodes = @{$args{node}};
      }
@@ -185,77 +174,54 @@ sub storageusage  {
   return { nodes => \@records };
 }
 
+
 sub getNodeInfo {
-  my ($core, $result, %args) = @_;
-  my ($level,$rootdir,%dir, $dirs, $data);
-  my ($dirtemp, $timetemp, $dirstemp, $last, $time);
-  my ($dirarray, $dirhash, $dirhashSep, $levelarray, $levelhash, $timebin, $timebins);
-  my %temp;
-  # New vars: 
-  my ($reldepth, $levelshash, $dirsize, $depth);
-  $rootdir = $args{rootdir};
-  $level = $args{level};
-  &nrdebug ('trace5 in getNodeInfo, rootdir = ' . $rootdir . '; level = ' . $level . '; node = ' . $args{node});
-
-  $timebins = ();
-
-  # classify data by timestamp
-  $timetemp = {};
-  my $current = undef;
-  $dirstemp = ();
-  foreach $data (@{$result}) {
-      if (!$current || ( $data->{TIMESTAMP} != $current ) ) {
-	  if ( $dirstemp ) {
-	      $timetemp->{$current} = $dirstemp;
-	      $dirstemp = ();
-	  }
-	  $current = $data->{TIMESTAMP};
-      }
-    $dirtemp = {};
-    $dirtemp->{dir} = $data->{DIR};
-    $dirtemp->{space} = $data->{SPACE};
-    push @$dirstemp, $dirtemp;
-  }
-  if ( $dirstemp ) {
-      $timetemp->{$current} = $dirstemp;
-  }
-
-  foreach $time ( keys %{$timetemp} ) {
-      $levelarray = ();
-      for (my $i = 1; $i<= $level; $i++) {		
-	  $levelarray->[$i-1]={level => $i, data => ()};
-      }
-      foreach $dirsize ( @{$timetemp->{$time}} ) {
-	  open(my $fh, '>>', '/tmp/nrdebug_report.txt');
-	  $dirhash = {};
-	  $dirhash->{space} = $dirsize->{space};
-	  $dirhash->{dir} = $dirsize->{dir};
-	  $reldepth = checklevel ( $rootdir, $dirsize->{dir} );
-	  print $fh "Dirhash(1): \n", Dumper ($dirhash), "\n";
-	  print $fh "reldepth: $reldepth\n";
-	  print $fh "rootdir: $rootdir\n";
-	  if ($reldepth) {
-	      for (my $i = $reldepth; $i<= $level; $i++) {		
-		  print $fh "=========  $i \n";
-		  print $fh "levelarray before push: \n", Dumper ($levelarray), "\n";
-		  print $fh "Dirhash(2): \n", Dumper ($dirhash), "\n";
-		  push @{$$levelarray[$i-1]->{data}}, $dirhash;
-		  #push @{$levelarray->[$i-1]->{data}}, $dirhash;
-		  print $fh "levelarray after push: \n", Dumper ($levelarray), "\n";
-	      }
-	  }
-	  close $fh;
-      }
-      $timebin = {
-	  timestamp => $time,
-	  levels => $levelshash,
-      };
-      push @$timebins, $timebin;
-  }
-  return $timebins;
+    my ($core, $result, %args) = @_;
+    my $level    = $args{level};
+    my $root     = $args{rootdir};
+    my $nodename = $args{node};
+    # Find all timestamps for this node:
+    my $timestamps = {};
+    foreach my $data (@{$result}) {
+	$timestamps->{$data->{TIMESTAMP}}=1;
+    };
+    my @timebins; # Array for node aggregated data per timestamp
+    foreach my $timestamp (keys %$timestamps) { 
+	my $timebin_element = {timestamp => $timestamp};
+	# Pre-initialize data for all levels:
+	my @levelsarray;
+	for (my $i = 1; $i<= $level; $i++) {
+	    push @levelsarray, {DATA => [], LEVEL => $i};
+	};
+	# Filter out all data for a given node and timestamp from SQL output:
+	my @currentdata = grep {
+	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
+	} @{$result};
+	my ($cur, $reldepth);
+	while (@currentdata) {
+	    $cur = shift @currentdata;
+	    $reldepth = checklevel($root, $cur->{DIR});
+	    # Aggregate by levels: 
+	    for ( my $i = 1; $i <= $level; $i++ ) 
+	    {
+		if ( $reldepth <= $i ) {
+		    push @{$levelsarray[$i-1]->{DATA}},{
+			SIZE=>$cur->{SPACE}, 
+			DIR=>$cur->{DIR}
+		    };
+		};
+	    };
+	};
+	$timebin_element->{LEVELS} = \@levelsarray;
+	push @timebins, $timebin_element;
+    };
+    return \@timebins;
 }
 
 sub checklevel {
+# Takes two paths as two arguments, checks if the second arg is a subdirectory 
+# of the first arg and returns the number of how many additional directory
+# levels it contains. Otherwise returns -1.
     my ($rootdir,$path)=@_;
     my @p = split "/", $path;
     my @r = split "/", $rootdir;
