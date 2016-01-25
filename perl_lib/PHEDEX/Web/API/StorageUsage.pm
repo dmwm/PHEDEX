@@ -111,111 +111,69 @@ sub storageusage  {
   if ( $args{time_until} ) {
     $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
   }
+  my $root=$args{rootdir};
+  my $level=$args{level};
 
-# Query the database:
-
-  if ($args{node} =~ m/^T\*$/) {
-     eval {
-        $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-     };
-     if ( $@ ) {
-       die PHEDEX::Web::Util::http_error(400,$@);
-     }
-     $last = @{$result}[0]->{NAME};
-     $dirstemp = ();
-     foreach $data (@{$result}) {
-       $dirtemp = {};
-       $dirtemp->{DIR} = $data->{DIR};
-       $dirtemp->{SPACE} = $data->{SPACE};
-       $dirtemp->{TIMESTAMP} = $data->{TIMESTAMP};
-       $dirtemp->{NAME} = $data->{NAME};
-       push @$dirstemp, $dirtemp;
-       if ($last !~ m/$data->{NAME}/) {
-          $node = {};
-          $node->{subdir} = $args{rootdir};
-          $node->{node} = $last;
-          $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
-          push @records, $node;
-          $dirstemp = ();
-          $last = $data->{NAME};
-       }
-    }
-    if ($last =~ m/@{$result}[0]->{NAME}/) {
-       $node = {};
-       $node->{subdir} = $args{rootdir};
-       $node->{node} = $last;
-       $node->{timebins} = getNodeInfo($core, $dirstemp, %args);
-       push @records, $node;
-    }
-  } 
-  else {
-     if (ref $args{node} eq 'ARRAY') {
-        @inputnodes = @{$args{node}};
-     }
-     else {
-        @inputnodes = $args{node};
-     }
-     foreach $inputnode (@inputnodes) {
-        my $node = {};
-        $args{node} = $inputnode;
-        $node->{subdir} = $args{rootdir};
-        eval {
-          $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
-        };
-        if ( $@ ) {
-          die PHEDEX::Web::Util::http_error(400,$@);
-        }
-        $node->{node} = @{$result}[0]->{NAME};
-        $node->{timebins} = getNodeInfo($core, $result, %args); 
-        push @records, $node;
-     }
+  # Query the database: 
+  eval {
+      $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
+  };
+  # NR: This is some check, leaving it in:
+  if ( $@ ) {
+      die PHEDEX::Web::Util::http_error(400,$@);
   }
-
+  # Find all node names in the returned query results:
+  my $node_names = {};
+  foreach my $data (@{$result}) {
+      $node_names->{$data->{NAME}}=1;
+  };
+  # Processing all nodes:
+  foreach my $nodename (keys %$node_names) { 
+      print "*** Processing node:  $nodename\n"; 
+      my $node_element = {};
+      $node_element->{'NODE'} = $nodename;
+      $node_element->{'SUBDIR'} = $root;
+      # Find all timestamps for this node:
+      my $timestamps = {};
+      foreach my $data (@{$result}) {
+	  $timestamps->{$data->{TIMESTAMP}}=1;
+      };
+      my @timebins; # Array for node aggregated data per timestamp
+      foreach my $timestamp (keys %$timestamps) { 
+	  my $timebin_element = {timestamp => $timestamp};
+	  # Pre-initialize data for all levels:
+	  my @levelsarray;
+	  for (my $i = 1; $i<= $level; $i++) {
+	      push @levelsarray, {DATA => [], LEVEL => $i};
+	  };
+	  # Filter out all data for a given node and timestamp from SQL output:
+	  my @currentdata = grep {
+	      ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
+	  } @{$result};
+	  my ($cur, $reldepth);
+	  while (@currentdata) {
+	      $cur = shift @currentdata;
+	      print "dir: " . $cur->{DIR} . "\n";
+	      $reldepth = checklevel($root, $cur->{DIR});
+	      print "Relative depth to rootdir $root = $reldepth\n";
+	      # Aggregate by levels: 
+	      for ( my $i = 1; $i <= $level; $i++ ) 
+	      {
+		  if ( $reldepth <= $i ) {
+		      push @{$levelsarray[$i-1]->{DATA}},{
+			  SIZE=>$cur->{SPACE}, 
+			  DIR=>$cur->{DIR}
+		      };
+		  };
+	      };
+	  };
+	  $timebin_element->{LEVELS} = \@levelsarray;
+	  push @timebins, $timebin_element;
+      };
+      $node_element->{'TIMEBINS'} = \@timebins;
+      push @records, $node_element;
+  };
   return { nodes => \@records };
-}
-
-
-sub getNodeInfo {
-    my ($core, $result, %args) = @_;
-    my $level    = $args{level};
-    my $root     = $args{rootdir};
-    my $nodename = $args{node};
-    # Find all timestamps for this node:
-    my $timestamps = {};
-    foreach my $data (@{$result}) {
-	$timestamps->{$data->{TIMESTAMP}}=1;
-    };
-    my @timebins; # Array for node aggregated data per timestamp
-    foreach my $timestamp (keys %$timestamps) { 
-	my $timebin_element = {timestamp => $timestamp};
-	# Pre-initialize data for all levels:
-	my @levelsarray;
-	for (my $i = 1; $i<= $level; $i++) {
-	    push @levelsarray, {DATA => [], LEVEL => $i};
-	};
-	# Filter out all data for a given node and timestamp from SQL output:
-	my @currentdata = grep {
-	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
-	} @{$result};
-	my ($cur, $reldepth);
-	while (@currentdata) {
-	    $cur = shift @currentdata;
-	    $reldepth = checklevel($root, $cur->{DIR});
-	    # Aggregate by levels: 
-	    for ( my $i = 1; $i <= $level; $i++ ) 
-	    {
-		if ( $reldepth <= $i ) {
-		    push @{$levelsarray[$i-1]->{DATA}},{
-			SIZE=>$cur->{SPACE}, 
-			DIR=>$cur->{DIR}
-		    };
-		};
-	    };
-	};
-	$timebin_element->{LEVELS} = \@levelsarray;
-	push @timebins, $timebin_element;
-    };
-    return \@timebins;
 }
 
 sub checklevel {
