@@ -129,7 +129,6 @@ sub storageusage  {
   };
   # Processing all nodes:
   foreach my $nodename (keys %$node_names) { 
-      print "*** Processing node:  $nodename\n"; 
       my $node_element = {};
       $node_element->{'NODE'} = $nodename;
       $node_element->{'SUBDIR'} = $root;
@@ -153,9 +152,7 @@ sub storageusage  {
 	  my ($cur, $reldepth);
 	  while (@currentdata) {
 	      $cur = shift @currentdata;
-	      print "dir: " . $cur->{DIR} . "\n";
 	      $reldepth = checklevel($root, $cur->{DIR});
-	      print "Relative depth to rootdir $root = $reldepth\n";
 	      # Aggregate by levels: 
 	      for ( my $i = 1; $i <= $level; $i++ ) 
 	      {
