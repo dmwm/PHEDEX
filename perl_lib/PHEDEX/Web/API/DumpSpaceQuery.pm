@@ -67,7 +67,53 @@ sub invoke { return dumpspacequery(@_); }
 
 sub dumpspacequery  {
   my ($core,%h) = @_;
-  my $result = PHEDEX::Web::SQLSpace::querySpace($core, %h);
+  my %args;
+# validate input parameters and set defaults:
+  eval {
+        %args = &validate_params(\%h,
+                allow => [ qw ( node level rootdir time_since time_until ) ],
+                required => [ qw ( node ) ],
+                spec =>
+                {
+                    node => { using => 'node', multiple => 1 },
+                    level => { using => 'pos_int' },
+                    rootdir => { using => 'dataitem_*' },
+                    time_since => { using => 'time' },
+                    time_until => { using => 'time' }
+                });
+        };
+  if ( $@ ) {
+        return PHEDEX::Web::Util::http_error(400, $@);
+  }
+
+  foreach ( keys %args ) {
+     $args{lc($_)} = delete $args{$_};
+  }
+
+  # TODO: replace this with a smart check based on the topdir (/store/).
+  if ($args{level}) {
+     if ($args{level} > 12) {
+        die PHEDEX::Web::Util::http_error(400,"the level required is too deep");
+     }
+  }
+  else {
+     $args{level} = 4;
+  }
+
+  if (!$args{rootdir}) {
+    $args{rootdir} = "/";
+  }
+  if ( $args{time_since} ) {
+    $args{time_since} = PHEDEX::Core::Timing::str2time($args{time_since});
+  }
+  if ( $args{time_until} ) {
+    $args{time_until} = PHEDEX::Core::Timing::str2time($args{time_until});
+  }
+  my $root=$args{rootdir};
+  my $level=$args{level};
+
+  # Query the database:
+  my $result = PHEDEX::Web::SQLSpace::querySpace($core, %args);
   return { querySpace => $result };
 }
 
