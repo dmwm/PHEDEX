@@ -145,9 +145,11 @@ sub storageusage  {
 	  for (my $i = 1; $i<= $level; $i++) {
 	      push @levelsarray, {DATA => [], LEVEL => $i};
 	  };
-	  # Filter out all data for a given node and timestamp from SQL output:
+	  # Filter SQL output data by rootdir, node and timestamp:
 	  my @currentdata = grep {
-	      ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
+	      ( $_->{DIR} =~ $root ) and
+		  ( $_->{NAME} eq $nodename ) and 
+		  ( $_->{TIMESTAMP} eq $timestamp )
 	  } @{$result};
 	  my ($cur, $reldepth);
 	  while (@currentdata) {
