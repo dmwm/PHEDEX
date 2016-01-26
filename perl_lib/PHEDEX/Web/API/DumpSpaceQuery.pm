@@ -1,4 +1,4 @@
-package PHEDEX::Web::API::DumpQuery;
+package PHEDEX::Web::API::DumpSpaceQuery;
 use warnings;
 use strict;
 use PHEDEX::Web::SQLSpace;
@@ -9,12 +9,12 @@ use Data::Dumper;
 
 =head1 NAME
 
-PHEDEX::Web::API::DumpQuery - debugging only
+PHEDEX::Web::API::DumpSpaceQuery - useful for debugging only
 
 =head1 DESCRIPTION
 
-Query storage info with options from oracle backend
-and dump results into local file on the server
+returns unprocessed result of  PHEDEX::Web::SQLSpace::querySpace
+on DMWMMON database using input parameters 
 
 =head2 Options
 
@@ -63,16 +63,9 @@ and dump results into local file on the server
 
 sub methods_allowed { return ('GET'); }
 sub duration { return 0; }
-sub invoke { return dumpquery(@_); }
+sub invoke { return dumpspacequery(@_); }
 
-sub nrdebug {
-    my $message = shift;
-    open(my $fh, '>>', '/tmp/nrdebug_dumpquery_report.txt');
-    print $fh $message . "\n";
-    close $fh;
-}
-
-sub dumpquery  {
+sub dumpspacequery  {
   my ($core,%h) = @_;
   my $result = PHEDEX::Web::SQLSpace::querySpace($core, %h);
   return { querySpace => $result };
