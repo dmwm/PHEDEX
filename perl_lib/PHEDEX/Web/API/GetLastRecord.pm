@@ -9,15 +9,16 @@ use Data::Dumper;
 
 =head1 NAME
 
-PHEDEX::Web::API::GetLastRecord 
+PHEDEX::Web::API::GetLastRecord - show latest record for a node
 
 =head1 DESCRIPTION
 
-retrieve last space usage record for a node
+Retrieves most recent space usage record for a node. Useful for checking
+if the latest record have been uploaded and what data it contains. 
 
 =head2 Options
 
-  node             node name (requred)
+  node             node name (required)
 
 =head2 Output
 
