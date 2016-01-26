@@ -74,11 +74,34 @@ sub nrdebug {
 
 sub dumpquerydebug  {
     my ($args,) = @_;
-    print "Hash of arguments in dumpquerydebug:";     
-    print Data::Dumper::Dumper @_;
+    my ($data);
+    print "Hash of arguments in dumpquerydebug:";
+    #print Data::Dumper::Dumper @_;
     print "\n";
     my $result = readFromFile($args->{file});
-    #return { querySpace => $result };
+    print "*** Processing result in dumpquerydebug...\n";
+    # Find all nodes and all timestamps for each node:
+    my $nodes = ();
+    print "*** Query results read from the file:";
+    my @query = $result->{PHEDEX}->{QUERYSPACE}[1];
+    print @query;
+    
+    print "\nNUmber of elements in query array:\n" . string ($#query + 1);
+    foreach my $i (0 .. $#query) { print "$i = $query[$i]" . "\n";};
+
+
+    #foreach my $data ($result->{PHEDEX}->{QUERYSPACE}[0]) {
+    foreach my $data ($query[0]) {
+	print "\nbegin ===============\n";
+	print Data::Dumper::Dumper ($data);
+	print "\nend   ===============\n";
+    }
+    # Initialize array ref for the time bins (currently time stamps):
+    my $timebins = ();
+    # Initialize array ref for the aggregation levels  
+    my $levelarray = ();
+    # and iterate through the levels starting from top:
+    print "Aggregating for levels from 1 to " . $args->{'level'} . "\n";
 }
 
 sub readFromFile 
@@ -86,7 +109,7 @@ sub readFromFile
     my $file = shift;
     my $return;
     our $VAR1;
-    print "*** Reading file : $file \n";
+    print "*** Reading SQL query result from file : $file \n";
     unless ($return = do $file) {
 	warn "couldn't parse $file: $@" if $@;
 	warn "couldn't do $file: $!"    unless defined $return;
@@ -94,7 +117,7 @@ sub readFromFile
     }
     #print Data::Dumper::Dumper(%USERCFG);
     eval $return;
-    print Data::Dumper::Dumper( $VAR1);
+    #print Data::Dumper::Dumper( $VAR1);
     return $VAR1;
 }
 my %paramhash = ( 
