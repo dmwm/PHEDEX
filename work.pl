@@ -2,6 +2,30 @@
 use strict;
 use warnings;
 use Data::Dumper;
+use Getopt::Long;
+
+my ($level, $root);
+
+GetOptions ( 'help|h' => sub { &usage },
+             'level:i' => \$level,
+             'rootdir:s' => \$root,
+             );
+
+sub usage
+{ 
+    print <<EOF;
+USAGE: 
+    perl work.pl [ OPTIONS ]
+
+
+OPTIONS: 
+    --level <I>        - split output into I levels (integer number)
+    --rootdir <path>   - show information for this path only
+EOF
+;
+    exit 0;
+}
+
 my $INPUT = {
           'PHEDEX' => {
                         'REQUEST_DATE' => '2016-01-15 23:41:22 UTC',
@@ -134,9 +158,9 @@ my $INPUT = {
 
 # Input parameters (API arguments): 
 my %paramhash = ( 
-    level       => 15, #      the depth of directories, should be less than or equal to 12, the default is 4
+    level       => 4, #      the depth of directories, should be less than or equal to 12, the default is 4
     rootdir     => '/', #     the path to be queried
-    rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir2/a',
+    #rootdir     => '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir2/a',
     #node        => 'T2_Test_Buffer', #       node name, could be multiple, all(T*). 
     #time_since  => '0', #    former time range, since this time, if not specified, time_since=0
     #time_until  => 10000000000, #     later time range, until this time, if not specified, time_until=10000000000
@@ -146,8 +170,10 @@ my %paramhash = (
 # node name and time parameters are used in SQL query to filter out the desired entries
 # (since we work on SQL output here we do not need them)
 # level and rootdir parameters are used in the aggregation algorithm below
-my $level = $paramhash{level};
-my $root = $paramhash{rootdir};
+if ( ! $level ) { $level = $paramhash{level}};
+if (! $root ) { $root = $paramhash{rootdir}};
+
+print "Input parameters: \n   level   = $level\n   rootdir = $root\n";
 # Find all node names
 my $node_names = {};
 foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
@@ -155,7 +181,7 @@ foreach my $data (@{$INPUT->{PHEDEX}->{QUERYSPACE}}) {
 };
 # Processing all nodes:
 foreach my $nodename (keys %$node_names) { 
-    print "*** Processing node:  $nodename\n"; 
+    #print "*** Processing node:  $nodename\n"; 
     my $node_element = {};
     $node_element->{'NODE'} = $nodename;
     $node_element->{'SUBDIR'} = $root;
@@ -165,31 +191,32 @@ foreach my $nodename (keys %$node_names) {
 	$timestamps->{$data->{TIMESTAMP}}=1;
     };
     my @timebins; # Array for node aggregated data per timestamp
-    my $debug_count = 0;
     foreach my $timestamp (keys %$timestamps) { 
-	$debug_count++;
 	my $timebin_element = {timestamp => $timestamp};
-	print "  *** Aggregating data from " . gmtime ($timestamp) . 
-	    " GMT ($timestamp), to level=$level\n"; 
+	#print "  *** Aggregating data from " . gmtime ($timestamp) . 
+	#    " GMT ($timestamp), to level=$level\n"; 
 	# Pre-initialize data for all levels:
 	my @levelsarray;
 	for (my $i = 1; $i<= $level; $i++) {
 	    push @levelsarray, {DATA => [], LEVEL => $i};
 	};
 	# Filter out all data for a given node and timestamp from SQL output:
-	my @currentdata = grep {
-	    ($_->{NAME} eq $nodename ) and ( $_->{TIMESTAMP} eq $timestamp )
+	# Filter out all  SQL output data for a given node, timestamp and rootdir:
+	my @currentdata = grep { 
+	    ($_->{NAME} eq $nodename ) and
+		( $_->{TIMESTAMP} eq $timestamp ) and
+		( $_->{DIR} =~ $root )
 	} @{$INPUT->{PHEDEX}->{QUERYSPACE}};
 	my ($cur, $reldepth);
 	while (@currentdata) {
 	    $cur = shift @currentdata;
-	    print "dir: " . $cur->{DIR} . "\n";
+	    #print "dir: " . $cur->{DIR} . "\n";
 	    $reldepth = checklevel($root, $cur->{DIR});
-	    print "Relative depth to rootdir $root = $reldepth\n";
+	    #print "Relative depth to rootdir $root = $reldepth\n";
 	    # Aggregate by levels: 
 	    for ( my $i = 1; $i <= $level; $i++ ) 
 	    {
-		print "*** Initializing data for LEVEL $i\n";
+		#print "*** Initializing data for LEVEL $i\n";
 		#$levelsarray[$i-1]->{DATA} = [];		
 		# update data
 		#if ( $reldepth <= $level ) {
