@@ -148,7 +148,7 @@ if ( $injected ){
 }
 else {
   my $tmp;
-  if ( $se_name ) { $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $se_name ); }
+  if ( $se_name ) { $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicas( $dbh, $se_name ); }
   else { $tmp = PHEDEX::BlockConsistency::SQL::getSiteReplicasByName( $dbh, $node_name ); }
 
   foreach ( @{$tmp} )
