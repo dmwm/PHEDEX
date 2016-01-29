@@ -73,6 +73,7 @@ sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 sub readNamespaceConfigFromFile {
     my $self = shift;
+    my ($daughter, $path,  $subdir);
     if ( -f $self->{USERCONF}) {
 	warn "WARNING: user settings in " . $self->{USERCONF} . 
 	    "will override the default rules." if  $self->{VERBOSE};
@@ -96,19 +97,48 @@ sub readNamespaceConfigFromFile {
     }
     print $self->dump();
 
-    my ($NSRulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });
-    print "Converting rules to Tree: \n";
-    #print Data::Dumper::Dumper %$self->{RULES};
-    foreach ( keys %{$self->{RULES}}) {
-	print "Processing rule for " . $_ . " and level = " . $self->{RULES}->{$_} . "\n";  
-	foreach (split "/") { print $_ . "\n";};
+    print "********** Converting rules to a Tree: ***********\n";
+    my ($RulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });    
+    foreach $path ( keys %{$self->{RULES}}) {
+	print "Processing rule for $path and level = " . $self->{RULES}->{$path} . "\n";
+	my $mother = $RulesTree;
+	foreach $subdir (split "/", $path) {	    
+	    $daughter = $mother->new;
+	    $mother->add_daughter($daughter);
+	    $daughter->name($subdir . "/");
+	    $daughter->attributes->{'level'} = undef;
+	    $mother = $daughter;
+	};	
     }
 
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'one', attributes => {uid => 1} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
 
-    print Data::Dumper::Dumper ($NSRulesTree);
+    print "***** DRAW AN ASCII TREE: ******\n";
+    #print Data::Dumper::Dumper ($RulesTree);
+    my $diagram = $RulesTree->draw_ascii_tree;
+    print map "$_\n", @$diagram;
+    print "***** LIST ALL SUBDIRS: ******\n";
+    foreach ($RulesTree->daughters) {
+	print $_->name;
+	if ( $_->attributes->{'level'}) {
+	    print " => ", $_->attributes->{'level'};
+	}
+	print "\n";
+    }
+    #print "***** PRINT A TREE: ******\n"; # In newer versions of Perl e.g. 5.18. 
+    #print map("$_\n", @{$RulesTree->tree2string});
+    print "***** PRINT ALL DESCENDANTS: ******\n"; # In newer versions of Perl e.g. 5.18. 
+
+    foreach ($RulesTree->descendants()) {
+	#print $_->node2string;
+	print $_->name ;
+	if ( $_->attributes->{'level'}) {
+	    print " => ", $_->attributes->{'level'};
+	}
+	print " =====\n";
+    }
 }
 
 sub find_top_parents {
