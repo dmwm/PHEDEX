@@ -38,14 +38,14 @@ sub new
 	warn "couldn't do $self->{DEFAULTS}: $!"    unless defined $return;
 	warn "couldn't run $self->{DEFAULTS}"       unless $return;
     }
-    print "Namespace default rules:\n";
+    print "Namespace default rules:\n" if $self->{VERBOSE};
     foreach (sort keys %rules) {
-	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n";
+	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n" if $self->{VERBOSE};
     }
     $self->{RULES} = \%rules;
     print $self->dump() if $self->{DEBUG};
     $self->readNamespaceConfigFromFile();
-    die "STOP"; # for testing rules convertion to a Tree
+    #die "STOP"; # for testing rules convertion to a Tree
     return $self;
 }
 
@@ -76,7 +76,7 @@ sub readNamespaceConfigFromFile {
     my ($daughter, $path,  $subdir);
     if ( -f $self->{USERCONF}) {
 	warn "WARNING: user settings in " . $self->{USERCONF} . 
-	    "will override the default rules." if  $self->{VERBOSE};
+	    " will override the default rules." if  $self->{VERBOSE};
     } else {
 	die "Configuration file does not exist: " . $self->{USERCONF};
     }
@@ -92,15 +92,19 @@ sub readNamespaceConfigFromFile {
     foreach (sort keys %USERCFG) {
 	print "WARNING: user settings override default rules:\n" 
 	    if  $self->{VERBOSE};
-	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n";
+	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n"
+	    if $self->{VERBOSE};
 	$self->{RULES}{$_} = $USERCFG{$_};
     }
-    print $self->dump();
+    print $self->dump() if $self->{VERBOSE};
 
-    print "********** Converting rules to a Tree: ***********\n";
+    print "********** Converting rules to a Tree: ***********\n" 
+	if $self->{VERBOSE};
     my ($RulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });    
     foreach $path ( keys %{$self->{RULES}}) {
-	print "Processing rule for $path and level = " . $self->{RULES}->{$path} . "\n";
+	print "Processing rule for $path and level = " . 
+	    $self->{RULES}->{$path} . "\n" 
+	    if $self->{VERBOSE};
 	my $mother = $RulesTree;
 	foreach $subdir (split "/", $path) {	    
 	    $daughter = $mother->new;
@@ -115,29 +119,36 @@ sub readNamespaceConfigFromFile {
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
 #$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
 
-    print "***** DRAW AN ASCII TREE: ******\n";
+    print "***** DRAW AN ASCII TREE: ******\n"
+	if  $self->{VERBOSE};
     #print Data::Dumper::Dumper ($RulesTree);
     my $diagram = $RulesTree->draw_ascii_tree;
-    print map "$_\n", @$diagram;
-    print "***** LIST ALL SUBDIRS: ******\n";
-    foreach ($RulesTree->daughters) {
-	print $_->name;
-	if ( $_->attributes->{'level'}) {
-	    print " => ", $_->attributes->{'level'};
+    print map "$_\n", @$diagram
+	if  $self->{VERBOSE};
+
+    if  ($self->{VERBOSE}) {
+	print "***** LIST ALL SUBDIRS: ******\n";
+	foreach ($RulesTree->daughters) {
+	    print $_->name;
+	    if ( $_->attributes->{'level'}) {
+		print " => ", $_->attributes->{'level'};
+	    }
+	    print "\n";
 	}
-	print "\n";
     }
     #print "***** PRINT A TREE: ******\n"; # In newer versions of Perl e.g. 5.18. 
     #print map("$_\n", @{$RulesTree->tree2string});
-    print "***** PRINT ALL DESCENDANTS: ******\n"; # In newer versions of Perl e.g. 5.18. 
+    if  ( $self->{VERBOSE} ) {
+	print "***** PRINT ALL DESCENDANTS: ******\n"; # In newer versions of Perl e.g. 5.18. 
 
-    foreach ($RulesTree->descendants()) {
-	#print $_->node2string;
-	print $_->name ;
-	if ( $_->attributes->{'level'}) {
-	    print " => ", $_->attributes->{'level'};
+	foreach ($RulesTree->descendants()) {
+	    #print $_->node2string;
+	    print $_->name ;
+	    if ( $_->attributes->{'level'}) {
+		print " => ", $_->attributes->{'level'};
+	    }
+	    print " =====\n";
 	}
-	print " =====\n";
     }
 }
 
@@ -150,10 +161,12 @@ sub find_top_parents {
     my @levels = split "/", $path; 
     my $depth = @levels;
     $depth--;
-    print "NRDEBUG 000: path = $path\n      Top parents:\n";
+    if ($self->{VERBOSE}){
+	print "NRDEBUG 000: path = $path\n      Top parents:\n";
 	foreach (@topparents) {
 	    print "           " . $_ . "\n";
 	}
+    }
     return @topparents;
 }
 
