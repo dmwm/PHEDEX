@@ -2,6 +2,7 @@ package PHEDEX::Namespace::gfal::delete;
 # Implements the 'delete' function for gfal access
 use strict;
 use warnings;
+use base 'PHEDEX::Namespace::dpm::Common';
 
 sub new
 {
@@ -16,7 +17,8 @@ sub new
   return $self;
 }
 
-sub execute { die "Not yet implemented...\n"; (shift)->SUPER::execute(@_,'stat'); }
+#sub execute { die "Not yet implemented...\n"; (shift)->SUPER::execute(@_,'stat'); }
+sub execute { (shift)->SUPER::execute(@_,'delete'); }
 
 sub parse
 {

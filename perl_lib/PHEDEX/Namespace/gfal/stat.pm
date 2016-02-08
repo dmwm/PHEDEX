@@ -35,21 +35,24 @@ sub parse {
 	# file cached, which is only useful in NOCACHE mode!
 	my ( $self, $ns, $r, $dir ) = @_;
 	# gfal-sum returns only one line
-	my $c = $r->{STDOUT}[0];
+        my $c = $r->{STDOUT}[0];
 	# remove \n
 	chomp($c);
 
+#	print $c."\n";
+
 	# return value is of the form
-	# -rw-r--r-- 1   <uid>    <gid>    <month> <day> <time or year> <size> <PFN>	ONLINE
+	# -rw-r--r-- 1   <uid>    <gid>  <size>  <month> <day> <time or year> <PFN> 
+
 	my @values = split( ' ', $c );
 	$r->{access} = $values[0];
 	$r->{access} =~ s/-//;
 	$r->{uid} = $values[2];
 	$r->{gid} = $values[3];
-	my $month      = $values[4];
-	my $day        = $values[5];
-	my $timeOrYear = $values[6];
-	$r->{size} = $values[7];
+	my $month      = $values[5];
+	my $day        = $values[6];
+	my $timeOrYear = $values[7];
+	$r->{size} = $values[4];
 	my $url = $values[8];
 	my ( @t, %month2num, $M, $d, $y, $h, $m, $s );
 	%month2num = qw( Jan 1 Feb 2 Mar 3 Apr 4 May 5 Jun 6
