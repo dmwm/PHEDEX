@@ -2,7 +2,7 @@ package PHEDEX::Namespace::gfal::delete;
 # Implements the 'delete' function for gfal access
 use strict;
 use warnings;
-use base 'PHEDEX::Namespace::dpm::Common';
+use base 'PHEDEX::Namespace::gfal::Common';
 
 sub new
 {
