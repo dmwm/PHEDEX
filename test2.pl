@@ -33,10 +33,7 @@ sub addnode {
     my ($dirname, $remainder) = split(/\//, $p, 2);
     $dirname .= "/";
     if ( not exists $r->{$dirname}) {
-	$r->{$dirname} = "blah" ;
-    }
-    if ( not exists $r->{$dirname}) {
-	$r->{$dirname} = "blah" ;
+	$r->{$dirname} = $d ;
     }
     if (not exists $r->{subdirs}){
 	$r->{subdirs}={};
