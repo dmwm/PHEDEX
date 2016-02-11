@@ -102,6 +102,6 @@ print Data::Dumper->Dump([ $rules ],[qw(rules)]) ;
 #map {print $_ . "/\n"} @dirnames;
 
 __DATA__
-/a/b/c/=1
-/a/b/=0
 /a/b/d/=-1
+/a/b/=4
+/a/b/c/=2
