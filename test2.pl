@@ -28,13 +28,14 @@ sub printrules {
 }
 
 sub addnode {
-    my ($r, $p, $d) = @_;
-    return unless  $p;
+    my ($r, $p, $d) = @_;  # rul hash, path and depth.
+    return unless $p;
     my ($dirname, $remainder) = split(/\//, $p, 2);
     $dirname .= "/";
     if ( not exists $r->{$dirname}) {
-	$r->{$dirname} = $d ;
+	$r->{$dirname} = $remainder ? 0 : $d ; 
     }
+    $r->{$dirname} = $d unless $remainder;
     if (not exists $r->{subdirs}){
 	$r->{subdirs}={};
     }
@@ -75,12 +76,12 @@ my $example = {
     }
 };
 
-&hr();
-print Data::Dumper->Dump([ $example ],[qw(*example)]) ;
-&hr();
-$level = 0;  # used recursively in printrules
-&printrules( $example ); 
-$level = 0;
+#&hr();
+#print Data::Dumper->Dump([ $example ],[qw(*example)]) ;
+#&hr();
+#$level = 0;  # used recursively in printrules
+#&printrules( $example ); 
+#$level = 0;
 &hr();
 my %config = ();
 while ( <DATA>) {
