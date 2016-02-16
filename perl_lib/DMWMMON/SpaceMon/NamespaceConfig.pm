@@ -3,13 +3,19 @@ use strict;
 use warnings;
 use Data::Dumper;
 use File::Basename;
-use Tree::DAG_Node;
 
 =head1 NAME
 
     DMWMMON::SpaceMon::NamespaceConfig - defines aggregation rules
 
 =cut
+
+#########################  Service functions #####################
+# Accepts negative integers, used  to validates depth parameters
+sub is_an_integer { my $val = shift; return $val =~ m/^[-]*\d+$/};
+# Substitutes keys in a hash, used for conflicts resolution
+sub replace_node (\%$$) { $_[0]->{$_[2]} = delete $_[0]->{$_[1]}};
+##################################################################
 
 our %params = ( 
     DEBUG => 1,
@@ -45,7 +51,7 @@ sub new
     $self->{RULES} = \%rules;
     print $self->dump() if $self->{DEBUG};
     $self->readNamespaceConfigFromFile();
-    #die "STOP"; # for testing rules convertion to a Tree
+    $self->convertRulesToTree(); 
     return $self;
 }
 
@@ -73,7 +79,6 @@ sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
 sub readNamespaceConfigFromFile {
     my $self = shift;
-    my ($daughter, $path,  $subdir);
     if ( -f $self->{USERCONF}) {
 	warn "WARNING: user settings in " . $self->{USERCONF} . 
 	    " will override the default rules." if  $self->{VERBOSE};
@@ -90,66 +95,39 @@ sub readNamespaceConfigFromFile {
 	warn "couldn't run $self->{USERCONF}"       unless $return;
     }
     foreach (sort keys %USERCFG) {
-	print "WARNING: user settings override default rules:\n" 
-	    if  $self->{VERBOSE};
-	print "Rule: " . $_ . " ==> " . $USERCFG{$_} . "\n"
+	print "WARNING: added user defined rule: " . 
+	    $_ . " ==> " . $USERCFG{$_} . "\n"
 	    if $self->{VERBOSE};
 	$self->{RULES}{$_} = $USERCFG{$_};
     }
     print $self->dump() if $self->{VERBOSE};
+}
 
-    print "********** Converting rules to a Tree: ***********\n" 
+sub convertRulesToTree {
+    my $self = shift;
+    print "********** Converting Rules to a Tree: ***********\n" 
 	if $self->{VERBOSE};
-    my ($RulesTree) = Tree::DAG_Node -> new({name => '/', attributes => {depth => undef} });    
-    foreach $path ( keys %{$self->{RULES}}) {
-	print "Processing rule for $path and level = " . 
-	    $self->{RULES}->{$path} . "\n" 
-	    if $self->{VERBOSE};
-	my $mother = $RulesTree;
-	foreach $subdir (split "/", $path) {	    
-	    $daughter = $mother->new;
-	    $mother->add_daughter($daughter);
-	    $daughter->name($subdir . "/");
-	    $daughter->attributes->{'level'} = undef;
-	    $mother = $daughter;
-	};	
+    foreach ( keys %{$self->{RULES}}) {
+	# Create path/depth hash for each rule and add rule 
+	# to the config tree structure:
+	my $rule;
+	$rule->{path} = $_;
+	$rule->{depth} = $self->{RULES}{$_};
+	$self->addRule($rule);
     }
+}
 
-#$root -> add_daughter(Tree::DAG_Node -> new({name => 'one', attributes => {uid => 1} }) );
-#$root -> add_daughter(Tree::DAG_Node -> new({name => 'two', attributes => {} }) );
-#$root -> add_daughter(Tree::DAG_Node -> new({name => 'three'}) ); # Attrs default to {}.
-
-    print "***** DRAW AN ASCII TREE: ******\n"
-	if  $self->{VERBOSE};
-    #print Data::Dumper::Dumper ($RulesTree);
-    my $diagram = $RulesTree->draw_ascii_tree;
-    print map "$_\n", @$diagram
-	if  $self->{VERBOSE};
-
-    if  ($self->{VERBOSE}) {
-	print "***** LIST ALL SUBDIRS: ******\n";
-	foreach ($RulesTree->daughters) {
-	    print $_->name;
-	    if ( $_->attributes->{'level'}) {
-		print " => ", $_->attributes->{'level'};
-	    }
-	    print "\n";
-	}
-    }
-    #print "***** PRINT A TREE: ******\n"; # In newer versions of Perl e.g. 5.18. 
-    #print map("$_\n", @{$RulesTree->tree2string});
-    if  ( $self->{VERBOSE} ) {
-	print "***** PRINT ALL DESCENDANTS: ******\n"; # In newer versions of Perl e.g. 5.18. 
-
-	foreach ($RulesTree->descendants()) {
-	    #print $_->node2string;
-	    print $_->name ;
-	    if ( $_->attributes->{'level'}) {
-		print " => ", $_->attributes->{'level'};
-	    }
-	    print " =====\n";
-	}
-    }
+sub addRule {
+    my $self = shift;
+    # rule is a hashref with two keys: path and depth.
+    my $rule = shift;
+    is_an_integer ($rule->{depth})
+	or die "ERROR: depth value is not an integer: \"$rule->{depth}\"";
+    my $depth =  int($rule->{depth});
+    print "============ Processing rule  $rule->{path}=$depth\n";
+    my $path = $rule->{path} . "/";
+    $path =~ tr/\///s;
+    $self->addNode($path, $depth);
 }
 
 sub find_top_parents {
@@ -169,7 +147,6 @@ sub find_top_parents {
     }
     return @topparents;
 }
-
 
 sub lfn2pfn {
     # If we ever need to do this conversion, it should go here. 
