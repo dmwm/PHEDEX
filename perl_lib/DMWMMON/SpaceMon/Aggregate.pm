@@ -39,6 +39,7 @@ sub createRecord {
     print "Record initialized:\n", $record->dump() if $self->{DEBUG};
     print "Processing file $dumpfile->{DUMPFILE}\n" if $self->{VERBOSE};
     print $dumpfile->dump() if $self->{DEBUG};
+    print $config->dump() if $self->{DEBUG};
     my $fh = $dumpfile->openDump();
     # Parse the dump and count all file sizes: 
     while (<$fh>) {
