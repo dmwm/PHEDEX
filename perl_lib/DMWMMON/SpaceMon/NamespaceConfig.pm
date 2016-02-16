@@ -51,6 +51,7 @@ sub new
     $self->{RULES} = \%rules;
     print $self->dump() if $self->{DEBUG};
     $self->readNamespaceConfigFromFile();
+    $self->{NAMESPACE} = {};
     $self->convertRulesToTree(); 
     return $self;
 }
@@ -128,6 +129,37 @@ sub addRule {
     my $path = $rule->{path} . "/";
     $path =~ tr/\///s;
     $self->addNode($path, $depth);
+}
+
+sub addNode {
+    # Recursively adds nodes to the RULES tree for each given rule.
+    # Resolves conflicting rules, see more comments inline.
+    my $self = shift;
+    my ($p, $d) = @_; # path and depth
+    return unless $p;
+    my ($nodename, $remainder) = split(/\//, $p, 2);
+    # Assign real depth to the leaves only, otherwise use zero:
+    my $newrule = $nodename . ($remainder ? "/=0" : "/=$d");
+    # Check for existing rules matching our dirname:
+    my ($newn, $newd) = split("=", $newrule);
+    # Add the very first rule on the new level w/o checking for conflicts
+    keys %{$self->{NAMESPACE}} or $self->{NAMESPACE}{$newrule} = {};
+    foreach ( keys %{$self->{NAMESPACE}} ) {
+	my ($oldn, $oldd) = split("=", $_);
+	($newn ne $oldn) and next;
+	($newd eq $oldd) and next;
+	if ( int($oldd) == 0 ) {
+	    print "Overriding a weak rule $_  with a new rule $newrule\n";
+	    replace_node %{$self->{NAMESPACE}}, $_ => $newrule;
+	}else{
+	    print "Overriding a new rule $newrule with a strong rule $_\n";
+	    $newrule = $_;
+	}
+    }
+    if ( not exists $self->{NAMESPACE}{$newrule}) {
+	$self->{NAMESPACE}{$newrule} = {};
+    }
+    addNode ($self->{NAMESPACE}{$newrule}, $remainder, $d);
 }
 
 sub find_top_parents {
