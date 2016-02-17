@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::stat;
+package PHEDEX::Namespace::gfal210::stat;
 
 # Implements the 'stat' function for gfal access
 use strict;
