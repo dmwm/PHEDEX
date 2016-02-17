@@ -23,7 +23,6 @@ our %params = (
     STRICT => 1,
     DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
     USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
-    RULES => undef,
     );
 
 sub new
@@ -32,10 +31,10 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     my %args = (@_);
-    map { if (defined $args{$_}) {$self->{$_} = $args{$_}} 
+    map { if (defined $args{$_}) {$self->{$_} = $args{$_}}
 	  else { $self->{$_} = $params{$_}} } keys %params;
-    print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     bless $self, $class;
+    print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
     # Read default configuration rules:
     our %rules;
     my $return;
@@ -52,7 +51,8 @@ sub new
     print $self->dump() if $self->{DEBUG};
     $self->readNamespaceConfigFromFile();
     $self->{NAMESPACE} = {};
-    $self->convertRulesToTree(); 
+    $self->convertRulesToNamespaceTree();
+    print $self->dump() if $self->{DEBUG};
     return $self;
 }
 
@@ -104,7 +104,7 @@ sub readNamespaceConfigFromFile {
     print $self->dump() if $self->{VERBOSE};
 }
 
-sub convertRulesToTree {
+sub convertRulesToNamespaceTree {
     my $self = shift;
     print "********** Converting Rules to a Tree: ***********\n" 
 	if $self->{VERBOSE};
@@ -125,44 +125,70 @@ sub addRule {
     is_an_integer ($rule->{depth})
 	or die "ERROR: depth value is not an integer: \"$rule->{depth}\"";
     my $depth =  int($rule->{depth});
-    print "============ Processing rule  $rule->{path}=$depth\n";
+    print "\n============ Processing rule  $rule->{path}=$depth\n";
     my $path = $rule->{path} . "/";
     $path =~ tr/\///s;
-    $self->addNode($path, $depth);
+    $self->addNode($self->{NAMESPACE}, $path, $depth);
 }
 
 sub addNode {
-    # Recursively adds nodes to the RULES tree for each given rule.
+    # Recursively adds nodes to the tree for each given rule.
     # Resolves conflicting rules, see more comments inline.
     my $self = shift;
-    my ($p, $d) = @_; # path and depth
+    my ($n, $p, $d) = @_; # path and depth
+    print "ARGUMENTS passed to addNode:\n  path = $p\n  depth = $d\n";
     return unless $p;
     my ($nodename, $remainder) = split(/\//, $p, 2);
     # Assign real depth to the leaves only, otherwise use zero:
     my $newrule = $nodename . ($remainder ? "/=0" : "/=$d");
+    print "newrule = $newrule\n"; # key for the new node
     # Check for existing rules matching our dirname:
     my ($newn, $newd) = split("=", $newrule);
     # Add the very first rule on the new level w/o checking for conflicts
-    keys %{$self->{NAMESPACE}} or $self->{NAMESPACE}{$newrule} = {};
-    foreach ( keys %{$self->{NAMESPACE}} ) {
+    keys %{$n} or $n->{$newrule} = {};
+    foreach ( keys %{$n} ) {
 	my ($oldn, $oldd) = split("=", $_);
 	($newn ne $oldn) and next;
 	($newd eq $oldd) and next;
 	if ( int($oldd) == 0 ) {
 	    print "Overriding a weak rule $_  with a new rule $newrule\n";
-	    replace_node %{$self->{NAMESPACE}}, $_ => $newrule;
+	    replace_node %{$n}, $_ => $newrule;
 	}else{
 	    print "Overriding a new rule $newrule with a strong rule $_\n";
 	    $newrule = $_;
 	}
     }
-    if ( not exists $self->{NAMESPACE}{$newrule}) {
-	$self->{NAMESPACE}{$newrule} = {};
+    if ( not exists $n->{$newrule}) {
+	$n->{$newrule} = {};
     }
-    addNode ($self->{NAMESPACE}{$newrule}, $remainder, $d);
+    $self->addNode($n->{$newrule}, $remainder, $d);
 }
 
 sub find_top_parents {
+    my $self = shift;
+    my $path = shift;
+    print "Find_top_parents: argument path = \"$path\"\n";
+    my @topparents = ();
+    my ( $node, $curdepth);
+    my @allparents = split "/", $path;
+    pop @allparents; # drop last element – the file name 
+    # calculate based on namespace configuration
+    # see option 1 in https://cdcvs.fnal.gov/redmine/issues/10193#note-12
+    foreach my $dirname (@allparents) {
+	# Look for a matching rule for this path
+	$node = $self->{NAMESPACE};
+	foreach ( keys %{$node} ) {
+	    my ($n,$d) = split("=", $_);
+	    if ($n eq $dirname."/") {
+		print "Rule match for \"$dirname\": \"$_\"\n";
+		$node = $node->{$_};
+	    };
+	}
+    }
+    return @topparents;
+}
+
+sub find_top_parents_old {
     my $self = shift;
     my $path = shift;
     my @topparents = ();
