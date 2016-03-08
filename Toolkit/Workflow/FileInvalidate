@@ -1,0 +1,36 @@
+#!/usr/bin/env perl
+
+##H Issue replica invalidations for files scheduled for invalidation.
+##H
+##H Usage:
+##H   FileInvalidate -state DIRECTORY -node NAME -db FILE[:SECTION]
+##H               [-once] [-log OUT]
+##H
+##H -state     agent state directory
+##H -node      the node where this agent runs
+##H -db        database connection configuration parameter file
+##H -once      run the alogrithm once, then quit -- don't go into daemon mode
+##H -log       where to redirect logging information
+
+######################################################################
+my %args;
+use Getopt::Long;
+use PHEDEX::Core::Help;
+use PHEDEX::FileInvalidate::Agent;
+
+&GetOptions ("state=s"     => \$args{DROPDIR},
+	     "log=s"       => \$args{LOGFILE},
+             "db=s"        => \$args{DBCONFIG},
+             "node=s"      => \$args{MYNODE},
+             "once"        => \$args{ONCE},
+	     "help|h"      => sub { &usage() });
+
+if (@ARGV || !$args{DROPDIR} || !$args{MYNODE} || !$args{DBCONFIG})
+{
+    die "Insufficient parameters, use -h for help.\n";
+}
+
+my $agent = PHEDEX::FileInvalidate::Agent->new(%args,@ARGV);
+POE::Kernel->run();
+print "POE kernel has ended, now I shoot myself\n";
+exit 0;

@@ -52,6 +52,9 @@ sub idle
 	# Delete logical replicas which were physically deleted
 	$self->delete($dbh);
 
+	# Delete logical replicas which were logically invalidated
+	$self->invalidate($dbh);
+
 	# Update stats if necessary.
 	$self->stats($dbh);
     };
@@ -401,6 +404,68 @@ sub delete
     $dbh->commit();
 
     $self->Logmsg("$n replicas removed due to deletions (+$nbuf from buffers)") if ($n + $nbuf);
+}
+
+# Remove replicas for pending invalidations
+sub invalidate
+{
+    my ($self, $dbh) = @_;
+    my $now = &mytimeofday();
+
+    my ($sth, $n, $nbuf, $ntasks);
+
+    # Remove logical replica for pending invalidations
+    ($sth, $n) = &dbexec($dbh, qq{
+        delete from t_xfer_replica
+         where (node, fileid) in
+         (select xi.node, xi.fileid
+            from t_xfer_invalidate xi
+            join t_xfer_replica xr
+                 on xr.node = xi.node and xr.fileid = xi.fileid
+           where xi.time_complete is null)
+     });
+
+    # Remove logical replica at Buffer nodes attached to MSS nodes
+    # with pending invalidations
+    ($sth, $nbuf) = &dbexec($dbh, qq{
+        delete from t_xfer_replica
+         where (node, fileid) in
+         (select xr.node, xr.fileid
+            from t_xfer_invalidate xi
+            join t_adm_link l on l.from_node = xi.node
+            join t_adm_node fn on fn.id = l.from_node
+            join t_adm_node tn on tn.id = l.to_node
+            join t_xfer_replica xr
+                 on xr.node = tn.id and xr.fileid = xi.fileid
+           where l.is_local = 'y'
+             and fn.kind = 'MSS'
+             and tn.kind = 'Buffer'
+             and xi.time_complete is null)
+       });
+
+    # Mark as completed all invalidation tasks for which the target replica
+    # doesn't exist anymore. This can be either because it was logically removed
+    # here or because it was physically deleted in delete()
+    
+    ($sth, $ntasks) = &dbexec($dbh, qq{
+        update t_xfer_invalidate
+         set time_complete = :now
+         where (node, fileid) in
+          (select xi.node, xi.fileid
+            from t_xfer_invalidate xi
+            left join t_xfer_replica xr
+            on xr.fileid=xi.fileid and xr.node=xi.node
+            where xi.time_complete is null
+            and xr.fileid is null)
+     }, ':now'=>$now);
+
+    # FIXME BUFFERS!!!!
+
+    $dbh->commit();
+
+    $self->Logmsg("$n replicas removed due to invalidations (+$nbuf from buffers)") if ($n + $nbuf);
+    $self->Logmsg("$ntasks invalidation tasks completed") if $ntasks;
+
 }
 
 # Update transfer task statistics.
