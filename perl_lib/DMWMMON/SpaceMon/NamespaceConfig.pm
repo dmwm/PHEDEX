@@ -167,42 +167,47 @@ sub addNode {
 sub find_top_parents {
     my $self = shift;
     my $path = shift;
-    print "Find_top_parents: argument path = \"$path\"\n";
+    #print "In find_top_parents: argument path = \"$path\"\n" if $self->{DEBUG};
     my @topparents = ();
-    my ( $node, $curdepth);
+    # Select top parents based on namespace configuration
+    # starting from the top of the namespace rules tree:
+    my $node = $self->{NAMESPACE};
+    my @parent;
+    my $depth;
+    # Get all existing parents:
     my @allparents = split "/", $path;
-    pop @allparents; # drop last element – the file name 
-    # calculate based on namespace configuration
-    # see option 1 in https://cdcvs.fnal.gov/redmine/issues/10193#note-12
+    # drop last element – the file name:
+    pop @allparents; 
     foreach my $dirname (@allparents) {
-	# Look for a matching rule for this path
-	$node = $self->{NAMESPACE};
-	foreach ( keys %{$node} ) {
-	    my ($n,$d) = split("=", $_);
-	    if ($n eq $dirname."/") {
-		print "Rule match for \"$dirname\": \"$_\"\n";
-		$node = $node->{$_};
-	    };
+	if (keys %{$node}) {
+	    # Look for any matching rules:
+	    foreach ( keys %{$node} ) {
+		my ($n,$d) = split("=", $_);
+		if ($n eq $dirname."/") {
+		    if ($d < 0) {return ()}
+		    push @parent, $dirname;
+		    push @topparents, join ('/',@parent);
+		    $node = $node->{$_};
+		    $depth = $d;
+		}
+	    }
+	} else {
+	    # When all matching rules are exhausted, continue to add parents
+	    # up to a last matching depth:
+	    if ( $depth >= 0 ) {
+		push @parent, $dirname;
+		push @topparents, join ('/',@parent);
+	    }
 	}
+	$depth -= 1;
     }
-    return @topparents;
-}
-
-sub find_top_parents_old {
-    my $self = shift;
-    my $path = shift;
-    my @topparents = ();
-    my @all_dirs = split "/", $path;
-    # calculate based on STARTPATH and LEVEL parameters.
-    my @levels = split "/", $path; 
-    my $depth = @levels;
-    $depth--;
-    if ($self->{VERBOSE}){
-	print "NRDEBUG 000: path = $path\n      Top parents:\n";
-	foreach (@topparents) {
-	    print "           " . $_ . "\n";
-	}
+    if ($self->{DEBUG}) {
+	print "=== List of top parents for path " . $path . ": ===\n";
+	map {print $_ . "/\n"} @topparents;
+	print "=== End of top parents list ===\n";
     }
+    # Fix top parent dir : 
+    $topparents[0] = "/";
     return @topparents;
 }
 
