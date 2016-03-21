@@ -58,6 +58,12 @@ sub new
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
 
+sub show_rules {
+    my $mynode = shift;
+    my @rules = keys %{$mynode} or print " No rules\n" ;
+    my $list =  join "\", \"", @rules ;
+    print "Current node rules: \"" . $list . "\"\n";
+}
 
 # Default rules coming with the client are applied during initialization.
 # The rules found in the user's config file will override the defaults.
@@ -125,7 +131,7 @@ sub addRule {
     is_an_integer ($rule->{depth})
 	or die "ERROR: depth value is not an integer: \"$rule->{depth}\"";
     my $depth =  int($rule->{depth});
-    print "\n============ Processing rule  $rule->{path}=$depth\n";
+    #print "\n============ Processing rule  $rule->{path}=$depth\n";
     my $path = $rule->{path} . "/";
     $path =~ tr/\///s;
     $self->addNode($self->{NAMESPACE}, $path, $depth);
@@ -136,12 +142,12 @@ sub addNode {
     # Resolves conflicting rules, see more comments inline.
     my $self = shift;
     my ($n, $p, $d) = @_; # path and depth
-    print "ARGUMENTS passed to addNode:\n  path = $p\n  depth = $d\n";
+    #print "ARGUMENTS passed to addNode:\n  path = $p\n  depth = $d\n";
     return unless $p;
     my ($nodename, $remainder) = split(/\//, $p, 2);
     # Assign real depth to the leaves only, otherwise use zero:
     my $newrule = $nodename . ($remainder ? "/=0" : "/=$d");
-    print "newrule = $newrule\n"; # key for the new node
+    #print "newrule = $newrule\n"; # key for the new node
     # Check for existing rules matching our dirname:
     my ($newn, $newd) = split("=", $newrule);
     # Add the very first rule on the new level w/o checking for conflicts
@@ -151,10 +157,10 @@ sub addNode {
 	($newn ne $oldn) and next;
 	($newd eq $oldd) and next;
 	if ( int($oldd) == 0 ) {
-	    print "Overriding a weak rule $_  with a new rule $newrule\n";
+	    #print "Overriding a weak rule $_  with a new rule $newrule\n";
 	    replace_node %{$n}, $_ => $newrule;
 	}else{
-	    print "Overriding a new rule $newrule with a strong rule $_\n";
+	    #print "Overriding a new rule $newrule with a strong rule $_\n";
 	    $newrule = $_;
 	}
     }
@@ -163,51 +169,75 @@ sub addNode {
     }
     $self->addNode($n->{$newrule}, $remainder, $d);
 }
+;
 
 sub find_top_parents {
     my $self = shift;
     my $path = shift;
-    #print "In find_top_parents: argument path = \"$path\"\n" if $self->{DEBUG};
-    my @topparents = ();
-    # Select top parents based on namespace configuration
-    # starting from the top of the namespace rules tree:
-    my $node = $self->{NAMESPACE};
-    my @parent;
-    my $depth;
     # Get all existing parents:
-    my @allparents = split "/", $path;
+    my @parents = split "/", $path;
     # drop last element – the file name:
-    pop @allparents; 
-    foreach my $dirname (@allparents) {
-	if (keys %{$node}) {
-	    # Look for any matching rules:
-	    foreach ( keys %{$node} ) {
-		my ($n,$d) = split("=", $_);
-		if ($n eq $dirname."/") {
-		    if ($d < 0) {return ()}
-		    push @parent, $dirname;
-		    push @topparents, join ('/',@parent);
-		    $node = $node->{$_};
-		    $depth = $d;
+    pop @parents;
+    ######### Initialize values:
+    my @topparents = ();
+    my $node = $self->{NAMESPACE};
+    # The very first iteration is handled outside the loop, as we start from an
+    # empty string preceding the rootdir "/", and the loop exit condition is an
+    # empty string as well ...
+    my $dirname = shift @parents;
+    my @rules = keys %{$node};
+    #show_rules($node);
+    my $rule = shift @rules;  # rule for rootdir always exist and matches "/"
+    my $found = 1;
+    my ($mother, $depth ) = split("=", $rule);
+    push @topparents, $mother;
+    # Go to the next level:
+    $node = $node->{$rule};
+    ######### Continue to loop throught the rest of the path
+    # until a matching rule is found:
+    while ( $dirname = shift @parents ) {
+	print "NRDEBUG 1 \n";
+	# Look for match in configuration:
+	@rules = keys %{$node};
+	#show_rules($node);
+	while ( $rule = shift @rules ) {
+	    my ($n,$d) = split("=", $rule);
+	    if ($n eq $dirname."/") {
+		$found = 1;
+		if ($d < 0) {
+		    print "WARNING: skipping path: $path \n";
+		    print "         matching negative rule: ".$rule."\n";
+		    return ();
+		}
+		$mother .= $dirname."/";
+		push @topparents, $mother;
+		$depth = $d;
+		$node = $node->{$rule};
+		# Go to the next level:
+		last;
+	    }
+	    # If we got here, there is no matching rule:
+	    $found = 0;
+	}
+	if ( not $found ) {
+	    # We did not find any matching rules on this node,
+	    # But we still want this dirname and its subdirectories included
+	    # according to the depth setting for the last matching rule:
+	    $mother .= $dirname."/";
+	    push @topparents, $mother;
+	    $depth -= 1;
+	    while ( $depth > 0 ) {
+		if ($dirname = shift @parents) {
+		    $mother .= $dirname."/";
+		    push @topparents, $mother;
+		    $depth -= 1;
+		} else {
+		    return @topparents;
 		}
 	    }
-	} else {
-	    # When all matching rules are exhausted, continue to add parents
-	    # up to a last matching depth:
-	    if ( $depth >= 0 ) {
-		push @parent, $dirname;
-		push @topparents, join ('/',@parent);
-	    }
+	    return @topparents;
 	}
-	$depth -= 1;
     }
-    if ($self->{DEBUG}) {
-	print "=== List of top parents for path " . $path . ": ===\n";
-	map {print $_ . "/\n"} @topparents;
-	print "=== End of top parents list ===\n";
-    }
-    # Fix top parent dir : 
-    $topparents[0] = "/";
     return @topparents;
 }
 
