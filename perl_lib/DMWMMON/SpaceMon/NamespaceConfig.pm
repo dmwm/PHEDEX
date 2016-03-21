@@ -196,7 +196,6 @@ sub find_top_parents {
     ######### Continue to loop throught the rest of the path
     # until a matching rule is found:
     while ( $dirname = shift @parents ) {
-	print "NRDEBUG 1 \n";
 	# Look for match in configuration:
 	@rules = keys %{$node};
 	#show_rules($node);
