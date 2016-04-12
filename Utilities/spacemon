@@ -32,9 +32,9 @@ use DMWMMON::SpaceMon::Core;
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
 my ($upload, $save, $debug, $verbose, $level, $format, $url, $node, $configfile);
-#$debug = $verbose = 0; # use these to override class defaults. 
+$debug = $verbose = 0; # use these to override class defaults. 
 
-my ($input, $dumpfile, $parser, $record, $rio, $tmp_rec_file, $rec_from_file, $config);
+my ($input, $dumpfile, $parser, $record, $rio, $config);
 
 sub vPrint{
     my $text = shift;
@@ -137,21 +137,22 @@ $rio = DMWMMON::SpaceMon::RecordIO->new(
     DATASVC => $url,
     );
 
-$tmp_rec_file='/tmp/record.save-in-file-test';
 
-$rio->writeToFile($record, $tmp_rec_file);
-
-$rec_from_file = $rio->readFromFile($tmp_rec_file);
-
-$verbose && print $rec_from_file->dump();
-if ( ! $rec_from_file->matches($record)) {    
-    $upload = 0;
-    print "WARNING: the Record failed validation. Will not upload!\n";
-    print "DETAILS: the Record read from the file does not match the original Record.\n";
+if ($debug) {
+# To validate the Record object write it to a file, then read back and compare
+    $verbose && print "Validating Record object: write/read from the file...\n";
+    my $tmp_rec_file='/tmp/record.save-in-file-test';
+    $rio->writeToFile($record, $tmp_rec_file);
+    my $rec_from_file = $rio->readFromFile($tmp_rec_file);
+    $verbose && print $rec_from_file->dump();
+    if ( ! $rec_from_file->matches($record)) {    
+	$upload = 0;
+	print "WARNING: the Record failed validation. Will not upload!\n";
+	print "DETAILS: the Record read from the file does not match the original Record.\n";
+    }
 }
-
 if ($upload) {
     $rio->upload($record);
 }
 
-$rio->show($rec_from_file);
+$rio->show($record);
