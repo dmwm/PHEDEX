@@ -188,12 +188,12 @@ sub auth_getoptions
 sub auth_usage
 {
   print <<EOF;
+
       User authentication options: 
-        --cert_file and --key_file are used to define user certificate. 
-        These options must be set together, they may also point to the 
+        --cert_file|--key_file   - define user certificate files; 
+        These options must be set together, they may also point to one
         user certificate proxy file. 
-        --ca_file and --ca_dir specify locations for the certificate 
-        authority.
+        --ca_file|--ca_dir       - locations of the certificate authority
 EOF
 }
 

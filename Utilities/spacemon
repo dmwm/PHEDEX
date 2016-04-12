@@ -74,10 +74,13 @@ sub usage
 	$me --check-auth
 
       Upload options: 
-	--url           - overrides data service url
-	--upload-record - upload record to central data store
-	--node          - node (usually a site name) to upload data for
+	--url                    - overrides default data service url
+	--upload-record          - upload record to central data store
+	--node                   - node (usually a site name) to upload data for
 
+      Verbosity control options:
+	--verbose|--noverbose    - turn on/off printout about processing steps
+	--debug|--nodebug        - turn on/off lots of debugging printout
 EOF
 ;
     #openDumpUsage($argname);
