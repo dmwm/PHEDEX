@@ -28,7 +28,7 @@ sub readFromFile
 {
     my $self = shift;
     my ($file,) = (@_);
-    print "RecordIO reading from file: $file\n";
+    print "RecordIO reading from file: $file\n" if $self->{VERBOSE};
     my $data = do {
 	if( open my $fh, '<', $file )
 	{ local $/; <$fh> }
@@ -82,7 +82,7 @@ sub writeToFile
     my $self = shift;
     my ($record, $where) = (@_);
     print "I am in ",__PACKAGE__,"->writeToFile()\n" if $self->{VERBOSE};
-    print "RecordIO writing to file: $where\n";
+    print "RecordIO writing to file: $where\n" if $self->{VERBOSE};
     open (my $fh, '>', $where) or die "Could not open file '$where' $!";
     my $dd = Data::Dumper->new(
 			       [ $record ],

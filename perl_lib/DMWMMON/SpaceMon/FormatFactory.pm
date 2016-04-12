@@ -32,13 +32,13 @@ sub instantiate
 	    print "Looks like TXT file\n" if $h->{VERBOSE};
 	    $h->{DUMPFORMAT} = "TXT";
 	} else {
-	    print "Does not look like TXT file\n";
+	    print "Does not look like TXT file\n" if ($h->{VERBOSE});
 	}
 	if (&DMWMMON::SpaceMon::StorageDump::looksLikeXML($h->{DUMPFILE})) {
 	    print "Looks like XML file\n" if $h->{VERBOSE};
 	    $h->{DUMPFORMAT} = "XML";
 	} else {
-	    print "Does not look like XML file\n";
+	    print "Does not look like XML file\n" if ($h->{VERBOSE});
 	}
     }
     
