@@ -50,7 +50,7 @@ GetOptions ( 'help|h' => sub { &usage },
 			       exit;},
 	     'upload-record' => \$upload,
 	     'check-auth' => sub { &check_auth },
-	     'save-record'   => \$save,
+	     'save-record:s'   => \$save,
 	     'format:s'   => \$format,
 	     'debug!' => \$debug,  # enables --nodebug option
 	     'verbose!' => \$verbose,	     
@@ -67,20 +67,23 @@ sub usage
   $me - client side utility for CMS Space Monitoring. 
   Version:  $ver    
 	
-      Usage:    
-	$me [OPTIONS] $argname
-	$me --help|-h
-	$me --version
-	$me --check-auth
+Usage:
+  $me [OPTIONS] $argname
+  $me --help|-h
+  $me --version
+  $me --check-auth
 
-      Upload options: 
-	--url                    - overrides default data service url
-	--upload-record          - upload record to central data store
-	--node                   - node (usually a site name) to upload data for
+Upload options: 
 
-      Verbosity control options:
-	--verbose|--noverbose    - turn on/off printout about processing steps
-	--debug|--nodebug        - turn on/off lots of debugging printout
+  --url                   overrides default data service url
+  --upload-record         upload record to central data store
+  --node                  node (usually a site name) to upload data for
+  --save-record <file>    save record to a file instead of printing to STDOUT
+
+Verbosity control options:
+
+  --verbose|--noverbose   turn on/off printout about processing steps
+  --debug|--nodebug       turn on/off lots of debugging printout
 EOF
 ;
     #openDumpUsage($argname);
@@ -154,8 +157,17 @@ if ($debug) {
 	print "DETAILS: the Record read from the file does not match the original Record.\n";
     }
 }
+
+# The resulting Record is printed to STDOUT, unless explicitly asked to 
+# save it to a file using  --save-record  option: 
+if ($save) {
+    $rio->writeToFile($record, $save);    
+} else {
+    print $record->dump();
+}
+
 if ($upload) {
     $rio->upload($record);
 }
 
-$rio->show($record);
+#$rio->show($record);
