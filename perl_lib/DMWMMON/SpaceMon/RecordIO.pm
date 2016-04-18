@@ -99,7 +99,6 @@ sub upload
     my $self = shift;
     my ($record) = (@_);
     print "I am in ",__PACKAGE__,"->upload()\n" if $self->{VERBOSE};
-    print "In RecordIO::upload: testing upload from StorageAccounting::Core.\n Record=\n", Dumper($record);
     my $result = $self->uploadRecord($ {$record} {'TIMESTAMP'}, $ {$record} {'NODE'}, $ {$record} {'DIRS'});
     return $result;
 }
@@ -114,9 +113,9 @@ sub uploadRecord{
   $hashref->{'timestamp'} = $timestamp;
   $hashref->{'node'} = $node;
   #print payload: 
-  while( my ($k, $v) = each %$hashref ) {
-      print "key: $k, value: $v.\n";
-  }
+  #while( my ($k, $v) = each %$hashref ) {
+  #   print "key: $k, value: $v.\n";
+  #}
   my $method   = 'post';
   my $timeout  = 500;
   my $pua = DMWMMON::SpaceMon::UserAgent->new (
@@ -158,7 +157,9 @@ sub show
 {
     # Print record time stamp and dir sizes in a human readable format up to a certain level of depth. 
     my $self = shift;
+    my ($record) = (@_);
     print "I am in ",__PACKAGE__,"->show()\n" if $self->{VERBOSE};
+    print $record->dump();
 }
 
 sub uploadRecordFile
