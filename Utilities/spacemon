@@ -103,7 +103,7 @@ sub check_auth
         DEBUG    => $debug,
         VERBOSE  => $verbose,
                                      );
-    $smua->readAuthFromDatasvc();
+    $smua->get_auth();
     exit;
 }
 
@@ -132,9 +132,9 @@ if ( defined $configfile ) {
     $config->{'USERCONF'} = $configfile;
   } else {
     if ($configfile) { 
-      die "Configuration file \"$configfile\" does not exist\n";
+      die "ERROR: configuration file \"$configfile\" does not exist\n";
     } else {
-      die "Option --config requires an argument: file name \n";
+      die "ERROR: option --config requires an argument: file name \n";
     }
   }
 }
