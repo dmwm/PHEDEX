@@ -241,11 +241,31 @@ sub find_top_parents {
     return @topparents;
 }
 
-sub lfn2pfn {
-    # If we ever need to do this conversion, it should go here. 
+# Translate default CMS namespace rules LFNs to PFNs for a given node
+# using TMDB information via PhEDEx data server 
+sub translate_rules_to_pfns {
     my $self = shift;
-    print "I am in ",__PACKAGE__,"->lfn2pfn()\n" if $self->{VERBOSE};
-    
-}
+    print "I am in ",__PACKAGE__,"->translate_rules_to_pfns()\n" if $self->{VERBOSE};
+    my $node = shift;
+    my %payload = (
+	"protocol" => "direct",
+	"node" => $node,
+	"lfn" => "/store/data",
+	);
+    my ($date, $datasvc_record, $entry,$response, $target);
+    # Create a user agent for getting info from PHEDEX data service:
+    my $smua = DMWMMON::SpaceMon::UserAgent->new (
+	URL      => 'https://cmsweb.cern.ch/phedex/datasvc',
+	FORMAT   => 'perl/prod',
+        DEBUG    => $self->{DEBUG},
+        VERBOSE  => $self->{VERBOSE},
+	);
+    #$smua->Dump() if ($self ->{'DEBUG'});
+    print $smua->Dump();
+    $smua->CALL('lfn2pfn');
+    $target = $smua->target;
+    $response = $smua->get($target, \%payload);
+    print $response->content();
+};
 
 1;
