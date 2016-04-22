@@ -146,6 +146,11 @@ $config = DMWMMON::SpaceMon::NamespaceConfig->new
       USERCONF => $configfile,
     );
 
+if (defined $node) {
+    $config->translate_rules_to_pfns ($node);
+    exit;
+} 
+
 $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate
 (
  DUMPFORMAT => $format,
