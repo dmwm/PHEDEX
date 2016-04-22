@@ -31,7 +31,7 @@ use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
 my $argname='STORAGE_DUMP';
-my ($upload, $save, $debug, $verbose, $level, $format, $url, $node, $configfile);
+my ($defaults, $upload, $save, $debug, $verbose, $format, $url, $node, $configfile);
 $debug = $verbose = 0; # use these to override class defaults. 
 
 my ($input, $dumpfile, $parser, $record, $rio, $config);
@@ -49,12 +49,12 @@ GetOptions ( 'help|h' => sub { &usage },
 				   DMWMMON::SpaceMon::Core::version()."\n";
 			       exit;},
 	     'upload-record' => \$upload,
+	     'defaults' => \$defaults,
 	     'check-auth' => sub { &check_auth },
 	     'save-record:s'   => \$save,
 	     'format:s'   => \$format,
 	     'debug!' => \$debug,  # enables --nodebug option
 	     'verbose!' => \$verbose,	     
-	     'level:i' => \$level,
 	     'url:s' => \$url,
 	     'node:s' => \$node,
 	     'config:s' => \$configfile,
@@ -72,6 +72,7 @@ Usage:
   $me --help|-h
   $me --version
   $me --check-auth
+  $me --defaults
 
 Upload options: 
 
@@ -79,6 +80,7 @@ Upload options:
   --upload-record         upload record to central data store
   --node                  node (usually a site name) to upload data for
   --save-record <file>    save record to a file instead of printing to STDOUT
+  --config      <file>    read configuration rules from the file
 
 Verbosity control options:
 
@@ -106,6 +108,36 @@ sub check_auth
 }
 
 $input = shift;
+
+# Print out defaults :  
+#   - configuration rules
+#   - location of the user config file
+#   - verbosity settings
+#   - upload url
+# 
+# TODO: show configuration in different formats: a set of rules, or a resulting NamespaceConfig tree object.
+
+if ( defined $defaults ) {
+   print "$me " . DMWMMON::SpaceMon::Core::version(). " defaults:\n";
+   $config = DMWMMON::SpaceMon::NamespaceConfig->new ( 
+      DEBUG => $debug,
+      VERBOSE => $verbose,
+   );
+   print Data::Dumper->Dump ([$config->{RULES}],[qw(rules)]);
+   exit;
+}
+
+if ( defined $configfile ) {
+  if ( -f $configfile ) {
+    $config->{'USERCONF'} = $configfile;
+  } else {
+    if ($configfile) { 
+      die "Configuration file \"$configfile\" does not exist\n";
+    } else {
+      die "Option --config requires an argument: file name \n";
+    }
+  }
+}
 
 $config = DMWMMON::SpaceMon::NamespaceConfig->new
     ( 
