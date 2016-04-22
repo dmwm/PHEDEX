@@ -197,7 +197,7 @@ sub auth_usage
 EOF
 }
 
-sub readAuthFromDatasvc
+sub get_auth
 {
     my $self = shift;
     my %payload = (); # input to data server call
