@@ -20,7 +20,15 @@ To validate the configuration paramteres run: spacemon validate -config <file>
 =cut
 
 %rules = (
-    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir1' => 0,
-    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir2' => 1,
-    '/storage/local/data1/home/natasha/work/SPACEMON/DEBUG/data/store/dir3' => 2,
+    '/store/' => 1,
+    '/store/user' => 0,
+    '/store/user/cmsprod/' => 0,
+    '/store/user/samtests/' => 0,
+    '/store/group/' => 1,
+    '/store/temp/' => 0,
+    '/store/temp/user/' => 1,
+    '/store/backfill/1/' => 0,
+    '/store/backfill/2/' => 0,
+    '/store/local' => 0,
+    '/store/local/private/' => -1,
 );
