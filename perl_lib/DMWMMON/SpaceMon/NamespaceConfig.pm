@@ -90,7 +90,7 @@ sub readNamespaceConfigFromFile {
 	warn "WARNING: user settings in " . $self->{USERCONF} . 
 	    " will override the default rules." if  $self->{VERBOSE};
     } else {
-	die "Configuration file does not exist: " . $self->{USERCONF};
+	#die "Configuration file does not exist: " . $self->{USERCONF};
     }
     our %USERCFG;
     print "I am in ",__PACKAGE__,"->readNamespaceConfigFromFile(), file="
