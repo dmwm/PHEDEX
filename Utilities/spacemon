@@ -98,11 +98,11 @@ sub check_auth
     # Check  Authentication: 
     print "$me: Checking authentication\n" if $verbose;
     my $smua = DMWMMON::SpaceMon::UserAgent->new (
-	URL      => $url,
-	FORMAT   => 'perl',
-        DEBUG    => $debug,
-        VERBOSE  => $verbose,
-                                     );
+	'URL'      => $url,
+	'FORMAT'   => 'perl',
+	'DEBUG'    => $debug,
+	'VERBOSE'  => $verbose,
+	);
     $smua->get_auth();
     exit;
 }
