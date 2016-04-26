@@ -122,6 +122,7 @@ if ( defined $defaults ) {
    $config = DMWMMON::SpaceMon::NamespaceConfig->new ( 
       DEBUG => $debug,
       VERBOSE => $verbose,
+      NODE => $node,
    );
    print Data::Dumper->Dump ([$config->{RULES}],[qw(rules)]);
    exit;
@@ -147,7 +148,8 @@ $config = DMWMMON::SpaceMon::NamespaceConfig->new
     );
 
 if (defined $node) {
-    $config->translate_rules_to_pfns ($node);
+    #$config->translateGlobalRules2Local($node);
+    $config->translateGlobalRules2Local();
     exit;
 } 
 
