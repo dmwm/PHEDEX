@@ -49,7 +49,7 @@ GetOptions ( 'help|h' => sub { &usage },
 				   DMWMMON::SpaceMon::Core::version()."\n";
 			       exit;},
 	     'upload-record' => \$upload,
-	     'defaults' => \$defaults,
+	     'defaults' => sub { &show_defaults },
 	     'check-auth' => sub { &check_auth },
 	     'save-record:s'   => \$save,
 	     'format:s'   => \$format,
@@ -103,12 +103,14 @@ sub check_auth
 	'DEBUG'    => $debug,
 	'VERBOSE'  => $verbose,
 	);
-    $smua->get_auth();
+    print $smua->get_auth();
     exit;
 }
 
 $input = shift;
 
+sub show_defaults
+{
 # Print out defaults :  
 #   - configuration rules
 #   - location of the user config file
@@ -116,16 +118,14 @@ $input = shift;
 #   - upload url
 # 
 # TODO: show configuration in different formats: a set of rules, or a resulting NamespaceConfig tree object.
-
-if ( defined $defaults ) {
-   print "$me " . DMWMMON::SpaceMon::Core::version(). " defaults:\n";
-   $config = DMWMMON::SpaceMon::NamespaceConfig->new ( 
-      DEBUG => $debug,
-      VERBOSE => $verbose,
-      NODE => $node,
-   );
-   print Data::Dumper->Dump ([$config->{RULES}],[qw(rules)]);
-   exit;
+    print "$me " . DMWMMON::SpaceMon::Core::version(). " defaults:\n";
+    $config = DMWMMON::SpaceMon::NamespaceConfig->new ( 
+	DEBUG => $debug,
+	VERBOSE => $verbose,
+	NODE => $node,
+	);   
+    print Data::Dumper->Dump ([$config->{GLOBAL}],[qw(GLOBAL_DEFAULTS)]);
+    exit;
 }
 
 if ( defined $configfile ) {
@@ -149,7 +149,8 @@ $config = DMWMMON::SpaceMon::NamespaceConfig->new
 
 if (defined $node) {
     #$config->translateGlobalRules2Local($node);
-    $config->translateGlobalRules2Local();
+    #$config->translateGlobalRules2Local();
+    print "NRDEBUG 0 : not implemented yet\n";
     exit;
 } 
 
