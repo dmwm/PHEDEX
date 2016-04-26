@@ -23,6 +23,7 @@ our %params = (
     STRICT => 1,
     DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
     USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
+    NODE => undef,
     );
 
 sub new
@@ -47,8 +48,9 @@ sub new
     foreach (sort keys %rules) {
 	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n" if $self->{VERBOSE};
     }
-    $self->{RULES} = \%rules;
-    print $self->dump() if $self->{DEBUG};
+    $self->{GLOBAL} = \%rules;
+    $self->{RULES} = {};
+    $self->translateGlobalRules2Local();
     $self->readNamespaceConfigFromFile();
     $self->{NAMESPACE} = {};
     $self->convertRulesToNamespaceTree();
@@ -243,29 +245,53 @@ sub find_top_parents {
 
 # Translate default CMS namespace rules LFNs to PFNs for a given node
 # using TMDB information via PhEDEx data server 
-sub translate_rules_to_pfns {
+sub translateGlobalRules2Local {
     my $self = shift;
-    print "I am in ",__PACKAGE__,"->translate_rules_to_pfns()\n" if $self->{VERBOSE};
-    my $node = shift;
+    print "I am in ",__PACKAGE__,"->translate_rules_to_pfns()\n" if $self->{'VERBOSE'};
+    my @lfns = keys %{$self->{GLOBAL}};
+    # Data to construct the url to be passed to the data service:
     my %payload = (
 	"protocol" => "direct",
-	"node" => $node,
-	"lfn" => "/store/data",
+	"node" => $self->{NODE},
+	"lfn" => \@lfns,
 	);
-    my ($date, $datasvc_record, $entry,$response, $target);
-    # Create a user agent for getting info from PHEDEX data service:
+    my ($date, $datasvc_record, $entry,$response, $target, $content);
+    # Create a user agent for getting info from PHEDEX data service.
+    # Note that UserAgent allows to override the url with an arbitrary string
+    # passed as TARGET.
     my $smua = DMWMMON::SpaceMon::UserAgent->new (
-	URL      => 'https://cmsweb.cern.ch/phedex/datasvc',
-	FORMAT   => 'perl/prod',
-        DEBUG    => $self->{DEBUG},
-        VERBOSE  => $self->{VERBOSE},
+	'URL'      => 'https://cmsweb.cern.ch/phedex/datasvc',
+	'DEBUG'    => $self->{'DEBUG'},
+	'VERBOSE'  => $self->{'VERBOSE'},
+	'FORMAT'   => "perl/prod",
 	);
-    #$smua->Dump() if ($self ->{'DEBUG'});
-    print $smua->Dump();
+    $smua->Dump() if ($self ->{'DEBUG'});
     $smua->CALL('lfn2pfn');
     $target = $smua->target;
     $response = $smua->get($target, \%payload);
-    print $response->content();
+    $content = $response->content();
+    # NR: next few lines are borrowed from phedex cli handling data service APIs reports:
+    # Make sure the response was a perl object.  If it isn't, then
+    # reformat it into an error object
+    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s; # get rid of stuff before $VAR1
+    no strict 'vars';
+    my $obj = eval($content);
+    if ($@) {
+	$obj = { 'ERROR' => "Server responded with non-perl data:\n$content"};
+    }
+    # Get lfn2pfn mapping and apply to the rules:
+    my %mapping;
+    foreach (@{$obj->{'PHEDEX'}->{'MAPPING'}}) {
+	$mapping{$_->{'LFN'}} = $_->{'PFN'};
+    }
+    # TODO: get mapping and save it in the config object, in a separate function,
+    #       could be handed by the UserAgent module, which already does auth.
+    foreach (sort keys %{$self->{GLOBAL}}) {
+	print "WARNING: added a default rule: " .
+	    $_ . " ==> " . $self->{GLOBAL}{$_} . "\n"
+	    if $self->{VERBOSE};
+	$self->{RULES}{$mapping{$_}} = $self->{GLOBAL}{$_};
+    }
 };
 
 1;
