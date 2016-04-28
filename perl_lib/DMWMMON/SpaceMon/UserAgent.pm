@@ -201,13 +201,35 @@ sub get_auth
 {
     my $self = shift;
     my %payload = (); # input to data server call
-    my ($date, $datasvc_record, $entry,$response, $target);
+    my ($response, $target);
     $self->Dump() if ($self->{'DEBUG'});
     print " $self->{ME}: reading authentication info from $self->{'URL'}\n";
     $self->CALL('auth');
     $target = $self->target;
     $response = $self->get($target, \%payload);
-    print $response->content(); # if ($self->{'DEBUG'});
+    return  $response->content();
+}
+sub get_pfns
+{
+    my $self = shift;
+    my $payload = shift; # input to data server call
+    $self->Dump() if ($self ->{'DEBUG'});
+    print " $self->{ME}: reading lfn2pfn info from $self->{'URL'}\n";
+    $self->CALL('lfn2pfn');
+    my ($response, $target, $content);
+    $target = $self->target;
+    $response = $self->get($target, $payload);
+    $content = $response->content();
+    # NR: next few lines are borrowed from phedex cli handling data service APIs reports:
+    # Make sure the response was a perl object.  If it isn't, then
+    # reformat it into an error object
+    $content =~ s%^[^\$]*\$VAR1%\$VAR1%s; # get rid of stuff before $VAR1
+    no strict 'vars';
+    my $obj = eval($content);
+    if ($@) {
+	$obj = { 'ERROR' => "Server responded with non-perl data:\n$content"};
+    }
+    return $obj;
 }
 
 1;
