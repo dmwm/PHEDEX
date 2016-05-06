@@ -9,9 +9,8 @@ use Data::Dumper;
 # Allow g and b2 zipped files to uncompress on the fly: 
 my %extractor = ( ".gz" => "| gzip -d - ", ".bz2" =>  "| bzip2 -d - " );
 
-
 # Mapping for file suffices: 
-our %formats = ( ".txt" => "TXT", ".xml" => "XML" );
+our %formats = ( ".txt" => "TXT", ".xml" => "XML", ".kit" => "KIT");
 
 ####################
 # Package methods: move them to the FormatFactory? 
@@ -43,6 +42,24 @@ sub looksLikeTXT{
     print Dumper (@_);
     my ($firstline) = readDumpHead($file);
     if ($firstline !~ /^\// ) {
+	return 0;
+    }
+    if ($firstline !~ /\|/ ) {
+	return 0;
+    }
+    return 1;
+}
+sub looksLikeKIT{
+    my $file = shift;
+    print Dumper (@_);
+    my ($firstline) = readDumpHead($file);
+    print "I am in ",__PACKAGE__,"->looksLikeKIT() checking line:\n" . $firstline . "\n";
+    # First line should be a directory path name
+    if ($firstline !~ /^\// ) {
+	return 0;
+    }
+    # There should be no pipe-sign separators
+    if ($firstline =~ /\|/ ) {
 	return 0;
     }
     return 1;
@@ -112,11 +129,6 @@ sub lookupTimeStamp{
 	    scalar gmtime $timestamp, "\n";
 	$self->{TIMESTAMP} = $timestamp;
     }
-}
-
-sub lookupTimeStampXML{
-    my $self = shift;
-    print "I am in ",__PACKAGE__,"->lookupTimeStampXML()\n" if $self->{VERBOSE};
 }
 
 sub dump { return Data::Dumper->Dump([ (shift) ],[ __PACKAGE__ ]); }
