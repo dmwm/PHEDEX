@@ -9,6 +9,7 @@ sub instantiate
     my $class = shift;
     my %params = @_;
     my $h = \%params;	
+    print "I am in ",__PACKAGE__,"->instantiate()\n" if $h->{VERBOSE};
     if ($h->{VERBOSE}) {
 	print "Supported formats are: ";
 	print join "," , values %DMWMMON::SpaceMon::StorageDump::formats;
@@ -32,13 +33,19 @@ sub instantiate
 	    print "Looks like TXT file\n" if $h->{VERBOSE};
 	    $h->{DUMPFORMAT} = "TXT";
 	} else {
-	    print "Does not look like TXT file\n" if ($h->{VERBOSE});
+	    print "Does not look like TXT file\n" if $h->{VERBOSE};
 	}
 	if (&DMWMMON::SpaceMon::StorageDump::looksLikeXML($h->{DUMPFILE})) {
 	    print "Looks like XML file\n" if $h->{VERBOSE};
 	    $h->{DUMPFORMAT} = "XML";
 	} else {
-	    print "Does not look like XML file\n" if ($h->{VERBOSE});
+	    print "Does not look like XML file\n" if $h->{VERBOSE};
+	}
+	if (&DMWMMON::SpaceMon::StorageDump::looksLikeKIT($h->{DUMPFILE})) {
+	    print "Looks like KIT file\n" if $h->{VERBOSE};
+	    $h->{DUMPFORMAT} = "KIT";
+	} else {
+	    print "Does not look like KIT file\n"if $h->{VERBOSE} ;
 	}
     }
     
