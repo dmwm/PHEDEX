@@ -56,6 +56,7 @@ sub lookupFileSize
 {
     my $self = shift;
     $_ = shift;
+    chomp;
     # Check if line contains a directory name and cache it:
     if (m/^\//) {
 	$self->{DIRNAME} = $_;
@@ -64,8 +65,9 @@ sub lookupFileSize
     }
     my ($file, $pnfsid, $chksum, $size, $rest) = split /\t/;
     if ($size) {
+	$file = $self->{DIRNAME}. "/" . $file;
 	print "Found match for file: $file and size: $size \n" if $self->{VERBOSE};
-	return ($self->{DIRNAME}. "/". $file, $size);
+	return ($file, $size);
     } else {
 	&formattingHelp();
 	die "\nERROR: formatting error in " . __PACKAGE__ . " for line: \n$_" ;
