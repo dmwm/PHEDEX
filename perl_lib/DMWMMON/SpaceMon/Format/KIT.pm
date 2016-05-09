@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use base 'DMWMMON::SpaceMon::StorageDump';
+use Scalar::Util qw(looks_like_number);
 
 # Required methods: 
 
@@ -64,7 +65,9 @@ sub lookupFileSize
 	return;
     }
     my ($file, $pnfsid, $chksum, $size, $rest) = split /\t/;
-    if ($size) {
+
+    if (looks_like_number($size)) {
+	$size+=0;
 	$file = $self->{DIRNAME}. "/" . $file;
 	print "Found match for file: $file and size: $size \n" if $self->{VERBOSE};
 	return ($file, $size);
