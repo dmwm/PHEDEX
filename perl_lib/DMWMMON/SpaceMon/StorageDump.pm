@@ -53,7 +53,7 @@ sub looksLikeKIT{
     my $file = shift;
     print Dumper (@_);
     my ($firstline) = readDumpHead($file);
-    print "I am in ",__PACKAGE__,"->looksLikeKIT() checking line:\n" . $firstline . "\n";
+    #print "I am in ",__PACKAGE__,"->looksLikeKIT() checking line:\n" . $firstline . "\n" ;
     # First line should be a directory path name
     if ($firstline !~ /^\// ) {
 	return 0;
