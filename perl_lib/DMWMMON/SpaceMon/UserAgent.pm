@@ -214,7 +214,7 @@ sub get_pfns
     my $self = shift;
     my $payload = shift; # input to data server call
     $self->Dump() if ($self ->{'DEBUG'});
-    print " $self->{ME}: reading lfn2pfn info from $self->{'URL'}\n";
+    print " $self->{ME}: reading lfn2pfn info from $self->{'URL'}\n" if $self->{'VERBOSE'};
     $self->CALL('lfn2pfn');
     my ($response, $target, $content);
     $target = $self->target;
