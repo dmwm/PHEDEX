@@ -126,7 +126,7 @@ sub show_defaults
 # TODO: show configuration in different formats: a set of rules, or a resulting NamespaceConfig tree object.
     print "$me " . DMWMMON::SpaceMon::Core::version(). " defaults:\n";
     print Data::Dumper->Dump ([&DMWMMON::SpaceMon::NamespaceConfig::default_rules()],
-			      [qw(GLOBAL_DEFAULTS)]);
+			      [qw(GLOBAL_RULES)]);
     exit;
 }
 
