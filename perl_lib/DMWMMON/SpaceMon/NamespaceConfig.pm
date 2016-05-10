@@ -29,6 +29,20 @@ our %params = (
     MAPPING => undef,
     );
 
+our %rules;
+
+sub default_rules {
+    # Read default configuration rules from file
+    my $file = $params{'DEFAULTS'};
+    my $return;
+    unless ($return = do $file) {
+	warn "couldn't parse $file: $@" if $@;
+	warn "couldn't do $file: $!"    unless defined $return;
+	warn "couldn't run $file"       unless $return;
+    }
+    return \%rules;
+}
+
 sub new
 {
     my $proto = shift;
@@ -39,19 +53,7 @@ sub new
 	  else { $self->{$_} = $params{$_}} } keys %params;
     bless $self, $class;
     print "I am in ",__PACKAGE__,"->new()\n" if $self->{VERBOSE};
-    # Read default configuration rules:
-    our %rules;
-    my $return;
-    unless ($return = do $self->{DEFAULTS}) {
-	warn "couldn't parse $self->{DEFAULTS}: $@" if $@;
-	warn "couldn't do $self->{DEFAULTS}: $!"    unless defined $return;
-	warn "couldn't run $self->{DEFAULTS}"       unless $return;
-    }
-    print "Namespace default rules:\n" if $self->{VERBOSE};
-    foreach (sort keys %rules) {
-	print "Rule: " . $_ . " ==> " . $rules{$_} . "\n" if $self->{VERBOSE};
-    }
-    $self->{GLOBAL} = \%rules;
+    $self->{GLOBAL} = &default_rules;
     $self->{RULES} = {};
     $self->{NAMESPACE} = {};
     if ( $self->{'NODE'} ) {
@@ -118,7 +120,7 @@ sub setNodeStorageMapForDefaults {
 	"protocol" => "direct",
 	"node" => $self->{NODE},
 	"lfn" => \@lfns,
-	);    
+	);
     $content = $smua->get_pfns(\%payload);
     # Check for errors returned by phedex data service: 
     if (exists $content->{'ERROR'} ) {
