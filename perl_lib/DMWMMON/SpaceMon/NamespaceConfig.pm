@@ -21,7 +21,9 @@ our %params = (
     DEBUG => 1,
     VERBOSE => 1,
     STRICT => 1,
+    # global defaults distributed with the client code:
     DEFAULTS => 'DMWMMON/SpaceMon/defaults.rc',
+    # user defined configuration:
     USERCONF => $ENV{SPACEMON_CONFIG_FILE} || $ENV{HOME} . '/.spacemonrc',
     NODE => undef,
     MAPPING => undef,
@@ -57,6 +59,8 @@ sub new
 	$self->translateGlobalRules2Local();
 	$self->readNamespaceConfigFromFile();
 	$self->convertRulesToNamespaceTree();
+    } else {
+	die "ERROR: node name is not defined.\n";
     }
     print $self->dump() if $self->{DEBUG};
     return $self;
@@ -116,8 +120,14 @@ sub setNodeStorageMapForDefaults {
 	"lfn" => \@lfns,
 	);    
     $content = $smua->get_pfns(\%payload);
+    # Check for errors returned by phedex data service: 
+    if (exists $content->{'ERROR'} ) {
+	print "ERROR: phedex data service returned an error:\n";
+	print $content->{'ERROR'} . "\n";
+	exit 1;
+    }
     # Get lfn2pfn mapping for global defaults:
-    foreach (@{$obj->{'PHEDEX'}->{'MAPPING'}}) {
+    foreach (@{$content->{'PHEDEX'}->{'MAPPING'}}) {
 	$self->{'MAPPING'}->{$_->{'LFN'}} = $_->{'PFN'};
     }
     return $self->{'MAPPING'};
@@ -136,7 +146,7 @@ sub translateGlobalRules2Local {
 	print "WARNING: added a default rule: " .
 	    $_ . " ==> " . $self->{GLOBAL}{$_} . "\n"
 	    if $self->{VERBOSE};
-	$self->{RULES}{$self->{'MAPPING'}{$_}} = $self->{GLOBAL}{$_};
+	#$self->{RULES}{$self->{'MAPPING'}{$_}} = $self->{GLOBAL}{$_};
     }
 };
 
@@ -245,6 +255,7 @@ sub find_top_parents {
     my @rules = keys %{$node};
     #show_rules($node);
     my $rule = shift @rules;  # rule for rootdir always exist and matches "/"
+    #print "NRDEBUG 05-09-2016 1 in  find_top_parents, rule = $rule\n"; exit;
     my $found = 1;
     my ($mother, $depth ) = split("=", $rule);
     push @topparents, $mother;
