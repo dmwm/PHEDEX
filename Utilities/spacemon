@@ -57,7 +57,7 @@ GetOptions (
 	     'save-record:s'   => \$save,
     # SpaceMon mandatory options:
     'node=s' => \$node,
-    'storagedump=s' => \$storagedump,
+    'dump=s' => \$storagedump,
     # Options to override the defaults:
     'upload-record' => \$upload,
     'debug!' => \$debug,  # enables --nodebug option
@@ -74,14 +74,14 @@ sub usage
     Version:  $ver
 
 Usage:
-  $me --node <name> --storagedump <file> [--upload-record|save-record|show-record] [<other options>]
+  $me --node <name> --dump <file> [--upload-record|save-record|show-record] [<other options>]
   $me --help|-h
   $me --version
   $me --check-auth
   $me --defaults
 
 Input options:
-  --storagedump  <file>   storage dump file
+  --dump  <file>          storage dump file
   --node  <name>          node name to upload space usage data
 
 Output and verbosity control options:
@@ -125,12 +125,8 @@ sub show_defaults
 # 
 # TODO: show configuration in different formats: a set of rules, or a resulting NamespaceConfig tree object.
     print "$me " . DMWMMON::SpaceMon::Core::version(). " defaults:\n";
-    $config = DMWMMON::SpaceMon::NamespaceConfig->new ( 
-	DEBUG => $debug,
-	VERBOSE => $verbose,
-	NODE => $node,
-	);   
-    print Data::Dumper->Dump ([$config->{GLOBAL}],[qw(GLOBAL_DEFAULTS)]);
+    print Data::Dumper->Dump ([&DMWMMON::SpaceMon::NamespaceConfig::default_rules()],
+			      [qw(GLOBAL_DEFAULTS)]);
     exit;
 }
 
