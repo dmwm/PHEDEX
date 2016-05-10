@@ -21,7 +21,8 @@ To validate the configuration paramteres run: spacemon validate -config <file>
 
 %rules = (
     '/store/' => 1,
-    '/store/user' => 0,
+    '/store/user/' => 0,
+    '/store/relval/' => 0,
     '/store/user/cmsprod/' => 0,
     '/store/user/samtests/' => 0,
     '/store/group/' => 1,
