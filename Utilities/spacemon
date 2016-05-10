@@ -30,65 +30,73 @@ use DMWMMON::SpaceMon::RecordIO;
 use DMWMMON::SpaceMon::Core;
 
 my $me = basename($0);
-my $argname='STORAGE_DUMP';
-my ($defaults, $upload, $save, $debug, $verbose, $format, $url, $node, $configfile);
-$debug = $verbose = 0; # use these to override class defaults. 
 
-my ($input, $dumpfile, $parser, $record, $rio, $config);
+# Variables for handling command line options:
+my ($defaults, $debug, $verbose, $upload, $save, $url, $node, $storagedump, $configfile);
+# Here you can override class defaults:
+$debug = $verbose = 0;
+# Variables for spacemon objects:
+my ($dumpfile, $parser, $record, $rio, $config);
 
 sub vPrint{
     my $text = shift;
-    $verbose && print "$me: " . $text . "\n"; 
+    $verbose && print "$me: " . $text . "\n";
 }
 
 # Check useful for packaging. Print dependencies and exit:
-GetOptions("deps|d" => sub {print Dumper(%INC); exit;}); 
+GetOptions("deps|d" => sub {print Dumper(%INC); exit;});
 &DMWMMON::SpaceMon::UserAgent::auth_getoptions();
-GetOptions ( 'help|h' => sub { &usage },
-	     'version'=> sub { print "$me version: " . 
-				   DMWMMON::SpaceMon::Core::version()."\n";
-			       exit;},
-	     'upload-record' => \$upload,
-	     'defaults' => sub { &show_defaults },
-	     'check-auth' => sub { &check_auth },
+GetOptions (
+    # various query options that print out information and exit:
+    'help|h' => sub { &usage },
+    'version'=> sub { print "$me version: " .
+			  DMWMMON::SpaceMon::Core::version()."\n";
+		      exit;},
+    'defaults' => sub { &show_defaults },
+    'check-auth' => sub { &check_auth },
 	     'save-record:s'   => \$save,
-	     'format:s'   => \$format,
-	     'debug!' => \$debug,  # enables --nodebug option
-	     'verbose!' => \$verbose,	     
-	     'url:s' => \$url,
-	     'node:s' => \$node,
-	     'config:s' => \$configfile,
-	     );
+    # SpaceMon mandatory options:
+    'node=s' => \$node,
+    'storagedump=s' => \$storagedump,
+    # Options to override the defaults:
+    'upload-record' => \$upload,
+    'debug!' => \$debug,  # enables --nodebug option
+    'verbose!' => \$verbose,
+    'url=s' => \$url,
+    'config:s' => \$configfile,
+    );
 
 sub usage
-{ 
+{
     my $ver = DMWMMON::SpaceMon::Core::version();
     print <<EOF;
-  $me - client side utility for CMS Space Monitoring. 
-  Version:  $ver    
-	
+  $me - client side utility for CMS Space Monitoring.
+    Version:  $ver
+
 Usage:
-  $me [OPTIONS] $argname
+  $me --node <name> --storagedump <file> [--upload-record|save-record|show-record] [<other options>]
   $me --help|-h
   $me --version
   $me --check-auth
   $me --defaults
 
-Upload options: 
+Input options:
+  --storagedump  <file>   storage dump file
+  --node  <name>          node name to upload space usage data
 
-  --url                   overrides default data service url
+Output and verbosity control options:
   --upload-record         upload record to central data store
-  --node                  node (usually a site name) to upload data for
   --save-record <file>    save record to a file instead of printing to STDOUT
-  --config      <file>    read configuration rules from the file
-
-Verbosity control options:
-
+  --show-record           print record in STDOUT in human readable format
   --verbose|--noverbose   turn on/off printout about processing steps
   --debug|--nodebug       turn on/off lots of debugging printout
+
+Overriding defaults:
+  --url                   overrides default data service url
+  --config      <file>    read local configuration rules from the file
+
 EOF
 ;
-    #openDumpUsage($argname);
     &DMWMMON::SpaceMon::UserAgent::auth_usage();
     exit 0;
 }
@@ -106,8 +114,6 @@ sub check_auth
     print $smua->get_auth();
     exit;
 }
-
-$input = shift;
 
 sub show_defaults
 {
@@ -145,21 +151,14 @@ $config = DMWMMON::SpaceMon::NamespaceConfig->new
       DEBUG => $debug,
       VERBOSE => $verbose,
       USERCONF => $configfile,
+      NODE => $node,
     );
-
-if (defined $node) {
-    #$config->translateGlobalRules2Local($node);
-    #$config->translateGlobalRules2Local();
-    print "NRDEBUG 0 : not implemented yet\n";
-    exit;
-} 
 
 $dumpfile = DMWMMON::SpaceMon::FormatFactory->instantiate
 (
- DUMPFORMAT => $format,
  DEBUG => $debug,
  VERBOSE => $verbose,
- DUMPFILE => $input,
+ DUMPFILE => $storagedump,
 );
 
 print $dumpfile->dump() if $debug;
