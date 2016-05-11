@@ -148,7 +148,7 @@ sub translateGlobalRules2Local {
 	print "WARNING: added a default rule: " .
 	    $_ . " ==> " . $self->{GLOBAL}{$_} . "\n"
 	    if $self->{VERBOSE};
-	#$self->{RULES}{$self->{'MAPPING'}{$_}} = $self->{GLOBAL}{$_};
+	$self->{RULES}{$self->{'MAPPING'}{$_}} = $self->{GLOBAL}{$_};
     }
 };
 
@@ -240,6 +240,12 @@ sub addNode {
 }
 ;
 
+#############################
+# find_top_parents:  
+#  - takes file path as an argumenet
+#  - walks through the namespace tree and finds all  
+#  parent directories that match configuration rules
+#  - returns list of matching parent sidirectories
 sub find_top_parents {
     my $self = shift;
     my $path = shift;
@@ -257,7 +263,6 @@ sub find_top_parents {
     my @rules = keys %{$node};
     #show_rules($node);
     my $rule = shift @rules;  # rule for rootdir always exist and matches "/"
-    #print "NRDEBUG 05-09-2016 1 in  find_top_parents, rule = $rule\n"; exit;
     my $found = 1;
     my ($mother, $depth ) = split("=", $rule);
     push @topparents, $mother;
@@ -268,7 +273,7 @@ sub find_top_parents {
     while ( $dirname = shift @parents ) {
 	# Look for match in configuration:
 	@rules = keys %{$node};
-	#show_rules($node);
+
 	while ( $rule = shift @rules ) {
 	    my ($n,$d) = split("=", $rule);
 	    if ($n eq $dirname."/") {
@@ -292,6 +297,7 @@ sub find_top_parents {
 	    # We did not find any matching rules on this node,
 	    # But we still want this dirname and its subdirectories included
 	    # according to the depth setting for the last matching rule:
+	    return @topparents if ( $depth == 0 );
 	    $mother .= $dirname."/";
 	    push @topparents, $mother;
 	    $depth -= 1;
