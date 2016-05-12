@@ -31,20 +31,21 @@ sub idle
 	$dbh = $self->connectAgent();
 	my $now = &mytimeofday();
 
-	# Issue file replica invalidation requests for file replicas scheduled
-	# for invalidation and for which no invalidation request yet exists.
+	# Issue file replica invalidation tasks for file replicas scheduled
+	# for invalidation and for which no invalidation task yet exists.
 	# Take care not to create deletion requests for actively
 	# transferring or deleting files:
 	#   - no transfer task (outgoing), on target and locally linked Buffer node
 	#   - no deletion request
+	# NOTE - all file invalidation requests and tasks for Buffer/MSS node pairs
+	# are created at MSS node; FilePump will take care of also removing
+	# file replica from Buffer nodes locally linked to the target MSS node
 	my ($stmt, $nrow) = &dbexec($dbh, qq{
 	   insert into t_xfer_invalidate (fileid, node, time_request)
 	   (select fi.fileid, fi.node, fi.time_request
 	    from t_dps_file_invalidate fi
 	      join t_xfer_file f
 	        on f.id=fi.fileid
-              join t_xfer_replica xr
-                on xr.fileid=f.id and xr.node=fi.node -- FIXME ALSO BUFFERS
 	      left join t_adm_link ln on ln.from_node=fi.node and ln.is_local='y'
 	      left join t_adm_node ndbuf on ndbuf.id=ln.to_node and ndbuf.kind='Buffer'
 	      left join t_xfer_task xt
