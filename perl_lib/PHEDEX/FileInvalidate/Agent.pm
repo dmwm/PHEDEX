@@ -58,7 +58,8 @@ sub idle
                 on xi.fileid = f.id and xi.node = fi.node
 	    where xi.fileid is null
               and xd.fileid is null
-              and xt.id is null)});
+              and xt.id is null
+              and fi.time_complete is null)});
 	$self->Logmsg ("$nrow file replica invalidations scheduled") if $nrow > 0;
 
         # Mark the file invalidation request completed if the file
