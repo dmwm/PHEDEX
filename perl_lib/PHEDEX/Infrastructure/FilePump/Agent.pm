@@ -444,8 +444,9 @@ sub invalidate
        });
 
     # Mark as completed all invalidation tasks for which the target replica
-    # doesn't exist anymore. This can be either because it was logically removed
-    # here or because it was physically deleted in delete()
+    # doesn't exist anymore (on target node and locally linked Buffers).
+    # This can be either because it was logically removed
+    # here or because it was removed in delete () after a physically deletion
     
     ($sth, $ntasks) = &dbexec($dbh, qq{
         update t_xfer_invalidate
@@ -454,12 +455,14 @@ sub invalidate
           (select xi.node, xi.fileid
             from t_xfer_invalidate xi
             left join t_xfer_replica xr
-            on xr.fileid=xi.fileid and xr.node=xi.node
+              on xr.fileid=xi.fileid and xr.node=xi.node
+            left join t_adm_link ln on ln.from_node=xi.node and ln.is_local='y'                                                                                                             
+            left join t_adm_node ndbuf on ndbuf.id=ln.to_node and ndbuf.kind='Buffer'                                                                                                       
+            left join t_xfer_replica xrb on xrb.fileid = xi.fileid and xrb.node = ndbuf.id
             where xi.time_complete is null
-            and xr.fileid is null)
+              and xr.fileid is null
+              and xrb.fileid is null)
      }, ':now'=>$now);
-
-    # FIXME BUFFERS!!!!
 
     $dbh->commit();
 
