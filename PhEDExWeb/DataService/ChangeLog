@@ -1,3 +1,8 @@
+* Changes for 2.3.22
+
+ Inject API: first replica of newly injected files is created in 'staged' state on Disk nodes
+ to fix routing issues
+
 * Changes for 2.3.21
 
  Allow square brackets in request comments; fixes for error reporting.
