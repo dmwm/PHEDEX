@@ -491,8 +491,12 @@ sub bulkCreateFiles
     my $rep_sql = qq{
 	insert into t_xfer_replica
 	(id, fileid, node, state, time_create, time_state)
-	(select seq_xfer_replica.nextval, id, node, 0, time_create, time_create
-	  from t_dps_file where logical_name = to_char(?)) };
+	(select seq_xfer_replica.nextval, f.id, f.node,
+           case when n.kind = 'Disk' then 1 else 0 end,
+           f.time_create, f.time_create
+          from t_dps_file f
+          join t_adm_node n on n.id=f.node
+          where f.logical_name = to_char(?)) };
 
     my $now = &mytimeofday();
 
