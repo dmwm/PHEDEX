@@ -338,7 +338,11 @@ sub idle
 	#
 	# If there is no link parameter information for a given link,
 	# the row is created with statistics from the time period:
-	#   pend_bytes = the last timebin from t_history_link_stats.pend_bytes
+	#   pend_bytes = the last non-empty timebin from t_history_link_stats.pend_bytes
+	#                in the last 30 minutes of the time window if such a bin exists, zero otherwise.
+	#                We wait 30 mins before confirming that the queue is empty to avoid marking
+	#                incorrectly the queue empty because of timebins with missing
+	#                pend_bytes statistics, see https://github.com/dmwm/PHEDEX/issues/772
 	#   done_bytes = the sum of t_history_link_events.done_bytes
 	#   try_bytes  = the sum of t_history_link_events.try_bytes
 	#   time_span  = the sum of the bin width from the history tables
@@ -363,7 +367,11 @@ sub idle
                 merge into t_adm_link_param p using
 		  (select
                        from_node, to_node,
-                       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes,
+                       nvl(sum(pend_bytes) keep (dense_rank last order by
+                       case when pend_bytes is not null
+                       or timebin <= :now - 2 * :offset
+                       then 1 else 0 end asc,
+                       timebin asc),0) pend_bytes,
                        sum(done_bytes) done_bytes,
                        sum(try_bytes) try_bytes,
 		       sum(decode(has_data,1,timewidth,0)) time_span
