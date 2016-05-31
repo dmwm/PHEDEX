@@ -269,7 +269,8 @@ sub flush
     # reasonable recent transfer rate (better than the nominal rate,
     # default 0.5 MB/s), and the calculated latency is still within
     # limits (better than the allowed latency, default 3 days),
-    # and the transfer request is still valid, then
+    # and the transfer request is still valid, and there is at least
+    # one replica of the file along the path, then
     # give a bit more grace time.  Be sure to extend the entire path
     # from src_node to destination so that paths are not broken on
     # cleanup.  Ignore local links so that fast local links do not
@@ -281,6 +282,8 @@ sub flush
 	from t_xfer_path xp
 	join t_xfer_request xq on xq.fileid = xp.fileid
 	                      and xq.destination = xp.destination
+        join t_xfer_replica xr on xr.fileid = xp.fileid
+                              and xr.node = xp.from_node
         join t_adm_link l on l.to_node = xp.to_node
                          and l.from_node = xp.from_node
         join t_adm_link_param lp on lp.to_node = l.to_node
