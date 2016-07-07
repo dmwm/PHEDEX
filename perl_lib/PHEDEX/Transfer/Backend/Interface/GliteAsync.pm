@@ -88,6 +88,7 @@ sub new
 #  $self->{_child}{caller} = $self;
 
   bless $self, $class;
+  $self->Logmsg("Creating FTS2Async\n");
   return $self;
 }
 
@@ -96,6 +97,7 @@ sub AUTOLOAD
   my $self = shift;
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
+  $self->Logmsg("Calling $attr in FTS2Async\n");
   if ( exists($params{$attr}) )
   {
     $self->{$attr} = shift if @_;
