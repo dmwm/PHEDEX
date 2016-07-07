@@ -11,7 +11,7 @@ use JSON::XS;
 use PHEDEX::Transfer::Backend::Job;
 use PHEDEX::Transfer::Backend::File;
 use PHEDEX::Transfer::Backend::Monitor;
-use PHEDEX::Transfer::Backend::Interface::GliteAsync;
+use PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync;
 use PHEDEX::Core::Command;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Formats;
@@ -89,7 +89,7 @@ sub new
 #   Enhanced debugging!
     PHEDEX::Monitoring::Process::MonitorSize('FTS',\$self);
     PHEDEX::Monitoring::Process::MonitorSize('QMon',\$self->{FTS_Q_MONITOR});
-    PHEDEX::Monitoring::Process::MonitorSize('GLite',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
+    PHEDEX::Monitoring::Process::MonitorSize('FTS3CLI',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
     return $self;
 }
 
@@ -97,11 +97,11 @@ sub init
 {
     my ($self) = @_;
 
-    my $glite = PHEDEX::Transfer::Backend::Interface::GliteAsync->new
+    my $glite = PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
 	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
-	 ME      => 'GLite',
+	 ME      => 'FTS3CLI',
 	 );
 
     $self->{Q_INTERFACE} = $glite;
@@ -469,6 +469,16 @@ sub start_transfer_job
     }
 
     $ftsjob->Service($service);
+    $ftsjob->{COPYJOB} = $jsoncopyjob;
+    
+    $self->{JOBMANAGER}->addJob(
+                             $self->{JOB_SUBMITTED_POSTBACK},
+                             { JOB => $job, FTSJOB  => $ftsjob,
+                               LOGFILE => '/dev/null', KEEP_OUTPUT => 1,
+                               TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
+                             $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
+                           );
+=pod
 
     my $useragent = PHEDEX::CLI::UserAgent->new(
 						URL => $service,
@@ -492,7 +502,7 @@ sub start_transfer_job
     $self->Dbgmsg("FTS3 REST API response: \n".$response->content) if $self->{DEBUG};
 
     # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
-
+=cut
 }
 
 sub setup_callbacks
