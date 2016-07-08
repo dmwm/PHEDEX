@@ -25,7 +25,7 @@ insert node storage info into Oracle for later query
   node             node name
   timestamp        the date for the storage info in seconds since epoch (unix time), 
                    note: timestamps for dates in the future are not accepted
-  strict           allow overwrite or not(0 or 1), the default is strict(1)
+  strict           allow overwrite or not(0 or 1), the default is strict(1) - do not override
   dirinfo          the directory and its size, could be multiple, the format:
                    "/store/mc"=1000000000
 
