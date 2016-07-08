@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::stat;
+package PHEDEX::Namespace::gfal210::stat;
 
 # Implements the 'stat' function for gfal access
 use strict;
@@ -39,21 +39,22 @@ sub parse {
 	# remove \n
 	chomp($c);
 
-	# return value is of the form
-	# -rw-r--r-- 1   <uid>    <gid>    <month> <day> <time or year> <size> <PFN>	ONLINE
+        # return value is of the form
+	# -rw-r--r-- 1   <uid>    <gid>  <size>  <month> <day> <time or year> <PFN> 
+
 	my @values = split( ' ', $c );
 	$r->{access} = $values[0];
 	$r->{access} =~ s/-//;
 	$r->{uid} = $values[2];
 	$r->{gid} = $values[3];
-	my $month      = $values[4];
-	my $day        = $values[5];
-	my $timeOrYear = $values[6];
-	$r->{size} = $values[7];
+	my $month      = $values[5];
+	my $day        = $values[6];
+	my $timeOrYear = $values[7];
+	$r->{size} = $values[4];
 	my $url = $values[8];
 	my ( @t, %month2num, $M, $d, $y, $h, $m, $s );
-	%month2num = qw( Jan 0 Feb 1 Mar 2 Apr 3 May 4 Jun 5
-	  Jul 6 Aug 7 Sep 8 Oct 9 Nov 10 Dec 11 );
+	%month2num = qw( Jan 0 Feb 1 Mar 2 Apr 3 May 4 Jun 5 
+          Jul 6 Aug 7 Sep 8 Oct 9 Nov 10 Dec 11 );
 	$M = $month2num{"$month"};
 	$d = $day;
 

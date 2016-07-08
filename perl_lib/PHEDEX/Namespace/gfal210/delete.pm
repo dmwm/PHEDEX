@@ -1,4 +1,4 @@
-package PHEDEX::Namespace::gfal::delete;
+package PHEDEX::Namespace::gfal210::delete;
 # Implements the 'delete' function for gfal access
 use strict;
 use warnings;

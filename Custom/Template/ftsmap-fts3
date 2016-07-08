@@ -1,0 +1,17 @@
+SRM.Endpoint="srm://srm-cms.cern.ch:8443/srm/managerv2" FTS.Endpoint="https://fts3.cern.ch:8443"
+SRM.Endpoint="gsiftp://eoscmsftp.cern.ch" FTS.Endpoint="https://fts3.cern.ch:8443"
+SRM.Endpoint="srm://storm-fe-cms.cr.cnaf.infn.it:8444/srm/managerv2" FTS.Endpoint="https://fts3.cern.ch:8443"
+SRM.Endpoint="srm://srm-cms.jinr-t1.ru:8443/srm/managerv2" FTS.Endpoint="https://fts3.cern.ch:8443"
+SRM.Endpoint="srm://srm-cms-mss.jinr-t1.ru:8443/srm/managerv2" FTS.Endpoint="https://fts3.cern.ch:8443"
+SRM.Endpoint="srm://cmssrm-kit.gridka.de:8443/srm/managerv2" FTS.Endpoint="https://lcgfts3.gridpp.rl.ac.uk:8443"
+SRM.Endpoint="srm://srmcms.pic.es:8443/srm/managerv2" FTS.Endpoint="https://lcgfts3.gridpp.rl.ac.uk:8443"
+SRM.Endpoint="srm://ccsrm.in2p3.fr:8443/srm/managerv2" FTS.Endpoint="https://lcgfts3.gridpp.rl.ac.uk:8443"
+SRM.Endpoint="srm://srm-cms.gridpp.rl.ac.uk:8443/srm/managerv2" FTS.Endpoint="https://lcgfts3.gridpp.rl.ac.uk:8443"
+SRM.Endpoint="srm://srm-cms-disk.gridpp.rl.ac.uk:8443/srm/managerv2" FTS.Endpoint="https://lcgfts3.gridpp.rl.ac.uk:8443"
+SRM.Endpoint="srm://cmssrm.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsfts3.fnal.gov:8443"
+SRM.Endpoint="srm://cmssrmdisk.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsfts3.fnal.gov:8443"
+SRM.Endpoint="srm://cmsdcadisk01.fnal.gov:8443/srm/managerv2" FTS.Endpoint="https://cmsfts3.fnal.gov:8443"
+SRM.Endpoint="DEFAULT" FTS.Endpoint="https://fts3.cern.ch:8443"
+# This mapfile is valid for sites in AT, CH, CN, GR, HU, IN, IT, KR, MY, PK, PL, RU, TH, TR, TW, UA
+# Replace DEFAULT FTS.Endpoint with the recommended FTS endpoint for your country
+# See https://twiki.cern.ch/twiki/bin/view/CMSPublic/CompOpsTransferTeamFTS3Migration

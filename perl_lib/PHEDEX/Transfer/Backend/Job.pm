@@ -51,6 +51,7 @@ our %ro_params =
 	);
 
 # See https://twiki.cern.ch/twiki/bin/view/EGEE/TransferAgentsStateMachine
+# See also http://fts3-docs.web.cern.ch/fts3-docs/docs/state_machine.html
 
 our %exit_states =
 	(
@@ -70,6 +71,14 @@ our %exit_states =
 	  undefined		=> 0,
 	  lost			=> 1,
 	  abandoned		=> 1,
+	  # FTS3 state machine
+	  SUBMITTED             => 0,
+	  READY                 => 0,
+	  ACTIVE                => 0,
+	  FAILED                => 1,
+          FINISHED              => 1,
+          FINISHEDDIRTY         => 1,
+	  CANCELED              => 1,
 	);
 
 sub new

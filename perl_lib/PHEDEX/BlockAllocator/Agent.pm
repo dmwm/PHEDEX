@@ -59,6 +59,7 @@ sub idle
     my @stats1 = $self->blockSubscriptions($now);
     my @stats2 = $self->datasetSubscriptions($now);
     my @stats3 = $self->suspendBlockSubscriptions($now);
+    $dbh->commit();
     my @stats4 = $self->allocate($now);
     my @stats5 = $self->blockDestinations($now);
     my @stats6 = $self->deleteSubscriptionParams($now);

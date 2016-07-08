@@ -11,6 +11,33 @@ Changes for Schema
 Changes in core libraries
  - Add Tests module and corresponding scripts directory
 
+Changes for 4.1.8
+
+Changes for all Agents
+
+- An agent unable to identify itself via 'ps' will terminate via fatal
+error, to avoid going into an unrecoverable state. The Watchdog agent
+should then restart it - fix for #1012
+
+Changes for Central Agents
+
+- PerfMonitor agent: wait 30 minutes before considering empty timebins
+in link parameter calculation, to give all agents time to update link
+statistics, and avoid treating a busy link as empty in routing - fix for #772
+
+- FileRouter agent: don't extend transfer paths for transfers that don't
+have any replica of the file along the path, to allow rerouting if the
+replica was deleted in the meantime - fix for #792
+
+Changes for Site Agents
+
+- FileDownload agent: add FTS3 state machine to Transfer backend
+
+Changes for Core libraries
+
+- Inject library: for newly injected files on Disk nodes, set the
+file replica state to 'staged' to get proper routing - fix for #1024
+
 Changes for 4.1.7
 
 Changes for Site Agents

@@ -5541,16 +5541,17 @@ sub new
   my $class = ref($proto) || $proto;
   my $self = $class->SUPER::new(@_);
   $$self{DEFAULT_GRAPH} = 'destined';
-  $$self{GRAPH_ORDER} = [ 'pending', 'destined', 'resident', 'request', 'idle' ];
+  $$self{GRAPH_ORDER} = [ 'pending', 'destined', 'resident', 'missing', 'request', 'idle' ];
   $$self{GRAPHS} = { 
       'pending'  => "Volume Queued",       # any
       'destined' => "Volume Routed",       # by dest only
       'resident' => "Volume Resident",     # by dest only
+      'missing'  => "Volume Missing",      # by dest only
       'request'  => "Volume Requested",    # by dest only
       'idle'     => "Volume Idle",         # by dest only
 		     };
 
-  $$self{DEST_ONLY_GRAPHS} = [ qw( destined resident request idle ) ];
+  $$self{DEST_ONLY_GRAPHS} = [ qw( destined resident missing request idle ) ];
 
   bless $self, $class;
   return $self;

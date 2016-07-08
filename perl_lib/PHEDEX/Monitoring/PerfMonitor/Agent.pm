@@ -332,13 +332,16 @@ sub idle
 	# Part V: Update link parameters.
 	# For each of three time periods, 2 hours, 12 hours, and 2
 	# days, this massive query creates or updates link parameters
-	# based on recent history in that time period. A 30 min offset is
-	# applied to give enough time to all relevant agents to update the stats
+	# based on recent history in that time period.
 	# The following conditions apply:
 	#
 	# If there is no link parameter information for a given link,
 	# the row is created with statistics from the time period:
-	#   pend_bytes = the last timebin from t_history_link_stats.pend_bytes
+	#   pend_bytes = the last non-empty timebin from t_history_link_stats.pend_bytes
+	#                in the last 30 minutes of the time window if such a bin exists, zero otherwise.
+	#                We wait 30 mins before confirming that the queue is empty to avoid marking
+	#                incorrectly the queue empty because of timebins with missing
+	#                pend_bytes statistics, see https://github.com/dmwm/PHEDEX/issues/772
 	#   done_bytes = the sum of t_history_link_events.done_bytes
 	#   try_bytes  = the sum of t_history_link_events.try_bytes
 	#   time_span  = the sum of the bin width from the history tables
@@ -363,7 +366,11 @@ sub idle
                 merge into t_adm_link_param p using
 		  (select
                        from_node, to_node,
-                       nvl(sum(pend_bytes) keep (dense_rank last order by timebin asc),0) pend_bytes,
+                       nvl(sum(pend_bytes) keep (dense_rank last order by
+                       case when pend_bytes is not null
+                       or timebin <= :now - :offset
+                       then 1 else 0 end asc,
+                       timebin asc),0) pend_bytes,
                        sum(done_bytes) done_bytes,
                        sum(try_bytes) try_bytes,
 		       sum(decode(has_data,1,timewidth,0)) time_span
@@ -381,8 +388,8 @@ sub idle
                              and he.from_node = hs.from_node
                              and he.to_node = hs.to_node
                              and he.priority = hs.priority
-                         where (hs.timebin is not null and hs.timebin > :period - :offset and hs.timebin <= :now - :offset)
-                           or (he.timebin is not null and he.timebin > :period - :offset and he.timebin <= :now - :offset)
+                         where (hs.timebin is not null and hs.timebin > :period and hs.timebin <= :now)
+                           or (he.timebin is not null and he.timebin > :period and he.timebin <= :now)
 		         group by nvl(hs.from_node,he.from_node), nvl(hs.to_node,he.to_node),
 			   nvl(hs.timebin,he.timebin), nvl(hs.timewidth,he.timewidth)
                         ) group by from_node, to_node) n

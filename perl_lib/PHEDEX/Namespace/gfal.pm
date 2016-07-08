@@ -10,6 +10,7 @@ use Getopt::Long;
 
 our $default_protocol_version = '2';
 our $default_proxy_margin     = 60;
+our $default_gfal_ns_version = '';
 
 sub new {
 	my $proto = shift;
@@ -21,10 +22,12 @@ sub new {
 	%params = (
 		VERSION      => $default_protocol_version,
 		PROXY_MARGIN => $default_proxy_margin,
+	        GFAL_NS_VER => $default_gfal_ns_version,
 	);
 	%options = (
 		'version=s'      => \$params{VERSION},
 		'proxy_margin=i' => \$params{PROXY_MARGIN},
+	        'gfalv=s'  => \$params{GFAL_NS_VER},
 	);
 	PHEDEX::Namespace::Common::getCommonOptions( \%options, \%params );
 
@@ -41,7 +44,7 @@ sub new {
 	else                              { $protocol = 'srmv2'; }
 
 	$self->SUPER::_init(
-		NAMESPACE => __PACKAGE__,
+		NAMESPACE => __PACKAGE__.$self->{GFAL_NS_VER},
 		CATALOGUE => $h{CATALOGUE},
 		PROTOCOL  => $protocol
 	);
@@ -67,6 +70,7 @@ sub Help {
  --version      specifies the protocol version. Default='$default_protocol_version'
  --proxy_margin require a proxy to be valid for at least this long or die.
 	        Default=$default_proxy_margin
+ --gfalv        version of gfal namespace. Default='$default_gfal_ns_version' 
 
  Commands known to this module:
 EOF
