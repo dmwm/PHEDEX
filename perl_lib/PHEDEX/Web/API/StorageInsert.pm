@@ -57,7 +57,7 @@ sub storageinsert
        $h{$_} = $args{$_};
        delete($args{$_});
   }
-  $h{strict} = 0 unless defined $h{strict};
+  $h{strict} = 1 unless defined $h{strict};
 
   my %args_former;
   eval {
