@@ -71,51 +71,43 @@ if ( $cmd eq 'fts-transfer-status' )
   my $nactive = $nfiles - $ndone;
   my $status = $nactive ? "Active" : "Finished";
 
-  if ( $args[1] && $args[1] eq '--verbose' )
-  {
-    print
-"Request ID:     $id
-Status:         $status
-Channel:        MADAGASCAR-CERN
-Client DN:      /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse
-Reason:         None
-Submit time:    $startstamp
-Files:          $nfiles
-Priority:       1
-VO Name:        cms
-        Done:           $ndone
-        Active:         $nactive
-        Pending:        0
-        Ready:          0
-        Canceled:       0
-        Failed:         0
-        Finishing:      0
-        Finished:       0
-        Submitted:      0
-        Hold:           0
-        Waiting:        0
-";
+  if ( $args[1] && $args[1] eq '--verbose' ) {
+    print "Request ID:     $id\n".
+          "Status:         $status\n".
+          "Channel:        MADAGASCAR-CERN\n".
+          "Client DN:      /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse\n".
+          "Reason:         None\n".
+          "Submit time:    $startstamp\n".
+          "Files:          $nfiles\n".
+          "Priority:       1\n".
+          "VO Name:        cms\n".
+          "        Done:           $ndone\n".
+          "        Active:         $nactive\n".
+          "        Pending:        0\n".
+          "        Ready:          0\n".
+          "        Canceled:       0\n".
+          "        Failed:         0\n".
+          "        Finishing:      0\n".
+          "        Finished:       0\n".
+          "        Submitted:      0\n".
+          "        Hold:           0\n".
+          "        Waiting:        0\n";
   }
-  else
-  {
+  else {
     print "$status\n";
   }
-  if ( $args[0] && $args[0] eq '-l' )
-  {
+  if ( $args[0] && $args[0] eq '-l' ) {
     my $n = 0;
-    foreach my $s ( sort keys %{$files} )
-    {
+    foreach my $s ( sort keys %{$files} ) {
       my $d = $files->{$s};
       my $state = $n < $ndone ? "Done" : "Active";
       print "\n" unless $n == 0;
-      print
-"  Source:       $s
-  Destination:  $d
-  State:        $state
-  Retries:      0
-  Reason:       None
-  Duration:     0
-";
+      print "  Source:       $s\n".
+            "  Destination:  $d\n".
+            "  State:        $state\n".
+            "  Retries:      0\n".
+            "  Reason:       None\n".
+            "  Duration:     0\n";
       $n++;
      
     }
