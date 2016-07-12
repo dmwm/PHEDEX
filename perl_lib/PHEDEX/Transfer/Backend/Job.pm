@@ -325,6 +325,18 @@ sub Prepare
   return $file;
 }
 
+=head2 PrepareJson
+
+Write a copyjob file for the job, in the way that FTS3 expects in json format.
+If the C<< Copyjob >> method has been
+called to specify a copyjob location (or it was set in the constructor)
+then that location will be used, overwriting any existing file.
+Otherwise, a new, unique filename will be generated, in the directory
+specified by C<< Tempdir >>, and the C<< COPYJOB >> attribute will be
+set accordingly.
+
+=cut
+
 sub PrepareJson
 {
   my $self = shift;
@@ -343,7 +355,7 @@ sub PrepareJson
                           );
   }
 
-  print "Using temporary file $file \n";
+  #print "Using temporary file $file \n";
   $self->{COPYJOB} = $file;
 
   my @jobfiles = map(
@@ -375,7 +387,7 @@ sub PrepareJson
 
   my $jsoncopyjob = encode_json($copyjob);
 
-  print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
+  #print time, " prepared jsoncopyjob $jsoncopyjob \n\n";
   $self->{JSONCOPYJOB} = $jsoncopyjob;
 
   print $fh "$jsoncopyjob\n";
