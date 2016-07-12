@@ -83,11 +83,12 @@ sub new
       my $dump = Dumper($self);
       my $password = $self->{FTS_Q_MONITOR}{Q_INTERFACE}{PASSWORD};
       $dump =~ s%$password%_censored_%g if $password;
-      $self->Dbgmsg('FTS $self:  ', $dump) if $self->{DEBUG};
+      $self->Dbgmsg('FTS3 $self:  ', $dump) if $self->{DEBUG};
     }
+    $self->Dbgmsg('Transfer::FTS3::new creating instance') if $self->{DEBUG};
 
 #   Enhanced debugging!
-    PHEDEX::Monitoring::Process::MonitorSize('FTS',\$self);
+    PHEDEX::Monitoring::Process::MonitorSize('FTS3',\$self);
     PHEDEX::Monitoring::Process::MonitorSize('QMon',\$self->{FTS_Q_MONITOR});
     PHEDEX::Monitoring::Process::MonitorSize('FTS3CLI',\$self->{FTS_Q_MONITOR}{Q_INTERFACE});
     return $self;
@@ -102,6 +103,8 @@ sub init
 	 SERVICE => $self->{FTS_SERVICE},
 	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
 	 ME      => 'FTS3CLI',
+         VERBOSE => $self->{VERBOSE},
+         DEBUG   => $self->{DEBUG},
 	 );
 
     $self->{Q_INTERFACE} = $glite;
@@ -206,7 +209,8 @@ sub parseFTSmap {
     }
 
     $self->{FTS_MAP} = $map;
-    
+    $self->Dbgmsg('Transfer::FTS3::parseFTSmap '.$map) if $self->{DEBUG};
+   
     return 0;
 }
 
@@ -231,6 +235,7 @@ sub getFTSService {
 
     # fall back to command line option
     $service ||= $self->{FTS_SERVICE};
+    $self->Dbgmsg('Transfer::FTS3::getFTSService '.$service) if $self->{DEBUG};
 
     return $service;
 }
@@ -260,7 +265,7 @@ sub isBusy
 	    }
 	}
 
-	$self->Dbgmsg("Transfer::FTS::isBusy Link Stats $from -> $to: ",
+	$self->Dbgmsg("Transfer::FTS3::isBusy Link Stats $from -> $to: ",
 		      join(' ', map { "$_=$state_counts{$_}" } sort keys %state_counts))
 	    if $self->{DEBUG};
 
@@ -396,51 +401,21 @@ sub start_transfer_job
     my $avg_priority = int( $sum_priority / $n_files );
     $avg_priority = $self->{PRIORITY_MAP}{$avg_priority} || $avg_priority;
     my %args = (
+                COPYJOB    => "$dir/jsoncopyjob",
 		WORKDIR	   => $dir,
 		FILES	   => \%files,
 		VERBOSE	   => 1,
 		PRIORITY   => $avg_priority,
 		TIMEOUT	   => $self->{FTS_JOB_AWOL},
 		SPACETOKEN => $spacetoken,
+                FTS_CHECKSUM => $self->{FTS_CHECKSUM},
 		);
     my $ftsjob = PHEDEX::Transfer::Backend::Job->new(%args); # note:  this is an "FTS job"
     $ftsjob->Log('backend: ' . ref($self));
 
-    my $jsoncopyjob;
-
     eval {
-    
-	my @jobfiles = map( 
-			    { sources => [ $_->{SOURCE} ],
-			      destinations => [ $_->{DESTINATION} ],
-			      metadata => undef,
-			      filesize => $_->{FILESIZE},
-			      checksum => ( $_->{CHECKSUM_TYPE} && $_->{CHECKSUM_VAL} ) ?
-				            $_->{CHECKSUM_TYPE}.':'.$_->{CHECKSUM_VAL} :
-					    undef,
-			  }, 
-			    values %{ $ftsjob->{FILES} } );
-	
-	my $jobparams = {
-	    'verify_checksum' => ( $self->{FTS_CHECKSUM} ) ? \1 : \0,
-	    'reuse' =>  \0,
-	    'fail_nearline' => \0,
-	    'spacetoken' => $spacetoken,
-	    'bring_online' => undef,
-	    'copy_pin_lifetime' => -1,
-	    'job_metadata' => undef,
-	    'source_spacetoken' => undef,
-	    'overwrite' => \0,
-	    'gridftp' => undef
-	    };
-
-	my $copyjob = {
-	    'files'  => \@jobfiles,
-	    'params' => $jobparams,
-	};
-	
-	$jsoncopyjob = encode_json($copyjob);
-	
+        $self->Dbgmsg('calling Job -> PrepareJson') if $self->{DEBUG}; 
+        $ftsjob->PrepareJson();
     };
     
     if ($@) {
@@ -452,7 +427,7 @@ sub start_transfer_job
 	}
     }
 
-    $self->Dbgmsg("Using copyjob: ".$jsoncopyjob) if $self->{DEBUG};
+    $self->Dbgmsg("Using jsoncopyjob: ".$ftsjob->{JSONCOPYJOB}) if $self->{DEBUG};
 
     # now get FTS service for the job
     # we take a first file in the job and determine
@@ -469,7 +444,6 @@ sub start_transfer_job
     }
 
     $ftsjob->Service($service);
-    $ftsjob->{COPYJOB} = $jsoncopyjob;
     
     $self->{JOBMANAGER}->addJob(
                              $self->{JOB_SUBMITTED_POSTBACK},
@@ -478,31 +452,8 @@ sub start_transfer_job
                                TIMEOUT => $self->{FTS_Q_MONITOR}->{Q_TIMEOUT} },
                              $self->{Q_INTERFACE}->Command('Submit',$ftsjob)
                            );
-=pod
-
-    my $useragent = PHEDEX::CLI::UserAgent->new(
-						URL => $service,
-						TARGET => '/jobs',
-						CERT_FILE => $ENV{X509_USER_PROXY},
-						KEY_FILE => $ENV{X509_USER_PROXY},
-						CA_FILE => $ENV{X509_USER_PROXY},
-						CA_DIR => $ENV{X509_CERT_DIR},
-						);
-
-    # Build request, setting "Content-Type: application/json;" needed for FTS3 REST API
-    
-    my $req = HTTP::Request->new(POST => $useragent->target);
-    $req->content_type('application/json');
-    $req->content($jsoncopyjob);
-
-    # POST the request
-
-    my $response = $useragent->request($req);
-
-    $self->Dbgmsg("FTS3 REST API response: \n".$response->content) if $self->{DEBUG};
 
     # FIXME: need to parse response!!!! see fts_fob_submitted for FTS2 example
-=cut
 }
 
 sub setup_callbacks
