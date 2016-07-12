@@ -17,7 +17,7 @@ $me = PHEDEX::Core::Logging->new();
 $me->{ME} = 'FakeFTS3';
 $me->{NOTIFICATION_PORT} = $ENV{NOTIFICATION_PORT};
 $me->{NOTIFICATION_HOST} = $ENV{NOTIFICATION_HOST};
-$debug = $ENV{PHEDEX_GLITE_DEBUG} || 0;
+$debug = $ENV{PHEDEX_FTS_DEBUG} || 0;
 
 -d $cache || mkpath([$cache]) || die "Cannot find or create $cache directory\n";
 
