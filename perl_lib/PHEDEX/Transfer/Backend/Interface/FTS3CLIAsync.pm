@@ -71,7 +71,7 @@ sub new
   $self->{DEBUGGING} = $PHEDEX::Debug::Paranoid || 0;
 
   bless $self, $class;
-  $self->Logmsg("Creating FTS3CLI\n");
+  $self->Dbgmsg('Transfer::Backend::Interface::FTS3CLIAsync::new creating instance') if $self->{DEBUG};
   return $self;
 }
 
@@ -80,7 +80,7 @@ sub AUTOLOAD
   my $self = shift;
   my $attr = our $AUTOLOAD;
   $attr =~ s/.*:://;
-  $self->Logmsg("Calling $attr in FTS3CLI\n");
+  $self->Dbgmsg('Transfer::Backend::Interface::FTS3CLIAsync::AUTOLOAD calling $attr') if $self->{DEBUG};
   if ( exists($params{$attr}) )
   {
     $self->{$attr} = shift if @_;
