@@ -4,6 +4,8 @@ use strict;
 use PHEDEX::Core::Logging;
 use PHEDEX::Core::Timing;
 use PHEDEX::Core::Command;
+use JSON::XS;
+use Data::Dumper;
 use File::Path;
 my ($cmd,@args) = @ARGV;
 my ($me,$cache,$rate,$size,$debug);
@@ -24,19 +26,26 @@ $debug = $ENV{PHEDEX_FTS_DEBUG} || 0;
 sub getFiles
 {
   my $id = shift;
-  open JOB, "<$cache/$id" or do
-  {
-    $debug && $me->Notify("JobID=$id not in cache: $!\n");
-    print "Failed\n";
-    exit 0;
+  my $json_text = do {
+    open JOB, "<$cache/$id" or do {
+      $debug && print "JobID=$id not in cache: $!\n";
+      print "Failed\n";
+      exit 0;
+    };
+    local $/;
+    <JOB>
   };
-  my $h;
-  while ( <JOB> )
-  {
-    m%^(\S+)\s+(\S+)$% or next;
-    $h->{$1} = $2;
-  }
   close JOB;
+
+  my $data = decode_json($json_text);
+  my $h;
+
+  # if multiple files, use just the first one
+  for my $data_files (@{$data->{files}}) {
+    $h->{@{$data_files->{sources}}[0]} = @{$data_files->{destinations}}[0];
+  }
+
+  ($debug >=2 ) && print Dumper($h);
   return $h;
 }
 
@@ -69,11 +78,11 @@ if ( $cmd eq 'fts-transfer-status' )
 Status:         $status
 Channel:        MADAGASCAR-CERN
 Client DN:      /DC=ch/DC=cern/OU=Borg Units/OU=Users/CN=mmouse/CN=999999/CN=Mickey Mouse
-Reason:         <None>
+Reason:         None
 Submit time:    $startstamp
 Files:          $nfiles
 Priority:       1
-VOName:         cms
+VO Name:        cms
         Done:           $ndone
         Active:         $nactive
         Pending:        0
@@ -104,7 +113,7 @@ VOName:         cms
   Destination:  $d
   State:        $state
   Retries:      0
-  Reason:       error during  phase: [] 
+  Reason:       None
   Duration:     0
 ";
       $n++;
