@@ -98,7 +98,7 @@ sub init
 {
     my ($self) = @_;
 
-    my $glite = PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync->new
+    my $fts3_client = PHEDEX::Transfer::Backend::Interface::FTS3CLIAsync->new
 	(
 	 SERVICE => $self->{FTS_SERVICE},
 	 OPTIONS => $self->{FTS_GLITE_OPTIONS},
@@ -107,7 +107,7 @@ sub init
          DEBUG   => $self->{DEBUG},
 	 );
 
-    $self->{Q_INTERFACE} = $glite;
+    $self->{Q_INTERFACE} = $fts3_client;
 
     my $monalisa;
     my $use_monalisa = 1;
@@ -131,7 +131,7 @@ sub init
 
     my $q_mon = PHEDEX::Transfer::Backend::Monitor->new
 	(
-	 Q_INTERFACE   => $glite,
+	 Q_INTERFACE   => $fts3_client,
 	 Q_INTERVAL    => $self->{FTS_Q_INTERVAL},
 	 J_INTERVAL    => $self->{FTS_J_INTERVAL},
 	 POLL_QUEUE    => $self->{FTS_POLL_QUEUE},
@@ -427,7 +427,7 @@ sub start_transfer_job
 	}
     }
 
-    $self->Dbgmsg("Using jsoncopyjob: ".$ftsjob->{JSONCOPYJOB}) if $self->{DEBUG};
+    $self->Dbgmsg("Using copyjob file $ftsjob->{COPYJOB} which containts $ftsjob->{JSONCOPYJOB}\n") if $self->{DEBUG};
 
     # now get FTS service for the job
     # we take a first file in the job and determine
